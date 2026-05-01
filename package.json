@@ -1,0 +1,29 @@
+{
+  "name": "@bitmonk8/pi-loom",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Pi extension introducing .loom — a scripting language for parameterized, programmatic conversational injection at the PI/ESI boundary.",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "loom",
+    "dsl",
+    "prompt-engineering"
+  ],
+  "author": "Thomas Andersen <thomas.andersen@gmail.com>",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/bitmonk8/pi-loom.git"
+  },
+  "pi": {
+    "extensions": ["./extensions"]
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-agent-core": "*",
+    "@mariozechner/pi-ai": "*",
+    "@mariozechner/pi-tui": "*",
+    "typebox": "*"
+  }
+}
