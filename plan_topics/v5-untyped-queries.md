@@ -1,0 +1,57 @@
+# V5 — Untyped queries and prompt-mode driver
+
+## V5a — Bare `@`literal`` query parsed
+
+- **Spec.** [Query](../spec_topics/query.md) (untyped).
+- **Adds.** `` @`text` `` template parser (no `${}`, no escapes beyond `\``). Returns `Result<string, QueryError>` semantically; bound-to-name only for now.
+- **Tests.** Template parses; closing-backtick missing → `unterminated-template`; bare expression-statement deferred to V5f.
+- **Deps.** M, V2.
+- **Ships when.** A loom can issue a non-trivial bound query.
+
+## V5b — `${expr}` interpolation
+
+- **Spec.** [Template Interpolation](../spec_topics/frontmatter.md#template-interpolation).
+- **Adds.** `${...}` containing any V2-grammar expression. Nested template `@`...`` and `match` inside `${...}` rejected.
+- **Tests.** `${param}` resolves; `${a + b}` evaluates; `${@\`nested\`}` rejected; `${match ...}` rejected; `${` inside regular string is plain text (already in V1b).
+- **Deps.** V5a, V2c.
+- **Ships when.** Templates can reference local values.
+
+## V5c — Multi-line templates: newline-trim and dedent
+
+- **Spec.** [Query](../spec_topics/query.md) (multi-line templates).
+- **Adds.** Strip newline immediately after opening backtick; strip newline immediately before closing backtick; dedent common leading whitespace per Python `textwrap.dedent`.
+- **Tests.** Each rule against the spec's worked example; single-line templates unaffected; tab/space mixing handled per textwrap rules.
+- **Deps.** V5a.
+- **Ships when.** Multi-line prompts render cleanly.
+
+## V5d — Full template escape set
+
+- **Spec.** [Query](../spec_topics/query.md) (escapes).
+- **Adds.** `` \` ``, `\$`, `\\`, `\n`, `\t`, `\r` inside templates. Other `\X` is parse error.
+- **Tests.** Each escape; `\$` suppresses interpolation when followed by `{`; `\X` rejected.
+- **Deps.** V5a.
+- **Ships when.** Templates handle special characters correctly.
+
+## V5e — Prompt-mode conversation driver
+
+- **Spec.** [Pi Integration Contract](../spec_topics/pi-integration-contract.md) (prompt-mode drive).
+- **Adds.** `PromptModeConversationDriver` issues `ctx.sendUserMessage(text)` (or `{ deliverAs: "steer" }` mid-stream), awaits via `agent_end` listener, returns assistant text. Replaces M's hard-coded driver.
+- **Tests.** Single turn round-trips; mid-stream send uses steer mode; `agent_end` listener cleaned up after each query (no leak); transport failure → `Err({kind:"transport"})`.
+- **Deps.** V5a, M.
+- **Ships when.** A real Pi session can run a multi-query loom (without `?` yet — bind every result).
+
+## V5f — Bare expression-statement query is parse error
+
+- **Spec.** [Query](../spec_topics/query.md) (discarded results).
+- **Adds.** A bare `@`...`` at statement position is parse error with the documented diagnostic. Author must write `?`, `let _ =`, or `let x =`.
+- **Tests.** Bare `@` rejected; `let _ = @` accepted; tail-expression `@` in a `void` function NOT rejected (the discard is on the function, not the statement).
+- **Deps.** V5a.
+- **Ships when.** Discarded queries can't sneak into code silently.
+
+## V5g — `QueryError` union — initial variants
+
+- **Spec.** [Query](../spec_topics/query.md) (failure modes).
+- **Adds.** Discriminated union with `transport`, `context_overflow`, `cancelled` variants only. (`validation` lands V6i; `tool_call` V14f-i; `tool_failure` V14; `invoke_failure`/`invoke_callee_error` V15l-m.) Schema declared once at runtime level so later leaves extend non-breakingly.
+- **Tests.** Each variant constructible; `match`-on-`kind` works (semantically; full match grammar in V7); `raw_response` field present only on relevant variants.
+- **Deps.** V5e.
+- **Ships when.** Errors flow through the spec's surface even though `?` doesn't exist yet.

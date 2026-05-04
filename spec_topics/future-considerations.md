@@ -1,0 +1,17 @@
+# Future Considerations
+
+- LSP support for `.loom` and `.warp` files (syntax highlighting, type checking, autocomplete)
+- A `loom test` command for dry-run execution that runs a loom against a recorded transcript or a stub model without hitting a live provider
+- First-class loom values (`Loom<T>` type, passing looms as arguments, higher-order composition) — V1 only supports literal-path `invoke` and frontmatter-registered callables
+- Per-query overrides for `model`, `tools`, and `system` (project → loom → query cascade)
+- User-defined error types beyond `QueryError`
+- Richer expression sublanguage inside frontmatter `system:` (full `${expr}` interpolation rather than just `${param}` paths)
+- Named-argument / key=value invocation syntax
+- Per-call timeouts on queries, tool calls, and invokes (V1 has only AbortSignal-driven cancellation; cf. [Cancellation](./cancellation.md))
+- Loom-level concurrency primitives (e.g. `parallel { ... }` blocks or a parallel-`for` form) building on Pi tools' Promise-returning shape — V1 keeps every tool call sequential and synchronous-looking
+- Streaming partial tool results from Pi's `onUpdate` callback into loom code (e.g. an iterator-style consumption form) — V1 returns only the final result
+- Structured tool output schemas, when Pi (or upstream providers) introduce a strict output-schema contract for tools — V1 returns `string` from every Pi tool call
+- Binder refinement loop: multi-turn `needs_info` negotiation (binder asks the user a clarifying question, gets a reply, retries) instead of V1's single-shot "system note then stop" behaviour
+- Automatic context escalation: when binding fails without context, automatically retry with `bind_context: session` attached — trades a second binder call for a smoother success rate on context-sensitive looms that forgot to opt in
+- `BinderError` as a Loom-visible `QueryError` variant, once looms become first-class values invocable from non-loom programmatic harnesses that need to observe binder failures structurally
+- Per-loom `binder_temperature` knob, if real usage shows authors need to tune the binder's nondeterminism budget

@@ -1,0 +1,73 @@
+# V4 — Schemas, AJV pipeline, lowering
+
+## V4a — AJV pipeline scaffold
+
+- **Spec.** [Schema Subset — Lowering Algorithm](../spec_topics/schema-subset.md#lowering-algorithm), [Pi Integration Contract](../spec_topics/pi-integration-contract.md) (AJV configuration in [Implementation Notes — Runtime](../spec_topics/implementation-notes.md#runtime)).
+- **Adds.** AJV v8 wired with `strict: false`, `allErrors: true`, `ajv-formats` registered, in-document `$ref` only. Compiled-schema cache keyed by lowered-schema content hash.
+- **Tests.** Cache hit on identical schema; cache miss on changed schema; AJV instance not shared across loom loads (no global state); validation produces expected error shapes.
+- **Deps.** H2.
+- **Ships when.** Validator service can compile and validate against arbitrary JSON Schema documents.
+
+## V4b — Object schema declaration and lowering
+
+- **Spec.** [Schema Declarations](../spec_topics/schemas.md) (object form).
+- **Adds.** `schema X { f: T, ... }` parsed; lowered to `$defs/X` with `required` listing every field, `additionalProperties: false`, properties in declaration order.
+- **Tests.** Trailing comma optional; missing field rejected; `additionalProperties:false` always emitted; snapshot against `test/fixtures/schemas/object-basic.json`.
+- **Deps.** V4a.
+- **Ships when.** Schemas can be declared and compiled; nothing yet uses them.
+
+## V4c — Type-alias `schema X = T` for primitive unions
+
+- **Spec.** [Schema Declarations](../spec_topics/schemas.md) (union/alias form).
+- **Adds.** `schema X = T | U` lowered as multi-type-array `{type:[a,b]}` when all primitives, `anyOf` otherwise.
+- **Tests.** `string | number` → multi-type-array; `string | null` → multi-type-array including `"null"`; `string | Author` → `anyOf`.
+- **Deps.** V4b.
+- **Ships when.** Primitive aliases compose.
+
+## V4d — Literal types in schemas
+
+- **Spec.** [Type System](../spec_topics/type-system.md) (literal types).
+- **Adds.** `"foo"`, `42`, `true`, `false`, `null` as type expressions; lowered as `{const: value}`.
+- **Tests.** Each literal lowers correctly; literal-union `"low" | "medium" | "high"` lowers to `{type:string, enum:[...]}`.
+- **Deps.** V4c.
+- **Ships when.** Const fields and literal unions work.
+
+## V4e — `array<T>` lowering
+
+- **Spec.** [Schema Subset — Lowering Algorithm](../spec_topics/schema-subset.md#lowering-algorithm).
+- **Adds.** `array<T>` → `{type:array, items: <T-lowered>}`.
+- **Tests.** Nested `array<array<T>>` lowers; element-type errors propagate.
+- **Deps.** V4b.
+- **Ships when.** Array-typed fields validate.
+
+## V4f — Inline anonymous object hoisting
+
+- **Spec.** [Schema Subset — Lowering Algorithm](../spec_topics/schema-subset.md#lowering-algorithm) (step 2).
+- **Adds.** `{ field: T }` in any type position lifted into `$defs/__inline_<hash>` with stable structural hash; structurally-identical inline schemas dedup to one entry.
+- **Tests.** Two identical inline schemas → one `$defs` entry; differing key order produces same hash; differing types produces different hashes.
+- **Deps.** V4b.
+- **Ships when.** Anonymous object types are usable in any field position.
+
+## V4g — Schema-subset whitelist enforcement
+
+- **Spec.** [Schema Subset](../spec_topics/schema-subset.md) (rejected keyword list).
+- **Adds.** Parse-time rejection of every disallowed keyword: `pattern`, `format`, `minLength`/`maxLength`, `minimum`/`maximum`, `exclusiveMinimum`/`exclusiveMaximum`, `multipleOf`, `minItems`/`maxItems`, `uniqueItems`, `contains`, `patternProperties`, `propertyNames`, `min/maxProperties`, `unevaluatedProperties`, `unevaluatedItems`, `dependentRequired`, `dependentSchemas`, `nullable`, `oneOf`, `allOf`, `not`, `if`/`then`/`else`. (These would only appear if a future feature tried to emit them; the lowering pass asserts none escape.)
+- **Tests.** Architectural test: walk a synthesised schema containing each forbidden keyword; lowering pass throws. No surface-syntax accepts these in V4.
+- **Deps.** V4b.
+- **Ships when.** Any future feature accidentally emitting a disallowed keyword is caught at parse time.
+
+## V4h — Per-query schema document with `$defs` pruning
+
+- **Spec.** [Schema Subset — Lowering Algorithm](../spec_topics/schema-subset.md#lowering-algorithm) (step 4).
+- **Adds.** When a typed query fires, runtime extracts the response schema as document root and copies in only transitively reachable `$defs`.
+- **Tests.** Unreachable `$defs` are pruned; reachable cycles are preserved; document is self-contained (no dangling `$ref`).
+- **Deps.** V4a, V4b.
+- **Ships when.** Provider request payloads are minimal.
+
+## V4i — Recursive schema references
+
+- **Spec.** [Schema Declarations](../spec_topics/schemas.md) (recursion), [Schema Subset](../spec_topics/schema-subset.md) (depth).
+- **Adds.** Self-referential `schema Tree { value: number, children: array<Tree> }`; mutual recursion across schemas; runtime depth cap of 5 enforced on document depth, not schema graph.
+- **Tests.** Self-recursive schema lowers and AJV-validates a 4-deep tree; rejects 6-deep; mutual recursion `Person ↔ Animal` lowers; cycle in schema graph permitted (depth applies to data).
+- **Deps.** V4h.
+- **Ships when.** Recursive data validates.

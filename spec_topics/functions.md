@@ -1,0 +1,22 @@
+# Function Definitions
+
+Functions encapsulate reusable orchestration. A function body is a block; its value is the value of its last expression (Rust-style). Top-level loom files follow the same rule — the loom's return value is the value of the last expression of the top-level block.
+
+```loom
+fn rate_strictness(p: Author): Result<ReviewScore, QueryError> {
+  @`
+    Reviewer context: ${p.name} (${p.role}, ${p.experience_years}y experience).
+    Rate this reviewer's likely strictness 1-5.
+  `
+}
+
+let strictness = rate_strictness(author)?
+```
+
+A function whose body uses `?` must declare a `Result<_, QueryError>` return type, since `?` early-returns `Err`. A function whose purpose is purely to drive turns without producing a value can declare a `void` return type and discard its last expression's value (with the same silent-drop caveat as expression-statement queries).
+
+A function call participates in the loom's *current* conversation; it does not open a new one. To open a new isolated conversation, invoke another loom in subagent mode (see [Invocation](./invocation.md)).
+
+**Placement.** `fn` declarations are top-level only — both in `.loom` files and in `.warp` library files. Nested function definitions, closures, and first-class function values are not part of V1; function names appear only in call position, never as values bound to `let` or passed as arguments. Mutual recursion between two top-level `fn`s is allowed (declarations are hoisted within the file); recursion through `invoke` is bounded by the parse-time cycle check from [Invocation](./invocation.md).
+
+**Loom return type.** A `.loom` file's overall return type is inferred from its body using the same rule as a function: the type of its tail expression, wrapped in `Result<T, QueryError>` if any `?` appears in the body. There is no frontmatter `returns:` field. Cross-loom static type checking at `invoke<Schema>` sites uses the callee's inferred return type when the callee's source is statically resolvable; otherwise the runtime AJV check is the safety net.
