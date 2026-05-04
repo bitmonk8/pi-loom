@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_85 findings retained, 1 false positives dropped, 0 persistent failures_
+_84 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -6755,73 +6755,6 @@ Implementer-relevant edge cases:
 ## Related Findings
 
 - "JS representation details are over-prescribed" — same-cluster (both touch the `__loomEnum` mechanism; this finding makes brand attachment normative behaviour while that finding argues for demoting the concrete property name to non-normative — resolutions must agree on which surface is observable)
-
----
-
-# JS representation of `Result` and enum brand is over-prescribed
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** JS representation details are over-prescribed
-**Kind:** prescription
-
-## Finding
-
-`spec_topics/runtime-value-model.md` fixes two interpreter-internal shapes as if they were part of the language contract:
-
-- Enum variants are "JS `string` … with a non-enumerable brand property `__loomEnum: \"<EnumName>\"`" — the brand's exact property name is normative.
-- `Result<T, E>` is "a tagged JS object: `{ ok: true, value: T }` for `Ok(v)`, `{ ok: false, error: E }` for `Err(e)`" — the discriminator key (`ok`) and payload keys (`value`, `error`) are normative.
-
-Neither shape is reachable from loom code. Loom authors interact with `Result` only through `Ok` / `Err` constructors, `match` patterns, and `?`; the JS field names never surface. Enum equality is defined operationally ("brand and value"); the property name carrying the brand is irrelevant to that semantics. Outbound JSON crosses the boundary through schema-driven serialisation, where the spec already says brands are stripped and `Result` is not part of any wire schema. There is no documented host-side reflection API that exposes these shapes either.
-
-The cost of pinning the names is twofold. First, leaves V6a and V10e in the implementation plan have already pulled the property names into their acceptance tests (asserting `{ok: true, value} | {ok: false, error}` and the literal `__loomEnum` brand name), which means a future representation change — e.g. switching `Result` to a class instance, or moving the enum brand to a `Symbol` — becomes a spec-version bump and a test rewrite, not an internal refactor. Second, the spec section reads as a contract when it is in fact one of several equivalent encodings; readers have no way to tell which sentences are observable and which are not.
-
-## Spec Documents
-
-- `spec_topics/runtime-value-model.md` — JS representation table, rows for `Enum variant` and `Result<T, E>` (edited)
-- `spec_topics/errors-and-results.md` — `Result` as a user-visible type (read-only; confirms no `.ok` / `.value` / `.error` field access exists in the language)
-- `spec_topics/pi-integration-contract.md` — extension entry point and `defineTool` wrapping (read-only; confirms no host-side surface re-exposes these shapes)
-
-## Plan Impact
-
-**Phases:** Vertical V6, Vertical V10
-
-**Leaves (implementation order):**
-
-- V6a — `Ok` / `Err` constructors and `Result<T, E>` type — modified
-- V10e — Runtime enum brand — modified
-
-## Consequence
-
-**Severity:** advisory
-
-The interpreter will work either way; what's at stake is what the spec promises. As written, the spec promises specific JS field names that no loom program can observe, and the plan's tests inherit those names as acceptance criteria. A representation change later — for performance, for cleaner host-side ergonomics, or just to switch the brand to a `Symbol` — has to negotiate spec edits and test rewrites that should have been internal.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Restructure the two table rows in `spec_topics/runtime-value-model.md` to separate normative semantics from non-normative encoding:
-
-- **Enum variant.** Normative: "An enum value carries the variant's wire string plus an interpreter-private tag identifying the declaring enum. Cross-enum equality compares both: `A.High == B.High` is `false` even when wire values match. The tag MUST NOT appear in JSON output (`JSON.stringify` of an enum value yields the bare wire string)." Non-normative note: "The reference interpreter implements the tag as a non-enumerable `__loomEnum` string property; this is an implementation detail and may change."
-- **`Result<T, E>`.** Normative: "Internally tagged with a discriminator distinguishing `Ok` from `Err` and carrying the payload. Loom code observes `Result` only through `Ok` / `Err` constructors, `match` patterns, and `?`; the in-memory shape is not part of the language surface. `Result` values are not directly serialised to provider JSON — they cross the wire only via schema-driven encodings defined by the relevant call site." Non-normative note: "The reference interpreter uses `{ ok: true, value }` / `{ ok: false, error }`."
-
-Then update the two affected plan leaves so their acceptance tests target observable behaviour rather than field names:
-
-- **V10e** — replace "non-enumerable `__loomEnum: \"<EnumName>\"` brand" wording in `Adds`/`Tests` with "interpreter-private enum tag"; keep the existing tests for cross-enum inequality and absence from `JSON.stringify` output (those are the observable contracts); drop any test that asserts the literal property name `__loomEnum`.
-- **V6a** — rephrase `Adds` from "runtime tagged-object representation `{ok: true, value} | {ok: false, error}`" to "runtime representation distinguishes `Ok` and `Err` and carries the payload"; keep the `Ok(1) == Ok(1)` equality test and the type-checker rejection test; drop assertions on the specific keys.
-
-Edge cases the implementer must watch:
-
-- If a custom tool or extension hook is ever given direct access to a live `Result` or enum value (rather than a JSON-serialised projection), the spec must add an explicit "host interop surface" section before that surface ships and either re-promote the shapes to normative or define a stable accessor API. V1 has no such surface today; this is a guardrail for V2+.
-- The existing rule that brands are stripped from JSON output stays normative — that one *is* observable (provider receives bare strings), and tests should continue to assert it.
-
-## Related Findings
-
-- "Enum brand reattachment on inbound values not stated" — same-cluster (both touch the enum brand surface; that finding adds a missing rule about reattachment, this one demotes the brand's encoding — fixes compose)
-- "Implementation toolkit over-prescribed" — same-cluster (both apply the prescription lens to non-observable interpreter internals; resolve independently in different files)
-- "AJV schema cache risks singleton pattern prohibited by CLAUDE.md" — same-cluster (another implementation-detail-as-spec issue under the same `runtime-value-model.md` / `implementation-notes.md` neighbourhood)
 
 ---
 

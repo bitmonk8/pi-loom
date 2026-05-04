@@ -3,8 +3,8 @@
 ## V6a — `Ok` / `Err` constructors and `Result<T, E>` type
 
 - **Spec.** [Errors and Results](../spec_topics/errors-and-results.md) (`Result` as user-visible type), [Runtime Value Model](../spec_topics/runtime-value-model.md) (`Result` representation).
-- **Adds.** `Ok(value)` and `Err(error)` as expressions; `Result<T, E>` as a type expression; runtime tagged-object representation `{ok: true, value} | {ok: false, error}`.
-- **Tests.** Construction and equality (`Ok(1) == Ok(1)`); type checker rejects `Ok` as a value passed where a non-Result type is expected.
+- **Adds.** `Ok(value)` and `Err(error)` as expressions; `Result<T, E>` as a type expression; runtime representation distinguishes `Ok` and `Err` and carries the payload (concrete shape is an interpreter-internal detail, not a language surface).
+- **Tests.** Construction and equality (`Ok(1) == Ok(1)`, `Ok(1) != Err(1)`, `Ok(1) != Ok(2)`); type checker rejects `Ok` as a value passed where a non-Result type is expected. Tests do not assert on specific discriminator or payload field names.
 - **Deps.** V5g.
 - **Ships when.** Loom code can construct and compare Result values.
 

@@ -35,8 +35,8 @@
 ## V10e — Runtime enum brand
 
 - **Spec.** [Runtime Value Model](../spec_topics/runtime-value-model.md) (enum representation).
-- **Adds.** Enum variant runtime value is a `string` with non-enumerable `__loomEnum: "<EnumName>"` brand.
-- **Tests.** Cross-enum equality `A.High == B.High` is `false` even when wire values match; brand survives `JSON.stringify` removal correctly (i.e., not present in JSON).
+- **Adds.** Enum variant runtime value carries the wire string plus an interpreter-private enum tag identifying the declaring enum (used for cross-enum equality; not part of the language surface).
+- **Tests.** Cross-enum equality `A.High == B.High` is `false` even when wire values match; the enum tag is absent from `JSON.stringify` output (bare wire string only). Tests target observable behaviour and do not assert on the tag's encoding (property name, symbol, wrapper type).
 - **Deps.** V10c.
 - **Ships when.** Enum equality is type-safe.
 
