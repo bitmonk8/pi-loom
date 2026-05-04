@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_59 findings retained, 1 false positives dropped, 0 persistent failures_
+_58 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -3357,82 +3357,6 @@ Edge cases the implementer must watch:
 ---
 
 ## spec_topics/frontmatter.md
-
----
-
-# Frontmatter field required/optional/default contract is unspecified
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** `mode:` default and required-vs-optional fields unspecified
-**Kind:** completeness
-
-## Finding
-
-`spec_topics/frontmatter.md` shows an example block that lists every recognised field, but the prose never declares, per field, whether it is required, what the default is when absent, and what observable behaviour the runtime exhibits in the absent case. Some fields are partially documented in scattered prose (`model` falls back to the Pi session default; `binder_model`, `bind_context`, `bind_echo` are "optional with sensible defaults"; `tools` defaults to the empty callable set; `system` is omittable; `retry.attempts` defaults to 3; `retry.methodology` defaults to `validator_error`). Others have no documented default-or-required posture at all: `mode`, `description`, `argument-hint`, `params`.
-
-`mode` is the most consequential gap. The two values (`prompt` vs `subagent`) have very different blast radii — prompt-mode looms inject turns into the user's live session; subagent-mode looms spawn a private conversation. An author who omits `mode:` from frontmatter has no way to predict which the runtime will pick, and two reasonable implementers will disagree. The MVP plan leaf (`M`) hardcodes `mode: prompt` as the only recognised line, and `V3a` recognises both values, but neither commits to absence semantics.
-
-The remaining fields fail more quietly but still admit divergent implementations: is `description:` required for slash-command discovery to work? Does an absent `argument-hint:` change the binder prompt, suppress autocomplete, or both? Is an absent `params:` block equivalent to `params: {}`, and (separately, see related finding) what happens to slash text in that case?
-
-## Spec Documents
-
-- `spec_topics/frontmatter.md` — top-of-file frontmatter section (edited)
-- `spec_topics/overview.md` — "Scope of a Loom File" (read-only — already states mode is per-file declared but not whether the declaration is mandatory)
-- `spec_topics/binder.md` — argument-hint usage in binder prompt (read-only — confirms `argument-hint` is read by binder, does not say whether absence is legal)
-- `spec_topics/pi-integration.md` — slash-command discovery uses `description` and `argument-hint` (read-only — does not say what happens when either is missing)
-
-## Plan Impact
-
-**Phases:** MVP, Vertical V3, Vertical V12
-
-**Leaves (implementation order):**
-
-- M — Minimal end-to-end loom — (modified — currently treats `mode: prompt` as the sole legal frontmatter line; must reflect whether `mode:` is mandatory or whether absence falls through to a default)
-- V3a — Frontmatter parsing — (modified — recognised-fields list and "unknown / not-yet-implemented" diagnostics need a per-field required/default specification to enforce; tests for absent-field cases must be added)
-- V12a — `mode: subagent` accepted; AgentSession spawn — (modified — must align with whatever default-mode rule lands; if `mode:` becomes required, this leaf inherits the explicit-required check from V3a rather than enabling a default)
-
-## Consequence
-
-**Severity:** correctness
-
-Without a per-field required/default contract, two implementers building from the spec will produce loom loaders that diverge on observable behaviour: one may default an absent `mode:` to `prompt`, another to `subagent`, a third may reject the file. The same divergence is latent on `description` (autocomplete), `argument-hint` (binder grounding), and `params` (binder bypass eligibility). Authors writing portable looms have no contract to rely on.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add a normative table at the top of `spec_topics/frontmatter.md`, immediately under the example block, with one row per recognised field and the columns `Required?`, `Default when absent`, `Behaviour when absent`. Pin down the four currently-undefined cases as follows:
-
-| Field | Required? | Default when absent | Behaviour when absent |
-|---|---|---|---|
-| `mode` | yes | — | `loom/load/missing-mode` load-time error |
-| `description` | no | `null` | Slash-command entry registers without description text; binder prompt omits the `Description:` line |
-| `argument-hint` | no | `null` | Autocomplete shows `/<name>` with no hint; binder prompt omits the `Argument hint:` line |
-| `model` | no | Pi session model at invocation time | Documented in existing prose — keep wording, add row for completeness |
-| `binder_model` | no | Pi setting `looms.binderModel` → built-in tier-2 default | Existing prose — add row |
-| `bind_context` | no | `none` | Existing prose — add row |
-| `bind_echo` | no | `true` (auto-suppressed on bypass per V16k) | Existing prose — add row |
-| `tools` | no | empty callable set | Existing prose — add row |
-| `system` | no | no system prompt (subagent only; presence on prompt-mode is a parse error) | Existing prose — add row |
-| `retry` | no | `{ attempts: 3, methodology: validator_error }` | Existing prose — add row |
-| `params` | no | no parameters | Loom takes no params; binder does not run; see related finding for excess-slash-arg behaviour |
-
-Make `mode:` required rather than defaulting it. The blast-radius asymmetry between `prompt` and `subagent` is exactly the kind of decision that should not be silent, and an explicit-only rule has the additional benefit that the MVP leaf (`M`) and `V3a` converge on the same enforcement: missing `mode:` is `loom/load/missing-mode`, not "fall through to whatever the implementer picked." Edge cases the implementer must watch:
-
-- `mode:` present with an unrecognised value (`mode: agent`) is a separate error (`loom/load/unknown-mode-value`), not the same as missing.
-- An absent `description` should not produce a "registered without description" warning — it is a legitimate authoring choice for internal-only looms — but discovery must still register the slash command.
-- `argument-hint` absent on a loom whose `params` is non-empty is legal; the binder simply has one fewer grounding signal. No warning.
-- `params` absent and `params: {}` are equivalent; both mean "no parameters." (The companion finding pins down what happens to user-typed slash text in that case.)
-
-## Related Findings
-
-- "`params:` absent/empty and slash-argument excess behaviour unspecified" — co-resolve (the same frontmatter table answers the `params:`-absent row; the excess-arg behaviour is a separate question this finding's table should cross-reference)
-- "`binder_model` prefix inconsistent with `bind_context` / `bind_echo`" — same-cluster (both touch the frontmatter field surface but resolve independently; rename can land before or after the table)
-- "`retry` vs \"coercion\" — same concept, two names never equated" — same-cluster (the table will list whichever name wins; resolution order is independent)
-- "`system:` interpolation grammar and edge cases unspecified" — same-cluster (touches the `system` row's "behaviour when present" rather than its absence behaviour)
-- "`params:` default expression grammar boundary cases" — same-cluster (touches `params` field semantics but is orthogonal to the required/default table)
 
 ---
 

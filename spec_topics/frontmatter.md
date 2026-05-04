@@ -25,6 +25,26 @@ params:
 ---
 ```
 
+### Field contract
+
+The table below is normative: for each recognised V1 field it pins down whether the field is required, what the runtime substitutes when the field is absent, and what observable behaviour the absent case produces. Fields not listed here are not part of the V1 vocabulary and surface as `loom/load/unknown-frontmatter-field` (or `loom/load/deferred-frontmatter-field` for reserved names); see [Diagnostics](./diagnostics.md).
+
+| Field | Required? | Default when absent | Behaviour when absent |
+|---|---|---|---|
+| `mode` | yes | — | `loom/load/missing-mode` load-time error; the loom is not registered. An unrecognised value (e.g. `mode: agent`) is the separate `loom/load/unknown-mode-value` — "missing" and "present-but-bad" do not collapse into one code, because the authoring intent differs. |
+| `description` | no | `null` | The slash-command entry registers without description text; the binder prompt omits the `Description:` line. No warning — internal-only looms legitimately omit this. |
+| `argument-hint` | no | `null` | Autocomplete shows `/<name>` with no hint; the binder prompt omits the `Argument hint:` line. Legal even when `params:` is non-empty (the binder simply has one fewer grounding signal); no warning. |
+| `model` | no | Pi session's model at invocation time | The loom inherits the caller's model and pins it for the loom's lifetime; documented in the `model` prose below. |
+| `binder_model` | no | `looms.binderModel` setting → built-in tier-2 default | Slash-command argument binding uses the fallback model; documented under [Slash-Command Argument Binding](./binder.md). |
+| `bind_context` | no | `none` | The binder runs with no caller-session context; documented under [Slash-Command Argument Binding — Binder context](./binder.md). |
+| `bind_echo` | no | `true` | Bound args are echoed before execution, except auto-suppressed on the binder bypass; documented under [Slash-Command Argument Binding — Echo policy](./binder.md). |
+| `tools` | no | empty callable set | The model cannot make tool calls and loom code has no `<name>(...)` callables; documented in the `tools` prose below. `tools: []` and absent `tools:` are equivalent. |
+| `system` | no | no system prompt (the spawned conversation runs under the model's training defaults) | Subagent-mode only; presence on a `mode: prompt` loom is `loom/parse/system-on-prompt-mode`. Documented under the `system` prose below. |
+| `retry` | no | `{ attempts: 3, methodology: validator_error }` | Typed queries get the default coercion budget; documented under the `retry` prose below. |
+| `params` | no | no parameters | The loom takes no parameters; the binder does not run regardless of how the loom is invoked. Slash-argument overflow against a no-params loom is governed by [Slash-Command Invocation](./slash-invocation.md) (cross-referenced from [Slash-Command Argument Binding](./binder.md)). `params:` absent and `params: {}` are equivalent. |
+
+`mode:` is the only required field. The blast-radius asymmetry between `prompt` (turns inject into the user's live Pi session) and `subagent` (a private spawned conversation) is exactly the kind of decision that must not be silent: defaulting one way would either route private looms into the user's session or vice versa, and there is no implementer-neutral choice. An explicit-only rule also lets every load-phase enforcement point (the MVP slash-handler, V3a frontmatter parsing, V12a subagent spawn) converge on the same diagnostic.
+
 Frontmatter mirrors Pi's prompt-template frontmatter (`description`, `argument-hint`) plus loom-specific fields. **No `name` field** — the filename is canonical, exactly as for Pi prompts (`code-review.loom` is invoked as `/code-review`); see [Discovery — Filename validity](./discovery.md) for the accepted stem regex and the `loom/load/invalid-slash-name` rejection rule. Frontmatter fields outside the V1 vocabulary surface as `loom/load/unknown-frontmatter-field` (warning); fields reserved for deferred V1 features surface as `loom/load/deferred-frontmatter-field` (warning). Both keep loading the loom; see [Diagnostics](./diagnostics.md).
 
 - `params` are validated with AJV at invocation time and exposed as typed variables in the loom body. When invoked from a slash command, the runtime binds free-form slash arguments to `params` via an LLM call (see [Slash-Command Argument Binding](./binder.md)); when invoked from `invoke(...)` or as a registered tool, arguments arrive already typed and are validated directly.

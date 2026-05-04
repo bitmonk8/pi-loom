@@ -119,6 +119,8 @@ The table enumerates every diagnostic the V1 spec defines. *Severity* is `error`
 | `loom/load/invalid-encoding` | E | lex | Source file is not valid UTF-8, or carries a non-UTF-8 BOM. | [Lexical — Encoding](./lexical.md) | Re-save the file as UTF-8 (no BOM, or UTF-8 BOM). |
 | `loom/load/unknown-frontmatter-field` | W | load | Frontmatter contains a field not in the V1 vocabulary. | [Frontmatter](./frontmatter.md) | — |
 | `loom/load/deferred-frontmatter-field` | W | load | Frontmatter contains a field reserved for a deferred V1 feature. | [Frontmatter](./frontmatter.md) | — |
+| `loom/load/missing-mode` | E | load | Frontmatter omits the required `mode:` field. | [Frontmatter — Field contract](./frontmatter.md) | Add `mode: prompt` or `mode: subagent`; `mode:` is the only required frontmatter field. |
+| `loom/load/unknown-mode-value` | E | load | `mode:` is present but its value is neither `prompt` nor `subagent`. | [Frontmatter — Field contract](./frontmatter.md) | V1 recognises `prompt` and `subagent` only. |
 | `loom/load/unknown-tool` | E | load | `tools:` entry names a Pi tool not in the registry. | [Frontmatter — `tools`](./frontmatter.md) | — |
 | `loom/load/unresolvable-loom-path` | E | load | `tools:` `.loom` entry resolves to a path that does not exist or is not readable. | [Frontmatter — `tools`](./frontmatter.md) | — |
 | `loom/load/prompt-mode-callable` | E | load | `tools:` `.loom` entry points at a prompt-mode loom file. | [Frontmatter — `tools`](./frontmatter.md) | Subagent-mode looms only inside `tools:`; use `invoke(...)` for prompt-mode callees. |
