@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_91 findings retained, 1 false positives dropped, 0 persistent failures_
+_90 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -7169,59 +7169,6 @@ Edge case for the implementer: the *schema-subset whitelist enforcement* test (V
 - "AJV schema cache risks singleton pattern prohibited by CLAUDE.md" — same-cluster (adjacent AJV-runtime detail; independent fix)
 - "Implementation toolkit over-prescribed" — same-cluster (rewrites overlapping text in `implementation-notes.md`; independent fix)
 - "No diagnostic codes assigned to named parse errors" — same-cluster (the recommended bullet references diagnostic codes; depends on that finding for the codes to exist, but does not block this rewording)
-
----
-
-## spec_topics/overview.md
-
----
-
-# "Woven artifact" introduced in bold and never reused
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** "Woven artifact" — undefined term, used once and abandoned
-**Kind:** naming
-
-## Finding
-
-`spec_topics/overview.md` line 7 introduces the term **woven artifact** in bold to characterise a `.loom` file: *"It is a **woven artifact**: code-side control flow … interleaved with model-side text emissions."* Bolding a noun phrase signals that it is a term of art the reader is expected to retain. The term then appears nowhere else in the spec — not in `overview.md`, not in any other file under `spec_topics/`, and not in `spec.md`. There is no glossary entry defining it (no glossary exists at all; see related finding "No central glossary").
-
-The result is a small but real comprehension cost: the reader pauses to register a term that turns out to carry no downstream load. Throughout the rest of the spec the unit being discussed is consistently called *a loom* or *a `.loom` file*.
-
-## Spec Documents
-
-- `spec_topics/overview.md` — opening paragraph (edited)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None
-
-## Consequence
-
-**Severity:** cosmetic
-
-No implementer behaviour changes either way. The cost is to the reader of the overview, who briefly expects "woven artifact" to be a defined term that will recur.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `spec_topics/overview.md` line 7, drop the bolded term. Rewrite the sentence so the contrast carries the weight without introducing a name — for example:
-
-> A `.loom` file is neither a TypeScript module nor a Markdown prompt: it interleaves code-side control flow (variables, loops, conditionals, function definitions) with model-side text emissions. The output of evaluating a loom is not a return value or a file write — it is a structured sequence of text fragments injected into a conversation context.
-
-Use *loom* / *`.loom` file* as the only names for the unit, matching every other spec topic. Do not promote "woven artifact" to a glossary entry — the term carries no semantic load that *loom* does not already carry.
-
-## Related Findings
-
-- "Spelling inconsistency: "artefact" vs "artifact"" — co-resolve (same paragraph cluster in `overview.md`; one editing pass settles both)
-- "No central glossary" — same-cluster (the alternative fix of "add to a glossary" is moot because no glossary exists; resolving glossary policy informs whether any future term should be defined inline or centrally)
 
 ---
 
