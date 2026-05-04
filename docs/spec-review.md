@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_44 findings retained, 1 false positives dropped, 0 persistent failures_
+_43 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -1014,69 +1014,6 @@ No other occurrence of `pi-loom/index.ts` exists under `spec.md` or `spec_topics
 ## Related Findings
 
 None.
-
----
-
-# Awaiting `agent_end` via `pi.on(...)` cross-fires across sessions
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** `agent_end` fires globally, not per-session
-**Kind:** codebase-grounding-broad
-
-## Finding
-
-`pi-integration-contract.md` instructs both prompt-mode and subagent-mode drivers to await query completion by "subscribing to `agent_end`". In Pi, `pi.on("agent_end", handler)` writes the handler into the loaded extension's shared `extension.handlers` map (`core/extensions/loader.js`). Every `AgentSession` — the user shell session **and** any session created via `createAgentSession` that shares the same `resourceLoader` — constructs its own `ExtensionRunner` over that same handler list (`core/agent-session.js: _buildRuntime`), and each runner invokes the handler when its own session emits `agent_end`. The event payload is `{ type, messages }` only — there is no session ID, conversation ID, or origin marker on the event, so a handler cannot distinguish "my user session finished a turn" from "some loom subagent finished a turn" from "some unrelated extension's spawned session finished a turn."
-
-The contract therefore breaks in two concrete situations: (a) a loom that drives the user session via `ctx.sendUserMessage` while *also* having a sibling subagent session in flight will resolve the prompt-mode wait on the subagent's `agent_end`; (b) two looms running concurrently against the same user session will each consume the other's `agent_end`. Both cases produce wrong return values without any error.
-
-The subagent-mode driver has a clean alternative: `createAgentSession` returns an `AgentSession` whose `subscribe(listener)` method is session-local. The prompt-mode driver does not have a session handle in `ExtensionContext`, but the command-context superset (`ExtensionCommandContext`) exposes `waitForIdle(): Promise<void>` which is implemented against the *bound* user session and is the intended mechanism for command handlers to await turn completion.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — "Conversation drive — prompt mode" (edited)
-- `spec_topics/pi-integration-contract.md` — "Conversation drive — subagent mode" (edited)
-
-## Plan Impact
-
-**Phases:** Horizontal, MVP, Vertical V5, Vertical V12
-
-**Leaves (implementation order):**
-
-- H2 — Dependency-injection skeleton with fakes — (modified, `ConversationDriver` seam must distinguish prompt-mode vs subagent-mode completion sources)
-- M — Minimal end-to-end loom — (modified, "awaits `agent_end`" wording in the runtime step needs the per-session mechanism specified)
-- V5e — Prompt-mode conversation driver — (modified, `agent_end` listener replaced by `ctx.waitForIdle()`; the leaked-listener test becomes vacuous and should be replaced by an idempotency / re-entrancy test)
-- V12a — `mode: subagent` accepted; AgentSession spawn — (modified, completion wait uses `session.subscribe(...)` on the returned `AgentSession`, not a global listener)
-
-## Consequence
-
-**Severity:** correctness
-
-A literal implementation produces wrong query return values whenever any second `AgentSession` is in flight in the same Pi process — including the exact configuration the spec endorses (a prompt-mode loom that also calls a subagent-mode loom via `tools:` or `invoke<T>`). The bug is silent: the prompt-mode wait resolves on the wrong event and the loom continues with stale or empty assistant text.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Replace "subscribing to `agent_end`" with two distinct, session-scoped mechanisms in `pi-integration-contract.md`, and reflect the split in the `ConversationDriver` seam:
-
-- **Prompt-mode driver.** Await completion by calling `ctx.waitForIdle()` on the `ExtensionCommandContext` passed to the slash-command handler. This is bound to the user session that the loom is being invoked against and never observes other sessions' lifecycles. Note that `waitForIdle` is *only* on `ExtensionCommandContext`, not the base `ExtensionContext` — the prompt-mode driver must therefore close over the command-context handle, not a synthesized context.
-- **Subagent-mode driver.** Hold the `AgentSession` returned by `createAgentSession` and call `session.subscribe(event => { if (event.type === "agent_end") … })`. The subscription is scoped to that session's `ExtensionRunner` and cannot fire for any other session. Unsubscribe (via the function returned by `subscribe`) before resolving the query promise to avoid leaks across queries that share a long-lived subagent session.
-
-Edge cases the implementer must watch:
-
-- `ctx.waitForIdle()` resolves whenever the session is idle, including immediately if the agent is *already* idle when called. The driver must call `ctx.sendUserMessage(...)` first and only then `await ctx.waitForIdle()`, and must guard against the agent transitioning idle → streaming → idle within a single microtask (race between `sendUserMessage` enqueuing and the wait).
-- A subagent session may emit `agent_end` more than once across its lifetime (one per query turn). The subscription must resolve the *current* query's promise and remain attached for the next query, or be re-attached per query. The cleanup test in V5e must be ported to V12a.
-- Neither mechanism carries the assistant text in a query-friendly form — both drivers must read the last assistant message after the wait resolves (`session.state.messages` for subagent, `ctx.getLastAssistantText`-equivalent reads on the command context for prompt mode), not from the event payload.
-
-## Related Findings
-
-- "Synthesized `ExtensionContext` is incomplete against the full interface" — co-resolve (the "use `ctx.waitForIdle()`" recommendation only works if the prompt-mode driver retains the real command-context, not a synthesized stub; resolving both findings against "reuse the live command-handler ctx" is consistent)
-- "`ctx.sendUserMessage()` does not exist on command-handler context" — same-cluster (same paragraph in the contract; both findings target the prompt-mode driver primitives and should be edited together)
-- "`ctx.signal` is `undefined` in command-handler contexts" — same-cluster (same command-handler-context surface; affects how the prompt-mode driver propagates cancellation while waiting)
-- "`before_provider_request` cannot scope to a single turn" — same-cluster (analogous global-event-bus scoping problem; resolution patterns differ — fingerprinting payload vs using session-scoped subscription — but the two together establish the pattern that *no* `pi.on(...)` global hook is safe for per-query coordination)
-- "`tools` vs `customTools` in `createAgentSession`" — decision-dependency (both shape the subagent-mode `createAgentSession` call site; subagent-mode fixes should land as one edit pass)
 
 ---
 
