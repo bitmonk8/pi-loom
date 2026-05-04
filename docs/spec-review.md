@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_97 findings retained, 1 false positives dropped, 0 persistent failures_
+_96 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -7957,82 +7957,6 @@ Edge cases for the implementer:
 - "Missing normative grammar appendix" — same-cluster (structural-hygiene; the grammar appendix would itself benefit from REQ-IDs but is otherwise independent)
 - "Per-`kind` system-note table covers only 5 of 8 `QueryError` variants" — co-resolve (a concrete coverage gap that REQ-IDs would surface mechanically; once IDs exist, the missing three variants become discoverable as unmapped REQ-IDs in the matrix)
 - "`QueryError` variants split across three files with no consolidated reference" — same-cluster (cross-file traceability gap; resolved by a consolidated reference, not by REQ-IDs, but the two together would close the audit loop on `QueryError`)
-
----
-
-# No central glossary
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** No central glossary
-**Kind:** placement, naming
-
-## Finding
-
-The spec coins a substantial vocabulary — `wire name`, `binder bypass`, `coercion` (in two distinct senses: schema-validation coercion via follow-up turns, and the absence of implicit type coercion in expressions), `type sink`, `callable set`, `woven artifact`, plus boundary terms like `loom-side` vs. `wire-side`, `prompt mode` vs. `subagent mode`, and the `Pi tool` / `.loom callable` distinction. Each is introduced exactly once, in whatever feature page first needs it: `wire name` lives in `schemas.md` (with operational detail in `runtime-value-model.md` and `schema-subset.md`); `binder bypass` and the `looms.binderModel` setting in `binder.md`; `type sink` in `query.md` (with a passing reference in `expressions.md`); `callable set` in `frontmatter.md`; `woven artifact` in `overview.md`. There is no Glossary page and `spec.md`'s Appendix lists only `related-work.md`.
-
-The cost is paid by readers who arrive at a downstream topic without having read the upstream one. Someone opening `tool-calls.md` to wire a Pi tool sees `callable set` used as a settled term and must grep across the spec to find its definition in `frontmatter.md`. Someone reading `runtime-value-model.md` to understand equality semantics must already know what `wire name` means; the page assumes it. The same problem amplifies the terminology-drift finding (`callable set` / `tool set` / `tools`) and the requirement-identifier finding (no anchors to link to from a glossary or coverage matrix) — fixing the glossary will make both easier to clean up.
-
-## Spec Documents
-
-- `spec.md` — Appendix list (edited)
-- `spec_topics/glossary.md` — new file (edited)
-- `spec_topics/overview.md` — `woven artifact` definition (read-only)
-- `spec_topics/schemas.md` — `wire name` definition (read-only)
-- `spec_topics/runtime-value-model.md` — wire-name translation (read-only)
-- `spec_topics/binder.md` — `binder bypass`, `looms.binderModel` (read-only)
-- `spec_topics/frontmatter.md` — `callable set` definition (read-only)
-- `spec_topics/query.md` — `type sink`, `coercion` (schema-validation sense) (read-only)
-- `spec_topics/expressions.md` — `coercion` (no implicit type coercion sense) (read-only)
-- `spec_topics/tool-calls.md` — Pi tool / callable usage (read-only)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):** None
-
-A glossary is a pure documentation deliverable. No leaf's `Adds` / `Tests` / `Ships when` clause references definitions of these terms, no leaf is blocked on having them centralised, and the per-phase TDD ritual in `plan_topics/conventions.md` does not check for a glossary. The work belongs to a spec-grooming commit, not the leaf graph.
-
-## Consequence
-
-**Severity:** advisory
-
-Implementers can still build a working system; nothing is undefined, only scattered. The cost is reader time on every onboarding pass, plus a steady drift risk: each redefinition site is free to add, drop, or rephrase qualifiers, and the terminology-drift finding shows that has already happened for `callable set`. Fixing it now is cheap; fixing it after the spec acquires more cross-references is markedly less cheap.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add `spec_topics/glossary.md` and link it from `spec.md`'s Appendix section, immediately above `related-work.md`. The page is a single alphabetised list. Each entry is one paragraph (≤4 sentences) that defines the term in isolation — readable without having opened any feature page — and ends with a `See:` reference to the canonical defining page (which remains the normative source; the glossary is descriptive, not normative).
-
-Initial entry list (extend as the spec grows):
-
-- `binder` / `binder bypass` — the LLM-driven argument-binding mechanism for slash invocation, plus the static condition under which it is skipped (single `string` `params:` field, no default).
-- `callable set` — the unified set of Pi tools and registered `.loom` paths declared by frontmatter `tools:`; callable from both the model and loom code.
-- `coercion (schema-validation)` — the typed-query repair loop that appends a follow-up user turn when AJV rejects the model's response; bounded by `retry.attempts`. Distinct from the next entry.
-- `coercion (type, expression-level)` — implicit conversion between value types. Loom does **not** perform any in V1; mismatches are parse or runtime errors. Listed to make the absence explicit, since the term is used in both senses.
-- `loom-side name` vs. `wire name` — the loom identifier a field is referenced by in code, vs. the JSON property name appearing in lowered schemas, tool input, and validation. Translation runs at the validation boundary in both directions.
-- `prompt mode` / `subagent mode` — the two execution modes a `.loom` runs under (Pi-session injection vs. isolated subagent context).
-- `Pi tool` vs. `.loom callable` — the two kinds of entry in a callable set; differ in resolution path but share the bare-name call form.
-- `type sink` — an enclosing AST position whose declared type supplies the schema during a query expression's outward type-inference walk.
-- `woven artifact` — a `.loom` evaluation result: a structured sequence of text fragments injected into a conversation context (not a return value, not a file write).
-
-Edge cases the implementer of this fix must handle:
-
-- The two senses of `coercion` must be split into two entries with explicit cross-references; conflating them re-creates the ambiguity the glossary is meant to resolve.
-- `wire name` and `loom-side name` are a pair; define them in one entry or in two adjacent entries that cross-reference, never in isolation.
-- Do not promote the glossary to normative status. If a glossary entry and its canonical defining page disagree, the canonical page wins; say so once at the top of `glossary.md`.
-- When the `QueryError`-consolidation finding is resolved (whether the destination is `errors-and-results.md` or a new `error-types.md`), update the glossary's `See:` reference for any error-related terms accordingly.
-
-## Related Findings
-
-- "Terminology drift: \"callable set\" / \"tool set\" / \"tools\" for the same concept" — co-resolve (the glossary is the natural home for the canonical term and forces the rename pass)
-- "No requirement identifiers anywhere in the spec; no acceptance criteria" — same-cluster (both are spec-organisation gaps; the requirement-IDs fix produces stable anchors the glossary's `See:` references can target)
-- "`QueryError` variants split across three files with no consolidated reference" — same-cluster (same consolidation impulse applied to error variants instead of vocabulary; resolving it changes which page the glossary points to for error terms)
-- "`ToolCallError` / `ToolFailureError` names do not signal their contexts" — decision-dependency (if those types are renamed, the glossary entries must use the new names)
-- "`ValidationFailure` / `ValidationError` — \"failure\" and \"error\" at wrong nesting levels" — decision-dependency (same — rename outcome determines glossary wording)
 
 ---
 

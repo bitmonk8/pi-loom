@@ -65,4 +65,5 @@ Implementer-facing notes about the runtime and Pi SDK contract.
 
 ## Appendix
 
+- [Glossary](./spec_topics/glossary.md) — alphabetised list of coined terms with pointers to their canonical defining pages.
 - [Related Work](./spec_topics/related-work.md) — orchestration-layer and inference-layer neighbours.
