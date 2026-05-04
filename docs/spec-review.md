@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_77 findings retained, 1 false positives dropped, 0 persistent failures_
+_76 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -6021,69 +6021,6 @@ Co-resolve with the cluster finding "Design-notes blocks and rationale clauses m
 - "`string.replace()` rationale clause is cruft" — same-cluster (another pure-rationale clause in `expressions.md`; identical fix shape)
 - "Three non-normative blocs in binder requirements" — same-cluster (rationale/advisory cruft in `binder.md`; same lens, independent edits)
 - "Implementation choices over-prescribed: Chevrotain, AJV options" — same-cluster (cruft + over-prescription in `implementation-notes.md`; independent edits)
-
----
-
-## spec_topics/expressions.md
-
----
-
-# `string.replace()` rationale clause is cruft
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** `string.replace()` rationale clause is cruft
-**Kind:** cruft
-
-## Finding
-
-`spec_topics/expressions.md` line 66 documents the `string.replace(from, to)` stdlib method as:
-
-> **Replaces all occurrences** — loom diverges from JS's first-only default; matches Rust `str::replace`. Literal-only (no regex)
-
-The em-dash clause "loom diverges from JS's first-only default; matches Rust `str::replace`" is comparative rationale, not a requirement. It tells an implementer nothing they could not derive from the bolded "Replaces all occurrences" assertion: the cross-language comparison does not constrain behaviour, edge cases, or interface, and "matches Rust" is not a normative reference (the spec does not otherwise depend on Rust stdlib semantics). The remaining clauses — "Replaces all occurrences" and "Literal-only (no regex)" — are the full requirement.
-
-Other cells in the same `string` table (`length`, `toLowerCase`, `trim`, `split`, …) follow a "behaviour, then qualifier" shape with no comparative rationale. `replace` is the only outlier, which is a small but real readability tax on the table.
-
-## Spec Documents
-
-- `spec_topics/expressions.md` — `string` stdlib table, `replace` row (edited)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None. V2g — String stdlib already names "`replace` (all-occurrences, literal-only)" in its **Adds** and tests "`replace` divergence from JS verified (replaces all)" — the test name references JS divergence but exercises the all-occurrences behaviour, which is unchanged. No leaf acceptance criterion shifts when the rationale clause is deleted.
-
-## Consequence
-
-**Severity:** cosmetic
-
-The rationale clause causes no implementer divergence; "Replaces all occurrences" is unambiguous on its own. The cost is purely readability — a normative table cell that reads like a footnote. Shipping unfixed has no functional consequence.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `spec_topics/expressions.md` line 66, replace the cell text
-
-> **Replaces all occurrences** — loom diverges from JS's first-only default; matches Rust `str::replace`. Literal-only (no regex)
-
-with
-
-> Replaces all occurrences. Literal-only (no regex)
-
-Drop the bold from "Replaces all occurrences" so the row matches the prose style of its neighbours (`includes`, `split`, `trim`, …). If preservation of the JS/Rust comparison has long-term value, move it to `spec_topics/future-considerations.md` or an ADR; do not retain it inside the requirement table. The V2g test "replace divergence from JS verified (replaces all)" still applies — the divergence is implicit in "all occurrences," and the test does not need renaming.
-
-## Related Findings
-
-- "Design-notes blocks and rationale clauses mixed into requirement sections" — superseded-by (the umbrella finding explicitly enumerates this `string.replace()` rationale among the cases it sweeps; resolving the umbrella resolves this one)
-- "Rationale paragraph adds no implementation constraint" — same-cluster (sibling cruft finding on `schema-subset.md`; same fix pattern, independent edit)
-- "Non-normative content mixed into binder spec" — same-cluster (same lens applied to `binder.md`)
-- "JS representation details are over-prescribed" — same-cluster (rationale/implementation-detail bleed in `runtime-value-model.md`)
 
 ---
 
