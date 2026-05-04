@@ -2,62 +2,31 @@
 
 ## Overview
 
-`pi-loom` is a [Pi Coding Agent](https://pi.dev) extension that introduces a purpose-built scripting language for authoring parameterized, programmatic templates that target the PI/ESI boundary. Where Pi's built-in `prompt` and `subagent` features provide parameterized Markdown — static text with YAML frontmatter — `pi-loom` provides a full scripting language whose *side effects are conversational injections* into the current or a new agent context.
+`pi-loom` is a [Pi Coding Agent](https://pi.dev) extension that introduces a purpose-built scripting language for authoring parameterized, programmatic templates that target the code/model boundary. Where Pi's built-in `prompt` and `subagent` features provide parameterized Markdown — static text with YAML frontmatter — `pi-loom` provides a full scripting language whose *side effects are conversational injections* into the current or a new agent context.
 
-A `.loom` file is neither a TypeScript module nor a Markdown prompt. It is a **woven artifact**: PI-side control flow (variables, loops, conditionals, function definitions) interleaved with ESI-side text emissions. The output of evaluating a loom is not a return value or a file write — it is a structured sequence of text fragments injected into a conversation context.
-
----
-
-## Heritage and Relationship to `mech`
-
-pi-loom's design owes a substantial debt to **`mech`**, the declarative YAML workflow engine in the sibling [backlot](../backlot) project (`backlot/mech`, full specification at `backlot/docs/MECH_SPEC.md`). mech and pi-loom share a worldview — typed prompt orchestration, JSON Schema as the type system, functions as the unit of composition, conversation-aware function calls — but make deliberately opposite syntactic choices.
-
-| Dimension | mech | pi-loom |
-|---|---|---|
-| Surface | Declarative YAML | Imperative scripting language |
-| Expressions | CEL inside `{{...}}` | TS-style template strings (`${...}`) |
-| Composition | `call:` blocks in a CDFG | Function calls in straight-line code |
-| Control flow | `transitions` with CEL guards; `depends_on` for data edges | `if`, `for`, `while`, function calls |
-| Validation | Load-time JSON Schema + CEL type checking | Parse-time schema declaration; runtime AJV validation |
-| Conversation model | Function = conversation boundary; control edges carry history | Loom mode (`prompt` vs `subagent`) selects the target conversation; a single loom drives many turns against it via `@`...`` |
-| Slogan | "YAML-not-a-language" | "A real language whose side effect is injection" |
-
-Where mech treats programmability as a hazard to be contained inside CEL guards, pi-loom embraces it: the goal is to author prompts whose *structure* is computed. Both tools target the PI/ESI boundary; mech approaches it from the configuration end, pi-loom from the code end.
-
-**Specific mech ideas pi-loom adopts:**
-
-- Typed function inputs/outputs as the unit of composition (mech §4.5).
-- Conversation-isolated subagent invocation, mirroring mech's `call:` transparency rule (mech §4.6, rule 4).
-- Schema-first design: every typed value has a JSON Schema definition validated at load/parse time.
-- Cascading agent configuration (workflow → function → block in mech; project → loom → query in pi-loom) — *planned, not yet specified below*.
-
-**Specific mech ideas pi-loom deliberately rejects:**
-
-- A declarative-only surface — pi-loom is a real language with imperative control flow.
-- CEL — pi-loom uses TS-flavoured template expressions to match the ergonomic neighbourhood of Pi's `.ts` extensions.
-- The single unified CDFG — pi-loom uses straight-line code with imports rather than a graph of blocks.
+A `.loom` file is neither a TypeScript module nor a Markdown prompt. It is a **woven artifact**: code-side control flow (variables, loops, conditionals, function definitions) interleaved with model-side text emissions. The output of evaluating a loom is not a return value or a file write — it is a structured sequence of text fragments injected into a conversation context.
 
 ---
 
 ## Conceptual Model
 
-### The Three-Layer Model
+### Code and Model
 
-`pi-loom` is designed around an explicit three-layer model of intelligence and tooling:
+A Pi extension is built from three kinds of artefact, each occupying a different position relative to the model:
 
-- **PI (Procedural Infrastructure)** — deterministic, human-instructed computation: TypeScript, OS calls, file I/O, APIs
-- **ESI (Emergent Statistical Intelligence)** — the LLM; capabilities arise from training, not explicit programming
-- **EBI (Embodied Biological Intelligence)** — the human developer orchestrating the above
+- **`.ts` extensions** are pure code: deterministic TypeScript with no model interaction.
+- **`.md` prompts and subagents** are pure model instructions: text shipped to the LLM with no surrounding logic.
+- **`.loom` files** sit on the boundary: deterministic code (variables, loops, conditionals, functions) controls *what* text is sent to the model, and the model's responses flow back as values usable in subsequent code.
 
-`.ts` extension files operate entirely in PI. `.md` prompts and subagents emit instructions to ESI but have no PI-side logic. `.loom` files occupy the boundary: PI logic controls *what* gets sent to the model, ESI receives the *result* of that logic as natural language.
+The human author orchestrates all three but is not itself a runtime layer.
 
 ### Query-and-Await
 
-A `.loom` file is **not** a template that expands to a single prompt. It is a small program that drives a conversation across multiple turns. The primitive that crosses PI → ESI is the **query template** — an `@`-prefixed backtick template:
+A `.loom` file is **not** a template that expands to a single prompt. It is a small program that drives a conversation across multiple turns. The primitive that crosses code → model is the **query template** — an `@`-prefixed backtick template:
 
 1. Sends the template's rendered text as the next user turn into the loom's target conversation.
 2. Awaits the model's response (servicing any tool-call loop on the way).
-3. Returns that response as a value usable in subsequent PI-side logic.
+3. Returns that response as a value usable in subsequent code-side logic.
 
 Concretely, `@`...`` is an *expression*, not a statement. Every query returns a `Result` (see [Errors and Results](#errors-and-results)); the `?` operator unwraps `Ok` and propagates `Err`. The response schema, when typed, is inferred from the surrounding type context (binding annotation, function parameter, return type) — see [Query](#query) for full rules:
 
@@ -66,31 +35,39 @@ let critique = @`Critique this code:\n${code}`?
 let score: ReviewScore = @`Rate the critique 1-5: ${critique}`?
 ```
 
-A loom therefore alternates between PI logic (parsing the previous response, branching, looping) and ESI turns (further queries) for as long as it needs. There is no single emission buffer flushed at the end; each query is its own conversation turn whose result feeds back into PI code.
+A loom therefore alternates between loom code (parsing the previous response, branching, looping) and model turns (further queries) for as long as it needs. There is no single emission buffer flushed at the end; each query is its own conversation turn whose result feeds back into loom code.
 
 ### Scope of a Loom File
 
-Each `.loom` file defines a **loom** — a named, invocable unit. A loom can be invoked:
+Each `.loom` file defines a **loom** — a named, invocable unit. Every loom **declares its own execution mode** in frontmatter (`mode: prompt | subagent`); the choice is the loom author's, not the invoker's. A slash-command user, an `invoke` caller, and a programmatic harness all see the same mode for a given loom — it is a property of the file, not of the call site.
 
-- As a **prompt-mode loom**: each query runs as a turn in the *current* conversation. The user's session sees every turn — nothing is hidden. The loom's final `Ok` return value is *not* surfaced to the user as a distinct artefact — the conversation is the user-facing surface, and authors who want the user to see a final value should issue a final query whose text contains it. The return value exists for programmatic consumers (an `invoke` caller, a future loom harness).
-- As a **subagent-mode loom**: a *new, isolated* conversation is spawned; each query runs as a turn in it. When the loom finishes, only its return value is propagated back to the caller — the intermediate transcript is private to the loom and is not retained by the runtime after the loom returns. Surfacing it for testing, replay, or observability is a future consideration (see `loom test` in [Future Considerations](#future-considerations)).
+The declared mode determines which conversation the loom's queries run against:
 
-In both modes the loom drives the conversation across however many query turns it needs. The mode selects *which* conversation those turns happen against, not whether the loom is allowed to round-trip with the model.
+- **`mode: prompt`** — each query runs as a turn in the *caller's current* conversation. Invoked from a slash command, that is the user's session; every turn is user-visible and nothing is hidden. The loom's final `Ok` return value is *not* surfaced to the user as a distinct artefact — the conversation is the user-facing surface, and authors who want the user to see a final value should issue a final query whose text contains it. The return value exists for programmatic consumers (an `invoke` caller, a future loom harness).
+- **`mode: subagent`** — a *new, isolated* conversation is spawned for the loom; each query runs as a turn in it. When the loom finishes, only its return value is propagated back to the caller — the intermediate transcript is private to the loom and is not retained by the runtime after the loom returns. Surfacing it for testing, replay, or observability is a future consideration (see `loom test` in [Future Considerations](#future-considerations)).
+
+In both modes the loom drives the conversation across however many query turns it needs. The mode selects *which* conversation those turns happen against, not whether the loom is allowed to round-trip with the model. Cross-mode interactions between a calling loom and an invoked loom are tabulated in [Invocation](#invocation).
 
 ---
 
 ## Language Design
 
-### Design Basis
+### Influences
 
-The Loom grammar is based on **TinyC**, adapted for the JSON type system and the conversational emission model. The parser is implemented using **Chevrotain**, for which TinyC examples already exist and serve as a starting point.
+Loom borrows from two languages and adds a small number of constructs of its own:
+
+- **Rust** for **semantics**: immutable-by-default `let` with opt-in `let mut`, `fn` declarations, `match` expressions with pattern arms, `Result<T, E>` with `Ok` / `Err` constructors, the `?` early-return operator, `///` doc comments (lowered to JSON Schema `description:` rather than rustdoc), block-as-expression with last-expression return, and the deliberate omission of `++` / `--`.
+- **TypeScript** for **surface**: template strings with `${...}` interpolation (extended to `@`-prefixed query templates), `name: T` type annotations, angle-bracket generics (`array<T>`, `Result<T, E>`), `T | U` union types, inline anonymous object types `{ field: T }`, JSON-native primitive type names (`string`, `number`, `boolean`, `null`), and the structural-equality `==` operator.
+- **Original to loom**: `schema` and `enum` declarations targeting the [Schema Subset](#schema-subset), the `@`...`` query template as the only construct that crosses code → model, frontmatter-declared execution mode, and the `.loom` / `.warp` split.
+
+What's *not* borrowed: Rust's lifetimes, traits, ownership, and macros; TypeScript's classes, decorators, arrow functions, higher-order array methods, and structural-type gymnastics. Loom is much smaller than either parent — see [Expression Sublanguage](#expression-sublanguage) for the explicit "not supported" list.
 
 ### Lexical Structure
 
 **Identifiers.** `[A-Za-z_][A-Za-z0-9_]*`, case-sensitive. The **first letter's case is enforced** by the parser — it is what makes case-based pattern disambiguation in `match` work without additional grammar:
 
 - **PascalCase** (uppercase first letter) is required for: `schema` names, `enum` names, `enum` variant names, and any user identifier introduced as a type-like binding. The built-in `Ok`, `Err`, and `Result` follow the same rule.
-- **lowercase-first** (a lowercase letter, or `_`) is required for: `let` and `let mut` bindings, function parameters, function names, and schema field names. Both `snake_case` (`experience_years`) and `lowerCamelCase` (`experienceYears`) are accepted; the parser only cares about the first letter.
+- **lowercase-first** (a lowercase letter, or `_`) is required for: `let` and `let mut` bindings, function parameters, function names, and schema field names. Both `snake_case` (`experience_years`) and `lowerCamelCase` (`experienceYears`) are accepted; the parser only cares about the first letter. The lowercase-first rule applies to the **loom-side** field identifier; the field's *wire* name (what appears in JSON sent to and received from the model) may be any string via the `as "WireName"` rename clause described in [Schema Declarations](#schema-declarations).
 
 Violating either rule is a parse error ("schema name must start with an uppercase letter"; "binding name must start with a lowercase letter or `_`"). Inside `match` patterns the same first-letter rule then disambiguates without ambiguity: a lowercase identifier introduces a fresh binding, an uppercase identifier refers to an existing schema, enum, or constructor in scope (see [Errors and Results](#errors-and-results)). The casing rule is the *only* enforced naming constraint; identifier length, internal casing, and underscore use are otherwise free.
 
@@ -133,6 +110,33 @@ schema Author {
 ```
 
 Fields are comma-separated; the trailing comma is optional. Field names are identifiers; field types are any expression from the grammar above. Every declared field is **required** (the lowered JSON Schema's `required` lists every property; `additionalProperties: false` is always emitted). Optional fields are expressed as `T | null` — there is no `field?: T` shorthand. The non-existence and the explicit-`null` cases are conflated, matching strict-mode provider behaviour.
+
+**Wire-name renaming.** A field declaration may attach an explicit wire name with `as "WireName"` between the field identifier and its type:
+
+```loom
+schema ExternalUser {
+  first_name as "FirstName": string,
+  last_name  as "LastName":  string,
+  age:                       integer,    // no rename — wire name is "age"
+  ref_url    as "$ref":      string,     // arbitrary JSON property names are fine
+}
+```
+
+Loom-side, the field is accessed, constructed, and pattern-matched as the loom identifier (`first_name`) — every other corner of the language sees only that identifier, and the lowercase-first rule still applies to it. The wire name appears in only two places:
+
+- the lowered JSON Schema's `properties` and `required` keys (the schema handed to providers), and
+- the JSON the runtime validates against and constructs (model output, `invoke` argument lowering).
+
+The runtime translates between loom-side and wire-side names at the validation boundary; loom code never references the wire name directly. This is the only mechanism for expressing schemas whose property names are not loom-identifier-compatible — PascalCase (`"FirstName"`), special-character (`"@type"`, `"$ref"`), kebab-case (`"first-name"`), or reserved-keyword (`"if"`, `"for"`) names — and is what makes loom usable as a contract layer over third-party JSON Schemas.
+
+Rules:
+
+- The wire name is a single non-empty string literal (single- or double-quoted, no interpolation, escape sequences as in any other string literal).
+- Two fields in the same schema cannot share a wire name. A wire name cannot collide with another field's loom name in the same schema.
+- A redundant rename whose wire name equals the loom name (`field_name as "field_name": T`) is a parse warning, not an error.
+- For discriminated unions, detection runs on the *wire* name (it inspects the lowered schema). The explicit form `by <field>` accepts the loom-side name — the only name visible in code — and the lowering resolves it to each variant's wire name.
+
+The same `as` keyword is used by imports (`import { X as Y }`) and enum variant explicit values (`Low = "low"`); the surface stays consistent.
 
 **Type-alias / union schema** — `schema X = ...`:
 
@@ -283,7 +287,7 @@ Loom's `schema` keyword does **not** target the full JSON Schema standard. It ta
 
 Explicitly **not** supported by `schema`, and rejected at parse time: `pattern`, `format`, `minLength`/`maxLength`, `minimum`/`maximum`/`exclusiveMinimum`/`exclusiveMaximum`, `multipleOf`, `minItems`/`maxItems`, `uniqueItems`, `contains`/`minContains`/`maxContains`, `patternProperties`, `propertyNames`, `minProperties`/`maxProperties`, `unevaluatedProperties`, `unevaluatedItems`, `dependentRequired`, `dependentSchemas`, `nullable`.
 
-Rationale: every loom-declared `schema` is the response type of some typed query site (or is transitively reachable from one via `$ref`) and is therefore handed to the provider as a strict structured-output / tool-input schema. The type system cannot promise more than what both major providers can grammar-enforce, hence the intersection. Constraints the subset cannot express (string patterns, numeric bounds, array length, etc.) are out of scope for `schema` and belong in PI-side validation if needed.
+Rationale: every loom-declared `schema` is the response type of some typed query site (or is transitively reachable from one via `$ref`) and is therefore handed to the provider as a strict structured-output / tool-input schema. The type system cannot promise more than what both major providers can grammar-enforce, hence the intersection. Constraints the subset cannot express (string patterns, numeric bounds, array length, etc.) are out of scope for `schema` and belong in code-side validation if needed.
 
 ### Parameters and Frontmatter
 
@@ -416,7 +420,7 @@ Under `args: typed`, none of the `$N` / `$@` / `$ARGUMENTS` / `${@:N}` / `${@:N:
 
 ### Query
 
-The `@`...`` query template is the only construct that crosses PI → ESI. It is an **expression** that sends a user turn and returns the model's response wrapped in a `Result`.
+The `@`...`` query template is the only construct that crosses code → model. It is an **expression** that sends a user turn and returns the model's response wrapped in a `Result`.
 
 **Untyped form** — `Ok` value is the assistant's text response as a `string`:
 
@@ -602,7 +606,7 @@ Loom expressions are a bounded subset of TypeScript. The same grammar applies wh
 - Increment / decrement (`++`, `--`)
 - Comma operator
 - Nested template strings inside a `${...}` interpolation
-- Query templates (`@`...``) and `match` inside `${...}` — both are allowed at statement / `let`-RHS level only, so template evaluation is guaranteed to be PI-only and never silently fires a model turn
+- Query templates (`@`...``) and `match` inside `${...}` — both are allowed at statement / `let`-RHS level only, so template evaluation is guaranteed to be code-only and never silently fires a model turn
 
 **Equality.** `==` is structural: deep value equality for objects and arrays, value equality for primitives. There is no `===`.
 
@@ -767,7 +771,7 @@ let critique = match @`Critique this code:\n${code}` {
 
 A function or loom that uses `?` thus implicitly returns `Result<T, QueryError>` where `T` is the type of its last expression. A function that uses neither `?` nor an explicit `Result` return type is required to handle every query failure with `match` (or to discard with the silent-drop semantics described in [Query](#query)).
 
-**`Result` as a user-visible type.** `Result<T, E>` is a built-in two-variant type with constructors `Ok(value)` and `Err(error)`. Looms may declare functions returning `Result<T, QueryError>` explicitly, and may construct `Ok` / `Err` directly to bridge to PI-side error handling. User-defined error types beyond `QueryError` are out of scope for V1.
+**`Result` as a user-visible type.** `Result<T, E>` is a built-in two-variant type with constructors `Ok(value)` and `Err(error)`. Looms may declare functions returning `Result<T, QueryError>` explicitly, and may construct `Ok` / `Err` directly to bridge to code-side error handling. User-defined error types beyond `QueryError` are out of scope for V1.
 
 **Runtime panics.** Some failures cannot be expressed as a `Result` and are surfaced as **panics** that abort the loom immediately, bypassing `?` and `match`. V1 panic sources:
 
@@ -1014,61 +1018,13 @@ This behaviour depends on Pi's session API exposing "append a system note to the
 
 | Feature | Pi `prompt` | Pi `subagent` | `pi-loom` |
 |---|---|---|---|
-| Instructions for | ESI | ESI (isolated) | PI + ESI (boundary) |
+| Instructions for | model | model (isolated) | code + model (boundary) |
 | Logic/control flow | None | None | Full (loops, conditionals, functions) |
 | Parameterization | YAML frontmatter | YAML frontmatter | Typed params + schemas |
 | Type system | Untyped strings | Untyped strings | JSON / JSON Schema |
 | Conversation context | Current | New (isolated) | Either (mode-controlled); loom drives N turns inside it |
 | Output | Injected text | Injected text | Multi-turn conversation drive; loom return value (Rust-style last-expression) |
 | File format | Markdown `.md` | Markdown `.md` | Loom `.loom` |
-
----
-
-## Prior Art
-
-pi-loom is one project in a crowded space of *prompt-as-program* tools. Two distinctions matter for positioning:
-
-- **Layer.** *Orchestration-layer* tools sit above a finished provider API and drive multi-turn conversations, parse and validate responses, and run tool loops at the message level. *Inference-layer* tools hook into the model's token-generation loop itself via logit biasing, grammar masks, or controller VMs. The two compose: an orchestration tool can consume an inference tool's structured-output contract. **pi-loom is an orchestration-layer tool.**
-- **Surface.** Declarative (YAML / DAG) vs. imperative (a real language with statements and expressions). pi-loom is imperative; its closest functional twin, IBM's PDL, is declarative.
-
-The work below is grouped accordingly.
-
-### Closest neighbours (orchestration layer)
-
-| Project | Surface | Multi-turn unit | Typed responses | Relation to pi-loom |
-|---|---|---|---|---|
-| [**PDL**](https://github.com/IBM/prompt-declaration-language) (IBM Research) | Declarative YAML with Jinja2 templating | YAML blocks accumulated into a background conversation context | JSON Schema | **Functional twin in declarative dress.** Same layer, same context-accumulation model, same JSON Schema typing, same ambitions (RAG, ReAct, tool loops, function definitions, type-checked I/O, automatic prompt tuning). The split is the same as mech-vs-loom: PDL declarative, loom imperative. PDL is what loom would look like if YAML had won the surface debate. |
-| [**mech**](../backlot) (sibling, see [Heritage](#heritage-and-relationship-to-mech)) | Declarative YAML + CEL guards | Function-as-conversation-boundary CDFG | JSON Schema | Direct ancestor for typed-function unit-of-composition and conversation-isolation rules. |
-
-### Other orchestration-layer tools
-
-- [**DSPy**](https://dspy.ai) (Stanford NLP) and [**ax**](https://github.com/ax-llm/ax) — modules with declarative signatures plus a *prompt optimiser* (MIPRO, GEPA, etc.). Orchestration-layer with prompt compilation; pi-loom rejects the compilation step — the loom *is* the prompt.
-- [**BAML**](https://github.com/BoundaryML/baml) (Boundary) — dedicated function-per-LLM-call DSL with schema-aligned parsing. Closest comparable on the type-system axis but single-call: multi-turn orchestration lives in the host language. pi-loom drives many queries per loom.
-- [**TypeChat**](https://github.com/microsoft/TypeChat) (Microsoft) — TypeScript interfaces as schemas; single call + LLM-driven repair loop on validation failure. The repair-loop pattern maps onto loom's typed-query coercion-via-follow-up behaviour.
-- [**Promptflow**](https://github.com/microsoft/promptflow) (Microsoft) — YAML DAGs of LLM / Python / prompt nodes; topological execution; visual DAG editor. Declarative-DAG cousin of mech and PDL.
-- [**ControlFlow**](https://github.com/PrefectHQ/ControlFlow) (Prefect) — Python tasks/agents/flows on top of Prefect's workflow engine; observability-first; not a DSL.
-- **LangChain LCEL** — Python `|`-operator composition language for chains. Broader scope than loom; lighter typing.
-- [**Instructor**](https://python.useinstructor.com), [**PydanticAI**](https://ai.pydantic.dev), [**Mirascope**](https://mirascope.com) — Python decorators wrapping a single LLM call into a typed Pydantic-returning function. Single-call wrappers; multi-turn lives in host Python.
-
-### Inference-layer tools (different layer, often miscategorised)
-
-These projects are often cited alongside orchestration tools because they expose multi-call programs with control flow, but they hook into the model's token-generation path rather than driving a provider API from outside. pi-loom is a *consumer* of the structured-output / strict-tool-input contracts these projects help establish; it does not compete with them.
-
-- [**Guidance**](https://github.com/guidance-ai/guidance) (Microsoft) — `lm += gen()` chained generation; logit biasing and regex / CFG token masks.
-- [**LMQL**](https://lmql.ai) (ETH Zurich) — standalone DSL compiled to token-level constraint masks applied during decoding.
-- [**SGLang frontend**](https://github.com/sgl-project/sglang) (Berkeley Sky) — Python-embedded DSL co-designed with a runtime providing RadixAttention KV-cache reuse and other inference optimisations.
-- [**Outlines**](https://github.com/dottxt-ai/outlines) (.txt) — grammar-constrained generation via token masks at decode time.
-- [**AICI**](https://github.com/microsoft/aici) (Microsoft) — WebAssembly controllers running per-token alongside generation.
-
-### Where pi-loom sits
-
-pi-loom's single closest functional comparable is **PDL**: same orchestration layer, same conversation-accumulation model, same JSON Schema typing, same agentic-pattern ambitions. The distinguishing axes:
-
-1. **Imperative `.loom` + `.warp` surface**, not declarative YAML. Looms read as straight-line programs with `let`, `if`, `for`, `match`, `?`, and query-as-expression.
-2. **Pi-native integration** — `.loom` files become `/<name>` slash commands; frontmatter inherits Pi's prompt/subagent conventions; tool exposure mirrors Pi subagents.
-3. **JSON-Schema response types** drawn from the OpenAI / Anthropic strict-mode intersection (see [Schema Subset](#schema-subset)), not arbitrary JSON Schema.
-4. **Two execution modes** (prompt vs subagent) inherited from Pi, giving the same loom code two well-defined conversation targets.
-5. **No prompt compilation.** Loom does not optimise prompts the way DSPy/ax do; what the author writes is what the model sees.
 
 ---
 
@@ -1085,7 +1041,7 @@ pi-loom's single closest functional comparable is **PDL**: same orchestration la
 - Implemented in TypeScript as a Pi extension module
 - Holds a reference to the target conversation (the caller's session for prompt mode; a freshly spawned isolated session for subagent mode) and drives it turn-by-turn
 - Each `@`...`` query issues a user turn against that conversation, services any tool-call loop the model returns, and resolves to the final assistant response
-- Typed queries (schema inferred from binding type, function parameter, return type, or explicit `@<Schema>`...``) lower the schema to the provider's structured-output / strict tool-input contract; the returned response is validated with **AJV** before being handed back to PI code
+- Typed queries (schema inferred from binding type, function parameter, return type, or explicit `@<Schema>`...``) lower the schema to the provider's structured-output / strict tool-input contract; the returned response is validated with **AJV** before being handed back to loom code
 - For subagent-mode looms, the spawned conversation's system prompt is taken from frontmatter `system:` (with `${param}` interpolation resolved at conversation-creation time) and applied to every query against that conversation
 - Parameter schemas (frontmatter `params`) are likewise validated with AJV at invocation time
 - The loom's overall return value is the value of the last expression of its top-level block
@@ -1100,3 +1056,34 @@ pi-loom's single closest functional comparable is **PDL**: same orchestration la
 - Richer expression sublanguage inside frontmatter `system:` (full `${expr}` interpolation rather than just `${param}` paths)
 - Named-argument / key=value invocation syntax
 - Cancellation propagation between parent looms and in-flight subagent looms
+
+---
+
+## Appendix: Related Work
+
+pi-loom is not novel in ambition — *prompt-as-program* is a crowded space. This appendix locates loom against neighbouring work for readers who already know the landscape; nothing in the rest of the spec depends on it.
+
+Two coordinates help place a tool:
+
+- **Layer.** *Orchestration-layer* tools sit above a finished provider API, drive multi-turn conversations, validate responses, and run tool loops at the message level. *Inference-layer* tools hook into the model's token-generation loop via logit biasing, grammar masks, or controller VMs. The two compose. **pi-loom is orchestration-layer.**
+- **Surface.** Declarative (YAML / DAG) vs. imperative (a real language). **pi-loom is imperative.**
+
+### Direct influences
+
+- **`mech`** — the declarative YAML workflow engine in the sibling [backlot](../backlot) project (`backlot/docs/MECH_SPEC.md`). Same worldview (typed prompt orchestration, JSON Schema as the type system, conversation-isolated function calls), opposite syntactic choices. Several loom decisions — typed function inputs/outputs as the composition unit, conversation isolation across subagent invocations, schema-first validation — were lifted from mech.
+- **Pi prompt templates and subagents** — frontmatter conventions, slash-command discovery, the prompt/subagent execution-mode split, and tool resolution all mirror Pi.
+
+### Other orchestration-layer tools
+
+- **PDL** (IBM) — declarative YAML, same orchestration layer, same context-accumulation model, same JSON Schema typing. The closest functional comparable on a different surface.
+- **DSPy** (Stanford) and **ax** — declarative module signatures plus a prompt optimiser. Loom does not optimise prompts; what the author writes is what the model sees.
+- **BAML** (Boundary) — function-per-LLM-call DSL with schema-aligned parsing; single-call. Loom drives many queries per program.
+- **TypeChat** (Microsoft) — TypeScript interfaces as schemas with an LLM-driven repair loop on validation failure. The repair pattern is mirrored in loom's typed-query coercion-via-follow-up behaviour.
+- **Promptflow** (Microsoft), **ControlFlow** (Prefect), **LangChain LCEL** — declarative DAG / Python composition cousins of mech and PDL.
+- **Instructor**, **PydanticAI**, **Mirascope** — Python decorators wrapping a single LLM call into a typed Pydantic-returning function.
+
+### Inference-layer tools (different layer)
+
+These hook into the model's token-generation path rather than driving a provider API from outside. Loom *consumes* the structured-output and strict-tool-input contracts they help establish; it does not compete with them.
+
+**Guidance** (Microsoft), **LMQL** (ETH Zurich), **SGLang frontend** (Berkeley Sky), **Outlines** (.txt), **AICI** (Microsoft).
