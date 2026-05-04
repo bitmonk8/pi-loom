@@ -61,6 +61,14 @@ Every executable spec section maps to a closing leaf. Use this matrix at V18o to
 | [Implementation Notes — Runtime](../spec_topics/implementation-notes.md#runtime) | M, V5e, V12a, V14c, V15a, V18a–V18n |
 | [Runtime Value Model](../spec_topics/runtime-value-model.md) | V2 (primitives/arrays/objects), V6a (Result), V10e (enum brand), V13b–V13d (wire-name) |
 | [Pi Integration Contract](../spec_topics/pi-integration-contract.md) | M, V12a, V14a–V14j, V18f, V18g, V18h |
+| [Grammar Appendix — Loom literal sublanguage](../spec_topics/grammar.md#loom-literal-sublanguage) | V16a, V14c |
+| [Grammar Appendix — `let` form](../spec_topics/grammar.md#let-form) | V2a |
+| [Grammar Appendix — type grammar](../spec_topics/grammar.md#type-grammar) | V2a, V3b, V4b–V4f |
+| [Grammar Appendix — `match` arm body](../spec_topics/grammar.md#match-arm-body) | V7a |
+| [Grammar Appendix — `schema X by <field>`](../spec_topics/grammar.md#schema-x-by-field) | V4b, V11d |
+| [Grammar Appendix — `///` placement](../spec_topics/grammar.md#-placement) | V13e, V9a, V10f |
+| [Grammar Appendix — newline continuation](../spec_topics/grammar.md#newline-continuation) | V1e |
+| [Grammar Appendix — `array<T>` literal type-sink rule](../spec_topics/grammar.md#arrayt-literal-type-sink-rule) | V2h, V8b |
 | [Future Considerations](../spec_topics/future-considerations.md) | – (out of scope) |
 | [Related Work](../spec_topics/related-work.md) | – |
 

@@ -2,9 +2,9 @@
 
 ## V2a — `let` immutable bindings
 
-- **Spec.** [Bindings and Mutability](../spec_topics/bindings.md).
-- **Adds.** `let x = expr` with optional `: T` annotation. Reassignment of an immutable binding is a parse error.
-- **Tests.** Immutable binding declared and read; reassignment rejected; `let _ = expr` accepted (discard); `let mut _ = ...` rejected.
+- **Spec.** [Bindings and Mutability](../spec_topics/bindings.md), [Grammar Appendix — `let` form](../spec_topics/grammar.md#let-form).
+- **Adds.** `let x = expr` with optional `: T` annotation; an initialiser is required. `let x: T` (annotation, no initialiser) is `loom/parse/let-without-initialiser`. Reassignment of an immutable binding is a parse error.
+- **Tests.** Immutable binding declared and read; reassignment rejected; `let _ = expr` accepted (discard); `let mut _ = ...` rejected; `let x: T` (no initialiser) emits `loom/parse/let-without-initialiser` and the diagnostic message references the spec rule; `let x: T = <expr>` accepted.
 - **Deps.** V1.
 - **Ships when.** Loom bodies can name values.
 

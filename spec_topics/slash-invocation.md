@@ -12,6 +12,8 @@ On successful binding the runtime appends a one-line echo system note to the ses
 
 The `argument-hint` frontmatter field drives the slash-command autocomplete dropdown shown to the user, and is also passed to the binder as additional grounding for argument extraction. Key=value or named-argument syntax (e.g. `/code-review language=TypeScript`) is *not* part of the V1 surface; users type free-form text and the binder does the work.
 
+**No-params overflow.** When the loom takes no parameters (`params:` absent or `params: {}`; see [Parameters and Frontmatter](./frontmatter.md)) the binder is bypassed (see [Slash-Command Argument Binding — Binder bypass](./binder.md)). The runtime trims the slash text after the command name; if the trimmed remainder is non-empty, the runtime emits a single `customType: "loom-system-note"` message before the loom starts, formatted as `loom /<name>: ignoring extra arguments — this loom takes no parameters`, then runs the loom. Whitespace-only remainders trim to empty and emit no note. The note is informational and never blocks execution. The note fires only for the slash-invocation path; `invoke(...)` and registered-tool callers skip the slash parser entirely and have no notion of "extra text."
+
 Once a loom is invoked:
 
 - In **prompt mode**, the loom drives the *current* conversation — every query is a turn the user sees in their session. The loom's final `Ok` return value is **not** surfaced to the user; the conversation is the user-facing surface, and any value the author wants the user to see should be issued as a final query whose text contains it. The return value exists only for programmatic consumers (an `invoke` caller, a future loom harness).

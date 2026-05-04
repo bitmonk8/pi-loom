@@ -34,11 +34,11 @@
 
 ## V13e — `///` doc comments on schema declarations and fields
 
-- **Spec.** [Descriptions](../spec_topics/descriptions.md).
-- **Adds.** `///` above schema → `description` on schema; above field → `description` on property. Multi-line `///` joins; common-leading-whitespace strip.
-- **Tests.** Single-line and multi-line; whitespace strip; empty `///` line becomes blank line; placement on same line as field is parse error.
+- **Spec.** [Descriptions](../spec_topics/descriptions.md), [Grammar Appendix — `///` placement](../spec_topics/grammar.md#-placement).
+- **Adds.** `///` above schema → `description` on schema; above field → `description` on property. The full anchor list is normative in the grammar appendix: object-form `schema`, alias-form `schema X = T | U`, explicit-discriminator union form `schema X by f = A | B`, `enum` declaration, schema field, enum variant, and top-level `fn` (lowering for `fn` is human-facing only — functions have no JSON Schema). `///` above any other production is `loom/parse/doc-comment-misplaced`. Multi-line `///` joins; common-leading-whitespace strip.
+- **Tests.** Single-line and multi-line; whitespace strip; empty `///` line becomes blank line; placement on same line as field is parse error; `///` on alias schema (`schema X = T | U`) lowers as the alias's description; `///` on `schema X by f = A | B` lowers as the union's description; `///` on a `let`, `import`, or expression statement emits `loom/parse/doc-comment-misplaced`.
 - **Deps.** V1c, V4b.
-- **Ships when.** Schema descriptions reach providers.
+- **Ships when.** Schema descriptions reach providers across every documented anchor; misplaced `///` rejected with the documented diagnostic.
 
 ## V13f — `retry:` and `tool_loop:` frontmatter parsing
 

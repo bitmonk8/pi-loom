@@ -2,11 +2,11 @@
 
 ## V7a — `match` expression structure
 
-- **Spec.** [Errors and Results](../spec_topics/errors-and-results.md) (`match` expression, arm syntax).
-- **Adds.** `match scrutinee { pat => expr, ... }` as an expression; comma-separated arms; trailing comma optional; arms must produce common-type values.
-- **Tests.** Match returns last-matched arm's value; arm-type mismatch parse error; arm body is a single expression (use `{...}` block for multi-statement).
+- **Spec.** [Errors and Results](../spec_topics/errors-and-results.md) (`match` expression, arm syntax), [Grammar Appendix — `match` arm body](../spec_topics/grammar.md#match-arm-body).
+- **Adds.** `match scrutinee { pat => expr, ... }` as an expression; comma-separated arms; trailing comma optional; arms must produce common-type values. An arm body is a single expression — a block expression `{ Stmt* Expr }` is the explicit escape hatch for multi-statement arms; the ternary `cond ? a : b` is the expression form of conditional. Bare statements (`if`, `for`, `while`, `let`, assignment, `break`, `continue`, `return`) in arm-body position are `loom/parse/statement-in-arm-body`.
+- **Tests.** Match returns last-matched arm's value; arm-type mismatch parse error; arm body accepts a single expression; arm body accepts a block expression and yields its tail value; bare `if` in arm body emits `loom/parse/statement-in-arm-body` and the diagnostic message names the offending construct; same for bare `for`, `while`, `let`, assignment, `break`, `continue`, `return`; ternary in arm body accepted.
 - **Deps.** V2.
-- **Ships when.** `match` parses and runs against simple scrutinees.
+- **Ships when.** `match` parses and runs against simple scrutinees, with statement-in-arm-body diagnostic in place.
 
 ## V7b — Wildcard pattern `_`
 

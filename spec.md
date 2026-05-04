@@ -68,4 +68,5 @@ Implementer-facing notes about the runtime and Pi SDK contract.
 ## Appendix
 
 - [Glossary](./spec_topics/glossary.md) — alphabetised list of coined terms with pointers to their canonical defining pages.
+- [Grammar Appendix](./spec_topics/grammar.md) — normative productions for the literal sublanguage and the surface-syntax forms no single topic page owns.
 - [Related Work](./spec_topics/related-work.md) — orchestration-layer and inference-layer neighbours.

@@ -10,11 +10,11 @@
 
 ## V4b — Object schema declaration and lowering
 
-- **Spec.** [Schema Declarations](../spec_topics/schemas.md) (object form).
-- **Adds.** `schema X { f: T, ... }` parsed; lowered to `$defs/X` with `required` listing every field, `additionalProperties: false`, properties in declaration order.
-- **Tests.** Trailing comma optional; missing field rejected; `additionalProperties:false` always emitted; snapshot against `test/fixtures/schemas/object-basic.json`.
+- **Spec.** [Schema Declarations](../spec_topics/schemas.md) (object form), [Grammar Appendix — `schema X by <field>`](../spec_topics/grammar.md#schema-x-by-field).
+- **Adds.** `schema X { f: T, ... }` parsed; lowered to `$defs/X` with `required` listing every field, `additionalProperties: false`, properties in declaration order. The object-body shape does **not** admit a `by <field>` clause; `schema X by f { ... }` is `loom/parse/by-on-object-schema` (the explicit-discriminator form is reserved for the `=` union shape, finalised in V11d).
+- **Tests.** Trailing comma optional; missing field rejected; `additionalProperties:false` always emitted; snapshot against `test/fixtures/schemas/object-basic.json`; `schema X by f { ... }` emits `loom/parse/by-on-object-schema`.
 - **Deps.** V4a.
-- **Ships when.** Schemas can be declared and compiled; nothing yet uses them.
+- **Ships when.** Schemas can be declared and compiled; nothing yet uses them; misuse of `by` on object bodies rejected with the documented diagnostic.
 
 ## V4c — Type-alias `schema X = T` for primitive unions
 

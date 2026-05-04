@@ -7,6 +7,8 @@ let x = 0          // immutable; rebinding x is a parse error (loom/parse/immuta
 let mut count = 0  // mutable; count may be reassigned
 ```
 
+`let` requires an initialiser. `let x: T` (annotation, no initialiser) is `loom/parse/let-without-initialiser` — Loom has no `undefined` value, no per-type "zero" default, and no definite-assignment analysis, so a binding with no value cannot be type-soundly admitted. The full grammar for `let` lives in [Grammar Appendix — `let` form](./grammar.md#let-form). To bind once at the point a value is available, restructure the surrounding control flow; for an explicitly-mutable counter, write `let mut x: T = <initial>`.
+
 **Reassignment** is a statement, never an expression. The plain form and the compound forms `+=`, `-=`, `*=`, `/=`, `%=` are all legal on `let mut` bindings; the RHS must type-match the binding's declared or inferred type:
 
 ```loom

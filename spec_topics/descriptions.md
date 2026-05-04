@@ -40,7 +40,7 @@ The authoritative `QueryError` union lives in [Query](./query.md); the variant o
 
 Rules:
 
-- **Placement.** Above a `schema` declaration, an `enum` declaration, a field within a schema, or a variant within an `enum`. Not legal inline on the same line as the field.
+- **Placement.** Above a `schema` declaration (object form, alias form `schema X = T | U`, or explicit-discriminator union form `schema X by f = A | B` alike), an `enum` declaration, a field within a schema, a variant within an `enum`, or a top-level `fn` declaration. Not legal inline on the same line as the anchor. A `///` description on a `fn` does not lower into JSON Schema (functions have no schema); it is preserved on the AST as human-facing documentation only. A `///` description above any other production — `let`, `import`, `export`, expression statements, control-flow statements — is `loom/parse/doc-comment-misplaced`. The full anchor list is normative in [Grammar Appendix — `///` placement](./grammar.md#-placement).
 - **Multi-line.** Consecutive `///` lines are joined with newlines into one description string. Common leading whitespace inside the description is stripped (same algorithm as query-template dedent). Empty `///` lines become blank lines.
 - **Static text only in V1.** No `${param}` interpolation — schemas are evaluated at parse time, not per-query.
 - **Markdown.** Description text is treated as Markdown by providers; no transformation is performed.

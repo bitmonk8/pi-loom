@@ -2,11 +2,11 @@
 
 ## V9a — Top-level `fn` declaration
 
-- **Spec.** [Function Definitions](../spec_topics/functions.md).
-- **Adds.** `fn name(p: T, ...): R { body }`; nested `fn` is a parse error.
-- **Tests.** Parse and call; nested `fn` rejected; closure / first-class function value rejected.
-- **Deps.** V2.
-- **Ships when.** Functions can be declared and called.
+- **Spec.** [Function Definitions](../spec_topics/functions.md), [Grammar Appendix — `///` placement](../spec_topics/grammar.md#-placement).
+- **Adds.** `fn name(p: T, ...): R { body }`; nested `fn` is a parse error. `fn` accepts a leading `///` doc comment as a documented anchor; the description is preserved on the AST as human-facing documentation only and does not lower into JSON Schema (functions have no schema).
+- **Tests.** Parse and call; nested `fn` rejected; closure / first-class function value rejected; `///` above a `fn` parses and the description is reachable on the resulting AST node; `///` inline with the `fn` declaration line is `loom/parse/doc-comment-misplaced`.
+- **Deps.** V2, V1c.
+- **Ships when.** Functions can be declared and called, with `///` documentation supported on the declaration.
 
 ## V9b — Hoisting and mutual recursion
 

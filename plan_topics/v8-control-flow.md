@@ -10,11 +10,11 @@
 
 ## V8b — `for` ... `in` over arrays
 
-- **Spec.** [Control Flow](../spec_topics/control-flow.md) (`for`).
-- **Adds.** `for x in xs { ... }` over `array<T>`; `x` is a fresh immutable binding per iteration. Iterating non-arrays is a parse error with the spec's hint.
-- **Tests.** Iteration over `array<T>`; non-array iterand error mentions `obj.keys()` and `s.split(...)`; mutating `x` is a parse error.
+- **Spec.** [Control Flow](../spec_topics/control-flow.md) (`for`), [Grammar Appendix — `array<T>` literal type-sink rule](../spec_topics/grammar.md#arrayt-literal-type-sink-rule).
+- **Adds.** `for x in xs { ... }` over `array<T>`; `x` is a fresh immutable binding per iteration. Iterating non-arrays is a parse error with the spec's hint. The iterand position is **not** a type sink for empty-array literals — `for x in []` with no other sink is `loom/parse/array-no-common-type`, the same diagnostic as `let xs = []` without annotation.
+- **Tests.** Iteration over `array<T>`; non-array iterand error mentions `obj.keys()` and `s.split(...)`; mutating `x` is a parse error; `for x in []` with no surrounding sink emits `loom/parse/array-no-common-type` and the diagnostic message matches the array-construction spec; `for x in xs` where `xs` is bound by `let xs: array<T> = []` accepts the empty array (sink supplied by the binding annotation).
 - **Deps.** V8a, V2h.
-- **Ships when.** Loops work over arrays.
+- **Ships when.** Loops work over arrays, with the empty-iterand sink rule enforced uniformly.
 
 ## V8c — `while` loop
 

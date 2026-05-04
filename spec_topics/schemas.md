@@ -98,6 +98,8 @@ The explicit form overrides detection:
 schema Animal by species = Cat | Dog | Lizard
 ```
 
+The `by <field>` clause is admitted **only** on the union form (the alternative beginning with `=`). A `schema X by f { ... }` declaration with an object body is `loom/parse/by-on-object-schema`: object schemas have one variant by definition and the discriminator concept does not apply. The full grammar for the schema declaration shapes that admit `by` lives in [Grammar Appendix — `schema X by <field>`](./grammar.md#schema-x-by-field).
+
 Duplicate discriminator values across variants are `loom/parse/duplicate-discriminator-value`. The discriminator field must live at the **top level** of each variant; nested discriminators (`kind: { type: "x" }`) are `loom/parse/nested-discriminator`.
 
 Mixed unions — `string | Author`, `Author | null` — are not discriminated; they lower as plain `anyOf` (or, when all arms are primitives, as the multi-type-array form `{"type": [...]}`).

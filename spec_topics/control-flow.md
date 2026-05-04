@@ -10,7 +10,7 @@ if author.experience_years < 2 {
 }
 ```
 
-**`for` ... `in`** — iterates an array, binding the iteration variable as a fresh immutable local per iteration. The expression after `in` must have type `array<T>` for some `T`; iterating strings, objects, or numbers is `loom/parse/non-array-iterand` (use `obj.keys()` for objects, `s.split(...)` for strings).
+**`for` ... `in`** — iterates an array, binding the iteration variable as a fresh immutable local per iteration. The expression after `in` must have type `array<T>` for some `T`; iterating strings, objects, or numbers is `loom/parse/non-array-iterand` (use `obj.keys()` for objects, `s.split(...)` for strings). The iterand position is **not** an element-type sink for empty-array literals — `for x in []` with no surrounding sink is `loom/parse/array-no-common-type`, the same diagnostic that `let xs = []` raises in unannotated position. Annotate via a `let xs: array<T> = []` immediately above the loop, or inline the literal under a sink that supplies `T` (see [Grammar Appendix — `array<T>` literal type-sink rule](./grammar.md#arrayt-literal-type-sink-rule)).
 
 ```loom
 for area in focus_areas {

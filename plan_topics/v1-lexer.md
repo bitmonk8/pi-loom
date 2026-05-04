@@ -34,8 +34,8 @@
 
 ## V1e — Statement separators and newline continuation
 
-- **Spec.** [Lexical Structure](../spec_topics/lexical.md) (statement terminators), [Grammar disambiguation](../spec_topics/expressions.md#grammar-disambiguation) (newline continuation).
-- **Adds.** Newline-as-separator; continuation across open `(`/`{`/`[`, trailing binary/unary operator, trailing comma; semicolons rejected.
-- **Tests.** Each continuation form; semicolon rejected; bracket-balance error reports the unmatched opener; operator-at-end-of-line and operator-at-start-of-next-line both join.
+- **Spec.** [Lexical Structure](../spec_topics/lexical.md) (statement terminators), [Grammar disambiguation](../spec_topics/expressions.md#grammar-disambiguation) (newline continuation), [Grammar Appendix — Newline continuation](../spec_topics/grammar.md#newline-continuation).
+- **Adds.** Newline-as-separator; continuation across the closed trigger set: open `(`/`{`/`[`, trailing binary/ternary operator, trailing comma, leading binary/ternary operator on the next non-blank line. Blank lines do not break a continuation — when any trigger holds, the parser continues across one or more newlines regardless of how many are blank. Semicolons rejected.
+- **Tests.** Each continuation form; semicolon rejected; bracket-balance error reports the unmatched opener; operator-at-end-of-line and operator-at-start-of-next-line both join; `let x =\n\n  foo` parses as one statement; `let x = a\n\n  + b` parses as one statement; a blank line with no trigger above it ends the prior statement (`let x = 1\n\nlet y = 2` is two statements).
 - **Deps.** V1a–V1d.
-- **Ships when.** Multi-line statements parse without explicit terminators.
+- **Ships when.** Multi-line statements parse without explicit terminators, including across blank lines.
