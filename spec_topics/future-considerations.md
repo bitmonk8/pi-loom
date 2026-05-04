@@ -23,6 +23,10 @@ Items occasionally carry a `Depends on:` annotation where they presuppose anothe
 
 - **Per-call timeouts** on queries, tool calls, and invokes (V1 has only AbortSignal-driven cancellation; cf. [Cancellation](./cancellation.md)).
   *Seam:* the query-options / tool-call-options / invoke-options struct must be open to additional fields, not a closed positional record.
+- **Pre-flight token-count check** before the runtime issues a user turn, so oversized rendered templates surface as `ContextOverflowError` without a wasted provider round-trip.
+  *Seam:* `ContextOverflowError`'s `tokens_used` and `tokens_limit` fields are already nullable and population-rule documented per [Query](./query.md); a pre-flight path can populate them from the local estimate rather than from the provider error envelope without changing the variant shape.
+- **Typed-query support for providers without named-tool forcing** (Gemini, OpenAI Responses, weak local models) via a JSON-mode / system-prompt fallback. V1 narrows typed queries to providers where pi-ai exposes named-tool forcing (per [Pi Integration Contract — Provider compatibility for typed queries](./pi-integration-contract.md)) and rejects unsupported providers with a load-time warning.
+  *Seam:* the V1-supported provider set is a single named runtime constant; widening it adds a fallback path without touching the typed-query behavioural contract.
 - **Per-query overrides for `model`, `tools`, and `system`** (project → loom → query cascade).
   *Seam:* same query-options struct as per-call timeouts.
 - **User-defined error types beyond `QueryError`.**

@@ -40,21 +40,21 @@
 - **Deps.** V1c, V4b.
 - **Ships when.** Schema descriptions reach providers.
 
-## V13f — `retry:` frontmatter parsing
+## V13f — `retry:` and `tool_loop:` frontmatter parsing
 
-- **Spec.** [Parameters and Frontmatter](../spec_topics/frontmatter.md) (`retry:`).
-- **Adds.** `retry: { attempts: N, methodology: <enum> }`. Defaults: 3, `validator_error`. Methodologies: `validator_error`, `schema_repeat`, `none`.
-- **Tests.** Each methodology accepted; out-of-range `attempts` rejected; unknown methodology rejected.
+- **Spec.** [Parameters and Frontmatter — `retry`](../spec_topics/frontmatter.md), [Parameters and Frontmatter — `tool_loop`](../spec_topics/frontmatter.md).
+- **Adds.** `retry: { attempts: N, methodology: <enum> }`. Defaults: 3, `validator_error`. Methodologies: `validator_error`, `schema_repeat`, `none`. `tool_loop: { max_iterations: N }`. Default 25. Both blocks are optional with the documented defaults.
+- **Tests.** Each methodology accepted; out-of-range `attempts` rejected; unknown methodology rejected; `tool_loop.max_iterations` accepts non-negative integers (0 disables model tool-use; positive integers cap the loop); negative or non-integer values rejected.
 - **Deps.** V3a.
-- **Ships when.** Retry config parses.
+- **Ships when.** Retry and tool-loop config parse.
 
 ## V13g — Coercion methodology: `validator_error`
 
-- **Spec.** [Query](../spec_topics/query.md) (coercion).
-- **Adds.** On AJV failure, append a follow-up turn quoting the AJV error; await response; re-validate. Bounded by `retry.attempts`.
-- **Tests.** Successful coercion at attempt 1, 2, 3; attempts exhausted → `Err({kind:"validation", attempts: N})`; conversation history preserves both malformed response and follow-up.
-- **Deps.** V13f, V6i.
-- **Ships when.** Default-mode coercion works.
+- **Spec.** [Query — Schema-validation coercion](../spec_topics/query.md), [Query — Typed queries are tool-loop-shaped](../spec_topics/query.md) (coercion follow-ups restart the two-phase loop).
+- **Adds.** On AJV failure of the respond turn's payload, append a follow-up user turn quoting the AJV error; restart the two-phase loop with a fresh `tool_loop` budget (free phase — the model may re-tool, e.g. re-read a file — then forced respond turn); re-validate. Bounded by `retry.attempts`.
+- **Tests.** Successful coercion at attempt 1, 2, 3; attempts exhausted → `Err({kind:"validation", attempts: N})`; conversation history preserves the malformed respond-tool call and the follow-up user turn; coercion follow-up that triggers an intermediate frontmatter tool call (model re-reads a file before answering) succeeds; coercion follow-up gets the full `tool_loop.max_iterations` budget independent of how many rounds the original turn consumed.
+- **Deps.** V13f, V6i, V6k.
+- **Ships when.** Default-mode coercion works through the two-phase loop.
 
 ## V13h — Coercion methodology: `schema_repeat`
 
@@ -74,8 +74,8 @@
 
 ## V13j — Coercion preserves tool-call side effects
 
-- **Spec.** [Query](../spec_topics/query.md) (coercion).
-- **Adds.** Coercion appends a *new* user turn rather than re-issuing the original (per spec's tool-side-effect concern).
-- **Tests.** Conversation transcript shows malformed response + follow-up (not a re-run of the original user turn).
-- **Deps.** V13g.
-- **Ships when.** Side-effect safety holds.
+- **Spec.** [Query — Schema-validation coercion](../spec_topics/query.md), [Query — Non-validation failures during a coercion follow-up](../spec_topics/query.md).
+- **Adds.** Coercion appends a *new* user turn rather than re-issuing the original (per spec's tool-side-effect concern). Non-validation failures during a follow-up (transport, cancellation, tool-failure, tool-loop-exhausted, context-overflow, invoke-failure, invoke-callee-error) propagate as the corresponding `QueryError` variant and do **not** consume an `attempts` slot. `context_overflow` short-circuits coercion permanently for the lifetime of that typed query.
+- **Tests.** Conversation transcript shows malformed respond-tool call + follow-up user turn (not a re-run of the original user turn); a follow-up that fails with `transport` propagates `transport` (not `validation`) and the next attempt would still be available; a follow-up that overflows context returns `context_overflow` immediately and no further follow-ups are issued; a follow-up that hits `tool_loop_exhausted` propagates that variant.
+- **Deps.** V13g, V6k.
+- **Ships when.** Side-effect safety holds and non-validation failures route correctly.
