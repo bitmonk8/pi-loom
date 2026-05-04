@@ -125,6 +125,7 @@ The table enumerates every diagnostic the V1 spec defines. *Severity* is `error`
 | `loom/load/case-collision` | W | load | Two `*.loom` files within one discovery source differ only in case. | [Discovery — Case-insensitive collisions](./discovery.md) | Rename one file. |
 | `loom/load/cross-source-shadow` | W | load | The same slash name resolves from multiple discovery sources at different priorities. | [Discovery — Source priority](./discovery.md) | Remove the lower-priority entry. |
 | `loom/load/cross-format-collision` | E | load | A `.loom` and a Pi prompt template (`.md`) or subagent share the same slash name. | [Discovery — Slash-name collisions](./discovery.md) | Rename one. |
+| `loom/load/invalid-slash-name` | E | load | `*.loom` filename stem does not match `^[a-z0-9][a-z0-9_-]*$`. | [Discovery — Filename validity](./discovery.md) | Slash names must be lowercase kebab/snake; rename the file (e.g. `code-review.loom`). |
 | `loom/load/settings-unreadable` | W | load | `~/.pi/agent/settings.json` or `.pi/settings.json` exists but is unreadable. | [Discovery — Settings file reads](./discovery.md) | — |
 | `loom/load/settings-invalid-json` | W | load | A settings file is present but not valid UTF-8 JSON. | [Discovery — Settings file reads](./discovery.md) | — |
 

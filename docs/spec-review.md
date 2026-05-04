@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_66 findings retained, 1 false positives dropped, 0 persistent failures_
+_65 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -4400,77 +4400,6 @@ Edge cases the implementer must watch:
 - "settings.json `looms` array shape unspecified" — decision-dependency (whether settings entries can shadow each other depends on whether duplicates within the array are even legal; settle the array shape first, then this rule applies on top).
 - "Slash-name validity from filename unspecified" — same-cluster (both are load-time validation rules over discovered `.loom` files; share the diagnostic surface but resolve independently).
 - "Discovery directory tree example contradicts documented path" — same-cluster (both edit `discovery.md` but on unrelated paragraphs).
-
----
-
-# Filename-to-slash-name validity rules unspecified
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** Slash-name validity from filename unspecified
-**Kind:** completeness
-
-## Finding
-
-`spec_topics/discovery.md`, `spec_topics/slash-invocation.md`, and `spec_topics/frontmatter.md` all state that the loom's filename stem *is* the slash-command name (`code-review.loom` → `/code-review`) and that there is deliberately no `name:` frontmatter field to override it. None of these pages, however, constrains which filename characters are permissible. A file named `foo bar.loom`, `foo!.loom`, `Foo.Bar.loom`, or `--help.loom` would each yield a "name" that is unparseable, ambiguous, or actively hostile when prefixed with `/` and typed in the editor's slash-command line.
-
-The `loom/load/*` diagnostic namespace (`spec_topics/diagnostics.md`) is the natural home for a load-time rejection, but no code is reserved and no validity rule is stated. Two reasonable implementers will diverge: one will silently skip files whose stems do not parse as a slash command (matching `prompt-templates.md`'s laissez-faire posture in upstream Pi), another will sanitise (replace spaces with hyphens, lower-case), a third will reject. The cross-format collision rule in `discovery.md` further depends on a single canonical slug derivation: if `.loom` and `.md` derive slugs differently, the symmetric collision check breaks.
-
-A spec gap also exists for case sensitivity. POSIX filesystems are case-sensitive while macOS/NTFS default to case-insensitive but case-preserving; the spec does not say whether `Code-Review.loom` and `code-review.loom` are the same slash command, two distinct ones, or a collision.
-
-## Spec Documents
-
-- `spec_topics/discovery.md` — Slash-name derivation rule and cross-format collision (edited)
-- `spec_topics/diagnostics.md` — `loom/load/*` namespace; new diagnostic code listing (edited)
-- `spec_topics/frontmatter.md` — "filename is canonical" sentence cross-reference (edited)
-- `spec_topics/slash-invocation.md` — Opening sentence "invoked using its filename" (read-only)
-
-## Plan Impact
-
-**Phases:** MVP, Vertical V14
-
-**Leaves (implementation order):**
-
-- M — Minimal end-to-end loom — (modified)
-- V14k — Discovery: global `~/.pi/agent/looms/` — (modified)
-- V14l — Discovery: project `.pi/looms/` — (modified)
-- V14m — Discovery: package `looms/` and `pi.looms` — (modified)
-- V14n — Discovery: settings `looms` array — (modified)
-- V14o — Discovery: `--loom` CLI flag — (modified)
-- V14q — Cross-format slash collision — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Without a stated validity rule, two implementers will produce loaders that disagree on which files register, on whether `Foo.loom` and `foo.loom` are the same command, and on whether `foo bar.loom` is silently skipped or surfaced as an error. The cross-format collision check (V14q) becomes ill-defined because `.loom` and `.md` may compute different slugs from the same exotic stem.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add a "Filename validity" subsection to `spec_topics/discovery.md` directly above the "Slash-name collisions across formats" rule, stating:
-
-- **Accepted filename stem:** matches the regex `^[a-z0-9][a-z0-9_-]*$`. The stem is taken verbatim — no case-folding, no whitespace trimming, no character substitution.
-- **Stems that do not match** are rejected at load time with diagnostic `loom/load/invalid-slash-name` (severity `error`); the file does not register and does not participate in collision detection. Hint text: ``slash names must be lowercase kebab/snake; rename the file (e.g. `code-review.loom`)``.
-- **Case sensitivity:** the slash name is case-sensitive on the wire, but because the accepted character class is already lower-case-only, the question of `Foo.loom` vs `foo.loom` reduces to "both are rejected as invalid". On case-insensitive filesystems this guarantees the cross-format collision check (V14q) is well-defined regardless of host OS.
-
-Mirror the rule for Pi prompt templates and subagents when computing the colliding-slug for V14q: derive the candidate slug under the same regex and skip non-conforming `.md` files for collision purposes (they remain Pi's problem to surface).
-
-Add the new code `loom/load/invalid-slash-name` to the `loom/load/*` enumeration in `spec_topics/diagnostics.md`. Add a one-clause cross-reference in `spec_topics/frontmatter.md` after "the filename is canonical" pointing to `discovery.md` for the validity rule.
-
-Edge cases the implementer must watch:
-- A file matching the stem regex but whose full filename ends in something other than `.loom` (e.g. `foo.loom.bak`) is already excluded by the existing "matches only `*.loom`" rule and needs no extra handling.
-- Hidden files (`.foo.loom`) are rejected because the stem starts with `.`, which fails the leading `[a-z0-9]` anchor.
-- Unicode in filenames (e.g. `café.loom`) is rejected; if internationalised slash names become desirable later that is a future-considerations item, not a V1 concern.
-- The validator runs *before* parse, so an invalid name short-circuits frontmatter and body parsing — the file produces exactly one diagnostic.
-
-## Related Findings
-
-- "Same-priority `.loom` filename collisions undefined" — same-cluster (both touch discovery's load-time error model; resolve independently)
-- "Discovery source failure modes partly unspecified" — same-cluster (same `loom/load/*` diagnostic surface; independent rules)
-- "Discovery directory tree example contradicts documented path" — same-cluster (both edit `discovery.md`; coordinate the edits but rules are independent)
 
 ---
 

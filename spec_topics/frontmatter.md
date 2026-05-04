@@ -25,7 +25,7 @@ params:
 ---
 ```
 
-Frontmatter mirrors Pi's prompt-template frontmatter (`description`, `argument-hint`) plus loom-specific fields. **No `name` field** — the filename is canonical, exactly as for Pi prompts (`code-review.loom` is invoked as `/code-review`). Frontmatter fields outside the V1 vocabulary surface as `loom/load/unknown-frontmatter-field` (warning); fields reserved for deferred V1 features surface as `loom/load/deferred-frontmatter-field` (warning). Both keep loading the loom; see [Diagnostics](./diagnostics.md).
+Frontmatter mirrors Pi's prompt-template frontmatter (`description`, `argument-hint`) plus loom-specific fields. **No `name` field** — the filename is canonical, exactly as for Pi prompts (`code-review.loom` is invoked as `/code-review`); see [Discovery — Filename validity](./discovery.md) for the accepted stem regex and the `loom/load/invalid-slash-name` rejection rule. Frontmatter fields outside the V1 vocabulary surface as `loom/load/unknown-frontmatter-field` (warning); fields reserved for deferred V1 features surface as `loom/load/deferred-frontmatter-field` (warning). Both keep loading the loom; see [Diagnostics](./diagnostics.md).
 
 - `params` are validated with AJV at invocation time and exposed as typed variables in the loom body. When invoked from a slash command, the runtime binds free-form slash arguments to `params` via an LLM call (see [Slash-Command Argument Binding](./binder.md)); when invoked from `invoke(...)` or as a registered tool, arguments arrive already typed and are validated directly.
 - `binder_model`, `bind_context`, and `bind_echo` configure slash-command argument binding. All three are optional with sensible defaults; see [Slash-Command Argument Binding](./binder.md).
