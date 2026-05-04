@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_80 findings retained, 1 false positives dropped, 0 persistent failures_
+_79 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -6242,84 +6242,6 @@ Edge cases the implementer must watch:
 - "Cancellation checkpoints miss binder, AJV validation, and schema-lowering" — co-resolve (the rewritten Granularity paragraph must enumerate non-checkpoints alongside checkpoints; resolving both findings in one edit avoids re-introducing the contradiction)
 - "Cancellation race conditions unspecified" — same-cluster (clarifies the post-completion-pre-checkpoint window; the rewritten paragraph implies but does not state the resolution)
 - "No rollback semantics — not explicitly stated" — same-cluster (the `f()` side-effect-committed clause in the recommendation depends on the no-rollback rule being stated elsewhere)
-
----
-
-# Cancellation race between completed operation and observed abort is unspecified
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** Cancellation race conditions unspecified
-**Kind:** error-model
-
-## Finding
-
-`spec_topics/cancellation.md` defines checkpoints (loop boundary, before each `@`-query, before each tool / `invoke` call) and the `Err` shapes produced when a checkpoint observes an aborted signal. It does not define what happens to an operation that **completed successfully** before the abort, when the abort is observed at the *next* checkpoint.
-
-Concretely, given:
-
-```loom
-let x = f()       // tool call returns Ok(42); abort fires immediately after
-let y = g()       // next checkpoint
-```
-
-the spec leaves three things open:
-
-1. Is `x` bound to `Ok(42)`, or is the just-completed `f()` retroactively turned into `Err({kind:"cancelled"})`?
-2. At which point does the abort first surface — the statement boundary before `let y`, or the pre-call checkpoint inside `g()`'s evaluation?
-3. If the loom would otherwise complete successfully and no further checkpoint exists (e.g. the abort fires after the final statement returns), is the top-level result `Ok(...)` or `Err({kind:"cancelled"})`?
-
-Two reasonable implementers will diverge. One will treat the signal check as a strict "before each operation" guard and let the prior `Ok` stand; another will check the signal opportunistically after each operation completes and convert the in-flight statement's value to `Err` on the way out. The observable difference matters for tool calls with side effects (the side effect happened, but the script claims it was cancelled) and for prompt-mode surfacing (success vs. `cancelled` system note).
-
-## Spec Documents
-
-- `spec_topics/cancellation.md` — Granularity / Surfacing (edited)
-- `spec_topics/tool-calls.md` — failure surfaces (read-only)
-- `spec_topics/slash-invocation.md` — top-level `cancelled` system-note row (read-only)
-
-## Plan Impact
-
-**Phases:** Vertical V14, Vertical V18
-
-**Leaves (implementation order):**
-
-- V14h — `ToolCallError` variant: `cancelled` cause — (modified)
-- V18a — `AbortSignal` at every loop iteration boundary — (modified)
-- V18b — `AbortSignal` before every `@` query — (modified)
-- V18c — `AbortSignal` before every tool call — (modified)
-- V18d — `AbortSignal` before every `invoke` — (modified)
-- V18e — Cancellation propagates downward only — (modified)
-
-Each of these leaves needs a test that fires the abort *after* the operation completes successfully and asserts the prior `Ok` is retained while the *next* checkpoint surfaces `cancelled`.
-
-## Consequence
-
-**Severity:** correctness
-
-Implementers who eagerly invalidate just-completed operations will report `cancelled` for tool calls whose side effects already executed, while implementers who treat checkpoints as strict pre-op guards will retain the `Ok`. Both behaviours look defensible against today's spec but produce divergent system notes, divergent `match` outcomes in author code, and divergent assistant-visible state when the cancelled tool call had already informed the model.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add a "Race semantics" paragraph to `spec_topics/cancellation.md`, immediately after **Granularity**:
-
-> **Race semantics.** Cancellation is observed only at checkpoints. An operation that has already returned `Ok(v)` retains that value even if the signal fires before the next checkpoint executes; the interpreter must not retroactively rewrite a completed `Ok` into `Err({kind:"cancelled"})`. The cancellation surfaces at the next checkpoint the interpreter reaches — typically the pre-evaluation check of the next statement's first cancellable sub-operation (loop iteration, `@`-query, tool call, or `invoke`). If no further checkpoint executes before the loom returns (the abort fired after the final cancellable operation), the loom's top-level result is the value it would otherwise have produced; the runtime does **not** synthesize a top-level `cancelled` in that case.
->
-> Symmetrically, an in-flight operation whose underlying provider observes the abort surfaces as `Err` per the **Surfacing** rules; this is the only path by which an operation's own result becomes `cancelled`.
-
-Edge cases the implementer must respect:
-
-- Statement boundaries are **not** themselves checkpoints; the next checkpoint is the next loop-iter boundary, `@`-query, tool call, or `invoke`. A straight-line statement sequence with no such operations runs to completion regardless of when the abort fired.
-- For `invoke`, the child's own checkpoints honour the derived signal independently — the parent does not need to re-check between child completion and binding the child's result.
-- The top-level "no further checkpoint" rule means a loom that ends in a pure-arithmetic tail can complete `Ok` even if the user pressed Esc during that tail. This is intentional: there is nothing left to cancel.
-- This rule does not change the "smallest cancellation unit is one statement or one query" claim; it disambiguates *which* checkpoint observes the abort, not the granularity itself.
-
-## Related Findings
-
-- "Cancellation 'smallest unit' definition is ambiguous" — co-resolve (the Race semantics paragraph and a precise checkpoint list belong in the same edit pass on `cancellation.md`)
-- "Cancellation checkpoints miss binder, AJV validation, and schema-lowering" — same-cluster (also edits `cancellation.md` Granularity, but addresses *which* operations are checkpoints rather than the race window between them)
 
 ---
 

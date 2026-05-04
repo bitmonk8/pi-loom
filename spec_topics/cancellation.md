@@ -12,6 +12,17 @@ Every loom invocation runs under an `AbortSignal` provided by Pi. V1 cancellatio
 
 **Granularity.** The interpreter checks the signal at every loop iteration boundary, before every `@`...`` query, and before every tool / `invoke` call. There is no mid-expression cancellation — the smallest cancellation unit is one statement or one query.
 
+**Race semantics.** Cancellation is observed only at checkpoints. An operation that has already returned `Ok(v)` retains that value even if the signal fires before the next checkpoint executes; the interpreter must not retroactively rewrite a completed `Ok` into `Err({kind:"cancelled"})`. The cancellation surfaces at the next checkpoint the interpreter reaches — typically the pre-evaluation check of the next statement's first cancellable sub-operation (loop iteration, `@`-query, tool call, or `invoke`). If no further checkpoint executes before the loom returns (the abort fired after the final cancellable operation), the loom's top-level result is the value it would otherwise have produced; the runtime does **not** synthesize a top-level `cancelled` in that case.
+
+Symmetrically, an in-flight operation whose underlying provider observes the abort surfaces as `Err` per the **Surfacing** rules below; this is the only path by which an operation's own result becomes `cancelled`.
+
+Edge cases:
+
+- Statement boundaries are *not* themselves checkpoints; the next checkpoint is the next loop-iter boundary, `@`-query, tool call, or `invoke`. A straight-line statement sequence with no such operations runs to completion regardless of when the abort fired.
+- For `invoke`, the child's own checkpoints honour the derived signal independently — the parent does not need to re-check between child completion and binding the child's result.
+- The top-level "no further checkpoint" rule means a loom that ends in a pure-arithmetic tail can complete `Ok` even if the user pressed Esc during that tail. This is intentional: there is nothing left to cancel.
+- This rule does not change the "smallest cancellation unit is one statement or one query" claim; it disambiguates *which* checkpoint observes the abort, not the granularity itself.
+
 **Surfacing.**
 
 - An in-flight query whose signal aborts returns `Err(QueryError { kind: "cancelled", message: "..." })`.
