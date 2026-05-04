@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_64 findings retained, 1 false positives dropped, 0 persistent failures_
+_63 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -4159,79 +4159,6 @@ Edge cases the implementer must watch:
 - "`pi.looms` package.json key is not Pi-recognized" — same-cluster (both touch the discovery-sources list; resolved independently but the edits sit in adjacent paragraphs).
 - "`--loom` CLI flag is not a Pi built-in; repeatable string flag type undocumented" — same-cluster (third sibling in the discovery-sources list; independent fix).
 - "Discovery directory tree example contradicts documented path" — same-cluster (also a `discovery.md` edit; cosmetic, independent).
-
----
-
-# Discovery example tree uses package-source layout for the "project" caption
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** Discovery directory tree example contradicts documented path
-**Kind:** consistency
-
-## Finding
-
-`spec_topics/discovery.md` defines the project-source path as `.pi/looms/*.loom` in the bulleted source list and again in the priority table. The illustrative directory tree at the bottom of the same file is captioned `project/` but lays out `project/looms/…`, not `project/.pi/looms/…`. That layout matches the *package* source rule ("Packages: `looms/` directories"), so the example silently contradicts the prose directly above it.
-
-A reader who skims to the example — a common pattern, since it's the only concrete layout in the file — will plausibly conclude that project-shipped looms live at `project/looms/`. The bulleted list is unambiguous, but the example reinforces the wrong reading and is the artefact most likely to be copied into project READMEs and templates.
-
-## Spec Documents
-
-- `spec_topics/discovery.md` — directory-tree example block (edited)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):** None
-
-The acceptance criteria for V14k (`~/.pi/agent/looms/`), V14l (`.pi/looms/`), and V14m (package `looms/` and `pi.looms`) already cite the correct paths from the bulleted rules. The example fix is a documentation correction and does not change what any leaf must implement or test.
-
-## Consequence
-
-**Severity:** advisory
-
-A diligent implementer who relies on the bulleted rules will produce correct behaviour. An implementer who anchors on the example — or a loom author who copies the layout into their own project — may place project-source looms at `project/looms/` instead of `project/.pi/looms/`, where the discovery walker will not find them. Self-inflicted, easily diagnosed, but a needless waste of debugging time.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Replace the single mislabelled tree with two clearly-captioned trees so the example covers both the project-source and package-source layouts that the bulleted rules describe:
-
-```
-project/                          # project-source layout
-└── .pi/
-    └── looms/
-        ├── code-review.loom         # discovered → /code-review
-        ├── architecture-brief.loom  # discovered → /architecture-brief
-        ├── personas.warp            # library — importable, never a slash command
-        └── shared/
-            └── schemas.warp         # library in a subdirectory; importable via path
-```
-
-```
-my-package/                       # package-source layout
-└── looms/
-    ├── code-review.loom         # discovered → /code-review
-    └── shared/
-        └── schemas.warp         # library — importable, never a slash command
-```
-
-Edge cases the implementer should preserve when editing:
-- Keep the `# discovered → /…` comments on `.loom` files and the `# library` comment on `.warp` files; they are the only place in the file that visually demonstrates which extensions register as slash commands.
-- Keep the `shared/schemas.warp` subdirectory entry in at least one of the two trees; it is the example backing the "non-recursive discovery, but `.warp` reachable via `import`" rule.
-- Do not introduce a `~/.pi/agent/looms/` example tree — the global path is structurally identical to the project path and a third diagram adds no information.
-
-## Related Findings
-
-- "`pi.looms` package.json key is not Pi-recognized" — same-cluster (same file, package-source rule, resolves independently)
-- "`--loom` CLI flag is not a Pi built-in; repeatable string flag type undocumented" — same-cluster (same file, CLI-source rule, resolves independently)
-- "`settings.json` `looms` array shape unspecified" — same-cluster (same file, settings-source rule, resolves independently)
-- "Discovery source failure modes partly unspecified" — same-cluster (same file, orthogonal concern)
-- "Same-priority `.loom` filename collisions undefined" — same-cluster (same file, orthogonal concern)
-- "Slash-name validity from filename unspecified" — same-cluster (same file, orthogonal concern)
 
 ---
 

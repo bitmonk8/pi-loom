@@ -48,13 +48,22 @@ Implementation notes:
 **Slash-name collisions across formats.** A loom and a Pi prompt template (`.md`) or subagent that resolve to the same slash command (e.g., `code-review.loom` and `code-review.md`) are `loom/load/cross-format-collision` reported through Pi's diagnostics; neither is registered. Authors must rename one. Cross-format shadowing is not supported in V1; the rule is symmetric across `.loom`, `.md` prompts, and `.md` subagents. The candidate slug for a `.md` prompt or subagent is derived under the same `^[a-z0-9][a-z0-9_-]*$` rule used for `.loom` stems; `.md` files whose stems do not conform are skipped for collision purposes (they remain Pi's problem to surface).
 
 ```
-project/
-├── looms/
-│   ├── code-review.loom         # discovered → /code-review
-│   ├── architecture-brief.loom  # discovered → /architecture-brief
-│   ├── personas.warp            # library — importable, never a slash command
-│   └── shared/
-│       └── schemas.warp         # library in a subdirectory; importable via path
+project/                          # project-source layout
+└── .pi/
+    └── looms/
+        ├── code-review.loom         # discovered → /code-review
+        ├── architecture-brief.loom  # discovered → /architecture-brief
+        ├── personas.warp            # library — importable, never a slash command
+        └── shared/
+            └── schemas.warp         # library in a subdirectory; importable via path
+```
+
+```
+my-package/                       # package-source layout
+└── looms/
+    ├── code-review.loom         # discovered → /code-review
+    └── shared/
+        └── schemas.warp         # library — importable, never a slash command
 ```
 
 ## Settings file reads
