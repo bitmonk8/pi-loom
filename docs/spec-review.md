@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_90 findings retained, 1 false positives dropped, 0 persistent failures_
+_89 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -7104,71 +7104,6 @@ Concretely:
 ## Related Findings
 
 - "Deferred items unordered and unprioritised" — same-cluster (both target `future-considerations.md`; that finding restructures the existing bullets, this one adds missing ones; resolving them in one pass is natural)
-
----
-
-## spec_topics/pi-integration.md
-
----
-
-# `pi-integration.md` conflates parse-time lowering with runtime AJV validation
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** "Schema validation at parse time" is imprecise
-**Kind:** cross-spec-consistency-broad
-
-## Finding
-
-The "Pi Extension Integration" overview lists a third bullet:
-
-> Schema validation at parse time, surfacing errors as Pi-compatible diagnostics.
-
-This conflates two distinct passes the rest of the spec carefully separates. At parse time the runtime performs schema **lowering** (`schema-subset.md` §"Lowering Algorithm": "each loom file is lowered to a JSON Schema document at parse time") and **structural** subset checks (rejecting `oneOf`, `pattern`, `format`, etc., per `schema-subset.md`). AJV instances are *compiled* once per loom load but only **run** at runtime: against model output for typed `@`-queries (`query.md`, `implementation-notes.md` §Runtime), against bound `args` for slash-command params (`binder.md`), against `invoke<Schema>` return values (`invocation.md`), and against tool input/output (`tool-calls.md`).
-
-The bullet's wording invites two misreadings: that AJV validates documents the moment the file is loaded (it does not — it has nothing to validate yet), and that any validation failure is necessarily a *parse* diagnostic (most are runtime errors surfaced through `QueryError` / `ToolCallError` / `InvokeFailure` / system notes, not the parse-diagnostic channel). A reader of `pi-integration.md` in isolation would build the wrong mental model of when and where errors appear.
-
-## Spec Documents
-
-- `spec_topics/pi-integration.md` — bullet list under the page intro (edited)
-- `spec_topics/schema-subset.md` — §"Lowering Algorithm", §"Rejected keywords" (read-only; canonical source for what *does* happen at parse time)
-- `spec_topics/implementation-notes.md` — §Runtime, AJV configuration paragraph (read-only; canonical source for runtime AJV)
-- `spec_topics/diagnostics.md` — diagnostic shape and codes (read-only; clarifies the parse-diagnostic channel)
-- `spec_topics/query.md`, `spec_topics/binder.md`, `spec_topics/invocation.md`, `spec_topics/tool-calls.md` — each describes a runtime AJV site (read-only; cited only to confirm the runtime/parse split)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):** None
-
-This is a documentation-clarity fix in an introductory bullet. No leaf's acceptance criteria depend on the bullet's wording — `H4` and `M` cite `pi-integration.md` only for the slash-command discovery and file-watcher claims; `V4a`–`V4i` already implement lowering at parse time and AJV at runtime per the authoritative pages.
-
-## Consequence
-
-**Severity:** advisory
-
-An implementer reading `pi-integration.md` first could wire validation into the wrong pass or route runtime AJV failures into the parse-diagnostic surface. The other spec files contradict the bullet, so a careful reader will notice the mismatch — but the bullet is the page that frames Pi integration for new readers, so the wrong frame compounds elsewhere.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Replace the single bullet with two, mirroring the parse/runtime split the rest of the spec uses:
-
-> - **Parse-time:** schema lowering and structural subset checks (per [Schema Subset — Lowering Algorithm](./schema-subset.md#lowering-algorithm)) surface as parse diagnostics with Pi-compatible codes (per [Diagnostics](./diagnostics.md)).
-> - **Runtime:** AJV validation of model responses (typed `@`-queries), bound slash-command args, `invoke<Schema>` return values, and tool input/output surfaces through `QueryError` / `ToolCallError` / `InvokeFailure` and the system-note channel — never as parse diagnostics.
-
-Edge case for the implementer: the *schema-subset whitelist enforcement* test (V4g) is the one place AJV is *invoked* at parse time, but only as a self-check that lowering produced a schema using no forbidden keywords. That is still a parse-time check; it does not weaken the rule that observer-visible AJV validation is runtime.
-
-## Related Findings
-
-- "Cancellation checkpoints miss binder, AJV validation, and schema-lowering" — same-cluster (relies on the same parse-vs-runtime distinction; resolves independently)
-- "Per-query AJV cache key is inconsistent with schema-subset lowering" — same-cluster (touches the per-query lowered document, which is the runtime artifact this finding wants distinguished from parse-time lowering)
-- "AJV schema cache risks singleton pattern prohibited by CLAUDE.md" — same-cluster (adjacent AJV-runtime detail; independent fix)
-- "Implementation toolkit over-prescribed" — same-cluster (rewrites overlapping text in `implementation-notes.md`; independent fix)
-- "No diagnostic codes assigned to named parse errors" — same-cluster (the recommended bullet references diagnostic codes; depends on that finding for the codes to exist, but does not block this rewording)
 
 ---
 
