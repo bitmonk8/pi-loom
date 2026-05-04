@@ -18,9 +18,9 @@
 
 ## V14c — Bare `<name>(args)` call from loom code
 
-- **Spec.** [Tool Calls](../spec_topics/tool-calls.md).
-- **Adds.** Resolves post-rename name against `tools:` table. Pi tool's `execute()` invoked directly with `toolCallId` prefixed `loom-direct:`.
-- **Tests.** Call returns `Result<string, QueryError>`; arguments lowered to JSON with wire names; AJV validates against Pi tool's input schema.
+- **Spec.** [Tool Calls](../spec_topics/tool-calls.md), [Pi Integration Contract — Tool execution from loom code](../spec_topics/pi-integration-contract.md).
+- **Adds.** Resolves post-rename name against `tools:` table. Pi tool's `execute()` invoked directly with `toolCallId` prefixed `loom-direct:`. The `ctx` argument is the live `ExtensionContext` the runtime already holds, with `signal` overridden to `loomAbort.signal`, `sessionManager` overridden to the loom's current session, and `abort()` wrapped to call `loomAbort.abort()`; all other members forward unchanged.
+- **Tests.** Call returns `Result<string, QueryError>`; arguments lowered to JSON with wire names; AJV validates against Pi tool's input schema; `ctx.signal === loomAbort.signal` (never `undefined`); `ctx.sessionManager` matches the loom's current session in both prompt mode and subagent mode; `ctx.abort()` aborts the loom's invocation and not the parent's turn; `ctx.model`, `ctx.modelRegistry`, `ctx.cwd` forward to the live host.
 - **Deps.** V14a, V13c (outbound translation).
 - **Ships when.** Loom code can call Pi tools.
 
@@ -34,9 +34,9 @@
 
 ## V14e — Pi tool wired into `@` queries as model-callable
 
-- **Spec.** [Parameters and Frontmatter](../spec_topics/frontmatter.md) (`tools:`), [Implementation Notes — Runtime](../spec_topics/implementation-notes.md#runtime).
-- **Adds.** Same `tools:` set presented to model during query tool-call loop.
-- **Tests.** Model issuing tool-use against a registered tool runs correctly; tool absent from `tools:` is unavailable to model.
+- **Spec.** [Parameters and Frontmatter](../spec_topics/frontmatter.md) (`tools:`), [Pi Integration Contract — Tool-registration lifetime and visibility](../spec_topics/pi-integration-contract.md), [Implementation Notes — Runtime](../spec_topics/implementation-notes.md#runtime).
+- **Adds.** Same `tools:` set presented to model during query tool-call loop. Wiring is per calling-loom mode: subagent mode passes loom callees through `customTools` on `createAgentSession` plus an explicit `tools` allowlist; prompt mode registers loom callees once per unique lowered-schema hash via the registration cache and gates visibility per-query via `pi.setActiveTools` snapshot/restore in a `finally` block.
+- **Tests.** Model issuing tool-use against a registered tool runs correctly; tool absent from `tools:` is unavailable to model; subagent-mode invocation triggers zero `pi.registerTool` calls and zero `pi.setActiveTools` calls on the user session; prompt-mode invocation triggers exactly one `pi.registerTool` call per unique lowered-schema hash across the extension's lifetime (second invocation with the same shape reuses the cached registration); prompt-mode active-set restoration fires on every exit path (success, `Err`, panic, cancellation); concurrent prompt-mode invocations against the same session serialise their snapshot/restore correctly (sequential per Pi's per-session turn ordering).
 - **Deps.** V14a, V5e.
 - **Ships when.** Same set serves both code and model.
 
@@ -74,9 +74,9 @@
 
 ## V14j — `tools: []` ≡ absent `tools:`
 
-- **Spec.** [Parameters and Frontmatter](../spec_topics/frontmatter.md) (`tools:`).
-- **Adds.** Both produce empty callable set; ambient Pi tools NOT inherited.
-- **Tests.** Both shapes; model has no tools available; loom code has no `<name>(...)` callables.
+- **Spec.** [Parameters and Frontmatter](../spec_topics/frontmatter.md) (`tools:`), [Pi Integration Contract — Tool-registration lifetime and visibility](../spec_topics/pi-integration-contract.md).
+- **Adds.** Both produce empty callable set; ambient Pi tools NOT inherited. The no-inheritance invariant is enforced mechanically by the per-mode wiring rule: subagent mode passes `tools: []` as the explicit allowlist on `createAgentSession`; prompt mode's snapshot/restore swaps in `[...snapshot]` (with no loom-callable additions) for the loom's turns and restores on exit.
+- **Tests.** Both shapes; model has no tools available; loom code has no `<name>(...)` callables; subagent-mode invocation with `tools: []` shows Pi's default built-in `read` / `bash` / `edit` / `write` are NOT in the spawned session's active set; prompt-mode invocation with `tools: []` shows the user session's prior active set is unchanged after restoration (snapshot equality).
 - **Deps.** V14a.
 - **Ships when.** Tool-inheritance footgun closed.
 

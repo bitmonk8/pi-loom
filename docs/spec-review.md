@@ -2,105 +2,11 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_31 findings retained, 1 false positives dropped, 0 persistent failures_
+_28 findings retained, 1 false positives dropped, 0 persistent failures, 3 resolved (Cluster-A: per-mode tool registration)_
 
 ---
 
 ## spec_topics/pi-integration-contract.md
-
----
-
-# Typed-query one-shot tools cannot be unregistered — Pi has no `unregisterTool` API
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** No `pi.unregisterTool()` API — one-shot tools accumulate
-**Kind:** doc-alignment-broad
-
-## Finding
-
-`spec_topics/pi-integration-contract.md` (Conversation drive — prompt mode) prescribes that every typed query "register a synthesised one-shot tool (`__loom_respond_<schema-hash>`) … just before the query and unregistered immediately after." The same mechanism is reused on the spawned `AgentSession` in subagent mode.
-
-The Pi `ExtensionAPI` exposes `registerTool`, `getActiveTools`, `getAllTools`, `setActiveTools`, and `unregisterProvider` — but no `unregisterTool`. There is no public method, undocumented sibling, or registry-mutation hook that removes a tool definition once it has been registered. The "unregister immediately after" clause is therefore unimplementable as written.
-
-The consequences compound across a session: every distinct query schema would permanently add an entry to Pi's global tool registry (visible in `pi.getAllTools()`, in `/tools` listings, and in any UI surface that enumerates tools). In prompt mode the leakage is process-global because Pi's tool registry is shared across all extensions. The synthesised tool also remains callable by the model on subsequent turns of the user's session unless something separately removes it from the active set.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — Conversation drive — prompt mode (edited)
-- `spec_topics/pi-integration-contract.md` — Conversation drive — subagent mode (edited)
-- `spec_topics/query.md` — typed-form mechanics (read-only)
-- `spec_topics/implementation-notes.md` — runtime notes on AJV / schema cache (option-dependent; only edited if cleanup hooks land here)
-
-## Plan Impact
-
-**Phases:** MVP, Vertical V6, Vertical V12, Vertical V18
-
-**Leaves (implementation order):**
-
-- M — Minimal end-to-end loom — (read-only context; only untyped queries land here, but the prompt-mode driver scaffold introduced here will host the registration helpers later)
-- V6i — AJV validation of typed query results — (modified; this is the leaf that first registers `__loom_respond_<hash>` and forces tool-use)
-- V12a — `mode: subagent` accepted; AgentSession spawn — (modified; subagent typed queries reuse the same one-shot mechanism, but on the spawned session may use `customTools` instead of `pi.registerTool`)
-- V18f — File watcher (chokidar) over discovery roots — (modified; reload path must clear or tolerate accumulated registrations)
-- V18h — Custom Pi message type `loom-system-note` and renderer — (read-only; cleanup-on-shutdown notes may use this channel)
-
-## Consequence
-
-**Severity:** correctness
-
-Two implementers will diverge: one will register a fresh tool per query (registry grows unboundedly, model can spuriously call stale `__loom_respond_*` tools on later turns), another will skip registration and rely solely on `tool_choice` injection (works on Anthropic/OpenAI but the result-handling path differs). Either way the spec text cannot be implemented literally, and the gap will surface only when developers test long-running sessions and notice `/tools` filling up with `__loom_respond_<hash>` entries.
-
-## Solution Space
-
-**Shape:** multiple
-
-### Option A — Hash-keyed dedup + active-set toggling (prompt mode)
-
-- **Approach.** Treat `__loom_respond_<schema-hash>` as content-addressed: maintain a per-extension `Map<hash, registered>`; on first encounter call `pi.registerTool` once; on every subsequent typed query with the same schema, reuse the existing registration. Around each query, snapshot `pi.getActiveTools()`, call `pi.setActiveTools([...snapshot, respondToolName])`, force `tool_choice` via `before_provider_request`, run the query, then restore the snapshot via `pi.setActiveTools(snapshot)`. Subscribe to `session_shutdown` and `resources_discover` (`reason: "reload"`) to drop the cache; the registry entries themselves stay until process exit but stop being exposed once deactivated.
-- **Spec edits.** Replace "registered just before the query and unregistered immediately after" in `pi-integration-contract.md` with a description of the registration cache, the active-set save/restore protocol, and the explicit acknowledgement that Pi's tool registry has no removal API in V1. Document that schema-hash collisions are intended to share one registration.
-- **Pros.** Implementable today; bounded growth (one registration per distinct lowered schema, typically a small number per extension lifetime); model never sees stale `__loom_respond_*` tools on free-generation turns.
-- **Cons.** `pi.getAllTools()` still shows accumulated entries (cosmetic for `/tools` listings); requires careful save/restore to interoperate with other extensions that may be mutating the active set concurrently.
-- **Risks.** Race between `setActiveTools` and an in-flight turn from another extension; need to confine the toggle to the loom's own forced-tool turn and accept that interleaving is impossible because Pi runs turns sequentially per session.
-
-### Option B — Subagent-mode `customTools` only (no global registration)
-
-- **Approach.** In subagent mode, pass the synthesised tool through `createAgentSession({ customTools: [respondTool], ... })`. The tool exists only in the spawned session and dies with it — no global registry mutation needed. In prompt mode this option does not apply; prompt-mode typed queries still need Option A.
-- **Spec edits.** Split the contract into prompt-mode and subagent-mode variants. Subagent mode: register via `customTools`. Prompt mode: register globally per Option A.
-- **Pros.** Subagent path is clean and per-invocation isolated; matches the rest of the subagent isolation story (private session, in-memory transcript).
-- **Cons.** Asymmetric implementation between modes; doesn't solve prompt mode at all (which is where the user actually sees `/tools` accumulation).
-- **Risks.** Spec readers must internalise the asymmetry; missing `customTools` support for tool-call-loop coordination needs verification against the Pi SDK semantics for `customTools` + `tool_choice`.
-
-### Option C — Petition Pi for `unregisterTool`
-
-- **Approach.** File a feature request against `@mariozechner/pi-coding-agent` to add `pi.unregisterTool(name)` symmetric with `pi.unregisterProvider(name)`. Block the typed-query implementation on it.
-- **Spec edits.** Keep current wording, but add a "Pi SDK dependency" note recording the required minimum version once the upstream API ships.
-- **Pros.** Cleanest long-term; mirrors the existing `unregisterProvider` shape.
-- **Cons.** External dependency; ships on Pi's timeline, not the loom's; until then V6i is blocked.
-- **Risks.** Pi may decline (registry mutation has invariants we don't see); even if accepted, spec must still describe Option A as the V1 fallback.
-
-### Recommendation
-
-Take **Option A** for prompt mode and **Option B** for subagent mode (i.e., apply both, scoped to the mode where each is cleanest). Concretely, rewrite the `pi-integration-contract.md` typed-query paragraphs to:
-
-1. Define `respondToolName = `__loom_respond_${sha256(loweredSchema).slice(0,12)}`` and a per-extension `Map<string, registered>` cache.
-2. Prompt mode: lazily `pi.registerTool` on first use of each unique hash; toggle the active set via snapshot/restore around the forced-tool turn; never call any non-existent `unregisterTool`.
-3. Subagent mode: pass the same synthesised tool definition through `createAgentSession({ customTools: [...] })`; do not touch the global registry.
-4. Subscribe to `session_shutdown` (and the file watcher's reload path) to clear the hash cache, so a fresh extension instance starts with an empty cache. Acknowledge that Pi-registered entries remain visible in `pi.getAllTools()` until process exit and that this is intentional in V1.
-
-Edge cases the implementer must watch:
-
-- **Active-set restoration on cancellation.** The `setActiveTools(snapshot)` call must run in a `finally`, not after `await query`, so an aborted query still restores the active set.
-- **Concurrent looms in the same extension.** Two slash-command invocations of typed-query looms may overlap in time. Either serialise the active-set toggle behind an internal mutex, or compose: the snapshot must include any other loom's currently-active respond tool.
-- **Hash stability.** The hash must be over the lowered (post `schema-subset.md` lowering) schema, not the source schema, so semantically equivalent schemas in different looms collapse to one registration.
-- **`getActiveTools()` snapshot is a name list, not a set.** Restoring with `setActiveTools(snapshot)` preserves order but trusts that no other extension mutated the registry between snapshot and restore; document this explicitly.
-
-## Related Findings
-
-- "`tools` vs `customTools` in `createAgentSession`" — co-resolve (Option B above relies on `customTools` being the correct field; the same edit can correct both findings)
-- "`before_provider_request` cannot scope to a single turn" — decision-dependency (whichever scoping mechanism is adopted there determines how the forced-`tool_choice` injection in this finding identifies its own turn)
-- "Typed query mechanism contradicts `query.md` tool-loop semantics" — same-cluster (both touch the typed-query mechanism but resolve independently; that finding is about whether tool loops are allowed during typed queries, this one is about lifecycle of the respond tool)
-- "`tools:` registration scope: global vs per-loom" — same-cluster (both expose ambiguity about Pi's global tool registry as a shared mutable surface)
-- "Hot-reload via `ctx.reload()` causes full extension teardown" — decision-dependency (the cleanup-on-reload prescription in Option A only works if the reload path is well-defined)
-- "Forced tool-use unsupported on non-Anthropic/OpenAI providers" — same-cluster (the synthesised respond tool only matters because it is force-selected; provider coverage is orthogonal but co-affected)
 
 ---
 
@@ -183,89 +89,6 @@ Option B. `argument-hint`'s binder role is the load-bearing one in V1 — it mat
 
 ---
 
-# Synthesised `ExtensionContext` for code-side tool calls is under-specified
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** Synthesized `ExtensionContext` is incomplete against the full interface
-**Kind:** codebase-grounding-broad, assumptions
-
-## Finding
-
-`pi-integration-contract.md` (Tool execution from loom code) says the runtime invokes a Pi tool's `execute(toolCallId, params, signal, onUpdate, ctx)` with "a synthesised `ExtensionContext` with `cwd`, `signal`, `sessionManager` … and a no-op `ui`." Pi's `ExtensionContext` interface (`dist/core/extensions/types.d.ts:207`) has eleven additional required members that the spec ignores: `hasUI: boolean`, `modelRegistry: ModelRegistry`, `model: Model<any> | undefined`, `isIdle()`, `abort()`, `hasPendingMessages()`, `shutdown()`, `getContextUsage()`, `compact()`, and `getSystemPrompt()`. A literal three-field stub does not satisfy the interface and will not compile under TypeScript.
-
-The under-specification also obscures a real design choice. In prompt mode the runtime already holds an `ExtensionCommandContext` (which `extends ExtensionContext`) from the slash-command handler, so the natural answer is to reuse that live `ctx` and override the per-call fields (`signal`, `sessionManager` once it diverges). In subagent mode there is no surrounding command context for the spawned `AgentSession`'s tool calls, so the runtime *must* fabricate an `ExtensionContext`-shaped object — and the spec needs to enumerate every field's value (notably what `model`/`modelRegistry` resolve to, and whether `abort()`/`compact()`/`shutdown()` are no-ops or throw).
-
-Tool authors that read these fields (e.g. a tool that consults `ctx.model` to choose token budgets, or `ctx.getContextUsage()` to size output) will see different behaviour between code-side and model-driven invocations unless the contract pins the values down.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — "Tool execution from loom code" bullet (edited)
-- `spec_topics/pi-integration-contract.md` — "Conversation drive — subagent mode" (read-only; defines what a subagent session has access to)
-- `spec_topics/pi-integration.md` — read-only
-
-## Plan Impact
-
-**Phases:** Horizontal, Vertical V14
-
-**Leaves (implementation order):**
-
-- H4 — Pi extension shell — `PiToolHost` adapter shim is the home for the `ExtensionContext` synthesis (modified)
-- V14c — Pi tool's `execute()` invoked directly with `loom-direct:` prefix — directly constructs and passes the synthesised `ctx` (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-A spec-following implementation produces code that does not type-check; the obvious "fill in the blanks with no-ops" workaround silently diverges from the model-driven path (different `model`, `getContextUsage()`, `getSystemPrompt()` behaviour) and any third-party Pi tool that touches those members will misbehave when invoked from loom code. Two implementers will pick different no-op semantics (throw vs return `undefined` vs return a frozen empty value) and produce observably different runtimes.
-
-## Solution Space
-
-**Shape:** multiple
-
-### Option A — Reuse the live command-handler `ctx`, override only what differs
-
-**Approach.** In prompt mode the runtime already holds the `ExtensionCommandContext` passed to the slash-command handler (which `extends ExtensionContext`). The `PiToolHost` retains that reference and, for each code-side `<name>(args)` call, builds a shallow override `{ ...ctx, signal: loomController.signal }` (and, in subagent contexts, swaps `sessionManager` for the spawned session's `ReadonlySessionManager`). All other members forward to the live host.
-
-**Spec edits.** Replace the "synthesised `ExtensionContext`" sentence with: "the runtime forwards the live command-handler `ExtensionContext`, with `signal` overridden to the loom's `AbortController.signal` and `sessionManager` overridden to the active session (the user session in prompt mode, the spawned subagent session in subagent mode)." Note that subagent mode reuses the parent command-handler ctx for the non-session fields (`modelRegistry`, `getContextUsage`, etc.) since no separate `ExtensionContext` is associated with the spawned `AgentSession`.
-
-**Pros.** Type-safe by construction; tools see authentic `model`, `modelRegistry`, `cwd`, `getContextUsage`; no enumeration to maintain when Pi adds members; matches how Pi's own command-driven tool calls already work.
-
-**Cons.** Couples `PiToolHost` to the command-handler lifetime; if a code-side tool call somehow outlives its handler (it should not, given cancellation rules), the forwarded `ctx` may reference a torn-down session. Subagent-side tool calls expose the *parent's* `model`/`getContextUsage` — usually benign but not the spawned session's view.
-
-**Risks.** Implementers may forget to override `signal` and accidentally inherit the parent's signal, defeating loom-level cancellation.
-
-### Option B — Synthesise a full `ExtensionContext` with declared no-op semantics
-
-**Approach.** Spec enumerates every required field and pins its synthesised value: `ui` = no-op object; `hasUI = false`; `cwd` = process cwd; `signal` = loom controller; `sessionManager` = active session; `modelRegistry` = the runtime's `ModelRegistry` instance (already needed for binder); `model` = `undefined`; `isIdle()` = `true`; `abort()` = `loomController.abort()`; `hasPendingMessages()` = `false`; `shutdown()` = no-op; `getContextUsage()` = `undefined`; `compact()` = no-op; `getSystemPrompt()` = `""`.
-
-**Spec edits.** Replace the sentence with a bullet list giving the value of each `ExtensionContext` member, plus a one-line rule: "tools that depend on `model`, `getContextUsage`, or `getSystemPrompt` may receive degenerate values during code-side invocation; tool authors must tolerate this or be invoked only via the model-driven path."
-
-**Pros.** Self-contained — no dependency on a parent command context; uniform across prompt and subagent modes; explicit about which members are degenerate.
-
-**Cons.** Brittle — every Pi version that adds a member to `ExtensionContext` requires a spec update or breaks compilation; tools that genuinely consult `model`/`getContextUsage` see false readings; spec text grows.
-
-**Risks.** Drift between Pi's interface and pi-loom's stub; silent breakage when Pi adds a non-optional member.
-
-### Recommendation
-
-Adopt **Option A** for prompt mode and a *narrower* Option B for subagent mode. The contract should read:
-
-> The runtime constructs the `ctx` argument as follows. **Prompt mode:** forward the live `ExtensionCommandContext` from the slash-command handler, with `signal` overridden to the loom's `AbortController.signal`. **Subagent mode:** forward the same parent `ExtensionCommandContext` with `signal` overridden to the loom's signal and `sessionManager` overridden to the spawned subagent's `ReadonlySessionManager`; all other members (`cwd`, `modelRegistry`, `model`, `getContextUsage`, `getSystemPrompt`, `ui`, `hasUI`, `isIdle`, `abort`, `hasPendingMessages`, `shutdown`, `compact`) are forwarded unchanged from the parent command context.
-
-Edge cases the implementer must watch:
-- The override is a shallow object spread; methods that close over `this` (none in the current `ExtensionContext` interface, but verify) must be `.bind(ctx)`-ed.
-- `abort()` on the synthesised ctx must abort the *loom's* controller, not the parent's — otherwise a tool that calls `ctx.abort()` will tear down the user's whole turn. If reuse is total, this requires a wrapper rather than a spread.
-- `PiToolHost` must therefore retain a reference to the latest command-handler ctx; `H4` should add this to its constructor parameters and `V14c` should consume it.
-- The contract must say what happens when a code-side tool call occurs *before* the first command-handler ctx exists (e.g. during binder execution prior to handler entry). The likely answer is "binder uses a separately-injected minimal ctx; record this as an explicit case."
-
-## Related Findings
-
-- "`ctx.sendUserMessage()` does not exist on command-handler context" — same-cluster (also stems from imprecise modelling of `ExtensionContext` / `ExtensionCommandContext` / `ExtensionAPI` surfaces; resolving requires the same audit pass)
-- "`ctx.signal` is `undefined` in command-handler contexts" — decision-dependency (Option A's "override `signal`" prescription depends on the loom-owned `AbortController` design that finding mandates)
-- "Session-context token counting API unspecified" — same-cluster (touches `ctx.getContextUsage()` semantics; both Option A and Option B must answer what code-side tools see)
-- "Hot-reload via `ctx.reload()` causes full extension teardown" — same-cluster (another `ExtensionCommandContext` member misuse from the same audit gap)
-
----
 
 # Hot-reload via `ctx.reload()` reloads every Pi extension and races concurrent edits
 
@@ -387,7 +210,7 @@ Adopt **Option A** for V1, with the structural-change escape hatch (file added/r
 ## Related Findings
 
 - "`peerDependencies` use `*` ranges; `ajv`, `ajv-formats`, `chokidar` undeclared" — co-resolve (the chokidar dependency declaration is part of this fix)
-- "Synthesized `ExtensionContext` is incomplete against the full interface" — same-cluster (both touch how the runtime interacts with `ExtensionContext` / `ExtensionCommandContext`; resolving them independently is fine)
+- ~~"Synthesized `ExtensionContext` is incomplete against the full interface"~~ — **resolved** by Cluster-A per-mode tool registration decision (live `ctx` forwarding with per-mode overrides; see `pi-integration-contract.md` — "Tool execution from loom code")
 - "`agent_end` fires globally, not per-session" — same-cluster (another instance of the contract under-specifying Pi runtime semantics; resolved independently)
 
 ---
@@ -497,109 +320,10 @@ Implementer must watch:
 
 - "Forced tool-use unsupported on non-Anthropic/OpenAI providers" — co-resolve (the chosen mechanism dictates the provider compatibility surface; both options force tool-use on the final hop)
 - "`before_provider_request` cannot scope to a single turn" — co-resolve (Option A still uses `before_provider_request` for the final hop only; payload fingerprinting is required for either option)
-- "No `pi.unregisterTool()` API — one-shot tools accumulate" — decision-dependency (the respond-tool lifetime is the same in both options; whichever option lands must address registration scope)
+- ~~"No `pi.unregisterTool()` API — one-shot tools accumulate"~~ — **resolved** by Cluster-A (hash-keyed registration cache + active-set snapshot/restore; spec deliberately calls no `unregisterTool`)
 - "Tool-call loop is unbounded" — co-resolve (Option A's loop-budget concern is the same loop)
 - "Coercion follow-up may re-trigger tool side effects" — same-cluster (touches the typed-query loop but resolves on its own)
-- "`tools:` registration scope: global vs per-loom" — same-cluster (both findings concern how query-time tools are exposed but resolve independently)
-
----
-
-# Loom-as-tool registration: scope and lifetime are unspecified and conflict with the per-loom callable-set rule
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** `tools:` registration scope: global vs per-loom
-**Kind:** cross-spec-consistency-broad, implementability, completeness
-
-## Finding
-
-`pi-integration-contract.md` says that whenever loom B appears in another loom's `tools:` list, the runtime "*also* registers it via `pi.registerTool({ name, description, parameters, execute })`." `pi.registerTool` puts a tool in Pi's process-wide tool registry: once registered, the tool is selectable in every Pi session via `pi.setActiveTools(...)` and is, by default, in the active set of any session whose configuration does not exclude it. The contract gives no scope qualifier and no lifetime — there is no statement that the registration is per-loom-invocation, no `pi.unregisterTool` call (no such API exists; see related finding), and no rule about which sessions get to see the tool.
-
-This collides with `frontmatter.md`, which specifies that each loom's `tools:` is a closed callable set: "The Pi session's ambient tools are deliberately *not* inherited — tools have side effects, and silent inheritance produces 'why did my loom touch the filesystem?' surprises. To opt in, list each callable explicitly." If loom A lists `./b.loom`, then under the literal reading of the contract, B becomes a globally-registered Pi tool that any *other* loom's session — and the user's bare Pi session — can call without listing it. That is exactly the silent-inheritance footgun frontmatter.md says it has closed.
-
-The contract is also redundant for subagent mode. `createAgentSession` accepts `customTools` (the tool definitions) and `tools` (the active-name allowlist) directly, so the loom's callable set can be wired into the spawned session without touching Pi's global registry at all. The global-registration step makes operational sense only for the prompt-mode case, where the loom drives the user's existing Pi session and that session's active-tool list is the only handle the model has on what tools exist — and even there, it should be paired with a `setActiveTools` swap so the registration's visibility tracks the loom's invocation, not the process lifetime.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — "Per-loom registration" bullet (edited)
-- `spec_topics/pi-integration-contract.md` — "Conversation drive — subagent mode" bullet (option-dependent)
-- `spec_topics/frontmatter.md` — `tools:` section, "ambient tools are deliberately not inherited" paragraph (read-only)
-- `spec_topics/tool-calls.md` — "No conversation turn" and "Concurrency" paragraphs (read-only)
-- `spec_topics/slash-invocation.md` — prompt vs subagent mode driver behaviour (read-only)
-
-## Plan Impact
-
-**Phases:** Vertical V12, Vertical V14, Vertical V15
-
-**Leaves (implementation order):**
-
-- V12a — `mode: subagent` accepted; AgentSession spawn — (modified)
-- V14e — Pi tool wired into `@` queries as model-callable — (modified)
-- V14j — `tools: []` ≡ absent `tools:` — (modified)
-- V15e — `.loom` paths in `tools:` (default basename naming) — (both)
-- V15f — `.loom` path with `as` rename — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers will diverge: one will take the contract literally and call `pi.registerTool` for every loom referenced anywhere in any frontmatter, leaking subagent-mode looms into the user's Pi session and into other looms; another will read frontmatter.md's no-inheritance rule and scope registration to the invoking session only. The first design also breaks `V14j` (ambient tools not inherited) the moment any loom in the registry lists another loom. The second is correct but is not what the contract says.
-
-## Solution Space
-
-**Shape:** multiple
-
-### Option A — Per-mode wiring; never use global `pi.registerTool` for loom callees
-
-**Approach.** Drop the "*also* registers via `pi.registerTool`" rule. Instead:
-
-- **Subagent mode.** Pass loom callees as `customTools` on `createAgentSession({ customTools, tools, ... })`, with `tools` listing the post-rename names of every entry in the loom's `tools:` (Pi tools and loom callees alike). The spawned session's active set is exactly the loom's callable set; nothing leaks because the session is private to the invocation.
-- **Prompt mode.** Snapshot the user session's existing active-tool set on entry. Synthesise a one-shot `defineTool` per loom callee, register them via `pi.registerTool` with names namespaced (e.g. `__loom_callee_<sha>__<name>`), then call `pi.setActiveTools([...loomCallableSet, ...synthesisedNames])` for the duration of each query. On query exit, restore the snapshot. The synthesised registrations stay in the global registry for the process lifetime (no `pi.unregisterTool` exists) but are unreachable except via `setActiveTools`, and their hashed names guarantee no collision.
-
-**Spec edits.** `pi-integration-contract.md` "Per-loom registration" replaced by two sub-bullets, one per mode. The subagent bullet is the dominant path; the prompt-mode bullet describes the snapshot-and-restore protocol explicitly. `frontmatter.md`'s no-inheritance paragraph is cross-referenced from the new prompt-mode bullet.
-
-**Pros.**
-- Subagent mode is exactly the SDK's intended shape (`customTools` + `tools` allowlist).
-- No leakage between unrelated sessions; `V14j` holds by construction.
-- Lifetime story is precise: per-invocation, scoped via `setActiveTools`.
-
-**Cons.**
-- Prompt-mode synthesised names persist in the global registry (unbounded growth across hot-reloads); must be paired with the existing finding on missing `pi.unregisterTool`.
-- The two modes use different mechanisms; readers must hold both in their head.
-
-**Risks.**
-- `setActiveTools` snapshot/restore must be transactional across overlapping queries (e.g. if a tool call from one loom synchronously triggers another loom). The spec must say the prompt-mode driver serialises `setActiveTools` swaps around each query and that nested loom invocations are subagent-only (already true: `V15g` rejects prompt-mode callees in `tools:`).
-
-### Option B — Global registration, but explicit lifetime and per-session activation
-
-**Approach.** Keep `pi.registerTool` at loom-load time for any loom referenced in another loom's `tools:`, but state the lifetime as "process lifetime, registered once at loom-load." Make activation per-session: the loom interpreter calls `pi.setActiveTools(loomCallableSet)` before every query (prompt mode) and `createAgentSession({ tools, ... })` is the active set (subagent mode). State that the bare user session's active set is unaffected because Pi never auto-activates loom-synthesised tools.
-
-**Spec edits.** `pi-integration-contract.md` "Per-loom registration" amended with a "Lifetime: process; activation: per-invocation via `pi.setActiveTools`" sentence and a sentence stating the registry leak is intentional and bounded by the active-tool gate.
-
-**Pros.**
-- Single registration site; same mechanism in both modes.
-- Matches Pi's existing extension pattern (`registerTool` at startup, `setActiveTools` at runtime).
-
-**Cons.**
-- The "global registry but inactive by default" claim depends on Pi's session machinery never auto-activating extension-registered tools — needs verification against Pi source, not just stated.
-- Hot-reload causes registry growth: every reload re-registers under the same name, which Pi may reject or may silently overwrite — behaviour unspecified by the SDK.
-- Authors inspecting `pi.getAllTools()` see a long list of `__loom_callee_*` entries that are not user-callable, which is noise.
-
-**Risks.**
-- If Pi's default-active policy ever changes, this design silently regresses to the leak the finding describes.
-
-### Recommendation
-
-Take **Option A**. The subagent half is what the SDK's `customTools` field exists for, and the prompt-mode half makes the lifetime question answerable: "active for the duration of a query, then restored." Option B leans on a property of Pi (extension-registered tools are inactive by default in user sessions) that the contract would have to assert without controlling. The implementer must:
-
-- Pair this with the related fix for "No `pi.unregisterTool()` API" — the prompt-mode synthesised names are subject to the same accumulation pattern as `__loom_respond_<hash>` typed-query tools, and both want a single cleanup story (e.g. content-hashed names so re-registration is idempotent).
-- Confirm `pi.setActiveTools` is callable from inside a command handler (not only from `session_start`), and that snapshot/restore around a query is race-free under cancellation. If `setActiveTools` is session-scoped and the prompt-mode driver runs on the user's session, the snapshot must be taken from `pi.getActiveTools()` immediately before the swap and restored in a `try { ... } finally { ... }` around the `agent_end` await.
-
-## Related Findings
-
-- "No `pi.unregisterTool()` API — one-shot tools accumulate" — co-resolve (the prompt-mode synthesised loom-callee tools have the same lifetime problem as typed-query `__loom_respond_<hash>` tools; one cleanup mechanism serves both)
-- "`tools` vs `customTools` in `createAgentSession`" — decision-dependency (Option A's subagent leg requires the corrected `customTools` shape that finding mandates; resolving that finding is a prerequisite)
-- "Tool registry change mid-loom; concurrent model-driven tool execution" — same-cluster (touches snapshot-at-load-vs-per-call semantics for the Pi tool registry; same surface, independent fix)
-- "`tools: []` ≡ absent `tools:`" is enforced by leaf V14j, which the chosen design must not regress — same-cluster (tracked via the Plan Impact list above, not a separate finding)
+- ~~"`tools:` registration scope: global vs per-loom"~~ — **resolved** by Cluster-A (per-mode wiring: `customTools` for subagent, `setActiveTools` snapshot/restore for prompt mode)
 
 ---
 
@@ -697,8 +421,8 @@ Option A. Cost is bounded (load-time check + one new `transport` failure path), 
 
 - "Typed query mechanism contradicts `query.md` tool-loop semantics" — same-cluster (both target the typed-query mechanism's specification; resolve independently)
 - "`before_provider_request` cannot scope to a single turn" — decision-dependency (Option A makes this finding moot by routing through `options.toolChoice` instead of payload mutation; Option B leaves it live)
-- "No `pi.unregisterTool()` API — one-shot tools accumulate" — same-cluster (both arise from the synthesised one-shot tool design; resolve independently)
-- "`tools` vs `customTools` in `createAgentSession`" — same-cluster (touches subagent-mode tool registration, which V12a shares with the typed-query mechanism)
+- ~~"No `pi.unregisterTool()` API — one-shot tools accumulate"~~ — **resolved** by Cluster-A (hash-keyed registration cache + active-set snapshot/restore)
+- "`tools` vs `customTools` in `createAgentSession`" — same-cluster (touches subagent-mode tool registration, which V12a shares with the typed-query mechanism; Cluster-A has now codified `customTools` as the subagent-mode wiring)
 
 ---
 
@@ -2326,7 +2050,7 @@ Edge cases the implementer must pin down at V14c:
 
 - "Binder envelope schema violates schema-subset rules without declaring an exception" — same-cluster (same pattern: a strict spec rule has a real-world violation that needs an explicit carve-out rather than a silent contradiction)
 - "`as` keyword claim contradicted by example" — same-cluster (also touches `tools:` rename surface; under Option B the rename would propagate into the input-schema name and the conflicts compound)
-- "`tools:` registration scope: global vs per-loom" — decision-dependency (Option B requires a stable schema namespace per loom; settling that is a prerequisite)
+- ~~"`tools:` registration scope: global vs per-loom"~~ — **resolved** by Cluster-A per-mode tool registration decision (no longer a prerequisite for Option B; the schema-namespace-per-loom question stands on its own)
 
 ---
 
@@ -2746,7 +2470,7 @@ Edge cases the implementer must cover:
 
 ## Related Findings
 
-- "`tools:` registration scope: global vs per-loom" — co-resolve (case 3 here is the cross-mode prompt-mode form of the same registration-lifetime question; the fix paragraph in `invocation.md` should reference the broader registration model the other finding nails down)
+- ~~"`tools:` registration scope: global vs per-loom"~~ — **resolved** by Cluster-A; the prompt → prompt invoke tools-lifetime case (item 3 of this finding) has been folded into `invocation.md` "Tools and model" as part of that fix
 - "Cancellation surfacing: `InvokeFailure` vs `InvokeCalleeError` — irreconcilable" — same-cluster (both touch `InvokeFailure.reason`; whichever lands first should leave the enum in a state the other can extend)
 - "`InvokeFailure` breaks the `*Error` suffix pattern" — decision-dependency (if `InvokeFailure` is renamed, the `reason: "depth_exceeded"` addition from Option B — and the panic-source naming in Option A — must use the new name)
 - "\"Statically resolvable\" callee never defined" — decision-dependency (case 2 here piggybacks on whatever resolvability algorithm that finding settles)

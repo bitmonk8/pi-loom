@@ -66,9 +66,9 @@
 
 ## V6i — AJV validation of typed query results
 
-- **Spec.** [Query](../spec_topics/query.md) (typed form, `validation_errors`), [Errors and Results](../spec_topics/errors-and-results.md), [Pi Integration Contract](../spec_topics/pi-integration-contract.md) (typed-query behavioural contract), [Implementation Notes — Runtime](../spec_topics/implementation-notes.md#runtime) (V1 reference implementation of the typed-query mechanism).
-- **Adds.** Inferred or explicit schema lowered + handed to provider; response AJV-validated; failure → `Err(QueryError {kind:"validation", ...})`. No coercion follow-ups yet (V13k–m).
-- **Tests.** Valid response unwraps; invalid response yields `validation` error with `attempts: 0`, populated `validation_errors`, and `raw_response` set; AJV error path matches JSON-Pointer format.
+- **Spec.** [Query](../spec_topics/query.md) (typed form, `validation_errors`), [Errors and Results](../spec_topics/errors-and-results.md), [Pi Integration Contract — typed-query behavioural contract](../spec_topics/pi-integration-contract.md), [Pi Integration Contract — Tool-registration lifetime and visibility](../spec_topics/pi-integration-contract.md), [Implementation Notes — Runtime](../spec_topics/implementation-notes.md#runtime) (V1 reference implementation of the typed-query mechanism).
+- **Adds.** Inferred or explicit schema lowered + handed to provider; response AJV-validated; failure → `Err(QueryError {kind:"validation", ...})`. The synthesised `__loom_respond_<slug>` one-shot tool is wired into the model's reach via the per-mode mechanism: subagent mode through `customTools`; prompt mode through the registration cache + `setActiveTools` snapshot/restore (no `pi.unregisterTool` is called — Pi exposes none). No coercion follow-ups yet (V13k–m).
+- **Tests.** Valid response unwraps; invalid response yields `validation` error with `attempts: 0`, populated `validation_errors`, and `raw_response` set; AJV error path matches JSON-Pointer format; two typed queries with the same lowered response schema (across separate invocations of the same loom) trigger exactly one `pi.registerTool` call total in prompt mode (cache hit on the second); typed query in subagent mode triggers zero `pi.registerTool` calls; the user session's active-tool set after a prompt-mode typed-query completion equals the snapshot taken before the query.
 - **Deps.** V6c, V4.
 - **Ships when.** Typed queries return typed values.
 

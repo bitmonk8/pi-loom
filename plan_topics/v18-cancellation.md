@@ -50,9 +50,9 @@
 
 ## V18g — AJV cache invalidation on file change
 
-- **Spec.** [Implementation Notes — Runtime](../spec_topics/implementation-notes.md#runtime) (schema-validation contract; cache invalidation as a property of the validator service).
-- **Adds.** File-watcher event invalidates compiled-schema cache for the changed file and any transitive importer.
-- **Tests.** Schema edit invalidates cache key; next query recompiles; non-changed files retain cache hit.
+- **Spec.** [Implementation Notes — Runtime](../spec_topics/implementation-notes.md#runtime) (schema-validation contract; cache invalidation as a property of the validator service), [Pi Integration Contract — Tool-registration lifetime and visibility](../spec_topics/pi-integration-contract.md).
+- **Adds.** File-watcher event invalidates compiled-schema cache for the changed file and any transitive importer. Because `ctx.reload()` re-runs the extension factory, the per-extension tool-registration cache (`Map<schema-hash, registeredToolName>`) is naturally re-created empty on reload; orphaned entries persist in Pi's global registry per the spec's V1 acceptance, but a fresh extension instance starts clean.
+- **Tests.** Schema edit invalidates cache key; next query recompiles; non-changed files retain cache hit; post-reload the tool-registration cache is empty (asserted by injecting a probe through `PiExtensionAPI`).
 - **Deps.** V18f, V4a.
 - **Ships when.** Cache stays consistent under live edits.
 

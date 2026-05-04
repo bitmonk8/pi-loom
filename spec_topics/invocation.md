@@ -24,6 +24,10 @@ let _ = invoke("./logger.loom", note)?
 
 **Tools and model.** The child uses *its own* frontmatter `model`, `tools`, and `system`. The caller's settings are not inherited. Same justification as for queries: tool/model/system inheritance produces surprise.
 
+For the **prompt → prompt** cell of the cross-mode matrix above (child attaches to the caller's existing user session), the child's `tools:` set replaces the parent's *for the duration of the child's body*: on entry the runtime snapshots the user session's active-tool set and calls `pi.setActiveTools(childCallableSet)`; on return (or any `Err` / panic / cancellation) it restores the snapshot in a `finally` block. This is the same snapshot/restore protocol used per-query in [Pi Integration Contract — Tool-registration lifetime and visibility](./pi-integration-contract.md), generalised to the child's whole body. Nested prompt → prompt invokes stack: each level snapshots the immediately-prior set and restores it on return, so peeling back the call stack restores the user session's original active-tool set in reverse order. The child's queries see only the child's tools; on child return, the parent's queries again see the parent's tools — the interleaving is invisible to the user other than via tool-call cards in the transcript.
+
+For the other three cells (any callee in subagent mode, or a subagent caller invoking a prompt-mode child into the subagent's own private session), the child's tools reach the model through `customTools` on the spawned `AgentSession` and die with the session; no active-set mutation is involved.
+
 **Failures.** `invoke` returns `Result<T, QueryError>`. Invoke-specific failures surface via two new `QueryError` variants in addition to the query-time variants from [Query](./query.md):
 
 ```loom
