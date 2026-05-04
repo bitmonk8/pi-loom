@@ -5,7 +5,7 @@ Loom files are discovered from the same locations as Pi prompt templates, just w
 - Global: `~/.pi/agent/looms/*.loom`
 - Project: `.pi/looms/*.loom`
 - Packages: `looms/` directories or `pi.looms` entries in `package.json`
-- Settings: `looms` array (in `~/.pi/agent/settings.json` or `.pi/settings.json`) with files or directories
+- Settings: `looms` array (in `~/.pi/agent/settings.json` or `.pi/settings.json`) — `string[]` of file or directory paths; per-entry schema under [Settings file reads](#settings-file-reads).
 - CLI: `--loom <path>` (repeatable, optional)
 
 Discovery is **non-recursive** and matches only `*.loom`, mirroring Pi prompt-template behaviour. `.warp` library files are never discovered as slash commands regardless of where they live; they are reached only via `import` (with paths resolved relative to the importing file).
@@ -92,9 +92,23 @@ None of these are fatal: the extension proceeds with whatever settings it could 
 
 **Keys read.** V1 reads two loom-extension keys:
 
-- `looms` — an array of file or directory paths contributing additional looms (per the *Settings* row in the precedence table above; the array's per-entry shape is specified there).
+- `looms` — a `string[]` of file or directory paths contributing additional looms (per the *Settings* row in the precedence table above; per-entry schema in [`looms` entry schema](#looms-entry-schema) below).
 - `looms.binderModel` — a string model identifier used as the fallback for the binder when `binder_model:` is omitted from frontmatter (see [Slash-Command Argument Binding](./binder.md)). The value is a free-form string; the registry-capability check happens at binder-invocation time, not at settings-read time.
 
 No other `looms.*` keys are recognised in V1; unknown keys under the `looms` namespace are ignored without diagnostic (forward-compatibility for later versions).
+
+### `looms` entry schema
+
+The `looms` array follows the same conventions Pi uses for its sibling resource arrays (`extensions`, `skills`, `prompts`, `themes`) — see the *Resources* section of `@mariozechner/pi-coding-agent/docs/settings.md`. Specifically:
+
+- **Type.** `string[]`. Each entry is a file path or a directory path. Object-form entries are not accepted in V1; a non-string entry is rejected with `loom/load/settings-invalid-entry` (severity `error`) and the offending entry does not contribute looms — other entries in the array still process.
+- **Resolution.** Paths in `~/.pi/agent/settings.json` resolve relative to `~/.pi/agent/`; paths in `.pi/settings.json` resolve relative to `.pi/`. `~` expands against the same home directory used elsewhere in this file (`$HOME` on POSIX, `%USERPROFILE%` on Windows). Absolute paths are accepted as-is.
+- **Glob patterns and exclusions.** Glob patterns are supported. A leading `!` excludes paths matching the pattern; a leading `+` force-includes an exact path; a leading `-` force-excludes an exact path. Glob and prefix semantics mirror Pi's `extensions`/`skills`/`prompts`/`themes` arrays exactly — the `looms` array is not a special snowflake.
+- **Directory entries.** A directory entry expands to its non-recursive `*.loom` children, matching the global non-recursion rule stated at the top of this file. Subdirectories are not walked. `.warp` files inside a directory entry are ignored, consistent with the global rule that `.warp` is never discovered as a slash command.
+- **File entries.** A file entry must have the `.loom` extension. A file entry whose path does not end in `.loom` is rejected with `loom/load/invalid-extension` (severity `error`); the file does not register and does not participate in collision detection. The same diagnostic fires for a glob entry that resolves to a non-`.loom` file (e.g. `foo*` matching `foo.md`); non-`.loom` matches are filtered out and reported per match.
+- **Deduplication.** Entries that resolve to the same absolute path post-tilde-expansion and post-glob-expansion are deduplicated silently; this is not a collision.
+- **Project vs. global.** Per the *Merge semantics* rule above, the project array fully replaces the global array — entries are not concatenated. Authors who want to extend rather than replace must repeat the global entries in the project file.
+
+Path-existence and permission failures (missing path, unreadable path, wrong file/directory type) are covered by the *Settings `looms` entry* row of the failure-modes table at the top of this file; the diagnostics there (`loom/load/missing-source`, `loom/load/unreadable-source`, `loom/load/wrong-type-source`) carry an `"settings entry index N"` source descriptor identifying the offending array index.
 
 **Caching and reload.** Both files are read once at extension load and cached. A file-watcher on each of the two paths invalidates the cache on change; reads following invalidation re-apply the merge. Watcher events are debounced to absorb partial writes from editors-in-progress; a malformed intermediate state is treated as a parse error per the failure-modes rule above and does not crash the extension.

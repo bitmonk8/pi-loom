@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_63 findings retained, 1 false positives dropped, 0 persistent failures_
+_62 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -4101,64 +4101,6 @@ Option A. The path-list-separator convention is the standard Pi SDK-compatible w
 - "`pi.looms` package.json key is not Pi-recognized" — same-cluster (both findings clarify that the loom extension owns its discovery surface; Pi does not enumerate sources for it)
 - "Discovery source failure modes partly unspecified" — co-resolve (a CLI-supplied missing path is one of the cases that finding tabulates; the failure-mode entry for `--loom` cannot be written until this finding picks an option)
 - "Discovery directory tree example contradicts documented path" — same-cluster (touches the same `discovery.md` source list section but resolves independently)
-
----
-
-# `settings.json` `looms` array entry schema is undefined
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** `settings.json` `looms` array shape unspecified
-**Kind:** prescription, completeness
-
-## Finding
-
-`spec_topics/discovery.md` lists "Settings: `looms` array (in `~/.pi/agent/settings.json` or `.pi/settings.json`) with files or directories" as a discovery source, but says nothing about the entry schema. Implementers are left to guess every concrete question: are entries plain strings or objects? Is `~` expanded? Are absolute paths required, or are relative paths resolved against the settings file's base directory (the convention Pi uses for `extensions`/`skills`/`prompts`/`themes`)? Are glob patterns and `!`/`+`/`-` exclusion prefixes honoured, as they are for the sibling resource arrays documented in Pi's `settings.md`? When an entry resolves to a directory, is it scanned non-recursively for `*.loom` (matching the spec's global non-recursion rule) or recursively?
-
-Pi already establishes a clear precedent: `extensions`, `skills`, `prompts`, and `themes` are uniformly `string[]` with glob support, `!pattern` exclusions, `+path`/`-path` force-include/exclude prefixes, `~` and absolute path support, and base-relative resolution (`~/.pi/agent/` for global, `.pi/` for project). The `looms` array gives no reason to deviate from that shape — but until the spec says so explicitly, V14n cannot be tested against any single behaviour, and two reasonable implementers will diverge on at least directory recursion and glob handling.
-
-## Spec Documents
-
-- `spec_topics/discovery.md` — "Directory Convention" list and source-priority list (edited)
-
-## Plan Impact
-
-**Phases:** Vertical V14
-
-**Leaves (implementation order):**
-
-- V14n — Discovery: settings `looms` array — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Without an explicit entry schema, V14n's tests are underdetermined: implementers can choose recursive vs non-recursive directory expansion, glob support vs literal paths, and tilde-expansion behaviour independently, producing settings files that load different sets of looms across installations. Project-team `.pi/settings.json` files become non-portable.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `spec_topics/discovery.md`, replace the bullet "Settings: `looms` array … with files or directories" with an explicit reference to Pi's resource-array convention. Specify:
-
-- **Type.** `string[]`. Each entry is a file path or directory path.
-- **Resolution.** Paths in `~/.pi/agent/settings.json` resolve relative to `~/.pi/agent/`; paths in `.pi/settings.json` resolve relative to `.pi/`. `~` expansion and absolute paths are supported. (Mirror the rule in Pi's `settings.md` "Resources" section.)
-- **Glob and exclusion.** Glob patterns are supported. `!pattern` excludes; `+path` force-includes an exact path; `-path` force-excludes one. (Mirror Pi's `extensions`/`skills`/`prompts`/`themes` semantics so the `looms` array is not a special snowflake.)
-- **Directory entries.** A directory entry expands to its non-recursive `*.loom` children, matching the global non-recursion rule stated earlier in the same file. Subdirectories are not walked. `.warp` files in a directory entry are ignored (consistent with the global "`.warp` is never discovered as a slash command" rule).
-- **File entries.** A file entry must end in `.loom`; non-`.loom` file entries are rejected at load time with a `loom/load/invalid-extension` diagnostic.
-
-Edge cases the implementer must watch:
-
-- Per-source failure modes (missing path, unreadable path, typo) are covered by the sibling finding "Discovery source failure modes partly unspecified" — settle that finding's table before writing V14n's tests, so the schema and the failure semantics ship together.
-- Project `.pi/settings.json` overrides global per Pi's nested-merge rule, but `looms` is an array, not a nested object — confirm in the spec whether project `looms` *replaces* or *concatenates with* global `looms`. Pi's array settings (`extensions`, `skills`, etc.) replace rather than merge; follow that precedent unless explicitly justified otherwise.
-
-## Related Findings
-
-- "Discovery source failure modes partly unspecified" — co-resolve (the schema is incomplete without per-entry failure semantics; both should land in the same edit to `discovery.md`).
-- "`pi.looms` package.json key is not Pi-recognized" — same-cluster (both touch the discovery-sources list; resolved independently but the edits sit in adjacent paragraphs).
-- "`--loom` CLI flag is not a Pi built-in; repeatable string flag type undocumented" — same-cluster (third sibling in the discovery-sources list; independent fix).
-- "Discovery directory tree example contradicts documented path" — same-cluster (also a `discovery.md` edit; cosmetic, independent).
 
 ---
 

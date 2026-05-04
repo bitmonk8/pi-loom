@@ -132,6 +132,8 @@ The table enumerates every diagnostic the V1 spec defines. *Severity* is `error`
 | `loom/load/unreadable` | W | load | A `*.loom` file discovered under any source is itself unreadable (broken symlink, EACCES on the file, transient I/O error). The loom is not registered; the rest of the scan continues. | [Discovery — Failure modes](./discovery.md) | — |
 | `loom/load/settings-unreadable` | W | load | `~/.pi/agent/settings.json` or `.pi/settings.json` exists but is unreadable. | [Discovery — Settings file reads](./discovery.md) | — |
 | `loom/load/settings-invalid-json` | W | load | A settings file is present but not valid UTF-8 JSON. | [Discovery — Settings file reads](./discovery.md) | — |
+| `loom/load/settings-invalid-entry` | E | load | A `looms` array entry is not a string (object-form entries are not accepted in V1). | [Discovery — `looms` entry schema](./discovery.md) | Use a string path; object-form entries are reserved. |
+| `loom/load/invalid-extension` | E | load | A settings `looms` file entry (or a glob match) resolves to a file whose name does not end in `.loom`. | [Discovery — `looms` entry schema](./discovery.md) | Point the entry at a `.loom` file or narrow the glob. |
 
 ### `loom/runtime/*` — runtime panics
 
