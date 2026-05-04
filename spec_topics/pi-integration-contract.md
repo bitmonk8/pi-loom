@@ -29,6 +29,13 @@ The runtime depends on a small, named surface from `@mariozechner/pi-coding-agen
 
 **System notes.** Echoes (binder result), `Err`-in-prompt-mode notes, and binder failure messages are emitted via `pi.sendMessage({ customType: "loom-system-note", content, display: true, details: { ... } }, { triggerTurn: false })`. A `pi.registerMessageRenderer("loom-system-note", ...)` formats them as one-line, dim-styled notes in the transcript. The custom-type approach (rather than `ctx.ui.notify(...)`) is chosen because notes need to persist in the session transcript for replay and `/tree` navigation, not just appear transiently.
 
+The `pi.sendMessage` call for `loom-system-note` is treated as best-effort. If it throws or rejects, the runtime falls back in this order:
+
+1. `ctx.ui.notify(content, "error")` — a transient surface so the user still sees the message in the current session, even if it does not persist in the transcript.
+2. A `loom/runtime/system-note-delivery-failed` diagnostic emitted through the standard diagnostics channel (see [Diagnostics](./diagnostics.md)), with `message` set to the original note's `content` and `hint` set to the underlying `sendMessage` error's message. This diagnostic is itself best-effort: if both channels fail, the failure is logged to `console.error` and execution continues.
+
+The fallback path is taken on any thrown or rejected value from `sendMessage`; it does not retry the original call. The fallback never aborts the slash-command handler or the spawned subagent session. Implementers must guard against re-entry: if a future `loom/runtime/*` handler ever routes diagnostics back through `loom-system-note`, the diagnostic step in this fallback MUST NOT re-invoke `pi.sendMessage`. `ctx.ui.notify` itself can throw (e.g. in print mode where Pi's UI is not attached); wrap it in the same try/catch and proceed to the diagnostic step. For panic-routed notes, the original panic message MUST be included in the final-resort `console.error` log so post-mortem debugging retains the stack.
+
 **Tool execution from loom code.** Code-side `<name>(args)` calls invoke the Pi tool's `execute(toolCallId, params, signal, onUpdate, ctx)` directly:
 
 - `toolCallId` is a synthesised UUID prefixed `loom-direct:`.

@@ -143,9 +143,9 @@ The table enumerates every diagnostic the V1 spec defines. *Severity* is `error`
 | `loom/load/manifest-invalid` | E | load | A package's `pi.looms` field is not a `string[]` (a string, object, `null`, or an array containing non-string entries). The package contributes no looms; other packages still process. | [Discovery — Package discovery](./discovery.md#package-discovery) | Set `pi.looms` to an array of path strings, mirroring `pi.skills` / `pi.prompts`. |
 | `loom/load/manifest-escapes-package` | W | load | A `pi.looms` entry's resolved path lies outside the package root (via `..` segments or an absolute path). The entry is skipped; other entries in the same array still process. | [Discovery — Package discovery](./discovery.md#package-discovery) | Use a path relative to the package root. |
 
-### `loom/runtime/*` — runtime panics
+### `loom/runtime/*` — runtime panics and delivery failures
 
-V1 has exactly five panic sources. Each surfaces through the channels defined in [Errors and Results — Runtime panics](./errors-and-results.md) (slash-command system note for top-level looms; `Err(QueryError { kind: "invoke_failure", reason: "panic", ... })` to an `invoke` parent).
+V1 has exactly five panic sources. Each surfaces through the channels defined in [Errors and Results — Runtime panics](./errors-and-results.md) (slash-command system note for top-level looms; `Err(QueryError { kind: "invoke_failure", reason: "panic", ... })` to an `invoke` parent). One additional `loom/runtime/*` code — `system-note-delivery-failed` — is not a panic but a delivery-failure diagnostic emitted by the system-note fallback path defined in [Pi Integration Contract — System notes](./pi-integration-contract.md).
 
 | Code | Sev | Phase | Trigger | Spec rule | Message template |
 |---|---|---|---|---|---|
@@ -154,5 +154,6 @@ V1 has exactly five panic sources. Each surfaces through the channels defined in
 | `loom/runtime/null-member-access` | E | runtime | `expr.field` where `expr` evaluated to `null`. | [Errors and Results — Runtime panics](./errors-and-results.md) | `null member access: .<field>`. |
 | `loom/runtime/null-index-access` | E | runtime | `expr[i]` where `expr` evaluated to `null`. | [Errors and Results — Runtime panics](./errors-and-results.md) | `null index access: [<i>]`. |
 | `loom/runtime/missing-object-key` | E | runtime | `obj[k]` where `k` is not a present loom-side field name on `obj`. | [Errors and Results — Runtime panics](./errors-and-results.md) | `missing object key: <key>`. |
+| `loom/runtime/system-note-delivery-failed` | E | runtime | `pi.sendMessage` for a `loom-system-note` threw or rejected; emitted by the fallback path after `ctx.ui.notify` has been attempted. `message` carries the original note's `content`; `hint` carries the underlying `sendMessage` error's message. | [Pi Integration Contract — System notes](./pi-integration-contract.md) | `system-note delivery failed: <original content first line>`. |
 
 Division by zero, integer overflow, and explicit author-driven panics are deliberately not in V1's panic catalogue — division yields IEEE-754 `Infinity` / `NaN` per the `number` rules in [Expressions](./expressions.md), and there is no `panic(...)` builtin. Adding any of those is a registry-level change per rule 2 above.

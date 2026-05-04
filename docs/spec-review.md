@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_48 findings retained, 1 false positives dropped, 0 persistent failures_
+_47 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -1579,73 +1579,6 @@ Edge cases for the implementer:
 - "No `pi.unregisterTool()` API — one-shot tools accumulate" — co-resolve (the one-shot `__loom_respond_<hash>` tool is part of the same lifecycle; if no unregister API exists, disposal cannot be complete and the contract must say so)
 - "Cancellation checkpoints miss binder, AJV validation, and schema-lowering" — same-cluster (both touch cancellation correctness; the disposal `finally` runs regardless of where the abort was observed, so this finding doesn't depend on the checkpoint set being expanded)
 - "`pi.sendMessage` failure has no fallback" — same-cluster (both improve failure-path robustness in the Pi integration; resolve independently)
-
----
-
-# `pi.sendMessage` failure leaves system notes silently dropped
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** `pi.sendMessage` failure has no fallback
-**Kind:** error-model
-
-## Finding
-
-The Pi integration contract routes every loom-originated user-facing diagnostic — binder echoes, binder failure messages, prompt-mode top-level `Err` notes, and runtime panic notes — through a single `pi.sendMessage({ customType: "loom-system-note", ... }, { triggerTurn: false })` call. The spec does not say what happens if that call throws or rejects. Plausible failure sources include: the message renderer not being registered (load-order race against `pi.registerMessageRenderer`), an internal Pi RPC transport hiccup in RPC mode, a `customType` validation error after a future Pi API revision, or the call being attempted after session shutdown.
-
-Because the system note is the only user-visible signal that something went wrong inside the loom (the user session is intentionally not torn down on panic or top-level `Err`), losing the note means a panic, a binder failure, or an `Err`-in-prompt-mode silently degrades to "the slash command did nothing." The user has no way to distinguish that from a successful no-op loom.
-
-The spec also does not commit `sendMessage` to be infallible, nor does it define a secondary channel. Two implementers will diverge: one will let the rejection propagate (tearing down the slash-command handler), one will swallow it, one will log to stderr that no operator will see.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — "System notes" paragraph (edited)
-- `spec_topics/diagnostics.md` — `loom/runtime/*` namespace listing (edited — add the new code)
-- `spec_topics/slash-invocation.md` — top-level `Err` system-note paragraph (read-only — already defers to the contract)
-
-## Plan Impact
-
-**Phases:** MVP, Vertical V18
-
-**Leaves (implementation order):**
-
-- M — Minimal end-to-end loom — (modified — its "AbortError surfaces as a system note" test must tolerate the fallback path)
-- V18h — Custom Pi message type `loom-system-note` and renderer — (modified — the leaf that owns the `sendMessage` adapter; the fallback lives here)
-- V18i — Per-`kind` formatting for prompt-mode top-level `Err` — (modified — must route through the same fallback)
-- V18m — Panic routing: slash-command surface — (modified — panic notes go via the same channel and inherit the fallback)
-
-## Consequence
-
-**Severity:** correctness
-
-A `pi.sendMessage` rejection currently has unspecified handling: implementations may crash the slash-command handler (tearing down the user session — the exact outcome the spec works to avoid for panics), silently swallow the error, or log it where no user looks. Since the system note is often the only artefact of a failed loom run, dropping it converts a visible failure into an invisible one and undermines the spec's "user is always told what happened" guarantee.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add to the "System notes" paragraph in `spec_topics/pi-integration-contract.md`:
-
-> The `pi.sendMessage` call for `loom-system-note` is treated as best-effort. If it throws or rejects, the runtime falls back in this order:
->
-> 1. `ctx.ui.notify(content, "error")` — a transient surface so the user still sees the message in the current session, even if it does not persist in the transcript.
-> 2. A `loom/runtime/system-note-delivery-failed` diagnostic emitted through the standard diagnostics channel, with `message` set to the original note's `content` and `hint` set to the underlying `sendMessage` error's message. This diagnostic is itself best-effort: if both channels fail, the failure is logged to `console.error` and execution continues.
->
-> The fallback path is taken on any thrown or rejected value from `sendMessage`; it does not retry the original call. The fallback never aborts the slash-command handler or the spawned subagent session.
-
-Add `loom/runtime/system-note-delivery-failed` to the `loom/runtime/*` examples in `spec_topics/diagnostics.md` so the new code is part of the published namespace.
-
-Edge cases the implementer must watch:
-- `ctx.ui.notify` itself can throw (e.g. in print mode `hasUI` is `false`); wrap it in the same try/catch and proceed to the diagnostic step.
-- The fallback must not re-enter `sendMessage` for the diagnostic (e.g. if a future `loom/runtime/*` handler routes diagnostics back through `loom-system-note`); guard with a per-call "already-falling-back" flag.
-- For panic-routed notes (V18m), the fallback runs after the panic has been caught; ensure the original panic message is preserved in the `console.error` final-resort log so post-mortem debugging still has the stack.
-
-## Related Findings
-
-- "`LoadExtensionsResult.errors` is not a runtime-callable diagnostics channel" — same-cluster (defines the canonical pair of delivery channels — `pi.sendMessage` and `ctx.ui.notify` — that this finding's fallback also references; the two should be specified together)
-- "Discarded `Result` is a silent observability black hole" — same-cluster (also concerns invisible failures via the system-note channel; both findings expand the spec's observability surface but resolve via independent edits)
-- "Subagent session resource teardown on failure unspecified" — same-cluster (both are error-model gaps in the contract page; resolve independently)
 
 ---
 
