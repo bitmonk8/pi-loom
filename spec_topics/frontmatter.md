@@ -8,7 +8,7 @@ description: Programmatic, parameterised code review
 argument-hint: "<language> <focus_areas...>"
 mode: subagent              # prompt | subagent
 model: claude-sonnet-4-5    # model used for every query in this loom
-binder_model: claude-haiku  # model used to bind slash-command args to params (default: looms.binderModel in settings.json)
+bind_model: claude-haiku    # model used to bind slash-command args to params (default: looms.binderModel in settings.json)
 bind_context: none          # none | session — see Slash-Command Argument Binding
 bind_echo: true             # echo bound args before execution (default: true)
 tools: read, grep, bash     # tools available to the model during query-time tool loops
@@ -35,7 +35,7 @@ The table below is normative: for each recognised V1 field it pins down whether 
 | `description` | no | `null` | The slash-command entry registers without description text; the binder prompt omits the `Description:` line. No warning — internal-only looms legitimately omit this. |
 | `argument-hint` | no | `null` | Autocomplete shows `/<name>` with no hint; the binder prompt omits the `Argument hint:` line. Legal even when `params:` is non-empty (the binder simply has one fewer grounding signal); no warning. |
 | `model` | no | Pi session's model at invocation time | The loom inherits the caller's model and pins it for the loom's lifetime; documented in the `model` prose below. |
-| `binder_model` | no | `looms.binderModel` setting → built-in tier-2 default | Slash-command argument binding uses the fallback model; documented under [Slash-Command Argument Binding](./binder.md). |
+| `bind_model` | no | `looms.binderModel` setting → built-in tier-2 default | Slash-command argument binding uses the fallback model; documented under [Slash-Command Argument Binding](./binder.md). |
 | `bind_context` | no | `none` | The binder runs with no caller-session context; documented under [Slash-Command Argument Binding — Binder context](./binder.md). |
 | `bind_echo` | no | `true` | Bound args are echoed before execution, except auto-suppressed on the binder bypass; documented under [Slash-Command Argument Binding — Echo policy](./binder.md). |
 | `tools` | no | empty callable set | The model cannot make tool calls and loom code has no `<name>(...)` callables; documented in the `tools` prose below. `tools: []` and absent `tools:` are equivalent. |
@@ -48,7 +48,7 @@ The table below is normative: for each recognised V1 field it pins down whether 
 Frontmatter mirrors Pi's prompt-template frontmatter (`description`, `argument-hint`) plus loom-specific fields. **No `name` field** — the filename is canonical, exactly as for Pi prompts (`code-review.loom` is invoked as `/code-review`); see [Discovery — Filename validity](./discovery.md) for the accepted stem regex and the `loom/load/invalid-slash-name` rejection rule. Frontmatter fields outside the V1 vocabulary surface as `loom/load/unknown-frontmatter-field` (warning); fields reserved for deferred V1 features surface as `loom/load/deferred-frontmatter-field` (warning). Both keep loading the loom; see [Diagnostics](./diagnostics.md).
 
 - `params` are validated with AJV at invocation time and exposed as typed variables in the loom body. When invoked from a slash command, the runtime binds free-form slash arguments to `params` via an LLM call (see [Slash-Command Argument Binding](./binder.md)); when invoked from `invoke(...)` or as a registered tool, arguments arrive already typed and are validated directly.
-- `binder_model`, `bind_context`, and `bind_echo` configure slash-command argument binding. All three are optional with sensible defaults; see [Slash-Command Argument Binding](./binder.md).
+- `bind_model`, `bind_context`, and `bind_echo` configure slash-command argument binding. All three are optional with sensible defaults; see [Slash-Command Argument Binding](./binder.md).
   - **Defaults.** A param may declare a default with `field: type = literal`. The RHS must be a parse-time literal (string, number, boolean, `null`, or a JSON-shaped object/array literal); no expressions, no `${param}` interpolation. When a slash-command invocation omits the corresponding positional argument, the default is filled in before AJV validation. Defaults are the only place where literal-valued defaulting exists in V1; schema field declarations do not support defaults (JSON Schema's `default:` is advisory metadata, not provider-enforced, and would mislead authors about what the model emits).
 
     ```yaml

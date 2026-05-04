@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_54 findings retained, 1 false positives dropped, 0 persistent failures_
+_53 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -2999,70 +2999,6 @@ Edge cases the implementer must handle:
 - "`LoadExtensionsResult.errors` is not a runtime-callable diagnostics channel" — decision-dependency (Option B routes a new load-time error code through that channel; the channel's resolution shape constrains how `loom/load/binder-model-unresolved` is surfaced)
 - "`settings.json` `looms` array shape unspecified" — decision-dependency (Option B adds `looms.binderModel` as a required field; the settings-shape finding must accommodate it)
 - "No diagnostic codes assigned to named parse errors" — same-cluster (Option B introduces two new diagnostic codes that the codes-assignment finding's resolution must enumerate)
-
----
-
-# `binder_model` field name breaks the `bind_*` prefix family
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** `binder_model` prefix inconsistent with `bind_context` / `bind_echo`
-**Kind:** naming
-
-## Finding
-
-The frontmatter exposes three fields that all configure the slash-command argument binder: `binder_model:`, `bind_context:`, and `bind_echo:`. Two of them share a `bind_` verb-stem prefix; the third uses the agentive-noun form `binder_`. The split is not documented and has no functional basis — `binder_model` selects the model the binder uses, exactly parallel to `bind_context` selecting the context the binder sees and `bind_echo` selecting whether the binder echoes.
-
-The inconsistency surfaces in three places that authors and implementers will read together: the frontmatter table (`spec_topics/frontmatter.md` lines 11–13 and the prose at line 31 that already groups them as "all three"), the binder spec (`spec_topics/binder.md`, where the field is referenced as `binder_model:`), and the coverage matrix (`plan_topics/coverage-matrix.md` line 26, which already pattern-matches them as `binder_*`, `bind_*` — codifying the split rather than questioning it).
-
-There is no third reading of `bind` here that would resolve the asymmetry. The Pi-level setting key `looms.binderModel` is a separate naming axis (camelCase host setting key vs snake_case frontmatter field) and is not affected.
-
-## Spec Documents
-
-- `spec_topics/frontmatter.md` — frontmatter table and binder-fields paragraph (edited)
-- `spec_topics/binder.md` — "Binder model" paragraph (edited)
-- `spec_topics/implementation-notes.md` — runtime binder description (edited)
-- `spec_topics/future-considerations.md` — read-only (no occurrence of `binder_model`, only `bind_context`)
-
-## Plan Impact
-
-**Phases:** Vertical V3, Vertical V16
-
-**Leaves (implementation order):**
-
-- V3a — Real YAML frontmatter recognised fields list — (modified)
-- V16e — `binder_model` resolution chain — (modified)
-
-Coverage-matrix row 26 (`binder_*`, `bind_*`) collapses to `bind_*` after the rename and should be edited alongside V16e. V12f references `bind_context: session` only and is unaffected.
-
-## Consequence
-
-**Severity:** cosmetic
-
-Authors must remember which binder field uses which prefix; tab-completion and grep both fragment across two stems. No runtime behaviour changes either way, but the cost of fixing it is near-zero before V16 ships and rises sharply after authors have written `.loom` files against the published name.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Rename the frontmatter field `binder_model` → `bind_model`. Apply the rename to:
-
-1. `spec_topics/frontmatter.md` lines 11 (key) and 31 (prose listing the three binder fields — change "`binder_model`, `bind_context`, and `bind_echo`" to "`bind_model`, `bind_context`, and `bind_echo`").
-2. `spec_topics/binder.md` line 7 — the "Binder model" paragraph that currently introduces the field as "`binder_model:` frontmatter field". Both occurrences on that line.
-3. `spec_topics/implementation-notes.md` line 23 — the runtime sketch that says "ephemeral call to `binder_model` (resolved from frontmatter…)". Note the variable here is the resolved model identifier, not the frontmatter key — but the prose currently uses the frontmatter-key spelling, so the rename propagates.
-4. `plan_topics/v16-binder.md` V16e heading and body.
-5. `plan_topics/v3-frontmatter.md` recognised-fields list.
-6. `plan_topics/coverage-matrix.md` row 26 — collapse `binder_*`, `bind_*` to a single `bind_*` group.
-
-Leave the Pi-level setting key `looms.binderModel` untouched — it lives in a different namespace (Pi settings, camelCase) and follows a different convention. The rename is purely the loom frontmatter surface.
-
-Edge case: no in-tree examples or tests reference `binder_model` yet (`grep -r binder_model docs/ examples/` is empty outside spec/plan/review files), so the rename has no downstream sample-loom fixups.
-
-## Related Findings
-
-- "Binder model resolution unspecified when no model is configured" — same-cluster (touches the same field; resolves independently — that finding governs the resolution algorithm, this one governs the spelling)
-- "`looms.binderModel` described as a 'Pi-level setting' when it is extension-owned" — same-cluster (sibling key on the Pi-settings side, but unaffected by this rename — confirms the two namespaces stay separate)
 
 ---
 

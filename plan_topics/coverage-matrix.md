@@ -23,7 +23,7 @@ Every executable spec section maps to a closing leaf. Use this matrix at V18o to
 | [Parameters and Frontmatter — `model`](../spec_topics/frontmatter.md) | V3a (recognised); applies per-query in V5e onward |
 | [Parameters and Frontmatter — `tools`](../spec_topics/frontmatter.md) | V14a, V14b, V15e–V15g |
 | [Parameters and Frontmatter — `system`](../spec_topics/frontmatter.md) | V12b, V12c |
-| [Parameters and Frontmatter — `binder_*`, `bind_*`](../spec_topics/frontmatter.md) | V16e–V16k |
+| [Parameters and Frontmatter — `bind_*`](../spec_topics/frontmatter.md) | V16e–V16k |
 | [Parameters and Frontmatter — `retry`](../spec_topics/frontmatter.md) | V13f, V13g–V13j |
 | [Template Interpolation](../spec_topics/frontmatter.md#template-interpolation) | V5b |
 | [Query — untyped](../spec_topics/query.md) | V5a, V5e, V5f, V5g |

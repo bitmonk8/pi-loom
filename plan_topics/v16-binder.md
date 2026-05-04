@@ -32,10 +32,10 @@
 - **Deps.** V16c, V16a.
 - **Ships when.** Binder isn't asked to invent defaults.
 
-## V16e — `binder_model` resolution chain
+## V16e — `bind_model` resolution chain
 
 - **Spec.** [Slash-Command Argument Binding](../spec_topics/binder.md) (binder model).
-- **Adds.** Frontmatter `binder_model:` → `settings.json` `looms.binderModel` (read via the V14n mechanism) → built-in default (cheap tier-2 model identifier).
+- **Adds.** Frontmatter `bind_model:` → `settings.json` `looms.binderModel` (read via the V14n mechanism) → built-in default (cheap tier-2 model identifier).
 - **Tests.** Each resolution step; missing all → built-in default.
 - **Deps.** V3a, V14n.
 - **Ships when.** Binder model resolves predictably.
