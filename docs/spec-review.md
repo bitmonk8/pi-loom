@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_41 findings retained, 1 false positives dropped, 0 persistent failures_
+_40 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -828,71 +828,6 @@ Edge cases the implementer must watch:
 - "System-note copy strings: prescription level unresolved" — same-cluster (both concern what goes into `loom-system-note` content; resolve channel first, then prescription level)
 - "Discovery source failure modes partly unspecified" — co-resolve (the failure-mode answer is "emit through the channel defined here")
 - "No diagnostic codes assigned to named parse errors" — same-cluster (codes are the payload; this finding settles the envelope)
-
----
-
-# `ToolDefinition` is mis-shaped: missing `label`, and `parameters` must be a TypeBox `TSchema`
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** `ToolDefinition` requires `label: string`; `parameters` must be TypeBox
-**Kind:** codebase-grounding-broad
-
-## Finding
-
-The spec describes registering loom-derived tools via `pi.registerTool({ name, description, parameters, execute })`, with `parameters` being either "the lowered query schema" (for the synthesised `__loom_respond_<schema-hash>` typed-query tool) or "lowered to Pi tool definitions" (for a `.loom` callee in another loom's `tools:` set). The Pi `ToolDefinition` interface exported from `@mariozechner/pi-coding-agent` (see `dist/core/extensions/types.d.ts` line 328) is not satisfiable by either description:
-
-1. `label: string` is a required field on `ToolDefinition`. The spec's example object literal omits it. Any extension built to that shape fails TypeScript compilation against the real interface.
-2. `parameters` is typed `TParams extends TSchema` — a TypeBox schema, not a raw JSON Schema object. The `pi-integration-contract.md` body twice implies a raw JSON Schema document is handed to `pi.registerTool` ("the lowered query schema", "lowered to Pi tool definitions"). The single inline `<params-schema-as-typebox>` placeholder gestures at the constraint but does not say how a `Lowered JSON Schema` (the artefact V4 produces) becomes a `TSchema`.
-
-The two leaks combined mean a faithful implementation of `pi-integration-contract.md` will not compile, and the runtime path that bridges loom's lowering pipeline to TypeBox is undocumented — implementers must invent it.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — "Per-loom registration" bullet (line 14) and "Conversation drive — prompt mode" typed-query bullet (line 19) (edited)
-- `spec_topics/schema-subset.md` — "Lowering Algorithm" (read-only; defines what loom hands to Pi)
-- `spec_topics/tool-calls.md` — "Argument shape" paragraph (read-only; references `TypeBox / JSON Schema`)
-- `spec_topics/implementation-notes.md` — Runtime section (option-dependent; the wrap helper may be documented here instead of in the contract)
-
-## Plan Impact
-
-**Phases:** MVP, Vertical V6, Vertical V12, Vertical V15
-
-**Leaves (implementation order):**
-
-- M — Minimal end-to-end loom — (read-only) — registers a slash command, not a tool, but its H4 shim sets the precedent for the `pi.registerTool` adapter signature; no behavioural change required.
-- V6i — AJV validation of typed query results — (modified) — synthesises the `__loom_respond_<hash>` tool; must build a TypeBox schema (or `Type.Unsafe`-wrap the lowered JSON Schema) and supply `label`.
-- V12a — `mode: subagent` accepted; AgentSession spawn — (modified) — the spawned `AgentSession` receives `customTools: ToolDefinition[]`; each entry needs `label` and a TypeBox `parameters`.
-- V15e — `.loom` paths in `tools:` (default basename naming) — (modified) — registers a loom callee as a Pi tool callable by sibling looms / the model; same `label` + TypeBox requirement.
-
-## Consequence
-
-**Severity:** correctness
-
-A reasonable implementer reading the spec writes a `pi.registerTool({ name, description, parameters: jsonSchema, execute })` adapter and gets a TypeScript error on the missing `label` plus a structural-typing failure on `parameters`. Even if forced past `tsc` via casts, TypeBox-aware code paths inside Pi (e.g. `Static<TParams>` in `execute`'s second argument) and provider lowering will not behave as expected without a real `TSchema`. The fix is mechanical but the spec must name it; otherwise V6i, V12a, and V15e each ship slightly different ad-hoc bridges.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Amend `pi-integration-contract.md` to:
-
-1. Show the full required object literal — `pi.registerTool({ name, label, description, parameters, execute })` — and define how `label` is derived. Use the loom file's basename with hyphens preserved and a leading capital (e.g. `summarise.loom` → `"Summarise"`, `code-review.loom` → `"Code-Review"`); for the synthetic typed-query tool, use `"Loom typed-query response"`.
-2. Insert a one-line bridge clarifying that `parameters` is a TypeBox `TSchema`. The lowered-JSON-Schema artefact from V4 is wrapped via `Type.Unsafe<Static>(loweredJsonSchema)` from the `typebox` package (already a peer dependency in `package.json`) before being handed to `pi.registerTool`. Note that `Static` is unused at runtime — the wrapper exists solely to satisfy Pi's structural type and to let TypeBox carry the JSON Schema through to the provider lowering layer.
-3. Replace the bare `<params-schema-as-typebox>` placeholder at line 14 and the phrase "the lowered query schema" at line 19 with explicit references to the `Type.Unsafe` wrap step, so V6i / V12a / V15e all use the same bridge.
-
-Edge cases the implementer must watch:
-
-- The `execute(toolCallId, params, signal, onUpdate, ctx)` signature on `ToolDefinition` typed `params: Static<TParams>` will widen to `unknown` under `Type.Unsafe<unknown>(...)`. Loom's adapter must AJV-validate `params` against the original lowered JSON Schema before forwarding — do not trust Pi's typing here.
-- `prepareArguments?: (args: unknown) => Static<TParams>` is the documented hook for argument coercion (matches loom's V13k–m retry/coercion plans); call it out so V13 work doesn't have to rediscover it.
-- `defineTool(...)` is the type-preserving constructor (`dist/core/extensions/types.d.ts` line 368) — prefer it over a bare object literal so generic inference on `TParams` is preserved through array spreads into `customTools`.
-
-## Related Findings
-
-- "`tools` vs `customTools` in `createAgentSession`" — co-resolve (same `ToolDefinition` shape; the `customTools` correction depends on this fix to type-check)
-- "No `pi.unregisterTool()` API — one-shot tools accumulate" — same-cluster (both touch the synthesised `__loom_respond_<hash>` tool path; resolve independently but fixer should batch the contract edits)
-- "`before_provider_request` cannot scope to a single turn" — decision-dependency (the per-turn forcing handler must fingerprint the payload by tool name, which depends on the `__loom_respond_<hash>` registration shape settled here)
 
 ---
 
