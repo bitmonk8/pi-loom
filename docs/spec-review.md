@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_71 findings retained, 1 false positives dropped, 0 persistent failures_
+_70 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -5231,75 +5231,6 @@ None
 ---
 
 ## spec_topics/invocation.md
-
----
-
-# `InvokeFailure { reason: "cancelled" }` is dead — cancellation routing contradicts itself
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** Cancellation surfacing: `InvokeFailure` vs `InvokeCalleeError` — irreconcilable
-**Kind:** consistency, cross-spec-consistency-broad, error-model
-
-## Finding
-
-`spec_topics/invocation.md` enumerates `"cancelled"` as one of the `reason` values on `InvokeFailure` and glosses it as "callee (or caller) cancelled mid-invoke" — i.e. cancellation from either side surfaces as `Err(QueryError { kind: "invoke_failure", reason: "cancelled", ... })`.
-
-`spec_topics/cancellation.md` describes a different routing for the same event. Under its **Surfacing** rules, an aborted child invoke surfaces to the parent in exactly two ways: `Err(QueryError { kind: "invoke_callee_error", inner: { kind: "cancelled", ... } })` when the abort originated inside the child, or `Err(QueryError { kind: "cancelled", ... })` directly when the parent's own signal fired first. Neither produces an `InvokeFailure`. The variant that `invocation.md` claims is the cancellation surface is therefore unreachable under `cancellation.md`'s rules.
-
-This is a routing contradiction, not a wording slip: the two pages disagree on which `QueryError` discriminant a `match` arm needs to handle. `errors-and-results.md` (the third page that touches invoke-failure routing) sides with `cancellation.md` — it lists only `reason: "panic"` as the `InvokeFailure` reason that comes back from a child, without mentioning `cancelled`. The plan leaves V18d and V18e are also written against the `cancellation.md` model. `invocation.md`'s enum is the outlier.
-
-## Spec Documents
-
-- `spec_topics/invocation.md` — `InvokeFailure` schema, `reason` enum (edited)
-- `spec_topics/cancellation.md` — Surfacing bullets (read-only, the canonical routing)
-- `spec_topics/errors-and-results.md` — Runtime panics → `invoke` parent bullet (read-only, confirms the panic/cancel asymmetry)
-- `spec_topics/query.md` — `QueryError` union and `CancelledError` definition (read-only)
-
-## Plan Impact
-
-**Phases:** Vertical V15, Vertical V18
-
-**Leaves (implementation order):**
-
-- V15l — `InvokeFailure` variant — (modified)
-- V18d — `AbortSignal` before every `invoke` — (modified)
-- V18e — Cancellation propagates downward only — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers reading `invocation.md` and `cancellation.md` will produce divergent runtime behaviour: one routes child-internal cancellation through `InvokeFailure { reason: "cancelled" }`, the other through `InvokeCalleeError { inner: CancelledError }`. Authors writing `match` arms on `invoke(...)?` results cannot tell which discriminant to handle, and any `match` written against one routing silently ignores the other. The bug surfaces only when a real cancellation fires, so it is unlikely to be caught by happy-path tests.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Remove `"cancelled"` from the `InvokeFailure.reason` enum in `spec_topics/invocation.md`. The `reason` enum becomes `"load_failure" | "parse_failure" | "validation" | "panic"` — i.e. `InvokeFailure` covers infrastructure failures around the callee (file unreadable, parse failure, return-value validation, callee panic) and nothing else. Cancellation surfaces exclusively per `cancellation.md`:
-
-- Parent's own signal fires before/while issuing the invoke → `Err(QueryError { kind: "cancelled", ... })` (a plain `CancelledError`, no invoke wrapper).
-- Abort originated inside the child → `Err(QueryError { kind: "invoke_callee_error", inner: { kind: "cancelled", ... } })`.
-
-This is consistent with the panic/cancel asymmetry the spec already accepts elsewhere: a child *panic* is structurally not a `QueryError` value (panics bypass `?` and `match` inside the child), so the parent needs a synthesised `InvokeFailure { reason: "panic" }` to observe it; a child *cancellation* is already a `CancelledError` value flowing through `?`, so wrapping it in `InvokeCalleeError` preserves the value losslessly and gives no reason to mint a second representation.
-
-Edge cases the implementer must watch:
-
-- Pre-flight cancellation (signal fires before the child is spawned at all) is parent-side and produces a plain `CancelledError`, not `InvokeCalleeError` with a synthetic inner. V18d's "pre-flight abort" test must assert this shape.
-- The plan leaves V15l (test "each reason synthesised and surfaces correctly") and the `Adds` line listing the `reason` enum need the `cancelled` entry struck.
-- V18d's test wording ("`Err({kind:"cancelled"})` or `InvokeCalleeError{inner:cancelled}` per origin") is already correct; once the spec aligns it stops being a hedge and becomes the normative pair.
-- The acceptance test for V18e ("child internal cancel surfaces as `InvokeCalleeError{inner:cancelled}`") becomes the *only* shape for that case — no `InvokeFailure { reason: "cancelled" }` alternative remains.
-
-## Related Findings
-
-- "`InvokeFailure` breaks the `*Error` suffix pattern" — co-resolve (the same edit pass through `InvokeFailure`'s schema is the natural place to address both)
-- "Per-`kind` system-note table covers only 5 of 8 `QueryError` variants" — same-cluster (top-level cancellation surfacing to Pi is the row that closes the loop on this routing)
-- "Cancellation checkpoints miss binder, AJV validation, and schema-lowering" — same-cluster (touches `cancellation.md` but resolves independently)
-- "Cancellation \"smallest unit\" definition is ambiguous" — same-cluster (touches `cancellation.md` but resolves independently)
-- "Cancellation race conditions unspecified" — same-cluster (touches `cancellation.md` but resolves independently)
-- "`QueryError` union has three conflicting authoritative definitions" — decision-dependency (whichever consolidated `QueryError` definition is adopted must reflect the routing chosen here)
-- "`QueryError` variants split across three files with no consolidated reference" — decision-dependency (a consolidated reference must encode the cancellation routing settled here)
 
 ---
 

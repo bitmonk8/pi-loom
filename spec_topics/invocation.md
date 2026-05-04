@@ -34,7 +34,6 @@ schema InvokeFailure {
   reason: "load_failure"     // callee file unreadable
         | "parse_failure"    // callee file failed to parse
         | "validation"       // typed invoke: child's return value failed AJV validation
-        | "cancelled"        // callee (or caller) cancelled mid-invoke
         | "panic"            // callee aborted via runtime panic (see Errors and Results)
 }
 
