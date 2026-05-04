@@ -60,7 +60,7 @@
 
 - **Spec.** [Slash-Command Argument Binding](../spec_topics/binder.md) (determinism).
 - **Adds.** `temperature: 0` and fixed seed (where provider supports). Acknowledged near-deterministic, not guaranteed reproducible.
-- **Tests.** Request payload includes `temperature: 0`; seed included for providers that support it; loom doc references determinism caveat.
+- **Tests.** Request payload includes `temperature: 0`; seed included for providers that support it.
 - **Deps.** V16e.
 - **Ships when.** Determinism budget minimised.
 

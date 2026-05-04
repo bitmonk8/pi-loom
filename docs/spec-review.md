@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_56 findings retained, 1 false positives dropped, 0 persistent failures_
+_55 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -3124,75 +3124,6 @@ Edge case: no in-tree examples or tests reference `binder_model` yet (`grep -r b
 
 - "Binder model resolution unspecified when no model is configured" — same-cluster (touches the same field; resolves independently — that finding governs the resolution algorithm, this one governs the spelling)
 - "`looms.binderModel` described as a 'Pi-level setting' when it is extension-owned" — same-cluster (sibling key on the Pi-settings side, but unaffected by this rename — confirms the two namespaces stay separate)
-
----
-
-# Non-normative content mixed into binder spec
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** Non-normative content mixed into binder spec
-**Kind:** cruft, placement, scope, testability
-
-## Finding
-
-`spec_topics/binder.md` interleaves three distinct kinds of non-normative material with its normative requirements, with no visual or labelling separation:
-
-1. **"Cost and latency" paragraph** asserts a binder call is "sub-second" and "on the order of $10⁻⁴ per invocation." Neither claim is testable — "sub-second" has no percentile or operating-condition qualifier, and the cost figure is a market snapshot that drifts with provider pricing. The paragraph is advice to authors, not a runtime requirement.
-
-2. **Final paragraph of "Determinism"** ("Authors who require fully deterministic argument handling should either (a) … (b) … (c) accept the small nondeterminism budget …") is author-facing guidance about how to live with the binder, not a runtime requirement. The preceding sentences (`temperature: 0`, fixed seed where supported) are normative and should stay.
-
-3. **The literal binder system prompt template** is presented as exact English wording, then immediately undermined by "A future revision may make this prompt user-overridable; V1 keeps it fixed for predictability." Either the wording is a stable contract that implementers and tests must match verbatim, or it is a reference example that any reasonable prompt may diverge from. The current text is ambiguous — implementers cannot tell whether changing a word breaks the spec.
-
-The mixing matters because this page sits inside the runtime contract. A reader scanning for "what must I implement" cannot cleanly separate it from "what should I tell my users" or "what we predict will happen at runtime." V16h's "Ships when" criteria already trip on (2) — it tests that "loom doc references determinism caveat," which only makes sense if the advisory paragraph is authoritative.
-
-## Spec Documents
-
-- `spec_topics/binder.md` — "Binder system prompt template" block (edited)
-- `spec_topics/binder.md` — "Determinism" final paragraph (edited)
-- `spec_topics/binder.md` — "Cost and latency" block (edited)
-- `spec_topics/implementation-notes.md` — destination for relocated advisory content (option-dependent)
-
-## Plan Impact
-
-**Phases:** Vertical V16
-
-**Leaves (implementation order):**
-
-- V16h — Binder determinism settings — (modified)
-
-The remaining V16 leaves (V16c, V16f, V16g, V16l, V16m, V16o) are unaffected: they exercise envelope shape, context handling, and failure-mode wording, none of which depend on the advisory paragraphs or the prompt's exact English. V16h's "Ships when" presently checks that loom documentation references the determinism caveat; once the advisory paragraph moves out of the normative spec, that acceptance criterion needs to point at the new location (or be dropped).
-
-## Consequence
-
-**Severity:** advisory
-
-Implementers will not diverge in observable behaviour because of this — the actual normative bits (`temperature: 0`, fixed seed, the prompt's *information content*) are either stated elsewhere or recoverable. The harm is to the spec as a working artefact: untestable thresholds invite drive-by NFR-style tests that pass under no defined load profile, the dated cost figure ages badly, and the "may be made user-overridable" caveat on a literal template leaves both implementers and prompt-authors unsure whether they own the wording.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Apply three localised edits to `spec_topics/binder.md`:
-
-1. **Cost and latency.** Delete the "Cost and latency" block. The bypass advice it carries ("structure `params:` as a single `string` to avoid the binder entirely") is already covered in the "Binder bypass" block; do not duplicate it. Do not replace the deleted text with an NFR — V1 has no measurement harness for binder latency, and inventing a p95 threshold without one creates an untestable obligation.
-
-2. **Determinism.** Keep the first sentence ("Binder calls use `temperature: 0` and, where the provider supports it, a fixed seed."). Delete the rest of the paragraph. The "(a)/(b)/(c)" advice belongs in author-facing documentation generated from this spec, not in the runtime contract. Update V16h's "Ships when" to drop the "loom doc references determinism caveat" clause, or move that clause to a docs-generation leaf if one exists.
-
-3. **Binder system prompt template.** Replace the introductory line "**Binder system prompt template** (literal text, not user-configurable in V1):" with "**Binder system prompt** — the runtime constructs a system prompt that conveys the following information to the binder model. The exact wording is not part of the contract; the *information content* below is normative." Then keep the template as a reference example. Delete the trailing "A future revision may make this prompt user-overridable; V1 keeps it fixed for predictability." sentence — once the wording is non-normative, future overridability is an implementation detail, not a spec promise. The bulleted information items (loom name, description, argument-hint, parameter table with required/default markers, raw user arguments, optional session transcript, the three envelope return shapes, the "do not invent defaulted values" instruction) become the normative checklist that implementations must satisfy.
-
-Edge cases for the implementer:
-
-- Tests that previously asserted exact prompt wording (none currently planned in V16) must instead assert each information item is present.
-- The bullet "Do not invent values for defaulted parameters that the user did not specify; omit them" is the natural-language counterpart of V16d's schema-side enforcement; both must remain — the schema relaxes `required`, the prompt instructs the model. Keep both as normative.
-- If a future leaf adds latency budgets, that is an NFR-page concern, not a binder.md concern; do not pre-emptively add a stub.
-
-## Related Findings
-
-- "Binder echo formatting micro-rules over-prescribed and misplaced" — same-cluster (also placement / non-normative-vs-normative confusion in `binder.md`; resolve in the same editing pass)
-- "Binder envelope schema violates schema-subset rules without declaring an exception" — same-cluster (different defect in `binder.md` but touched by the same editorial pass; independent fix)
-- "Binder model resolution unspecified when no model is configured" — same-cluster (another binder-spec gap; independent fix)
 
 ---
 

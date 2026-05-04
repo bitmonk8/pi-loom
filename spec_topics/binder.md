@@ -69,7 +69,7 @@ The `args` arm embeds a schema fragment that may carry `$ref`s into the loom fil
 
 **Session-context truncation (`bind_context: session`).** The runtime walks turns from newest to oldest, accumulating until *either* 20 turns *or* 8000 tokens (whichever is smaller) has been included. Token counts come from Pi's `ctx.getContextUsage()` (model-aware). Truncation is whole-turn; partial messages are not split. The included context is rendered as a compact transcript and embedded in the binder's system prompt below the parameter table.
 
-**Binder system prompt template** (literal text, not user-configurable in V1; see [Future Considerations](./future-considerations.md)):
+**Binder system prompt** — the runtime constructs a system prompt that conveys the following information to the binder model. The exact wording is not part of the contract; the *information content* below is normative.
 
 ```
 You bind free-form slash-command arguments to typed loom parameters.
@@ -119,7 +119,7 @@ The echo channel is also used for the binder's `needs_info` and `ambiguous` outp
 
 > loom `/code-review`: ambiguous arguments — "focusing on Ada" could mean focus_areas or author. Be more explicit.
 
-**Determinism.** Binder calls use `temperature: 0` and, where the provider supports it, a fixed seed. The binder is therefore *near-deterministic* but not guaranteed reproducible — different model versions, provider-side updates, or context injection (`bind_context: session`) can produce different bindings for the same slash text. Authors who require fully deterministic argument handling should either (a) write looms whose schema triggers the bypass (single no-default `string` param), (b) invoke the loom programmatically via `invoke(...)`, or (c) accept the small nondeterminism budget of a temp-0 tier-2 model on a structured-output task.
+**Determinism.** Binder calls use `temperature: 0` and, where the provider supports it, a fixed seed.
 
 **Cancellation.** The binder participates in cancellation per [Cancellation](./cancellation.md). The runtime checks `ctx.signal` immediately before issuing the binder call and forwards the signal to the binder model's provider invocation; both the initial attempt and the single transport-failure retry honour the signal. A cancelled binder produces the cancelled-binder system note in the failure-modes table below and the loom does not run. The bypass path (single no-default `string` param, no LLM call) is naturally cancellable at the next regular checkpoint inside the loom body; the cancelled-binder system note does not apply to bypass-eligible looms.
 
@@ -135,5 +135,3 @@ The echo channel is also used for the binder's `needs_info` and `ambiguous` outp
 | `ctx.signal` aborted before or during the binder call | `loom /<name>: argument binding cancelled` |
 
 Transport failures get exactly one retry; coercion-style follow-ups (the mechanism typed queries use for response-schema repair) do not apply, because if the binder model is unreachable, more attempts will not help. An abort observed during the single transport-failure retry suppresses the retry and surfaces the cancelled-binder note immediately. An abort observed *after* the binder returned `ok` but *before* AJV validation runs lets validation complete (AJV is fast and uncancellable per [Cancellation](./cancellation.md)) and surfaces at the next checkpoint inside the loom body, consistent with the no-retroactive-`Ok`-to-`Err` rule.
-
-**Cost and latency.** A typical binder call on a tier-2 model is sub-second and on the order of $10⁻⁴ per invocation. Worst-case latency — cold provider, slow tier-2 model, or transport hiccup followed by the spec-mandated single retry — can run several seconds; the cancellation hook above ensures Esc remains effective during that window. Authors can drive cost to zero by structuring `params:` as a single `string` (triggering the bypass) and parsing inside the loom body if they want to avoid the binder entirely.
