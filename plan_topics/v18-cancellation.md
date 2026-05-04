@@ -72,13 +72,13 @@
 - **Deps.** V18h.
 - **Ships when.** Prompt-mode `Err` surfaces are uniform.
 
-## V18j — Multi-error rollup across file + transitive `.warp` imports
+## V18j — Multi-error rollup across file + transitive `.warp` imports + transitive `.loom` callees
 
-- **Spec.** [Diagnostics](../spec_topics/diagnostics.md) (multi-error reporting).
-- **Adds.** Every parse/type pass collects all errors from a file plus its transitive `.warp` imports before failing; one diagnostics call.
-- **Tests.** Loom with 5 distinct parse errors + 1 type error in imported `.warp` produces all 6 in single drain, sorted by `(file, line, col)`.
-- **Deps.** H3, V17c.
-- **Ships when.** Authors get every problem at once.
+- **Spec.** [Diagnostics](../spec_topics/diagnostics.md) (multi-error reporting), [Invocation — Static resolution](../spec_topics/invocation.md#static-resolution).
+- **Adds.** Every parse/type pass collects all errors from a file plus its transitive `.warp` imports plus the transitive `.loom` callees reached by literal `invoke(...)` paths and `tools:` `.loom` entries (one per-load-pass parse cache, per the Static-resolution load pass); one diagnostics call per top-level loom. Reachable-callee diagnostics are surfaced as `loom/load/callee-has-errors` at the parent's referencing site — severity `E` for `tools:` entries, `W` for `invoke(...)` literals — with the callee's own diagnostic codes carried via `related`.
+- **Tests.** Loom with 5 distinct parse errors + 1 type error in imported `.warp` produces all 6 in single drain, sorted by `(file, line, col)`. Loom with an `invoke("./broken.loom", ...)` literal where `broken.loom` has 2 parse errors produces a `loom/load/callee-has-errors` warning at the invoke site whose `related` enumerates both callee codes; parent still registers. Loom with a `tools: [./broken.loom]` entry where `broken.loom` has 1 parse error produces a `loom/load/callee-has-errors` error at the `tools:` entry; parent does not register. A callee referenced from both a `tools:` entry and an `invoke(...)` literal in the same parent is parsed once (single cache hit on the second visit).
+- **Deps.** H3, V17c, V15a, V15e.
+- **Ships when.** Authors get every problem at once across `.warp` imports and `.loom` callees.
 
 ## V18k — Runtime panic: array index out of bounds
 

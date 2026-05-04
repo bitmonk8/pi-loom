@@ -2,11 +2,11 @@
 
 ## V15a — `invoke("./path.loom", ...)` parsing and resolution
 
-- **Spec.** [Invocation](../spec_topics/invocation.md).
-- **Adds.** Path is a string literal; resolved at parse time relative to calling loom; must end in `.loom`. Dynamic dispatch rejected.
-- **Tests.** Relative paths resolve; non-string path rejected; non-`.loom` extension rejected.
+- **Spec.** [Invocation — Resolution, Static resolution](../spec_topics/invocation.md#static-resolution).
+- **Adds.** Path is a string literal; resolved at parse time relative to calling loom; must end in `.loom`. Dynamic dispatch rejected. The callee is opened, parsed, and lowered into the parent's per-load-pass static-resolution cache; the walk is transitive across callee `invoke` literals and `tools:` `.loom` entries. Each visited file is parsed once per pass.
+- **Tests.** Relative paths resolve; non-string path rejected; non-`.loom` extension rejected; same callee referenced twice (e.g. from two distinct `invoke(...)` sites in the same parent) is parsed exactly once per load pass.
 - **Deps.** V12.
-- **Ships when.** `invoke` syntax works.
+- **Ships when.** `invoke` syntax works and the static-resolution cache is populated.
 
 ## V15b — Untyped `invoke` returns `Result<null, QueryError>`
 
@@ -26,19 +26,19 @@
 
 ## V15d — Positional argument binding for `invoke`
 
-- **Spec.** [Invocation](../spec_topics/invocation.md) (argument binding).
-- **Adds.** Arguments bind positionally to callee `params:` in declaration order; type-checked when callee is statically resolvable.
-- **Tests.** Type mismatch → parse error when statically resolvable; runtime AJV check otherwise.
+- **Spec.** [Invocation — Argument binding](../spec_topics/invocation.md), [Invocation — Static resolution](../spec_topics/invocation.md#static-resolution).
+- **Adds.** Arguments bind positionally to callee `params:` in declaration order; type-checked against the callee's declared schema when the callee is statically resolvable per the load-pass cache populated by V15a; otherwise the runtime AJV check is the safety net.
+- **Tests.** Type mismatch where callee is statically resolvable → `loom/parse/invoke-arg-type-mismatch`; type mismatch where callee is unresolvable (parent saw `loom/load/callee-has-errors` warning) → no parse error, runtime AJV rejects with `Err(InvokeFailure { reason: "validation", ... })`.
 - **Deps.** V15a, V3b.
 - **Ships when.** Args reach callee correctly typed.
 
 ## V15e — `.loom` paths in `tools:` (default basename naming)
 
-- **Spec.** [Parameters and Frontmatter](../spec_topics/frontmatter.md) (`tools:`), [Tool Calls](../spec_topics/tool-calls.md) (registered loom callee).
-- **Adds.** `./summarise.loom` in `tools:` becomes `summarise` callable; basename hyphen → underscore (`./code-review.loom` → `code_review`); resolution relative to calling loom.
-- **Tests.** Default name correct; hyphens converted; resolution relative; entry callable from both code (`<name>(...)`) and model.
+- **Spec.** [Parameters and Frontmatter](../spec_topics/frontmatter.md) (`tools:`), [Tool Calls](../spec_topics/tool-calls.md) (registered loom callee), [Invocation — Static resolution](../spec_topics/invocation.md#static-resolution).
+- **Adds.** `./summarise.loom` in `tools:` becomes `summarise` callable; basename hyphen → underscore (`./code-review.loom` → `code_review`); resolution relative to calling loom. The callee is opened/parsed/lowered into the same per-load-pass static-resolution cache V15a populates. A callee whose file fails to parse or lower at this site emits `loom/load/callee-has-errors` (severity `error` for `tools:`) and prevents parent registration; the callee's own diagnostic codes are carried via `related`.
+- **Tests.** Default name correct; hyphens converted; resolution relative; entry callable from both code (`<name>(...)`) and model; broken callee in `tools:` → `loom/load/callee-has-errors` error at the entry site, parent does not register, `related` enumerates the callee's own codes; same callee reached via both a `tools:` entry and an `invoke(...)` literal in the same parent is parsed exactly once.
 - **Deps.** V14a, V15a.
-- **Ships when.** Loom paths register as named callables.
+- **Ships when.** Loom paths register as named callables and parse failures surface at the parent.
 
 ## V15f — `.loom` path with `as` rename
 
@@ -90,9 +90,9 @@
 
 ## V15l — `InvokeFailure` variant
 
-- **Spec.** [Invocation](../spec_topics/invocation.md) (failures).
-- **Adds.** `kind:"invoke_failure"` with `reason` enum: `load_failure`, `parse_failure`, `validation`, `cancelled`, `panic`. Carries `callee_path`.
-- **Tests.** Each reason synthesised and surfaces correctly.
+- **Spec.** [Invocation](../spec_topics/invocation.md) (failures), [Invocation — Static resolution](../spec_topics/invocation.md#static-resolution).
+- **Adds.** `kind:"invoke_failure"` with `reason` enum: `load_failure`, `parse_failure`, `validation`, `cancelled`, `panic`. Carries `callee_path`. The runtime variant fires when a code-issued `invoke(...)` reaches a callee that fails at the moment of invocation — distinct from the parent-load-time `loom/load/callee-has-errors` warning, which is a parent diagnostic emitted when the static-resolution walk first observed the callee in a broken state. Both surfaces can fire for the same broken callee: the load-time warning at parent registration plus the runtime `InvokeFailure { reason: "parse_failure" | "load_failure" }` when the call actually executes.
+- **Tests.** Each reason synthesised and surfaces correctly. Callee broken at parent load → parent diagnostics drain contains `loom/load/callee-has-errors`; subsequent runtime invoke against the same callee → `Err(InvokeFailure { reason: "parse_failure", callee_path, ... })`. Callee that parses cleanly at parent load but is deleted before invocation → no load-time warning; runtime `Err(InvokeFailure { reason: "load_failure", ... })`.
 - **Deps.** V15a, V5g.
 - **Ships when.** Invoke-infra failures uniformly typed.
 
@@ -106,8 +106,8 @@
 
 ## V15n — Parse-time cycle detection
 
-- **Spec.** [Invocation](../spec_topics/invocation.md) (cycle detection).
-- **Adds.** Walk statically resolvable `invoke` paths; detect cycles; report `loom/load/invocation-cycle` with full path.
-- **Tests.** Self-cycle (`A → A`); two-step (`A → B → A`); three-step; cycle through warp `fn` invokes too (deps on V17j).
+- **Spec.** [Invocation — Cycle detection](../spec_topics/invocation.md), [Invocation — Static resolution](../spec_topics/invocation.md#static-resolution).
+- **Adds.** Walk the per-load-pass static-resolution graph V15a builds; detect cycles; report `loom/load/invocation-cycle` with full path. Unresolvable callees (those that produced `loom/load/callee-has-errors`) are walk leaves — the walker does not descend through them, and a cycle routed through such a node is not detected at this load. After a watcher-driven re-walk that lifts the unresolvability, the cycle (if any) is caught on the next pass.
+- **Tests.** Self-cycle (`A → A`); two-step (`A → B → A`); three-step; cycle through warp `fn` invokes too (deps on V17j); cycle routed through an unparseable callee → no cycle diagnostic at first load (only `callee-has-errors`); after the callee is fixed and the watcher re-walks, the cycle surfaces as `loom/load/invocation-cycle`.
 - **Deps.** V15a.
-- **Ships when.** Static cycles caught.
+- **Ships when.** Static cycles caught with the load-pass leaf rule for unresolvable nodes.

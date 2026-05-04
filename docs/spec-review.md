@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_17 findings retained, 1 false positives dropped, 0 persistent failures, 3 resolved (Cluster-A: per-mode tool registration), 5 resolved (P1: typed-query two-phase loop), 6 resolved (Cluster-A: failure observability surface)_
+_16 findings retained, 1 false positives dropped, 0 persistent failures, 3 resolved (Cluster-A: per-mode tool registration), 5 resolved (P1: typed-query two-phase loop), 6 resolved (Cluster-A: failure observability surface), 1 resolved ("statically resolvable" callee — Option C: eager load + parent warnings)_
 
 ---
 
@@ -840,122 +840,6 @@ Edge cases the implementer must watch:
 
 ---
 
-# "Statically resolvable" callee: resolution algorithm undefined
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** "Statically resolvable" callee never defined
-**Kind:** implementability, completeness
-
-## Finding
-
-Three spec topics — `invocation.md` (argument binding, cycle detection), `tool-calls.md` (argument shape, registered-loom return type), and `functions.md` (loom return-type inference) — gate parse-time type checking on whether the callee's frontmatter or body is "statically resolvable", then immediately defer to "the runtime AJV check" otherwise. The phrase is never defined. The spec does not say what conditions make a callee resolvable, what file-system or parse-pipeline state must hold at the moment the parent is parsed, or what the parent emits when an attempted resolution fails.
-
-Concretely, none of the following questions has an answer in the current text:
-
-1. **Reachability.** When the parent loads, is the callee at `./plan.loom` opened, parsed, and lowered eagerly, or only opportunistically? `discovery.md` enumerates *root* directories that are scanned for slash commands, but `invoke("./plan.loom", ...)` and `tools: [./plan.loom]` resolve relative to the calling loom and may point outside any discovery root. Is reaching such a path the same operation, or a separate one?
-2. **Parse-failure propagation.** A callee file exists but fails to parse. Does the parent emit `loom/load/parse_failure` referencing the callee site, succeed (silently downgrading argument-binding type checks to runtime), or refuse to register? `diagnostics.md` lists `loom/load/*` for "unresolvable `tools:` entry" but says nothing about `invoke(...)` callees, and the multi-error rollup rule (`diagnostics.md`, V18j) covers "transitive `.warp` imports" only — `.loom` callees are not named.
-3. **Cycle detection coverage.** `invocation.md` says cycle detection "walks statically resolvable `invoke` paths". If a node in the cycle fails to parse, the walk stops — and a real cycle through a fixable typo is silently uncaught. The spec does not say whether unparseable nodes are conservatively treated as cyclic, conservatively assumed acyclic, or fatal.
-4. **Cross-loom return-type inference.** `tool-calls.md` and `functions.md` flow the callee's tail-expression type into `invoke<T>` / registered-tool call sites "when the callee's source is statically resolvable". This is a transitive operation — the callee's tail type may itself depend on *its* callees' inferred return types. The spec gives no termination rule, no caching contract, and no behaviour for the case where one node in the chain fails to parse.
-5. **Tools-table membership.** `frontmatter.md` says `.loom` paths in `tools:` are validated at "loom-load time" (subagent-mode check, name collisions). That validation already requires opening the callee. Is the same loaded form available to the type checker, or is `tools:` validation a strictly separate pass that does not memoise?
-
-Two reasonable implementers will resolve these differently and produce divergent behaviour: one will eagerly load the entire reachable graph and surface every callee parse error in the parent's diagnostics; another will lazily probe and treat any unparseable callee as "not statically resolvable", deferring everything to runtime AJV. The first catches more bugs at parse time but couples loom registration to the health of distant files; the second is more permissive but lets cycles and type mismatches slip through.
-
-## Spec Documents
-
-- `spec_topics/invocation.md` — Resolution; Argument binding; Cycle detection (edited)
-- `spec_topics/tool-calls.md` — Argument shape; Return type table (registered loom row) (edited)
-- `spec_topics/functions.md` — Loom return type (edited)
-- `spec_topics/diagnostics.md` — `loom/load/*` namespace (edited — new code(s))
-- `spec_topics/implementation-notes.md` — Runtime / Parser sections (edited — load-pass description)
-- `spec_topics/frontmatter.md` — `tools:` `.loom`-path validation (read-only — confirms callee already opened at load time)
-- `spec_topics/imports.md` — Cycle detection in `.warp` imports (read-only — analogous algorithm to mirror)
-- `spec_topics/discovery.md` — Discovery root scope (read-only — clarifies that invoke targets need not lie under a discovery root)
-- `spec_topics/pi-integration-contract.md` — Per-loom registration (read-only — fixes the moment "load time" refers to)
-
-## Plan Impact
-
-**Phases:** Vertical V14, Vertical V15, Vertical V18
-
-**Leaves (implementation order):**
-
-- V14c — Bare `<name>(args)` call from loom code — (modified — argument type-check criterion needs the resolution rule)
-- V15a — `invoke("./path.loom", ...)` parsing and resolution — (modified — must specify when callee is opened/parsed)
-- V15c — Typed `invoke<Schema>` with AJV validation — (modified — interaction between caller `<Schema>` and callee inferred return)
-- V15d — Positional argument binding for `invoke` — (modified — current Tests row hinges on the undefined "statically resolvable" predicate)
-- V15e — `.loom` paths in `tools:` (default basename naming) — (modified — must say whether callee load is shared with `invoke` resolution)
-- V15l — `InvokeFailure` variant — (modified — `parse_failure` reason needs to specify whether it can also fire at parent load time)
-- V15n — Parse-time cycle detection — (modified — must say what the walker does when a node fails to parse)
-- V18j — Multi-error rollup across file + transitive `.warp` imports — (modified — extend rollup to include reachable `.loom` callees, or explicitly exclude them)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers will produce materially different behaviour: argument-type mismatches, return-type incompatibilities, and invocation cycles may all be caught at parse time under one implementation and only at runtime (or never) under another. Cycle detection is the worst case — a typo in one file can silently mask a real cycle in the rest of the graph. Plan leaves V15a, V15d, V15e, V15n, V18j cannot be testably defined without resolving this.
-
-## Solution Space
-
-**Shape:** multiple
-
-### Option A — Eager transitive load, callee parse failures propagate
-
-**Approach.** When parsing a parent loom, every callee referenced by a literal `invoke("./...")` path or a `.loom` entry in `tools:` is opened, parsed, lowered, and added to a per-load-pass cache. Resolution is transitive: callees reachable through `tools:` and through other callees' `invoke` literals are all loaded. A callee that is unreadable, fails to parse, or fails its own structural checks causes the parent's diagnostics drain to include the callee's errors (sorted by `(file, line, col)`, per V18j) plus a parent-site `loom/load/callee-unresolvable` pointer. The parent does not register.
-
-**Spec edits.**
-
-- `invocation.md` — Add a "Static resolution" paragraph after **Resolution**: "A callee is *statically resolvable* if its `path` opens, parses, and lowers without errors during the same load pass that parses the calling loom. Static resolution is transitive: callees reach further callees via their own `invoke` literals and `tools:` `.loom` entries. A callee parse failure is reported as a normal diagnostic in the parent's drain plus a `loom/load/callee-unresolvable` pointer at the parent's `invoke` site; the parent does not register."
-- `invocation.md` — Cycle detection: add "Cycle detection walks the same transitive graph used for static resolution; nodes that fail to parse abort their own walk, but the parent has already failed to register, so the question is moot."
-- `tool-calls.md`, `functions.md` — Replace "statically resolvable" with a one-line cross-reference to the new paragraph.
-- `diagnostics.md` — Add `loom/load/callee-unresolvable` (related sites point at the failed callee).
-- `frontmatter.md` — Note that `tools:` `.loom` validation is the same load pass.
-- `implementation-notes.md` — Document the load pass: per-pass callee cache; one diagnostics drain for the whole reachable graph.
-- V18j (plan) — Extend the rollup rule to "transitive `.warp` imports plus transitive `.loom` callees".
-
-**Pros.** Maximum static catches: argument mismatches, return-type incompatibilities, cycles all caught at parent load. Single uniform answer to all five sub-questions. Cycle detection is sound on the full reachable graph.
-**Cons.** Couples parent registration to the health of every reachable callee — a typo in `./logger.loom` blocks `/main`. Load pass becomes I/O-heavy; large graphs traverse many files. Hot-reload (V18g) must invalidate parents transitively whenever a callee changes.
-**Risks.** A circular dependency between two slash commands becomes a "neither registers" footgun. Errors from distant callees may be confusing when reported through a slash command the user did not ask about.
-
-### Option B — Best-effort opportunistic load, parse failures are non-fatal
-
-**Approach.** During parent load, the runtime *attempts* to open and parse each callee whose path is a literal. If the callee opens, parses, and lowers cleanly, its `params:` and inferred return type flow into the parent's static checks (argument types, `invoke<Schema>` compatibility, return-type inference, cycle walk). If the attempt fails for any reason (file missing, parse error, structural error), the callee is treated as **not statically resolvable**: the parent registers normally, the corresponding static checks are skipped, and the runtime AJV check is the only safety net. A `loom/load/callee-unparseable` *warning* (not error) is emitted at the parent's `invoke` site naming the callee and the underlying reason. Cycle detection skips unparseable nodes and emits the same warning.
-
-**Spec edits.** Same set of files as Option A, but the new `invocation.md` paragraph reads: "A callee is *statically resolvable* if the runtime can open and parse the file at `path` during the calling loom's load pass without errors. Failed attempts emit a `loom/load/callee-unparseable` warning at the `invoke` site; static checks against that callee are skipped and the runtime AJV check is the safety net. Cycle detection skips unparseable nodes."
-
-**Pros.** Parent registration is independent of callee health — `/main` works even if `./logger.loom` has a typo. Matches the "AJV check is the safety net" framing already in the spec. Lowest blast radius for typos in distant files.
-**Cons.** Cycle detection is *unsound* — a typo can mask a real cycle. Type mismatches at the boundary of a half-broken callee are caught only at runtime. Parent diagnostic does not list callee parse errors, so the author must navigate to the callee separately. Two parents referencing the same broken callee both emit the warning.
-**Risks.** "Warning fatigue" if callees are frequently in mid-edit. Behaviour depends on file-system race conditions during hot reload (callee being written when parent loads).
-
-### Option C — Eager load, callee errors reported as parent warnings (hybrid)
-
-**Approach.** Same eager transitive load as Option A, but callee parse errors are surfaced as **warnings** in the parent's drain (with a parent-site `loom/load/callee-has-errors` pointer) rather than errors. The parent registers; static checks involving the broken callee are skipped (Option B's runtime-AJV fallback applies). Cycle detection treats the unparseable node as a leaf (does not extend the walk) but emits a warning naming it. The callee itself, when later loaded as a slash command in its own right, fails to register on its own merits.
-
-**Spec edits.** Same files as Option A. The `invocation.md` paragraph distinguishes: "A callee is *statically resolvable* if it opens and parses during the parent's load pass. Unresolvable callees produce a `loom/load/callee-has-errors` warning at the parent's `invoke` site, listing the underlying diagnostic codes; static checks against that callee are skipped and the runtime AJV check is the safety net. Cycle detection treats unresolvable nodes as walk leaves and emits the same warning."
-
-**Pros.** Best of both: authors see distant callee problems through the parent's diagnostics (no need to know which callee is broken), but a broken `./logger.loom` does not block `/main`. Cycle detection is partial but visibly so (warning lists which nodes were skipped). Load pass is uniform with Option A's caching benefits.
-**Cons.** Two-tier diagnostic severity (errors that prevent registration vs warnings that don't) requires authors to understand the distinction. Slightly more complex implementation: the load pass must distinguish "callee for the purpose of being a slash command" (its own errors are fatal to itself) from "callee for the purpose of static resolution from a parent" (its errors are warnings to the parent).
-
-### Recommendation
-
-**Option C.** Eager transitive load with callee errors surfaced as parent-site warnings. This gives implementers an unambiguous algorithm (one load pass, one cache, one diagnostics drain), aligns cycle detection with what authors actually expect (the walker visits every node that exists, and skipped nodes are visibly named), and preserves the spec's existing "AJV check is the safety net" framing for the cases where a callee genuinely is not parseable.
-
-Edge cases the implementer must handle:
-
-- **Hot reload.** When a callee file changes, every parent that has it in its reachable graph must be re-validated. The compile cache (V18h equivalent) is keyed on `(parent_path, callee_path)` pairs.
-- **Self-cycle through unresolvable nodes.** `A` invokes `B`; `B` is unparseable. `A` registers with a warning. Later `B` is fixed and would have closed a cycle with `A`. The hot-reload of `B` must re-walk from `A`; cycle is caught then.
-- **Mutual unresolvability.** `A` invokes `B`, both fail to parse. Each registers nothing on its own (its own parse errors are fatal to itself); the warning-vs-error distinction only matters for the cross-reference.
-- **Path escape.** A callee path resolving outside the project tree is a separate concern (see "Missing completeness cases in invocation" item 5) but the load pass should refuse to open such paths *before* the parse attempt — they fail with `loom/load/callee-out-of-tree` (error, not warning) so authors do not get a misleading parse-error warning.
-- **Depth bound on transitive load.** The load walk needs the same depth bound as runtime invocation depth (see "Missing completeness cases in invocation" item 1) to prevent unbounded I/O on a maliciously deep graph.
-- **`tools:` Pi-tool entries.** Unaffected — Pi tools resolve against Pi's tool registry, not the file system; their availability is already handled by `loom/load/unknown-tool`.
-
-## Related Findings
-
-- "Missing completeness cases in invocation" — decision-dependency (item (2) "static check when resolvable, else runtime" presupposes the resolution algorithm; items (1) depth limit and (5) path escape feed back into the load-pass design)
-- "\"Schema validation at parse time\" is imprecise" — same-cluster (the fix to `pi-integration.md` should reuse the precise terminology this finding establishes for parse-time-vs-runtime)
-- "No diagnostic codes assigned to named parse errors" — same-cluster (the new `loom/load/callee-has-errors` / `loom/load/callee-out-of-tree` codes are part of the same code-assignment exercise)
-- "Tool registry change mid-loom; concurrent model-driven tool execution" — same-cluster (touches the same load-time / runtime registration boundary but resolves independently)
-
----
-
 # Five unspecified `invoke` edge cases
 
 **Source:** docs/reviews/spec-review/spec-20260504-144255.md
@@ -1080,7 +964,7 @@ Edge cases the implementer must cover:
 - ~~"`tools:` registration scope: global vs per-loom"~~ — **resolved** by Cluster-A; the prompt → prompt invoke tools-lifetime case (item 3 of this finding) has been folded into `invocation.md` "Tools and model" as part of that fix
 - "Cancellation surfacing: `InvokeFailure` vs `InvokeCalleeError` — irreconcilable" — same-cluster (both touch `InvokeFailure.reason`; whichever lands first should leave the enum in a state the other can extend)
 - "`InvokeFailure` breaks the `*Error` suffix pattern" — decision-dependency (if `InvokeFailure` is renamed, the `reason: "depth_exceeded"` addition from Option B — and the panic-source naming in Option A — must use the new name)
-- "\"Statically resolvable\" callee never defined" — decision-dependency (case 2 here piggybacks on whatever resolvability algorithm that finding settles)
+- ~~"\"Statically resolvable\" callee never defined"~~ — **resolved** (Option C: eager transitive load with parent-site warnings; see `invocation.md` "Static resolution"). Cases (2) and (4) of this finding can now be specified against the per-load-pass parse cache that decision introduced.
 - "`params:` absent/empty and slash-argument excess behaviour unspecified" — same-cluster (case 4 here is the code-side analogue of that finding's slash-side question; both should land matching arity rules)
 - "Discovery source failure modes partly unspecified" — same-cluster (case 5 here depends on a clean definition of "discovery root" that finding can help shape)
 
