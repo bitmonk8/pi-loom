@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_40 findings retained, 1 false positives dropped, 0 persistent failures_
+_39 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -758,76 +758,6 @@ Edge cases the implementer must handle:
 - "Same-priority `.loom` filename collisions undefined" — same-cluster (sibling collision case; resolved independently but should be reworded in the same edit pass to discovery.md)
 - "`resources_discover` misused as inbound discovery source" — decision-dependency (the registration-timing rewrite in pi-integration-contract.md must agree with the rewrite of how `resources_discover` is used)
 - "`pi.looms` package.json key is not Pi-recognized" — same-cluster (same paragraph cluster on discovery sources, resolved independently)
-
----
-
-# `LoadExtensionsResult.errors` is the wrong delivery channel for loom diagnostics
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** `LoadExtensionsResult.errors` is not a runtime-callable diagnostics channel
-**Kind:** codebase-grounding-broad
-
-## Finding
-
-`spec_topics/diagnostics.md` describes loom's structured diagnostic shape and then states that diagnostics are "serialised to Pi's flat `{ path, error }` shape used by `LoadExtensionsResult.errors` and the standard slash-command error channel." That is not a channel loom can actually use.
-
-In `@mariozechner/pi-coding-agent`, `LoadExtensionsResult` is the return value of Pi's own extension-module loader (`loadExtensions(paths, cwd, eventBus)` in `dist/core/extensions/loader.d.ts`). Its `errors: Array<{ path, error }>` field is populated only while Pi is `import()`-ing extension entry points; once a factory has returned and the extension is live, there is no API to push additional entries into that array. All four diagnostic namespaces loom defines — `loom/parse/*`, `loom/type/*`, `loom/load/*`, `loom/runtime/*` — fire after the loom extension is already loaded, either when the extension scans `.loom` files (initial activation, file-watcher reload via `_loom-reload`) or when the interpreter executes a slash command. None of those moments can write to `LoadExtensionsResult.errors`.
-
-The "standard slash-command error channel" hand-wave is also under-specified: Pi's command runtime surfaces a thrown error from a handler as a transcript message, but loom diagnostics for parse/type/load failures arise during scanning, not during a user-typed `/cmd` invocation. The spec already names two real channels elsewhere — `ctx.ui.notify(message, "error")` for transient toasts and `pi.sendMessage({ customType: "loom-system-note", … }, { triggerTurn: false })` for transcript-persistent system notes (see `pi-integration-contract.md` §System notes and `slash-invocation.md` §30) — but `diagnostics.md` never reconciles its serialiser with them. Without that reconciliation, H3's `DiagnosticsAccumulator` has no defined sink and downstream leaves (V14q cross-format collision, V18j multi-error rollup, V18m panic routing) inherit the same hole.
-
-## Spec Documents
-
-- `spec_topics/diagnostics.md` — Serialisation paragraph and the framing sentence (edited)
-- `spec_topics/pi-integration-contract.md` — System-notes section (read-only; the existing definition of the persistent channel)
-- `spec_topics/slash-invocation.md` — System-note emission for prompt-mode `Err` (read-only; uses the same channel)
-- `spec_topics/discovery.md` — "load-time *error* reported through Pi's diagnostics" sentence on cross-format collisions (option-dependent; may need to point at the same channel)
-- `spec_topics/frontmatter.md` — "surface as Pi-compatible diagnostics" sentence (option-dependent; may need a cross-reference)
-
-## Plan Impact
-
-**Phases:** Horizontal, Vertical V14, Vertical V18
-
-**Leaves (implementation order):**
-
-- H3 — Diagnostics primitive and multi-error accumulator — (modified) — `Adds.` line currently says "serialiser to Pi's flat `{ path, error }` shape"; must be retargeted to the `pi.sendMessage` / `ctx.ui.notify` channels and the `DiagnosticsSink` interface needs a corresponding shape.
-- V14q — Cross-format slash collision — (modified) — load-time error must name the actual delivery channel.
-- V18h — Custom Pi message type `loom-system-note` and renderer — (modified) — gains the load-time-diagnostic responsibility on top of runtime system notes; details payload must accommodate the `Diagnostic` shape.
-- V18j — Multi-error rollup across file + transitive `.warp` imports — (modified) — "one diagnostics call" needs to specify which call.
-- V18m — Panic routing: slash-command surface — (blocked) — already names the system-note channel correctly, but depends on H3/V18h being aligned for `loom/runtime/*` codes.
-
-## Consequence
-
-**Severity:** correctness
-
-H3 cannot be implemented without inventing a `DiagnosticsSink` shape that the spec does not authorise. Two reasonable implementers will diverge: one will write to `console.error`, another will fabricate a `pi.sendMessage` call, a third will silently swallow errors during scanning. Until this is fixed, every loom `.loom` parse/type/load failure is a coin flip on whether the author ever sees it, and the cross-format-collision rule (V14q) has no observable surface.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Rewrite the framing paragraph of `diagnostics.md` to define **two** sinks, both owned by loom, replacing the `LoadExtensionsResult.errors` reference:
-
-1. **Persistent diagnostics (default).** All `loom/parse/*`, `loom/type/*`, and `loom/load/*` diagnostics produced during scanning (initial activation and watcher-triggered reload) are emitted via `pi.sendMessage({ customType: "loom-system-note", content: <serialised line>, display: true, details: { diagnostic: <internal Diagnostic> } }, { triggerTurn: false })` — one message per file, with the file's full multi-error batch as the `content`. This reuses the renderer registered in V18h. `loom/runtime/*` diagnostics use the same channel, as already specified in `slash-invocation.md` and V18m.
-
-2. **Transient toasts (auxiliary).** When the extension's own bookkeeping fails in a way the user must see immediately but that does not belong in the transcript (e.g. the watcher itself throws, settings.json is malformed, a discovery root is unreadable), use `ctx.ui.notify(message, "error")`. This is a narrow secondary channel; do not route loom-author-facing parse/type errors here.
-
-3. **Drop the `LoadExtensionsResult.errors` claim entirely.** That field belongs to Pi's extension loader and is only populated if loom's own `extensions/index.ts` throws during `import()` — a bootstrap failure the user sees on Pi startup, orthogonal to loom diagnostics.
-
-Edge cases the implementer must watch:
-- **Bootstrap order.** Extension activation may run before `pi.registerMessageRenderer("loom-system-note", …)` resolves; the first batch of scan diagnostics must be queued until the renderer is registered, otherwise they render as raw text. V18h must register the renderer synchronously in the factory before kicking off the first scan.
-- **Re-scan deduplication.** A watcher-triggered reload will re-emit the same diagnostic for an unchanged-but-still-broken file. Either (a) clear prior `loom-system-note` messages for that file by transcript metadata, or (b) accept duplicates and document it. Pick one — the spec must say which.
-- **`pi.sendMessage` failure mode.** If `sendMessage` itself rejects (covered by a separate finding), the fallback is `ctx.ui.notify`; loom must never silently lose a diagnostic.
-- **Cross-references.** `discovery.md` ("load-time *error* reported through Pi's diagnostics") and `frontmatter.md` ("Pi-compatible diagnostics") should both link to the updated `diagnostics.md` paragraph so the channel is named in exactly one place.
-
-## Related Findings
-
-- "Cross-format collision: \"neither is registered\" is unimplementable for `.md` prompts" — decision-dependency (the corrected diagnostic channel is what surfaces the collision; both findings touch the same `discovery.md` sentence)
-- "`pi.sendMessage` failure has no fallback" — co-resolve (the recommended channel is `pi.sendMessage`; its failure mode is exactly what that finding flags, and the fallback rule belongs in the same paragraph)
-- "System-note copy strings: prescription level unresolved" — same-cluster (both concern what goes into `loom-system-note` content; resolve channel first, then prescription level)
-- "Discovery source failure modes partly unspecified" — co-resolve (the failure-mode answer is "emit through the channel defined here")
-- "No diagnostic codes assigned to named parse errors" — same-cluster (codes are the payload; this finding settles the envelope)
 
 ---
 

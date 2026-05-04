@@ -1,6 +1,26 @@
 # Diagnostics
 
-Loom emits structured diagnostics that are then serialised to Pi's flat `{ path, error }` shape used by `LoadExtensionsResult.errors` and the standard slash-command error channel.
+Loom emits structured diagnostics through two delivery channels, both owned by the loom extension. Pi's own `LoadExtensionsResult.errors` field is **not** used: that field belongs to Pi's extension loader and is only populated while Pi is `import()`-ing the loom extension's entry point. A failure there is a bootstrap failure the user sees on Pi startup, orthogonal to the diagnostics defined here, which all fire after the extension is already live (during scan, watcher reload, or slash-command execution).
+
+**Persistent diagnostics (default).** All `loom/parse/*`, `loom/type/*`, `loom/load/*`, and `loom/runtime/*` diagnostics are delivered via
+
+```
+pi.sendMessage(
+  {
+    customType: "loom-system-note",
+    content:    <serialised batch>,            // see "Serialised content format" below
+    display:    true,
+    details:    { diagnostics: <Diagnostic[]> } // single-element array for runtime/single-error cases
+  },
+  { triggerTurn: false }
+)
+```
+
+The `pi.registerMessageRenderer("loom-system-note", …)` registered by the loom extension formats these into transcript-persistent, dim-styled notes; see [Pi Integration Contract — System notes](./pi-integration-contract.md) for the renderer registration rules and the best-effort fallback (`ctx.ui.notify` then `loom/runtime/system-note-delivery-failed` then `console.error`) that applies when `pi.sendMessage` itself throws or rejects. The renderer MUST be registered synchronously inside the extension factory **before** the first discovery scan kicks off, so the first batch of scan diagnostics renders through the loom-specific renderer rather than as raw fallback text. This is the only diagnostic sink for loom-author-facing parse, type, load, and runtime errors.
+
+**Transient toasts (auxiliary).** Failures internal to the loom extension's own bookkeeping that the user must see immediately but that do **not** belong in the transcript — the chokidar watcher itself throwing, an unrecoverable settings I/O exception that no `loom/load/settings-*` code covers, an internal extension invariant violation — use `ctx.ui.notify(message, "error")` directly. This is a narrow secondary surface; loom-author-facing diagnostics (anything with a `loom/parse/*`, `loom/type/*`, `loom/load/*`, or `loom/runtime/*` code) MUST go through the persistent channel above and MUST NOT be routed through `ctx.ui.notify` as their primary sink.
+
+**Re-scan deduplication.** A watcher-triggered reload re-emits the persistent diagnostic for any file whose contents are still broken. The runtime does **not** attempt to clear or supersede prior `loom-system-note` messages from the transcript — Pi's `pi.sendMessage` API has no documented "remove" or "replace by metadata" counterpart, and `display: true` system notes are part of the immutable session log. Authors will therefore see the same diagnostic line recur after each reload until the underlying file is fixed; this is the V1 contract and the renderer MUST NOT attempt to suppress duplicates.
 
 Internal diagnostic shape:
 
@@ -23,9 +43,9 @@ Internal diagnostic shape:
 - `loom/load/*` — file-load and registration errors (unreadable file, missing or wrong-type discovery source, name collision, invalid frontmatter, unresolvable `tools:` entry).
 - `loom/runtime/*` — runtime errors surfaced as panics (`MatchError`, index out of bounds, etc.) reported back to Pi as system notes.
 
-**Serialisation to Pi's flat shape:** `"<file>:<line>:<col>: <code>: <message>"`, optionally followed by `"\n  hint: <hint>"` when a hint is present. Related sites are appended as additional indented lines.
+**Serialised content format.** The `content` string of each `loom-system-note` follows the line format `"<file>:<line>:<col>: <code>: <message>"`, optionally followed by `"\n  hint: <hint>"` when a hint is present. Related sites are appended as additional indented lines. When a single message carries a multi-error batch (the scan-time case), each `Diagnostic` becomes one such line block and successive blocks are separated by a single blank line; the corresponding structured `Diagnostic[]` is carried in `details.diagnostics` for the renderer and for downstream consumers (LSP integrations, test harnesses) that want the typed shape rather than the rendered string.
 
-**Multi-error reporting.** Every parse / type pass collects all errors from the full file (and from transitive `.warp` imports) before failing. The loom is rejected with the complete list in one diagnostics call rather than fast-failing on the first error — authors get every problem at once.
+**Multi-error reporting.** Every parse / type pass collects all errors from the full file (and from transitive `.warp` imports) before failing. The loom is rejected with the complete list in **one `pi.sendMessage` call per `.loom` file** — `content` carries the full batch in the format above; `details.diagnostics` carries the same as a structured array — rather than fast-failing on the first error or fanning out one message per error. Authors get every problem in the file at once, in a single transcript entry.
 
 ## Code registry rules (normative)
 
