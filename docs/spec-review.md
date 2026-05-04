@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_51 findings retained, 1 false positives dropped, 0 persistent failures_
+_50 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -2426,67 +2426,6 @@ Edge cases the implementer must handle:
 - "Multi-block content concatenation separator unspecified" — same-cluster (both pin down what the user / loom sees from a query response; the separator question concerns the loom-side `Ok` value, not the user-side stream)
 - "Typed query mechanism contradicts `query.md` tool-loop semantics" — decision-dependency (any clarification of what the typed-query turn looks like to the user should be consistent with the tool-loop semantics fix)
 - "`agent_end` fires globally, not per-session" — same-cluster (the listener architecture chosen there constrains how cleanly partial-stream visibility can be reasoned about per-query)
-
----
-
-# Dedent normalisation has no normative test vectors
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** Dedent algorithm — no normative test vectors
-**Kind:** testability
-
-## Finding
-
-`spec_topics/query.md` §"Multi-line templates" specifies template normalisation with two prose rules and one external reference: a newline-trim around the backticks and "Python's `textwrap.dedent` algorithm" for common-leading-whitespace removal. A single worked example (`"  The author...\n  with...\n  Produce..."` → `"The author...\nwith...\nProduce..."`) is given. The spec also notes that single-line templates are no-ops.
-
-Outsourcing the algorithm to CPython is a normative reference, but it is one most implementers cannot consult under TDD pressure, and `textwrap.dedent` has at least three non-obvious behaviours that change the rendered prompt the model sees:
-
-1. **Whitespace-only lines are ignored when computing the common prefix and are normalised to an empty line in the output.** A template whose "blank" lines contain stray spaces still dedents as if those lines were empty.
-2. **The common prefix is a literal longest-common-prefix string, not a visual column.** A template that mixes tab-indented and space-indented lines has no shared prefix; nothing is stripped, and the model sees the indentation verbatim.
-3. **Pure tab indentation works the same as pure space indentation** — the prefix being stripped is whatever bytes happen to be common.
-
-The spec also leaves the interaction between newline-trim and dedent unstated for two corner cases the parser will hit on day one: a template that is entirely whitespace after newline-trim, and a template whose only non-blank line is the closing-backtick line (e.g. `` @`\n    text` ``). Without normative input→output pairs, two reasonable implementers will disagree on whether stray-whitespace blank lines are preserved verbatim or collapsed, and on what an all-whitespace template renders to.
-
-## Spec Documents
-
-- `spec_topics/query.md` — "Multi-line templates" subsection (edited)
-
-## Plan Impact
-
-**Phases:** Vertical V5
-
-**Leaves (implementation order):**
-
-- V5c — Multi-line templates: newline-trim and dedent — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two implementers writing V5c against the current text will produce divergent renderings whenever a template contains whitespace-only blank lines, mixes tabs and spaces, or is all whitespace. Because the rendered string is what the model sees, the divergence changes assistant output and, for typed queries, can change validation outcomes. V5c's existing test bullet ("tab/space mixing handled per textwrap rules") restates the under-specification rather than resolving it.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add a "Dedent and newline-trim — normative behaviour" subsection to `spec_topics/query.md` immediately after the existing dedent prose. Apply both rules in fixed order — newline-trim first, then dedent — and include a short table of input→output pairs that pin down the edge cases. The pairs should cover, at minimum:
-
-1. **Multi-line, uniform space indent** — the existing worked example, restated as a normative vector.
-2. **Whitespace-only "blank" line between two indented content lines** — confirms the blank line is normalised to an empty line and does not constrain the common prefix. Example: `` @`\n    a\n      \n    b\n` `` → `"a\n\nb"`.
-3. **Tab-only indentation** — confirms tabs are stripped exactly when they form the common prefix. Example: `` @`\n\t\tx\n\t\ty\n` `` → `"x\ny"`.
-4. **Mixed tab and space indentation** — confirms no visual alignment is performed; the longest common literal prefix wins. Example: `` @`\n\tx\n  y\n` `` → `"\tx\n  y"` (no shared prefix → no stripping).
-5. **Single-line template with leading whitespace inside the backticks** — confirms dedent is a no-op when there is exactly one line and that the leading whitespace is preserved. Example: `` @`  hi` `` → `"  hi"`.
-6. **Template that becomes empty after newline-trim** — pin the result to the empty string `""`. Pair this with a forward reference to the empty-rendered-template handling decided in the *Empty / very large rendered templates unspecified* finding.
-7. **Template whose only non-blank line is the closing-backtick line** — fixes the order-of-operations question. Example: `` @`\n    only\n  ` `` → `"only"` (newline-trim removes the leading and trailing newlines; dedent then strips the four-space common prefix from the single remaining line).
-
-State explicitly that the normative reference is the behaviour of CPython 3.x `textwrap.dedent` *as illustrated by the table*, so an implementer who cannot read the CPython source can still pass the conformance tests from the spec alone. V5c's test bullet should be updated to enumerate one assertion per vector.
-
-## Related Findings
-
-- "Empty / very large rendered templates unspecified" — decision-dependency (vector 6 above pins the post-normalisation empty-string case; the empty-rendered-template finding decides whether that empty string is a runtime error, a warning, or silently sent — they must agree on the boundary)
-- "Interpolation of non-string values unspecified" — same-cluster (both touch template-rendering semantics in `query.md`; they resolve independently)
 
 ---
 

@@ -20,7 +20,7 @@
 
 - **Spec.** [Query](../spec_topics/query.md) (multi-line templates).
 - **Adds.** Strip newline immediately after opening backtick; strip newline immediately before closing backtick; dedent common leading whitespace per Python `textwrap.dedent`.
-- **Tests.** Each rule against the spec's worked example; single-line templates unaffected; tab/space mixing handled per textwrap rules.
+- **Tests.** One assertion per normative vector in [Query](../spec_topics/query.md) "Dedent and newline-trim — normative behaviour": (1) multi-line uniform space indent renders as the worked example; (2) whitespace-only blank line is normalised to empty and does not constrain the common prefix; (3) tab-only indentation is stripped; (4) mixed tab/space indentation has no shared literal prefix and nothing is stripped; (5) single-line template with leading whitespace inside the backticks preserves it; (6) template that becomes empty after newline-trim renders as `""`; (7) `` @`\n    only\n` `` renders as `"only"` (pins newline-trim-before-dedent order). Plus: a trailing `\n` followed by whitespace before the closing backtick is *not* newline-trimmed.
 - **Deps.** V5a.
 - **Ships when.** Multi-line prompts render cleanly.
 

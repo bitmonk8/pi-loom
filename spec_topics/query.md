@@ -71,6 +71,36 @@ The explicit form also wins over inference: if both a binding annotation and an 
 
 Dedent and newline-trim apply uniformly to every `@`...`` template regardless of length — single-line templates have no leading whitespace and no internal newlines, so the rules are no-ops in that case.
 
+**Dedent and newline-trim — normative behaviour.** The two normalisations are applied in a fixed order: **newline-trim first**, then **dedent**. The normative reference is the behaviour of CPython 3.x `textwrap.dedent` *as illustrated by the table below*; an implementer who cannot read the CPython source can still pass the conformance tests from the spec alone. Three behaviours of `textwrap.dedent` matter for the rendered prompt the model sees:
+
+1. Whitespace-only lines are ignored when computing the common prefix and are normalised to an empty line in the output. A "blank" line that contains stray spaces still dedents as if it were empty.
+2. The common prefix is the longest common literal prefix of the non-blank lines, not a visual column. A template that mixes tab-indented and space-indented lines has no shared prefix; nothing is stripped.
+3. Tab-only and space-only indentation are stripped uniformly — the prefix being stripped is whatever bytes are common across all non-blank lines.
+
+The following input → output pairs are normative. `\n` and `\t` denote literal newline and tab bytes inside the source between the backticks; they are not escape sequences interpreted by the loom parser (a literal newline or tab in the source has the same effect).
+
+| # | Template (between backticks) | Rendered text |
+|---|---|---|
+| 1 | `` @`\n    The author...\n    with...\n    Produce...\n` `` | `"The author...\nwith...\nProduce..."` |
+| 2 | `` @`\n    a\n      \n    b\n` `` | `"a\n\nb"` |
+| 3 | `` @`\n\t\tx\n\t\ty\n` `` | `"x\ny"` |
+| 4 | `` @`\n\tx\n  y\n` `` | `"\tx\n  y"` |
+| 5 | `` @`  hi` `` | `"  hi"` |
+| 6 | `` @`\n` `` | `""` |
+| 7 | `` @`\n    only\n` `` | `"only"` |
+
+Vector commentary:
+
+1. Multi-line, uniform space indent — the worked example above, restated as a normative vector.
+2. The whitespace-only middle line is normalised to an empty line and does not constrain the common prefix; the four-space prefix shared by `a` and `b` is stripped.
+3. Tab-only indentation is stripped exactly when it forms the common prefix.
+4. Mixed tab and space indentation share no literal prefix, so nothing is stripped and the model sees the indentation verbatim.
+5. A single-line template has no internal newlines for newline-trim to act on and exactly one line for dedent to consider, so any leading whitespace inside the backticks is preserved.
+6. A template that consists solely of a single newline becomes the empty string after newline-trim; dedent on the empty string is the empty string. (How the runtime treats an empty rendered template — error, warning, or silent send — is decided separately; see the discussion of empty rendered templates and their downstream handling.)
+7. Newline-trim removes the leading newline and the newline immediately before the closing backtick, leaving the single line `    only`; dedent then strips the four-space common prefix, yielding `"only"`. This pins the order: newline-trim first, dedent second.
+
+Newline-trim strips a newline only when it sits **immediately** after the opening backtick or **immediately** before the closing backtick. A trailing `\n` followed by whitespace before the closing backtick (e.g. `\n    only\n  `) is not trimmed; the trailing whitespace-only line is then handled by dedent's whitespace-only-line normalisation (it does not contribute to the common prefix and is rendered as an empty line).
+
 **Escapes.** Inside a query template:
 
 - `\``    — literal backtick
