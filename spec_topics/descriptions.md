@@ -25,15 +25,11 @@ enum Severity {
   High,
 }
 
-/// Top-level error returned by every query
-schema QueryError = ValidationError
-                  | TransportError
-                  | ToolFailureError
-                  | ContextOverflowError
-                  | CancelledError
-                  | InvokeFailure
-                  | InvokeCalleeError
+/// Top-level error returned by every query (full definition in query.md)
+schema QueryError = ValidationError | TransportError | …
 ```
+
+The last block is **truncated for illustration**; the authoritative `QueryError` union lives in [Query](./query.md).
 
 Rules:
 

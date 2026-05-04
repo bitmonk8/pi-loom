@@ -30,7 +30,7 @@ The runtime depends on a small, named surface from `@mariozechner/pi-coding-agen
 - `onUpdate` is a no-op (V1 does not surface streaming partial results to loom code).
 - `ctx` is a synthesised `ExtensionContext` with `cwd`, `signal`, `sessionManager` (the loom's current session — Pi's user session in prompt mode, the spawned subagent session in subagent mode), and a no-op `ui`.
 
-The tool's returned `{ content, isError }` becomes the V1 string return value: the concatenated text content blocks, returned as `Ok(string)` if `!isError` and `Err(QueryError { kind: "tool_call", cause: "execution", ... })` otherwise.
+The tool's returned `{ content, isError }` becomes the V1 string return value: the concatenated text content blocks, returned as `Ok(string)` if `!isError` and `Err(QueryError { kind: "tool_call_error", cause: "execution", ... })` otherwise.
 
 **Cancellation source.** As described in [Cancellation](./cancellation.md), the loom's `AbortSignal` is `ctx.signal` from the slash-command handler (or the `signal` parameter to a tool-exposed loom's `execute`). All downstream queries, tool calls, and child invokes derive from this signal.
 

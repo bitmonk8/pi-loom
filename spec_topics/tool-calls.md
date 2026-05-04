@@ -26,7 +26,7 @@ As with queries and `invoke`, the call returns a `Result`; use `?` to propagate 
 
 ```loom
 schema ToolCallError {
-  kind: "tool_call",
+  kind: "tool_call_error",
   message: string,
   tool_name: string,                  // post-rename name as seen in `tools:`
   cause: "validation"                 // arguments failed input-schema validation

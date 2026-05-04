@@ -15,7 +15,7 @@ Every loom invocation runs under an `AbortSignal` provided by Pi. V1 cancellatio
 **Surfacing.**
 
 - An in-flight query whose signal aborts returns `Err(QueryError { kind: "cancelled", message: "..." })`.
-- A tool call whose signal aborts returns `Err(QueryError { kind: "tool_call", cause: "cancelled", ... })`.
+- A tool call whose signal aborts returns `Err(QueryError { kind: "tool_call_error", cause: "cancelled", ... })`.
 - A child invoke whose signal aborts surfaces to the parent as `Err(QueryError { kind: "invoke_callee_error", inner: { kind: "cancelled", ... } })` when the abort originated inside the child, or directly as `kind: "cancelled"` when the parent's own signal fired first.
 - The loom's *top-level* cancellation surfaces to Pi as the `cancelled` row in the per-`kind` system-note table in [Invocation from Pi](./slash-invocation.md).
 

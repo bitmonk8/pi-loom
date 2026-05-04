@@ -24,6 +24,11 @@ Once a loom is invoked:
 | `tool_failure` | "loom `/<name>` returned `Err`: tool `<tool_name>` failed — `<message>`" |
 | `context_overflow` | "loom `/<name>` returned `Err`: context window exceeded" |
 | `cancelled` | "loom `/<name>` cancelled" |
+| `tool_call_error` | "loom `/<name>` returned `Err`: tool `<tool_name>` call failed (`<cause>`) — `<message>`" |
+| `invoke_failure` | "loom `/<name>` returned `Err`: invoke of `<callee_path>` failed (`<reason>`)" |
+| `invoke_callee_error` | "loom `/<name>` returned `Err`: invoked `<callee_path>` returned `Err` — `<inner.kind>`" |
+
+Every `QueryError.kind` has a defined system-note shape; the formatter must enumerate all eight rows above. For `invoke_callee_error` the chain-attribution suffix described in the next paragraph handles the deeper `inner` recursion — the row above only formats the immediate failure, and the chain text is appended once per cascade level.
 
 The session is not aborted; the user can type a follow-up turn. When the leaf failure originated inside an `invoke`d child loom that cascaded out via `?`, the note identifies the leaf and prints the call chain (`"... from child.loom invoked at parent.loom:42"`).
 
