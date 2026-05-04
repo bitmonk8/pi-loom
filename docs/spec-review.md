@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_73 findings retained, 1 false positives dropped, 0 persistent failures_
+_72 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -5750,76 +5750,6 @@ Do not try to salvage the "surface stays consistent" framing by stretching it to
 
 - "Missing edge cases in schema declarations" — same-cluster (touches the same schemas.md surface; resolves independently)
 - "\"When to use which\" advisory in schema spec" — same-cluster (another prose-quality issue in the same file's enum section; resolves independently)
-
----
-
-# Schema declarations: empty bodies, alias cycles, and discriminator literal type unspecified
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** Missing edge cases in schema declarations
-**Kind:** completeness
-
-## Finding
-
-`spec_topics/schemas.md` specifies the well-formed cases of `schema` and `enum` declarations but never says what happens at three degenerate corners that any parser will encounter:
-
-1. **Empty bodies.** `schema X {}` and `enum X {}` are syntactically reachable. Lowering an empty object schema produces `{type:"object", properties:{}, required:[], additionalProperties:false}` — accepted by AJV but almost certainly not what the author meant. Lowering an empty enum produces `{type:"string", enum:[]}`, which JSON Schema 2020-12 forbids (`enum` must be a non-empty array) and which AJV rejects at compile time. Neither outcome is mentioned in the spec, so two implementers will diverge on whether to accept silently, warn, or reject at parse time.
-
-2. **Pure type-alias cycles.** `schema X = X`, and longer chains like `schema X = Y; schema Y = X`, are reachable through the `schema X = ...` form. Object-schema recursion is explicitly supported because each cycle hop crosses a `$ref` against `$defs` (the runtime data depth bounds termination). A pure alias cycle has no such hop: lowering would chase the alias indefinitely and crash. The spec covers object recursion but is silent on alias cycles, and `spec_topics/imports.md` / `spec_topics/invocation.md` only specify cycle detection for import and invocation graphs.
-
-3. **Discriminator field literal type.** The discriminator rules require each variant's discriminant field to be "a single literal type." The literal-type grammar admits string, number, and boolean literals, so `kind: 1` or `kind: true` would qualify. OpenAI Structured Outputs' grammar-constrained decoder is documented to handle string `const` reliably; non-string discriminators are not exercised by either provider's published examples and are likely to degrade decoding quality — exactly the failure mode the discriminator-required rule was introduced to avoid. The spec does not constrain the discriminator's literal type, so an implementer cannot tell whether `kind: 1` should parse, warn, or be rejected.
-
-## Spec Documents
-
-- `spec_topics/schemas.md` — object-schema body, enum body, type-alias union form, discriminated-union detection rules (edited)
-- `spec_topics/schema-subset.md` — lowering algorithm, `enum` lowered shape (read-only; informs choices but no edits required)
-- `spec_topics/imports.md` — existing import-cycle detection wording (read-only; reference for parallel diagnostic phrasing)
-- `spec_topics/invocation.md` — existing invocation-cycle detection wording (read-only; reference for parallel diagnostic phrasing)
-
-## Plan Impact
-
-**Phases:** Vertical V4, Vertical V10, Vertical V11
-
-**Leaves (implementation order):**
-
-- V4b — Object schema declaration and lowering — (modified)
-- V4c — Type-alias `schema X = T` for primitive unions — (modified)
-- V10a — `enum X { ... }` declaration — (modified)
-- V11a — Implicit discriminator detection — (modified)
-- V11d — Explicit `by <field>` form — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Without a rule, V4b/V4c will produce a parser that accepts `schema Foo {}` and `schema X = X`. The first quietly emits a useless schema; the second causes the lowering pass to recurse until the stack overflows. V10a will emit `{enum:[]}` which AJV rejects at compile time, surfacing as an opaque internal error rather than a parse diagnostic on the offending declaration. V11a will accept numeric/boolean discriminators that grammar-constrained decoders may silently mis-route, producing intermittent validation failures that the user cannot diagnose from the loom source.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Amend `spec_topics/schemas.md` with the following clarifications, each phrased as a parse-time rule so the diagnostic surface stays uniform:
-
-1. **Empty body rule.** Add to the object-schema and enum sections: *"A `schema` or `enum` declaration with no body is a parse error: `'X' has no fields/variants; an empty schema/enum cannot be validated.'`"* Reject at parse time rather than warn — empty bodies have no use case and `enum:[]` is invalid JSON Schema regardless.
-
-2. **Alias-cycle rule.** Append to the **Recursion** subsection: *"Cycle detection extends to pure type aliases. A `schema X = ...` whose right-hand side reduces to `X` itself — directly (`schema X = X`) or transitively through other aliases (`schema X = Y; schema Y = X`) — is a parse error: `'type-alias cycle: X → Y → X'`. Cycles that pass through at least one object-schema hop (which becomes a `$ref`) remain legal, as already specified."* The diagnostic phrasing mirrors the existing import- and invocation-cycle wording in `imports.md` and `invocation.md`.
-
-3. **Discriminator literal-type rule.** Replace clause 2 of the discriminator-detection list with: *"Be a single **string** literal type in every variant (one literal value per variant; not a literal-union)."* Add to the surrounding paragraph: *"Numeric and boolean literal discriminators are rejected in V1 — provider grammar-constrained decoders are only validated against string `const`. Authors needing a numeric tag should wrap it: `kind: \"v1\"`."* Apply this to both implicit detection (V11a) and the explicit `by <field>` form (V11d) so the rule cannot be bypassed.
-
-Edge cases for the implementer:
-
-- An object schema with one field whose type is `never`-shaped (none exist in V1) is not the same as an empty body; the empty-body rule fires only when the brace pair contains zero field declarations.
-- The alias-cycle detector must run after schema-name resolution but before lowering; reuse the SCC walk from import-cycle detection if available.
-- Wire-renamed discriminator fields (`kind as "Kind": "v1"`) keep the string-literal constraint on the *value*, not the wire name; the rename does not interact.
-
-## Related Findings
-
-- "`as` keyword claim contradicted by example" — same-cluster (both edit `schemas.md` near the wire-name section, but resolve independently)
-- "\"When to use which\" advisory in schema spec" — same-cluster (touches the same file; deletion-only, no interaction)
-- "Depth ≤5: counting algorithm and enforcement point unspecified" — same-cluster (schema-subset edge case, parallel in spirit; schema-graph cycles vs data-depth cap are distinct concerns)
-- "Missing completeness cases in invocation" — same-cluster (parallel "missing edge cases" finding for the invocation surface; the alias-cycle phrasing here should match whatever cycle-diagnostic style that finding settles on)
 
 ---
 

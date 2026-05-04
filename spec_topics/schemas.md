@@ -14,6 +14,8 @@ schema Author {
 
 Fields are comma-separated; the trailing comma is optional. Field names are identifiers; field types are any expression from the [Type System](./type-system.md) grammar. Every declared field is **required** (the lowered JSON Schema's `required` lists every property; `additionalProperties: false` is always emitted). Optional fields are expressed as `T | null` — there is no `field?: T` shorthand. The non-existence and the explicit-`null` cases are conflated, matching strict-mode provider behaviour.
 
+A `schema X { }` declaration with no fields is `loom/parse/empty-schema-body`: *`"'X' has no fields; an empty schema cannot be validated."`* Empty bodies have no use case and the lowered `{type:"object", properties:{}, required:[], additionalProperties:false}` shape would silently accept every object — almost certainly not what the author intended.
+
 **Wire-name renaming.** A field declaration may attach an explicit wire name with `as "WireName"` between the field identifier and its type:
 
 ```loom
@@ -76,15 +78,17 @@ enum ErrorCode {
 }
 ```
 
-Variants are comma-separated; trailing comma optional. `enum` is **top-level only** — there is no inline `enum["a", "b"]` form (`loom/parse/inline-enum`). For inline enumerations use literal-union: `severity: "low" | "medium" | "high"`. V1 enums carry **string values only** (no numeric or boolean variant values, no payload-carrying variants — `loom/parse/non-string-enum-value`); duplicate explicit values across variants are `loom/parse/duplicate-enum-value`. For richer variants use the `schema X = A | B` form with object schemas.
+Variants are comma-separated; trailing comma optional. `enum` is **top-level only** — there is no inline `enum["a", "b"]` form (`loom/parse/inline-enum`). For inline enumerations use literal-union: `severity: "low" | "medium" | "high"`. V1 enums carry **string values only** (no numeric or boolean variant values, no payload-carrying variants — `loom/parse/non-string-enum-value`); duplicate explicit values across variants are `loom/parse/duplicate-enum-value`. For richer variants use the `schema X = A | B` form with object schemas. An `enum X { }` declaration with no variants is `loom/parse/empty-enum-body`: *`"'X' has no variants; an empty enum cannot be validated."`* The would-be lowering (`{type:"string", enum:[]}`) is invalid JSON Schema 2020-12 (the `enum` array must be non-empty) and would be rejected by AJV at compile time regardless.
 
 **Variant access.** A specific variant is referenced as `Enum.Variant` (e.g., `Severity.High`). The expression evaluates to the variant's underlying string value (the explicit RHS, or the variant name verbatim when no RHS is given) but is statically typed as `Enum`. `Enum.Variant` is the recommended form whenever the value is named in code — type-aware and refactor-safe — over comparing against the bare string literal. Unknown-variant references (`Severity.Critical` when no such variant exists) are `loom/parse/unknown-variant`.
 
 **Discriminated unions.** A `schema X = A | B | C` whose variants are all object schemas is a discriminated union; the discriminator field is normally **detected implicitly**. The detected field must:
 
 1. Be present in every variant.
-2. Be a single literal type in every variant (one literal value per variant; not a literal-union).
+2. Be a single **string** literal type in every variant (one literal value per variant; not a literal-union).
 3. Have a unique value across the variants.
+
+Numeric and boolean literal discriminators are rejected in V1 (`loom/parse/non-string-discriminator`): provider grammar-constrained decoders are only validated against string `const`, and non-string tags degrade decoding quality — exactly the failure mode the discriminator-required rule was introduced to avoid. Authors needing a numeric or boolean tag should wrap it as a string: `kind: "v1"` rather than `kind: 1`. The rule applies equally to implicit detection and to the explicit `by <field>` form below — wire-renamed discriminator fields (`kind as "Kind": "v1"`) keep the string-literal constraint on the *value*; the rename does not interact.
 
 If exactly one field qualifies, it is the discriminator. If multiple qualify, `loom/parse/ambiguous-discriminator`: *`"ambiguous discriminator for X; candidates: <fields>. Declare explicitly with 'by <field>'."`* If none qualify, `loom/parse/missing-discriminator`: *`"X is a union of object schemas with no shared single-literal discriminator field. Add a 'kind' (or similar) field to each variant, or declare explicitly with 'by <field>'."`* Discriminator-less object unions are rejected because they degrade structured-output quality at every major provider.
 
@@ -119,3 +123,5 @@ schema Animal {
 ```
 
 The [Schema Subset](./schema-subset.md)'s depth ceiling applies to runtime JSON document depth, not to the schema graph — a recursive schema definition is fine; recursive *data* is bounded by the runtime cap.
+
+Cycle detection extends to pure type aliases. A `schema X = ...` whose right-hand side reduces to `X` itself — directly (`schema X = X`) or transitively through other aliases (`schema X = Y; schema Y = X`) — is `loom/parse/type-alias-cycle` with the cycle path printed (*`"type-alias cycle: X → Y → X"`*, mirroring the import- and invocation-cycle diagnostics in [Imports](./imports.md) and [Invocation](./invocation.md)). Cycles that pass through at least one object-schema hop remain legal: each hop crosses a `$ref` against `$defs`, and the runtime data depth bounds termination. The alias-cycle detector runs after schema-name resolution but before lowering.
