@@ -8,7 +8,7 @@ description: Programmatic, parameterised code review
 argument-hint: "<language> <focus_areas...>"
 mode: subagent              # prompt | subagent
 model: claude-sonnet-4-5    # model used for every query in this loom
-binder_model: claude-haiku  # model used to bind slash-command args to params (default: Pi setting)
+binder_model: claude-haiku  # model used to bind slash-command args to params (default: looms.binderModel in settings.json)
 bind_context: none          # none | session — see Slash-Command Argument Binding
 bind_echo: true             # echo bound args before execution (default: true)
 tools: read, grep, bash     # tools available to the model during query-time tool loops

@@ -4,7 +4,7 @@ When a loom is invoked from a slash command, the runtime translates the user's f
 
 The binder is positioned as runtime infrastructure, not as part of the loom's conversation: it never adds turns to the user's session (in prompt mode) or to the loom's spawned conversation (in subagent mode), and the loom code never sees the binder's intermediate envelope. Authors interact with the *result* of binding (their `params` are populated, or the loom doesn't run) the same way they would with any typed `invoke(...)` call.
 
-**Binder model.** Configured via the `binder_model:` frontmatter field, which falls back to the Pi-level `looms.binderModel` setting (default: a cheap tier-2 model such as Claude Haiku, GPT-4o-mini, or Gemini Flash). Binder calls are structurally function-calling tasks — schema in, JSON out — and tier-2 models are more than capable. Authors with unusually subtle schemas (overlapping discriminated-union fields, semantically close enum variants) can override per-loom by setting `binder_model:` to a stronger model.
+**Binder model.** Configured via the `binder_model:` frontmatter field, which falls back to the loom-extension setting `looms.binderModel` in `settings.json` (read per [Settings file reads](./discovery.md#settings-file-reads); not a Pi-recognised setting), defaulting to a cheap tier-2 model such as Claude Haiku, GPT-4o-mini, or Gemini Flash. Binder calls are structurally function-calling tasks — schema in, JSON out — and tier-2 models are more than capable. Authors with unusually subtle schemas (overlapping discriminated-union fields, semantically close enum variants) can override per-loom by setting `binder_model:` to a stronger model.
 
 **Binder context.** Configured via `bind_context:` (`none` | `session`; default `none`).
 

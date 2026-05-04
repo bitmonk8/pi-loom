@@ -35,9 +35,9 @@
 ## V16e — `binder_model` resolution chain
 
 - **Spec.** [Slash-Command Argument Binding](../spec_topics/binder.md) (binder model).
-- **Adds.** Frontmatter `binder_model:` → Pi setting `looms.binderModel` → built-in default (cheap tier-2 model identifier).
+- **Adds.** Frontmatter `binder_model:` → `settings.json` `looms.binderModel` (read via the V14n mechanism) → built-in default (cheap tier-2 model identifier).
 - **Tests.** Each resolution step; missing all → built-in default.
-- **Deps.** V3a.
+- **Deps.** V3a, V14n.
 - **Ships when.** Binder model resolves predictably.
 
 ## V16f — `bind_context: none`

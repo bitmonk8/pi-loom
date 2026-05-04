@@ -104,12 +104,12 @@
 - **Deps.** V14k.
 - **Ships when.** Package-shipped looms discoverable.
 
-## V14n — Discovery: settings `looms` array
+## V14n — Discovery: settings file reads (`looms` array, plus the read mechanism reused by V16e for binder model)
 
-- **Spec.** [Directory Convention](../spec_topics/discovery.md).
-- **Adds.** `~/.pi/agent/settings.json` and `.pi/settings.json` `looms` array (files or directories).
-- **Tests.** File entry registers one loom; directory entry registers all `*.loom` in directory; project settings override global.
-- **Deps.** V14k.
+- **Spec.** [Directory Convention](../spec_topics/discovery.md) (Settings file reads).
+- **Adds.** Settings reader for `~/.pi/agent/settings.json` and `.pi/settings.json` via the injected `FileSystem` seam (Pi exposes no settings accessor for extensions). Project-over-global precedence with deep-merge for nested objects, replace for arrays and scalars. `looms` array (files or directories) is the V1 consumer; the same reader is reused by V16e for `looms.binderModel`.
+- **Tests.** File entry registers one loom; directory entry registers all `*.loom` in directory; project `looms` array fully replaces global `looms` array (replace, not concat); project values deep-merge over global values for nested objects; missing file treated as `{}` with a single load-time diagnostic; malformed JSON file treated as `{}` with a single load-time diagnostic and the other file still consulted.
+- **Deps.** V14k, H2.
 - **Ships when.** Settings-driven discovery works.
 
 ## V14o — Discovery: `--loom` CLI flag
