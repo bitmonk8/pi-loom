@@ -8,6 +8,8 @@ A loom is invoked as a slash command using its filename, exactly like a Pi promp
 
 The runtime extracts typed `params:` values from the user's free-form slash arguments via an LLM-driven binder. The full mechanism is described in [Slash-Command Argument Binding](./binder.md); the short version is that a cheap tier-2 model is given the loom's `params:` schema and the raw slash text and asked to return a structured envelope (`ok`, `needs_info`, or `ambiguous`). Successful binding feeds AJV-validated params into the loom; unsuccessful binding surfaces a one-line system note in the user's session and the loom does not run.
 
+On successful binding the runtime appends a one-line echo system note to the session before the loom starts, summarising the bound arguments. The echo is on by default, suppressed by `bind_echo: false`, and auto-suppressed for the single-string-param bypass case (where `bind_echo: true` is a parse warning). See [Slash-Command Argument Binding](./binder.md) for the formatting rules and the bypass condition.
+
 The `argument-hint` frontmatter field drives the slash-command autocomplete dropdown shown to the user, and is also passed to the binder as additional grounding for argument extraction. Key=value or named-argument syntax (e.g. `/code-review language=TypeScript`) is *not* part of the V1 surface; users type free-form text and the binder does the work.
 
 Once a loom is invoked:

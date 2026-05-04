@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_67 findings retained, 1 false positives dropped, 0 persistent failures_
+_66 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -4582,64 +4582,6 @@ Take Option B. Add the three missing rows so V18i has exact testable strings for
 - "`QueryError` union has three conflicting authoritative definitions" — same-cluster (a consolidated `QueryError` reference would make the table's enumeration mechanically derivable)
 - "`QueryError` variants split across three files with no consolidated reference" — same-cluster (root cause of the omission; consolidating would prevent recurrence)
 - "Cancellation surfacing: `InvokeFailure` vs `InvokeCalleeError` — irreconcilable" — decision-dependency (resolution affects which kind the `cancelled` row vs the new `invoke_*` rows actually fire on)
-
----
-
-# `slash-invocation.md` omits the binder echo line and its suppression rules
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** `bind_echo` / binder-bypass echo suppression not cross-referenced
-**Kind:** cross-spec-consistency-broad
-
-## Finding
-
-`spec_topics/slash-invocation.md` walks through the user-visible invocation sequence — slash text in, binder runs, params validated, loom executes, optional top-level `Err` system note on the way out. It never mentions the echo line that, per `binder.md`, the runtime appends to the user's session **immediately before the loom starts** on every successful binding (unless suppressed).
-
-Three pieces of behaviour described authoritatively in `binder.md` therefore have no anchor in the file a reader naturally consults to understand what appears in a session:
-
-- The echo line itself (`Running /code-review: language=TypeScript, …`) is emitted by default for every successful binding.
-- `bind_echo: false` suppresses it.
-- The single-string-param bypass auto-suppresses it regardless of the frontmatter setting, and `bind_echo: true` on a bypass-eligible loom is a parse warning.
-
-A reader using `slash-invocation.md` as a single-file mental model will under-count the system-note traffic in the session transcript and may miss the bypass interaction entirely. The error is one of cross-referencing, not of substance — `binder.md` already specifies the rules in full.
-
-## Spec Documents
-
-- `spec_topics/slash-invocation.md` — invocation sequence narrative (edited)
-- `spec_topics/binder.md` — echo policy section (read-only; canonical source the new sentence points to)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):** None
-
-The implementation behaviour is already specified in `binder.md` and carried by `V16i` (`bind_echo` formatter), `V16j` (`bind_echo: false` suppression), and `V16k` (bypass auto-suppression). Those leaves cite `binder.md` directly and need no acceptance-criteria changes; adding a cross-reference sentence to `slash-invocation.md` neither modifies nor blocks any leaf.
-
-## Consequence
-
-**Severity:** advisory
-
-A reader anchored on `slash-invocation.md` will under-model the visible session traffic — they will not anticipate the pre-execution echo line, will not realise `bind_echo` exists, and will not predict the bypass case auto-suppression. No implementer following `binder.md` will get the behaviour wrong, but reviewers, integration-test authors, and downstream documentation will.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `spec_topics/slash-invocation.md`, immediately after the paragraph that ends "Successful binding feeds AJV-validated params into the loom; unsuccessful binding surfaces a one-line system note in the user's session and the loom does not run." — i.e. before the `argument-hint` paragraph — insert a sentence such as:
-
-> On successful binding the runtime appends a one-line echo system note to the session before the loom starts, summarising the bound arguments. The echo is on by default, suppressed by `bind_echo: false`, and auto-suppressed for the single-string-param bypass case (where `bind_echo: true` is a parse warning). See [Slash-Command Argument Binding](./binder.md) for the formatting rules and the bypass condition.
-
-Edge cases for the editor: do **not** restate the formatting rules (field order, quoting, truncation, 120-char cap) or the bypass eligibility condition — those belong solely to `binder.md`. Keep the cross-reference one paragraph long so the file's narrative arc (bind → validate → run → optional Err note) stays scannable.
-
-## Related Findings
-
-- "Binder echo formatting micro-rules over-prescribed and misplaced" — decision-dependency (if the echo formatting rules are relocated within `binder.md` or extracted, the cross-reference target updates with them).
-- "Binder echo text is attacker-controlled without sanitisation" — same-cluster (also touches the echo line surface but resolves independently in `binder.md`).
-- "Per-`kind` system-note table covers only 5 of 8 `QueryError` variants" — same-cluster (other system-note gap in the same file; same edit pass can address both).
-- "System-note copy strings: prescription level unresolved" — same-cluster (also concerns the prescriptive level of system-note copy in `slash-invocation.md`).
 
 ---
 
