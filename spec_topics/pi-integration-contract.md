@@ -2,7 +2,7 @@
 
 The runtime depends on a small, named surface from `@mariozechner/pi-coding-agent`. Each item below is the V1 contract; behaviour outside this surface is non-load-bearing and may be revised without spec changes. The V1 contract is anchored to `@mariozechner/pi-coding-agent ^0.72.1` (and the matching `pi-agent-core`/`pi-ai`/`pi-tui` minor); a Pi minor bump requires re-validating this contract before the loom `peerDependencies` range is widened.
 
-**Extension entry point.** A single Pi extension module (`pi-loom/index.ts`) exporting the standard `default function (pi: ExtensionAPI)` factory. The factory:
+**Extension entry point.** A single Pi extension module (`extensions/index.ts`, the file Pi auto-discovers from `package.json#pi.extensions = ["./extensions"]`) exporting the standard `default function (pi: ExtensionAPI)` factory. The factory:
 
 1. Walks the five discovery sources defined in [Directory Convention](./discovery.md) directly: the global directory `~/.pi/agent/looms/`, the project directory `.pi/looms/`, every installed package's `pi.looms` entry or conventional `looms/` directory (per [Package discovery](./discovery.md#package-discovery)), the `looms` settings array (per [Settings file reads](./discovery.md#settings-file-reads)), and the `--loom` CLI flag. Pi's `resources_discover` event is **not** used — it has no `loomPaths` slot — and the `pi` manifest namespace does not enumerate `pi.looms`; the loom extension owns the walk for all five sources.
 2. Parses and registers each `.loom` file via `pi.registerCommand(name, { description, getArgumentCompletions, handler })` — one slash command per loom.

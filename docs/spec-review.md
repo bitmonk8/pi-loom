@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_43 findings retained, 1 false positives dropped, 0 persistent failures_
+_42 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -960,60 +960,6 @@ Implementer edge cases:
 - "Forced tool-use unsupported on non-Anthropic/OpenAI providers" — same-cluster (independent provider-coverage issue with the same `tool_choice`-rewrite mechanism)
 - "No `pi.unregisterTool()` API — one-shot tools accumulate" — same-cluster (sibling lifecycle issue with the synthesised `__loom_respond_<hash>` tool)
 - "`agent_end` fires globally, not per-session" — same-cluster (parallel "this hook isn't scoped the way the spec implies" issue, resolves independently)
-
----
-
-# Extension entry point path contradicts `package.json#pi.extensions`
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** Extension entry point path is wrong
-**Kind:** codebase-grounding-broad
-
-## Finding
-
-`spec_topics/pi-integration-contract.md` line 5 names the extension entry point as `pi-loom/index.ts`:
-
-> **Extension entry point.** A single Pi extension module (`pi-loom/index.ts`) exporting the standard `default function (pi: ExtensionAPI)` factory.
-
-That path does not exist in this repository and is not where Pi will look. `package.json` declares `"pi": { "extensions": ["./extensions"] }`, and Pi's package convention (`docs/packages.md`) treats a directory entry as "load `.ts`/`.js` files from this directory". The file Pi will load is `extensions/index.ts` (the directory currently contains only `.gitkeep`). `plan_topics/h4-extension-shell.md` is already aligned with this — it explicitly adds `extensions/index.ts`. The spec is the only document carrying the wrong path.
-
-A reader who took the spec literally would create `pi-loom/index.ts` at the repo root; Pi's auto-discovery would not pick it up and the extension would silently fail to load.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — "Extension entry point" paragraph (edited)
-- `package.json` — `pi.extensions` field (read-only, source of ground truth)
-- `plan_topics/h4-extension-shell.md` — Adds line (read-only, already correct)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None. H4 (`extensions/index.ts`) is already aligned with the corrected path; no leaf's acceptance criteria change.
-
-## Consequence
-
-**Severity:** correctness
-
-A narrow reader of the spec would place the entry-point file at `pi-loom/index.ts` and Pi would not discover it. The plan happens to document the correct path, so an implementer reading both surfaces would notice and resolve the contradiction in favour of the plan, but the spec on its own is wrong.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `spec_topics/pi-integration-contract.md`, change `pi-loom/index.ts` to `extensions/index.ts` in the "Extension entry point" paragraph. Add a brief parenthetical tying the path to the `package.json` manifest, e.g.:
-
-> **Extension entry point.** A single Pi extension module (`extensions/index.ts`, the file Pi auto-discovers from `package.json#pi.extensions = ["./extensions"]`) exporting the standard `default function (pi: ExtensionAPI)` factory.
-
-No other occurrence of `pi-loom/index.ts` exists under `spec.md` or `spec_topics/` (verified via grep), so this is a one-line edit.
-
-## Related Findings
-
-None.
 
 ---
 
