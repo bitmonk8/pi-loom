@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_88 findings retained, 1 false positives dropped, 0 persistent failures_
+_87 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -6958,75 +6958,6 @@ This recommendation also subsumes the V4a test "AJV instance not shared across l
 
 - "Per-query AJV cache key is inconsistent with schema-subset lowering" — co-resolve (both rewrite the same AJV-configuration bullet; the cache-key wording and the ownership wording should be revised in one pass)
 - "Implementation toolkit over-prescribed" — same-cluster (also targets the AJV-configuration bullet; resolves independently — that finding is about prescriptiveness of the toolkit name, this one is about cache ownership)
-
----
-
-# AJV cache lifetime is described inconsistently across two spec pages
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** Per-query AJV cache key is inconsistent with schema-subset lowering
-**Kind:** implementability, prescription
-
-## Finding
-
-Two spec pages give incompatible-sounding rules for the AJV validator cache:
-
-- `spec_topics/implementation-notes.md` (Runtime → AJV configuration): *"Schemas are compiled once per loom load and cached across invocations; the file watcher invalidates the cache on change."*
-- `spec_topics/schema-subset.md` (end of Lowering Algorithm): *"Schema validators (AJV) are compiled once per lowered schema and reused across queries; the file watcher invalidates the cache on change."*
-
-These cannot both be the cache key. Step 4 of the same lowering algorithm builds **a separate JSON Schema document per typed-query site** (response schema as root, transitively reachable `$defs` copied in, the rest pruned). A loom file with N typed query sites therefore produces N distinct lowered documents, each needing its own compiled validator. "Once per loom load" undercounts; "once per lowered schema" is correct only if "lowered schema" is read as "per-query lowered document," which a fair reader will not infer from the implementation-notes phrasing.
-
-Two implementers reading these two sentences will reasonably build two different caches: one keyed on loom-file identity (one validator shared across every query in the file — wrong, since the per-query documents differ) and one keyed on per-query content. The plan's V4a already commits to "compiled-schema cache keyed by lowered-schema content hash"; the spec needs to say the same thing in both places.
-
-The "file watcher invalidates the cache" half is also redundant under content-hash keying: an edit that changes the lowered output produces a different hash and therefore a cache miss without any explicit invalidation. The watcher hook is at most an eviction optimisation (so stale entries don't pin memory), not a correctness mechanism.
-
-## Spec Documents
-
-- `spec_topics/implementation-notes.md` — Runtime → "AJV configuration" bullet (edited)
-- `spec_topics/schema-subset.md` — final paragraph of "Lowering Algorithm" (edited)
-- `spec_topics/schema-subset.md` — Lowering Algorithm step 4 (read-only; cited to anchor the per-query argument)
-
-## Plan Impact
-
-**Phases:** Vertical V4, Vertical V18
-
-**Leaves (implementation order):**
-
-- V4a — AJV pipeline scaffold — (modified)
-- V4h — Per-query schema document with `$defs` pruning — (read-only)
-- V18g — AJV cache invalidation on file change — (modified)
-
-V4a already states the correct invariant ("Compiled-schema cache keyed by lowered-schema content hash") and its **Spec** field cites the implementation-notes paragraph being rewritten — its citation target changes wording. V18g's framing shifts from "watcher is the invalidation mechanism" to "watcher is an eviction optimisation"; its tests still hold but the surrounding rationale is rewritten.
-
-## Consequence
-
-**Severity:** correctness
-
-A reader who follows the implementation-notes wording literally will share one validator across every typed query in a loom file, producing AJV errors against per-query documents the validator was not compiled for (e.g. dangling `$ref` to a pruned `$def`, or mis-rooted validation against the wrong response shape). A reader who follows the schema-subset wording will get it right. The two sentences must agree.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Replace both passages with a single normative statement, located in `implementation-notes.md` (Runtime → AJV configuration) and cross-referenced from `schema-subset.md`:
-
-> Compiled AJV validators are cached per **per-query lowered schema document** (the document produced by step 4 of the lowering algorithm), keyed by a stable content hash of that document plus the AJV major version. A cache hit requires byte-equal lowered output; any change to the source loom file that produces a different lowered document for a given query site is automatically a cache miss. The file watcher MAY evict cache entries belonging to changed files as a memory-management optimisation, but invalidation correctness does not depend on it.
-
-Then in `schema-subset.md`, replace the closing sentence of the Lowering Algorithm with: *"Validator caching is specified in [Implementation Notes — Runtime](./implementation-notes.md#runtime)."* — no second authoritative copy.
-
-Edge cases the implementer must watch:
-
-- The hash MUST cover the **lowered** document (post `$defs` pruning, post wire-name translation), not the source AST — two query sites whose lowered outputs are byte-equal SHOULD share a validator.
-- Hash input MUST be canonicalised JSON (sorted object keys) so that property-emission order in the lowering pass cannot accidentally split otherwise-equal documents into separate cache entries.
-- The cache MUST be scoped to a `SchemaCache` instance owned by the runtime (per the sibling finding on singleton avoidance), not a module-level `Map`.
-- AJV major-version inclusion in the key prevents stale entries surviving an AJV upgrade across hot-reload boundaries.
-
-## Related Findings
-
-- "AJV schema cache risks singleton pattern prohibited by CLAUDE.md" — co-resolve (same paragraph in `implementation-notes.md`; one rewrite addresses both keying and ownership)
-- "Implementation toolkit over-prescribed" — same-cluster (also rewrites the AJV configuration bullet, but for prescription-level reasons rather than correctness)
 
 ---
 

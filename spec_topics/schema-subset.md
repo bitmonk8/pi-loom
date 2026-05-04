@@ -37,7 +37,7 @@ Each loom file is lowered to a JSON Schema document at parse time. The lowering 
 5. **Wire-name translation** is captured in a sidecar map per schema (`{ loom: "first_name", wire: "FirstName" }`) used by both the validation pass (post-decode) and the construction pass (pre-encode). The lowered JSON Schema only ever sees wire names.
 6. **Discriminator detection** runs on the lowered `anyOf` form, examining each variant's `properties` for a single `const`-typed field that is unique across variants. Detection is a parse-time sanity check; the lowered schema has no extra discriminator marker.
 
-Lowering is purely a function of the parsed source (no runtime values), and is performed once per loom-file load. Schema validators (AJV) are compiled once per lowered schema and reused across queries; the file watcher invalidates the cache on change.
+Lowering is purely a function of the parsed source (no runtime values), and is performed once per loom-file load. Validator caching is specified in [Implementation Notes — Runtime](./implementation-notes.md#runtime).
 
 ## Canonical schema hash
 
