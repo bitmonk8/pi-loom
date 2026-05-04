@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_87 findings retained, 1 false positives dropped, 0 persistent failures_
+_86 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -6902,62 +6902,6 @@ Edge cases the implementer must watch:
 - "Per-query AJV cache key is inconsistent with schema-subset lowering" — co-resolve (the same restructuring demotes the file-watcher-invalidation prescription this sibling also flags)
 - "JS representation details are over-prescribed" — same-cluster (parallel issue in `runtime-value-model.md` under the same lens; resolves with the same edit pattern but in a different file)
 - "Typed query implementation technique should be in `implementation-notes.md`, not the V1 contract" — same-cluster (agrees that `implementation-notes.md` is the right home for non-normative implementation detail; sharper section labelling here makes that move easier)
-
----
-
-# Schema cache ownership is unspecified, inviting a module-level singleton
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** AJV schema cache risks singleton pattern prohibited by CLAUDE.md
-**Kind:** doc-alignment-broad
-
-## Finding
-
-`spec_topics/implementation-notes.md` (Runtime, "AJV configuration" bullet) states: "Schemas are compiled once per loom load and cached across invocations; the file watcher invalidates the cache on change." It does not say *where* the cache lives or *who owns it*. The natural reading — given the absence of any DI hook in the same paragraph — is a module-level `Map<hash, ValidateFn>` populated lazily on first compile. That is exactly the singleton pattern the project prohibits ("No globals/statics/singletons. Use explicit dependency injection." — `CLAUDE.md`).
-
-The plan already assumes the prohibition is in force: H2 declares a `SchemaValidator` DI seam, and V4a's tests include "AJV instance not shared across loom loads (no global state)". So the spec wording lags both the project rule and the plan. An implementer who reads only `implementation-notes.md` would build the obvious module-level cache, fail the V4a "no global state" test, and have to retrofit ownership through every call site that constructs a validator.
-
-## Spec Documents
-
-- `spec_topics/implementation-notes.md` — Runtime, "AJV configuration" bullet (edited)
-
-## Plan Impact
-
-**Phases:** Vertical V4, Vertical V18
-
-**Leaves (implementation order):**
-
-- V4a — AJV pipeline scaffold — (modified)
-- V18g — AJV cache invalidation on file change — (modified)
-
-## Consequence
-
-**Severity:** advisory
-
-An implementer following the spec literally would build a module-level cache that fails V4a's "no global state" test and conflicts with the project-wide DI rule. The defect is caught at first test run and is mechanical to fix, but it forces rework of every site that currently constructs an `Ajv` instance directly and undermines test isolation between loom loads until corrected.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Rewrite the AJV-configuration bullet in `spec_topics/implementation-notes.md` so cache ownership is explicit and DI-shaped:
-
-> The compiled-schema cache is owned by an injected `SchemaValidator` service (see [Pi Integration Contract](./pi-integration-contract.md) and the H2 DI seams). One `SchemaValidator` instance is constructed per runtime instance — never as a module-level global — and lives for the lifetime of that runtime. Within a single instance, validators are keyed by the content hash of the lowered per-query document plus the AJV major version; cache invalidation on file change is a property of the validator service, not of any module-scoped state.
-
-Edge cases the implementer must watch:
-
-- Two concurrent runtime instances (e.g. parallel tests) must each get their own `SchemaValidator`; sharing one across runtimes would re-introduce the very state-leak the rule forbids.
-- The `ajv-formats` registration is an instance-level side effect; calling it on a shared module-level `Ajv` would also be a singleton and is therefore disallowed — each `SchemaValidator` constructs and configures its own `Ajv`.
-- File-watcher invalidation (V18g) calls into the validator service's `invalidate(path)` method; the watcher itself does not reach into a global cache.
-
-This recommendation also subsumes the V4a test "AJV instance not shared across loom loads (no global state)" — the spec text now matches the test's intent rather than contradicting it.
-
-## Related Findings
-
-- "Per-query AJV cache key is inconsistent with schema-subset lowering" — co-resolve (both rewrite the same AJV-configuration bullet; the cache-key wording and the ownership wording should be revised in one pass)
-- "Implementation toolkit over-prescribed" — same-cluster (also targets the AJV-configuration bullet; resolves independently — that finding is about prescriptiveness of the toolkit name, this one is about cache ownership)
 
 ---
 
