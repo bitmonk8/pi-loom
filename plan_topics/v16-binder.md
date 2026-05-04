@@ -115,15 +115,15 @@
 ## V16o — Binder malformed envelope handling
 
 - **Spec.** [Slash-Command Argument Binding](../spec_topics/binder.md) (failure modes).
-- **Adds.** Repeated malformed-envelope returns surface as system note `loom /<name>: argument binding failed — could not parse arguments`.
-- **Tests.** Malformed envelope retried per AJV path; final failure system-note text matches spec.
+- **Adds.** Malformed-envelope returns (JSON-parse failure or envelope-`anyOf` discriminator failure) get exactly one retry against the same envelope schema; the second failure surfaces as system note `loom /<name>: argument binding failed — could not parse arguments`.
+- **Tests.** Malformed envelope retried once on JSON-parse or envelope-`anyOf` failure; final failure system-note text matches spec.
 - **Deps.** V16c.
 - **Ships when.** Malformed-envelope case handled.
 
 ## V16p — AJV validation of `args` post-default-merge
 
 - **Spec.** [Slash-Command Argument Binding](../spec_topics/binder.md) (failure modes).
-- **Adds.** AJV validates merged `args` (binder output + filled defaults) against full params schema; failure surfaces as system note `argument binding produced invalid args — <ajv-summary>`.
-- **Tests.** Hallucinated field shape caught; AJV summary readable.
+- **Adds.** AJV validates merged `args` (binder output + filled defaults) against full params schema; failure surfaces as system note `argument binding produced invalid args — <ajv-summary>`. No retry on AJV failure of merged `args`.
+- **Tests.** Hallucinated field shape caught; AJV summary readable; no re-prompt issued on AJV failure.
 - **Deps.** V16b.
 - **Ships when.** Hallucinations caught at boundary.

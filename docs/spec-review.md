@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_47 findings retained, 1 false positives dropped, 0 persistent failures_
+_46 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -2342,80 +2342,6 @@ Edge case the implementer must watch: the `candidates` field stays in the schema
 - "Binder echo text is attacker-controlled without sanitisation" — same-cluster (touches the same `message` field; sanitisation applies regardless of how many failure arms exist)
 - "Binder envelope schema violates schema-subset rules without declaring an exception" — same-cluster (collapsing arms under Option A would not remove the `anyOf` / discriminator issue; resolves independently)
 - "Non-normative content mixed into binder spec" — same-cluster (Option C adds rationale prose, which that finding would want labelled non-normative)
-
----
-
-# Binder failure retry counts inconsistent
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** Binder failure retry counts inconsistent
-**Kind:** error-model
-
-## Finding
-
-The binder failure-modes table in `spec_topics/binder.md` specifies retry behaviour inconsistently across its three implementer-controlled rows:
-
-- **Transport failure** says "after one retry" — explicit count of 1.
-- **Malformed envelope** says "after retries" — count unspecified, plural.
-- **AJV validation of `args` failed** says nothing about retries — silent.
-
-The closing paragraph then states: "Transport failures get exactly one retry; coercion-style follow-ups (the mechanism typed queries use for response-schema repair) do not apply, because if the binder model is unreachable, more attempts will not help." This sentence is internally contradictory with row 4: the paragraph excludes coercion-style follow-ups for *all* binder failures (the "more attempts will not help" rationale is binder-wide), yet row 4's "after retries" wording presupposes that some retry mechanism for malformed envelopes exists. Row 5 is doubly orphaned — neither the table nor the paragraph addresses it.
-
-The downstream V16 plan inherits the ambiguity. `V16o` says malformed envelopes are "retried per AJV path" (a path that does not exist in the binder context — AJV runs on `args`, not on the envelope shape), and `V16p` is silent on whether AJV failure on `args` triggers a re-prompt. Two reasonable implementers will diverge on whether to retry rows 4 and 5 at all, and if so, how many times.
-
-## Spec Documents
-
-- `spec_topics/binder.md` — Failure modes table and following paragraph (edited)
-- `spec_topics/query.md` — Schema-validation coercion section (read-only; explicitly cited as the mechanism that "does not apply")
-- `spec_topics/frontmatter.md` — `retry.attempts` / `retry.methodology` definitions (read-only; reference for whether binder reuses the same knobs)
-
-## Plan Impact
-
-**Phases:** Vertical V16
-
-**Leaves (implementation order):**
-
-- V16n — Binder transport failure single retry — (modified)
-- V16o — Binder malformed envelope handling — (modified)
-- V16p — AJV validation of `args` post-default-merge — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two implementers will produce observably different binder behaviour on malformed-envelope and AJV-`args` failures: one will re-prompt the binder once or twice on each, the other will fail-closed on the first occurrence. This affects user-visible failure rates on flaky tier-2 models (where one retry meaningfully cuts the false-negative rate) and the cost-per-invocation envelope quoted in the spec.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Replace the failure-modes table's right-hand-side annotations with explicit retry counts, and rewrite the closing paragraph to enumerate every row. Concretely:
-
-1. **Table cells.** Change the three implementer-controlled rows to:
-   - Row 3 (transport): "Binder model transport failure (after 1 retry)" — unchanged.
-   - Row 4 (malformed envelope): "Binder returned malformed envelope (after 1 retry)".
-   - Row 5 (AJV `args` failure): "AJV validation of the binder's `args` failed (no retry)".
-
-2. **Closing paragraph.** Replace the existing sentence with:
-
-   > Transport failures and malformed-envelope failures each get exactly one retry; the second failure surfaces as the system note above. AJV validation failures on `args` are not retried — a binder that returned a structurally valid envelope whose `args` violate the params schema is hallucinating field shapes, and a re-prompt with the same system prompt would not change the outcome. The frontmatter `retry.attempts` / `retry.methodology` knobs apply only to typed queries from loom code; the binder uses fixed retry counts and does not consult them.
-
-3. **Rationale for the chosen counts.** Transport (row 3) and envelope-shape (row 4) failures are both transient-flavoured: a tier-2 model occasionally emits non-conforming JSON (extra commentary, wrong arm tag) and a single re-prompt with the schema restated typically resolves it without burning the cost-per-invocation envelope. AJV-on-`args` (row 5) is a different failure class — the model produced a syntactically valid envelope and confidently asserted typed values — and re-prompting with the same prompt template is unlikely to converge; the spec's existing position that this failure surfaces directly to the user as a system note is correct, just under-stated.
-
-**Edge cases the implementer must watch:**
-
-- The retry on row 4 must re-issue the binder call with the *same* envelope schema (no schema mutation between attempts) so the failure mode is observable as a flake, not a moving target.
-- Retry on row 3 vs row 4 may interleave: a transport failure on the retry of a malformed envelope counts as a separate row-3 path (one retry), not as a third attempt on row 4. In other words, retry budgets are per-failure-class, not shared.
-- The wording change in `V16o` ("retried per AJV path") is wrong on its face — AJV runs on `args` after envelope parsing succeeds, not on the envelope shape. The leaf should be reworded to "retried once on JSON-parse or envelope-`anyOf` failure".
-- `V16p` should explicitly assert "no retry on AJV failure of merged `args`".
-
-## Related Findings
-
-- "`needs_info` / `ambiguous` distinction is V1 scope creep" — same-cluster (both touch the binder failure table; resolve independently)
-- "Binder echo text is attacker-controlled without sanitisation" — same-cluster (both touch the system-note rendering of binder failures; resolve independently)
-- "Non-normative content mixed into binder spec" — same-cluster (the closing paragraph being rewritten here is also a candidate for the cruft-trimming pass)
 
 ---
 
