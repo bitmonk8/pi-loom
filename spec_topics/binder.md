@@ -116,7 +116,9 @@ The echo channel is also used for the binder's `needs_info` and `ambiguous` outp
 
 **Determinism.** Binder calls use `temperature: 0` and, where the provider supports it, a fixed seed. The binder is therefore *near-deterministic* but not guaranteed reproducible — different model versions, provider-side updates, or context injection (`bind_context: session`) can produce different bindings for the same slash text. Authors who require fully deterministic argument handling should either (a) write looms whose schema triggers the bypass (single no-default `string` param), (b) invoke the loom programmatically via `invoke(...)`, or (c) accept the small nondeterminism budget of a temp-0 tier-2 model on a structured-output task.
 
-**Failure modes.** Binder failures are runtime-handled and surface as system notes in the user's session, never as `Result` values to loom code. V1 has no `BinderError` variant in the `QueryError` union (it would have nowhere to flow — a failed binder means the loom never starts). The five user-facing shapes:
+**Cancellation.** The binder participates in cancellation per [Cancellation](./cancellation.md). The runtime checks `ctx.signal` immediately before issuing the binder call and forwards the signal to the binder model's provider invocation; both the initial attempt and the single transport-failure retry honour the signal. A cancelled binder produces the cancelled-binder system note in the failure-modes table below and the loom does not run. The bypass path (single no-default `string` param, no LLM call) is naturally cancellable at the next regular checkpoint inside the loom body; the cancelled-binder system note does not apply to bypass-eligible looms.
+
+**Failure modes.** Binder failures are runtime-handled and surface as system notes in the user's session, never as `Result` values to loom code. V1 has no `BinderError` variant in the `QueryError` union (it would have nowhere to flow — a failed binder means the loom never starts). The six user-facing shapes:
 
 | Cause | System note |
 |---|---|
@@ -125,7 +127,8 @@ The echo channel is also used for the binder's `needs_info` and `ambiguous` outp
 | Binder model transport failure (after one retry) | `loom /<name>: argument binder unavailable (<provider>: <message>)` |
 | Binder returned malformed envelope after retries | `loom /<name>: argument binding failed — could not parse arguments` |
 | AJV validation of the binder's `args` failed | `loom /<name>: argument binding produced invalid args — <ajv-summary>` |
+| `ctx.signal` aborted before or during the binder call | `loom /<name>: argument binding cancelled` |
 
-Transport failures get exactly one retry; coercion-style follow-ups (the mechanism typed queries use for response-schema repair) do not apply, because if the binder model is unreachable, more attempts will not help.
+Transport failures get exactly one retry; coercion-style follow-ups (the mechanism typed queries use for response-schema repair) do not apply, because if the binder model is unreachable, more attempts will not help. An abort observed during the single transport-failure retry suppresses the retry and surfaces the cancelled-binder note immediately. An abort observed *after* the binder returned `ok` but *before* AJV validation runs lets validation complete (AJV is fast and uncancellable per [Cancellation](./cancellation.md)) and surfaces at the next checkpoint inside the loom body, consistent with the no-retroactive-`Ok`-to-`Err` rule.
 
-**Cost and latency.** A typical binder call on a tier-2 model is sub-second and on the order of $10⁻⁴ per invocation. Authors can drive this to zero by structuring `params:` as a single `string` (triggering the bypass) and parsing inside the loom body if they want to avoid the binder entirely.
+**Cost and latency.** A typical binder call on a tier-2 model is sub-second and on the order of $10⁻⁴ per invocation. Worst-case latency — cold provider, slow tier-2 model, or transport hiccup followed by the spec-mandated single retry — can run several seconds; the cancellation hook above ensures Esc remains effective during that window. Authors can drive cost to zero by structuring `params:` as a single `string` (triggering the bypass) and parsing inside the loom body if they want to avoid the binder entirely.
