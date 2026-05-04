@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_84 findings retained, 1 false positives dropped, 0 persistent failures_
+_83 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -6693,68 +6693,6 @@ Edge cases the implementer must watch:
 - "`pi.sendMessage` failure has no fallback" — decision-dependency (if `loom-system-note` becomes the normative telemetry channel under Option B, the fallback story for `sendMessage` failures becomes more load-bearing)
 - "Per-`kind` system-note table covers only 5 of 8 `QueryError` variants" — same-cluster (the missing rows are exactly the variants that would also need always-log entries; one editing pass can close both)
 - "Coercion follow-up failure modes unspecified" — decision-dependency (the coercion-attempt edge case in the recommendation depends on what that finding settles)
-
----
-
-## spec_topics/runtime-value-model.md
-
----
-
-# Inbound walk does not state when enum brands get reattached
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** Enum brand reattachment on inbound values not stated
-**Kind:** assumptions
-
-## Finding
-
-`runtime-value-model.md` defines an enum variant's runtime representation as a JS string carrying a non-enumerable `__loomEnum: "<EnumName>"` brand, and makes the brand load-bearing for equality (`Severity.High == OtherEnum.High` is `false` even when the wire strings match). The brand is also explicitly excluded from JSON output, so any value that arrives via JSON — model output decoded after AJV, tool-call results, `invoke` returns, binder `args` — comes in as a bare string with no brand attached.
-
-The spec's only description of the inbound boundary says: "after AJV validation against the lowered schema, the runtime walks the validated JSON and rebuilds the value with loom-side identifiers using each schema's translation map." That sentence covers wire-name rewriting on object keys but is silent on enum positions. Without an explicit rule, equality silently breaks the moment a value crosses an inbound boundary: a model-returned `"high"` would compare unequal to `Severity.High` constructed in loom code, even though both are nominally `Severity` values. Two reasonable implementers will diverge — one will brand at the AJV boundary, another will not, and the difference is invisible until equality is exercised on a model-sourced value.
-
-The fix is to extend the inbound-walk rule so the same pass that translates wire names also reattaches `__loomEnum` brands at every position the schema annotates as an enum (including enum-typed array elements, nested object fields, and the payload of `Result.Ok`/`Result.Err`). The rule belongs alongside the existing inbound bullet in `runtime-value-model.md`, and the operative statement is normative even if the brand mechanism itself is later demoted to non-normative representation (see related finding on JS representation prescription).
-
-## Spec Documents
-
-- `spec_topics/runtime-value-model.md` — Wire-name translation / inbound bullet (edited)
-- `spec_topics/runtime-value-model.md` — Enum variant row of the representation table (read-only)
-- `spec_topics/schemas.md` — enum / literal-union declarations (read-only — establishes which schema positions carry enum identity)
-
-## Plan Impact
-
-**Phases:** Vertical V10, Vertical V13
-
-**Leaves (implementation order):**
-
-- V10e — Runtime enum brand — (modified)
-- V13b — Inbound wire-name translation — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Equality on any enum value that originated outside loom code (model output, tool result, `invoke` return, binder args) silently disagrees with equality on locally constructed enum values. The bug is type-safe — both sides are valid `Severity` strings — and has no parse-time or AJV-time signal, so it surfaces only as wrong control flow in author code (`match` arms missed, `==` comparisons flipped). Two implementers reading the spec today will reasonably make opposite choices about whether to brand inbound values.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Extend the inbound bullet in `spec_topics/runtime-value-model.md` so the post-AJV walk performs both wire-name translation and brand reattachment in one pass. Replace the current sentence with:
-
-> *Inbound* (model output → loom value): after AJV validation against the lowered schema, the runtime walks the validated JSON and (a) rebuilds the value with loom-side identifiers using each schema's translation map, and (b) at every position the schema annotates as an enum or string-literal union, attaches the non-enumerable `__loomEnum: "<EnumName>"` brand corresponding to that schema position. Anonymous literal-union positions (no named enum) receive no brand — equality on those falls back to plain string equality. The walk recurses through arrays, nested objects, and `Result` payloads; brands are attached at the same depth as the value, never propagated upward.
-
-Implementer-relevant edge cases:
-
-- **Literal-union positions without a named enum** (`severity: "low" | "medium" | "high"` inline) carry no brand. The spec already says literal-unions and named enums lower identically; only the named form has an `EnumName` to brand with. Cross-form equality (`Severity.Low == "low"`) therefore remains `false`, consistent with the existing equality rule.
-- **Discriminated-union variant tags** that happen to be enum-typed: brand at the leaf position the schema declares, not at the union wrapper.
-- **Same-pass ordering:** brand attachment must happen during the inbound walk, not lazily on first comparison — otherwise `JSON.stringify` of a re-serialised value would observe a brand-less intermediate, contradicting the "brand absent from JSON" guarantee.
-- The same rule applies uniformly to every inbound boundary (typed query result, tool-call return decoding where typed, `invoke` return, binder `args`); it should not be restated per leaf — V13b is the canonical implementation site, and V10e's tests should cover the model-output path explicitly.
-
-## Related Findings
-
-- "JS representation details are over-prescribed" — same-cluster (both touch the `__loomEnum` mechanism; this finding makes brand attachment normative behaviour while that finding argues for demoting the concrete property name to non-normative — resolutions must agree on which surface is observable)
 
 ---
 
