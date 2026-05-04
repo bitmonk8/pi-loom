@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_61 findings retained, 1 false positives dropped, 0 persistent failures_
+_60 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -3855,60 +3855,6 @@ Edge cases the implementer must watch:
 - "Coercion follow-up may re-trigger tool side effects" — same-cluster (same mechanism; same name-adoption point)
 - "Binder failure retry counts inconsistent" — decision-dependency (uses "retry" for the binder's transport-level retry; renaming the loom mechanism to `coercion:` reduces overload pressure on this finding)
 - "Terminology drift: \"callable set\" / \"tool set\" / \"tools\" for the same concept" — same-cluster (same shape: one mechanism, multiple names; consistent resolution policy desirable)
-
----
-
-# `retry` methodology selection guidance is authoring advice, not spec
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** `retry` methodology "when to use which" is authoring advice in a spec
-**Kind:** cruft, testability
-
-## Finding
-
-The `retry` field section in `spec_topics/frontmatter.md` ends with a "**When to use which.**" block (≈6 lines plus two bullets) that advises loom *authors* on which methodology to pick for which scenario. The three methodologies themselves — `validator_error`, `schema_repeat`, `none` — are already fully and normatively specified by the bullets immediately above. The advisory paragraphs add no implementation requirements: V13g, V13h, and V13i implement the three methodologies identically regardless of whether this guidance exists.
-
-The block also makes a normative-sounding empirical claim — "published evaluations of structured-output repair show error-feedback retries outperform schema-restatement" — without citation. As written it reads like a rule, but it cannot be tested by an implementer or by review, and there is no place in the build that consumes it. Either it is a citation (which then needs a real reference) or it is a rationale aside (which then belongs in user-facing prose, not in the language reference).
-
-This is the same antipattern as the parallel `schemas.md` finding ("When to use which" advisory in schema spec): explanatory tutorial content has been pasted into a normative spec section, dilating the surface implementers must scan and inviting them to wonder whether they have missed a behavioural rule.
-
-## Spec Documents
-
-- `spec_topics/frontmatter.md` — `retry` field section, the `**When to use which.**` paragraph and its two bullets plus the `Use \`none\` on hot paths…` sentence (edited)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):** None
-
-V13f (`retry:` parsing), V13g/h/i (the three methodologies), and V13j (side-effect preservation) all derive their Tests / Ships-when from the normative bullet list immediately above the advisory block, not from the advisory itself. Removing the paragraph leaves every leaf's acceptance criteria intact.
-
-## Consequence
-
-**Severity:** cosmetic
-
-The spec is harder to scan and contains an unverifiable citation, but no implementer would build the wrong system because of this paragraph. Risk is purely to spec hygiene and to the principle that the language reference contains only behaviour an implementer must reproduce.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Delete the entire `**When to use which.**` block from `spec_topics/frontmatter.md` — the paragraph beginning `\`validator_error\` is the right default…`, the two bullets that follow, and the closing sentence `Use \`none\` on hot paths…`. The three normative bullets defining the methodologies stay; nothing else in the section needs to change.
-
-If the project later wants author-facing guidance, it belongs in a separate `docs/guides/` page or in the loom-authoring README, not in the language reference. Do not move it now — committing the deletion and the relocation in the same change would couple a hygiene cleanup to a docs decision that hasn't been made.
-
-Edge cases for the implementer:
-
-- Verify nothing in `spec.md` or in other `spec_topics/*.md` files cross-references this paragraph by anchor or by quoted phrase before deleting (`grep -rn "When to use which" spec.md spec_topics/`); current state has no such reference.
-- Leave the `**Interpolation.**` and similar bolded-lead paragraphs elsewhere in the file untouched — they carry normative content (system-prompt interpolation grammar) and are not analogous.
-
-## Related Findings
-
-- "\"When to use which\" advisory in schema spec" — co-resolve (same antipattern, same deletion verb, same kind tags; both should be removed in one commit so the spec converges on a single rule about advisory blocks)
-- "`retry` vs \"coercion\" — same concept, two names never equated" — same-cluster (touches the same `retry` field but resolves independently; rename/equivalence is orthogonal to whether authoring advice belongs in the spec)
 
 ---
 

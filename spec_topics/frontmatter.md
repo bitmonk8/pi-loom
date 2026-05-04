@@ -84,13 +84,6 @@ Frontmatter mirrors Pi's prompt-template frontmatter (`description`, `argument-h
   - `schema_repeat` — the follow-up turn re-states the expected schema without quoting a specific error.
   - `none` — no follow-up; the first failure is returned as `Err` immediately. Equivalent to `attempts: 0`.
 
-  **When to use which.** `validator_error` is the right default for almost all looms: published evaluations of structured-output repair show error-feedback retries outperform schema-restatement, because they direct the model to the specific failure rather than re-reading the whole contract. Prefer `schema_repeat` only when:
-
-  - The schema is small and the model keeps inventing fields — restating the schema reins it back in better than naming one missing-field error at a time.
-  - The validator emits noisy or cascading errors from a single root mismatch (common with deeply nested unions), and the error tree is more confusing than the schema.
-
-  Use `none` on hot paths where any single failure should fast-fail and the loom handles recovery itself with `match`.
-
 ## Template Interpolation
 
 A `${...}` interpolation inside a `@`...`` query template contains a Loom expression from the [Expression Sublanguage](./expressions.md), evaluated up to the matching `}`. The `@` character has only one lexical role — introducing a query template at top level — and never appears inside `${...}`. There is no bash-style argument-slice sugar (`${@:N}`, `$1`, `$@`, `$ARGUMENTS`); slash-command arguments are bound to typed `params` via the [Slash-Command Argument Binding](./binder.md) machinery and referenced by their declared parameter names like any other identifier.
