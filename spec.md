@@ -1,6 +1,6 @@
 # pi-loom — Extension Specification
 
-`pi-loom` is a [Pi Coding Agent](https://pi.dev) extension that introduces a purpose-built scripting language for authoring parameterized, programmatic templates targeting the code/model boundary. Loom code (variables, loops, conditionals, functions) is interleaved with model-side text emissions; the side effects of a `.loom` file are conversational injections, not file writes.
+`pi-loom` is a [Pi Coding Agent](https://pi.dev) extension that introduces a purpose-built scripting language for authoring parameterized, programmatic templates that drive an LLM conversation. A `.loom` file interleaves ordinary code (variables, loops, conditionals, functions) with literal text destined for the model; evaluating a loom does not return a value or write a file — it appends turns to a conversation (the *caller's* current conversation in `prompt` mode, or a *fresh isolated* conversation in `subagent` mode). See [Overview](./spec_topics/overview.md) for the full conceptual model.
 
 Loom code lives in two file extensions that share a single grammar and type system: `.loom` files are invocable as slash commands; `.warp` files are library modules — restricted to top-level `import`, `export`, `schema`, and `fn` declarations — that `.loom` files import via `import { … } from "./x.warp"`. `.warp` files are never directly invoked. See [Imports](./spec_topics/imports.md) for the full rules.
 
