@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_49 findings retained, 1 false positives dropped, 0 persistent failures_
+_48 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -1889,73 +1889,6 @@ schema ToolFailureError {
 - "Coercion follow-up failure modes unspecified" — same-cluster (both concern budget-exhaustion semantics inside the query loop; resolutions are independent but the same author should land them together for a coherent failure-mode story)
 - "Typed query mechanism contradicts `query.md` tool-loop semantics" — decision-dependency (if that finding's resolution scopes the tool-call loop to *untyped* queries only, this finding's frontmatter field still applies but only to untyped queries; if it lands the two-phase pattern, the cap applies to the free-generation phase)
 - "Forced tool-use unsupported on non-Anthropic/OpenAI providers" — same-cluster (both expose under-specification of the per-query model interaction loop; resolve independently)
-
----
-
-# Coercion follow-up failure modes unspecified
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** Coercion follow-up failure modes unspecified
-**Kind:** error-model, completeness
-
-## Finding
-
-`spec_topics/query.md` ("Schema-validation coercion") specifies the happy path of validator-driven follow-up turns and the terminal "attempts exhausted → `Err({kind: "validation", ...})`" outcome, but is silent on what happens when a coercion follow-up itself fails for a non-validation reason. A follow-up turn is a full provider round-trip — it can transport-fail, be cancelled, hit the context window, or trigger a tool that itself fails inside its own tool-call loop. The spec does not state which `QueryError` variant the typed query returns in any of these cases.
-
-Three concrete questions are unanswered:
-
-1. **Which `kind` wins.** If the second of three permitted follow-ups transport-fails, does the query return `Err({kind: "transport", ...})` reflecting the proximate cause, or `Err({kind: "validation", attempts: 2, ...})` because the original problem was a schema mismatch? The "Non-validation failures … are not retried by the query primitive" sentence implies propagation, but only for the *original* response — coercion follow-ups are not addressed.
-2. **Whether `attempts` is consumed.** When a follow-up fails before producing a validatable response, does that count against `retry.attempts`? This matters because the answer determines whether `validation_errors` will eventually be returned (with `attempts` short of the configured cap) for a model that *would* have repaired itself given more tries.
-3. **Context-window saturation.** A coercion turn appends to a conversation that already contains the malformed response and any tool-call traffic that preceded it. The conversation only grows; if attempt N overflows the window, attempts N+1 and beyond will too. The spec does not say whether the runtime recognises this and short-circuits, or blindly consumes the remaining `attempts` slots producing identical `context_overflow` failures.
-
-These gaps interact with the adjacent finding on `ContextOverflowError` detection: until the spec fixes the dispatch rules here, that finding's "overflow during coercion" sub-question has no answer.
-
-## Spec Documents
-
-- `spec_topics/query.md` — "Schema-validation coercion" paragraph (edited)
-- `spec_topics/frontmatter.md` — `retry.attempts` / `retry.methodology` description (read-only)
-- `spec_topics/errors-and-results.md` — `QueryError` propagation conventions (read-only)
-
-## Plan Impact
-
-**Phases:** Vertical V13
-
-**Leaves (implementation order):**
-
-- V13g — Coercion methodology: `validator_error` — (modified)
-- V13h — Coercion methodology: `schema_repeat` — (modified)
-- V13i — Coercion methodology: `none` — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers will diverge on the returned `kind`, on whether failed follow-ups consume `attempts`, and on whether `context_overflow` short-circuits. Looms that `match` on `QueryError.kind` will exhibit provider-dependent behaviour, and the `attempts` counter — observable in the returned `ValidationError` — will become an unreliable diagnostic. Worst case, a context-saturated conversation drives `retry.attempts` consecutive doomed round-trips before failing.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add a paragraph to `spec_topics/query.md` immediately after the "Coercion follow-ups are bounded by `retry.attempts`…" paragraph stating:
-
-- **Non-validation failures during a coercion follow-up propagate as the corresponding `QueryError` variant** (`transport`, `cancelled`, `tool_failure`, `context_overflow`, `invoke_failure`, `invoke_callee_error`) and **terminate coercion immediately**. The proximate cause wins; the query does not return `validation` with the prior attempt count when the actual failure was, say, transport.
-- **A follow-up that fails for a non-validation reason does not consume an `attempts` slot.** `attempts` counts only follow-ups that produced an assistant response which was then re-validated (whether successfully or not). Rationale: `attempts` is the bound on *coercion*, not on incidental infrastructure failure; consuming a slot for a transport blip would silently shorten the repair budget on retry.
-- **`context_overflow` short-circuits coercion permanently** for the lifetime of that typed query. Once detected on any turn — original or follow-up — the runtime returns `Err({kind: "context_overflow", ...})` without issuing further follow-ups, because the conversation only grows and subsequent attempts cannot succeed.
-- **Conversation-history cleanup:** the malformed assistant response and any tool-call traffic that preceded it remain in history (consistent with the existing "history stays intact" rule). The follow-up user turn that triggered the propagated failure also remains; nothing is rolled back. Subagent-mode looms see the partial transcript via the same conversation handle on their next query.
-
-Edge cases for the implementer:
-
-- A follow-up's *own* tool-call loop may fail with `tool_failure` mid-loop, before any final assistant text. That is a non-validation failure: propagate, do not consume `attempts`, do not retry.
-- `retry.methodology: none` (equivalent to `attempts: 0`) means there is no follow-up to fail; this rule is a no-op for that mode.
-- The `ValidationError.attempts` field returned on terminal exhaustion still reflects the number of *re-validated* follow-ups, which under this rule equals `retry.attempts` exactly when exhaustion is the cause.
-
-## Related Findings
-
-- "`ContextOverflowError` detection and field population unspecified" — co-resolve (the "overflow during coercion" sub-question is settled by the short-circuit rule above)
-- "Tool-call loop is unbounded" — same-cluster (a follow-up that loops without bound interacts with this rule via whatever cap that finding introduces; resolution is independent)
-- "Forced tool-use unsupported on non-Anthropic/OpenAI providers" — same-cluster (touches typed-query failure surface but resolves separately)
 
 ---
 
