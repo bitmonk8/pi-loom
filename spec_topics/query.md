@@ -99,7 +99,7 @@ The diagnostic on a bare `@`...`` expression-statement reads: *"discarded query 
 **Failure modes.** A query never throws. Both forms return a `Result` (see [Errors and Results](./errors-and-results.md)) carrying a `QueryError` on failure. `QueryError` is a discriminated union (`anyOf` over `kind`-tagged variants), exactly the shape the [Schema Subset](./schema-subset.md) blesses for user-defined unions — the canonical example of the pattern, applied to Loom's own runtime type. The variants:
 
 ```loom
-schema ValidationFailure {
+schema ValidationIssue {
   path: string,           // JSON pointer, e.g. "/issues/0/severity"
   message: string,        // human-readable summary of the failure
   schema_keyword: string  // "type", "required", "enum", "const", ...
@@ -109,7 +109,7 @@ schema ValidationError {
   kind: "validation",
   message: string,
   attempts: number,                          // coercion follow-ups made before giving up
-  validation_errors: array<ValidationFailure>,
+  validation_errors: array<ValidationIssue>,
   raw_response: string | null                // final malformed assistant text
 }
 
@@ -157,7 +157,7 @@ schema QueryError = ValidationError
 
 Each variant carries only its meaningful fields; there are no null-padded sentinel fields shared across variants. Authors `match` on `QueryError { kind: "...", ... }` (pattern grammar from [Errors and Results](./errors-and-results.md)) and only the relevant variant's fields are in scope.
 
-`validation_errors` is an `array<ValidationFailure>`, a Loom schema rather than raw AJV objects. This isolates Loom's surface from the AJV API: a future validator swap is not a breaking change.
+`validation_errors` is an `array<ValidationIssue>`, a Loom schema rather than raw AJV objects. This isolates Loom's surface from the AJV API: a future validator swap is not a breaking change.
 
 `raw_response` only appears on variants where the model produced (or attempted to produce) a final text response. `cancelled` and `context_overflow` rarely have one; `transport` failures by definition have no assistant response.
 

@@ -72,10 +72,10 @@
 - **Deps.** V6c, V4.
 - **Ships when.** Typed queries return typed values.
 
-## V6j — `ValidationFailure` schema
+## V6j — `ValidationIssue` schema
 
-- **Spec.** [Query](../spec_topics/query.md) (`ValidationFailure` shape).
-- **Adds.** Loom-shaped `ValidationFailure { path, message, schema_keyword }` interposed between AJV and `validation_errors` so AJV swap is non-breaking.
+- **Spec.** [Query](../spec_topics/query.md) (`ValidationIssue` shape).
+- **Adds.** Loom-shaped `ValidationIssue { path, message, schema_keyword }` interposed between AJV and `validation_errors` so AJV swap is non-breaking.
 - **Tests.** Each AJV error keyword (`type`, `required`, `enum`, `const`) maps to the right `schema_keyword`; path is JSON-Pointer.
 - **Deps.** V6i.
 - **Ships when.** Loom code never touches raw AJV objects.

@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_96 findings retained, 1 false positives dropped, 0 persistent failures_
+_95 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -7780,70 +7780,6 @@ Watch for: the slash-invocation per-`kind` table currently lists `tool_failure` 
 - "`QueryError` variants split across three files with no consolidated reference" — same-cluster (consolidation, if pursued, should use post-rename names)
 - "`ValidationFailure` / `ValidationError` — \"failure\" and \"error\" at wrong nesting levels" — same-cluster (sibling naming finding in the same `QueryError` family; resolve in one naming pass for vocabulary consistency)
 - "Terminology drift: \"callable set\" / \"tool set\" / \"tools\" for the same concept" — same-cluster (broader naming pass on tool-related vocabulary)
-
----
-
-# `ValidationFailure` is a misleading name for a per-issue record
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** `ValidationFailure` / `ValidationError` — "failure" and "error" at wrong nesting levels
-**Kind:** naming
-
-## Finding
-
-`spec_topics/query.md` defines two schemas in the validation surface: `ValidationFailure { path, message, schema_keyword }` is the per-issue record (one entry per AJV violation), and `ValidationError { kind: "validation", attempts, validation_errors: array<ValidationFailure>, ... }` is the aggregate `QueryError` discriminant that wraps the array. The names imply the opposite hierarchy: in normal English an "error" is a single mistake while a "failure" is the larger collapse, so a reader meeting `validation_errors: array<ValidationFailure>` reasonably expects `ValidationFailure` to be the outer thing.
-
-The naming also fights the surrounding convention. Every other `QueryError` discriminant in `query.md` ends in `Error` (`ValidationError`, `TransportError`, `ToolFailureError`, `ContextOverflowError`, `CancelledError`, `ToolCallError`); only the inner per-issue record carries `Failure`, where `Failure` carries no implication of plurality or aggregation. The idiomatic word for "one entry inside an aggregated validation error" is `Issue` (Zod's `ZodIssue`, JSON Schema's "issue list", AJV-adjacent libraries' `issues[]`).
-
-## Spec Documents
-
-- `spec_topics/query.md` — Failure modes / `QueryError` variants block (edited)
-- `spec_topics/descriptions.md` — `QueryError` union (read-only; references only `ValidationError`, no rename needed)
-
-## Plan Impact
-
-**Phases:** Vertical V6, Vertical V14
-
-**Leaves (implementation order):**
-
-- V6i — AJV validation of typed query results — (modified)
-- V6j — `ValidationFailure` schema — (modified)
-- V14f — `ToolCallError` variant: `validation` cause — (modified)
-
-## Consequence
-
-**Severity:** cosmetic
-
-No observable behaviour changes. The cost is reader friction: every implementer and every consumer reading `match err { ValidationError { validation_errors: [ValidationFailure { ... }, ...] } }` has to mentally invert the severity ordering the words imply. It also weakens the otherwise-clean `*Error` suffix convention for `QueryError` discriminants.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Rename `ValidationFailure` → `ValidationIssue` throughout `spec_topics/query.md`. The wrapper schema `ValidationError` stays as-is; keeping the `*Error` suffix exclusive to `QueryError` discriminants makes the inside/outside distinction visible from the type name alone.
-
-Concrete edits:
-
-1. `spec_topics/query.md` line 102: `schema ValidationFailure {` → `schema ValidationIssue {`.
-2. `spec_topics/query.md` line 112: `validation_errors: array<ValidationFailure>` → `validation_errors: array<ValidationIssue>`. The field name `validation_errors` stays; renaming it would force a wider cascade through `descriptions.md` and the V6i/V14f test prose, and "errors" reads naturally as a plural collection field even when the element type is `ValidationIssue` (cf. JSON Schema "errors" arrays whose elements are individually called issues).
-3. `spec_topics/query.md` line 161: design-note bullet — `array<ValidationFailure>` → `array<ValidationIssue>`.
-4. `plan_topics/v6-typed-queries.md` V6j: rename heading and body references from `ValidationFailure` to `ValidationIssue`.
-
-Edge cases the implementer must watch:
-
-- `descriptions.md` line 29 only mentions `ValidationError`; no edit needed there.
-- The bullet on line 161 ("future validator swap is not a breaking change") still holds verbatim under the rename — the rationale was about isolating from AJV's object shape, not about the name.
-- Do not rename the field `validation_errors` to `validation_issues`; that would touch test prose in V6i and V14f and is not justified by this finding alone.
-
-## Related Findings
-
-- "`ToolCallError` / `ToolFailureError` names do not signal their contexts" — same-cluster (same naming lens, same `query.md` surface, resolves independently)
-- "`InvokeFailure` breaks the `*Error` suffix pattern" — co-resolve (same convention — `*Error` suffix is reserved for `QueryError` discriminants; the same rule disposes of both)
-- "`QueryError` union has three conflicting authoritative definitions" — decision-dependency (any rename here must be reflected when `query.md` is established as the single authoritative source)
-- "`QueryError` variants split across three files with no consolidated reference" — decision-dependency (a future consolidation page will need the renamed identifiers)
-- "`QueryError` example missing `ToolCallError`" — same-cluster (touches the same `QueryError` block in `query.md`)
 
 ---
 
