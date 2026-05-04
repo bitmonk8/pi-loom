@@ -1,6 +1,6 @@
 # Pi Integration Contract
 
-The runtime depends on a small, named surface from `@mariozechner/pi-coding-agent`. Each item below is the V1 contract; behaviour outside this surface is non-load-bearing and may be revised without spec changes.
+The runtime depends on a small, named surface from `@mariozechner/pi-coding-agent`. Each item below is the V1 contract; behaviour outside this surface is non-load-bearing and may be revised without spec changes. The V1 contract is anchored to `@mariozechner/pi-coding-agent ^0.72.1` (and the matching `pi-agent-core`/`pi-ai`/`pi-tui` minor); a Pi minor bump requires re-validating this contract before the loom `peerDependencies` range is widened.
 
 **Extension entry point.** A single Pi extension module (`pi-loom/index.ts`) exporting the standard `default function (pi: ExtensionAPI)` factory. The factory:
 
