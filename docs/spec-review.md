@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_52 findings retained, 1 false positives dropped, 0 persistent failures_
+_51 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -2680,76 +2680,6 @@ Replace the failure-modes table's right-hand-side annotations with explicit retr
 - "`needs_info` / `ambiguous` distinction is V1 scope creep" — same-cluster (both touch the binder failure table; resolve independently)
 - "Binder echo text is attacker-controlled without sanitisation" — same-cluster (both touch the system-note rendering of binder failures; resolve independently)
 - "Non-normative content mixed into binder spec" — same-cluster (the closing paragraph being rewritten here is also a candidate for the cruft-trimming pass)
-
----
-
-# `needs_info` / `ambiguous` message strings flow into system notes without bounds
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** Binder echo text is attacker-controlled without sanitisation
-**Kind:** error-model
-
-## Finding
-
-The binder envelope schema constrains `needs_info.message` and `ambiguous.message` only as `{ "type": "string" }` — no `maxLength`, no character-class restriction. The failure-mode table then renders those strings verbatim into the user's session: `loom /<name>: <model's message>` and `loom /<name>: ambiguous arguments — <model's message>`. The success path (the `bind_echo` formatter) imposes a single-line shape with a ~120-character cap and explicit truncation rules; no equivalent discipline is specified for the failure-arm system notes.
-
-The `message` field is downstream of the user's free-form slash text passed to a tier-2 LLM at temperature 0. Two concrete failure modes follow. First, a binder that returns multi-line content (markdown lists, code fences, embedded newlines) will visually break the system-note channel — implementations may render it as one mangled line, multiple notes, or escaped literal `\n`s, with no spec answer. Second, the message length is bounded only by the binder model's output budget; an unrelated prompt-injection-style or simply verbose user input can produce kilobyte-scale system notes that dominate the session transcript. Neither outcome is a security boundary — the binder runs in the user's own trust domain — but both produce divergent renderings across implementations and degrade the loom UX in exactly the cases where the user most needs a clear error.
-
-The same gap applies to the `ambiguous` arm's `candidates: array<string>` field: each candidate string is unbounded, and no rule says how many candidates to render or how to truncate the list.
-
-## Spec Documents
-
-- `spec_topics/binder.md` — Binder envelope (edited)
-- `spec_topics/binder.md` — Echo policy (edited)
-- `spec_topics/binder.md` — Failure modes table (edited)
-- `spec_topics/diagnostics.md` — Per-`kind` system-note table (read-only; cross-reference target for consistency)
-
-## Plan Impact
-
-**Phases:** Vertical V16
-
-**Leaves (implementation order):**
-
-- V16i — `bind_echo` formatter — (modified; add a shared "system-note line discipline" helper that V16l/V16m also use)
-- V16l — `needs_info` envelope handling — (modified; apply the discipline to the rendered `message`)
-- V16m — `ambiguous` envelope handling — (modified; apply the discipline to `message` and bound the `candidates` rendering)
-
-## Consequence
-
-**Severity:** advisory
-
-Two implementations of `needs_info` / `ambiguous` rendering can ship to spec and produce visibly different transcripts (single-line truncated vs. multi-line raw vs. JSON-escaped) for the same binder output. The success-echo rules already establish the formatting discipline; the failure arms silently inherit nothing, and the inconsistency is exactly the UX channel users reach for when arguments fail to bind.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Promote the existing success-echo line discipline to a single normative rule applied to **all** binder-emitted system notes (success echo, `needs_info`, `ambiguous`, plus the three runtime-emitted failure rows) and define it once in `binder.md` under a new "System-note rendering" subsection that the echo-policy and failure-modes sections both reference.
-
-The rule:
-
-1. **Single line.** Replace any `\r`, `\n`, or `\r\n` in the model-supplied `message` (and in each `candidates[i]` string) with a single space. Collapse runs of whitespace to one space. Trim.
-2. **Length cap.** The fully-rendered note (loom-controlled prefix + interpolated content) is capped at exactly 120 characters. Overflow is truncated with a trailing `…` (U+2026). Replace `~120` with `120` here and in the existing echo-policy paragraph (closes the testability gap also raised by "Binder echo formatting micro-rules over-prescribed and misplaced").
-3. **Prefix is loom-controlled, suffix is model-controlled.** The grammar is `loom /<name>: <fixed-phrase> — <sanitised-message>` for failure arms (existing) and `Running /<name>: <formatted-args>` for the success echo (existing). The `—` separator is the demarcation; renderers MAY additionally style the prefix distinctly, but the textual contract is the em-dash boundary. State this explicitly so a downstream renderer knows which span is trusted.
-4. **`ambiguous.candidates` rendering.** Render as ` candidates: [a, b, c, …+N more]` past three entries, mirroring the echo formatter's array rule. Each candidate is line-stripped and individually capped at 32 characters before the array is assembled; the whole note is then subject to rule 2.
-5. **Schema-side floor.** Tighten the envelope schema to `"message": { "type": "string", "maxLength": 500 }` (and the same on `candidates.items`). 500 is a budget for the binder, not the user-visible cap; the rendering rules above are what the user sees. The schema cap exists so a runaway binder response is rejected as malformed (exercising the existing "malformed envelope" failure row) rather than silently truncated.
-
-Edge cases the implementer must watch:
-
-- An empty `message` after stripping (binder returned only whitespace) is treated as a malformed envelope, not as an empty note. Surface via the existing malformed-envelope row.
-- Truncation must operate on Unicode code points (or grapheme clusters), not UTF-16 code units, to avoid splitting surrogate pairs.
-- The 120-character cap applies post-interpolation, so a long loom name (`/<name>`) reduces the budget available to the message; do not pre-truncate the message to a fixed sub-budget.
-- Once this rule lives in `binder.md`, the per-`kind` table in `diagnostics.md` should back-link to it instead of restating; otherwise the same drift this finding describes will reappear there.
-
-## Related Findings
-
-- "Binder echo formatting micro-rules over-prescribed and misplaced" — co-resolve (the 120-character cap and `~120` → `120` fix land in the same edit; both are about the rendering discipline)
-- "System-note copy strings: prescription level unresolved" — decision-dependency (the new "System-note rendering" subsection must declare whether its rules are normative; resolving that question for the success echo also resolves it for the failure arms)
-- "Per-`kind` system-note table covers only 5 of 8 `QueryError` variants" — same-cluster (also a system-note rendering gap, but on the loom-result side rather than the binder side; resolve independently)
-- "`needs_info` / `ambiguous` distinction is V1 scope creep" — decision-dependency (if the two arms collapse to a single `failure { message }` arm, this finding's rules apply to one arm instead of two; the rules themselves do not change)
-- "Binder failure retry counts inconsistent" — same-cluster (same failure-modes table; touch independently)
 
 ---
 

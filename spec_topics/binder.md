@@ -41,7 +41,7 @@ The envelope is runtime-internal; it is never a Loom-visible type and never appe
       "type": "object",
       "properties": {
         "kind": { "type": "string", "const": "needs_info" },
-        "message": { "type": "string" }
+        "message": { "type": "string", "maxLength": 500 }
       },
       "required": ["kind", "message"],
       "additionalProperties": false
@@ -50,10 +50,10 @@ The envelope is runtime-internal; it is never a Loom-visible type and never appe
       "type": "object",
       "properties": {
         "kind": { "type": "string", "const": "ambiguous" },
-        "message": { "type": "string" },
+        "message": { "type": "string", "maxLength": 500 },
         "candidates": {
           "type": ["array", "null"],
-          "items": { "type": "string" }
+          "items": { "type": "string", "maxLength": 500 }
         }
       },
       "required": ["kind", "message", "candidates"],
@@ -62,6 +62,8 @@ The envelope is runtime-internal; it is never a Loom-visible type and never appe
   ]
 }
 ```
+
+The `maxLength: 500` cap on `message` and on each `candidates[i]` is a budget for the binder model, not a user-visible cap; the user-visible cap and shaping rules live under [System-note rendering](#system-note-rendering) below. The schema cap exists so that a runaway binder response is rejected as malformed (exercising the malformed-envelope row in the failure-modes table) rather than silently truncated downstream.
 
 `<params-schema-with-defaulted-fields-relaxed>` is a copy of the loom's lowered `params` schema with one transformation: each field that declared a default is removed from `required` (its type is unchanged). Required-without-default fields are unchanged. The binder may therefore omit any defaulted field; the runtime fills the actual default value after binding succeeds and before AJV validates the merged result. The relaxed copy must itself satisfy the subset, including `additionalProperties: false`; if every params field has a default, the copy's `required` is `[]`.
 
@@ -102,6 +104,15 @@ Do not invent values for defaulted parameters that the user did not specify; omi
 
 **Defaulting.** Defaults declared on `params:` fields are filled by the runtime *after* the binder returns, not by the binder. The binder is told (in its system prompt) which fields are required and which have defaults; for default-having fields, the binder may omit them from `args` when the user did not specify them, and the runtime fills the defaults before AJV validation. The binder is never asked to invent default values — only to extract what the user actually said.
 
+<a id="system-note-rendering"></a>
+**System-note rendering.** All binder-emitted system notes — the success echo, the `needs_info` and `ambiguous` failure messages, and the three runtime-emitted failure rows in the table below — share one line-discipline. The rules apply uniformly to every model-supplied or runtime-supplied substring interpolated into the note; `bind_echo` and the failure-modes table reference back here rather than restating them.
+
+1. **Single line.** Replace each `\r`, `\n`, and `\r\n` in any model-supplied substring (the echo's interpolated values, the `message` field, each `candidates[i]`) with a single space. Collapse runs of whitespace to one space. Trim leading and trailing whitespace from the result.
+2. **Length cap.** The fully-rendered note (loom-controlled prefix + interpolated content) is capped at 120 Unicode code points. Truncation operates on whole code points (or grapheme clusters) — never on UTF-16 code units, which would split surrogate pairs. Overflow is replaced with a trailing `…` (U+2026), which counts toward the cap. The cap applies post-interpolation, so a long loom name reduces the budget available to the suffix; do not pre-truncate the suffix to a fixed sub-budget.
+3. **Prefix is loom-controlled, suffix is model- or runtime-controlled.** Failure-arm notes follow the grammar `loom /<name>: <fixed-phrase> — <sanitised-suffix>`; the success echo follows `Running /<name>: <formatted-args>`. The em-dash in failure notes (and the `:` in the echo) is the textual demarcation between the loom-controlled prefix and the model- or runtime-supplied suffix. Renderers MAY style the prefix distinctly, but the boundary is part of the contract so a downstream renderer knows which span it can trust.
+4. **Empty model-supplied content.** A `message` that is empty after rule 1's stripping — the binder returned only whitespace — is treated as a malformed envelope, not as an empty note: surface via the malformed-envelope row in the failure-modes table. The same applies to a `candidates` array whose every entry is empty after stripping.
+5. **`ambiguous.candidates` rendering.** When a non-null `candidates` array is present and non-empty after stripping, the rendered failure note appends ` candidates: [a, b, c, …+N more]` after the sanitised `message`, mirroring the echo formatter's array rule (truncated past three entries). Each candidate is stripped per rule 1 and individually capped at 32 code points (overflow replaced with `…`) before the array is assembled; the assembled note is then subject to rule 2, and the line-level cap wins over the array's own `…+N more` marker. A null or empty `candidates` array produces no candidates suffix.
+
 **Echo policy.** Configured via `bind_echo:` (`true` | `false`; default `true`). When echo is on (and the bypass did not apply), the runtime appends a one-line system note to the user's session immediately before the loom starts:
 
 > Running `/code-review`: language=TypeScript, focus_areas=[error handling, async], author={Ada Lovelace, …}
@@ -113,26 +124,26 @@ Format rules:
 - Array values shown as `[a, b, c]`, truncated to `[a, b, c, …+N more]` past three elements.
 - Object values shown as `{first-field-value, …}` — just the first field's value as a hint.
 - Defaulted fields tagged `(default)`: `focus_areas=[] (default)`.
-- Total line capped at 120 UTF-16 code units (matching JavaScript `String.prototype.length`), measured over the whole line including the `Running \`/<name>\`: ` prefix; overflow truncated with `…`. The line-level cap wins over the array rule's own `…+N more` marker — if truncation falls inside an array, the inner `…+N more` may be cut.
+- Total line subject to the shared 120-code-point cap defined in [System-note rendering](#system-note-rendering) above, measured over the whole line including the `Running \`/<name>\`: ` prefix; overflow truncated with `…`. The line-level cap wins over the array rule's own `…+N more` marker — if truncation falls inside an array, the inner `…+N more` may be cut.
 
 Setting `bind_echo: false` suppresses the echo. The bypass case (single-string param) auto-suppresses echo regardless of the frontmatter setting (there is nothing to misbind); declaring `bind_echo: true` on a bypass-eligible loom is `loom/parse/bind-echo-on-bypass` (warning).
 
-The echo channel is also used for the binder's `needs_info` and `ambiguous` outputs, which *replace* execution rather than precede it:
+The echo channel is also used for the binder's `needs_info` and `ambiguous` outputs, which *replace* execution rather than precede it (both shaped by [System-note rendering](#system-note-rendering)):
 
-> loom `/code-review`: missing required field `language`. Specify the language being reviewed.
+> loom `/code-review`: argument binding needs more info — missing required field `language`. Specify the language being reviewed.
 
-> loom `/code-review`: ambiguous arguments — "focusing on Ada" could mean focus_areas or author. Be more explicit.
+> loom `/code-review`: ambiguous arguments — "focusing on Ada" could mean focus_areas or author. Be more explicit. candidates: [focus_areas, author]
 
 **Determinism.** Binder calls use `temperature: 0` and, where the provider supports it, a fixed seed.
 
 **Cancellation.** The binder participates in cancellation per [Cancellation](./cancellation.md). The runtime checks `ctx.signal` immediately before issuing the binder call and forwards the signal to the binder model's provider invocation; both the initial attempt and the single transport-failure retry honour the signal. A cancelled binder produces the cancelled-binder system note in the failure-modes table below and the loom does not run. The bypass path (single no-default `string` param, no LLM call) is naturally cancellable at the next regular checkpoint inside the loom body; the cancelled-binder system note does not apply to bypass-eligible looms.
 
-**Failure modes.** Binder failures are runtime-handled and surface as system notes in the user's session, never as `Result` values to loom code. V1 has no `BinderError` variant in the `QueryError` union (it would have nowhere to flow — a failed binder means the loom never starts). The six user-facing shapes:
+**Failure modes.** Binder failures are runtime-handled and surface as system notes in the user's session, never as `Result` values to loom code. V1 has no `BinderError` variant in the `QueryError` union (it would have nowhere to flow — a failed binder means the loom never starts). Every shape below is rendered through the shared discipline in [System-note rendering](#system-note-rendering); the table gives the pre-discipline templates. The six user-facing shapes:
 
 | Cause | System note |
 |---|---|
-| `needs_info` | `loom /<name>: <model's message>` |
-| `ambiguous` | `loom /<name>: ambiguous arguments — <model's message>` |
+| `needs_info` | `loom /<name>: argument binding needs more info — <model's message>` |
+| `ambiguous` | `loom /<name>: ambiguous arguments — <model's message>`<br>(append ` candidates: [...]` per [System-note rendering](#system-note-rendering) rule 5 when present) |
 | Binder model transport failure (after one retry) | `loom /<name>: argument binder unavailable (<provider>: <message>)` |
 | Binder returned malformed envelope after retries | `loom /<name>: argument binding failed — could not parse arguments` |
 | AJV validation of the binder's `args` failed | `loom /<name>: argument binding produced invalid args — <ajv-summary>` |
