@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_38 findings retained, 1 false positives dropped, 0 persistent failures_
+_37 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -530,86 +530,6 @@ Edge cases the implementer must watch:
 - "`tools:` registration scope: global vs per-loom" — same-cluster (both expose ambiguity about Pi's global tool registry as a shared mutable surface)
 - "Hot-reload via `ctx.reload()` causes full extension teardown" — decision-dependency (the cleanup-on-reload prescription in Option A only works if the reload path is well-defined)
 - "Forced tool-use unsupported on non-Anthropic/OpenAI providers" — same-cluster (the synthesised respond tool only matters because it is force-selected; provider coverage is orthogonal but co-affected)
-
----
-
-# `createAgentSession` example passes tool definitions through the wrong field
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** `tools` vs `customTools` in `createAgentSession`
-**Kind:** codebase-grounding-broad, assumptions
-
-## Finding
-
-`spec_topics/pi-integration-contract.md` describes subagent-mode spawn as `createAgentSession({ tools, model, sessionManager: SessionManager.inMemory(), resourceLoader, ... })`, where `tools` is the loom's `tools:` set "lowered to Pi tool definitions; registered loom callees are themselves wrapped via `defineTool`."
-
-In the Pi SDK, `CreateAgentSessionOptions` separates two fields:
-
-- `tools?: string[]` — an optional **allowlist of tool names**. When omitted, Pi enables the default built-in tools (`read`, `bash`, `edit`, `write`) plus any extension/custom tools.
-- `customTools?: ToolDefinition[]` — the field that actually carries tool definitions to register on the spawned session.
-
-Passing `ToolDefinition` objects through `tools` is a TypeScript error and, even if forced through, would not register the tools — Pi would treat them as opaque names that match nothing, and the subagent would silently fall back to the default built-in tools instead of the loom's declared `tools:` set. This contradicts V12a's contract that the spawned session inherits exactly the loom's tools and only those tools.
-
-The spec also needs to say what the runtime does with the default built-ins: V14j requires `tools: []` to mean "no tools, ambient Pi tools NOT inherited," which means the spawn must pass an explicit `tools` allowlist (even an empty one) to suppress Pi's defaults — the field cannot simply be omitted.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — "Conversation drive — subagent mode" paragraph (edited)
-- `spec_topics/frontmatter.md` — `tools:` semantics, cross-reference for `tools: []` (read-only)
-
-## Plan Impact
-
-**Phases:** Vertical V12, Vertical V14
-
-**Leaves (implementation order):**
-
-- V12a — `mode: subagent` accepted; AgentSession spawn — (modified)
-- V14j — `tools: []` ≡ absent `tools:` — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-A literal implementation of the spec example fails to compile. A "fix it however" implementer who drops `tools` entirely produces a subagent that silently runs with Pi's default built-in tools (`read`, `bash`, `edit`, `write`) regardless of what the loom declared, breaking V14j's "ambient tools NOT inherited" guarantee and producing tool-availability behaviour that diverges between two reasonable implementations.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Rewrite the subagent spawn snippet in `spec_topics/pi-integration-contract.md` as:
-
-```ts
-const customTools: ToolDefinition[] = lowerLoomToolsToPi(loom.tools); // built-in Pi tools resolved by name → their ToolDefinition; loom callees wrapped via defineTool
-const { session } = await createAgentSession({
-  customTools,
-  tools: customTools.map((t) => t.name), // explicit allowlist suppresses Pi's default built-ins
-  model,
-  sessionManager: SessionManager.inMemory(cwd),
-  resourceLoader,
-  // ...
-});
-```
-
-State three rules in the prose:
-
-1. `customTools` carries every `ToolDefinition` the subagent may use — both Pi built-ins (resolved by name from the registry to their definition) and `defineTool`-wrapped loom callees.
-2. `tools` is **always** passed as an explicit allowlist of those same names, even when the loom's `tools:` set is empty (in which case `tools: []` is passed). This is what enforces V14j's "ambient Pi tools NOT inherited" invariant; omitting `tools` would re-enable Pi's default built-ins.
-3. The `tools` allowlist and the `customTools` array are derived from the same lowered set; the runtime does not let them drift.
-
-Edge cases the implementer must watch:
-
-- A loom callee wrapped via `defineTool` has a `name` chosen by the loom runtime (post-`as` rename per V14b / V15e basename rules); that same name must appear in the `tools` allowlist.
-- Pi built-ins referenced by name in the loom's `tools:` (e.g. `tools: read, grep`) must be resolved via the model registry / extension API to their `ToolDefinition` before being placed into `customTools`; passing only the name string is not sufficient.
-- `ToolDefinition.label` is required (see the related finding); the lowering step must supply it.
-
-## Related Findings
-
-- "`ToolDefinition` requires `label: string`; `parameters` must be TypeBox" — same-cluster (both describe how loom tools are lowered into Pi `ToolDefinition` shape; this finding fixes the spawn-call wiring, that one fixes the per-tool object shape; the lowering step touched here must satisfy that finding's requirements)
-- "`agent_end` fires globally, not per-session" — same-cluster (both touch the subagent `createAgentSession` lifecycle in the same paragraph; resolved independently by separate edits)
-- "No `pi.unregisterTool()` API — one-shot tools accumulate" — same-cluster (separate code path — typed-query one-shot tool on the user's session vs. subagent spawn — but both stem from the same Pi tool-registration grounding gap)
-- "Synthesized `ExtensionContext` is incomplete against the full interface" — same-cluster (both are Pi-SDK grounding errors in the same `pi-integration-contract.md` section; resolved independently)
 
 ---
 
