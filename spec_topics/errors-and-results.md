@@ -59,9 +59,21 @@ A function or loom that uses `?` thus implicitly returns `Result<T, QueryError>`
 
 This list is closed; division by zero, integer overflow, and explicit author-driven panics are deliberately excluded (see [Diagnostics](./diagnostics.md)).
 
+**Panic message string (normative).** Every panic carries a single human-readable message string formatted at the panic site according to the *Message template* registered for its `loom/runtime/*` code in the [Diagnostics code registry](./diagnostics.md#loomruntime--runtime-panics). The templates are normative: a conformant runtime MUST emit the registered string (with template placeholders filled from the offending value) for every panic of that source, and conformance tests MAY assert on the exact string. The five V1 templates and their placeholders are summarised below — the registry is authoritative if the two ever drift:
+
+| Code | Message template |
+|---|---|
+| `loom/runtime/match-error` | `MatchError: no arm matched <scrutinee summary>` |
+| `loom/runtime/index-out-of-bounds` | `index out of bounds: <i> not in 0..<length>` |
+| `loom/runtime/null-member-access` | `null member access: .<field>` |
+| `loom/runtime/null-index-access` | `null index access: [<i>]` |
+| `loom/runtime/missing-object-key` | `missing object key: <key>` |
+
+There is exactly one message string per panic. The same string flows unchanged to every routing surface listed below — it is *not* re-formatted per surface, and surface-specific framing (the `"loom /<name> aborted: "` prefix, the `InvokeFailure` envelope) wraps the message rather than replacing it. The panic site itself is reported separately through the diagnostic's `file` / `range` (per [Diagnostics](./diagnostics.md)) and is not embedded in the message string. For panics inside a `.warp`-imported frame, the panic site is the leaf source location, not the importer.
+
 Panics surface to the loom's caller as:
 
-- **Slash-command / prompt-mode invocation** — a Pi system note formatted as "loom `/<name>` aborted: `<message>`". The user's session is not torn down; the user can type a follow-up turn.
-- **`invoke` parent** — `Err(QueryError { kind: "invoke_failure", reason: "panic", ... })` (see [Invocation](./invocation.md)), observable to the parent's `match` / `?` handling.
+- **Slash-command / prompt-mode invocation** — a Pi system note formatted as "loom `/<name>` aborted: `<message>`", where `<message>` is the panic message string defined above. The user's session is not torn down; the user can type a follow-up turn.
+- **`invoke` parent** — `Err(QueryError { kind: "invoke_failure", reason: "panic", message: <message>, ... })` (see [Invocation](./invocation.md)), where `<message>` is the same panic message string. Author code that pattern-matches on `InvokeFailure.message` to discriminate panic causes can therefore rely on the registered template, though matching on the `loom/runtime/*` code (when surfaced through the diagnostics channel) is the more stable discriminator.
 
 Panics are not values — they do not flow through `?` and cannot be caught by `match`. Authors who need recoverable behaviour must write code that cannot panic (bounds-check before indexing, add a final `_ => ...` arm to `match`).

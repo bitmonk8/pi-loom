@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_82 findings retained, 1 false positives dropped, 0 persistent failures_
+_81 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -6382,77 +6382,6 @@ Edge cases the implementer must reflect when transcribing the note:
 - "Coercion follow-up may re-trigger tool side effects" — same-cluster (both clarify side-effect semantics on the failure path; resolved by independent edits in different files)
 - "Subagent session resource teardown on failure unspecified" — same-cluster (adjacent gap about cleanup on failure paths; resolves independently in `invocation.md` rather than `errors-and-results.md`)
 - "Discarded `Result` is a silent observability black hole" — same-cluster (both concern under-specified consequences of unhandled failure; orthogonal fixes)
-
----
-
-# Panic message content per source unspecified
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** Panic message content per source unspecified
-**Kind:** testability, completeness
-
-## Finding
-
-`spec_topics/errors-and-results.md` enumerates three V1 panic sources — non-exhaustive `match` (`MatchError`), array index out of bounds, and indexed access on `null` or a missing object key — but never specifies the textual content of the panic emitted in each case. The downstream surfaces both reference an opaque `<message>` placeholder: the slash-command system note is templated as `"loom /<name> aborted: <message>"`, and `InvokeFailure { reason: "panic", message }` carries the same string verbatim to an `invoke` parent. Nothing in the spec constrains what fills `<message>`, nor pins each source to a `loom/runtime/*` diagnostic code.
-
-The plan already commits to message-shape assertions in V18k (`"message includes index and length"`) and V18l (`"message identifies the access type"`), but the spec gives those tests nothing normative to compare against. Two implementers can produce `"index out of bounds: 5 (len 3)"` and `"array access at offset 5 exceeds length 3"` and both satisfy the spec. The same divergence appears at the slash surface, where the user-facing copy is part of Pi's transcript, and on the `invoke` boundary, where author code reading `InvokeFailure.message` cannot pattern-match on it reliably.
-
-The result is a testability hole that mirrors the parse-error code gap: failures are observable as "something went wrong" but not as "the specific thing that went wrong," so regressions that emit the wrong panic for the right input are undetectable from outside the runtime.
-
-## Spec Documents
-
-- `spec_topics/errors-and-results.md` — Runtime panics (edited)
-- `spec_topics/diagnostics.md` — `loom/runtime/*` namespace (edited)
-- `spec_topics/slash-invocation.md` — Top-level `Err` in prompt mode / panic routing (read-only)
-- `spec_topics/invocation.md` — `InvokeFailure.message` (read-only)
-
-## Plan Impact
-
-**Phases:** Vertical V7, Vertical V18
-
-**Leaves (implementation order):**
-
-- V7i — `MatchError` runtime panic — (modified)
-- V18k — Runtime panic: array index out of bounds — (modified)
-- V18l — Runtime panic: indexed access on `null` / missing key — (modified)
-- V18m — Panic routing: slash-command surface — (modified)
-- V18n — Panic routing: `invoke` parent surface — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two conformant implementations will emit different `<message>` text for the same panic, and conformance tests cannot distinguish "right panic, sloppy text" from "wrong panic detected via the wrong text." Author code matching on `InvokeFailure.message` to discriminate panic causes is non-portable. The user-facing slash-command note becomes implementation-defined copy in a transcript Pi persists for replay.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `spec_topics/errors-and-results.md`, immediately after the panic-sources list, add a normative table fixing the message template and the `loom/runtime/*` code per source. The same string fills `<message>` in the slash-command system note (`"loom /<name> aborted: <message>"`) and `InvokeFailure.message` when `reason == "panic"` — there is one panic message per panic, formatted once at the panic site and re-used at every routing surface.
-
-| Source | Code | Message template |
-|---|---|---|
-| Non-exhaustive `match` | `loom/runtime/match-error` | `non-exhaustive match at <file>:<line>:<col>` |
-| Array index out of bounds | `loom/runtime/index-out-of-bounds` | `index <i> out of bounds (length <n>) at <file>:<line>:<col>` |
-| Indexed access on `null` | `loom/runtime/null-access` | `indexed access on null at <file>:<line>:<col>` |
-| Missing object key | `loom/runtime/missing-key` | `missing key '<key>' at <file>:<line>:<col>` |
-
-Notes for the implementer:
-
-- `<file>` is the absolute path of the loom source frame at the panic site, matching the convention used by `Diagnostic.file` in `diagnostics.md`. `<line>:<col>` are 1-indexed.
-- Distinguish `null-access` from `missing-key` because the runtime can tell them apart (the receiver is either literally `null` or an object that lacks the key) and authors will want to.
-- For chained `.warp` import frames, the panic site is the leaf source location, not the importer; the existing call-chain summary that `slash-invocation.md` describes for `?`-cascaded `Err` is reused for panics.
-- The message strings are user-visible English copy; treat them as normative under the same prescription rule that governs the per-`kind` system-note table in `slash-invocation.md` (see related finding on prescription level — these two should land on the same answer).
-- The `loom/runtime/*` code is what `diagnostics.md` already promises but does not enumerate; assigning the four codes here fills that gap for the runtime namespace specifically.
-
-## Related Findings
-
-- "No diagnostic codes assigned to named parse errors" — same-cluster (parallel testability/code-assignment gap, but in `loom/parse/*` rather than `loom/runtime/*`)
-- "Per-`kind` system-note table covers only 5 of 8 `QueryError` variants" — co-resolve (panic routing surfaces as `invoke_failure` with `reason: "panic"`; the missing rows and the `<message>` content are best fixed in the same edit)
-- "System-note copy strings: prescription level unresolved" — decision-dependency (the answer there determines whether the panic message templates are normative copy or behavioural sketches)
-- "Logging, metrics, and cost/token accounting missing entirely" — same-cluster (touches the same observability surface; runtime panics are a primary thing operators need to log)
 
 ---
 
