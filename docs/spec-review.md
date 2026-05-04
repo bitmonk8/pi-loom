@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_55 findings retained, 1 false positives dropped, 0 persistent failures_
+_54 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -2810,67 +2810,6 @@ Edge cases the implementer must handle:
 - "Session-context token counting API unspecified" — decision-dependency (the truncation rule is well-defined only once a per-turn token-count source is named; both edits land in the same paragraph)
 - "`needs_info` / `ambiguous` distinction is V1 scope creep" — same-cluster (same spec file, independent fix)
 - "Binder failure retry counts inconsistent" — same-cluster (same spec file, independent fix)
-
----
-
-# Session-context token counting cites the wrong Pi API
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** Session-context token counting API unspecified
-**Kind:** implementability, assumptions
-
-## Finding
-
-`spec_topics/binder.md` §"Session-context truncation (`bind_context: session`)" instructs the runtime to walk caller-session turns newest-to-oldest and stop at "20 turns or 8000 tokens (whichever is smaller)", with the parenthetical "Token counts come from Pi's `ctx.getContextUsage()` (model-aware)."
-
-`ctx.getContextUsage()` does not return per-turn or per-message token counts. It returns a single `ContextUsage` object — `{ tokens: number | null, contextWindow: number, percent: number | null }` — describing aggregate context usage for the active session. `tokens` is `null` immediately after compaction until the next assistant response, and `contextWindow` is the model's window size, not a per-turn figure. There is no way to derive per-turn token counts from this value, so the algorithm as specified cannot be implemented against the cited API.
-
-The 8000-token cap therefore has no defined evaluation procedure. Plan leaf `V16g` inherits the same defect — its `Tests` bullet pins the boundary test to `ctx.getContextUsage()` model-aware, which cannot produce the per-turn counts the test would need.
-
-## Spec Documents
-
-- `spec_topics/binder.md` — Session-context truncation (`bind_context: session`) (edited)
-- `spec_topics/pi-integration-contract.md` — Pi extension surface used by the loom runtime (read-only; verify `estimateTokens` is referenced as the per-message token API)
-
-## Plan Impact
-
-**Phases:** Vertical V16
-
-**Leaves (implementation order):**
-
-- V16g — `bind_context: session` truncation — (both)
-
-## Consequence
-
-**Severity:** correctness
-
-The spec names an API that returns aggregate session usage where it needs per-turn counts. Two implementers will diverge: one will fall back to `chars/4`, another will invoke a provider-specific tokenizer, a third will misuse `getContextUsage().tokens` as a running total and produce off-by-everything truncation. The boundary tests demanded by `V16g` cannot be written deterministically against the cited API, so the leaf cannot ship.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Replace the `ctx.getContextUsage()` clause with a reference to Pi's public per-message estimator and define the cap in those terms.
-
-Spec edit (in `spec_topics/binder.md`, replace the parenthetical in the truncation paragraph):
-
-> Token counts are computed per message via `estimateTokens(message)` exported from `@mariozechner/pi-coding-agent` (a conservative `Math.ceil(chars / 4)` estimate over text, thinking, tool-call argument JSON, and tool-result text). A turn's token count is the sum of `estimateTokens` over its constituent messages (user/assistant/toolResult/custom). The runtime walks turns newest-to-oldest and stops including a turn the moment the running sum would exceed 8000 tokens or the running turn count would exceed 20 — whichever bound is reached first. The over-budget turn is excluded entirely (whole-turn truncation; partial messages are not split).
-
-Implementer notes (carry into `V16g`):
-
-- Source the message list from `ctx.sessionManager.buildSessionContext().messages`. A "turn" is a user message plus all subsequent assistant / toolResult / custom messages up to (but not including) the next user message.
-- `estimateTokens` is intentionally conservative — it overestimates. That is the desired bias: it keeps the included transcript within the budget the binder model will actually see.
-- The estimator is provider-agnostic and matches what Pi uses for its own compaction decisions, so binder truncation behaviour stays consistent with the rest of Pi as model tokenizers evolve.
-- Update plan leaf `V16g`'s `Tests` bullet to read "exact 8000-token boundary (token count via `estimateTokens` from `@mariozechner/pi-coding-agent`)" and add a test asserting that a turn whose inclusion would push the running sum over 8000 is excluded entirely.
-- Do **not** route this through `ctx.getContextUsage()` — that API stays untouched for its actual purpose (compaction triggers, footer rendering).
-
-## Related Findings
-
-- "Session-context truncation boundary condition unspecified" — co-resolve (same paragraph in `binder.md`; the recommended replacement text resolves both findings in one edit).
-- "Binder model resolution unspecified when no model is configured" — same-cluster (adjacent binder-mechanics gap; resolves independently).
-- "Logging, metrics, and cost/token accounting missing entirely" — same-cluster (broader token-accounting gap; resolves independently of this fix).
 
 ---
 

@@ -52,7 +52,7 @@
 
 - **Spec.** [Slash-Command Argument Binding](../spec_topics/binder.md) (session-context truncation).
 - **Adds.** Walk caller-session turns newest-to-oldest; accumulate until 20 turns or 8000 tokens (whichever smaller); whole-turn boundary.
-- **Tests.** Exact 20-turn boundary; exact 8000-token boundary (token count via `ctx.getContextUsage()` model-aware); partial messages not split.
+- **Tests.** Exact 20-turn boundary; exact 8000-token boundary (token count via `estimateTokens` from `@mariozechner/pi-coding-agent`), including a turn whose inclusion would push the running sum over 8000 is excluded entirely; partial messages not split.
 - **Deps.** V16f.
 - **Ships when.** Session-context binder path works.
 
