@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_42 findings retained, 1 false positives dropped, 0 persistent failures_
+_41 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -893,73 +893,6 @@ Edge cases the implementer must watch:
 - "`tools` vs `customTools` in `createAgentSession`" — co-resolve (same `ToolDefinition` shape; the `customTools` correction depends on this fix to type-check)
 - "No `pi.unregisterTool()` API — one-shot tools accumulate" — same-cluster (both touch the synthesised `__loom_respond_<hash>` tool path; resolve independently but fixer should batch the contract edits)
 - "`before_provider_request` cannot scope to a single turn" — decision-dependency (the per-turn forcing handler must fingerprint the payload by tool name, which depends on the `__loom_respond_<hash>` registration shape settled here)
-
----
-
-# `before_provider_request` fires on every request in the session, not just the loom's typed-query turn
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** `before_provider_request` cannot scope to a single turn
-**Kind:** codebase-grounding-broad, assumptions
-
-## Finding
-
-`pi-integration-contract.md` says the runtime "forces tool-use for that single turn […] via the `before_provider_request` hook." That phrasing implies the hook can be scoped to one outbound provider call. It cannot. `before_provider_request` is invoked by the per-session `ExtensionRunner` on **every** payload that flows through `Agent.streamFn` for sessions where the loom extension is loaded. Concretely, the same handler will fire for:
-
-- The user's regular conversation turns when no loom is running.
-- Compaction calls and any other internal LLM round-trip on the user's session.
-- Loom-spawned subagent sessions (the runner is rebuilt from the same `resourceLoader.getExtensions()`, so the loom extension is re-registered into every `createAgentSession` runner — including the loom's own subagent sessions when they are *not* in their typed-query window).
-
-The runtime therefore must distinguish "this payload is the typed-query turn whose `tool_choice` I want to rewrite" from "every other payload, leave it alone." The spec gives no scoping rule, and the natural reading — "register the hook, do the rewrite, unregister" — is impossible because the hook fires synchronously inside the in-flight `streamFn` call.
-
-A second sub-issue compounds this: `BeforeProviderRequestEvent.payload` and `BeforeProviderRequestEventResult` are both typed `unknown` in `@mariozechner/pi-coding-agent`. The actual shape (the `tools` array, `tool_choice` field, provider-specific layout) is owned by `@mariozechner/pi-ai`'s `streamSimple` request payload. Any spec that prescribes mutating `payload.tool_choice` is implicitly version-coupling pi-loom to a private pi-ai shape that the extension SDK does not commit to.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — *Conversation drive — prompt mode* (typed-query bullet) (edited)
-- `spec_topics/pi-integration-contract.md` — *Conversation drive — subagent mode* (read-only — same mechanism applies, no edit needed if prompt-mode bullet defines the scoping rule by reference)
-- `spec_topics/implementation-notes.md` — *Runtime* (option-dependent — receives the mechanism details if they move out of the contract page; see related finding "Typed query implementation technique should be in `implementation-notes.md`")
-- `spec_topics/query.md` — typed-query section (read-only)
-
-## Plan Impact
-
-**Phases:** Vertical V6, Vertical V12
-
-**Leaves (implementation order):**
-
-- V6i — AJV validation of typed query results — (modified)
-- V12a — `mode: subagent` accepted; AgentSession spawn — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two implementers reading the current text will diverge: one will install a global `pi.on("before_provider_request", …)` that mutates `tool_choice` whenever the payload looks like a chat completion (corrupting other extensions' subagents, the user's regular turns, and compaction calls), while another will (correctly) inspect the payload and rewrite only when the synthesised `__loom_respond_<hash>` tool is present. The first implementation will produce silent, hard-to-reproduce cross-extension breakage in real Pi sessions.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Amend the typed-query bullet in `spec_topics/pi-integration-contract.md` to specify the scoping rule and the version-coupling caveat:
-
-> The `before_provider_request` handler the loom installs fires on every provider request in every session into which the loom extension is loaded — including the user's untyped turns, compaction calls, and other extensions' (or the loom's own) subagent sessions. The handler must therefore **fingerprint** each payload: it inspects `payload.tools` for an entry whose `name` matches the currently-pending typed query's `__loom_respond_<schema-hash>`, and only when found does it rewrite `tool_choice` to that name. All other payloads are returned unchanged. Because `BeforeProviderRequestEvent.payload` is typed `unknown` in the Pi extension SDK and its concrete shape is owned by `@mariozechner/pi-ai`'s `streamSimple` request, this fingerprinting and rewrite step is version-coupled to `@mariozechner/pi-ai` and must be re-validated on every upgrade of that package.
-
-Implementer edge cases:
-
-- The "currently-pending typed queries" set is per-session and can have more than one entry transiently if a typed query is in flight while another is enqueued; key the set by tool name so the lookup is O(1) regardless.
-- Coercion follow-up turns (V6i / V13k–m) reuse the same `__loom_respond_<hash>` tool, so the fingerprint check naturally covers them.
-- Subagent mode reuses the same handler — no second install path is needed; the fingerprint is sufficient because the synthesised tool name is the discriminator, not the session identity.
-- The handler must be `async (event, ctx) => event.payload` for the no-match path (returning `undefined` would also work per the runner's `if (handlerResult !== undefined)` guard, but explicit pass-through is clearer and survives a future tightening of that contract).
-
-## Related Findings
-
-- "Typed query mechanism contradicts `query.md` tool-loop semantics" — decision-dependency (if typed queries must allow intermediate tool calls, the synthesised-tool mechanism itself is replaced and the scoping rule moves with it)
-- "Typed query implementation technique should be in `implementation-notes.md`, not the V1 contract" — co-resolve (the scoping rule is implementation detail; both edits land together if the mechanism moves to implementation-notes)
-- "Forced tool-use unsupported on non-Anthropic/OpenAI providers" — same-cluster (independent provider-coverage issue with the same `tool_choice`-rewrite mechanism)
-- "No `pi.unregisterTool()` API — one-shot tools accumulate" — same-cluster (sibling lifecycle issue with the synthesised `__loom_respond_<hash>` tool)
-- "`agent_end` fires globally, not per-session" — same-cluster (parallel "this hook isn't scoped the way the spec implies" issue, resolves independently)
 
 ---
 
