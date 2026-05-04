@@ -2,7 +2,7 @@
 
 `pi-loom` is a [Pi Coding Agent](https://pi.dev) extension that introduces a purpose-built scripting language for authoring parameterized, programmatic templates targeting the code/model boundary. Loom code (variables, loops, conditionals, functions) is interleaved with model-side text emissions; the side effects of a `.loom` file are conversational injections, not file writes.
 
-The full specification is split into focused topic pages under [`spec_topics/`](./spec_topics/). Each page stands alone — an implementer of a single feature only needs to read the topics referenced by their plan task. The implementation plan lives in [`plan.md`](./plan.md).
+The full specification is split into focused topic pages under [`spec_topics/`](./spec_topics/). Each topic page is authored to be self-contained: any rule it depends on from another topic must be either stated locally or explicitly cross-linked. An implementer MAY therefore restrict their reading to the topics listed under their plan leaf's **Spec** field. The implementation plan lives in [`plan.md`](./plan.md).
 
 ---
 

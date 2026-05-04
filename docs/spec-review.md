@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_34 findings retained, 1 false positives dropped, 0 persistent failures_
+_33 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -165,63 +165,6 @@ This removes the misleading plural "languages" without losing the signal that bo
 - "Preamble — undefined and ambiguous jargon" — same-cluster (same paragraph, independent fix)
 - "Preamble — reading-guidance modal vague" — same-cluster (same preamble block, independent fix)
 - "'Woven artifact' — undefined term, used once and abandoned" — same-cluster (another index-level vocabulary gap, independent fix)
-
----
-
-# Preamble's reading-guidance sentence lacks normative force
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** Preamble — reading-guidance modal vague
-**Kind:** clarity
-
-## Finding
-
-The third sentence of `spec.md` reads: "Each page stands alone — an implementer of a single feature only needs to read the topics referenced by their plan task." The sentence carries the entire reading-discipline contract for the spec — it tells implementers (human and agent) that they may scope their reading to a plan leaf's `Spec` field — but it is phrased descriptively, not normatively. Two readings are equally available:
-
-1. **Prescriptive guarantee:** topic pages are authored to be self-contained, so unreferenced topics are safe to skip.
-2. **Bare sufficiency claim:** in some unspecified sense the referenced topics "are enough," with no commitment from authors to keep them self-contained going forward.
-
-Reading (1) shapes how an implementing agent allocates its context window; reading (2) leaves the agent unable to decide whether skipping is correct or merely tolerated. The same ambiguity propagates to `plan.md:3`, which mirrors the wording. Without a normative anchor, future spec edits have no rule to enforce — a topic that quietly grows a load-bearing reference into another topic violates nothing.
-
-## Spec Documents
-
-- `spec.md` — Preamble (paragraph 2) (edited)
-- `plan.md` — opening paragraph (read-only; mirrors the spec wording but not edited as part of this finding)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):** None
-
-The sentence governs reader behaviour, not implementation behaviour. No leaf's acceptance criteria depend on it.
-
-## Consequence
-
-**Severity:** advisory
-
-Implementing agents cannot tell whether topic pages are guaranteed self-contained or merely usually-sufficient, so they either over-read (defensive context bloat) or under-read (silent miss of a load-bearing cross-reference). Future spec authors have no normative rule to point at when reviewing PRs that add hidden cross-topic dependencies.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Replace the second paragraph's second sentence with two sentences that separate the authoring contract from the reader's permission:
-
-> Each topic page is authored to be self-contained: any rule it depends on from another topic must be either stated locally or explicitly cross-linked. An implementer MAY therefore restrict their reading to the topics listed under their plan leaf's **Spec** field.
-
-Edge cases for the implementer of this fix:
-
-- Use RFC 2119 `MAY` (lowercased "may" is acceptable; the spec does not yet declare an RFC 2119 convention, so either is fine, but be consistent with whatever the rest of the spec uses).
-- Apply the same rewording to `plan.md`'s opening paragraph so the two documents stay aligned; this is a follow-up edit, not part of this finding's surface.
-- Do not promise that topics are short or non-overlapping — only that cross-topic dependencies are surfaced.
-
-## Related Findings
-
-- "Preamble — undefined and ambiguous jargon" — co-resolve (same paragraph; one editing pass on the preamble fixes both)
-- "Preamble — `.loom` and `.warp` relationship unclear" — same-cluster (adjacent preamble prose; resolves independently but in the same edit window)
 
 ---
 
