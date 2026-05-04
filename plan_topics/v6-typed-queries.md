@@ -66,7 +66,7 @@
 
 ## V6i — AJV validation of typed query results
 
-- **Spec.** [Query](../spec_topics/query.md) (typed form, `validation_errors`), [Errors and Results](../spec_topics/errors-and-results.md).
+- **Spec.** [Query](../spec_topics/query.md) (typed form, `validation_errors`), [Errors and Results](../spec_topics/errors-and-results.md), [Pi Integration Contract](../spec_topics/pi-integration-contract.md) (typed-query behavioural contract), [Implementation Notes — Runtime](../spec_topics/implementation-notes.md#runtime) (V1 reference implementation of the typed-query mechanism).
 - **Adds.** Inferred or explicit schema lowered + handed to provider; response AJV-validated; failure → `Err(QueryError {kind:"validation", ...})`. No coercion follow-ups yet (V13k–m).
 - **Tests.** Valid response unwraps; invalid response yields `validation` error with `attempts: 0`, populated `validation_errors`, and `raw_response` set; AJV error path matches JSON-Pointer format.
 - **Deps.** V6c, V4.

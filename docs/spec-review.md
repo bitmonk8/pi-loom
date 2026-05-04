@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_105 findings retained, 1 false positives dropped, 0 persistent failures_
+_104 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -8709,73 +8709,3 @@ Edge cases for the implementer:
 
 ---
 
-# Typed-query mechanism prescribed in the V1 contract page belongs in implementation notes
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** Typed query implementation technique should be in `implementation-notes.md`, not the V1 contract
-**Kind:** scope, prescription
-
-## Finding
-
-`spec_topics/pi-integration-contract.md` is scoped to "the named SDK surface from `@mariozechner/pi-coding-agent` the runtime depends on" — items that, if changed, would require a spec revision. The prompt-mode-drive bullet for typed queries violates that scope: it commits the spec to one specific realisation — register a synthesised tool named `__loom_respond_<schema-hash>` immediately before the query, register-and-unregister around a single turn, and force tool-use through `before_provider_request` with provider-specific `tool_choice` payloads (`{ type: "tool", name }` for Anthropic, `{ type: "function", function: { name } }` for OpenAI). None of those names or payloads are observable to a loom author or to the user; they are runtime-internal mechanism choices.
-
-By placing the mechanism inside the V1 *contract* the spec forecloses behaviourally-equivalent alternatives — provider JSON-mode, native structured-output APIs (OpenAI `response_format`, Anthropic structured outputs once shipped, Gemini `responseSchema`), or grammar-constrained decoding on local providers — even though all of them produce the same user-observable surface (one assistant turn, schema-validated final payload, frontmatter-`tools` available during the turn). The contract page should hold only the behavioural commitments; the synthesised-tool trick belongs in `implementation-notes.md` as a reference implementation alongside the existing "Typed queries... lower the schema to the provider's structured-output / strict tool-input contract" sentence.
-
-A clean split also makes adjacent findings tractable: the prescriptive sentence is what makes "Forced tool-use unsupported on non-Anthropic/OpenAI providers" a contract-level gap, and it is what creates the apparent conflict with `query.md`'s tool-loop semantics. Both shrink to "implementation must pick a per-provider technique" once the mechanism is no longer normative.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — prompt-mode-drive bullet for typed queries (edited)
-- `spec_topics/pi-integration-contract.md` — subagent-mode-drive paragraph (edited; same mechanism is referenced by cross-link)
-- `spec_topics/implementation-notes.md` — Runtime section, typed-queries bullet (edited; gains the reference-implementation detail)
-- `spec_topics/query.md` — typed form, "Tool calls during a query" paragraph (read-only; constrains what the behavioural contract must permit)
-
-## Plan Impact
-
-**Phases:** Vertical V6, Vertical V12
-
-**Leaves (implementation order):**
-
-- V6i — AJV validation of typed query results — (modified)
-- V12a — `mode: subagent` accepted; AgentSession spawn — (modified)
-
-V6i is the leaf that actually realises typed queries; today its **Spec** field cites only `query.md` and `errors-and-results.md` and inherits the mechanism choice implicitly from the contract page. After the move, V6i should additionally cite `implementation-notes.md` (reference impl) and `pi-integration-contract.md` (behavioural contract). V12a uses the same mechanism for typed queries inside subagent sessions and gains the same spec-citation update. No tests or "Ships when" criteria change — the change is purely where each leaf reads its mechanism from.
-
-## Consequence
-
-**Severity:** advisory
-
-The spec already specifies *a* working mechanism, so an implementer can ship V1 verbatim. The cost is that any provider for which the synthesised-tool + forced-`tool_choice` technique is unavailable, suboptimal, or simply more expensive than a native structured-output call would technically violate the contract, even though the user-observable behaviour would be identical. That tension surfaces as several other findings in the same review and will recur each time a new provider is added.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Split the typed-query content along contract-vs-mechanism lines.
-
-**In `spec_topics/pi-integration-contract.md`,** replace the current typed-query bullet under "Conversation drive — prompt mode" with a behavioural contract that names only what callers and users can observe:
-
-> Typed queries enforce the inferred or ascribed schema against the model's final assistant response for that turn. The runtime MUST present the loom's frontmatter `tools` to the model during the turn (matching untyped-query semantics from `query.md`), MUST surface the validated payload exactly once, and MUST NOT add additional user-visible turns to the conversation beyond the single typed-query turn. The technique used to obtain a schema-conformant response (synthesised one-shot tool, provider JSON-mode, native structured-output API, grammar-constrained decoding, etc.) is provider-specific and is described in [Implementation Notes — Runtime](./implementation-notes.md#runtime).
-
-The "Conversation drive — subagent mode" paragraph keeps its existing cross-reference ("the same synthesised one-shot tool…") but rewords to "the same mechanism described in implementation-notes" so it tracks the contract-vs-impl split.
-
-**In `spec_topics/implementation-notes.md`,** extend the existing typed-queries bullet with the reference-implementation detail currently in the contract page: the synthesised-tool name pattern (`__loom_respond_<schema-hash>` — note this depends on the hash algorithm a separate finding flags as unspecified), the register-immediately-before / unregister-immediately-after lifecycle, the `before_provider_request` hook, and the per-provider `tool_choice` payloads. Frame it as "the V1 reference implementation uses the following technique; alternative techniques satisfying the contract above are permitted."
-
-**Edge cases the implementer must watch:**
-
-- The behavioural contract's "MUST present the loom's frontmatter `tools` to the model" clause is the load-bearing piece that resolves the apparent conflict with `query.md`'s tool-loop semantics. Whatever mechanism is chosen must permit intermediate tool-use during a typed query; a single forced `tool_choice` on the synthesised respond-tool does not, and that is itself a separate finding to resolve.
-- The "no extra user-visible turns" clause is what makes the synthesised-tool trick observably equivalent to native structured outputs — both produce one visible assistant turn carrying the validated payload. State it explicitly so a reader does not assume the synthesised-tool turn is somehow hidden.
-- Do not delete the per-provider `tool_choice` payloads from the spec entirely; they remain useful in `implementation-notes.md` as a worked example and as documentation of what the V1 reference implementation actually does.
-
-## Related Findings
-
-- "Typed query mechanism contradicts `query.md` tool-loop semantics" — decision-dependency (rephrasing the contract to permit intermediate tool-use is a prerequisite for the move; the reference-impl mechanism in implementation-notes must then describe a technique that honours the new contract)
-- "Forced tool-use unsupported on non-Anthropic/OpenAI providers" — co-resolve (once the contract is behavioural, providers without forced tool-use are not contract-violations; they only need an alternative technique listed in the reference impl)
-- "Implementation toolkit over-prescribed" — same-cluster (sibling instance of contract/implementation conflation, in the same `implementation-notes.md` ↔ contract surface)
-- "JS representation details are over-prescribed" — same-cluster (same pattern, applied to `runtime-value-model.md`)
-- "Design-notes blocks and rationale clauses mixed into requirement sections" — same-cluster (broader scope-discipline cluster the same review groups)
-- "`__inline_<hash>` hash algorithm unspecified" — decision-dependency (the moved reference-impl section will reference `<schema-hash>` and should pin or cross-link the hash algorithm at the same time)
-
----

@@ -2,7 +2,7 @@
 
 ## V12a — `mode: subagent` accepted; AgentSession spawn
 
-- **Spec.** [Pi Integration Contract — subagent-mode drive](../spec_topics/pi-integration-contract.md), [Overview — Scope of a Loom File](../spec_topics/overview.md#scope-of-a-loom-file).
+- **Spec.** [Pi Integration Contract — subagent-mode drive](../spec_topics/pi-integration-contract.md), [Overview — Scope of a Loom File](../spec_topics/overview.md#scope-of-a-loom-file), [Implementation Notes — Runtime](../spec_topics/implementation-notes.md#runtime) (V1 reference implementation of the typed-query mechanism reused inside the spawned session).
 - **Adds.** Frontmatter `mode: subagent` accepted; runtime spawns in-process `AgentSession` (against `FakeAgentSession` in tests) with in-memory session manager. Replaces V3a's "not implemented yet" stub.
 - **Tests.** Spawn happens at loom invocation, not at load; transcript not retained on `FakeFileSystem`; session disposed on return.
 - **Deps.** V3a, V5e.
