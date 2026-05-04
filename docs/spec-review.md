@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-04T14:08:47Z_
 _Source: docs/reviews/spec-review/spec-20260504-144255.md_
-_69 findings retained, 1 false positives dropped, 0 persistent failures_
+_68 findings retained, 1 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -5096,81 +5096,6 @@ Option A. Specify a single `\n` separator, applied uniformly to tool-result text
 - "Tool result non-text blocks silently lost" — co-resolve (same paragraph in `pi-integration-contract.md`; the rule that drops non-text blocks must be stated alongside the join-separator rule, otherwise the two rules can be read inconsistently)
 - "Streaming partial responses to user unspecified" — same-cluster (touches the same Pi-integration surface but resolves independently)
 - "Per-`kind` system-note table covers only 5 of 8 `QueryError` variants" — same-cluster (the `ToolCallError.message` content shape that this finding pins down feeds into how the system note is rendered)
-
----
-
-# Tool registry mutation during execution and model-driven parallel tool calls
-
-**Source:** docs/reviews/spec-review/spec-20260504-144255.md
-**Original heading:** Tool registry change mid-loom; concurrent model-driven tool execution
-**Kind:** completeness, implementability
-
-## Finding
-
-Two related runtime gaps sit on the boundary between Pi's tool registry and the loom's `tools:` callable set.
-
-**(1) Registry mutation between resolve and call.** `frontmatter.md` says Pi tool names "resolve against Pi's tool registry at loom-load time" and `implementation-notes.md` says the runtime resolves names against "the loom's `tools:` table built at load time." The `ToolCallError` variant `unknown_tool` is then described as a safety net for callables "unregistered between parse and runtime; should not occur after a clean parse." None of these passages state what is actually held in the load-time table. A Pi extension can register or unregister tools at any moment (extensions reload, packages get installed, the user toggles a tool source), and a loom invocation can run for many minutes while issuing dozens of tool calls. Two reasonable implementers will diverge: one captures the resolved `ToolDefinition` (its `execute` function) into the load-time table and never re-queries the registry, so the loom continues to work even after the source tool is unregistered; another stores only the post-rename name string and looks the tool up by name on every call, so registry churn surfaces as `unknown_tool` mid-run. The two behaviours are observably different and the spec does not say which is correct. The same question recurs for registered loom callees when the corresponding `.loom` file is deleted or its `params:` schema is edited mid-run by the file watcher.
-
-**(2) Parallel model-driven tool execution.** `tool-calls.md` notes that "Pi runs them concurrently" when the model emits multiple tool calls in one assistant message inside an `@`...`` query, but otherwise insists the loom interpreter is "single-threaded" and "sequential." This leaves the safety story for parallel tool mode undefined. The most charged case is two simultaneously-issued tool calls that both target subagent-mode loom callees: each call enters Pi's tool runtime concurrently, and each then drives a fresh subagent invocation through the loom interpreter. Whether two independent loom interpreter executions running on the same event loop are safe (each spawns its own `AgentSession`, so transcripts and AJV state are private — but the schema cache, file watcher, and any per-loom load-time tables are shared across invocations) is not stated. Implementers cannot tell whether parallel tool mode for loom callees needs to be serialised, whether the wrapping `defineTool` adapter can be left re-entrant, or whether shared caches need locking.
-
-## Spec Documents
-
-- `spec_topics/tool-calls.md` — Concurrency paragraph, Failures (`unknown_tool` cause) (edited)
-- `spec_topics/frontmatter.md` — `tools:` resolution paragraph (edited)
-- `spec_topics/implementation-notes.md` — Runtime, Single-threaded execution (edited)
-- `spec_topics/pi-integration-contract.md` — Conversation drive — subagent mode, `registerTool` adapter (edited)
-- `spec_topics/discovery.md` — file-watcher reload semantics (read-only)
-
-## Plan Impact
-
-**Phases:** Vertical V14, Vertical V15
-
-**Leaves (implementation order):**
-
-- V14a — `tools:` parsing (Pi tool names, comma form) — modified (resolution semantics: held `ToolDefinition` reference vs name lookup)
-- V14c — Bare `<name>(args)` call from loom code — modified (call-time path: dispatch through held reference, not via registry name lookup)
-- V14e — Pi tool wired into `@` queries as model-callable — modified (must specify that parallel tool mode is permitted and how loom callees behave under concurrent invocation)
-- V14i — `ToolCallError` variant: `unknown_tool` cause — modified (when this variant is reachable becomes a function of (1)'s decision)
-- V15h — load-time prompt-mode-callee rejection — modified (re-resolution behaviour when watcher reloads the callee `.loom`)
-- V15k — Cross-mode cell: subagent → subagent — modified (existing test asserts sibling sessions exist concurrently; concurrency safety story should be stated, not just assumed)
-
-## Consequence
-
-**Severity:** correctness
-
-A long-running loom whose source tool is unregistered behaves differently across implementations — one keeps working, another fails with `unknown_tool` — and authors writing recovery code cannot tell which to expect. Independently, parallel tool mode involving loom-registered subagent callees can either run concurrently or be silently serialised; the choice changes wall-clock latency, schema-cache contention behaviour, and the meaning of "single-threaded execution" in the spec.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-**Sub-decision A — registry snapshot.** Specify that `tools:` resolution at load time produces a frozen table of `{ name → resolved callable }` entries, where each Pi-tool entry holds a strong reference to the `ToolDefinition` object (its `execute`, `parameters`, and metadata) and each loom-callee entry holds a strong reference to the parsed callee plus its lowered tool spec. Subsequent calls dispatch through the held reference; the runtime never re-queries `pi.getTools()` (or equivalent) by name during execution. Consequently:
-
-- Unregistering a Pi tool from Pi's registry mid-run does **not** affect calls from a loom that already resolved it; the loom continues to use the captured `execute` function until it terminates.
-- The `unknown_tool` `ToolCallError` cause becomes reachable only via the file-watcher reload path: if the watcher rebuilds a loom's table and a previously-resolved Pi tool is gone, the next call from the rebuilt loom (i.e. a fresh invocation, not the in-flight one) returns `unknown_tool`. The "should not occur after a clean parse" caveat in `tool-calls.md` is then accurate by construction.
-- For loom-callee entries, the held reference points at the parsed callee version captured at load. File-watcher reloads invalidate the schema cache and rebuild `tools:` tables on next *invocation*; an in-flight invocation completes against its captured callee parse.
-
-**Sub-decision B — concurrent model-driven tool execution is permitted, and is safe by isolation.** Specify in `tool-calls.md` Concurrency that Pi's parallel tool mode runs registered Pi tools and registered loom callees concurrently when the model emits multiple tool-use blocks in one assistant turn, and:
-
-- Each loom-callee invocation spawns its own `AgentSession`, has its own AJV instance scope (compiled schemas are read-only post-load and may be shared safely), its own captured tool table, and its own derived `AbortSignal`. There is no shared mutable interpreter state across concurrent invocations.
-- The schema cache (`implementation-notes.md` AJV configuration) is read-mostly: compiled schemas are immutable; cache writes only occur on initial compile and on file-watcher invalidation. Reads from concurrent invocations are safe.
-- The loom interpreter remains single-threaded *per invocation* — the "single-threaded" claim in `implementation-notes.md` should be reworded to "per-invocation single-threaded; concurrent invocations are independent." Recursion / re-entrancy of one invocation into itself is still impossible (every `await` is sequential within the call stack), but two sibling invocations interleave on the event loop normally.
-- No serialisation of parallel tool mode is required for the registered-loom case; the model's `parallel_tool_calls: true` (or provider equivalent) propagates as-is.
-
-Edge cases the implementer must watch:
-- A loom callee that was resolved at load and whose `.loom` file is then deleted: held reference still works for the in-flight invocation; the next invocation's table-rebuild step records the now-missing callee as a load error and prevents that loom from being invoked at all (V15h-style rejection on next load, not mid-run).
-- A held Pi-tool reference whose underlying extension is hot-reloaded (`ctx.reload()`): the captured `execute` closure may now reference disposed module state. The spec should accept this as out-of-V1-scope and note that hot-reload of a Pi extension while a loom holds references to its tools is undefined; rely on the `_loom-reload` command's full re-discovery semantics already noted in `pi-integration-contract.md`.
-- Two concurrent subagent-callee invocations that both emit identical custom-typed system notes: the existing `pi.sendMessage` path is per-session, so notes go to the parent session only of the originating call. No collision possible because each invocation has its own envelope schema and its own AJV instance.
-
-## Related Findings
-
-- "`tools:` registration scope: global vs per-loom" — same-cluster (both touch the lifecycle of `tools:` entries; this finding constrains whether a held registration can be torn down out from under a running loom)
-- "No `pi.unregisterTool()` API — one-shot tools accumulate" — same-cluster (touches Pi's registry mutation surface from the opposite direction)
-- "`tools` vs `customTools` in `createAgentSession`" — same-cluster (both inform what concretely lands in the load-time table)
-- "Tool-call loop is unbounded" — same-cluster (parallel-tool-mode behaviour intersects with loop-termination behaviour inside `@`...`` queries)
-- "Hot-reload via `ctx.reload()` causes full extension teardown" — decision-dependency (the recommendation defers hot-reload of held tool references to that finding's resolution)
 
 ---
 
