@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_21 findings retained, 3 false positives dropped, 0 persistent failures_
+_20 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -1557,76 +1557,4 @@ Followed by a blank line so the field reads as its own paragraph, matching the l
 
 ---
 
-## plan_topics/h3-diagnostics.md
-
----
-
-# H3 "lint rule forbids `throw new Error`" Ships-when has no asserting test and no implementing leaf
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** "lint rule forbids `throw new Error`" has no asserting test
-**Kind:** validation
-
-## Finding
-
-H3's Ships-when reads "All later phases emit through `DiagnosticsSink` exclusively (lint rule forbids `throw new Error` for spec-defined diagnostics)." That criterion is unobservable as written: nothing in the leaf's Tests bullets asserts that the rule exists, that it fires on a violating fixture, that it is enabled in `.eslintrc` at `error` severity, or that it does not over-trigger on legitimate `throw` sites (e.g. fakes, internal invariants, control-flow exceptions). The H3 gate therefore closes vacuously.
-
-The defect compounds with an upstream gap: H1's Adds bullet enumerates the ESLint preset (`@typescript-eslint`, `no-floating-promises`, `no-globals`, `no-broad-catch`) but does not include this custom rule, and H3's Adds bullet lists `Diagnostic`, `DiagnosticsAccumulator`, the serialiser, code-namespace constants, and `MultiErrorReporter` — also no lint rule. No leaf in the plan currently *creates* the rule the Ships-when criterion depends on.
-
-The "spec-defined diagnostics" qualifier is also undefined locally. The spec's diagnostics topic enumerates a closed registry of `loom/parse/*`, `loom/lex/*`, `loom/load/*`, `loom/type/*`, and `loom/runtime/*` codes, so the rule's positive surface is "any `throw` whose message string starts with `loom/`". The negative surface — sanctioned `throw` sites — needs to be named so the rule's allow-list is testable rather than guessed.
-
-## Plan Documents
-
-- `plan_topics/h3-diagnostics.md` — Adds, Tests, Ships when (edited)
-- `plan_topics/h1-scaffold.md` — Adds (read-only; the rule's host config is established here but the rule itself belongs with `DiagnosticsSink` in H3)
-- `plan_topics/h2-di-skeleton.md` — Adds (read-only; defines the `DiagnosticsSink` seam the rule steers traffic toward)
-- `plan_topics/conventions.md` — Code conventions (read-only)
-
-## Spec Documents
-
-- `spec_topics/diagnostics.md` — Code registry (read-only; defines the closed set of `loom/<namespace>/*` codes the rule's positive matcher targets)
-
-## Affected Leaves
-
-**Phases:** Horizontal
-
-**Leaves (implementation order):**
-
-- H3 — Diagnostics primitive and multi-error accumulator — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-The Ships-when gate cannot fire — there is no observable signal for "all later phases emit through `DiagnosticsSink` exclusively." Two reasonable implementers will diverge: one will silently skip the rule and call H3 done; another will hand-roll an ad-hoc `grep` check; a third will write a custom ESLint rule with an arbitrary allow-list. By V18j (multi-error rollup) and beyond, the diagnostic surface will likely contain stray `throw new Error("loom/...")` sites that bypass the sink, and the V18o coverage gate has no mechanism to detect them.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Edit `plan_topics/h3-diagnostics.md`:
-
-1. Append to the **Adds.** bullet: `; custom ESLint rule "loom/no-throw-diagnostic-code" that flags any `throw` whose argument is a `new Error(...)` (or string literal) whose first segment matches `/^loom\/(parse|lex|load|type|runtime)\//`, with an allow-list for `src/diagnostics/**` (the sink's own implementation) and `test/**`; rule wired into the H1 ESLint preset at `error` severity.`
-
-2. Replace the existing **Tests.** block by adding three bullets at the end:
-   - `ESLint over a fixture file containing `throw new Error("loom/parse/binding-case-mismatch")` outside `src/diagnostics/` reports the rule's code at the offending line.`
-   - `ESLint over a fixture file containing `diagnosticsSink.report({ code: "loom/parse/binding-case-mismatch", ... })` and `throw new Error("internal invariant violated")` (no `loom/` prefix) does not report the rule.`
-   - `Reading `.eslintrc` (or the flat-config equivalent) confirms `loom/no-throw-diagnostic-code` is present and set to `error`.`
-
-3. Replace the **Ships when.** line with: `H3's Tests pass; the lint rule is wired at `error` severity and is observed by the Tests bullets above. Compliance of "later phases" is enforced mechanically by the rule running in `npm run lint` (the H1 Ships-when gate), not by manual audit.`
-
-Edge cases the implementer must handle:
-- The rule's allow-list is path-based (`src/diagnostics/**`), not message-based — the sink's own implementation legitimately constructs `Error` instances carrying `loom/...` codes when synthesising fallback notifications.
-- Test fixtures live under `test/fakes/` or `test/fixtures/` and are excluded from the rule via the `test/**` allow-list; the asserting test invokes ESLint programmatically against an inline fixture string, not against the repo's checked-in test files.
-- The matcher is on the literal first segment of the message string. Dynamically composed messages (`throw new Error(\`loom/${ns}/foo\`)`) are out of scope for V1; document that the rule only catches static literals and that dynamic construction is the implementer's responsibility to avoid.
-
-## Related Findings
-
-- "Exception-handling convention weaker than CLAUDE.md" — same-cluster (both concern H1's ESLint preset and what catch/throw discipline it enforces; resolve independently)
-- "`no-static-state.test.ts` allow-list undefined" — same-cluster (both add a custom lint-style check whose allow-list is unspecified; same shape of fix)
-- "Closed diagnostic registry — many codes have no asserting plan leaf" — decision-dependency (a complete diagnostic-code coverage gate would subsume the positive half of this rule's matcher; if the registry-coverage gate lands first, this rule's tests can reuse its fixture set)
-
----
 
