@@ -19,7 +19,7 @@
 ## V15c — Typed `invoke<Schema>` with AJV validation
 
 - **Spec.** [Invocation — Typed return](../spec_topics/invocation.md), [Invocation — Static resolution](../spec_topics/invocation.md#static-resolution).
-- **Adds.** `invoke<Plan>("./plan.loom", ...)` validates child's return value against `Plan`. When both annotation and callee are statically resolvable, the parser also checks structural compatibility (using the same compatibility relation as `let x: T = expr`) between the annotated `Schema` and the callee's inferred return type; mismatch is `loom/parse/invoke-return-type-mismatch`. When either side is unresolvable, the runtime AJV check remains the safety net.
+- **Adds.** `invoke<Plan>("./plan.loom", ...)` validates child's return value against `Plan`. When both annotation and callee are statically resolvable, the parser also checks structural compatibility (per [Type System — Type compatibility](../spec_topics/type-system.md#type-compatibility)) between the annotated `Schema` and the callee's inferred return type; mismatch is `loom/parse/invoke-return-type-mismatch`. When either side is unresolvable, the runtime AJV check remains the safety net.
 - **Tests.** Valid return → `Ok(value)`; invalid → `Err({kind:"invoke_failure", reason:"validation"})`; statically resolvable annotation/callee mismatch → `loom/parse/invoke-return-type-mismatch`; statically resolvable callee returning a narrower type than the annotation → no parse error (compatibility allows widening); unresolvable callee → no parse error, runtime AJV decides.
 - **Deps.** V15a, V4.
 - **Ships when.** Typed invokes safe and static return-type compatibility enforced.

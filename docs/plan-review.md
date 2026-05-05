@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_93 findings retained, 3 false positives dropped, 0 persistent failures_
+_92 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -6571,82 +6571,4 @@ Edge cases the implementer must watch:
 - "Closed diagnostic registry — many codes have no asserting plan leaf" — decision-dependency (extending `loom/load/invoke-path-escape` to fire at runtime adds a new asserting site; the registry-coverage finding's V18o gate must accept the dual-phase classification).
 
 ---
-
-# V15c references an undefined "compatibility relation"
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** V15c "compatibility relation" undefined
-**Kind:** clarity
-
-## Finding
-
-V15c's Adds bullet says the parser checks "structural compatibility (using the same compatibility relation as `let x: T = expr`) between the annotated `Schema` and the callee's inferred return type", and its Tests bullet asserts "statically resolvable callee returning a narrower type than the annotation → no parse error (compatibility allows widening)". The phrase "the same compatibility relation as `let x: T = expr`" is the only place an implementer can go to learn what counts as compatible — and that anchor does not exist.
-
-The spec mirrors the wording verbatim (`spec_topics/invocation.md` line 24: "the same compatibility relation `let x: T = expr` uses"), but `spec_topics/bindings.md` only says "the RHS must type-match the binding's declared or inferred type" without ever defining "type-match"; `spec_topics/errors-and-results.md` then circularly defers `match`-arm typing to "the same rules as `let` initialisation". `spec_topics/expressions.md` defines `least-upper-bound` and `integer → number` widening for *array literals* and the `+` operator only, and `spec_topics/expressions.md#object-construction-…` (the relation V7a's Suggested fix points at) covers element-typing for constructors, not arbitrary RHS-to-annotation assignment. No leaf in V2 or V4 introduces a named compatibility / assignability relation either.
-
-Two reasonable implementers will diverge: one will treat compatibility as shape-equality (and reject `Cat`-returning callees against an `Animal`-typed annotation, contradicting V15c's own "narrower is legal" Tests bullet); another will roll a TS-style structural subtyping (admitting excess properties, optional fields, function-parameter contravariance) that has no spec basis. The same gap underlies `loom/parse/integer-narrowing` (number → integer rejection has no defining leaf), V2c's "ternary type-checks both arms", and V7a's `match`-arm common type.
-
-## Plan Documents
-
-- `plan_topics/v15-invoke.md` — V15c (edited)
-- `plan_topics/v2-expressions.md` — V2a (edited under Option A; option-dependent under Option B)
-- `plan_topics/v4-schemas.md` — V4b, V4c, V4d (read-only — context for "lowered T₂")
-- `plan_topics/coverage-matrix.md` — (read-only)
-
-## Spec Documents
-
-- `spec_topics/type-system.md` — add new normative "Type compatibility" subsection (edited under Option A)
-- `spec_topics/bindings.md` — RHS-to-annotation rule citation (edited under Option A; read-only under Option B)
-- `spec_topics/invocation.md` — Typed return paragraph (read-only — already cites the relation by name)
-- `spec_topics/errors-and-results.md` — Arm syntax (read-only — already cites the relation by name)
-- `spec_topics/expressions.md` — array LUB and `+` widening (read-only — context for the relation's existing fragments)
-
-## Affected Leaves
-
-**Phases:** Vertical V2, Vertical V15
-
-**Leaves (implementation order):**
-
-- V2a — `let` immutable bindings — (modified)
-- V15c — Typed `invoke<Schema>` with AJV validation — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two implementers will produce diverging V15c behaviour at the `loom/parse/invoke-return-type-mismatch` site — strict shape-equality vs. TS-style structural subtyping vs. AJV-grounded value subtyping all read as plausible interpretations of the bare phrase, and the only on-spec hint ("narrower is legal under wider") is itself buried in V15c's Tests bullet rather than in any normative anchor. The same undefined relation is the silent dependency of V7a (`match` arm common type), V2c (ternary common type), and the missing `loom/parse/integer-narrowing` leaf, so the divergence radiates into every type-checking site in V2, V7, and V15.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add a normative "Type compatibility" subsection to `spec_topics/type-system.md` defining a single relation `T₁ ⊑ T₂` ("T₁ is compatible with T₂") with the operational rule used everywhere else in the spec — every value typed as T₁ AJV-validates against the lowering of T₂ — and an enumerated table of the structural cases the parser is required to recognise without falling back to AJV (`integer ⊑ number`; variant ⊑ union; identical primitives; element-wise on `array<T>`; field-wise on object schemas; `T ⊑ T | U`; literal `L ⊑ T` when `L: T`). Have `spec_topics/bindings.md`, `spec_topics/errors-and-results.md`, `spec_topics/expressions.md` (array LUB, `+`), and `spec_topics/invocation.md` cite the new section by anchor instead of repeating "same rules as `let`" prose.
-
-**Plan edits.**
-- `plan_topics/v2-expressions.md` V2a — add to **Spec.**: `[Type System — Type compatibility](../spec_topics/type-system.md#type-compatibility)`. Add a Tests bullet: "`let x: number = 1` (integer literal) accepted; `let x: integer = 1.5` rejected with `loom/parse/integer-narrowing`; `let x: Animal = Cat { ... }` accepted; the compatibility relation matches the spec's anchor table for primitives, variant→union, and array element-wise widening."
-- `plan_topics/v15-invoke.md` V15c — replace the parenthetical "(using the same compatibility relation as `let x: T = expr`)" with "(per [Type System — Type compatibility](../spec_topics/type-system.md#type-compatibility))". No behaviour change.
-
-**Spec edits.** New `spec_topics/type-system.md#type-compatibility` subsection (≈10–20 lines plus the rule table). Anchor citations from `bindings.md` (RHS rule), `errors-and-results.md` (Arm syntax), `expressions.md` (array LUB / `+`), `invocation.md` (Typed return), `frontmatter.md` (`params:` defaults). No code changes to existing rules — the section consolidates what the spec already implies in scattered places.
-
-Edge cases the implementer must pin down in the new subsection:
-
-1. `integer ⊑ number` only — the reverse is `loom/parse/integer-narrowing`.
-2. `Cat ⊑ Animal` for any variant of a discriminated union, which is the V15c Tests bullet's "narrower" case.
-3. `array<Cat> ⊑ array<Animal>` is admitted (covariant element widening — already implied by `expressions.md` array-LUB rules).
-4. Anonymous objects compare structurally on declared fields with `additionalProperties: false` everywhere, so excess-property compatibility does **not** apply.
-5. When either side is unresolvable (e.g. inferred binding past the parser's view), the runtime AJV check is the safety net — same posture V15c already documents for the unresolvable-callee case.
-
-Mitigate the risk that the drafted table admits cases the parser does not actually support (or vice versa) by walking the existing widening sites in `expressions.md` (`integer → number`, array LUB, variant → union widening at construction) and listing exactly those plus the AJV-value-subtype catch-all.
-
-## Related Findings
-
-- "V7a 'common-type values' undefined locally" — co-resolve (Option A's new `type-system.md#type-compatibility` anchor is what V7a's Suggested fix is asking for; Option B leaves V7a unfixed)
-- "`loom/parse/integer-narrowing` — no plan leaf" — co-resolve (Option A's V2a Tests bullet would assert the integer-narrowing case the missing-leaf finding wants; Option B does not touch it)
-- "V2c 'ternary type-checks both arms' — missing assertion" — same-cluster (the "common-type" relation a ternary needs is the same relation; cleanly resolves once the anchor exists, but V2c also needs its own clarity edit)
-- "V9d 'conflicting declaration' undefined" — same-cluster (same shape: a normative relation referenced by name without local definition; resolved independently, in a different spec area)
-
----
-
 

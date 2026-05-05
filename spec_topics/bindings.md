@@ -9,7 +9,7 @@ let mut count = 0  // mutable; count may be reassigned
 
 `let` requires an initialiser. `let x: T` (annotation, no initialiser) is `loom/parse/let-without-initialiser` — Loom has no `undefined` value, no per-type "zero" default, and no definite-assignment analysis, so a binding with no value cannot be type-soundly admitted. The full grammar for `let` lives in [Grammar Appendix — `let` form](./grammar.md#let-form). To bind once at the point a value is available, restructure the surrounding control flow; for an explicitly-mutable counter, write `let mut x: T = <initial>`.
 
-**Reassignment** is a statement, never an expression. The plain form and the compound forms `+=`, `-=`, `*=`, `/=`, `%=` are all legal on `let mut` bindings; the RHS must type-match the binding's declared or inferred type:
+**Reassignment** is a statement, never an expression. The plain form and the compound forms `+=`, `-=`, `*=`, `/=`, `%=` are all legal on `let mut` bindings; the RHS must be compatible with the binding's declared or inferred type per [Type System — Type compatibility](./type-system.md#type-compatibility). The same compatibility relation governs the initialiser of every `let` (typed or inferred) and is the canonical referent of every "same rules as `let`" cross-link elsewhere in the spec.
 
 ```loom
 let mut count = 0

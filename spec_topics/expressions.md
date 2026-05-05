@@ -137,13 +137,13 @@ For a discriminated union `schema Animal = Cat | Dog | Lizard`, construct via th
 
 `[]` is the empty array; its element type is inferred from context (binding annotation, parameter type, or surrounding constructor field). `[a, b, c]` is non-empty; its element type is the common type of its elements, narrowed by context if applicable. An array whose elements have no common type and no context to narrow against is `loom/parse/array-no-common-type`.
 
-*Common-type rules for array literals (and ternary branches):*
+*Common-type rules for array literals (and ternary branches):* the underlying compatibility check is governed by [Type System — Type compatibility](./type-system.md#type-compatibility); the rules below apply that relation to the array-and-ternary case.
 
-1. If a type sink is in scope (binding annotation, parameter type, etc.), every element type-checks against the sink's element type; a mismatch is `loom/parse/array-element-type-mismatch` naming the offending element.
-2. Otherwise, the parser computes the *least upper bound* of the element types: identical types collapse; `integer` widens to `number` when mixed with `number`; otherwise the element types are unioned (`["a", null]` → `array<string | null>`; `[1, "a"]` → `array<number | string>`).
+1. If a type sink is in scope (binding annotation, parameter type, etc.), every element must satisfy `T_element ⊑ T_sinkElement`; a mismatch is `loom/parse/array-element-type-mismatch` naming the offending element.
+2. Otherwise, the parser computes the *least upper bound* of the element types under `⊑`: identical types collapse (rule 1); `integer` widens to `number` when mixed with `number` (rule 2); otherwise the element types are unioned via rules 5–6 (`["a", null]` → `array<string | null>`; `[1, "a"]` → `array<number | string>`).
 3. Object schemas do not unify implicitly — an array containing two different named schemas yields `array<A | B>` only if some sink in scope expects a union; otherwise it is `loom/parse/array-no-common-type` ("array elements have no common type; annotate the binding with `array<A | B>` or use a single schema").
 
-**`+` operator.** On two `number` (or `integer`) operands, addition; the result widens to `number` if either operand is `number`. On two `string` operands, concatenation. Mixed-type operands are `loom/parse/mixed-plus-operands` — write an explicit conversion or interpolate inside a string. `+` on `array<T>` is not supported; use `arr.concat(other)`. See [Diagnostics](./diagnostics.md) for the full code registry.
+**`+` operator.** On two `number` (or `integer`) operands, addition; the result widens to `number` if either operand is `number` — the same `integer ⊑ number` widening defined in [Type System — Type compatibility](./type-system.md#type-compatibility) (rule 2). On two `string` operands, concatenation. Mixed-type operands are `loom/parse/mixed-plus-operands` — write an explicit conversion or interpolate inside a string. `+` on `array<T>` is not supported; use `arr.concat(other)`. See [Diagnostics](./diagnostics.md) for the full code registry.
 
 ## Other arithmetic
 
