@@ -1,7 +1,7 @@
 # pi-loom — Consolidated Spec Review
 
 _Generated: 2026-05-05T19:49:46Z (revised: merges + multi→single conversion + bottom-up reorder)_
-_60 source findings → 28 commit-ready findings (8 merge clusters, 26 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
+_60 source findings → 27 commit-ready findings (8 merge clusters, 26 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
 
 Findings are ordered for **bottom-up processing**: each commit fixes the *last* finding in the doc until the doc is empty. Dependencies that require a particular landing order are encoded in the doc order — `MERGE-F` (`bindings.md` BNDS / BNDR rename) sits at the bottom of the REQ-ID-appendix supersection so it lands *before* `MERGE-G` (retirement registries + V18s sub-gates), which sits above it.
 
@@ -1985,57 +1985,4 @@ Edge cases the implementer must watch:
 - "`loom/runtime/invoke-depth` — terse noun phrase vs. descriptive-phrase style of siblings" — same-cluster (same panic table; renames a row name, this finding rewrites the intro paragraph; resolve in the same edit pass)
 - "Spec mandates broad-catch exception handling; conventions unconditionally forbid it" — same-cluster (the broad-catch site whose existence that finding flags is precisely the runtime-defect-surface boundary that emits `internal-error`; both findings clarify the same surface but along orthogonal axes — naming/category here, conventions allowlist there)
 
----
-
-## spec_topics/discovery.md
-
----
-
-# `discovery.md` page title "Directory Convention" understates the page's scope
-
-**Source:** docs/reviews/spec-review/spec-20260505-204733.md
-**Original heading:** "Directory Convention" page title too narrow for page content
-**Kind:** naming
-
-## Finding
-
-`spec_topics/discovery.md` is titled "Directory Convention" both in its own H1 and in the `spec.md` table of contents (line 49). The phrase fits only the literal directory-layout fragments at the top of the page (`~/.pi/agent/looms/`, `.pi/looms/`, `looms/`). The body of the page covers substantially more: the five-source enumeration, source-priority rules, home-directory expansion, `pi.looms` package discovery (including the `node_modules/` walk, scope-directory handling, glob/`+`/`!`/`-` semantics, and the `scanPackages*` caps), settings-file precedence and merge rules, the `looms` entry schema, the failure-modes matrix with its six diagnostic codes, case-insensitive collision handling, filename-validity regex, and same-priority slash-name collision rules.
-
-The mismatch shows up in cross-references too: `plan_topics/m-mvp.md`, `v14-tool-calls.md`, `v15-invoke.md`, `v17-warp.md`, and `v18-cancellation.md` cite this page as "Directory Convention" with sub-anchors like "Source priority", "Settings file reads", and "Discovery roots" — anchors that have no relationship to "directory convention". The REQ-ID prefix already assigned to the page (`DISC`, per `spec.md` line 96) anticipates the broader scope.
-
-## Spec Documents
-
-- `spec_topics/discovery.md` — H1 page heading (edited)
-- `spec.md` — table-of-contents entry, line 49 (edited)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None. Plan leaves under M, V14, V15, V17, and V18 reference this page by the link label "Directory Convention" but their acceptance criteria do not depend on the title text; the underlying file path (`spec_topics/discovery.md`) is unchanged, so all existing links continue to resolve. The link labels become stale-but-functional, which is a documentation-hygiene matter rather than an acceptance-criteria change.
-
-## Consequence
-
-**Severity:** cosmetic
-
-A reader scanning the table of contents for "where do settings, package walks, and slash-name collisions live?" must guess that "Directory Convention" is the right page; the title misdirects to a narrower topic. No implementer behaviour is affected.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Rename the page H1 in `spec_topics/discovery.md` from `# Directory Convention` to `# Discovery`, and update the `spec.md` TOC entry on line 49 to match (link text "Discovery", file path unchanged). The REQ-ID prefix `DISC` already aligns with the new title.
-
-Implementer notes:
-
-- The file path (`spec_topics/discovery.md`) and all sub-anchors (`#discovery-roots`, `#home-directory-expansion`, `#looms-entry-schema`) stay as-is; existing links from `plan_topics/` and intra-spec cross-references continue to resolve.
-- Plan-leaf link labels under `plan_topics/m-mvp.md`, `v14-tool-calls.md`, `v15-invoke.md`, `v17-warp.md`, and `v18-cancellation.md` (and the `coverage-matrix.md` row) still read "Directory Convention". Updating those labels to "Discovery" is a separate, plan-side hygiene pass and is out of scope for the spec edit itself.
-
-## Related Findings
-
-- "`scanPackagesTimeoutMs` is a wall-clock constraint with no injectable clock seam" — same-cluster (also lives in `spec_topics/discovery.md` but resolves independently of the rename)
 
