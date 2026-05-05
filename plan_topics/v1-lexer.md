@@ -14,15 +14,15 @@ Leaves are listed in implementation order. The pre-lex pipeline leaf (V1f) runs 
 
 - **Spec.** [Lexical Structure](../spec_topics/lexical.md) (number literals).
 - **Adds.** `42`, `3.14`, `1e10`, `1.5e-3`, `0`, `0.5`. `integer` vs. `number` token tag based on presence of fractional/exponent parts.
-- **Tests.** Each form tokenises; hex/octal/binary/underscore-separator are parse errors with hints; leading `-` is the unary operator (lexer emits `MINUS NUMBER`, not a signed-literal token).
-- **Deps.** V1f.
+- **Tests.** Each form tokenises; hex/octal/binary/underscore-separator are parse errors with hints; leading `-` is the unary operator (lexer emits `MINUS NUMBER`, not a signed-literal token). Asserts the literal registry code strings `"loom/parse/integer-narrowing"` (an integer literal that overflows the V1 64-bit range), `"loom/parse/invalid-path-separator"` (covered at this leaf via path-literal lex paths the numeric lexer shares newline/separator scaffolding with — and re-asserted at every emission site), and the alternate-base / underscore parse-error codes; the asserted strings match the registry rows verbatim per the V18s diagnostic-code gate.
+- **Deps.** V1f, H3.
 - **Ships when.** Numeric literals are accepted in any future expression position; Ma's body parser still passes its tests.
 
 ## V1b — String literals and escapes
 
 - **Spec.** [Lexical Structure](../spec_topics/lexical.md) (string literals). Operates on the post-normalisation stream produced by V1f, so "literal newline in regular string" means a `\n` in the normalised stream (CRLF and bare CR both reach this rule as `\n`).
 - **Adds.** Single- and double-quoted forms; escape set `\"`, `\'`, `\\`, `\n`, `\t`, `\r`, `\u{XXXX}`. Single-line only — literal `\n` inside a regular string is a parse error. No `${...}` interpolation in regular strings.
-- **Tests.** Each escape; illegal escape; literal newline in string; `${` inside regular string is plain text; unterminated string error.
+- **Tests.** Each escape; illegal escape asserts the literal registry code string `"loom/parse/illegal-escape"`; literal newline in string asserts `"loom/parse/literal-newline-in-string"`; `${` inside regular string is plain text; unterminated string asserts `"loom/parse/unterminated-string"`. Asserted strings match the registry rows verbatim per the V18s diagnostic-code gate.
 - **Deps.** V1a.
 - **Ships when.** String tokens flow through to later parser slices.
 
