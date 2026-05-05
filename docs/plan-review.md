@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_61 findings retained, 3 false positives dropped, 0 persistent failures_
+_60 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -4367,62 +4367,6 @@ Do not introduce a new normative key-order rule here. Output key order is whatev
 - "V4a \"validation produces expected error shapes\" is not specific" — same-cluster (same vague-Tests-bullet pattern in the same plan group, resolves independently)
 - "V5c trailing-whitespace rule states only the negative" — same-cluster (sibling clarity gap in V5; same file, independent edit)
 - "V14p \"Five-level priority from spec\" — no anchor" — same-cluster (same pattern: Tests bullet defers to spec without pinning the assertion)
-
----
-
-# V5c trailing-whitespace test bullet asserts only what does not happen
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** V5c trailing-whitespace rule states only the negative
-**Kind:** clarity
-
-## Finding
-
-V5c's `Tests` bullet enumerates seven normative vectors from `query.md`'s "Dedent and newline-trim — normative behaviour" table and then appends a single addendum: *"a trailing `\n` followed by whitespace before the closing backtick is **not** newline-trimmed."* The clause locks down the negative — newline-trim does not fire — but says nothing about the rendered output, leaving the implementer free to satisfy the test with any post-dedent string. Two reasonable test authors could pass this bullet by checking different things (e.g. that the input survives unchanged into pre-dedent vs. asserting nothing at all about what dedent then produces), and neither would catch a regression in the actual rendered text.
-
-The spec is unambiguous on the positive outcome. `spec_topics/query.md` line 125 states: *"the trailing whitespace-only line is then handled by dedent's whitespace-only-line normalisation (it does not contribute to the common prefix and is rendered as an empty line)."* That sentence pins both halves of the behaviour — survival into the pre-dedent string and the empty-line normalisation that follows — and the V5c bullet should mirror it so the test it produces actually exercises the rendered output.
-
-## Plan Documents
-
-- `plan_topics/v5-untyped-queries.md` — V5c Tests bullet (edited)
-
-## Spec Documents
-
-- `spec_topics/query.md` — "Dedent and newline-trim — normative behaviour", final paragraph (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical V5
-
-**Leaves (implementation order):**
-
-- V5c — Multi-line templates: newline-trim and dedent — (modified)
-
-## Consequence
-
-**Severity:** advisory
-
-The spec covers the positive behaviour clearly, so an implementer who follows the spec link will likely write the right test anyway. The risk is that the leaf's standalone Tests bullet can be satisfied by an assertion that only checks the negation, leaving the rendered-output behaviour for trailing-whitespace templates unpinned in the V5c gate.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `plan_topics/v5-untyped-queries.md`, V5c `Tests.` bullet, replace the trailing clause
-
-> Plus: a trailing `\n` followed by whitespace before the closing backtick is *not* newline-trimmed.
-
-with
-
-> Plus: a template ending `\n    only\n  ` (newline, content, newline, trailing spaces, closing backtick) preserves both the final `\n` and the trailing spaces in the pre-dedent string; dedent then normalises the whitespace-only trailing line to empty (it does not contribute to the common prefix), so the rendered output is `"only\n"`.
-
-This pins newline-trim's no-op (the final `\n` survives because it is not immediately before the closing backtick), the survival of the trailing whitespace into the pre-dedent string, and the dedent-stage normalisation of whitespace-only lines — matching `query.md`'s normative paragraph at line 125.
-
-## Related Findings
-
-- "Newline normalisation (`\r\n`, bare `\r` → `\n`) — no plan leaf" — same-cluster (also proposes extending V5c Tests; both edits land in the same Tests bullet block)
 
 ---
 
