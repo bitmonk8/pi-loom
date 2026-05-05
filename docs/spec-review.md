@@ -1,7 +1,7 @@
 # pi-loom — Consolidated Spec Review
 
 _Generated: 2026-05-05T19:49:46Z (revised: merges + multi→single conversion + bottom-up reorder)_
-_60 source findings → 27 commit-ready findings (8 merge clusters, 26 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
+_60 source findings → 26 commit-ready findings (8 merge clusters, 26 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
 
 Findings are ordered for **bottom-up processing**: each commit fixes the *last* finding in the doc until the doc is empty. Dependencies that require a particular landing order are encoded in the doc order — `MERGE-F` (`bindings.md` BNDS / BNDR rename) sits at the bottom of the REQ-ID-appendix supersection so it lands *before* `MERGE-G` (retirement registries + V18s sub-gates), which sits above it.
 
@@ -1923,66 +1923,4 @@ Edge cases for the implementer of the spec edit:
 ## Related Findings
 
 - "`loom/runtime/internal-error` catch-all contradicts "closed registry" and "exactly six panic sources"" — same-cluster (touches the same registry table and the same "exactly six panic sources" framing; resolves independently — that finding adjusts the framing of the closed registry, this one renames one row).
-
----
-
-# `loom/runtime/internal-error` is a runtime-defect surface, but `diagnostics.md` files it under panics
-
-**Source:** docs/reviews/spec-review/spec-20260505-204733.md
-**Original heading:** `loom/runtime/internal-error` catch-all contradicts "closed registry" and "exactly six panic sources"
-**Kind:** scope
-
-## Finding
-
-The `### loom/runtime/* — runtime panics and delivery failures` section in `spec_topics/diagnostics.md` opens with two normative statements: "V1 has exactly six panic sources" and "Four additional `loom/runtime/*` codes — `system-note-delivery-failed`, `subagent-dispose-failure`, `registry-swap-failed`, and `registration-cache-collision` — are not panics but delivery-, rebuild-, or registration-failure diagnostics." The table that follows then has eleven rows: six panic codes, the four enumerated non-panic codes — and `loom/runtime/internal-error`, which is mentioned nowhere in the intro. A reader who counts the table against the prose finds an off-by-one (`four` should be `five`) and a missing enumeration entry.
-
-The taxonomic confusion runs deeper than a count. `spec_topics/errors-and-results.md` (Runtime panics paragraph) carefully classifies `internal-error` as a **distinct runtime-defect surface** — explicitly *not* a panic source ("they do not extend the closed list"), and not a delivery/rebuild/registration failure either. It is the third kind: an unanticipated interpreter throw routed via the same channels as panics but originating outside any author-expressible expression. `diagnostics.md` files this third kind into the panic table without naming it, which is what makes the row read like a contradiction of the closed-six claim. The closed-registry rule itself is not violated — the *code* `loom/runtime/internal-error` is registered and stable; only the *trigger condition* is open-ended, which is the defining property of a runtime-defect surface and is fine.
-
-The fix is a prose realignment in one section of `diagnostics.md` so the intro acknowledges three categories (six panic sources, the runtime-defect surface, four delivery/rebuild/registration codes) and the table either gains category headers or the intro enumerates `internal-error` alongside the other four with a phrase that matches the `errors-and-results.md` framing.
-
-## Spec Documents
-
-- `spec_topics/diagnostics.md` — `loom/runtime/*` section header and intro paragraph (edited)
-- `spec_topics/errors-and-results.md` — Runtime panics paragraph (read-only; already the canonical framing)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None. V18m and V18n already cite `loom/runtime/internal-error` by its literal registry code in their **Tests.** bullets and treat it as routed-alongside-panics-but-not-a-panic-source, matching the corrected framing. The diagnostic-code gate at V18s diffs the registry against asserted codes; that diff is unchanged. The fix is pure spec prose; no leaf's acceptance criteria move.
-
-## Consequence
-
-**Severity:** advisory
-
-A reader of `diagnostics.md` in isolation hits two visible inconsistencies (the `four` vs five count, and a row that appears to violate the "exactly six" claim) and cannot resolve them without cross-referencing `errors-and-results.md`. Implementers and test authors who read both pages can still produce the right behaviour — V18m/V18n are unambiguous — but the diagnostics page is the natural primary reference for renderer authors, conformance-test authors, and LSP-integration authors, and shipping a self-contradicting registry intro creates avoidable friction and likely mis-citations downstream.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Edit the intro of the `### loom/runtime/* — runtime panics and delivery failures` section in `spec_topics/diagnostics.md` to enumerate three categories explicitly, mirroring the taxonomy already established in `errors-and-results.md`:
-
-1. Rename the section heading to `### loom/runtime/* — runtime panics, runtime-defect surface, and delivery failures` (or equivalent) so the title matches the table contents.
-2. Replace the second sentence so it reads, in substance:
-
-   > V1 has exactly six **panic sources** (the rows below tagged as panics). One additional code — `loom/runtime/internal-error` — covers the **runtime-defect surface** defined in [Errors and Results — Runtime panics](./errors-and-results.md): an unanticipated interpreter or adapter throw outside the closed panic-source list, routed through the same channels as panics but not itself a panic source. Four further codes — `system-note-delivery-failed`, `subagent-dispose-failure`, `registry-swap-failed`, and `registration-cache-collision` — are delivery-, rebuild-, or registration-failure diagnostics emitted by the system-note fallback path, the subagent session lifecycle teardown, the watcher's build-aside-then-publish swap, and the prompt-mode tool-registration cache's collision check, all defined in [Pi Integration Contract](./pi-integration-contract.md).
-
-3. Cross-link to `errors-and-results.md`'s "Runtime panics" paragraph so the runtime-defect-surface framing is not duplicated, only restated.
-4. Optional but recommended: add a *Category* column to the table (`panic` / `runtime-defect` / `delivery-failure` / `rebuild-failure` / `registration-failure`) so the intro and the table are mechanically aligned.
-
-Edge cases the implementer must watch:
-- The closed-registry rule (rule 2 in the "Code registry rules" subsection above) refers to *codes*, not triggers. Do not weaken that rule when describing `internal-error`'s open trigger condition; the code is closed, the trigger is intentionally open, and those are not in tension.
-- Keep the count phrasing precise: it is "exactly six panic sources" (unchanged) plus one runtime-defect surface plus four operational-failure codes. Do not collapse to "exactly six panic sources plus five non-panics" — that re-creates the original conflation between the runtime-defect surface and the operational failures.
-- Sibling spec finding "`loom/runtime/invoke-depth` — terse noun phrase vs. descriptive-phrase style of siblings" touches the same panic table; if both edits land in the same pass, sequence the rename before the intro rewrite so the new intro can cite `invoke-depth-exceeded` directly.
-
-## Related Findings
-
-- "`loom/runtime/invoke-depth` — terse noun phrase vs. descriptive-phrase style of siblings" — same-cluster (same panic table; renames a row name, this finding rewrites the intro paragraph; resolve in the same edit pass)
-- "Spec mandates broad-catch exception handling; conventions unconditionally forbid it" — same-cluster (the broad-catch site whose existence that finding flags is precisely the runtime-defect-surface boundary that emits `internal-error`; both findings clarify the same surface but along orthogonal axes — naming/category here, conventions allowlist there)
-
 
