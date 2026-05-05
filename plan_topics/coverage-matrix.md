@@ -48,7 +48,7 @@ Every executable spec section maps to a closing leaf. The V18s gate (per [V18 �
 | [Diagnostics — `loom/runtime/registry-swap-failed` (watcher build-aside-then-publish swap)](../spec_topics/diagnostics.md) | V18f |
 | [Return Statement](../spec_topics/return.md) | V8f, V9c, V9e |
 | [Function Definitions](../spec_topics/functions.md) | V9a–V9f |
-| [Tool Calls — Pi tools](../spec_topics/tool-calls.md) | V14a–V14j |
+| [Tool Calls — Pi tools](../spec_topics/tool-calls.md) | V14a–V14c, V14e–V14j |
 | [Tool Calls — registered loom callees](../spec_topics/tool-calls.md) | V15e–V15g |
 | [Invocation](../spec_topics/invocation.md) | V15a–V15n |
 | [Imports](../spec_topics/imports.md) | V17a–V17m |
