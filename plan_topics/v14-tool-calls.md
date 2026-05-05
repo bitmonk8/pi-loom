@@ -98,17 +98,17 @@
 
 ## V14m — Discovery: package `looms/` and `pi.looms`
 
-- **Spec.** [Directory Convention](../spec_topics/discovery.md).
-- **Adds.** Walk `node_modules/*/package.json` for `pi.looms` entries; also discover `looms/` directories shipped by packages.
-- **Tests.** `pi.looms` array honoured; `looms/` directory honoured; both can coexist; precedence per spec.
-- **Deps.** V14k.
-- **Ships when.** Package-shipped looms discoverable.
+- **Spec.** [Directory Convention](../spec_topics/discovery.md), [Discovery — Slash-name collisions at the same priority](../spec_topics/discovery.md).
+- **Adds.** Walk `node_modules/*/package.json` for `pi.looms` entries; also discover `looms/` directories shipped by packages. Two packages whose `pi.looms` (or conventional `looms/` directory) derive the same final slash name are caught by the same-priority collision rule (V14q).
+- **Tests.** `pi.looms` array honoured; `looms/` directory honoured; both can coexist; precedence per spec; two packages each shipping `lint.loom` → `loom/load/cross-format-collision` listing all colliding paths and neither registers; three packages each shipping the same name produces a single error listing all three paths.
+- **Deps.** V14k, V14q.
+- **Ships when.** Package-shipped looms discoverable and same-name package collisions are caught.
 
 ## V14n — Discovery: settings file reads (`looms` array, plus the read mechanism reused by V16e for binder model)
 
 - **Spec.** [Directory Convention](../spec_topics/discovery.md) (Settings file reads).
 - **Adds.** Settings reader for `~/.pi/agent/settings.json` and `.pi/settings.json` via the injected `FileSystem` seam (Pi exposes no settings accessor for extensions). Project-over-global precedence with deep-merge for nested objects, replace for arrays and scalars. `looms` array (`string[]` of file or directory paths, with glob patterns and `!`/`+`/`-` prefixes per Pi's resource-array convention; entries resolved relative to the settings file's base directory, `~` expanded, absolute paths supported) is the V1 consumer; the same reader is reused by V16e for `looms.binderModel`.
-- **Tests.** File entry registers one loom; directory entry registers all `*.loom` in the directory non-recursively (subdirectories not walked, `.warp` files ignored); glob entry matches multiple files; `!pattern` excludes; `+path`/`-path` force-include/exclude an exact path; `~` expands; relative paths resolve against the settings file's base directory; non-`.loom` file entry (or non-`.loom` glob match) emits `loom/load/invalid-extension` and does not register; non-string entry emits `loom/load/settings-invalid-entry` and other entries still process; entries that resolve to the same absolute path are deduplicated silently; project `looms` array fully replaces global `looms` array (replace, not concat); project values deep-merge over global values for nested objects; missing file treated as `{}` with a single load-time diagnostic; malformed JSON file treated as `{}` with a single load-time diagnostic and the other file still consulted.
+- **Tests.** File entry registers one loom; directory entry registers all `*.loom` in the directory non-recursively (subdirectories not walked, `.warp` files ignored); glob entry matches multiple files; `!pattern` excludes; `+path`/`-path` force-include/exclude an exact path; `~` expands; relative paths resolve against the settings file's base directory; non-`.loom` file entry (or non-`.loom` glob match) emits `loom/load/invalid-extension` and does not register; non-string entry emits `loom/load/settings-invalid-entry` and other entries still process; entries that resolve to the same absolute path are deduplicated silently (not flagged as collision); two settings entries that resolve to **different** absolute paths whose stems derive the same slash name → `loom/load/cross-format-collision` and neither registers (per V14q); project `looms` array fully replaces global `looms` array (replace, not concat); project values deep-merge over global values for nested objects; missing file treated as `{}` with a single load-time diagnostic; malformed JSON file treated as `{}` with a single load-time diagnostic and the other file still consulted.
 - **Deps.** V14k, H2.
 - **Ships when.** Settings-driven discovery works.
 
@@ -116,22 +116,22 @@
 
 - **Spec.** [Directory Convention](../spec_topics/discovery.md), [Pi Integration Contract — Extension entry point](../spec_topics/pi-integration-contract.md).
 - **Adds.** Single `--loom` flag registered via `pi.registerFlag('loom', { type: 'string', description: '…' })` in the extension factory **before** subscribing to `resources_discover`; the flag's value is read with `pi.getFlag('loom')` and split on Node's `path.delimiter` (`:` POSIX, `;` Windows). Each split component is a file or directory resolved with the same rules as settings `looms` entries (V14n).
-- **Tests.** `--loom a.loom` registers one loom; `--loom "a.loom:b.loom"` (POSIX) and `--loom "a.loom;b.loom"` (Windows) register two looms; CLI overrides settings; non-`.loom` component → `loom/load/invalid-extension`; missing component → `loom/load/missing-source` error (per the per-source severity table); a directory component contributes its non-recursive `*.loom` children. The flag is registered exactly once and `pi.getFlag('loom')` returns a single string (no array surface from Pi's SDK).
+- **Tests.** `--loom a.loom` registers one loom; `--loom "a.loom:b.loom"` (POSIX) and `--loom "a.loom;b.loom"` (Windows) register two looms; CLI overrides settings; non-`.loom` component → `loom/load/invalid-extension`; missing component → `loom/load/missing-source` error (per the per-source severity table); a directory component contributes its non-recursive `*.loom` children; two components whose stems hyphen-normalise to the same slash name (e.g. `code-review.loom` and `code_review.loom`) → `loom/load/cross-format-collision` and neither registers (per V14q). The flag is registered exactly once and `pi.getFlag('loom')` returns a single string (no array surface from Pi's SDK).
 - **Deps.** V14k.
 - **Ships when.** CLI flag accepts multiple paths via the OS path-list separator and resolves them through the shared file-or-directory rule.
 
 ## V14p — Source priority and shadowing warning
 
-- **Spec.** [Directory Convention](../spec_topics/discovery.md) (priority).
-- **Adds.** Five-level priority from spec; cross-source name collision: higher priority wins, warning names both paths.
-- **Tests.** Each adjacent priority pair tested; warning text matches spec.
+- **Spec.** [Directory Convention — Source priority](../spec_topics/discovery.md).
+- **Adds.** Five-level priority from spec; cross-priority name collision (higher priority wins) emits `loom/load/cross-source-shadow` warning and registers the higher-priority entry. Same-priority collisions are governed by V14q (uniform load-time error; neither registers).
+- **Tests.** Each adjacent priority pair tested for the cross-priority shadow case; warning text matches spec.
 - **Deps.** V14k–V14o.
 - **Ships when.** Priority rule is uniform.
 
-## V14q — Cross-format slash collision
+## V14q — Slash collision at the same priority (uniform across formats and sources)
 
-- **Spec.** [Directory Convention](../spec_topics/discovery.md) (cross-format collisions).
-- **Adds.** `code-review.loom` + `code-review.md` (Pi prompt or subagent) → load-time error; neither registers; symmetric across `.loom`, `.md` prompt, `.md` subagent.
-- **Tests.** All three pairings tested; error names both files.
+- **Spec.** [Directory Convention — Slash-name collisions at the same priority](../spec_topics/discovery.md).
+- **Adds.** Two or more candidates at the same priority that derive the same slash name — whether two `.loom` files (same source or same priority across sources), or a `.loom` and a Pi-owned `.md` prompt / `.md` subagent / another extension's command — produce a single `loom/load/cross-format-collision` error listing **every** colliding path; **none** of the loom candidates register. For the cross-format slice, the Pi-owned entry survives. Detection runs on the final derived name (after `pi.looms` mapping, `as` rename, basename hyphen-normalisation). Settings entries resolving to the same absolute path are deduplicated before detection (silent, not a collision).
+- **Tests.** Same-format: two packages each shipping `lint.loom` → single error listing both, neither registers; three packages → single error listing all three. Cross-format: `code-review.loom` + `code-review.md` (Pi prompt) → single error, the `.md` survives, the loom does not register; same for `.md` subagent and another extension's command. Hyphen-normalisation collisions: `code-review.loom` and `code_review.loom` from two `--loom` components → single error. Settings entries pointing at the same absolute path → silently deduped, no diagnostic.
 - **Deps.** V14k.
-- **Ships when.** Cross-format collisions caught.
+- **Ships when.** Same-priority same-name collisions surface uniformly across all source and format combinations.
