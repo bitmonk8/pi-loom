@@ -32,6 +32,14 @@
 - **Deps.** V16c, V16a.
 - **Ships when.** Binder isn't asked to invent defaults.
 
+## V16o — Binder malformed envelope handling
+
+- **Spec.** [Slash-Command Argument Binding](../spec_topics/binder.md) (failure modes).
+- **Adds.** Malformed-envelope returns (JSON-parse failure or envelope-`anyOf` discriminator failure) get exactly one retry against the same envelope schema; the second failure surfaces as system note `loom /<name>: argument binding failed — could not parse arguments`.
+- **Tests.** Malformed envelope retried once on JSON-parse or envelope-`anyOf` failure; final failure `loom-system-note` `content` matches the [`binder.md` Failure-mode templates](../spec_topics/binder.md#failure-mode-templates-normative) row for *Binder returned malformed envelope (after 1 retry)*. Cross-linked from V18q — a malformed-envelope failure (after the single retry) emits exactly one runtime event at the originating binder site.
+- **Deps.** V16c.
+- **Ships when.** Malformed-envelope case handled.
+
 ## V16e — `bind_model` resolution chain
 
 - **Spec.** [Slash-Command Argument Binding — Binder model](../spec_topics/binder.md), [Diagnostics](../spec_topics/diagnostics.md).
@@ -111,14 +119,6 @@
 - **Tests.** Retry happens; second failure `loom-system-note` `content` matches the [`binder.md` Failure-mode templates](../spec_topics/binder.md#failure-mode-templates-normative) row for *Binder model transport failure (after 1 retry)*. An abort observed during the retry is asserted by V18p; this leaf does not duplicate that assertion. Cross-linked from V18q — a binder transport failure (after the single retry) emits exactly one runtime event at the originating binder site.
 - **Deps.** V16e.
 - **Ships when.** Transient failures don't fail-closed unnecessarily.
-
-## V16o — Binder malformed envelope handling
-
-- **Spec.** [Slash-Command Argument Binding](../spec_topics/binder.md) (failure modes).
-- **Adds.** Malformed-envelope returns (JSON-parse failure or envelope-`anyOf` discriminator failure) get exactly one retry against the same envelope schema; the second failure surfaces as system note `loom /<name>: argument binding failed — could not parse arguments`.
-- **Tests.** Malformed envelope retried once on JSON-parse or envelope-`anyOf` failure; final failure `loom-system-note` `content` matches the [`binder.md` Failure-mode templates](../spec_topics/binder.md#failure-mode-templates-normative) row for *Binder returned malformed envelope (after 1 retry)*. Cross-linked from V18q — a malformed-envelope failure (after the single retry) emits exactly one runtime event at the originating binder site.
-- **Deps.** V16c.
-- **Ships when.** Malformed-envelope case handled.
 
 ## V16p — AJV validation of `args` post-default-merge
 

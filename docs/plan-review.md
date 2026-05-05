@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_97 findings retained, 3 false positives dropped, 0 persistent failures_
+_96 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -6826,60 +6826,3 @@ Leave the remaining clauses (unparseable-callee leaf rule, watcher re-walk) unto
 - "Static-resolution cache named three different ways" — same-cluster (also touches V15n wording, but in the Adds field rather than Tests; resolves independently)
 
 ---
-
-## plan_topics/v16-binder.md
-
----
-
-# V16e file position depends on later sibling V16o
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** V16e ordering: forward Dep on V16o with misleading file order
-**Kind:** ordering
-
-## Finding
-
-`plan_topics/v16-binder.md` lays out V16's leaves in this order: V16a, V16b, V16c, V16d, **V16e**, V16f, V16g, V16h, V16i, V16j, V16k, V16l, V16m, V16n, **V16o**, V16p. V16e's `Deps.` field reads `V3a, V3c, V14n, V16o` — a forward reference to a sibling that appears ten leaves later in the same file. V16e is the only V16 leaf whose Deps point downward in the file.
-
-`plan_topics/conventions.md` says slices are "roughly ordered by dependencies" and explicitly licenses reordering as long as the deps DAG is respected. V16o's Deps field is just `V16c`, so V16o can sit anywhere from immediately after V16c onward without altering the DAG. There is no editorial reason for V16o to follow the failure-mode cluster (V16l/m/n) — it is itself a failure-mode leaf, but its only intra-V16 prerequisite (V16c) is satisfied by the time V16d closes.
-
-Consequence is purely navigational: an implementer reading the file top-to-bottom and following Deps as the binding contract still arrives at a correct schedule, but encounters V16e's forward reference and has to scroll down to find V16o. No code path is mis-sequenced.
-
-## Plan Documents
-
-- `plan_topics/v16-binder.md` — V16e block and V16o block (edited)
-- `plan_topics/conventions.md` — "roughly ordered by dependencies" rule (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical V16
-
-**Leaves (implementation order):**
-
-- V16e — `bind_model` resolution chain — (resequenced)
-- V16o — Binder malformed envelope handling — (resequenced)
-
-## Consequence
-
-**Severity:** cosmetic
-
-The Deps DAG is correct; an implementer who follows Deps will still build V16o before V16e regardless of file order. The cost is reading friction: V16e cites a sibling that has not yet appeared in the document. No leaf is blocked, no test passes vacuously, and the V18o coverage gate is unaffected.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `plan_topics/v16-binder.md`, move the entire `## V16o — Binder malformed envelope handling` block so it sits immediately after `## V16d — Defaulted-fields-relaxed in envelope's `args` arm` and before `## V16e — `bind_model` resolution chain`. Do not modify the body of either leaf — V16o's `Deps.` (`V16c`) is already satisfied at that position, and V16e's `Deps.` line continues to read `V3a, V3c, V14n, V16o` unchanged. After the move, the V16 sequence reads V16a, V16b, V16c, V16d, V16o, V16e, V16f, V16g, V16h, V16i, V16j, V16k, V16l, V16m, V16n, V16p, with no forward references inside the file.
-
-## Related Findings
-
-- "V6 leaf file order: V6k appears before V6j" — same-cluster (analogous file-ordering violation in v6-typed-queries.md; resolves independently with the same kind of relocation edit)
-- "V14c tests registered-loom callees before V15e creates them (ordering gap)" — same-cluster (cross-file forward dep rather than intra-file; different remediation but same underlying convention)
-- "V16e bad `looms.binderModel` setting silently unregisters all affected looms" — same-cluster (touches V16e but on a different concern; resolves independently)
-- "V16e strict-capability SDK surface not pinned; \"best-effort\" diagnostic code unnamed" — same-cluster (touches V16e on diagnostic-code naming; resolves independently)
