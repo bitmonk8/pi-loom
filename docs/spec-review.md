@@ -1,7 +1,7 @@
 # pi-loom — Consolidated Spec Review
 
 _Generated: 2026-05-05T19:49:46Z (revised: merges + multi→single conversion + bottom-up reorder)_
-_60 source findings → 16 commit-ready findings (8 merge clusters, 24 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
+_60 source findings → 15 commit-ready findings (8 merge clusters, 24 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
 
 Findings are ordered for **bottom-up processing**: each commit fixes the *last* finding in the doc until the doc is empty. Dependencies that require a particular landing order are encoded in the doc order — `MERGE-F` (`bindings.md` BNDS / BNDR rename) sits at the bottom of the REQ-ID-appendix supersection so it lands *before* `MERGE-G` (retirement registries + V18s sub-gates), which sits above it.
 
@@ -1188,82 +1188,4 @@ Edge cases the implementer must watch:
 
 - "Tool execution content truncation: boundary and multi-byte edge case underspecified" — same-cluster (same lowering paragraph; resolves independently)
 - "RuntimeEvent deduplication key references a non-existent field" — same-cluster (touches the `RuntimeEvent` surface that this finding's clarifier explicitly opts out of, but resolves independently)
-
-## spec_topics/binder.md
-
----
-
-# SDK surface (`estimateTokens`, `ctx.sessionManager.buildSessionContext`) belongs in the Pi Integration Contract, not the binder behavioural page
-
-**Source:** docs/reviews/spec-review/spec-20260505-204733.md
-**Original heading:** SDK surface (`estimateTokens`, `ctx.sessionManager`) placed in binder behavioral page
-**Kind:** placement
-
-## Finding
-
-`spec_topics/binder.md` § *Session-context truncation (`bind_context: session`)* introduces two named SDK contracts that no other passage in the spec describes:
-
-1. **`estimateTokens(message)`** — a function exported from `@mariozechner/pi-coding-agent`, with its semantic contract pinned (`Math.ceil(chars / 4)` over text, thinking, tool-call argument JSON, and tool-result text), and a normative claim about its provider-agnosticism and conservative-overestimate behaviour.
-2. **`ctx.sessionManager.buildSessionContext().messages`** — the message-list source the binder walks, with a normative non-use clause for `ctx.getContextUsage()` ("**not** used here … reserved for compaction triggers, footer rendering").
-
-Both items are named-export / `ExtensionContext`-method dependencies on the Pi SDK. The dedicated home for that class of contract is `spec_topics/pi-integration-contract.md`, whose opening prose declares it the enumeration of "a small, named surface from `@mariozechner/pi-coding-agent`" anchored to a specific Pi minor version, and whose intro mandates that "a Pi minor bump requires re-validating this contract before the loom `peerDependencies` range is widened." `estimateTokens` and `buildSessionContext` are exactly the kind of surface that re-validation must cover, but they are not catalogued there — only `sessionManager: SessionManager.inMemory(cwd)` (the subagent constructor call) and `getContextUsage` (in passing, on the `ExtensionContext` member list) appear.
-
-The behavioural algorithm — newest-to-oldest walk, dual ≤20-turn / ≤8000-token caps, whole-turn boundary, worked examples — is correctly placed in `binder.md`. Only the SDK-surface declarations are misplaced.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — new SDK-surface entries for `estimateTokens` and `ctx.sessionManager.buildSessionContext` (edited)
-- `spec_topics/binder.md` — *Session-context truncation* section: replace SDK-surface prose with cross-references; keep algorithm + worked examples (edited)
-
-## Plan Impact
-
-**Phases:** Vertical V16
-
-**Leaves (implementation order):**
-
-- V16g — `bind_context: session` truncation — (modified)
-
-V16g's **Spec** field currently points only at `binder.md` for the truncation section. After the move, V16g's spec citation should also reference `pi-integration-contract.md` for the `estimateTokens` / `buildSessionContext` SDK contracts. The leaf's **Adds** / **Tests** / **Ships when** content does not change — only the cross-reference set.
-
-## Consequence
-
-**Severity:** advisory
-
-The spec is internally consistent and a careful reader following links can find every required fact, so neither correctness nor implementability is at risk. The cost is operational: the Pi-integration-contract page is the documented audit surface for Pi-version bumps (per its own intro), and an audit that scans only that page on a Pi minor upgrade will miss the `estimateTokens` export contract and the `buildSessionContext` shape contract. Drift between Pi's actual behaviour and the binder's truncation algorithm could land silently.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Move the two SDK-surface declarations into `pi-integration-contract.md` and reduce `binder.md` to a behavioural cross-reference.
-
-**In `pi-integration-contract.md`,** add two new bold-lead paragraphs alongside the existing surface entries (Extension entry point, Per-loom registration, Conversation drive, etc.):
-
-- **`estimateTokens` (named export).** Imported from `@mariozechner/pi-coding-agent`. Signature: `estimateTokens(message: Message): number`. V1 behaviour: a conservative `Math.ceil(chars / 4)` over the message's text, thinking, tool-call argument JSON, and tool-result text. Provider-agnostic; matches Pi's own compaction-decision estimator, so binder truncation behaviour stays consistent with Pi as model tokenizers evolve. Used by [Slash-Command Argument Binding — Session-context truncation](./binder.md#session-context-truncation-bind_context-session) for per-message and per-turn token counts.
-
-- **`ctx.sessionManager.buildSessionContext()` (`ExtensionContext` member).** Returns a `SessionContext` whose `.messages` field is the ordered message list the runtime consumes for session-aware features. V1 callsite: [Slash-Command Argument Binding — Session-context truncation](./binder.md#session-context-truncation-bind_context-session) sources the binder's caller-session message list from `ctx.sessionManager.buildSessionContext().messages`. The runtime MUST NOT substitute `ctx.getContextUsage()` for per-turn token accounting; that API reports aggregate session usage, not per-turn counts, and is reserved for compaction triggers and footer rendering.
-
-**In `binder.md`,** rewrite the first sentence of *Session-context truncation* to:
-
-> Token counts are computed per message via `estimateTokens` and the message list is sourced from `ctx.sessionManager.buildSessionContext().messages` — both contracts are catalogued in [Pi Integration Contract](./pi-integration-contract.md). A turn's token count is the sum of `estimateTokens` over its constituent messages …
-
-Drop the parenthetical re-statement of the `Math.ceil(chars / 4)` formula and the closing paragraph's restatement of `estimateTokens`'s provider-agnosticism / conservative-overestimate property and the `ctx.getContextUsage` non-use clause; both move to the integration-contract entries above. Keep the worked example, the dual-cap algorithm, and the whole-turn-boundary rule in `binder.md` — those are behavioural, not SDK-surface.
-
-**Edge cases for the implementer:**
-
-- The `argument-hint` content in the binder's system prompt (above the truncation section) is unrelated and stays in `binder.md`.
-- Update V16g's **Spec** citation in `plan_topics/v16-binder.md` to add a second link to `pi-integration-contract.md` (the truncation algorithm link to `binder.md` stays).
-- Do not remove `getContextUsage` from the existing `ExtensionContext` member list in `pi-integration-contract.md` — the new entry is a normative non-use clause for one specific callsite, not a deprecation.
-- If the Pi-integration-contract page later adds an explicit table of named exports, `estimateTokens` joins that table (currently the page uses bold-lead paragraphs, not a table; match the existing style).
-
-## Related Findings
-
-- "Provider seed-field mapping (Determinism section) placed in binder page" — same-cluster (sibling placement issue on the same `binder.md` page; both move SDK-version-coupled content out of the behavioural page, but the seed-field mapping's natural home is also `pi-integration-contract.md`'s provider-table region, so the two edits can land in one PR without colliding)
-- "System-note `pi.sendMessage` delivery paragraph placed in wrong file" — same-cluster (another SDK-surface-vs-behaviour placement finding; resolves independently)
-- "Prompt-mode streaming edge cases placed in wrong file" — same-cluster (placement reorg in adjacent territory; independent resolution)
-- "Provider compatibility local-backend note belongs in `future-considerations.md`" — same-cluster (same `pi-integration-contract.md` neighbourhood gets edited; resolves independently)
-
----
 
