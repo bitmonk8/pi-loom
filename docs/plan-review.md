@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_49 findings retained, 3 false positives dropped, 0 persistent failures_
+_48 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -3523,68 +3523,3 @@ Edge cases the implementer must cover when writing these tests:
 - "`loom/parse/integer-narrowing` — no plan leaf" — same-cluster (extends the same V2c Tests bullet but with an independent assertion)
 
 ---
-
-## plan_topics/v3-frontmatter.md
-
----
-
-# `loom/load/missing-mode` and `loom/load/unknown-mode-value` have no asserting leaf
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** `` `loom/load/missing-mode` and `loom/load/unknown-mode-value` — no asserting leaf ``
-**Kind:** spec-coverage, validation
-
-## Finding
-
-The frontmatter contract in `spec_topics/frontmatter.md` makes `mode:` the only required field and pins two distinct normative load-time codes around it: `loom/load/missing-mode` (frontmatter omits `mode:`) and `loom/load/unknown-mode-value` (`mode:` present but the value is neither `prompt` nor `subagent`, e.g. `mode: agent`). The spec is explicit that the two cases must not collapse into a single code because the authoring intent differs. Both codes are listed `E` (error) in the closed registry in `spec_topics/diagnostics.md`, and in both cases the loom is not registered.
-
-V3a (`plan_topics/v3-frontmatter.md`) is the leaf that owns frontmatter parsing and is the natural home for these assertions. Its Tests bullet covers the `mode: subagent` "not implemented yet" deferral, the `params: null` rejection, the `argument-hint` advisory, and the `unknown-frontmatter-field` warning shape — but it never names `loom/load/missing-mode` or `loom/load/unknown-mode-value`. M (`plan_topics/m-mvp.md`) hardcodes `mode: prompt` in its single test loom and has no negative-mode tests either. A grep across `plan.md` and `plan_topics/` finds zero mentions of either code.
-
-The result is two normative `E`-severity registry entries with no plan-side gate. An implementer who omits the missing-mode check, omits the bad-value check, or emits a different code (e.g. reusing `unknown-frontmatter-field` for a bad `mode:` value) ships a green V3a.
-
-## Plan Documents
-
-- `plan_topics/v3-frontmatter.md` — V3a Tests bullet (edited)
-- `plan_topics/coverage-matrix.md` — `Parameters and Frontmatter — *` rows (read-only; mode coverage is implicit in the V3a row and the row text need not change)
-- `plan_topics/m-mvp.md` — Adds (read-only; MVP intentionally hardcodes `mode: prompt` and is not the right home)
-
-## Spec Documents
-
-None — both codes are already specified verbatim in `spec_topics/frontmatter.md` (Field contract row for `mode`) and `spec_topics/diagnostics.md` (registry rows). The fix is purely a plan-side test addition.
-
-## Affected Leaves
-
-**Phases:** Vertical V3
-
-**Leaves (implementation order):**
-
-- V3a — Frontmatter parsing — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two distinct normative `E`-severity codes from the closed diagnostics registry have no asserting test in any leaf. A V3a implementer who silently substitutes `loom/load/unknown-frontmatter-field`, collapses missing and bad-value into one code, or simply omits the check, will pass V3a's gate while shipping a non-conforming loader. The V18o REQ-ID coverage gate does not catch this — it covers REQ-ID mappings, not registry-code presence in test bodies.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Append two clauses to the V3a `Tests.` bullet in `plan_topics/v3-frontmatter.md`. Insert immediately after the existing `params: null` clause and before the `argument-hint:` clause, so the new tests sit with the other load-time rejection cases:
-
-> frontmatter omitting `mode:` → `loom/load/missing-mode` (error) and the loom is not registered; `mode: agent` (or any value other than `prompt` / `subagent`) → `loom/load/unknown-mode-value` (error) and the loom is not registered;
-
-Edge cases the implementer must hold the line on:
-- The two cases must emit distinct codes — the spec's Field-contract row for `mode` calls this out explicitly. A test that accepts either code is wrong.
-- "The loom is not registered" is part of the assertion — both codes are `E` (error) per `spec_topics/diagnostics.md`, so the slash command must not appear in Pi's command list afterwards.
-- `mode: subagent` already has its own test clause (the V12a deferral parse error) and stays unchanged; do not let the new `unknown-mode-value` clause swallow it.
-- The diagnostic message text comes from the spec's registry; tests should pin the code string (`loom/load/missing-mode`, `loom/load/unknown-mode-value`) rather than the prose, which the spec does not pin verbatim.
-
-## Related Findings
-
-- "Closed diagnostic registry — many codes have no asserting plan leaf" — same-cluster (the structural CI gate that finding proposes would catch this gap, but the V3a Tests-bullet fix here resolves the specific instance independently and should land regardless).
-
----
-
