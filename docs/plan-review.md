@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_79 findings retained, 3 false positives dropped, 0 persistent failures_
+_78 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -5595,60 +5595,4 @@ Edge cases the implementer must watch: V14d's "Code-side tool call bypasses mode
 - "V14c: `toolCallId` suffix scheme unspecified" — same-cluster (touches V14c Adds; resolve independently)
 - "V14c bare-object-literal `second carve-out` has no `first`" — same-cluster (touches the same Adds paragraph; resolve independently)
 - "Static-resolution cache named three different ways" — decision-dependency (the new V15e Adds text written here must use the standardised name picked by that finding)
-
----
-
-# V14c `toolCallId` format underspecified relative to spec
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** V14c: `toolCallId` suffix scheme unspecified
-**Kind:** clarity
-
-## Finding
-
-V14c's Adds bullet describes the synthesised `toolCallId` only as `prefixed loom-direct:`, without naming what follows the colon. The spec's pi-integration contract (`spec_topics/pi-integration-contract.md`, "Tool execution from loom code") is more specific: the id is "a synthesised UUID prefixed `loom-direct:`" — i.e. of the form `loom-direct:<uuid>`. The plan thus undercommits relative to the spec.
-
-The consequence is asymmetric: an implementer reading the leaf in isolation may pick a counter, a hash of the call site, or any other token; an implementer who follows the leaf's Spec link to `pi-integration-contract.md` will pick a UUID. V14c's Tests list contains no assertion on the `toolCallId` shape, so either choice ships green and the divergence is invisible.
-
-## Plan Documents
-
-- `plan_topics/v14-tool-calls.md` — V14c Adds and Tests bullets (edited)
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — "Tool execution from loom code" (read-only; already specifies UUID)
-
-## Affected Leaves
-
-**Phases:** Vertical V14
-
-**Leaves (implementation order):**
-
-- V14c — Bare `<name>(args)` call from loom code — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers reading only V14c will diverge on the `toolCallId` format (UUID vs. counter vs. site hash); neither divergence is caught by V14c's existing test bullets. The form is observable to Pi (which uses `toolCallId` to correlate `tool_call`/`tool_result` events and to deduplicate retries), so a non-UUID choice can leak into transcripts and downstream tooling that assumes the spec's UUID shape.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `plan_topics/v14-tool-calls.md`, V14c:
-
-- In **Adds.**, replace the clause `Pi tool's execute() invoked directly with toolCallId prefixed loom-direct:.` with `Pi tool's execute() invoked directly with toolCallId of the form loom-direct:<uuid>, where <uuid> is a freshly synthesised RFC 4122 UUID (canonical lowercase 8-4-4-4-12 hex form) per call.`
-- In **Tests.**, append a bullet: `synthesised toolCallId matches /^loom-direct:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/ and is distinct across two successive calls in the same loom invocation.`
-
-The UUID choice is not a free pick — `spec_topics/pi-integration-contract.md` already mandates it; this edit aligns the plan with the spec rather than introducing a new decision. The UUID source (`crypto.randomUUID()` vs. an injected `RandomSource` seam from H2) is left to the implementer; the format assertion is what closes the gap.
-
-## Related Findings
-
-- "V14c tests registered-loom callees before V15e creates them (ordering gap)" — same-cluster (touches V14c, resolves independently)
-- "V14c bare-object-literal \"second carve-out\" has no \"first\"" — same-cluster (touches V14c Adds wording, resolves independently)
-- "V14c too large — three distinct concerns" — decision-dependency (if V14c is split into V14c-a/V14c-b, the `toolCallId` clarification belongs in the dispatch+ctx half, V14c-a)
-- "V14d too hollow — merge into V14c" — same-cluster (both shape V14c; if V14d folds in, the new test bullet sits alongside V14d's behavioural assertion)
 
