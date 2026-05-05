@@ -112,10 +112,12 @@
 - **Deps.** V15l, V18k, V18l, V7i, V12a.
 - **Ships when.** `invoke` panic semantics complete and the depth cap is observable on both the top-level and `invoke`-parent surfaces.
 
-## V18o — Per-call timeout marker
+## V18o — Per-call timeout marker / coverage-matrix closing gate
 
-- **Spec.** [Cancellation](../spec_topics/cancellation.md) (per-call timeouts deferred).
-- **Adds.** This leaf is a *no-op confirmation*: assert that no timeout config is accepted on queries/tools/invokes; any `timeout:` field is `loom/load/unknown-frontmatter-field` warning. (Future feature.)
-- **Tests.** `timeout:` rejected at frontmatter; per-query/per-call ascription rejected.
-- **Deps.** V3a.
-- **Ships when.** Spec-mandated absence is enforced.
+- **Spec.** [Cancellation](../spec_topics/cancellation.md) (per-call timeouts deferred), [`../spec.md` Appendix — REQ-ID prefix table](../spec.md), [Conventions — REQ-ID discipline](conventions.md).
+- **Adds.** Two acceptance criteria in one closing leaf:
+  1. *Per-call timeout marker (no-op confirmation).* Assert that no timeout config is accepted on queries/tools/invokes; any `timeout:` field is `loom/load/unknown-frontmatter-field` warning. (Future feature.)
+  2. *Coverage-matrix closing gate.* Every REQ-ID emitted by any spec page (per the Appendix prefix table) maps to at least one closing leaf in [`coverage-matrix.md`](coverage-matrix.md). Implementable as a CI check that diffs the REQ-IDs grepped from `spec_topics/*.md` against the REQ-IDs grepped from `coverage-matrix.md` (e.g. `comm -23 <(grep -roh 'PREFIX-[0-9]\+' spec_topics/) <(grep -roh 'PREFIX-[0-9]\+' plan_topics/coverage-matrix.md)`); any unmapped REQ-ID fails the gate. Pure-narrative pages contribute no REQ-IDs and therefore no rows.
+- **Tests.** `timeout:` rejected at frontmatter; per-query/per-call ascription rejected. CI check returns empty diff (every spec REQ-ID has at least one matrix mapping); a synthetic spec edit that introduces an un-mapped REQ-ID flips the check to non-zero.
+- **Deps.** V3a; every leaf whose `Tests.` bullets cite the REQ-IDs they implement (the citation pass is editorial and ships incrementally with the leaves themselves).
+- **Ships when.** Both criteria observable in CI.

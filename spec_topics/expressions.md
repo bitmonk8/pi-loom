@@ -2,7 +2,7 @@
 
 Loom expressions are a bounded subset of TypeScript. The same grammar applies wherever an expression is expected: the RHS of `let`, `if` / `match` scrutinees, function arguments, and inside `${...}` template interpolations.
 
-**Supported forms:**
+## Supported forms
 
 - Literals: `string` (single- or double-quoted), `number`, `boolean` (`true` / `false`), `null`
 - Identifiers (variables, parameters, function names, schema constructors)
@@ -21,7 +21,9 @@ Loom expressions are a bounded subset of TypeScript. The same grammar applies wh
 - Enum variant access: `Enum.Variant`
 - `Result` constructors: `Ok(expr)`, `Err(expr)`
 
-**Not supported (parse error — `loom/parse/unsupported-feature` unless a more specific code below applies):**
+## Not supported
+
+(Parse error — `loom/parse/unsupported-feature` unless a more specific code below applies.)
 
 - Assignment in expression position (`=`, `+=`, etc.) — assignment is a statement, see [Bindings and Mutability](./bindings.md)
 - Field- or index-level mutation (`obj.field = ...`, `arr[i] = ...`) — only whole-binding rebinding is supported in V1; see [Bindings and Mutability](./bindings.md)
@@ -36,7 +38,9 @@ Loom expressions are a bounded subset of TypeScript. The same grammar applies wh
 - Nested template strings inside a `${...}` interpolation
 - Query templates (`@`...``) and `match` inside `${...}` — both are allowed at statement / `let`-RHS level only, so template evaluation is guaranteed to be code-only and never silently fires a model turn
 
-**Identifier resolution.** A bare identifier in call position (`name(args)`) resolves in this order, first match wins:
+## Identifier resolution
+
+A bare identifier in call position (`name(args)`) resolves in this order, first match wins:
 
 1. A local `let` binding or function parameter currently in scope.
 2. A top-level `fn` declaration in the same `.loom` or `.warp` file.
@@ -45,11 +49,17 @@ Loom expressions are a bounded subset of TypeScript. The same grammar applies wh
 
 No match is `loom/parse/unknown-identifier`. Collisions across (2)–(4) are rejected at load time — a `tools:` entry whose post-rename name shadows a top-level `fn` or import in the same file fails to register; resolve with the `as` clause. Local bindings (1) shadow everything else lexically, the same as in Rust or TypeScript.
 
-**Equality.** `==` is structural: deep value equality for objects and arrays, value equality for primitives. There is no `===`.
+## Equality
 
-**Truthiness.** Only `true` and `false` are accepted in boolean position (`if`, `while`, `&&`, `||`, ternary condition). Using a non-boolean (`if (x)` where `x: string`) is `loom/parse/non-boolean-condition`; write `if (x != "")`, `if (xs.length > 0)`, etc. This avoids the JS empty-string / zero / `null` ambiguity.
+`==` is structural: deep value equality for objects and arrays, value equality for primitives. There is no `===`.
 
-**Built-in methods and properties.** A small stdlib is exposed on the primitive composite types. No user-defined methods; no `this`. V1 set:
+## Truthiness
+
+Only `true` and `false` are accepted in boolean position (`if`, `while`, `&&`, `||`, ternary condition). Using a non-boolean (`if (x)` where `x: string`) is `loom/parse/non-boolean-condition`; write `if (x != "")`, `if (xs.length > 0)`, etc. This avoids the JS empty-string / zero / `null` ambiguity.
+
+## Built-in methods and properties
+
+A small stdlib is exposed on the primitive composite types. No user-defined methods; no `this`. V1 set:
 
 *`string`*
 
@@ -114,14 +124,18 @@ Two ambiguities deserve explicit rules:
 
 ## Object construction, array construction, and operator rules
 
-**Object construction.** Schema-typed values are constructed with `Schema { field: expr, ... }`. Every declared field of the schema must be present (omissions are `loom/parse/missing-object-field`); extra fields are `loom/parse/extra-object-field`; field order is irrelevant. Bare object literals (`{ field: expr }` with no leading schema name) surface as `loom/parse/bare-object-literal` — every constructed object must name its schema, so the type is unambiguous from the syntax alone. There are exactly two carve-outs, and in both an external schema supplies the type so the literal is bare (and the contents are restricted to the [Loom literal sublanguage](./grammar.md#loom-literal-sublanguage), not the full expression grammar):
+## Object construction
+
+Schema-typed values are constructed with `Schema { field: expr, ... }`. Every declared field of the schema must be present (omissions are `loom/parse/missing-object-field`); extra fields are `loom/parse/extra-object-field`; field order is irrelevant. Bare object literals (`{ field: expr }` with no leading schema name) surface as `loom/parse/bare-object-literal` — every constructed object must name its schema, so the type is unambiguous from the syntax alone. There are exactly two carve-outs, and in both an external schema supplies the type so the literal is bare (and the contents are restricted to the [Loom literal sublanguage](./grammar.md#loom-literal-sublanguage), not the full expression grammar):
 
 1. **Frontmatter `params:` defaults.** The param's declared type supplies the schema name. See [Parameters and Frontmatter — Defaults](./frontmatter.md).
 2. **Single positional argument of a Pi-tool call.** When a call's callee resolves (via the `tools:` table) to a Pi tool, a single bare-object argument is admitted; the Pi tool's registered input schema (TypeBox / JSON Schema) supplies the shape. See [Tool Calls — Argument shape](./tool-calls.md). The exception applies only when the callee is a Pi tool — `f({ ... })` for a `let`-bound name or a registered loom callee remains `loom/parse/bare-object-literal` — and only to the single positional argument; multi-argument forms (`read({...}, {...})`) are rejected regardless.
 
 For a discriminated union `schema Animal = Cat | Dog | Lizard`, construct via the variant schema name (`Cat { ... }`), not the union name. The constructed value is statically typed as the variant; assignment to an `Animal`-typed slot widens it.
 
-**Array construction.** `[]` is the empty array; its element type is inferred from context (binding annotation, parameter type, or surrounding constructor field). `[a, b, c]` is non-empty; its element type is the common type of its elements, narrowed by context if applicable. An array whose elements have no common type and no context to narrow against is `loom/parse/array-no-common-type`.
+## Array construction
+
+`[]` is the empty array; its element type is inferred from context (binding annotation, parameter type, or surrounding constructor field). `[a, b, c]` is non-empty; its element type is the common type of its elements, narrowed by context if applicable. An array whose elements have no common type and no context to narrow against is `loom/parse/array-no-common-type`.
 
 *Common-type rules for array literals (and ternary branches):*
 
@@ -131,4 +145,6 @@ For a discriminated union `schema Animal = Cat | Dog | Lizard`, construct via th
 
 **`+` operator.** On two `number` (or `integer`) operands, addition; the result widens to `number` if either operand is `number`. On two `string` operands, concatenation. Mixed-type operands are `loom/parse/mixed-plus-operands` — write an explicit conversion or interpolate inside a string. `+` on `array<T>` is not supported; use `arr.concat(other)`. See [Diagnostics](./diagnostics.md) for the full code registry.
 
-**Other arithmetic.** `-`, `*`, `/`, `%` accept only numeric operands. `/` always produces `number` (no integer-division operator in V1; see [Future Considerations](./future-considerations.md)). `%` requires same-typed operands and preserves the type. Division by zero produces IEEE-754 `Infinity` / `-Infinity` / `NaN` per JS semantics; it does not panic.
+## Other arithmetic
+
+`-`, `*`, `/`, `%` accept only numeric operands. `/` always produces `number` (no integer-division operator in V1; see [Future Considerations](./future-considerations.md)). `%` requires same-typed operands and preserves the type. Division by zero produces IEEE-754 `Infinity` / `-Infinity` / `NaN` per JS semantics; it does not panic.

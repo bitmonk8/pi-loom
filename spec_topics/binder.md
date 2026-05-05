@@ -4,27 +4,35 @@ When a loom is invoked from a slash command, the runtime translates the user's f
 
 The binder is positioned as runtime infrastructure, not as part of the loom's conversation: it never adds turns to the user's session (in prompt mode) or to the loom's spawned conversation (in subagent mode), and the loom code never sees the binder's intermediate envelope. Authors interact with the *result* of binding (their `params` are populated, or the loom doesn't run) the same way they would with any typed `invoke(...)` call.
 
-**Binder model.** Resolved at loom-load time from a two-step chain: `bind_model:` frontmatter field, then the loom-extension setting `looms.binderModel` in `settings.json` (read per [Settings file reads](./discovery.md#settings-file-reads); not a Pi-recognised setting). There is **no further fallback** — no "tier-2" default, and the loom's own `model:` is not consulted (using it silently negates the cost premise that motivates a separate binder model). When neither source resolves and the loom is not bypass-eligible (per [Binder bypass](#binder-bypass) below), the loom fails to load with `loom/load/binder-model-unresolved`; the loom is reported through the diagnostics channel ([Diagnostics](./diagnostics.md)) and its slash command is **not** registered. Binder calls are structurally function-calling tasks — schema in, JSON out — and a cheap tier-2 model (Claude Haiku, GPT-4o-mini, Gemini Flash, etc.) is more than capable; authors with unusually subtle schemas can override per-loom by setting `bind_model:`.
+## Binder model
+
+Resolved at loom-load time from a two-step chain: `bind_model:` frontmatter field, then the loom-extension setting `looms.binderModel` in `settings.json` (read per [Settings file reads](./discovery.md#settings-file-reads); not a Pi-recognised setting). There is **no further fallback** — no "tier-2" default, and the loom's own `model:` is not consulted (using it silently negates the cost premise that motivates a separate binder model). When neither source resolves and the loom is not bypass-eligible (per [Binder bypass](#binder-bypass) below), the loom fails to load with `loom/load/binder-model-unresolved`; the loom is reported through the diagnostics channel ([Diagnostics](./diagnostics.md)) and its slash command is **not** registered. Binder calls are structurally function-calling tasks — schema in, JSON out — and a cheap tier-2 model (Claude Haiku, GPT-4o-mini, Gemini Flash, etc.) is more than capable; authors with unusually subtle schemas can override per-loom by setting `bind_model:`.
 
 The resolved model must support strict structured-output / strict tool-input. The runtime checks this at the same load-time pass by querying Pi's model registry; absence of strict capability is a load-time error with code `loom/load/binder-model-not-strict-capable`. If Pi does not expose a strict-capable flag for the model, the load-time check degrades to best-effort and a runtime envelope-malformed failure (`loom/runtime/binder-malformed-envelope` — already covered by V16o) is the surfaced symptom; the runtime emits a load-time advisory noting the degradation. Bypass-eligible looms (no-params bypass and single-string bypass; see [Binder bypass](#binder-bypass)) skip both checks — they never call the binder.
 
 Hot-reload of Pi settings (`looms.binderModel` changed at runtime) re-resolves on the next loom load; it does not retroactively fix already-failed loads.
 
-**Binder context.** Configured via `bind_context:` (`none` | `session`; default `none`).
+## Binder context
+
+Configured via `bind_context:` (`none` | `session`; default `none`).
 
 - `none` — the binder sees only the slash text and the loom's frontmatter. Predictable, cheap, deterministic. The right choice when arguments are self-contained (`/code-review TypeScript focusing on error handling, by Ada Lovelace, senior engineer 12y`).
 - `session` — prompt-mode-only; the binder additionally receives the last ~20 turns or ~8000 tokens (whichever is smaller) of the caller's session as grounding context. The right choice when the loom relies on conversational anaphora (`/review the spec` resolves "the spec" against what the user was just discussing).
 
 Declaring `bind_context: session` on a subagent-mode loom is `loom/parse/bind-context-session-on-subagent` (warning, not error) — subagent-mode looms invoked from a slash command have no caller-session context to attach.
 
-**Binder bypass.** Two cases skip the binder call entirely; in both, no envelope schema is constructed at load time. The bypass decision is made at loom-load time from the static schema; there is no per-invocation branching.
+## Binder bypass
+
+Two cases skip the binder call entirely; in both, no envelope schema is constructed at load time. The bypass decision is made at loom-load time from the static schema; there is no per-invocation branching.
 
 1. **No-params bypass.** When `params:` is absent, `params: {}`, the loom takes no parameters and the binder does not run. Slash-argument overflow against a no-params loom is governed by [Slash-Command Invocation — No-params overflow](./slash-invocation.md); the binder's only contribution is to not run. `bind_echo`, `bind_context`, and `bind_model` on a no-params loom have nothing to bind — `bind_echo: true` is a parse warning (`loom/load/bind-echo-without-params`) and produces no echo regardless; `bind_context` and `bind_model` are silently ignored (they may be inherited from project-wide settings).
 2. **Single-string bypass.** When `params:` declares exactly one field, that field's type is `string`, and the field has no default, the runtime sets the param's value to the entire slash-argument string (with leading and trailing whitespace trimmed) and skips the binder call. AJV validation still runs as a safety net (a string passes by definition; this is just the standard validation path).
 
 All other shapes — multiple fields, non-string types, defaults present, optional or nullable types — go through the binder. The no-params bypass check runs **before** the single-string bypass check, so a `params: {}` loom does not accidentally match the single-string branch.
 
-**Binder envelope.** The binder is asked to return one of three structured outputs (the schema is constructed dynamically by the runtime from the loom's `params:`):
+## Binder envelope
+
+The binder is asked to return one of three structured outputs (the schema is constructed dynamically by the runtime from the loom's `params:`):
 
 - `{ kind: "ok", args: <typed params object> }` — successful extraction. The runtime AJV-validates `args` against the params schema (safety net for hallucinated field shapes), fills any defaulted fields not present in `args`, and starts the loom.
 - `{ kind: "needs_info", message: string }` — the binder could not extract one or more required fields. The `message` is shown to the user as a system note; the loom does not run.
@@ -34,7 +42,9 @@ The envelope is runtime-internal; it is never a Loom-visible type and never appe
 
 The two failure arms produce indistinguishable V1 user-facing behaviour beyond the system-note prefix; the structural distinction exists for the deferred binder refinement loop (cf. [Future Considerations](./future-considerations.md)), where only `needs_info` reopens for a clarifying turn while `ambiguous` still terminates. The `candidates` field stays in the schema (binder may emit it; AJV accepts `null`), but the runtime MUST NOT surface it in V1 — the `ambiguous` system note text contains only `<message>`. Forward-compatible without the cost of either collapsing the arms now or rendering candidates the V1 templates do not require.
 
-**Binder envelope schema (constructed dynamically from `params:`).** The runtime emits one envelope schema per loom at load time and reuses it for every binder call. The envelope is a discriminated union over `kind` and conforms to the [Schema Subset](./schema-subset.md); the runtime constructs it directly rather than via the lowering pass, but the shape is exactly what the lowering pass would produce for `schema BinderEnvelope = Ok | NeedsInfo | Ambiguous`.
+### Binder envelope schema (constructed dynamically from `params:`)
+
+The runtime emits one envelope schema per loom at load time and reuses it for every binder call. The envelope is a discriminated union over `kind` and conforms to the [Schema Subset](./schema-subset.md); the runtime constructs it directly rather than via the lowering pass, but the shape is exactly what the lowering pass would produce for `schema BinderEnvelope = Ok | NeedsInfo | Ambiguous`.
 
 ```json
 {
@@ -80,13 +90,17 @@ The `maxLength: 500` cap on `message` and on each `candidates[i]` is a budget fo
 
 The `args` arm embeds a schema fragment that may carry `$ref`s into the loom file's `$defs`. The envelope schema document handed to the provider (and to AJV) carries the transitive `$defs` closure of the params schema, computed by the same per-query pruning rule as [Schema Subset step 4](./schema-subset.md#lowering-algorithm).
 
-**Session-context truncation (`bind_context: session`).** Token counts are computed per message via `estimateTokens(message)` exported from `@mariozechner/pi-coding-agent` (a conservative `Math.ceil(chars / 4)` estimate over text, thinking, tool-call argument JSON, and tool-result text). A turn's token count is the sum of `estimateTokens` over its constituent messages (user / assistant / toolResult / custom). The message list is sourced from `ctx.sessionManager.buildSessionContext().messages`; a turn is a user message plus all subsequent assistant / toolResult / custom messages up to (but not including) the next user message. The runtime walks turns newest-to-oldest and stops including a turn the moment the running token sum would exceed 8000 *or* the running turn count would exceed 20 — whichever bound is reached first. The over-budget turn is excluded entirely (whole-turn truncation; partial messages are not split), as is everything older. The included context is rendered as a compact transcript and embedded in the binder's system prompt below the parameter table.
+### Session-context truncation (`bind_context: session`)
+
+Token counts are computed per message via `estimateTokens(message)` exported from `@mariozechner/pi-coding-agent` (a conservative `Math.ceil(chars / 4)` estimate over text, thinking, tool-call argument JSON, and tool-result text). A turn's token count is the sum of `estimateTokens` over its constituent messages (user / assistant / toolResult / custom). The message list is sourced from `ctx.sessionManager.buildSessionContext().messages`; a turn is a user message plus all subsequent assistant / toolResult / custom messages up to (but not including) the next user message. The runtime walks turns newest-to-oldest and stops including a turn the moment the running token sum would exceed 8000 *or* the running turn count would exceed 20 — whichever bound is reached first. The over-budget turn is excluded entirely (whole-turn truncation; partial messages are not split), as is everything older. The included context is rendered as a compact transcript and embedded in the binder's system prompt below the parameter table.
 
 *Worked example.* With per-turn token counts (newest first) `[1200, 900, 1500, 2000, 2800, …]` and the 8000-token budget, the walk includes the first four turns (running total 5600), then evaluates the fifth: 5600 + 2800 = 8400 > 8000, so the fifth turn and everything older is dropped. Final included context: 4 turns, 5600 tokens. *Single oversized turn at the front.* If the newest turn alone exceeds 8000 tokens, the walk includes nothing and the binder runs with no session-context block (no special-case; the same exclusive rule applies on the first turn evaluated).
 
 `estimateTokens` is intentionally conservative — it overestimates — which biases the included transcript to stay within the budget the binder model will actually see. The estimator is provider-agnostic and matches what Pi uses for its own compaction decisions, so binder truncation behaviour stays consistent with the rest of Pi as model tokenizers evolve. `ctx.getContextUsage()` is **not** used here — that API reports aggregate session usage, not per-turn counts, and stays reserved for its actual purpose (compaction triggers, footer rendering).
 
-**Binder system prompt** — the runtime constructs a system prompt that conveys the following information to the binder model. The exact wording is not part of the contract; the *information content* below is normative.
+### Binder system prompt
+
+The runtime constructs a system prompt that conveys the following information to the binder model. The exact wording is not part of the contract; the *information content* below is normative.
 
 ```
 You bind free-form slash-command arguments to typed loom parameters.
@@ -113,10 +127,14 @@ Return one of three envelopes:
 Do not invent values for defaulted parameters that the user did not specify; omit them.
 ```
 
-**Defaulting.** Defaults declared on `params:` fields are filled by the runtime *after* the binder returns, not by the binder. The binder is told (in its system prompt) which fields are required and which have defaults; for default-having fields, the binder may omit them from `args` when the user did not specify them, and the runtime fills the defaults before AJV validation. The binder is never asked to invent default values — only to extract what the user actually said.
+## Defaulting
+
+Defaults declared on `params:` fields are filled by the runtime *after* the binder returns, not by the binder. The binder is told (in its system prompt) which fields are required and which have defaults; for default-having fields, the binder may omit them from `args` when the user did not specify them, and the runtime fills the defaults before AJV validation. The binder is never asked to invent default values — only to extract what the user actually said.
 
 <a id="system-note-rendering"></a>
-**System-note rendering.** All binder-emitted system notes — the success echo, the `needs_info` and `ambiguous` failure messages, and the three runtime-emitted failure rows in the table below — share one line-discipline. The rules apply uniformly to every model-supplied or runtime-supplied substring interpolated into the note; `bind_echo` and the failure-modes table reference back here rather than restating them.
+## System-note rendering
+
+All binder-emitted system notes — the success echo, the `needs_info` and `ambiguous` failure messages, and the three runtime-emitted failure rows in the table below — share one line-discipline. The rules apply uniformly to every model-supplied or runtime-supplied substring interpolated into the note; `bind_echo` and the failure-modes table reference back here rather than restating them.
 
 1. **Single line.** Replace each `\r`, `\n`, and `\r\n` in any model-supplied substring (the echo's interpolated values, the `message` field, each `candidates[i]`) with a single space. Collapse runs of whitespace to one space. Trim leading and trailing whitespace from the result.
 2. **Length cap.** The fully-rendered note (loom-controlled prefix + interpolated content) is capped at 120 Unicode code points. Truncation operates on whole code points (or grapheme clusters) — never on UTF-16 code units, which would split surrogate pairs. Overflow is replaced with a trailing `…` (U+2026), which counts toward the cap. The cap applies post-interpolation, so a long loom name reduces the budget available to the suffix; do not pre-truncate the suffix to a fixed sub-budget.
@@ -124,7 +142,9 @@ Do not invent values for defaulted parameters that the user did not specify; omi
 4. **Empty model-supplied content.** A `message` that is empty after rule 1's stripping — the binder returned only whitespace — is treated as a malformed envelope, not as an empty note: surface via the malformed-envelope row in the failure-modes table. The same applies to a `candidates` array whose every entry is empty after stripping.
 5. **`ambiguous.candidates` is not rendered in V1.** The `candidates` field stays in the binder envelope schema (the binder may emit it; AJV accepts `null`) but the V1 runtime does not surface it on the user-facing system note — the `ambiguous` row of the failure-modes table renders only `<message>`. The rendering question (and the array-truncation rules a future revision would need) is deferred along with the binder refinement loop; see [Future Considerations](./future-considerations.md).
 
-**Echo policy.** Configured via `bind_echo:` (`true` | `false`; default `true`). When echo is on (and the bypass did not apply), the runtime appends a one-line system note to the user's session immediately before the loom starts. The example below is illustrative — the format rules that follow are normative; no single example string can be (the formatter is data-driven and the rendered text depends on the loom's `params:` and the bound values):
+## Echo policy
+
+Configured via `bind_echo:` (`true` | `false`; default `true`). When echo is on (and the bypass did not apply), the runtime appends a one-line system note to the user's session immediately before the loom starts. The example below is illustrative — the format rules that follow are normative; no single example string can be (the formatter is data-driven and the rendered text depends on the loom's `params:` and the bound values):
 
 > Running `/code-review`: language=TypeScript, focus_areas=[error handling, async], author={Ada Lovelace, …}
 
@@ -145,13 +165,21 @@ The echo channel is also used for the binder's `needs_info` and `ambiguous` outp
 
 > loom `/code-review`: ambiguous arguments — "focusing on Ada" could mean focus_areas or author. Be more explicit.
 
-**Determinism.** Binder calls use `temperature: 0` and, where the provider supports it, a fixed seed.
+## Determinism
 
-**Cancellation.** The binder participates in cancellation per [Cancellation](./cancellation.md). The runtime checks `ctx.signal` immediately before issuing the binder call and forwards the signal to the binder model's provider invocation; both the initial attempt and the single transport-failure retry honour the signal. A cancelled binder produces the cancelled-binder system note in the failure-modes table below and the loom does not run. The bypass path (single no-default `string` param, no LLM call) is naturally cancellable at the next regular checkpoint inside the loom body; the cancelled-binder system note does not apply to bypass-eligible looms.
+Binder calls use `temperature: 0` and, where the provider supports it, a fixed seed.
 
-**Failure modes.** Binder failures are runtime-handled and surface as system notes in the user's session, never as `Result` values to loom code. V1 has no `BinderError` variant in the `QueryError` union (it would have nowhere to flow — a failed binder means the loom never starts). Every shape below is rendered through the shared discipline in [System-note rendering](#system-note-rendering); the table gives the pre-discipline templates.
+## Cancellation
 
-**The templates below are normative.** Renderers MUST emit the surrounding template text verbatim; only the `<…>` placeholders are interpolated. The `<message>` and `<candidates>` placeholders carry model-supplied content and are non-deterministic, but the surrounding template (the `loom /<name>:` prefix, the `—` separator, the trailing parenthetical or `candidates:` clause) is fixed. Wording changes are spec-versioned breaking changes. `<ajv-summary>` is rendered by the AJV helper `errorsText(errors, { separator: '; ' })` with the data-path prefix retained, so the summary content is itself stable across runs against the same envelope; the surrounding template is normative regardless of how AJV evolves its internal formatting.
+The binder participates in cancellation per [Cancellation](./cancellation.md). The runtime checks `ctx.signal` immediately before issuing the binder call and forwards the signal to the binder model's provider invocation; both the initial attempt and the single transport-failure retry honour the signal. A cancelled binder produces the cancelled-binder system note in the failure-modes table below and the loom does not run. The bypass path (single no-default `string` param, no LLM call) is naturally cancellable at the next regular checkpoint inside the loom body; the cancelled-binder system note does not apply to bypass-eligible looms.
+
+## Failure modes
+
+Binder failures are runtime-handled and surface as system notes in the user's session, never as `Result` values to loom code. V1 has no `BinderError` variant in the `QueryError` union (it would have nowhere to flow — a failed binder means the loom never starts). Every shape below is rendered through the shared discipline in [System-note rendering](#system-note-rendering); the table gives the pre-discipline templates.
+
+### Failure-mode templates (normative)
+
+Renderers MUST emit the surrounding template text verbatim; only the `<…>` placeholders are interpolated. The `<message>` and `<candidates>` placeholders carry model-supplied content and are non-deterministic, but the surrounding template (the `loom /<name>:` prefix, the `—` separator, the trailing parenthetical or `candidates:` clause) is fixed. Wording changes are spec-versioned breaking changes. `<ajv-summary>` is rendered by the AJV helper `errorsText(errors, { separator: '; ' })` with the data-path prefix retained, so the summary content is itself stable across runs against the same envelope; the surrounding template is normative regardless of how AJV evolves its internal formatting.
 
 The six user-facing shapes:
 

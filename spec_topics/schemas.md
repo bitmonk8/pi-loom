@@ -2,7 +2,9 @@
 
 A `schema` declaration introduces a named type. Two forms:
 
-**Object schema** — `schema X { ... }`:
+## Object schema
+
+`schema X { ... }`:
 
 ```loom
 schema Author {
@@ -16,7 +18,9 @@ Fields are comma-separated; the trailing comma is optional. Field names are iden
 
 A `schema X { }` declaration with no fields is `loom/parse/empty-schema-body`: *`"'X' has no fields; an empty schema cannot be validated."`* Empty bodies have no use case and the lowered `{type:"object", properties:{}, required:[], additionalProperties:false}` shape would silently accept every object — almost certainly not what the author intended.
 
-**Wire-name renaming.** A field declaration may attach an explicit wire name with `as "WireName"` between the field identifier and its type:
+### Wire-name renaming
+
+A field declaration may attach an explicit wire name with `as "WireName"` between the field identifier and its type:
 
 ```loom
 schema ExternalUser {
@@ -43,7 +47,9 @@ Rules:
 
 The same `as` keyword is used by imports (`import { X as Y }`) and field wire-name renames; both read as "this thing, known outside as that name."
 
-**Type-alias / union schema** — `schema X = ...`:
+## Type-alias / union schema
+
+`schema X = ...`:
 
 ```loom
 schema Severity = "low" | "medium" | "high"   // string-literal union (an enum-as-alias)
@@ -53,7 +59,9 @@ schema Animal = Cat | Dog | Lizard            // discriminated object union
 
 The `=` form is a top-level type alias. It composes with every shape from the type grammar: literal unions, primitive unions, object unions (discriminated; see below), and references to other named types.
 
-**Enum declarations** — `enum X { ... }`:
+## Enum declarations
+
+`enum X { ... }`:
 
 ```loom
 enum Severity {
@@ -80,9 +88,13 @@ enum ErrorCode {
 
 Variants are comma-separated; trailing comma optional. `enum` is **top-level only** — there is no inline `enum["a", "b"]` form (`loom/parse/inline-enum`). For inline enumerations use literal-union: `severity: "low" | "medium" | "high"`. V1 enums carry **string values only** (no numeric or boolean variant values, no payload-carrying variants — `loom/parse/non-string-enum-value`); duplicate explicit values across variants are `loom/parse/duplicate-enum-value`. For richer variants use the `schema X = A | B` form with object schemas. An `enum X { }` declaration with no variants is `loom/parse/empty-enum-body`: *`"'X' has no variants; an empty enum cannot be validated."`* The would-be lowering (`{type:"string", enum:[]}`) is invalid JSON Schema 2020-12 (the `enum` array must be non-empty) and would be rejected by AJV at compile time regardless.
 
-**Variant access.** A specific variant is referenced as `Enum.Variant` (e.g., `Severity.High`). The expression evaluates to the variant's underlying string value (the explicit RHS, or the variant name verbatim when no RHS is given) but is statically typed as `Enum`. `Enum.Variant` is the recommended form whenever the value is named in code — type-aware and refactor-safe — over comparing against the bare string literal. Unknown-variant references (`Severity.Critical` when no such variant exists) are `loom/parse/unknown-variant`.
+### Variant access
 
-**Discriminated unions.** A `schema X = A | B | C` whose variants are all object schemas is a discriminated union; the discriminator field is normally **detected implicitly**. The detected field must:
+A specific variant is referenced as `Enum.Variant` (e.g., `Severity.High`). The expression evaluates to the variant's underlying string value (the explicit RHS, or the variant name verbatim when no RHS is given) but is statically typed as `Enum`. `Enum.Variant` is the recommended form whenever the value is named in code — type-aware and refactor-safe — over comparing against the bare string literal. Unknown-variant references (`Severity.Critical` when no such variant exists) are `loom/parse/unknown-variant`.
+
+## Discriminated unions
+
+A `schema X = A | B | C` whose variants are all object schemas is a discriminated union; the discriminator field is normally **detected implicitly**. The detected field must:
 
 1. Be present in every variant.
 2. Be a single **string** literal type in every variant (one literal value per variant; not a literal-union).
@@ -104,7 +116,9 @@ Duplicate discriminator values across variants are `loom/parse/duplicate-discrim
 
 Mixed unions — `string | Author`, `Author | null` — are not discriminated; they lower as plain `anyOf` (or, when all arms are primitives, as the multi-type-array form `{"type": [...]}`).
 
-**Recursion.** Any reference to a named schema lowers to `$ref` against the file's `$defs`. Self- and mutual recursion are supported transparently — authors don't write `$defs` or `$ref`:
+## Recursion
+
+Any reference to a named schema lowers to `$ref` against the file's `$defs`. Self- and mutual recursion are supported transparently — authors don't write `$defs` or `$ref`:
 
 ```loom
 schema Tree {

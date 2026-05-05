@@ -70,3 +70,44 @@ Implementer-facing notes about the runtime and Pi SDK contract.
 - [Glossary](./spec_topics/glossary.md) — alphabetised list of coined terms with pointers to their canonical defining pages.
 - [Grammar Appendix](./spec_topics/grammar.md) — normative productions for the literal sublanguage and the surface-syntax forms no single topic page owns.
 - [Related Work](./spec_topics/related-work.md) — orchestration-layer and inference-layer neighbours.
+
+### REQ-ID prefix table
+
+Each spec page that carries normative obligations is assigned a stable per-page REQ-ID prefix; rules inside the page are numbered (`PREFIX-1`, `PREFIX-2`, …) inline as `**PREFIX-N.**` markers or as `<a id="prefix-n"></a>` anchors. The plan's coverage matrix maps each REQ-ID to its closing leaf, and the V18o gate (per [`plan_topics/v18-cancellation.md`](./plan_topics/v18-cancellation.md)) treats unmapped REQ-IDs as CI failures. IDs are immutable: when a rule is split, the original ID retires and two new IDs appear; numbering never collapses to fill holes.
+
+| Page | Prefix |
+|---|---|
+| `lexical.md` | `LEX` |
+| `type-system.md` | `TYPE` |
+| `schemas.md` | `SCHM` |
+| `descriptions.md` | `DESC` |
+| `schema-subset.md` | `SUBS` |
+| `frontmatter.md` | `FRNT` |
+| `query.md` | `QRY` |
+| `expressions.md` | `EXPR` |
+| `bindings.md` | `BIND` &nbsp;→&nbsp; **BNDG** (to keep `BIND` for `binder.md`) |
+| `control-flow.md` | `CTRL` |
+| `errors-and-results.md` | `ERR` |
+| `return.md` | `RET` |
+| `functions.md` | `FN` |
+| `tool-calls.md` | `TOOL` |
+| `invocation.md` | `INV` |
+| `imports.md` | `IMP` |
+| `discovery.md` | `DISC` |
+| `slash-invocation.md` | `SLSH` |
+| `binder.md` | `BIND` |
+| `cancellation.md` | `CNCL` |
+| `diagnostics.md` | `DIAG` |
+| `runtime-value-model.md` | `RVM` |
+| `pi-integration-contract.md` | `PIC` |
+| `implementation-notes.md` | `IMPL` |
+| `pi-integration.md` | `PIE` |
+| `grammar.md` | `GRAM` |
+| `glossary.md` | (no IDs — narrative) |
+| `overview.md` | (no IDs — narrative) |
+| `influences.md` | (no IDs — narrative) |
+| `comparison.md` | (no IDs — narrative) |
+| `related-work.md` | (no IDs — narrative) |
+| `future-considerations.md` | (no IDs — narrative) |
+
+The `BIND` / `BNDG` split for `binder.md` and `bindings.md` is necessary because the two pages would otherwise collide on a three-letter prefix; both are short identifiers and downstream tooling can search either one. The prefix table itself is immutable — adding a new page requires picking a free prefix at first numbering and pinning it here in the same edit.

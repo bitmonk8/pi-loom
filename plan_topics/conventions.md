@@ -27,7 +27,7 @@ Each leaf has the same fields, in the same order:
 
 - **Spec.** Page(s) under [`../spec_topics/`](../spec_topics/) the leaf implements.
 - **Adds.** One sentence — what the leaf introduces.
-- **Tests.** Bullet list — one bullet per spec rule.
+- **Tests.** Bullet list — one bullet per **REQ-ID** the leaf claims to implement; cite the ID inline (e.g. `BIND-7: ...`). Where a leaf implements only part of a rule (sometimes a leaf adds the parser surface and a later leaf adds the runtime check), each Tests bullet still cites its REQ-ID; the coverage matrix's REQ-ID-to-leaf mapping is many-to-many. The REQ-ID prefix table for each spec page lives in [`../spec.md` Appendix — REQ-ID prefix table](../spec.md). Pure-narrative pages (`overview.md`, `influences.md`, `comparison.md`, `related-work.md`, `future-considerations.md`) carry no IDs and need no leaf citation.
 - **Deps.** Other leaf IDs that must be complete first. Listed `-` if none beyond the previous-leaf-in-the-group.
 - **Ships when.** A concrete, externally observable change.
 
@@ -39,3 +39,4 @@ Each leaf has the same fields, in the same order:
 - **No silent test skipping.** `assert.fail` / `panic` when prerequisites are missing — never silent `return` early.
 - **Spec drift.** If implementation reveals the spec is wrong, ambiguous, or under-specified, **stop**, fix the spec first in a dedicated commit, then resume.
 - **Doc updates.** After each leaf, update `README.md`'s status table and append a one-line dated entry to `CHANGELOG.md`. The plan itself is updated only when the **plan** changes; non-plan discoveries go to `notes.md`.
+- **REQ-ID discipline.** REQ-IDs are immutable. When a rule is split, the original ID retires and two new IDs appear; never renumber to fill holes. The prefix is taken from the spec page's filename stem at the moment of first numbering and frozen (binder.md → BIND, errors-and-results.md → ERR — see the prefix table in [`../spec.md`](../spec.md)). New diagnostic sites added by future spec work MUST land their REQ-IDs in the same edit; the V18o gate (per [V18 — V18o](v18-cancellation.md)) treats a spec REQ-ID without a coverage-matrix mapping as a CI failure.
