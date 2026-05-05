@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_50 findings retained, 3 false positives dropped, 0 persistent failures_
+_49 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -3585,78 +3585,6 @@ Edge cases the implementer must hold the line on:
 ## Related Findings
 
 - "Closed diagnostic registry — many codes have no asserting plan leaf" — same-cluster (the structural CI gate that finding proposes would catch this gap, but the V3a Tests-bullet fix here resolves the specific instance independently and should land regardless).
-
----
-
-# V3a frontmatter "deferred" vs "unknown" partition is unspecified
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** "Loom-specific fields" vs "unknown fields" boundary undefined
-**Kind:** clarity
-
-## Finding
-
-V3a's Adds bullet describes two distinct warning paths for non-implemented frontmatter fields — "Unknown fields produce `loom/load/unknown-frontmatter-field` warning" and "Loom-specific fields other than `mode` and `description`/`argument-hint`/`params` are recognised but ignored with a 'not yet implemented in this leaf' warning until their implementing leaf lands" — but never enumerates which field names fall into the second bucket, never names the diagnostic code for that second warning, and never fixes its message text. The spec, by contrast, is fully resolved on all three points: `spec_topics/frontmatter.md` lists the V1 vocabulary (`description`, `argument-hint`, `mode`, `model`, `tools`, `system`, `bind_model`, `bind_context`, `bind_echo`, `coercion`, `tool_loop`, `params`), and `spec_topics/diagnostics.md` rows 154–155 register `loom/load/unknown-frontmatter-field` (W) for fields outside the V1 vocabulary and `loom/load/deferred-frontmatter-field` (W) for V1-vocabulary fields whose implementing leaf has not yet shipped.
-
-V3a's "recognised fields" line itself is also incomplete: it omits `tool_loop`, which the spec field-contract table includes and which V13f/V6k actually implement. Under the current V3a wording an implementer reading only the plan would emit `loom/load/unknown-frontmatter-field` for `tool_loop:`, contradicting the spec.
-
-A third, adjacent rule is missing entirely from V3a: certain reserved field names are parse-time errors rather than load-time deferred warnings. `timeout:` at frontmatter scope is `loom/parse/timeout-field-rejected` (severity error) per `spec_topics/cancellation.md` and `spec_topics/diagnostics.md` row 138. Without a third bucket called out in V3a, an implementer will route `timeout:` through `unknown-frontmatter-field` (a warning) and the loom will register, contradicting the spec.
-
-## Plan Documents
-
-- `plan_topics/v3-frontmatter.md` — V3a Adds and Tests bullets (edited)
-- `plan_topics/v18-cancellation.md` — V18o (option-dependent — see related finding on the timeout-rejection test home)
-- `plan_topics/coverage-matrix.md` — frontmatter row (read-only — verify `loom/load/deferred-frontmatter-field` is closed by V3a after the edit)
-
-## Spec Documents
-
-- `spec_topics/frontmatter.md` — Field contract table (read-only)
-- `spec_topics/diagnostics.md` — rows for `loom/load/unknown-frontmatter-field`, `loom/load/deferred-frontmatter-field`, `loom/parse/timeout-field-rejected` (read-only)
-- `spec_topics/cancellation.md` — `timeout:` rejection rule (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical V3, Vertical V18
-
-**Leaves (implementation order):**
-
-- V3a — Frontmatter parsing — (modified)
-- V18o — coverage-matrix CI gate / per-call timeout marker — (option-dependent; see related finding "V18o wrong diagnostic code for `timeout:` field rejection")
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers reading V3a will diverge on (a) whether `tool_loop:` warns as unknown or as deferred, (b) the exact diagnostic code emitted for `model`/`tools`/`system`/`bind_model`/`bind_context`/`bind_echo`/`coercion`, (c) the message string, and (d) whether `timeout:` warns or errors. The spec answers all four questions; V3a hides them. V3a will then ship green against any of the implementations, and the V18o coverage gate will pass vacuously on `loom/load/deferred-frontmatter-field` because no leaf asserts it.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Edit `plan_topics/v3-frontmatter.md`, leaf **V3a — Frontmatter parsing**, as follows.
-
-**Adds bullet** — replace the recognised-fields list and the two warning sentences with:
-
-> Real YAML frontmatter; the V1 vocabulary is `description`, `argument-hint`, `mode`, `model`, `tools`, `system`, `bind_model`, `bind_context`, `bind_echo`, `coercion`, `tool_loop`, `params` (the normative list in [Frontmatter — Field contract](../spec_topics/frontmatter.md)). V3a fully implements `description`, `argument-hint`, `mode`, and `params`. The remaining V1-vocabulary fields — `model`, `tools`, `system`, `bind_model`, `bind_context`, `bind_echo`, `coercion`, `tool_loop` — are recognised but not yet implemented in this leaf and emit `loom/load/deferred-frontmatter-field` (severity warning) with message `"frontmatter field '<name>' is recognised but not yet implemented in this loom version"`; the loom still registers. Fields outside the V1 vocabulary emit `loom/load/unknown-frontmatter-field` (severity warning); the loom still registers. The reserved field `timeout:` at frontmatter scope is `loom/parse/timeout-field-rejected` (severity error) per [Cancellation](../spec_topics/cancellation.md); the loom does not register. Absent `params:` and `params: {}` are equivalent and mean "no-params loom"; `params: null` is `loom/load/params-null`. `argument-hint` is parsed and stored on the AST for binder-grounding consumption (V16f); declaring `argument-hint:` without `description:` emits the advisory `loom/load/argument-hint-not-displayed`.
-
-**Tests bullet** — append three assertions to the existing list:
-
-> each of `model`, `tools`, `system`, `bind_model`, `bind_context`, `bind_echo`, `coercion`, `tool_loop` declared in isolation produces exactly one `loom/load/deferred-frontmatter-field` warning naming that field and the loom still registers; an unknown field name (e.g. `wibble:`) produces exactly one `loom/load/unknown-frontmatter-field` warning and the loom still registers; `timeout:` at frontmatter scope produces `loom/parse/timeout-field-rejected` (error) and the loom does not register; warning messages match the spec template verbatim.
-
-Implementer edge cases:
-
-- The deferred-set enumeration must be kept in lockstep with the spec field-contract table — when a later leaf (V12a, V14e, V16e, V6k, V13f) implements one of these fields, the implementing leaf removes that name from the deferred branch and routes it to its real handler. Note this lifecycle inline in V3a Adds so the maintenance contract is visible.
-- `mode:` is *not* in the deferred set — it is required and has its own diagnostic codes (`loom/load/missing-mode`, `loom/load/unknown-mode-value`); see related finding.
-- `timeout:` rejection at the other three scopes (per-query, per-tool-call, per-invoke) is owned by separate leaves; V3a only owns the frontmatter-scope test.
-
-## Related Findings
-
-- "`loom/load/missing-mode` and `loom/load/unknown-mode-value` — no asserting leaf" — same-cluster (both extend V3a Tests with frontmatter-validation diagnostics; resolve in one V3a edit pass)
-- "V18o wrong diagnostic code for `timeout:` field rejection" — co-resolve (the V18o suggested fix proposes folding the `timeout:` frontmatter-scope test into V3a; this recommendation accommodates that by including the `timeout:` test in V3a Tests)
-- "V18o bundles per-call timeout marker with coverage-matrix CI gate" — decision-dependency (whether V3a or a split V18o owns the frontmatter `timeout:` test depends on the V18o split decision)
-- "M's collision warning lacks code/severity" — same-cluster (same pattern: a leaf names a "warning" without naming its diagnostic code or message template)
 
 ---
 
