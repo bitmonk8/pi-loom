@@ -19,6 +19,7 @@ Project scaffold, dependency-injection skeleton, diagnostics primitive, Pi-exten
 - [H2 — Dependency-injection skeleton with fakes](./plan_topics/h2-di-skeleton.md)
 - [H3 — Diagnostics primitive and multi-error accumulator](./plan_topics/h3-diagnostics.md)
 - [H4 — Pi extension shell](./plan_topics/h4-extension-shell.md)
+- [H5 — Pi end-to-end harness](./plan_topics/h5-pi-e2e-harness.md)
 
 ---
 

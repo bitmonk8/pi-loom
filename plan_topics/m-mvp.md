@@ -16,7 +16,8 @@
 - AbortError surfaces as a system note.
 - `~/.pi/agent/looms/hello.loom` registers `/hello` (`FakeFileSystem.homedir()` controls the resolution; the test asserts the registered loom's discovered path is exactly `<homedir>/.pi/agent/looms/hello.loom`).
 - Two files producing the same slash name across the two roots (`.pi/looms/` vs `~/.pi/agent/looms/`): only the project one registers; the other emits `loom/load/cross-source-shadow` (severity `warning`), naming both absolute paths, with the warning text matching `spec_topics/discovery.md` verbatim.
+- End-to-end via the Pi harness (H5): `/hello` registered → dispatched → one `send` observed by the scripted provider → one `assistant` turn surfaced in the transcript.
 
-**Deps.** H1–H4.
+**Deps.** H1–H5.
 
-**Ships when.** Manual: `hello.loom` placed in `.pi/looms/`, slash `/hello` produces an assistant turn in a real Pi session.
+**Ships when.** Integration test in `test/integration/m-hello.test.ts` boots the H5 harness, places `hello.loom` in a temp `.pi/looms/`, dispatches `/hello`, and asserts a single `assistant` turn whose text equals the scripted provider response.
