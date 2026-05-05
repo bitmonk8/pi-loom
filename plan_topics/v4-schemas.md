@@ -66,8 +66,8 @@
 
 ## V4i — Recursive schema references
 
-- **Spec.** [Schema Declarations](../spec_topics/schemas.md) (recursion), [Schema Subset](../spec_topics/schema-subset.md) (depth).
-- **Adds.** Self-referential `schema Tree { value: number, children: array<Tree> }`; mutual recursion across schemas; runtime depth cap of 5 enforced on document depth, not schema graph.
-- **Tests.** Self-recursive schema lowers and AJV-validates a 4-deep tree; rejects 6-deep; mutual recursion `Person ↔ Animal` lowers; cycle in schema graph permitted (depth applies to data).
+- **Spec.** [Schema Declarations](../spec_topics/schemas.md) (recursion), [Schema Subset](../spec_topics/schema-subset.md) (depth), [Schema Subset — Depth Enforcement](../spec_topics/schema-subset.md#depth-enforcement).
+- **Adds.** Validator service compiles a hand-written JSON Schema document containing recursive `$defs`/`$ref` (no surface-syntax involvement) and runs the depth-counting walk defined in [Schema Subset — Depth Enforcement](../spec_topics/schema-subset.md#depth-enforcement) before AJV at every validation site. The walk is a recursive descent over the parsed JSON value with a depth counter, short-circuiting on the first node whose depth would exceed 5.
+- **Tests.** AJV compiles a hand-authored recursive `$defs`/`$ref` document and validates a 4-deep instance; depth walk on a 6-deep instance returns the canonical depth violation (`schema_keyword: "maxDepth"`, JSON Pointer to first too-deep node, message `"JSON document depth exceeds 5"`); depth walk runs before AJV (asserted by feeding a payload that would otherwise trip an AJV error and confirming the depth error is the one returned).
 - **Deps.** V4h.
-- **Ships when.** Recursive data validates.
+- **Ships when.** AJV-side recursion and depth cap are exercised; surface-syntax recursive schemas can be built on top in V11g–V11i.

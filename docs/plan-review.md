@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_58 findings retained, 3 false positives dropped, 0 persistent failures_
+_57 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -4156,73 +4156,7 @@ Edge case for the implementer: the `unknown format keyword silently accepted` te
 
 - "Schema-subset depth enforcement missing at three of four required sites" — same-cluster (also asserts `ValidationIssue` shape specifics, but at the four enforcement sites rather than at the AJV scaffold)
 - "Canonical schema hash algorithm unasserted" — same-cluster (parallel V4 specificity gap: V4f's stable-hash claim is similarly unfalsifiable)
-- "V4i and V11g/V11h/V11i contain duplicated requirements" — same-cluster (touches the V4-vs-later-slice scoping question; resolves independently)
 
 ---
 
-# V4i overlaps V11g/V11h/V11i instead of supplying the AJV-side foundation
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** V4i and V11g/V11h/V11i contain duplicated requirements
-**Kind:** cruft
-
-## Finding
-
-V4i ("Recursive schema references") and V11g/V11h/V11i ("Self-recursive object schemas" / "Mutual recursion across schemas" / "Runtime depth cap of 5") restate the same three concerns at the same level of detail. V4i's Adds bullet names the surface forms `schema Tree { value: number, children: array<Tree> }` and `Person ↔ Animal`, and the runtime depth cap; V4i's Tests bullet then asserts a 4-deep tree validates, a 6-deep tree is rejected, and mutual recursion lowers. V11g asserts the surface `schema Tree` lowers via `$defs`/`$ref` and AJV validates a 4-deep tree; V11h asserts `Person ↔ Animal` lowers and AJV validates a representative document; V11i asserts depth-5 accepts and depth-6 rejects.
-
-The intended division of labour is visible in V11g's Deps note (`*(V4i is the AJV side; this is the surface.)*`) — V4i is meant to land the AJV plumbing that makes recursive `$ref` and the depth cap *possible*, and V11g–V11i are meant to land the surface-syntax leaves that *use* that plumbing. As written, V4i over-reaches into surface syntax and V11g–V11i become redundant rather than additive. Either the redundancy is real (V4i is doing V11g–V11i's job too early in the plan) or the AJV-side work is missing (V4i is misnamed and there is no leaf actually proving AJV can compile a recursive `$defs` schema or run the depth walk).
-
-## Plan Documents
-
-- `plan_topics/v4-schemas.md` — V4i (edited)
-- `plan_topics/v11-discriminated-unions.md` — V11g, V11h, V11i (read-only)
-- `plan_topics/coverage-matrix.md` — Schema Subset / Schema Declarations rows that cite V4i and V11g–V11i (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical V4, Vertical V11
-
-**Leaves (implementation order):**
-
-- V4i — Recursive schema references — (modified)
-- V11g — Self-recursive object schemas — (read-only; Deps still points at V4i)
-- V11h — Mutual recursion across schemas — (read-only)
-- V11i — Runtime depth cap of 5 — (read-only)
-
-## Consequence
-
-**Severity:** advisory
-
-Two reasonable implementers will pick up V4i and V11g/V11h/V11i in different orders, write the same surface-syntax fixtures twice, and disagree on which leaf is "really" responsible for proving recursive `Tree` works end-to-end. Nothing fails to ship — the duplicated assertions all pass — but the V11g Deps note becomes a lie (V4i is not "the AJV side" in any distinguishable sense), the coverage-matrix rows double-count, and reviewers cannot tell at a glance which leaf to read for which behaviour.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `plan_topics/v4-schemas.md`, narrow V4i to AJV infrastructure only:
-
-- **Adds.** Replace the current text with: "Validator service compiles a hand-written JSON Schema document containing recursive `$defs`/`$ref` (no surface-syntax involvement) and runs the depth-counting walk defined in [Schema Subset — Depth Enforcement](../spec_topics/schema-subset.md#depth-enforcement) before AJV at every validation site. The walk is a recursive descent over the parsed JSON value with a depth counter, short-circuiting on the first node whose depth would exceed 5."
-- **Tests.** Replace the current text with: "AJV compiles a hand-authored recursive `$defs`/`$ref` document and validates a 4-deep instance; depth walk on a 6-deep instance returns the canonical depth violation (`schema_keyword: \"maxDepth\"`, JSON Pointer to first too-deep node, message `\"JSON document depth exceeds 5\"`); depth walk runs before AJV (asserted by feeding a payload that would otherwise trip an AJV error and confirming the depth error is the one returned)."
-- **Spec.** Add a reference to [Schema Subset — Depth Enforcement](../spec_topics/schema-subset.md#depth-enforcement) alongside the existing two refs.
-- **Ships when.** Leave as-is, but reword to: "AJV-side recursion and depth cap are exercised; surface-syntax recursive schemas can be built on top in V11g–V11i."
-
-Leave V11g/V11h/V11i Adds/Tests untouched — they remain the canonical owners of the surface-syntax assertions. The literal `schema Tree` and `Person ↔ Animal` examples must not appear in V4i.
-
-Edge cases the implementer should watch:
-
-- The hand-written recursive `$defs` fixture in V4i must not be a lowered output of `schema Tree` — that would re-couple V4i to the surface syntax. Author it directly as JSON.
-- If the related finding "Schema-subset depth enforcement missing at three of four required sites" is fixed by widening V11i to assert the four enforcement sites, V4i should still hold the AJV-mechanics assertion (depth walk runs before AJV; canonical error shape) so V11i can focus on site coverage rather than re-asserting mechanics.
-
-## Related Findings
-
-- "Schema-subset depth enforcement missing at three of four required sites" — decision-dependency (the V4i narrowing leaves V11i free to expand into the four-site coverage; both edits land in the same vertical and should be sequenced together)
-- "V11g and V6d Deps fields contain rationale-only asides (cruft)" — co-resolve (once V4i is cleanly the AJV side, the V11g aside `*(V4i is the AJV side; this is the surface.)*` is redundant with the leaf division itself and can be deleted)
-
----
 
