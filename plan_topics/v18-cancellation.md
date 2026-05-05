@@ -134,12 +134,18 @@ Edge cases the implementer must watch:
 - **Deps.** V15l, V18k, V18l, V7i, V12a.
 - **Ships when.** `invoke` panic semantics complete and the depth cap is observable on both the top-level and `invoke`-parent surfaces.
 
-## V18o — Per-call timeout marker / coverage-matrix closing gate
+## V18o — Per-call timeout marker (deferral confirmation)
 
-- **Spec.** [Cancellation](../spec_topics/cancellation.md) (per-call timeouts deferred), [`../spec.md` Appendix — REQ-ID prefix table](../spec.md), [Conventions — REQ-ID discipline](conventions.md).
-- **Adds.** Two acceptance criteria in one closing leaf:
-  1. *Per-call timeout marker (no-op confirmation).* Assert that no timeout config is accepted on queries/tools/invokes; any `timeout:` field is `loom/load/unknown-frontmatter-field` warning. (Future feature.)
-  2. *Coverage-matrix closing gate.* Every REQ-ID emitted by any spec page (per the Appendix prefix table in [`../spec.md`](../spec.md)) maps to at least one closing leaf in [`coverage-matrix.md`](coverage-matrix.md). The gate is implemented as a CI check that: (a) reads the prefix union `{LEX, TYPE, SCHM, …}` directly from the Appendix prefix table (pure-narrative pages contribute no prefix); (b) extracts every `<PREFIX>-<N>` token from `spec_topics/*.md` using that union, sorts and uniques the result; (c) extracts every `<PREFIX>-<N>` token from `plan_topics/coverage-matrix.md` using the same union, sorts and uniques the result; (d) asserts the set difference (spec − matrix) is empty. The exact script form (`comm -23`, `diff`, a Node script, etc.) is non-normative; the contract is the set-difference assertion. Edge cases the implementer must handle: the Appendix prefix table includes the `BIND` / `BNDG` split (binder.md → `BIND`, bindings.md → `BNDG`) — the prefix union must contain both, not collapse on stem; `spec.md` itself contains the literal placeholder tokens `PREFIX-1`, `PREFIX-2` in the Appendix prose, so restrict the scan to `spec_topics/` to exclude them (do not widen to `spec.md`); the matrix today carries section-level rows (`V4b`, `V11a–V11f`, etc.) rather than per-REQ-ID rows, so the gate as specified will report every assigned REQ-ID as unmapped until the per-REQ-ID re-pivot in `coverage-matrix.md` lands — either gate the CI check behind a flag until the re-pivot is complete, or land the re-pivot in the same edit as this leaf. Pure-narrative pages contribute no REQ-IDs and therefore no rows.
-- **Tests.** `timeout:` rejected at frontmatter; per-query/per-call ascription rejected. CI check returns empty diff (every spec REQ-ID has at least one matrix mapping); a synthetic spec edit that introduces an un-mapped REQ-ID flips the check to non-zero.
-- **Deps.** V3a; every leaf whose `Tests.` bullets cite the REQ-IDs they implement (the citation pass is editorial and ships incrementally with the leaves themselves).
-- **Ships when.** Both criteria observable in CI.
+- **Spec.** [Cancellation](../spec_topics/cancellation.md) (per-call timeouts deferred), [Diagnostics — `loom/parse/timeout-field-rejected`](../spec_topics/diagnostics.md).
+- **Adds.** Parse-time rejection of any `timeout:` field at all four sites where a future per-call timeout could land: frontmatter, per-`@`-query option, per-tool-call option, per-`invoke` option. Every site emits `loom/parse/timeout-field-rejected` (severity `E`, phase `parse`).
+- **Tests.** `timeout:` in frontmatter → `loom/parse/timeout-field-rejected`; `timeout:` on an `@` query → same code; `timeout:` on a tool call → same code; `timeout:` on `invoke(...)` → same code. Test asserts the registry code string verbatim.
+- **Deps.** V3a, V5e, V14c, V15a.
+- **Ships when.** Every `timeout:` site is a parse error citing the registered code.
+
+## V18s — Coverage-matrix closing CI gate
+
+- **Spec.** [`../spec.md` Appendix — REQ-ID prefix table](../spec.md), [Conventions — REQ-ID discipline](conventions.md).
+- **Adds.** A CI check that, for every prefix in the REQ-ID prefix table, greps `PREFIX-N` occurrences from `spec_topics/*.md` and from `plan_topics/coverage-matrix.md` and asserts that the spec-side set is a subset of the matrix-side set. Any unmapped REQ-ID fails the gate. Pure-narrative pages contribute no REQ-IDs and therefore no rows. The exact script form is non-normative; the property is.
+- **Tests.** Gate returns empty diff over the present-day spec; a synthetic spec edit that introduces an un-mapped REQ-ID flips the check to non-zero; a synthetic spec edit on a pure-narrative page does not change the result.
+- **Deps.** Every leaf whose `Tests.` bullets cite the REQ-IDs they implement (the citation pass is editorial and ships incrementally with the leaves themselves); the REQ-ID assignment leaf identified by the "REQ-ID system referenced everywhere but no leaf creates it" finding once it exists.
+- **Ships when.** CI fails on any unmapped REQ-ID.

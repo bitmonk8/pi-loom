@@ -73,7 +73,7 @@ Implementer-facing notes about the runtime and Pi SDK contract.
 
 ### REQ-ID prefix table
 
-Each spec page that carries normative obligations is assigned a stable per-page REQ-ID prefix; rules inside the page are numbered (`PREFIX-1`, `PREFIX-2`, …) inline as `**PREFIX-N.**` markers or as `<a id="prefix-n"></a>` anchors. The plan's coverage matrix maps each REQ-ID to its closing leaf, and the V18o gate (per [`plan_topics/v18-cancellation.md`](./plan_topics/v18-cancellation.md)) treats unmapped REQ-IDs as CI failures. IDs are immutable: when a rule is split, the original ID retires and two new IDs appear; numbering never collapses to fill holes.
+Each spec page that carries normative obligations is assigned a stable per-page REQ-ID prefix; rules inside the page are numbered (`PREFIX-1`, `PREFIX-2`, …) inline as `**PREFIX-N.**` markers or as `<a id="prefix-n"></a>` anchors. The plan's coverage matrix maps each REQ-ID to its closing leaf, and the V18s gate (per [`plan_topics/v18-cancellation.md`](./plan_topics/v18-cancellation.md)) treats unmapped REQ-IDs as CI failures. IDs are immutable: when a rule is split, the original ID retires and two new IDs appear; numbering never collapses to fill holes.
 
 | Page | Prefix |
 |---|---|

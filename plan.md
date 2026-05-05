@@ -7,7 +7,7 @@ Companion to [`spec.md`](./spec.md). The full plan is split into per-phase pages
 1. Read [`plan_topics/conventions.md`](./plan_topics/conventions.md) once — it covers the three phase categories (horizontal / MVP / vertical), the per-phase TDD ritual, the leaf format, and the project-wide cross-cutting rules.
 2. Pick the next leaf whose **Deps** are satisfied. Open that leaf's phase page below; read only the leaf and the spec topic(s) listed under its **Spec** field.
 3. Follow the TDD ritual; tag the commit `<id>-complete` when the **Ships when** condition is observable.
-4. Consult [`plan_topics/coverage-matrix.md`](./plan_topics/coverage-matrix.md) to confirm every spec rule has a closing leaf when V18o lands.
+4. Consult [`plan_topics/coverage-matrix.md`](./plan_topics/coverage-matrix.md) to confirm every spec rule has a closing leaf when V18s lands.
 
 ---
 

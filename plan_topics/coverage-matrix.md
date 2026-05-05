@@ -1,6 +1,6 @@
 # Spec coverage matrix
 
-Every executable spec section maps to a closing leaf. The V18o gate (per [V18 — V18o](v18-cancellation.md)) enforces a stricter property in CI: every REQ-ID emitted by any spec page (per the prefix table in [`../spec.md`](../spec.md)) must have at least one mapping in this matrix. The current rows below are section-level scaffolding that pre-dates the REQ-ID assignment pass; rows below will be re-pivoted to per-REQ-ID granularity as Phase 12b assigns REQ-IDs page-by-page (see [Conventions — REQ-ID discipline](conventions.md)).
+Every executable spec section maps to a closing leaf. The V18s gate (per [V18 — V18s](v18-cancellation.md)) enforces a stricter property in CI: every REQ-ID emitted by any spec page (per the prefix table in [`../spec.md`](../spec.md)) must have at least one mapping in this matrix. The current rows below are section-level scaffolding that pre-dates the REQ-ID assignment pass; rows below will be re-pivoted to per-REQ-ID granularity as Phase 12b assigns REQ-IDs page-by-page (see [Conventions — REQ-ID discipline](conventions.md)).
 
 | Spec page | Closing leaf(s) |
 |---|---|
@@ -76,4 +76,4 @@ Every executable spec section maps to a closing leaf. The V18o gate (per [V18 �
 | [Future Considerations](../spec_topics/future-considerations.md) | – (out of scope) |
 | [Related Work](../spec_topics/related-work.md) | – |
 
-If, when V18o closes, any executable spec REQ-ID lacks a matrix mapping, the plan is incomplete — add the missing leaf or fold it into V18 before declaring V1.0. The CI check is mechanical (`grep` / `comm`); the matrix is the closed source of truth.
+If, when V18s closes, any executable spec REQ-ID lacks a matrix mapping, the plan is incomplete — add the missing leaf or fold it into V18 before declaring V1.0. The CI check is mechanical (`grep` / `comm`); the matrix is the closed source of truth.
