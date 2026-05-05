@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_56 findings retained, 3 false positives dropped, 0 persistent failures_
+_55 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -4017,76 +4017,6 @@ Edge cases the implementer must watch:
 - "Empty schema and enum body diagnostics — no test leaf" — same-cluster (sibling spec-coverage gap in the V4/V10/V11 cluster; resolve independently)
 - "Type-alias cycle detection (`loom/parse/type-alias-cycle`) — no plan leaf" — same-cluster (sibling spec-coverage gap in the same cluster; resolve independently)
 - "`loom/parse/non-string-discriminator` — no test leaf" — same-cluster (sibling spec-coverage gap in V11; resolve independently)
-
----
-
-# Canonical schema hash algorithm unasserted
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** Canonical schema hash algorithm unasserted
-**Kind:** spec-coverage
-
-## Finding
-
-`spec_topics/schema-subset.md` (`## Canonical schema hash`) pins a precise algorithm: hash the **lowered** JSON Schema fragment serialised to a deterministic UTF-8 byte sequence (object keys sorted by Unicode code-point order, no insignificant whitespace, JSON-numeric form for numbers, RFC-8259 minimal-escape strings), take SHA-256, and use the first 16 hex characters lowercased as the slug. The spec is explicit that the recipe is "part of the on-disk and on-wire contract — changing it is a breaking change for any cached artefact, fixture snapshot, or replayable provider payload."
-
-V4f is the leaf that introduces the slug (`__inline_<hash>`) and is the natural site for asserting the algorithm. Its current Tests bullet — *"Two identical inline schemas → one `$defs` entry; differing key order produces same hash; differing types produces different hashes"* — confirms the dedup property and key-order-independence but never pins SHA-256, the 16-hex-char truncation, the canonical-form serialiser, or the lowered-vs-source input choice. Any hash function with stable output and key-order-independence (e.g. SHA-1 first 16 chars, FNV-1a, `JSON.stringify` after key-sort with default escape rules, `crypto.createHash("sha256")` over an unsorted body) passes V4f's gates and yet violates the contract.
-
-Downstream consumers of the slug — V6i's `__loom_respond_<slug>`, V4a's compiled-validator cache key, H4's `Map<schema-hash, registeredToolName>`, V14e's prompt-mode loom-callee dedup, V18f's hash-change re-registration — all reference "the hash" without re-asserting it. If V4f does not pin the algorithm, none of them do, and the on-disk/on-wire contract has no test gate.
-
-## Plan Documents
-
-- `plan_topics/v4-schemas.md` — V4f section (edited)
-- `plan_topics/v4-schemas.md` — V4a section (read-only — references "lowered-schema content hash" for the AJV cache; inherits V4f's pinning transitively)
-- `plan_topics/v6-typed-queries.md` — V6i section (edited — cross-reference to the V4f slug fixture)
-- `plan_topics/h4-extension-shell.md` — H4 section (read-only — registration-cache key consumes the slug)
-- `plan_topics/v14-tool-calls.md` — V14e section (read-only — "unique lowered-schema hash" gate consumes the slug)
-- `plan_topics/v18-cancellation.md` — V18f section (read-only — "new lowered-schema hash" trigger consumes the slug)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical V4, Vertical V6
-
-**Leaves (implementation order):**
-
-- V4f — Inline anonymous object hoisting — (modified)
-- V6i — AJV validation of typed query results (two-phase tool loop) — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two implementers without a pinned-algorithm test would converge on a hash that satisfies dedup and key-order-independence but diverges on encoding details (SHA-1 vs SHA-256, hex-char count, `JSON.stringify` defaults vs RFC-8259 minimal-escape, sorted-input vs sorted-output, lowered vs source-AST input). The dedup tests pass; the resulting `__inline_<slug>` and `__loom_respond_<slug>` names disagree with any external fixture or replay artefact built against the spec. Because the spec explicitly designates the recipe as on-disk/on-wire contract, every cached validator entry, snapshot test, and replayable provider payload becomes implementer-dependent. The V18o coverage gate would mark the canonical-hash spec section as covered (V4f cites `schema-subset.md`) while the algorithm itself ships unverified.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Edit `plan_topics/v4-schemas.md`, V4f section, **Tests** bullet. Append the following sentence verbatim before the closing period:
-
-> ; canonical hash matches a checked-in fixture snapshot pinning the full algorithm (SHA-256 over the canonical-form bytes of the **lowered** JSON Schema fragment — object keys sorted by Unicode code-point order, no insignificant whitespace, JSON-numeric form, RFC-8259 minimal-escape strings — truncated to the first 16 lowercase hex chars), with fixtures covering: a flat object schema, a nested-object schema with reordered source-level fields (asserting the emitted `$defs` entry preserves source order while the slug is invariant), a schema containing a string with characters that distinguish minimal-escape from gratuitous-`\u`-escape encoding, a schema containing an integer and a float (asserting JSON-numeric form), and a schema whose key set requires Unicode code-point ordering distinct from byte-wise lexicographic ordering.
-
-Then edit `plan_topics/v6-typed-queries.md`, V6i section, **Tests** bullet. Append:
-
-> ; `__loom_respond_<slug>` derives `<slug>` via the V4f canonical-hash fixture path (asserted by the same fixture-snapshot test against a representative typed-query response schema).
-
-Implementer edge cases the V4f fixture must cover:
-
-- **Lowered, not source.** Two source-level inline schemas that lower to byte-identical JSON Schema fragments must produce the same slug; a single source AST that lowers under a path that adds wrapper keys must produce a different slug. The fixture should include one such pair.
-- **Sort vs emit order.** The canonical-form key sort applies only inside the hash function; the emitted `$defs` entry retains loom-source declaration order (per the Object emission rule in `schema-subset.md` step 3). The fixture must assert both invariants in the same test.
-- **Lowercase hex.** Slugs must be lowercase; an implementer using `Buffer.toString("hex")` gets lowercase by default but `crypto.subtle` paths may not. Fixture should include at least one slug whose digest contains digits ≥ `a` to catch an uppercase regression.
-
-## Related Findings
-
-- "Tool-registration dedup assumes no schema-hash collision" — decision-dependency (both touch the canonical-hash plumbing; pinning the algorithm in V4f is a precondition for the collision-detection test the related finding requests in H4)
-- "Schema-subset depth enforcement missing at three of four required sites" — same-cluster (adjacent V4-area spec-coverage gap; resolves independently)
-- "V4a 'validation produces expected error shapes' is not specific" — same-cluster (also a V4 Tests-bullet sharpening; resolves independently)
 
 ---
 

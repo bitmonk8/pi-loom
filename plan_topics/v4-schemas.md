@@ -44,7 +44,7 @@
 
 - **Spec.** [Schema Subset — Lowering Algorithm](../spec_topics/schema-subset.md#lowering-algorithm) (step 2).
 - **Adds.** `{ field: T }` in any type position lifted into `$defs/__inline_<hash>` with stable structural hash; structurally-identical inline schemas dedup to one entry.
-- **Tests.** Two identical inline schemas → one `$defs` entry; differing key order produces same hash; differing types produces different hashes.
+- **Tests.** Two identical inline schemas → one `$defs` entry; differing key order produces same hash; differing types produces different hashes; canonical hash matches a checked-in fixture snapshot pinning the full algorithm (SHA-256 over the canonical-form bytes of the **lowered** JSON Schema fragment — object keys sorted by Unicode code-point order, no insignificant whitespace, JSON-numeric form, RFC-8259 minimal-escape strings — truncated to the first 16 lowercase hex chars), with fixtures covering: a flat object schema, a nested-object schema with reordered source-level fields (asserting the emitted `$defs` entry preserves source order while the slug is invariant), a schema containing a string with characters that distinguish minimal-escape from gratuitous-`\u`-escape encoding, a schema containing an integer and a float (asserting JSON-numeric form), and a schema whose key set requires Unicode code-point ordering distinct from byte-wise lexicographic ordering.
 - **Deps.** V4b.
 - **Ships when.** Anonymous object types are usable in any field position.
 
