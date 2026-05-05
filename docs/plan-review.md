@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_5 findings retained, 3 false positives dropped, 0 persistent failures_
+_4 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -318,65 +318,3 @@ A leaf added to a group later that a dependent leaf actually does need will not 
 - "V16e ordering: forward Dep on V16o with misleading file order" — same-cluster
 - "V14c tests registered-loom callees before V15e creates them (ordering gap)" — same-cluster
 - "V6 leaf file order: V6k appears before V6j" — same-cluster (file-order issue, but lives in the same V6 group whose Deps are being re-stated)
-
----
-
-# Per-leaf `CHANGELOG.md` and `notes.md` updates have no bootstrap leaf
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** CHANGELOG.md / notes.md creation violates CLAUDE.md
-**Kind:** doc-alignment-broad
-
-## Finding
-
-`plan_topics/conventions.md` line 41 mandates that "after each leaf, update `README.md`'s status table and append a one-line dated entry to `CHANGELOG.md`. The plan itself is updated only when the **plan** changes; non-plan discoveries go to `notes.md`." Neither `CHANGELOG.md` nor `notes.md` exists in the repository today (only `README.md` is present at the project root), and no leaf — including H1, where bootstrap work lives — lists either file in its `Adds.` field, includes a Tests bullet for it, or otherwise records its creation.
-
-The first implementer to complete a leaf will therefore have to create both files unprompted, with no prior leaf having authorised them. The convention also embeds a forward reference to documents the plan never schedules into existence — a structural defect that two reasonable implementers will diverge on (one creates the files and proceeds, one routes notes into `README.md`, one stops to ask).
-
-## Plan Documents
-
-- `plan_topics/conventions.md` — Cross-cutting rules → "Doc updates" bullet (edited)
-- `plan_topics/h1-scaffold.md` — `Adds.` / `Tests.` / `Ships when` (edited)
-- `plan.md` — "How to use this plan" / horizontal-phase index (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Horizontal
-
-**Leaves (implementation order):**
-
-- H1 — Repository scaffold and test framework — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Without a resolution, the per-leaf phase-exit ritual is ambiguous in its very first step: implementers either silently skip the convention or silently retarget it to `README.md`. The `CHANGELOG.md` / `notes.md` workflow becomes unreliable, the project history that the convention is meant to produce is incoherent across leaves, and review of any leaf cannot observe whether the doc-update gate was met.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Bootstrap `CHANGELOG.md` and `notes.md` in H1 so the per-leaf doc-update convention has real targets from day one.
-
-**Plan edits.**
-- In `plan_topics/h1-scaffold.md`, append to `Adds.`: `; project bootstrap files CHANGELOG.md (Keep-a-Changelog header only) and notes.md (header only), created once so the per-leaf doc-update convention has stable targets.`
-- In `plan_topics/h1-scaffold.md`, add a Tests bullet: `File-presence test: CHANGELOG.md and notes.md exist at the project root with the expected headers.`
-- In `plan_topics/h1-scaffold.md`, extend `Ships when.`: `… and CHANGELOG.md / notes.md present at the project root.`
-- In `plan_topics/conventions.md`, append to the "Doc updates" bullet a parenthetical: `(Both files are bootstrapped in H1; do not re-create.)`
-
-**Spec edits.** None.
-
-Edge case for the implementer: pin the Keep-a-Changelog header form (e.g. the standard `# Changelog` + format/versioning links + `## [Unreleased]` section) so the file-presence test has a stable target rather than asserting only file existence; `notes.md` only needs `# Notes` plus a one-line description of its purpose.
-
-## Related Findings
-
-- "`docs/manual-smoke.md` does not exist and its creation violates CLAUDE.md" — co-resolve (same root question, resolved together: H4 bootstraps `docs/manual-smoke.md` on the same precedent)
-- "Exception-handling convention weaker than CLAUDE.md" — same-cluster (different convention bullet, separate fix)
-
