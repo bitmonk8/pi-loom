@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_77 findings retained, 3 false positives dropped, 0 persistent failures_
+_76 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -5452,77 +5452,4 @@ Leave V15n's "per-load-pass static-resolution graph" untouched — the spec uses
 
 - "V14c tests registered-loom callees before V15e creates them (ordering gap)" — same-cluster (also touches V14c's "static-resolution cache" sentence; resolve naming first, then the ordering edit reuses the corrected phrase)
 - "V14c too large — three distinct concerns" — same-cluster (any V14c split must carry the corrected term into the resulting leaves)
-
----
-
-# Inbound enum-brand re-attachment not covered by any leaf
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** Inbound enum-brand re-attachment not covered by any leaf
-**Kind:** spec-coverage
-
-## Finding
-
-`spec_topics/runtime-value-model.md` defines the inbound walk (model output → loom value) as a single pass that does *two* things in lockstep: (a) rebuilds the validated JSON with loom-side identifiers from each schema's translation map, and (b) at every position the schema annotates as a *named* enum, reattaches the declaring-enum tag so the value compares equal to a locally constructed variant of that enum. Anonymous string-literal-union positions deliberately receive no tag, so cross-form comparisons such as `Severity.Low == "low"` remain `false` per the equality rule. The walk recurses through arrays, nested object fields, and `Result.Ok` / `Result.Err` payloads. The spec further pins that the rule applies uniformly to every inbound boundary — typed query results, tool-call return decoding where typed, `invoke` returns, and binder `args` — and is "not restated per call site."
-
-V13b ("Inbound wire-name translation") is the only leaf that schedules an inbound walk, but its Adds bullet covers only half of the spec sentence — the wire→loom identifier rebuild — and its Tests assert only translation of field names through arrays and recursive structures. There is no Adds clause for tag reattachment, no test that a model-emitted `"low"` at a named-enum position arrives branded and compares equal to `Severity.Low`, no test that the same string at an anonymous literal-union position arrives unbranded so `Severity.Low == "low"` is `false`, and no test that the reattachment recurses through arrays / nested object fields / `Result` payloads. V10e ("Runtime enum brand") establishes the brand and its cross-enum equality semantics for *locally constructed* variants but does not cover the inbound restoration pass.
-
-The four boundaries the spec enumerates are all reached at runtime by V6i (typed-query response), V14c (registered-loom-callee return decoding where typed; Pi-tool returns are `string` so do not exercise the rule), V15c (`invoke<T>` return) and V16p (binder `args` after AJV). All four route their decoded payloads through the V13b walk and would silently inherit the missing reattachment.
-
-## Plan Documents
-
-- `plan_topics/v13-wire-names.md` — V13b "Inbound wire-name translation" (edited)
-- `plan_topics/v10-enums.md` — V10e "Runtime enum brand" (read-only — supplies the brand machinery V13b consumes; cite as Dep)
-- `plan_topics/v6-typed-queries.md` — V6i (read-only — boundary 1 consumer)
-- `plan_topics/v14-tool-calls.md` — V14c (read-only — boundary 2 consumer for typed registered-loom-callee returns)
-- `plan_topics/v15-invoke.md` — V15c (read-only — boundary 3 consumer)
-- `plan_topics/v16-binder.md` — V16p (read-only — boundary 4 consumer)
-
-## Spec Documents
-
-None — `spec_topics/runtime-value-model.md` already states the rule normatively. The fix is purely a plan-side coverage gap.
-
-## Affected Leaves
-
-**Phases:** Vertical V10, Vertical V13
-
-**Leaves (implementation order):**
-
-- V10e — Runtime enum brand — (modified)
-- V13b — Inbound wire-name translation — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-V13b ships green against tests that only check field-name translation; the runtime then returns inbound enum values without the declaring-enum tag, so `received == Severity.Low` evaluates to `false` even when the model emitted a valid `"low"` at a named-enum position, and `received == "low"` evaluates to `true` even though the spec pins it to `false`. Both directions of the cross-form / cross-enum equality contract are silently broken across all four inbound boundaries, and no V18o coverage gate fires because the omission is below the REQ-ID granularity.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Amend V13b in `plan_topics/v13-wire-names.md` as follows.
-
-In the **Adds.** bullet, replace the current single sentence with two: keep the existing wire-name rebuild sentence, then append "*and* at every position the lowered schema annotates as a named enum, reattaches the declaring-enum tag for that position so the value compares equal to a locally constructed variant of the same enum. Anonymous string-literal-union positions receive no tag. The walk recurses through arrays, nested object fields, and `Result.Ok` / `Result.Err` payloads; tags are attached at the same depth as the value the schema annotates and never propagate to enclosing arrays, objects, or `Result` wrappers. The same walk runs at every inbound boundary — typed-query response, typed registered-loom-callee return, `invoke<T>` return, and binder `args` — and is implemented once here."
-
-In the **Tests.** bullet, add the following assertions (in addition to the existing wire-name tests):
-
-- Model-emitted `"low"` decoded at a named-enum (`Severity`) position arrives branded: `received == Severity.Low` is `true`.
-- Model-emitted `"low"` decoded at an anonymous `"low" | "medium" | "high"` position arrives unbranded: `Severity.Low == received` is `false` and `received == "low"` is `true`.
-- Cross-enum: a `Severity`-annotated position decoded as `"low"` is `!=` to `OtherEnum.Low` even when wire values match.
-- Recursion: branded values appear at the correct depth inside `array<Severity>`, inside a nested object field typed `Severity`, and inside `Result<Severity, …>.Ok` / `…Err` payloads; the enclosing array / object / `Result` wrapper carries no tag.
-- `JSON.stringify` of a rebuilt branded value yields the bare wire string (consistency with V10e's representation rule, exercised on an inbound-decoded value rather than a locally constructed one).
-- Each of the four boundaries exercises at least one of the above: one test under the V6i fixture, one under V14c (registered-loom-callee typed return), one under V15c, one under V16p. These can be thin wrappers asserting the decoded value equals a locally constructed `Severity.Low` — they exist to prove all four call sites route through the V13b walk, not to re-test the walk's internals.
-
-In the **Deps.** bullet, add `V10e` (V13b now depends on the enum brand existing, not just on V13a's translation map).
-
-Leave V10e itself unchanged in scope; cite it from V13b's Deps and let V13b own the inbound-pass tests.
-
-## Related Findings
-
-- "Static-resolution cache named three different ways" — same-cluster (sibling V13-area finding; resolves independently)
-- "V13 title inconsistency and \"retry\" terminological conflict" — same-cluster (sibling V13-area finding; resolves independently)
-- "\"Severity round-trips\" underspecified" — same-cluster (touches a different `Severity`-related observability boundary in H3, not the inbound brand walk; resolves independently)
 
