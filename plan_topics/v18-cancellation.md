@@ -66,11 +66,17 @@
 
 ## V18h — Custom Pi message type `loom-system-note` and renderer
 
-- **Spec.** [Pi Integration Contract](../spec_topics/pi-integration-contract.md) (system notes).
-- **Adds.** `pi.sendMessage({ customType: "loom-system-note", content, display: true, details }, { triggerTurn: false })`. Renderer formats as one-line dim entry.
-- **Tests.** Note persists in transcript; survives `/tree` navigation; renderer applies dim style.
-- **Deps.** H4.
-- **Ships when.** System notes have a stable channel.
+- **Spec.** [Pi Integration Contract](../spec_topics/pi-integration-contract.md) (system notes), [Diagnostics — renderer registration and fallback](../spec_topics/diagnostics.md).
+- **Adds.** `pi.sendMessage({ customType: "loom-system-note", content, display: true, details }, { triggerTurn: false })` for the happy path. Renderer formats as one-line dim entry and is registered via `pi.registerMessageRenderer("loom-system-note", …)` **synchronously inside the extension factory before the first `resources_discover` subscription fires**. On `sendMessage` throw or reject, the runtime falls back in order: (1) `ctx.ui.notify(content, "error")` wrapped in `try`/`catch` (it can throw in print mode); (2) emit `loom/runtime/system-note-delivery-failed` (severity `E`, `message` = original note's `content`, `hint` = underlying `sendMessage` error's `message`) through the standard diagnostics channel; (3) `console.error`. The fallback is single-shot (no retry of `sendMessage`), never aborts the slash handler or subagent session, and the diagnostic step MUST NOT re-invoke `pi.sendMessage` (re-entry guard, gated by an in-flight flag scoped to the fallback path).
+- **Tests.** Note persists in transcript; survives `/tree` navigation; renderer applies dim style. Renderer registration is observable before the first `resources_discover` scan: instrument the `FakeExtensionAPI` to record the order of `registerMessageRenderer` and `subscribe("resources_discover", …)` calls and assert the renderer call precedes the subscription. Inject a `FakeExtensionAPI` whose `sendMessage` throws → assert exactly one `ctx.ui.notify(content, "error")` call with the original `content`. Both `sendMessage` and `notify` throw → assert exactly one `loom/runtime/system-note-delivery-failed` diagnostic with `message` = original `content` and `hint` = `sendMessage` error message. All three (`sendMessage`, `notify`, diagnostics-channel emit) throw → assert exactly one `console.error` call and the slash handler still resolves normally. Re-entry guard: rig the diagnostics channel for `system-note-delivery-failed` to itself route through `loom-system-note` and assert `pi.sendMessage` is invoked exactly once across the whole sequence (no recursion). `ctx.ui.notify` throwing synchronously vs. rejecting asynchronously both route to the diagnostics step.
+- **Deps.** H3, H4.
+- **Ships when.** System notes have a stable channel and the three-tier delivery fallback is observable end-to-end.
+
+Edge cases the implementer must watch:
+
+- The re-entry guard's in-flight flag is per-fallback-call, not global; concurrent unrelated notes must still each be able to emit their own `system-note-delivery-failed`.
+- `ctx.ui.notify` rejection (`Promise<void>` API) and synchronous throw are both observed; the wrapping `try`/`catch` must `await` inside the `try`.
+- "Before the first discovery scan" is the first `resources_discover` subscription firing, not the first `LoomRegistry` mutation; in print mode where `ctx.ui` is absent, step 1 is treated as a throw and the chain proceeds to step 2.
 
 ## V18i — Per-`kind` formatting for prompt-mode top-level `Err`
 

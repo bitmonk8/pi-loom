@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_114 findings retained, 3 false positives dropped, 0 persistent failures_
+_113 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -8110,79 +8110,4 @@ Implementer must watch:
 - "V18i per-kind formatter: catch-all row, `last_tool_name=null`, chain recursion unasserted" — same-cluster (V18i is a sibling of the new leaf; both edit V18i Adds, but the per-kind formatter concerns are separable)
 - "V18m / V18o: panic routing has no debug/verbose surface" — decision-dependency (panic emission flows through `details: { diagnostics }` per the new leaf; the verbose-surface decision constrains what the panic emission carries)
 - "Closed diagnostic registry — many codes have no asserting plan leaf" — same-cluster (the always-log set's `code` field draws from the diagnostic registry; gaps there propagate into runtime-event payloads)
-
----
-
-# `loom-system-note` delivery fallback chain unasserted
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** `loom-system-note` delivery fallback chain unasserted
-**Kind:** spec-coverage, validation, assumptions
-
-## Finding
-
-V18h ships the `loom-system-note` channel + renderer with a three-bullet Tests block that asserts only that the note persists in the transcript, survives `/tree` navigation, and renders in the dim style. The spec attaches four additional normative obligations to this same channel that no leaf — V18h or any other — observes:
-
-1. **Three-tier delivery fallback.** `pi-integration-contract.md` (System notes, paragraph beginning "The `pi.sendMessage` call for `loom-system-note` is treated as best-effort") mandates: on `sendMessage` throw/reject, fall back to `ctx.ui.notify(content, "error")`; if that also throws, emit `loom/runtime/system-note-delivery-failed` through the diagnostics channel; if that also fails, log to `console.error` and continue. The fallback path does not retry, never aborts the slash handler, and never tears down the subagent session.
-2. **`loom/runtime/system-note-delivery-failed` code.** `diagnostics.md` (`loom/runtime/*` table, severity `E`, phase `runtime`) defines the diagnostic with `message` = the original note's `content` and `hint` = the underlying `sendMessage` error's message. No leaf names this code.
-3. **Re-entry guard.** Same paragraph: "if a future `loom/runtime/*` handler ever routes diagnostics back through `loom-system-note`, the diagnostic step in this fallback MUST NOT re-invoke `pi.sendMessage`." `ctx.ui.notify` itself can throw (print mode) and must be wrapped.
-4. **Renderer-registration ordering.** `diagnostics.md` (paragraph after the `pi.sendMessage` snippet): "The renderer MUST be registered synchronously inside the extension factory **before** the first discovery scan kicks off, so the first batch of scan diagnostics renders through the loom-specific renderer rather than as raw fallback text."
-
-V18h's `Adds` block describes the happy-path `sendMessage` shape and a one-line dim renderer; it does not mention `ctx.ui.notify`, the `system-note-delivery-failed` diagnostic, the re-entry guard, or the synchronous-before-first-scan ordering constraint. None of these obligations appears in `coverage-matrix.md`, in any other `v18-*` leaf, or in `h4-extension-shell.md` (where the factory wires its shims).
-
-## Plan Documents
-
-- `plan_topics/v18-cancellation.md` — V18h (edited)
-- `plan_topics/h4-extension-shell.md` — extension factory section (option-dependent — only edited if the renderer-registration ordering test lands in H4 instead of V18h)
-- `plan_topics/coverage-matrix.md` — `loom/runtime/*` row (edited — must map `system-note-delivery-failed` to the new/extended leaf)
-- `plan_topics/v14-tool-calls.md` — V14k (read-only — establishes the "first discovery scan" reference point)
-- `plan_topics/v18-cancellation.md` — V18m, V18n (read-only — both depend on V18h and would inherit the fallback behaviour transitively)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Horizontal, Vertical V18
-
-**Leaves (implementation order):**
-
-- H4 — Pi extension shell — (option-dependent — modified only if renderer-registration ordering test is sited here rather than in V18h)
-- V18h — Custom Pi message type `loom-system-note` and renderer — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers will diverge on every uncovered behaviour: one will add a `try`/`catch` around `sendMessage` and silently swallow; another will wire the full three-tier chain but skip the re-entry guard and recurse infinitely the first time a `loom/runtime/system-note-delivery-failed` is itself emitted through `loom-system-note`; a third will register the renderer asynchronously and ship a release where the first batch of scan diagnostics renders as raw fallback text. The V18o coverage gate cannot catch any of this because none of the four obligations is mapped to a leaf in `coverage-matrix.md`, so the gate passes vacuously.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Extend `plan_topics/v18-cancellation.md` § V18h in place. Rewrite the existing `Adds.` and `Tests.` bullets and leave `Spec.`, `Deps.`, and `Ships when.` structurally unchanged (tightening their content as noted):
-
-- **Spec.** Append after the existing reference: ", [Diagnostics — renderer registration and fallback](../spec_topics/diagnostics.md)."
-- **Adds.** Replace the current single sentence with: "`pi.sendMessage({ customType: \"loom-system-note\", content, display: true, details }, { triggerTurn: false })` for the happy path. Renderer formats as one-line dim entry and is registered via `pi.registerMessageRenderer(\"loom-system-note\", …)` **synchronously inside the extension factory before the first `resources_discover` subscription fires**. On `sendMessage` throw or reject, the runtime falls back in order: (1) `ctx.ui.notify(content, \"error\")` wrapped in `try`/`catch` (it can throw in print mode); (2) emit `loom/runtime/system-note-delivery-failed` (severity `E`, `message` = original note's `content`, `hint` = underlying `sendMessage` error's `message`) through the standard diagnostics channel; (3) `console.error`. The fallback is single-shot (no retry of `sendMessage`), never aborts the slash handler or subagent session, and the diagnostic step MUST NOT re-invoke `pi.sendMessage` (re-entry guard, gated by an in-flight flag scoped to the fallback path)."
-- **Tests.** Replace the current three bullets with: "Note persists in transcript; survives `/tree` navigation; renderer applies dim style. Renderer registration is observable before the first `resources_discover` scan: instrument the `FakeExtensionAPI` to record the order of `registerMessageRenderer` and `subscribe(\"resources_discover\", …)` calls and assert the renderer call precedes the subscription. Inject a `FakeExtensionAPI` whose `sendMessage` throws → assert exactly one `ctx.ui.notify(content, \"error\")` call with the original `content`. Both `sendMessage` and `notify` throw → assert exactly one `loom/runtime/system-note-delivery-failed` diagnostic with `message` = original `content` and `hint` = `sendMessage` error message. All three (`sendMessage`, `notify`, diagnostics-channel emit) throw → assert exactly one `console.error` call and the slash handler still resolves normally. Re-entry guard: rig the diagnostics channel for `system-note-delivery-failed` to itself route through `loom-system-note` and assert `pi.sendMessage` is invoked exactly once across the whole sequence (no recursion). `ctx.ui.notify` throwing synchronously vs. rejecting asynchronously both route to the diagnostics step."
-- **Deps.** Add `H3` (diagnostics channel must exist for step 2 of the fallback). Final list: `H3, H4`.
-
-Add a row to `plan_topics/coverage-matrix.md` mapping `loom/runtime/system-note-delivery-failed` → V18h so the V18o gate observes it.
-
-Edge cases the implementer must watch:
-- The re-entry guard's in-flight flag is per-fallback-call, not global; concurrent unrelated notes must still each be able to emit their own `system-note-delivery-failed`.
-- `ctx.ui.notify` rejection (`Promise<void>` API) and synchronous throw are both observed; the wrapping `try`/`catch` must `await` inside the `try`.
-- "Before the first discovery scan" is the first `resources_discover` subscription firing, not the first `LoomRegistry` mutation; in print mode where `ctx.ui` is absent, step 1 is treated as a throw and the chain proceeds to step 2.
-
-## Related Findings
-
-- "M requires `loom-system-note` channel that V18h introduces" — decision-dependency (resolving the M/V18h sequencing constrains where the renderer-registration ordering test can be sited; if the channel moves to H4, the ordering test moves with it)
-- "Runtime event channel / always-log set wholly absent from the plan" — same-cluster (also extends V18h's contract; the new leaf for the always-log set should reuse the same fallback path established here, but resolves independently)
-- "V18f structural-change note text unspecified" — same-cluster (another `loom-system-note` content gap on the same channel; resolves independently)
-- "\"Severity round-trips\" underspecified" — same-cluster (concerns the `details` payload carried by the same `pi.sendMessage` call)
-- "M's \"AbortError\" system-note path not defined in spec" — same-cluster (uses the same channel; resolves independently)
-- "H3 plans a serialiser to a Pi shape the spec says is unused" — same-cluster (also about correctly framing the `loom-system-note` delivery surface)
 
