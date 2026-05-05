@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_121 findings retained, 3 false positives dropped, 0 persistent failures_
+_120 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -8620,12 +8620,11 @@ Cross-link the two: V6i's existing `Deps.` line (`V6c, V4`) gains `V14e` so the 
 Edge cases the implementer must watch:
 
 - The basename rule is applied to the **file basename**, not the post-`as` slash name. A `tools:` entry of `summarise as analyse` still produces `label: "Summarise"` (label tracks file identity; `name` tracks the registered/post-rename name).
-- The `Type.Unsafe<unknown>` import path must resolve to whichever TypeBox package Pi actually depends on (see the related `TypeBox` package-identifier finding below — this constrains the literal import statement the V14e and V6i tests will check).
+- The `Type.Unsafe<unknown>` import path must resolve to the `typebox` peer dependency declared in `package.json` (per `spec_topics/pi-integration-contract.md` line 23) — this constrains the literal import statement the V14e and V6i tests will check.
 - The in-`execute` AJV check reuses the validator-cache key (lowered-schema content hash, per V4a) so it does not recompile per call.
 
 ## Related Findings
 
-- "`TypeBox` package identifier mismatch — spec says `@sinclair/typebox`, Pi uses `typebox`" — decision-dependency (the package name fixed there is what the V14e / V6i tests must import for the `Type.Unsafe<unknown>` assertion; resolve that finding first or in the same edit)
 - "Tool-registration dedup assumes no schema-hash collision" — same-cluster (touches the same H4 cache and the same `defineTool` lowering boundary, but resolves independently — collision handling vs shape correctness)
 - "H4 'no-logic shims' claim contradicts registration cache and `withActiveTools`" — same-cluster (touches H4's `defineTool` plumbing description; the shape-assertion tests added here belong on V14e/V6i, not H4, so the two findings do not co-resolve)
 - "V6i too large — bundles six distinct concerns" — decision-dependency (if V6i is split, the synthesised respond-tool shape sub-bullets recommended above must follow the split into the right sub-leaf)
@@ -8633,53 +8632,3 @@ Edge cases the implementer must watch:
 
 ---
 
-# `TypeBox` package identifier mismatch — spec names `@sinclair/typebox`, Pi requires `typebox`
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** `TypeBox` package identifier mismatch — spec says `@sinclair/typebox`, Pi uses `typebox`
-**Kind:** codebase-grounding-broad, doc-alignment-broad
-
-## Finding
-
-`spec_topics/pi-integration-contract.md` line 23 instructs the implementer to import `Type.Unsafe<unknown>` "from the `@sinclair/typebox` peer dependency declared in `package.json`." The actual peer dependency declared in `package.json` is `"typebox": "^1.1.24"` (single word), and the Pi SDK itself (`@mariozechner/pi-coding-agent` 0.72.x) likewise pins `"typebox": "^1.1.24"`. `@sinclair/typebox` is a separate published package whose released version range is 0.x — installing it would not satisfy the `^1.1.24` constraint and exposes a different export surface.
-
-An implementer who follows the spec literally will either fail to install the named package against the existing `package.json`, or add it as a second dependency and import `Type.Unsafe` from the wrong module. The two packages emit structurally different `TSchema` values, so the resulting `defineTool(...)` `parameters` would not interoperate with Pi's registration path, and the lowered-schema content hash that backs the H4 registration-cache dedup would diverge between the spec-faithful path and the Pi-internal path.
-
-The only spec or plan reference to `@sinclair/typebox` is this single line; every other mention of the library uses the bare brand "TypeBox", and `package.json` and the Pi SDK already agree on `typebox`. The fix is one literal substitution in the spec.
-
-## Plan Documents
-
-None
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — Per-loom registration, `parameters` field bullet (edited)
-
-## Affected Leaves
-
-**Phases:** Horizontal, MVP, Vertical V6, Vertical V14
-
-**Leaves (implementation order):**
-
-- H4 — Pi extension shell — (blocked)
-- M — Minimal end-to-end loom — (blocked)
-- V6i — AJV validation of typed query results (two-phase tool loop) — (blocked)
-- V14e — Pi tool wired into `@` queries as model-callable — (blocked)
-
-## Consequence
-
-**Severity:** correctness
-
-A spec-faithful implementer imports `Type.Unsafe` from the wrong module; the resulting `ToolDefinition.parameters` values are not the `TSchema` instances Pi consumes, breaking `pi.registerTool` interop and yielding lowered-artefact hashes that disagree with Pi's own. The H4 registration-cache dedup invariant (V14e Tests bullet: "exactly one `pi.registerTool` call per unique lowered-schema hash") becomes unobservable, because the schema objects on either side of the cache are no longer comparable. Compile-time failure is likely but not guaranteed — both packages export a `Type.Unsafe` symbol with overlapping surface.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `spec_topics/pi-integration-contract.md`, line 23 (the `parameters` field bullet under **Per-loom registration**), strike the literal string `` `@sinclair/typebox` `` and substitute `` `typebox` ``. The surrounding clause should read: "imported from the `typebox` peer dependency declared in `package.json`". No other spec page mentions `@sinclair/typebox`; no plan file mentions either identifier; `package.json` peerDependencies and the upstream `@mariozechner/pi-coding-agent` peerDependencies are already consistent with `typebox` and require no edit. The downstream paragraph (lines 23, 52) and `tool-calls.md` / `expressions.md` continue to use the bare brand "TypeBox" with no package qualifier, which remains correct.
-
-## Related Findings
-
-- "`ToolDefinition` `label` derivation and `Type.Unsafe<unknown>` wrap — no test leaf" — same-cluster (both touch the `Type.Unsafe<unknown>` wrap on `ToolDefinition.parameters`; this one fixes which package the wrap is imported from, the other adds the missing test that the wrap exists at all — independent edits, same code site)
