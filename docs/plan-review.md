@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_67 findings retained, 3 false positives dropped, 0 persistent failures_
+_66 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -4751,73 +4751,3 @@ The lead-expression form matches the disambiguation style already used in V6e an
 ## Related Findings
 
 None
-
----
-
-# V6k tool-loop budget accounting ambiguous
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** V6k tool-loop budget accounting ambiguous
-**Kind:** clarity
-
-## Finding
-
-V6k's Adds bullet correctly mirrors the spec — "tool-call rounds … and the forced respond turn (one slot)" — matching `spec_topics/query.md`'s "Tool-call loop bound" rule and `spec_topics/frontmatter.md`'s `tool_loop` prose, both of which state that "the forced respond turn that terminates a typed query also consumes one slot." Under that rule, with `max_iterations: 25` the runtime tolerates at most 24 free-phase tool-call rounds before the forced respond turn pushes the slot count to 25.
-
-V6k's Tests bullet then says "a loom that loops to exactly 25 succeeds, 26 fails with `tool_loop_exhausted`." "Loops to exactly 25" is the ambiguous phrase: read as *25 free-phase rounds* it contradicts the spec (25 free-phase rounds + 1 forced respond = 26 slots, which must exhaust); read as *25 total slots* it matches the spec but disagrees with the everyday meaning of "loops". Two reasonable implementers will pick different counter increments and write tests that disagree on the 24/25 boundary.
-
-The fix is mechanical: state the budget arithmetic as a formula in Adds and pin the Tests bullet to the boundary case in slot terms, so the counter increment and the off-by-one assertion are both unambiguous.
-
-## Plan Documents
-
-- `plan_topics/v6-typed-queries.md` — V6k section (Adds, Tests) (edited)
-- `plan_topics/v6-typed-queries.md` — V6i section (read-only, defines the two-phase loop the cap rides on)
-- `spec_topics/query.md` — "Tool-call loop bound" (read-only, the normative source)
-- `spec_topics/frontmatter.md` — `tool_loop` prose (read-only, normative)
-- `spec_topics/implementation-notes.md` — runtime section (read-only, confirms cap arithmetic)
-
-## Spec Documents
-
-None. Spec is internally consistent; the ambiguity is in the V6k plan leaf only.
-
-## Affected Leaves
-
-**Phases:** Vertical V6
-
-**Leaves (implementation order):**
-
-- V6k — `tool_loop` cap enforcement and `ToolLoopExhaustedError` — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two implementers reading V6k will pick different counter semantics: one will increment per free-phase round and treat the respond turn as zero-cost (matching the literal "loops to exactly 25 succeeds" reading), and one will count the respond turn as a slot (matching V6k's own Adds bullet and the spec). Their off-by-one tests at `max_iterations: 25` will disagree, and one of the two implementations will silently violate `spec_topics/query.md`'s "consumes one slot" rule for typed queries.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Edit `plan_topics/v6-typed-queries.md`, V6k section.
-
-Replace the parenthetical at the end of the **Adds** bullet — currently `… and the forced respond turn (one slot).` — with a formula:
-
-> Total slots consumed by a query = (free-phase rounds) + (1 if a forced respond turn is issued, else 0). Exhaustion fires when total slots would exceed `max_iterations`. Concretely, with the default `max_iterations: 25`, a typed query tolerates at most 24 free-phase rounds before its forced respond turn; an untyped query tolerates at most 25 free-phase rounds.
-
-Replace the **Tests** bullet currently reading `a loom that loops to exactly 25 succeeds, 26 fails with `tool_loop_exhausted`` with two boundary-case bullets stated in slot terms:
-
-> - typed query with `max_iterations: 25` and 24 free-phase rounds (24 + 1 forced respond = 25 slots) succeeds; same loom with 25 free-phase rounds (25 + 1 = 26 slots) fails with `tool_loop_exhausted` and `iterations: 25`;
-> - untyped query with `max_iterations: 25` and 25 free-phase rounds succeeds; 26 free-phase rounds fails with `tool_loop_exhausted` and `iterations: 25`.
-
-Leave the existing `last_tool_name` / `max_iterations: 0` / parallel-tool-calls / cancellation / coercion-reset bullets unchanged — they are already unambiguous.
-
-Edge case the implementer must watch: an untyped query that emits text on its very first turn consumes zero slots (no rounds, no forced respond turn); the counter must start at 0, not 1, for the typed-query 24-then-respond case to land at exactly 25.
-
-## Related Findings
-
-- "V6 leaf file order: V6k appears before V6j" — same-cluster (touches the V6k entry but resolves independently — pure file ordering)
-- "V6i too large — bundles six distinct concerns" — decision-dependency (V6i is V6k's Dep; if V6i splits, V6k's `Deps.` line must be updated to name the new sub-leaf that owns the two-phase loop core)
-
----
