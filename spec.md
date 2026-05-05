@@ -73,7 +73,11 @@ Implementer-facing notes about the runtime and Pi SDK contract.
 
 ### REQ-ID prefix table
 
-Each spec page that carries normative obligations is assigned a stable per-page REQ-ID prefix; rules inside the page are numbered (`PREFIX-1`, `PREFIX-2`, …) inline as `**PREFIX-N.**` markers or as `<a id="prefix-n"></a>` anchors. The plan's coverage matrix maps each REQ-ID to its closing leaf, and the V18s gate (per [`plan_topics/v18-cancellation.md`](./plan_topics/v18-cancellation.md)) treats unmapped REQ-IDs as CI failures. IDs are immutable: when a rule is split, the original ID retires and two new IDs appear; numbering never collapses to fill holes.
+**GOV-1.** Each spec page that carries normative obligations is assigned a stable per-page REQ-ID prefix (table below). [H6](./plan_topics/h6-req-ids.md) owns the initial pass that inserts `PREFIX-N` anchors into each page. The canonical anchor form is the inline `**PREFIX-N.**` marker (used by H6's grep, by V18s, and by all downstream tooling); the alternate `<a id="prefix-n"></a>` HTML form is permitted only where rendering constraints make the inline marker impractical, in which case both forms appear together on the same line.
+
+**GOV-2.** Once H6 lands, the plan's coverage matrix in [`plan_topics/coverage-matrix.md`](./plan_topics/coverage-matrix.md) is keyed per REQ-ID, mapping each ID to its closing leaf, and the [V18s coverage-matrix closing gate](./plan_topics/v18-cancellation.md#v18s-coverage-matrix-closing-ci-gate) treats any unmapped REQ-ID as a CI failure. Until H6 closes, the spec-side REQ-ID set is empty, the matrix is section-keyed scaffolding, and the V18s diff is vacuously satisfied.
+
+**GOV-3.** The REQ-ID extraction regex is `\b[A-Z]{3,4}-[0-9]+\b`, applied to non-narrative `spec_topics/*.md` files. Pure-narrative pages (`overview.md`, `glossary.md`, `influences.md`, `comparison.md`, `related-work.md`, `future-considerations.md`) are excluded from extraction. IDs are immutable: when a rule is split, the original ID retires and two new IDs appear; numbering never collapses to fill holes.
 
 | Page | Prefix |
 |---|---|
@@ -109,6 +113,9 @@ Each spec page that carries normative obligations is assigned a stable per-page 
 | `comparison.md` | (no IDs — narrative) |
 | `related-work.md` | (no IDs — narrative) |
 | `future-considerations.md` | (no IDs — narrative) |
+| `spec.md` (this appendix's GOV-N rules) | `GOV` |
+
+The `GOV` row covers the governance rules in this appendix; per GOV-3, the extraction regex is applied only to `spec_topics/*.md`, so `GOV-N` IDs in `spec.md` are not consumed by the V18s coverage gate but are citable from plan leaves and from review tooling.
 
 **GOV-4 (per-row invariant).** Existing rows in the prefix table above are immutable: once a page is assigned a prefix, that prefix never changes and is never reused for another page. The table is append-only. Introducing a new non-narrative page requires appending a new row whose prefix is *previously-unused* — meaning absent from both this table and the *Retired prefixes* sub-table below.
 

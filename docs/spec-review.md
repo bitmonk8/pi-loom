@@ -1,7 +1,7 @@
 # pi-loom — Consolidated Spec Review
 
 _Generated: 2026-05-05T19:49:46Z (revised: merges + multi→single conversion + bottom-up reorder)_
-_60 source findings → 5 commit-ready findings (8 merge clusters, 22 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
+_60 source findings → 4 commit-ready findings (8 merge clusters, 22 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
 
 Findings are ordered for **bottom-up processing**: each commit fixes the *last* finding in the doc until the doc is empty. Dependencies that require a particular landing order are encoded in the doc order — `MERGE-F` (`bindings.md` BNDS / BNDR rename) sits at the bottom of the REQ-ID-appendix supersection so it lands *before* `MERGE-G` (retirement registries + V18s sub-gates), which sits above it.
 
@@ -340,87 +340,5 @@ Edge cases:
 ## Related Findings
 
 - MERGE-A (opening-paragraph rewrite) — same Orientation block; both must land in one pass to avoid two contradictory rewrites of the same block.
-
----
-
----
-
-## spec.md — Appendix: REQ-ID prefix table — introductory paragraph
-
----
-
-# spec.md Appendix REQ-ID prefix table — introductory paragraph rewrite
-
-**Source:** docs/reviews/spec-review/spec-20260505-204733.md
-**Merged from:** 5 findings:
-- REQ-ID anchors described as present-state; actually an H6 future deliverable
-- Coverage matrix described as per-REQ-ID; currently section-keyed scaffolding
-- REQ-ID marker form and extraction contract unspecified
-- Cross-reference to V18s gate by file path rather than stable anchor
-- Governance rules for the REQ-ID system lack their own IDs
-
-**Kind:** cross-spec-consistency, traceability, completeness
-
-## Finding
-
-The introductory paragraph of `spec.md`'s REQ-ID prefix table appendix carries five defects that all rewrite the same paragraph:
-
-1. REQ-ID anchors are described in present indicative ("rules inside the page are numbered…") but no spec page actually carries them yet — H6 is the deferred owner.
-2. The coverage matrix is described as keyed per REQ-ID; today it is section-keyed scaffolding. H6 re-pivots it.
-3. The REQ-ID marker form (`**PREFIX-N.**` inline marker vs. `<a id="prefix-n"></a>` HTML anchor) is named but no extraction contract pins which form CI greps for.
-4. The V18s gate is referenced by file path (`plan_topics/v18-cancellation.md`) rather than by a stable section anchor.
-5. The governance rules in this paragraph carry no IDs of their own, so plan leaves cannot cite them.
-
-## Spec Documents
-
-- `spec.md` — Appendix: REQ-ID prefix table introductory paragraph (edited)
-- `plan_topics/v18-cancellation.md` — V18s — Coverage-matrix closing CI gate (read-only; gains a stable anchor)
-- `plan_topics/coverage-matrix.md` — preamble (edited; matches new wording)
-- `plan_topics/h6-req-ids.md` — Adds / Tests (edited; pins extraction-form contract)
-
-## Plan Impact
-
-**Phases:** Horizontal
-
-**Leaves (implementation order):**
-
-- H6 — REQ-ID anchor insertion and coverage-matrix re-pivot — (modified; pins the extraction contract and the H6-vs-spec-now temporal gating)
-- V18s — Coverage-matrix closing CI gate — (modified; gains stable anchor + GOV-N IDs for governance rules)
-
-## Consequence
-
-**Severity:** correctness
-
-A spec-table parser today cannot tell from this paragraph whether REQ-ID anchors exist (they don't yet), which form is canonical, or whether the V18s gate is currently active. Governance rules without IDs cannot be cited from leaf acceptance criteria.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Rewrite the introductory paragraph of the REQ-ID prefix table appendix in `spec.md` to:
-
-> **GOV-1.** Each spec page that carries normative obligations is assigned a stable per-page REQ-ID prefix (table below). [H6](./plan_topics/h6-req-ids.md) owns the initial pass that inserts `PREFIX-N` anchors into each page. The canonical anchor form is the inline `**PREFIX-N.**` marker (used by H6's grep, by V18s, and by all downstream tooling); the alternate `<a id="prefix-n"></a>` HTML form is permitted only where rendering constraints make the inline marker impractical, in which case both forms appear together on the same line.
->
-> **GOV-2.** Once H6 lands, the plan's coverage matrix in [`plan_topics/coverage-matrix.md`](./plan_topics/coverage-matrix.md) is keyed per REQ-ID, mapping each ID to its closing leaf, and the [V18s coverage-matrix closing gate](./plan_topics/v18-cancellation.md#v18s-coverage-matrix-closing-ci-gate) treats any unmapped REQ-ID as a CI failure. Until H6 closes, the spec-side REQ-ID set is empty, the matrix is section-keyed scaffolding, and the V18s diff is vacuously satisfied.
->
-> **GOV-3.** The REQ-ID extraction regex is `\b[A-Z]{3,4}-[0-9]+\b`, applied to non-narrative `spec_topics/*.md` files. Pure-narrative pages (`overview.md`, `glossary.md`, `influences.md`, `comparison.md`, `related-work.md`, `future-considerations.md`) are excluded from extraction.
-
-Companion edits:
-
-- **`plan_topics/v18-cancellation.md`** — Add an explicit anchor `### V18s — Coverage-matrix closing CI gate` (or confirm the existing H3 slugs to `v18s-coverage-matrix-closing-ci-gate`).
-- **`plan_topics/coverage-matrix.md`** — Preamble: change "every executable spec rule mapped to its closing leaf(s)" to "every executable spec rule will be mapped to its closing leaf(s) once H6 closes; today the matrix is section-keyed scaffolding."
-- **`plan_topics/h6-req-ids.md`** — Adds: pin the inline-marker-canonical rule. Tests: assert that every non-narrative page carries `PREFIX-N` markers in inline form for the page's prefix.
-
-Edge cases:
-
-- Keep the prefix table itself in present tense — assignments are live; only in-page anchors are deferred.
-- Do not invent or hand-place `PREFIX-N` markers ahead of H6; doing so causes spurious V18s diffs.
-- The `GOV-N` prefix is reserved by this rewrite for spec-governance rules; add a `GOV` row to the prefix table (with `spec.md` as the page).
-
-## Related Findings
-
-- MERGE-G (closing immutability paragraph) — same appendix; the closing paragraph rewrite extends V18s with prefix-table sub-gates that read this paragraph's GOV-N anchors.
 
 ---

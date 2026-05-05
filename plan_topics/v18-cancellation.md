@@ -128,6 +128,7 @@
 - **Deps.** V3a, V5e, V14c-a, V15a.
 - **Ships when.** Every `timeout:` site is a parse error citing the registered code, the loom is rejected, and V3a's unknown-field warner does not shadow it at the frontmatter site.
 
+<a id="v18s-coverage-matrix-closing-ci-gate"></a>
 ## V18s — Coverage-matrix closing CI gate
 
 - **Spec.** [`../spec.md` Appendix — REQ-ID prefix table](../spec.md), [Conventions — REQ-ID discipline](conventions.md), [Conventions — Sequential by default](conventions.md), [Diagnostics — Code registry](../spec_topics/diagnostics.md#code-registry).
