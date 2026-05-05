@@ -34,7 +34,7 @@ Every executable spec section maps to a closing leaf. The V18s gate (per [V18 �
 | [Query — degenerate rendered templates](../spec_topics/query.md) | V5e (runtime short-circuit), V5c (parse warning) |
 | [Query — coercion](../spec_topics/query.md) | V13g–V13j |
 | [Query — failure modes (`QueryError`)](../spec_topics/query.md) | V5g, V6i, V6k, V6j, V14r, V14f–V14i, V15l, V15m |
-| [Expression Sublanguage](../spec_topics/expressions.md) | V2a–V2i, extended in V14c |
+| [Expression Sublanguage](../spec_topics/expressions.md) | V2a–V2i, extended in V14c-a, V14c-b |
 | [Operator precedence](../spec_topics/expressions.md#operator-precedence) | V2c |
 | [Grammar disambiguation](../spec_topics/expressions.md#grammar-disambiguation) | V1e, V2 (struct-expr-in-scrutinee) |
 | [Object construction, array construction, operator rules](../spec_topics/expressions.md#object-construction-array-construction-and-operator-rules) | V2c, V2h |
@@ -48,7 +48,7 @@ Every executable spec section maps to a closing leaf. The V18s gate (per [V18 �
 | [Diagnostics — `loom/runtime/registry-swap-failed` (watcher build-aside-then-publish swap)](../spec_topics/diagnostics.md) | V18f |
 | [Return Statement](../spec_topics/return.md) | V8f, V9c, V9e |
 | [Function Definitions](../spec_topics/functions.md) | V9a–V9f |
-| [Tool Calls — Pi tools](../spec_topics/tool-calls.md) | V14a–V14c, V14e–V14j |
+| [Tool Calls — Pi tools](../spec_topics/tool-calls.md) | V14a, V14b, V14c-a, V14c-b, V14e–V14j |
 | [Tool Calls — registered loom callees](../spec_topics/tool-calls.md) | V15e–V15g |
 | [Invocation](../spec_topics/invocation.md) | V15a–V15n |
 | [Imports](../spec_topics/imports.md) | V17a–V17m |
@@ -61,11 +61,11 @@ Every executable spec section maps to a closing leaf. The V18s gate (per [V18 �
 | [Diagnostics](../spec_topics/diagnostics.md) | H3, V18j |
 | [Comparison with Existing Pi Features](../spec_topics/comparison.md) | – |
 | [Implementation Notes — Parser](../spec_topics/implementation-notes.md#parser) | V1a–V1e, refined per slice |
-| [Implementation Notes — Runtime](../spec_topics/implementation-notes.md#runtime) | M, V5e, V12a, V14c, V15a, V18a–V18n |
+| [Implementation Notes — Runtime](../spec_topics/implementation-notes.md#runtime) | M, V5e, V12a, V14c-a, V15a, V18a–V18n |
 | [Runtime Value Model](../spec_topics/runtime-value-model.md) | V2 (primitives/arrays/objects), V6a (Result), V10e (enum brand), V13b–V13d (wire-name) |
 | [Pi Integration Contract](../spec_topics/pi-integration-contract.md) | M, V6i (synthesised respond-tool shape), V12a, V14a–V14j (V14e: loom-callee `defineTool` shape), V18f, V18h |
 | [Pi Integration Contract — Runtime event channel](../spec_topics/pi-integration-contract.md) | V18q |
-| [Grammar Appendix — Loom literal sublanguage](../spec_topics/grammar.md#loom-literal-sublanguage) | V16a, V14c |
+| [Grammar Appendix — Loom literal sublanguage](../spec_topics/grammar.md#loom-literal-sublanguage) | V16a, V14c-b |
 | [Grammar Appendix — `let` form](../spec_topics/grammar.md#let-form) | V2a |
 | [Grammar Appendix — type grammar](../spec_topics/grammar.md#type-grammar) | V2a, V3b, V4b–V4f |
 | [Grammar Appendix — `match` arm body](../spec_topics/grammar.md#match-arm-body) | V7a |
