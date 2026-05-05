@@ -29,11 +29,11 @@ Every executable spec section maps to a closing leaf. The V18s gate (per [V18 �
 | [Template Interpolation](../spec_topics/frontmatter.md#template-interpolation) | V5b |
 | [Query — untyped](../spec_topics/query.md) | V5a, V5e, V5f, V5g |
 | [Query — typed and inference](../spec_topics/query.md) | V6c–V6h |
-| [Query — typed queries are tool-loop-shaped](../spec_topics/query.md) | V6i |
+| [Query — typed queries are tool-loop-shaped](../spec_topics/query.md) | V6i, V6l |
 | [Query — tool-call loop bound](../spec_topics/query.md) | V6k |
 | [Query — degenerate rendered templates](../spec_topics/query.md) | V5e (runtime short-circuit), V5c (parse warning) |
 | [Query — coercion](../spec_topics/query.md) | V13g–V13j |
-| [Query — failure modes (`QueryError`)](../spec_topics/query.md) | V5g, V6i, V6k, V6j, V14r, V14f–V14i, V15l, V15m |
+| [Query — failure modes (`QueryError`)](../spec_topics/query.md) | V5g, V6i, V6k, V6j, V6m, V14r, V14f–V14i, V15l, V15m |
 | [Expression Sublanguage](../spec_topics/expressions.md) | V2a–V2i, extended in V14c-a, V14c-b |
 | [Operator precedence](../spec_topics/expressions.md#operator-precedence) | V2c |
 | [Grammar disambiguation](../spec_topics/expressions.md#grammar-disambiguation) | V1e, V2 (struct-expr-in-scrutinee) |

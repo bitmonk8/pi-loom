@@ -53,7 +53,7 @@
 - **Spec.** [Query — Schema-validation coercion](../spec_topics/query.md), [Query — Typed queries are tool-loop-shaped](../spec_topics/query.md) (coercion follow-ups restart the two-phase loop).
 - **Adds.** On AJV failure of the respond turn's payload, append a follow-up user turn quoting the AJV error; restart the two-phase loop with a fresh `tool_loop` budget (free phase — the model may re-tool, e.g. re-read a file — then forced respond turn); re-validate. Bounded by `coercion.attempts`.
 - **Tests.** Successful coercion at attempt 1, 2, 3; attempts exhausted → `Err({kind:"validation", attempts: N})`; conversation history preserves the malformed respond-tool call and the follow-up user turn; coercion follow-up that triggers an intermediate frontmatter tool call (model re-reads a file before answering) succeeds; coercion follow-up gets the full `tool_loop.max_iterations` budget independent of how many rounds the original turn consumed.
-- **Deps.** V13f, V6i, V6k.
+- **Deps.** V13f, V6l, V6k.
 - **Ships when.** Default-mode coercion works through the two-phase loop.
 
 ## V13h — Coercion methodology: `schema_repeat`
