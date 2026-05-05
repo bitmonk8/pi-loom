@@ -86,7 +86,7 @@ Edge cases for the implementer of the conventions edit:
 
 ---
 
-# "No speculative APIs" rule has no operational meaning
+# Step 2 of TDD ritual: "minimum code" invites test-gaming and "speculative APIs" is undefined
 
 **Source:** docs/reviews/plan-review/plan-20260505-083349.md
 **Original heading:** "speculative APIs" undefined
@@ -94,9 +94,12 @@ Edge cases for the implementer of the conventions edit:
 
 ## Finding
 
-`plan_topics/conventions.md` step 2 of the per-phase TDD ritual reads: *"Implement. Write the minimum code that turns red tests green. No speculative APIs."* The trailing sentence has no operational definition. "Speculative" is a judgement word: any exported symbol not directly named by a test in the current leaf could be flagged by one reviewer and waved through by another. The preceding clause ("minimum code that turns red tests green") already commits the implementer to the same posture, so the added sentence either restates that rule in vaguer language or — if read as an additional constraint — introduces a second standard whose threshold no one can name.
+`plan_topics/conventions.md` step 2 of the per-phase TDD ritual reads: *"Implement. Write the minimum code that turns red tests green. No speculative APIs."* Both clauses are weak in opposite directions:
 
-The two natural operational readings both fail. (a) "Every exported symbol must be referenced by at least one test in this leaf" collides with the plan's own pattern where one leaf adds a parser surface and a downstream leaf adds the runtime check (called out explicitly in the Tests-bullet convention three paragraphs down). (b) "…or a downstream leaf already merged" is unobservable at the time the leaf is being written, since downstream leaves have not landed yet. Either reading produces false positives the implementer has to argue around.
+- *"Minimum code that turns red tests green"* can be read as a license to under-implement: an implementer who finds a thin path through the test fixtures may ship a partially-correct implementation that happens to pass, treating the tests as the contract rather than as evidence for a separately-specified correctness target.
+- *"No speculative APIs"* has no operational predicate. "Speculative" is a judgement word; reviewers will disagree on whether an exported helper is speculative or load-bearing for the next leaf.
+
+The two clauses also collide with the plan's own surface-then-runtime split pattern (called out three paragraphs down in the Tests-bullet convention), where one leaf legitimately exports symbols whose runtime checks land in a downstream leaf.
 
 ## Plan Documents
 
@@ -118,52 +121,28 @@ None
 
 **Severity:** advisory
 
-The rule applies cross-cuttingly to every leaf but does not block any of them: the "minimum code" clause and the leaf-level Tests bullets already constrain implementers. Two reviewers could still disagree at code-review time about whether a helper export is "speculative," producing churn but not divergent shipped behaviour. The V18o REQ-ID coverage gate is unaffected.
+The rule applies cross-cuttingly to every leaf but does not block any of them. The risk is silent under-implementation (correct-by-the-tests but wrong-by-the-spec) and unbounded over-implementation (speculative exports anticipating later leaves), neither of which fails any leaf gate. The V18o REQ-ID coverage gate is unaffected.
 
 ## Solution Space
 
-**Shape:** multiple
-
-### Option A — Drop the sentence
-
-**Approach.** Strike `No speculative APIs.` from `plan_topics/conventions.md`, line 16, leaving the step as: *"Implement. Write the minimum code that turns red tests green."*
-
-**Plan edits.** `plan_topics/conventions.md`, per-phase TDD ritual, step 2 — delete the trailing sentence `No speculative APIs.`
-
-**Spec edits.** None.
-
-**Pros.**
-- Removes the ambiguous qualifier without losing the underlying intent — "minimum code" already names the same posture.
-- No new convention surface to police; reviewers fall back to the leaf's Tests bullets as the contract.
-
-**Cons.**
-- Loses the explicit ban on shipping unused exports as a vocabulary item; reviewers who liked having a name for the failure mode lose it.
-
-**Risks.**
-- Minor: a reviewer who relied on the exact phrase to reject a PR has to reach for "minimum code" instead, which carries the same force.
-
-### Option B — Define operationally against the leaf's Tests bullets
-
-**Approach.** Replace the sentence with a definition tied to the leaf's own Tests bullets (the only artifact knowable at the time the leaf is being written).
-
-**Plan edits.** `plan_topics/conventions.md`, per-phase TDD ritual, step 2 — replace `No speculative APIs.` with: *"Every exported symbol introduced in this leaf must be referenced — directly or transitively — by at least one Tests-bullet assertion in this leaf. Symbols intended for a downstream leaf belong in that leaf."*
-
-**Spec edits.** None.
-
-**Pros.**
-- Gives the rule teeth: a reviewer can point at an exported symbol and ask which Tests bullet exercises it.
-- Consistent with the leaf-as-unit-of-work principle stated at the top of `conventions.md`.
-
-**Cons.**
-- "Transitively" is the new weasel word — it has to cover internal helpers reached only through the public symbol under test.
-- Pushes back against the existing pattern (Tests-bullet convention paragraph) where a parser-surface leaf legitimately exports symbols whose runtime checks land in a later leaf.
-
-**Risks.**
-- Implementers will have to split parser-surface-only leaves into "export + parse-only test" and "later-leaf runtime-check test" pairs that may not naturally exist; the pattern the plan currently endorses becomes harder to justify.
+**Shape:** single
 
 ### Recommendation
 
-Take Option A. The "minimum code that turns red tests green" clause already commits the implementer to the intended posture, and Option B's operational definition collides with the plan's own surface-then-runtime leaf-splitting pattern. If a reviewer needs to reject an unused export, the existing minimum-code clause carries the same force without inviting an argument over what "speculative" means. Edge case for the implementer: internal (non-exported) helpers introduced to keep the implementation readable are not covered by either rule and remain a normal code-review judgement call.
+In `plan_topics/conventions.md`, replace the existing step 2:
+
+> Implement. Write the minimum code that turns red tests green. No speculative APIs.
+
+with:
+
+> **Implement.** Write the smallest correct increment that turns the red tests green: correctness is the goal, the tests are the evidence — do not under-implement to game a thin test, and do not add speculative APIs (unused exports, public hooks no test in this leaf or its declared downstream consumers exercises) that anticipate later leaves.
+
+Two operational anchors land in one sentence:
+
+1. *Correctness is the goal, the tests are the evidence.* A reviewer who sees an implementation that passes the suite but misses a spec rule the suite under-asserts can still reject the PR; the convention now names that posture explicitly.
+2. *Speculative = no test in this leaf or its declared downstream consumers exercises it.* The "declared downstream consumers" qualifier honours the surface-then-runtime split: a V4 schema lowering may export shapes that only V6 tests exercise, as long as V6 lists V4 in its `Deps`. Symbols not reachable from any current-leaf or declared-downstream-leaf test belong in the leaf that needs them.
+
+Edge case for the implementer: internal (non-exported) helpers introduced to keep the implementation readable are not covered by the speculative-API rule and remain a normal code-review judgement call.
 
 ## Related Findings
 
@@ -299,11 +278,11 @@ Two implementers picking up the same leaf can legitimately disagree on what is b
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-### Option A — Replace every group-level Dep with explicit leaf IDs
+### Recommendation
 
-**Approach.** Audit each of the fifteen leaves listed above; for each `VN` token in `Deps.` substitute the precise leaf set the author actually relies on. Use `V6d`'s parenthetical (`V9a–V9e`) as the model: ranges where contiguous, comma-separated lists where not. Delete the now-redundant parentheticals (see related finding "V11g and V6d Deps fields contain rationale-only asides (cruft)").
+Audit each of the fifteen leaves listed above; for each `VN` token in `Deps.` substitute the precise leaf set the author actually relies on. Use `V6d`'s existing parenthetical (`V9a–V9e`) as the model: ranges where contiguous, comma-separated lists where not. Delete the now-redundant parentheticals (see related finding "V11g and V6d Deps fields contain rationale-only asides (cruft)").
 
 **Plan edits.**
 - `plan_topics/v2-expressions.md` V2a — `Deps. V1.` → `Deps. V1a–V1e.`
@@ -324,44 +303,9 @@ Two implementers picking up the same leaf can legitimately disagree on what is b
 
 **Spec edits.** None.
 
-**Pros.**
-- Matches `conventions.md`'s own statement that "leaves are the unit of work."
-- Makes the Deps DAG mechanically checkable (a future H1 lint could grep for `V[0-9]+` not followed by a letter and fail).
-- Forces the disambiguation that V6d already volunteered for free; nothing is being invented.
-- Robust against future leaf additions to a group: adding `V9q` does not silently change what `V6d` blocks on.
+For each leaf, validate the substituted set against that leaf's Tests bullets — the Tests reveal which surface is actually exercised. When a substitution is uncertain, prefer the larger set (the author can shrink it later) rather than guessing a subset. The resulting DAG becomes mechanically checkable: a future lint can grep for `V[0-9]+` not followed by a letter in any `Deps.` field and fail.
 
-**Cons.**
-- Fifteen edits, several of which require judgement calls about which subset of a group is actually required.
-- Subset judgement may be wrong; reviewer of the edit needs to validate each.
-
-**Risks.** A leaf added to a group later that the dependent leaf actually does need will not be retroactively added — but this is the correct failure mode (forces explicit thought).
-
-### Option B — Define `VN` shorthand in `conventions.md`
-
-**Approach.** Add one sentence to the **Deps.** bullet in `conventions.md` defining `VN` as "every leaf in group N is complete." Leave all fifteen Deps fields unchanged. Audit those whose author clearly meant a subset (V6d, V6e at minimum) and tighten only those.
-
-**Plan edits.**
-- `plan_topics/conventions.md` — extend the **Deps.** bullet (line 31) to: `Deps. Other leaf IDs that must be complete first. A bare group ID (e.g. V4) means every leaf in that group is complete; cite specific leaves (V4b, V4c) when only a subset is required. Listed - if none beyond the previous-leaf-in-the-group.`
-- `plan_topics/v6-typed-queries.md` V6d — replace `V9 (functions). *(Order: this leaf depends on V9a–V9e; reorder as needed.)*` with `V9a–V9e.`
-- `plan_topics/v6-typed-queries.md` V6e — replace `V9.` with `V9a–V9e.`
-- Delete the closing sentence of `conventions.md`'s vertical-slice bullet ("Their grouping (V4) is editorial only — leaves are the unit of work.") because the new convention contradicts it.
-
-**Spec edits.** None.
-
-**Pros.**
-- One-sentence convention edit covers the bulk of the cases.
-- Stable when leaves are added to a group: a new `V9q` automatically becomes a prerequisite of any leaf that says `Deps. V9.`, which matches the conservative reading.
-
-**Cons.**
-- Makes the dep DAG strictly more pessimistic than reality; some leaves that could ship in parallel will appear blocked.
-- Forces the deletion of the "grouping is editorial only" line, weakening a useful framing principle.
-- V12e in particular becomes blocked on every V6 leaf including tool-loop budget enforcement (V6k), which is almost certainly not what the author meant.
-
-**Risks.** Implementers reading "Deps. V6." literally will sit waiting on V6k when V12e probably only needs V6a–V6b. The convention solves the ambiguity by picking the slowest reading.
-
-### Recommendation
-
-Option A. The bare `VN` convention preserves false dependencies that the author did not intend (V12e is the clearest case). The fifteen-edit cost is paid once; the resulting DAG is mechanically checkable. While editing, delete the redundant parenthetical asides on V6d and V11g (see related finding). For each leaf, validate the substituted set against that leaf's Tests bullets — the Tests reveal which surface is actually exercised. When a substitution is uncertain, prefer the larger set (the author can shrink it later) rather than guessing a subset.
+A leaf added to a group later that a dependent leaf actually does need will not be retroactively added — this is the correct failure mode (it forces explicit thought rather than silently widening the prerequisite set).
 
 ## Related Findings
 
@@ -377,7 +321,7 @@ Option A. The bare `VN` convention preserves false dependencies that the author 
 
 ---
 
-# Per-leaf `CHANGELOG.md` and `notes.md` updates have no bootstrap and conflict with parent CLAUDE.md
+# Per-leaf `CHANGELOG.md` and `notes.md` updates have no bootstrap leaf
 
 **Source:** docs/reviews/plan-review/plan-20260505-083349.md
 **Original heading:** CHANGELOG.md / notes.md creation violates CLAUDE.md
@@ -387,13 +331,13 @@ Option A. The bare `VN` convention preserves false dependencies that the author 
 
 `plan_topics/conventions.md` line 41 mandates that "after each leaf, update `README.md`'s status table and append a one-line dated entry to `CHANGELOG.md`. The plan itself is updated only when the **plan** changes; non-plan discoveries go to `notes.md`." Neither `CHANGELOG.md` nor `notes.md` exists in the repository today (only `README.md` is present at the project root), and no leaf — including H1, where bootstrap work lives — lists either file in its `Adds.` field, includes a Tests bullet for it, or otherwise records its creation.
 
-The first implementer to complete a leaf will therefore have to create both files unprompted. The parent project rules at `C:\UnitySrc\CLAUDE.md` carry two relevant prohibitions: "NEVER create files unless absolutely necessary" and "NEVER proactively create documentation/README files". The convention is silent on whether a plan-mandated workflow file qualifies as "absolutely necessary," so two reasonable implementers will diverge: one creates the files and proceeds, one routes notes into `README.md`, one stops to ask, one ignores the rule. The convention also embeds a forward reference to documents the plan never schedules into existence — a structural defect independent of the CLAUDE.md collision.
+The first implementer to complete a leaf will therefore have to create both files unprompted, with no prior leaf having authorised them. The convention also embeds a forward reference to documents the plan never schedules into existence — a structural defect that two reasonable implementers will diverge on (one creates the files and proceeds, one routes notes into `README.md`, one stops to ask).
 
 ## Plan Documents
 
 - `plan_topics/conventions.md` — Cross-cutting rules → "Doc updates" bullet (edited)
-- `plan_topics/h1-scaffold.md` — `Adds.` / `Tests.` / `Ships when` (option-dependent)
-- `plan.md` — "How to use this plan" / horizontal-phase index (option-dependent)
+- `plan_topics/h1-scaffold.md` — `Adds.` / `Tests.` / `Ships when` (edited)
+- `plan.md` — "How to use this plan" / horizontal-phase index (read-only)
 
 ## Spec Documents
 
@@ -405,71 +349,36 @@ None
 
 **Leaves (implementation order):**
 
-- H1 — Repository scaffold and test framework — (option-dependent: modified under option B if bootstrap is folded in; unchanged under option A)
-- `<new>` — Bootstrap of `CHANGELOG.md` / `notes.md` — (added, option-dependent: only under option B if a dedicated bootstrap leaf is preferred over folding into H1)
+- H1 — Repository scaffold and test framework — (modified)
 
 ## Consequence
 
 **Severity:** correctness
 
-Without a resolution, the per-leaf phase-exit ritual is ambiguous in its very first step: implementers either silently violate the parent CLAUDE.md, silently skip the convention, or silently retarget it to `README.md`. The `CHANGELOG.md` / `notes.md` workflow becomes unreliable, the project history that the convention is meant to produce is incoherent across leaves, and review of any leaf cannot observe whether the doc-update gate was met.
+Without a resolution, the per-leaf phase-exit ritual is ambiguous in its very first step: implementers either silently skip the convention or silently retarget it to `README.md`. The `CHANGELOG.md` / `notes.md` workflow becomes unreliable, the project history that the convention is meant to produce is incoherent across leaves, and review of any leaf cannot observe whether the doc-update gate was met.
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-### Option A — Drop the dedicated files, route everything through `README.md`
+### Recommendation
 
-**Approach.** Replace the per-leaf log with an entry in the existing `README.md` status table (or an appended `## Changelog` / `## Notes` section in the same file). No new files are introduced; the convention stays consistent with the parent CLAUDE.md "no proactive doc files" rule by construction.
-
-**Plan edits.**
-- In `plan_topics/conventions.md`, replace the "Doc updates" bullet with: `**Doc updates.** After each leaf, update README.md's status table and append a one-line dated entry to its "## Changelog" section. Non-plan discoveries go to a "## Notes" section in the same file. The plan itself is updated only when the plan changes.`
-- No leaf changes required.
-
-**Spec edits.** None.
-
-**Pros.**
-- Zero new files; aligns with parent CLAUDE.md without any "necessary file" carve-out.
-- One file to read for project status, log, and notes.
-- Removes the forward reference to non-existent files.
-
-**Cons.**
-- `README.md` accumulates three concerns (status, changelog, notes) and grows unbounded.
-- No clean separation between machine-parseable changelog and free-form notes.
-
-**Risks.** `README.md` becomes the de-facto everything file; future readers grep across categories.
-
-### Option B — Bootstrap `CHANGELOG.md` and `notes.md` as a one-time, justified action in H1
-
-**Approach.** Treat the two files as project-required infrastructure, created once during H1 with an explicit justification recorded in the leaf. The CLAUDE.md "unless absolutely necessary" carve-out is invoked once and named.
+Bootstrap `CHANGELOG.md` and `notes.md` in H1 so the per-leaf doc-update convention has real targets from day one.
 
 **Plan edits.**
-- In `plan_topics/h1-scaffold.md`, append to `Adds.`: `; project bootstrap files CHANGELOG.md (Keep-a-Changelog header only) and notes.md (header only) — created once, justified by the per-leaf doc-update convention.`
-- In `plan_topics/h1-scaffold.md`, add a Tests bullet: `- File-presence test: CHANGELOG.md and notes.md exist at the project root with the expected headers.`
+- In `plan_topics/h1-scaffold.md`, append to `Adds.`: `; project bootstrap files CHANGELOG.md (Keep-a-Changelog header only) and notes.md (header only), created once so the per-leaf doc-update convention has stable targets.`
+- In `plan_topics/h1-scaffold.md`, add a Tests bullet: `File-presence test: CHANGELOG.md and notes.md exist at the project root with the expected headers.`
 - In `plan_topics/h1-scaffold.md`, extend `Ships when.`: `… and CHANGELOG.md / notes.md present at the project root.`
 - In `plan_topics/conventions.md`, append to the "Doc updates" bullet a parenthetical: `(Both files are bootstrapped in H1; do not re-create.)`
 
 **Spec edits.** None.
 
-**Pros.**
-- Preserves the original three-file separation (status / changelog / notes).
-- One-time, audited file creation, not "proactive" by any reasonable reading.
-- Convention reads cleanly after H1 ships.
-
-**Cons.**
-- Adds two near-empty files to the repository before they earn their content.
-- Requires an explicit human-style justification in a leaf, which other leaves do not carry.
-
-**Risks.** Future leaves may still drift on whether `notes.md` accepts arbitrary content; format of the Keep-a-Changelog header is not specified.
-
-### Recommendation
-
-Take **Option A**. Fold the changelog and notes streams into `README.md` and rewrite the conventions bullet as shown above. The plan already expects `README.md` to be touched after every leaf; co-locating the dated changelog line and the free-form notes section in the same file removes the parent-CLAUDE.md collision entirely, eliminates the dangling forward reference, and avoids carrying two near-empty files until they earn content. Edge case for the implementer: when `README.md`'s `## Changelog` or `## Notes` section does not yet exist (first leaf only), create it inline as part of the same edit — do not skip the entry waiting for someone else to add the heading.
+Edge case for the implementer: pin the Keep-a-Changelog header form (e.g. the standard `# Changelog` + format/versioning links + `## [Unreleased]` section) so the file-presence test has a stable target rather than asserting only file existence; `notes.md` only needs `# Notes` plus a one-line description of its purpose.
 
 ## Related Findings
 
-- "`docs/manual-smoke.md` does not exist and its creation violates CLAUDE.md" — co-resolve (same CLAUDE.md "no proactive doc files" collision applied to a different plan-mandated file; pick a consistent resolution policy across both)
-- "Exception-handling convention weaker than CLAUDE.md" — same-cluster (different convention bullet, same "plan convention drifts from parent CLAUDE.md" pattern; resolve independently but apply a consistent reconciliation principle)
+- "`docs/manual-smoke.md` does not exist and its creation violates CLAUDE.md" — co-resolve (same root question, resolved together: H4 bootstraps `docs/manual-smoke.md` on the same precedent)
+- "Exception-handling convention weaker than CLAUDE.md" — same-cluster (different convention bullet, separate fix)
 
 ---
 
@@ -525,38 +434,23 @@ V18o's CI gate is the project's V1.0 acceptance check for spec coverage. As writ
 
 ## Solution Space
 
-**Shape:** multiple
-
-### Option A — `H5 — REQ-ID anchor insertion and coverage-matrix re-pivot`
-
-- **Approach.** Insert a new horizontal phase between H4 and M. The leaf walks every non-narrative spec page, inserts `**PREFIX-N.**` markers at each normative obligation, re-pivots `coverage-matrix.md` rows from section keys to REQ-ID keys, and is the gating point for the convention "one Tests bullet per REQ-ID" to become enforceable. From M onward every leaf cites real IDs from day one; nothing needs backfill.
-- **Plan edits.**
-  - `plan.md` Horizontal phases section: insert `- [H5 — REQ-ID anchor insertion and coverage-matrix re-pivot](./plan_topics/h5-req-ids.md)` after H4.
-  - `plan_topics/h5-req-ids.md` (new file): full leaf with `Spec.` listing every page in the prefix table, `Adds.` describing the anchor pass, `Tests.` asserting (i) every non-narrative spec page contains ≥1 `PREFIX-N` marker, (ii) `coverage-matrix.md` has one row per REQ-ID, (iii) the V18o `comm -23` diff is empty against current spec text, `Deps.` `H4`, `Ships when.` "the V18o gate is enabled and green against current spec content."
-  - `plan_topics/coverage-matrix.md` preamble: strike the sentence "The current rows below are section-level scaffolding that pre-dates the REQ-ID assignment pass; rows below will be re-pivoted to per-REQ-ID granularity as Phase 12b assigns REQ-IDs page-by-page (see [Conventions — REQ-ID discipline](conventions.md))." Replace with: "Rows are keyed per REQ-ID (per the prefix table in [`../spec.md`](../spec.md)); H5 owns the initial population pass."
-  - `plan_topics/v18-cancellation.md` V18o `Deps.` field: add `H5` to the list. Strike the parenthetical "(the citation pass is editorial and ships incrementally with the leaves themselves)" — the bulk pass is now H5's responsibility and only post-H5 leaves carry their own citations as they ship.
-- **Spec edits.** Every page listed in the prefix table gets `**PREFIX-N.**` markers inserted at each normative obligation. Pure-narrative pages (`overview.md`, `glossary.md`, `influences.md`, `comparison.md`, `related-work.md`, `future-considerations.md`) are untouched.
-- **Pros.** Convention "one Tests bullet per REQ-ID" is enforceable from leaf #1 (M onward). No leaf ever ships in violation of its own convention. Coverage matrix is the source of truth from the start; the V18o gate is meaningful from H5 onward. Implementer following the plan top-to-bottom never encounters a "but there are no IDs yet" footnote.
-- **Cons.** Front-loads multi-page spec authoring before any code ships; H5 is large (≈26 spec pages × N obligations each) and is a single-implementer commit. If spec text churns during implementation the immutable-ID rule still holds, but new IDs land per the spec-drift protocol.
-- **Risks.** H5 is the project's longest pre-implementation block. Estimating its REQ-ID count requires reading every spec page in full first.
-
-### Option B — `V18p — REQ-ID anchor insertion and coverage-matrix re-pivot` (paired with V18o)
-
-- **Approach.** Add the leaf at the end of V18, immediately before V18o. All earlier leaves ship without REQ-ID citations; V18p backfills them in a single editorial pass and re-pivots the matrix. V18o then becomes meaningful.
-- **Plan edits.**
-  - `plan.md` Vertical slices section: V18 description gains "and REQ-ID anchoring" or similar; no top-level link change.
-  - `plan_topics/v18-cancellation.md` insert `## V18p — REQ-ID anchor insertion and coverage-matrix re-pivot` between V18n and V18o, with `Spec.` listing every page in the prefix table, `Adds.` describing the anchor + backfill pass, `Tests.` (same three assertions as Option A's H5), `Deps.` `V18n`, `Ships when.` "anchors present and matrix re-pivoted."
-  - `plan_topics/v18-cancellation.md` V18o `Deps.` field: add `V18p`. Strike the parenthetical "(the citation pass is editorial and ships incrementally with the leaves themselves)."
-  - `plan_topics/coverage-matrix.md` preamble: strike the "Phase 12b" sentence; replace with "Rows are keyed per REQ-ID (per the prefix table in [`../spec.md`](../spec.md)); V18p owns the initial population pass."
-  - `plan_topics/conventions.md` "Leaf format" `Tests.` bullet: add a parenthetical noting that REQ-ID citations are added retroactively at V18p — leaves shipped before V18p are exempt from the per-bullet citation rule.
-- **Spec edits.** Same as Option A.
-- **Pros.** Anchoring happens after spec has stabilised through implementation churn, so the immutable-ID rule rarely fires. Single editorial commit at the end is uniform and mechanical. No upfront block on M.
-- **Cons.** Every leaf from M through V18n ships violating the convention as written; conventions.md must carry an exemption clause. Coverage matrix sits in scaffolding form for the entire project lifetime. Backfilling Tests bullets across ~100 leaves at V18p is one giant commit that is hard to review. V18o gate is dormant until the very end of the project, providing zero incremental traceability feedback.
-- **Risks.** Implementers who skipped REQ-IDs may find their original leaf-author's intent ambiguous when the V18p backfiller tries to cite IDs against tests written months earlier.
+**Shape:** single
 
 ### Recommendation
 
-Take **Option A (`H5`)**. The convention `conventions.md` already requires "one bullet per REQ-ID" from the first leaf; satisfying that convention only at the end of V18 means every leaf in between ships in violation of its own format spec, which is a worse defect than the one this finding raises. The immutability concern is already covered by the "Spec drift" cross-cutting rule (stop, fix spec, resume). Implementer-relevant edge cases for the H5 leaf:
+Insert a new horizontal phase **`H5 — REQ-ID anchor insertion and coverage-matrix re-pivot`** between H4 and M. The leaf walks every non-narrative spec page, inserts `**PREFIX-N.**` markers at each normative obligation, re-pivots `coverage-matrix.md` rows from section keys to REQ-ID keys, and is the gating point for the convention "one Tests bullet per REQ-ID" to become enforceable. From M onward every leaf cites real IDs from day one; nothing needs backfill.
+
+**Plan edits.**
+- `plan.md` Horizontal phases section: insert `- [H5 — REQ-ID anchor insertion and coverage-matrix re-pivot](./plan_topics/h5-req-ids.md)` after H4.
+- `plan_topics/h5-req-ids.md` (new file): full leaf with `Spec.` listing every page in the prefix table, `Adds.` describing the anchor pass, `Tests.` asserting (i) every non-narrative spec page contains ≥1 `PREFIX-N` marker, (ii) `coverage-matrix.md` has one row per REQ-ID, (iii) the V18o `comm -23` diff is empty against current spec text, `Deps.` `H4`, `Ships when.` "the V18o gate is enabled and green against current spec content."
+- `plan_topics/coverage-matrix.md` preamble: strike the sentence "The current rows below are section-level scaffolding that pre-dates the REQ-ID assignment pass; rows below will be re-pivoted to per-REQ-ID granularity as Phase 12b assigns REQ-IDs page-by-page (see [Conventions — REQ-ID discipline](conventions.md))." Replace with: "Rows are keyed per REQ-ID (per the prefix table in [`../spec.md`](../spec.md)); H5 owns the initial population pass."
+- `plan_topics/v18-cancellation.md` V18o `Deps.` field: add `H5` to the list. Strike the parenthetical "(the citation pass is editorial and ships incrementally with the leaves themselves)" — the bulk pass is now H5's responsibility and only post-H5 leaves carry their own citations as they ship.
+
+**Spec edits.** Every page listed in the prefix table gets `**PREFIX-N.**` markers inserted at each normative obligation. Pure-narrative pages (`overview.md`, `glossary.md`, `influences.md`, `comparison.md`, `related-work.md`, `future-considerations.md`) are untouched.
+
+The convention `conventions.md` already requires "one bullet per REQ-ID" from the first leaf; satisfying that convention only at the end of V18 (the alternative considered) would mean every leaf in between ships in violation of its own format spec, which is a worse defect than the one this finding raises. The immutability concern for REQ-IDs across spec churn is already covered by the "Spec drift" cross-cutting rule (stop, fix spec, resume).
+
+Implementer-relevant edge cases for the H5 leaf:
 
 - The new leaf's Tests assertion (i) must use the union of all prefixes from the appendix table, not the literal string `PREFIX-`; see the related finding "V18o CI command assumes sorted input and literal `PREFIX-` prefix" for the corresponding V18o fix.
 - Pure-narrative pages must be excluded from assertion (i)'s denominator; the prefix table marks them `(no IDs — narrative)`.
@@ -2077,16 +1971,14 @@ The implementer must verify, as part of the smoke, that the `/loom-status` comma
 
 ## Finding
 
-H4's `Ships when.` reads: ``pi -e C:\UnitySrc\pi-loom` loads the extension and `/loom-status` runs in a real Pi session (manual smoke recorded in `docs/manual-smoke.md`).`` The receipt file `docs/manual-smoke.md` does not exist anywhere in the repository, is not listed in H4's `Adds.`, and is not declared by any earlier horizontal phase. Closing the H4 gate therefore forces the implementer to create a brand-new documentation file that no leaf has authorised.
-
-That creation collides with the global agent rule in `C:\UnitySrc\CLAUDE.md` (lines 64–66): "NEVER create files unless absolutely necessary" and "NEVER proactively create documentation/README files." The implementer is left to choose between violating the rule, fabricating a justification, or stalling H4. The same root cause already shows up for `CHANGELOG.md` / `notes.md` in `conventions.md`; H4 is the second instance of the same un-decided policy.
+H4's `Ships when.` reads: ``pi -e C:\UnitySrc\pi-loom` loads the extension and `/loom-status` runs in a real Pi session (manual smoke recorded in `docs/manual-smoke.md`).`` The receipt file `docs/manual-smoke.md` does not exist anywhere in the repository, is not listed in H4's `Adds.`, and is not declared by any earlier horizontal phase. Closing the H4 gate therefore forces the implementer to create a brand-new file that no leaf has authorised.
 
 A secondary problem: H4 has no `Tests.` bullet covering the smoke at all. `Ships when.` is the only place the manual reproduction is mentioned, and the bullet body specifies neither the expected `/loom-status` output nor the format of the receipt entry, so the gate is unobservable from any leaf-internal artefact.
 
 ## Plan Documents
 
-- `plan_topics/h4-extension-shell.md` — `Ships when.` bullet; `Adds.` list (edited)
-- `plan_topics/conventions.md` — "Doc updates" cross-cutting rule (read-only; option-dependent if the sibling CLAUDE.md finding is resolved by removing `CHANGELOG.md`/`notes.md`)
+- `plan_topics/h4-extension-shell.md` — `Ships when.` bullet; `Adds.`; `Tests.` (edited)
+- `plan_topics/conventions.md` — "Doc updates" cross-cutting rule (read-only)
 - `plan.md` — H4 entry under the horizontal-phases list (read-only)
 
 ## Spec Documents
@@ -2105,73 +1997,33 @@ None.
 
 **Severity:** blocking
 
-H4 cannot be shipped without either creating an undeclared documentation file (violating CLAUDE.md) or unilaterally rewriting the gate. Because every later horizontal-and-vertical phase depends on H4 being green, the ambiguity stalls the entire downstream pipeline at the first integration boundary, and the lack of a `Tests.` bullet means even an implementer willing to create the file has no specified content to put in it.
+H4 cannot be shipped without an implementer unilaterally rewriting the gate or inventing a file format. Because every later horizontal-and-vertical phase depends on H4 being green, the ambiguity stalls the entire downstream pipeline at the first integration boundary, and the lack of a `Tests.` bullet means even an implementer willing to create the file has no specified content to put in it.
 
 ## Solution Space
 
-**Shape:** multiple
-
-### Option A — Route the smoke receipt into `README.md`'s existing status table
-
-**Approach.** Drop the `docs/manual-smoke.md` reference. Use the per-leaf `README.md` status-table update that `conventions.md` "Doc updates" already mandates as the smoke receipt — the H4 row records the date, Pi version, and verbatim `/loom-status` output observed.
-
-**Plan edits.** In `plan_topics/h4-extension-shell.md`:
-- Replace the parenthetical in `Ships when.` with: `(manual smoke logged as the H4 row of README.md's status table: date, Pi version, and the verbatim /loom-status output line)`.
-- Add a `Tests.` bullet: `Manual smoke fixture: README.md status-table row for H4 contains the literal string "pi-loom: no looms loaded yet" and an ISO-8601 date.`
-
-**Spec edits.** None.
-
-**Pros.** No new file. Aligns with the existing "update README.md's status table" convention. Receipt content becomes parseable by the lint that already enforces status-table updates.
-
-**Cons.** README.md status-table schema is not yet fixed by any leaf, so this option co-depends on whichever leaf eventually defines it. If the sibling `CHANGELOG.md / notes.md` finding resolves by *deleting* the status-table convention rather than formalising it, this option loses its receptacle.
-
-**Risks.** README's status table grows monotonically with every leaf; verbatim output for many leaves bloats it. Mitigated by capping the receipt to one line per leaf.
-
-### Option B — Declare `docs/manual-smoke.md` in H4's `Adds.` with explicit justification
-
-**Approach.** Treat the manual smoke log as a load-bearing project artefact (not proactive documentation) and add it to H4's `Adds.` with a one-clause rationale that satisfies the CLAUDE.md "absolutely necessary" carve-out: it is the sole written record of human-in-the-loop integration verification, with no equivalent automated channel.
-
-**Plan edits.** In `plan_topics/h4-extension-shell.md`:
-- Append to `Adds.`: `; docs/manual-smoke.md as the project's single manual-integration receipt log (justified under CLAUDE.md "absolutely necessary": no automated Pi-session harness exists at H4, and the receipt must be reproducible across contributors).`
-- Append to `Tests.`: `Lint asserts docs/manual-smoke.md exists and its most recent entry has an ISO-8601 date and the literal /loom-status output line.`
-- Leave `Ships when.` text unchanged.
-
-**Spec edits.** None.
-
-**Pros.** Self-contained — H4 owns both the file and its receipt format. Survives any resolution of the sibling `CHANGELOG.md` finding. Keeps `README.md` clean of operational logs.
-
-**Cons.** Requires the implementer to accept the in-plan justification as overriding a global agent rule. If a future agent re-reads CLAUDE.md without the plan context, the file still looks proactive.
-
-**Risks.** Sets a precedent that any leaf can add a docs file by writing "justified under CLAUDE.md" in `Adds.`. Mitigated by keeping this the only such carve-out and pointing the sibling `CHANGELOG.md` finding at the same precedent.
-
-### Option C — Replace the manual smoke with a scripted Pi-session integration test
-
-**Approach.** Build (or reuse) a Pi test-harness that boots the extension and invokes `/loom-status`, asserting the printed line. The receipt file disappears because the assertion lives in the test suite.
-
-**Plan edits.** In `plan_topics/h4-extension-shell.md`:
-- Replace `Ships when.` with: `Integration test in test/integration/h4-pi-session.test.ts boots Pi with the built extension, runs /loom-status, and asserts the assistant turn contains "pi-loom: no looms loaded yet".`
-- Add a `Tests.` bullet citing the same integration test.
-- Add a `Deps.` entry for the harness leaf (does not exist; would have to be added — placeholder `<new>`).
-
-**Spec edits.** None.
-
-**Pros.** Eliminates the file question entirely and makes the gate machine-observable. Co-resolves M's "Ships-when is manual-only" and V5e's "real Pi session unverifiable" findings.
-
-**Cons.** Requires a Pi test-harness leaf that does not currently exist anywhere in the plan. Substantially expands H4's scope (or inserts a new horizontal phase before H4). Defeats the original intent of a low-cost smoke check at the H4 boundary.
-
-**Risks.** Pi may not expose a programmatic harness API at the version the project targets, in which case the leaf cannot ship and the option collapses.
+**Shape:** single
 
 ### Recommendation
 
-Adopt **Option A**. The smoke receipt belongs in the same place every other per-leaf doc update already lives (`README.md`'s status table per `conventions.md` "Doc updates"), so no policy carve-out is needed and no precedent is set. Option B is acceptable as a fallback if the sibling `CHANGELOG.md / notes.md` finding resolves by deleting the status-table convention; revisit then. Option C is correct in spirit but its prerequisite (Pi test harness) is missing from the plan and out of scope for an H4 fix.
+Declare `docs/manual-smoke.md` in H4's `Adds.` as a load-bearing project artefact with a fixed entry format, and add a `Tests.` bullet that asserts the file's most recent entry has the expected shape so the gate is observable.
 
-Edge case the implementer must watch: the README status-table row format must be settled in the same edit (or pinned to an existing example), otherwise the new `Tests.` bullet's literal-string assertion has nothing stable to match against.
+**Plan edits.** In `plan_topics/h4-extension-shell.md`:
+- Append to `Adds.`: `; docs/manual-smoke.md as the project's manual-integration receipt log. Each entry is one Markdown subsection with an ISO-8601 date heading, the Pi version used, the leaf ID being smoked, the exact command invoked (e.g. `pi -e C:\UnitySrc\pi-loom`), and the verbatim assistant-visible output line(s) observed. H4 creates the file with a header explaining the format and writes the first entry as part of closing the H4 gate.`
+- Append to `Tests.`: `File-presence and entry-shape lint: docs/manual-smoke.md exists at the project root, contains the documented header, and its most recent entry has an ISO-8601 date heading plus a non-empty fenced block containing the literal string "pi-loom: no looms loaded yet".`
+- Leave the `Ships when.` text otherwise unchanged.
+
+**Spec edits.** None.
+
+Edge cases for the implementer:
+- The entry format is a fixed contract from H4 onward — every later leaf that records a manual smoke (M, V5e under D23, future leaves) writes entries in the same shape so the lint generalises.
+- The lint asserts shape only, not output validity; whether `/loom-status` actually printed the right line is the human's responsibility at smoke time.
+- The first H4 entry is written by the H4 implementer at gate-closing time, not by the file's bootstrap step — the bootstrap creates only the header.
 
 ## Related Findings
 
-- "CHANGELOG.md / notes.md creation violates CLAUDE.md" — co-resolve (same root policy question; both should pick the same disposition between "route to existing file" and "declare in Adds with justification")
-- "M Ships-when is manual-only for an entire integration slice" — same-cluster (same weakness pattern: integration verification leaning on un-scripted manual gates; Option C here would co-resolve it)
-- "V5e Ships-when: 'a real Pi session' is unverifiable from the leaf gate" — same-cluster (third instance of the manual-Pi-session gate pattern)
+- "CHANGELOG.md / notes.md creation violates CLAUDE.md" — co-resolve (same root question; resolved together by bootstrapping `CHANGELOG.md`/`notes.md` in H1 and `docs/manual-smoke.md` in H4)
+- "M Ships-when is manual-only for an entire integration slice" — same-cluster (M's manual smoke uses the same file and entry format)
+- "V5e Ships-when: 'a real Pi session' is unverifiable from the leaf gate" — same-cluster (D23 may also write a `docs/manual-smoke.md` entry)
 - "H4 Ships-when uses undocumented `pi -e <dir>` invocation" — co-resolve (touches the same `Ships when.` bullet; both edits land in one diff to that line)
 
 ---
@@ -2277,11 +2129,11 @@ Two reasonable implementers will diverge: one will read "(no logic)" and produce
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-### Option A — Drop the "(no logic)" qualifier and expand H4 in place
+### Recommendation
 
-**Approach.** Keep all four adapter shims plus the registration cache and `withActiveTools` helper in H4 as a single leaf. Remove the "(no logic)" parenthetical, name the cache and helper as load-bearing components, and add the missing `Spec.` field that anchors them in the Pi Integration Contract.
+Keep all four adapter shims plus the registration cache and `withActiveTools` helper in H4 as a single leaf. Remove the "(no logic)" parenthetical, name the cache and helper as load-bearing components, and add the missing `Spec.` field that anchors them in the Pi Integration Contract. This sits naturally with D6: H4 already owns the factory-time `loom-system-note` channel registration, the cache, and `withActiveTools` — all factory-time integration plumbing co-located.
 
 **Plan edits.**
 - In `plan_topics/h4-extension-shell.md`, replace the `Adds.` opening sentence:
@@ -2292,49 +2144,7 @@ Two reasonable implementers will diverge: one will read "(no logic)" and produce
 
 **Spec edits.** None.
 
-**Pros.**
-- Keeps the H4 "stand up the extension surface" story in one leaf; V14e and V18g can keep referring to "the cache established in H4."
-- Smaller diff; no leaf-ID churn; coverage matrix gains one row instead of needing a new closing leaf.
-- The `Tests.` bullets already cover the cache and helper, so the leaf's internal coherence is restored without new test work.
-
-**Cons.**
-- H4 stays larger than a typical horizontal-phase leaf; reviewers cannot opt out of the cache/helper while accepting the shims.
-
-**Risks.**
-- Implementer still needs to recognise the `PiExtensionAPI` portion as the spec-bearing core; mitigated by the "(not a passthrough)" call-out and the new `Spec.` field.
-
-### Option B — Split the cache + helper into a dedicated leaf
-
-**Approach.** Reduce H4 to genuine shim wiring (`PiModelClient`, `PiToolHost`, `PiFileSystem`, a thin `PiExtensionAPI` that does nothing but expose Pi's methods) plus the `/loom-status` registration. Move the registration cache, the `withActiveTools` helper, and their tests into a new horizontal leaf (placeholder ID `<new>`, e.g. positioned between H4 and M).
-
-**Plan edits.**
-- In `plan_topics/h4-extension-shell.md`:
-  - Strike from `Adds.`: `` `PiExtensionAPI` owns the per-mode tool-registration plumbing per [Pi Integration Contract — Tool-registration lifetime and visibility](../spec_topics/pi-integration-contract.md): an extension-scoped `Map<schema-hash, registeredToolName>` cache fronting `pi.registerTool`, and a `withActiveTools(loomCallableSet, fn)` helper that wraps `pi.getActiveTools` / `pi.setActiveTools` snapshot/restore in a `try`/`finally`. ``
-  - Strike the third and fourth `Tests.` bullets (registration cache content-addressed, `withActiveTools` restore-on-resolve/reject/throw).
-  - Add a `**Spec.**` field listing only the Extension entry point subsection (or omit if H4 truly becomes a no-spec hygiene leaf).
-- Add a new leaf file (placeholder ID `<new>`) under `plan_topics/` covering: registration cache, `withActiveTools` helper, full `Tests.` set (content-addressed dedup; three-way restore; lifetime equals extension instance), `Spec.` pointing at "Tool-registration lifetime and visibility" and "Canonical schema hash", `Deps.` H4.
-- In `plan.md`, insert the new leaf in the Horizontal phases list between H4 and the MVP phase.
-- In `plan_topics/v14-tool-calls.md`, update V14e `Deps.` from `V14a, V5e` to `V14a, V5e, <new>`.
-- In `plan_topics/v18-cancellation.md`, update V18g (the registration-cache survival test) to depend on `<new>` instead of H4.
-- In `plan_topics/coverage-matrix.md`, add a row mapping "Pi Integration Contract — Tool-registration lifetime and visibility" to `<new>` (and to V14e for the per-mode wiring).
-
-**Spec edits.** None.
-
-**Pros.**
-- Restores H4 to a clean "stand up four passthrough shims and the status command" leaf.
-- Isolates the highest-risk H4 work (the `try`/`finally` invariant, the schema-hash semantics) into a leaf reviewers can pick up independently.
-
-**Cons.**
-- Introduces a new horizontal leaf ID and forces edits to V14e, V18g, `plan.md`, and `coverage-matrix.md` — substantially larger diff.
-- Requires an ID for the new leaf; the Horizontal series only has H1–H4 today, so the implementer must either renumber or invent a new pattern (e.g. H5).
-- Splits the cache from the `PiExtensionAPI` that owns it, forcing the new leaf to either expose construction order to H4 or have H4 stub the wiring.
-
-**Risks.**
-- ID-pattern decision (H5 vs. some other scheme) is a meta-decision that delays implementation start.
-
-### Recommendation
-
-Take **Option A**. The cache and `withActiveTools` helper are the only non-trivial work in `PiExtensionAPI`; separating them produces two leaves whose only coupling is "the second one needs the first to construct the object." Keep them together, drop the misleading qualifier, and add the missing `Spec.` field in the same edit. Edge cases the implementer must watch: the `Spec.` field added here must list both the Pi Integration Contract subsection and the canonical schema-hash subsection, otherwise V18o's REQ-ID gate will not see the hash-keying obligation.
+Edge cases the implementer must watch: the `Spec.` field added here must list both the Pi Integration Contract subsection and the canonical schema-hash subsection, otherwise V18o's REQ-ID gate will not see the hash-keying obligation. The "(not a passthrough)" call-out for `PiExtensionAPI` is load-bearing prose — do not strip it back to the shorter shim sentence.
 
 ## Related Findings
 
@@ -2544,11 +2354,11 @@ The plan still ships if M stays unsplit; the cost is paid in implementation fric
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-### Option A — Two-way split (parser / integration)
+### Recommendation
 
-**Approach.** Split M into `Ma` (lexer + parser surface) and `Mb` (runtime + slash registration + discovery + overflow note). This matches the original suggested fix.
+Split M into `Ma` (lexer + parser surface) and `Mb` (runtime + slash registration + discovery + overflow note). This is a two-way split along the natural parser-vs-integration seam; Mb stays the recognisable "smallest end-to-end" gate the MVP framing in `conventions.md` already names.
 
 **Plan edits.**
 - `plan_topics/m-mvp.md`: rename file or replace content with two `## Ma` / `## Mb` sections. `Ma` carries: frontmatter + body parser scoped to `mode: prompt`, `params:` absent or `{}`, single `` @`literal text` `` expression-statement; the four parse-error tests (unsupported keyword, unterminated template, etc.). `Ma` `Deps.` `H1, H3`. `Ma` `Ships when.` "Minimal 4-line loom parses cleanly into the documented AST shape; rejects the documented unsupported forms." `Mb` carries the remaining `Adds.` and `Tests.` bullets. `Mb` `Deps.` `Ma, H2, H4`. `Mb` `Ships when.` keeps M's current manual-smoke text.
@@ -2559,31 +2369,12 @@ The plan still ships if M stays unsplit; the cost is paid in implementation fric
 - `plan_topics/v5-untyped-queries.md` V5a `Deps.`: `M, V2` → `Ma, V2`. V5e `Deps.`: `V5a, M` → `V5a, Mb`.
 - `plan_topics/v14-tool-calls.md` V14k, V14l `Deps.`: `M` → `Mb`.
 
-**Pros.** Smallest delta to existing structure; matches the original reviewer suggestion; preserves Mb as a recognisable "smallest end-to-end" gate.
+Implementer-relevant edge cases:
 
-**Cons.** `Mb` still carries four heterogeneous concerns (runtime drive, slash registration, two-root discovery, overflow note). Several pending findings still pile onto a single leaf. Test list of `Mb` is still long.
-
-**Risks.** `Mb`'s manual-smoke `Ships when.` remains the only acceptance signal for runtime + slash + discovery + system-note glue at once.
-
-### Option B — Three-way split (parser / runtime+slash / discovery+overflow)
-
-**Approach.** Split into `Ma` (parser, as in Option A), `Mb` (runtime drive + slash command registration; happy-path end-to-end against a single explicitly-named loom file path), and `Mc` (two-root discovery walk + cross-root precedence + no-params overflow note + AbortError-system-note path).
-
-**Plan edits.**
-- `plan_topics/m-mvp.md`: three `## Ma` / `## Mb` / `## Mc` sections. `Ma` as in Option A. `Mb` `Adds.` covers runtime body-walk, `ConversationDriver.send`, query completion, and `pi.registerCommand` with the `description`-verbatim contract; explicit-path mode (no discovery walk) so the leaf can ship before `Mc`. `Mb` `Deps.` `Ma, H4`. `Mb` `Ships when.` "A loom file passed by explicit path runs end-to-end via `/<name>` in a real Pi session." `Mc` `Adds.` covers the two-root discovery walk, cross-root precedence warning, no-params overflow note, AbortError system-note path. `Mc` `Deps.` `Mb, V18h` (the renderer dependency the M-requires-loom-system-note finding identifies).
-- Coverage matrix and downstream `Deps.` updates as in Option A, but with `Mc` substituted for the discovery and overflow-note rows. V14k, V14l `Deps.` become `Mc`.
-
-**Pros.** Each sub-leaf has a clean single-area focus and a single-bullet Ships-when. The `loom-system-note` channel ordering finding resolves naturally (Mc explicitly depends on V18h or absorbs the renderer in scope). `Mb` becomes an executable gate without depending on file-system discovery.
-
-**Cons.** Three new IDs displace the well-known "M" label; coverage-matrix and downstream-Deps churn is larger; `Mb`'s "explicit path" mode is a temporary surface that `Mc` removes.
-
-**Risks.** The `Mb`-time explicit-path interface is throwaway scaffolding; reviewers may push back on adding a code path the plan immediately replaces.
-
-### Recommendation
-
-Apply **Option A**. The two-way split exhausts most of the atomicity benefit (parser / integration) at the smallest structural cost. `Mb` remains the recognisable "smallest end-to-end" MVP gate, which preserves the framing in `plan_topics/conventions.md` ("MVP phase. The smallest end-to-end `.loom` that runs as a Pi slash command — single hard-coded untyped query, prompt mode."). The downstream `Deps.` rewrites are mechanical and listed verbatim above.
-
-Implementer-relevant edge cases: (a) the `description`-verbatim test bullet in current M moves to `Mb` (it is a slash-registration assertion, not a parser one); (b) the AbortError-system-note bullet moves to `Mb` and inherits the unresolved spec-text question raised by the related "M's "AbortError" system-note path not defined in spec" finding — leave the bullet as a placeholder that V18m later tightens; (c) `Ma` must NOT depend on `H4` (no Pi shim required to parse a file from disk); (d) the cross-root precedence test bullet stays with `Mb` because it is a discovery-time check.
+- (a) the `description`-verbatim test bullet in current M moves to `Mb` (it is a slash-registration assertion, not a parser one);
+- (b) the AbortError-system-note bullet moves to `Mb` and inherits the unresolved spec-text question raised by the related "M's 'AbortError' system-note path not defined in spec" finding — leave the bullet as a placeholder that V18m later tightens;
+- (c) `Ma` must NOT depend on `H4` (no Pi shim required to parse a file from disk);
+- (d) the cross-root precedence test bullet stays with `Mb` because it is a discovery-time check.
 
 ## Related Findings
 
@@ -2771,51 +2562,22 @@ M cannot ship as written: its `Tests.` assertions on the verbatim no-params over
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-### Option A — Hoist channel + renderer + fallback into H4
+### Recommendation
 
-**Approach.** Move the `loom-system-note` channel infrastructure into H4 (extension-factory infrastructure, where the spec says it belongs), retire V18h, and have M depend only on H1–H4 as today.
+Hoist the `loom-system-note` channel infrastructure into H4 (extension-factory infrastructure, where the spec says it belongs) and retire V18h. The spec already says the renderer must be registered synchronously inside the extension factory before the first scan — H4 is the leaf that owns the factory, so this is the spec-natural home. Mb (the runtime/integration half of M after the D5 split) consumes the channel via H4.
 
 **Plan edits.**
 - `plan_topics/h4-extension-shell.md` — extend `Adds.` to include: "Registers `pi.registerMessageRenderer(\"loom-system-note\", …)` synchronously inside the extension factory before any discovery scan kicks off, formatting the note as a one-line dim transcript entry. Provides a `sendSystemNote(content, details?)` helper that wraps `pi.sendMessage({ customType: \"loom-system-note\", content, display: true, details }, { triggerTurn: false })` with the best-effort fallback chain `ctx.ui.notify(content, \"error\")` → `loom/runtime/system-note-delivery-failed` diagnostic → `console.error` per [Pi Integration Contract — System notes](../spec_topics/pi-integration-contract.md)." Add Tests bullets: "Renderer is registered before any discovery-scan side effect runs (asserted by ordering probe on `FakeExtensionAPI`)"; "`sendSystemNote` falls back through `ctx.ui.notify` then `loom/runtime/system-note-delivery-failed` then `console.error` when `pi.sendMessage` throws or rejects."
 - `plan_topics/v18-cancellation.md` — strike the V18h section in full; renumber subsequent V18 leaves only if other leaves' `Deps` fields cite V18h. Update `V18i.Deps` from `V18h` to `H4`. Update `V18m.Deps` to replace `V18h` with `H4`.
-- `plan_topics/m-mvp.md` — leave `Deps.` as `H1–H4`; rephrase Tests bullet for AbortError to "AbortError surfaces via the H4 `sendSystemNote` helper." Leave the no-params overflow text test as-is.
-- `plan_topics/v3-frontmatter.md` — change V3c `Deps.` parenthetical from `M (system-note channel)` to `H4 (system-note channel)`.
+- `plan_topics/m-mvp.md` — in the Mb sub-leaf (per D5), leave `Deps.` as `Ma, H2, H4`; rephrase Tests bullet for AbortError to "AbortError surfaces via the H4 `sendSystemNote` helper." Leave the no-params overflow text test as-is.
+- `plan_topics/v3-frontmatter.md` — change V3c `Deps.` parenthetical from `V3b, Mb (system-note channel)` to `V3b, H4 (system-note channel)`.
 - `plan_topics/coverage-matrix.md` — strike `V18h` from the rows for `pi-integration.md` and `pi-integration-contract.md`; add `H4` to those rows if not already present.
 
 **Spec edits.** None.
 
-**Pros.** Matches the spec's explicit factory-time registration mandate. Single owning leaf for the channel. Removes the V3c double-locate. Keeps M's scope intact.
-
-**Cons.** Inflates H4's `Adds.` slightly (still small — one helper plus one renderer registration). Retiring V18h shifts cross-references in V18i and V18m.
-
-**Risks.** Implementer of H4 must respect the "before first discovery scan" ordering; the new Tests bullet covers this.
-
-### Option B — Keep V18h, pull it forward in front of M
-
-**Approach.** Renumber V18h to a new horizontal leaf (e.g. `H4b` or `H5`), making it a pre-M dependency. M then lists it in `Deps`.
-
-**Plan edits.**
-- `plan_topics/v18-cancellation.md` — remove V18h section.
-- New file `plan_topics/h4b-system-note-channel.md` (or similar) — carries V18h's current `Adds`/`Tests` plus the renderer-before-first-scan ordering test. ID is implementer's choice; use `<new>` until assigned.
-- `plan_topics/m-mvp.md` — update `Deps.` to `H1–H4, <new>`.
-- `plan_topics/v3-frontmatter.md` — change V3c `Deps.` parenthetical from `M (system-note channel)` to `<new> (system-note channel)`.
-- `plan_topics/v18-cancellation.md` — update V18i and V18m `Deps.` from `V18h` to `<new>`.
-- `plan.md` — add the new horizontal leaf to the leaf list between H4 and M.
-- `plan_topics/coverage-matrix.md` — replace `V18h` with the new ID in both rows.
-
-**Spec edits.** None.
-
-**Pros.** Preserves the existing V18 numbering convention in spirit (the channel work is still its own leaf). Minimal change to H4's prose.
-
-**Cons.** Introduces a new horizontal phase between H4 and M, which the plan currently treats as a closed set (H1–H4). Forces a re-numbering decision that the plan has so far avoided. The new leaf's `Adds.` is small enough that a standalone leaf feels disproportionate.
-
-**Risks.** Future readers grepping for `H4` to find shell setup will miss the new leaf; the plan's horizontal-vs-vertical phase boundary becomes fuzzy.
-
-### Recommendation
-
-Take **Option A**. Hoist the `loom-system-note` channel, renderer registration, and best-effort fallback into H4 and retire V18h. The spec already says the renderer must be registered synchronously inside the extension factory before the first scan — H4 is the leaf that owns the factory, so this is the spec-natural home. Edge cases for the H4 implementer:
+Edge cases for the H4 implementer:
 
 - The renderer-registration-before-first-scan ordering must be observable in tests (use a `FakeExtensionAPI` probe that records the order of `pi.registerMessageRenderer` and the first `readdir` call, not just final state).
 - The `sendSystemNote` helper must apply the full three-step fallback chain; the `console.error` step exists only so the helper never throws into the slash-command handler.
@@ -3557,28 +3319,11 @@ Two reasonable implementers will diverge on whether `let x: integer = some_numbe
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-### Option A — Single anchor at V2a
+### Recommendation
 
-**Approach.** Add one Tests bullet to V2a, the earliest leaf where a typed slot exists (`let x: T = expr`). The same compatibility relation extends naturally to V4b's schema fields and V9a's function parameters; their leaves inherit the check without per-leaf Tests bullets.
-
-**Plan edits.**
-
-- `plan_topics/v2-expressions.md` § V2a — append to the **Tests** bullet:
-  `let x: integer = <number-expr>` emits `loom/parse/integer-narrowing`; `let y: number = <integer-expr>` widens silently.
-
-**Spec edits.** None.
-
-**Pros.** Minimal surface area; one bullet, one leaf. Anchors the code string at the earliest point it can be diagnosed.
-
-**Cons.** Implementers of V4b and V9a have no Tests-bullet reminder that the same diagnostic must fire for field-typing and parameter-passing, so a regression in either of those slots will not fail their leaf gate. Coverage relies on the closed-registry CI gate (proposed by the umbrella finding) to catch the gap.
-
-**Risks.** If the closed-registry gate is not built, an implementer of V4b or V9a could omit the field/param-side check without any leaf failing.
-
-### Option B — Distributed anchors across V2a, V4b, V9a
-
-**Approach.** Add a Tests bullet at each leaf that introduces a slot which can hold an `: integer` annotation: V2a (binding), V4b (object schema field), V9a (function parameter). Each bullet asserts the same diagnostic code in its local context.
+Distribute the assertion across all three sites that can hold an `: integer` annotation: V2a (binding), V4b (object schema field), V9a (function parameter). Each bullet asserts the same diagnostic code in its local context, with the asymmetry (widen silently / narrow rejected) documented at each site. With D11 settled (the type-compatibility relation is now defined in `type-system.md`), each test cleanly cites the relation as the source of the asymmetry.
 
 **Plan edits.**
 
@@ -3591,15 +3336,7 @@ Two reasonable implementers will diverge on whether `let x: integer = some_numbe
 
 **Spec edits.** None.
 
-**Pros.** Each implementer is reminded at the leaf they own. Independent of any closed-registry CI gate. Three small parallel tests act as readable regression cases for each slot kind.
-
-**Cons.** Three bullets to keep aligned; minor duplication of the same compatibility-relation assertion at three sites.
-
-**Risks.** Cosmetic only — three bullets must stay in sync if the diagnostic message ever changes.
-
-### Recommendation
-
-Option B. The cost is three short parallel Tests bullets; the benefit is that each affected leaf carries its own assertion and does not depend on the closed-registry CI gate (which is the subject of a separate, still-open finding) being built. Implementer must use the literal code string `loom/parse/integer-narrowing` in all three Tests; the asymmetry assertion (`integer → number` widens silently) is required at each site so the test set documents both directions, not just the rejected one.
+Use the literal code string `loom/parse/integer-narrowing` in all three Tests. The asymmetry assertion (`integer → number` widens silently) is required at each site so each test set documents both directions, not just the rejected one. Three bullets must stay in sync if the diagnostic message ever changes — cosmetic only.
 
 ## Related Findings
 
@@ -4099,11 +3836,11 @@ Two reasonable implementers will diverge: one will infinite-loop or stack-overfl
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-### Option A — Dedicated cycle-detector leaf in V4
+### Recommendation
 
-**Approach.** Add a new sibling leaf in `plan_topics/v4-schemas.md` (placement: after V4i, taking the next free letter slot — implementer-chosen, here `<new>`). The new leaf scopes only the alias-cycle pass.
+Add a new sibling leaf in `plan_topics/v4-schemas.md` (placement: after V4i, taking the next free letter slot — implementer-chosen, here `<new>`). The new leaf scopes only the alias-cycle pass, mirroring the structure of `V17k` (import cycles) and `V15n` (invocation cycles).
 
 **Plan edits.**
 
@@ -4117,41 +3854,13 @@ Two reasonable implementers will diverge: one will infinite-loop or stack-overfl
 
 **Spec edits.** Add a `loom/parse/type-alias-cycle` row to the registry table in `spec_topics/diagnostics.md` (severity `E`, stage `parse`, link to `schemas.md`).
 
-**Pros.** Matches spec phrasing that the detector is a separate pass; mirrors the structure of `V17k` (import cycles) and `V15n` (invocation cycles); keeps `V4c`'s "Ships when" narrow.
-
-**Cons.** Adds one more leaf to V4.
-
-**Risks.** Implementer must remember to schedule the new leaf before any leaf that exercises type aliases against potentially cyclic input — the explicit `Deps.` entry on `V4c` and on downstream leaves prevents that.
-
-### Option B — Fold the detector into V4c
-
-**Approach.** Extend `V4c`'s `Adds.` and `Tests.` to cover cycle detection in addition to primitive-union lowering.
-
-**Plan edits.**
-
-- In `plan_topics/v4-schemas.md`, V4c:
-  - **Adds.** Append: "Pre-lowering pass over the alias graph emits `loom/parse/type-alias-cycle` (printed cycle path) for any `schema X = ...` whose right-hand side reduces to `X` through aliases only; cycles that traverse at least one object-schema hop remain legal."
-  - **Tests.** Append: `schema X = X` → diagnostic with cycle path; two-step cycle; three-step cycle; cycle through one object-schema hop → no diagnostic.
-  - **Ships when.** Append: "...and pure-alias cycles are rejected before lowering."
-
-**Spec edits.** Same as Option A — add the registry row.
-
-**Pros.** Fewer leaves; rule and its protection co-located.
-
-**Cons.** Conflates two passes that the spec explicitly separates (lowering vs. pre-lowering cycle walk); widens `V4c`'s exit gate; departs from the structural pattern set by `V17k` and `V15n`, which both isolate cycle detection in their own leaves.
-
-**Risks.** A future split of `V4c` becomes harder; harder to point a downstream leaf's `Deps.` at "the cycle pass exists" without pulling in all of `V4c`.
-
-### Recommendation
-
-Option A. The spec singles out the alias-cycle detector as a distinct pass with a fixed pipeline position ("after schema-name resolution but before lowering") and a documented diagnostic with a printed-path format that matches two other cycle detectors (`loom/load/import-cycle`, `loom/load/invocation-cycle`); the plan should mirror that structure with a sibling leaf, as it already does for `V17k` and `V15n`.
-
 Edge cases for the implementer to pin in tests:
 
 - The printed path uses `→` (U+2192) and the literal prefix `"type-alias cycle: "` exactly — match the spec's quoted template byte-for-byte.
 - Self-cycle `schema X = X` must still produce a non-empty path (`"X → X"`), not a degenerate one-element rendering.
 - A cycle whose only object-hop is `null`-typed or otherwise non-`schema` (e.g. `schema X = X | null`) is *not* an object-schema hop — the detector must treat aliases-to-primitives-or-aliases as continuing the walk.
 - The pass must run before the V4c lowering attempt — without this ordering, lowering recurses into `X = X` and stack-overflows before the diagnostic fires.
+- The implementer must remember to schedule the new leaf before any leaf that exercises type aliases against potentially cyclic input — the explicit `Deps.` entry on `V4c` and on downstream leaves prevents that.
 
 ## Related Findings
 
@@ -4276,30 +3985,11 @@ A reasonable implementer reads V11i and ships a depth check at exactly one bound
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-### Option A — Centralise all four assertions in V11i
+### Recommendation
 
-**Approach.** Rewrite V11i so its Adds names the four boundaries explicitly and its Tests asserts depth-6 rejection at each, the canonical `ValidationIssue` shape, and the pre-AJV ordering. V11i becomes the single owner of depth-cap coverage.
-
-**Plan edits.**
-
-- `plan_topics/v11-discriminated-unions.md`, V11i:
-  - Replace the **Adds** bullet with: "`SchemaValidator` performs a pre-AJV recursive depth walk on the post-decode JSON value at every validation boundary defined in [Schema Subset — Depth Enforcement](../spec_topics/schema-subset.md): typed-query response, model-driven tool-call arguments, code-driven tool-call arguments, and `params` at loom invocation. First node whose depth exceeds 5 short-circuits and produces a `ValidationIssue { schema_keyword: \"maxDepth\", path: <JSON Pointer>, message: \"JSON document depth exceeds 5\" }` surfaced through the boundary's envelope (`QueryError` / `CodeToolError` / `InvokeInfraError`)."
-  - Replace the **Tests** bullet with: "Depth-5 accepted, depth-6 rejected at each of the four boundaries (typed-query response, model-driven tool-call args, code-driven tool-call args, `params` at invocation); each rejection carries `ValidationIssue.schema_keyword === \"maxDepth\"`, `path` is a JSON Pointer to the first too-deep node, and `message` is exactly `\"JSON document depth exceeds 5\"`; depth walk runs before AJV (instrument the validator so an AJV-keyword-shaped error cannot precede a `maxDepth` issue on the same payload); cap applies to data not schema graph (recursive `schema Tree` with depth-3 instance accepted); `params` boundary check fires even for primitive-only `params` declarations (no-op walk still installed); coercion follow-up re-runs the walk."
-  - Extend **Deps** to: `V11g, V6c, V14e, V14f, V16p`.
-
-**Spec edits.** None.
-
-**Pros.** Single locus for the cap; one test file owns the contract; impossible to ship V11i without all four sites tested.
-
-**Cons.** V11i becomes a late-phase leaf (deps push it after V14 and V16); a future contributor reading V14e/V14f/V16p sees no depth-cap obligation in those files.
-
-**Risks.** Late landing of V11i delays the V18o coverage flip for the `Schema Subset` row; if any of V6c/V14e/V14f/V16p slip, V11i blocks.
-
-### Option B — Split: V11i tests the validator service; per-boundary leaves test their own wiring
-
-**Approach.** Keep V11i scoped to the `SchemaValidator` service in isolation (depth walk correctness, error shape, pre-AJV ordering against a synthetic boundary). Add a depth-violation Tests bullet to each of the four boundary leaves to prove the walk is actually invoked at that site.
+Keep V11i scoped to the `SchemaValidator` service in isolation (depth walk correctness, error shape, pre-AJV ordering against a synthetic boundary). Add a depth-violation Tests bullet to each of the four boundary leaves to prove the walk is actually invoked at that site. The four boundaries are owned by four different leaves with different envelopes (`QueryError`, `CodeToolError`, `InvokeInfraError`, binder system note) and different test scaffolds; centralising in V11i would couple it to four downstream leaves and push it past V16.
 
 **Plan edits.**
 
@@ -4314,15 +4004,11 @@ A reasonable implementer reads V11i and ships a depth check at exactly one bound
 
 **Spec edits.** None.
 
-**Pros.** Each boundary leaf carries its own depth-cap obligation, visible to anyone reading that file; V11i stays near its current position in the implementation order; failures localise to the responsible boundary.
+Edge cases the implementer must watch:
 
-**Cons.** Five files touched instead of one; the `maxDepth` literal is restated in four tests; one boundary leaf could ship without the depth assertion if a reviewer misses it.
-
-**Risks.** Drift between the per-boundary assertions if the spec's error shape changes; mitigated by V11i still owning the canonical service-level shape test.
-
-### Recommendation
-
-Adopt **Option B**. The four boundaries are owned by four different leaves with different envelopes (`QueryError`, `CodeToolError`, `InvokeInfraError`, binder system note) and different test scaffolds; centralising in V11i couples it to four downstream leaves and pushes it past V16, while the boundary-local tests give a contributor reading V14f or V16p the obligation in front of them. Edge cases the implementer must watch: (a) the `maxDepth` literal is the only `schema_keyword` value Loom emits that is not a literal AJV keyword — `V6j` (`ValidationIssue` schema) must accept it without an enum-mismatch error; (b) the `params` boundary walk is a no-op for primitive-only declarations but must still be installed (per spec edge case) so future widening inherits the cap — V16p's test should construct an artificially deep value and confirm the walk fires even against a primitive-typed param schema, or V3a should grow a note that the safety net is the same `SchemaValidator` invocation.
+- (a) The `maxDepth` literal is the only `schema_keyword` value Loom emits that is not a literal AJV keyword — `V6j` (`ValidationIssue` schema) must accept it without an enum-mismatch error.
+- (b) The `params` boundary walk is a no-op for primitive-only declarations but must still be installed (per spec edge case) so future widening inherits the cap — V16p's test should construct an artificially deep value and confirm the walk fires even against a primitive-typed param schema, or V3a should grow a note that the safety net is the same `SchemaValidator` invocation.
+- (c) Drift between the per-boundary assertions if the spec's error shape changes is mitigated by V11i still owning the canonical service-level shape test.
 
 ## Related Findings
 
@@ -4447,11 +4133,11 @@ Two reasonable implementers will produce materially different V4a deliverables: 
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-### Option A — Pin AJV's native error contract inside V4a, defer loom shape to V6j
+### Recommendation
 
-**Approach.** Replace the vague bullet with explicit, falsifiable assertions about AJV's native behaviour that V4a is directly responsible for, and add an explicit forward reference to V6j for the loom-shaped translation.
+Replace the vague bullet with explicit, falsifiable assertions about AJV's native behaviour that V4a is directly responsible for, plus an explicit forward reference to V6j for the loom-shaped translation. V4a is the only leaf where AJV's runtime configuration is set; its Tests bullets must pin that configuration. The validator-contract clauses already enumerated in `Adds` are the natural source of those bullets — mirror the `Adds` line into `Tests`, which is the leaf format's intended discipline.
 
 **Plan edits.** In `plan_topics/v4-schemas.md`, V4a `Tests.` field, strike `validation produces expected error shapes` and insert in its place:
 
@@ -4464,41 +4150,7 @@ Two reasonable implementers will produce materially different V4a deliverables: 
 
 **Spec edits.** None.
 
-**Pros.**
-- Each bullet maps 1:1 to a clause already in V4a's `Adds`, closing the gap between what the leaf claims to add and what it tests.
-- Catches AJV-config drift at the leaf that owns the config, not at V6j.
-- Keeps the V4 / V6 split intact.
-
-**Cons.**
-- Six bullets where there was one — V4a's Tests list grows.
-- Slight redundancy with V6j's tests on `keyword` propagation (V4a asserts AJV emits them; V6j asserts the translation preserves them).
-
-**Risks.**
-- Implementer might still skimp on the deferred bullet if "deferred to V6j" is read as "not my problem."
-
-### Option B — Defer the entire error-shape question to V6j with a single explicit pointer
-
-**Approach.** Acknowledge that V4a is scaffolding and that error-shape testing belongs with the loom-shaped translation in V6j. Replace the vague bullet with a one-line deferral and let V4a stand on its other three Tests bullets (cache hit, cache miss, no global state).
-
-**Plan edits.** In `plan_topics/v4-schemas.md`, V4a `Tests.` field, strike `validation produces expected error shapes` and insert: `error-shape assertions deferred to V6j (ValidationIssue translation layer).`
-
-**Spec edits.** None.
-
-**Pros.**
-- Minimal edit; no Tests-list growth.
-- Honest about V4a's true scope (scaffolding).
-
-**Cons.**
-- Leaves V4a's four `Adds` clauses (allErrors, no coercion, no default-filling, in-document `$ref` only, silent format acceptance) without any Tests coverage at all — those are V4a-owned behaviours, not V6j-owned.
-- V6j's current Tests bullet only covers AJV-keyword-to-`schema_keyword` mapping and JSON-Pointer paths; it does not cover allErrors, no-coercion, no-defaults, etc., so deferring without expanding V6j leaves those untested across the plan.
-- Re-scoping the leaf to "scaffolding only" weakens the `Ships when` gate.
-
-**Risks.**
-- If V6j is not also expanded, the four behavioural-contract clauses ship untested.
-
-### Recommendation
-
-Take **Option A**. V4a is the only leaf where AJV's runtime configuration is set; its Tests bullets must pin that configuration. The validator-contract clauses already enumerated in `Adds` are the natural source of those bullets — Option A simply mirrors the `Adds` line into `Tests`, which is the leaf format's intended discipline. The deferral pointer to V6j on the final bullet keeps the loom-shape concern out of V4a without losing the cross-reference. Edge case for the implementer: the `unknown format keyword silently accepted` test must register `ajv-formats` (per `Adds`) and *still* assert that an unregistered format string produces no compile-time error and no validation error — silent acceptance, not silent passing of registered formats.
+Edge case for the implementer: the `unknown format keyword silently accepted` test must register `ajv-formats` (per `Adds`) and *still* assert that an unregistered format string produces no compile-time error and no validation error — silent acceptance, not silent passing of registered formats.
 
 ## Related Findings
 
@@ -4968,57 +4620,19 @@ Two reasonable implementers will diverge: one will treat the fake-driven Tests a
 
 ## Solution Space
 
-**Shape:** multiple
-
-### Option A — Add a manual smoke to match M and H4
-
-**Approach.** Keep the "real Pi session" milestone but anchor it to an author-run smoke recorded in `docs/manual-smoke.md`, mirroring H4's pattern verbatim.
-
-**Plan edits.** In `plan_topics/v5-untyped-queries.md`, replace the V5e `Ships when.` line with:
-
-> **Ships when.** Manual: a `multi.loom` placed in `.pi/looms/` containing two consecutive `let x = @\`...\`` queries, slash invocation produces two distinct assistant turns in a real Pi session (manual smoke recorded in `docs/manual-smoke.md`).
-
-**Spec edits.** None.
-
-**Pros.** Consistent with the only two existing precedents in the plan (M, H4). Zero new infrastructure. Preserves the user-meaningful "real Pi" milestone.
-
-**Cons.** Smoke is human-run; CI cannot enforce it. Adds an entry to `docs/manual-smoke.md` (file already established by H4).
-
-**Risks.** Author skips the smoke and tags `V5e-complete` anyway; mitigated only by review discipline.
-
-### Option B — Downgrade Ships-when to fake-driven
-
-**Approach.** Match the gate to what the Tests bullets actually assert.
-
-**Plan edits.** In `plan_topics/v5-untyped-queries.md`, replace the V5e `Ships when.` line with:
-
-> **Ships when.** A loom containing multiple bound `@\`...\`` queries drives the `PromptModeConversationDriver` to completion against `FakeModelClient`, with each query receiving the next response in the queue.
-
-**Spec edits.** None.
-
-**Pros.** Fully observable from CI. No new artefacts.
-
-**Cons.** Loses the "real Pi session" milestone — V5e is the leaf where prompt-mode driving first crosses the Pi boundary, and the regression in milestone semantics is meaningful.
-
-**Risks.** First real-Pi exercise of multi-query gets deferred to whichever later leaf adds an integration harness, with no current leaf scheduling that work.
-
-### Option C — Add a Pi integration harness and an automated 3-query test
-
-**Approach.** Introduce a Pi-flavoured test harness (more than `FakeExtensionAPI`) and assert a 3-query loom round-trips through it.
-
-**Plan edits.** Would require a new harness leaf (placeholder `<new>`, slotted before V5e in dependency order) plus a new Tests bullet on V5e citing it.
-
-**Spec edits.** None.
-
-**Pros.** Fully automated, observable, durable.
-
-**Cons.** No such harness exists in the plan; specifying it is a non-trivial design exercise that bleeds into Pi's own surface. Disproportionate to the size of the gap.
-
-**Risks.** Scope creep; the harness leaf is its own design problem.
+**Shape:** single
 
 ### Recommendation
 
-Option A. The plan already establishes the manual-smoke pattern (M, H4) and `docs/manual-smoke.md` as the recording venue; V5e is the next natural entry. Edge case for the implementer: V5e's `Deps` are V5a + M, so the smoke loom must use only V5a-grammar (bare `@\`literal\``, no `${}`, no `?`); two consecutive bound queries (`let x = @\`...\`; let y = @\`...\``) are sufficient to exercise the driver's multi-query behaviour.
+Keep the "real Pi session" milestone but anchor it to an author-run smoke recorded in `docs/manual-smoke.md`, mirroring the H4 + Mb precedent established under D1 (H4 bootstraps `docs/manual-smoke.md` with the fixed entry format that subsequent leaves reuse).
+
+**Plan edits.** In `plan_topics/v5-untyped-queries.md`, replace the V5e `Ships when.` line with:
+
+> **Ships when.** Manual: a `multi.loom` placed in `.pi/looms/` containing two consecutive `let x = @\`...\`` queries, slash invocation produces two distinct assistant turns in a real Pi session (manual smoke recorded as a new entry in `docs/manual-smoke.md` per the H4-defined format).
+
+**Spec edits.** None.
+
+Edge case for the implementer: V5e's `Deps` are V5a + Mb (per D5), so the smoke loom must use only V5a-grammar (bare `@\`literal\``, no `${}`, no `?`); two consecutive bound queries (`let x = @\`...\`; let y = @\`...\``) are sufficient to exercise the driver's multi-query behaviour. Author skipping the smoke and tagging `V5e-complete` anyway is mitigated only by review discipline.
 
 ## Related Findings
 
@@ -5313,11 +4927,11 @@ A leaf this large breaks the per-phase TDD ritual `conventions.md` mandates: an 
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-### Option A — Concern-aligned 3-way split (recommended)
+### Recommendation
 
-**Approach.** Split V6i along its three intrinsic concern boundaries: artefact construction, loop driver, load-time check. Per-mode wiring stays inside the artefact-construction leaf because H4 already supplies the registration cache and `withActiveTools` helper, so wiring is a thin call-site rather than a separate concern.
+Split V6i along its three intrinsic concern boundaries: artefact construction, loop driver, load-time check. Per-mode wiring stays inside the artefact-construction leaf because H4 (per D7) supplies the registration cache and `withActiveTools` helper, so wiring is a thin call-site rather than a separate concern.
 
 **Plan edits.**
 
@@ -5350,33 +4964,9 @@ A leaf this large breaks the per-phase TDD ritual `conventions.md` mandates: an 
 
 **Spec edits.** None.
 
-**Pros.** Each leaf has a single concern with an observable Ships-when gate; TDD ritual works leaf-by-leaf; provider-compat is isolated as the orthogonal load-time check it actually is; per-mode wiring rides on H4's existing plumbing rather than becoming its own leaf.
+The fixer should pick the next two letters in the V6 sequence (`V6L` and `V6m`, since `V6a`–`V6k` are taken) when assigning real IDs in place of `<new>`, and update V6k's and V13g's Deps lines and the coverage-matrix rows in the same edit so the plan stays internally consistent.
 
-**Cons.** Two new leaf IDs need to be allocated by the fixer.
-
-**Risks.** V6i-b cites V14e in Deps but V14e lands later in the plan. The fixer must either move V14e earlier, accept that V6i-b's "real frontmatter tool call" Ships-when assertion is exercised against a fake until V14e ships, or weaken the Ships-when to the fake-driven test only.
-
-### Option B — Original 3-way split
-
-**Approach.** The original review's split: leave the loop core (lowering + respond synthesis + AJV + state machine + wiring) in V6i; split off provider compat and snapshot/restore.
-
-**Plan edits.**
-
-- V6i (modified): lowering + respond-tool synthesis + AJV + two-phase loop + per-mode wiring (one leaf, four-to-five concerns).
-- V6i-b (new): provider compatibility check (same scope as Option A's V6i-c).
-- V6i-c (new): tool-registration snapshot/restore for typed queries — but H4 already owns `withActiveTools` and the registration cache, so this leaf's content shrinks to "extend the active-set call site to include the respond tool name", which is a one-line change rather than a leaf.
-
-**Spec edits.** None.
-
-**Pros.** Smallest disruption; matches the original suggestion verbatim.
-
-**Cons.** V6i still bundles four concerns (lowering, respond synthesis, AJV `execute`, two-phase state machine) and keeps the same nine-bullet Tests list minus one or two bullets — the atomicity problem is only marginally improved. V6i-c is too small to justify a leaf because H4 owns the underlying machinery.
-
-**Risks.** Implementer continues to face an unwieldy V6i; the review's atomicity criterion is not actually satisfied.
-
-### Recommendation
-
-Take Option A. The driver / artefact / load-check decomposition follows the natural concern boundaries and gives each leaf an observable Ships-when. The fixer should pick the next two letters in the V6 sequence (`V6L` and `V6m`, since `V6a`–`V6k` are taken) when assigning real IDs in place of `<new>`, and update V6k's and V13g's Deps lines and the coverage-matrix rows in the same edit so the plan stays internally consistent. The V14e Deps citation in V6i-b is the one edge case to watch — if the fixer decides V6i-b's Ships-when must observe a real frontmatter tool call, V14e must land before V6i-b in implementation order; if a fake-driven test is acceptable, the Deps line is advisory.
+The V14e Deps citation in V6i-b is the one edge case to watch — if the fixer decides V6i-b's Ships-when must observe a real frontmatter tool call, V14e must land before V6i-b in implementation order; if a fake-driven test is acceptable, the Deps line is advisory.
 
 ## Related Findings
 
@@ -5433,54 +5023,26 @@ Two reasonable implementers would diverge: one might omit the `resources_discove
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-### Option A — Distribute the contract across H4, M, and V14k
+### Recommendation
 
-**Approach.** Each of the three obligations lands in the leaf whose existing scope already covers the surrounding code path: subscription wiring in H4 (factory shell), `event.cwd`-driven walk in M (first discovery), `reason: "reload"` re-trigger in V14k (discovery hardening).
-
-**Plan edits.**
-- H4 `Adds.` — append: "Factory subscribes once to `resources_discover` (after `pi.registerFlag('loom', …)`); handler returns the typed empty result `{}`."
-- H4 `Tests.` — append: "Factory invocation subscribes exactly once to `resources_discover`; the handler returns `{}` (asserted against the `ResourcesDiscoverResult` type)."
-- M `Adds.` — append to the discovery sentence: "The walk runs inside the `resources_discover` handler; the project root is `event.cwd` (preferred over any factory-captured cwd)."
-- M `Tests.` — append: "When the factory's captured `cwd` differs from the event's `cwd`, the project-local source uses `event.cwd`."
-- V14k `Adds.` — append: "The walk re-runs on every `resources_discover` event; `reason: "startup"` triggers the initial scan, `reason: "reload"` triggers a re-walk. Both produce a fresh five-source enumeration."
-- V14k `Tests.` — append: "A second `resources_discover` event with `reason: "reload"` re-walks all five sources (asserted by a probe on the discovery walker); the first event with `reason: "startup"` performs the initial scan."
-
-**Spec edits.** None.
-
-**Pros.** No new leaf ID. Each obligation sits next to the code that already touches its surface. Coverage-matrix row stays as-is once the `pi-integration-contract.md` `Spec.` references are added to H4 (which a separate finding already requires).
-
-**Cons.** The four-part contract is conceptually one unit; splitting it across three leaves makes it easier to ship a leaf with half the contract green and the other half un-noticed. The H4 subscription claim is partially decoupled from the M handler body (H4 ships a no-op handler that M then fills in).
-
-**Risks.** Drift between the three leaves if the spec contract evolves. Implementer of H4 may not realise the handler body becomes M's responsibility.
-
-### Option B — Add a dedicated V14 leaf for the subscription contract
-
-**Approach.** Insert a single `<new>` leaf in `plan_topics/v14-tool-calls.md` (logically between V14j and V14k) that owns the entire `resources_discover` lifecycle: subscription, return value, `event.cwd` source-of-truth, `reason` semantics, and re-trigger. M and V14k–V14q then layer the actual source walks on top.
+Insert a single `<new>` leaf in `plan_topics/v14-tool-calls.md` (logically between V14j and V14k) that owns the entire `resources_discover` lifecycle: subscription, return value, `event.cwd` source-of-truth, `reason` semantics, and re-trigger. Mb (per D5) and V14k–V14q then layer the actual source walks on top. The four obligations are tightly coupled (a single Pi-side hook with one return shape, one cwd source, one reason field) and folding any of them into H4 worsens H4's already-growing scope (D6 system-note channel + D7 cache + helper).
 
 **Plan edits.**
-- New leaf `<new>` in `plan_topics/v14-tool-calls.md`:
+- New leaf `<new>` in `plan_topics/v14-tool-calls.md` (positioned between V14j and V14k; implementer picks the final ID following the V14 sequence convention):
   - `Spec.` — `[Pi Integration Contract — Extension entry point](../spec_topics/pi-integration-contract.md)`, `[Directory Convention](../spec_topics/discovery.md)`.
   - `Adds.` — Factory subscribes once to `resources_discover` after `pi.registerFlag('loom', …)`. Handler reads project root from `event.cwd` (never the factory-captured cwd), runs the five-source walk, and returns the typed empty result `{}` (no `loomPaths` slot exists). `reason: "startup"` runs the initial scan; `reason: "reload"` re-runs the walk. The handler is the single entry point for both factory-time and post-startup discovery.
   - `Tests.` — subscription registered exactly once and after `pi.registerFlag`; handler returns `{}`; `event.cwd` overrides factory-captured cwd when they differ; `reason: "reload"` re-walks all five sources; `reason: "startup"` runs the initial walk; the handler's typed return matches `ResourcesDiscoverResult`.
   - `Deps.` — H4, V14o.
   - `Ships when.` — every discovery walk in V14k–V14q is reachable through this handler.
-- M `Adds.` — point at the new leaf for the subscription/cwd contract; keep M's local two-root rule.
-- V14k–V14q `Deps.` — add the new leaf where they currently say `Deps. M` or `Deps. V14k`.
+- Mb `Adds.` — point at the new leaf for the subscription/cwd contract; keep Mb's local two-root rule.
+- V14k–V14q `Deps.` — add the new leaf where they currently say `Deps. M` (now `Mb` per D5) or `Deps. V14k`.
 - `coverage-matrix.md` — add the new leaf ID to the `Pi Extension Integration` and `Pi Integration Contract` rows.
 
 **Spec edits.** None.
 
-**Pros.** The full four-part contract is one unit, owned by one leaf, with one Tests block. Hard to ship half. Easier for the V18o gate to assert the contract lives somewhere.
-
-**Cons.** Introduces a new leaf ID (final ID picked by the implementer). Renumbers the V14 sequence visually, even though leaf IDs are append-only. Requires updating `Deps` on every existing V14k–V14q leaf.
-
-**Risks.** None significant.
-
-### Recommendation
-
-Take Option B. The four obligations are tightly coupled (a single Pi-side hook with one return shape, one cwd source, and one reason field) and a separate finding in this review (`H4 missing mandatory Spec field`) already shows that H4's scope is contested; folding more contract into H4 worsens that. The new leaf carries one unambiguous Spec citation (`pi-integration-contract.md` Extension entry point step 1), one Adds sentence per obligation, and is the single place V18o can bind the matrix entry. Implementer must (1) pick the final leaf ID following the V14 sequence convention, and (2) thread the new ID into every existing V14k–V14q `Deps` field plus the `coverage-matrix.md` rows for `Pi Extension Integration` and `Pi Integration Contract`.
+Implementer must (1) pick the final leaf ID following the V14 sequence convention, and (2) thread the new ID into every existing V14k–V14q `Deps` field plus the `coverage-matrix.md` rows for `Pi Extension Integration` and `Pi Integration Contract`.
 
 ## Related Findings
 
@@ -6207,30 +5769,17 @@ Two implementers asked to land V14c will diverge: one will write a single monoli
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-### Option A — 2-way split, retain V14d
+### Recommendation
 
-**Approach.** Split V14c into V14c-a (dispatch + ctx + static type-checking against both Pi-tool and loom-callee callees) and V14c-b (bare-object literal sublanguage enforcement).
+Three-way split that absorbs V14d and pushes the registered-loom-callee branch into V15e (the leaf that creates the cache they consume):
 
-**Plan edits.**
-- `plan_topics/v14-tool-calls.md`: replace the V14c block with V14c-a and V14c-b. V14c-a `Deps. V14a, V13c, V15e` (forward Dep, acknowledged). V14c-b `Deps. V14c-a, V16a`.
-- V14d, V14f–V14i, `v18-cancellation.md` V18a: `Deps. V14c` → `Deps. V14c-a`.
-- `coverage-matrix.md`: `V14c` in the `Expression Sublanguage` and `Implementation Notes — Runtime` rows → `V14c-a`; `V14c` in the `Grammar Appendix — Loom literal sublanguage` row → `V14c-b`.
-- `h4-extension-shell.md`: rename `V14c` reference in the typed-accessor bullet to `V14c-a`.
+- **V14c-a** — dispatch + ctx synthesis for **Pi-tool** callees only; also absorbs V14d's transcript-identity test as one bullet.
+- **V14c-b** — bare-object literal sublanguage enforcement for the Pi-tool single-arg position.
+- **V15e** gains the registered-loom-callee dispatch path, static type-checking against the cache it itself populates, and the return-type-inference test.
 
-**Spec edits.** None.
-
-**Pros.** Mechanical; matches the original suggested fix verbatim; preserves V14d as a behavioural-assertion checkpoint.
-**Cons.** Leaves the V15e forward-Dep gap unresolved (V14c-a still consults a cache V15e populates). V14d remains hollow.
-**Risks.** Two related findings (`V14c tests registered-loom callees…`, `V14d too hollow…`) remain open and will need their own edits.
-
-### Option B — 3-way split, push loom-callee branch to V15e, absorb V14d
-
-**Approach.** Three leaves:
-- V14c-a (dispatch + ctx synthesis for **Pi-tool** callees only) — also absorbs V14d's transcript-identity test as one bullet.
-- V14c-b (bare-object literal sublanguage enforcement for the Pi-tool single-arg position).
-- V15e gains the registered-loom-callee dispatch path, static type-checking against the cache it itself populates, and the return-type-inference test.
+This dissolves both the V14c forward-Dep gap (no leaf consults a cache before its owning leaf creates it) and the V14d hollowness (no leaves with zero implementation surface).
 
 **Plan edits.**
 - `plan_topics/v14-tool-calls.md`: replace V14c with V14c-a (scope: Pi-tool dispatch + ctx; `Deps. V14a, V13c`; `Ships when. Loom code can call Pi tools by bare identifier with synthesised ctx`) and V14c-b (scope: bare-object literal sublanguage and four rejection diagnostics; `Deps. V14c-a, V16a`; `Ships when. Bare-object literal admitted in single-arg Pi-tool position; non-literal forms diagnosed`). Strike V14c's "argument type-checking … use the callee's parsed form from the per-load-pass static-resolution cache" sentence and the loom-callee Tests bullets — both move to V15e.
@@ -6243,14 +5792,6 @@ Two implementers asked to land V14c will diverge: one will write a single monoli
 - `h4-extension-shell.md`: V14c reference in typed-accessor bullet → V14c-a.
 
 **Spec edits.** None.
-
-**Pros.** Each leaf has a self-contained Deps DAG with no forward Deps; co-resolves the V14c ordering-gap and V14d-hollowness findings; Tests-first ritual becomes tractable per leaf.
-**Cons.** Three plan edits to coordinate; V15e's scope grows (its Tests bullet count climbs by ~2).
-**Risks.** Risk that the implementer of V15e treats the appended bullets as bolted-on; mitigated by the explicit `Deps. V14c-a` and the V15e `Ships when` already covering "entry callable from both code (`<name>(...)`) and model."
-
-### Recommendation
-
-Adopt Option B. Split V14c into V14c-a (Pi-tool dispatch + ctx synthesis, including the V14d transcript-identity test as a bullet) and V14c-b (bare-object literal sublanguage enforcement with its four rejection diagnostics). Move the registered-loom-callee dispatch path, static type-check, and return-type inference into V15e, which is the leaf that creates the cache they consume. Delete V14d. Retarget all `Deps. V14c` references on V14f / V14g / V14h / V14i / V18a to `V14c-a`. Update `coverage-matrix.md`'s `Grammar Appendix — Loom literal sublanguage` row from `V14c` to `V14c-b`; the other two rows (`Expression Sublanguage`, `Implementation Notes — Runtime`) become `V14c-a`. Update `h4-extension-shell.md`'s typed-accessor bullet's `V14c` reference to `V14c-a`.
 
 Edge cases the implementer must watch:
 - The four `loom/parse/tool-arg-*` diagnostics split across leaves: `loom/parse/tool-arg-arity` and `loom/parse/tool-arg-not-literal` belong to V14c-b; `loom/parse/tool-arg-type-mismatch` for the Pi-tool case (input-schema mismatch) also belongs to V14c-b; the loom-callee variant of `loom/parse/tool-arg-type-mismatch` belongs to V15e.
@@ -7077,11 +6618,11 @@ Two implementers will produce diverging V15c behaviour at the `loom/parse/invoke
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-### Option A — Define the relation once in the spec, cite from plan
+### Recommendation
 
-**Approach.** Add a normative "Type compatibility" subsection to `spec_topics/type-system.md` defining a single relation `T₁ ⊑ T₂` ("T₁ is compatible with T₂") with the operational rule used everywhere else in the spec — every value typed as T₁ AJV-validates against the lowering of T₂ — and an enumerated table of the structural cases the parser is required to recognise without falling back to AJV (`integer ⊑ number`; variant ⊑ union; identical primitives; element-wise on `array<T>`; field-wise on object schemas; `T ⊑ T | U`; literal `L ⊑ T` when `L: T`). Have `spec_topics/bindings.md`, `spec_topics/errors-and-results.md`, `spec_topics/expressions.md` (array LUB, `+`), and `spec_topics/invocation.md` cite the new section by anchor instead of repeating "same rules as `let`" prose.
+Add a normative "Type compatibility" subsection to `spec_topics/type-system.md` defining a single relation `T₁ ⊑ T₂` ("T₁ is compatible with T₂") with the operational rule used everywhere else in the spec — every value typed as T₁ AJV-validates against the lowering of T₂ — and an enumerated table of the structural cases the parser is required to recognise without falling back to AJV (`integer ⊑ number`; variant ⊑ union; identical primitives; element-wise on `array<T>`; field-wise on object schemas; `T ⊑ T | U`; literal `L ⊑ T` when `L: T`). Have `spec_topics/bindings.md`, `spec_topics/errors-and-results.md`, `spec_topics/expressions.md` (array LUB, `+`), and `spec_topics/invocation.md` cite the new section by anchor instead of repeating "same rules as `let`" prose.
 
 **Plan edits.**
 - `plan_topics/v2-expressions.md` V2a — add to **Spec.**: `[Type System — Type compatibility](../spec_topics/type-system.md#type-compatibility)`. Add a Tests bullet: "`let x: number = 1` (integer literal) accepted; `let x: integer = 1.5` rejected with `loom/parse/integer-narrowing`; `let x: Animal = Cat { ... }` accepted; the compatibility relation matches the spec's anchor table for primitives, variant→union, and array element-wise widening."
@@ -7089,30 +6630,15 @@ Two implementers will produce diverging V15c behaviour at the `loom/parse/invoke
 
 **Spec edits.** New `spec_topics/type-system.md#type-compatibility` subsection (≈10–20 lines plus the rule table). Anchor citations from `bindings.md` (RHS rule), `errors-and-results.md` (Arm syntax), `expressions.md` (array LUB / `+`), `invocation.md` (Typed return), `frontmatter.md` (`params:` defaults). No code changes to existing rules — the section consolidates what the spec already implies in scattered places.
 
-**Pros.** Single source of truth; co-resolves V7a, V2c ternary, and `loom/parse/integer-narrowing`; the spec stops referring to a relation it does not define. Future leaves that need the relation cite the anchor directly.
+Edge cases the implementer must pin down in the new subsection:
 
-**Cons.** Spec edit. Requires drafting the rule table carefully so it exactly matches what V2/V4/V7/V15 already plan to enforce.
+1. `integer ⊑ number` only — the reverse is `loom/parse/integer-narrowing`.
+2. `Cat ⊑ Animal` for any variant of a discriminated union, which is the V15c Tests bullet's "narrower" case.
+3. `array<Cat> ⊑ array<Animal>` is admitted (covariant element widening — already implied by `expressions.md` array-LUB rules).
+4. Anonymous objects compare structurally on declared fields with `additionalProperties: false` everywhere, so excess-property compatibility does **not** apply.
+5. When either side is unresolvable (e.g. inferred binding past the parser's view), the runtime AJV check is the safety net — same posture V15c already documents for the unresolvable-callee case.
 
-**Risks.** The drafted table may admit cases (e.g. excess-property RHS objects) the parser does not actually support, or vice versa. Mitigate by walking the existing widening sites in `expressions.md` (`integer → number`, array LUB, variant → union widening at construction) and listing exactly those plus the AJV-value-subtype catch-all.
-
-### Option B — Inline the rule in V15c only
-
-**Approach.** Strike the cross-reference and inline the operational definition at the V15c site.
-
-**Plan edits.**
-- `plan_topics/v15-invoke.md` V15c **Adds** — replace "structural compatibility (using the same compatibility relation as `let x: T = expr`)" with "structural compatibility — every value typeable as the callee's inferred return type would AJV-validate against the lowered `Schema` — i.e. the callee's type may be narrower than `Schema` (variant against union, `integer` against `number`, fewer-element-type array, etc.) but never wider".
-
-**Spec edits.** None.
-
-**Pros.** Surgical; one-line plan edit; no spec churn.
-
-**Cons.** Leaves `bindings.md`, `errors-and-results.md`, `invocation.md` still referring to a "compatibility relation" that has no normative definition. V7a, V2c ternary, and `integer-narrowing` remain underspecified. V15c's inline rule may drift from whatever V2a actually implements, since they no longer share an anchor.
-
-**Risks.** Drift between V15c and the rest of the type checker is the dominant risk — the very thing a shared relation is meant to prevent.
-
-### Recommendation
-
-Option A. The spec already cites the relation from four sites (`bindings.md`, `errors-and-results.md`, `invocation.md`, plus the implied citation in `expressions.md`); defining it once is strictly cheaper than inlining four times, and Option B's drift risk between V15c's checker and V2a's checker is the failure mode this finding exists to prevent. Edge cases the implementer must pin down in the new subsection: (1) `integer ⊑ number` only — the reverse is `loom/parse/integer-narrowing`; (2) `Cat ⊑ Animal` for any variant of a discriminated union, which is the V15c Tests bullet's "narrower" case; (3) `array<Cat> ⊑ array<Animal>` is admitted (covariant element widening — already implied by `expressions.md` array-LUB rules); (4) anonymous objects compare structurally on declared fields with `additionalProperties: false` everywhere, so excess-property compatibility does **not** apply; (5) when either side is unresolvable (e.g. inferred binding past the parser's view), the runtime AJV check is the safety net — same posture V15c already documents for the unresolvable-callee case.
+Mitigate the risk that the drafted table admits cases the parser does not actually support (or vice versa) by walking the existing widening sites in `expressions.md` (`integer → number`, array LUB, variant → union widening at construction) and listing exactly those plus the AJV-value-subtype catch-all.
 
 ## Related Findings
 
@@ -7404,55 +6930,26 @@ Two reasonable implementers will diverge: one ships V16e exactly as written (per
 
 ## Solution Space
 
-**Shape:** multiple
-
-### Option A — Aggregate `loom-system-note` on settings-driven re-resolution, hooked off V14n's cache invalidation
-
-**Approach.** When V14n's settings cache is invalidated and the new merged value of `looms.binderModel` differs from the previous one, the runtime checks whether any prior load attempt produced `loom/load/binder-model-unresolved` or `loom/load/binder-model-not-strict-capable`. If the count is non-zero, emit one consolidated `loom-system-note` with text along the lines of "binder model setting changed; <N> previously-failed loom(s) need /reload to retry: <comma-separated slash names>". The note carries no diagnostic code (it is informational, not a `Diagnostic`); it uses the system-note channel established by V18h.
-
-**Plan edits.**
-- V16e Adds — append: "On a settings-cache invalidation that changes the resolved value of `looms.binderModel`, the runtime emits one consolidated `loom-system-note` listing every loom that previously failed to load with `loom/load/binder-model-unresolved` or `loom/load/binder-model-not-strict-capable`, prompting the user to run `/reload`. The note fires once per settings change regardless of count; if no looms previously failed, no note is emitted."
-- V16e Tests — append: "After a load pass produces N≥2 binder-model-related load failures, changing `looms.binderModel` in `.pi/settings.json` emits exactly one `loom-system-note` whose content lists all N loom slash names; running `/reload` then re-loads them and they register; if zero looms previously failed, the settings change emits no note." Also: "Settings change that does *not* alter the resolved value of `looms.binderModel` (e.g. an unrelated key added) emits no note."
-- V16e Deps — add `V14n` (settings-cache-invalidation hook) and `V18h` (`loom-system-note` channel).
-
-**Spec edits.**
-- `spec_topics/binder.md`, *Binder model* — replace "Hot-reload of Pi settings (`looms.binderModel` changed at runtime) re-resolves on the next loom load; it does not retroactively fix already-failed loads." with that same sentence plus: "When the change discards previously-failed binder-model-resolution loads, the runtime emits a single consolidated `loom-system-note` listing the affected slash names and prompting the user to run `/reload`."
-
-**Pros.** Surgical; no new diagnostic code; reuses V14n's existing cache-invalidation event (which already exists per V14n's "missing file treated as `{}` … and the other file still consulted" wording); decoupled from V18f.
-
-**Cons.** Requires the runtime to remember the prior load-failure list across the lifetime of the extension instance — small bookkeeping cost. Couples V16e to V14n's cache-invalidation event shape.
-
-**Risks.** If V14n is implemented without exposing a change event (the spec says cached + watcher-invalidated, but does not pin the *event shape*), V16e cannot subscribe. Mitigated by adding the `V14n` Dep and either pinning the event shape in V14n Adds or letting V16e own a thin observer.
-
-### Option B — Route the consolidated note through V18f's existing structural-change channel
-
-**Approach.** V18f already emits a one-line `loom-system-note` for structural changes (file added/removed) prompting `/reload`. Treat a `looms.binderModel` settings change as a structural change for the purposes of this channel. The note text grows a binder-model variant: "binder-model setting changed; <N> loom(s) need /reload to retry."
-
-**Plan edits.**
-- V18f Adds — broaden "Structural changes — a brand-new `.loom` file added or an existing one removed, including settings-array changes that add or remove sources" to also include "or a `looms.binderModel` change that would alter the load outcome of any previously-failed loom."
-- V18f Tests — add a settings-binder-model-change case asserting one note with the count and slash names.
-- V16e Adds — cross-reference: "see V18f for the consolidated reload-prompt note on settings-driven binder-model changes."
-- V16e Deps — add `V18f`.
-
-**Spec edits.** Same `binder.md` sentence as in Option A, but cross-referencing the structural-change note instead of describing a new note.
-
-**Pros.** Reuses existing system-note machinery; one structural-change channel for all "did a thing, need /reload" prompts; consistent with the V18f pattern.
-
-**Cons.** Conflates two concerns (file-system structural changes vs. settings-value changes) on a single channel; complicates V18f, which is already large. Depends on the V18f settings-watching scope question — see the "Settings-file watching silently assumed but excluded from V18f scope" finding — which is itself unresolved.
-
-**Risks.** If V18f's scope is not extended to watch the two settings paths, this option does not work.
+**Shape:** single
 
 ### Recommendation
 
-Take **Option A**. Edit `plan_topics/v16-binder.md` V16e:
+When the new settings-watcher leaf (per D19) invalidates the V14n cache and the new merged value of `looms.binderModel` differs from the previous one, the runtime checks whether any prior load attempt produced `loom/load/binder-model-unresolved` or `loom/load/binder-model-not-strict-capable`. If the count is non-zero, emit one consolidated `loom-system-note` listing those looms' slash names and prompting `/reload`. The note carries no diagnostic code (it is informational, not a `Diagnostic`); it uses the system-note channel hoisted into H4 (per D6).
+
+**Plan edits.** In `plan_topics/v16-binder.md` V16e:
 
 - **Adds.** Append after the existing "Hot-reload of `looms.binderModel`…" sentence: "When the resolved value changes and at least one loom previously failed to load with `loom/load/binder-model-unresolved` or `loom/load/binder-model-not-strict-capable`, the runtime emits exactly one `loom-system-note` listing those looms' slash names and prompting `/reload`. No note fires if no looms previously failed. The note carries no `Diagnostic` payload — it is informational."
 - **Tests.** Append two bullets: "After a load pass produces ≥2 binder-model-related load failures, changing `looms.binderModel` in `.pi/settings.json` emits exactly one `loom-system-note` whose content lists every previously-failed loom's slash name; `/reload` then registers all of them." and "Settings change that does not alter the resolved binder-model value emits no note; settings change with zero prior binder-model failures emits no note."
-- **Deps.** Add `V14n, V18h` to the existing `V3a, V3c, V14n, V16o` list (V14n is already present; add `V18h`).
+- **Deps.** Add the new D19 settings-watcher leaf and `H4` (system-note channel per D6) to the existing `V3a, V3c, V14n, V16o` list.
 
-Edit `spec_topics/binder.md` *Binder model*: replace the closing sentence "Hot-reload of Pi settings (`looms.binderModel` changed at runtime) re-resolves on the next loom load; it does not retroactively fix already-failed loads." with that sentence followed by "When the change would have allowed a previously-failed load to succeed, the runtime emits a single consolidated `loom-system-note` listing the affected slash names and prompting the user to run `/reload`."
+**Spec edits.** In `spec_topics/binder.md` *Binder model*, replace the closing sentence "Hot-reload of Pi settings (`looms.binderModel` changed at runtime) re-resolves on the next loom load; it does not retroactively fix already-failed loads." with that sentence followed by "When the change would have allowed a previously-failed load to succeed, the runtime emits a single consolidated `loom-system-note` listing the affected slash names and prompting the user to run `/reload`."
 
-Edge cases the implementer must watch: (a) the count is computed from the *previous* load pass's failure set, not from a re-attempted resolution against the new value — re-resolution only happens on `/reload`; (b) the comparison must be on the *resolved* string after merge, not on raw file contents (an edit to the global file that is shadowed by an unchanged project file is a no-op); (c) a settings change that toggles the value back-and-forth within the debounce window collapses to one note carrying the latest list.
+Edge cases the implementer must watch:
+
+- (a) The count is computed from the *previous* load pass's failure set, not from a re-attempted resolution against the new value — re-resolution only happens on `/reload`.
+- (b) The comparison must be on the *resolved* string after merge, not on raw file contents (an edit to the global file that is shadowed by an unchanged project file is a no-op).
+- (c) A settings change that toggles the value back-and-forth within the debounce window collapses to one note carrying the latest list.
+- (d) The runtime must remember the prior load-failure list across the lifetime of the extension instance — small bookkeeping cost; this is V16e-owned state, not V14n-owned.
 
 ## Related Findings
 
@@ -7641,11 +7138,11 @@ The "near-deterministic binder" property V16h is supposed to deliver depends on 
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-### Option A — Pin a derivation rule in the spec
+### Recommendation
 
-**Approach.** Make the seed normative: a stable function of inputs the binder already has.
+Make the seed normative: a stable function of inputs the binder already has. The spec's Determinism section already exists to make binder calls reproducible across runs; leaving the seed implementation-defined would empty that section of meaning. The hash-of-qualified-name rule is one normative line in the spec, one in the plan, and converts the existing tautological test into one that actually witnesses determinism.
 
 **Plan edits.** In `plan_topics/v16-binder.md` under V16h:
 - Replace the Adds sentence "`temperature: 0` and fixed seed (where provider supports)." with: "`temperature: 0` and a fixed seed equal to a deterministic 32-bit hash of the loom's qualified name (per `binder.md` Determinism); identical for every invocation of the same loom across runs."
@@ -7653,31 +7150,11 @@ The "near-deterministic binder" property V16h is supposed to deliver depends on 
 
 **Spec edits.** In `spec_topics/binder.md` Determinism section, replace "and, where the provider supports it, a fixed seed." with a two-sentence rule naming the hash function (e.g. FNV-1a 32-bit) and the input (the loom's qualified name as it appears in the slash registry).
 
-**Pros.** Determinism is observable end-to-end; regressions to per-call randomness are caught; the property the leaf advertises is actually delivered.
+Edge cases:
 
-**Cons.** Requires picking a hash function in the spec (low-stakes but a normative commitment). Per-loom seeding means two consecutive invocations of the same loom see the same seed — which providers may exploit to cache, but that is the intended determinism property, not a bug.
-
-**Risks.** If the qualified-name format changes later (renames, namespacing), the seed changes silently; should be acceptable given V1 has no rename machinery.
-
-### Option B — Declare the seed implementation-defined and weaken the test
-
-**Approach.** Acknowledge that V1 does not need cross-run reproducibility, only intra-process stability that the provider can use.
-
-**Plan edits.** In `plan_topics/v16-binder.md` under V16h:
-- Replace the Adds sentence with: "`temperature: 0` and a non-null `seed` field whose value is implementation-defined but stable for the process lifetime (where provider supports)."
-- Replace the Tests bullet with: "request payload includes `temperature: 0` and a non-null `seed` field for providers in the supported-seed list (per V16h's sibling finding); two binder calls in the same process include the same `seed` value."
-
-**Spec edits.** In `spec_topics/binder.md` Determinism, after "a fixed seed" insert ", whose value is implementation-defined but stable for the process lifetime."
-
-**Pros.** Minimal commitment; lets the implementer choose any stable value (including a startup-time random).
-
-**Cons.** Cross-run reproducibility — the only consumer-visible promise the word "deterministic" implies — is explicitly disclaimed. A user re-running the same slash command tomorrow gets a different seed.
-
-**Risks.** Future leaves that quietly assume binder reproducibility (e.g. golden-file tests of binder output) would have to be re-engineered.
-
-### Recommendation
-
-Option A. The spec's Determinism section already exists to make binder calls reproducible across runs; declaring the seed implementation-defined would empty that section of meaning. The hash-of-qualified-name rule is one normative line in the spec, one normative line in the plan, and converts the existing tautological test into one that actually witnesses determinism. Edge case for the implementer: if Pi's SDK exposes an unsigned-32 vs signed-32 `seed` parameter, the rule should mask to whichever the SDK accepts and document the mask in `binder.md`.
+- If Pi's SDK exposes an unsigned-32 vs signed-32 `seed` parameter, the rule should mask to whichever the SDK accepts and document the mask in `binder.md`.
+- Per-loom seeding means two consecutive invocations of the same loom see the same seed — which providers may exploit to cache; that is the intended determinism property, not a bug.
+- If the qualified-name format changes later (renames, namespacing), the seed changes silently; acceptable given V1 has no rename machinery.
 
 ## Related Findings
 
@@ -7953,11 +7430,11 @@ Two reasonable implementers would diverge: one follows V17b verbatim and ships a
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-### Option A — Add `enum` to the spec's `.warp` allowlist
+### Recommendation
 
-**Approach.** The spec's allowlist is an oversight; widen it in both spec sites and the visibility rule. Plan V17b is already correct.
+Widen the spec's `.warp` allowlist to include `enum`; the spec wording was written before V10's enum design landed. The plan V17b is already internally consistent. Stripping `enum` from V17b instead would silently eliminate any V1 path to a shared enum (V10e's runtime enum-brand makes the duplicate-per-file workaround actively wrong: cross-file `Severity.High` comparisons would return `false`).
 
 **Plan edits.** None to V17b. Optional: V17b Tests bullet should be tightened to enumerate "permitted forms accepted: `import`, `export`, `schema`, `enum`, `fn`" verbatim so the test fixture pins all five.
 
@@ -7966,32 +7443,7 @@ Two reasonable implementers would diverge: one follows V17b verbatim and ships a
 - `spec_topics/imports.md` `.warp` file rules first bullet: change "only `import`, `export`, `schema`, and `fn` declarations" → "only `import`, `export`, `schema`, `enum`, and `fn` declarations".
 - `spec_topics/imports.md` Visibility paragraph: change "Every top-level `schema` and `fn` in a `.warp` file is implicitly exported" → "Every top-level `schema`, `enum`, and `fn` in a `.warp` file is implicitly exported".
 
-**Pros.** Restores expressive parity (shared enums become declarable). Matches the language's general "enums are top-level declarations" stance. Single-line spec edits at three sites; no diagnostic-registry churn.
-
-**Cons.** Three spec sites must move together; missing one re-creates the inconsistency in the opposite direction.
-
-**Risks.** None substantive.
-
-### Option B — Strip `enum` from V17b and defer shared enums
-
-**Approach.** Treat the spec as authoritative. `enum` becomes a `.loom`-only top-level form in V1; shared enums are deferred.
-
-**Plan edits.**
-- `plan_topics/v17-warp.md` V17b "Adds" bullet: strike `enum` from the permitted-forms list, leaving `import`, `export`, `schema`, `fn`.
-- `plan_topics/v17-warp.md` V17b "Tests" bullet: add an explicit case asserting `enum X { ... }` at `.warp` top level emits `loom/parse/warp-top-level-statement`.
-
-**Spec edits.**
-- `spec_topics/future-considerations.md`: add an entry "Shared enums in `.warp` files — V1 forbids `enum` at `.warp` top level; revisit when a use case emerges" (or equivalent).
-
-**Pros.** No spec edits to the `.warp` allowlist; the diagnostic registry already covers the rejection.
-
-**Cons.** Eliminates any V1 path to a shared enum. A user wanting `enum Severity { ... }` reused across multiple `.loom` files must duplicate the declaration in each file (and the runtime enum-brand from V10e then makes cross-file `Severity.High` comparisons return `false`, silently breaking equality). This is a real expressivity loss with no compensating benefit.
-
-**Risks.** Operators discover the limitation after authoring shared schemas that reference an enum, and must restructure their library layout.
-
-### Recommendation
-
-Take Option A. Edit the three spec sites listed above. The plan is already internally consistent; the spec wording was written before V10's enum design landed, and Option B would silently strip a feature users will reasonably expect. Edge case the implementer must watch: the Visibility paragraph's enumeration of implicitly-exported declaration kinds must move in lockstep with the allowlist — leaving it as "schema and fn" while the allowlist mentions `enum` would create a new inconsistency where `enum` is declarable but unimportable.
+Edge case the implementer must watch: the Visibility paragraph's enumeration of implicitly-exported declaration kinds must move in lockstep with the allowlist — leaving it as "schema and fn" while the allowlist mentions `enum` would create a new inconsistency where `enum` is declarable but unimportable. Three spec sites must move together; missing one re-creates the inconsistency in the opposite direction.
 
 ## Related Findings
 
@@ -8301,11 +7753,11 @@ Without a normative build-aside-then-publish rule, the V18f swap can leave `Loom
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-### Option A — Spec the transactional swap and a runtime diagnostic; defer kill-switch
+### Recommendation
 
-**Approach.** Tighten "atomically swaps" in the spec to mean build-aside-then-publish: rebuild the changed file's parsed entry plus all transitive `.warp`-importer entries off to the side, recompile validators against a staging cache, then install both into `LoomRegistry` and the AJV cache in a single synchronous step. On any rebuild exception, discard the staging set, leave the prior snapshots live, and emit a new persistent diagnostic. Add the negative test to V18f. Do not introduce a settings opt-out.
+Tighten "atomically swaps" in the spec to mean build-aside-then-publish: rebuild the changed file's parsed entry plus all transitive `.warp`-importer entries off to the side, recompile validators against a staging cache, then install both into `LoomRegistry` and the AJV cache in a single synchronous step. On any rebuild exception, discard the staging set, leave the prior snapshots live, and emit a new persistent diagnostic. Add the negative test to V18f. Do not introduce a settings opt-out (the kill-switch is a separate operator-affordance question that would expand `looms.*` past its currently-locked V1 surface).
 
 **Plan edits.**
 - `plan_topics/v18-cancellation.md`, V18f `Adds.` — append: "The swap is build-aside-then-publish: re-parse the changed file plus every transitive `.warp` importer into a staging set, recompile their AJV validators into a staging cache, and only after every step succeeds install both into `LoomRegistry` and the validator cache in a single synchronous step. If any rebuild step throws, discard the staging set, leave the prior `LoomRegistry` and validator-cache entries live, and emit `loom/runtime/registry-swap-failed` (severity `E`) with `message` naming the failing path and `hint` carrying the underlying error's message."
@@ -8319,33 +7771,7 @@ Without a normative build-aside-then-publish rule, the V18f swap can leave `Loom
 - `spec_topics/pi-integration-contract.md`, item 4 — replace "atomically swaps the affected entries in `LoomRegistry`" with the build-aside-then-publish phrasing above and an explicit "if any rebuild step throws, the prior `LoomRegistry` snapshot and AJV validator cache remain live" sentence.
 - `spec_topics/diagnostics.md`, `loom/runtime/*` registry — insert a row: `loom/runtime/registry-swap-failed | E | runtime | Watcher rebuild of a changed file or a transitive `.warp` importer threw; the prior `LoomRegistry` snapshot remains live. | Pi Integration Contract — Extension entry point | system-note template "registry swap failed: <path>".`
 
-**Pros.** Closes the divergence between implementers without enlarging the V1 settings surface. Re-uses existing `loom/runtime/*` channel and `loom-system-note` delivery (already specified). One new diagnostic code, two new test bullets, one spec sentence. The `loom/runtime/*` namespace already exists and the always-log surfacing path is in place.
-
-**Cons.** Operators have no way to disable the watcher entirely if the new failure path itself becomes pathological in production — the diagnostic fires repeatedly, but the watcher keeps running. (V14n's "malformed settings degrades silently" finding has the same shape.)
-
-**Risks.** None material.
-
-### Option B — Option A plus a `looms.watcher: false` settings kill-switch
-
-**Approach.** Everything in Option A, plus a settings opt-out that disables the watcher entirely (the extension behaves as if no chokidar event ever fires; only `/reload` re-parses). This requires extending `discovery.md`'s `looms.*` settings table beyond `looms.binderModel`.
-
-**Plan edits.** All of Option A, plus:
-- `plan_topics/v18-cancellation.md`, V18f `Adds.` — append: "When `looms.watcher` resolves to `false` (per [Discovery — Settings file reads](../spec_topics/discovery.md)), the chokidar subscription is not installed; all updates require `/reload`. The default is `true`."
-- `plan_topics/v18-cancellation.md`, V18f `Tests.` — append: "With `looms.watcher: false` in settings, no chokidar subscription is created (assertable via an injected probe on the watcher service); editing an existing `.loom` file does not trigger a re-parse; only `/reload` picks up the change."
-- `plan_topics/v14-tool-calls.md`, V14n — extend the settings-key validation to recognise the new boolean key (precise leaf to be picked by the implementer; V14n owns the `looms.*` settings reader).
-
-**Spec edits.** All of Option A, plus:
-- `spec_topics/discovery.md`, the `looms.*` keys section (around line 142–144) — add an entry for `looms.watcher` (boolean, default `true`); update the "No other `looms.*` keys are recognised in V1" sentence to permit the new key.
-
-**Pros.** Operator escape hatch for any future watcher pathology. Symmetric with the spec's general pattern of "narrow surfaces with documented overrides."
-
-**Cons.** Enlarges the V1 `looms.*` settings surface, which the spec currently locks down to a single key. Adds a code path (no-watcher mode) that needs its own coverage. The motivating use case (operator wants to disable watcher in prod) is hypothetical for V1.
-
-**Risks.** Settings-key proliferation pressure: once `looms.watcher` exists, the next reviewer will ask why `looms.debounceMs` is not also configurable.
-
-### Recommendation
-
-Take Option A. The transactional-swap fix is what closes the implementer-divergence risk; the kill-switch in the original suggestion is a separate operator-affordance question that does not need to ride alongside it and would expand `looms.*` past its currently-locked V1 surface. Implementer must keep the V18g eviction step inside the V18f staging-then-install block (do not split it back out) and must surface the new diagnostic through the same `loom/runtime/*` always-log channel as the other six runtime codes.
+Implementer must keep the V18g eviction step inside the V18f staging-then-install block (do not split it back out — the sibling `V18g not independently verifiable` finding co-resolves this by folding V18g into V18f) and must surface the new diagnostic through the same `loom/runtime/*` always-log channel as the other six runtime codes.
 
 ## Related Findings
 
@@ -8479,60 +7905,22 @@ A normative spec behaviour has no closing leaf, and a downstream leaf (V16e) mak
 
 ## Solution Space
 
-**Shape:** multiple
-
-### Option A — Extend V18f's scope to cover the two settings paths
-
-**Approach.** Widen V18f's `Adds` from "the discovered roots" to "the discovered roots and the two settings paths (`~/.pi/agent/settings.json`, `.pi/settings.json`)". Use a single chokidar instance for both. On a settings-file event, debounce, re-read both files, re-merge per V14n, and route the consequences: a `looms`-array delta triggers the structural-change `loom-system-note` (per `pi-integration-contract.md` step 4); a `looms.binderModel` change updates the V14n cache so the next V16e load picks it up; a malformed intermediate JSON state is treated as a parse error per `discovery.md` failure-modes rule (no crash).
-
-**Plan edits.**
-- `plan_topics/v18-cancellation.md` V18f `Adds.`: append "and over the two settings paths `~/.pi/agent/settings.json` and `.pi/settings.json`. Settings-file events debounce on the same 250 ms window, re-read both files via the V14n reader, re-merge, and route deltas: a `looms`-array change emits the structural-change `loom-system-note`; a `looms.binderModel` change invalidates the V14n cache without re-registering anything; a JSON parse error during the read produces `loom/load/settings-invalid-json` and leaves the prior cached value live."
-- `plan_topics/v18-cancellation.md` V18f `Tests.`: append three cases — (1) editing `~/.pi/agent/settings.json`'s `looms.binderModel` value triggers the V14n cache to invalidate (asserted via probe) and the next V16e load reads the new value; (2) editing `.pi/settings.json`'s `looms` array emits the structural-change `loom-system-note` and does not auto-register; (3) writing a malformed-intermediate JSON state during a debounce window produces `loom/load/settings-invalid-json` once and leaves the prior cache live.
-- `plan_topics/v18-cancellation.md` V18f `Deps.`: add V14n.
-- `plan_topics/v14-tool-calls.md` V14n `Adds.`: append "Settings reads are cached for the extension lifetime; cache invalidation on file change is V18f's responsibility (the V14n reader exposes an `invalidate()` seam V18f calls)."
-- `plan_topics/v16-binder.md` V16e `Adds.`: replace "Hot-reload of `looms.binderModel` re-resolves on the *next* loom load only — it does not retroactively re-attempt loads that already failed." with "When the V18f settings watcher invalidates the V14n cache after a `looms.binderModel` edit, the new value is picked up on the next loom load only — already-loaded looms keep their resolved model, and already-failed loads are not retroactively re-attempted (a structural reload via `/reload` is required for either)."
-- `plan_topics/coverage-matrix.md` `[Directory Convention]` row: leaf list already includes V18f via the `[Pi Extension Integration]` row; no change needed if V18f is the owner.
-
-**Pros.** No new leaf; one chokidar instance for everything file-system-related; the settings watcher's structural-note path is wired to the same `loom-system-note` channel V18f already uses; one ordering point (V18f's Ships-when) covers everything.
-
-**Cons.** V18f is already large (content-edit re-parse + transitive `.warp` invalidation + atomic registry swap + structural-note emission + AJV cache eviction handover + tool-registration hash check). Adding settings-path watching with debounce-of-partial-write semantics, JSON-parse-as-soft-error handling, and a separate downstream routing table makes V18f even larger and less independently shippable.
-
-**Risks.** A V18f Tests bullet that bundles seven debounce/swap/note/hash/settings-edit/JSON-malformed/cache-invalidate scenarios is brittle to author and to review; partial passes are hard to attribute.
-
-### Option B — Carve a new V18 leaf dedicated to settings-file watching
-
-**Approach.** Add a new leaf (`<new>`, slot it after V18f and before V18g, e.g. `V18f.1` or `V18g'` per the implementer's ID convention) that owns the watcher on the two settings paths, the debounce, the malformed-intermediate-write handling, the V14n cache invalidation, and the routing of consequences (structural-change `loom-system-note` for `looms`-array deltas; cache update only for `looms.binderModel`). V18f stays focused on `.loom`/`.warp` content edits; the new leaf depends on V14n and V18h.
-
-**Plan edits.**
-- `plan_topics/v18-cancellation.md`: insert a new leaf after V18f with `Spec.` `[Directory Convention — Settings file reads](../spec_topics/discovery.md), [Pi Integration Contract — Extension entry point](../spec_topics/pi-integration-contract.md)`; `Adds.` per the spec contract above; `Tests.` covering the same three cases listed in Option A; `Deps.` `V14n, V18h`; `Ships when.` `Settings-file edits invalidate the V14n cache, route looms-array deltas through the structural-change loom-system-note, and absorb malformed intermediate writes without crashing.`
-- `plan_topics/v14-tool-calls.md` V14n `Adds.`: append "Settings reads are cached for the extension lifetime; cache invalidation on file change is the responsibility of `<new>` (V14n exposes an `invalidate()` seam)."
-- `plan_topics/v16-binder.md` V16e `Adds.`: same wording change as in Option A, citing `<new>` instead of V18f.
-- `plan_topics/coverage-matrix.md` `[Directory Convention]` row: append `<new>` to the closing-leaf list.
-- `plan.md` leaf-order table: insert `<new>` between V18f and V18g.
-
-**Pros.** V18f stays single-purpose. The settings-watcher's distinctive concerns (two specific paths, malformed-intermediate-write absorption, two distinct downstream routes) live in one place. Independently testable Ships-when. Cleaner V18o coverage row.
-
-**Cons.** One more leaf in V18 (already the largest phase). A second chokidar instance — though the per-file `chokidar.watch([paths])` form makes this trivial, the discipline of "one watcher per concern" is less efficient than a single shared instance.
-
-**Risks.** ID assignment is subject to the implementer's V18 numbering choice; the placeholder `<new>` must be replaced consistently across `plan.md`, `coverage-matrix.md`, V14n, V16e, V18f's `Deps`/`Tests` cross-refs, and the new leaf itself.
-
-### Option C — Fold the watcher into V14n
-
-**Approach.** V14n owns both the load-time read and the watcher-driven invalidation; V18f only reads the (already-invalidated) V14n cache to recompute discovery roots. The structural-change `loom-system-note` route stays in V18f (since that leaf already owns the structural-note plumbing).
-
-**Plan edits.**
-- `plan_topics/v14-tool-calls.md` V14n `Adds.`: append the watcher contract (debounce, malformed-intermediate handling, cache invalidation), and add a hook V18f subscribes to for `looms`-array deltas.
-- V18f and V16e edits per Option A, citing V14n as the watcher owner.
-
-**Pros.** Co-locates settings reading and settings invalidation. V18f's scope is unchanged.
-
-**Cons.** V14n is currently a discovery-source leaf, not a watcher leaf; conflating the two concerns under one Ships-when ("Settings-driven discovery works") muddies the gate. V14n's `Deps` are `V14k, H2`, which do not include the chokidar bring-up V18f introduces; folding watcher work into V14n forces V14n to depend on chokidar, contradicting the current ordering where V14n ships well before any file-watching.
-
-**Risks.** V14n moves later in the implementation order or splits chokidar bring-up out of V18f, both of which ripple through V14m/V14n/V14o/V14p ordering and through V18f's own Deps.
+**Shape:** single
 
 ### Recommendation
 
-Take Option B. Carve a new V18 leaf — slot it immediately after V18f and before V18g, with placeholder ID `<new>` until the implementer picks the real ID — and assign it the watcher on `~/.pi/agent/settings.json` and `.pi/settings.json` with debounced cache invalidation, malformed-intermediate-write absorption, and the two routing paths (structural-change `loom-system-note` for `looms`-array deltas; V14n cache update for `looms.binderModel`). Make V18f a `Dep` of the new leaf (chokidar bring-up reuse) and V14n a `Dep` (the cache and the `invalidate()` seam). Concurrently, edit V14n's `Adds.` to state that cache invalidation is the new leaf's responsibility, and edit V16e's `Adds.` to replace the bare "Hot-reload of `looms.binderModel` re-resolves on the *next* loom load only" sentence with the wording given under Option A above so the dependency on the watcher is explicit.
+Carve a new V18 leaf — slot it immediately after V18f and before V18g, with placeholder ID `<new>` until the implementer picks the real ID — and assign it the watcher on `~/.pi/agent/settings.json` and `.pi/settings.json` with debounced cache invalidation, malformed-intermediate-write absorption, and the two routing paths (structural-change `loom-system-note` for `looms`-array deltas; V14n cache update for `looms.binderModel`). Make V18f a `Dep` of the new leaf (chokidar bring-up reuse) and V14n a `Dep` (the cache and the `invalidate()` seam).
+
+This keeps V18f focused on `.loom`/`.warp` content edits (already growing under D18 to own transactional swap + new diagnostic) and gives the settings-watcher's distinctive concerns (two specific paths, malformed-intermediate-write absorption, two distinct downstream routes) one place with an independently testable Ships-when.
+
+**Plan edits.**
+- `plan_topics/v18-cancellation.md`: insert a new leaf after V18f with `Spec.` `[Directory Convention — Settings file reads](../spec_topics/discovery.md), [Pi Integration Contract — Extension entry point](../spec_topics/pi-integration-contract.md)`; `Adds.` per the spec contract (debounced re-read of both files, re-merge via V14n, route `looms`-array delta to structural-change `loom-system-note`, route `looms.binderModel` change to V14n cache invalidation, treat malformed intermediate JSON as `loom/load/settings-invalid-json` leaving prior cache live); `Tests.` covering all three routing paths plus the malformed-intermediate case; `Deps.` `V14n, V18h`; `Ships when.` `Settings-file edits invalidate the V14n cache, route looms-array deltas through the structural-change loom-system-note, and absorb malformed intermediate writes without crashing.`
+- `plan_topics/v14-tool-calls.md` V14n `Adds.`: append "Settings reads are cached for the extension lifetime; cache invalidation on file change is the responsibility of `<new>` (V14n exposes an `invalidate()` seam)."
+- `plan_topics/v16-binder.md` V16e `Adds.`: replace "Hot-reload of `looms.binderModel` re-resolves on the *next* loom load only — it does not retroactively re-attempt loads that already failed." with "When the `<new>` settings watcher invalidates the V14n cache after a `looms.binderModel` edit, the new value is picked up on the next loom load only — already-loaded looms keep their resolved model, and already-failed loads are not retroactively re-attempted (a structural reload via `/reload` is required for either)."
+- `plan_topics/coverage-matrix.md` `[Directory Convention]` row: append `<new>` to the closing-leaf list.
+- `plan.md` leaf-order table: insert `<new>` between V18f and V18g.
+
+The placeholder `<new>` must be replaced consistently across `plan.md`, `coverage-matrix.md`, V14n, V16e, V18f's `Deps`/`Tests` cross-refs, and the new leaf itself.
 
 Edge cases the implementer must watch:
 - The two settings files have asymmetric precedence (project replaces global for `looms`; project deep-merges for nested objects). A change to the global file when the project file already supplies an overriding value must still trigger re-merge — the cache key cannot collapse to "either file's mtime."
@@ -8675,11 +8063,13 @@ Without a leaf that owns the always-log channel, implementers will ship V18h's `
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-### Option A — One consolidated V18p leaf
+### Recommendation
 
-**Approach.** Insert a new leaf (placeholder ID `<new>`, expected to land as `V18p`) into `plan_topics/v18-cancellation.md` immediately after V18i, owning the entire runtime-event-channel surface in one place. Each origin-site leaf gets a one-line Tests cross-link.
+Insert a new leaf (placeholder ID `<new>`, expected to land as `V18p`) into `plan_topics/v18-cancellation.md` immediately after V18i, owning the entire runtime-event-channel surface in one place. Each origin-site leaf gets a one-line Tests cross-link.
+
+The always-log set is a closed, normative invariant with cross-cutting tests (dedup across propagation chains, payload-shape conformance, excluded-kinds-emit-zero) that read poorly when split across a dozen origin leaves. Concentrating it in V18p gives the V18o coverage gate a single mapping target and makes future spec evolution of the always-log set a one-leaf edit.
 
 **Plan edits.**
 
@@ -8707,33 +8097,11 @@ Without a leaf that owns the always-log channel, implementers will ship V18h's `
 
 **Spec edits.** None.
 
-**Pros.** Single owner for a cross-cutting invariant; Tests bullets co-located so a future spec change to the always-log set or payload touches one leaf; new leaf is self-contained and reviewable; the V18o coverage-matrix gate has one obvious mapping to extend.
+Implementer must watch:
 
-**Cons.** V18p depends on many siblings (every origin-site leaf), so it cannot ship until V14, V15, V16 land — late discovery of a contract mismatch is expensive.
-
-**Risks.** If V18p slips past V18o, the V1 ship has the channel unimplemented; the plan must gate V1.0 on V18p, not just V18o.
-
-### Option B — Distribute emission to each origin-site leaf, with a thin V18 invariant leaf
-
-**Approach.** Each origin-site leaf (V5f, V6a, V14f–V14i, V15l, V15m, V16e–V16p) owns its own emission as part of its existing scope. A new V18 leaf owns only the cross-cutting invariants (dedup, `?`-propagation single-emit, payload shape conformance, excluded-kinds-emit-zero).
-
-**Plan edits.**
-
-- Each origin-site leaf's **Adds.** is amended to reference `pi.sendMessage(... details: { event } ...)` with the appropriate `display` flag and `RuntimeEvent` payload; **Tests.** asserts emission for that origin only.
-- New `<new>` leaf in `plan_topics/v18-cancellation.md` (after V18i) covering only: dedup across `?`-propagation, payload-shape conformance, excluded-kinds-emit-zero, panic-uses-diagnostics-shape.
-- `plan_topics/coverage-matrix.md`: same new row but mapping to many leaves.
-
-**Spec edits.** None.
-
-**Pros.** Each origin site is independently testable; ships incrementally as the origin leaves land.
-
-**Cons.** The emission helper either gets reimplemented at each site (drift risk) or lives in a shared module that no leaf actually owns; the dedup invariant is hard to assert without all origin sites in place; coverage-matrix row maps to a long list rather than one leaf.
-
-**Risks.** Origin-site leaves silently regress on emission shape with no central enforcement; the "exactly once across propagation chains" property is hard to verify in isolation.
-
-### Recommendation
-
-Option A. The always-log set is a closed, normative invariant with cross-cutting tests (dedup across propagation chains, payload-shape conformance, excluded-kinds-emit-zero) that read poorly when split across a dozen origin leaves. Concentrating it in a new leaf inserted after V18i in `plan_topics/v18-cancellation.md` gives the V18o coverage gate a single mapping target and makes the future spec evolution of the always-log set a one-leaf edit. Implementer must watch: (i) ensure V18p Deps lists every origin-site leaf so it cannot land prematurely; (ii) the emission helper must be a single shared call site to avoid the drift Option B risks; (iii) the dedup key includes `occurrence-timestamp` per spec — implementers must not omit it on the assumption that `(kind, query_site, message)` is sufficient.
+- (i) Ensure V18p Deps lists every origin-site leaf so it cannot land prematurely; the plan must gate V1.0 on V18p, not just V18o.
+- (ii) The emission helper must be a single shared call site — reimplementing at each origin site invites drift on payload shape and `display` flag selection.
+- (iii) The dedup key includes `occurrence-timestamp` per spec; implementers must not omit it on the assumption that `(kind, query_site, message)` is sufficient.
 
 ## Related Findings
 
@@ -8926,11 +8294,13 @@ V18m's *"User session not torn down"* exit gate cannot fire for unexpected inter
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-### Option A — Add a single normative branch: catch-and-route, no log file
+### Recommendation
 
-**Approach.** Treat any throw inside a slash-command handler or `invoke` parent that is not a spec-listed panic as a single new operator-facing surface. The runtime catches it at the top-level wrap and at the `invoke` boundary, emits one `loom-system-note` with a fixed template (`"loom /<name> aborted with internal error: <error.message>"`), and emits one diagnostic under a new code `loom/runtime/internal-error` whose `hint` carries the `error.stack` (operator-facing only; the user-visible note carries `.message`). User session is not torn down; `invoke` parent observes `Err(InvokeInfraError { kind: "invoke_failure", reason: "internal_error", message, ... })`.
+Treat any throw inside a slash-command handler or `invoke` parent that is not a spec-listed panic as a single new operator-facing surface. The runtime catches it at the top-level wrap and at the `invoke` boundary, emits one `loom-system-note` with a fixed template (`"loom /<name> aborted with internal error: <error.message>"`), and emits one diagnostic under a new code `loom/runtime/internal-error` whose `hint` carries the `error.stack` (operator-facing only; the user-visible note carries `.message`). User session is not torn down; `invoke` parent observes `Err(InvokeInfraError { kind: "invoke_failure", reason: "internal_error", message, ... })`.
+
+This seals the V18m exit-gate hole and delivers operator-grade triage through the existing diagnostics channel. Aligns with the existing `loom/runtime/subagent-dispose-failure` precedent for runtime-defect diagnostics. The on-disk crash-log option is deferred to Future Considerations to avoid coupling this fix to the open `~/.pi/agent/...` path-resolution work flagged in the M-leaf finding.
 
 **Plan edits.**
 - `plan_topics/v18-cancellation.md`, V18m, append to **Tests.**: `An unexpected interpreter throw (synthesised by injecting a probe that throws a fresh \`TypeError\` from inside the body) routes to a single \`loom-system-note\` whose content matches the \`internal-error\` template, emits exactly one \`loom/runtime/internal-error\` diagnostic carrying the stack in \`hint\`, and leaves the user session live (the user can type a follow-up turn).`
@@ -8943,47 +8313,6 @@ V18m's *"User session not torn down"* exit gate cannot fire for unexpected inter
 - `spec_topics/errors-and-results.md`, *Runtime panics* paragraph: replace "This list is closed; …" with text introducing one additional surface — *unexpected interpreter exceptions* — that share the same routing as panics (slash note + `InvokeInfraError`) but carry the new code and a separate `reason: "internal_error"` arm on `InvokeInfraError`. State explicitly that the closed list still bounds *spec-defined* panic sources; the new branch is a runtime-defect surface, not a new authoring concept.
 - `spec_topics/diagnostics.md`, `loom/runtime/*` registry: add row `loom/runtime/internal-error | E | runtime | The interpreter or an adapter it called threw an exception outside the closed V1 panic-source list. \`message\` is the underlying \`error.message\`; \`hint\` carries the underlying \`error.stack\` for operator triage.`
 - `spec_topics/pi-integration-contract.md`, *Runtime event channel* always-log set: confirm the new code is included (it falls under "Runtime panics — every row of [Diagnostics — `loom/runtime/*`]" already, so no edit needed; verify wording).
-
-**Pros.** Closes the V18m exit-gate hole. Operator gets the stack via the existing diagnostics channel. No new file-system side-effects, no platform/path concerns (cf. the related Windows-path finding on `~/.pi/agent/looms/`). Aligns with the existing `loom/runtime/subagent-dispose-failure` precedent for runtime-defect diagnostics.
-
-**Cons.** Adds one row to a registry the spec calls "closed and normative", which requires a paragraph re-write to motivate the distinction between V1 panic sources (author-observable, deterministic) and runtime-defect surfaces (implementation-observable, opportunistic). Touches three spec pages.
-
-**Risks.** The boundary between "spec-listed panic" and "unexpected exception" must be tight: a runtime that catches a `MatchError` and routes it as `internal-error` would silently downgrade a normative panic. Tests must assert the spec-listed sources still route under their original codes, not via the catch-all.
-
-### Option B — Add the branch and an operator crash-log file
-
-**Approach.** Same as Option A, plus the runtime appends one entry per unexpected exception to `~/.pi/agent/logs/loom-crash.log` (line-delimited JSON: timestamp, loom slash name, `error.message`, `error.stack`, runtime-version string). The diagnostic's `hint` cites the log path so an operator chasing a user bug report has a single artefact to grab.
-
-**Plan edits.** Option A's edits, plus a Tests bullet on V18m: `The new \`loom/runtime/internal-error\` diagnostic's \`hint\` includes the absolute crash-log path; the file exists after the test; the appended JSON line round-trips through \`JSON.parse\` and contains the four required keys.` Path-resolution uses the same helper introduced for `~/.pi/agent/looms/` in M (cross-link to the existing Windows-path finding).
-
-**Spec edits.** Option A's edits, plus a paragraph in `pi-integration-contract.md` *System notes* section defining the crash-log path, the JSON line shape, and the rotation/retention policy (or explicit "no rotation in V1, monitor file size manually").
-
-**Pros.** Operator triage is one `cat` away. The log persists across `/reload` and survives the extension instance ending.
-
-**Cons.** Introduces a file-system side-effect with platform-path resolution (Windows expansion of `~`, directory-creation race on first invocation, permission errors on the log directory) — all of which need their own diagnostics. Cross-couples to M's path-expansion gap (related finding). One more thing to mock in unit tests.
-
-**Risks.** Log file growth is unbounded in V1 (rotation deferred). A runaway interpreter bug fills the user's disk. Mitigation: cap file size at, say, 10 MiB and emit `loom/runtime/crash-log-truncated` once when reached.
-
-### Option C — Catch only, defer the diagnostic and the log to Future Considerations
-
-**Approach.** Plan-only fix. Add a Tests bullet to V18m and V18n that asserts an unexpected interpreter throw is *caught* (user session not torn down; parent observes `Err`) and routed to a generic catch-all system note (re-using `slash-invocation.md`'s existing catch-all row for unknown `kind`). No new diagnostic code. Document the gap in `future-considerations.md` *Tooling deferrals* as "richer interpreter-defect telemetry."
-
-**Plan edits.**
-- `plan_topics/v18-cancellation.md`, V18m **Tests.**: append `An unexpected interpreter throw is caught at the slash-command top-level wrap and routed through the existing catch-all system-note row; the user session is not torn down.`
-- `plan_topics/v18-cancellation.md`, V18n **Tests.**: append `An unexpected interpreter throw inside an invoked child surfaces as \`Err(InvokeInfraError { kind: "invoke_failure", reason: "panic", message: <error.message>, ... })\` (re-using the existing \`reason: "panic"\` arm).`
-
-**Spec edits.**
-- `spec_topics/future-considerations.md`, *Tooling deferrals*: add bullet `**Interpreter-defect telemetry** — V1 catches unexpected interpreter exceptions and routes them through the existing catch-all system note + \`reason: "panic"\` envelope, with no dedicated diagnostic code or crash-log file. Post-V1 work may add a \`loom/runtime/internal-error\` code and a structured crash log for operator triage.`
-
-**Pros.** Smallest possible footprint. No registry expansion, no FS side-effects. Closes the V18m exit-gate hole without committing the spec to anything new.
-
-**Cons.** Operator-facing triage is no better than today: `error.stack` is unobservable through any spec channel. A user bug report containing only "the system note said internal error" gives the maintainer nothing to chase.
-
-**Risks.** Re-using `reason: "panic"` for both spec-listed panics and unexpected exceptions makes the two indistinguishable on the wire; author code that pattern-matches `InvokeInfraError.reason === "panic"` cannot tell them apart. May need a follow-up to widen `reason` additively.
-
-### Recommendation
-
-Adopt **Option A**. It seals the V18m exit-gate hole — the only correctness gap currently — and delivers operator-grade triage information through the existing diagnostics channel. The spec already has precedent for runtime-defect diagnostics (`loom/runtime/subagent-dispose-failure`), so introducing `loom/runtime/internal-error` is a parallel addition rather than a structural change. Defer the on-disk crash log (Option B's delta) to Future Considerations to avoid coupling this fix to the open `~/.pi/agent/...` path-resolution work flagged in the M-leaf finding.
 
 Implementer must watch:
 
