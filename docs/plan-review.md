@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_27 findings retained, 3 false positives dropped, 0 persistent failures_
+_26 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -1962,70 +1962,4 @@ The implementer must verify, as part of the smoke, that the `/loom-status` comma
 - "H4 missing mandatory Spec field" — same-cluster (same leaf, different field — `Spec.` vs `Ships when.`)
 
 ---
-
-# H4 Ships-when receipt requires creating an undeclared `docs/manual-smoke.md`
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** `docs/manual-smoke.md` does not exist and its creation violates CLAUDE.md
-**Kind:** validation, codebase-grounding-broad, doc-alignment-broad
-
-## Finding
-
-H4's `Ships when.` reads: ``pi -e C:\UnitySrc\pi-loom` loads the extension and `/loom-status` runs in a real Pi session (manual smoke recorded in `docs/manual-smoke.md`).`` The receipt file `docs/manual-smoke.md` does not exist anywhere in the repository, is not listed in H4's `Adds.`, and is not declared by any earlier horizontal phase. Closing the H4 gate therefore forces the implementer to create a brand-new file that no leaf has authorised.
-
-A secondary problem: H4 has no `Tests.` bullet covering the smoke at all. `Ships when.` is the only place the manual reproduction is mentioned, and the bullet body specifies neither the expected `/loom-status` output nor the format of the receipt entry, so the gate is unobservable from any leaf-internal artefact.
-
-## Plan Documents
-
-- `plan_topics/h4-extension-shell.md` — `Ships when.` bullet; `Adds.`; `Tests.` (edited)
-- `plan_topics/conventions.md` — "Doc updates" cross-cutting rule (read-only)
-- `plan.md` — H4 entry under the horizontal-phases list (read-only)
-
-## Spec Documents
-
-None.
-
-## Affected Leaves
-
-**Phases:** Horizontal
-
-**Leaves (implementation order):**
-
-- H4 — Pi extension shell — (modified)
-
-## Consequence
-
-**Severity:** blocking
-
-H4 cannot be shipped without an implementer unilaterally rewriting the gate or inventing a file format. Because every later horizontal-and-vertical phase depends on H4 being green, the ambiguity stalls the entire downstream pipeline at the first integration boundary, and the lack of a `Tests.` bullet means even an implementer willing to create the file has no specified content to put in it.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Declare `docs/manual-smoke.md` in H4's `Adds.` as a load-bearing project artefact with a fixed entry format, and add a `Tests.` bullet that asserts the file's most recent entry has the expected shape so the gate is observable.
-
-**Plan edits.** In `plan_topics/h4-extension-shell.md`:
-- Append to `Adds.`: `; docs/manual-smoke.md as the project's manual-integration receipt log. Each entry is one Markdown subsection with an ISO-8601 date heading, the Pi version used, the leaf ID being smoked, the exact command invoked (e.g. `pi -e C:\UnitySrc\pi-loom`), and the verbatim assistant-visible output line(s) observed. H4 creates the file with a header explaining the format and writes the first entry as part of closing the H4 gate.`
-- Append to `Tests.`: `File-presence and entry-shape lint: docs/manual-smoke.md exists at the project root, contains the documented header, and its most recent entry has an ISO-8601 date heading plus a non-empty fenced block containing the literal string "pi-loom: no looms loaded yet".`
-- Leave the `Ships when.` text otherwise unchanged.
-
-**Spec edits.** None.
-
-Edge cases for the implementer:
-- The entry format is a fixed contract from H4 onward — every later leaf that records a manual smoke (M, V5e under D23, future leaves) writes entries in the same shape so the lint generalises.
-- The lint asserts shape only, not output validity; whether `/loom-status` actually printed the right line is the human's responsibility at smoke time.
-- The first H4 entry is written by the H4 implementer at gate-closing time, not by the file's bootstrap step — the bootstrap creates only the header.
-
-## Related Findings
-
-- "CHANGELOG.md / notes.md creation violates CLAUDE.md" — co-resolve (same root question; resolved together by bootstrapping `CHANGELOG.md`/`notes.md` in H1 and `docs/manual-smoke.md` in H4)
-- "M Ships-when is manual-only for an entire integration slice" — same-cluster (M's manual smoke uses the same file and entry format)
-- "V5e Ships-when: 'a real Pi session' is unverifiable from the leaf gate" — same-cluster (D23 may also write a `docs/manual-smoke.md` entry)
-- "H4 Ships-when uses undocumented `pi -e <dir>` invocation" — co-resolve (touches the same `Ships when.` bullet; both edits land in one diff to that line)
-
----
-
 
