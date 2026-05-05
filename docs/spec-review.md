@@ -1,7 +1,7 @@
 # pi-loom — Consolidated Spec Review
 
 _Generated: 2026-05-05T19:49:46Z (revised: merges + multi→single conversion + bottom-up reorder)_
-_60 source findings → 34 commit-ready findings (8 merge clusters, 27 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
+_60 source findings → 33 commit-ready findings (8 merge clusters, 26 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
 
 Findings are ordered for **bottom-up processing**: each commit fixes the *last* finding in the doc until the doc is empty. Dependencies that require a particular landing order are encoded in the doc order — `MERGE-F` (`bindings.md` BNDS / BNDR rename) sits at the bottom of the REQ-ID-appendix supersection so it lands *before* `MERGE-G` (retirement registries + V18s sub-gates), which sits above it.
 
@@ -2394,58 +2394,4 @@ Edge cases for the implementer of the spec edit:
 ## Related Findings
 
 - "`InvokeInfraError` / `kind: \"invoke_failure\"` asymmetry not in glossary" — same-cluster (sibling naming-asymmetry documentation gap; both fixed by adding a single explanatory note rather than by renaming, but the edits live in different files and resolve independently)
-
----
-
-## spec_topics/glossary.md
-
----
-
-# Glossary entry for "binder bypass" omits the no-params case
-
-**Source:** docs/reviews/spec-review/spec-20260505-204733.md
-**Original heading:** "binder bypass" conflates two distinct named conditions
-**Kind:** naming
-
-## Finding
-
-`spec_topics/binder.md` defines two independent bypass conditions under its `## Binder bypass` heading: **No-params bypass** (when `params:` is absent or `{}`) and **Single-string bypass** (when `params:` declares exactly one un-defaulted `string` field). Each has distinct triggers, distinct interactions with `bind_echo` (`loom/load/bind-echo-without-params` vs. `loom/parse/bind-echo-on-bypass`), and a load-time ordering rule between them ("the no-params bypass check runs before the single-string bypass check").
-
-The `spec_topics/glossary.md` entry **binder / binder bypass** describes only the single-string condition: "when `params:` declares exactly one field, that field's type is `string`, and the field has no default, the runtime sets the param to the entire slash-argument string … and skips the binder." A reader who looks up "binder bypass" in the glossary gets a definition that silently excludes the no-params case — and who would not know to keep reading `binder.md` to discover the omission.
-
-The glossary's preface mitigates the harm ("if a glossary entry and its canonical page disagree, the canonical page wins"), so this is a documentation completeness defect, not a correctness one. But the glossary's own purpose — a one-stop reminder of coined vocabulary — is undermined when a named term covers two cases and the entry mentions only one.
-
-## Spec Documents
-
-- `spec_topics/glossary.md` — `binder / binder bypass` entry (edited)
-- `spec_topics/binder.md` — `## Binder bypass` section (read-only — confirms both named conditions)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None
-
-(`plan_topics/h6-req-ids.md` explicitly excludes `glossary.md` from REQ-ID anchoring as a pure-narrative page, and `coverage-matrix.md` carries no rows for it. The glossary is governed only by the cross-cutting `glossary` discipline in `spec.md`, which the fix satisfies in-place without leaf-level acceptance changes.)
-
-## Consequence
-
-**Severity:** advisory
-
-A reader consulting only the glossary entry will believe the binder bypass is exclusively the single-string case and will not anticipate the no-params shortcut, the no-params-specific `loom/load/bind-echo-without-params` warning, or the load-order rule that prevents `params: {}` from accidentally matching the single-string branch. The canonical page is correct, so implementations following `binder.md` are unaffected; the cost is reader confusion and lost cross-reference value, not divergent code.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Take Option A. The pair pattern is already established for `loom-side name` vs. `wire name`, the two bypass conditions have distinct triggers and distinct diagnostics, and `binder.md` and plan leaf V3c both treat them as named coordinate cases rather than as variants of one underlying rule. Splitting also exposes the headwords `no-params bypass` and `single-string bypass` to glossary lookup, which is what the original finding observed was missing. Watch one edge case: the new `binder` entry must keep the cross-link to `binder.md`, and the paired bypass entry should anchor to `binder.md#binder-bypass` (not the page root) so a follower lands directly on the section that names both conditions in order.
-
-## Related Findings
-
-- "`InvokeInfraError` / `kind: "invoke_failure"` asymmetry not in glossary" — same-cluster (both are glossary-completeness gaps; resolve independently)
-- "\"loom\" overloaded across three senses; no disambiguating glossary entries" — same-cluster (both edit `spec_topics/glossary.md` to add or split coined-term entries; co-resolvable in a single glossary pass but logically independent)
 
