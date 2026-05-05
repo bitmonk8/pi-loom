@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_80 findings retained, 3 false positives dropped, 0 persistent failures_
+_79 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -5652,61 +5652,3 @@ The UUID choice is not a free pick — `spec_topics/pi-integration-contract.md` 
 - "V14c too large — three distinct concerns" — decision-dependency (if V14c is split into V14c-a/V14c-b, the `toolCallId` clarification belongs in the dispatch+ctx half, V14c-a)
 - "V14d too hollow — merge into V14c" — same-cluster (both shape V14c; if V14d folds in, the new test bullet sits alongside V14d's behavioural assertion)
 
----
-
-# V14c calls itself "the second carve-out" without naming the first in any plan leaf
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** V14c bare-object-literal "second carve-out" has no "first"
-**Kind:** consistency
-
-## Finding
-
-V14c's Adds bullet (`plan_topics/v14-tool-calls.md`) describes the bare-object Pi-tool argument as "the second documented carve-out to the bare-object-literal prohibition; same sublanguage as `params:` defaults." The ordinal mirrors the spec's own enumeration (`spec_topics/expressions.md` lists "exactly two carve-outs": (1) `params:` defaults, (2) single positional Pi-tool argument), but no plan leaf — V16a in particular — labels itself as the first carve-out or uses the word "carve-out" at all. A reader walking the plan in implementation order encounters "second" before any "first" exists in the plan corpus.
-
-The trailing clause "same sublanguage as `params:` defaults" does implicitly identify the first carve-out, so the wording is recoverable. But the ordinal adds nothing the cross-reference does not already carry, and dropping it removes the floating "second" without forcing V16a to grow new bookkeeping.
-
-## Plan Documents
-
-- `plan_topics/v14-tool-calls.md` — V14c Adds bullet (edited)
-- `plan_topics/v16-binder.md` — V16a (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical V14
-
-**Leaves (implementation order):**
-
-- V14c — Bare `<name>(args)` call from loom code — (modified)
-
-## Consequence
-
-**Severity:** cosmetic
-
-The implementer of V14c can still produce the correct leaf — the spec link is right there, and the parenthetical names `params:` defaults in the same sentence. The wording is mildly disorienting but not actionable damage; nothing about the resulting code or tests would diverge between two readers who notice the floating "second" and two who do not.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `plan_topics/v14-tool-calls.md`, V14c Adds bullet, replace the parenthetical
-
-> `(the second documented carve-out to the bare-object-literal prohibition; same sublanguage as `params:` defaults)`
-
-with
-
-> `(a documented carve-out to the bare-object-literal prohibition — the same Loom literal sublanguage as `params:` defaults; see `spec_topics/expressions.md` "Object construction" for the full enumeration)`
-
-This drops the unanchored ordinal, keeps the cross-reference to `params:` defaults as the sister carve-out, and points the implementer at the spec's authoritative numbered list. No edits to V16a are required — the plan does not need to introduce the word "carve-out" anywhere else.
-
-## Related Findings
-
-- "V14c too large — three distinct concerns" — same-cluster (also touches V14c Adds; if V14c is split into V14c-a / V14c-b, the parenthetical moves with the bare-object-literal half)
-- "V14c tests registered-loom callees before V15e creates them (ordering gap)" — same-cluster (independent edit to the same leaf)
-- "V14c: `toolCallId` suffix scheme unspecified" — same-cluster (independent edit to the same leaf)
