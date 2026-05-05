@@ -60,7 +60,7 @@
 
 - **Spec.** [Slash-Command Argument Binding](../spec_topics/binder.md) (determinism).
 - **Adds.** `temperature: 0` and fixed seed (where provider supports). Acknowledged near-deterministic, not guaranteed reproducible.
-- **Tests.** Request payload includes `temperature: 0`; seed included for providers that support it. Cross-linked from V18q — every binder-failure cause owned by this leaf emits exactly one runtime event at the originating site.
+- **Tests.** Request payload includes `temperature: 0` for every provider. Per-provider seed presence: with binder model resolved to a `openai-completions` provider, request payload includes a `seed` field; with `mistral`, includes `random_seed`; with `anthropic-messages`, neither `seed` nor `random_seed` appears anywhere in the request payload; with `amazon-bedrock`, likewise absent. The provider-to-field mapping matches the table in [Binder — Determinism](../spec_topics/binder.md). Cross-linked from V18q — every binder-failure cause owned by this leaf emits exactly one runtime event at the originating site.
 - **Deps.** V16e.
 - **Ships when.** Determinism budget minimised.
 

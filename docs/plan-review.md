@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_102 findings retained, 3 false positives dropped, 0 persistent failures_
+_101 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -7162,78 +7162,3 @@ Edge cases:
 - "V16e strict-capability SDK surface not pinned; \"best-effort\" diagnostic code unnamed" — same-cluster (sibling V16 finding about under-specified SDK behaviour; resolves independently)
 
 ---
-
-# V16h "seed included for providers that support it" — supported-provider list not pinned
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** V16h "seed included for providers that support it" — supported-provider list not pinned
-**Kind:** validation
-
-## Finding
-
-V16h's Tests bullet says "seed included for providers that support it" but neither V16h nor `spec_topics/binder.md` enumerates which providers in the V1 binder-eligible set are considered seed-supporting, nor names the detection mechanism. The spec's only statement is the symmetric prose "where the provider supports it" (`spec_topics/binder.md` Determinism section, line 170) — equally unpinned.
-
-Two implementers would diverge: one might consult a hard-coded table (e.g. `openai-completions` and `mistral` yes, `anthropic-messages` and `amazon-bedrock` no), another might query a pi-ai capability flag if one exists, a third might unconditionally include `seed` in every request payload and rely on the provider adapter to silently strip it. All three pass the test as written, because the test never asserts the negative case (seed absent for non-supporting providers). A pi-ai adapter that silently drops `seed` for `anthropic-messages` would let the test pass against any fixture while shipping nondeterminism in production.
-
-The plan must either pin the per-provider seed-support table (likely four rows, one per V1 binder-eligible provider) or pin the SDK call used to detect the capability, and the Tests bullet must assert both presence (for supporting providers) and absence (for non-supporting providers) so the negative case is observable.
-
-## Plan Documents
-
-- `plan_topics/v16-binder.md` — V16h section (edited)
-
-## Spec Documents
-
-- `spec_topics/binder.md` — Determinism section (edited)
-- `spec_topics/pi-integration-contract.md` — Provider compatibility section (read-only; reference for the binder-eligible provider set)
-
-## Affected Leaves
-
-**Phases:** Vertical V16
-
-**Leaves (implementation order):**
-
-- V16h — Binder determinism settings — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-The V16h test passes vacuously today. Two reasonable implementers will disagree on which providers receive `seed`, and a silent-strip adapter could ship nondeterministic binder behaviour against `anthropic-messages` (the most likely V1 default) without any V16 test failing. Because V18o's coverage gate consumes V16h's test list, the gate would also pass without ever exercising the negative case.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Pin the per-provider seed-support table in the spec, then mirror it in V16h's Tests bullet.
-
-**1. Edit `spec_topics/binder.md` Determinism section (currently line 170, single sentence).** Replace:
-
-> Binder calls use `temperature: 0` and, where the provider supports it, a fixed seed.
-
-with:
-
-> Binder calls use `temperature: 0`. A fixed seed is included in the request payload only for providers in the **seed-supporting set**: `openai-completions` (request field `seed`) and `mistral` (request field `random_seed`). For `anthropic-messages` and `amazon-bedrock` the seed field is omitted entirely from the request payload (not sent and silently ignored). The per-provider mapping is a static runtime table keyed on the resolved binder model's `api` field as reported by `@mariozechner/pi-ai`'s model registry; it is not derived from any pi-ai capability flag. Widening the seed-supporting set is a spec-versioned change.
-
-**2. Edit `plan_topics/v16-binder.md` V16h section (lines 59–65).** Replace the **Tests** bullet:
-
-> - **Tests.** Request payload includes `temperature: 0`; seed included for providers that support it.
-
-with:
-
-> - **Tests.** Request payload includes `temperature: 0` for every provider. Per-provider seed presence: with binder model resolved to a `openai-completions` provider, request payload includes a `seed` field; with `mistral`, includes `random_seed`; with `anthropic-messages`, neither `seed` nor `random_seed` appears anywhere in the request payload; with `amazon-bedrock`, likewise absent. The provider-to-field mapping matches the table in [Binder — Determinism](../spec_topics/binder.md).
-
-Edge cases the implementer must watch:
-
-- The negative cases (`anthropic-messages`, `amazon-bedrock`) MUST assert absence of the field in the actual outbound JSON, not merely absence from the call-site options object — a pi-ai adapter that strips the field downstream would otherwise still pass.
-- Mistral's field name is `random_seed`, not `seed`; the test fixture must distinguish.
-- Cross-reference with the "V16h binder seed value not specified" finding (co-resolve): the seed *value* must be pinned in the same edit (otherwise the per-provider tests still rely on whatever value the implementer picks).
-
-## Related Findings
-
-- "V16h binder seed value not specified" — co-resolve (same V16h Tests bullet; the value-derivation rule and the per-provider gating rule must be authored together)
-- "V16e strict-capability SDK surface not pinned; \"best-effort\" diagnostic code unnamed" — same-cluster (sibling V16 leaf with the same anti-pattern: spec defers to "where supported" without naming the detection mechanism; resolutions are independent but stylistically aligned)
-
----
-

@@ -167,7 +167,7 @@ The echo channel is also used for the binder's `needs_info` and `ambiguous` outp
 
 ## Determinism
 
-Binder calls use `temperature: 0` and, where the provider supports it, a fixed seed.
+Binder calls use `temperature: 0`. A fixed seed is included in the request payload only for providers in the **seed-supporting set**: `openai-completions` (request field `seed`) and `mistral` (request field `random_seed`). For `anthropic-messages` and `amazon-bedrock` the seed field is omitted entirely from the request payload (not sent and silently ignored). The per-provider mapping is a static runtime table keyed on the resolved binder model's `api` field as reported by `@mariozechner/pi-ai`'s model registry; it is not derived from any pi-ai capability flag. Widening the seed-supporting set is a spec-versioned change.
 
 ## Cancellation
 
