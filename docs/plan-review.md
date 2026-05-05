@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_28 findings retained, 3 false positives dropped, 0 persistent failures_
+_27 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -2028,62 +2028,4 @@ Edge cases for the implementer:
 
 ---
 
-# H4 PiToolHost accessor test asserts a property unobservable across `ctx.reload()`
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** H4 "no stale closure after session reload" contradicts Pi's reload lifecycle
-**Kind:** codebase-grounding-broad, assumptions, clarity
-
-## Finding
-
-H4's final Tests bullet asserts that `PiToolHost`'s typed accessor "returns the most recent `ctx` even after a session reload (no stale closure)." This describes a property that does not exist on the object under test. Pi's reload mechanism — `/reload` invoking `ctx.reload()` — re-runs the extension factory as a fresh extension instance; the spec confirms this in [Pi Integration Contract — Tool-registration lifetime and visibility](../../spec_topics/pi-integration-contract.md): "Hot reload (the `_loom-reload` path described in **Extension entry point** step 4) drops the registration cache so a fresh extension instance starts empty." The pre-reload `PiToolHost` instance is discarded along with the rest of the previous factory closure; nothing on it is observable post-reload, so "the accessor returns the most recent `ctx`" cannot be checked on the same `PiToolHost`.
-
-The genuine "no stale closure" hazard for this accessor is intra-instance: each slash-command invocation supplies a new `ExtensionCommandContext`, and the spec pins the retention scope at "the live host is the `ExtensionCommandContext` passed to the slash-command handler, retained for the loom's lifetime" (Pi Integration Contract, **Tool execution from loom code**). The accessor must reflect the ctx of the current handler invocation, not a captured reference from a prior invocation, and V14c's synthesised `execute(..., ctx)` argument depends on that. The test as written distracts from that real obligation and points the implementer at a scenario their fake harness cannot construct.
-
-## Plan Documents
-
-- `plan_topics/h4-extension-shell.md` — Tests bullet (the `PiToolHost` accessor line) (edited)
-- `plan_topics/v14-tool-calls.md` — V14c (read-only; consumer of the accessor)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Horizontal
-
-**Leaves (implementation order):**
-
-- H4 — Pi extension shell — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-The bullet sends an implementer to assert a behaviour that cannot be exercised against any plausible test harness (no continuous `PiToolHost` survives `ctx.reload()`), so they will either silently ship a stub assertion or invent their own scenario. Meanwhile the real invariant the accessor must satisfy — refreshing per slash-command invocation so V14c's synthesised tool-call `ctx` is the live one — goes untested.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `plan_topics/h4-extension-shell.md`, replace the final `**Tests.**` bullet:
-
-> - `PiToolHost` exposes the retained `ExtensionCommandContext` to V14c via a typed accessor; the accessor returns the most recent `ctx` even after a session reload (no stale closure).
-
-with:
-
-> - `PiToolHost` exposes the retained `ExtensionCommandContext` to V14c via a typed accessor: within a single slash-command invocation the accessor returns the `ctx` passed to that handler; a subsequent slash-command invocation on the same extension instance updates the accessor to the new handler's `ctx` (no stale closure across invocations); outside any active invocation the accessor reports "no current ctx" rather than returning a captured reference.
-
-The accessor signature itself is the subject of a sibling finding ("typed accessor" has no signature) and should be co-resolved on the same edit pass. Do not introduce any wording about reload, `session_shutdown`, or cross-instance retention — those events tear down the `PiToolHost` itself and are not observable on it.
-
-## Related Findings
-
-- "H4 \"typed accessor\" for `ExtensionCommandContext` has no signature" — co-resolve (same Tests bullet; declaring the accessor's signature and naming its lifecycle states is the same edit as removing the cross-reload claim)
-- "H4 \"no-logic shims\" claim contradicts registration cache and `withActiveTools`" — same-cluster (different Tests/Adds bullets in the same leaf)
-- "H4 missing mandatory Spec field" — same-cluster (same leaf, independently resolvable)
-
----
 
