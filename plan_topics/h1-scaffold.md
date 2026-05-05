@@ -15,7 +15,21 @@ test/{unit (mirrors src/), integration, fixtures/{loom, warp, schemas}, fakes/}
 **Tests.**
 - Sentinel test (`1 + 1 === 2`) proving toolchain runs.
 - Per-directory presence test (`__present` re-exported by every `src/*/index.ts`).
-- `no-static-state.test.ts` greps `src/` for `^let `, `^var `, `^const ` at module top-level (allow only `const` of literals/frozen objects); fails on violation.
+- `no-static-state.test.ts` walks `src/**/*.ts` and inspects every module-top-level binding (any `VariableDeclaration` whose parent is `Program` or `ExportNamedDeclaration` directly under `Program`). Uses the TypeScript compiler API rather than line-anchored regex so that `export const`, `export let`, `export var`, and indented continuations are caught. Fails on:
+    - any `let` or `var` at module top-level (regardless of `export`);
+    - any `const` (including `export const`) whose initialiser is not one of the permitted forms below.
+
+  Permitted initialiser forms for module-top-level `const`:
+  1. A literal of primitive type — string, number (incl. `bigint`), boolean, `null`, `undefined`.
+  2. A `RegExp` literal (`/.../flags`) without the `g` or `y` flag (stateful regex bindings are forbidden because `RegExp.lastIndex` is shared mutable state).
+  3. A `TemplateLiteral` with no substitutions, or a string built from `+` of items each themselves on this list.
+  4. An `as const` expression (`<expr> as const`) where `<expr>` is itself an array literal, object literal, or tuple of items each on this list — TypeScript's `as const` produces a deeply-readonly type, so downstream mutation is a type error.
+  5. A direct `Object.freeze(<expr>)` call where `<expr>` is an object literal whose every property value is on this list, or an array literal whose every element is on this list. Shallow `Object.freeze` is acceptable because the contained values are themselves immutable by rules 1–4.
+  6. A reference to an `enum`-like exported `const` from the same package whose declaration itself satisfies this list (computed transitively, single-pass — no need for full graph closure).
+
+  Forbidden initialiser forms (non-exhaustive, listed for clarity): bare `[]` / `{}` / `new Map()` / `new Set()` / `new WeakMap()`; function or arrow-function expressions; `class` expressions; any call expression other than `Object.freeze(...)`; any identifier reference not covered by rule 6.
+
+- Tests-for-the-test: a fixture directory under `test/fixtures/no-static-state/` containing `ok-*.ts` files that must pass and `bad-*.ts` files that must fail, one fixture per allow-list rule and one per forbidden form, asserted by running the checker against each fixture and comparing exit code and reported binding name.
 
 **Deps.** None.
 
