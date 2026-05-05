@@ -99,17 +99,17 @@
 ## V14k — Discovery: global `~/.pi/agent/looms/`
 
 - **Spec.** [Directory Convention](../spec_topics/discovery.md).
-- **Adds.** Already in M; this leaf hardens with manifest of every spec rule (non-recursive, `*.loom` only, `.warp` excluded).
+- **Adds.** Already in Mb; this leaf hardens with manifest of every spec rule (non-recursive, `*.loom` only, `.warp` excluded).
 - **Tests.** Recursive subdirs not discovered; non-`.loom` ignored; `.warp` not registered as command. `~` in the global root is expanded via `FileSystem.homedir()` (`FakeFileSystem` with two distinct `homedir` values produces two distinct discovery paths); no fallback to `process.env.HOME` or `process.env.USERPROFILE` (a grep test against `src/` asserts neither identifier appears outside the `PiFileSystem` adapter).
-- **Deps.** M, V14t.
+- **Deps.** Mb, V14t.
 - **Ships when.** Global discovery rule-complete.
 
 ## V14l — Discovery: project `.pi/looms/`
 
 - **Spec.** [Directory Convention](../spec_topics/discovery.md).
-- **Adds.** Already in M; harden as V14k.
+- **Adds.** Already in Mb; harden as V14k.
 - **Tests.** As V14k for project root.
-- **Deps.** M, V14t.
+- **Deps.** Mb, V14t.
 - **Ships when.** Project discovery rule-complete.
 
 ## V14m — Discovery: package `looms/` and `pi.looms`

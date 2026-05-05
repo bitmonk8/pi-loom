@@ -27,7 +27,8 @@ Project scaffold, dependency-injection skeleton, diagnostics primitive, Pi-exten
 
 The smallest end-to-end `.loom` that runs as a Pi slash command.
 
-- [M — Minimal end-to-end loom](./plan_topics/m-mvp.md)
+- [Ma — Minimal lexer + parser for prompt-mode no-params loom](./plan_topics/m-mvp.md)
+- [Mb — Minimal runtime + slash registration + two-root discovery + no-params overflow note](./plan_topics/m-mvp.md)
 
 ---
 
