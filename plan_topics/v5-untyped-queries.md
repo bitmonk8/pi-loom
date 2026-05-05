@@ -51,7 +51,7 @@
 ## V5g — `QueryError` union — initial variants
 
 - **Spec.** [Query](../spec_topics/query.md) (failure modes).
-- **Adds.** Discriminated union with `transport`, `context_overflow`, `cancelled` variants only. (`validation` lands V6i; `code_tool` V14f-i; `model_tool` V14; `invoke_failure`/`invoke_callee_error` V15l-m.) Schema declared once at runtime level so later leaves extend non-breakingly.
+- **Adds.** Discriminated union with `TransportError` (wire `kind: "transport"`), `ContextOverflowError` (wire `kind: "context_overflow"`), and `CancelledError` (wire `kind: "cancelled"`) variants only. (`ValidationError` lands V6i; `CodeToolError` V14f–V14i; `ModelToolError` V14; `InvokeInfraError` V15l; `InvokeCalleeError` V15m.) Schema declared once at runtime level so later leaves extend non-breakingly.
 - **Tests.** Each variant constructible; `match`-on-`kind` works (semantically; full match grammar in V7); `raw_response` field present only on relevant variants.
 - **Deps.** V5e.
 - **Ships when.** Errors flow through the spec's surface even though `?` doesn't exist yet.

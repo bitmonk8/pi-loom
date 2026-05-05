@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_125 findings retained, 3 false positives dropped, 0 persistent failures_
+_124 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -8933,69 +8933,3 @@ Edge cases the implementer must watch:
 - "QueryError variant names inconsistently use wire kind strings vs. type names" — co-resolve (the new leaf's title uses the PascalCase form; that finding's sweep should also retitle V14f–V14i and update V5g/V6i prose. Resolving the missing-leaf gap is a precondition: the naming sweep cannot rename a leaf that does not exist.)
 - "Runtime event channel / always-log set wholly absent from the plan" — decision-dependency (the always-log leaf must emit `model_tool` events, which requires the `ModelToolError` variant to exist in the runtime union. Resolving this finding unblocks that one; resolving that one without this one would attach `model_tool` event emission to a non-existent variant.)
 - "`ToolDefinition` `label` derivation and `Type.Unsafe<unknown>` wrap — no test leaf" — same-cluster (touches V14e and V6i but resolves independently; the new leaf cites V14e as a Dep without modifying it.)
-
----
-
-# `QueryError` variant names: standardise on PascalCase in plan prose
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** QueryError variant names inconsistently use wire kind strings vs. type names
-**Kind:** naming
-
-## Finding
-
-The spec ([`spec_topics/errors-and-results.md` — *QueryError variants*](../../../spec_topics/errors-and-results.md)) declares `QueryError` as a discriminated union of nine PascalCase schema types (`ValidationError`, `TransportError`, `ModelToolError`, `ContextOverflowError`, `CancelledError`, `ToolLoopExhaustedError`, `CodeToolError`, `InvokeInfraError`, `InvokeCalleeError`) and is explicit that the snake_case `kind:` strings are wire contract, distinct from the type name (see the trailing note: *"`InvokeInfraError`'s wire `kind` remains `"invoke_failure"` — snake_case discriminants are wire contract and are not renamed when the schema name changes"*).
-
-The plan applies this distinction unevenly. Six leaves — V6j (`ValidationIssue`), V6k (`ToolLoopExhaustedError`), V7i (`MatchError`), V14f–V14i (`CodeToolError`), V15l (`InvokeInfraError`), V15m (`InvokeCalleeError`) — name their variants by the PascalCase type in titles and Adds prose. V5g, the leaf that *introduces* the union, instead lists every variant by wire-kind string: its Adds reads *"Discriminated union with `transport`, `context_overflow`, `cancelled` variants only. (`validation` lands V6i; `code_tool` V14f-i; `model_tool` V14; `invoke_failure`/`invoke_callee_error` V15l-m.)"*. As a result the four variants V5g actually creates (`TransportError`, `ContextOverflowError`, `CancelledError` — plus `ValidationError` via the V6i forward link) are referred to in the plan only by wire kind, while the other five are referred to by type name.
-
-This is a stylistic inconsistency rather than a behavioural defect — implementers can still map `transport` → `TransportError` against the spec — but it forces every reader of V5g to perform that mapping mentally and obscures cross-leaf grep-ability for variant names.
-
-## Plan Documents
-
-- `plan_topics/v5-untyped-queries.md` — V5g (edited)
-- `plan_topics/conventions.md` — naming guidance section (option-dependent: edited only if the convention is codified rather than applied silently)
-- `plan_topics/v6-typed-queries.md` — V6i, V6k, V6j (read-only — already PascalCase or schema-shape)
-- `plan_topics/v14-tool-calls.md` — V14f–V14i (read-only — already PascalCase in titles)
-- `plan_topics/v15-invoke.md` — V15l, V15m (read-only — already PascalCase)
-- `plan_topics/v18-cancellation.md` — V18a, V18b, V18c, V18d, V18e (read-only — `Err({kind:"cancelled"})` is legitimate JSON shape, not a variant-naming use)
-- `plan_topics/v13-wire-names.md` — V13e, V13g (read-only — wire-kind strings appear inside JSON shapes)
-- `plan_topics/v7-match.md` — V7i (read-only)
-
-## Spec Documents
-
-None — the spec is the authoritative source the plan is being aligned to; no spec edits are required by this finding.
-
-## Affected Leaves
-
-**Phases:** Vertical V5
-
-**Leaves (implementation order):**
-
-- V5g — `QueryError` union — initial variants — (modified)
-
-## Consequence
-
-**Severity:** cosmetic
-
-The plan is internally inconsistent on a naming convention the spec already pins. Implementers will still produce correct schemas (the spec is unambiguous), but the V5g leaf reads as if it speaks a different vocabulary from V6j/V6k/V7i/V14f–V14i/V15l/V15m, and the variant names introduced by V5g are not greppable by their type name across the plan.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Replace the body of `plan_topics/v5-untyped-queries.md`'s **V5g — `QueryError` union — initial variants** leaf so that every variant is named by its PascalCase type in prose, with snake_case wire kinds reserved for code shapes and `kind:` literals.
-
-Concretely, edit the **Adds.** bullet to read:
-
-> **Adds.** Discriminated union with `TransportError` (wire `kind: "transport"`), `ContextOverflowError` (wire `kind: "context_overflow"`), and `CancelledError` (wire `kind: "cancelled"`) variants only. (`ValidationError` lands V6i; `CodeToolError` V14f–V14i; `ModelToolError` V14; `InvokeInfraError` V15l; `InvokeCalleeError` V15m.) Schema declared once at runtime level so later leaves extend non-breakingly.
-
-Leave the **Tests.** bullet's `match`-on-`kind` reference and any literal `Err({kind:"transport"})` / `Err({kind:"cancelled"})` / `Err({kind:"context_overflow"})` JSON-shape examples elsewhere in the plan unchanged — they correctly use wire kinds because they describe wire payloads, not type identity.
-
-Edge cases for the implementer: the V5g forward references for `InvokeInfraError` / `InvokeCalleeError` should split onto V15l and V15m respectively (the current `V15l-m` shorthand muddles which variant lands in which leaf); the `ModelToolError` V14 forward should resolve to a concrete leaf id once the *"`ModelToolError` forward-referenced in plan but no leaf implements it"* finding is fixed.
-
-## Related Findings
-
-- "`ModelToolError` forward-referenced in plan but no leaf implements it" — co-resolve (the same V5g forward-reference list is the locus of both findings; pick PascalCase and pin a real leaf id in one edit pass)
-- "`InvokeInfraError.reason: "cancelled"` absent from spec schema" — same-cluster (touches `InvokeInfraError` but is a spec-conformance issue, resolved independently)
