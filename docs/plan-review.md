@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_37 findings retained, 3 false positives dropped, 0 persistent failures_
+_36 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -2652,74 +2652,4 @@ This keeps M's gate observable end-to-end, anchors every term it uses in an exis
 - "M requires `loom-system-note` channel that V18h introduces" — co-resolve (both touch the same M test bullet; the wording change here removes the literal-text dependency on V18i, while the sibling finding addresses the missing V18h channel/renderer dependency)
 - "`loomAbort` controller construction not assigned to any leaf" — same-cluster (cites the same M test bullet as evidence that controller plumbing is required at M; resolved independently by introducing/assigning the controller construction to a leaf)
 - "`InvokeInfraError.reason: \"cancelled\"` absent from spec schema" — same-cluster (also a cancellation-vocabulary mismatch between plan and spec, but on the `invoke` surface rather than the slash surface)
-
----
-
-# M conflates the factory and `session_start` registration phases
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** M assumes registration/collision plumbing not yet scheduled
-**Kind:** implementability, assumptions, consistency
-
-## Finding
-
-`spec_topics/pi-integration-contract.md` (Extension entry point, steps 1–3) is explicit that the loom extension factory MUST NOT call `pi.registerCommand` synchronously: at factory time `pi.getCommands()` returns `notInitialized` (it only becomes readable when `Runner.bindCore()` fires alongside `session_start`), so cross-format collision detection cannot run there. The contract therefore mandates a two-phase split — the factory walks discovery sources and builds a *pending registration list*; a subscribed `session_start` handler then consults `pi.getCommands()`, drops any pending loom whose slash name collides with an existing prompt-template / subagent / extension entry (emitting `loom/load/cross-format-collision`), and only then calls `pi.registerCommand` on the survivors.
-
-`plan_topics/m-mvp.md` does not reflect this split. Its `Adds.` mentions `pi.registerCommand` directly and the only collision case it tests is the cross-source-shadow case — "two files producing the same slash name across the two roots: only the project one registers; warning names both paths" — which is the V14p concern (cross-priority shadowing within loom-only sources), not the V14q cross-format check. The leaf neither states which steps of the integration contract M owns end-to-end (factory walk, pending list, `session_start` subscription, cross-source priority drop, the actual `pi.registerCommand` call) nor forward-references which steps it defers (cross-format collision to V14q; renderer registration to V18h; the further three discovery sources to V14m–V14o).
-
-A reasonable M-implementer reading only the leaf will register commands directly from the factory, skip the `session_start` subscription entirely, and miss the cross-format collision check. The result still passes M's stated tests against `FakeExtensionAPI` (because the fake exposes no Pi-owned commands to collide with) but breaks the contract the moment the extension loads against a real Pi session that already owns `/code-review` as a prompt template.
-
-## Plan Documents
-
-- `plan_topics/m-mvp.md` — `Adds.` and `Tests.` (edited)
-- `plan_topics/h4-extension-shell.md` — `Adds.` (option-dependent — only if any plumbing is hoisted to H4)
-- `plan_topics/v14-tool-calls.md` — V14p, V14q, V14m–V14o (read-only)
-- `plan_topics/coverage-matrix.md` — "Pi Extension Integration" row (read-only)
-
-## Spec Documents
-
-None.
-
-## Affected Leaves
-
-**Phases:** MVP, Vertical V14
-
-**Leaves (implementation order):**
-
-- M — Minimal end-to-end loom — (modified)
-- V14p — Source priority and shadowing warning — (read-only — confirms cross-source ownership boundary)
-- V14q — Slash collision at the same priority — (read-only — confirms cross-format ownership boundary)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable M-implementers will diverge: one registers slash commands directly from the factory (matching the leaf's literal wording but violating the spec's explicit `notInitialized` rule), the other subscribes a `session_start` handler. Either implementation passes M's fakes-driven tests; only the latter survives the manual `Ships when` smoke against a real Pi session, and only when the user has no colliding prompt template. M's spec-coverage claim against `pi-integration-contract.md` is silently vacuous for the registration-pipeline rules.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Rewrite M's `Adds.` registration sentence to make the two-phase split and the deferred concerns explicit. Replace the bare "Slash command registration: …" sentence with:
-
-> Slash command registration follows the two-phase split mandated by [Pi Integration Contract — Extension entry point](../spec_topics/pi-integration-contract.md) steps 1–3. The factory walks the two in-scope discovery sources (`~/.pi/agent/looms/` and `.pi/looms/`), parses each `.loom`, and builds a pending registration list keyed by slash name; the factory does **not** call `pi.registerCommand`. A `session_start` handler then consults `pi.getCommands()`, drops pending entries whose name collides with an entry whose `source` is `"prompt"`, `"subagent"`, or `"extension"`, and registers each survivor via `pi.registerCommand(name, { description, getArgumentCompletions, handler })`. The `description` field carries `frontmatter.description` verbatim and only that — `argument-hint` is not concatenated. M owns: factory walk over the two in-scope sources, pending list, `session_start` subscription, the cross-source priority drop between the two roots (project wins; warning names both paths), and the `pi.registerCommand` call. M defers: the cross-format collision check and its `loom/load/cross-format-collision` diagnostic to V14q; the remaining three discovery sources (package, settings, `--loom`) to V14m–V14o; the five-source priority rule beyond the project-vs-global pair to V14p; the `loom-system-note` renderer registration to V18h; the `loomAbort` controller plumbing to whichever leaf the companion findings assign it to.
-
-Add the following bullet to `Tests.`:
-
-> The factory invocation does **not** call `pi.registerCommand` (assert on `FakeExtensionAPI`'s register-command counter); a `session_start` handler is subscribed during the factory call; firing `session_start` on the fake then triggers the `pi.registerCommand` call. With `FakeExtensionAPI.commands` pre-populated with an entry of the same name and `source: "prompt"`, the loom does not register and a `loom/load/cross-format-collision` diagnostic is emitted (covers the M-side wiring; V14q owns the rule's full surface).
-
-Edge cases the implementer must watch:
-
-- The fake `ExtensionAPI` used by H2 must expose `getCommands()` returning `notInitialized` during the factory call and a populated map after `session_start` fires; if H2's fake does not yet model this, that is an H2 gap that surfaces here.
-- The `session_start` handler must register the command synchronously inside its callback, not via a deferred microtask, so the first user `/hello` invocation after session start finds the command registered.
-- The cross-source-shadow test ("two files across two roots") moves into the `session_start`-driven path; the warning is still emitted at load time (factory phase), but the registration-suppression observation is on the `session_start`-phase counter.
-
-## Related Findings
-
-- "M requires `loom-system-note` channel that V18h introduces" — co-resolve (same fix surface: enumerate which infrastructure M owns vs forward-references; the renderer registration is item (a) in the original suggested-fix list).
-- "`loomAbort` controller construction not assigned to any leaf" — same-cluster (sibling plumbing-ownership gap in M; both rest on the same "M does not declare its prerequisites" theme but resolve through independent edits).
-- "M's `AbortError` system-note path not defined in spec" — same-cluster (another M test that depends on later-leaf infrastructure; resolves independently via the spec's `kind: "cancelled"` contract).
-- "M's Ships-when is manual-only for an entire integration slice" — same-cluster (M's verification surface; the new `session_start` test bullet recommended above is one fakes-side mitigation but does not replace the end-to-end harness that finding asks for).
 
