@@ -125,7 +125,7 @@
 - **Spec.** [Directory Convention](../spec_topics/discovery.md), [Pi Integration Contract — Extension entry point](../spec_topics/pi-integration-contract.md).
 - **Adds.** Single `--loom` flag registered via `pi.registerFlag('loom', { type: 'string', description: '…' })` in the extension factory **before** subscribing to `resources_discover`; the flag's value is read with `pi.getFlag('loom')` and split on Node's `path.delimiter` (`:` POSIX, `;` Windows). Each split component is a file or directory resolved with the same rules as settings `looms` entries (V14n).
 - **Tests.** `--loom a.loom` registers one loom; `--loom "a.loom:b.loom"` (POSIX) and `--loom "a.loom;b.loom"` (Windows) register two looms; CLI overrides settings; non-`.loom` component → `loom/load/invalid-extension`; missing component → `loom/load/missing-source` error (per the per-source severity table); a directory component contributes its non-recursive `*.loom` children; two components whose stems hyphen-normalise to the same slash name (e.g. `code-review.loom` and `code_review.loom`) → `loom/load/cross-format-collision` and neither registers (per V14q). The flag is registered exactly once and `pi.getFlag('loom')` returns a single string (no array surface from Pi's SDK).
-- **Deps.** V14k.
+- **Deps.** V14k, V14n.
 - **Ships when.** CLI flag accepts multiple paths via the OS path-list separator and resolves them through the shared file-or-directory rule.
 
 ## V14p — Source priority and shadowing warning

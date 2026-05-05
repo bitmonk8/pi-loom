@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_89 findings retained, 3 false positives dropped, 0 persistent failures_
+_88 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -6278,67 +6278,4 @@ Edge cases the implementer must watch:
 - "V14n / V14o missing V14q from Deps despite citing its collision rule in Tests" — same-cluster (also touches V14n's Tests bullet but resolves independently)
 - "Settings-file watching silently assumed but excluded from V18f scope" — decision-dependency (the reload behavior referenced here is the same path that V18f does not currently claim; resolving the watcher-scope question constrains how the malformed-on-reload story is tested)
 - "V14o missing V14n from Deps" — same-cluster (V14o reuses V14n's reader; ordering fix only)
-
----
-
-# V14o omits V14n from Deps despite reusing its path-resolution rule
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** V14o missing V14n from Deps
-**Kind:** ordering
-
-## Finding
-
-V14o's `Adds.` field defines each `--loom` component as "a file or directory resolved with the same rules as settings `looms` entries (V14n)" — i.e. the leaf delegates path resolution (relative-to-base-directory anchoring, `~` expansion, absolute-path handling, directory expansion to non-recursive `*.loom` children, `.warp` exclusion, `.loom`-extension enforcement, and the `loom/load/invalid-extension` diagnostic) wholesale to the resolver V14n introduces.
-
-V14o's `Deps.` field, however, lists only `V14k`. V14n is the leaf that actually ships the shared resolver. An implementer picking V14o off the queue based on Deps alone has no signal that V14n must land first; the dependency graph understates the prerequisite.
-
-For comparison, V16e — which also reuses the V14n settings-reader mechanism — correctly lists `V14n` in its Deps (`Deps. V3a, V3c, V14n, V16o.`).
-
-## Plan Documents
-
-- `plan_topics/v14-tool-calls.md` — V14o (edited)
-- `plan_topics/v14-tool-calls.md` — V14n (read-only, source of the resolver being depended on)
-- `plan_topics/v16-binder.md` — V16e (read-only, comparison precedent)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical V14
-
-**Leaves (implementation order):**
-
-- V14o — Discovery: `--loom` CLI flag — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers diverge: one trusts the Deps line and ships V14o ahead of V14n, then re-derives a parallel resolver inside V14o's code path; the other reads the Adds prose and waits for V14n. The first outcome leaves V14o and V14n with two competing path resolvers that may diverge on edge cases (`~` expansion, base-directory anchoring, hyphen-normalisation hand-off to V14q), and the V14o tests for "directory component contributes its non-recursive `*.loom` children" and "non-`.loom` component → `loom/load/invalid-extension`" silently re-implement V14n's contract instead of exercising it.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `plan_topics/v14-tool-calls.md`, edit V14o's `Deps.` line from:
-
-> **Deps.** V14k.
-
-to:
-
-> **Deps.** V14k, V14n.
-
-Order matches the existing left-to-right leaf-id convention used elsewhere in this file. No other field of V14o needs to change for this finding (the Adds already names V14n inline, and the Tests already exercise the resolver behaviour).
-
-If the related finding "V14n / V14o missing V14q from Deps despite citing its collision rule in Tests" is being resolved in the same edit, the final line becomes `**Deps.** V14k, V14n, V14q.` — apply both additions in one pass.
-
-## Related Findings
-
-- "V14n / V14o missing V14q from Deps despite citing its collision rule in Tests" — co-resolve (same `Deps.` line on V14o; apply both additions together as `V14k, V14n, V14q`)
-- "V16e ordering: forward Dep on V16o with misleading file order" — same-cluster (both concern accuracy of `Deps.` lines; resolve independently)
 
