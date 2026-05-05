@@ -1,7 +1,7 @@
 # pi-loom — Consolidated Spec Review
 
 _Generated: 2026-05-05T19:49:46Z (revised: merges + multi→single conversion + bottom-up reorder)_
-_60 source findings → 20 commit-ready findings (8 merge clusters, 24 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
+_60 source findings → 19 commit-ready findings (8 merge clusters, 24 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
 
 Findings are ordered for **bottom-up processing**: each commit fixes the *last* finding in the doc until the doc is empty. Dependencies that require a particular landing order are encoded in the doc order — `MERGE-F` (`bindings.md` BNDS / BNDR rename) sits at the bottom of the REQ-ID-appendix supersection so it lands *before* `MERGE-G` (retirement registries + V18s sub-gates), which sits above it.
 
@@ -1477,65 +1477,3 @@ V16i's existing test list (rule 6 in `plan_topics/v16-binder.md`) gains one fixt
 
 ---
 
-# Echo policy: array-truncation boundary at exactly three elements is ambiguous
-
-**Source:** docs/reviews/spec-review/spec-20260505-204733.md
-**Original heading:** Echo policy: "past three elements" array truncation boundary ambiguous
-**Kind:** testability
-
-## Finding
-
-`spec_topics/binder.md` §"Echo policy" reads:
-
-> Array values shown as `[a, b, c]`, truncated to `[a, b, c, …+N more]` past three elements.
-
-"Past three elements" does not pin the boundary. Two reasonable readings exist: (a) arrays of size ≥ 4 truncate (the natural English reading and the one already chosen by the plan); (b) arrays of size > 3 *including 3 itself* truncate (treating "past three" as "past the first three"). Reading (b) is unlikely but not excluded by the prose, and a conformance test that fixes a 3-element array as the expected `[a, b, c]` form has no normative anchor to point to.
-
-The same paragraph also leaves `N` undefined: the rendered marker `…+N more` does not state whether `N` is the *count of dropped elements* or the *total array length*. The plan leaf V16i has independently committed to `N = count of dropped elements`, but the spec is silent.
-
-The downstream plan leaf V16i — `bind_echo` formatter — has already had to guess both questions to write its tests, picking "≤3 in full / >3 truncated" and "N = dropped count". The spec must catch up to what the plan is testing against, so a future reader of the spec alone reaches the same answer.
-
-## Spec Documents
-
-- `spec_topics/binder.md` — Echo policy → Format rules (edited)
-
-## Plan Impact
-
-**Phases:** Vertical V16
-
-**Leaves (implementation order):**
-
-- V16i — `bind_echo` formatter — (modified)
-
-The leaf's existing test text already encodes the intended boundary (`arrays of ≤3 elements rendered as [a, b, c] in element order, arrays of >3 elements rendered as [a, b, c, …+N more] where N is the count of dropped elements`). After the spec edit lands, V16i's "Spec" reference needs no change but the **Tests** wording can drop the implicit "the spec says 'past three' which we interpret as >3" tension and quote the spec verbatim.
-
-## Consequence
-
-**Severity:** correctness
-
-A spec-only reader could implement reading (b) — full echo for ≤2 elements, truncation at 3 — and pass an internally-consistent test suite that disagrees with V16i's. Two implementers would diverge at the 3-element case, and a binder-driven UI's appearance for the common "exactly three values" path would silently differ between implementations. The `N` ambiguity has the same shape: an implementation that emits `…+5 more` for a 5-element array (showing total) versus `…+2 more` (showing dropped count) is internally consistent and equally defensible against the current prose.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Replace the bullet in `spec_topics/binder.md` §"Echo policy" → Format rules with:
-
-> - Array values: arrays of **3 or fewer** elements are shown in full as `[a, b, c]` in element order; arrays of **4 or more** elements are shown as `[a, b, c, …+N more]` where the rendered prefix is the first three elements in order and `N` is the count of dropped elements (i.e. `total − 3`). An empty array renders as `[]`. Per-element rendering follows the same rules recursively (a string element is quoted by the same predicate as a top-level string value; a nested object element renders as `{first-field-value, …}`).
-
-Implementer-relevant edge cases this pins down:
-
-1. **Boundary.** `["a","b","c"]` → `[a, b, c]` (no marker); `["a","b","c","d"]` → `[a, b, c, …+1 more]`.
-2. **Empty array.** `[]` → `[]` — explicitly stated so the formatter does not produce `[, …+0 more]` or omit the field.
-3. **`N` semantics.** `N` is the count of *dropped* elements, not the total. A 10-element array renders `…+7 more`, not `…+10 more`. This matches V16i's existing test.
-4. **Element rendering.** The rule "first three elements in order" inherits the rest of the format rules (quoting predicate for strings, `{first-field-value, …}` for nested objects); no separate sub-grammar.
-5. **Interaction with the line-level cap.** Unchanged — the existing rule that "if truncation falls inside an array, the inner `…+N more` may be cut" continues to apply at the line level, separately from this element-count rule.
-
-## Related Findings
-
-- "System-note 120-codepoint cap: \"code points or grapheme clusters\" is ambiguous" — same-cluster (both are testability boundary gaps in the system-note / echo rendering grammar; resolved by independent edits to adjacent paragraphs in `binder.md`)
-- "Tool execution content truncation: boundary and multi-byte edge case underspecified" — same-cluster (same shape of defect — truncation prose that does not pin inclusive/exclusive — but in a different spec topic; the fix idiom is transferable)
-
----

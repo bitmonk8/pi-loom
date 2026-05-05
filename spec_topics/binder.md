@@ -154,7 +154,7 @@ Format rules:
 
 - Top-level `params:` fields shown in declaration order, comma-separated.
 - String values quoted only when they contain whitespace or special characters.
-- Array values shown as `[a, b, c]`, truncated to `[a, b, c, …+N more]` past three elements.
+- Array values: arrays of **3 or fewer** elements are shown in full as `[a, b, c]` in element order; arrays of **4 or more** elements are shown as `[a, b, c, …+N more]` where the rendered prefix is the first three elements in order and `N` is the count of dropped elements (i.e. `total − 3`). An empty array renders as `[]`. Per-element rendering follows the same rules recursively (a string element is quoted by the same predicate as a top-level string value; a nested object element renders as `{first-field-value, …}`).
 - Object values shown as `{first-field-value, …}` — just the first field's value as a hint.
 - Defaulted fields tagged `(default)`: `focus_areas=[] (default)`.
 - Total line subject to the shared 120-code-point cap defined in [System-note rendering](#system-note-rendering) above, measured over the whole line including the `Running \`/<name>\`: ` prefix; overflow truncated with `…`. The line-level cap wins over the array rule's own `…+N more` marker — if truncation falls inside an array, the inner `…+N more` may be cut.
