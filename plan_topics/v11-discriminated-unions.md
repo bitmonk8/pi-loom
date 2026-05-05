@@ -66,8 +66,8 @@
 
 ## V11i — Runtime depth cap of 5
 
-- **Spec.** [Schema Subset](../spec_topics/schema-subset.md) (depth).
-- **Adds.** AJV-time check on JSON document depth ≤ 5; deeper data is `validation` error with clear path.
-- **Tests.** Depth-5 accepted; depth-6 rejected; cap applies to data not schema graph.
+- **Spec.** [Schema Subset — Depth Enforcement](../spec_topics/schema-subset.md#depth-enforcement).
+- **Adds.** `SchemaValidator` exposes a pre-AJV depth walk over post-decode JSON values: depth-5 accepted, depth-6 short-circuits at the first too-deep node and produces `ValidationIssue { schema_keyword: "maxDepth", path: <JSON Pointer>, message: "JSON document depth exceeds 5" }`. The walk is unconditionally installed at every boundary that calls `SchemaValidator.validate(...)`; per-boundary surfacing is verified in V6i, V14e, V14f, V16p.
+- **Tests.** Service-level: depth-5 accepted, depth-6 rejected; first-too-deep node short-circuits (deeper subtrees not walked); `ValidationIssue.schema_keyword === "maxDepth"`; `path` is a JSON Pointer to the first too-deep node; `message` is exactly `"JSON document depth exceeds 5"`; the walk runs before AJV (an AJV-keyword issue against the same depth-6 payload is not produced); recursive `schema Tree` with depth-3 instance accepted (cap is on data not schema graph).
 - **Deps.** V11g.
 - **Ships when.** Depth cap is enforced uniformly.

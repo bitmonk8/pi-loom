@@ -122,8 +122,8 @@
 
 ## V16p — AJV validation of `args` post-default-merge
 
-- **Spec.** [Slash-Command Argument Binding](../spec_topics/binder.md) (failure modes).
+- **Spec.** [Slash-Command Argument Binding](../spec_topics/binder.md) (failure modes), [Schema Subset — Depth Enforcement](../spec_topics/schema-subset.md#depth-enforcement).
 - **Adds.** AJV validates merged `args` (binder output + filled defaults) against full params schema; failure surfaces as system note `argument binding produced invalid args — <ajv-summary>`. No retry on AJV failure of merged `args`.
-- **Tests.** Hallucinated field shape caught; AJV summary readable; no re-prompt issued on AJV failure. Cross-linked from V18q — an AJV-validation failure of merged `args` emits exactly one runtime event at the originating binder site.
-- **Deps.** V16b.
+- **Tests.** Hallucinated field shape caught; AJV summary readable; no re-prompt issued on AJV failure; merged `args` containing a depth-6 nested value surfaces as the spec's `argument binding produced invalid args — <ajv-summary>` system note where the summary names `maxDepth` (depth walk fires before AJV at the `params` boundary; see V11i). Per spec edge case, the walk is installed even when the params schema only declares primitives or `array<T>` over primitives — the test constructs an artificially deep merged value against a primitive-typed param schema and asserts the walk still fires (so future widening of `params` types inherits the cap automatically). Cross-linked from V18q — an AJV-validation failure of merged `args` emits exactly one runtime event at the originating binder site.
+- **Deps.** V16b, V11i.
 - **Ships when.** Hallucinations caught at boundary.

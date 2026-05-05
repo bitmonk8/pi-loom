@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_55 findings retained, 3 false positives dropped, 0 persistent failures_
+_54 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -3934,89 +3934,6 @@ No new leaf is needed; the existing V11a/V11d Deps and Ships-when remain valid.
 - "Empty schema and enum body diagnostics — no test leaf" — same-cluster (same shape: spec-mandated parse code with no asserting leaf in V4/V10/V11)
 - "Type-alias cycle detection (`loom/parse/type-alias-cycle`) — no plan leaf" — same-cluster (same shape, in the same v4/v10/v11 section of the review)
 - "Closed diagnostic registry — many codes have no asserting plan leaf" — superseded-by (this finding is one specific instance of that cross-cutting registry-coverage gap; resolving the cross-cutting gate would surface this systematically, but the V11a/V11d edit closes the immediate hole independently)
-
----
-
-# Depth cap is tested at one site; spec mandates four
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** Schema-subset depth enforcement missing at three of four required sites
-**Kind:** spec-coverage
-
-## Finding
-
-`spec_topics/schema-subset.md` (Depth Enforcement) pins down four enforcement boundaries for the `depth ≤ 5` cap, all serviced by the `SchemaValidator`: (1) typed-query response validation, (2) model-driven tool-call argument validation, (3) code-driven tool-call argument validation, and (4) `params` validation at loom invocation. The walk runs **before** AJV at each site as a cheap fast-fail, and the canonical violation shape is fixed: `ValidationIssue { schema_keyword: "maxDepth", path: <JSON Pointer to first too-deep node>, message: "JSON document depth exceeds 5" }`, surfaced through whichever envelope the boundary uses (`QueryError{kind:"validation"}`, `CodeToolError{cause:"validation"}`, `InvokeInfraError{reason:"validation"}`).
-
-`plan_topics/v11-discriminated-unions.md` V11i is the only depth-cap leaf. Its Adds say "AJV-time check on JSON document depth ≤ 5" (already understated — it is a pre-AJV walk, not an AJV-time check) and its Tests say only "Depth-5 accepted; depth-6 rejected; cap applies to data not schema graph." That wording is satisfied by a single test against any one boundary. None of V6c (typed-query response), V14e/V14f (model-driven and code-driven tool-call argument validation), V16p (binder AJV on merged `args`), or V3a (single-string-bypass safety net) carry a depth-violation test either, and the spec's `schema_keyword: "maxDepth"` literal — the only `schema_keyword` value Loom emits that is not a literal AJV keyword — is unasserted anywhere.
-
-The cumulative gap: the V18o coverage gate can pass with three of the four boundaries silently un-policed, the `maxDepth` literal undocumented in any test fixture, and the pre-AJV ordering free to invert without a regression bell ringing.
-
-## Plan Documents
-
-- `plan_topics/v11-discriminated-unions.md` — V11i (edited)
-- `plan_topics/v6-typed-queries.md` — V6c, V6j (option-dependent)
-- `plan_topics/v14-tool-calls.md` — V14e, V14f (option-dependent)
-- `plan_topics/v16-binder.md` — V16p (option-dependent)
-- `plan_topics/v3-frontmatter.md` — V3a single-string bypass paragraph (option-dependent)
-- `plan_topics/coverage-matrix.md` — `Schema Subset` row (read-only)
-
-## Spec Documents
-
-- `spec_topics/schema-subset.md` — Depth Enforcement section (read-only)
-- `spec_topics/errors-and-results.md` — `ValidationIssue` shape (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical V11, Vertical V6, Vertical V14, Vertical V16
-
-**Leaves (implementation order):**
-
-- V6c — Typed-query response loop (one-shot respond tool) — (option-dependent)
-- V11i — Runtime depth cap of 5 — (modified)
-- V14e — Pi tool wired into `@` queries as model-callable — (option-dependent)
-- V14f — `CodeToolError` variant: `validation` cause — (option-dependent)
-- V16p — AJV validation of `args` post-default-merge — (option-dependent)
-
-## Consequence
-
-**Severity:** correctness
-
-A reasonable implementer reads V11i and ships a depth check at exactly one boundary (most naturally the typed-query response, since that is the dominant `SchemaValidator` test surface). The other three boundaries — model-driven tool-call args, code-driven tool-call args, and `params` validation — silently accept depth-6+ payloads, and the V18o coverage matrix passes vacuously because the `Schema Subset` row points at V4g and V11i and both leaves are green. The `schema_keyword: "maxDepth"` contract (the sole non-AJV literal Loom emits) and the pre-AJV ordering can also drift undetected.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Keep V11i scoped to the `SchemaValidator` service in isolation (depth walk correctness, error shape, pre-AJV ordering against a synthetic boundary). Add a depth-violation Tests bullet to each of the four boundary leaves to prove the walk is actually invoked at that site. The four boundaries are owned by four different leaves with different envelopes (`QueryError`, `CodeToolError`, `InvokeInfraError`, binder system note) and different test scaffolds; centralising in V11i would couple it to four downstream leaves and push it past V16.
-
-**Plan edits.**
-
-- `plan_topics/v11-discriminated-unions.md`, V11i:
-  - **Adds.** "`SchemaValidator` exposes a pre-AJV depth walk over post-decode JSON values: depth-5 accepted, depth-6 short-circuits at the first too-deep node and produces `ValidationIssue { schema_keyword: \"maxDepth\", path: <JSON Pointer>, message: \"JSON document depth exceeds 5\" }`. The walk is unconditionally installed at every boundary that calls `SchemaValidator.validate(...)`; per-boundary surfacing is verified in V6c, V14e, V14f, V16p."
-  - **Tests.** "Service-level: depth-5 accepted, depth-6 rejected; first-too-deep node short-circuits (deeper subtrees not walked); `ValidationIssue.schema_keyword === \"maxDepth\"`; `path` is a JSON Pointer to the first too-deep node; `message` is exactly `\"JSON document depth exceeds 5\"`; the walk runs before AJV (an AJV-keyword issue against the same depth-6 payload is not produced); recursive `schema Tree` with depth-3 instance accepted (cap is on data not schema graph)."
-  - **Deps.** unchanged (`V11g`).
-- `plan_topics/v6-typed-queries.md`, V6c **Tests.** Append: "depth-6 response payload surfaces `Err(QueryError { kind: \"validation\", validation_errors: [{ schema_keyword: \"maxDepth\", path: <JSON Pointer>, message: \"JSON document depth exceeds 5\" }], ... })`."
-- `plan_topics/v14-tool-calls.md`, V14e **Tests.** Append: "model-emitted tool-call arguments at depth 6 are rejected before the tool body runs and surface to the model as the boundary's standard validation failure with `schema_keyword: \"maxDepth\"`."
-- `plan_topics/v14-tool-calls.md`, V14f **Tests.** Append: "code-side call whose constructed argument is depth-6 returns `Err(CodeToolError { cause: \"validation\", validation_errors: [{ schema_keyword: \"maxDepth\", ... }], ... })` before the tool body runs."
-- `plan_topics/v16-binder.md`, V16p **Tests.** Append: "merged `args` containing a depth-6 nested value surfaces as the spec's `argument binding produced invalid args — <ajv-summary>` system note where the summary names `maxDepth`."
-
-**Spec edits.** None.
-
-Edge cases the implementer must watch:
-
-- (a) The `maxDepth` literal is the only `schema_keyword` value Loom emits that is not a literal AJV keyword — `V6j` (`ValidationIssue` schema) must accept it without an enum-mismatch error.
-- (b) The `params` boundary walk is a no-op for primitive-only declarations but must still be installed (per spec edge case) so future widening inherits the cap — V16p's test should construct an artificially deep value and confirm the walk fires even against a primitive-typed param schema, or V3a should grow a note that the safety net is the same `SchemaValidator` invocation.
-- (c) Drift between the per-boundary assertions if the spec's error shape changes is mitigated by V11i still owning the canonical service-level shape test.
-
-## Related Findings
-
-- "V4a \"validation produces expected error shapes\" is not specific" — same-cluster (both findings concern under-specified validation error-shape assertions; V4a's fix to enumerate AJV keyword → `ValidationIssue` mappings should include `maxDepth` if Option A lands, or be cross-referenced from V11i if Option B lands)
-- "V4i and V11g/V11h/V11i contain duplicated requirements" — same-cluster (touches V11i's Adds/Tests; resolve V4i narrowing first so this finding edits a settled V11i)
-- "Empty schema and enum body diagnostics — no test leaf" — same-cluster (sibling spec-coverage gap in the V4/V10/V11 cluster; resolve independently)
-- "Type-alias cycle detection (`loom/parse/type-alias-cycle`) — no plan leaf" — same-cluster (sibling spec-coverage gap in the same cluster; resolve independently)
-- "`loom/parse/non-string-discriminator` — no test leaf" — same-cluster (sibling spec-coverage gap in V11; resolve independently)
 
 ---
 
