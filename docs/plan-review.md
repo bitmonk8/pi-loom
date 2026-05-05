@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_88 findings retained, 3 false positives dropped, 0 persistent failures_
+_87 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -6206,76 +6206,4 @@ The collision-detection tests must remain in V14n and V14o (they exercise the so
 ## Related Findings
 
 - "V14o missing V14n from Deps" — same-cluster (independent Deps repair on the same leaf; both edits land on V14o's Deps line, which becomes `V14k, V14n, V14q`)
-
----
-
-# V14n leaves the settings parse-failure diagnostics unnamed
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** V14n malformed settings JSON degrades silently; no fallback to last-known-good
-**Kind:** risk, clarity
-
-## Finding
-
-V14n's Tests bullet ends with two clauses describing settings-file failure modes:
-"missing file treated as `{}` with a single load-time diagnostic; malformed JSON file treated as `{}` with a single load-time diagnostic and the other file still consulted." Neither clause names the diagnostic code or its severity, even though every other failure-mode clause in the same bullet does (`loom/load/invalid-extension`, `loom/load/settings-invalid-entry`, `loom/load/cross-format-collision`). The spec already pins both codes — `spec_topics/discovery.md` line 128–129 names `loom/load/settings-unreadable` and `loom/load/settings-invalid-json`, and `spec_topics/diagnostics.md` lines 180–181 register both as `W` (warning) — so the implementer has to cross-reference the spec to know what the load-time test must assert. Other V14n clauses do not impose that round-trip.
-
-A second concern is operationally visible but, on inspection, deliberately specced. When a user saves a half-typed `.pi/settings.json` mid-session, every settings-sourced loom disappears from the slash menu because the cache is replaced with `{}`. The reviewer suggested falling back to the last-known-good parse instead. The spec, however, has explicitly chosen the `{}` contract: `discovery.md` line 160 mitigates partial-write windows via watcher debounce ("Watcher events are debounced to absorb partial writes from editors-in-progress; a malformed intermediate state is treated as a parse error per the failure-modes rule above and does not crash the extension"), and `diagnostics.md` line 25 documents that a watcher-triggered reload re-emits the diagnostic on every dirty cycle. Introducing last-known-good would cross from a plan defect into a spec design change with new state-management surface (where LKG lives, eviction on extension restart, interaction with project-vs-global merge). It is out of scope for a plan-level fix.
-
-The actionable plan defect is the unnamed diagnostic codes. The reload-fallback question is a spec-design concern that should be raised against `discovery.md`, not against V14n.
-
-## Plan Documents
-
-- `plan_topics/v14-tool-calls.md` — V14n (edited)
-- `plan_topics/v16-binder.md` — V16e (read-only; cites V14n's reader unchanged)
-- `plan_topics/v18-cancellation.md` — V18f (read-only; settings watcher path is a separate finding)
-
-## Spec Documents
-
-- `spec_topics/discovery.md` — Settings file reads (read-only; codes already named here)
-- `spec_topics/diagnostics.md` — `loom/load/*` table (read-only; codes already registered here)
-
-## Affected Leaves
-
-**Phases:** Vertical V14
-
-**Leaves (implementation order):**
-
-- V14n — Discovery: settings file reads (`looms` array, plus the read mechanism reused by V16e for binder model) — (modified)
-
-## Consequence
-
-**Severity:** advisory
-
-The implementer can build a working V14n by following the Spec link, so nothing ships incorrectly. But every other failure clause in V14n names its code inline; the two settings-failure clauses are conspicuous holes that force a spec round-trip and weaken the V18o coverage gate's ability to catch a code drift between plan tests and the diagnostics table.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `plan_topics/v14-tool-calls.md`, V14n, **Tests.** bullet, replace the two trailing clauses
-
-> `missing file treated as {} with a single load-time diagnostic; malformed JSON file treated as {} with a single load-time diagnostic and the other file still consulted.`
-
-with
-
-> `missing or unreadable file treated as {} and emits one warning-severity loom/load/settings-unreadable; malformed JSON file treated as {} and emits one warning-severity loom/load/settings-invalid-json, and the other file is still consulted.`
-
-This brings V14n into line with the rest of its own Tests bullet (every other failure clause names its code) and lets the V18o coverage gate verify a literal-string match between the leaf and the diagnostics table.
-
-Do not introduce a last-known-good fallback in V14n. The spec deliberately mandates the `{}` contract with watcher debounce as the partial-write mitigation; reopening that decision belongs in a spec-review finding against `discovery.md` (Settings file reads / Caching and reload), not in this plan-review fix.
-
-Edge cases the implementer must watch:
-
-- Both diagnostics are severity `W` (warning), not `E`. The "neither registers" framing used elsewhere in V14n does not apply — the file is treated as `{}` and the rest of the load proceeds.
-- The "and the other file still consulted" clause for malformed JSON must be preserved; per `discovery.md` line 126 the loaded value of the other file is unaffected.
-- On reload, per `diagnostics.md` line 25, the diagnostic re-emits each cycle the file remains broken; V14n's load-time tests do not need to assert this — that is V18f's territory and is also flagged by a sibling finding.
-
-## Related Findings
-
-- "V14n / V14o missing V14q from Deps despite citing its collision rule in Tests" — same-cluster (also touches V14n's Tests bullet but resolves independently)
-- "Settings-file watching silently assumed but excluded from V18f scope" — decision-dependency (the reload behavior referenced here is the same path that V18f does not currently claim; resolving the watcher-scope question constrains how the malformed-on-reload story is tested)
-- "V14o missing V14n from Deps" — same-cluster (V14o reuses V14n's reader; ordering fix only)
 
