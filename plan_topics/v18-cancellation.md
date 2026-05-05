@@ -137,10 +137,10 @@ Edge cases the implementer must watch:
 ## V18o — Per-call timeout marker (deferral confirmation)
 
 - **Spec.** [Cancellation](../spec_topics/cancellation.md) (per-call timeouts deferred), [Diagnostics — `loom/parse/timeout-field-rejected`](../spec_topics/diagnostics.md).
-- **Adds.** Parse-time rejection of any `timeout:` field at all four sites where a future per-call timeout could land: frontmatter, per-`@`-query option, per-tool-call option, per-`invoke` option. Every site emits `loom/parse/timeout-field-rejected` (severity `E`, phase `parse`).
-- **Tests.** `timeout:` in frontmatter → `loom/parse/timeout-field-rejected`; `timeout:` on an `@` query → same code; `timeout:` on a tool call → same code; `timeout:` on `invoke(...)` → same code. Test asserts the registry code string verbatim.
+- **Adds.** Parse-time rejection of any `timeout:` field at all four sites where a future per-call timeout could land: frontmatter, per-`@`-query option, per-tool-call option, per-`invoke` option. Every site emits `loom/parse/timeout-field-rejected` (severity `E`, phase `parse`) and the loom does not register. V3a's generic `loom/load/unknown-frontmatter-field` warner explicitly excludes the key `timeout` so that this parse-phase error wins at the frontmatter site too (rather than degrading to a load-phase warning).
+- **Tests.** A `timeout:` field at each of the four sites (frontmatter, per-`@`-query option, per-tool-call option, per-`invoke` option) emits exactly one `loom/parse/timeout-field-rejected` (severity `E`, phase `parse`) and the loom does not register; the diagnostic `message` and `loc` point at the offending `timeout` key. Test asserts the registry code string verbatim. A separate fixture confirms that V3a's unknown-frontmatter warner does not also fire at the frontmatter site (no double-diagnostic, and no `loom/load/unknown-frontmatter-field` shadow).
 - **Deps.** V3a, V5e, V14c, V15a.
-- **Ships when.** Every `timeout:` site is a parse error citing the registered code.
+- **Ships when.** Every `timeout:` site is a parse error citing the registered code, the loom is rejected, and V3a's unknown-field warner does not shadow it at the frontmatter site.
 
 ## V18s — Coverage-matrix closing CI gate
 
