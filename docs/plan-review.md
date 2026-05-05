@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_73 findings retained, 3 false positives dropped, 0 persistent failures_
+_72 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -5193,75 +5193,4 @@ Edge cases the implementer must watch:
 - "Closed diagnostic registry — many codes have no asserting plan leaf" — co-resolve (citing `loom/parse/question-outside-result-fn` in V9d's Tests is one of the registry-coverage closures that finding catalogs)
 
 ---
-
-## plan_topics/v12-subagent.md
-
----
-
-# V12c Tests bullet "rejection message references the deferred future-consideration" lacks antecedent and target
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** V12c "the deferred future-consideration" — no antecedent
-**Kind:** clarity
-
-## Finding
-
-V12c's Tests list ends one bullet with "`${a + b}` rejected; `${a.b()}` rejected (call rejected); rejection message references the deferred future-consideration." The phrase "the deferred future-consideration" is used with a definite article and no antecedent in V12c, in V12 as a whole, or in `plan_topics/conventions.md`. Neither the diagnostic code that fires for these two rejection cases nor the spec anchor that defines the deferred item is cited in the leaf.
-
-The relevant facts are pinned down in the spec but not in the plan: both `${a + b}` and `${a.b()}` violate the `Path := Ident ('.' Ident)*` grammar in [`spec_topics/frontmatter.md`](../../../spec_topics/frontmatter.md) and therefore fire `loom/parse/system-interp-not-path`. The diagnostics catalogue ([`spec_topics/diagnostics.md`](../../../spec_topics/diagnostics.md), row for `loom/parse/system-interp-not-path`) pins the hint text as "The `system:` slot accepts only bare identifier paths; see `future-considerations.md` for richer expressions." The "deferred future-consideration" the leaf alludes to is the bullet "Richer expression sublanguage inside frontmatter `system:`" in [`spec_topics/future-considerations.md`](../../../spec_topics/future-considerations.md) (line 47). None of this is reachable from V12c without three separate spec lookups.
-
-Because the assertion target is not pinned in the leaf, two reasonable implementers will diverge: one will assert against the exact hint string from `diagnostics.md`; another will write a loose substring match on `"future-considerations"`; a third may simply delete the assertion as un-actionable.
-
-## Plan Documents
-
-- `plan_topics/v12-subagent.md` — V12c Spec, Tests bullets (edited)
-
-## Spec Documents
-
-- `spec_topics/frontmatter.md` — `system:` interpolation, *Parse errors* subsection (read-only)
-- `spec_topics/diagnostics.md` — `loom/parse/system-interp-not-path` row (read-only)
-- `spec_topics/future-considerations.md` — "Richer expression sublanguage inside frontmatter `system:`" bullet (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical V12
-
-**Leaves (implementation order):**
-
-- V12c — `${param}` and `${param.field}` in `system:` — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-The Tests bullet as written is not an executable assertion: an implementer cannot tell which diagnostic code is being asserted against, what substring or anchor the message must contain, or whether the plan author meant the hint column or the message column. Two implementers will produce different tests; one may pass vacuously. The risk concentrates on the single Tests bullet covering the parse-error surface for the V12c expression-rejection rule.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `plan_topics/v12-subagent.md`, V12c, edit the **Spec.** field to add the diagnostics catalogue and the future-considerations entry as cited sources:
-
-> **Spec.** [Parameters and Frontmatter](../spec_topics/frontmatter.md) (`system:` interpolation, *Parse errors*), [Query — Stringification of interpolated values](../spec_topics/query.md) (canonical stringification table), [Diagnostics](../spec_topics/diagnostics.md) (`loom/parse/system-interp-not-path` row), [Future Considerations](../spec_topics/future-considerations.md) ("Richer expression sublanguage inside frontmatter `system:`").
-
-In the **Tests.** field, replace the trailing fragment "`${a + b}` rejected; `${a.b()}` rejected (call rejected); rejection message references the deferred future-consideration." with:
-
-> `${a + b}` and `${a.b()}` each fire `loom/parse/system-interp-not-path`; the emitted diagnostic's hint contains the substring `future-considerations.md` (per the `system-interp-not-path` row in [Diagnostics](../spec_topics/diagnostics.md), pointing at the future-consideration "Richer expression sublanguage inside frontmatter `system:`").
-
-Edge cases the implementer should respect:
-
-- The substring match is on the hint column, not the message column. The diagnostics catalogue distinguishes the two; tests asserting against the message field will pass vacuously.
-- `${arr[0]}`, `${a?.b}`, and `${"x"}` also fire `loom/parse/system-interp-not-path`. The Tests bullet does not require coverage of those forms; if the implementer chooses to add them, they should reuse the same hint-substring assertion rather than introducing a new rule.
-- The other three `system-interp-*` codes (`unknown-param`, `bad-field`, `unterminated`) intentionally do not carry the `future-considerations.md` hint per the diagnostics catalogue. Tests for those codes (covered by sibling Tests bullets) must not assert the substring.
-
-## Related Findings
-
-- "V7a 'common-type values' undefined locally" — same-cluster (same pattern: leaf cites a concept by name without disambiguating in-leaf or pinning a spec anchor)
-- "V9d 'conflicting declaration' undefined" — same-cluster (same pattern, sibling V9 leaf)
-- "V14p 'Five-level priority from spec' — no anchor" — same-cluster (same pattern: spec reference without anchor)
-- "V15c 'compatibility relation' undefined" — same-cluster (same pattern)
-- "V6c 'Spec's worked example' — which one?" — same-cluster (same pattern: definite-article reference with no antecedent)
-- "Spec's exact-wording errors without inline quote" — same-cluster (cross-cutting convention finding that, if adopted, would mechanically prevent this class of leaf-level defect)
 

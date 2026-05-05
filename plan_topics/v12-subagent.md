@@ -18,9 +18,9 @@
 
 ## V12c — `${param}` and `${param.field}` in `system:`
 
-- **Spec.** [Parameters and Frontmatter](../spec_topics/frontmatter.md) (`system:` interpolation), [Query — Stringification of interpolated values](../spec_topics/query.md) (canonical stringification table).
+- **Spec.** [Parameters and Frontmatter](../spec_topics/frontmatter.md) (`system:` interpolation, *Parse errors*), [Query — Stringification of interpolated values](../spec_topics/query.md) (canonical stringification table), [Diagnostics](../spec_topics/diagnostics.md) (`loom/parse/system-interp-not-path` row), [Future Considerations](../spec_topics/future-considerations.md) ("Richer expression sublanguage inside frontmatter `system:`").
 - **Adds.** Bare-identifier-path interpolation in `system:` field. Full expression sublanguage rejected. Resolved value rendered via the same canonical stringification table the `@`...`` interpolation slot uses.
-- **Tests.** `${param}` resolves; `${a.b.c}` resolves; `${a + b}` rejected; `${a.b()}` rejected (call rejected); rejection message references the deferred future-consideration. Per-type stringification matches the V5b table for `string`, `integer`, `number`, `boolean`, `null`, enum variant, `array<T>`, and schema-typed object.
+- **Tests.** `${param}` resolves; `${a.b.c}` resolves; `${a + b}` and `${a.b()}` each fire `loom/parse/system-interp-not-path`; the emitted diagnostic's hint contains the substring `future-considerations.md` (per the `system-interp-not-path` row in [Diagnostics](../spec_topics/diagnostics.md), pointing at the future-consideration "Richer expression sublanguage inside frontmatter `system:`"). Per-type stringification matches the V5b table for `string`, `integer`, `number`, `boolean`, `null`, enum variant, `array<T>`, and schema-typed object.
 - **Deps.** V12b.
 - **Ships when.** System prompts can use params.
 
