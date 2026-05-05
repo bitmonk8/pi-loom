@@ -41,7 +41,9 @@ Items occasionally carry a `Depends on:` annotation where they presuppose anothe
   *Seam:* same frontmatter unknown-key policy as `binder_temperature`, plus an injection point in the binder for an author-supplied prompt template.
 - **Automatic context escalation:** when binding fails without context, automatically retry with `bind_context: session` attached — trades a second binder call for a smoother success rate on context-sensitive looms that forgot to opt in.
   *Seam:* the binder-invocation path must not assume `bind_context` is set exactly once per loom.
-  *Depends on:* Binder refinement loop, only if escalation surfaces user-visible turns; otherwise independent.
+  *Depends on:* [Binder refinement loop](#binder-refinement-loop), only if escalation surfaces user-visible turns; otherwise independent.
+- <a id="binder-refinement-loop"></a>**Binder refinement loop:** multi-turn `needs_info` negotiation (binder asks the user a clarifying question, gets a reply, retries) instead of V1's single-shot "system note then stop" behaviour; the same future revision also begins surfacing `ambiguous.candidates` as a user-facing pick-one disambiguation rather than a terminating system note.
+  *Seam:* three V1 carriers preserve the post-V1 migration and must not be "simplified" away — (i) the binder envelope schema's three-arm discriminator (`ok` | `needs_info` | `ambiguous`) per [Binder envelope schema](./binder.md#binder-envelope-schema-constructed-dynamically-from-params); collapsing to two arms is breaking; (ii) the `ambiguous.candidates` field (`array<string> | null`, AJV-accepted, V1-suppressed by [System-note rendering](./binder.md#system-note-rendering) rule 5); dropping it from the schema is breaking; (iii) the per-arm `loom /<name>:` system-note prefix grammar in the [failure-modes table](./binder.md#failure-modes); collapsing the two failure-arm prefixes is breaking.
 - **Named-argument / key=value invocation syntax.**
   *Seam:* the invocation AST node must carry a positional-vs-named flag even though V1 only emits positional.
 - **Richer expression sublanguage inside frontmatter `system:`** (full `${expr}` interpolation rather than just `${param}` paths).
@@ -62,7 +64,6 @@ Items occasionally carry a `Depends on:` annotation where they presuppose anothe
 - **Streaming partial tool results** from Pi's `onUpdate` callback into loom code (e.g. an iterator-style consumption form) — V1 returns only the final result.
 - **Structured tool output schemas**, when Pi (or upstream providers) introduce a strict output-schema contract for tools — V1 returns `string` from every Pi tool call.
 - **Richer untyped-query return shape** (e.g. `Result<string | AssistantMessage, QueryError>` exposing tool-use traces, multiple content blocks, citations) — V1 returns plain `Result<string, QueryError>`. A future widening would change the value model even though existing call sites would keep working under the union form.
-- **Binder refinement loop:** multi-turn `needs_info` negotiation (binder asks the user a clarifying question, gets a reply, retries) instead of V1's single-shot "system note then stop" behaviour.
 - **Per-parameter `mut` on function parameters** (Rust-style `fn f(mut x: T)`) — V1 keeps all function parameters immutable.
 - **Value-carrying `break expr`** inside `for` / `while` loops — V1's `break` and `continue` carry no value.
 - **`match` guards** (`Ok(x) if x.value > 3 => ...`) and **rest patterns** (`[first, ...rest]`, `{ kind, ...other }`) — neither is in V1.

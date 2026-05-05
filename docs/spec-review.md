@@ -1,7 +1,7 @@
 # pi-loom — Consolidated Spec Review
 
 _Generated: 2026-05-05T19:49:46Z (revised: merges + multi→single conversion + bottom-up reorder)_
-_60 source findings → 31 commit-ready findings (8 merge clusters, 26 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
+_60 source findings → 30 commit-ready findings (8 merge clusters, 26 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
 
 Findings are ordered for **bottom-up processing**: each commit fixes the *last* finding in the doc until the doc is empty. Dependencies that require a particular landing order are encoded in the doc order — `MERGE-F` (`bindings.md` BNDS / BNDR rename) sits at the bottom of the REQ-ID-appendix supersection so it lands *before* `MERGE-G` (retirement registries + V18s sub-gates), which sits above it.
 
@@ -2215,65 +2215,6 @@ Edge cases the implementer must watch:
 - "Provider compatibility local-backend note belongs in `future-considerations.md`" — same-cluster (mirror direction: a V1-deferral note currently sitting *outside* `future-considerations.md` that should move *into* it; resolves the same boundary-discipline problem from the other side)
 - "Conversation drive — prompt mode: MUST for an out-of-scope future feature" — same-cluster (same boundary-discipline failure: normative MUST applied to deferred work; co-resolves under the same "the normative page states only the V1 contract; deferrals live on the deferral page" pattern)
 - "Symlink-hardening platform remedy is a deferred item described inline in a normative resolution rule" — same-cluster (mirror direction: deferred remedy living in a normative page; same fix pattern as the previous two)
-
----
-
-# Binder refinement-loop seam is paid in V1 but filed under "no V1 seam expected"
-
-**Source:** docs/reviews/spec-review/spec-20260505-204733.md
-**Original heading:** Two-arm binder schema is a V1 deliverable buried in the non-goals section
-**Kind:** scope
-
-## Finding
-
-`spec_topics/binder.md` describes a binder envelope with three discriminator arms — `ok`, `needs_info`, `ambiguous` — and an `ambiguous.candidates` field that is part of the AJV-validated schema. The two failure arms produce identical V1 user-facing behaviour beyond the system-note prefix, and the `candidates` field is explicitly *not* surfaced in V1 (rule 5 of `System-note rendering` requires renderers to drop it). The page justifies all three pieces with a single sentence: "the structural distinction exists for the deferred binder refinement loop (cf. [Future Considerations](./future-considerations.md))."
-
-`spec_topics/future-considerations.md` files **Binder refinement loop** under the bucket *Model-level changes (no V1 seam expected)*. That bucket is defined as items "V1 is not expected to anticipate; adding them post-V1 will require a migration." The bullet itself names no V1 seam and does not back-reference the `binder.md` work. Yet the seam is real and is paid for in V1: a third schema arm, a nullable `candidates: array<string>` field that AJV must accept, a per-arm system-note prefix, and a renderer rule that suppresses `candidates`. V16c, V16l, and V16m all exist specifically to land this shape.
-
-The bucketing is also internally inconsistent. The same page lists **Automatic context escalation** in *Surface extensions (V1 leaves a seam)* with `Depends on: Binder refinement loop` — i.e. another deferred item whose own seam paragraph already presupposes that the refinement loop is itself a Surface-extension-class deferral. Both prose anchors point at a structural seam; only one ends up in the bucket whose contract is "name the seam."
-
-## Spec Documents
-
-- `spec_topics/binder.md` — `Binder envelope`, `Binder envelope schema`, `System-note rendering` rule 5 (option-dependent)
-- `spec_topics/future-considerations.md` — `Surface extensions (V1 leaves a seam)`, `Model-level changes (no V1 seam expected)` (option-dependent)
-- `plan_topics/v16-binder.md` — V16c / V16l / V16m / V16o (option-dependent — only edited under Option B)
-
-## Plan Impact
-
-**Phases:** Vertical V16
-
-**Leaves (implementation order):**
-
-- V16c — Binder envelope schema construction — (option-dependent: unchanged under Option A; arms collapse from three to two under Option B)
-- V16l — `needs_info` envelope handling — (option-dependent: unchanged under A; merged with V16m under B)
-- V16m — `ambiguous` envelope handling — (option-dependent: unchanged under A; removed or merged into V16l under B, and the `candidates`-suppression assertion disappears)
-- V16o — Binder malformed envelope handling — (option-dependent: unchanged under A; the discriminator value set narrows under B)
-
-## Consequence
-
-**Severity:** advisory
-
-An implementer reading `future-considerations.md` to understand which V1 surfaces must remain forward-compatible will not see the binder refinement loop and will not learn that the third envelope arm and the `candidates` field exist for a deferred feature rather than for V1 user value. The risk is not that V16c–V16m get implemented wrong — `binder.md` is normative and unambiguous — but that a future spec revision could "simplify" the envelope (e.g. drop `candidates`, collapse arms) without realising it is breaking a planned post-V1 migration path. The bucket misclassification removes the single signal future maintainers consult before touching V1 seams.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Option A. The seam is small (one extra discriminator arm plus one nullable field plus one renderer rule), the V1 implementation is already structured to land it (V16c/V16l/V16m exist and are testable as written), and collapsing now would lock in a schema-incompatible migration for any V2 refinement-loop work. The fix is editorial: relocate one bullet between buckets, add a `*Seam:*` annotation matching the format the other Surface-extensions bullets use, and tighten the two `binder.md` pointers to land on the relocated anchor.
-
-Edge cases for the fixer:
-- The `*Seam:*` annotation must enumerate **all three** carriers (envelope discriminator, `candidates` field, system-note prefix). Naming only one risks a future "simplification" that drops the others.
-- Update `Automatic context escalation`'s `Depends on:` pointer to use the relocated anchor too — keeping both bullets in the same bucket strengthens the dependency's legibility.
-- Do not add a new `loom/load/...` diagnostic for "candidates emitted but not rendered" — it is intentional and the schema accepts it; the renderer suppression is the contract, not a violation.
-
-## Related Findings
-
-- "V1 seam constraints mixed with out-of-scope deferrals across 14 bullets" — co-resolve (same bucket-discipline problem in `future-considerations.md`, opposite direction; both fixes establish the rule "V1 seam ↔ Surface extensions bucket")
-- "Automatic context escalation: unresolved conditional dependency" — decision-dependency (its `Depends on: Binder refinement loop` line presumes the refinement loop is a real seam target; Option A makes that pointer load-bearing, Option B requires editing it)
-- "SDK surface (`estimateTokens`, `ctx.sessionManager`) placed in binder behavioral page" — same-cluster (binder.md placement hygiene)
-- "Provider seed-field mapping (Determinism section) placed in binder page" — same-cluster (binder.md placement hygiene)
 
 ---
 
