@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_87 findings retained, 3 false positives dropped, 0 persistent failures_
+_86 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -6152,58 +6152,4 @@ Edge case for the implementer: the test must cover a single package that ships a
 
 - "V14p \"Five-level priority from spec\" — no anchor" — same-cluster (identical wording defect — "X per spec" without naming X — applied to the five-source priority list; resolves independently with the same inline-or-anchor remedy)
 - "V14m: scoped packages (`@scope/pkg`) not covered; `node_modules/` walk unbounded" — same-cluster (touches the same leaf's Tests bullet but a different concern; both edits land in the same V14m Tests block)
-
----
-
-# V14n and V14o cite V14q's collision rule in Tests but omit it from Deps
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** V14n / V14o missing V14q from Deps despite citing its collision rule in Tests
-**Kind:** consistency, ordering
-
-## Finding
-
-V14n's Tests bullet asserts: "two settings entries that resolve to **different** absolute paths whose stems derive the same slash name → `loom/load/cross-format-collision` and neither registers (per V14q)." V14o's Tests bullet asserts: "two components whose stems hyphen-normalise to the same slash name (e.g. `code-review.loom` and `code_review.loom`) → `loom/load/cross-format-collision` and neither registers (per V14q)." Both tests can only be exercised against V14q's same-priority slash-collision detector.
-
-Despite that, V14n's Deps lists only `V14k, H2` and V14o's Deps lists only `V14k`. The sibling leaf V14m, whose Tests cite the same V14q rule for two-package `lint.loom` collisions, correctly declares `V14k, V14q`. The omission is a Deps-vs-Tests inconsistency in V14n and V14o, not a real ordering preference.
-
-## Plan Documents
-
-- `plan_topics/v14-tool-calls.md` — V14n and V14o Deps lines (edited); V14m, V14p, V14q for cross-reference (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical V14
-
-**Leaves (implementation order):**
-
-- V14n — Discovery: settings file reads (`looms` array, plus the read mechanism reused by V16e for binder model) — (modified)
-- V14o — Discovery: `--loom` CLI flag — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-A topologically-ordered implementer can pick up V14n or V14o before V14q lands and discover that the `(per V14q)` Tests bullets cannot be made to pass — the cross-format-collision detector does not yet exist. They will then either stub a parallel detector inside V14n/V14o (duplicating logic V14q is supposed to own uniformly) or silently drop the bullet, leaving the spec rule unenforced for the settings and CLI sources.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `plan_topics/v14-tool-calls.md`:
-
-- Change V14n's `**Deps.** V14k, H2.` to `**Deps.** V14k, V14q, H2.`
-- Change V14o's `**Deps.** V14k.` to `**Deps.** V14k, V14q.`
-
-The collision-detection tests must remain in V14n and V14o (they exercise the source-specific resolver code paths — settings entry resolution and CLI `path.delimiter` splitting — that V14q does not own). V14q owns only the uniform detector; the per-source leaves own the inputs they hand to it. V14m has already established this pattern.
-
-## Related Findings
-
-- "V14o missing V14n from Deps" — same-cluster (independent Deps repair on the same leaf; both edits land on V14o's Deps line, which becomes `V14k, V14n, V14q`)
 
