@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_119 findings retained, 3 false positives dropped, 0 persistent failures_
+_118 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -8484,65 +8484,3 @@ The implementer note is mandatory: the spec contradicts itself about whether `pi
 
 ---
 
-# V18f `/reload` test asserts post-condition only, not factory re-invocation
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** V18f `/reload` re-run-of-factory not asserted
-**Kind:** validation
-
-## Finding
-
-`spec_topics/pi-integration-contract.md` (Extension entry point, step 4 — *Structural changes*; and *Tool-registration lifetime and visibility* — *Hot reload*) makes two normative claims about the `/reload` path: (a) `/reload` invokes Pi's `ctx.reload()`, which **re-executes the entire extension factory**, and (b) the resulting fresh extension instance starts with an empty `Map<schema-hash, registeredToolName>` registration cache; the previous instance's registry entries persist in Pi's global registry but are unreachable.
-
-V18f's Tests bullet covers the user-visible post-condition — "running `/reload` then registers it" — but does not assert either spec claim directly. An implementer can satisfy the existing wording by stubbing `/reload` to call the registry-rebuild function in place, never exercising Pi's `ctx.reload()` contract or proving that a new `PiExtensionAPI` instance was created. V18g's Tests bullet ("the tool-registration cache … is empty only after a real `/reload`") asserts the empty-cache half but is scoped to the validator/registration cache, not to factory re-invocation count, and is an AJV-cache leaf — a fixer who reads V18f in isolation has no signal that the factory-re-execution claim needs a test.
-
-The gap is narrow but spec-defined: without these assertions the runtime can drift to a "lazy reload" implementation that silently breaks any extension contract carried by factory-time side effects (flag registration, `resources_discover` subscription, the renderer-registration ordering rule).
-
-## Plan Documents
-
-- `plan_topics/v18-cancellation.md` — V18f (Tests bullet) (edited)
-- `plan_topics/v18-cancellation.md` — V18g (Tests bullet) (read-only)
-- `plan_topics/h4-extension-shell.md` — extension factory leaf (read-only)
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — Extension entry point step 4 (*Structural changes*); Tool-registration lifetime and visibility (*Hot reload*) (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical V18
-
-**Leaves (implementation order):**
-
-- V18f — File watcher (chokidar) over discovery roots — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers will diverge: one writes a focused test for `/reload` registering the new file by re-running the factory in-process; another stubs the registration step and asserts only that the slash command becomes dispatchable, never exercising Pi's `ctx.reload()` contract. The latter passes a green test while leaving factory-time obligations (CLI flag registration, `resources_discover` subscription, renderer registration order) untested under reload.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Append a Tests bullet to **V18f** (`plan_topics/v18-cancellation.md`, the `- **Tests.**` line) reading verbatim:
-
-> After a `/reload` invoked in response to a structural-change note, `ctx.reload()` is observed to fire exactly once, the extension factory is re-invoked exactly once (asserted via a probe injected into the factory entry point), the resulting `PiExtensionAPI` instance owns a fresh empty `Map<schema-hash, registeredToolName>` registration cache, and the prior instance's registration cache is unreachable from any live reference held by the watcher, the registry, or the slash-command handler.
-
-Edge cases the implementer must handle:
-
-- The probe must be installed by the test harness, not by production code; the factory itself must remain side-effect-free at the probe site under non-test runs.
-- The "previous instance is unreachable" assertion is observable by holding a `WeakRef` to the prior cache in the test, forcing a GC tick (or, in environments without forced GC, asserting the prior reference path is severed at the watcher and registry — whichever is implementable on the chosen runtime).
-- If the related finding "V18g not independently verifiable — merge into V18f" is accepted, fold V18g's existing "empty only after a real `/reload`" assertion into the same bullet rather than duplicating it.
-
-## Related Findings
-
-- "V18g not independently verifiable — merge into V18f" — co-resolve (V18g already owns the empty-cache-after-reload assertion; if V18g is absorbed into V18f the new bullet subsumes that text)
-- "Tool-registration cache unbounded growth" — same-cluster (touches the same `Map<schema-hash, registeredToolName>`; resolves independently)
-- "H4 'no-logic shims' claim contradicts registration cache and `withActiveTools`" — same-cluster (H4 owns the cache type whose lifetime V18f is asserting; resolves independently)
-- "`pi.registerCommand` argument-completions slot not wired; dynamic de-registration on collision not covered" — same-cluster (also touches `/reload`-time re-evaluation, but routes its fix through V14q rather than V18f)
-
----
