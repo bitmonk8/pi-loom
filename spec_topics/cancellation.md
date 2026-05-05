@@ -39,7 +39,7 @@ Edge cases:
 **Surfacing.**
 
 - An in-flight query whose signal aborts returns `Err(QueryError { kind: "cancelled", message: "..." })`.
-- A tool call whose signal aborts returns `Err(QueryError { kind: "tool_call_error", cause: "cancelled", ... })`.
+- A tool call whose signal aborts returns `Err(QueryError { kind: "code_tool", cause: "cancelled", ... })`.
 - A child invoke whose signal aborts surfaces to the parent as `Err(QueryError { kind: "invoke_callee_error", inner: { kind: "cancelled", ... } })` when the abort originated inside the child, or directly as `kind: "cancelled"` when the parent's own signal fired first.
 - A cancelled binder call (abort observed before or during the binder's LLM call) is runtime-internal: it never surfaces as a `Result` to loom code (the loom never starts). Instead it produces the cancelled-binder system note defined in the failure-modes table in [Slash-Command Argument Binding](./binder.md). The loom does not run.
 - The loom's *top-level* cancellation surfaces to Pi as the `cancelled` row in the per-`kind` system-note table in [Invocation from Pi](./slash-invocation.md).

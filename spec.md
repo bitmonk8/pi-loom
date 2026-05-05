@@ -35,7 +35,7 @@ Surface and semantics of the Loom language (shared by `.loom` and `.warp` files)
 - [Errors and Results](./spec_topics/errors-and-results.md) — `match`, pattern grammar, `Result`, `?`, runtime panics.
 - [Return Statement](./spec_topics/return.md) — `return expr` rules.
 - [Function Definitions](./spec_topics/functions.md) — `fn`, hoisting, tail-expression returns.
-- [Tool Calls](./spec_topics/tool-calls.md) — `<name>(args)`, `ToolCallError`.
+- [Tool Calls](./spec_topics/tool-calls.md) — `<name>(args)`, `CodeToolError`.
 - [Invocation](./spec_topics/invocation.md) — `invoke(...)`, cross-mode matrix, invoke errors, cycle detection.
 - [Imports](./spec_topics/imports.md) — `.warp` library files, `import`/`export`, cycles.
 

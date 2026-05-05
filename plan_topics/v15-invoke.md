@@ -28,7 +28,7 @@
 
 - **Spec.** [Invocation — Argument binding](../spec_topics/invocation.md), [Invocation — Static resolution](../spec_topics/invocation.md#static-resolution).
 - **Adds.** Arguments bind positionally to callee `params:` in declaration order; type-checked against the callee's declared schema when the callee is statically resolvable per the load-pass cache populated by V15a; otherwise the runtime AJV check is the safety net.
-- **Tests.** Type mismatch where callee is statically resolvable → `loom/parse/invoke-arg-type-mismatch`; type mismatch where callee is unresolvable (parent saw `loom/load/callee-has-errors` warning) → no parse error, runtime AJV rejects with `Err(InvokeFailure { reason: "validation", ... })`.
+- **Tests.** Type mismatch where callee is statically resolvable → `loom/parse/invoke-arg-type-mismatch`; type mismatch where callee is unresolvable (parent saw `loom/load/callee-has-errors` warning) → no parse error, runtime AJV rejects with `Err(InvokeInfraError { reason: "validation", ... })`.
 - **Deps.** V15a, V3b.
 - **Ships when.** Args reach callee correctly typed.
 
@@ -88,11 +88,11 @@
 - **Deps.** V15i.
 - **Ships when.** Cell verified.
 
-## V15l — `InvokeFailure` variant
+## V15l — `InvokeInfraError` variant
 
 - **Spec.** [Invocation](../spec_topics/invocation.md) (failures), [Invocation — Static resolution](../spec_topics/invocation.md#static-resolution).
-- **Adds.** `kind:"invoke_failure"` with `reason` enum: `load_failure`, `parse_failure`, `validation`, `cancelled`, `panic`. Carries `callee_path`. The runtime variant fires when a code-issued `invoke(...)` reaches a callee that fails at the moment of invocation — distinct from the parent-load-time `loom/load/callee-has-errors` warning, which is a parent diagnostic emitted when the static-resolution walk first observed the callee in a broken state. Both surfaces can fire for the same broken callee: the load-time warning at parent registration plus the runtime `InvokeFailure { reason: "parse_failure" | "load_failure" }` when the call actually executes.
-- **Tests.** Each reason synthesised and surfaces correctly. Callee broken at parent load → parent diagnostics drain contains `loom/load/callee-has-errors`; subsequent runtime invoke against the same callee → `Err(InvokeFailure { reason: "parse_failure", callee_path, ... })`. Callee that parses cleanly at parent load but is deleted before invocation → no load-time warning; runtime `Err(InvokeFailure { reason: "load_failure", ... })`.
+- **Adds.** Schema name `InvokeInfraError`; wire `kind:"invoke_failure"` (unchanged) with `reason` enum: `load_failure`, `parse_failure`, `validation`, `cancelled`, `panic`. Carries `callee_path`. The runtime variant fires when a code-issued `invoke(...)` reaches a callee that fails at the moment of invocation — distinct from the parent-load-time `loom/load/callee-has-errors` warning, which is a parent diagnostic emitted when the static-resolution walk first observed the callee in a broken state. Both surfaces can fire for the same broken callee: the load-time warning at parent registration plus the runtime `InvokeInfraError { reason: "parse_failure" | "load_failure" }` when the call actually executes.
+- **Tests.** Each reason synthesised and surfaces correctly. Callee broken at parent load → parent diagnostics drain contains `loom/load/callee-has-errors`; subsequent runtime invoke against the same callee → `Err(InvokeInfraError { reason: "parse_failure", callee_path, ... })`. Callee that parses cleanly at parent load but is deleted before invocation → no load-time warning; runtime `Err(InvokeInfraError { reason: "load_failure", ... })`.
 - **Deps.** V15a, V5g.
 - **Ships when.** Invoke-infra failures uniformly typed.
 

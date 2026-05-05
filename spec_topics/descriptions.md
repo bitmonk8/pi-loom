@@ -25,18 +25,10 @@ enum Severity {
   High,
 }
 
-/// Top-level error returned by every query
-schema QueryError = ValidationError
-                  | TransportError
-                  | ToolFailureError
-                  | ToolCallError
-                  | ContextOverflowError
-                  | CancelledError
-                  | InvokeFailure
-                  | InvokeCalleeError
+/// (See Errors and Results for the canonical QueryError declaration)
 ```
 
-The authoritative `QueryError` union lives in [Query](./query.md); the variant order above mirrors that file so the two blocks diff cleanly.
+The `QueryError` union and every variant it carries are declared in [Errors and Results — QueryError variants](./errors-and-results.md#queryerror-variants); this page does not restate them, to avoid the drift hazard the consolidation closes.
 
 Rules:
 

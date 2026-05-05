@@ -29,10 +29,10 @@ Per-`kind` formatting:
 |---|---|
 | `validation` | "loom `/<name>` returned `Err`: model failed schema after `<n>` coercion attempts" |
 | `transport` | "loom `/<name>` returned `Err`: transport — `<message>`" |
-| `tool_failure` | "loom `/<name>` returned `Err`: tool `<tool_name>` failed — `<message>`" |
+| `model_tool` | "loom `/<name>` returned `Err`: tool `<tool_name>` failed — `<message>`" |
 | `context_overflow` | "loom `/<name>` returned `Err`: context window exceeded" |
 | `cancelled` | "loom `/<name>` cancelled" |
-| `tool_call_error` | "loom `/<name>` returned `Err`: tool `<tool_name>` call failed (`<cause>`) — `<message>`" |
+| `code_tool` | "loom `/<name>` returned `Err`: tool `<tool_name>` call failed (`<cause>`) — `<message>`" |
 | `tool_loop_exhausted` | "loom `/<name>` returned `Err`: tool-call loop exhausted after `<iterations>` iterations (last tool: `<last_tool_name>`)" |
 | `invoke_failure` | "loom `/<name>` returned `Err`: invoke of `<callee_path>` failed (`<reason>`)" |
 | `invoke_callee_error` | "loom `/<name>` returned `Err`: invoked `<callee_path>` returned `Err` — `<inner.kind>`" |

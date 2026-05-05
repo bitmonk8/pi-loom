@@ -22,23 +22,11 @@ let label    = triage(summary)?
 
 As with queries and `invoke`, the call returns a `Result`; use `?` to propagate failure or `match` to handle.
 
-**Failures.** Tool-call failures surface as a new `QueryError` variant:
+**Failures.** Tool-call failures surface as the `CodeToolError` variant of `QueryError`. The schema lives in [Errors and Results — QueryError variants](./errors-and-results.md#queryerror-variants); the cause enum is `validation` (arguments failed input-schema validation), `execution` (tool's `execute()` threw or returned `isError: true`), `cancelled` (AbortSignal fired), or `unknown_tool` (callable was lost across a file-watcher reload — cannot occur during the lifetime of a single invocation, since the load-time `tools:` table holds strong references to resolved callables; see [Parameters and Frontmatter](./frontmatter.md)).
 
-```loom
-schema ToolCallError {
-  kind: "tool_call_error",
-  message: string,
-  tool_name: string,                  // post-rename name as seen in `tools:`
-  cause: "validation"                 // arguments failed input-schema validation
-       | "execution"                  // tool's `execute()` threw or returned `isError: true`
-       | "cancelled"                  // AbortSignal fired (e.g., user cancelled the loom)
-       | "unknown_tool"               // callable was lost across a file-watcher reload; cannot occur during the lifetime of a single invocation, since the load-time `tools:` table holds strong references to resolved callables (see [Parameters and Frontmatter](./frontmatter.md))
-}
-```
+`CodeToolError` is distinct from `ModelToolError` (which covers tool failures *inside* the model's tool-call loop during a `@`...`` query). The variants carry different fields because the contexts differ — a code-side tool call has no `tool_call_id` issued by Pi's tool-loop machinery and no `raw_response` from the model; a model-loop failure has both. Authors who want to handle every tool failure uniformly write two `match` arms or a final `_ => ...` catch-all.
 
-`ToolCallError` is distinct from `ToolFailureError` (which covers tool failures *inside* the model's tool-call loop during a `@`...`` query). The variants carry different fields because the contexts differ — a code-side tool call has no `tool_call_id` issued by Pi's tool-loop machinery and no `raw_response` from the model; a model-loop failure has both. Authors who want to handle every tool failure uniformly write two `match` arms or a final `_ => ...` catch-all.
-
-For a registered loom callee, failures the callee returned cascade through the standard `InvokeCalleeError` variant (the call is, semantically, an `invoke`); failures from the loom infrastructure itself (callee unloadable, validation mismatch on the return value) cascade through `InvokeFailure`. The only situation where `ToolCallError` arises for a loom callee is V1's `"unknown_tool"` safety net.
+For a registered loom callee, failures the callee returned cascade through the standard `InvokeCalleeError` variant (the call is, semantically, an `invoke`); failures from the loom infrastructure itself (callee unloadable, validation mismatch on the return value) cascade through `InvokeInfraError`. The only situation where `CodeToolError` arises for a loom callee is V1's `"unknown_tool"` safety net.
 
 **Concurrency.** V1 tool calls from loom code are sequential and synchronous-looking: the runtime awaits each call's underlying Promise before evaluating the next expression, so the loom interpreter yields to Pi's event loop during the wait (the TUI render loop, keypress handlers, signals, and other Pi machinery continue to run — the call is non-blocking at the runtime level even though it appears synchronous to the author). Streaming partial results (Pi's `onUpdate` callback) are not surfaced to loom code. Concurrent tool execution exists in Pi's model-driven "parallel tool mode" inside `@`...`` queries — when the model issues multiple tool-use blocks in one assistant message, Pi runs them concurrently. V1 permits this for both registered Pi tools and registered `.loom` callees: when the model emits parallel tool calls during a query whose `tools:` set includes a registered subagent-mode loom, each invocation spawns its own `AgentSession` with its own captured `tools:` table, its own derived `AbortSignal`, and its own private transcript (see [Pi Integration Contract](./pi-integration-contract.md)). The wrapping `defineTool` adapter for a registered loom callee is therefore re-entrant: two concurrent calls into the same callee execute as two independent invocations on the event loop. The schema cache (see [Implementation Notes — Runtime](./implementation-notes.md)) is read-mostly and safe to share across concurrent invocations; compiled validators are immutable post-compile and cache writes only occur on initial compile or file-watcher invalidation. No loom-level concurrency primitive (e.g. a `parallel { ... }` block) is exposed in V1; see [Future Considerations](./future-considerations.md).
 

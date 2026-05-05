@@ -40,31 +40,31 @@
 - **Deps.** V14a, V5e.
 - **Ships when.** Same set serves both code and model.
 
-## V14f — `ToolCallError` variant: `validation` cause
+## V14f — `CodeToolError` variant: `validation` cause
 
 - **Spec.** [Tool Calls](../spec_topics/tool-calls.md) (failures).
-- **Adds.** Code-side call with bad arguments → `Err(ToolCallError{cause:"validation"})`.
+- **Adds.** Code-side call with bad arguments → `Err(CodeToolError{cause:"validation"})` (wire `kind: "code_tool"`).
 - **Tests.** Bad args rejected before tool runs; `validation_errors` populated.
 - **Deps.** V14c.
 - **Ships when.** Bad-args case has clean error.
 
-## V14g — `ToolCallError` variant: `execution` cause
+## V14g — `CodeToolError` variant: `execution` cause
 
 - **Spec.** [Tool Calls](../spec_topics/tool-calls.md) (failures).
-- **Adds.** Tool's `execute()` throws or returns `isError:true` → `Err(ToolCallError{cause:"execution"})`.
+- **Adds.** Tool's `execute()` throws or returns `isError:true` → `Err(CodeToolError{cause:"execution"})` (wire `kind: "code_tool"`).
 - **Tests.** Both shapes; message preserved.
 - **Deps.** V14c.
 - **Ships when.** Tool-execution failures surface uniformly.
 
-## V14h — `ToolCallError` variant: `cancelled` cause
+## V14h — `CodeToolError` variant: `cancelled` cause
 
 - **Spec.** [Tool Calls](../spec_topics/tool-calls.md) (failures), [Cancellation](../spec_topics/cancellation.md).
-- **Adds.** AbortSignal mid-call → `Err(ToolCallError{cause:"cancelled"})`.
+- **Adds.** AbortSignal mid-call → `Err(CodeToolError{cause:"cancelled"})` (wire `kind: "code_tool"`).
 - **Tests.** Pre-flight abort and mid-flight abort both surface.
 - **Deps.** V14c.
 - **Ships when.** Cancellation through tool calls works.
 
-## V14i — `ToolCallError` variant: `unknown_tool` cause
+## V14i — `CodeToolError` variant: `unknown_tool` cause
 
 - **Spec.** [Tool Calls](../spec_topics/tool-calls.md) (failures).
 - **Adds.** Safety net for tools unregistered between parse and runtime (should not occur after a clean parse; production rarely hits this).

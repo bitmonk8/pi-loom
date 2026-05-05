@@ -36,28 +36,14 @@ For the **prompt → prompt** cell of the cross-mode matrix above (child attache
 
 For the other three cells (any callee in subagent mode, or a subagent caller invoking a prompt-mode child into the subagent's own private session), the child's tools reach the model through `customTools` on the spawned `AgentSession` and die with the session; no active-set mutation is involved.
 
-**Failures.** `invoke` returns `Result<T, QueryError>`. Invoke-specific failures surface via two new `QueryError` variants in addition to the query-time variants from [Query](./query.md):
+**Failures.** `invoke` returns `Result<T, QueryError>`. Invoke-specific failures surface via two `QueryError` variants in addition to the query-time variants:
 
-```loom
-schema InvokeFailure {
-  kind: "invoke_failure",
-  message: string,
-  callee_path: string,
-  reason: "load_failure"     // callee file unreadable
-        | "parse_failure"    // callee file failed to parse
-        | "validation"       // typed invoke: child's return value failed AJV validation
-        | "panic"            // callee aborted via runtime panic (see Errors and Results)
-}
+- `InvokeInfraError` (wire `kind: "invoke_failure"`) covers infra-side failure *around* the callee body — load failure, parse failure, return-value validation failure, or callee panic. Its `reason` enum carries the discriminator.
+- `InvokeCalleeError` wraps an `Err` the callee itself returned; `inner: QueryError` is the callee's original failure.
 
-schema InvokeCalleeError {
-  kind: "invoke_callee_error",
-  message: string,
-  callee_path: string,
-  inner: QueryError                          // the original Err the callee returned
-}
-```
+The full schema for both variants lives in [Errors and Results — QueryError variants](./errors-and-results.md#queryerror-variants).
 
-Folding invoke errors into `QueryError` keeps the loom's error type uniform: a function or loom that mixes `?` on queries and `?` on invokes still has a single `Result<_, QueryError>` return type and a single `match` shape to handle. `InvokeCalleeError.inner` is recursive — `QueryError` referencing itself via `$ref` is exactly the discriminated-union pattern from [Schema Declarations](./schemas.md), applied to Loom's own runtime type. V1 has no configurable per-invoke timeout; cancellation is the only externally driven termination.
+The naming carries the partition: `InvokeInfraError` is everything the loom infrastructure raised before the callee could produce a value; `InvokeCalleeError` is the callee's own `Err` propagated through. Folding both into `QueryError` keeps the loom's error type uniform: a function or loom that mixes `?` on queries and `?` on invokes still has a single `Result<_, QueryError>` return type and a single `match` shape to handle. `InvokeCalleeError.inner` is recursive — `QueryError` referencing itself is exactly the discriminated-union pattern from [Schema Declarations](./schemas.md), applied to Loom's own runtime type, and the recursion is now self-contained within the consolidated section. V1 has no configurable per-invoke timeout; cancellation is the only externally driven termination.
 
 <a id="cycle-detection"></a>
 

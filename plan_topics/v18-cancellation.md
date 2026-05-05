@@ -20,7 +20,7 @@
 
 - **Spec.** [Cancellation](../spec_topics/cancellation.md).
 - **Adds.** Pre-call check; signal forwarded to tool's `execute(toolCallId, params, signal, ...)`.
-- **Tests.** Pre-flight abort: tool never invoked; mid-flight abort: `ToolCallError{cause:"cancelled"}`.
+- **Tests.** Pre-flight abort: tool never invoked; mid-flight abort: `CodeToolError{cause:"cancelled"}` (wire `kind: "code_tool"`).
 - **Deps.** V14c.
 - **Ships when.** Tool calls cancellable.
 

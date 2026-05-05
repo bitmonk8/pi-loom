@@ -159,7 +159,7 @@ The diagnostic on a bare `@`...`` expression-statement reads: *"discarded query 
 
 **Typed queries are tool-loop-shaped.** A typed query is an ordinary tool-loop conversation whose *final* response is structured. The runtime presents the loom's frontmatter `tools:` to the model alongside a synthesised one-shot respond tool (`__loom_respond_<slug>`, see [Implementation Notes — Runtime](./implementation-notes.md#runtime)) and runs a **two-phase** loop:
 
-1. *Free phase.* Each turn, the model may call any frontmatter tool (serviced and looped, exactly as for an untyped query) or emit a plain text turn. Tool calls in this phase satisfy `frontmatter.md`'s "available to the model during query-time tool loops" guarantee and can surface `ToolFailureError` exactly as for untyped queries.
+1. *Free phase.* Each turn, the model may call any frontmatter tool (serviced and looped, exactly as for an untyped query) or emit a plain text turn. Tool calls in this phase satisfy `frontmatter.md`'s "available to the model during query-time tool loops" guarantee and can surface `ModelToolError` exactly as for untyped queries.
 2. *Forced respond turn.* Once the model emits a plain text turn (provider stop reason `end_turn` / `stop`), the runtime issues one additional follow-up user turn — *"Return your final answer using the `__loom_respond_<slug>` tool, conforming to this schema: …"* with the lowered response schema inlined — and forces the provider's tool choice to the respond tool for that turn. The respond tool's `execute` AJV-validates the call payload against the lowered response schema and resolves the query's promise with the validated value.
 
 The forced respond turn counts against the same iteration cap as free-phase turns (one slot, not zero). Coercion follow-ups (see **Schema-validation coercion** below) restart the *whole* two-phase loop — the model may need to retool (re-read a file, re-issue a search) before answering the coercion request — and each follow-up gets a fresh `tool_loop` budget. Provider stop reasons other than `end_turn` / `stop` / `tool_use` (e.g. `length`, content filter) surface as `transport` or `context_overflow` per the existing classification rules.
@@ -170,81 +170,11 @@ The technique used to obtain the structured payload is provider-specific (synthe
 
 **Untyped return type (V1).** The `Ok` payload of an untyped query is a plain `string` containing the assistant's final text. V1 deliberately keeps it as `string` to minimise surface area; freezing a richer structure before real provider integration would lock in details that real-world use is likely to revise. See [Future Considerations](./future-considerations.md).
 
-**Failure modes.** A query never throws. Both forms return a `Result` (see [Errors and Results](./errors-and-results.md)) carrying a `QueryError` on failure. `QueryError` is a discriminated union (`anyOf` over `kind`-tagged variants), exactly the shape the [Schema Subset](./schema-subset.md) blesses for user-defined unions — the canonical example of the pattern, applied to Loom's own runtime type. The variants:
+**Failure modes.** A query never throws. Both forms return a `Result` (see [Errors and Results](./errors-and-results.md)) carrying a `QueryError` on failure. `QueryError` is a discriminated union (`anyOf` over `kind`-tagged variants), exactly the shape the [Schema Subset](./schema-subset.md) blesses for user-defined unions — the canonical example of the pattern, applied to Loom's own runtime type.
 
-```loom
-schema ValidationIssue {
-  path: string,           // JSON pointer, e.g. "/issues/0/severity"
-  message: string,        // human-readable summary of the failure
-  schema_keyword: string  // "type", "required", "enum", "const", ...
-}
+The canonical declaration of `QueryError` and every variant it carries lives in [Errors and Results — QueryError variants](./errors-and-results.md#queryerror-variants). The five **query-time** variants — `ValidationError`, `TransportError`, `ModelToolError`, `ContextOverflowError`, `CancelledError`, `ToolLoopExhaustedError` — are the ones a query primitive can return on its own; `CodeToolError` (defined for code-side `<name>(args)` failures) and `InvokeInfraError` / `InvokeCalleeError` (defined for invoked callees) round out the union but originate at the call sites covered by [Tool Calls](./tool-calls.md) and [Invocation](./invocation.md).
 
-schema ValidationError {
-  kind: "validation",
-  message: string,
-  attempts: number,                          // coercion follow-ups made before giving up
-  validation_errors: array<ValidationIssue>,
-  raw_response: string | null                // final malformed assistant text
-}
-
-schema TransportError {
-  kind: "transport",
-  message: string,
-  http_status: number | null,                // null on network-level failure (no HTTP response)
-  provider: string,                          // "openai" | "anthropic" | ...
-  retryable: boolean                         // whether the runtime considers a retry worth attempting
-}
-
-schema ToolFailureError {
-  kind: "tool_failure",
-  message: string,
-  tool_name: string,
-  tool_call_id: string,
-  raw_response: string | null                // any text the model produced before the tool loop crashed
-}
-
-schema ContextOverflowError {
-  kind: "context_overflow",
-  message: string,
-  tokens_used: number | null,
-  tokens_limit: number | null
-}
-
-schema CancelledError {
-  kind: "cancelled",
-  message: string
-}
-
-schema ToolLoopExhaustedError {
-  kind: "tool_loop_exhausted",
-  message: string,
-  iterations: number,                        // == tool_loop.max_iterations on exhaustion
-  last_tool_name: string | null,             // most recent tool the model called, or null if exhaustion fired on the forced respond turn
-  raw_response: string | null                // any text the model emitted alongside the final tool call, when surfaced by the provider
-}
-
-schema QueryError = ValidationError
-                  | TransportError
-                  | ToolFailureError
-                  | ToolCallError
-                  | ContextOverflowError
-                  | CancelledError
-                  | ToolLoopExhaustedError
-                  | InvokeFailure
-                  | InvokeCalleeError
-```
-
-(`ToolCallError` is defined in [Tool Calls](./tool-calls.md); `InvokeFailure` and `InvokeCalleeError` are defined in [Invocation](./invocation.md). They are listed here only to complete the union.)
-
-`ToolFailureError` and `ToolCallError` are deliberately *separate* variants for *separate* situations: `ToolFailureError` covers a tool that the **model** invoked during a query's tool-call loop (and so carries `tool_call_id` and a `raw_response` for any text the model emitted before the loop crashed); `ToolCallError` covers a tool that **loom code** invoked directly via `<name>(...)` (no model, no `raw_response`, but a structured `cause` enum). The shapes diverge because the contexts diverge.
-
-Each variant carries only its meaningful fields; there are no null-padded sentinel fields shared across variants. Authors `match` on `QueryError { kind: "...", ... }` (pattern grammar from [Errors and Results](./errors-and-results.md)) and only the relevant variant's fields are in scope.
-
-`validation_errors` is an `array<ValidationIssue>`, a Loom schema rather than raw AJV objects. This isolates Loom's surface from the AJV API: a future validator swap is not a breaking change.
-
-`raw_response` only appears on variants where the model produced (or attempted to produce) a final text response. `cancelled` and `context_overflow` rarely have one; `transport` failures by definition have no assistant response. `tool_loop_exhausted` carries `raw_response` only when the model emitted text alongside its terminating tool-use block; the field is `null` when exhaustion fired on a pure tool-use turn.
-
-`ToolLoopExhaustedError` is distinct from `cancelled`: the former is the runtime giving up on the model; the latter is the user or parent giving up on the runtime. `last_tool_name` is `null` when exhaustion fired on the forced respond turn of a typed query (the model never picked the respond tool within the budget); otherwise it names the tool the model invoked on the loop's terminal iteration.
+`ModelToolError` is the model-loop counterpart to `CodeToolError`: it covers a tool the **model** invoked inside a query's tool-call loop (and carries `tool_call_id` plus a `raw_response`), while `CodeToolError` covers a tool that **loom code** invoked directly. The shapes diverge because the contexts diverge.
 
 **Detection of `ContextOverflowError`.** The runtime maps recognised provider "context window exceeded" error responses to this variant — concretely, payloads matching one of the per-provider signatures listed in [Pi Integration Contract — Provider error mapping](./pi-integration-contract.md). All other 4xx and 5xx responses map to `TransportError`. `tokens_used` and `tokens_limit` are populated when the provider supplies them in the error payload, and `null` otherwise; pre-flight token estimation is out of V1 scope (see [Future Considerations](./future-considerations.md)). Detection runs at end-of-stream for streamed responses; mid-stream errors are still classified at end-of-stream. A streamed response truncated mid-emission because the *output* hit the context boundary is classified as `context_overflow` (not `validation`), with `raw_response` set to the partial text. A provider that returns the overflow as an HTTP 200 with an error envelope is recognised by inspecting the body, not only the status. Recognised-overflow payloads with no token-count fields surface `tokens_used: null, tokens_limit: null` — that is the documented `null` condition, not a missing implementation.
 
@@ -254,11 +184,11 @@ Coercion follow-ups are bounded by `retry.attempts` from frontmatter (default 3)
 
 **Non-validation failures during a coercion follow-up.** A follow-up turn is a full provider round-trip and can fail for any reason the original turn could fail for — transport, cancellation, tool failure, context overflow, invoke failure, invoke-callee error. The runtime handles such failures uniformly:
 
-- The proximate failure **propagates as the corresponding `QueryError` variant** (`transport`, `cancelled`, `tool_failure`, `tool_loop_exhausted`, `context_overflow`, `invoke_failure`, `invoke_callee_error`) and **terminates coercion immediately**. The query does not return `validation` with the prior attempt count when the actual failure was, say, transport; the proximate cause wins.
+- The proximate failure **propagates as the corresponding `QueryError` variant** (`transport`, `cancelled`, `model_tool`, `tool_loop_exhausted`, `context_overflow`, `invoke_failure`, `invoke_callee_error`) and **terminates coercion immediately**. The query does not return `validation` with the prior attempt count when the actual failure was, say, transport; the proximate cause wins.
 - A follow-up that fails for a non-validation reason **does not consume an `attempts` slot**. `attempts` counts only follow-ups that produced an assistant response which was then re-validated (whether successfully or not). Rationale: `attempts` is the bound on *coercion*, not on incidental infrastructure failure; consuming a slot for a transport blip would silently shorten the repair budget on retry.
 - `context_overflow` **short-circuits coercion permanently** for the lifetime of that typed query. Once detected on any turn — original or follow-up — the runtime returns `Err({ kind: "context_overflow", ... })` without issuing further follow-ups, because the conversation only grows and subsequent attempts cannot succeed.
 - **Conversation-history cleanup:** the malformed assistant response and any tool-call traffic that preceded it remain in history (consistent with the "history stays intact" rule above). The follow-up user turn that triggered the propagated failure also remains; nothing is rolled back. Subagent-mode looms see the partial transcript via the same conversation handle on their next query.
 
-Edge cases: a follow-up's *own* tool-call loop may fail with `tool_failure` mid-loop, before any final assistant text — that is a non-validation failure and follows the rule above (propagate, do not consume `attempts`, do not retry). `retry.methodology: none` (equivalent to `attempts: 0`) means there is no follow-up to fail and the rule is a no-op. The `ValidationError.attempts` field returned on terminal exhaustion still reflects the number of *re-validated* follow-ups, which under this rule equals `retry.attempts` exactly when exhaustion is the cause.
+Edge cases: a follow-up's *own* tool-call loop may fail with `model_tool` mid-loop, before any final assistant text — that is a non-validation failure and follows the rule above (propagate, do not consume `attempts`, do not retry). `retry.methodology: none` (equivalent to `attempts: 0`) means there is no follow-up to fail and the rule is a no-op. The `ValidationError.attempts` field returned on terminal exhaustion still reflects the number of *re-validated* follow-ups, which under this rule equals `retry.attempts` exactly when exhaustion is the cause.
 
 Non-validation failures on the **original** response (i.e. before any coercion follow-up has been issued) are likewise not retried by the query primitive; the loom is responsible for whatever recovery makes sense. Wrapping retries at the loom level via a function plus `match` is the expected pattern.
