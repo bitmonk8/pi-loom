@@ -27,8 +27,8 @@
 ## V9d — `?` requires `Result<_, QueryError>` return type
 
 - **Spec.** [Function Definitions](../spec_topics/functions.md).
-- **Adds.** Body containing `?` infers `Result<_, QueryError>` return type unless explicitly declared otherwise (and conflicting declaration is parse error).
-- **Tests.** Inferred return type is `Result<T, QueryError>`; explicit non-Result return type with `?` in body is parse error with spec's hint.
+- **Adds.** A function body containing `?` and no explicit return type infers `Result<_, QueryError>` where `_` is the type of the tail expression's `Ok` payload. If an explicit return type *is* declared, it must syntactically be `Result<T, QueryError>` for some `T`; any other shape — `Result<T, E>` with `E ≠ QueryError`, a non-`Result` named type, or `void` — emits `loom/parse/question-outside-result-fn` quoting the offending declared return type.
+- **Tests.** Body with `?` and no return type infers `Result<T, QueryError>` from the tail-expression `Ok` payload type; explicit `Result<T, QueryError>` is accepted; explicit `Result<T, MyError>` (custom `E`), explicit non-`Result` type (e.g. `string`, `Author`), and explicit `void` each emit `loom/parse/question-outside-result-fn` with the declared return type rendered verbatim in the message.
 - **Deps.** V9a, V6b.
 - **Ships when.** `?` propagation through functions works.
 

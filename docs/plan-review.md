@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_72 findings retained, 3 false positives dropped, 0 persistent failures_
+_71 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -5113,84 +5113,6 @@ Edge cases the implementer must keep visible: (1) the empty-arm-body case is imp
 - "V9d \"conflicting declaration\" undefined" — same-cluster (same shape: a V-leaf bullet uses an undefined relational term that the spec actually pins; resolved by the same kind of edit but in a different leaf)
 - "V15c \"compatibility relation\" undefined" — same-cluster (same shape; cite the spec's defining section explicitly in the leaf)
 - "V2c \"ternary type-checks both arms\" — missing assertion" — decision-dependency (V2c's ternary common-type rule is the same `#array-construction` relation V7a needs; phrasing should be aligned across both leaves)
-
----
-
-## plan_topics/v9-functions.md
-
----
-
-# V9d under-specifies what "conflicting declaration" means and never cites the diagnostic code
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** V9d "conflicting declaration" undefined
-**Kind:** clarity
-
-## Finding
-
-`plan_topics/v9-functions.md` V9d says, of a function body containing `?`:
-
-> Body containing `?` infers `Result<_, QueryError>` return type unless explicitly declared otherwise (and conflicting declaration is parse error).
-
-with a Tests bullet that only mentions "explicit non-Result return type with `?` in body is parse error with spec's hint." Two distinct gaps follow:
-
-1. **"Conflicting" is not defined.** The spec ([`spec_topics/functions.md`](../../../spec_topics/functions.md)) says the function must declare `Result<_, QueryError>`. The plan never enumerates which other declared shapes count as conflicting. The borderline cases an implementer must decide are (a) `Result<T, E>` where `E ≠ QueryError`, (b) any non-`Result` named type, (c) `void`, and (d) the spec's parenthetical "(or convertible)" qualifier from `errors-and-results.md` line 33, which the plan does not address at all.
-
-2. **The diagnostic code is missing.** `spec_topics/diagnostics.md` line 116 defines `loom/parse/question-outside-result-fn` — "`?` used in a function or top-level loom whose return type is not `Result<_, QueryError>` (and cannot be inferred to one)." V9d's Tests bullet refers vaguely to "spec's hint" rather than asserting that this specific code is emitted with the offending declared type quoted. Without the code citation, two implementers will converge on different diagnostic identifiers, and the closed-registry coverage check (V18o) cannot match V9d's tests to the registry entry.
-
-V6b already covers `?`-in-non-Result generically at the operator-desugaring level; V9d is the function-declaration-specific closure, which makes the precision shortfall its responsibility.
-
-## Plan Documents
-
-- `plan_topics/v9-functions.md` — V9d (edited)
-- `plan_topics/v6-typed-queries.md` — V6b (read-only; defines `?` desugaring against which V9d's inference must be consistent)
-- `plan_topics/coverage-matrix.md` — diagnostic-coverage rows (read-only; verifies `loom/parse/question-outside-result-fn` ends up claimed by V9d once cited)
-
-## Spec Documents
-
-- `spec_topics/functions.md` — "A function whose body uses `?`" paragraph (read-only)
-- `spec_topics/errors-and-results.md` — "`?` operator" paragraph including the "(or convertible)" qualifier (read-only)
-- `spec_topics/diagnostics.md` — `loom/parse/question-outside-result-fn` row (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical V9
-
-**Leaves (implementation order):**
-
-- V9d — `?` requires `Result<_, QueryError>` return type — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Without a precise definition, two reasonable implementers will diverge on (i) whether `Result<T, E>` with `E ≠ QueryError` parses or errors, (ii) whether the emitted diagnostic uses the registry's `loom/parse/question-outside-result-fn` code or an invented name, and (iii) whether the offending declared type appears in the message. The V18o closed-registry gate cannot detect this drift because it matches by code string, and an unspecified code passes vacuously.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Edit `plan_topics/v9-functions.md`, leaf V9d. Replace the **Adds.** bullet with:
-
-> **Adds.** A function body containing `?` and no explicit return type infers `Result<_, QueryError>` where `_` is the type of the tail expression's `Ok` payload. If an explicit return type *is* declared, it must syntactically be `Result<T, QueryError>` for some `T`; any other shape — `Result<T, E>` with `E ≠ QueryError`, a non-`Result` named type, or `void` — emits `loom/parse/question-outside-result-fn` quoting the offending declared return type.
-
-Replace the **Tests.** bullet with:
-
-> **Tests.** Body with `?` and no return type infers `Result<T, QueryError>` from the tail-expression `Ok` payload type; explicit `Result<T, QueryError>` is accepted; explicit `Result<T, MyError>` (custom `E`), explicit non-`Result` type (e.g. `string`, `Author`), and explicit `void` each emit `loom/parse/question-outside-result-fn` with the declared return type rendered verbatim in the message.
-
-Leave **Spec.**, **Deps.**, and **Ships when.** unchanged.
-
-Edge cases the implementer must watch:
-- The spec's "(or convertible)" qualifier in `errors-and-results.md` line 33 is not exercised by V1 — V1 has no user-defined error types and no implicit `From`/`Into`. Treat "convertible" as inert for V1 and check only structural `Result<T, QueryError>`.
-- The inferred-type case shares its diagnostic identity with V6b's "`?` in a non-Result function" test; ensure V9d's tests target the *function-declaration* path (an explicit annotation that disagrees) rather than re-running V6b's operator-level case.
-
-## Related Findings
-
-- "V7a \"common-type values\" undefined locally" — same-cluster (same shape: a vertical-slice leaf leaves a key term undefined; resolves independently)
-- "V15c \"compatibility relation\" undefined" — same-cluster (same shape; resolves independently)
-- "Closed diagnostic registry — many codes have no asserting plan leaf" — co-resolve (citing `loom/parse/question-outside-result-fn` in V9d's Tests is one of the registry-coverage closures that finding catalogs)
 
 ---
 
