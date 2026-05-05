@@ -1,7 +1,7 @@
 # pi-loom — Consolidated Spec Review
 
 _Generated: 2026-05-05T19:49:46Z (revised: merges + multi→single conversion + bottom-up reorder)_
-_60 source findings → 8 commit-ready findings (8 merge clusters, 23 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
+_60 source findings → 7 commit-ready findings (8 merge clusters, 22 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
 
 Findings are ordered for **bottom-up processing**: each commit fixes the *last* finding in the doc until the doc is empty. Dependencies that require a particular landing order are encoded in the doc order — `MERGE-F` (`bindings.md` BNDS / BNDR rename) sits at the bottom of the REQ-ID-appendix supersection so it lands *before* `MERGE-G` (retirement registries + V18s sub-gates), which sits above it.
 
@@ -618,94 +618,5 @@ Edge cases:
 ## Related Findings
 
 - MERGE-G (closing immutability paragraph) — must land *before* this finding (in landing order: MERGE-G first, MERGE-F after) so that the retirement registry exists when the swap is recorded. In doc order: MERGE-G appears above MERGE-F (MERGE-F is processed first under bottom-up).
-
----
-
----
-
-## spec_topics/pi-integration-contract.md
-
----
-
-# Spec mandates broad-catch exception handling that conventions unconditionally forbid
-
-**Source:** docs/reviews/spec-review/spec-20260505-204733.md
-**Original heading:** Spec mandates broad-catch exception handling; conventions unconditionally forbid it
-**Kind:** doc-alignment-broad
-
-## Finding
-
-`spec_topics/pi-integration-contract.md` requires the runtime to recover from arbitrary throws across at least four Pi SDK boundary sites, none of which the SDK types as a specific exception subclass:
-
-1. `AgentSession.dispose()` — "If `dispose()` itself throws, the runtime logs the disposal error via the `loom/runtime/subagent-dispose-failure` diagnostic … but does not mask the original error" (Subagent session lifecycle, around line 101).
-2. `pi.sendMessage` for `loom-system-note` — "If it throws or rejects, the runtime falls back …" through `ctx.ui.notify` then a diagnostic then `console.error` (System notes, lines 160–165).
-3. `ctx.ui.notify` inside that same fallback — "`ctx.ui.notify` itself can throw (e.g. in print mode where Pi's UI is not attached); wrap it in the same try/catch and proceed to the diagnostic step" (line 165).
-4. The interpreter top-level wrap — `pi-integration-contract.md` line 99 lists "any unexpected exception thrown by the interpreter or the Pi SDK" as a teardown trigger, and `plan_topics/v18-cancellation.md` V18m/V18n catch "an unexpected interpreter throw … outside the closed V1 panic-source list (a `TypeError` from a host function, an internal invariant violation, an unanticipated SDK reject)" and route it to `loom/runtime/internal-error`. By construction this catch-clause cannot bind a specific subtype.
-
-`plan_topics/conventions.md` "Cross-cutting rules" prohibits exactly these patterns: "No `catch (e)`, `catch (e: unknown)`, `catch (e: any)`, or `catch (e: Error)` — bind to a specific subtype or let the exception propagate. The rethrow-on-mismatch pattern … is also forbidden. … ESLint rule (`no-broad-catch`) wired in H1 enforces this." `plan_topics/h1-scaffold.md` (line 36) widens this slightly with "explicit boundary modules listed in the lint config are exempt so that catching standard-library `Error` subtypes (`AbortError`, `TypeError` from JSON parsing) at well-defined boundaries remains possible" — but the rationale only contemplates catching *typed* standard-library errors, not catching `unknown` from an SDK that does not export typed throws. There is no per-site marker convention (unlike the `Promise.all` allowlist's mandatory `// allow: <REQ-ID> — <spec-page>` comment), so an exempt module currently has unbounded license to broad-catch with no audit trail tying each site back to a normative requirement.
-
-The Pi SDK does not expose typed exception classes for `dispose`, `sendMessage`, `ui.notify`, or arbitrary host-function throws, so narrow-catch is structurally impossible at the four sites. Implementers will either (a) ship code the lint rule rejects, (b) add ad-hoc bypass comments with no spec linkage, or (c) silently dump entire boundary modules into the exempt list, defeating the rule's purpose.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — Subagent session lifecycle; System notes; Runtime event channel (read-only — describes the contract that requires the catches)
-- `plan_topics/conventions.md` — "Cross-cutting rules every phase", Specific exception types only bullet (edited)
-- `plan_topics/h1-scaffold.md` — `no-broad-catch` ESLint rule description and exempt-module rationale (edited)
-
-## Plan Impact
-
-**Phases:** Horizontal, MVP, Vertical V12, Vertical V18
-
-**Leaves (implementation order):**
-
-- H1 — Repository scaffold and test framework — modified (lint rule definition, exempt-list / per-site marker mechanism, fixture tests)
-- H4 — Pi extension shell — modified (`sendSystemNote` helper wraps `pi.sendMessage` and `ctx.ui.notify`; `PiSubagentSpawner.dispose` shim around `AgentSession.dispose()`)
-- Mb — Minimal runtime + slash registration — modified (depends on H4's `sendSystemNote`; first real broad-catch user)
-- V12a — `mode: subagent` accepted; AgentSession spawn — modified (disposal `finally` block; `dispose()` failure → `loom/runtime/subagent-dispose-failure` without masking original)
-- V18m — Panic routing: slash-command surface — modified (top-level catch of "unexpected interpreter throw outside the closed V1 panic-source list" → `loom/runtime/internal-error`)
-- V18n — Panic routing: `invoke` parent surface — modified (parallel boundary catch at the `invoke` frame)
-- V18q — Runtime event channel and always-log emission — modified (helper that calls `pi.sendMessage` must observe the same throw/reject contract)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers will diverge: one will add `// eslint-disable-next-line no-broad-catch` at each site with no spec anchor; another will widen the boundary-module exemption to include large chunks of `src/runtime/`, blowing a hole through the rule. A third may try to satisfy the rule literally and fail to implement the spec-mandated fallback paths, surfacing untyped Pi SDK throws to the user as uncaught exceptions instead of as `loom/runtime/subagent-dispose-failure` / `loom/runtime/system-note-delivery-failed` / `loom/runtime/internal-error` diagnostics. The `no-broad-catch` rule is wired into H1's CI, so the conflict is hard-blocking the moment H4 lands `sendSystemNote`.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Extend `plan_topics/conventions.md` "Specific exception types only" with a per-site allowlist mechanism that mirrors the `Promise.all` rule:
-
-> A `catch (e: unknown)` clause is permitted at a Pi SDK boundary site if and only if the same line carries a `// allow-broad-catch: <REQ-ID> — <spec-page>` comment. The H1 lint rule's allowlist enumerates these sites by `<file>:<line-range>`, and the V18s coverage gate asserts every allow-list entry has a matching REQ-ID present in `coverage-matrix.md`. Once H6 mints REQ-IDs for `pi-integration-contract.md`, transitional allow-comments may use the spec-page-anchor form (e.g. `// allow-broad-catch: per pi-integration-contract.md — System notes`) under the same V18s deprecation-tolerated posture as the `Promise.all` rule.
-
-Update `plan_topics/h1-scaffold.md` to:
-
-- Rename the rule's exempt-list rationale: it permits *both* catching typed standard-library errors at boundaries *and* the per-site `// allow-broad-catch:` form for untyped SDK throws.
-- Add fixture tests asserting (i) `catch (e: unknown) // allow-broad-catch: PI-N — pi-integration-contract.md` passes, (ii) the same `catch` without the comment fails, (iii) the comment without a matching coverage-matrix entry fails the V18s gate.
-
-Seed the allowlist in the same edit with the four canonical sites, each citing the responsible leaf:
-
-| Site | Leaf | Spec anchor |
-|---|---|---|
-| `sendSystemNote` wrap of `pi.sendMessage` | H4 | pi-integration-contract.md — System notes |
-| `sendSystemNote` wrap of `ctx.ui.notify` | H4 | pi-integration-contract.md — System notes |
-| `PiSubagentSpawner` wrap of `AgentSession.dispose()` | V12a | pi-integration-contract.md — Subagent session lifecycle |
-| Top-level interpreter wrap → `loom/runtime/internal-error` | V18m | pi-integration-contract.md — Subagent session lifecycle ("any unexpected exception") + diagnostics.md `internal-error` row |
-| `invoke` boundary wrap → `loom/runtime/internal-error` | V18n | same |
-
-Edge cases the implementer must watch:
-
-- The top-level wrap and the `invoke`-boundary wrap are two distinct call sites and need two allow-list entries; the V18s gate must not collapse them.
-- `sendSystemNote`'s re-entry guard (per H4 test) is independent of the broad-catch allowance — both must hold simultaneously.
-- The exempt-module exemption (whole files exempt for typed standard-library catches) and the per-site `// allow-broad-catch:` exemption are different mechanisms; an exempt module still MAY NOT host an unmarked broad catch — the per-site comment requirement applies inside exempt files too, so audit-by-grep stays exhaustive.
-- `CLAUDE.md`'s parent rule "Never `catch(...)`" is honoured because every permitted site is anchored to a spec REQ-ID; the convention can cite this in the rationale.
-
-## Related Findings
-
-- "`loom/runtime/internal-error` catch-all contradicts \"closed registry\" and \"exactly six panic sources\"" — same-cluster (the interpreter-body broad-catch under discussion here is the call site that emits `loom/runtime/internal-error`; that finding addresses the registry-closure tension while this one addresses the lint-rule tension; resolving both in a coordinated edit keeps the spec self-consistent on what `internal-error` is for and where it is allowed to originate)
 
 ---
