@@ -43,7 +43,7 @@
 ## V17g — Implicit export of all `.warp` top-level declarations
 
 - **Spec.** [Imports](../spec_topics/imports.md) (visibility).
-- **Adds.** Every top-level `schema`/`enum`/`fn` in `.warp` is implicitly exported; no `export` keyword on declarations; no privacy modifier in V1.
+- **Adds.** Every top-level `schema`/`enum`/`fn` in `.warp` is implicitly exported; no `export` keyword on declarations; no privacy modifier in loom 1.0.
 - **Tests.** All declarations importable; no internal-only marker accepted.
 - **Deps.** V17a.
 - **Ships when.** Library visibility rule enforced.

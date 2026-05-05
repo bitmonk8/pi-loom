@@ -67,7 +67,7 @@
 ## V7i — `MatchError` runtime panic
 
 - **Spec.** [Errors and Results](../spec_topics/errors-and-results.md) (panic sources).
-- **Adds.** Non-exhaustive `match` (no arm matched at runtime) panics with `MatchError`; exhaustiveness not statically checked in V1.
+- **Adds.** Non-exhaustive `match` (no arm matched at runtime) panics with `MatchError`; exhaustiveness not statically checked in loom 1.0.
 - **Tests.** Match with no `_` arm and no matching value panics; routing handled in V18m.
 - **Deps.** V7a.
 - **Ships when.** Non-exhaustive match doesn't silently return undefined.

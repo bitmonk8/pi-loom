@@ -51,7 +51,7 @@
 ## V16f — `bind_context: none`
 
 - **Spec.** [Slash-Command Argument Binding — Binder context, Binder system prompt](../spec_topics/binder.md).
-- **Adds.** Default mode; binder sees only slash text + frontmatter. The frontmatter `argument-hint:` value (when present) flows into the binder's system prompt under `Argument hint:` as the binder-grounding payload (no other surface consumes it in V1; the autocomplete dropdown does not show it — see V3a).
+- **Adds.** Default mode; binder sees only slash text + frontmatter. The frontmatter `argument-hint:` value (when present) flows into the binder's system prompt under `Argument hint:` as the binder-grounding payload (no other surface consumes it in loom 1.0; the autocomplete dropdown does not show it — see V3a).
 - **Tests.** No session context attached; deterministic output for identical inputs (modulo provider non-determinism); when `argument-hint:` is set, the binder's system prompt contains `Argument hint: <value>` exactly once; when absent, the line is omitted. Cross-linked from V18q — every binder-failure cause owned by this leaf emits exactly one runtime event at the originating site.
 - **Deps.** V16c, V16e.
 - **Ships when.** Default binder path works end-to-end and `argument-hint` reaches the binder grounding payload.
@@ -107,7 +107,7 @@
 ## V16m — `ambiguous` envelope handling
 
 - **Spec.** [Slash-Command Argument Binding — Failure modes](../spec_topics/binder.md).
-- **Adds.** `kind: "ambiguous"` envelope produces system note matching the failure-modes table (`loom /<name>: ambiguous arguments — <model's message>`); loom does not run. The `candidates` field stays in the schema (binder may emit it; AJV accepts `null`), but the runtime does **not** surface it in V1 — the rendered note contains only the model's `<message>`.
+- **Adds.** `kind: "ambiguous"` envelope produces system note matching the failure-modes table (`loom /<name>: ambiguous arguments — <model's message>`); loom does not run. The `candidates` field stays in the schema (binder may emit it; AJV accepts `null`), but the runtime does **not** surface it in loom 1.0 — the rendered note contains only the model's `<message>`.
 - **Tests.** Message reaches user; rendered system-note text contains no candidate values even when the binder emits a non-null `candidates` array; loom never starts. Cross-linked from V18q — an `ambiguous` envelope emits exactly one runtime event at the originating binder site.
 - **Deps.** V16c.
 - **Ships when.** Ambiguity case handled per the failure-modes table (no candidates rendering).

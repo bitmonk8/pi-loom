@@ -5,7 +5,7 @@ Three kinds of phase:
 1. **Horizontal phases (H1–H5).** Project scaffold, dependency-injection skeleton, diagnostics primitive, Pi-extension shell, Pi end-to-end harness.
    The harness (H5) exists so that from M onward every leaf whose `Ships when` claims a behaviour against "a real Pi session" can express that gate as a scripted assertion against an in-process `AgentSession`, not a manual smoke. "Manual in real Pi session" is reserved for gates that exercise Pi's CLI extension-discovery path itself (H4).
 2. **MVP phase (M).** The smallest end-to-end `.loom` that runs as a Pi slash command — single hard-coded untyped query, prompt mode.
-3. **Vertical slices (V1–V18, broken into leaf phases).** Each leaf is the smallest feature that can ship independently *and* be tested independently. Leaves carry IDs like `V4b`. Their grouping (V4) is editorial only — leaves are the unit of work.
+3. **Vertical slices (V1–V18, broken into leaf phases).** Each leaf is the smallest feature that can ship independently *and* be tested independently. Leaves carry IDs like `V4b`. Their grouping (V4) is editorial only — leaves are the unit of work. The IDs `H1`–`H4`, `M`, and `V1`–`V18` (and their `<group><letter>` leaf forms) are reserved for plan phases. When plan prose needs to refer to the initial release of the loom language, write "loom 1.0" or "the initial release"; never reuse "V1" for that meaning.
 
 Slices are roughly ordered by dependencies; non-linear deps are stated in each leaf's **Deps** field. Reorder freely as long as the deps DAG is respected.
 

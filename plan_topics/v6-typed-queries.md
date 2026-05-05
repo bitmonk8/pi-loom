@@ -83,7 +83,7 @@
 ## V6m — Typed-query provider compatibility check
 
 - **Spec.** [Pi Integration Contract — Provider compatibility for typed queries](../spec_topics/pi-integration-contract.md), [Pi Integration Contract — Provider error mapping](../spec_topics/pi-integration-contract.md).
-- **Adds.** At loom-load time, when a loom contains any typed-query expression and its resolved `model:` routes through a provider outside the V1 supported set (`anthropic-messages`, `openai-completions`, `mistral`, `amazon-bedrock`), emit `loom/load/typed-query-unsupported-provider` (warning) naming the offending provider. At runtime, a typed query against such a provider returns `Err(QueryError { kind: "transport", retryable: false, ... })` without contacting the model.
+- **Adds.** At loom-load time, when a loom contains any typed-query expression and its resolved `model:` routes through a provider outside the loom-1.0 supported set (`anthropic-messages`, `openai-completions`, `mistral`, `amazon-bedrock`), emit `loom/load/typed-query-unsupported-provider` (warning) naming the offending provider. At runtime, a typed query against such a provider returns `Err(QueryError { kind: "transport", retryable: false, ... })` without contacting the model.
 - **Tests.** Each supported provider passes load with no warning; a Gemini-routed model raises the warning at load and the runtime returns the spec's `transport` error without a network call; warning carries the documented code; provider set is enumerated from a single source (no string duplication across the load path and the runtime path).
 - **Deps.** V6i.
 - **Ships when.** Typed queries on unsupported providers fail loudly at load and at runtime.

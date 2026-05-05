@@ -11,7 +11,7 @@
 ## V10b — Explicit variant values
 
 - **Spec.** [Schema Declarations](../spec_topics/schemas.md) (enum subsection).
-- **Adds.** `Low = "low"`. RHS must be string literal in V1.
+- **Adds.** `Low = "low"`. RHS must be string literal in loom 1.0.
 - **Tests.** Explicit value used in lowering; numeric/boolean RHS rejected; duplicate explicit values in same enum is parse error.
 - **Deps.** V10a.
 - **Ships when.** Wire-shaped enums work.
