@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_52 findings retained, 3 false positives dropped, 0 persistent failures_
+_51 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -3718,77 +3718,6 @@ Do not introduce a placeholder code; the canonical code is already normative in 
 
 - "M assumes registration/collision plumbing not yet scheduled" — decision-dependency (if that finding's fix has M defer the cross-source priority check entirely to V14p, M's Tests bullet would be removed instead of tightened; resolve that one first)
 - "Cross-priority shadowing with no opt-out or rollback procedure" — same-cluster (also concerns `loom/load/cross-source-shadow`, but at V14p; resolves independently of M's wording)
-
----
-
-## plan_topics/v4-schemas.md / v10-enums.md / v11-discriminated-unions.md
-
----
-
-# Empty schema and enum body diagnostics — no test leaf
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** Empty schema and enum body diagnostics — no test leaf
-**Kind:** spec-coverage
-
-## Finding
-
-The spec mandates two parse diagnostics for empty body declarations:
-
-- `spec_topics/schemas.md:19` — `schema X { }` with no fields is `loom/parse/empty-schema-body` with the verbatim message `"'X' has no fields; an empty schema cannot be validated."`
-- `spec_topics/schemas.md:89` — `enum X { }` with no variants is `loom/parse/empty-enum-body` with the verbatim message `"'X' has no variants; an empty enum cannot be validated."`
-
-The coverage matrix routes the object-form schema row to `V4b` and the enum row to `V10a`–`V10c`. Neither closing leaf asserts the empty-body case. `V4b` Tests cover trailing comma, missing field, `additionalProperties:false`, snapshot fixture, and the `by`-on-object misuse — empty body is absent. `V10a` Tests cover the variant case rule, the lowering shape, and rejection of payload-carrying variants — empty enum body is absent. As a result, both diagnostic codes are spec-mandated but unenforced by any leaf gate.
-
-## Plan Documents
-
-- `plan_topics/v4-schemas.md` — V4b (edited)
-- `plan_topics/v10-enums.md` — V10a (edited)
-- `plan_topics/coverage-matrix.md` — Schema Declarations rows (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical V4, Vertical V10
-
-**Leaves (implementation order):**
-
-- V4b — Object schema declaration and lowering — (modified)
-- V10a — `enum X { ... }` declaration — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two spec-mandated parse diagnostics (`loom/parse/empty-schema-body`, `loom/parse/empty-enum-body`) have no asserting leaf, so the V18o coverage gate over the closed diagnostic registry will pass vacuously for these codes. Implementers of V4b and V10a are not required to emit them, so the empty-body forms may compile to schemas that AJV either accepts trivially (objects) or rejects with an opaque internal error (`enum:[]`), neither matching the spec's user-facing diagnostic.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Edit `plan_topics/v4-schemas.md` — append to V4b's `Tests.` bullet:
-
-> `schema X { }` emits `loom/parse/empty-schema-body` with message `"'X' has no fields; an empty schema cannot be validated."`
-
-Edit `plan_topics/v10-enums.md` — append to V10a's `Tests.` bullet:
-
-> `enum X { }` emits `loom/parse/empty-enum-body` with message `"'X' has no variants; an empty enum cannot be validated."`
-
-Both assertions must pin the exact code string and the verbatim message text from `spec_topics/schemas.md` so the V18o gate has an observable closing test for each code. Detection is parse-time on an empty `{}` body; emission precedes lowering (so AJV's own `enum:[]` rejection is not what surfaces to the user).
-
-## Related Findings
-
-- "Closed diagnostic registry — many codes have no asserting plan leaf" — same-cluster (this finding is one concrete instance of that registry-level gap)
-- "Type-alias cycle detection (`loom/parse/type-alias-cycle`) — no plan leaf" — same-cluster (sibling missing-diagnostic-coverage finding in the V4 area)
-- "`loom/parse/non-string-discriminator` — no test leaf" — same-cluster (sibling missing-diagnostic-coverage finding in the schema/union area)
-- "`loom/parse/integer-narrowing` — no plan leaf" — same-cluster (sibling missing-diagnostic-coverage finding)
-- "`loom/load/missing-mode` and `loom/load/unknown-mode-value` — no asserting leaf" — same-cluster (sibling missing-diagnostic-coverage finding)
-- "Path literals forward-slash rule and `loom/parse/invalid-path-separator` — no leaf" — same-cluster (sibling missing-diagnostic-coverage finding)
 
 ---
 
