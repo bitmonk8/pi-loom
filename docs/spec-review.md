@@ -1,7 +1,7 @@
 # pi-loom — Consolidated Spec Review
 
 _Generated: 2026-05-05T19:49:46Z (revised: merges + multi→single conversion + bottom-up reorder)_
-_60 source findings → 14 commit-ready findings (8 merge clusters, 23 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
+_60 source findings → 13 commit-ready findings (8 merge clusters, 23 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
 
 Findings are ordered for **bottom-up processing**: each commit fixes the *last* finding in the doc until the doc is empty. Dependencies that require a particular landing order are encoded in the doc order — `MERGE-F` (`bindings.md` BNDS / BNDR rename) sits at the bottom of the REQ-ID-appendix supersection so it lands *before* `MERGE-G` (retirement registries + V18s sub-gates), which sits above it.
 
@@ -1056,73 +1056,6 @@ Edge cases for the implementer:
 - "Watcher debounce (250 ms) is a wall-clock constraint with no injectable clock seam" — same-cluster (same V18f leaf, both about watcher testability)
 - "System-note 120-codepoint cap: \"code points or grapheme clusters\" is ambiguous" — same-cluster (both pin rendering rules for `loom-system-note` content strings)
 - "Re-scan deduplication: no observable emission counter" — same-cluster (both about asserting watcher-emitted system-note content)
-
----
-
-# Tool-error `message` truncation rule is sloppy on inclusivity, partial-code-point disposition, and the surrogate framing
-
-**Source:** docs/reviews/spec-review/spec-20260505-204733.md
-**Original heading:** Tool execution content truncation: boundary and multi-byte edge case underspecified
-**Kind:** testability
-
-## Finding
-
-The `code_tool` / `cause: "execution"` lowering in `spec_topics/pi-integration-contract.md` (the long paragraph beginning "The tool's returned `{ content, isError }`…") specifies the truncated `message` field as "the same filtered/joined text truncated to 4096 bytes (UTF-8) at a code-point boundary (no split surrogates / multi-byte sequences)". Three things are left ambiguous:
-
-1. **Inclusive-vs-exclusive bound.** "Truncated to 4096 bytes" does not say whether the resulting byte length MUST be ≤ 4096 or < 4096, nor whether 4096 itself is the target length when input exceeds it. A conformance test cannot assert the exact byte length of the result.
-2. **Partial-code-point disposition.** "At a code-point boundary" tells the implementer where the cut may not fall, but not what to do when a multi-byte code point straddles the boundary. The sensible reading is "drop the partial code point entirely, accept a result < 4096 bytes," but this is left implicit; an implementer could equally choose "include the partial code point and exceed the limit," "pad with replacement bytes," or "emit U+FFFD." The plan-side V14g already encodes the sensible reading ("the character is dropped whole, not split"), so the spec is the lagging document.
-3. **Surrogate framing.** "No split surrogates / multi-byte sequences" conflates two different encodings. UTF-8 has no surrogates — surrogates are a UTF-16 concept. The well-formed companion rule, given verbatim in `spec_topics/binder.md` for system-note rendering ("Truncation operates on whole code points (or grapheme clusters) — never on UTF-16 code units, which would split surrogate pairs"), is the right framing: the operation is over code points, and the prohibition is against truncating in JavaScript-string space (UTF-16 code units) rather than UTF-8 byte space. The contract should pick UTF-8 byte counting and code-point cuts and drop the surrogate language entirely (or use the binder.md framing if the cap is being recast as a code-point cap).
-
-The plan leaf already pins concrete behaviour, so spec authors and implementers will diverge in ways the test suite can detect; the gap is in the spec's normative paragraph, not in the test plan.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — "Tool execution and result lowering" paragraph at line 175 (edited)
-- `spec_topics/binder.md` — System-note rendering rule 2 at line 140 (read-only; reference for canonical phrasing)
-- `plan_topics/v14-tool-calls.md` — V14g test bullet (read-only; verifies the spec edit lands consistently with already-pinned behaviour)
-
-## Plan Impact
-
-**Phases:** Vertical V14
-
-**Leaves (implementation order):**
-
-- V14g — `CodeToolError` variant: `execution` cause — (modified)
-
-V14g already specifies "≤4096 bytes at a code-point boundary (final byte never mid-multi-byte-sequence; no split surrogates)" and "the character is dropped whole, not split." A spec edit that picks the inclusive bound and drops the partial code point will require a one-line wording sync in V14g (remove "no split surrogates," reword to match the spec's final language) but no semantic change.
-
-## Consequence
-
-**Severity:** correctness
-
-Two implementers reading the current paragraph could ship outputs that differ by a few bytes on every truncated tool error: one drops the straddling code point (result < 4096 bytes), one keeps it (result up to 4099 bytes), one emits U+FFFD. Conformance tests pinning the exact `message` field — which V14g calls for — will then disagree across implementations. The defect is small in user impact but blocks a clean test contract.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Replace the relevant clause in `spec_topics/pi-integration-contract.md` with:
-
-> `<m>` is the same filtered/joined text encoded as UTF-8 and truncated so that the resulting byte length is at most 4096 bytes. Truncation MUST cut on a Unicode code-point boundary: every code point in the output is represented by all of its UTF-8 bytes, and no bytes of a partial code point appear. When a code point would straddle the 4096-byte limit, that code point is dropped entirely; the resulting message MAY therefore be shorter than 4096 bytes by up to three bytes.
-
-Apply the identical rewrite to the sentence two clauses later that handles the `execute()`-throw path ("truncated under the same rule" already chains correctly; no separate edit needed).
-
-Add one normative vector in the same paragraph or in a footnote:
-
-> Worked example: a filtered/joined text whose first 4095 bytes are ASCII followed by a 3-byte UTF-8 code point (e.g. U+2026 `…`) MUST truncate to 4095 bytes; the 3-byte code point is dropped because including it would yield 4098 bytes.
-
-Edge cases for the implementer:
-
-- The cap is over UTF-8 byte length of the output, not over JavaScript-string `.length` (which counts UTF-16 code units). A naive `s.slice(0, 4096)` in JS would split surrogate pairs and is wrong on both axes.
-- The 4-byte UTF-8 code points (astral plane, e.g. emoji) can drop up to three bytes off the result; the worked example above pins the 3-byte case but the 4-byte case is allowed and tested in V14g (`"😀"` straddling the boundary).
-- Drop the "no split surrogates" phrase — it imports a UTF-16 concept into a UTF-8 specification and confuses the contract. The "complete code point" rule subsumes both prohibitions.
-
-## Related Findings
-
-- "Watcher structural-change note: `<N> file(s)` grammar ambiguous" — same-cluster (both are testability gaps in `pi-integration-contract.md` where a conformance test cannot assert an exact string output without further pinning; resolve independently)
-- "Non-text content \"silently\" discarded: no observable signal for tests" — same-cluster (immediately adjacent paragraph in the same lowering rule; both concern observability of the tool-result lowering pipeline but resolve independently)
 
 ---
 
