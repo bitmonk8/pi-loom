@@ -21,7 +21,7 @@ Every executable spec section maps to a closing leaf. The V18s gate (per [V18 �
 | [Schema Subset — Lowering Algorithm](../spec_topics/schema-subset.md#lowering-algorithm) | V4b–V4i |
 | [Parameters and Frontmatter — `params` and defaults](../spec_topics/frontmatter.md) | V3b, V16a |
 | [Parameters and Frontmatter — `model`](../spec_topics/frontmatter.md) | V3a (recognised); applies per-query in V5e onward |
-| [Parameters and Frontmatter — `tools`](../spec_topics/frontmatter.md) | V14a, V14b, V15e–V15g |
+| [Parameters and Frontmatter — `tools`](../spec_topics/frontmatter.md) | V14a, V14b, V14s (resolution snapshot), V15e–V15g |
 | [Parameters and Frontmatter — `system`](../spec_topics/frontmatter.md) | V12b, V12c |
 | [Parameters and Frontmatter — `bind_*`](../spec_topics/frontmatter.md) | V16e–V16k |
 | [Parameters and Frontmatter — `coercion`](../spec_topics/frontmatter.md) | V13f, V13g–V13j |

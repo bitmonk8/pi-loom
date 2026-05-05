@@ -76,7 +76,7 @@
 
 - **Spec.** [Tool Calls](../spec_topics/tool-calls.md) (failures).
 - **Adds.** Safety net for tools unregistered between parse and runtime (should not occur after a clean parse; production rarely hits this).
-- **Tests.** Synthetic unregister between parse and runtime triggers the variant. Cross-linked from V18q — a `code_tool` `Err` (regardless of `cause`) emits exactly one runtime event at the originating site.
+- **Tests.** Synthetic unregister occurring after a V18f watcher rebuild — not a mid-run unregister — triggers the variant on the next invocation; mid-run unregister without rebuild does not (covered in V14s). Cross-linked from V18q — a `code_tool` `Err` (regardless of `cause`) emits exactly one runtime event at the originating site.
 - **Deps.** V14c.
 - **Ships when.** Safety net verified.
 
@@ -143,3 +143,16 @@
 - **Tests.** Same-format: two packages each shipping `lint.loom` → single error listing both, neither registers; three packages → single error listing all three. Cross-format: `code-review.loom` + `code-review.md` (Pi prompt) → single error, the `.md` survives, the loom does not register; same for `.md` subagent and another extension's command. Hyphen-normalisation collisions: `code-review.loom` and `code_review.loom` from two `--loom` components → single error. Settings entries pointing at the same absolute path → silently deduped, no diagnostic. Re-evaluation: a loom registers cleanly on the first `session_start`; a second `session_start` fires after a fake `.md` prompt is added with the same slash name; the loom is de-registered and a single `loom/load/cross-format-collision` diagnostic is emitted naming the surviving `.md` entry. (Implementer note: this exercise depends on the de-registration mechanism Pi exposes on `session_start` re-entry; if Pi has no such mechanism, escalate to a spec amendment rather than silently dropping the test.)
 - **Deps.** V14k.
 - **Ships when.** Same-priority same-name collisions surface uniformly across all source and format combinations.
+
+## V14s — `tools:` resolution-snapshot invariants
+
+- **Spec.** [Parameters and Frontmatter — Resolution snapshot](../spec_topics/frontmatter.md) (the four enumerated consequences of the resolution-snapshot rule).
+- **Adds.** No new code — pins the dispatch contract that V14c and V18f must jointly satisfy: each `tools:` table entry holds a strong reference to its resolved callable (Pi-tool `ToolDefinition` or parsed `.loom` callee + lowered spec) captured at load; per-call dispatch reads through the held reference and never re-queries Pi's tool registry by name during execution; `CodeToolError{cause:"unknown_tool"}` is reachable only via the V18f watcher-rebuild path.
+- **Tests.**
+  - **In-flight Pi-tool unregister survives.** Loom resolves Pi tool `read` at load; loom code calls `read({...})`; mid-call, `pi.unregisterTool('read')` fires (synthetic probe); the in-flight call completes successfully against the captured `execute` and returns `Ok`.
+  - **`.loom` callee captured-parse survives mid-call edit.** Loom A has `tools: [./b.loom]`; A invokes `b(...)`; while `b`'s call is in flight the file `./b.loom` is rewritten on disk with a different body (synthetic `fs.writeFile` probe outside the watcher debounce); the in-flight call completes against the parsed-at-load body of `b` (assert by capturing the executed expression-tree id).
+  - **`unknown_tool` only via watcher rebuild.** With V18f disabled, `pi.unregisterTool('read')` mid-run never produces `CodeToolError{cause:"unknown_tool"}` — the in-flight call still runs against the captured `execute`. With V18f enabled, after the watcher debounce + table rebuild, the *next* invocation of the affected loom emits `loom/load/unknown-tool` and refuses to register; an invocation already in flight against the pre-rebuild table still completes.
+  - **No name-based re-query during execution.** An architectural probe (e.g. a spy installed on the `PiToolHost` accessor, or a `Proxy` over the test `ExtensionAPI` that records every `getTool` / `getActiveTools` call) records zero registry lookups by tool name during dispatch of N back-to-back code-side and model-side tool calls; lookups are observed only at load and at watcher-rebuild time.
+  - **Hot-reload of source extension out of scope.** `ctx.reload()` on a Pi extension whose tools are currently held by a running loom is documented as undefined behaviour in loom 1.0 — no test asserts safe behaviour, but a Tests bullet asserts the negative: V14s does not require the captured `execute` to remain callable after the source extension's module state is disposed.
+- **Deps.** V14c, V14i, V18f.
+- **Ships when.** All four spec-enumerated consequences of the resolution-snapshot rule are observable from tests and the no-name-re-query invariant has a probe.
