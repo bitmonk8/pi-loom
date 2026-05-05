@@ -1,4 +1,4 @@
-# V13 — Wire names, descriptions, retry/coercion
+# V13 — Wire names, descriptions, coercion
 
 ## V13a — `as "WireName"` rename clause parsing
 
@@ -40,18 +40,18 @@
 - **Deps.** V1c, V4b.
 - **Ships when.** Schema descriptions reach providers across every documented anchor; misplaced `///` rejected with the documented diagnostic.
 
-## V13f — `retry:` and `tool_loop:` frontmatter parsing
+## V13f — `coercion:` and `tool_loop:` frontmatter parsing
 
-- **Spec.** [Parameters and Frontmatter — `retry`](../spec_topics/frontmatter.md), [Parameters and Frontmatter — `tool_loop`](../spec_topics/frontmatter.md).
-- **Adds.** `retry: { attempts: N, methodology: <enum> }`. Defaults: 3, `validator_error`. Methodologies: `validator_error`, `schema_repeat`, `none`. `tool_loop: { max_iterations: N }`. Default 25. Both blocks are optional with the documented defaults.
+- **Spec.** [Parameters and Frontmatter — `coercion`](../spec_topics/frontmatter.md), [Parameters and Frontmatter — `tool_loop`](../spec_topics/frontmatter.md).
+- **Adds.** `coercion: { attempts: N, methodology: <enum> }`. Defaults: 3, `validator_error`. Methodologies: `validator_error`, `schema_repeat`, `none`. `tool_loop: { max_iterations: N }`. Default 25. Both blocks are optional with the documented defaults.
 - **Tests.** Each methodology accepted; out-of-range `attempts` rejected; unknown methodology rejected; `tool_loop.max_iterations` accepts non-negative integers (0 disables model tool-use; positive integers cap the loop); negative or non-integer values rejected.
 - **Deps.** V3a.
-- **Ships when.** Retry and tool-loop config parse.
+- **Ships when.** Coercion and tool-loop config parse.
 
 ## V13g — Coercion methodology: `validator_error`
 
 - **Spec.** [Query — Schema-validation coercion](../spec_topics/query.md), [Query — Typed queries are tool-loop-shaped](../spec_topics/query.md) (coercion follow-ups restart the two-phase loop).
-- **Adds.** On AJV failure of the respond turn's payload, append a follow-up user turn quoting the AJV error; restart the two-phase loop with a fresh `tool_loop` budget (free phase — the model may re-tool, e.g. re-read a file — then forced respond turn); re-validate. Bounded by `retry.attempts`.
+- **Adds.** On AJV failure of the respond turn's payload, append a follow-up user turn quoting the AJV error; restart the two-phase loop with a fresh `tool_loop` budget (free phase — the model may re-tool, e.g. re-read a file — then forced respond turn); re-validate. Bounded by `coercion.attempts`.
 - **Tests.** Successful coercion at attempt 1, 2, 3; attempts exhausted → `Err({kind:"validation", attempts: N})`; conversation history preserves the malformed respond-tool call and the follow-up user turn; coercion follow-up that triggers an intermediate frontmatter tool call (model re-reads a file before answering) succeeds; coercion follow-up gets the full `tool_loop.max_iterations` budget independent of how many rounds the original turn consumed.
 - **Deps.** V13f, V6i, V6k.
 - **Ships when.** Default-mode coercion works through the two-phase loop.

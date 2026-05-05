@@ -27,7 +27,7 @@ Surface and semantics of the Loom language (shared by `.loom` and `.warp` files)
   - [Schema Declarations](./spec_topics/schemas.md) — `schema X { ... }`, `schema X = ...`, `enum`, discriminated unions, recursion, wire-name renaming.
   - [Descriptions](./spec_topics/descriptions.md) — `///` doc comments, field separators.
   - [Schema Subset](./spec_topics/schema-subset.md) — JSON-Schema subset and lowering algorithm.
-- [Parameters and Frontmatter](./spec_topics/frontmatter.md) — frontmatter fields, `params`, `tools`, `system`, `retry`, template interpolation.
+- [Parameters and Frontmatter](./spec_topics/frontmatter.md) — frontmatter fields, `params`, `tools`, `system`, `coercion`, template interpolation.
 - [Query](./spec_topics/query.md) — `@`-templates, schema inference, coercion, `QueryError`.
 - [Expression Sublanguage](./spec_topics/expressions.md) — supported forms, stdlib, operator precedence, grammar disambiguation, object/array construction.
 - [Bindings and Mutability](./spec_topics/bindings.md) — `let`, `let mut`, reassignment.

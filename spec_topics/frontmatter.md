@@ -15,7 +15,7 @@ tools: read, grep, bash     # tools available to the model during query-time too
 system: |                   # system prompt for the conversation (subagent-only)
   You are an expert ${language} reviewer.
   Reviewer context: ${author.name} (${author.role}, ${author.experience_years}y).
-retry:
+coercion:
   attempts: 3                  # max coercion follow-ups per typed query (default: 3)
   methodology: validator_error # how to phrase coercion turns (default: validator_error)
 tool_loop:
@@ -42,7 +42,7 @@ The table below is normative: for each recognised V1 field it pins down whether 
 | `bind_echo` | no | `true` | Bound args are echoed before execution, except auto-suppressed on the binder bypass; documented under [Slash-Command Argument Binding — Echo policy](./binder.md). |
 | `tools` | no | empty callable set | The model cannot make tool calls and loom code has no `<name>(...)` callables; documented in the `tools` prose below. `tools: []` and absent `tools:` are equivalent. |
 | `system` | no | no system prompt (the spawned conversation runs under the model's training defaults) | Subagent-mode only; presence on a `mode: prompt` loom is `loom/parse/system-on-prompt-mode`. Documented under the `system` prose below. |
-| `retry` | no | `{ attempts: 3, methodology: validator_error }` | Typed queries get the default coercion budget; documented under the `retry` prose below. |
+| `coercion` | no | `{ attempts: 3, methodology: validator_error }` | Typed queries get the default coercion budget; documented under the `coercion` prose below. |
 | `tool_loop` | no | `{ max_iterations: 25 }` | Every query (untyped, typed, and any coercion follow-up) runs its tool-call loop under the default cap; documented under the `tool_loop` prose below. |
 | `params` | no | no parameters | The loom takes no parameters; the binder does not run regardless of how the loom is invoked. Slash-argument overflow against a no-params loom is governed by [Slash-Command Invocation](./slash-invocation.md) (cross-referenced from [Slash-Command Argument Binding](./binder.md)). `params:` absent and `params: {}` are equivalent; the redundant `params: null` is `loom/load/params-null` (use absent or `{}` instead). `bind_echo: true` on a no-params loom is `loom/load/bind-echo-without-params` (warning) and produces no echo regardless. |
 
@@ -130,7 +130,7 @@ Frontmatter mirrors Pi's prompt-template frontmatter (`description`, `argument-h
     - `loom/parse/system-interp-unknown-param` — the head `Ident` is not a declared `params` field.
     - `loom/parse/system-interp-bad-field` — a `.Ident` step does not name a reachable object field on the resolved schema (or attempts to descend into an array or un-narrowed discriminated union).
     - `loom/parse/system-interp-unterminated` — `${` is not closed by a matching `}` before the YAML scalar ends.
-- `retry` controls how typed queries recover from schema-validation failures (see the [Query](./query.md) section). `attempts` bounds the number of follow-up coercion turns; `methodology` selects the phrasing strategy. Recognised methodologies (V1):
+- `coercion` controls how typed queries recover from schema-validation failures (see the [Query](./query.md) section). `attempts` bounds the number of follow-up coercion turns; `methodology` selects the phrasing strategy. The block configures **coercion** — the response-repair mechanism specified in [Query — Schema-validation coercion](./query.md). The verb "retry" is reserved for genuinely retry-shaped behaviour elsewhere in the spec (`TransportError.retryable`, the binder's single-shot transport retry); they are different mechanisms. Recognised methodologies (V1):
   - `validator_error` (default) — the follow-up turn includes the AJV validation error from the previous attempt.
   - `schema_repeat` — the follow-up turn re-states the expected schema without quoting a specific error.
   - `none` — no follow-up; the first failure is returned as `Err` immediately. Equivalent to `attempts: 0`.
