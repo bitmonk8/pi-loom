@@ -60,7 +60,7 @@ A function or loom that uses `?` thus implicitly returns `Result<T, QueryError>`
 - Indexed access on a missing object key — `loom/runtime/missing-object-key`.
 - `invoke` chain depth exceeded — `loom/runtime/invoke-depth` (per the depth bound stated in [Invocation — Invocation depth bound](./invocation.md)).
 
-This list is closed; division by zero, integer overflow, and explicit author-driven panics are deliberately excluded (see [Diagnostics](./diagnostics.md)).
+This list is closed for *spec-defined* panic sources: division by zero, integer overflow, and explicit author-driven panics are deliberately excluded (see [Diagnostics](./diagnostics.md)). Separately, *unexpected interpreter exceptions* — any throw originating inside the runtime, an adapter it called, or a host function the runtime did not anticipate, that is not one of the six closed-list sources above — form a distinct **runtime-defect surface**. They are not a new authoring concept (no loom expression "causes" one) and they do not extend the closed list. They share the same routing channels as panics (slash-command system note + `InvokeInfraError` to an `invoke` parent), but carry the dedicated code `loom/runtime/internal-error` and a separate `reason: "internal_error"` arm on `InvokeInfraError`. The slash-command surface formats the system note as `"loom /<name> aborted with internal error: <error.message>"`; the `loom/runtime/internal-error` diagnostic carries `error.message` in its `message` and `error.stack` (or `"<no stack available>"` when falsy) in its `hint` for operator-facing triage. The user session is not torn down.
 
 **Panic message string (normative).** Every panic carries a single human-readable message string formatted at the panic site according to the *Message template* registered for its `loom/runtime/*` code in the [Diagnostics code registry](./diagnostics.md#loomruntime--runtime-panics). The templates are normative: a conformant runtime MUST emit the registered string (with template placeholders filled from the offending value) for every panic of that source, and conformance tests MAY assert on the exact string. The six V1 templates and their placeholders are summarised below — the registry is authoritative if the two ever drift:
 
@@ -205,6 +205,7 @@ schema InvokeInfraError {
         | "parse_failure"    // callee file failed to parse
         | "validation"       // typed invoke: child's return value failed AJV validation
         | "panic"            // callee aborted via runtime panic (see Runtime panics above)
+        | "internal_error"   // callee threw an unexpected interpreter exception outside the closed V1 panic-source list
 }
 ```
 
