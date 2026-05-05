@@ -98,6 +98,7 @@ Within each root, every immediate child whose `package.json` parses successfully
 
 **Per-package resolution.** For each candidate package:
 
+- For each root in the priority list above, the extension treats every immediate child directory whose name does **not** begin with `@` as a candidate package, and every immediate child directory whose name **does** begin with `@` as a scope directory whose own immediate children are candidate packages. Scope directories themselves are not packages and are not inspected for `package.json`. This matches npm's on-disk layout for scoped packages.
 - If `package.json` has a `pi.looms` field, it MUST be a `string[]` of paths relative to the package root. The value shape mirrors `pi.extensions` / `pi.skills` / `pi.prompts` / `pi.themes` exactly (see `packages.md` §"Creating a Pi Package"): glob patterns are supported, leading `!` excludes matching paths, leading `+` force-includes an exact path, leading `-` force-excludes one. Each glob is resolved against the package root; the resulting matches contribute as follows — a match that is a `.loom` file registers that file directly; a match that is a directory is scanned non-recursively for `*.loom` children (matching the global non-recursion rule at the top of this file); a match that is any other file type is filtered out silently per match.
 - If `package.json` has no `pi.looms` field, fall back to the conventional `looms/` directory at the package root and scan it non-recursively for `*.loom`.
 - If `package.json` has both, the manifest entry wins; the `looms/` directory is **not** merged in. This matches the rule Pi uses for its own resources when a manifest is present (per `packages.md` §"Convention Directories": conventional directories apply only when no `pi` manifest is present).
@@ -109,6 +110,7 @@ Within each root, every immediate child whose `package.json` parses successfully
 - A glob pattern that resolves to zero files is silent (not an error), matching Pi's behaviour for `pi.extensions` etc.
 - A package present in both a project root and a global root is deduplicated by package identity (per `packages.md` §"Scope and Deduplication": npm package name, git repository URL without ref, or resolved absolute path for local). The project copy wins and the global copy contributes nothing; this is package-level dedup, not a `loom/load/cross-source-shadow` event (which is reserved for slash-name shadowing across the five sources of the priority list above).
 - Within the `looms/` fallback directory, subdirectories are ignored, matching the global non-recursion rule applied to `.pi/looms/` and `~/.pi/agent/looms/`.
+- The package walk is bounded. The extension stops opening additional `package.json` files once it has either inspected `looms.scanPackagesMaxFiles` files (default `2000`) or spent `looms.scanPackagesTimeoutMs` milliseconds on the walk (default `2000`), whichever fires first; on either trip it emits a single `loom/load/discovery-slow` warning that names the root being scanned and the cap that fired. The walk may also be disabled wholesale by setting `looms.scanPackages: false`, in which case no `node_modules/`, `.pi/npm/`, `.pi/git/`, `~/.pi/agent/npm/`, or `~/.pi/agent/git/` root is scanned and only Global, Project, Settings, and CLI sources contribute looms.
 
 The two `Package pi.looms entry` and `Package looms/ directory` rows of the failure-modes table at the top of this file continue to apply: a `pi.looms` entry naming a path that does not exist is an error (the manifest authored it intentionally); a missing `looms/` fallback directory is silent (the package may simply ship none).
 
@@ -136,10 +138,13 @@ None of these are fatal: the extension proceeds with whatever settings it could 
 - Array values are replaced wholesale (the project array, if present, fully replaces the global array; entries are not concatenated or deduplicated).
 - Scalar values (string, number, boolean, `null`) are replaced.
 
-**Keys read.** V1 reads two loom-extension keys:
+**Keys read.** V1 reads five loom-extension keys:
 
 - `looms` — a `string[]` of file or directory paths contributing additional looms (per the *Settings* row in the precedence table above; per-entry schema in [`looms` entry schema](#looms-entry-schema) below).
 - `looms.binderModel` — a string model identifier used as the fallback for the binder when `bind_model:` is omitted from frontmatter (see [Slash-Command Argument Binding](./binder.md)). The value is a free-form string. **Required when any non-bypass loom is in scope** — a non-bypass loom whose `bind_model:` is also absent fails to load with `loom/load/binder-model-unresolved`. The registry-capability (strict structured-output) check runs at loom-load time per [Binder model](./binder.md); failure surfaces as `loom/load/binder-model-not-strict-capable`.
+- `looms.scanPackages` — boolean, default `true`. When `false`, the package-discovery walk is skipped wholesale (see [Package discovery](#package-discovery) → "Edge cases").
+- `looms.scanPackagesMaxFiles` — integer, default `2000`. Upper bound on the number of `package.json` files the package-discovery walk opens per session before tripping `loom/load/discovery-slow` and aborting further package inspection.
+- `looms.scanPackagesTimeoutMs` — integer, default `2000`. Upper bound in milliseconds on the wall-clock time spent in the package-discovery walk before tripping `loom/load/discovery-slow` and aborting further package inspection.
 
 No other `looms.*` keys are recognised in V1; unknown keys under the `looms` namespace are ignored without diagnostic (forward-compatibility for later versions).
 
