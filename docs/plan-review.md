@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_30 findings retained, 3 false positives dropped, 0 persistent failures_
+_29 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -2152,75 +2152,5 @@ Edge cases the implementer must watch: the `Spec.` field added here must list bo
 - "Tool-registration dedup assumes no schema-hash collision" — same-cluster (touches the same registration cache; resolves independently by adding a structural-equality fallback, but the implementer should land both edits together)
 - "H4 \"typed accessor\" for `ExtensionCommandContext` has no signature" — same-cluster (also a `Tests.`-bullet precision gap inside H4; independent fix)
 - "H4 \"no stale closure after session reload\" contradicts Pi's reload lifecycle" — same-cluster (also corrects an over-broad H4 `Tests.` claim; independent fix)
-
----
-
-# H4 leaves the `PiToolHost` "typed accessor" for `ExtensionCommandContext` unspecified
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** H4 "typed accessor" for `ExtensionCommandContext` has no signature
-**Kind:** implementability
-
-## Finding
-
-H4's fifth Tests bullet says `PiToolHost` "exposes the retained `ExtensionCommandContext` to V14c via a typed accessor", but neither H4 nor the `ToolHost` interface seam declared in H2 names that accessor, gives it a signature, or fixes the protocol for when it returns vs. throws vs. yields a sentinel. V14c is the sole declared consumer — it must reach through this accessor to assemble the per-call `ctx` argument forwarded into `Pi tool.execute(...)` (with `signal`, `sessionManager`, and `abort` overridden per `spec_topics/pi-integration-contract.md` "Tool execution from loom code"). Without a fixed target on the H2 seam, V14c implementers will invent their own method shape, and the H4 test bullet is unfalsifiable (no method name to assert against).
-
-The gap also matters for the runtime's lifecycle edges. The same Tests bullet asserts the accessor "returns the most recent `ctx` even after a session reload" — a separate finding rejects that wording on lifecycle grounds, but even after that wording is fixed there remains an open question of what the accessor returns between extension-factory time and the first slash-handler invocation, and after `session_shutdown`. A typed signature with explicit "no current ctx" semantics is the only way both leaves can be tested concretely.
-
-## Plan Documents
-
-- `plan_topics/h4-extension-shell.md` — Adds + Tests bullets (edited)
-- `plan_topics/h2-di-skeleton.md` — `ToolHost` interface seam in Adds (edited)
-- `plan_topics/v14-tool-calls.md` — V14c Adds + Tests + Deps (edited)
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — "Tool execution from loom code" (read-only)
-
-## Affected Leaves
-
-**Phases:** Horizontal, Vertical V14
-
-**Leaves (implementation order):**
-
-- H2 — Dependency-injection skeleton with fakes — (modified)
-- H4 — Pi extension shell — (modified)
-- V14c — Bare `<name>(args)` call from loom code — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers will produce divergent shapes (`getCommandContext()` returning `ExtensionCommandContext | undefined`, vs. `currentCtx` getter throwing on absence, vs. an event emitter, vs. a callback registered at runtime construction) and V14c will have to be rewritten to match whatever H4 picks. The H4 Tests bullet currently cannot fail — there is no name to spy on and no contract for the absent-ctx case — so the V18o coverage gate would pass vacuously for this rule.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Specify the accessor on the **`ToolHost` interface seam in H2** (so V14c depends only on H2, matching H4's "no-logic shims" framing) and have H4's `PiToolHost` wire the setter from inside the slash-command handler.
-
-Edits, in order:
-
-1. **`plan_topics/h2-di-skeleton.md`, Adds bullet.** After the `ToolHost` listing in the interface enumeration, append a parenthetical: *"`ToolHost` exposes `getCommandContext(): ExtensionCommandContext | undefined` (returns `undefined` when no slash-handler is currently retained — i.e. before the first invocation and after `session_shutdown`) and `setCommandContext(ctx: ExtensionCommandContext | undefined): void` (production callers pass a defined `ctx` on slash-handler entry; passing `undefined` clears the retained reference)."* Add one Tests bullet: *"`FakeToolHost.getCommandContext()` returns `undefined` until `setCommandContext(ctx)` is called, then returns the most recently set `ctx`; `setCommandContext(undefined)` resets it to `undefined`."*
-
-2. **`plan_topics/h4-extension-shell.md`, Adds bullet.** Replace the trailing sentence *"`PiToolHost` retains the live `ExtensionCommandContext` reference so synthesised tool-call `ctx` arguments forward to it (V14c)."* with *"The `/loom-status` slash-command handler calls `piToolHost.setCommandContext(ctx)` on entry and `piToolHost.setCommandContext(undefined)` in a `finally`; `PiToolHost.getCommandContext()` (the H2-declared accessor) is the sole read path for V14c."*
-
-3. **`plan_topics/h4-extension-shell.md`, Tests bullet 5.** Replace *"`PiToolHost` exposes the retained `ExtensionCommandContext` to V14c via a typed accessor; the accessor returns the most recent `ctx` even after a session reload (no stale closure)."* with *"`PiToolHost.getCommandContext()` returns `undefined` before the first slash-handler invocation; returns the handler's `ctx` while the handler is in flight; returns `undefined` again after the handler's `finally` clears it. Two sequential handler invocations expose two distinct `ctx` references in turn (no stale closure across invocations within one extension-instance lifetime)."*
-
-4. **`plan_topics/v14-tool-calls.md`, V14c Adds bullet.** Where the current text reads *"The `ctx` argument is the live `ExtensionContext` the runtime already holds, with `signal` overridden to …"*, prefix it with *"The runtime obtains the live `ExtensionContext` via `toolHost.getCommandContext()`; if it returns `undefined` (no slash-handler currently retained — should not occur for code-side calls inside an active invocation), the call rejects with `loom/runtime/no-command-context`. "* Add the corresponding Tests bullet: *"call issued when `toolHost.getCommandContext()` returns `undefined` rejects with `loom/runtime/no-command-context`; call issued during a slash-handler reads the same `ExtensionContext` reference the handler received."* Append `H4` to V14c's `Deps`.
-
-Edge cases the implementer must watch:
-- The setter/clearer pair lives in the slash-handler's `try`/`finally`, not in the `PiToolHost` constructor — `PiToolHost` is a long-lived per-extension-instance object; the retained `ctx` is per-invocation.
-- Subagent mode reads the same accessor — `pi-integration-contract.md` "Tool execution from loom code" specifies the parent handler's `ExtensionCommandContext` is forwarded for non-session members. No second accessor is needed.
-
-## Related Findings
-
-- "H4 'no stale closure after session reload' contradicts Pi's reload lifecycle" — co-resolve (both edit the same H4 Tests bullet; recommendation 3 above subsumes the reload-lifecycle fix)
-- "H4 'no-logic shims' claim contradicts registration cache and `withActiveTools`" — same-cluster (same H4 leaf, separate Adds-vs-Tests inconsistency)
-- "`docs/manual-smoke.md` does not exist and its creation violates CLAUDE.md" — same-cluster (same H4 leaf, Ships-when concern)
-- "Tool-registration dedup assumes no schema-hash collision" — same-cluster (same H4 leaf, registration-cache concern)
-- "V5e: `ctx.sendUserMessage()` — method does not exist on `ExtensionCommandContext`" — same-cluster (different leaf, but both findings rest on the same `ExtensionCommandContext` vs. `ExtensionAPI` distinction)
 
 ---
