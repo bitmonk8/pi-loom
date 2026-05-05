@@ -35,7 +35,7 @@ Each leaf has the same fields, in the same order:
 ## Cross-cutting rules (every phase)
 
 - **No globals, statics, singletons.** All collaborators passed by constructor. Architectural test in H1 enforces.
-- **Specific exception types only.** No `catch (e)` / `catch (Error)` without rethrow-on-mismatch. ESLint rule wired in H1.
+- **Specific exception types only.** No `catch (e)`, `catch (e: unknown)`, `catch (e: any)`, or `catch (e: Error)` — bind to a specific subtype or let the exception propagate. The rethrow-on-mismatch pattern (`catch (e) { if (!(e instanceof X)) throw e; … }`) is also forbidden. Aligns with the parent `CLAUDE.md` rule "Never `catch(...)` or `catch(std::exception&)`." ESLint rule (`no-broad-catch`) wired in H1 enforces this.
 - **Sequential by default.** No `Promise.all` / `Promise.race` outside slices that have a documented spec reason.
 - **No silent test skipping.** `assert.fail` / `panic` when prerequisites are missing — never silent `return` early.
 - **Spec drift.** If implementation reveals the spec is wrong, ambiguous, or under-specified, **stop**, fix the spec first in a dedicated commit, then resume.
