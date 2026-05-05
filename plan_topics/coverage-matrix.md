@@ -46,6 +46,7 @@ Every executable spec section maps to a closing leaf. The V18s gate (per [V18 �
 | [Errors and Results — runtime panics — `loom/runtime/internal-error` (unexpected interpreter throw)](../spec_topics/errors-and-results.md) | V18m, V18n |
 | [Diagnostics — `loom/runtime/system-note-delivery-failed` (system-note fallback chain)](../spec_topics/diagnostics.md) | V18h |
 | [Diagnostics — `loom/runtime/registry-swap-failed` (watcher build-aside-then-publish swap)](../spec_topics/diagnostics.md) | V18f |
+| [Diagnostics — `loom/parse/invalid-path-separator` (backslash in path literal)](../spec_topics/diagnostics.md) | V15a, V15e, V17c |
 | [Return Statement](../spec_topics/return.md) | V8f, V9c, V9e |
 | [Function Definitions](../spec_topics/functions.md) | V9a–V9f |
 | [Tool Calls — Pi tools](../spec_topics/tool-calls.md) | V14a, V14b, V14c-a, V14c-b, V14e–V14j |

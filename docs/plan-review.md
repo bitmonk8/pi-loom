@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_43 findings retained, 3 false positives dropped, 0 persistent failures_
+_42 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -3131,88 +3131,3 @@ Edge cases the implementer must watch:
 
 ---
 
-# Path literals forward-slash rule and `loom/parse/invalid-path-separator` — no asserting leaf
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** Path literals forward-slash rule and `loom/parse/invalid-path-separator` — no leaf
-**Kind:** spec-coverage, validation
-
-## Finding
-
-`spec_topics/lexical.md` (the "Path literals" bullet under **Source files**) and the closed diagnostics registry in `spec_topics/diagnostics.md` jointly mandate that every path literal in source — `import "..."` (V17c), `invoke("...", ...)` (V15a), and `.loom` entries inside `tools:` (V15e) — must use forward-slash separators only. A backslash inside any such literal is the parse error `loom/parse/invalid-path-separator`. Ordinary string literals (non-path positions) keep the standard escape table, so `"\\"` remains a single backslash and is *not* affected.
-
-A grep over `plan.md` and every file under `plan_topics/` for `invalid-path-separator`, `forward-slash`, `path literal`, and `backslash` returns zero matches. None of the three path-bearing-position leaves (V15a, V15e, V17c) `Adds` the rule or `Tests` it; the `coverage-matrix.md` row for the diagnostic is also missing. The code therefore appears in the closed registry but cannot be asserted by any leaf, and the V18o coverage gate (which counts only REQ-IDs) does not catch it.
-
-The originally suggested home — V1b — is the wrong layer: the lexer cannot distinguish path-bearing string literals from ordinary strings, and applying the rule to all string literals would incorrectly reject `"\\"` everywhere. The rule fires at the parse position that consumes the literal, which is V15a / V15e / V17c.
-
-## Plan Documents
-
-- `plan_topics/v15-invoke.md` — V15a (`invoke("./path.loom", ...)` parsing) (edited)
-- `plan_topics/v15-invoke.md` — V15e (`.loom` paths in `tools:`) (edited)
-- `plan_topics/v17-warp.md` — V17c (`import { X } from "./y.warp"`) (edited)
-- `plan_topics/v1-lexer.md` — V1b (string literals and escapes) (read-only — confirms the rule does *not* belong at the lexer layer)
-- `plan_topics/coverage-matrix.md` — diagnostics rollup (edited — add a row mapping the code to its closing leaves)
-- `plan_topics/v14-tool-calls.md` — V14a/V14b (read-only — these handle Pi tool short-names, not paths; no edit)
-- `plan_topics/v18-cancellation.md` — V18o coverage gate (read-only — establishes that REQ-only counting cannot fire on this code)
-
-## Spec Documents
-
-- `spec_topics/lexical.md` — "Source files / Path literals" bullet (read-only)
-- `spec_topics/diagnostics.md` — registry row for `loom/parse/invalid-path-separator` (read-only)
-- `spec_topics/imports.md`, `spec_topics/invocation.md`, `spec_topics/frontmatter.md` — read-only cross-references already named by the lexical bullet
-
-## Affected Leaves
-
-**Phases:** Vertical V15, Vertical V17
-
-**Leaves (implementation order):**
-
-- V15a — `invoke("./path.loom", ...)` parsing and resolution — (modified)
-- V15e — `.loom` paths in `tools:` (default basename naming) — (modified)
-- V17c — `import { X } from "./y.warp"` — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-A normative parse error in the closed registry has no closing leaf, so two reasonable implementers will diverge: one will ship V15a/V15e/V17c that silently accept `"./foo\\bar.loom"` (degrading to OS-dependent resolution behaviour and breaking the spec's "tokenises byte-identically across hosts" guarantee for path literals), the other will add the check ad hoc with an inconsistent error code or message. The V18o coverage gate, which counts REQ-IDs only, will not catch the omission, so the bug ships into V18 closure unobserved.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add the rule to each path-bearing-position leaf (not to V1b — see Finding). Concretely:
-
-**`plan_topics/v15-invoke.md`, V15a — `invoke("./path.loom", ...)` parsing and resolution:**
-
-- Append to `Adds.`: `A backslash anywhere inside the path literal is rejected with loom/parse/invalid-path-separator before resolution; the literal must use forward-slash separators only.`
-- Append to `Tests.`: `invoke("./a\\b.loom", ...) and invoke(".\\a/b.loom", ...) each emit loom/parse/invalid-path-separator pointing at the offending byte; invoke("./a/b.loom", ...) (forward-slash only) parses; the diagnostic fires before path resolution and before the .loom-extension check, so a malformed path with a wrong extension surfaces this code, not loom/parse/invoke-non-loom-extension.`
-
-**`plan_topics/v15-invoke.md`, V15e — `.loom` paths in `tools:`:**
-
-- Append to `Adds.`: `Backslash inside the .loom entry's path string is rejected with loom/parse/invalid-path-separator before resolution and before basename derivation.`
-- Append to `Tests.`: `tools: ["./a\\b.loom"] and the YAML list form ["./a\\b.loom" as foo] each emit loom/parse/invalid-path-separator at the offending byte and the entry does not register; ./a/b.loom registers normally.`
-
-**`plan_topics/v17-warp.md`, V17c — `import { X } from "./y.warp"`:**
-
-- Append to `Adds.`: `Backslash inside the import path literal is rejected with loom/parse/invalid-path-separator before .warp-extension and resolution checks.`
-- Append to `Tests.`: `import { X } from "./a\\y.warp" and import { X } from ".\\y.warp" each emit loom/parse/invalid-path-separator; ./a/y.warp resolves normally; ordinary string literals elsewhere in the file (e.g. let s = "a\\b") still parse — the diagnostic is scoped to the import path position.`
-
-**`plan_topics/coverage-matrix.md`:** add a row mapping `loom/parse/invalid-path-separator` to its closing leaves (V15a, V15e, V17c) so the V18o gate can observe assertion coverage for this code.
-
-Edge cases the implementer must watch:
-
-- The diagnostic is `loom/parse/...`, not `loom/lex/...` — it fires at the parser of the path-bearing position, after the lexer has produced the string token. The lexer must keep its current behaviour of decoding `\\` to a single backslash; the parser inspects the *decoded* string and rejects any `\\` (i.e. any single backslash byte in the value).
-- The carve-out about `--loom <path>` and discovery roots (named in the spec's Path literals bullet) does *not* apply here — those are OS-native paths handled outside the lexer and outside any of these three leaves.
-
-## Related Findings
-
-- "Closed diagnostic registry — many codes have no asserting plan leaf" — co-resolve (that finding lists `loom/parse/invalid-path-separator` explicitly among the unasserted codes; this finding closes one entry from its enumeration)
-- "UTF-8 encoding, BOM consumption, and `loom/load/invalid-encoding` — no plan leaf" — same-cluster (sibling lexical-spec coverage gap from the same `lexical.md` "Source files" preamble)
-- "Newline normalisation (`\r\n`, bare `\r` → `\n`) — no plan leaf" — same-cluster (third sibling from the same preamble; resolves independently)
-- "`loom/parse/integer-narrowing` — no plan leaf" — same-cluster (another closed-registry parse code with no asserting leaf; resolves independently in V2c)
-- "`loom/load/invoke-path-escape` — security boundary with single check site and no telemetry" — same-cluster (touches V15a/V15e path handling but a distinct concern — escape vs. separator)
-
----

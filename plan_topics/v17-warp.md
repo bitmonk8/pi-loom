@@ -11,8 +11,8 @@
 ## V17c — `import { X } from "./y.warp"`
 
 - **Spec.** [Imports](../spec_topics/imports.md) (path resolution).
-- **Adds.** Named-import form; resolution relative to importing file; path must end in `.warp`.
-- **Tests.** Symbol resolves; non-`.warp` extension rejected; missing file → load error.
+- **Adds.** Named-import form; resolution relative to importing file; path must end in `.warp`. Backslash inside the import path literal is rejected with `loom/parse/invalid-path-separator` before `.warp`-extension and resolution checks.
+- **Tests.** Symbol resolves; non-`.warp` extension rejected; missing file → load error; `import { X } from "./a\\y.warp"` and `import { X } from ".\\y.warp"` each emit `loom/parse/invalid-path-separator`; `./a/y.warp` resolves normally; ordinary string literals elsewhere in the file (e.g. `let s = "a\\b"`) still parse — the diagnostic is scoped to the import path position.
 - **Deps.** V17a.
 - **Ships when.** Imports work.
 
