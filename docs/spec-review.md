@@ -1,7 +1,7 @@
 # pi-loom — Consolidated Spec Review
 
 _Generated: 2026-05-05T19:49:46Z (revised: merges + multi→single conversion + bottom-up reorder)_
-_60 source findings → 30 commit-ready findings (8 merge clusters, 26 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
+_60 source findings → 29 commit-ready findings (8 merge clusters, 26 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
 
 Findings are ordered for **bottom-up processing**: each commit fixes the *last* finding in the doc until the doc is empty. Dependencies that require a particular landing order are encoded in the doc order — `MERGE-F` (`bindings.md` BNDS / BNDR rename) sits at the bottom of the REQ-ID-appendix supersection so it lands *before* `MERGE-G` (retirement registries + V18s sub-gates), which sits above it.
 
@@ -2038,72 +2038,6 @@ Implementer notes:
 ## Related Findings
 
 - "`scanPackagesTimeoutMs` is a wall-clock constraint with no injectable clock seam" — same-cluster (also lives in `spec_topics/discovery.md` but resolves independently of the rename)
-
-## spec_topics/invocation.md
-
----
-
-# Deferred symlink hardening described inline in `invocation.md` is invisible from `future-considerations.md`
-
-**Source:** docs/reviews/spec-review/spec-20260505-204733.md
-**Original heading:** Symlink hardening future path embedded inline in a normative rule
-**Kind:** scope, placement
-
-## Finding
-
-The Resolution paragraph of `spec_topics/invocation.md` closes its discussion of the runtime `realpath` re-check with a sentence describing a deferred V1+ remedy: *"An irreducible kernel-level race remains between the runtime `realpath` and the subsequent `open(2)`; this re-check narrows the window from minutes to microseconds but does not close it. V1 accepts the residual; a future hardening pass (`openat2` with `RESOLVE_NO_SYMLINKS` on Linux, or platform equivalents) would close it."*
-
-That sentence mixes two distinct artifacts inside one normative rule: the V1 obligation (state and accept the residual TOCTOU window) and a platform-specific post-V1 work item (the `openat2` / `RESOLVE_NO_SYMLINKS` hardening pass). The hardening item appears nowhere in `spec_topics/future-considerations.md`, which is the spec's index of deferred work. A future contributor or security reviewer scanning the deferred-work index for "what V1 punted on" will not see this item; the only way to discover it is to read the body of the invocation page. The deferred-work catalogue and the normative rule should be the two sides of one cross-reference, not two unrelated sentences in two unrelated files.
-
-## Spec Documents
-
-- `spec_topics/invocation.md` — Resolution paragraph (edited)
-- `spec_topics/future-considerations.md` — new bullet (edited)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None. V15a and V15e cite the *Resolution* / *Static resolution* anchors of `invocation.md` and assert the V1 runtime re-check behaviour (symlink-swap re-check fires `loom/load/invoke-path-escape`); their acceptance criteria are unaffected by moving the sentence about the post-V1 `openat2` remedy to `future-considerations.md`. No leaf currently asserts the residual-race wording or the deferred remedy.
-
-## Consequence
-
-**Severity:** advisory
-
-The V1 behavioural contract is unchanged and fully specified either way; nothing implementers ship in V1 differs. The harm is to post-V1 planning: a real, named hardening item is invisible to anyone using `future-considerations.md` as the canonical "what's deferred" list, so it is liable to be forgotten or rediscovered later as a "missing" security improvement.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Move the platform-specific remedy out of the Resolution paragraph and into `future-considerations.md`; leave only the V1 obligation in the normative rule, with a cross-reference to the new entry.
-
-In `spec_topics/invocation.md`, replace the two trailing sentences of the Resolution paragraph (`An irreducible kernel-level race … platform equivalents) would close it.`) with a tighter V1 statement and a forward pointer, e.g.:
-
-> An irreducible kernel-level race remains between the runtime `realpath` and the subsequent `open(2)`; this re-check narrows the window from minutes to microseconds but does not close it. V1 accepts the residual (see [Future Considerations — Symlink-resolution hardening](./future-considerations.md#…)).
-
-In `spec_topics/future-considerations.md`, add a bullet under the **Surface extensions (V1 leaves a seam)** bucket — that bucket is the right home because the V1 invocation-resolution path *is* the seam: closing the residual race is a drop-in replacement of the `realpath` + containment-check call site with an `openat2(RESOLVE_NO_SYMLINKS)` equivalent, with no change to the diagnostic codes, error envelopes, or call-site contract documented in `invocation.md`. Suggested wording:
-
-> **Symlink-resolution hardening for invoke-path containment** — V1 implements the discovery-root containment check by `realpath`-then-`open`, accepting an irreducible kernel-level TOCTOU window between the two syscalls (see [Invocation — Resolution](./invocation.md)). A future pass replaces the two-step sequence with a single atomic resolve-and-open primitive — `openat2(..., RESOLVE_NO_SYMLINKS | RESOLVE_BENEATH)` on Linux, and the platform equivalents on macOS / Windows / other targets — closing the residual race without changing the V1-visible diagnostic codes (`loom/load/invoke-path-escape`) or `InvokeInfraError { reason: "load_failure" }` envelope.
-> *Seam:* the path-resolution call site in the invoke runtime is a single named function used by both load-time and invocation-time checks; replacing its body is additive and does not perturb caller code.
-
-Edge cases the implementer must watch:
-
-- Pick the heading anchor for the new bullet deterministically (e.g. `#symlink-resolution-hardening-for-invoke-path-containment`) and use that exact slug in the cross-reference from `invocation.md` so the link is stable on first introduction. (Adopt whatever slug convention the rest of `future-considerations.md` uses; the file currently has no explicit anchors, so introducing one is part of this edit.)
-- Do not weaken the V1 normative wording: the sentence that remains in `invocation.md` must still state explicitly that V1 accepts the residual and that the re-check is mandatory. The cross-reference is a pointer to the deferred remedy, not a substitute for the V1 acceptance statement.
-- The bucket choice (`Surface extensions (V1 leaves a seam)`) presupposes that the implementer treats the path-resolution call site as a single function. If V1 ends up inlining `realpath` + open at multiple sites, the seam claim becomes incorrect; in that case the bullet moves to **Model-level changes (no V1 seam expected)** instead. The wording above accommodates either bucket without further edits.
-
-## Related Findings
-
-- "Provider compatibility local-backend note belongs in `future-considerations.md`" — same-cluster (same placement pattern: deferred work mentioned inline in a normative page rather than catalogued in `future-considerations.md`; resolved independently with the same kind of edit)
-- "V1 seam constraints mixed with out-of-scope deferrals across 14 bullets" — same-cluster (mirror image: that finding moves V1 seam obligations *out of* `future-considerations.md` into the normative pages; this one moves a deferred remedy *into* `future-considerations.md`. Together they enforce the same separation rule but cut in opposite directions)
-- "Two-arm binder schema is a V1 deliverable buried in the non-goals section" — same-cluster (another instance of V1-vs-deferred boundary being blurred between `future-considerations.md` and a normative page; resolves independently)
-
----
 
 ## spec_topics/future-considerations.md
 
