@@ -4,7 +4,7 @@
 
 **Convention.** [Cross-cutting rules](conventions.md#cross-cutting-rules-every-phase) — "No globals, statics, singletons" (architectural test), "Specific exception types only" (ESLint rule), "Sequential by default", "No silent test skipping". Project hygiene (TypeScript strict mode, Vitest, Prettier, GitHub Actions, npm scripts, source layout) trace to project-level conventions, not to any spec rule.
 
-**Adds.** TypeScript project (strict mode, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`); Vitest + coverage; ESLint with `@typescript-eslint`, no-floating-promises, no-globals, no-broad-catch; Prettier; npm scripts (`build`, `test`, `test:watch`, `typecheck`, `lint`, `format`); GitHub Actions workflow file.
+**Adds.** TypeScript project (strict mode, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`); Vitest + coverage; ESLint with `@typescript-eslint`, no-floating-promises, no-globals, no-broad-catch; Prettier; npm scripts (`build`, `test`, `test:watch`, `typecheck`, `lint`, `lint:actions`, `format`); GitHub Actions workflow file at `.github/workflows/ci.yml` with jobs `typecheck`, `lint`, `test`, `depcheck`; `actionlint` as a dev-dep + npm script (`npm run lint:actions`).
 
 **Source layout:**
 ```
@@ -30,7 +30,9 @@ test/{unit (mirrors src/), integration, fixtures/{loom, warp, schemas}, fakes/}
   Forbidden initialiser forms (non-exhaustive, listed for clarity): bare `[]` / `{}` / `new Map()` / `new Set()` / `new WeakMap()`; function or arrow-function expressions; `class` expressions; any call expression other than `Object.freeze(...)`; any identifier reference not covered by rule 6.
 
 - Tests-for-the-test: a fixture directory under `test/fixtures/no-static-state/` containing `ok-*.ts` files that must pass and `bad-*.ts` files that must fail, one fixture per allow-list rule and one per forbidden form, asserted by running the checker against each fixture and comparing exit code and reported binding name.
+- Workflow shape test: parses `.github/workflows/ci.yml` as YAML; asserts top-level `on.push` and `on.pull_request` triggers exist; asserts `jobs.typecheck`, `jobs.lint`, `jobs.test`, `jobs.depcheck` each exist and each contains a step whose `run` command invokes the matching npm script (`npm run typecheck`, `npm run lint`, `npm test`, `npm run depcheck` respectively).
+- Workflow lint test: `npm run lint:actions` (`actionlint`) exits 0 on the committed workflow; exits non-zero on a fixture workflow under `test/fixtures/ci-bad/` that contains an unknown job key. `actionlint` is a Go binary, not an npm package; install via `actionlint-installer` or pin a release archive in a `postinstall` script. The `lint:actions` script must fail loudly (non-zero exit, no silent skip) if the binary is absent — per the cross-cutting "no silent test skipping" rule in [`conventions.md`](./conventions.md).
 
 **Deps.** None.
 
-**Ships when.** `npm run typecheck && npm run lint && npm test` green.
+**Ships when.** `npm run typecheck && npm run lint && npm run lint:actions && npm test && npm run depcheck` green.

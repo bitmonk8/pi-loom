@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_13 findings retained, 3 false positives dropped, 0 persistent failures_
+_12 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -889,68 +889,4 @@ Edge case for the implementer: `depcheck` flags TypeScript-only imports and dev-
 
 - "GitHub Actions workflow added but never validated" — co-resolve (the same Tests-bullet expansion can assert `depcheck` is one of the workflow's required jobs)
 - "H1 scaffolds engineering hygiene without spec basis" — decision-dependency (that finding proposes dropping `depcheck` from `Ships when` entirely; if accepted, this finding's recommendation collapses to "remove the clause" instead of "wire it up" — resolve that one first)
-
----
-
-# H1 ships a GitHub Actions workflow with no test that it parses or runs the right gates
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** GitHub Actions workflow added but never validated
-**Kind:** validation
-
-## Finding
-
-H1's `Adds` field promises a "GitHub Actions workflow file." Nothing else in the leaf observes it. The Tests bullets cover only the sentinel test, the per-directory `__present` re-export, and `no-static-state.test.ts`. The `Ships when` clause runs `npm run typecheck && npm run lint && npm test` plus `depcheck` — all locally. None of these would fail if the workflow YAML is syntactically broken, omits a required job, runs the wrong scripts, or is never picked up by GitHub at all.
-
-The horizontal phases are precisely where the per-leaf TDD ritual is supposed to install enforcement that every later leaf relies on. If H1 ships with a non-functional or partial workflow, every subsequent leaf's "Ships when" — which never re-validates CI — passes locally while CI is silently green for the wrong reasons (or silently absent). The defect is invisible until a vertical-slice leaf accidentally triggers a regression that CI was supposed to catch and doesn't.
-
-## Plan Documents
-
-- `plan_topics/h1-scaffold.md` — `Adds`, `Tests`, `Ships when` (edited)
-- `plan_topics/conventions.md` — Per-phase TDD ritual / Cross-cutting rules (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Horizontal
-
-**Leaves (implementation order):**
-
-- H1 — Repository scaffold and test framework — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-A reasonable implementer satisfies H1's exit gate by writing any plausible-looking workflow file; a different implementer writes one that omits `depcheck` or misnames a job. Both ship `H1-complete`. Later leaves trust that CI enforces the H1 invariants (typecheck, lint, test, no-static-state, depcheck) and write no fallback assertions; when CI is wrong, the breakage surfaces as a vertical-slice regression with no obvious cause.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Edit `plan_topics/h1-scaffold.md` as follows:
-
-1. In **Adds**, replace `GitHub Actions workflow file` with `GitHub Actions workflow file at .github/workflows/ci.yml with jobs typecheck, lint, test, depcheck; actionlint as a dev-dep + npm script (npm run lint:actions)`.
-
-2. In **Tests**, append two bullets:
-   - `Workflow shape test: parses .github/workflows/ci.yml as YAML; asserts top-level on.push and on.pull_request triggers exist; asserts jobs.typecheck, jobs.lint, jobs.test, jobs.depcheck each exist and each contains a step whose run command invokes the matching npm script (npm run typecheck, npm run lint, npm test, npm run depcheck respectively).`
-   - `Workflow lint test: npm run lint:actions (actionlint) exits 0 on the committed workflow; exits non-zero on a fixture workflow under test/fixtures/ci-bad/ that contains an unknown job key.`
-
-3. In **Ships when**, change the gate to `npm run typecheck && npm run lint && npm run lint:actions && npm test && npm run depcheck` so every gate the workflow advertises is also enforced locally and the workflow itself is linted before tagging `H1-complete`.
-
-Edge cases the implementer must watch:
-- `actionlint` is a Go binary, not an npm package; install via `actionlint-installer` or pin a release archive in a `postinstall` script. The `lint:actions` npm script must fail loudly (non-zero exit, no silent skip) if the binary is absent — per the cross-cutting "no silent test skipping" rule in `conventions.md`.
-- The shape test must read the YAML literally (e.g. `yaml.parse(fs.readFileSync(...))`) rather than executing the workflow; do not depend on network or GitHub APIs.
-- The bad-fixture workflow exists only to prove the lint job fails on real defects; keep it under `test/fixtures/ci-bad/` so it is not picked up by GitHub Actions itself.
-
-## Related Findings
-
-- "`depcheck` gate not set up or self-tested" — co-resolve (same leaf, same validation-gap pattern; the recommended `Ships when` rewrite above also closes that finding when combined with its own `Adds`/`Tests` edits)
-- "H1 missing mandatory Spec field" — same-cluster (same leaf, resolves independently)
-- "`no-static-state.test.ts` allow-list undefined" — same-cluster (same leaf, resolves independently)
 
