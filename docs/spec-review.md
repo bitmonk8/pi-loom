@@ -1,7 +1,7 @@
 # pi-loom — Consolidated Spec Review
 
 _Generated: 2026-05-05T19:49:46Z (revised: merges + multi→single conversion + bottom-up reorder)_
-_60 source findings → 13 commit-ready findings (8 merge clusters, 23 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
+_60 source findings → 12 commit-ready findings (8 merge clusters, 23 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
 
 Findings are ordered for **bottom-up processing**: each commit fixes the *last* finding in the doc until the doc is empty. Dependencies that require a particular landing order are encoded in the doc order — `MERGE-F` (`bindings.md` BNDS / BNDR rename) sits at the bottom of the REQ-ID-appendix supersection so it lands *before* `MERGE-G` (retirement registries + V18s sub-gates), which sits above it.
 
@@ -1000,62 +1000,4 @@ Edge cases:
 ## Related Findings
 
 - None outside this merge.
-
----
-
-# Watcher structural-change note: `<N> file(s)` rendering rule unspecified
-
-**Source:** docs/reviews/spec-review/spec-20260505-204733.md
-**Original heading:** Watcher structural-change note: `<N> file(s)` grammar ambiguous
-**Kind:** testability
-
-## Finding
-
-`spec_topics/pi-integration-contract.md` (Structural changes paragraph) defines the watcher's informational note as:
-
-> `loom watcher: <N> file(s) added or removed; run /reload to refresh the slash command list`
-
-The substitution rule for `<N>` is named ("the count of distinct paths in the debounce-window batch"), but the surrounding word `file(s)` carries no rule. Two interpretations are equally consistent with the prose: (a) `file(s)` is a literal token that ships verbatim regardless of `N` (so `N=1` renders `1 file(s) added or removed`), or (b) `file(s)` is shorthand notation that an implementation expands to `1 file` / `N files` based on `N`. The same ambiguity is inherited by `V18r`, which routes settings-array deltas through this exact note.
-
-This matters because `V18f`'s acceptance tests assert the rendered `content` against the spec template "verbatim" with `<N>=1` and `<N>=5`. The test cannot be written until the rendering rule is pinned: under interpretation (a) the assertion is `1 file(s) added or removed`; under interpretation (b) it is `1 file added or removed` and `5 files added or removed`. Two implementers reading the current text will pick differently and one will fail conformance.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — "Structural changes" paragraph under Extension entry point §4 (edited)
-
-## Plan Impact
-
-**Phases:** Vertical V18
-
-**Leaves (implementation order):**
-
-- V18f — File watcher (chokidar) over discovery roots — (modified)
-- V18r — Settings-file watcher (`~/.pi/agent/settings.json`, `.pi/settings.json`) — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers will render the `N=1` case differently (`1 file(s)` vs `1 file`). `V18f`'s "matches the spec template verbatim" assertion is not executable without a rule, and the same applies to `V18r` which reuses the note. End-users see a minor cosmetic difference; the conformance harness sees a hard test failure.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Adopt Option A. The note is a transient operator prompt, not prose the user dwells on; the cost of pluralisation logic is not repaid by the readability gain. State explicitly that `file(s)` is a literal for all `N`, and pin a worked example (`<N>=1` → `loom watcher: 1 file(s) added or removed; run /reload to refresh the slash command list`). `V18f` and `V18r` then have an unambiguous string to assert against.
-
-Edge cases for the implementer:
-- `<N>` is rendered in base 10 with no thousands separator, no leading zero, no sign.
-- `<N>` equals `details.structural.added.length + details.structural.removed.length`; a path that appears in both arrays (rename: removed then re-added inside the same window) counts once if the spec elsewhere coalesces it, or twice if not — pin this in the same edit if the answer is not already in the structural-payload section.
-- The trailing `; run /reload to refresh the slash command list` is also literal; do not substitute the slash-command name into it.
-
-## Related Findings
-
-- "Watcher debounce (250 ms) is a wall-clock constraint with no injectable clock seam" — same-cluster (same V18f leaf, both about watcher testability)
-- "System-note 120-codepoint cap: \"code points or grapheme clusters\" is ambiguous" — same-cluster (both pin rendering rules for `loom-system-note` content strings)
-- "Re-scan deduplication: no observable emission counter" — same-cluster (both about asserting watcher-emitted system-note content)
-
----
 
