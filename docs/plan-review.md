@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_65 findings retained, 3 false positives dropped, 0 persistent failures_
+_64 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -4640,54 +4640,3 @@ Edge case for the implementer: V5e's `Deps` are V5a + Mb (per D5), so the smoke 
 - "V5e: `ctx.sendUserMessage()` — method does not exist on `ExtensionCommandContext`" — same-cluster (different defect on V5e Adds)
 - "V5e \"Single turn round-trips\" meaningless" — same-cluster (clarity defect on V5e Tests)
 
----
-
-# V5e Tests bullet "Single turn round-trips" does not state an assertion
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** V5e "Single turn round-trips" meaningless
-**Kind:** clarity
-
-## Finding
-
-The first bullet under V5e **Tests** in `plan_topics/v5-untyped-queries.md` reads simply "Single turn round-trips". The phrase names a scenario without naming an assertion: it does not say what the test sends, what shape the response should take, or what equality / non-mutation property is being checked. Two implementers will plausibly write different tests — one comparing a string round-trip, another asserting only that `agent_end` fired, another threading metadata through and asserting on a richer envelope.
-
-The other three bullets in the same Tests line ("mid-stream send uses steer mode", "`agent_end` listener cleaned up after each query (no leak)", "transport failure → `Err({kind:\"transport\"})`") each name both a setup and an observable post-condition. The first bullet is the outlier and reads as a placeholder rather than a test specification.
-
-## Plan Documents
-
-- `plan_topics/v5-untyped-queries.md` — V5e Tests bullet (edited)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical V5
-
-**Leaves (implementation order):**
-
-- V5e — Prompt-mode conversation driver — (modified)
-
-## Consequence
-
-**Severity:** advisory
-
-The leaf is still pickup-able — implementers know the surface under test (`PromptModeConversationDriver` over `FakeModelClient`) and will produce *some* single-turn assertion. But the exact post-condition is left to the implementer's taste, so the test that lands may under-cover the driver (e.g. assert only "did not throw") and silently leave the spec's text-fidelity guarantee unverified.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `plan_topics/v5-untyped-queries.md`, V5e **Tests.** bullet, replace the substring `Single turn round-trips` with:
-
-> A single `sendUserMessage` produces one assistant turn whose text equals the value `FakeModelClient` was queued to return for that turn (no truncation, no transformation, no extra turns).
-
-The replacement names: (1) the driver call under test (`sendUserMessage` per `pi-integration-contract.md` "Conversation drive — prompt mode"), (2) the fake under test (`FakeModelClient`, introduced by H2 per `plan_topics/h2-di-skeleton.md`), (3) the equality property (text identity), and (4) the cardinality (exactly one assistant turn). Leave the remaining three Tests bullets untouched.
-
-## Related Findings
-
-- "V5e Ships-when: \"a real Pi session\" is unverifiable from the leaf gate" — same-cluster (same leaf, different bullet — Tests vs Ships-when; resolutions are independent)

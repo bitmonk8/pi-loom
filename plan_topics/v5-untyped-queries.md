@@ -36,7 +36,7 @@
 
 - **Spec.** [Pi Integration Contract](../spec_topics/pi-integration-contract.md) (prompt-mode drive).
 - **Adds.** `PromptModeConversationDriver` issues `ctx.sendUserMessage(text)` (or `{ deliverAs: "steer" }` mid-stream), awaits via `agent_end` listener, returns assistant text. Replaces M's hard-coded driver.
-- **Tests.** Single turn round-trips; mid-stream send uses steer mode; `agent_end` listener cleaned up after each query (no leak); transport failure → `Err({kind:"transport"})`.
+- **Tests.** A single `sendUserMessage` produces one assistant turn whose text equals the value `FakeModelClient` was queued to return for that turn (no truncation, no transformation, no extra turns); mid-stream send uses steer mode; `agent_end` listener cleaned up after each query (no leak); transport failure → `Err({kind:"transport"})`.
 - **Deps.** V5a, M.
 - **Ships when.** A real Pi session can run a multi-query loom (without `?` yet — bind every result).
 
