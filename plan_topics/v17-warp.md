@@ -1,27 +1,19 @@
 # V17 — `.warp` library files
 
-## V17a — `.warp` lexer/parser shares loom lexer
-
-- **Spec.** [Imports](../spec_topics/imports.md).
-- **Adds.** Same lexer; AST builder dispatches on file extension.
-- **Tests.** Parsing token-equivalence between same content in `.warp` and `.loom`.
-- **Deps.** V1.
-- **Ships when.** `.warp` files parse.
-
-## V17b — `.warp` body restriction
+## V17a — `.warp` files parse with body restriction
 
 - **Spec.** [Imports](../spec_topics/imports.md) (`.warp` file rules).
-- **Adds.** Top-level: only `import`, `export`, `schema`, `enum`, `fn` allowed. Top-level statements, `let`, queries are parse errors.
-- **Tests.** Each forbidden top-level form rejected; permitted forms accepted (`import`, `export`, `schema`, `enum`, `fn`).
-- **Deps.** V17a.
-- **Ships when.** Library shape enforced.
+- **Adds.** Same lexer as `.loom`; AST builder dispatches on file extension; top-level in `.warp` restricted to `import`, `export`, `schema`, `enum`, `fn` (top-level statements, `let` bindings, and queries are parse errors).
+- **Tests.** Token-equivalence between identical content in `.warp` and `.loom` for permitted forms; each forbidden top-level form (statement, `let`, query) rejected with `loom/parse/warp-top-level-statement`; each permitted form accepted.
+- **Deps.** V1.
+- **Ships when.** `.warp` files parse and reject forbidden top-level forms.
 
 ## V17c — `import { X } from "./y.warp"`
 
 - **Spec.** [Imports](../spec_topics/imports.md) (path resolution).
 - **Adds.** Named-import form; resolution relative to importing file; path must end in `.warp`.
 - **Tests.** Symbol resolves; non-`.warp` extension rejected; missing file → load error.
-- **Deps.** V17b.
+- **Deps.** V17a.
 - **Ships when.** Imports work.
 
 ## V17d — `import { X as Y }` aliasing
@@ -53,7 +45,7 @@
 - **Spec.** [Imports](../spec_topics/imports.md) (visibility).
 - **Adds.** Every top-level `schema`/`enum`/`fn` in `.warp` is implicitly exported; no `export` keyword on declarations; no privacy modifier in V1.
 - **Tests.** All declarations importable; no internal-only marker accepted.
-- **Deps.** V17b.
+- **Deps.** V17a.
 - **Ships when.** Library visibility rule enforced.
 
 ## V17h — Plain `import` does not re-export

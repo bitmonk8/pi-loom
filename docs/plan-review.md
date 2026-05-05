@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_104 findings retained, 3 false positives dropped, 0 persistent failures_
+_103 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -7299,85 +7299,5 @@ Do not add a normative fixture table to `binder.md` — the spec's data-driven s
 
 - "V16h binder seed value not specified" — same-cluster (sibling V16 leaf with the same shape of defect: Tests bullet references something the spec does not pin)
 - "V16h 'seed included for providers that support it' — supported-provider list not pinned" — same-cluster (same shape; sibling leaf)
-
----
-
-## plan_topics/v17-warp.md
-
----
-
-# V17a ships no observable behaviour — fold into V17b
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** V17a too hollow — merge into V17b
-**Kind:** step-atomicity
-
-## Finding
-
-V17a's only delta over the existing `.loom` parser is "AST builder dispatches on file extension." Its sole test asserts token-equivalence between identical content parsed as `.warp` and `.loom`, and its Ships-when criterion is "`.warp` files parse" — both of which are satisfied by a no-op implementation that simply lets the existing `.loom` lexer/parser accept files with a different suffix. There is no externally observable behavioural change at the V17a boundary; nothing rejects, accepts, resolves, or diagnoses anything new.
-
-This violates the leaf-atomicity rule from `plan_topics/conventions.md`: "Each leaf is the smallest feature that can ship independently *and* be tested independently." V17a cannot be tested independently in any meaningful sense — token-equivalence between two extensions is not a feature, it is the absence of one. The first observable `.warp`-specific behaviour is V17b's body restriction (`loom/parse/warp-top-level-statement`), at which point the extension dispatch finally has a consequence.
-
-The practical consequence is small (V17b lands immediately after and closes the gap), but V17a as written is dead leaf weight: an implementer can ship it by literally changing nothing and still claim the gate.
-
-## Plan Documents
-
-- `plan_topics/v17-warp.md` — V17a, V17b, V17c, V17g (edited)
-- `plan_topics/coverage-matrix.md` — Imports row (read-only; range `V17a–V17m` already absorbs the merge)
-- `plan_topics/conventions.md` — leaf-format / atomicity rule (read-only; rationale source)
-- `plan.md` — V17 entry (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical V17
-
-**Leaves (implementation order):**
-
-- V17a — `.warp` lexer/parser shares loom lexer — (modified; absorbs V17b)
-- V17b — `.warp` body restriction — (removed)
-- V17c — `import { X } from "./y.warp"` — (modified; Dep `V17b` → `V17a`)
-- V17g — Implicit export of all `.warp` top-level declarations — (modified; Dep `V17b` → `V17a`)
-
-## Consequence
-
-**Severity:** advisory
-
-An implementer can satisfy V17a's Ships-when without writing any production code, then claim a green gate. The damage is contained because V17b lands next and forces real behaviour, but V17a as a standalone milestone is misleading: it appears in the dependency DAG, in the coverage range `V17a–V17m`, and in commit-tagging rituals (`V17a-complete`) without representing any shipped capability.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `plan_topics/v17-warp.md`, fold V17b into V17a and delete the V17b heading. Rewrite the V17a leaf as:
-
-```
-## V17a — `.warp` files parse with body restriction
-
-- **Spec.** [Imports](../spec_topics/imports.md) (`.warp` file rules).
-- **Adds.** Same lexer as `.loom`; AST builder dispatches on file extension; top-level in `.warp` restricted to `import`, `export`, `schema`, `enum`, `fn` (top-level statements, `let` bindings, and queries are parse errors).
-- **Tests.** Token-equivalence between identical content in `.warp` and `.loom` for permitted forms; each forbidden top-level form (statement, `let`, query) rejected with `loom/parse/warp-top-level-statement`; each permitted form accepted.
-- **Deps.** V1.
-- **Ships when.** `.warp` files parse and reject forbidden top-level forms.
-```
-
-Then in the same file:
-
-- Delete the entire `## V17b — \`.warp\` body restriction` block.
-- In V17c's `Deps.` bullet, replace `V17b` with `V17a`.
-- In V17g's `Deps.` bullet, replace `V17b` with `V17a`.
-
-Leave V17i, V17j, V17l untouched (they already depend on V17a). Leave the V17b ID as a retired hole in the sequence — do not renumber V17c–V17m. The coverage-matrix range `V17a–V17m` in `plan_topics/coverage-matrix.md` remains correct.
-
-The `enum`-vs-spec-allowlist discrepancy in V17b's permitted-forms list carries over to the merged leaf verbatim and is resolved separately (see related findings).
-
-## Related Findings
-
-- "`enum` permitted in `.warp` files by plan but absent from spec's `.warp` allowlist" — same-cluster (touches the same body-restriction bullet that this finding moves into V17a; the enum question must still be answered against the merged leaf)
 
 ---
