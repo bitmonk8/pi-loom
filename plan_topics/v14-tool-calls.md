@@ -108,7 +108,7 @@
 
 - **Spec.** [Directory Convention](../spec_topics/discovery.md), [Discovery — Slash-name collisions at the same priority](../spec_topics/discovery.md).
 - **Adds.** Walk `node_modules/*/package.json` for `pi.looms` entries; also discover `looms/` directories shipped by packages. Two packages whose `pi.looms` (or conventional `looms/` directory) derive the same final slash name are caught by the same-priority collision rule (V14q).
-- **Tests.** `pi.looms` array honoured; `looms/` directory honoured; both can coexist; precedence per spec; two packages each shipping `lint.loom` → `loom/load/cross-format-collision` listing all colliding paths and neither registers; three packages each shipping the same name produces a single error listing all three paths.
+- **Tests.** `pi.looms` array honoured; `looms/` directory honoured (in absence of `pi.looms`); when `package.json` has both `pi.looms` and a conventional `looms/` directory, only `pi.looms` contributes (the `looms/` directory is **not** merged in — verified by a package whose `looms/` holds a `.loom` file not referenced by `pi.looms`, which must NOT register); two packages each shipping `lint.loom` → `loom/load/cross-format-collision` listing all colliding paths and neither registers; three packages each shipping the same name produces a single error listing all three paths.
 - **Deps.** V14k, V14q.
 - **Ships when.** Package-shipped looms discoverable and same-name package collisions are caught.
 

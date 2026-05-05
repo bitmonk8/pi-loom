@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_86 findings retained, 3 false positives dropped, 0 persistent failures_
+_85 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -6091,65 +6091,3 @@ Edge case for the implementer: the `@`-prefix rule applies to the directory entr
 - "V14m \"precedence per spec\" non-specific" — co-resolve (same V14m leaf; the rewritten Tests block is the natural place to also inline or cite the five-level priority list)
 - "V14n / V14o missing V14q from Deps despite citing its collision rule in Tests" — same-cluster (adjacent V14 discovery leaves; resolves independently)
 - "Settings-file watching silently assumed but excluded from V18f scope" — same-cluster (touches the same `settings.json` surface that hosts the new `looms.scanPackages*` keys; the watcher contract should pick those up but the fix here does not depend on it)
-
----
-
-# V14m Tests bullet "precedence per spec" does not name the rule it tests
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** V14m "precedence per spec" non-specific
-**Kind:** validation
-
-## Finding
-
-`plan_topics/v14-tool-calls.md` V14m, in its Tests bullet, asserts: `` `pi.looms` array honoured; `looms/` directory honoured; both can coexist; precedence per spec ``. The phrase "precedence per spec" is the entire test specification for the case where a single package ships **both** a `pi.looms` manifest entry and a conventional `looms/` directory.
-
-The spec rule this clause refers to is one sentence in `spec_topics/discovery.md` §"Per-package resolution" (under the `## Package discovery` heading): *"If `package.json` has both, the manifest entry wins; the `looms/` directory is **not** merged in."* That section has no sub-anchor, so the citation `discovery.md#package-discovery` is the closest available, and even that does not point at the specific bullet.
-
-An implementer working from V14m alone has to guess whether "precedence" means (a) `pi.looms` wins and `looms/` is ignored, (b) `looms/` wins, (c) both contribute and `pi.looms` overrides on per-name conflict, or (d) something else. The leaf does not encode the spec's actual rule, so the resulting test could pass against an implementation that diverges from the spec.
-
-Note that "both can coexist" in the same Tests bullet reads as "both contribute," which is the **opposite** of the spec rule (the manifest entry wins outright; `looms/` is not merged). This makes the under-specification actively misleading rather than merely terse.
-
-## Plan Documents
-
-- `plan_topics/v14-tool-calls.md` — V14m Tests bullet (edited)
-
-## Spec Documents
-
-- `spec_topics/discovery.md` — §"Package discovery" / "Per-package resolution" (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical V14
-
-**Leaves (implementation order):**
-
-- V14m — Discovery: package `looms/` and `pi.looms` — (modified)
-
-## Consequence
-
-**Severity:** advisory
-
-An implementer can recover the rule by reading the spec, but the current Tests bullet implies merge ("both can coexist") while the spec mandates manifest-wins-no-merge. A test author following the bullet literally would assert merging behaviour, which contradicts the spec; a careful author would consult the spec and write the correct test. Two reasonable implementers will diverge until the bullet is concrete.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `plan_topics/v14-tool-calls.md`, V14m, replace the Tests bullet's clauses `both can coexist; precedence per spec` with the inlined rule:
-
-> when `package.json` has both `pi.looms` and a conventional `looms/` directory, only `pi.looms` contributes (the `looms/` directory is **not** merged in)
-
-The full Tests bullet then reads (changed text bolded conceptually, no other clauses touched):
-
-> `pi.looms` array honoured; `looms/` directory honoured (in absence of `pi.looms`); when `package.json` has both `pi.looms` and a conventional `looms/` directory, only `pi.looms` contributes (the `looms/` directory is **not** merged in); two packages each shipping `lint.loom` → `loom/load/cross-format-collision` listing all colliding paths and neither registers; three packages each shipping the same name produces a single error listing all three paths.
-
-Edge case for the implementer: the test must cover a single package that ships a `pi.looms` entry AND a non-empty `looms/` directory containing a `.loom` file that is **not** referenced by `pi.looms`; that file must NOT register. A test that only verifies `pi.looms` wins on name-conflict would still pass under a buggy "both contribute, manifest overrides" implementation.
-
-## Related Findings
-
-- "V14p \"Five-level priority from spec\" — no anchor" — same-cluster (identical wording defect — "X per spec" without naming X — applied to the five-source priority list; resolves independently with the same inline-or-anchor remedy)
-- "V14m: scoped packages (`@scope/pkg`) not covered; `node_modules/` walk unbounded" — same-cluster (touches the same leaf's Tests bullet but a different concern; both edits land in the same V14m Tests block)
-
