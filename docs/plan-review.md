@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_60 findings retained, 3 false positives dropped, 0 persistent failures_
+_59 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -4301,72 +4301,6 @@ The V9 leaf range is taken from the deleted aside, which is the author's own sta
 ## Related Findings
 
 - "V4i and V11g/V11h/V11i contain duplicated requirements" — same-cluster (also touches V11g; that finding edits V4i's Adds/Tests, this one edits V11g's Deps line — independent edits)
-
----
-
-## plan_topics/v5-untyped-queries.md
-
----
-
-# V5b Tests bullet for object/array stringification leaves the canonical form unpinned
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** V5b "compact `JSON.stringify`" vague
-**Kind:** clarity
-
-## Finding
-
-V5b Tests describes the per-type stringification table and, for `array<T>` and schema-typed objects, asserts only `compact JSON.stringify with wire-name translation`. The word *compact* is not defined as a term anywhere in the plan or spec. The spec section [`Stringification of interpolated values`](../../spec_topics/query.md#stringification-of-interpolated-values) parenthesises it as `(no pretty-printing)`, which fixes the `space` argument but leaves the replacer, the handling of `undefined`/missing fields, and the key-emission order unstated at both layers. Two implementers reading V5b alone will write different test fixtures and disagree about which of `JSON.stringify(value)`, `JSON.stringify(value, null, 0)`, or a custom serialiser the leaf calls for.
-
-The leaf's surrounding bullets are concrete enough to test — `string` (verbatim), `integer` (`42`), `null` (`null`), enum variant (bare wire value) — but the two table rows that produce non-trivial output collapse to one hand-wavy phrase. That phrase is what the implementer has to land assertions against, and an assertion of the form "result is compact" is not checkable.
-
-## Plan Documents
-
-- `plan_topics/v5-untyped-queries.md` — V5b (edited)
-- `plan_topics/conventions.md` — Tests-bullet convention (read-only)
-
-## Spec Documents
-
-- `spec_topics/query.md` — `Stringification of interpolated values` (read-only)
-- `spec_topics/runtime-value-model.md` — outbound wire-name translation (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical V5
-
-**Leaves (implementation order):**
-
-- V5b — `${expr}` interpolation — (modified)
-
-## Consequence
-
-**Severity:** advisory
-
-The implementer will most likely call `JSON.stringify(translatedValue)` with no second/third argument and pass the test, but the leaf does not constrain them to do so, and the resulting test will not catch a regression that adds a `space` argument, a replacer, or a custom serialiser. The leaf also stops short of pinning what the wire-translated input to `JSON.stringify` looks like for an object whose schema declares wire renames, so the test fixture is invented per-implementer.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Rewrite the two relevant clauses of the V5b **Tests.** bullet — currently `array<T>` and schema-typed object (compact `JSON.stringify` with wire-name translation) — to fix the call shape and pin a concrete fixture against the spec table.
-
-In `plan_topics/v5-untyped-queries.md`, in the V5b **Tests.** bullet, replace the parenthetical
-
-> `array<T>` and schema-typed object (compact `JSON.stringify` with wire-name translation)
-
-with:
-
-> `array<T>` and schema-typed object render as `JSON.stringify(translatedValue)` invoked with no `space` argument and no replacer, where `translatedValue` is the result of the outbound wire-name translation pass from [`runtime-value-model.md`](../spec_topics/runtime-value-model.md) applied recursively. Worked fixture: a schema-typed object with a wire-renamed field `loom_name → wire-name` and value `{ loom_name: "x", count: 1 }` interpolates as the literal text `{"wire-name":"x","count":1}`; a nested `array<schema>` interpolates the array form of the same. No `undefined` keys, no replacer transform, no inserted whitespace.
-
-Do not introduce a new normative key-order rule here. Output key order is whatever `JSON.stringify` produces from the wire-translated object built by the runtime; if a deterministic order is required, that is a spec-level decision and belongs in `spec_topics/query.md` first, not in a plan Tests bullet.
-
-## Related Findings
-
-- "V4a \"validation produces expected error shapes\" is not specific" — same-cluster (same vague-Tests-bullet pattern in the same plan group, resolves independently)
-- "V5c trailing-whitespace rule states only the negative" — same-cluster (sibling clarity gap in V5; same file, independent edit)
-- "V14p \"Five-level priority from spec\" — no anchor" — same-cluster (same pattern: Tests bullet defers to spec without pinning the assertion)
 
 ---
 
