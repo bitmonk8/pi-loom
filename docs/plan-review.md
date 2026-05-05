@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_41 findings retained, 3 false positives dropped, 0 persistent failures_
+_40 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -2964,84 +2964,4 @@ Edge case the implementer must watch: H2's `FakeFileSystem` already exists in th
 
 ---
 
-## plan_topics/v1-lexer.md
-
----
-
-# UTF-8 source decoding and `loom/load/invalid-encoding` have no closing leaf
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** UTF-8 encoding, BOM consumption, and `loom/load/invalid-encoding` — no plan leaf
-**Kind:** spec-coverage
-
-## Finding
-
-`spec_topics/lexical.md` (Encoding bullet) requires the runtime to (a) accept only UTF-8 source files, (b) consume and discard a leading UTF-8 BOM (`EF BB BF`), and (c) emit `loom/load/invalid-encoding` with the file path and the byte offset of the first invalid byte for any other BOM, any non-UTF-8 byte sequence, or a lone surrogate. `spec_topics/diagnostics.md` registers `loom/load/invalid-encoding` as a hard error in the `lex` phase and ties its hint ("Re-save the file as UTF-8...") to that same Encoding bullet.
-
-No leaf in `plan_topics/v1-lexer.md` covers any of this. V1a–V1e begin at numerics and assume an already-decoded character stream; `grep -n 'encoding\|UTF-8\|BOM\|invalid-encoding' plan.md plan_topics/` returns no matches. The horizontal phases (H1–H4) and the MVP leaf likewise do not introduce a source-loader. `plan_topics/coverage-matrix.md` maps `[Lexical Structure]` → `V1a–V1e`, so the gap is also invisible to a section-level reader of the matrix.
-
-The closing leaf is missing on three counts: the parser surface (a UTF-8-only decode pass with BOM-strip), the diagnostic emission (`loom/load/invalid-encoding` with file path + first-invalid-byte offset), and the span-bookkeeping invariant in `lexical.md` ("BOM consumption ... happens *before* span recording, so column 1 of line 1 starts after the BOM").
-
-## Plan Documents
-
-- `plan_topics/v1-lexer.md` — new leaf inserted before V1a (edited)
-- `plan_topics/coverage-matrix.md` — `[Lexical Structure]` row (edited)
-- `plan_topics/v18-cancellation.md` — V18o coverage-matrix gate context (read-only)
-- `plan.md` — table of contents (read-only)
-
-## Spec Documents
-
-None — `spec_topics/lexical.md` and `spec_topics/diagnostics.md` already define the rule and the diagnostic; the gap is on the plan side.
-
-## Affected Leaves
-
-**Phases:** Vertical V1
-
-**Leaves (implementation order):**
-
-- `<new>` — UTF-8 source decoder with BOM strip — (added)
-- V1a — Numeric literals — (modified; `Deps` flips from `M` to the new leaf)
-
-## Consequence
-
-**Severity:** correctness
-
-A V1 implementer reading the lexer plan ships V1a–V1e against a `string` input and never wires up byte-level decoding. The runtime then either crashes inside V8's UTF-8 string decoder with a generic exception (no `loom/load/invalid-encoding`, no path, no byte offset), or — worse, on Node's default permissive `Buffer.toString('utf8')` path — silently produces replacement characters and tokenises mojibake. The diagnostic is registered in `spec_topics/diagnostics.md` but never emitted, and once REQ-IDs land per `plan_topics/conventions.md` the missing closing leaf would either fail the V18o coverage gate or be papered over with a fictional citation.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add a new leaf at the top of `plan_topics/v1-lexer.md`, positioned before `## V1a — Numeric literals`. Use a placeholder ID (the implementer will pick the next free V1 letter — likely `V1a`, with the existing leaves shifting one letter down, since leaf IDs are not yet committed):
-
-```
-## V1<new> — Source decoding (UTF-8, BOM, span baseline)
-
-- **Spec.** [Lexical Structure](../spec_topics/lexical.md) (Encoding, Diagnostic spans), [Diagnostics](../spec_topics/diagnostics.md) (`loom/load/invalid-encoding`).
-- **Adds.** Byte-to-character source decoder: UTF-8 only; a leading `EF BB BF` is consumed and discarded; any other BOM, any invalid UTF-8 byte sequence, and any lone surrogate produces `loom/load/invalid-encoding` carrying the file path and the byte offset of the first invalid byte. Span bookkeeping is initialised so that column 1 of line 1 falls *after* a stripped BOM.
-- **Tests.** Plain ASCII tokenises; UTF-8 sans BOM tokenises; UTF-8 with leading BOM tokenises identically to the same source without the BOM, with no leading whitespace token and column 1 of line 1 sitting on the first post-BOM byte; UTF-16 LE BOM (`FF FE`), UTF-16 BE BOM (`FE FF`), and UTF-32 BOMs all emit `loom/load/invalid-encoding` at offset 0; a lone high surrogate mid-stream emits `loom/load/invalid-encoding` at the offending byte; an isolated UTF-8 continuation byte (e.g. `0x80`) at offset N emits `loom/load/invalid-encoding` with offset N; an overlong encoding emits `loom/load/invalid-encoding`; the diagnostic carries the absolute file path the loader was asked to read.
-- **Deps.** H3 (diagnostics primitive), M.
-- **Ships when.** Every `.loom` and `.warp` file passes through the decoder before any V1a–V1e tokenisation runs; non-UTF-8 inputs fail fast with `loom/load/invalid-encoding` rather than producing token-stream mojibake.
-```
-
-Then in `plan_topics/v1-lexer.md`, change the `Deps.` field of `V1a — Numeric literals` from `M.` to `V1<new>.` (or whatever ID the implementer assigns) so the decoder leaf is a hard prerequisite for the first token-emitting leaf.
-
-In `plan_topics/coverage-matrix.md`, edit the row
-
-```
-| [Lexical Structure](../spec_topics/lexical.md) | V1a–V1e |
-```
-
-to include the new leaf (e.g. `V1<new>, V1a–V1e`) so that, post-REQ-ID-assignment, the encoding rule's REQ-ID has a recorded closing leaf and the V18o coverage-matrix gate (per `plan_topics/v18-cancellation.md` V18o) does not flag a missing mapping.
-
-The implementer should fold the sibling rule on `lexical.md` line 6 (newline normalisation: `\r\n` → `\n`, bare `\r` → `\n`) into the same leaf — it lives in the same "before lexing" pre-pass and shares the span-baseline invariant on `lexical.md` line 8 — but the wording above scopes the `Adds.` / `Tests.` bullets to encoding only; newline normalisation is the subject of the related finding cited below.
-
-## Related Findings
-
-- "Newline normalisation (`\r\n`, bare `\r` → `\n`) — no plan leaf" — co-resolve (same pre-lex pass; the new leaf above should also carry the CRLF/bare-CR normalisation rule and its CRLF-tokenises-byte-identically-to-LF tests, per the suggested fix in that finding)
-- "Path literals forward-slash rule and `loom/parse/invalid-path-separator` — no leaf" — same-cluster (also a `lexical.md` rule with no closing leaf, but resolves inside V1b on the path-literal token, not in the pre-lex decoder pass)
-
----
 
