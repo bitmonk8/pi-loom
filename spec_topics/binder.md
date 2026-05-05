@@ -4,7 +4,11 @@ When a loom is invoked from a slash command, the runtime translates the user's f
 
 The binder is positioned as runtime infrastructure, not as part of the loom's conversation: it never adds turns to the user's session (in prompt mode) or to the loom's spawned conversation (in subagent mode), and the loom code never sees the binder's intermediate envelope. Authors interact with the *result* of binding (their `params` are populated, or the loom doesn't run) the same way they would with any typed `invoke(...)` call.
 
-**Binder model.** Configured via the `bind_model:` frontmatter field, which falls back to the loom-extension setting `looms.binderModel` in `settings.json` (read per [Settings file reads](./discovery.md#settings-file-reads); not a Pi-recognised setting), defaulting to a cheap tier-2 model such as Claude Haiku, GPT-4o-mini, or Gemini Flash. Binder calls are structurally function-calling tasks — schema in, JSON out — and tier-2 models are more than capable. Authors with unusually subtle schemas (overlapping discriminated-union fields, semantically close enum variants) can override per-loom by setting `bind_model:` to a stronger model.
+**Binder model.** Resolved at loom-load time from a two-step chain: `bind_model:` frontmatter field, then the loom-extension setting `looms.binderModel` in `settings.json` (read per [Settings file reads](./discovery.md#settings-file-reads); not a Pi-recognised setting). There is **no further fallback** — no "tier-2" default, and the loom's own `model:` is not consulted (using it silently negates the cost premise that motivates a separate binder model). When neither source resolves and the loom is not bypass-eligible (per [Binder bypass](#binder-bypass) below), the loom fails to load with `loom/load/binder-model-unresolved`; the loom is reported through the diagnostics channel ([Diagnostics](./diagnostics.md)) and its slash command is **not** registered. Binder calls are structurally function-calling tasks — schema in, JSON out — and a cheap tier-2 model (Claude Haiku, GPT-4o-mini, Gemini Flash, etc.) is more than capable; authors with unusually subtle schemas can override per-loom by setting `bind_model:`.
+
+The resolved model must support strict structured-output / strict tool-input. The runtime checks this at the same load-time pass by querying Pi's model registry; absence of strict capability is a load-time error with code `loom/load/binder-model-not-strict-capable`. If Pi does not expose a strict-capable flag for the model, the load-time check degrades to best-effort and a runtime envelope-malformed failure (`loom/runtime/binder-malformed-envelope` — already covered by V16o) is the surfaced symptom; the runtime emits a load-time advisory noting the degradation. Bypass-eligible looms (no-params bypass and single-string bypass; see [Binder bypass](#binder-bypass)) skip both checks — they never call the binder.
+
+Hot-reload of Pi settings (`looms.binderModel` changed at runtime) re-resolves on the next loom load; it does not retroactively fix already-failed loads.
 
 **Binder context.** Configured via `bind_context:` (`none` | `session`; default `none`).
 
@@ -27,6 +31,8 @@ All other shapes — multiple fields, non-string types, defaults present, option
 - `{ kind: "ambiguous", message: string, candidates: array<string> | null }` — multiple plausible bindings exist and the binder cannot pick one. The `message` is shown to the user as a system note; the loom does not run.
 
 The envelope is runtime-internal; it is never a Loom-visible type and never appears in loom code. Authors only see the *consequences* of binding (loom runs, or system note appears).
+
+The two failure arms produce indistinguishable V1 user-facing behaviour beyond the system-note prefix; the structural distinction exists for the deferred binder refinement loop (cf. [Future Considerations](./future-considerations.md)), where only `needs_info` reopens for a clarifying turn while `ambiguous` still terminates. The `candidates` field stays in the schema (binder may emit it; AJV accepts `null`), but the runtime MUST NOT surface it in V1 — the `ambiguous` system note text contains only `<message>`. Forward-compatible without the cost of either collapsing the arms now or rendering candidates the V1 templates do not require.
 
 **Binder envelope schema (constructed dynamically from `params:`).** The runtime emits one envelope schema per loom at load time and reuses it for every binder call. The envelope is a discriminated union over `kind` and conforms to the [Schema Subset](./schema-subset.md); the runtime constructs it directly rather than via the lowering pass, but the shape is exactly what the lowering pass would produce for `schema BinderEnvelope = Ok | NeedsInfo | Ambiguous`.
 
@@ -116,7 +122,7 @@ Do not invent values for defaulted parameters that the user did not specify; omi
 2. **Length cap.** The fully-rendered note (loom-controlled prefix + interpolated content) is capped at 120 Unicode code points. Truncation operates on whole code points (or grapheme clusters) — never on UTF-16 code units, which would split surrogate pairs. Overflow is replaced with a trailing `…` (U+2026), which counts toward the cap. The cap applies post-interpolation, so a long loom name reduces the budget available to the suffix; do not pre-truncate the suffix to a fixed sub-budget.
 3. **Prefix is loom-controlled, suffix is model- or runtime-controlled.** Failure-arm notes follow the grammar `loom /<name>: <fixed-phrase> — <sanitised-suffix>`; the success echo follows `Running /<name>: <formatted-args>`. The em-dash in failure notes (and the `:` in the echo) is the textual demarcation between the loom-controlled prefix and the model- or runtime-supplied suffix. Renderers MAY style the prefix distinctly, but the boundary is part of the contract so a downstream renderer knows which span it can trust.
 4. **Empty model-supplied content.** A `message` that is empty after rule 1's stripping — the binder returned only whitespace — is treated as a malformed envelope, not as an empty note: surface via the malformed-envelope row in the failure-modes table. The same applies to a `candidates` array whose every entry is empty after stripping.
-5. **`ambiguous.candidates` rendering.** When a non-null `candidates` array is present and non-empty after stripping, the rendered failure note appends ` candidates: [a, b, c, …+N more]` after the sanitised `message`, mirroring the echo formatter's array rule (truncated past three entries). Each candidate is stripped per rule 1 and individually capped at 32 code points (overflow replaced with `…`) before the array is assembled; the assembled note is then subject to rule 2, and the line-level cap wins over the array's own `…+N more` marker. A null or empty `candidates` array produces no candidates suffix.
+5. **`ambiguous.candidates` is not rendered in V1.** The `candidates` field stays in the binder envelope schema (the binder may emit it; AJV accepts `null`) but the V1 runtime does not surface it on the user-facing system note — the `ambiguous` row of the failure-modes table renders only `<message>`. The rendering question (and the array-truncation rules a future revision would need) is deferred along with the binder refinement loop; see [Future Considerations](./future-considerations.md).
 
 **Echo policy.** Configured via `bind_echo:` (`true` | `false`; default `true`). When echo is on (and the bypass did not apply), the runtime appends a one-line system note to the user's session immediately before the loom starts. The example below is illustrative — the format rules that follow are normative; no single example string can be (the formatter is data-driven and the rendered text depends on the loom's `params:` and the bound values):
 
@@ -137,7 +143,7 @@ The echo channel is also used for the binder's `needs_info` and `ambiguous` outp
 
 > loom `/code-review`: argument binding needs more info — missing required field `language`. Specify the language being reviewed.
 
-> loom `/code-review`: ambiguous arguments — "focusing on Ada" could mean focus_areas or author. Be more explicit. candidates: [focus_areas, author]
+> loom `/code-review`: ambiguous arguments — "focusing on Ada" could mean focus_areas or author. Be more explicit.
 
 **Determinism.** Binder calls use `temperature: 0` and, where the provider supports it, a fixed seed.
 
@@ -152,7 +158,7 @@ The six user-facing shapes:
 | Cause | System note |
 |---|---|
 | `needs_info` | `loom /<name>: argument binding needs more info — <model's message>` |
-| `ambiguous` | `loom /<name>: ambiguous arguments — <model's message>`<br>(append ` candidates: [...]` per [System-note rendering](#system-note-rendering) rule 5 when present) |
+| `ambiguous` | `loom /<name>: ambiguous arguments — <model's message>` (V1 does not render `candidates`; see [System-note rendering](#system-note-rendering) rule 5) |
 | Binder model transport failure (after 1 retry) | `loom /<name>: argument binder unavailable (<provider>: <message>)` |
 | Binder returned malformed envelope (after 1 retry) | `loom /<name>: argument binding failed — could not parse arguments` |
 | AJV validation of the binder's `args` failed (no retry) | `loom /<name>: argument binding produced invalid args — <ajv-summary>` |

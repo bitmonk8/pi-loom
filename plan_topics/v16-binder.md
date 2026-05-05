@@ -34,11 +34,11 @@
 
 ## V16e — `bind_model` resolution chain
 
-- **Spec.** [Slash-Command Argument Binding](../spec_topics/binder.md) (binder model).
-- **Adds.** Frontmatter `bind_model:` → `settings.json` `looms.binderModel` (read via the V14n mechanism) → built-in default (cheap tier-2 model identifier).
-- **Tests.** Each resolution step; missing all → built-in default.
-- **Deps.** V3a, V14n.
-- **Ships when.** Binder model resolves predictably.
+- **Spec.** [Slash-Command Argument Binding — Binder model](../spec_topics/binder.md), [Diagnostics](../spec_topics/diagnostics.md).
+- **Adds.** Two-step resolution: frontmatter `bind_model:` → `settings.json` `looms.binderModel` (read via the V14n mechanism). **No further fallback.** When neither resolves and the loom is not bypass-eligible (no-params or single-string bypass per V3c), load fails with `loom/load/binder-model-unresolved`; the loom is reported via the diagnostics channel and its slash command is not registered. The resolved model is checked at the same load-time pass against Pi's model registry for strict structured-output / strict tool-input capability; failure is `loom/load/binder-model-not-strict-capable`. Bypass-eligible looms skip both checks. If Pi's registry does not surface a strict-capable flag, the load-time check degrades to best-effort (advisory diagnostic noted; no load failure) and runtime envelope-malformed failures are caught by V16o (`loom/runtime/binder-malformed-envelope`). Hot-reload of `looms.binderModel` re-resolves on the *next* loom load only — it does not retroactively re-attempt loads that already failed.
+- **Tests.** Frontmatter-only resolution succeeds; settings-only resolution succeeds; both absent on a non-bypass loom → `loom/load/binder-model-unresolved` and the slash command is not registered (Pi's registered-command list does not contain it); both absent on a bypass-eligible loom (no-params; single-string) → no error and the loom registers; resolved model lacking strict capability → `loom/load/binder-model-not-strict-capable` and not registered; Pi registry without a strict flag → advisory diagnostic, loom registers, runtime envelope-malformed failure surfaces as `loom/runtime/binder-malformed-envelope` per V16o; settings change after a failed load → only the next load picks up the new value (already-failed loom stays unregistered until reload).
+- **Deps.** V3a, V3c, V14n, V16o.
+- **Ships when.** Both load-time errors fire correctly and bypass looms skip both checks.
 
 ## V16f — `bind_context: none`
 
@@ -98,11 +98,11 @@
 
 ## V16m — `ambiguous` envelope handling
 
-- **Spec.** [Slash-Command Argument Binding](../spec_topics/binder.md) (failure modes).
-- **Adds.** `kind: "ambiguous"` envelope produces system note with `candidates` enumeration; loom does not run.
-- **Tests.** Message + candidates reach user; loom never starts.
+- **Spec.** [Slash-Command Argument Binding — Failure modes](../spec_topics/binder.md).
+- **Adds.** `kind: "ambiguous"` envelope produces system note matching the failure-modes table (`loom /<name>: ambiguous arguments — <model's message>`); loom does not run. The `candidates` field stays in the schema (binder may emit it; AJV accepts `null`), but the runtime does **not** surface it in V1 — the rendered note contains only the model's `<message>`.
+- **Tests.** Message reaches user; rendered system-note text contains no candidate values even when the binder emits a non-null `candidates` array; loom never starts.
 - **Deps.** V16c.
-- **Ships when.** Ambiguity case handled.
+- **Ships when.** Ambiguity case handled per the failure-modes table (no candidates rendering).
 
 ## V16n — Binder transport failure single retry
 

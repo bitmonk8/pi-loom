@@ -135,7 +135,7 @@ None of these are fatal: the extension proceeds with whatever settings it could 
 **Keys read.** V1 reads two loom-extension keys:
 
 - `looms` — a `string[]` of file or directory paths contributing additional looms (per the *Settings* row in the precedence table above; per-entry schema in [`looms` entry schema](#looms-entry-schema) below).
-- `looms.binderModel` — a string model identifier used as the fallback for the binder when `bind_model:` is omitted from frontmatter (see [Slash-Command Argument Binding](./binder.md)). The value is a free-form string; the registry-capability check happens at binder-invocation time, not at settings-read time.
+- `looms.binderModel` — a string model identifier used as the fallback for the binder when `bind_model:` is omitted from frontmatter (see [Slash-Command Argument Binding](./binder.md)). The value is a free-form string. **Required when any non-bypass loom is in scope** — a non-bypass loom whose `bind_model:` is also absent fails to load with `loom/load/binder-model-unresolved`. The registry-capability (strict structured-output) check runs at loom-load time per [Binder model](./binder.md); failure surfaces as `loom/load/binder-model-not-strict-capable`.
 
 No other `looms.*` keys are recognised in V1; unknown keys under the `looms` namespace are ignored without diagnostic (forward-compatibility for later versions).
 
