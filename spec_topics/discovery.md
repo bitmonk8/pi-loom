@@ -6,7 +6,7 @@ Loom files are discovered from five sources. The global, project, and package-co
 - Project: `.pi/looms/*.loom`
 - Packages: each installed pi-package's `pi.looms` manifest entry (preferred) or its conventional `looms/` directory (fallback) — see [Package discovery](#package-discovery).
 - Settings: `looms` array (in `~/.pi/agent/settings.json` or `.pi/settings.json`) — `string[]` of file or directory paths; per-entry schema under [Settings file reads](#settings-file-reads).
-- CLI: `--loom <path>` (repeatable, optional)
+- CLI: `--loom <paths>` (single flag; multiple paths joined with the OS path-list separator — `:` POSIX, `;` Windows; uses Node's `path.delimiter`). Each entry is a file or directory, resolved with the same rules as the settings `looms` array (see [`looms` entry schema](#looms-entry-schema) below). Windows authors must use `;` to avoid colliding with drive-letter colons (`C:\foo`). Pi has no built-in `--loom` flag; the loom extension registers it itself via `pi.registerFlag('loom', { type: 'string', description: '…' })` (see [Pi Integration Contract](./pi-integration-contract.md)) and reads it with `pi.getFlag('loom')` during the discovery walk.
 
 Discovery is **non-recursive** and matches only `*.loom`, mirroring Pi prompt-template behaviour. `.warp` library files are never discovered as slash commands regardless of where they live; they are reached only via `import` (with paths resolved relative to the importing file).
 
@@ -18,7 +18,7 @@ Discovery is **non-recursive** and matches only `*.loom`, mirroring Pi prompt-te
 - The project root `.pi/looms/` (when present).
 - Each scanned package's contributing directory (the package's `looms/` directory, or each directory reached through a `pi.looms` glob).
 - Each settings `looms` entry, resolved as follows: a directory entry contributes its own path; a file entry contributes its parent directory.
-- Each `--loom` CLI entry, resolved by the same file-vs-directory rule as settings entries.
+- Each path component of the `--loom` CLI flag (after splitting on `path.delimiter`), resolved by the same file-vs-directory rule as settings entries.
 
 The term is referenced normatively by the path-restriction rule on `invoke` and `.loom` `tools:` entries (see [Invocation — Resolution](./invocation.md)): a resolved callee path must lie within at least one active root. Roots are computed once per discovery pass and cached for the lifetime of the resolved registry; hot-reload (per [Implementation Notes](./implementation-notes.md)) re-runs the computation.
 
