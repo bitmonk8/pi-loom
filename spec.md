@@ -110,4 +110,37 @@ Each spec page that carries normative obligations is assigned a stable per-page 
 | `related-work.md` | (no IDs — narrative) |
 | `future-considerations.md` | (no IDs — narrative) |
 
-Where two page stems collide on their first four letters, both prefixes are formed by stripping interior vowels (`bindings` → `BNDS`, `binder` → `BNDR`). The prefix table itself is immutable — adding a new page requires picking a free prefix at first numbering and pinning it here in the same edit.
+**GOV-4 (per-row invariant).** Existing rows in the prefix table above are immutable: once a page is assigned a prefix, that prefix never changes and is never reused for another page. The table is append-only. Introducing a new non-narrative page requires appending a new row whose prefix is *previously-unused* — meaning absent from both this table and the *Retired prefixes* sub-table below.
+
+**GOV-5 (disjoint-prefix rule).** Each row's `Prefix` value is a complete identifier token, not a search prefix. Tooling that consumes REQ-IDs MUST anchor matches at a word boundary on both ends (`\b<PREFIX>-[0-9]+\b`); two prefixes that share a common substring (e.g. `BNDS` / `BNDR`) MUST NOT be treated as aliases or as one prefix-matching the other.
+
+**GOV-6 (table-completeness invariant).** At every commit on `main`, the set of prefixes appearing in REQ-IDs across `spec_topics/*.md` is a subset of the union of (live prefix table, Retired prefixes sub-table). The V18s gate (per [`plan_topics/v18-cancellation.md`](./plan_topics/v18-cancellation.md)) enforces this.
+
+**GOV-7 (mutation procedures).**
+
+- **Add.** New page → append a row with a previously-unused prefix.
+- **Rename.** Prefix follows the page; the row's Page column updates, the Prefix column does not. Existing in-page anchors are not rewritten.
+- **Delete.** The row is moved from the live table to the Retired prefixes sub-table. The prefix MUST NOT be reused.
+- **Merge.** The surviving page keeps its prefix; the absorbed page's prefix is moved to the Retired prefixes sub-table.
+- **Narrative-to-normative promotion.** Replace the `(no IDs — narrative)` cell with a freshly allocated prefix in the same edit that introduces the first obligation.
+
+**GOV-8 (REQ-ID lifecycle).**
+
+- **Split.** When one rule splits into N rules, the original ID retires and N fresh IDs are appended at the page's tail.
+- **Merge.** When N rules merge into one, all N source IDs retire and one fresh ID is appended at the page's tail.
+- **Deletion.** Rule removed without replacement → ID retires; the prefix-position number MUST NOT be reused.
+- **Pure rewording.** Typo fixes, sentence restructuring, link updates leave the ID unchanged. A change that alters which inputs are accepted, which outputs are produced, which diagnostics fire, or which invariants hold is substantive and MUST be modelled as a split, merge, or deletion-plus-add — never as an in-place edit.
+
+All retirements (per GOV-7 *Delete* / *Merge* and per GOV-8 *Split* / *Merge* / *Deletion*) MUST be recorded:
+
+- **Per-prefix retirements** appear in the *Retired prefixes* sub-table immediately below.
+- **Per-ID retirements** appear in a trailing `## Retired REQ-IDs` section on each non-narrative page (skeleton inserted by [H6](./plan_topics/h6-req-ids.md)).
+
+#### Retired prefixes
+
+| Prefix | Formerly | Retired in |
+|---|---|---|
+| `BIND` | `binder.md` (transitional, post-`BIND` / `BNDG` split) | `7851d7c` |
+| `BNDG` | `bindings.md` (transitional, post-`BIND` / `BNDG` split) | `7851d7c` |
+
+The Retired prefixes sub-table is itself append-only — a retired prefix cannot be un-retired or reassigned. The `Retired in` column carries the commit SHA (or release tag) of the retiring change. A fourth `Reason` column MAY be added without breaking the GOV-6 gate.
