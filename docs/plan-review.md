@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_94 findings retained, 3 false positives dropped, 0 persistent failures_
+_93 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -6649,60 +6649,4 @@ Mitigate the risk that the drafted table admits cases the parser does not actual
 
 ---
 
-# `InvokeInfraError.reason: "cancelled"` absent from spec schema
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** `` `InvokeInfraError.reason: "cancelled"` absent from spec schema ``
-**Kind:** naming
-
-## Finding
-
-V15l's Adds bullet declares the `reason` enum on `InvokeInfraError` as `load_failure, parse_failure, validation, cancelled, panic` (`plan_topics/v15-invoke.md`, V15l Adds). The spec's authoritative schema in `spec_topics/errors-and-results.md` (lines 200–208) lists exactly four members — `load_failure | parse_failure | validation | panic` — with no `"cancelled"` value, and the surrounding prose in [Invocation — Failures](spec_topics/invocation.md#failures) describes the same four-member partition.
-
-Cancellation has its own surface contract. Per `spec_topics/cancellation.md` lines 41–43, an aborted in-flight query returns `CancelledError` (`kind: "cancelled"`); a child `invoke` whose signal aborts surfaces either as `Err(QueryError { kind: "invoke_callee_error", inner: { kind: "cancelled", ... } })` (abort observed inside the child) or directly as `kind: "cancelled"` (parent's own signal fired first) — never wrapped in `InvokeInfraError`. The plan itself confirms this in `plan_topics/v18-cancellation.md`: V18d's Tests bullet pins the surfaces to `Err({kind:"cancelled"})` or `InvokeCalleeError{inner:cancelled}`, and V18e's Tests bullet repeats the `InvokeCalleeError{inner:cancelled}` shape.
-
-Shipping V15l as written would either force the implementer to invent a sixth surfacing path for cancellation (`InvokeInfraError { reason: "cancelled" }`) that no spec text authorises and that V18d's tests would later contradict, or leave the `cancelled` enum value present but unsynthesisable, breaking V15l's own "Each reason synthesised and surfaces correctly" Tests bullet.
-
-## Plan Documents
-
-- `plan_topics/v15-invoke.md` — V15l Adds bullet (edited)
-- `plan_topics/v18-cancellation.md` — V18d, V18e (read-only)
-
-## Spec Documents
-
-- `spec_topics/errors-and-results.md` — Invoke variants, `InvokeInfraError` schema (read-only)
-- `spec_topics/cancellation.md` — Surfacing (read-only)
-- `spec_topics/invocation.md` — Failures (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical V15
-
-**Leaves (implementation order):**
-
-- V15l — `InvokeInfraError` variant — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-An implementer following V15l verbatim would either synthesize a spec-illegal `InvokeInfraError { reason: "cancelled" }` value (diverging from V18d/V18e and from the schema in `errors-and-results.md`), or carry an unsynthesisable enum member that defeats V15l's own Tests bullet. Two reasonable implementers reading V15l alongside the spec would produce different cancellation surfaces for `invoke`.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `plan_topics/v15-invoke.md`, V15l Adds bullet, edit the `reason` enum literal:
-
-- Strike `, cancelled` from `` `reason` enum: `load_failure`, `parse_failure`, `validation`, `cancelled`, `panic` `` so the enum reads `` `reason` enum: `load_failure`, `parse_failure`, `validation`, `panic` ``, matching `spec_topics/errors-and-results.md` lines 204–207 verbatim.
-
-V15l Tests bullet ("Each reason synthesised and surfaces correctly. …") needs no further change — the "Each reason" language naturally tracks the corrected four-member enum. The implementer must not add a `reason: "cancelled"` synthesis test at this leaf; cancellation surfaces for `invoke` are owned by V18d (`Err({kind:"cancelled"})`) and V18e (`InvokeCalleeError{inner:cancelled}`).
-
-## Related Findings
-
-None
-
----
 
