@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_51 findings retained, 3 false positives dropped, 0 persistent failures_
+_50 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -3657,67 +3657,6 @@ Implementer edge cases:
 - "V18o wrong diagnostic code for `timeout:` field rejection" — co-resolve (the V18o suggested fix proposes folding the `timeout:` frontmatter-scope test into V3a; this recommendation accommodates that by including the `timeout:` test in V3a Tests)
 - "V18o bundles per-call timeout marker with coverage-matrix CI gate" — decision-dependency (whether V3a or a split V18o owns the frontmatter `timeout:` test depends on the V18o split decision)
 - "M's collision warning lacks code/severity" — same-cluster (same pattern: a leaf names a "warning" without naming its diagnostic code or message template)
-
----
-
-# M's cross-source collision warning omits diagnostic code, severity, and message template
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** M's collision warning lacks code/severity
-**Kind:** clarity
-
-## Finding
-
-M's last Tests bullet says only "Two files producing the same slash name across the two roots: only the project one registers; warning names both paths." It names neither a diagnostic code nor a severity, and does not pin the message template. The spec already fixes all three (`loom/load/cross-source-shadow`, severity `W`, with the source-priority paragraph in `spec_topics/discovery.md` and the registry row in `spec_topics/diagnostics.md`), and a later leaf — V14p — explicitly cites `loom/load/cross-source-shadow` and asserts the warning text matches the spec verbatim.
-
-The M leaf's **Spec** field links only `overview.md`, `pi-integration.md`, and `pi-integration-contract.md`; it does not link `discovery.md` or `diagnostics.md`. An implementer working strictly from the M leaf has no path to the registry entry, so the M test will be written against an ad-hoc code (e.g. `loom/load/duplicate-slash` or no code at all). When V14p lands and asserts the spec code, the two leaves diverge: either V14p's stricter test requires re-doing M's work, or the M-shipped behaviour silently drifts away from the spec until V14p re-grounds it.
-
-## Plan Documents
-
-- `plan_topics/m-mvp.md` — M leaf, Tests bullet (and optionally Spec field) (edited)
-- `plan_topics/v14-tool-calls.md` — V14p (read-only; cite target)
-
-## Spec Documents
-
-- `spec_topics/discovery.md` — "Source priority (high to low)" paragraph (read-only)
-- `spec_topics/diagnostics.md` — `loom/load/cross-source-shadow` registry row (read-only)
-
-## Affected Leaves
-
-**Phases:** MVP
-
-**Leaves (implementation order):**
-
-- M — Minimal end-to-end loom — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-The M leaf, as written, lets two reasonable implementers ship two different diagnostic codes for the same event. Once V14p arrives, one of them is wrong; the M-era test passes vacuously while the spec rule (`loom/load/cross-source-shadow`, severity `W`) is violated, and downstream tooling (the diagnostic-rollup pages in V18) silently mis-classifies cross-root shadowing.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `plan_topics/m-mvp.md`, replace the existing Tests bullet
-
-> Two files producing the same slash name across the two roots: only the project one registers; warning names both paths.
-
-with
-
-> Two files producing the same slash name across the two roots (`.pi/looms/` vs `~/.pi/agent/looms/`): only the project one registers; the other emits `loom/load/cross-source-shadow` (severity `warning`), naming both absolute paths, with the warning text matching `spec_topics/discovery.md` verbatim.
-
-In the same file, append `[Directory Convention — Source priority](../spec_topics/discovery.md)` and `[Diagnostics registry](../spec_topics/diagnostics.md)` to the **Spec.** line so an implementer reading only the M leaf reaches the spec source for the code, severity, and message template.
-
-Do not introduce a placeholder code; the canonical code is already normative in the spec, and a placeholder would create churn at V14p with no upside.
-
-## Related Findings
-
-- "M assumes registration/collision plumbing not yet scheduled" — decision-dependency (if that finding's fix has M defer the cross-source priority check entirely to V14p, M's Tests bullet would be removed instead of tightened; resolve that one first)
-- "Cross-priority shadowing with no opt-out or rollback procedure" — same-cluster (also concerns `loom/load/cross-source-shadow`, but at V14p; resolves independently of M's wording)
 
 ---
 
