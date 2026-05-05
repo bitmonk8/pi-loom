@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_29 findings retained, 3 false positives dropped, 0 persistent failures_
+_28 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -2087,70 +2087,3 @@ The accessor signature itself is the subject of a sibling finding ("typed access
 
 ---
 
-# H4 "no-logic shims" claim contradicts registration cache and `withActiveTools`
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** H4 "no-logic shims" claim contradicts registration cache and `withActiveTools`
-**Kind:** assumptions
-
-## Finding
-
-H4's `Adds.` bullet describes `PiModelClient`, `PiToolHost`, `PiFileSystem`, and `PiExtensionAPI` as "adapter shims (no logic) wrapping Pi's surfaces" — and then, in the same sentence, assigns `PiExtensionAPI` two pieces of load-bearing protocol from [`spec_topics/pi-integration-contract.md` — Tool-registration lifetime and visibility](../../../spec_topics/pi-integration-contract.md): an extension-scoped `Map<schema-hash, registeredToolName>` cache fronting `pi.registerTool`, and a `withActiveTools(loomCallableSet, fn)` snapshot/restore helper. Neither is a passthrough. The cache is content-addressed by the canonical schema hash defined in `schema-subset.md`, dedupes registrations across the extension's lifetime, and is the natural site for a future `pi.unregisterTool`. The helper must hold its `pi.setActiveTools` restore inside a `try`/`finally` that survives resolve, reject, synchronous throw, panic, and cancellation; the spec calls out this finally-block invariant verbatim. H4's own `Tests.` bullets exercise both behaviours (content-addressed dedup, three-way restore on resolve/reject/throw), confirming that "no logic" is the wrong label.
-
-The "(no logic)" parenthetical is a leftover assertion that the leaf is a thin wrapper layer. Two consequences follow. First, an implementer reading H4 sees an internal contradiction and has to guess which half is authoritative — the framing or the bullets. Second, because H4 carries no `Spec.` field (a separate finding), the registration-cache and active-set obligations are invisible to the V18o coverage gate even though `pi-integration-contract.md` plainly normatively requires them; the misleading "no logic" tag reinforces the omission by suggesting nothing in H4 needs spec traceability.
-
-The framing also blurs the boundary between H4 (shim wiring) and the cross-cutting tool-registration protocol that V14e and V14j rely on. V14e's `Adds.` already cites the registration cache and snapshot/restore by name; V14j relies on the empty-set restoration semantics; V18g asserts the cache survives content-edit swaps. All three lean on H4 to establish the mechanism, but H4 disowns it as "no logic."
-
-## Plan Documents
-
-- `plan_topics/h4-extension-shell.md` — `Adds.` and `Tests.` bullets (edited)
-- `plan_topics/v14-tool-calls.md` — V14e `Adds.`/`Tests.`, V14j `Adds.`/`Tests.` (read-only; cross-references to verify the mechanism is consumed elsewhere)
-- `plan_topics/v18-cancellation.md` — V18g `Adds.`/`Tests.`/`Ships when` (read-only; lifetime claim "registration cache lifetime matches the extension-instance lifetime" is anchored here)
-- `plan_topics/coverage-matrix.md` — Pi Integration Contract row(s) (option-dependent; the "split into a dedicated leaf" option requires adding the closing-leaf row, the "expand H4" option requires adding/widening it under H4)
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — "Tool-registration lifetime and visibility" subsection (read-only; spec already pins the protocol, plan must align to it)
-- `spec_topics/schema-subset.md` — "Canonical schema hash" subsection (read-only; defines the hash function the cache keys on)
-
-## Affected Leaves
-
-**Phases:** Horizontal
-
-**Leaves (implementation order):**
-
-- H4 — Pi extension shell — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers will diverge: one will read "(no logic)" and produce literal passthroughs, deferring the cache and snapshot/restore to V14e (which then has nothing to wrap and re-implements the protocol from scratch, violating the single-bridge invariant in `pi-integration-contract.md`); the other will read the bullets and implement the cache + helper inside `PiExtensionAPI` as the spec requires. The second is correct but the leaf gives no signal to choose between them. The contradiction also hides the registration-cache and snapshot/restore obligations from V18o's coverage gate, so a wrong implementation can ship "complete."
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Keep all four adapter shims plus the registration cache and `withActiveTools` helper in H4 as a single leaf. Remove the "(no logic)" parenthetical, name the cache and helper as load-bearing components, and add the missing `Spec.` field that anchors them in the Pi Integration Contract. This sits naturally with D6: H4 already owns the factory-time `loom-system-note` channel registration, the cache, and `withActiveTools` — all factory-time integration plumbing co-located.
-
-**Plan edits.**
-- In `plan_topics/h4-extension-shell.md`, replace the `Adds.` opening sentence:
-  - Strike: `` `PiModelClient`, `PiToolHost`, `PiFileSystem`, `PiExtensionAPI` adapter shims (no logic) wrapping Pi's surfaces. ``
-  - Insert: `` `PiModelClient`, `PiToolHost`, `PiFileSystem` adapter shims that delegate directly to Pi's surfaces; `PiExtensionAPI` carries the per-mode tool-registration plumbing described below (not a passthrough). ``
-- Insert a new `**Spec.**` field immediately above `**Adds.**`:
-  - `**Spec.** [Pi Integration Contract — Extension entry point](../spec_topics/pi-integration-contract.md), [Pi Integration Contract — Tool-registration lifetime and visibility](../spec_topics/pi-integration-contract.md), [Schema Subset — Canonical schema hash](../spec_topics/schema-subset.md#canonical-schema-hash).`
-
-**Spec edits.** None.
-
-Edge cases the implementer must watch: the `Spec.` field added here must list both the Pi Integration Contract subsection and the canonical schema-hash subsection, otherwise V18o's REQ-ID gate will not see the hash-keying obligation. The "(not a passthrough)" call-out for `PiExtensionAPI` is load-bearing prose — do not strip it back to the shorter shim sentence.
-
-## Related Findings
-
-- "H4 missing mandatory Spec field" — co-resolve (Option A's edit adds the `Spec.` field this finding asks for; both findings close in one diff)
-- "Tool-registration dedup assumes no schema-hash collision" — same-cluster (touches the same registration cache; resolves independently by adding a structural-equality fallback, but the implementer should land both edits together)
-- "H4 \"typed accessor\" for `ExtensionCommandContext` has no signature" — same-cluster (also a `Tests.`-bullet precision gap inside H4; independent fix)
-- "H4 \"no stale closure after session reload\" contradicts Pi's reload lifecycle" — same-cluster (also corrects an over-broad H4 `Tests.` claim; independent fix)
-
----
