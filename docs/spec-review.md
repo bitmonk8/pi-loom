@@ -1,7 +1,7 @@
 # pi-loom — Consolidated Spec Review
 
 _Generated: 2026-05-05T19:49:46Z (revised: merges + multi→single conversion + bottom-up reorder)_
-_60 source findings → 11 commit-ready findings (8 merge clusters, 23 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
+_60 source findings → 10 commit-ready findings (8 merge clusters, 23 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
 
 Findings are ordered for **bottom-up processing**: each commit fixes the *last* finding in the doc until the doc is empty. Dependencies that require a particular landing order are encoded in the doc order — `MERGE-F` (`bindings.md` BNDS / BNDR rename) sits at the bottom of the REQ-ID-appendix supersection so it lands *before* `MERGE-G` (retirement registries + V18s sub-gates), which sits above it.
 
@@ -833,75 +833,6 @@ The new bucket is justified because the existing three buckets are all forward-l
 - "Prompt-mode streaming edge cases placed in wrong file" — same-cluster (both relocate non-fitting content out of `pi-integration-contract.md`, but the destinations differ — `slash-invocation.md` vs. `future-considerations.md`)
 - "\"A future feature MUST re-acquire `pi`\" uses normative MUST for out-of-scope feature" — co-resolve (the same `future-considerations.md` edit pass that adds the local-backend bullet should also relocate the future-feature MUST sentence; both demote out-of-scope material out of normative paragraphs in `pi-integration-contract.md`)
 - "V1 seam constraints mixed with out-of-scope deferrals across 14 bullets" — decision-dependency (a structural reorganisation of `future-considerations.md` would change the destination bucket layout; if that finding is resolved first, the new bucket recommended here may already exist)
-
----
-
-# Normative MUST applied to out-of-scope future feature in Conversation drive — prompt mode
-
-**Source:** docs/reviews/spec-review/spec-20260505-204733.md
-**Original heading:** "A future feature MUST re-acquire `pi`" uses normative MUST for out-of-scope feature
-**Kind:** scope
-
-## Finding
-
-In `spec_topics/pi-integration-contract.md`, the **Conversation drive — prompt mode** bullet states:
-
-> The captured `pi` reference assumes the user session is **not** replaced mid-loom (`ctx.newSession()` / `ctx.fork()` / `ctx.switchSession()` invalidate it); V1 looms never trigger replacement, but a future feature that does so MUST re-acquire `pi` via `withSession` before the next `sendUserMessage`.
-
-The clause uses RFC-2119 MUST to bind a future, post-V1 feature that the surrounding sentence explicitly says V1 never triggers. Normative keywords in the spec are reserved for obligations a V1 conformer must satisfy; using MUST for behaviour outside V1 scope makes the obligation indistinguishable from a live V1 requirement to a reader scanning for testable rules. The same paragraph already pins the V1 invariant ("V1 looms never trigger replacement"), so the future-feature note adds no V1 obligation — only forward-compatibility guidance for whichever future leaf adds session replacement.
-
-Compounding the placement issue, the future-replacement scenario is not catalogued in `spec_topics/future-considerations.md`, so the only mention of it lives inside a normative V1 paragraph rather than alongside other deferred items.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — "Conversation drive — prompt mode" bullet (edited)
-- `spec_topics/future-considerations.md` — "Surface extensions (V1 leaves a seam)" (edited)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None. The paragraph's V1-binding content (captured-`pi` lifetime, `sendUserMessage` delivery, `waitForIdle` completion) is unchanged; only the out-of-scope future-feature note is rewritten and relocated. `V5e` (`PromptModeConversationDriver`) consumes the V1 portion of the paragraph and is unaffected by the wording change.
-
-## Consequence
-
-**Severity:** cosmetic
-
-A reader treating MUST/SHOULD/MAY as the spec's normative inventory will encounter an obligation whose subject is explicitly out of V1 scope, briefly confusing what V1 must satisfy. Because the immediately preceding clause pins the V1 invariant, no implementer is at risk of building the wrong thing — the cost is reader friction and a scope-tagging inconsistency relative to other deferred items.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Make two coordinated edits:
-
-1. In `spec_topics/pi-integration-contract.md`, replace the future-feature clause with non-normative wording that ends the sentence at the V1 invariant. Suggested replacement for the existing fragment:
-
-   > The captured `pi` reference assumes the user session is **not** replaced mid-loom (`ctx.newSession()` / `ctx.fork()` / `ctx.switchSession()` invalidate it); V1 looms never trigger replacement (see [Future Considerations](./future-considerations.md) for the post-V1 re-acquisition seam).
-
-   This keeps the V1 invariant intact, drops the RFC-2119 keyword from an out-of-scope subject, and leaves a single forward link so readers chasing the future seam land in the right file.
-
-2. In `spec_topics/future-considerations.md`, add a bullet under **Surface extensions (V1 leaves a seam)** that owns the deferred behaviour. Suggested wording:
-
-   > **Mid-loom user-session replacement.** A future feature that calls `ctx.newSession()`, `ctx.fork()`, or `ctx.switchSession()` from inside a running loom invalidates the factory-captured `pi` reference used by the prompt-mode driver. The future implementation will need to re-acquire `pi` via `withSession` before the next `sendUserMessage`.
-   > *Seam:* the prompt-mode driver reads `pi` from a single captured reference; introducing a re-acquisition hook is a localised change and does not perturb V1's "captured for the lifetime of each loom invocation" rule.
-
-Edge cases the implementer must watch:
-
-- Preserve the parenthetical list of session-mutating methods (`ctx.newSession()` / `ctx.fork()` / `ctx.switchSession()`) in whichever location the rewrite lands in — V5e's architectural test depends on the spec naming the exact set of replacement triggers, not just the concept.
-- The cross-link in `pi-integration-contract.md` should point at the new `future-considerations.md` bullet, not the file's top, so the forward reference survives future re-ordering of the future-considerations list.
-- Do not weaken the "V1 looms never trigger replacement" assertion — that is the live V1 invariant V5e relies on for the captured-`pi` lifetime guarantee.
-
-## Related Findings
-
-- "Symlink hardening future path embedded inline in a normative rule" — same-cluster (identical pattern: out-of-scope future text embedded inside a normative V1 paragraph; resolves independently with the same relocation-to-future-considerations move)
-- "V1 seam constraints mixed with out-of-scope deferrals across 14 bullets" — same-cluster (parallel scope-hygiene issue inside `future-considerations.md` itself; both findings touch the V1-vs-future boundary but resolve independently)
-- "Provider compatibility local-backend note belongs in `future-considerations.md`" — co-resolve (adjacent paragraph in the same `pi-integration-contract.md` section; both relocate an out-of-scope clause to `future-considerations.md` and can be edited in a single pass)
-- "Two-arm binder schema is a V1 deliverable buried in the non-goals section" — same-cluster (mirror-image scope-hygiene issue: V1 content in a future-section rather than future content in a V1 section; same underlying spec-organisation rule)
 
 ---
 
