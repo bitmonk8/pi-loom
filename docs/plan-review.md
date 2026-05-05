@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_115 findings retained, 3 false positives dropped, 0 persistent failures_
+_114 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -8185,65 +8185,4 @@ Edge cases the implementer must watch:
 - "\"Severity round-trips\" underspecified" — same-cluster (concerns the `details` payload carried by the same `pi.sendMessage` call)
 - "M's \"AbortError\" system-note path not defined in spec" — same-cluster (uses the same channel; resolves independently)
 - "H3 plans a serialiser to a Pi shape the spec says is unused" — same-cluster (also about correctly framing the `loom-system-note` delivery surface)
-
----
-
-# V18i per-`kind` formatter: catch-all row, `last_tool_name=null`, and recursive chain attribution untested
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** V18i per-kind formatter: catch-all row, `last_tool_name=null`, chain recursion unasserted
-**Kind:** spec-coverage
-
-## Finding
-
-`spec_topics/slash-invocation.md` defines three normative behaviours for the per-`kind` system-note formatter, all in the same paragraph beneath the table (lines 39–41):
-
-1. A catch-all row — `_any unlisted `kind`_ → "loom `/<name>` returned `Err`: `<kind>` — `<message>`"` — that makes the renderer total against any future `QueryError` variant.
-2. For `tool_loop_exhausted`, `<last_tool_name>` MUST render as the literal string `respond` when `last_tool_name` is `null` (the exhaustion fired on the forced respond turn of a typed query).
-3. The chain-attribution suffix recurses into `InvokeCalleeError.inner` so the leaf `kind` (not the wrapper) drives the descriptive text, and the suffix applies to **every** row including the catch-all whenever the failure cascaded from an invoked child.
-
-V18i's Tests bullet in `plan_topics/v18-cancellation.md` reads in full: *"Each `kind` row produces the spec's exact text; chain attribution works for two-level cascade."* "Each kind row" enumerates only the named V1 variants and gives no test for an unknown `kind` hitting the catch-all. "Two-level cascade" stops one level short of exercising the recursive descent through `inner.inner`. And nothing constrains the `null`-handling path for `last_tool_name`. An implementer can satisfy V18i's acceptance criterion verbatim while shipping a formatter that crashes on the catch-all path, prints `null` (or `undefined`) for an exhausted typed query, or attributes a three-level cascade to the wrapper `invoke_callee_error` instead of the leaf.
-
-## Plan Documents
-
-- `plan_topics/v18-cancellation.md` — V18i Tests bullet (edited)
-
-## Spec Documents
-
-- `spec_topics/slash-invocation.md` — Per-`kind` formatting table and the paragraph beneath it (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical V18
-
-**Leaves (implementation order):**
-
-- V18i — Per-`kind` formatting for prompt-mode top-level `Err` (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers will diverge: one reads V18i Tests literally and ships a partial formatter; another reads the spec and ships the catch-all, the `respond` substitution, and the recursive chain attribution. The V18o coverage gate cannot detect the gap because V18i is listed against the `Invocation from Pi` row in `coverage-matrix.md` and will appear "covered." A future `QueryError` variant added to the union would silently render as undefined behaviour in production, with no failing test.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `plan_topics/v18-cancellation.md`, replace V18i's `**Tests.**` bullet with:
-
-> **Tests.** Each named `kind` row produces the spec's exact text; an unknown synthetic `kind` (e.g. `"unknown_future"`) renders the catch-all row verbatim including `<kind>` and `<message>`; `tool_loop_exhausted` with `last_tool_name: null` renders the literal string `respond` (not `null`/`undefined`/empty); chain attribution works for a two-level `invoke_callee_error` cascade and recurses through a three-level `invoke_callee_error → invoke_callee_error → leaf` cascade so the descriptive text reflects the leaf `kind` and the suffix prints the full chain `"... from grandchild.loom invoked at child.loom:N from child.loom invoked at parent.loom:M"`; the chain suffix also fires on the catch-all row when an unknown-`kind` failure cascaded from a child.
-
-Also extend V18i's `**Adds.**` bullet to name the catch-all formatter explicitly, e.g. append: `; catch-all formatter for any unlisted kind; literal "respond" substitution when last_tool_name is null; recursive descent into InvokeCalleeError.inner for chain attribution at any depth.` This keeps Adds/Tests symmetric and prevents the implementer from treating the new test bullets as orthogonal additions instead of contractually-required formatter behaviour.
-
-No leaf renames, splits, or dependency changes are required. V18i's `Deps` (V18h) and `Ships when` are unchanged.
-
-## Related Findings
-
-- "V3c missing from `Invocation from Pi` coverage row" — same-cluster (both touch the V18i ↔ `slash-invocation.md` mapping; resolved independently)
-- "M requires `loom-system-note` channel that V18h introduces" — decision-dependency (M depends on V18i's formatter contract for the `cancelled` row; tightening V18i's Tests narrows what M can rely on at MVP time)
-- "Runtime event channel / always-log set wholly absent from the plan" — same-cluster (the always-log set covers the same `kind` values V18i formats; the new always-log leaf and V18i's catch-all/recursion tests share the `details.event` payload but resolve independently)
-- "`loom-system-note` delivery fallback chain unasserted" — same-cluster (sibling V18 system-note coverage gap; independent fix)
 

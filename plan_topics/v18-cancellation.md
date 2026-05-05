@@ -75,8 +75,8 @@
 ## V18i — Per-`kind` formatting for prompt-mode top-level `Err`
 
 - **Spec.** [Invocation from Pi](../spec_topics/slash-invocation.md) (top-level Err in prompt mode table).
-- **Adds.** Per-kind system-note formatter; chain identification when leaf failure originated in invoked child (`"... from child.loom invoked at parent.loom:42"`).
-- **Tests.** Each `kind` row produces the spec's exact text; chain attribution works for two-level cascade.
+- **Adds.** Per-kind system-note formatter; chain identification when leaf failure originated in invoked child (`"... from child.loom invoked at parent.loom:42"`); catch-all formatter for any unlisted `kind`; literal `"respond"` substitution when `last_tool_name` is `null`; recursive descent into `InvokeCalleeError.inner` for chain attribution at any depth.
+- **Tests.** Each named `kind` row produces the spec's exact text; an unknown synthetic `kind` (e.g. `"unknown_future"`) renders the catch-all row verbatim including `<kind>` and `<message>`; `tool_loop_exhausted` with `last_tool_name: null` renders the literal string `respond` (not `null`/`undefined`/empty); chain attribution works for a two-level `invoke_callee_error` cascade and recurses through a three-level `invoke_callee_error → invoke_callee_error → leaf` cascade so the descriptive text reflects the leaf `kind` and the suffix prints the full chain `"... from grandchild.loom invoked at child.loom:N from child.loom invoked at parent.loom:M"`; the chain suffix also fires on the catch-all row when an unknown-`kind` failure cascaded from a child.
 - **Deps.** V18h.
 - **Ships when.** Prompt-mode `Err` surfaces are uniform.
 
