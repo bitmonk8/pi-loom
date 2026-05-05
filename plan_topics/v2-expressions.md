@@ -29,7 +29,7 @@
 
 - **Spec.** [Expression Sublanguage](../spec_topics/expressions.md).
 - **Adds.** `a.b` for objects; `a[i]` for arrays and string-keyed objects. `obj.field = ...` and `arr[i] = ...` remain parse errors (V2b).
-- **Tests.** Member access on anonymous object literals (V2-internal); index access on arrays; OOB returns runtime panic (V18o-routed); null member access panics.
+- **Tests.** Member access on anonymous object literals (V2-internal); index access on arrays; OOB returns runtime panic (source V18k; routing V18m on slash surface, V18n on `invoke` surface); null member access panics (source V18l; same routing).
 - **Deps.** V2c.
 - **Ships when.** Loom code can read structured values.
 

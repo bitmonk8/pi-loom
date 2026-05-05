@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_46 findings retained, 3 false positives dropped, 0 persistent failures_
+_45 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -3348,64 +3348,6 @@ Use the literal code string `loom/parse/integer-narrowing` in all three Tests. T
 - "Empty schema and enum body diagnostics — no test leaf" — same-cluster (sibling unasserted-code finding)
 - "Type-alias cycle detection (`loom/parse/type-alias-cycle`) — no plan leaf" — same-cluster (sibling unasserted-code finding)
 - "`loom/parse/non-string-discriminator` — no test leaf" — same-cluster (sibling unasserted-code finding)
-
----
-
-# V2d cites wrong panic-routing leaf
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** V2d cites wrong panic-routing leaf
-**Kind:** spec-clarity
-
-## Finding
-
-V2d's Tests bullet in `plan_topics/v2-expressions.md` reads "index access on arrays; OOB returns runtime panic (V18o-routed); null member access panics." The cite is wrong on two counts. V18o is the per-call-timeout marker and coverage-matrix CI gate (`plan_topics/v18-cancellation.md` lines 115+); it has nothing to do with panic routing. The OOB panic *source* is V18k ("Runtime panic: array index out of bounds", lines 83+), and panic *routing* lives in V18m (slash-command surface, lines 99+) and V18n (`invoke` parent surface, lines 107+). For symmetry, "null member access panics" similarly maps to source V18l ("Runtime panic: indexed access on `null` / missing key", lines 91+).
-
-An implementer following the V2d cite lands on a CI-gate leaf that does not describe panic semantics at all, then has to hunt the V18 file to discover the actual source/routing split.
-
-## Plan Documents
-
-- `plan_topics/v2-expressions.md` — V2d Tests bullet (edited)
-- `plan_topics/v18-cancellation.md` — V18k, V18l, V18m, V18n, V18o sections (read-only)
-
-## Spec Documents
-
-None.
-
-## Affected Leaves
-
-**Phases:** Vertical V2
-
-**Leaves (implementation order):**
-
-- V2d — Member access and indexed access — (modified)
-
-## Consequence
-
-**Severity:** advisory
-
-The wrong cite costs an implementer one extra hop to the V18 file but does not change what V2d must test (a panic on OOB / on null member access). No test would silently pass under the wrong code, since V2d does not assert routing semantics directly — those are V18m/V18n's job. Risk is reader friction and the chance an implementer inlines the wrong routing assumption into V2d's test scaffolding.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `plan_topics/v2-expressions.md`, in V2d's `**Tests.**` bullet, replace
-
-> index access on arrays; OOB returns runtime panic (V18o-routed); null member access panics.
-
-with
-
-> index access on arrays; OOB returns runtime panic (source V18k; routing V18m on slash surface, V18n on `invoke` surface); null member access panics (source V18l; same routing).
-
-No other field in V2d changes. V18k/V18l/V18m/V18n/V18o themselves are not edited.
-
-## Related Findings
-
-- "V18m / V18o: panic routing has no debug/verbose surface" — same-cluster (concerns the same routing leaves but addresses observability, not cross-references)
-- "V18o bundles per-call timeout marker with coverage-matrix CI gate" — same-cluster (clarifying V18o's actual scope reinforces why citing it for panic routing is wrong; resolves independently)
 
 ---
 
