@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_78 findings retained, 3 false positives dropped, 0 persistent failures_
+_77 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -5525,74 +5525,4 @@ Leave V10e itself unchanged in scope; cite it from V13b's Deps and let V13b own 
 - "Static-resolution cache named three different ways" — same-cluster (sibling V13-area finding; resolves independently)
 - "V13 title inconsistency and \"retry\" terminological conflict" — same-cluster (sibling V13-area finding; resolves independently)
 - "\"Severity round-trips\" underspecified" — same-cluster (touches a different `Severity`-related observability boundary in H3, not the inbound brand walk; resolves independently)
-
----
-
-## plan_topics/v14-tool-calls.md
-
----
-
-# V14c references the registered-loom-callee surface before V15e creates it
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** V14c tests registered-loom callees before V15e creates them (ordering gap)
-**Kind:** ordering
-
-## Finding
-
-V14c's Adds describes argument type-checking for "registered loom callees" against the per-load-pass static-resolution cache, parenthesised with "(populated for `tools:` entries by V15e)." Its Tests bullet "bare-object literal in single-arg position for `let`-bound or registered-loom callees emits `loom/parse/bare-object-literal`" exercises that branch. But V14c's Deps are `V14a, V13c, V16a` — none of those introduces the registered-loom-callee surface, and V15e (which both creates the callable and populates the `tools:` slice of the cache) has not yet shipped at V14c's sequence position.
-
-The leaf therefore cannot ship green as written: the registered-loom-callee half of the test bullet has nothing to dispatch against, and the cache it consults is empty for `tools:` entries. Inverting Deps to `V14c → V15e` would create a circular ordering — V15e itself relies on V14c for the bare `<name>(args)` call syntax used by registered loom callees from code (V15e Adds: "entry callable from both code (`<name>(...)`) and model"). The only coherent fix is to keep V14c restricted to Pi-tool dispatch (plus the `let`-bound rejection) and migrate the registered-loom-callee dispatch and its tests to V15e, which already covers loom-callable creation and the same `tools:` cache slice.
-
-## Plan Documents
-
-- `plan_topics/v14-tool-calls.md` — V14c Adds and Tests (edited)
-- `plan_topics/v15-invoke.md` — V15e Adds and Tests (edited)
-- `plan_topics/conventions.md` — leaf-format rules, Deps/Ships-when convention (read-only)
-- `plan.md` — phase ordering V14 → V15 (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical V14, Vertical V15
-
-**Leaves (implementation order):**
-
-- V14c — Bare `<name>(args)` call from loom code — (modified)
-- V15e — `.loom` paths in `tools:` (default basename naming) — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-An implementer following V14c literally will either (a) skip the registered-loom-callee test bullet and tag V14c green with an unobservable acceptance gate, or (b) block V14c on a forward Dep that the plan does not declare and that would be circular if added. Two reasonable implementers will diverge on which path to take, and neither outcome matches the plan's intent. The static-resolution cache description in V14c's Adds also misleads about *where* the cache is populated for `tools:` entries, encouraging implementers to wire the loom-callee branch at V14c against an empty cache.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `plan_topics/v14-tool-calls.md`, V14c:
-
-- In **Adds.**, strike the first sentence ("For registered loom callees, argument type-checking and return-type inference at the call site use the callee's parsed form from the per-load-pass static-resolution cache (populated for `tools:` entries by V15e); type mismatches surface as `loom/parse/tool-arg-type-mismatch` when statically resolvable, otherwise the runtime AJV check is the safety net.") and replace with: "When the callee resolves to a Pi tool, argument type-checking uses the Pi tool's input schema; type mismatches surface as `loom/parse/tool-arg-type-mismatch`. Registered-loom-callee dispatch and its static-resolution-cache consumer are introduced by V15e."
-- In **Tests.**, change "bare-object literal in single-arg position for `let`-bound or registered-loom callees emits `loom/parse/bare-object-literal`" to "bare-object literal in single-arg position for a `let`-bound callee emits `loom/parse/bare-object-literal`" (drop "registered-loom"). The `let`-bound case stays in V14c because no loom-callable surface is required to test it.
-
-In `plan_topics/v15-invoke.md`, V15e:
-
-- In **Adds.**, append after the existing arity sentence: "Registered-loom callees dispatched via `<name>(...)` are not Pi tools and therefore do not admit the bare-object-literal carve-out from [Tool Calls — Argument shape](../spec_topics/tool-calls.md); a bare object literal in their single-argument position emits `loom/parse/bare-object-literal`. Argument type-checking uses the callee's parsed form from the per-load-pass parse cache populated here; type mismatches surface as `loom/parse/tool-arg-type-mismatch` when statically resolvable, otherwise the runtime AJV check is the safety net."
-- In **Tests.**, append: "bare-object literal in single-arg position for a registered-loom callee emits `loom/parse/bare-object-literal`; statically-resolvable argument type mismatch at a registered-loom call site emits `loom/parse/tool-arg-type-mismatch`; unresolvable callee falls back to runtime AJV."
-
-Edge cases the implementer must watch: V14d's "Code-side tool call bypasses model entirely" assertion still applies to both Pi-tool and registered-loom-callee paths — when V14d's tests are written (per V14d Deps `V14c`), the registered-loom branch needs a parallel transcript-equality test gated on V15e completion, or V14d's loom-callee verification must move to V15e alongside the dispatch. Coordinate with the "V14d too hollow — merge into V14c" finding: if V14d is absorbed, the absorbed bullet must split the same way (Pi-tool transcript test in V14c, registered-loom transcript test in V15e). The static-resolution-cache name should be reconciled with the "Static-resolution cache named three different ways" finding before these edits land — use the spec's term "per-load-pass parse cache" in the new V15e text rather than re-introducing the "static-resolution cache" alias.
-
-## Related Findings
-
-- "V14c too large — three distinct concerns" — same-cluster (proposes orthogonal split axis; the registered-loom-callee migration must happen first or be coordinated with that split)
-- "V14d too hollow — merge into V14c" — decision-dependency (any V14d→V14c absorption must respect the Pi-tool-only carve here so the loom-callee transcript test moves to V15e)
-- "V14c: `toolCallId` suffix scheme unspecified" — same-cluster (touches V14c Adds; resolve independently)
-- "V14c bare-object-literal `second carve-out` has no `first`" — same-cluster (touches the same Adds paragraph; resolve independently)
-- "Static-resolution cache named three different ways" — decision-dependency (the new V15e Adds text written here must use the standardised name picked by that finding)
 
