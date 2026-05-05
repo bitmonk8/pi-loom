@@ -1,7 +1,7 @@
 # pi-loom — Consolidated Spec Review
 
 _Generated: 2026-05-05T19:49:46Z (revised: merges + multi→single conversion + bottom-up reorder)_
-_60 source findings → 4 commit-ready findings (8 merge clusters, 22 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
+_60 source findings → 3 commit-ready findings (8 merge clusters, 22 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
 
 Findings are ordered for **bottom-up processing**: each commit fixes the *last* finding in the doc until the doc is empty. Dependencies that require a particular landing order are encoded in the doc order — `MERGE-F` (`bindings.md` BNDS / BNDR rename) sits at the bottom of the REQ-ID-appendix supersection so it lands *before* `MERGE-G` (retirement registries + V18s sub-gates), which sits above it.
 
@@ -244,101 +244,5 @@ Edge cases:
 ## Related Findings
 
 - None outside this merge.
-
----
-
----
-
-## spec.md — Implementation Notes
-
----
-
-# spec.md Orientation prerequisites + Host runtime + pi-integration-contract Host prerequisites
-
-**Source:** docs/reviews/spec-review/spec-20260505-204733.md
-**Merged from:** 3 findings:
-- Pi runtime prerequisites and SDK version pin not surfaced in the spec orientation
-- LLM availability for argument binding is an undisclosed runtime prerequisite
-- Host runtime (Node + JS) and Pi-supplied `AbortSignal` are unstated prerequisites
-
-**Kind:** completeness, traceability, error-model
-
-## Finding
-
-Three orthogonal prerequisite gaps all want the same insertion site (Orientation block of `spec.md` + opening paragraph of `pi-integration-contract.md`):
-
-1. The Pi SDK pin (`@mariozechner/pi-coding-agent ^0.72.1`) and the named SDK capabilities loom depends on are not surfaced at the spec entry point.
-2. The binder LLM model is a runtime prerequisite for non-bypass looms but is undisclosed in orientation.
-3. Node.js host runtime, web-standard `AbortSignal`, and JS engine assumptions (IEEE-754, `Map`/`Set`, `JSON.stringify`, `Object.is`) are unstated.
-
-All three edit the same Orientation block and the same `pi-integration-contract.md` opening paragraph.
-
-## Spec Documents
-
-- `spec.md` — Orientation block (edited; new `## Prerequisites` subsection)
-- `spec_topics/pi-integration-contract.md` — opening paragraph (edited; new `**Host prerequisites.**` paragraph + `AbortSignal` prerequisite sentence)
-- `spec_topics/runtime-value-model.md`, `spec_topics/cancellation.md` — (read-only; cross-link targets)
-- `package.json` — `engines.node` field (edited)
-
-## Plan Impact
-
-**Phases:** Horizontal
-
-**Leaves (implementation order):**
-
-- H1 — repository skeleton + Vitest — (modified; add an `engines.node` assertion)
-
-## Consequence
-
-**Severity:** correctness
-
-A reader of orientation cannot tell which Pi SDK version is required, which LLM credentials are needed for the binder, or which Node runtime the spec assumes. Three separate evaluators will reach three different conclusions.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add a `## Prerequisites` subsection at the top of `spec.md`'s Orientation block (above the Overview / Influences / Comparison bullets) containing three sub-areas:
-
-**Subsection 1 — Pi SDK and capabilities.**
-
-> The host is `@mariozechner/pi-coding-agent` at the version pinned by [Pi Integration Contract](./spec_topics/pi-integration-contract.md). The matching `pi-agent-core` / `pi-ai` / `pi-tui` minor is also required; `package.json` `peerDependencies` is the enforcement point. Loom depends on the following named SDK capabilities (each link points to the section that pins it):
->
-> - **Slash-command registration** — `pi.registerCommand` (per *Extension entry point*).
-> - **Prompt-mode conversation drive** — `pi.sendUserMessage` + `ExtensionCommandContext.waitForIdle` (per *Conversation drive — prompt mode*).
-> - **Subagent-mode isolated session** — `createAgentSession` returning a disposable `AgentSession` with private `SessionManager.inMemory(cwd)` transcript (per *Conversation drive — subagent mode* and *Subagent session lifecycle*).
-> - **Tool registration and gating** — `pi.registerTool` + `pi.setActiveTools` snapshot/restore (per *Tool-registration lifetime and visibility*).
-> - **Cancellation propagation** — Pi-supplied `AbortSignal` plumbed via `ctx.signal` (turn-side) and `execute(..., signal, ...)` (tool-side); the loom-side `AbortController` rule is in *Cancellation source*.
-> - **Custom-message channel and renderer** — `pi.sendMessage({ customType: "loom-system-note", ... })` + `pi.registerMessageRenderer` (per *System notes*).
-> - **Binder LLM model** — A structured-output-capable model resolved via `ctx.modelRegistry`; non-bypass looms fail to load with `loom/load/binder-model-unresolved` if absent. Bypass cases (no-params, single-string with no default) skip the binder call.
->
-> Widening `peerDependencies` requires re-validating the surface inventory above against the new Pi minor before the range moves.
-
-**Subsection 2 — Host runtime.**
-
-> The loom runtime executes inside the Pi extension host process. The host is Node.js; the supported version range is `>=20.6.0` (matching `@mariozechner/pi-coding-agent`'s `engines.node` floor at the pinned peer-dep version). A Pi minor bump that widens or narrows that range requires re-validating the loom range in the same edit. The host's `AbortSignal` / `AbortController` types are Web-standard (the Node-bundled WHATWG implementation); the loom runtime treats them as a load-bearing SDK contract. The runtime value model assumes a JavaScript engine with IEEE-754 numbers, native `Map`/`Set`, native `JSON.stringify`, and `Object.is` semantics for primitive equality (see [Runtime Value Model](./spec_topics/runtime-value-model.md) and [Cancellation](./spec_topics/cancellation.md)).
-
-Companion edits to `spec_topics/pi-integration-contract.md`:
-
-- Add a `**Host prerequisites.**` paragraph at the top, after the existing version pin, covering: (1) the SDK pin (already there); (2) the binder-model requirement and `loom/load/binder-model-unresolved` failure (with `loom/load/binder-model-strict-capability-unknown` (W) currently degraded under `^0.72.1`); (3) credentials reach the binder via the same `ctx.modelRegistry` / `Model<Api>` path Pi uses for its own queries; (4) V1 has no global binder opt-out — bypass is structural and per-loom.
-- Add one sentence elevating "Pi delivers an `AbortSignal` to every extension entry point — `ctx.signal`, `tool.execute`'s `signal` parameter, and `createAgentSession({ signal })`'s parameter" to a stated SDK prerequisite. Cross-reference from the existing **Cancellation source** paragraph.
-
-Companion edit to `package.json`:
-
-- Add `"engines": { "node": ">=20.6.0" }`. H1 adds a Vitest assertion that reads the field literally.
-
-Edge cases:
-
-- The version constant must not be duplicated. The Prerequisites subsection references the constant by name ("the pinned range stated at the top of [Pi Integration Contract]"), not by literal value.
-- The capability list is a navigation aid only; it MUST NOT restate behavioural rules.
-- The `AbortSignal` prerequisite is additive — it does not retract `cancellation.md`'s tolerance for `ctx.signal === undefined` at slash-command entry.
-- Do not add REQ-IDs to the Prerequisites subsection; orientation pages carry no IDs.
-- Do not state credentials are stored by Pi — state they reach the binder via `ctx.modelRegistry`.
-
-## Related Findings
-
-- MERGE-A (opening-paragraph rewrite) — same Orientation block; both must land in one pass to avoid two contradictory rewrites of the same block.
 
 ---

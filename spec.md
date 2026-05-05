@@ -10,6 +10,24 @@ The full specification is split into focused topic pages under [`spec_topics/`](
 
 ## Orientation
 
+### Prerequisites
+
+**Pi SDK and capabilities.** The host is `@mariozechner/pi-coding-agent` at the version pinned by [Pi Integration Contract](./spec_topics/pi-integration-contract.md). The matching `pi-agent-core` / `pi-ai` / `pi-tui` minor is also required; `package.json` `peerDependencies` is the enforcement point. Loom depends on the following named SDK capabilities (each link points to the section that pins it):
+
+- **Slash-command registration** — `pi.registerCommand` (per [Pi Integration Contract — Extension entry point](./spec_topics/pi-integration-contract.md)).
+- **Prompt-mode conversation drive** — `pi.sendUserMessage` + `ExtensionCommandContext.waitForIdle` (per [Pi Integration Contract — Conversation drive — prompt mode](./spec_topics/pi-integration-contract.md)).
+- **Subagent-mode isolated session** — `createAgentSession` returning a disposable `AgentSession` with private `SessionManager.inMemory(cwd)` transcript (per [Pi Integration Contract — Conversation drive — subagent mode](./spec_topics/pi-integration-contract.md) and [Pi Integration Contract — Subagent session lifecycle](./spec_topics/pi-integration-contract.md)).
+- **Tool registration and gating** — `pi.registerTool` + `pi.setActiveTools` snapshot/restore (per [Pi Integration Contract — Tool-registration lifetime and visibility](./spec_topics/pi-integration-contract.md)).
+- **Cancellation propagation** — Pi-supplied `AbortSignal` plumbed via `ctx.signal` (turn-side) and `execute(..., signal, ...)` (tool-side); the loom-side `AbortController` rule is in [Pi Integration Contract — Cancellation source](./spec_topics/pi-integration-contract.md) and [Cancellation](./spec_topics/cancellation.md).
+- **Custom-message channel and renderer** — `pi.sendMessage({ customType: "loom-system-note", ... })` + `pi.registerMessageRenderer` (per [Pi Integration Contract — System notes](./spec_topics/pi-integration-contract.md)).
+- **Binder LLM model** — A structured-output-capable model resolved via `ctx.modelRegistry`; non-bypass looms fail to load with `loom/load/binder-model-unresolved` if absent. Bypass cases (no-params, single-string with no default) skip the binder call.
+
+Widening `peerDependencies` requires re-validating the surface inventory above against the new Pi minor before the range moves.
+
+**Host runtime.** The loom runtime executes inside the Pi extension host process. The host is Node.js; the supported version range is `>=20.6.0` (matching `@mariozechner/pi-coding-agent`'s `engines.node` floor at the pinned peer-dep version). A Pi minor bump that widens or narrows that range requires re-validating the loom range in the same edit. The host's `AbortSignal` / `AbortController` types are Web-standard (the Node-bundled WHATWG implementation); the loom runtime treats them as a load-bearing SDK contract. The runtime value model assumes a JavaScript engine with IEEE-754 numbers, native `Map`/`Set`, native `JSON.stringify`, and `Object.is` semantics for primitive equality (see [Runtime Value Model](./spec_topics/runtime-value-model.md) and [Cancellation](./spec_topics/cancellation.md)).
+
+### Reading order
+
 Read these first to understand the design:
 
 - [Overview and Conceptual Model](./spec_topics/overview.md) — what a loom is, query-and-await, prompt vs. subagent mode.
