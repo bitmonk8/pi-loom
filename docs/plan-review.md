@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_75 findings retained, 3 false positives dropped, 0 persistent failures_
+_74 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -5323,65 +5323,4 @@ No other field in V14e changes. V12a itself is not edited; this is a one-sided o
 ## Related Findings
 
 - "`AgentSession.dispose()` failure path unbounded" — same-cluster (also touches V12a but resolves with an independent edit to V12a's Tests / a new policy leaf)
-
----
-
-## plan_topics/v13-wire-names.md
-
----
-
-# V13 phase title says "retry/coercion" but spec forbids conflating retry with coercion
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** V13 title inconsistency and "retry" terminological conflict
-**Kind:** consistency
-
-## Finding
-
-The `plan.md` table-of-contents line for V13 reads `V13 — Wire names, descriptions, retry/coercion`, while the leaf file `plan_topics/v13-wire-names.md` titles the phase `V13 — Wire names, descriptions, coercion`. The two surfaces disagree on the V13 scope.
-
-The discrepancy is not just cosmetic. `spec_topics/frontmatter.md` (the `coercion` paragraph) explicitly reserves the verb "retry" for distinct mechanisms — `TransportError.retryable` and the binder's single-shot transport retry (V16n) — and states they are different mechanisms from coercion. The `retry/coercion` phrasing in the plan index is the exact conflation the spec is written to forbid, and an implementer scanning the TOC may infer a retry-shaped mechanism inside V13 that none of the V13a–V13j leaves actually implement (V13g–V13j are pure validator-driven follow-up turns, not retries).
-
-## Plan Documents
-
-- `plan.md` — line 49, vertical-slice index entry for V13 (edited)
-- `plan_topics/v13-wire-names.md` — H1 title (read-only; already correct)
-
-## Spec Documents
-
-- `spec_topics/frontmatter.md` — `coercion` paragraph, reservation of "retry" terminology (read-only)
-
-## Affected Leaves
-
-**Phases:** None
-
-**Leaves (implementation order):** None
-
-The fix is confined to a single TOC line in `plan.md`. No V13 leaf's `Spec` / `Adds` / `Tests` / `Deps` / `Ships when` body changes; the leaf-file H1 already uses the correct title.
-
-## Consequence
-
-**Severity:** advisory
-
-An implementer working from the `plan.md` index alone may expect V13 to introduce a retry mechanism for coercion failures and waste effort looking for it (or invent it). The leaf file body is internally consistent and would catch the error on read, so no leaf actually ships wrong — but the plan violates a terminology reservation the spec calls out by name, which weakens the spec/plan contract for any future reader who treats the index as authoritative.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `plan.md`, replace line 49
-
-```
-- [V13 — Wire names, descriptions, retry/coercion](./plan_topics/v13-wire-names.md)
-```
-
-with
-
-```
-- [V13 — Wire names, descriptions, coercion](./plan_topics/v13-wire-names.md)
-```
-
-so the index matches the leaf file's H1 verbatim and stops using the spec-reserved word "retry" for a coercion-shaped mechanism. No other plan or spec edit is required; `grep -n 'retry' plan.md` confirms this is the only occurrence in `plan.md`, and `grep -rn 'retry' plan_topics/` shows the remaining uses are inside V16n / V16o / V16p, where the term is correctly applied to the binder transport retry.
 

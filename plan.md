@@ -46,7 +46,7 @@ Each page contains the leaves for that slice. Leaves are the unit of work; their
 - [V10 — Enums and literal-union types](./plan_topics/v10-enums.md)
 - [V11 — Discriminated unions and recursion](./plan_topics/v11-discriminated-unions.md)
 - [V12 — Subagent mode](./plan_topics/v12-subagent.md)
-- [V13 — Wire names, descriptions, retry/coercion](./plan_topics/v13-wire-names.md)
+- [V13 — Wire names, descriptions, coercion](./plan_topics/v13-wire-names.md)
 - [V14 — Tool calls and discovery](./plan_topics/v14-tool-calls.md)
 - [V15 — `invoke`, registered loom callees, cross-mode](./plan_topics/v15-invoke.md)
 - [V16 — Slash-command argument binder (LLM path)](./plan_topics/v16-binder.md)
