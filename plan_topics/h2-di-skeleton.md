@@ -8,16 +8,6 @@
 // Re-exported Pi types — H2 does not redeclare them.
 import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
 
-// Clock — abstract wall-clock for deterministic tests.
-interface Clock {
-  now(): number;                                    // ms since epoch
-}
-
-// RandomSource — seedable PRNG seam.
-interface RandomSource {
-  next(): number;                                   // uniform in [0, 1)
-}
-
 // FileSystem — read/write loom + .warp + settings files; the watcher path is a separate seam.
 interface FileSystem {
   readText(path: string): Promise<string>;          // rejects with FileNotFound | FileReadError

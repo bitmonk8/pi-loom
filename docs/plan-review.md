@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_17 findings retained, 3 false positives dropped, 0 persistent failures_
+_16 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -1220,77 +1220,4 @@ Edge cases:
 - "H2 missing mandatory Spec field" — co-resolve (same omission in H2; same `**Spec.** None — infrastructure leaf` phrasing applies, though H2 may also need a real spec citation if `Clock`/`RandomSource`/etc. survive the separate spec-fidelity finding)
 - "H4 missing mandatory Spec field" — co-resolve (same omission in H4, but H4 actually implements `pi-integration-contract.md` obligations, so its Spec line must cite that page rather than say "None")
 - "H4 \"no logic\" shims contradict load-bearing semantics in same leaf" — decision-dependency (resolution affects what H4's `Spec.` field cites, which constrains the wording chosen here for parallelism)
-
----
-
-## plan_topics/h2-di-skeleton.md
-
----
-
-# `Clock` and `RandomSource` DI seams have no spec basis
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** `Clock` and `RandomSource` DI seams have no spec basis
-**Kind:** spec-fidelity, assumptions
-
-## Finding
-
-H2's **Adds** field commits the implementer to introduce ten DI seams, including `Clock` and `RandomSource`, plus in-memory fakes for each, plus negative-path tests for every fake. Neither `Clock` nor `RandomSource` corresponds to any V1 spec surface:
-
-- The runtime never consults wall-clock time. `RuntimeEvent` (`spec_topics/pi-integration-contract.md`) carries `kind`, `code`, `loom`, `query_site`, `message`, `attempts?`, `tokens_used?` — no timestamp field. The `(kind, query_site, message, occurrence-timestamp)` deduplication key in the same page is a *consumer-side* contract; the timestamp is whatever Pi attaches when it persists the system note, not something the loom runtime emits. Per-call timeouts are deferred (`spec_topics/cancellation.md`, `future-considerations.md`); cancellation is `AbortSignal`-driven only. The chokidar 250 ms debounce is internal to chokidar.
-- The runtime never generates random values. The single random-flavoured site is the synthesised `loom-direct:` UUID for code-side `toolCallId` (`spec_topics/pi-integration-contract.md` ≈ line 166), which is plain UUID synthesis (`crypto.randomUUID()`); V14c can use the platform primitive directly. The binder's "fixed seed" (`spec_topics/binder.md` `## Determinism`) is a literal constant per V16h, not a sampled value.
-
-A grep across `plan.md` and `plan_topics/` shows zero downstream references to `Clock`, `RandomSource`, `FakeClock`, or `FakeRandom`; no later leaf consumes either seam. The leaf therefore commits time and test surface to interfaces the spec does not require and no other leaf reaches — directly violating `plan_topics/conventions.md` step 2 of the TDD ritual ("No speculative APIs").
-
-## Plan Documents
-
-- `plan_topics/h2-di-skeleton.md` — **Adds**, **Tests**, **Ships when** (edited)
-- `plan_topics/conventions.md` — Per-phase TDD ritual (read-only; cited as the rule the current text violates)
-- `plan_topics/v14-tool-calls.md` — V14c (`toolCallId` synthesis) (read-only; consulted to confirm no `RandomSource` consumer)
-- `plan_topics/v16-binder.md` — V16h (binder seed) (read-only; consulted to confirm fixed seed, not a sampled value)
-- `plan_topics/coverage-matrix.md` — (read-only; confirmed neither seam closes any REQ-ID)
-
-## Spec Documents
-
-None.
-
-## Affected Leaves
-
-**Phases:** Horizontal
-
-**Leaves (implementation order):**
-
-- H2 — Dependency-injection skeleton with fakes — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers will produce divergent H2 artefacts: one follows the **Adds** field literally and writes `Clock` / `RandomSource` interfaces, fakes, and negative-path tests; another applies `conventions.md`'s "No speculative APIs" rule and refuses. The first ships dead code that subsequent leaves must navigate around (and that the no-statics architecture test in H1 has to special-case as not-imported-from-`src/`); the second silently shrinks the leaf and leaves the plan text inaccurate. Neither outcome blocks the V18o coverage gate — these seams have no REQ-IDs to cover — so the divergence persists undetected.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `plan_topics/h2-di-skeleton.md`:
-
-1. In the **Adds.** sentence, strike `` `Clock`, `RandomSource`, `` so the seam list opens with `` `FileSystem`, `DiagnosticsSink`, ... ``. The list then contains eight seams, not ten.
-2. Leave the **Tests.** bullets unchanged in count — they are stated generically ("Every fake has at least one negative-path test") and read correctly against the reduced seam set.
-3. Leave **Ships when.** unchanged — "Every interface has a fake" still holds, just over the smaller set.
-
-No edits propagate beyond H2: no other leaf names `Clock`, `RandomSource`, `FakeClock`, `FakeRandom`, or `makeRuntime`'s removed parameters. If a later leaf surfaces an actual spec-driven need (a real timestamp emission site or a non-UUID random draw), that leaf adds the seam at that point with the spec citation alongside, per the same `conventions.md` "No speculative APIs" rule.
-
-Edge case for the implementer: V14c synthesises `loom-direct:<uuid>` `toolCallId`s. Use `crypto.randomUUID()` directly at the call site; do not re-introduce a `RandomSource` seam under a different name to satisfy a perceived testability requirement — the toolCallId is opaque to assertions (V14c's tests can match `/^loom-direct:/` rather than the full UUID).
-
-## Related Findings
-
-- "H2 names ten DI seams but specifies zero method signatures" — co-resolve (the same H2 **Adds** edit reduces the seam set; the signatures finding then applies to the eight survivors)
-- "H2 missing mandatory Spec field" — same-cluster (same leaf, independent fix)
-- "`AgentSession` seam missing from H2 and H4" — same-cluster (same H2 seam list; one finding removes seams, the other adds one)
-- "\"speculative APIs\" undefined" — decision-dependency (this finding is the canonical worked example of the speculative-API rule the conventions finding asks to clarify)
-- "H1 scaffolds engineering hygiene without spec basis" — same-cluster (sibling spec-fidelity violation in the horizontal phases)
-- "V14c: `toolCallId` suffix scheme unspecified" — decision-dependency (resolution affects whether V14c reaches for a `RandomSource` shim)
-- "V16h binder seed value not specified" — same-cluster (touches the binder's fixed seed; confirms the seed is literal, not sampled)
 
