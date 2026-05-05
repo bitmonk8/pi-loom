@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_76 findings retained, 3 false positives dropped, 0 persistent failures_
+_75 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -5384,72 +5384,4 @@ with
 ```
 
 so the index matches the leaf file's H1 verbatim and stops using the spec-reserved word "retry" for a coercion-shaped mechanism. No other plan or spec edit is required; `grep -n 'retry' plan.md` confirms this is the only occurrence in `plan.md`, and `grep -rn 'retry' plan_topics/` shows the remaining uses are inside V16n / V16o / V16p, where the term is correctly applied to the binder transport retry.
-
-## Related Findings
-
-- "Static-resolution cache named three different ways" — same-cluster (same V13 section, same nomenclature-consistency lenses, independent fix targeting V15a/V15n/V18j leaf bodies rather than `plan.md`)
-
----
-
-# Static-resolution cache named three different ways
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** Static-resolution cache named three different ways
-**Kind:** naming, consistency
-
-## Finding
-
-The plan invents the phrase "per-load-pass static-resolution cache" for the data structure that the spec consistently calls the "per-load-pass parse cache" (`spec_topics/invocation.md` Static resolution; `spec_topics/frontmatter.md`; `spec_topics/implementation-notes.md`; `spec_topics/diagnostics.md` `loom/load/callee-has-errors` row). Four leaves use the invented form — V14c (`v14-tool-calls.md` L22), V15a (`v15-invoke.md` L6 Adds and L9 Ships when), V15d (L30 "load-pass cache"), V15e (L38) — while V18j (`v18-cancellation.md` L78) uses the spec's "per-load-pass parse cache" and V15n (`v15-invoke.md` L110) uses "per-load-pass static-resolution graph". Across the plan there are therefore three surface forms for what implementers will need to recognise as a single artefact.
-
-The V15n "graph" usage is not a third synonym for the cache: the spec also distinguishes the parse cache (storage) from the static-resolution graph (the reachable-callee shape walked for cycle detection in `spec_topics/invocation.md` Cycle detection), and V15n is the cycle-detection leaf, so its "graph" wording is spec-aligned. The defect is confined to the four leaves that use "static-resolution cache": that phrase appears nowhere in the spec and risks an implementer treating it as a separate structure from the parse cache populated by V15a, particularly because V14c phrases the cache as the source of "the callee's parsed form" while V15a phrases it as a "static-resolution cache" that "is populated."
-
-## Plan Documents
-
-- `plan_topics/v14-tool-calls.md` — V14c Adds (edited)
-- `plan_topics/v15-invoke.md` — V15a Adds + Ships when, V15d Adds, V15e Adds (edited)
-- `plan_topics/v15-invoke.md` — V15n Adds (read-only — "static-resolution graph" is spec-aligned for cycle detection)
-- `plan_topics/v18-cancellation.md` — V18j Adds (read-only — already matches spec)
-- `spec_topics/invocation.md` — Static resolution / Cycle detection (read-only — defines the canonical terms)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical V14, Vertical V15
-
-**Leaves (implementation order):**
-
-- V14c — Tool-call resolution and dispatch (modified)
-- V15a — `invoke("./path.loom", ...)` parsing and resolution (modified)
-- V15d — Positional argument binding for `invoke` (modified)
-- V15e — `.loom` paths in `tools:` (default basename naming) (modified)
-
-## Consequence
-
-**Severity:** advisory
-
-An implementer reading V15a in isolation will build "the per-load-pass static-resolution cache," then reading V18j will see "per-load-pass parse cache" cited as the same thing the static-resolution load pass builds and have to confirm by side-reading `spec_topics/invocation.md` that the two phrases refer to one cache. The risk of two structures actually being built is low, but the inconsistency forces the implementer off the leaf and into the spec to disambiguate, and a future reader skimming for the cache's name will not find the spec term in V14c/V15a/V15d/V15e where it most matters.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In each of the four leaves below, replace the literal phrase `per-load-pass static-resolution cache` (and the V15d short form `load-pass cache`) with `per-load-pass parse cache`, matching the spec term in `spec_topics/invocation.md` Static resolution.
-
-- `plan_topics/v14-tool-calls.md` V14c **Adds.** — change "the per-load-pass static-resolution cache (populated for `tools:` entries by V15e)" to "the per-load-pass parse cache (populated for `tools:` entries by V15e)".
-- `plan_topics/v15-invoke.md` V15a **Adds.** — change "lowered into the parent's per-load-pass static-resolution cache" to "lowered into the parent's per-load-pass parse cache".
-- `plan_topics/v15-invoke.md` V15a **Ships when.** — change "the static-resolution cache is populated" to "the per-load-pass parse cache is populated".
-- `plan_topics/v15-invoke.md` V15d **Adds.** — change "statically resolvable per the load-pass cache populated by V15a" to "statically resolvable per the per-load-pass parse cache populated by V15a".
-- `plan_topics/v15-invoke.md` V15e **Adds.** — change "the same per-load-pass static-resolution cache V15a populates" to "the same per-load-pass parse cache V15a populates".
-
-Leave V15n's "per-load-pass static-resolution graph" untouched — the spec uses that phrase specifically for the cycle-detection walk, which is V15n's subject. Leave V18j untouched — it already reads "per-load-pass parse cache, per the Static-resolution load pass," matching the spec.
-
-## Related Findings
-
-- "V14c tests registered-loom callees before V15e creates them (ordering gap)" — same-cluster (also touches V14c's "static-resolution cache" sentence; resolve naming first, then the ordering edit reuses the corrected phrase)
-- "V14c too large — three distinct concerns" — same-cluster (any V14c split must carry the corrected term into the resulting leaves)
 
