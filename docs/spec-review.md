@@ -1,7 +1,7 @@
 # pi-loom — Consolidated Spec Review
 
 _Generated: 2026-05-05T19:49:46Z (revised: merges + multi→single conversion + bottom-up reorder)_
-_60 source findings → 26 commit-ready findings (8 merge clusters, 26 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
+_60 source findings → 25 commit-ready findings (8 merge clusters, 26 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
 
 Findings are ordered for **bottom-up processing**: each commit fixes the *last* finding in the doc until the doc is empty. Dependencies that require a particular landing order are encoded in the doc order — `MERGE-F` (`bindings.md` BNDS / BNDR rename) sits at the bottom of the REQ-ID-appendix supersection so it lands *before* `MERGE-G` (retirement registries + V18s sub-gates), which sits above it.
 
@@ -1852,75 +1852,4 @@ In `spec_topics/pi-integration-contract.md`, no edit is required: the **System n
 - "SDK surface (`estimateTokens`, `ctx.sessionManager`) placed in binder behavioral page" — same-cluster (same placement lens — SDK delivery mechanics in a behavioural page; resolves independently against `binder.md` rather than `slash-invocation.md`)
 - "Provider seed-field mapping (Determinism section) placed in binder page" — same-cluster (same placement lens, different misplaced page; resolves independently)
 - "Provider compatibility local-backend note belongs in `future-considerations.md`" — same-cluster (placement lens; the misplaced content is a known-limitation aside rather than SDK mechanics, so the destination differs)
-
----
-
-## spec_topics/diagnostics.md
-
----
-
-# `loom/runtime/invoke-depth` breaks the violation-naming pattern of its siblings
-
-**Source:** docs/reviews/spec-review/spec-20260505-204733.md
-**Original heading:** `loom/runtime/invoke-depth` — terse noun phrase vs. descriptive-phrase style of siblings
-**Kind:** naming
-
-## Finding
-
-The runtime-panic registry in `spec_topics/diagnostics.md` lists six panic-source codes. Five of them name the violation directly:
-
-- `loom/runtime/match-error`
-- `loom/runtime/index-out-of-bounds`
-- `loom/runtime/null-member-access`
-- `loom/runtime/null-index-access`
-- `loom/runtime/missing-object-key`
-
-Each terminal segment reads as the condition that triggered the panic — an error, an out-of-bounds access, a null dereference, a missing key. The sixth, `loom/runtime/invoke-depth`, is a bare noun phrase naming a *measured quantity*. On its own the code does not say what about the depth was wrong (was it zero? negative? too small?). The registry's *Message* column resolves the ambiguity at render time (`invoke chain depth exceeded: <depth> > 32`), and the prose at `spec_topics/invocation.md` line 63 says "exceeding the cap raises a runtime panic with code `loom/runtime/invoke-depth`", so behaviour is unambiguous — only the code name is off-pattern.
-
-The cost is small but real: an author scanning a system note for the code alone (without the rendered message) sees a noun phrase whose meaning has to be looked up rather than read.
-
-## Spec Documents
-
-- `spec_topics/diagnostics.md` — `loom/runtime/*` registry table row (line 203) (edited)
-- `spec_topics/invocation.md` — Invocation depth bound paragraph (line 63) (edited)
-- `spec_topics/errors-and-results.md` — runtime-panic enumeration (line 61) and panic-message table row (line 74) (edited)
-
-## Plan Impact
-
-**Phases:** Horizontal, Vertical V18
-
-**Leaves (implementation order):**
-
-- H3 — Diagnostics primitive and multi-error accumulator — (modified) — exports the closed code constants generated from / asserted equal to the diagnostics registry; the constant for this row would change.
-- V18n — Panic routing: `invoke` parent surface — (modified) — `Adds` and `Tests` reference the literal `loom/runtime/invoke-depth` (twice) when describing the depth-cap panic source.
-- V18s — Coverage-matrix closing CI gate — (modified) — the gate scans every code in the registry table as a literal string; the renamed code propagates into the asserted set.
-
-## Consequence
-
-**Severity:** cosmetic
-
-The spec is internally consistent: the code is the spelled-out string `loom/runtime/invoke-depth` everywhere it appears, the registry's *Message* column carries the violation phrasing, and the cross-reference into `invocation.md` defines the trigger. Two implementers will arrive at the same wire string. The cost is purely readability of the code in isolation.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Rename the code to `loom/runtime/invoke-depth-exceeded` everywhere it appears:
-
-- `spec_topics/diagnostics.md` registry row (line 203) — *Code* column.
-- `spec_topics/invocation.md` line 63 — the inline reference in the Invocation depth bound paragraph.
-- `spec_topics/errors-and-results.md` lines 61 and 74 — the runtime-panic enumeration bullet and the panic-message table row.
-
-The rename is a pure string substitution; no semantics, message templates, severity, or routing change. After the edit, all six runtime-panic codes name a violation rather than a quantity, matching the implicit naming convention already present in the table.
-
-Edge cases for the implementer of the spec edit:
-
-- The plan leaves H3, V18n, and V18s reference the literal old string and will need to follow the rename when their implementation lands; the V18s closing gate will catch any drift between the spec table and the exported constants module, so the rename does not need a separate cross-file audit.
-- The slash boundary's panic-routing rule and the `InvokeInfraError { reason: "panic" }` parent-side surface are keyed on the *category* of the panic, not on the code string, so neither needs updating beyond the textual references already enumerated.
-
-## Related Findings
-
-- "`loom/runtime/internal-error` catch-all contradicts "closed registry" and "exactly six panic sources"" — same-cluster (touches the same registry table and the same "exactly six panic sources" framing; resolves independently — that finding adjusts the framing of the closed registry, this one renames one row).
 

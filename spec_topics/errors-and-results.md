@@ -58,7 +58,7 @@ A function or loom that uses `?` thus implicitly returns `Result<T, QueryError>`
 - `.field` access on `null` — `loom/runtime/null-member-access`.
 - `[i]` access on `null` — `loom/runtime/null-index-access`.
 - Indexed access on a missing object key — `loom/runtime/missing-object-key`.
-- `invoke` chain depth exceeded — `loom/runtime/invoke-depth` (per the depth bound stated in [Invocation — Invocation depth bound](./invocation.md)).
+- `invoke` chain depth exceeded — `loom/runtime/invoke-depth-exceeded` (per the depth bound stated in [Invocation — Invocation depth bound](./invocation.md)).
 
 This list is closed for *spec-defined* panic sources: division by zero, integer overflow, and explicit author-driven panics are deliberately excluded (see [Diagnostics](./diagnostics.md)). Separately, *unexpected interpreter exceptions* — any throw originating inside the runtime, an adapter it called, or a host function the runtime did not anticipate, that is not one of the six closed-list sources above — form a distinct **runtime-defect surface**. They are not a new authoring concept (no loom expression "causes" one) and they do not extend the closed list. They share the same routing channels as panics (slash-command system note + `InvokeInfraError` to an `invoke` parent), but carry the dedicated code `loom/runtime/internal-error` and a separate `reason: "internal_error"` arm on `InvokeInfraError`. The slash-command surface formats the system note as `"loom /<name> aborted with internal error: <error.message>"`; the `loom/runtime/internal-error` diagnostic carries `error.message` in its `message` and `error.stack` (or `"<no stack available>"` when falsy) in its `hint` for operator-facing triage. The user session is not torn down.
 
@@ -71,7 +71,7 @@ This list is closed for *spec-defined* panic sources: division by zero, integer 
 | `loom/runtime/null-member-access` | `null member access: .<field>` |
 | `loom/runtime/null-index-access` | `null index access: [<i>]` |
 | `loom/runtime/missing-object-key` | `missing object key: <key>` |
-| `loom/runtime/invoke-depth` | `invoke chain depth exceeded: <depth> > 32` |
+| `loom/runtime/invoke-depth-exceeded` | `invoke chain depth exceeded: <depth> > 32` |
 
 There is exactly one message string per panic. The same string flows unchanged to every routing surface listed below — it is *not* re-formatted per surface, and surface-specific framing (the `"loom /<name> aborted: "` prefix, the `InvokeInfraError` envelope) wraps the message rather than replacing it. The panic site itself is reported separately through the diagnostic's `file` / `range` (per [Diagnostics](./diagnostics.md)) and is not embedded in the message string. For panics inside a `.warp`-imported frame, the panic site is the leaf source location, not the importer.
 
