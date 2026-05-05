@@ -40,6 +40,14 @@
 - **Deps.** V14a, V5e.
 - **Ships when.** Same set serves both code and model.
 
+## V14r — `ModelToolError` variant: model-loop tool-call failure
+
+- **Spec.** [Errors and Results — `ModelToolError`](../spec_topics/errors-and-results.md), [Query — Typed queries are tool-loop-shaped](../spec_topics/query.md), [Query — Non-validation failures during coercion](../spec_topics/query.md), [Pi Integration Contract — Always-log set](../spec_topics/pi-integration-contract.md).
+- **Adds.** Schema name `ModelToolError`; wire `kind: "model_tool"` with fields `message`, `tool_name` (post-rename, as seen in `tools:`), `tool_call_id` (the id Pi's tool-loop machinery issued for the failing tool-use block), `raw_response: string | null` (any model-emitted text alongside the failing tool call). Detected when a tool the model invoked inside a query's tool-call loop fails — i.e. the tool's `execute()` threw or returned `isError: true`, AJV rejected the model-supplied arguments, an `AbortSignal` fired mid-call, or Pi reports a tool-host error. Applies to untyped queries (V5e tool loop), the free phase of typed queries (V6i), and the free phase of any coercion follow-up (V13g–V13j); `CodeToolError` is reserved for tools loom code invoked directly via `<name>(args)`. The variant is added to the `QueryError` runtime union declared by V5g; existing V5g variants are not touched.
+- **Tests.** Schema construction round-trips through the `QueryError` union; each detection path surfaces as `ModelToolError` and not as some other variant — execute-throws, execute-returns-isError, AJV-rejects-model-args, cancellation-during-tool; `tool_name` carries the post-rename name; `tool_call_id` matches the id Pi issued for the failing tool-use block (not the loom-direct prefix that V14c uses); `raw_response` carries the model's pre-failure text when present and is `null` when none was emitted; failure during a typed query's free-phase turn surfaces as `ModelToolError` (not `CodeToolError`); failure during a coercion follow-up's own tool loop propagates as `ModelToolError`, terminates coercion, and does not consume an `attempts` slot per the spec rule.
+- **Deps.** V5g, V14e, V13g.
+- **Ships when.** Model-loop tool failures surface uniformly through `QueryError` with the spec's full payload shape.
+
 ## V14f — `CodeToolError` variant: `validation` cause
 
 - **Spec.** [Tool Calls](../spec_topics/tool-calls.md) (failures).

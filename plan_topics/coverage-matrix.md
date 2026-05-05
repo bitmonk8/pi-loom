@@ -33,7 +33,7 @@ Every executable spec section maps to a closing leaf. The V18o gate (per [V18 �
 | [Query — tool-call loop bound](../spec_topics/query.md) | V6k |
 | [Query — degenerate rendered templates](../spec_topics/query.md) | V5e (runtime short-circuit), V5c (parse warning) |
 | [Query — coercion](../spec_topics/query.md) | V13g–V13j |
-| [Query — failure modes (`QueryError`)](../spec_topics/query.md) | V5g, V6i, V6k, V6j, V14f–V14i, V15l, V15m |
+| [Query — failure modes (`QueryError`)](../spec_topics/query.md) | V5g, V6i, V6k, V6j, V14r, V14f–V14i, V15l, V15m |
 | [Expression Sublanguage](../spec_topics/expressions.md) | V2a–V2i, extended in V14c |
 | [Operator precedence](../spec_topics/expressions.md#operator-precedence) | V2c |
 | [Grammar disambiguation](../spec_topics/expressions.md#grammar-disambiguation) | V1e, V2 (struct-expr-in-scrutinee) |
