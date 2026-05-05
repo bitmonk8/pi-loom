@@ -25,7 +25,7 @@ A phase is **not** complete until its exit gate is met. No "we'll fix it next sl
 
 Each leaf has the same fields, in the same order:
 
-- **Spec.** Page(s) under [`../spec_topics/`](../spec_topics/) the leaf implements.
+- **Spec.** Page(s) under [`../spec_topics/`](../spec_topics/) the leaf implements, *or* **Convention.** Section(s) of [`conventions.md`](conventions.md) the leaf operationalises (used by horizontal phases H1–H4, which derive from project-level conventions rather than spec rules).
 - **Adds.** One sentence — what the leaf introduces.
 - **Tests.** Bullet list — one bullet per **REQ-ID** the leaf claims to implement; cite the ID inline (e.g. `BIND-7: ...`). Where a leaf implements only part of a rule (sometimes a leaf adds the parser surface and a later leaf adds the runtime check), each Tests bullet still cites its REQ-ID; the coverage matrix's REQ-ID-to-leaf mapping is many-to-many. The REQ-ID prefix table for each spec page lives in [`../spec.md` Appendix — REQ-ID prefix table](../spec.md). Pure-narrative pages (`overview.md`, `influences.md`, `comparison.md`, `related-work.md`, `future-considerations.md`) carry no IDs and need no leaf citation.
 - **Deps.** Other leaf IDs that must be complete first. Listed `-` if none beyond the previous-leaf-in-the-group.
