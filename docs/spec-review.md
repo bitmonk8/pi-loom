@@ -1,7 +1,7 @@
 # pi-loom — Consolidated Spec Review
 
 _Generated: 2026-05-05T19:49:46Z (revised: merges + multi→single conversion + bottom-up reorder)_
-_60 source findings → 7 commit-ready findings (8 merge clusters, 22 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
+_60 source findings → 6 commit-ready findings (8 merge clusters, 22 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
 
 Findings are ordered for **bottom-up processing**: each commit fixes the *last* finding in the doc until the doc is empty. Dependencies that require a particular landing order are encoded in the doc order — `MERGE-F` (`bindings.md` BNDS / BNDR rename) sits at the bottom of the REQ-ID-appendix supersection so it lands *before* `MERGE-G` (retirement registries + V18s sub-gates), which sits above it.
 
@@ -535,88 +535,5 @@ Edge cases:
 
 - MERGE-E (REQ-ID intro paragraph) — landed already under bottom-up processing before this; this finding extends the GOV-N namespace established there.
 - MERGE-F (BNDS / BNDR rename) — must land before this finding (lower in doc → processed first); the retirement registry can record the BIND/BNDG → BNDR/BNDS transition if needed.
-
----
-
----
-
-## spec.md — REQ-ID prefix table: `bindings.md` row
-
----
-
-# spec.md REQ-ID prefix table — `bindings.md` row cleanup (BNDS / BNDR)
-
-**Source:** docs/reviews/spec-review/spec-20260505-204733.md
-**Merged from:** 2 findings:
-- Table cell encodes transition prose + two prefixes instead of a single canonical token
-- `BNDG` is a non-obvious abbreviation; assignment rationale inverted
-
-**Kind:** correctness, naming, clarity, implementability, traceability
-
-## Finding
-
-The `bindings.md` row in `spec.md`'s REQ-ID prefix table currently reads:
-
-```
-| `bindings.md` | `BIND` &nbsp;→&nbsp; **BNDG** (to keep `BIND` for `binder.md`) |
-```
-
-This violates the table's one-prefix-per-row invariant (every other row holds a single bare token) and uses the contrived abbreviation `BNDG` for `bindings.md` while assigning the natural `BIND` to `binder.md` — an asymmetric allocation with no documented rationale that future readers cannot reproduce from the page name.
-
-Both defects are fixed by adopting a vowel-elision convention: when two page stems collide on their first four letters, both pages take a four-letter contraction formed by stripping interior vowels.
-
-This finding MUST land before H6 begins numbering; after H6, REQ-ID immutability prevents the swap.
-
-## Spec Documents
-
-- `spec.md` — Appendix: REQ-ID prefix table (rows for `bindings.md` and `binder.md`); paragraph immediately after the table (rationale sentence deleted) (edited)
-- `plan_topics/h6-req-ids.md` — Adds / Tests (modified to use `BNDS` / `BNDR`)
-- `plan_topics/conventions.md` — REQ-ID discipline example (modified)
-
-## Plan Impact
-
-**Phases:** Horizontal
-
-**Leaves (implementation order):**
-
-- H6 — REQ-ID anchor insertion and coverage-matrix re-pivot — (modified; prefix-set assertion derives the union from the table itself, so no code change beyond text update)
-
-## Consequence
-
-**Severity:** correctness
-
-A naïve table parser sees two tokens in the `bindings.md` row and either picks the wrong one or fails. After H6 has stamped IDs, the asymmetric allocation cannot be revisited. Cognitive cost: every author writing under `bindings.md` must memorise an unmotivated synthetic prefix.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Replace the `bindings.md` and `binder.md` rows in `spec.md`'s REQ-ID prefix table with single-token entries derived from the interior-vowel-elision rule:
-
-```
-| `bindings.md` | `BNDS` |
-| `binder.md`   | `BNDR` |
-```
-
-State the elision rule once in the prefix-table preamble (or as a footnote on either row): "Where two page stems collide on their first four letters, both prefixes are formed by stripping interior vowels (`bindings` → `BNDS`, `binder` → `BNDR`)."
-
-Delete the trailing rationale sentence after the table that begins "The `BIND` / `BNDG` split for `binder.md` and `bindings.md` is necessary because…" — the elision rule subsumes it, and the symmetric allocation needs no defence.
-
-Companion edits:
-
-- **`plan_topics/h6-req-ids.md`** — Update the **Adds** call-out and the **Tests** bullets to read `BNDS` for `bindings.md` and `BNDR` for `binder.md`. The prefix-set test continues to derive the union from the table itself, so no code change beyond text update.
-- **`plan_topics/conventions.md`** — Update the `binder.md → BIND` example (REQ-ID discipline paragraph) to `binder.md → BNDR`.
-
-Edge cases:
-
-- This finding MUST land before H6 numbers any IDs against either page. After H6, the swap is forbidden by REQ-ID immutability.
-- Any review feedback already in flight that cites `BIND-N` against `binder.md` or `BNDG-N` against `bindings.md` must be re-anchored before H6 closes.
-- No retired-prefixes machinery is needed — no `BIND-N` or `BNDG-N` IDs were ever issued (verified by `grep -E '\b(BIND|BNDG)-[0-9]+\b' spec_topics/`). If MERGE-G's retirement registry has already landed, this row's transition is recorded as one entry: `BIND` (Formerly: `binder.md` placeholder) and `BNDG` (Formerly: `bindings.md` placeholder), both retired in the same edit that introduces `BNDR` / `BNDS`.
-
-## Related Findings
-
-- MERGE-G (closing immutability paragraph) — must land *before* this finding (in landing order: MERGE-G first, MERGE-F after) so that the retirement registry exists when the swap is recorded. In doc order: MERGE-G appears above MERGE-F (MERGE-F is processed first under bottom-up).
 
 ---

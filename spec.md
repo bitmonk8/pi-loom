@@ -85,7 +85,7 @@ Each spec page that carries normative obligations is assigned a stable per-page 
 | `frontmatter.md` | `FRNT` |
 | `query.md` | `QRY` |
 | `expressions.md` | `EXPR` |
-| `bindings.md` | `BIND` &nbsp;→&nbsp; **BNDG** (to keep `BIND` for `binder.md`) |
+| `bindings.md` | `BNDS` |
 | `control-flow.md` | `CTRL` |
 | `errors-and-results.md` | `ERR` |
 | `return.md` | `RET` |
@@ -95,7 +95,7 @@ Each spec page that carries normative obligations is assigned a stable per-page 
 | `imports.md` | `IMP` |
 | `discovery.md` | `DISC` |
 | `slash-invocation.md` | `SLSH` |
-| `binder.md` | `BIND` |
+| `binder.md` | `BNDR` |
 | `cancellation.md` | `CNCL` |
 | `diagnostics.md` | `DIAG` |
 | `runtime-value-model.md` | `RVM` |
@@ -110,4 +110,4 @@ Each spec page that carries normative obligations is assigned a stable per-page 
 | `related-work.md` | (no IDs — narrative) |
 | `future-considerations.md` | (no IDs — narrative) |
 
-The `BIND` / `BNDG` split for `binder.md` and `bindings.md` is necessary because the two pages would otherwise collide on a three-letter prefix; both are short identifiers and downstream tooling can search either one. The prefix table itself is immutable — adding a new page requires picking a free prefix at first numbering and pinning it here in the same edit.
+Where two page stems collide on their first four letters, both prefixes are formed by stripping interior vowels (`bindings` → `BNDS`, `binder` → `BNDR`). The prefix table itself is immutable — adding a new page requires picking a free prefix at first numbering and pinning it here in the same edit.
