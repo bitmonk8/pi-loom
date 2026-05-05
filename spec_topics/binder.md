@@ -169,7 +169,7 @@ The echo channel is also used for the binder's `needs_info` and `ambiguous` outp
 
 ## Determinism
 
-Binder calls use `temperature: 0`. A fixed seed is included in the request payload only for providers in the **seed-supporting set**: `openai-completions` (request field `seed`) and `mistral` (request field `random_seed`). The seed value is the 32-bit FNV-1a hash (offset basis `0x811c9dc5`, prime `0x01000193`) of the loom's qualified name as it appears in the slash registry (the bare command name, without the leading `/`), masked to 32-bit unsigned for both `seed` and `random_seed`. The byte sequence hashed is the UTF-8 encoding of the bare command name, with no BOM and no NUL terminator. Equivalently, on a slash name `s` matching `^[a-z0-9][a-z0-9_-]*$` the input bytes are the ASCII code points of `s` in order. Reference vectors (loom name → 32-bit unsigned seed, hex):
+Binder calls use `temperature: 0`. The seed value for a binder call is the 32-bit FNV-1a hash (offset basis `0x811c9dc5`, prime `0x01000193`) of the loom's qualified name as it appears in the slash registry (the bare command name, without the leading `/`), masked to 32-bit unsigned. The byte sequence hashed is the UTF-8 encoding of the bare command name, with no BOM and no NUL terminator. Equivalently, on a slash name `s` matching `^[a-z0-9][a-z0-9_-]*$` the input bytes are the ASCII code points of `s` in order. Reference vectors (loom name → 32-bit unsigned seed, hex):
 
 | Loom name | Seed |
 | --- | --- |
@@ -177,7 +177,9 @@ Binder calls use `temperature: 0`. A fixed seed is included in the request paylo
 | `hello` | `0x4f9f2cab` |
 | `a` | `0xe40c292c` |
 
-Conforming implementations MUST reproduce these values exactly. The mask to 32-bit unsigned applies to the *output*; the multiply step's working width is an implementation choice (e.g. `Math.imul` chains in JS) and per-byte intermediate state is not separately masked beyond what the canonical algorithm specifies. JSON serialisation of the seed is a plain number, not a hex string — the hex notation above is for human cross-checking only. The same loom therefore produces the same seed on every binder call across processes and runs; two different looms produce different seed values with overwhelming probability. For `anthropic-messages` and `amazon-bedrock` the seed field is omitted entirely from the request payload (not sent and silently ignored). The per-provider mapping is a static runtime table keyed on the resolved binder model's `api` field as reported by `@mariozechner/pi-ai`'s model registry; it is not derived from any pi-ai capability flag. Widening the seed-supporting set is a spec-versioned change.
+Conforming implementations MUST reproduce these values exactly. The mask to 32-bit unsigned applies to the *output*; the multiply step's working width is an implementation choice (e.g. `Math.imul` chains in JS) and per-byte intermediate state is not separately masked beyond what the canonical algorithm specifies. JSON serialisation of the seed is a plain number, not a hex string — the hex notation above is for human cross-checking only. The same loom therefore produces the same seed on every binder call across processes and runs; two different looms produce different seed values with overwhelming probability.
+
+Whether the seed is included in the request payload, and under which field name, is governed by the per-provider mapping in [Pi Integration Contract — Provider seed-field mapping](./pi-integration-contract.md#provider-seed-field-mapping).
 
 ## Cancellation
 

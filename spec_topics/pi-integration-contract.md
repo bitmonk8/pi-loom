@@ -64,6 +64,17 @@ No Pi-side change is required for V1; if Pi later adds `pi.unregisterTool`, the 
 | `mistral` | HTTP 400 with body matching `/context.*length/i`; token counts not surfaced — both fields `null`. |
 | `amazon-bedrock` | `ValidationException` with body matching `/(input is too long\|context window)/i`; token counts not surfaced — both fields `null`. |
 
+<a id="provider-seed-field-mapping"></a>
+
+**Provider seed-field mapping.** Whether a binder request payload carries a fixed seed, and under which JSON field name, is governed by the static table below. The mapping is keyed on the resolved binder model's `api` field as reported by `@mariozechner/pi-ai`'s model registry; it is not derived from any pi-ai capability flag. The seed *value* (its derivation from the loom's qualified name) is specified in [Slash-Command Argument Binding — Determinism](./binder.md#determinism). Widening the seed-supporting set is a spec-versioned change. The mapping is version-coupled to `@mariozechner/pi-ai` and MUST be re-validated on each upgrade.
+
+| Provider | Seed field in request payload |
+|---|---|
+| `openai-completions` | `seed` |
+| `mistral` | `random_seed` |
+| `anthropic-messages` | omitted |
+| `amazon-bedrock` | omitted |
+
 **User-visible streaming — prompt mode.** Assistant tokens for both untyped and typed queries stream into the user's transcript in real time as Pi's TUI receives them; `pi-loom` does not buffer, suppress, or re-style the stream. The loom interpreter resumes execution only after `ctx.waitForIdle()` resolves, but the stream's appearance in the transcript is independent of the loom's resumption — the user sees the response unfold while the loom is still mid-query. For typed queries that obtain their schema-conformant response via a synthesised one-shot tool, the tool's invocation appears as a normal Pi tool-call card; the lowered tool arguments are the structured value the loom receives, and Pi's standard tool-call rendering applies (no special loom-side formatting). When a typed query's underlying turn includes intermediate tool-use loops before the final structured-output sink fires, each intermediate tool call renders normally in the prompt-mode transcript; only the final response (synthesised-tool call or equivalent provider mechanism) is the structured-value sink. Edge cases:
 
 - An `Err` propagated by `?` after the user has already seen partial assistant text: the streamed prefix stays in the transcript (Pi's behaviour) and the `loom-system-note` describing the failure is appended after, not interleaved.

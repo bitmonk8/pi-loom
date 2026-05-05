@@ -1,7 +1,7 @@
 # pi-loom — Consolidated Spec Review
 
 _Generated: 2026-05-05T19:49:46Z (revised: merges + multi→single conversion + bottom-up reorder)_
-_60 source findings → 17 commit-ready findings (8 merge clusters, 24 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
+_60 source findings → 16 commit-ready findings (8 merge clusters, 24 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
 
 Findings are ordered for **bottom-up processing**: each commit fixes the *last* finding in the doc until the doc is empty. Dependencies that require a particular landing order are encoded in the doc order — `MERGE-F` (`bindings.md` BNDS / BNDR rename) sits at the bottom of the REQ-ID-appendix supersection so it lands *before* `MERGE-G` (retirement registries + V18s sub-gates), which sits above it.
 
@@ -1266,85 +1266,4 @@ Drop the parenthetical re-statement of the `Math.ceil(chars / 4)` formula and th
 - "Provider compatibility local-backend note belongs in `future-considerations.md`" — same-cluster (same `pi-integration-contract.md` neighbourhood gets edited; resolves independently)
 
 ---
-
-# Per-provider seed-field mapping belongs in the Pi integration contract, not in `binder.md`
-
-**Source:** docs/reviews/spec-review/spec-20260505-204733.md
-**Original heading:** Provider seed-field mapping (Determinism section) placed in binder page
-**Kind:** placement
-
-## Finding
-
-`spec_topics/binder.md` § Determinism encodes a per-provider mapping of the seed field name in the request payload: `openai-completions` → `seed`, `mistral` → `random_seed`, and `anthropic-messages` / `amazon-bedrock` → field omitted. The same paragraph also pins how the mapping is keyed (the resolved binder model's `api` field as reported by `@mariozechner/pi-ai`'s model registry, "not derived from any pi-ai capability flag") and notes that widening the supporting set is a spec-versioned change.
-
-This is a per-provider request-shape contract against a specific named pi-ai surface. `spec_topics/pi-integration-contract.md` already hosts every other artefact of that exact shape — the **Provider error mapping** table (overflow-signature regexes per provider) and the **Provider compatibility for typed queries** list (named-tool-forcing supported set: `anthropic-messages`, `openai-completions`, `mistral`, `amazon-bedrock`) — both keyed on the same provider-id space and both flagged as version-coupled to pi-ai. The seed-field table is the third row in the same family and is the only one currently misfiled.
-
-The misplacement matters because the binder page's job is the binder's *behaviour* (prompt shape, echo, failure modes, session-context truncation, FNV-1a seed derivation) — provider wire shapes only show up here. Anyone searching "where do we list per-provider request-field mappings?" should land in one place. Today the seed-field table is invisible to that search and the pi-ai upgrade re-validation checklist (already attached to the Provider error mapping table) does not naturally cover it.
-
-## Spec Documents
-
-- `spec_topics/binder.md` — § Determinism (edited)
-- `spec_topics/pi-integration-contract.md` — Provider error mapping / Provider compatibility for typed queries area (edited)
-- `plan_topics/v16-binder.md` — V16h **Spec** citation (edited)
-
-## Plan Impact
-
-**Phases:** Vertical V16
-
-**Leaves (implementation order):**
-
-- V16h — Binder determinism settings — (modified)
-
-V16h's **Spec** field currently cites `[Slash-Command Argument Binding](../spec_topics/binder.md) (determinism)` and its **Tests** bullet says "The provider-to-field mapping matches the table in [Binder — Determinism](../spec_topics/binder.md)." The implementation is unchanged; only the citation targets shift.
-
-## Consequence
-
-**Severity:** cosmetic
-
-A reader looking for per-provider request-payload mappings sees two of the three (overflow signatures, named-tool-forcing support) in `pi-integration-contract.md` and assumes the family is complete. The seed-field rule lives a page away in a section about determinism. On a pi-ai upgrade, the re-validation checklist anchored to the Provider error mapping table does not cover the seed-field table even though both are version-coupled in the same way. No implementer is blocked, but the integration-contract surface is no longer authoritative for "everything that depends on a pi-ai provider id."
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Move the per-provider seed-field mapping out of `spec_topics/binder.md` § Determinism and into `spec_topics/pi-integration-contract.md`, immediately adjacent to the existing **Provider error mapping** and **Provider compatibility for typed queries** subsections.
-
-Concrete edits:
-
-1. In `pi-integration-contract.md`, add a new subsection — suggested heading **Provider seed-field mapping** — containing:
-   - The provider → field-name table:
-
-     | Provider | Seed field in request payload |
-     |---|---|
-     | `openai-completions` | `seed` |
-     | `mistral` | `random_seed` |
-     | `anthropic-messages` | omitted |
-     | `amazon-bedrock` | omitted |
-
-   - The keying rule verbatim ("keyed on the resolved binder model's `api` field as reported by `@mariozechner/pi-ai`'s model registry; not derived from any pi-ai capability flag").
-   - The "widening the seed-supporting set is a spec-versioned change" sentence.
-   - The standard "version-coupled to `@mariozechner/pi-ai`; MUST be re-validated on each upgrade" line that already accompanies the Provider error mapping table, so the upgrade-validation discipline applies uniformly.
-
-2. In `binder.md` § Determinism, retain only the binder-behavioural content: `temperature: 0`; the FNV-1a derivation of the seed value (offset basis, prime, mask, qualified-name input, leading-`/` rule once that companion finding is resolved); the cross-process / cross-run determinism property; and the acknowledgement that the provider may still vary outputs given a fixed seed. Replace the per-provider table with a single sentence such as: *"Whether the seed is included in the request payload, and under which field name, is governed by the per-provider mapping in [Pi Integration Contract — Provider seed-field mapping](./pi-integration-contract.md#provider-seed-field-mapping)."*
-
-3. Update `plan_topics/v16-binder.md` V16h:
-   - **Spec** field: add `[Pi Integration Contract — Provider seed-field mapping](../spec_topics/pi-integration-contract.md)` alongside the existing `binder.md` (determinism) citation.
-   - **Tests** bullet: change "matches the table in [Binder — Determinism]" to "matches the table in [Pi Integration Contract — Provider seed-field mapping]."
-
-Edge cases for the implementer to watch:
-
-- The FNV-1a hash *value* derivation and the binder's `temperature: 0` rule stay on the binder page — only the **request-payload encoding** (which field, when omitted) moves. The seam is "how the seed is derived" (binder behaviour) vs. "how it is wired into the provider request" (integration contract). Do not move the FNV-1a paragraph.
-- The companion finding *"FNV-1a seed hash: no normative reference input→output pair; encoding ambiguous"* edits the same `binder.md` § Determinism paragraph; sequencing the two edits avoids merge churn but they do not conflict — that finding tightens the derivation rule that stays on the binder page, this finding moves the encoding table off it.
-- The companion finding *"SDK surface (`estimateTokens`, `ctx.sessionManager`) placed in binder behavioral page"* makes the same kind of move from `binder.md` to `pi-integration-contract.md`. Both can land in a single edit pass.
-- After the move, `spec.md`'s topic index and any cross-page links into `binder.md#determinism` keep working as long as the anchor is preserved on the binder page (which the recommendation does — only the table is removed, the section heading stays).
-
-## Related Findings
-
-- "SDK surface (`estimateTokens`, `ctx.sessionManager`) placed in binder behavioral page" — co-resolve (same source page, same destination page, same kind of move; ship as one edit pass)
-- "FNV-1a seed hash: no normative reference input→output pair; encoding ambiguous" — same-cluster (touches the surrounding paragraph in `binder.md` § Determinism but resolves independently; this finding moves the per-provider table out, that finding tightens the FNV-1a derivation rule that stays)
-
----
-
 
