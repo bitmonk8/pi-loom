@@ -11,7 +11,7 @@
     "prompt-engineering"
   ],
   "author": "Thomas Andersen <thomas.andersen@gmail.com>",
-  "license": "UNLICENSED",
+  "license": "MIT OR Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+ssh://git@github.com/bitmonk8/pi-loom.git"

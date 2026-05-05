@@ -1,9 +1,74 @@
 # pi-loom
 
+A [Pi Coding Agent](https://pi.dev) extension that introduces **loom**, a
+purpose-built scripting language for authoring parameterized, programmatic
+templates that drive an LLM conversation.
+
+A `.loom` file interleaves ordinary code (variables, loops, conditionals,
+functions) with literal text destined for the model. Evaluating a loom does
+not return a value or write a file — it appends turns to a conversation:
+either the caller's current conversation (*prompt mode*) or a fresh isolated
+conversation (*subagent mode*). `.warp` files are library modules that share
+loom's grammar and type system and are imported by `.loom` files.
+
+The full design lives in [`spec.md`](./spec.md). The implementation roadmap
+lives in [`plan.md`](./plan.md).
+
 ## Status
+
+Pre-implementation. The specification and implementation plan are complete;
+no runtime code has been written yet. Track progress against
+[`plan.md`](./plan.md) and the
+[spec coverage matrix](./plan_topics/coverage-matrix.md).
+
+## Highlights
+
+- **Two file kinds, one grammar.** `.loom` files are invocable as Pi slash
+  commands; `.warp` files are import-only library modules.
+- **Query-and-await.** `@`-prefixed templates send the conversation so far to
+  the model and bind the typed reply to a variable.
+- **Structured outputs.** `schema` declarations lower to a JSON-Schema subset
+  validated with AJV; typed queries return `Result<T, QueryError>`.
+- **Two execution modes.** *Prompt mode* appends to the caller's
+  conversation; *subagent mode* runs in an isolated child conversation and
+  returns a value.
+- **Tool calls and cross-loom invocation.** `<tool>(args)` invokes registered
+  Pi tools; `invoke(...)` runs another loom with cycle detection.
+- **LLM-driven argument binding.** Slash-command arguments are parsed into
+  typed `params` by an LLM binder with deterministic fallbacks.
 
 ## Install
 
+Not yet published. Once implemented, the extension will be installed as a Pi
+package that exposes its `extensions/` directory via the `pi.extensions`
+field in `package.json`.
+
 ## Repository layout
 
+| Path | Contents |
+|---|---|
+| [`spec.md`](./spec.md) | Top-level spec index. |
+| [`spec_topics/`](./spec_topics/) | Per-topic normative spec pages. |
+| [`plan.md`](./plan.md) | Top-level implementation plan. |
+| [`plan_topics/`](./plan_topics/) | Per-phase plan pages and coverage matrix. |
+| `extensions/` | Pi extension entry points (populated during implementation). |
+| `docs/` | Supplementary documentation. |
+| `package.json` | Package manifest; declares the Pi extension and peer-deps on `@mariozechner/pi-*`. |
+
 ## License
+
+Licensed under either of
+
+- Apache License, Version 2.0 ([LICENSE-APACHE](./LICENSE-APACHE) or
+  <https://www.apache.org/licenses/LICENSE-2.0>)
+- MIT License ([LICENSE-MIT](./LICENSE-MIT) or
+  <https://opensource.org/licenses/MIT>)
+
+at your option.
+
+### Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally
+submitted for inclusion in this work by you, as defined in the Apache-2.0
+license, shall be dual licensed as above, without any additional terms or
+conditions.
