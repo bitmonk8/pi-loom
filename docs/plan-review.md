@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_44 findings retained, 3 false positives dropped, 0 persistent failures_
+_43 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -3216,59 +3216,3 @@ Edge cases the implementer must watch:
 - "`loom/load/invoke-path-escape` — security boundary with single check site and no telemetry" — same-cluster (touches V15a/V15e path handling but a distinct concern — escape vs. separator)
 
 ---
-
-# V1d "spec's exact-wording errors" leaves the canonical strings unquoted
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** "Spec's exact-wording errors" without inline quote
-**Kind:** clarity
-
-## Finding
-
-`plan_topics/v1-lexer.md` V1d Tests bullet says: "mismatch produces the spec's exact-wording errors." The bullet does not name which diagnostic codes are in scope, does not quote the messages, and does not pin a spec line range. To turn that into a passing test the implementer must open `spec_topics/lexical.md`, find the identifier-rule paragraph, and decide which sentence is the canonical message — a guess each implementer will resolve slightly differently.
-
-The canonical strings exist and live in exactly one place: `spec_topics/lexical.md` parenthesises them next to the diagnostic codes — `loom/parse/schema-case-mismatch` is "schema name must start with an uppercase letter" and `loom/parse/binding-case-mismatch` is "binding name must start with a lowercase letter or `_`". `spec_topics/diagnostics.md` rows 74–75 carry the codes only, not the rendered messages, so a reader who follows the registry instead of the lexical chapter sees no message text at all.
-
-V1d Tests also bundles two further assertions ("every reserved keyword in identifier position is rejected"; `_` cannot be re-used as a regular identifier) whose canonical code is `loom/parse/reserved-keyword-as-identifier`, which the bullet likewise leaves unnamed.
-
-## Plan Documents
-
-- `plan_topics/v1-lexer.md` — V1d Tests bullet (edited)
-
-## Spec Documents
-
-- `spec_topics/lexical.md` — Identifiers / Reserved keywords paragraph (read-only)
-- `spec_topics/diagnostics.md` — rows 74–76 (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical V1
-
-**Leaves (implementation order):**
-
-- V1d — Identifier case rule and reserved keywords — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-The Tests bullet asserts a verbatim string but does not say which string. Two reasonable implementers will pin different texts (e.g. "schema names must start with an uppercase letter" vs. the spec's "schema name must start with an uppercase letter"), and one will silently lock in wrong wording behind a green test. The diagnostic codes are also unnamed, so a third implementer might assert only the message and ignore the `loom/parse/...` code entirely.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Rewrite the V1d **Tests.** bullet in `plan_topics/v1-lexer.md` to name each diagnostic code and quote the message verbatim from `spec_topics/lexical.md`. Replace the existing sentence "mismatch produces the spec's exact-wording errors; every reserved keyword in identifier position is rejected; `_` cannot be used as a regular identifier after binding." with:
-
-> mismatch in schema-name position emits `loom/parse/schema-case-mismatch` with message `"schema name must start with an uppercase letter"`; mismatch in binding / parameter / fn-name / field-name position emits `loom/parse/binding-case-mismatch` with message `` "binding name must start with a lowercase letter or `_`" ``; every reserved keyword listed in [`spec_topics/lexical.md` — Reserved keywords](../spec_topics/lexical.md) used in identifier position emits `loom/parse/reserved-keyword-as-identifier`; `_` cannot be referenced as a regular identifier after binding.
-
-Source-of-truth note for the implementer: the message strings are the parenthesised quotes in `spec_topics/lexical.md`'s "Violating either rule is a parse error: …" sentence; if the spec text is later edited, the V1d test fixture must follow.
-
-## Related Findings
-
-- "Plan tests cite \"spec's exact wording\" / \"verbatim\" without verifying spec owns each message string" — decision-dependency (the broader finding warns that for most diagnostics the spec does not own a canonical message string; V1d is one of the few cases where it does, so this finding can be closed independently by quoting the existing strings, but the broader audit may later prefer a single normative table both leaves cite).
-
----
-
