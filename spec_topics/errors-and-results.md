@@ -100,6 +100,8 @@ schema QueryError = ValidationError
 
 The `kind` discriminator is the wire form (snake_case noun); the schema identifier is the loom-side form authors use in `match` arms. The two are deliberately distinct: discriminator strings are stable wire contract; schema names belong to the loom surface.
 
+**Discriminator type-openness.** The `kind` field is typed as `string` at the type-system level, **not** as a closed enum of the nine V1 variant tags. V1 call sites still exhaustively `match` on the V1 variant set (the runtime never produces an unlisted `kind` value, and V1 conformance tests assert the closed set), but the *type* does not foreclose future variants — adding a tenth variant in a minor revision (e.g. `BinderError`, a user-defined error type) does not break the type-system shape of code that already destructures `QueryError`. The seam is what lets the deferred user-defined-error-type and `BinderError`-as-variant extensions in [Future Considerations](./future-considerations.md) land without rewriting the discriminator's type. Authors who want a finite-set guarantee at the call site should rely on the catch-all `_ => …` arm pattern (see the **Pattern grammar (V1)** table at the top of this file) rather than a closed-enum type.
+
 ### Query-time variants
 
 Fires when a typed query's final response fails AJV validation, including coercion exhaustion (see [Query — Schema-validation coercion](./query.md)).

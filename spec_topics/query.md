@@ -204,6 +204,10 @@ Every query — untyped, typed, and any coercion follow-up — runs its tool-cal
 
 The `Ok` payload of an untyped query is a plain `string` containing the assistant's final text. V1 deliberately keeps it as `string` to minimise surface area; freezing a richer structure before real provider integration would lock in details that real-world use is likely to revise. See [Future Considerations](./future-considerations.md).
 
+## Options surface
+
+The runtime-internal options record passed into the query primitive — the record carrying per-call configuration not surfaced to authors in V1 (cancellation hookup, provider routing, the typed-query schema slot) — is an **open struct**, not a closed positional record. V1 reserves the right to add fields in a minor revision without breaking call sites or test fixtures that construct or pattern-match on the struct; consumers MUST tolerate unknown fields rather than enforcing exhaustive shape equality. The seam is what allows the deferred per-call timeout and per-query `model` / `tools` / `system` override extensions in [Future Considerations](./future-considerations.md) to land additively.
+
 ## Failure modes
 
 A query never throws. Both forms return a `Result` (see [Errors and Results](./errors-and-results.md)) carrying a `QueryError` on failure. `QueryError` is a discriminated union (`anyOf` over `kind`-tagged variants), exactly the shape the [Schema Subset](./schema-subset.md) blesses for user-defined unions — the canonical example of the pattern, applied to Loom's own runtime type.

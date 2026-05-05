@@ -21,6 +21,8 @@ Configured via `bind_context:` (`none` | `session`; default `none`).
 
 Declaring `bind_context: session` on a subagent-mode loom is `loom/parse/bind-context-session-on-subagent` (warning, not error) — subagent-mode looms invoked from a slash command have no caller-session context to attach.
 
+**Binder-invocation re-entrancy.** The binder-invocation path is **re-entrant per loom turn**: V1 issues exactly one binder call per slash invocation (and `bind_context` is therefore observed at most once per invocation), but the path makes no assumption that `bind_context` is set at most once per loom over the loom's lifetime. The binder's input record (parameter table, raw slash text, optional session-context block) and the resolved binder-model handle are constructed afresh on every binder call, with no cached state that would prevent a second call from observing a different `bind_context` snapshot. The seam is what allows the deferred *automatic context escalation* extension in [Future Considerations](./future-considerations.md) to land additively: a future revision in which a binder call returning `needs_info` triggers an automatic retry with `bind_context: session` attached needs no rework of the binder-invocation path. Open question: whether automatic escalation surfaces a user-visible turn (composing with the deferred binder refinement loop) or stays operator-only is unresolved and tracked alongside the deferral entry.
+
 ## Binder bypass
 
 Two cases skip the binder call entirely; in both, no envelope schema is constructed at load time. The bypass decision is made at loom-load time from the static schema; there is no per-invocation branching.
