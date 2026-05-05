@@ -1,7 +1,7 @@
 # pi-loom — Consolidated Spec Review
 
 _Generated: 2026-05-05T19:49:46Z (revised: merges + multi→single conversion + bottom-up reorder)_
-_60 source findings → 21 commit-ready findings (8 merge clusters, 24 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
+_60 source findings → 20 commit-ready findings (8 merge clusters, 24 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
 
 Findings are ordered for **bottom-up processing**: each commit fixes the *last* finding in the doc until the doc is empty. Dependencies that require a particular landing order are encoded in the doc order — `MERGE-F` (`bindings.md` BNDS / BNDR rename) sits at the bottom of the REQ-ID-appendix supersection so it lands *before* `MERGE-G` (retirement registries + V18s sub-gates), which sits above it.
 
@@ -1537,67 +1537,5 @@ Implementer-relevant edge cases this pins down:
 
 - "System-note 120-codepoint cap: \"code points or grapheme clusters\" is ambiguous" — same-cluster (both are testability boundary gaps in the system-note / echo rendering grammar; resolved by independent edits to adjacent paragraphs in `binder.md`)
 - "Tool execution content truncation: boundary and multi-byte edge case underspecified" — same-cluster (same shape of defect — truncation prose that does not pin inclusive/exclusive — but in a different spec topic; the fix idiom is transferable)
-
----
-
-# Binder retry budget: maximum total LLM calls per slash invocation is not bounded
-
-**Source:** docs/reviews/spec-review/spec-20260505-204733.md
-**Original heading:** Retry budget interaction: maximum total binder LLM calls not stated
-**Kind:** testability
-
-## Finding
-
-`spec_topics/binder.md` gives each binder failure class its own single-retry budget — transport failures and malformed-envelope failures each get exactly one retry, AJV-validation failures get none — and then adds the cross-class clarification: *"Retry budgets are per-failure-class, not shared: a transport failure observed on the retry of a malformed envelope counts as a fresh transport-row path (one retry of its own), not as a third attempt on the malformed-envelope row."* The clarification establishes that a class can be entered mid-chain, but it does not establish a stopping condition for repeated class swaps.
-
-Read literally, the rule is symmetric: if a malformed-class retry can spawn a fresh transport path with its own retry, the converse — a malformed failure observed on a transport retry spawning a fresh malformed path — has equal standing. Nothing in the surrounding text says a class's retry budget is consumed globally per invocation, nor does anything cap the total number of binder LLM calls. A conformance test that wants to assert "no slash invocation issues more than N binder LLM calls under any combination of upstream failures" cannot derive N from the spec, and two implementers can ship divergent termination behaviour while both pointing at the same paragraph.
-
-The failure-modes table is also silent on which row's template is rendered when a chain ends after a class swap (e.g. malformed → transport-retry → malformed): the "most recent failure" rule is plausible but not stated.
-
-## Spec Documents
-
-- `spec_topics/binder.md` — Failure modes (paragraph following the failure-mode templates table) (edited)
-
-## Plan Impact
-
-**Phases:** Vertical V16, Vertical V18
-
-**Leaves (implementation order):**
-
-- V16o — Binder malformed envelope handling — (modified)
-- V16n — Binder transport failure single retry — (modified)
-- V18p — `AbortSignal` before and during the binder LLM call — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementations diverge: one treats `{transport, malformed}` retry budgets as one-shot per invocation (max 3 calls); another treats every class entry as a fresh path with its own retry (no finite bound until both classes happen to exhaust on the same call). Under hostile or flaky binder providers the second implementation can issue arbitrarily many calls per slash invocation, which is observable as latency and quota burn. Tests cannot pin behaviour, and the failure-modes table cannot be exercised at the boundary because the boundary is undefined.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Replace the existing per-failure-class paragraph with a budget that is per-class **and** per-invocation, plus an explicit total cap. Concretely, edit `spec_topics/binder.md` (Failure modes section) to state:
-
-> Each retry-eligible failure class has a single retry budget per slash invocation: at most one transport-failure retry and at most one malformed-envelope retry, regardless of how the two interleave. A transport failure observed on the retry of a malformed envelope consumes the transport budget (not a second malformed attempt); a malformed envelope observed on the retry of a transport failure symmetrically consumes the malformed budget. Once a class's budget is consumed it is not replenished, even if the failure first appears as the consequence of another class's retry. Therefore the runtime MUST issue at most **3** binder LLM calls per slash invocation (1 initial attempt + at most 1 transport-class retry + at most 1 malformed-envelope-class retry). When the chain ends with both budgets exhausted, the surfaced system note is the row matching the **most recent** failure observed (e.g. a chain ending in a malformed envelope renders the malformed-envelope row, even if a transport failure occurred earlier in the chain).
-
-Edge cases the implementer must watch:
-
-- AJV validation failure on the merged `args` is unaffected (no retry, no budget). It can still occur on call 1, 2, or 3 depending on which call returned the structurally valid envelope.
-- An `AbortSignal` observed during any retry suppresses that retry and surfaces the cancelled-binder row, irrespective of remaining budget (already covered by V18p; the cap does not change cancellation semantics).
-- The 3-call cap is observable: tests should construct a chain `malformed → transport → malformed` against a controlled provider stub and assert exactly 3 provider invocations followed by the malformed-envelope system note.
-
-Plan-leaf updates required:
-
-- **V16n** Tests should add: under a stub provider that returns `transport-fail` then `malformed` then `transport-fail`, exactly 3 provider invocations occur and the surfaced note is the transport row (most-recent failure).
-- **V16o** Tests should add: under a stub provider that returns `malformed` then `transport-fail` then `malformed`, exactly 3 provider invocations occur and the surfaced note is the malformed-envelope row.
-- **V18p** No semantic change, but the cancellation-during-retry test should be reaffirmed to apply uniformly across both possible retry positions (call 2 OR call 3), not only the "single transport-failure retry" wording it currently uses.
-
-## Related Findings
-
-None
 
 ---
