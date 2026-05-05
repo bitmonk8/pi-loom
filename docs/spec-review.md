@@ -1,7 +1,7 @@
 # pi-loom — Consolidated Spec Review
 
 _Generated: 2026-05-05T19:49:46Z (revised: merges + multi→single conversion + bottom-up reorder)_
-_60 source findings → 15 commit-ready findings (8 merge clusters, 24 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
+_60 source findings → 14 commit-ready findings (8 merge clusters, 23 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
 
 Findings are ordered for **bottom-up processing**: each commit fixes the *last* finding in the doc until the doc is empty. Dependencies that require a particular landing order are encoded in the doc order — `MERGE-F` (`bindings.md` BNDS / BNDR rename) sits at the bottom of the REQ-ID-appendix supersection so it lands *before* `MERGE-G` (retirement registries + V18s sub-gates), which sits above it.
 
@@ -1125,67 +1125,4 @@ Edge cases for the implementer:
 - "Non-text content \"silently\" discarded: no observable signal for tests" — same-cluster (immediately adjacent paragraph in the same lowering rule; both concern observability of the tool-result lowering pipeline but resolve independently)
 
 ---
-
-# Non-text content discard: clarify that `Ok("")` is the full observable contract
-
-**Source:** docs/reviews/spec-review/spec-20260505-204733.md
-**Original heading:** Non-text content "silently" discarded: no observable signal for tests
-**Kind:** testability
-
-## Finding
-
-The Tool execution lowering paragraph in `pi-integration-contract.md` (the `pi.execute` → loom-string contract) states: "Non-text content blocks (images, resource references) are discarded silently in V1" and then declares both `content: []` and a content array containing only non-text blocks to be legal `Ok("")` values when `!isError`. The intent is clearly that these two input shapes are observationally equivalent at the loom level, and `V14c-a`'s test list already asserts both produce `Ok("")`.
-
-What the paragraph does not state explicitly is whether "silently" extends to the operator-facing `loom-system-note` / `RuntimeEvent` channel. The runtime emits structured `RuntimeEvent` records for the always-log set of `QueryError` failures (`pi-integration-contract.md` "Runtime event channel"), and an implementer reading "discarded silently" might reasonably decide to add a non-failure informational event ("N image blocks dropped") on the same channel — or might decide not to. Two conformant implementations can therefore differ in what an operator's transcript shows after a tool returns image content, and a conformance test cannot tell from the spec alone which behaviour is correct.
-
-The fix is a one-clause clarifier — not a new mechanism. The spec should make explicit that the lowering produces no diagnostic, no `RuntimeEvent`, and no `loom-system-note`; the loom-level observable is exhausted by the `Ok("")` value. Implementations remain free to emit non-normative debug logs.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — "Tool execution from loom code" paragraph (the `{ content, isError }` lowering description) (edited)
-- `spec_topics/pi-integration-contract.md` — "Runtime event channel" / "always-log set" (read-only — confirms non-text discard is not a `QueryError` and so falls outside the always-log contract)
-- `spec_topics/future-considerations.md` — read-only, confirms "richer return shape" is the deferred work and any per-block telemetry would belong here
-
-## Plan Impact
-
-**Phases:** Vertical V14
-
-**Leaves (implementation order):**
-
-- V14c-a — Pi-tool dispatch and `ctx` synthesis for bare `<name>(args)` calls — (modified)
-
-## Consequence
-
-**Severity:** advisory
-
-Two implementers can ship divergent operator-facing behaviour on a tool that returns image content (one emits an info-level `loom-system-note`, the other does not), with neither violating the current spec text. Loom-level program behaviour is unaffected — `Ok("")` is unambiguous — but conformance tests over the operator transcript are unwritable until "silently" is pinned down.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Replace the current sentence in `pi-integration-contract.md` "Tool execution from loom code":
-
-> Non-text content blocks (images, resource references) are discarded silently in V1; widening to a richer return shape is reserved for [Future Considerations](./future-considerations.md).
-
-with:
-
-> Non-text content blocks (images, resource references) are discarded during lowering; the loom-level observable is exhausted by the resulting `Ok("")` value. The runtime MUST NOT emit a `RuntimeEvent`, `loom-system-note`, or any other normative diagnostic on the discard path — non-text discard is not a `QueryError` and is not a member of the always-log set. Implementations MAY emit non-normative debug-channel logs for operator visibility. Widening to a richer return shape (preserving non-text blocks) is reserved for [Future Considerations](./future-considerations.md).
-
-Then add a corresponding test bullet to `V14c-a`'s test list:
-
-> a Pi-tool returning content with non-text blocks (images / resource references) and `!isError` produces `Ok("")` with **zero** `pi.sendMessage({ customType: "loom-system-note", ... })` calls observable on the spy and zero `RuntimeEvent` payloads emitted to the always-log helper — verified with both the all-non-text case and the mixed text + image case (the latter still emits the joined text only, no per-block notice).
-
-Edge cases the implementer must watch:
-
-- The mixed case (one text block + one image block) returns the text alone; no notice is appended explaining the image was dropped.
-- The `isError: true` path (V14g) is unchanged — `code_tool` errors continue to emit through the always-log set per the existing rules; only the `!isError` discard path is being pinned to "no diagnostic".
-- A debug-level `console.debug` or equivalent is permitted but MUST NOT route through `pi.sendMessage` or the `RuntimeEvent` channel, so it cannot appear in any session transcript or operator-visible surface.
-
-## Related Findings
-
-- "Tool execution content truncation: boundary and multi-byte edge case underspecified" — same-cluster (same lowering paragraph; resolves independently)
-- "RuntimeEvent deduplication key references a non-existent field" — same-cluster (touches the `RuntimeEvent` surface that this finding's clarifier explicitly opts out of, but resolves independently)
 
