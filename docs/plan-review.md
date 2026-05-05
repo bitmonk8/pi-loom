@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_12 findings retained, 3 false positives dropped, 0 persistent failures_
+_11 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -825,68 +825,3 @@ Optionally, add a one-bullet entry to `spec_topics/future-considerations.md` rec
 - "`resources_discover` subscription and `{}` return — no plan leaf" — same-cluster (both are Pi-API surface gaps in V14/V18f's discovery wiring; resolved independently)
 - "V14n / V14o missing V14q from Deps despite citing its collision rule in Tests" — same-cluster (touches V14q's surface but resolves independently — no overlapping edit)
 - "`pi.registerCommand` argument-completions slot not wired; dynamic de-registration on collision not covered" — same-cluster (lives in the same `session_start` registration code path the V14q fix touches; resolves independently)
-
----
-
-## plan_topics/h1-scaffold.md
-
----
-
-# `depcheck` gate is referenced but neither installed nor self-tested
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** `depcheck` gate not set up or self-tested
-**Kind:** validation
-
-## Finding
-
-H1's `Ships when` clause requires "`depcheck` clean" as a release gate, but `depcheck` is absent from the leaf's `Adds` bullet (no devDependency, no `npm run depcheck` script) and absent from the `Tests` bullet (no fixture proving the gate fires when an unused dependency is present). The gate therefore has no defined invocation: the literal phrase `depcheck clean` admits an interpretation in which a repo without `depcheck` installed at all is "clean" because nothing ran.
-
-The leaf as written is also internally inconsistent — the rest of the Ships-when command is a concrete shell line (`npm run typecheck && npm run lint && npm test`), but the `depcheck` half is prose with no executable mapping. An implementer either invents a script (and the spec/plan have no record of what it should be), or treats the clause as advisory and skips it.
-
-## Plan Documents
-
-- `plan_topics/h1-scaffold.md` — `Adds`, `Tests`, `Ships when` (edited)
-- `plan_topics/conventions.md` — leaf-format / Ships-when conventions (read-only)
-- `plan.md` — H1 entry (read-only)
-
-## Spec Documents
-
-None — `depcheck` is a project-convention tool with no REQ-ID basis in the spec.
-
-## Affected Leaves
-
-**Phases:** Horizontal
-
-**Leaves (implementation order):**
-
-- H1 — Repository scaffold and test framework — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers will diverge: one adds `depcheck` as a devDep with a script and a fixture-based negative test; another reads "depcheck clean" as aspirational and ships H1 without the tool installed. Because no Tests bullet exercises the gate, the regression cannot be caught later — H1 is declared green and the dead-dep guarantee silently does not hold for the rest of the plan.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Edit `plan_topics/h1-scaffold.md` as follows:
-
-- In the `Adds` bullet, append to the npm-scripts list: `depcheck` (and add `depcheck` to the devDependencies enumerated alongside Vitest / ESLint / Prettier).
-- In the `Tests` bullet, add a new sub-bullet:
-  > `depcheck` self-test: a fixture package under `test/fixtures/depcheck-unused/` declares an unused dependency; the test invokes `npx depcheck` against the fixture and asserts a non-zero exit and that the unused dep name appears in stdout. A second fixture with no unused deps asserts exit 0.
-- Replace the `Ships when` line with: `` `npm run typecheck && npm run lint && npm test && npm run depcheck` green. ``
-
-The negative-fixture self-test is the load-bearing change — without it, future leaves can drift `depcheck`'s configuration (e.g. a broad `ignorePatterns`) into a state where the gate passes vacuously and no one notices.
-
-Edge case for the implementer: `depcheck` flags TypeScript-only imports and dev-only tooling inconsistently; H1 must commit a `.depcheckrc` (or `package.json` `depcheck` block) that declares Vitest, ESLint plugins, Prettier, and `@types/*` as known-used, and the self-test must run with that config so the gate's real-world behaviour is what is being validated.
-
-## Related Findings
-
-- "GitHub Actions workflow added but never validated" — co-resolve (the same Tests-bullet expansion can assert `depcheck` is one of the workflow's required jobs)
-- "H1 scaffolds engineering hygiene without spec basis" — decision-dependency (that finding proposes dropping `depcheck` from `Ships when` entirely; if accepted, this finding's recommendation collapses to "remove the clause" instead of "wire it up" — resolve that one first)
-
