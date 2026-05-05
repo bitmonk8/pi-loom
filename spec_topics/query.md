@@ -226,6 +226,34 @@ When a typed query's final response fails AJV validation, the runtime attempts *
 
 Coercion follow-ups are bounded by `coercion.attempts` from frontmatter (default 3). When attempts are exhausted, the typed query returns `Err(QueryError { kind: "validation", ... })`. A coercion follow-up may itself trigger tool calls; the runtime services those the same way as in the original query, then validates the resulting response. Each follow-up counts as one against `coercion.attempts` regardless of how many tool-call iterations it contains.
 
+### Follow-up turn templates (normative)
+
+Each non-`none` coercion methodology emits its follow-up as a **user-role turn** appended to the conversation (per the "appends a *new* user turn" rule above — never as a system turn). Renderers MUST emit the surrounding template text verbatim; only the `<…>` placeholders are interpolated. Wording changes — including whitespace inside the template body — are spec-versioned breaking changes.
+
+*Placeholders.*
+
+- `<ajv-summary>` is rendered by the AJV helper `errorsText(errors, { separator: '; ' })` with the data-path prefix retained, the same renderer fixed in [Binder — Failure-mode templates (normative)](./binder.md#failure-mode-templates-normative). On a multi-attempt sequence (attempts 2, 3, …), each follow-up's `<ajv-summary>` reflects only the **most recent** failed attempt's AJV errors — never a cumulative concatenation across attempts.
+- `<schema-json>` is `JSON.stringify(schema, null, 2)` over the **lowered** response schema (the JSON Schema actually handed to AJV per [Schema Subset](./schema-subset.md)), not the source-Loom-type form. The lowered form is canonical because it is the only form the model has seen during the original turn (via the synthesised respond tool's `parameters`); the lowering pipeline emits keys in deterministic order, so the serialisation is reproducible byte-for-byte across runs.
+- `<slug>` is the canonical schema hash of the lowered response schema, identical to the slug used for the synthesised `__loom_respond_<slug>` tool name (see [Schema Subset — Canonical schema hash](./schema-subset.md#canonical-schema-hash)). Tying both sites to the same source-of-truth keeps the follow-up turn's tool reference byte-equal to the tool name actually registered.
+
+*Templates.* One template per non-`none` methodology. The fenced body of each block is the verbatim user-turn text — every character between the opening and closing fence (including the single U+000A line feed shown between the instruction sentence and the `<schema-json>` placeholder, and the literal U+0060 backtick characters around `__loom_respond_<slug>`) is part of the emitted text. The opening and closing fence lines themselves are not emitted.
+
+`validator_error`:
+
+~~~text
+Your previous response did not match the required schema. Validation errors: <ajv-summary>. Return your final answer using the `__loom_respond_<slug>` tool, conforming to this schema:
+<schema-json>
+~~~
+
+`schema_repeat`:
+
+~~~text
+Your previous response did not match the required schema. Return your final answer using the `__loom_respond_<slug>` tool, conforming to this schema:
+<schema-json>
+~~~
+
+`none` is excluded — no follow-up is issued, so there is no template to specify; the `coercion.methodology: none` bullet in [Parameters and Frontmatter](./frontmatter.md) carries the full contract for that case.
+
 ### Non-validation failures during a coercion follow-up
 
 A follow-up turn is a full provider round-trip and can fail for any reason the original turn could fail for — transport, cancellation, tool failure, context overflow, invoke failure, invoke-callee error. The runtime handles such failures uniformly:

@@ -1,7 +1,7 @@
 # pi-loom — Consolidated Spec Review
 
 _Generated: 2026-05-05T19:49:46Z (revised: merges + multi→single conversion + bottom-up reorder)_
-_60 source findings → 23 commit-ready findings (8 merge clusters, 25 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
+_60 source findings → 22 commit-ready findings (8 merge clusters, 24 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
 
 Findings are ordered for **bottom-up processing**: each commit fixes the *last* finding in the doc until the doc is empty. Dependencies that require a particular landing order are encoded in the doc order — `MERGE-F` (`bindings.md` BNDS / BNDR rename) sits at the bottom of the REQ-ID-appendix supersection so it lands *before* `MERGE-G` (retirement registries + V18s sub-gates), which sits above it.
 
@@ -1652,86 +1652,4 @@ In the failure-modes paragraph of `spec_topics/query.md`, change "The five **que
 - "`InvokeInfraError` / `kind: \"invoke_failure\"` asymmetry not in glossary" — same-cluster (also a `QueryError` surface-naming inconsistency, but resolved by a separate edit in a different file).
 
 (No other heading in the source review touches the query-time variant enumeration.)
-
----
-
-# Coercion follow-up user turn lacks a normative template per methodology
-
-**Source:** docs/reviews/spec-review/spec-20260505-204733.md
-**Original heading:** Schema-validation coercion follow-up turn text not normative
-**Kind:** testability
-
-## Finding
-
-`spec_topics/frontmatter.md` (the `coercion` field-contract bullet at lines 133–136) defines three coercion methodologies — `validator_error`, `schema_repeat`, `none` — by paraphrase only:
-
-> - `validator_error` (default) — the follow-up turn includes the AJV validation error from the previous attempt.
-> - `schema_repeat` — the follow-up turn re-states the expected schema without quoting a specific error.
-> - `none` — no follow-up; the first failure is returned as `Err` immediately.
-
-`spec_topics/query.md` § *Schema-validation coercion* (lines 219–236) repeats the same descriptive language and never spells out the literal user-turn text either methodology emits. There is no surrounding-template-with-`<…>`-placeholder treatment of the kind `binder.md` § *Failure-mode templates (normative)* uses (lines 180–192) for the six binder system notes — where a renderer "MUST emit the surrounding template text verbatim; only the `<…>` placeholders are interpolated".
-
-The gap is observable in the plan: `plan_topics/v13-wire-names.md` V13h is **explicitly blocked** ("until that template lands the assertion cannot be written without speculating about the wording"), and V13g's test bullet ("append a follow-up user turn quoting the AJV error") suffers the same defect — two implementers can both ship strings that "include the AJV validation error" yet differ in framing, prefix, schema rendering, error formatter, and surrounding instructions, with neither violating the prose. Conversation history is part of the conversation handle exposed to subagent-mode looms, so the literal turn text is observable beyond the model.
-
-## Spec Documents
-
-- `spec_topics/query.md` — *Schema-validation coercion* (edited)
-- `spec_topics/frontmatter.md` — `coercion` field-contract bullet (edited)
-- `spec_topics/binder.md` — *Failure-mode templates (normative)* (read-only; pattern reference)
-
-## Plan Impact
-
-**Phases:** Vertical V13
-
-**Leaves (implementation order):**
-
-- V13g — Coercion methodology: `validator_error` — (modified)
-- V13h — Coercion methodology: `schema_repeat` — (blocked)
-- V13j — Coercion appends a new user turn; non-validation propagation — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers will produce coercion follow-up turns whose literal text differs (different prefix, different AJV-error renderer, different schema serialisation), and neither V13g nor V13h can write a transcript-text assertion against the spec. V13h is already noted as blocked in the plan; V13g would silently pass any phrasing. The model's repair behaviour is sensitive to the wording, so divergence is also a behavioural risk, not just a test-harness one.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add a new normative subsection *Follow-up turn templates (normative)* to `spec_topics/query.md` § *Schema-validation coercion*, in the same shape as `binder.md` § *Failure-mode templates (normative)*: a preamble fixing what is verbatim vs. interpolated, followed by one row per non-`none` methodology. Cross-link the `coercion.methodology` bullet in `frontmatter.md` to the new subsection rather than restating the prose.
-
-Concretely:
-
-1. **Preamble** (verbatim from the `binder.md` pattern, adapted): "Renderers MUST emit the surrounding template text verbatim; only the `<…>` placeholders are interpolated. Wording changes are spec-versioned breaking changes." Then fix the placeholder renderers:
-   - `<ajv-summary>` — produced by `errorsText(errors, { separator: '; ' })` with the data-path prefix retained (the same helper already named in `binder.md`'s preamble; reuse the existing definition by reference rather than restating it).
-   - `<schema-json>` — the **lowered** response schema (the JSON Schema actually handed to AJV), serialised with `JSON.stringify(schema, null, 2)`. State unambiguously that the lowered, not the source-Loom-type, form is canonical, since the model only ever sees the lowered form during the original turn.
-
-2. **Templates** (one row per methodology, fenced as a single-line code block so whitespace is normative):
-
-   | Methodology | Follow-up user turn |
-   |---|---|
-   | `validator_error` | `` `Your previous response did not match the required schema. Validation errors: <ajv-summary>. Return your final answer using the \`__loom_respond_<slug>\` tool, conforming to this schema:\n<schema-json>` `` |
-   | `schema_repeat` | `` `Your previous response did not match the required schema. Return your final answer using the \`__loom_respond_<slug>\` tool, conforming to this schema:\n<schema-json>` `` |
-
-   (Exact wording is for the spec author to ratify; the structural requirement is one fixed template per methodology with named placeholders and a fixed renderer for each placeholder.)
-
-3. **`<slug>` placeholder.** Tie `<slug>` to the same source as the synthesised respond tool's name (the loom's qualified name slugged per the existing rule), to avoid the same divergence the sibling finding flags for `tool_loop_exhausted`'s `respond` literal. Cross-reference whichever section already defines `__loom_respond_<slug>`.
-
-4. **`none` is excluded** from the table — no follow-up is issued, so there is no template to specify; the existing prose is sufficient.
-
-Edge cases the implementer must watch:
-
-- The follow-up turn is a **user** turn, not a system turn — the templates above must produce a `user` role message in the conversation. State this explicitly in the preamble.
-- AJV error formatting depends on AJV options; pin `errorsText` invocation parameters in the preamble (matches binder's approach) so the placeholder is reproducible across AJV minor versions.
-- The lowered-schema serialisation must be deterministic; if the lowering pipeline can produce key-ordering variation, fix the ordering (alphabetical, or insertion-ordered with a normative lowering rule) before this template can be tested verbatim.
-- Multi-attempt follow-ups (attempts 2, 3, …) re-issue the same template against the *latest* failed attempt's AJV errors — clarify that each follow-up's `<ajv-summary>` reflects only the most recent failure, not a cumulative concatenation across attempts.
-
-## Related Findings
-
-- "Empty-template short-circuit: coercion interaction with `coercion.attempts` unclear" — same-cluster (both touch `coercion.attempts` semantics; resolve independently)
-- "`tool_loop_exhausted` renders `respond` — source of literal unclear" — decision-dependency (the `<slug>` placeholder above shares its source-of-truth question with the `respond` literal in the `tool_loop_exhausted` system note; pin both to the same rule)
-- "Tool-call loop default (25): no normative test vector for observability" — same-cluster (both are testability gaps in `query.md`'s coercion / tool-loop area)
 
