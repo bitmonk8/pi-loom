@@ -1,7 +1,7 @@
 # pi-loom — Consolidated Spec Review
 
 _Generated: 2026-05-05T19:49:46Z (revised: merges + multi→single conversion + bottom-up reorder)_
-_60 source findings → 18 commit-ready findings (8 merge clusters, 24 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
+_60 source findings → 17 commit-ready findings (8 merge clusters, 24 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
 
 Findings are ordered for **bottom-up processing**: each commit fixes the *last* finding in the doc until the doc is empty. Dependencies that require a particular landing order are encoded in the doc order — `MERGE-F` (`bindings.md` BNDS / BNDR rename) sits at the bottom of the REQ-ID-appendix supersection so it lands *before* `MERGE-G` (retirement registries + V18s sub-gates), which sits above it.
 
@@ -1347,67 +1347,4 @@ Edge cases for the implementer to watch:
 
 ---
 
-# FNV-1a binder seed: byte encoding unspecified, no normative test vector
-
-**Source:** docs/reviews/spec-review/spec-20260505-204733.md
-**Original heading:** FNV-1a seed hash: no normative reference input→output pair; encoding ambiguous
-**Kind:** testability
-
-## Finding
-
-`spec_topics/binder.md` §Determinism specifies the binder seed as the 32-bit FNV-1a hash (offset basis `0x811c9dc5`, prime `0x01000193`) of the loom's qualified name "as it appears in the slash registry (the bare command name, without the leading `/`)", masked to 32-bit unsigned. Whether the leading `/` participates is unambiguous (it does not). What is *not* specified is the **byte sequence** that FNV-1a consumes.
-
-FNV-1a is defined over a stream of 8-bit bytes; its output depends on which encoding produces those bytes. Slash names are constrained to `^[a-z0-9][a-z0-9_-]*$` (pure ASCII), so UTF-8 and UTF-16-with-either-endianness all produce different byte sequences for the same name (UTF-8: one byte per character; UTF-16LE: two bytes per character with a zero high byte; UTF-16BE: two bytes with a zero low byte; plus optional BOM). Each yields a different 32-bit hash. A JS implementer reaching for `TextEncoder` gets UTF-8; one iterating `name.charCodeAt(i)` and feeding the raw 16-bit value to a generic FNV-1a implementation gets a UTF-16-ish result; both can claim conformance to the current text.
-
-There is also no normative input→output pair, so a conforming-test author has no anchor: V16h's plan tests already assert "equals the spec-defined 32-bit FNV-1a hash" but the spec defines no concrete value for any concrete name. Two test suites, written against the same spec, can disagree on what the right answer is.
-
-## Spec Documents
-
-- `spec_topics/binder.md` — Determinism (edited)
-
-## Plan Impact
-
-**Phases:** Vertical V16
-
-**Leaves (implementation order):**
-
-- V16h — Binder determinism settings — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers will produce different seed values for the same loom, and two reasonable test suites will disagree on which value is correct. The downstream user-facing effect is mild (provider RNGs are seeded "differently but stably" either way), but the contract that "the same loom produces the same seed across processes and runs" is meaningless across implementations, and `V16h`'s "equals the spec-defined 32-bit FNV-1a hash" assertion has no concrete pass criterion until the encoding is pinned.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `spec_topics/binder.md` §Determinism, after the existing FNV-1a sentence, add:
-
-> The byte sequence hashed is the UTF-8 encoding of the bare command name, with no BOM and no NUL terminator. Equivalently, on a slash name `s` matching `^[a-z0-9][a-z0-9_-]*$` the input bytes are the ASCII code points of `s` in order. Reference vectors (loom name → 32-bit unsigned seed, hex):
->
-> | Loom name | Seed |
-> | --- | --- |
-> | `code-review` | `0x________` |
-> | `hello` | `0x________` |
-> | `a` | `0x________` |
->
-> Conforming implementations MUST reproduce these values exactly.
-
-Notes for the spec author filling in the table:
-
-- Compute the values once with a vetted FNV-1a implementation (e.g. the canonical reference C code from the Landon Curt Noll page, or a well-known npm package such as `fnv-plus` configured for FNV-1a 32-bit, cross-checked against a second implementation). Do not lift values from the first hit on a search engine — multiple "FNV-1a" libraries on npm implement subtly different variants.
-- The three vectors cover: (a) the canonical example name used elsewhere in the spec, (b) the MVP example name, (c) a single-character degenerate case that pins the offset-basis-then-one-XOR computation.
-- `V16h` Tests should be amended in the same edit to assert against the table verbatim rather than against an unanchored "spec-defined hash" — the plan leaf is already flagged `(modified)` for this reason.
-
-Edge cases for the implementer: the mask to 32-bit unsigned applies only to the *output* (the working value during the multiply step is naturally bounded by the implementation's choice of integer width, e.g. `Math.imul` chains in JS); do not also mask the per-byte intermediate state in a way that diverges from the canonical algorithm. JSON serialisation of the seed is a plain number, not a hex string — the hex notation is for human cross-checking only.
-
-## Related Findings
-
-- "Provider seed-field mapping (Determinism section) placed in binder page" — same-cluster (both touch the Determinism section of `binder.md`; the seed-field-mapping move is a placement concern that does not interact with the encoding fix, but a single editing pass through Determinism is natural)
-
----
 
