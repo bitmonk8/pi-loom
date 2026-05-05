@@ -1,7 +1,7 @@
 # pi-loom — Consolidated Spec Review
 
 _Generated: 2026-05-05T19:49:46Z (revised: merges + multi→single conversion + bottom-up reorder)_
-_60 source findings → 22 commit-ready findings (8 merge clusters, 24 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
+_60 source findings → 21 commit-ready findings (8 merge clusters, 24 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
 
 Findings are ordered for **bottom-up processing**: each commit fixes the *last* finding in the doc until the doc is empty. Dependencies that require a particular landing order are encoded in the doc order — `MERGE-F` (`bindings.md` BNDS / BNDR rename) sits at the bottom of the REQ-ID-appendix supersection so it lands *before* `MERGE-G` (retirement registries + V18s sub-gates), which sits above it.
 
@@ -1601,55 +1601,3 @@ Plan-leaf updates required:
 None
 
 ---
-
-## spec_topics/query.md
-
----
-
-# `QueryError` query-time variant count off by one
-
-**Source:** docs/reviews/spec-review/spec-20260505-204733.md
-**Original heading:** "Five query-time variants" lists six
-**Kind:** naming
-
-## Finding
-
-`spec_topics/query.md` (Failure modes section, paragraph beginning *"The canonical declaration of `QueryError` and every variant it carries lives in…"*) introduces the query-time error variants with the phrase "The five **query-time** variants —" and then enumerates six: `ValidationError`, `TransportError`, `ModelToolError`, `ContextOverflowError`, `CancelledError`, `ToolLoopExhaustedError`. The canonical union declaration in `spec_topics/errors-and-results.md` ("QueryError variants") confirms six query-time variants — the prose count is wrong, not the enumeration.
-
-Because the same paragraph is the only place the spec partitions `QueryError` into "query-time" vs. "code-side / invoke" subsets, the stated count doubles as the partition's de facto cardinality assertion. A reader scanning for "how many runtime-only error kinds must my `match` arms cover?" is told one number and shown another.
-
-## Spec Documents
-
-- `spec_topics/query.md` — Failure modes (edited)
-- `spec_topics/errors-and-results.md` — QueryError variants (read-only; canonical source confirming the count is six)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None
-
-(`V5g` introduces the `QueryError` union and successive leaves — V5h, V6i, V6k, V6m, V14r — add variants, but none of them quote or assert the prose count "five." A pure wording fix in `query.md` does not move any leaf's acceptance criteria.)
-
-## Consequence
-
-**Severity:** cosmetic
-
-The canonical schema declaration in `errors-and-results.md` is unambiguous and is the source the lowering / runtime work reads from, so no implementer would build a five-variant union by mistake. The damage is reader confusion when the two pages are read together — the partition prose loses authority once it visibly miscounts its own list.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In the failure-modes paragraph of `spec_topics/query.md`, change "The five **query-time** variants —" to "The six **query-time** variants —". No other edit is needed; the enumeration, the cross-link to `errors-and-results.md#queryerror-variants`, and the surrounding partition prose are already correct.
-
-## Related Findings
-
-- "`InvokeInfraError` / `kind: \"invoke_failure\"` asymmetry not in glossary" — same-cluster (also a `QueryError` surface-naming inconsistency, but resolved by a separate edit in a different file).
-
-(No other heading in the source review touches the query-time variant enumeration.)
-
