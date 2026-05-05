@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_47 findings retained, 3 false positives dropped, 0 persistent failures_
+_46 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -3406,62 +3406,6 @@ No other field in V2d changes. V18k/V18l/V18m/V18n/V18o themselves are not edite
 
 - "V18m / V18o: panic routing has no debug/verbose surface" — same-cluster (concerns the same routing leaves but addresses observability, not cross-references)
 - "V18o bundles per-call timeout marker with coverage-matrix CI gate" — same-cluster (clarifying V18o's actual scope reinforces why citing it for panic routing is wrong; resolves independently)
-
----
-
-# V2c division-by-zero Tests bullet collapses three IEEE-754 outcomes into one
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** V2c division-by-zero description incomplete
-**Kind:** clarity
-
-## Finding
-
-V2c's Tests bullet says `division-by-zero produces \`Infinity\` per JS`. That is one of three outcomes. Per IEEE-754 (and `spec_topics/expressions.md:150` — *"Division by zero produces IEEE-754 `Infinity` / `-Infinity` / `NaN` per JS semantics; it does not panic."*), `x / 0` produces `Infinity` when `x` is positive, `-Infinity` when `x` is negative, and `NaN` when `x` is zero. The leaf's single-result phrasing makes a conformant implementation that returns `Infinity` uniformly look correct against the leaf gate while diverging from the spec on the negative-numerator and zero-numerator cases.
-
-A V2c implementer reading only the leaf will write a single positive-case test, miss the sign and zero-zero cases, and ship a checker/runtime whose division semantics partially contradict the spec. The fix is to expand the bullet so it enumerates the three outcomes the spec already pins down.
-
-## Plan Documents
-
-- `plan_topics/v2-expressions.md` — V2c Tests bullet (edited)
-
-## Spec Documents
-
-- `spec_topics/expressions.md` — "Other arithmetic" section, line 150 (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical V2
-
-**Leaves (implementation order):**
-
-- V2c — Arithmetic, comparison, logical, ternary, parens — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable V2c implementers will diverge: one returns `Infinity` for all `x / 0` (matches the leaf, fails the spec on `-1/0` and `0/0`), the other returns the full IEEE-754 trio (matches the spec). The leaf gate as written passes both. Downstream V2e (`==` on `NaN`) and any V2 expression test that exercises a negative dividend will then drift between forks.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `plan_topics/v2-expressions.md`, V2c **Tests.** bullet, replace the clause `division-by-zero produces \`Infinity\` per JS` with:
-
-`division by zero follows the spec's IEEE-754 rule: positive numerator over zero produces \`Infinity\`, negative numerator over zero produces \`-Infinity\`, zero numerator over zero produces \`NaN\`; none of these panic`
-
-Implementer notes:
-- The asserting tests must cover all three numerator signs against a zero divisor; a single positive-case assertion is insufficient.
-- `NaN` reflexivity (`NaN == NaN` is true under V2e's `Object.is` rule) is V2e's concern, not V2c's — V2c only needs to assert the *value* produced by the division, not equality semantics on it.
-- Signed-zero divisor behaviour (`1 / -0` → `-Infinity`) is not pinned by the spec line; leave it out of the leaf to avoid over-specifying.
-
-## Related Findings
-
-- "V2c \"ternary type-checks both arms\" — missing assertion" — same-cluster (touches the same V2c Tests bullet but resolves independently; both fixes can land in one edit)
-- "`loom/parse/integer-narrowing` — no plan leaf" — same-cluster (also proposes a V2c Tests addition; co-located but logically independent)
 
 ---
 
