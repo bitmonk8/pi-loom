@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_31 findings retained, 3 false positives dropped, 0 persistent failures_
+_30 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -2224,73 +2224,3 @@ Edge cases the implementer must watch:
 - "V5e: `ctx.sendUserMessage()` — method does not exist on `ExtensionCommandContext`" — same-cluster (different leaf, but both findings rest on the same `ExtensionCommandContext` vs. `ExtensionAPI` distinction)
 
 ---
-
-# Tool-registration cache dedups by hash without verifying schema equality
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** Tool-registration dedup assumes no schema-hash collision
-**Kind:** risk
-
-## Finding
-
-H4 specifies an extension-scoped `Map<schema-hash, registeredToolName>` cache fronting `pi.registerTool`, keyed on the canonical schema hash defined in `spec_topics/schema-subset.md` (SHA-256 truncated to 16 hex chars = 64-bit slug). Both the spec (`pi-integration-contract.md` — "Tool-registration lifetime and visibility") and the H4 plan leaf treat hash equality as schema equality: a hash hit silently returns the existing `registeredToolName` without checking that the new schema is structurally identical to the cached one.
-
-The truncated 64-bit slug was chosen for human-readable synthesised tool names (`__loom_callee_<sha12>__…`, `__loom_respond_<sha12>`), accepting a documented ~10⁻⁹ collision probability for thousands of distinct schemas per loom file. That probability is small but not zero, and the spec elsewhere takes pains to call the slug "part of the on-disk and on-wire contract." The current plan and spec describe no behaviour at all for the collision case. On collision, two distinct lowered tool schemas alias to one `registeredToolName`: the second `defineTool` is dropped, the model sees the first schema in `/tools` and during tool-loop turns, but a tool-call dispatched against that name routes to whichever `execute` Pi has bound under that registration. The failure is silent at registration time and surfaces only as confusing tool-loop errors with no actionable diagnostic.
-
-The defensive fix is cheap (one canonical-form byte-equality check per cache hit, which is the happy-path fast-equal anyway) and turns a debug-nightmare silent failure into a named diagnostic. There is currently no `loom/runtime/*` code reserved for this case and no Tests bullet on H4 (or anywhere) that would catch an implementer who omits the check.
-
-## Plan Documents
-
-- `plan_topics/h4-extension-shell.md` — `Adds` bullet on the registration cache; `Tests` bullets on cache content-addressing (edited)
-- `plan.md` — H4 row (read-only)
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — "Tool-registration lifetime and visibility" subsection (edited)
-- `spec_topics/diagnostics.md` — `loom/runtime/*` table (edited)
-- `spec_topics/schema-subset.md` — "Canonical schema hash" subsection (read-only; defines the cache key but is not changed)
-
-## Affected Leaves
-
-**Phases:** Horizontal
-
-**Leaves (implementation order):**
-
-- H4 — Pi extension shell — (modified)
-
-## Consequence
-
-**Severity:** advisory
-
-In the happy path (no collision) two reasonable implementers ship indistinguishable behaviour. On the rare collision path one ships a silent wrong-schema-to-LLM bug with no diagnostic, the other emits a named runtime code and disambiguates the registration; only the spec/plan can force the second outcome since the V18o coverage gate cannot otherwise discover the missing check. The probability is low enough that an unfixed plan still produces a working V1, but the fix is one canonical-form bytes comparison per registration and the unfixed failure mode is a silent semantic corruption in the model's tool surface.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Three coordinated edits, all small. Treat the canonical-form byte sequence (the bytes the SHA-256 is computed over) as the cache value alongside the registered name, so collision detection is byte-equality of pre-hashed bytes — no extra serialisation cost on cache hit.
-
-1. **`spec_topics/diagnostics.md`** — append a row to the `loom/runtime/*` table introduced under the "`loom/runtime/*` — runtime panics and delivery failures" heading:
-
-   > `loom/runtime/registration-cache-collision` | E | runtime | Two distinct lowered tool `parameters` schemas produced the same canonical schema hash; the runtime refused to dedup the registration. Emitted at `pi.registerTool` time with both synthesised names, both lowered-schema canonical-form bytes (truncated for the message; full bytes in `hint`), and the colliding slug. The runtime registers the second schema under a disambiguated name (see [Pi Integration Contract — Tool-registration lifetime and visibility](./pi-integration-contract.md)) and continues. | [Pi Integration Contract — Tool-registration lifetime and visibility](./pi-integration-contract.md) | `tool-registration cache collision on slug <slug>: <name1> vs <name2>`.
-
-2. **`spec_topics/pi-integration-contract.md`** — in the "Tool-registration lifetime and visibility" subsection, immediately after the sentence "On first encounter of a unique hash the runtime calls `pi.registerTool` once with a content-addressed name…", insert:
-
-   > On a subsequent cache hit (a new lowered schema hashing to a slug already present in the cache), the runtime MUST verify byte-equality of the cached canonical-form schema bytes against the new entry's canonical-form bytes before reusing the registration. The hash is a 64-bit truncation of SHA-256 (per [Schema Subset — Canonical schema hash](./schema-subset.md#canonical-schema-hash)), so silent collision is statistically negligible but not impossible; treating hash equality as schema equality without verification would silently alias two distinct tool schemas to one registered name. On byte-mismatch the runtime emits `loom/runtime/registration-cache-collision`, refuses to dedup, and registers the new schema under a disambiguated name with a monotonically increasing per-slug counter (`__loom_callee_<sha12>_<n>__<post-rename-name>` for loom callees; `__loom_respond_<sha12>_<n>` for typed-query one-shot tools, starting at `n = 2`). The cache stores the canonical-form bytes alongside the registered name so the equality check is a byte comparison, not a re-serialisation.
-
-3. **`plan_topics/h4-extension-shell.md`** — extend the existing cache `Adds` clause and add one `Tests` bullet:
-
-   - In `Adds.`, after "an extension-scoped `Map<schema-hash, registeredToolName>` cache fronting `pi.registerTool`", insert: ", whose value carries both the registered name and the canonical-form schema bytes used to compute the hash, so cache hits verify byte-equality before reusing the registration and emit `loom/runtime/registration-cache-collision` plus a disambiguated re-registration on mismatch (per [Pi Integration Contract — Tool-registration lifetime and visibility](../spec_topics/pi-integration-contract.md))".
-   - In `Tests.`, replace the existing bullet "Registration cache is content-addressed: two `defineTool(...)` calls with the same lowered `parameters` hash dedupe to one `pi.registerTool` call." with two bullets:
-     - "Registration cache hit on byte-equal canonical-form schema dedupes to one `pi.registerTool` call (two `defineTool(...)` calls with structurally identical lowered `parameters` produce one registration)."
-     - "Registration cache hit with byte-unequal schema (synthetic collision injected via a test-only hash override on the cache's hash function) emits exactly one `loom/runtime/registration-cache-collision` diagnostic, calls `pi.registerTool` twice, and the second registration uses the disambiguated `_2` suffix per the spec template."
-
-## Related Findings
-
-- "Canonical schema hash algorithm unasserted" — decision-dependency (V4f must pin the SHA-256 + 16-hex-char slug algorithm against a fixture before H4's collision-detection clause has a stable hash function to detect collisions in)
-- "M assumes registration/collision plumbing not yet scheduled" — same-cluster (both concern under-specified registration-cache machinery owned by H4 and consumed by M)
-- "M's collision warning lacks code/severity" — same-cluster (both concern unnamed collision diagnostics; different domain — slash-name vs. schema-hash — but the same omission pattern)
-- "H4 \"no-logic shims\" claim contradicts registration cache and `withActiveTools`" — co-resolve (any rewrite of H4's cache `Adds` clause will resolve both findings in the same edit pass)
-
