@@ -53,7 +53,7 @@
 - **Spec.** [Schema Declarations](../spec_topics/schemas.md) (recursion).
 - **Adds.** `schema Tree { value, children: array<Tree> }` lowers via `$defs`/`$ref`.
 - **Tests.** Recursion lowered transparently; AJV validates 4-deep tree.
-- **Deps.** V4i. *(V4i is the AJV side; this is the surface.)*
+- **Deps.** V4i.
 - **Ships when.** Authors don't write `$ref`/`$defs` manually.
 
 ## V11h — Mutual recursion across schemas

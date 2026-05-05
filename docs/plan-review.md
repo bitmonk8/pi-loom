@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_59 findings retained, 3 false positives dropped, 0 persistent failures_
+_58 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -4223,84 +4223,6 @@ Edge cases the implementer should watch:
 
 - "Schema-subset depth enforcement missing at three of four required sites" — decision-dependency (the V4i narrowing leaves V11i free to expand into the four-site coverage; both edits land in the same vertical and should be sequenced together)
 - "V11g and V6d Deps fields contain rationale-only asides (cruft)" — co-resolve (once V4i is cleanly the AJV side, the V11g aside `*(V4i is the AJV side; this is the surface.)*` is redundant with the leaf division itself and can be deleted)
-
----
-
-# V11g and V6d Deps fields carry rationale asides instead of bare IDs
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** V11g and V6d Deps fields contain rationale-only asides (cruft)
-**Kind:** cruft
-
-## Finding
-
-`plan_topics/conventions.md` defines the **Deps** field as "Other leaf IDs that must be complete first." Two leaves break that contract by appending parenthetical italic prose:
-
-- `plan_topics/v11-discriminated-unions.md` V11g: `**Deps.** V4i. *(V4i is the AJV side; this is the surface.)*` — pure rationale restating what the prior **Spec/Adds** lines already imply.
-- `plan_topics/v6-typed-queries.md` V6d: `**Deps.** V6c, V9 (functions). *(Order: this leaf depends on V9a–V9e; reorder as needed.)*` — process aside addressed to the plan author, not the implementer. It also cites `V9`, which is not a leaf ID (V9 is a slice grouping; the actual leaves are V9a–V9f).
-
-These are the only two leaves under `plan_topics/` with this pattern, so removing them restores the field to a uniform machine-readable list of leaf IDs across the whole plan.
-
-## Plan Documents
-
-- `plan_topics/v11-discriminated-unions.md` — V11g Deps line (edited)
-- `plan_topics/v6-typed-queries.md` — V6d Deps line (edited)
-- `plan_topics/conventions.md` — Per-phase template, Deps definition (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical V6, Vertical V11
-
-**Leaves (implementation order):**
-
-- V6d — Schema inference: enclosing return-type sink — (modified)
-- V11g — Self-recursive object schemas — (modified)
-
-## Consequence
-
-**Severity:** cosmetic
-
-The Deps field is the only structured DAG-edge data the plan exposes; mixing prose into it makes automated dep extraction (or even consistent reading) noisier. V6d additionally cites the slice ID `V9` instead of concrete leaf IDs, so the dep is under-specified — an implementer cannot tell whether V9f is a prerequisite. Implementers can still proceed today, hence cosmetic, but the V6d case borders on advisory.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `plan_topics/v11-discriminated-unions.md`, replace the V11g **Deps.** line
-
-```
-- **Deps.** V4i. *(V4i is the AJV side; this is the surface.)*
-```
-
-with
-
-```
-- **Deps.** V4i.
-```
-
-In `plan_topics/v6-typed-queries.md`, replace the V6d **Deps.** line
-
-```
-- **Deps.** V6c, V9 (functions). *(Order: this leaf depends on V9a–V9e; reorder as needed.)*
-```
-
-with
-
-```
-- **Deps.** V6c, V9a, V9b, V9c, V9d, V9e.
-```
-
-The V9 leaf range is taken from the deleted aside, which is the author's own statement of intent. No other fields on either leaf change.
-
-## Related Findings
-
-- "V4i and V11g/V11h/V11i contain duplicated requirements" — same-cluster (also touches V11g; that finding edits V4i's Adds/Tests, this one edits V11g's Deps line — independent edits)
 
 ---
 

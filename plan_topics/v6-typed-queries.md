@@ -29,7 +29,7 @@
 - **Spec.** [Query](../spec_topics/query.md) (inference rule 2).
 - **Adds.** When a query is in tail-expression position of a function/loom whose return type is declared, that type supplies the schema.
 - **Tests.** Function with declared `Result<T, QueryError>` return; query in tail position infers `T`; `return @\`...\`?` infers from declared return type.
-- **Deps.** V6c, V9 (functions). *(Order: this leaf depends on V9a–V9e; reorder as needed.)*
+- **Deps.** V6c, V9a, V9b, V9c, V9d, V9e.
 - **Ships when.** Functions can be written without redundant annotations.
 
 ## V6e — Schema inference: enclosing call-site parameter-type sink
