@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_23 findings retained, 3 false positives dropped, 0 persistent failures_
+_22 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -1694,75 +1694,6 @@ Keep the rest of the `Adds.` bullet unchanged. In the `Tests.` block, tighten th
 
 - "\"Severity round-trips\" underspecified" — co-resolve (the boundary it asks H3 to name is the same `DiagnosticsAccumulator → pi.sendMessage(...)` serialiser this finding redefines)
 - "H3 omits the `loom/lex/*` namespace" — same-cluster (independent edit to the same H3 `Adds.` bullet's namespace-constants list)
-
----
-
-# H3's namespace-constants list invites a non-existent `loom/lex/*` namespace
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** H3 omits the `loom/lex/*` namespace
-**Kind:** assumptions
-
-## Finding
-
-H3's `Adds` field enumerates the typed code-namespace constants the diagnostics primitive must export: `loom/parse/*`, `loom/type/*`, `loom/load/*`, `loom/runtime/*`. That list matches the namespaces actually used by codes in the spec's registry (`spec_topics/diagnostics.md`). However, the spec's own section heading for the parse/lex table reads ``### `loom/lex/*` and `loom/parse/*` — lexical and parse errors``, and the `Phase` column tags many codes as `lex` (e.g. `loom/parse/illegal-escape`, `loom/parse/literal-newline-in-string`, `loom/parse/unterminated-string`, `loom/parse/invalid-path-separator`, `loom/parse/block-comment`, plus `loom/load/invalid-encoding`).
-
-A V1-lexer-leaf implementer reading H3 alongside the spec will reasonably ask: "If lex-phase codes exist, why is `loom/lex/*` absent from H3's constants list?" The answer is that the namespace `loom/lex/*` does not exist anywhere in the V1 registry — every `lex`-phase code routes through `loom/parse/*` (or `loom/load/invalid-encoding` for the encoding case), and the spec's section heading is a misleading anticipatory artifact. H3 currently leaves that ambiguity unresolved, so two implementers may diverge: one mints a `loom/lex/*` constant to "match the spec heading," the other follows H3 verbatim.
-
-The fix is to make the disjunction explicit at the H3 site so no implementer has to re-derive it from the spec table.
-
-## Plan Documents
-
-- `plan_topics/h3-diagnostics.md` — `Adds` field, `Tests` field (edited)
-- `plan.md` — read-only
-- `plan_topics/v1-lexer.md` — read-only (V1a–V1e leaves emit lex-phase codes)
-- `plan_topics/conventions.md` — read-only
-
-## Spec Documents
-
-- `spec_topics/diagnostics.md` — section heading at line 66, "Code namespaces" list (option-dependent — only edited if the fix re-titles the spec section)
-
-## Affected Leaves
-
-**Phases:** Horizontal, Vertical V1
-
-**Leaves (implementation order):**
-
-- H3 — Diagnostics primitive and multi-error accumulator — (modified)
-- V1b — String literals and escapes — (read-only; emits lex-phase codes via `loom/parse/*`)
-- V1c — Line comments (`//` and `///`) — (read-only; emits `loom/parse/block-comment` at lex phase)
-- V1d — Identifier case rule and reserved keywords — (read-only)
-
-## Consequence
-
-**Severity:** advisory
-
-Two implementers reading H3 plus the spec heading may pick different namespace prefixes for lex-phase codes (one inventing `loom/lex/*` to match the spec heading, the other following H3 verbatim). The downstream V1 lexer leaves would then emit codes that don't match the closed registry, tripping registry-rule 1 ("every author-visible diagnostic emitted by the runtime MUST carry a code from the registry"). The defect is not blocking because H3's enumeration matches the registry, but the silent ambiguity invites rework.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Edit `plan_topics/h3-diagnostics.md`'s `Adds` field. Replace:
-
-> typed code-namespace constants (`loom/parse/*`, `loom/type/*`, `loom/load/*`, `loom/runtime/*`)
-
-with:
-
-> typed code-namespace constants (`loom/parse/*`, `loom/type/*`, `loom/load/*`, `loom/runtime/*`) — these are the four namespaces in the V1 closed registry. There is no `loom/lex/*` namespace: every `lex`-phase code in `spec_topics/diagnostics.md` routes through `loom/parse/*` (or `loom/load/invalid-encoding` for the UTF-8 / BOM case)
-
-Then add one assertion to the `Tests` field:
-
-> No emitted code's namespace prefix falls outside the four-element constant set above (enforced by a unit test that scans every code emitted by the test suite).
-
-The spec heading at `spec_topics/diagnostics.md:66` (``### `loom/lex/*` and `loom/parse/*` — lexical and parse errors``) is misleading on its own terms but is a spec-side editorial issue; addressing it is out of scope for a plan-side fix. Leaving the spec heading as-is is acceptable provided H3 carries the explicit disclaimer above.
-
-## Related Findings
-
-- "Closed diagnostic registry — many codes have no asserting plan leaf" — same-cluster (also concerns the registry-to-leaf mapping completeness; the namespace clarification here makes that audit cleaner)
-- "UTF-8 encoding, BOM consumption, and `loom/load/invalid-encoding` — no plan leaf" — same-cluster (the missing leaf emits a lex-phase code under the `loom/load/*` namespace; both findings hinge on phase ≠ namespace)
 
 ---
 
