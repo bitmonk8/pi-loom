@@ -12,7 +12,7 @@
 
 - **Spec.** [Schema Declarations](../spec_topics/schemas.md) (object form), [Grammar Appendix — `schema X by <field>`](../spec_topics/grammar.md#schema-x-by-field).
 - **Adds.** `schema X { f: T, ... }` parsed; lowered to `$defs/X` with `required` listing every field, `additionalProperties: false`, properties in declaration order. The object-body shape does **not** admit a `by <field>` clause; `schema X by f { ... }` is `loom/parse/by-on-object-schema` (the explicit-discriminator form is reserved for the `=` union shape, finalised in V11d).
-- **Tests.** Trailing comma optional; missing field rejected; `additionalProperties:false` always emitted; snapshot against `test/fixtures/schemas/object-basic.json`; `schema X by f { ... }` emits `loom/parse/by-on-object-schema`; `schema X { }` emits `loom/parse/empty-schema-body` with message `"'X' has no fields; an empty schema cannot be validated."`.
+- **Tests.** Trailing comma optional; missing field rejected; `additionalProperties:false` always emitted; snapshot against `test/fixtures/schemas/object-basic.json`; `schema X by f { ... }` emits `loom/parse/by-on-object-schema`; `schema X { }` emits `loom/parse/empty-schema-body` with message `"'X' has no fields; an empty schema cannot be validated."`; constructing an object whose `: integer` field receives a `number`-typed expression emits `loom/parse/integer-narrowing`; a `: number` field accepting an `integer`-typed expression widens silently.
 - **Deps.** V4a.
 - **Ships when.** Schemas can be declared and compiled; nothing yet uses them; misuse of `by` on object bodies rejected with the documented diagnostic.
 

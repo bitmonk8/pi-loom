@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_45 findings retained, 3 false positives dropped, 0 persistent failures_
+_44 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -3269,85 +3269,6 @@ Source-of-truth note for the implementer: the message strings are the parenthesi
 ## Related Findings
 
 - "Plan tests cite \"spec's exact wording\" / \"verbatim\" without verifying spec owns each message string" — decision-dependency (the broader finding warns that for most diagnostics the spec does not own a canonical message string; V1d is one of the few cases where it does, so this finding can be closed independently by quoting the existing strings, but the broader audit may later prefer a single normative table both leaves cite).
-
----
-
-## plan_topics/v2-expressions.md
-
----
-
-# `loom/parse/integer-narrowing` has no asserting plan leaf
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** `loom/parse/integer-narrowing` — no plan leaf
-**Kind:** spec-coverage, validation
-
-## Finding
-
-The diagnostics registry in `spec_topics/diagnostics.md` (row 79) defines `loom/parse/integer-narrowing` as the type-error code for "`number` value used where `integer` is expected", anchored to the lexical rule that `integer` widens implicitly to `number` but the reverse must be diagnosed. The registry is closed and normative, so every code in it must be asserted by some plan leaf's Tests bullet for the V18o coverage gate to be meaningful.
-
-A grep over `plan_topics/` for `integer-narrowing` returns zero hits. V1a tags the `integer` vs `number` token type from literal shape but performs no compatibility check. V2c covers arithmetic operators where the widening direction is *silent* (no diagnostic fires there). V2h mentions sink-driven `integer`-widens-to-`number` for array literals but no narrowing test. V4 (schema fields), V9 (function parameters), and V2a (typed `let` annotations) — the three slots where `: integer` annotations create a position that can reject a `number` source — say nothing about this code.
-
-The diagnostic therefore has no asserting leaf. Whichever leaf first introduces the assignment-compatibility check will silently inherit responsibility for emitting it, but no Tests bullet pins the code string, the diagnostic message, or the widen-vs-narrow asymmetry. An implementer who omits the check will not fail any leaf gate; the omission only surfaces if the closed-registry CI gate proposed under a sibling finding is actually wired.
-
-## Plan Documents
-
-- `plan_topics/v2-expressions.md` — V2a (edited), V2c (read-only)
-- `plan_topics/v9-functions.md` — V9a (option-dependent)
-- `plan_topics/v4-schemas.md` — V4b (option-dependent)
-- `plan_topics/v1-lexer.md` — V1a (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical V2, Vertical V4, Vertical V9
-
-**Leaves (implementation order):**
-
-- V2a — `let` immutable bindings — (modified)
-- V4b — Object schema declaration and lowering — (option-dependent)
-- V9a — Top-level `fn` declaration — (option-dependent)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers will diverge on whether `let x: integer = some_number_expr` is a parse error, a runtime panic, or silently lowers. Without a Tests bullet pinning the exact code string and the widen-vs-narrow asymmetry, the diagnostic can ship unimplemented while every leaf gate passes — and the V18o REQ-ID gate does not catch it because diagnostic codes are tracked through the diagnostics-spec registry, not through REQ-IDs.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Distribute the assertion across all three sites that can hold an `: integer` annotation: V2a (binding), V4b (object schema field), V9a (function parameter). Each bullet asserts the same diagnostic code in its local context, with the asymmetry (widen silently / narrow rejected) documented at each site. With D11 settled (the type-compatibility relation is now defined in `type-system.md`), each test cleanly cites the relation as the source of the asymmetry.
-
-**Plan edits.**
-
-- `plan_topics/v2-expressions.md` § V2a — append to the **Tests** bullet:
-  `let x: integer = <number-expr>` emits `loom/parse/integer-narrowing`; `let y: number = <integer-expr>` widens silently.
-- `plan_topics/v4-schemas.md` § V4b — append to the **Tests** bullet:
-  Constructing an object whose `: integer` field receives a `number`-typed expression emits `loom/parse/integer-narrowing`; `: number` field accepting an `integer`-typed expression widens silently.
-- `plan_topics/v9-functions.md` § V9a — append to the **Tests** bullet:
-  Calling `fn f(p: integer)` with a `number`-typed argument emits `loom/parse/integer-narrowing`; `fn f(p: number)` accepting an `integer`-typed argument widens silently.
-
-**Spec edits.** None.
-
-Use the literal code string `loom/parse/integer-narrowing` in all three Tests. The asymmetry assertion (`integer → number` widens silently) is required at each site so each test set documents both directions, not just the rejected one. Three bullets must stay in sync if the diagnostic message ever changes — cosmetic only.
-
-## Related Findings
-
-- "Closed diagnostic registry — many codes have no asserting plan leaf" — co-resolve (this is one of the unasserted codes that umbrella finding enumerates; resolving Option B closes the V2a/V4b/V9a slice of that gap)
-- "Path literals forward-slash rule and `loom/parse/invalid-path-separator` — no leaf" — same-cluster (sibling unasserted-code finding, resolved independently at a different leaf)
-- "UTF-8 encoding, BOM consumption, and `loom/load/invalid-encoding` — no plan leaf" — same-cluster (sibling unasserted-code finding)
-- "Newline normalisation (`\r\n`, bare `\r` → `\n`) — no plan leaf" — same-cluster (sibling unasserted-code finding)
-- "`loom/load/missing-mode` and `loom/load/unknown-mode-value` — no asserting leaf" — same-cluster (sibling unasserted-code finding)
-- "Empty schema and enum body diagnostics — no test leaf" — same-cluster (sibling unasserted-code finding)
-- "Type-alias cycle detection (`loom/parse/type-alias-cycle`) — no plan leaf" — same-cluster (sibling unasserted-code finding)
-- "`loom/parse/non-string-discriminator` — no test leaf" — same-cluster (sibling unasserted-code finding)
 
 ---
 
