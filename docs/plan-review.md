@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_48 findings retained, 3 false positives dropped, 0 persistent failures_
+_47 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -3465,61 +3465,3 @@ Implementer notes:
 
 ---
 
-# V2c Tests bullet "ternary type-checks both arms" is not an assertion
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** V2c "ternary type-checks both arms" — missing assertion
-**Kind:** clarity
-
-## Finding
-
-The final clause of V2c's `Tests.` bullet — "ternary type-checks both arms" — describes a checker activity, not an observable test condition. An implementer cannot tell whether the test must (a) confirm that both arms are visited by the type-check pass, (b) assert that arms of incompatible types raise a diagnostic, or (c) assert that two equal-typed arms produce that type as the ternary's result type. Each reading yields a materially different test.
-
-The spec is unambiguous on the underlying rule: `expressions.md` §"Array construction" states that the *common-type rules for array literals* apply identically to *ternary branches*, which means the existing array diagnostics — `loom/parse/array-element-type-mismatch` (when a sink is in scope) and `loom/parse/array-no-common-type` (otherwise) — fire on incompatible arms. There is no ternary-specific diagnostic in `diagnostics.md`. The leaf must name those exact codes and assert the result-type lub, not gesture at a generic "type-check".
-
-## Plan Documents
-
-- `plan_topics/v2-expressions.md` — V2c Tests bullet (edited)
-
-## Spec Documents
-
-- `spec_topics/expressions.md` — Array construction / common-type rules (read-only)
-- `spec_topics/diagnostics.md` — `loom/parse/array-element-type-mismatch`, `loom/parse/array-no-common-type` (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical V2
-
-**Leaves (implementation order):**
-
-- V2c — Arithmetic, comparison, logical, ternary, parens — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two implementers reading "ternary type-checks both arms" will produce materially different test suites — one may write a no-op visit assertion, another may test only diagnostic emission, a third may test result-type inference. None of those alone covers the spec's actual claim, and the leaf will ship with one third of the rule asserted while the V18o coverage gate sees a check-mark.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `plan_topics/v2-expressions.md`, V2c, replace the trailing clause of the `Tests.` bullet (currently `; ternary type-checks both arms.`) with three explicit assertions:
-
-> `; ternary with arms of incompatible types and no surrounding sink emits \`loom/parse/array-no-common-type\` naming both arm types; ternary with incompatible arms inside a sink (e.g. \`let x: T = c ? a : b\`) emits \`loom/parse/array-element-type-mismatch\` against the sink's type; ternary with two equal-type arms (or arms unifiable by the integer-widens-to-number rule) yields the common type as the ternary's result type, with no diagnostic.`
-
-Edge cases the implementer must cover when writing these tests:
-
-- The sink-vs-no-sink split mirrors the array-literal rule precisely; reuse the V2h test fixtures rather than inventing parallel ones.
-- `integer`/`number` widening is part of the common-type rule (rule 2 in `expressions.md`); a ternary `cond ? 1 : 1.5` must produce `number`, not diagnose.
-- `null` plus a non-`null` arm unions to `T | null` per rule 2; assert this rather than treating it as a mismatch.
-- Two distinct named-schema arms with no union sink in scope must emit `loom/parse/array-no-common-type` per rule 3, identical to the array case.
-
-## Related Findings
-
-- "V2c division-by-zero description incomplete" — co-resolve (same Tests bullet of the same leaf; both clauses are rewritten in one edit pass)
-- "`loom/parse/integer-narrowing` — no plan leaf" — same-cluster (extends the same V2c Tests bullet but with an independent assertion)
-
----
