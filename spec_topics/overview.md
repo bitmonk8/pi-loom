@@ -37,7 +37,7 @@ let score: ReviewScore = @`Rate the critique 1-5: ${critique}`?
 
 A loom therefore alternates between loom code (parsing the previous response, branching, looping) and model turns (further queries) for as long as it needs. There is no single emission buffer flushed at the end; each query is its own conversation turn whose result feeds back into loom code.
 
-### Scope of a Loom File
+### Scope of a loom file
 
 Each `.loom` file defines a **loom** — a named, invocable unit. Every loom **declares its own execution mode** in frontmatter (`mode: prompt | subagent`); the choice is the loom author's, not the invoker's. A slash-command user, an `invoke` caller, and a programmatic harness all see the same mode for a given loom — it is a property of the file, not of the call site.
 

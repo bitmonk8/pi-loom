@@ -1,7 +1,7 @@
 # pi-loom — Consolidated Spec Review
 
 _Generated: 2026-05-05T19:49:46Z (revised: merges + multi→single conversion + bottom-up reorder)_
-_60 source findings → 35 commit-ready findings (8 merge clusters, 28 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
+_60 source findings → 34 commit-ready findings (8 merge clusters, 27 standalone). 8 false positives dropped at consolidation; 0 persistent failures._
 
 Findings are ordered for **bottom-up processing**: each commit fixes the *last* finding in the doc until the doc is empty. Dependencies that require a particular landing order are encoded in the doc order — `MERGE-F` (`bindings.md` BNDS / BNDR rename) sits at the bottom of the REQ-ID-appendix supersection so it lands *before* `MERGE-G` (retirement registries + V18s sub-gates), which sits above it.
 
@@ -2448,74 +2448,4 @@ Take Option A. The pair pattern is already established for `loom-side name` vs. 
 
 - "`InvokeInfraError` / `kind: "invoke_failure"` asymmetry not in glossary" — same-cluster (both are glossary-completeness gaps; resolve independently)
 - "\"loom\" overloaded across three senses; no disambiguating glossary entries" — same-cluster (both edit `spec_topics/glossary.md` to add or split coined-term entries; co-resolvable in a single glossary pass but logically independent)
-
----
-
-# "loom" / "Loom" / "pi-loom" — three referents, no glossary disambiguation
-
-**Source:** docs/reviews/spec-review/spec-20260505-204733.md
-**Original heading:** "loom" overloaded across three senses; no disambiguating glossary entries
-**Kind:** naming
-
-## Finding
-
-The token "loom" carries three distinct referents across the spec, none of which the glossary names or distinguishes:
-
-1. **The extension** — `pi-loom`, "the loom extension" (e.g. `spec.md:1`, `diagnostics.md:3` "the loom extension", `discovery.md` repeatedly).
-2. **The language** — "Loom code", "Loom language", "Loom expressions" (e.g. `spec.md:5`, `spec.md:23`, `bindings.md:3` "Loom follows Rust's…", `expressions.md:3`, `influences.md:3`).
-3. **A single invocable file unit** — "evaluating a loom", "each `.loom` file defines a **loom**", "the loom's queries", "the loom's return value" (e.g. `spec.md:3`, `overview.md:40` "Scope of a Loom File", `frontmatter.md`, `invocation.md`).
-
-`glossary.md` defines none of the three. It uses "loom" freely inside other entries (`binder`, `callable set`, `prompt mode`, `Pi tool`) without ever pinning which referent is intended; readers are left to infer from context. Capitalisation is also inconsistent and load-bearing in places it should not be: `overview.md` writes "Scope of a Loom File" (sense 3, capitalised) while the body of the same file writes "loom" lowercase for the same referent; `spec.md` capitalises "Loom" for the language (sense 2) without ever stating that capitalisation marks the language sense; `influences.md` and `bindings.md` use "Loom" for the language but `expressions.md` mixes "Loom" and "loom" for the same referent across adjacent paragraphs.
-
-The result is that an implementer reading any single sentence containing "loom" must do work to figure out which of the three is meant, and the glossary — which exists precisely to anchor coined terms — is silent on the term that names the project.
-
-## Spec Documents
-
-- `spec_topics/glossary.md` — body list (edited)
-- `spec_topics/overview.md` — "Scope of a Loom File" heading and surrounding prose (edited; capitalisation pass)
-- `spec_topics/influences.md` — "Loom borrows from…" prose (read-only; benchmark for language sense)
-- `spec_topics/bindings.md`, `spec_topics/expressions.md`, `spec_topics/control-flow.md`, `spec_topics/descriptions.md`, `spec_topics/imports.md`, `spec_topics/grammar.md` — sentences that capitalise "Loom" for the language sense (read-only; verify they conform to the chosen convention, edit only on drift)
-- `spec.md` — opening paragraph and "Surface and semantics of the Loom language" header (read-only; cross-check)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None. `glossary.md` is enumerated as a pure-narrative page in the REQ-ID prefix table (`spec.md`) and is explicitly excluded from H6's anchor pass (per `plan_topics/h6-req-ids.md`). No leaf's acceptance criteria reference the term-disambiguation question, and no leaf is blocked on it.
-
-## Consequence
-
-**Severity:** advisory
-
-Two implementers reading `frontmatter.md`'s "the loom's typed `params`" or `diagnostics.md`'s "owned by the loom extension" can both build correct code, but reviewers chasing precise references — especially around invocation boundaries where "the loom" (file unit) is distinct from "the loom extension" (process-wide registry) and from "Loom" (the language whose grammar admits a construct) — will repeatedly stumble. The glossary's silence on the project's title term is a missed-opportunity defect rather than a soundness issue.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add three glossary entries to `spec_topics/glossary.md` (alphabetised in place) and pin the capitalisation convention in the entry for sense 2:
-
-- **loom (file unit)** — A single `.loom` file viewed as a named, invocable unit: the artefact a slash command resolves to, the thing `invoke(...)` targets, the thing whose frontmatter declares `mode:`. Used with an article ("a loom", "the loom"). Lowercase. See: [Overview — Scope of a Loom File](./overview.md), [Invocation](./invocation.md).
-- **Loom (language)** — The scripting language whose grammar and semantics this spec defines, shared by `.loom` and `.warp` files. Capitalised when used as a proper noun ("Loom expressions", "Loom code", "Loom follows Rust's…"); the lowercase form is reserved for sense 1. See: [Lexical Structure](./lexical.md), [Expression Sublanguage](./expressions.md), [Influences](./influences.md).
-- **pi-loom (extension)** — The Pi extension that registers `.loom` files as slash commands, owns the discovery walk, and runs loom code. Referred to in prose as `pi-loom` or "the loom extension"; never capitalised "Loom Extension". See: [Pi Extension Integration](./pi-integration.md), [Pi Integration Contract](./pi-integration-contract.md).
-
-After landing the entries, sweep `overview.md` once for the rule "capital `L` ⇒ language; lowercase `l` ⇒ file unit": the section heading "Scope of a Loom File" should become "Scope of a loom file" (sense 1), while "Loom expressions" / "Loom code" elsewhere stay capitalised. The sweep is mechanical and can be done in the same edit.
-
-Edge cases the implementer must watch:
-
-- `frontmatter.md` and `query.md` use phrases like "Loom static type" and "Loom literal sublanguage" — these are language-sense (capital L) and stay as-is.
-- `discovery.md` and `pi-integration.md` use "the loom extension" — extension-sense (lowercase, with article) and stay as-is.
-- Code-fence text and diagnostic codes (`loom/parse/...`, `loom-system-note`) are wire identifiers, not prose; they are not subject to the convention.
-- Do not add REQ-IDs to the new entries — `glossary.md` is `(no IDs — narrative)` per the prefix table.
-
-## Related Findings
-
-- "binder bypass" conflates two distinct named conditions — same-cluster (adjacent glossary defect; same edit pass to `glossary.md` is the natural carrier)
-- `InvokeInfraError` / `kind: "invoke_failure"` asymmetry not in glossary — same-cluster (third missing-glossary-entry finding; co-resolve in the same edit if the fixer is already in `glossary.md`)
-- "top-level loom block" vs. "top level of a loom" — minor terminology inconsistency — same-cluster (also a candidate for a glossary entry once the canonical phrasing is picked in `return.md`)
-- `argument-hint` uses a hyphen; all loom-native multi-word fields use underscores — same-cluster (sibling naming-convention finding in the same review; resolves independently)
 
