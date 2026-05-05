@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-05T08:11:29Z_
 _Source: docs/reviews/plan-review/plan-20260505-083349.md_
-_123 findings retained, 3 false positives dropped, 0 persistent failures_
+_122 findings retained, 3 false positives dropped, 0 persistent failures_
 
 ---
 
@@ -8786,69 +8786,3 @@ The fix is mechanical once step 1 lands — every leaf points at a single column
 - "M requires `loom-system-note` channel that V18h introduces" — decision-dependency (M's "text matches spec verbatim" assertion presupposes a delivery channel that does not exist at M's place in the order; resolving the order constraint is prerequisite to M's bullet rewrite landing usefully)
 - "M's \"AbortError\" system-note path not defined in spec" — co-resolve for M's *AbortError* bullet specifically (the message string is undefined because the path itself is undefined; resolving the path defines the message)
 
----
-
-# `bind_echo: true` on a no-params loom — phase label disagrees with diagnostic code in `binder.md`
-
-**Source:** docs/reviews/plan-review/plan-20260505-083349.md
-**Original heading:** `bind_echo: true` severity inconsistency across spec pages
-**Kind:** consistency
-
-## Finding
-
-Four normative sites describe the warning emitted when `bind_echo: true` is declared on a no-params loom, and they agree on the diagnostic code (`loom/load/bind-echo-without-params`) and the severity (warning):
-
-- `spec_topics/diagnostics.md` line 158 — registry row: severity `W`, phase column `load`.
-- `spec_topics/frontmatter.md` line 47 — `params:` row: "`bind_echo: true` on a no-params loom is `loom/load/bind-echo-without-params` (warning)".
-- `plan_topics/v3-frontmatter.md` line 25 (V3c Tests) — refers to the diagnostic by code.
-- `plan_topics/v16-binder.md` lines 86–87 (V16k Adds/Tests) — explicitly contrasts "load warning" against the sibling `loom/parse/bind-echo-on-bypass` "parse warning".
-
-The fifth site disagrees: `spec_topics/binder.md` line 28 (Binder bypass — No-params bypass) says "`bind_echo: true` is a parse warning (`loom/load/bind-echo-without-params`)". The phase label and the diagnostic-code namespace contradict each other in a single sentence.
-
-The mistake is unambiguously in `binder.md`'s prose, not in the code: the registry's `phase` column is the canonical source, and V16k goes out of its way to explain that the no-params and single-string bypass cases use *distinct* codes precisely because one is detected at load and the other at parse. Both of binder.md's sibling references — line 137 ("the binder's `needs_info` and `ambiguous` failure messages") and line 160 (`loom/parse/bind-echo-on-bypass` for the single-string bypass) — are consistent with the rest of the spec; only line 28 slipped.
-
-## Plan Documents
-
-- `plan_topics/v3-frontmatter.md` — V3c (read-only)
-- `plan_topics/v16-binder.md` — V16k (read-only)
-
-## Spec Documents
-
-- `spec_topics/binder.md` — §Binder bypass, item 1 "No-params bypass" (edited)
-- `spec_topics/diagnostics.md` — registry row for `loom/load/bind-echo-without-params` (read-only)
-- `spec_topics/frontmatter.md` — Field-contract table, `params` row (read-only)
-
-## Affected Leaves
-
-**Phases:** None
-
-**Leaves (implementation order):** None
-
-The plan leaves (V3c, V16k) already cite the code and phase correctly; no plan edits are required. The fix is confined to one sentence in `spec_topics/binder.md`.
-
-## Consequence
-
-**Severity:** cosmetic
-
-The diagnostic code (`loom/load/bind-echo-without-params`) is the load-bearing identifier, and it is consistent everywhere — including within the offending sentence. An implementer routing diagnostics by code will produce the right behaviour regardless of which phrase they read in the prose. The harm is purely doc-level reader confusion: someone reading only `binder.md` would mis-classify the warning's phase, but no test or plan acceptance criterion depends on the prose label.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `spec_topics/binder.md` line 28, replace the substring
-
-> `bind_echo: true` is a parse warning (`loom/load/bind-echo-without-params`)
-
-with
-
-> `bind_echo: true` is a load warning (`loom/load/bind-echo-without-params`)
-
-That is the only change needed. The surrounding sentence, the diagnostic-code identifier, the registry row, the frontmatter cross-reference, and both plan leaves are already aligned on "load."
-
-## Related Findings
-
-- "V18o wrong diagnostic code for `timeout:` field rejection" — same-cluster (also a phase/namespace mismatch between plan/spec prose and a diagnostic code, but in the opposite direction — there the code is correct in the spec and the plan picks the wrong one; resolves independently)
-- ""Loom-specific fields" vs "unknown fields" boundary undefined" — same-cluster (also concerns a frontmatter-field warning that lacks a fixed diagnostic code; touches the V3a/V3c neighbourhood but resolves independently)
