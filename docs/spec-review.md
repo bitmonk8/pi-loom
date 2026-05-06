@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-06T06:31:26Z_
 _Source: docs/reviews/spec-review/spec-20260506-064723.md_
-_24 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
+_23 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
 
 _Severity: 27 correctness · 17 advisory · 12 cosmetic · 0 blocking_
 _Shape: 56 single · 0 multiple · 0 unresolved_
@@ -1595,76 +1595,6 @@ Edge cases for the implementer:
 - "Rename: plan.md Spec-field update not addressed" — same-cluster (another procedural-completeness gap in GOV-7; same edit pass)
 - "Concurrent PRs racing on the same new prefix" — same-cluster (allocation discipline for GOV-7 *Add*; same surface, independent fix)
 - "GOV-3 narrative exclusion list out of sync with GOV-7 promotion" — same-cluster (procedural-completeness gap in a different GOV-7 sub-bullet)
-
----
-
-# Concurrent PR races silently violate GOV-4 prefix uniqueness
-
-**Source:** docs/reviews/spec-review/spec-20260506-064723.md
-**Original heading:** Concurrent PRs racing on the same new prefix
-**Kind:** completeness
-
-## Finding
-
-GOV-4 requires that every newly-added row in the REQ-ID prefix table use a *previously-unused* prefix — one absent from both the live table and the *Retired prefixes* sub-table. The check is implicit: an author opens a PR, scans the two tables, picks an unused token, and appends a row. Nothing in GOV-4 through GOV-8 (nor in the V18s gate suite) coordinates that allocation across in-flight branches.
-
-Two PRs opened in parallel can therefore each select the same "previously-unused" prefix `XYZ`. Each PR passes V18s in isolation: gate (1) sees `XYZ-N` IDs mapped in the matrix; gate (6) sees every prefix in spec text covered by the live table. When both branches merge, `main` ends up with two live rows bound to different pages under the same prefix, or — depending on whose row landed where — one row plus orphaned IDs that nominally belong to the other page. Git itself only catches the collision when both PRs touch literally adjacent table lines; non-adjacent table appends merge cleanly.
-
-V18s gate (6) does not catch this post-merge state because it is set-based: the union of (live-table prefixes ∪ retired-prefixes) still covers every prefix observed in spec text even when the live table contains duplicates. There is no GOV rule asserting that the live table's `Prefix` column is unique, no gate enforcing it, and no procedure forcing a rebased author to re-validate their chosen prefix against `main`'s tip before merge.
-
-## Spec Documents
-
-- `spec.md` — Appendix → GOV-4, GOV-7 *Add*, GOV-7 *Narrative-to-normative promotion* (edited)
-- `plan_topics/v18-cancellation.md` — V18s gate list (edited)
-- `plan_topics/conventions.md` — REQ-ID discipline summary (option-dependent; needs a new sentence only if Option B is taken)
-- `plan_topics/h6-req-ids.md` — read-only context for the initial allocation pass
-
-## Plan Impact
-
-**Phases:** Vertical V18
-
-**Leaves (implementation order):**
-
-- V18s — Coverage-matrix closing CI gate — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-A silent duplicate-prefix on `main` breaks GOV-4 and GOV-1 ("stable per-page prefix") without any CI signal. Downstream tooling that maps `XYZ-N` to a single owning page (the coverage matrix, the V18s gates, the H6 anchor pass, future REQ-ID renderers) will either pick the wrong page or silently double-count. The corruption is detected only when a human notices, by which point retroactive repair requires retiring one of the two prefixes and re-anchoring an entire page's IDs.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add V18s gate 7 — *Duplicate-prefix detector* — that fails on any duplicate live `Prefix` value or any live prefix that also appears in *Retired prefixes*. Annotate GOV-4 to make the uniqueness invariant explicit. This commit also resolves the sibling finding "GOV-4 per-row invariant contradicts the GOV-7 Rename / Delete / Merge procedures": the GOV-4 update clarifies that "append-only / immutable" applies to the prefix → page binding (a prefix never moves to a different page; once retired never reused), NOT to the table rows themselves (which GOV-7 explicitly mutates via Rename / Delete / Merge / Demotion).
-
-**Spec edits.**
-
-In `spec_topics/governance.md` GOV-4, replace the existing single sentence with:
-
-> **GOV-4.** The prefix → page binding is append-only and immutable: once a prefix is allocated to a page (per GOV-7a *Add* or GOV-7e *Narrative-to-normative promotion*), the binding never changes silently and the prefix is never reassigned to a different page (per GOV-7c *Delete* and GOV-7f *Normative-to-narrative demotion*, retired prefixes move to the *Retired prefixes* sub-table and are never reused). The *table rows themselves* are NOT immutable — GOV-7b (Rename) updates the Page column without changing the prefix, and GOV-7c / GOV-7d / GOV-7f remove or relocate rows. The live table's `Prefix` column is a key — duplicate live prefixes, and any live prefix that also appears in the *Retired prefixes* sub-table, are CI failures (per V18s gate 7).
-
-**Plan edits.**
-
-Add gate (7) — *Duplicate-prefix detector* — to `plan_topics/v18-cancellation.md` § V18s. The gate parses the live prefix table and the *Retired prefixes* sub-table from `spec_topics/governance.md`, asserts the multiset of live `Prefix` values equals its set, and asserts the live `Prefix` set is disjoint from the retired `Prefix` set. Treat any violation as a CI failure on `main` and on every PR. Add `Tests.` and `Ships when.` bullets accordingly.
-
-Edge cases for the implementer:
-
-- The gate must read both tables from `spec_topics/governance.md` (not from `spec.md`), reusing the parser V18s gate (6) already needs.
-- The disjointness check between live and retired catches the GOV-4 *no reuse* clause as a side-effect — keep it explicit so the failure message names the violated rule.
-- The gate fires on PR builds, not just `main`, so the loser of a race learns at PR time.
-- The gate is numbered 7 because gates 1–6 are the existing V18s gates; gate 8 (plan-link resolution, landed in the next commit by bottom-up order) is a separate concern.
-- The GOV-4 rewrite cites the GOV-7 sub-letters (a/b/c/d/e/f) introduced by the GOV-7+GOV-8 sub-lettering commit earlier in bottom-up order; verify those sub-letters exist in `governance.md` before citing them.
-
-## Related Findings
-
-- "GOV-4 \"append-only / immutable\" contradicts GOV-7 Delete / Merge / Rename" — co-resolve (the GOV-4 restatement that finding proposes is the natural place to add the uniqueness-as-key clause this finding's recommendation requires)
-- "Prefix uniqueness scope ambiguous (case-sensitivity; GOV prefix status)" — same-cluster (touches GOV-4 uniqueness from the case-folding angle; the duplicate-detection gate must decide whether comparison is case-sensitive, which is that finding's question)
-- "V18s CI gate failure surface unspecified" — decision-dependency (adding a seventh sub-gate makes the failure-surface gap one row larger; resolving the failure-surface contract first lets this gate's `Ships when.` bullet inherit it)
-- "GOV-7 atomicity: five independent procedures under one identifier" — same-cluster (if GOV-7 is split into GOV-7a–GOV-7e, the spec edit lands under the *Add* sub-rule rather than the umbrella)
 
 ---
 
