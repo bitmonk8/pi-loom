@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-06T06:31:26Z_
 _Source: docs/reviews/spec-review/spec-20260506-064723.md_
-_40 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
+_39 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
 
 _Severity: 27 correctness · 17 advisory · 12 cosmetic · 0 blocking_
 _Shape: 56 single · 0 multiple · 0 unresolved_
@@ -2933,79 +2933,5 @@ Edge case for the implementer: a future contributor may re-promote the page (per
 - "GOV-3 narrative exclusion list out of sync with GOV-7 promotion" — same-cluster (both expose the same GOV-3 / GOV-7 synchronisation gap; this finding's Option A motivates a symmetric *demotion* procedure that complements that finding's *promotion* fix)
 - "SDK capability list duplicates `pi-integration-contract.md`" — same-cluster (both flag duplicated normative content that should reduce to a cross-reference into `pi-integration-contract.md`)
 - "GOV-4 'append-only / immutable' contradicts GOV-7 Delete / Merge / Rename" — decision-dependency (Option A executes a GOV-7 *Delete* that finding flags as contradicting GOV-4; whichever resolution that finding adopts must accommodate this case)
-
----
-
-## spec_topics/diagnostics.md
-
----
-
-# `loom/type/*` namespace is declared but carries zero codes
-
-**Source:** docs/reviews/spec-review/spec-20260506-064723.md
-**Original heading:** `loom/type/*` namespace declared but empty; type-check codes live in `loom/parse/*`
-**Kind:** naming
-
-## Finding
-
-`spec_topics/diagnostics.md` declares four code namespaces — `loom/parse/*`, `loom/type/*`, `loom/load/*`, `loom/runtime/*` — and assigns `loom/type/*` to "type-system errors (unknown identifier, type mismatch, schema constraint violation)." The closed code registry that follows contains zero rows under `loom/type/*`. Every type-system check in the registry — `integer-narrowing`, `non-boolean-condition`, `mixed-plus-operands`, `array-element-type-mismatch`, `array-no-common-type`, `non-string-array-join`, `non-array-iterand`, `interpolated-result`, `match-arm-type-mismatch`, `question-outside-result-fn`, `bare-return-in-non-void`, `invoke-arg-type-mismatch`, `invoke-return-type-mismatch`, `tool-arg-type-mismatch`, and the type-phase variants of a few others (14+ rows total) — uses the `loom/parse/<name>` namespace prefix with `Phase = type` carrying the categorisation in a separate column.
-
-The `loom/parse/*` description says only "lexer / parser errors," explicitly excluding the type checks it actually owns. The downstream consequence is twofold: implementers who route diagnostics on the namespace prefix (a documented surface — registries, LSP integrations, log filters, the V18s CI gate) cannot derive the correct routing from the spec; and the registry's own framing contradicts itself page-internally (the namespace table promises rows under `loom/type/*` that never materialise).
-
-This sits adjacent to the same page's `loom/lex/*` peer-namespace heading, which has the inverse defect (a heading exists for a namespace that no row uses). Both originate from the same drift: the namespace surface is presented as a four-way phase split, but the actual codes use a two-way split (`loom/parse/*` for everything the parser detects, `loom/load/*` and `loom/runtime/*` for the other two), with phase carried in the `Phase` column.
-
-## Spec Documents
-
-- `spec_topics/diagnostics.md` — Code namespaces bullet list (edited)
-- `spec_topics/diagnostics.md` — delivery paragraphs at lines 5 and 23 enumerating the four namespaces (edited)
-- `spec_topics/diagnostics.md` — registry section heading `### `loom/lex/*` and `loom/parse/*` — lexical and parse errors` (edited)
-- `spec_topics/diagnostics.md` — registry table rows (read-only — no row IDs change under the recommendation)
-- `spec_topics/type-system.md` — referenced for context to confirm no codes are owned there (read-only)
-
-## Plan Impact
-
-**Phases:** Horizontal, Vertical V18
-
-**Leaves (implementation order):**
-
-- H3 — Diagnostics primitive — (modified: the four-namespace constant set in `h3-diagnostics.md` lines 5/13 currently enumerates `loom/parse/*`, `loom/type/*`, `loom/load/*`, `loom/runtime/*`; under the recommendation it becomes a three-namespace set, and the test in line 13 — "no emitted code's namespace prefix falls outside the four-element constant set" — narrows to three)
-- V18s — Coverage-matrix closing CI gate — (modified: the diagnostic-code grep regex `loom/(parse|type|load|runtime)` in gate (2) and the inline test fixture must drop `type|`)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers diverge on whether `loom/type/<name>` codes exist as a routable surface. An implementer who follows the namespace table will build constant-module slots, log filters, or LSP categories for a `loom/type/*` group that the test suite never exercises and the conformance corpus never emits — failing the V18s gate (2) (codes-in-registry vs. codes-in-tests diff) once any test attempts to assert against the placeholder. An implementer who follows the registry rows will produce no `loom/type/*` surface and may flag the namespace-table entry as a typo, retiring it without coordinating with the H3 constant set. Tests written against either reading will break under the other.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Remove `loom/type/*` from the namespace bullet list, and rewrite the `loom/parse/*` bullet to describe the actual surface. The 14+ type-phase codes already in the registry stay at their current `loom/parse/<name>` paths; the `Phase` column already distinguishes `lex` / `parse` / `type` within the namespace and is the routing surface implementers should consume for phase-level categorisation.
-
-Concrete edits to `spec_topics/diagnostics.md`:
-
-- **Code namespaces bullet list** — replace the two bullets with:
-  - `` `loom/parse/*` — diagnostics produced by the parse pipeline: lexical errors, syntactic errors, and static type-system checks. The `Phase` column in the registry table distinguishes `lex` / `parse` / `type` within this namespace. ``
-  - (drop the `loom/type/*` bullet entirely)
-- **Delivery paragraphs (lines 5 and 23)** — replace each occurrence of "`loom/parse/*`, `loom/type/*`, `loom/load/*`, `loom/runtime/*`" with "`loom/parse/*`, `loom/load/*`, `loom/runtime/*`".
-- **Registry section heading at line 67** — drop the `loom/lex/*` half (resolved in lockstep with the related `loom/lex/*` finding) and rewrite to `` ### `loom/parse/*` — lexical, parse, and type-system errors ``.
-
-Edge cases for the implementer:
-
-- The H3 constant set narrows from four namespaces to three. The unit test at `h3-diagnostics.md` line 13 ("no emitted code's namespace prefix falls outside the four-element constant set") is renamed and rewritten to assert three.
-- The V18s CI gate (2) regex `` "loom/(parse|type|load|runtime)/[a-z0-9-]+" `` becomes `` "loom/(parse|load|runtime)/[a-z0-9-]+" ``. The gate's *Tests* bullet that mentions "every registry code is asserted" remains valid; no synthetic-test fixtures need to change because none cite a literal `loom/type/...` string.
-- The custom ESLint rule `loom/no-throw-diagnostic-code` in H3 currently matches `` /^loom\/(parse|load|type|runtime)\// ``. Keep `type` in the rule's allow-list pattern (defensive — the rule only fires on accidental `throw` of a string starting with the prefix; it costs nothing to keep an extra alternative even when no codes use it), or drop it for consistency with the gate. Either choice is conformant; pick the consistent one (drop).
-- This change does not rename any registered code, so GOV-8-style retired-ID bookkeeping does not apply (rule 3 of the registry — "codes are stable identifiers" — is unviolated; only the namespace bullet list and one section heading shift).
-
-## Related Findings
-
-- "`loom/lex/*` phantom namespace in registry section heading" — co-resolve (the same edit to the registry section heading at line 67 fixes both; the recommended replacement heading subsumes both namespaces' real contents)
-- "`loom/parse/empty-schema-body` and `loom/parse/non-string-discriminator` missing from registry" — same-cluster (touches the same registry table but adds rows independently of the namespace-surface decision; resolves separately)
-- "Diagnostic message placeholder rendering not defined" — same-cluster (adjacent registry-section gap; orthogonal fix)
-
----
 
 

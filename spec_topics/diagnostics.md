@@ -2,7 +2,7 @@
 
 Loom emits structured diagnostics through two delivery channels, both owned by the loom extension. Pi's own `LoadExtensionsResult.errors` field is **not** used: that field belongs to Pi's extension loader and is only populated while Pi is `import()`-ing the loom extension's entry point. A failure there is a bootstrap failure the user sees on Pi startup, orthogonal to the diagnostics defined here, which all fire after the extension is already live (during scan, watcher reload, or slash-command execution).
 
-**Persistent diagnostics (default).** All `loom/parse/*`, `loom/type/*`, `loom/load/*`, and `loom/runtime/*` diagnostics are delivered via
+**Persistent diagnostics (default).** All `loom/parse/*`, `loom/load/*`, and `loom/runtime/*` diagnostics are delivered via
 
 ```
 pi.sendMessage(
@@ -20,7 +20,7 @@ The `pi.registerMessageRenderer("loom-system-note", …)` registered by the loom
 
 The `loom-system-note` channel also carries operator-facing runtime failure events (`details: { event: RuntimeEvent }`) for non-panic `QueryError` failures in the always-log set; the two `details` payload shapes are disjoint by key and are specified under "System notes" and "Runtime event channel" in [Pi Integration Contract](./pi-integration-contract.md). Renderers MUST switch on which key is present and MUST NOT assume both.
 
-**Transient toasts (auxiliary).** Failures internal to the loom extension's own bookkeeping that the user must see immediately but that do **not** belong in the transcript — the chokidar watcher itself throwing, an unrecoverable settings I/O exception that no `loom/load/settings-*` code covers, an internal extension invariant violation — use `ctx.ui.notify(message, "error")` directly. This is a narrow secondary surface; loom-author-facing diagnostics (anything with a `loom/parse/*`, `loom/type/*`, `loom/load/*`, or `loom/runtime/*` code) MUST go through the persistent channel above and MUST NOT be routed through `ctx.ui.notify` as their primary sink.
+**Transient toasts (auxiliary).** Failures internal to the loom extension's own bookkeeping that the user must see immediately but that do **not** belong in the transcript — the chokidar watcher itself throwing, an unrecoverable settings I/O exception that no `loom/load/settings-*` code covers, an internal extension invariant violation — use `ctx.ui.notify(message, "error")` directly. This is a narrow secondary surface; loom-author-facing diagnostics (anything with a `loom/parse/*`, `loom/load/*`, or `loom/runtime/*` code) MUST go through the persistent channel above and MUST NOT be routed through `ctx.ui.notify` as their primary sink.
 
 **Re-scan deduplication.** A watcher-triggered reload re-emits the persistent diagnostic for any file whose contents are still broken. The runtime does **not** attempt to clear or supersede prior `loom-system-note` messages from the transcript — Pi's `pi.sendMessage` API has no documented "remove" or "replace by metadata" counterpart, and `display: true` system notes are part of the immutable session log. Authors will therefore see the same diagnostic line recur after each reload until the underlying file is fixed; this is the V1 contract and the renderer MUST NOT attempt to suppress duplicates.
 
@@ -40,8 +40,7 @@ Internal diagnostic shape:
 
 **Code namespaces:**
 
-- `loom/parse/*` — lexer / parser errors (unknown token, case mismatch, missing brace, etc.).
-- `loom/type/*` — type-system errors (unknown identifier, type mismatch, schema constraint violation).
+- `loom/parse/*` — diagnostics produced by the parse pipeline: lexical errors, syntactic errors, and static type-system checks. The `Phase` column in the registry table distinguishes `lex` / `parse` / `type` within this namespace.
 - `loom/load/*` — file-load and registration errors (unreadable file, missing or wrong-type discovery source, name collision, invalid frontmatter, unresolvable `tools:` entry).
 - `loom/runtime/*` — runtime errors surfaced as panics (`MatchError`, index out of bounds, etc.) reported back to Pi as system notes.
 
@@ -191,7 +190,7 @@ Only `\n` (post-normalisation) is a line break for this rule. The Unicode line s
 
 The table enumerates every diagnostic the V1 spec defines. *Severity* is `error` (`E`) or `warning` (`W`); a few discovery-source codes carry severity `E/W`, meaning the severity is decided per-source by the table in [Discovery — Failure modes](./discovery.md) rather than fixed at the code level. *Phase* identifies which pipeline stage emits the diagnostic: `lex` (lexing / encoding), `parse` (parsing / static checks performed by the parser), `type` (type-system checks), `load` (file-load, registration, discovery), or `runtime` (panic during execution). *Trigger* is the canonical condition; *Spec rule* points to the topic page where the rule is stated; *Hint* gives the normative author-facing hint when the spec mandates one; *Message* is the rendered author-facing string template (one line; `<…>` placeholders are interpolated by the renderer).
 
-### `loom/parse/*` — lexer, parser, and type errors
+### `loom/parse/*` — lexical, parse, and type-system errors
 
 | Code | Sev | Phase | Trigger | Spec rule | Hint | Message |
 |---|---|---|---|---|---|---|
