@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-06T06:31:26Z_
 _Source: docs/reviews/spec-review/spec-20260506-064723.md_
-_10 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
+_9 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
 
 _Severity: 27 correctness · 17 advisory · 12 cosmetic · 0 blocking_
 _Shape: 56 single · 0 multiple · 0 unresolved_
@@ -596,73 +596,6 @@ Edge cases the implementer must watch:
 - "\"Re-validating\" obligation undefined; no enforcement gate named" — same-cluster (same paragraph, separate gap; the new provenance sentence reuses the re-validate clause but does not define the gate)
 - "Pi SDK symbols treated as verified facts without a verification mechanism" — same-cluster (adjacent paragraph; same flavour of unanchored-fact gap, resolved separately)
 - "Peer-dep mismatch failure mode unspecified" — decision-dependency (the failure-mode finding's answer depends on whether the three sub-package peerDeps are kept; the recommendation above commits to keeping them)
-
----
-
-# `waitForIdle` resolution, error, and hang semantics not contracted
-
-**Source:** docs/reviews/spec-review/spec-20260506-064723.md
-**Original heading:** `waitForIdle` semantics not contracted
-**Kind:** assumptions, codebase-grounding-broad
-
-## Finding
-
-`spec.md` lists `pi.sendUserMessage` + `ExtensionCommandContext.waitForIdle` as the prompt-mode drive primitive, and `pi-integration-contract.md` calls `waitForIdle` "the prompt-mode driver's authoritative completion signal." Neither page states when `waitForIdle` resolves, what it resolves with, whether it can reject, or what loom does if it never resolves. The Pi implementation is precise about each — `waitForIdle()` returns `Promise<void>`, resolves after `agent_end` is emitted *and* every awaited `agent_end` listener has settled, and never rejects (the underlying `activeRun.promise` is constructed with a single `resolve`; provider/transport errors land on session state, not on the promise). The spec leaves implementers to discover this.
-
-The downstream consequences are concrete. (1) The runtime cannot detect a transport- or provider-level failure of the user turn from `waitForIdle()` alone; it must inspect post-resolution state on the user `AgentSession` (e.g. `errorMessage`, an `agent_error` event captured during the run, or the absence of accumulated assistant text). The spec mandates `Err({kind:"transport"})` on transport failure (`v5-untyped-queries.md` Tests), but never names the surface from which the runtime reads that failure. (2) `waitForIdle()` has no internal deadline; a hung user turn keeps loom blocked indefinitely unless `loomAbort` propagates into the user session. The spec wires `loomAbort.signal` into `createAgentSession({ signal })` for subagent mode but is silent on the prompt-mode path — there is no statement that `loomAbort.abort()` invokes `ctx.abort()` (or otherwise drives the user agent's `AbortController`) to unblock `waitForIdle()`.
-
-A secondary point: `waitForIdle` is a member of `ExtensionCommandContext`, not the base `ExtensionContext`. The synthesised `ExtensionContext` the runtime hands to tool `execute(...)` callsites (per `pi-integration-contract.md`'s **Tool execution from loom code** block) intentionally lacks it. This is currently safe — every `ctx.waitForIdle()` reference in the spec corpus is on the slash-command handler context the runtime captured for the loom's lifetime, not on the synthesised tool-execution context — but the surface is never named explicitly, so a future spec edit or implementer confusion could route a `waitForIdle` call through the wrong ctx and silently fail.
-
-## Spec Documents
-
-- `spec.md` — "Pi SDK capabilities" capability bullet for prompt-mode drive (edited)
-- `spec_topics/pi-integration-contract.md` — "Conversation drive — prompt mode" and the synthesised-`ExtensionContext` member list under "Tool execution from loom code" (edited)
-- `spec_topics/cancellation.md` — "Forwarding into loomAbort" (edited; new sub-rule for the prompt-mode user-session abort path)
-- `spec_topics/slash-invocation.md` — "User-visible streaming" paragraph that already references `ctx.waitForIdle()` (read-only)
-
-## Plan Impact
-
-**Phases:** MVP, Vertical V5
-
-**Leaves (implementation order):**
-
-- Mb — Minimal runtime + slash registration + two-root discovery + no-params overflow note — (modified)
-- V5e — Prompt-mode conversation driver — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers will diverge on how the prompt-mode driver detects a turn that errored: one wraps `await ctx.waitForIdle()` in a `try/catch` expecting rejection (and silently classes every turn `Ok` because the promise never rejects), the other inspects post-resolution session state but picks a different signal (`errorMessage` vs. an `agent_error` event vs. empty assistant text). The hang case is worse — without a stated bridge from `loomAbort` to the user-session abort, `Ctrl-C` during a stalled prompt-mode turn will not unblock loom.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `pi-integration-contract.md` **Conversation drive — prompt mode**, append three sentences to the `waitForIdle` clause:
-
-1. *Resolution.* "`waitForIdle()` returns `Promise<void>` and resolves once Pi emits `agent_end` for the user session and every awaited `agent_end` listener settles; it never rejects."
-2. *Error detection.* State the post-resolution probe the runtime uses to classify the turn: read the user `AgentSession`'s error state (`session.errorMessage`, or the equivalent named field per the pinned Pi version) immediately after `waitForIdle()` resolves; a non-empty value maps to `Err(QueryError { kind: "transport", message, retryable: false, http_status: null, provider })` per `query.md`'s error union. The runtime MUST NOT install a global `pi.on("agent_error", …)` listener for this purpose (same per-session-cross-fire reasoning as the existing `agent_end` ban).
-3. *Hang handling.* State that `loomAbort.abort()` propagates into the user session via `ctx.abort()` (the `ExtensionCommandContext.abort` member already in the forwarded set), which cancels the active user run and lets `waitForIdle()` resolve. Update `cancellation.md` **Forwarding into loomAbort** with the symmetric statement: aborting `loomAbort` calls `ctx.abort()` on the captured slash-command handler context in prompt mode, and `createAgentSession({ signal: loomAbort.signal })` already covers subagent mode.
-
-In the same page's **Tool execution from loom code** block, append one sentence to the synthesised-`ExtensionContext` paragraph: "`waitForIdle` is intentionally absent from the synthesised context (it is a member of `ExtensionCommandContext`, not `ExtensionContext`); the runtime continues to drive prompt-mode completion through the captured slash-command handler context, not through the synthesised one."
-
-In `spec.md`'s capability bullet, no edit is required — the bullet already names `ExtensionCommandContext.waitForIdle` explicitly, and the surface disambiguation lives correctly in the contract page.
-
-Edge cases the implementer must watch:
-
-- `ctx.abort()` is idempotent in Pi but the runtime should still wrap it in a one-shot guard so a re-entrant `loomAbort.abort()` (e.g. from an `agent_end` listener that itself observes the abort) does not double-cancel.
-- After `loomAbort` fires, `waitForIdle()` may still resolve normally (Pi observed the abort and tore down cleanly) — the post-resolution error-state probe must run regardless, and if `loomAbort.signal.aborted` is true the runtime synthesises `Err({kind:"cancelled"})` per `cancellation.md` rather than reading session error state.
-- The "listeners settle" clause means a slow `agent_end` listener attached by an unrelated extension can delay loom resumption. This is Pi-side behaviour the spec only needs to acknowledge, not bound.
-
-## Related Findings
-
-- "SDK capability call failure modes not specified" — co-resolve (the per-capability "Failure" sub-bullet that finding mandates is exactly the surface the recommendation populates for `waitForIdle`)
-- "`ExtensionContext` forwarded member list: no signatures or behavioural contracts" — same-cluster (both want behavioural contracts on Pi-borrowed members; `waitForIdle` belongs in the same forthcoming behavioural-contract pass)
-- "`session.sendUserMessage(text)` does not exist on `AgentSession`" — same-cluster (parallel SDK-surface accuracy concern on the subagent-mode side; resolves independently)
-- "Pi SDK symbols treated as verified facts without a verification mechanism" — decision-dependency (the pinned Pi version named there is what fixes the field name `session.errorMessage` vs. any future rename in this finding's recommendation)
 
 ---
 
