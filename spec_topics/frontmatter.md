@@ -75,7 +75,7 @@ Frontmatter mirrors Pi's prompt-template frontmatter (`description`, `argument-h
     Two kinds of entry are accepted:
 
     - **Pi tool names** (`read`, `bash`, `grep`, ...) resolve against Pi's tool registry at loom-load time, exactly as for Pi subagents.
-    - **`.loom` paths** (`./summarise.loom`, `../shared/classify.loom`) resolve relative to the calling loom's directory, use forward-slash separators only (a backslash is a parse error per the "Path literals" rule in [Lexical Structure](./lexical.md)), must end in `.loom` (otherwise `loom/load/unresolvable-loom-path`), and must point at **subagent-mode** loom files — a prompt-mode callee in `tools:` is `loom/load/prompt-mode-callable` (interleaving the child's user turns inside a parent's tool-call loop is a semantic mess that V1 rejects outright).
+    - **`.loom` paths** (`./summarise.loom`, `../shared/classify.loom`) resolve relative to the calling loom's directory, use forward-slash separators only (a backslash is a parse error per the "Path literals" rule in [Lexical Structure](./lexical.md)), must end in `.loom` — the extension match is byte-exact lowercase per [Lexical — Extension matching](./lexical.md#extension-matching) (otherwise `loom/parse/invoke-non-loom-extension` for the parse-time literal check, or `loom/load/unresolvable-loom-path` for a literal that ends in `.loom` but resolves to no file) — and must point at **subagent-mode** loom files — a prompt-mode callee in `tools:` is `loom/load/prompt-mode-callable` (interleaving the child's user turns inside a parent's tool-call loop is a semantic mess that V1 rejects outright).
 
     Each entry is exposed under a single name in the loom's top-level scope (and to the model as a tool of the same name). Naming rules:
 
