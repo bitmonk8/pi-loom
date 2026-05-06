@@ -239,10 +239,50 @@ Production wiring uses a `WallClock` adapter that delegates `now()` to `performa
 
 <a id="fakefilesystem--filesystem-interface"></a>
 
-**`FakeFileSystem` / `FileSystem` interface.** The runtime reads the filesystem exclusively through a `FileSystem` seam injected at construction time; production wiring uses a `PiFileSystem` adapter that delegates to Node, and tests use an in-memory `FakeFileSystem` whose constructor takes the values it should report. The interface members called out as load-bearing by other spec sections are:
+**`FakeFileSystem` / `FileSystem` interface.** The runtime reads the filesystem exclusively through a `FileSystem` seam injected at construction time; production wiring uses a `PiFileSystem` adapter that delegates to Node, and tests use an in-memory `FakeFileSystem` whose constructor takes the values it should report. The interface shape is normative:
 
-- `homedir(): string` — returns the user's home directory. The production `PiFileSystem` implementation calls Node's `os.homedir()` (resolving to `$HOME` on POSIX and `%USERPROFILE%` on Windows). The `FakeFileSystem` implementation returns a constructor-injected string. This is the single source of truth for the [Home-directory expansion](./discovery.md#home-directory-expansion) rule; the runtime MUST NOT read `process.env.HOME` or `process.env.USERPROFILE` directly and MUST NOT use any platform-conditional branch.
+```ts
+interface FileStat {
+  isDirectory(): boolean;
+  isFile(): boolean;
+  isSymbolicLink(): boolean;
+}
 
-Other members (file reads, writes, stat, directory enumeration, watcher attachment) are referenced by neighbouring spec sections — see [Directory Convention — Settings file reads](./discovery.md#settings-file-reads), [Directory Convention — Package discovery](./discovery.md#package-discovery), and [Implementation Notes](./implementation-notes.md). The full member list is anchored in the plan's H2 leaf.
+interface FileSystem {
+  readText(path: string): Promise<string>;          // rejects with a Node-style error whose `.code` is `"ENOENT"` for missing paths and `"EACCES"` / `"EPERM"` for permission failures; other I/O failures surface their underlying `.code` unchanged
+  writeText(path: string, contents: string): Promise<void>;
+  exists(path: string): Promise<boolean>;           // resolves `false` on `ENOENT`; rejects on any other error
+  homedir(): string;                                // production never reads `process.env` directly
+  readdir(path: string): Promise<readonly string[]>;// entry names only (no full paths); rejects with the same Node-style `.code` shape as `readText`
+  lstat(path: string): Promise<FileStat>;           // does NOT follow symlinks; rejects with the same Node-style `.code` shape as `readText`
+}
+```
+
+- `homedir()` is the single source of truth for the [Home-directory expansion](./discovery.md#home-directory-expansion) rule; the production `PiFileSystem` implementation calls Node's `os.homedir()` (resolving to `$HOME` on POSIX and `%USERPROFILE%` on Windows), and the `FakeFileSystem` implementation returns a constructor-injected string. The runtime MUST NOT read `process.env.HOME` or `process.env.USERPROFILE` directly and MUST NOT use any platform-conditional branch.
+- `readText`, `writeText`, and `exists` are the load-bearing surface for [Directory Convention — Settings file reads](./discovery.md#settings-file-reads) and for every other normative file read or write the runtime performs.
+- `readdir` and `lstat` are the load-bearing surface for the *clean leaf-`ENOENT`* ancestor walk defined in [Directory Convention](./discovery.md) (the **Failure modes** paragraph and the bullet that defines *clean leaf-`ENOENT`*) and for the package-discovery walk in [Directory Convention — Package discovery](./discovery.md#package-discovery). Rejected `.code` values map onto the discovery rules verbatim: an `ENOENT` chain that bottoms out cleanly is *missing*; an `EACCES` / `EPERM` / `ENOTDIR` (or any other code) anywhere on the chain is an unreadable-source failure.
+
+<a id="filewatcher-interface"></a>
+
+**`FakeFileWatcher` / `FileWatcher` interface.** Watcher attachment is a *separate* seam from `FileSystem` — production wires a chokidar adapter, and tests use an in-memory `FakeFileWatcher` whose `emit(event)` synchronously invokes every attached handler. The interface shape is normative:
+
+```ts
+type FileWatchEventKind = "add" | "change" | "unlink";
+
+interface FileWatchEvent {
+  kind: FileWatchEventKind;                         // matches chokidar's three load-bearing event names
+  path: string;                                     // absolute path of the affected file
+}
+
+type Unsubscribe = () => void;
+
+interface FileWatcher {
+  watch(roots: readonly string[], handler: (event: FileWatchEvent) => void): Unsubscribe;
+}
+```
+
+- `watch` attaches one handler over the supplied root paths. The returned `Unsubscribe` tears down the underlying watcher (chokidar's `close()` in production); calling it twice is a no-op. The handler observes only the three event kinds above — chokidar's `addDir`, `unlinkDir`, `ready`, `error`, etc. are filtered out by the adapter and never reach the runtime; the chokidar-adapter's own `error` events route through the `ctx.ui.notify` toast surface defined in [Diagnostics](./diagnostics.md), not through this seam.
+- The watcher's 250 ms debounce, the build-aside-then-publish swap, and the structural-vs-content event split (per **Extension entry point** step 4 above) are runtime responsibilities layered on top of this seam — they are *not* properties of the seam itself; the seam only delivers raw events.
+- One `FileWatcher` instance is constructed per runtime instance — never as a module-level global — and lives for the lifetime of that runtime; parallel runtimes get independent watchers.
 
 **Discovery API.** The extension owns enumeration; it subscribes to `resources_discover` solely as a re-discovery trigger and returns the empty result `{}` (`ResourcesDiscoverResult` has no `loomPaths` field — looms reach Pi through `pi.registerCommand`, not as a Pi-managed resource type). The five sources, their priority order, the package-root walk, and the failure-mode table are all in [Directory Convention](./discovery.md). Cross-format collision detection consults `pi.getCommands()` on `session_start` (per the **Extension entry point** numbered list above); the API is `notInitialized` during the extension factory call, which is why discovery is split across the factory (parse + pending list) and the `session_start` handler (collision check + `pi.registerCommand`).

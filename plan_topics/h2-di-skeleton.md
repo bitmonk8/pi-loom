@@ -1,6 +1,8 @@
 # H2 — Dependency-injection skeleton with fakes
 
-**Spec.** [Implementation Notes — Runtime](../spec_topics/implementation-notes.md#runtime) (Schema validation bullet — pins the `SchemaValidator` behavioural contract; Clock bullet — pins the `Clock` behavioural contract); [Pi Integration Contract](../spec_topics/pi-integration-contract.md) (pins `ExtensionAPI`, `ConversationDriver`, `SubagentSpawner` / `SubagentSession`, the `FakeFileSystem` / `FileSystem` surface, the [`Clock` / `FakeClock` interface](../spec_topics/pi-integration-contract.md#clock--fakeclock-interface), and the [`Checkpoint` seam](../spec_topics/pi-integration-contract.md#checkpoint-seam) the interpreter awaits before each cancellation checkpoint). Other seams are loom-internal and have no normative spec page.
+**Spec.** [Implementation Notes — Runtime](../spec_topics/implementation-notes.md#runtime) (Schema validation bullet — pins the `SchemaValidator` behavioural contract and declares the [`SchemaValidator` interface](../spec_topics/implementation-notes.md#schemavalidator-interface); Clock bullet — pins the `Clock` behavioural contract); [Pi Integration Contract](../spec_topics/pi-integration-contract.md) (pins `ExtensionAPI`, `ConversationDriver`, `SubagentSpawner` / `SubagentSession`, the [`FakeFileSystem` / `FileSystem` interface](../spec_topics/pi-integration-contract.md#fakefilesystem--filesystem-interface), the [`FakeFileWatcher` / `FileWatcher` interface](../spec_topics/pi-integration-contract.md#filewatcher-interface), the [`Clock` / `FakeClock` interface](../spec_topics/pi-integration-contract.md#clock--fakeclock-interface), and the [`Checkpoint` seam](../spec_topics/pi-integration-contract.md#checkpoint-seam) the interpreter awaits before each cancellation checkpoint). Other seams are loom-internal and have no normative spec page.
+
+> **Editor warning.** The signatures of `FileSystem`, `FileWatcher`, `Clock`, `Checkpoint`, `SchemaValidator`, and `CompiledValidator` are anchored in the spec pages cited above — this leaf consumes them via `import type` and MUST NOT redeclare them. If adapter guidance later requires refining one of these signatures (a new method, a changed return shape, a renamed parameter), the spec page is updated *first*; only after the spec edit lands may this leaf's adapter / fake guidance change. Silently widening or narrowing the seam shape in this leaf without a corresponding spec edit is the failure mode the spec-anchored imports exist to prevent.
 
 **Adds.** Pure-interface seams for every collaborator the runtime needs, declared as TypeScript signatures in the code block below. A constructor-injection factory `makeRuntime({ ... })` that wires them. In-memory fakes for every interface in `test/fakes/` — production code never imports a fake. `SubagentSpawner` is a factory seam wrapping Pi's `createAgentSession` (per [Pi Integration Contract — Conversation drive — subagent mode](../spec_topics/pi-integration-contract.md) and [Pi Integration Contract — Subagent session lifecycle](../spec_topics/pi-integration-contract.md)): `spawn(opts)` returns a `SubagentSession` handle whose `dispose()` delegates to the underlying `AgentSession.dispose()` and is the sole surface V12a, V18d, and V18n test against. `ToolHost.getCommandContext()` returns `undefined` when no slash-handler is currently retained (before the first invocation and after `session_shutdown`); production callers pass a defined `ctx` to `setCommandContext` on slash-handler entry, and `setCommandContext(undefined)` clears the retained reference. `FileSystem.homedir()` exists so production code never reads `process.env` directly (per [Pi Integration Contract — `FakeFileSystem` / `FileSystem` interface](../spec_topics/pi-integration-contract.md#fakefilesystem--filesystem-interface) and [Directory Convention — Home-directory expansion](../spec_topics/discovery.md#home-directory-expansion)).
 
@@ -8,32 +10,32 @@
 // Re-exported Pi types — H2 does not redeclare them.
 import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
 
-// FileSystem — read/write loom + .warp + settings files; the watcher path is a separate seam.
-interface FileSystem {
-  readText(path: string): Promise<string>;          // rejects with FileNotFound | FileReadError
-  writeText(path: string, contents: string): Promise<void>;
-  exists(path: string): Promise<boolean>;
-  homedir(): string;                                // never read process.env directly
-}
+// Spec-anchored seams — H2 imports the signatures from the spec corpus and MUST NOT redeclare them.
+// The anchor links below are load-bearing: refining a signature here without updating the spec page
+// is forbidden by the editor warning above.
+//   - FileSystem, FileStat                          → spec_topics/pi-integration-contract.md#fakefilesystem--filesystem-interface
+//   - FileWatcher, FileWatchEvent, FileWatchEventKind, Unsubscribe
+//                                                   → spec_topics/pi-integration-contract.md#filewatcher-interface
+//   - Clock, TimerHandle                            → spec_topics/pi-integration-contract.md#clock--fakeclock-interface
+//   - Checkpoint, CheckpointKind, CheckpointSite    → spec_topics/pi-integration-contract.md#checkpoint-seam
+//   - SchemaValidator, CompiledValidator, ValidationError
+//                                                   → spec_topics/implementation-notes.md#schemavalidator-interface
+import type {
+  FileSystem, FileStat,
+  FileWatcher, FileWatchEvent, FileWatchEventKind, Unsubscribe,
+  Clock, TimerHandle,
+  Checkpoint, CheckpointKind, CheckpointSite,
+  SchemaValidator, CompiledValidator, ValidationError,
+} from "../src/seams";  // module path is illustrative; the binding to the spec anchors is what is normative.
 
-// DiagnosticsSink — the universal emit path mandated by H3's Ships-when.
+// DiagnosticsSink — the universal emit path mandated by H3's Ships-when. Loom-internal; no spec page.
 // `Diagnostic` is the shape introduced in H3.
 interface DiagnosticsSink {
   report(d: Diagnostic): void;
   drain(): readonly Diagnostic[];                   // sorted (file, line, col); preserves report order on equal positions
 }
 
-// SchemaValidator — behavioural contract pinned by spec_topics/implementation-notes.md (Schema validation bullet).
-// `LoweredSchema` is V4's lowered JSON-Schema artefact; `ValidationError` mirrors AJV's error shape.
-interface SchemaValidator {
-  compile(schema: LoweredSchema): CompiledValidator;
-  invalidate(schemaHash: string): void;             // file-watcher entry point per spec
-}
-interface CompiledValidator {
-  validate(value: unknown): { ok: true } | { ok: false; errors: readonly ValidationError[] };
-}
-
-// ModelClient — provider-agnostic chat surface used by ConversationDriver.
+// ModelClient — provider-agnostic chat surface used by ConversationDriver. Loom-internal; no spec page.
 // `ModelRequest` / `ModelResponse` shapes are deferred to V5 / V6.
 interface ModelClient {
   send(req: ModelRequest): Promise<ModelResponse>;
@@ -60,35 +62,11 @@ interface LoomLoader {
   load(path: string): Promise<ParsedLoom>;
 }
 
-// Clock — wall-clock + timer seam used by RuntimeEvent.occurred_at stamping,
-// the chokidar watcher's 250 ms debounce, the settings-watcher debounce, and
-// the looms.scanPackagesTimeoutMs cap on package discovery. Production wiring
-// uses a WallClock adapter (performance.now / global setTimeout / clearTimeout);
-// tests use a FakeClock whose advance(ms) synchronously fires due timers in
-// deadline order, equal-deadline timers in registration order. One instance per
-// runtime; parallel runtimes get independent clocks.
-type TimerHandle = { readonly id: number };
-interface Clock {
-  now(): number;                                    // monotonic milliseconds
-  setTimeout(fn: () => void, ms: number): TimerHandle;
-  clearTimeout(handle: TimerHandle): void;
-}
-
-// Checkpoint — runtime-internal seam awaited immediately before each cancellation
-// checkpoint (loop iteration, @-query, tool call, invoke, binder LLM call) so tests can
-// land aborts deterministically into the post-resolution / pre-signal-check window
-// per spec_topics/pi-integration-contract.md#checkpoint-seam. Production wiring is a
-// no-op (already-resolved promise). Per-invocation: parent and child invokes each own
-// their own Checkpoint instance, mirroring the per-invocation loomAbort rule.
-type CheckpointKind = "loop-iter" | "query" | "tool-call" | "invoke" | "binder-call";
-interface CheckpointSite { file: string; line: number; column: number; }
-interface Checkpoint {
-  before(kind: CheckpointKind, site: CheckpointSite): Promise<void>;
-}
-
-// SubagentSpawner — factory seam wrapping Pi's createAgentSession.
+// SubagentSpawner — factory seam wrapping Pi's createAgentSession. Loom-internal; no spec page beyond
+// the behavioural contract in spec_topics/pi-integration-contract.md (Conversation drive — subagent mode,
+// Subagent session lifecycle).
 // `SubagentSpawnOptions` is the call shape introduced by V12a; `AgentEvent` is the event shape
-// surfaced by Pi's session subscribe API.
+// surfaced by Pi's session subscribe API. `Unsubscribe` is re-used from the spec-anchored FileWatcher import.
 interface SubagentSpawner {
   spawn(opts: SubagentSpawnOptions): Promise<SubagentSession>;
 }
@@ -97,16 +75,16 @@ interface SubagentSession {
   subscribe(handler: (event: AgentEvent) => void): Unsubscribe;
   dispose(): Promise<void>;                         // idempotent; delegates to AgentSession.dispose()
 }
-type Unsubscribe = () => void;
 ```
 
-Forward references (`Diagnostic`, `LoweredSchema`, `ValidationError`, `ModelRequest`, `ModelResponse`, `ParsedLoom`, `SubagentSpawnOptions`, `AgentEvent`) are deliberate: H2 owns the *method shape* every seam exposes; the leaf that introduces each *data shape* (H3, V4, V4a, V5/V6, V3/V17, V12a respectively) lands the data shape and narrows the placeholder type at that point. The seam signatures themselves do not change.
+Forward references on the loom-internal seams (`Diagnostic`, `ModelRequest`, `ModelResponse`, `ParsedLoom`, `SubagentSpawnOptions`, `AgentEvent`) are deliberate: H2 owns the *method shape* every seam exposes; the leaf that introduces each *data shape* (H3, V5/V6, V3/V17, V12a respectively) lands the data shape and narrows the placeholder type at that point. The signatures of the spec-anchored seams (`FileSystem`, `FileWatcher`, `Clock`, `Checkpoint`, `SchemaValidator` / `CompiledValidator`) are not redeclared here; refining them is a spec change.
 
 **Tests.**
 - `makeRuntime` returns a runtime whose collaborators are exactly the ones passed in (identity check).
-- Each interface declared in `Adds.` has a TypeScript-level conformance test: the in-memory fake is assigned to the interface variable, and a separate `expectType<>` assertion confirms the production adapter (when introduced in H4) matches the same interface.
+- Each interface listed in `Adds.` (both the spec-anchored seams imported from the spec corpus and the loom-internal seams declared inline) has a TypeScript-level conformance test: the in-memory fake is assigned to the interface variable, and a separate `expectType<>` assertion confirms the production adapter (when introduced in H4) matches the same interface. The spec-anchored seams cite their HTML id (`fakefilesystem--filesystem-interface`, `filewatcher-interface`, `clock--fakeclock-interface`, `checkpoint-seam`, `schemavalidator-interface`) in the test file's header comment so a future spec edit can be traced back through the conformance test.
 - `FakeModelClient` raises if its response queue is empty (no silent default).
-- `FakeFileSystem.readText` for unknown path rejects with a typed error.
+- `FakeFileSystem.readText`, `FakeFileSystem.readdir`, and `FakeFileSystem.lstat` for an unknown path each reject with an error whose `.code` is `"ENOENT"` (matching the spec-side rejection contract); seeded `EACCES` / `EPERM` / `ENOTDIR` paths surface their seeded `.code` unchanged. `FakeFileSystem.exists` resolves `false` for `ENOENT` and rejects for any other seeded `.code`.
+- `FakeFileWatcher.watch(roots, handler)` records the supplied roots; `FakeFileWatcher.emit(event)` synchronously invokes every attached handler in attach order with the supplied `FileWatchEvent`; the `Unsubscribe` returned by `watch` removes the handler so subsequent `emit` calls do not deliver to it; calling `Unsubscribe` twice is a no-op.
 - `FakeDiagnosticsSink` preserves report order on drain.
 - `FakeFileSystem.homedir()` returns the constructor-injected value; production `PiFileSystem.homedir()` delegates to `os.homedir()`.
 - `FakeClock.advance(ms)` synchronously fires every timer whose deadline has elapsed in deadline order; equal-deadline timers fire in registration order; `clearTimeout` is a no-op for already-fired handles; `now()` returns the fake's accumulated time and is *not* implicitly advanced by `advance`. Production `WallClock.now()` delegates to `performance.now()` and `WallClock.setTimeout` / `clearTimeout` delegate to the global timer functions.

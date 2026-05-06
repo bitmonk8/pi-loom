@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-06T06:31:26Z_
 _Source: docs/reviews/spec-review/spec-20260506-064723.md_
-_49 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
+_48 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
 
 _Severity: 27 correctness · 17 advisory · 12 cosmetic · 0 blocking_
 _Shape: 56 single · 0 multiple · 0 unresolved_
@@ -3594,89 +3594,6 @@ Edge cases for the implementer of the edit:
 
 - "Multiple untestable quality assertions and advisory language in normative prose" — same-cluster (also non-normative content embedded in `binder.md` normative prose; resolves independently)
 - "`tool_loop` \"calibrated\" rationale in normative prose" — same-cluster (parallel issue on a different page: rationale/meta-content in normative prose)
-
----
-
-# `FileSystem` seam interface signature lives outside the spec corpus
-
-**Source:** docs/reviews/spec-review/spec-20260506-064723.md
-**Original heading:** `FileSystem` seam member list lives in `plan_topics/`, not `spec_topics/`
-**Kind:** implementability
-
-## Finding
-
-`spec_topics/pi-integration-contract.md` § *`FakeFileSystem` / `FileSystem` interface* names exactly one member — `homedir(): string` — and then defers the rest with: *"Other members (file reads, writes, stat, directory enumeration, watcher attachment) are referenced by neighbouring spec sections … The full member list is anchored in the plan's H2 leaf."* The full TypeScript signature (`readText`, `writeText`, `exists`, plus the watcher seam) is in fact only declared in `plan_topics/h2-di-skeleton.md`. The same page also defers the `SchemaValidator` interface signature (`compile`, `invalidate`, plus the `CompiledValidator.validate` shape) and the `Checkpoint` seam signature to that plan leaf, even though their behavioural contracts live in `spec_topics/implementation-notes.md` and `spec_topics/pi-integration-contract.md`.
-
-`spec.md` ("Authoring conventions") explicitly licenses implementers to read only the topics listed in their plan leaf's **Spec** field, and the closure rule extends only to other topics cross-linked from those `spec_topics/*.md` pages. `plan_topics/h2-di-skeleton.md` is by construction a plan page, not a spec page, so it cannot appear in any leaf's **Spec** list — yet it is the only place where the load-bearing FileSystem method names and signatures are written down. An implementer of V14n (settings reader) or V18f (file watcher) who follows the spec-only reading rule has no normative source for the names `readText` / `writeText` / `exists` or for the watcher attachment surface their leaf must call.
-
-The problem is structural, not cosmetic: the spec inverts the dependency by making a normative artefact (the seam's method shape) live in a non-normative document, while the spec page that should anchor it merely points to it. Two implementers reading only `spec_topics/` could legitimately diverge on whether `readText` returns `Promise<string>` or `Promise<Buffer>`, whether `exists` exists at all, or how the watcher hook is shaped.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — `FakeFileSystem` / `FileSystem` interface section (edited)
-- `spec_topics/pi-integration-contract.md` — `Clock` / `FakeClock` interface section (option-dependent — only edited under Option B if alignment across all three seams is pursued)
-- `spec_topics/pi-integration-contract.md` — Checkpoint seam section (option-dependent)
-- `spec_topics/implementation-notes.md` — Runtime § Schema validation bullet, Clock bullet (option-dependent)
-- `spec.md` — Authoring conventions paragraph (orientation / reading-scope rule) (option-dependent — only edited under Option A)
-- `plan_topics/h2-di-skeleton.md` — H2 seam declarations (read-only — the source of truth that needs to either move or be promoted)
-- `plan_topics/conventions.md` — leaf-format and Spec-field definition (read-only)
-
-## Plan Impact
-
-**Phases:** Horizontal, MVP, Vertical V14, Vertical V18
-
-**Leaves (implementation order):**
-
-- H2 — Dependency-injection skeleton with fakes — (modified)
-- H4 — Pi extension shell — (modified)
-- Mb — Minimal runtime + slash registration + two-root discovery + no-params overflow note — (modified)
-- V14k — Discovery: global `~/.pi/agent/looms/` — (modified)
-- V14l — Discovery: project `.pi/looms/` — (modified)
-- V14n — Discovery: settings file reads — (modified)
-- V14o — Discovery: `--loom` CLI flag — (modified)
-- V14p — Source priority and shadowing warning — (modified)
-- V18f — File watcher (chokidar) over discovery roots — (modified)
-- V18r — Settings-file watcher — (modified)
-
-(All leaves modified in the sense that their **Spec** field gains a normative anchor — either an updated `pi-integration-contract.md` section under Option B, or `plan_topics/h2-di-skeleton.md` itself becoming a citable normative target under Option A. Implementation behaviour does not change.)
-
-## Consequence
-
-**Severity:** correctness
-
-An implementer working from the spec corpus alone (as `spec.md`'s Authoring conventions explicitly permits) cannot reconstruct the `FileSystem` method surface their leaf must call. Two reasonable implementers will diverge on method names, return types, and error shapes; downstream leaves that wire through these seams (V14n's settings reader, V18f's watcher debounce, V18r's settings watcher) will be coded against incompatible contracts and only converge under code review against `plan_topics/h2-di-skeleton.md`.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Move the seam interface signatures (`FileSystem`, `SchemaValidator`, `Clock`, `Checkpoint`) from `plan_topics/h2-di-skeleton.md` into the spec corpus. `plan_topics/h2-di-skeleton.md` retains adapter implementation guidance and re-imports / cross-links the spec-side declarations.
-
-**Spec edits.**
-
-- In `spec_topics/pi-integration-contract.md` § FileSystem: replace the deferral paragraph with the full TypeScript `interface FileSystem { readText, writeText, exists, homedir, readdir, lstat }` block (the `readdir` / `lstat` members are required by the discovery ancestor-walk procedure landed by the prior `clean leaf-ENOENT` commit). Add a paragraph naming the watcher-attachment surface — pick a single shape (separate `FileWatcher` interface, or method on `FileSystem`) and spell it out, since `h2-di-skeleton.md` currently describes it as "a separate seam" but never declares it.
-- In `spec_topics/pi-integration-contract.md` § Checkpoint: add the `interface Checkpoint { before(kind, site): Promise<void> }` declaration plus the `CheckpointKind` / `CheckpointSite` shapes.
-- In `spec_topics/implementation-notes.md` Runtime § Schema validation bullet: append the `interface SchemaValidator { compile, invalidate }` and `interface CompiledValidator { validate }` declarations.
-- Each spec-side declaration carries an HTML id (e.g. `<a id="filesystem-interface">`) so test code and plan-leaf `**Spec**` fields can reference it verbatim.
-
-**Plan edits.**
-
-- In `plan_topics/h2-di-skeleton.md`: replace the in-line interface declarations with `import` / cross-link references to the spec sections; keep the test bullets, the `makeRuntime` factory shape, and the Pi-type re-export comment.
-
-Edge cases for the implementer:
-
-- The H2 leaf's TypeScript-conformance test (`expectType<>` on production adapters) needs an unambiguous spec-side anchor it can cite — the HTML id on each spec-side declaration is the anchor.
-- If `h2-di-skeleton.md`'s adapter guidance later needs to refine a signature, the spec page must be updated in lockstep — call this out in `h2-di-skeleton.md`'s preface so future editors do not silently drift the implementation away from the spec.
-- The `FileSystem.readdir` / `lstat` additions support the discovery ancestor-walk that the prior commit introduced; verify the signatures align with what discovery actually calls.
-
-## Related Findings
-
-- "`ExtensionContext` forwarded member list: no signatures or behavioural contracts" — same-cluster (parallel pattern of a Pi-side surface whose members are referenced but not declared in the spec; resolves independently but the two fixes should adopt the same anchoring convention)
-- "SDK capability list duplicates `pi-integration-contract.md`" — same-cluster (touches `pi-integration-contract.md` organisation; co-edit window)
-- "'Closed under normative cross-link' definition ambiguous" — decision-dependency (clarifying what the closure rule reaches across affects whether Option A is even viable; if the closure cannot be widened to plan_topics, Option B is forced)
-- "'Read these first' scope unclear relative to Spec-field permission" — same-cluster (orientation/reading-scope rules; consistent with the same edit pass)
 
 ---
 
