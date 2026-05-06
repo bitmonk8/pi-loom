@@ -99,6 +99,12 @@ All retirements (per GOV-7 *Delete* / *Merge* and per GOV-8 *Split* / *Merge* / 
 - **Per-prefix retirements** appear in the *Retired prefixes* sub-table immediately below.
 - **Per-ID retirements** appear in a trailing `## Retired REQ-IDs` section on each non-narrative page (skeleton inserted by [H6](../plan_topics/h6-req-ids.md)). After a GOV-7 *Merge*, the surviving page's `## Retired REQ-IDs` section accumulates rows under both the surviving and the absorbed prefixes (per the *Merge* sub-bullet above); the absorbed page's section is deleted with its file.
 
+**GOV-9 (cross-link form).** Each spec page that depends on a normative rule from another topic page MUST either state the rule locally or reference it by a markdown link whose target is the specific REQ-ID anchor (`#prefix-n`) of the depended-upon rule. Where the depended-upon page is pure-narrative (its row in the [REQ-ID prefix table](#req-id-prefix-table) carries the `(no IDs — narrative)` cell per GOV-3), a section-level link to the relevant heading on that page suffices.
+
+**GOV-10 (plan-leaf reading scope).** An implementer MAY restrict their reading to the topic pages listed under their plan leaf's `**Spec**` field, where a *plan leaf* is a terminal task in [`plan.md`](../plan.md) (leaf format defined in [`plan_topics/conventions.md`](../plan_topics/conventions.md#leaf-format)) and its `**Spec**` field is the list of `spec_topics/*.md` filenames the leaf implements.
+
+**GOV-11 (Spec-field closure).** The plan leaf's `**Spec**` field MUST be closed under normative cross-link. Closure runs from each listed topic outbound: if a listed topic `T` cross-links a normative rule in topic `T'`, then `T'` MUST also appear in the field. Closure applies transitively to a fixed point — iterate adding pages until the field stops growing. Narrative cross-links — those whose row in the [REQ-ID prefix table](#req-id-prefix-table) carries the `(no IDs — narrative)` cell, which per GOV-3 is the single source of truth for narrative-page status — do not trigger the closure obligation.
+
 ### Retired prefixes
 
 | Prefix | Formerly | Retired in |
