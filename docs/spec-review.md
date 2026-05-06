@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-06T06:31:26Z_
 _Source: docs/reviews/spec-review/spec-20260506-064723.md_
-_56 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
+_55 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
 
 _Severity: 27 correctness · 17 advisory · 12 cosmetic · 0 blocking_
 _Shape: 56 single · 0 multiple · 0 unresolved_
@@ -4061,93 +4061,4 @@ Edge cases for the implementer:
 
 - "V1 emission contract and `RuntimeEvent` shape buried in deferrals document" — co-resolve (identical structural problem — V1 obligations specified inside `future-considerations.md` rather than on the owning normative page; the same edit pattern, "lift the V1 paragraph onto its topic page and trim the deferrals entry to what V1 omits," resolves both)
 - "Unresolved conditional dependency between deferred features" — same-cluster (also targets `future-considerations.md` but is a content/decision issue, not a placement issue; resolves independently)
-
----
-
-## Terminology and naming (cross-file)
-
----
-
-# `coercion` overloaded: schema-validation repair vs. type conversion
-
-**Source:** docs/reviews/spec-review/spec-20260506-064723.md
-**Original heading:** `coercion` overloaded: schema-validation repair vs. type conversion
-**Kind:** naming
-
-## Finding
-
-The spec uses **coercion** for two unrelated concepts. The dominant developer reading — the one carried over from JavaScript, Python, AJV's own `coerceTypes` knob, and most type-system literature — is *implicit value conversion between types* (e.g. `"1" → 1`, truthy/falsy collapse). Loom deliberately performs none of this; the absence is so noteworthy that `glossary.md` adds an entry "**coercion (type, expression-level)**" purely to document its non-existence.
-
-The competing sense, which is what the field name actually denotes, is the *typed-query response-repair loop*: when AJV rejects the model's final answer, the runtime appends a follow-up user turn asking the model to fix its output. This is configured by the frontmatter block `coercion: { attempts, methodology }`, surfaced in error fields (`ValidationError.attempts` is documented as "coercion follow-ups made before giving up"), and named throughout `query.md`, `frontmatter.md`, `errors-and-results.md`, `pi-integration-contract.md`, `implementation-notes.md`, `binder.md`, `slash-invocation.md`, and `related-work.md`.
-
-The author has noticed the collision and patched it twice — once in `glossary.md` with a parenthetical qualifier on each entry, and once in `implementation-notes.md` with an inline disambiguation paragraph ("'Coerce' here refers to AJV's built-in string-to-primitive coercion knob; the loom-level **coercion** mechanism … is a separate concept and is unaffected"). Both patches are evidence the term carries the wrong intuition. A first-time reader of the `coercion:` frontmatter field will reach for the wrong mental model and need to be corrected; the prose-level disambiguations cannot reach the field name itself.
-
-## Spec Documents
-
-- `spec_topics/glossary.md` — both `coercion` entries (option-dependent)
-- `spec_topics/frontmatter.md` — `coercion:` field declaration, defaults table, prose section, methodology bullets (option-dependent)
-- `spec_topics/query.md` — `## Schema-validation coercion`, `### Non-validation failures during a coercion follow-up`, surrounding prose, follow-up template names (option-dependent)
-- `spec_topics/errors-and-results.md` — `ValidationError.attempts` field comment, no-rollback paragraph cross-reference (option-dependent)
-- `spec_topics/pi-integration-contract.md` — `RuntimeEvent.attempts` comment, "Coercion attempts on a typed query" paragraph (option-dependent)
-- `spec_topics/implementation-notes.md` — runtime bullet, AJV disambiguation paragraph (option-dependent)
-- `spec_topics/binder.md` — "Coercion-style follow-ups" cross-reference paragraph (option-dependent)
-- `spec_topics/slash-invocation.md` — system-note template `"… after \`<n>\` coercion attempts"` (option-dependent)
-- `spec_topics/related-work.md` — TypeChat reference (option-dependent)
-- `spec_topics/future-considerations.md` — `tool_choice` non-compliance bullet (option-dependent)
-- `spec_topics/diagnostics.md` — diagnostic message templates that mention coercion or "no implicit coercion" (read-only; the AJV-flavoured "no implicit coercion" wording stays even under a rename)
-- `spec_topics/expressions.md` — "no implicit coercion in V1" wording (read-only; clearly the type-conversion sense)
-
-## Plan Impact
-
-**Phases:** Vertical V3, Vertical V13, Vertical V14
-
-**Leaves (implementation order):**
-
-- V3a — Frontmatter parsing — (modified)
-- V13 — Wire names, descriptions, coercion (phase title) — (modified)
-- V13f — `coercion:` and `tool_loop:` frontmatter parsing — (modified)
-- V13g — Coercion methodology: `validator_error` — (modified)
-- V13h — Coercion methodology: `schema_repeat` — (modified)
-- V13i — Coercion methodology: `none` — (modified)
-- V13j — Coercion preserves tool-call side effects — (modified)
-- V14r — `ModelToolError` variant: model-loop tool-call failure — (modified, link text only)
-
-## Consequence
-
-**Severity:** advisory
-
-The spec is unambiguous to a careful reader who has consumed the glossary, but it primes the wrong mental model on first contact and forces every prose mention to carry a disambiguating qualifier or risk being misread. The cost is felt in onboarding clarity and in the awkwardness of the two-entry glossary patch; no implementer will produce wrong behaviour because of it.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Rename the frontmatter field `coercion:` → `respond_repair:` and update every prose mention, glossary entry, system-note template, comment, and related-work citation accordingly. No backward-compatibility shim is required — no `.loom` files exist yet.
-
-**Spec edits.**
-
-- `frontmatter.md`: rename the field; update the field-defaults table and any inline examples.
-- `glossary.md`: rename the entry `coercion (schema-validation)` → `respond_repair`. Drop the `coercion (type, expression-level)` entry entirely.
-- `query.md`: rewrite prose mentions of "coercion" / "coercion attempts" to "respond-repair" / "respond-repair attempts".
-- `slash-invocation.md`: rewrite the system-note templates that mention `coercion` to use `respond-repair`.
-- `pi-integration-contract.md`: rename `RuntimeEvent.attempts` comment from "coercion attempts" to "respond-repair attempts" (the field name `attempts` stays — it is the count, not the mechanism).
-- `expressions.md`, `diagnostics.md`, `implementation-notes.md`: replace "no implicit coercion" with "no implicit type conversion" so the word `coercion` is fully retired from normative spec text.
-- `related-work.md`: update the TypeChat citation accordingly (the lineage attribution remains; the term used for it changes).
-
-**Plan edits.**
-
-- V13's phase title ("Wire names, descriptions, coercion") is reworded; the leaf IDs (V13f–V13j) stay stable. Their headings and `Adds.` / `Tests.` bullets are reworded.
-
-Edge cases for the implementer:
-
-- The methodology values (`validator_error`, `schema_repeat`, `none`) keep their names; only the enclosing block (`coercion: { … }` → `respond_repair: { … }`) is renamed.
-- The `ValidationError.attempts` / `RuntimeEvent.attempts` field names stay — the count is unchanged. Only the *comment* on those fields is reworded.
-- The new YAML key uses underscore (`respond_repair`), matching the existing snake_case convention (`tool_loop`, `bind_model`, `bind_context`, `bind_echo`).
-
-## Related Findings
-
-- "`.loom callable` vs \"registered loom\" / \"registered subagent loom\" / \"registered-loom call\"" — same-cluster (independent naming inconsistency in the same review section)
-- "`callable set` vs \"`tools:` set\" vs \"tool set\"" — same-cluster (independent naming inconsistency in the same review section)
 

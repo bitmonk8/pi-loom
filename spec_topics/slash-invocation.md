@@ -36,7 +36,7 @@ Per-`kind` formatting:
 
 | `QueryError.kind` | System note shape |
 |---|---|
-| `validation` | "loom `/<name>` returned `Err`: model failed schema after `<n>` coercion attempts" |
+| `validation` | "loom `/<name>` returned `Err`: model failed schema after `<n>` respond-repair attempts" |
 | `transport` | "loom `/<name>` returned `Err`: transport — `<message>`" |
 | `model_tool` | "loom `/<name>` returned `Err`: tool `<tool_name>` failed — `<message>`" |
 | `context_overflow` | "loom `/<name>` returned `Err`: context window exceeded" |

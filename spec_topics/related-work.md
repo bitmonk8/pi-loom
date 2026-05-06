@@ -17,7 +17,7 @@ Two coordinates help place a tool:
 - **PDL** (IBM) — declarative YAML, same orchestration layer, same context-accumulation model, same JSON Schema typing. The closest functional comparable on a different surface.
 - **DSPy** (Stanford) and **ax** — declarative module signatures plus a prompt optimiser. Loom does not optimise prompts; what the author writes is what the model sees.
 - **BAML** (Boundary) — function-per-LLM-call DSL with schema-aligned parsing; single-call. Loom drives many queries per program.
-- **TypeChat** (Microsoft) — TypeScript interfaces as schemas with an LLM-driven repair loop on validation failure. The repair pattern is mirrored in loom's typed-query coercion-via-follow-up behaviour.
+- **TypeChat** (Microsoft) — TypeScript interfaces as schemas with an LLM-driven repair loop on validation failure. The repair pattern is mirrored in loom's typed-query respond-repair-via-follow-up behaviour.
 - **Promptflow** (Microsoft), **ControlFlow** (Prefect), **LangChain LCEL** — declarative DAG / Python composition cousins of mech and PDL.
 - **Instructor**, **PydanticAI**, **Mirascope** — Python decorators wrapping a single LLM call into a typed Pydantic-returning function.
 

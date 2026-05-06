@@ -25,7 +25,7 @@ Every executable spec rule will be mapped to its closing leaf(s) once H6 closes;
 | [Parameters and Frontmatter — `tools`](../spec_topics/frontmatter.md) | V14a, V14b, V14s (resolution snapshot), V15e–V15g |
 | [Parameters and Frontmatter — `system`](../spec_topics/frontmatter.md) | V12b, V12c |
 | [Parameters and Frontmatter — `bind_*`](../spec_topics/frontmatter.md) | V16e–V16k |
-| [Parameters and Frontmatter — `coercion`](../spec_topics/frontmatter.md) | V13f, V13g–V13j |
+| [Parameters and Frontmatter — `respond_repair`](../spec_topics/frontmatter.md) | V13f, V13g–V13j |
 | [Parameters and Frontmatter — `tool_loop`](../spec_topics/frontmatter.md) | V13f, V6k |
 | [Template Interpolation](../spec_topics/frontmatter.md#template-interpolation) | V5b |
 | [Query — untyped](../spec_topics/query.md) | V5a, V5e, V5f, V5g |
@@ -33,7 +33,7 @@ Every executable spec rule will be mapped to its closing leaf(s) once H6 closes;
 | [Query — typed queries are tool-loop-shaped](../spec_topics/query.md) | V6i, V6l |
 | [Query — tool-call loop bound](../spec_topics/query.md) | V6k |
 | [Query — degenerate rendered templates](../spec_topics/query.md) | V5e (runtime short-circuit), V5c (parse warning) |
-| [Query — coercion](../spec_topics/query.md) | V13g–V13j |
+| [Query — respond-repair](../spec_topics/query.md) | V13g–V13j |
 | [Query — failure modes (`QueryError`)](../spec_topics/query.md) | V5g, V5h (`ContextOverflowError` detection), V6i, V6k, V6j, V6m, V14r, V14f–V14i, V15l, V15m, V18q (always-log runtime event channel) |
 | [Expression Sublanguage](../spec_topics/expressions.md) | V2a–V2i, extended in V14c-a, V14c-b |
 | [Operator precedence](../spec_topics/expressions.md#operator-precedence) | V2c |

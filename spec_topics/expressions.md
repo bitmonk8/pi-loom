@@ -80,7 +80,7 @@ A small stdlib is exposed on the primitive composite types. No user-defined meth
 | Member | Signature | Semantics |
 |---|---|---|
 | `length` | `: integer` | Element count |
-| `join(sep)` | `(sep: string): string` | Concatenates elements with `sep`. Element type must be `string`; non-string element types are `loom/parse/non-string-array-join` (no implicit coercion in V1) |
+| `join(sep)` | `(sep: string): string` | Concatenates elements with `sep`. Element type must be `string`; non-string element types are `loom/parse/non-string-array-join` (no implicit type conversion in V1) |
 | `includes(x)` | `(x: T): boolean` | Membership test using loom structural equality |
 | `indexOf(x)` | `(x: T): integer` | First index by structural equality, or `-1` if absent |
 | `slice(start, end?)` | `(start: integer, end?: integer): array<T>` | JS semantics: negative indices count from the end; `end` exclusive; omitted `end` slices to length |
