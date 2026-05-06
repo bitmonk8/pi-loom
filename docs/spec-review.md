@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-06T06:31:26Z_
 _Source: docs/reviews/spec-review/spec-20260506-064723.md_
-_55 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
+_54 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
 
 _Severity: 27 correctness · 17 advisory · 12 cosmetic · 0 blocking_
 _Shape: 56 single · 0 multiple · 0 unresolved_
@@ -3992,73 +3992,4 @@ Edge cases for the implementer:
 
 - "`FileSystem` seam member list lives in `plan_topics/`, not `spec_topics/`" — co-resolve (the H2 `FileSystem` interface currently has no `readdir`/`lstat` member; whichever option is chosen, the readdir/lstat surface must be pinned in `pi-integration-contract.md` to give the ancestor-walk rule a callable seam)
 - "Non-`.loom`/`.warp` and edge-case path failure modes not enumerated" — same-cluster (overlapping discovery-failure surface; resolves independently against a different bullet of the failure-modes table)
-
----
-
-## spec_topics/future-considerations.md
-
----
-
-# V1 design constraints filed under the deferrals inventory
-
-**Source:** docs/reviews/spec-review/spec-20260506-064723.md
-**Original heading:** V1 limitations mixed with genuinely deferred features
-**Kind:** scope
-
-## Finding
-
-`spec_topics/future-considerations.md` is framed by its own opening as the inventory of what V1 *does not* build — bucket 1 ("tooling deferrals"), bucket 2 ("surface extensions"), and bucket 3 ("model-level changes") all describe post-V1 work and the V1 seams that preserve forward compatibility. Bucket 4, **"Known V1 limitations (no seam expected),"** then changes register: it documents a V1 design choice with a behavioural consequence — specifically, that when an OpenAI-compatible local backend ignores forced `tool_choice` on a typed query, the runtime surfaces it indistinguishably from any other respond-tool failure, as a `validation` error with `coercion.attempts` exhausted.
-
-That entry is not a deferral. It is a current-V1 diagnostic constraint that an implementer of typed-query plumbing (V6i / V6m) and of the coercion follow-up loop (V13g) needs to know in order to write correct error-mapping code and accurate user-facing diagnostic hints. Filing it inside the deferrals document inverts the discoverability default: a reader who skips `future-considerations.md` because "I'm building V1, not the post-V1 backlog" will miss a V1 obligation. The bucket is currently a single bullet, but the heading announces an open category that future reviewers will continue to populate, multiplying the problem.
-
-The sibling typed-query entry on `pi-integration-contract.md` ("Provider compatibility for typed queries") already owns the normative paragraph this limitation modifies; it is the natural anchor for the constraint.
-
-## Spec Documents
-
-- `spec_topics/future-considerations.md` — "Known V1 limitations (no seam expected)" section + bucket-4 enumeration in the preamble (edited)
-- `spec_topics/pi-integration-contract.md` — "Provider compatibility for typed queries" section (edited)
-- `spec_topics/query.md` — read-only context for `validation` / `coercion.attempts` semantics (read-only)
-- `spec_topics/diagnostics.md` — read-only context for `loom/load/typed-query-unsupported-provider` and the validation-error hint surface (read-only)
-
-## Plan Impact
-
-**Phases:** Vertical V6, Vertical V13
-
-**Leaves (implementation order):**
-
-- V6m — Typed-query provider compatibility check — (modified)
-- V13g — Coercion follow-up loop (validation-repair retry) — (modified)
-
-(Both are "modified" only in the sense that the diagnostic-text expectations in their tests cite the relocated constraint paragraph; behaviour and acceptance criteria are unchanged.)
-
-## Consequence
-
-**Severity:** advisory
-
-An implementer wiring typed-query provider compatibility (V6m) or the coercion loop (V13g) who reads only the normative pages can ship a correct runtime that nevertheless emits an unhelpful diagnostic in the local-backend-ignores-forced-tool case, because the spec's acknowledgement of the ambiguity lives in a document the implementer reasonably skipped. The category framing also invites future reviewers to file additional V1 constraints in the same wrong place, compounding the discoverability gap over time.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Move the "Diagnostic limitation: model-level non-compliance with `tool_choice` on supported providers" bullet into `spec_topics/pi-integration-contract.md`, appended to the existing "Provider compatibility for typed queries" section as an explicitly labelled paragraph (e.g. **"V1 diagnostic limitation."**). Keep the bullet's existing prose verbatim; only the location and the surrounding markup change.
-
-In `spec_topics/future-considerations.md`:
-
-- Delete the "Known V1 limitations (no seam expected)" section.
-- Delete bucket 4 from the introductory enumeration so the document's framing is once again "what V1 chose not to build."
-- Optionally leave a one-line back-pointer paragraph at the file's end pointing readers who expect to find V1 constraints here at the topic pages that own them.
-
-Edge cases for the implementer:
-
-- The original bullet carries a `*Cross-ref:*` to `pi-integration-contract.md`. After the move, the cross-ref becomes self-referential and should be dropped.
-- Diagnostic-ergonomics text on `loom/load/typed-query-unsupported-provider` (the `Hint` column in `diagnostics.md`) is unaffected; the limitation describes a *runtime* symptom on supported providers, not a load-time warning.
-- If a future V1 constraint of similar shape appears, file it on the topic page that owns the surrounding contract — do not resurrect a global "limitations" bucket. The principle is one-place-to-look-per-surface, not one-place-to-look-per-kind-of-statement.
-
-## Related Findings
-
-- "V1 emission contract and `RuntimeEvent` shape buried in deferrals document" — co-resolve (identical structural problem — V1 obligations specified inside `future-considerations.md` rather than on the owning normative page; the same edit pattern, "lift the V1 paragraph onto its topic page and trim the deferrals entry to what V1 omits," resolves both)
-- "Unresolved conditional dependency between deferred features" — same-cluster (also targets `future-considerations.md` but is a content/decision issue, not a placement issue; resolves independently)
 
