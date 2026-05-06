@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-06T06:31:26Z_
 _Source: docs/reviews/spec-review/spec-20260506-064723.md_
-_7 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
+_6 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
 
 _Severity: 27 correctness · 17 advisory · 12 cosmetic · 0 blocking_
 _Shape: 56 single · 0 multiple · 0 unresolved_
@@ -396,62 +396,3 @@ Edge cases for the implementer:
 - "`peerDependencies` over-prescribed as the enforcement mechanism" — same-cluster (sits in the same paragraph; independent fix).
 - "Introduction cross-references by section link, not REQ-ID anchor" — same-cluster (spec.md cross-link traceability; the sweep this recommends would also re-target the cross-references that finding flags).
 - "Pi SDK symbols treated as verified facts without a verification mechanism" — decision-dependency (whichever location ends up owning the inventory is also where the verification record belongs).
-
----
-
-# Bare "minor" used as a noun in the Prerequisites paragraph
-
-**Source:** docs/reviews/spec-review/spec-20260506-064723.md
-**Original heading:** "Minor" used as a noun without antecedent
-**Kind:** clarity
-
-## Finding
-
-`spec.md` § Orientation → Prerequisites contains the sentence: "The matching `pi-agent-core` / `pi-ai` / `pi-tui` minor is also required; `package.json` `peerDependencies` is the enforcement point." The word *minor* is used as a bare noun with no nearby `minor-version line` antecedent. Worse, *matching* is anchored only by adjacency to the previous sentence ("the version pinned by [Pi Integration Contract]"), and that pin is a caret range (`^0.72.1`), not a single minor — so the reader cannot tell whether *matching* means "same minor as the resolved pi-coding-agent install" or "same minor as `0.72`" or "any minor inside the pinned caret range".
-
-The same elliptical construction recurs in `spec_topics/pi-integration-contract.md` line 3 ("the matching `pi-agent-core`/`pi-ai`/`pi-tui` minor") and line 7 ("the matching `pi-agent-core` / `pi-ai` / `pi-tui` minor"), so a wording fix in `spec.md` alone leaves the contract page still ambiguous.
-
-## Spec Documents
-
-- `spec.md` — Orientation → Prerequisites → Pi SDK and capabilities (edited)
-- `spec_topics/pi-integration-contract.md` — opening paragraph and Host prerequisites item 1 (edited)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None. The fix is pure prose disambiguation; it does not alter any acceptance test, any pinned version literal, or any seam contract. The H1 `engines.node` literal-read test (`plan_topics/h1-scaffold.md`) reads the version field, not this prose, and is unaffected.
-
-## Consequence
-
-**Severity:** cosmetic
-
-A careful reader can recover the intended meaning from the surrounding paragraph and from `pi-integration-contract.md`, so no observable behaviour or implementation choice changes. The cost is reader-time: future spec readers will pause to disambiguate and may import the same elliptical construction into derived prose.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Replace the bare-noun usage in both files with an explicit phrase that names *what* must match and *what dimension* of "match" is meant. Suggested wording:
-
-- In `spec.md` § Orientation → Prerequisites, replace "The matching `pi-agent-core` / `pi-ai` / `pi-tui` minor is also required" with: "The `pi-agent-core`, `pi-ai`, and `pi-tui` packages MUST be present at the same minor-version line as the resolved `@mariozechner/pi-coding-agent` install."
-- In `spec_topics/pi-integration-contract.md` line 3, replace "(and the matching `pi-agent-core`/`pi-ai`/`pi-tui` minor)" with: "(with `pi-agent-core`, `pi-ai`, and `pi-tui` resolved to the same minor-version line as the installed `@mariozechner/pi-coding-agent`)".
-- In `spec_topics/pi-integration-contract.md` line 7, apply the same expansion.
-
-Edge cases the implementer must watch:
-
-- The fix anchors *matching* to the **resolved install**, not to the pinned caret range. If the project later decides *matching* should mean "same minor as the lower bound of the caret" (i.e. `0.72` regardless of which `0.72.x` actually resolved), the wording above is wrong and should be revised in the same edit.
-- The companion finding "`pi-agent-core` / `pi-ai` / `pi-tui` lock-step version assumption" asks whether a skew window is permitted at all; if that finding lands first and admits a skew, this clarification's "same minor-version line" phrasing must be revisited to allow the skew window it defines.
-
-## Related Findings
-
-- "`pi-agent-core` / `pi-ai` / `pi-tui` lock-step version assumption" — decision-dependency (touches the exact same clause; the lock-step decision dictates whether "same minor-version line" is the correct expansion or whether a skew window must be encoded)
-- "SDK capability list duplicates `pi-integration-contract.md`" — same-cluster (same Prerequisites paragraph, independent resolution)
-- "SDK capability bullets carry no traceable identifiers" — same-cluster (same paragraph, independent resolution)
-- "`peerDependencies` over-prescribed as the enforcement mechanism" — same-cluster (same sentence's second clause, independent resolution)
-- "\"Re-validating\" obligation undefined; no enforcement gate named" — same-cluster (adjacent normative sentences in the same paragraph)
-- "Pi SDK symbols treated as verified facts without a verification mechanism" — same-cluster (same Prerequisites block, independent resolution)
