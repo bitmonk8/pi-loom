@@ -191,7 +191,7 @@ Only `\n` (post-normalisation) is a line break for this rule. The Unicode line s
 
 The table enumerates every diagnostic the V1 spec defines. *Severity* is `error` (`E`) or `warning` (`W`); a few discovery-source codes carry severity `E/W`, meaning the severity is decided per-source by the table in [Discovery — Failure modes](./discovery.md) rather than fixed at the code level. *Phase* identifies which pipeline stage emits the diagnostic: `lex` (lexing / encoding), `parse` (parsing / static checks performed by the parser), `type` (type-system checks), `load` (file-load, registration, discovery), or `runtime` (panic during execution). *Trigger* is the canonical condition; *Spec rule* points to the topic page where the rule is stated; *Hint* gives the normative author-facing hint when the spec mandates one; *Message* is the rendered author-facing string template (one line; `<…>` placeholders are interpolated by the renderer).
 
-### `loom/lex/*` and `loom/parse/*` — lexical and parse errors
+### `loom/parse/*` — lexer, parser, and type errors
 
 | Code | Sev | Phase | Trigger | Spec rule | Hint | Message |
 |---|---|---|---|---|---|---|

@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-06T06:31:26Z_
 _Source: docs/reviews/spec-review/spec-20260506-064723.md_
-_41 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
+_40 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
 
 _Severity: 27 correctness · 17 advisory · 12 cosmetic · 0 blocking_
 _Shape: 56 single · 0 multiple · 0 unresolved_
@@ -3008,59 +3008,4 @@ Edge cases for the implementer:
 
 ---
 
-# `loom/lex/*` is a phantom namespace in the registry section heading
-
-**Source:** docs/reviews/spec-review/spec-20260506-064723.md
-**Original heading:** `loom/lex/*` phantom namespace in registry section heading
-**Kind:** naming
-
-## Finding
-
-The first sub-heading inside the diagnostics code-registry table reads `### \`loom/lex/*\` and \`loom/parse/*\` — lexical and parse errors`, presenting `loom/lex/*` as a peer namespace alongside `loom/parse/*`. No such namespace exists in the spec: it is absent from the four-bullet **Code namespaces** list, no row in any registry table carries a `loom/lex/...` code, and the lexical-phase rows (`illegal-escape`, `literal-newline-in-string`, `unterminated-string`, `invalid-path-separator`, `block-comment`, `illegal-template-escape`, `unterminated-template`) all use the `loom/parse/*` prefix with `Phase: lex`. The plan already encodes this reality — `plan_topics/h3-diagnostics.md` states verbatim: "There is no `loom/lex/*` namespace: every `lex`-phase code in `spec_topics/diagnostics.md` routes through `loom/parse/*` (or `loom/load/invalid-encoding` for the UTF-8 / BOM case)."
-
-The heading is the only place in the spec that hints at a `loom/lex/*` namespace. A reader scanning the registry's table-of-contents-by-heading sees a four-namespace surface (`lex`, `parse`, `load`, `runtime`); a reader scanning the **Code namespaces** bullets sees a four-namespace surface (`parse`, `type`, `load`, `runtime`); the actual code rows expose three (`parse`, `load`, `runtime`). Three different counts of namespaces inside a single page is gratuitous noise in a registry whose stability is itself a normative rule (rule 3: codes are stable identifiers; rule 2: the registry is closed). The `loom/lex/*` half of the heading is the cleanest of the three to fix because nothing else in the spec leans on it.
-
-## Spec Documents
-
-- `spec_topics/diagnostics.md` — the `### \`loom/lex/*\` and \`loom/parse/*\` — lexical and parse errors` sub-heading inside *Code registry* (edited)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None
-
-(`plan_topics/h3-diagnostics.md` already documents the absence of `loom/lex/*` and groups codes under `loom/parse/*`; no acceptance criterion needs revision.)
-
-## Consequence
-
-**Severity:** cosmetic
-
-A misleading heading and an inconsistent namespace count across three places in one page. No implementer is blocked: the **Code namespaces** bullet list and the actual registry rows agree on the routing, and the H3 plan leaf already calls out the absence explicitly. The cost is reader confusion plus a small ongoing hazard that future spec edits might be tempted to "fix" the inconsistency by inventing `loom/lex/*` codes rather than by deleting the heading fragment.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Strike `\`loom/lex/*\` and ` from the sub-heading. The exact replacement text depends on how the sibling finding `\`loom/type/*\` namespace declared but empty; type-check codes live in \`loom/parse/*\`` resolves:
-
-- If that finding picks **Merge** (drop `loom/type/*` from the namespace table; broaden `loom/parse/*`'s description), the heading becomes `### \`loom/parse/*\` — lexer, parser, and type errors`.
-- If that finding picks **Split** (rename type-phase codes to `loom/type/...`), the heading becomes `### \`loom/parse/*\` — lexical and parse errors` and a sibling sub-heading `### \`loom/type/*\` — type-system errors` is added below it.
-
-Either way, `loom/lex/*` disappears from the heading. Edge cases for the implementer:
-
-- The four **Code namespaces** bullets above the registry must remain consistent with whatever the new heading set asserts — bullet count == sub-heading count.
-- `plan_topics/h3-diagnostics.md`'s disclaimer about `loom/lex/*` not being a namespace remains accurate after the edit; no plan change is needed.
-- The V18s diagnostic-code closing gate (per `plan_topics/v18-cancellation.md`) regexes registry rows by first column starting with `` | `loom/ ``; sub-heading text does not feed that grep, so the rename is gate-neutral.
-
-## Related Findings
-
-- "`loom/type/*` namespace declared but empty; type-check codes live in `loom/parse/*`" — decision-dependency (the chosen fix for the type-namespace finding determines the exact replacement heading text; both findings should be edited in one pass)
-- "`loom/parse/empty-schema-body` and `loom/parse/non-string-discriminator` missing from registry" — same-cluster (also a registry-completeness issue on the same page; resolves independently)
-
----
 
