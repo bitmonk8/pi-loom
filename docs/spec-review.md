@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-06T06:31:26Z_
 _Source: docs/reviews/spec-review/spec-20260506-064723.md_
-_48 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
+_47 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
 
 _Severity: 27 correctness · 17 advisory · 12 cosmetic · 0 blocking_
 _Shape: 56 single · 0 multiple · 0 unresolved_
@@ -3534,66 +3534,6 @@ Edge cases the implementer must watch:
 ## Related Findings
 
 - "`Message` shape for `estimateTokens` and turn-walker undefined" — same-cluster (both touch the truncation algorithm in `binder.md` but resolve independently — one fixes boundary semantics, the other fixes the `Message` contract `estimateTokens` reads)
-
----
-
-# Open question for a deferred feature embedded in normative `binder.md`
-
-**Source:** docs/reviews/spec-review/spec-20260506-064723.md
-**Original heading:** Open question embedded in normative `binder.md`
-**Kind:** scope
-
-## Finding
-
-The "Binder-invocation re-entrancy" paragraph in `spec_topics/binder.md` (the prose around the `**Binder-invocation re-entrancy.**` lead-in) closes with an explicit, unresolved design question for a *post-V1* feature:
-
-> Open question: whether automatic escalation surfaces a user-visible turn (composing with the deferred binder refinement loop) or stays operator-only is unresolved and tracked alongside the deferral entry.
-
-`binder.md` is a normative V1 page. The "automatic context escalation" extension it refers to is explicitly deferred — it appears as a bullet in `spec_topics/future-considerations.md` (line 45), and the same open question is already mirrored there (line 47, "tracked at the binder.md anchor"). The deferred entry is the legitimate home for the unresolved decision. Leaving a duplicate in `binder.md` mixes V1 obligations with post-V1 design uncertainty on a page implementers are meant to read top-to-bottom as binding contract.
-
-The damage is to spec hygiene rather than V1 implementability — no V1 leaf needs to act on the question, because the feature it gates is itself deferred. But the present arrangement also makes the cross-reference circular: `binder.md` says "tracked alongside the deferral entry"; `future-considerations.md` says "tracked at the binder.md anchor". Neither side actually owns the decision.
-
-## Spec Documents
-
-- `spec_topics/binder.md` — "Binder-invocation re-entrancy" paragraph (edited)
-- `spec_topics/future-considerations.md` — "Automatic context escalation" entry (edited)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None. The open question concerns a deferred feature; no V1 leaf is blocked or modified. `V16f` (default-context binder path) and `V16g` (session-context binder path) implement the V1 surface that the re-entrancy seam exists to protect, but neither leaf consumes the open question or its resolution.
-
-## Consequence
-
-**Severity:** cosmetic
-
-The retained sentence does not change V1 behaviour or block any V1 implementer — `binder.md` already states V1 issues exactly one binder call per invocation, so the re-entrancy seam is the only V1-visible artefact. The cost is to spec discipline: a normative page advertises an unresolved design choice, and the cross-reference between `binder.md` and `future-considerations.md` is circular ("tracked alongside the deferral entry" ↔ "tracked at the binder.md anchor"), so neither page actually owns the decision.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `spec_topics/binder.md`, delete the trailing sentence of the "Binder-invocation re-entrancy" paragraph that begins "Open question: whether automatic escalation surfaces a user-visible turn …". The preceding sentences — describing the seam and naming the deferred extension as the motivating use case — stay; they correctly justify why the re-entrancy contract is shaped the way it is, without committing to a post-V1 design.
-
-In `spec_topics/future-considerations.md`, edit the "Automatic context escalation" entry (around line 45) so that the open question is owned there outright, not "tracked at the binder.md anchor". Replace the existing `*Open question:*` clause with a self-contained statement, e.g.:
-
-> *Decision required before this item can be scoped:* whether automatic escalation surfaces a user-visible turn (composing with the [Binder refinement loop](#binder-refinement-loop)) or stays operator-only.
-
-Edge cases for the implementer of the edit:
-
-- The `*Depends on:*` clause in the same `future-considerations.md` entry already references the refinement-loop interaction; keep it — the new wording does not subsume it.
-- Do not delete the surrounding "Binder-invocation re-entrancy" paragraph in `binder.md`. The seam itself is normative V1: it pins that the binder input record and resolved model handle are constructed afresh per call, which V16e and V16f rely on.
-- After the edit, `future-considerations.md` no longer cross-references `binder.md` for the open question. That is the intended state — the seam stays anchored both ways, but the unresolved decision lives in exactly one place.
-
-## Related Findings
-
-- "Multiple untestable quality assertions and advisory language in normative prose" — same-cluster (also non-normative content embedded in `binder.md` normative prose; resolves independently)
-- "`tool_loop` \"calibrated\" rationale in normative prose" — same-cluster (parallel issue on a different page: rationale/meta-content in normative prose)
 
 ---
 
