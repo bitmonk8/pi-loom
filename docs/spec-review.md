@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-06T06:31:26Z_
 _Source: docs/reviews/spec-review/spec-20260506-064723.md_
-_34 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
+_33 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
 
 _Severity: 27 correctness · 17 advisory · 12 cosmetic · 0 blocking_
 _Shape: 56 single · 0 multiple · 0 unresolved_
@@ -2521,78 +2521,4 @@ Edge cases the implementer must watch: the H4 `sendSystemNote` helper is current
 - "`RuntimeEvent` routing: panics appear in both always-log set and `details: {diagnostics}` path" — co-resolve (the same System notes / Runtime event channel paragraphs need a partition rewrite that also clarifies which variants emit at `display: false`)
 - "`pi.registerMessageRenderer` registration timing and race" — decision-dependency (the renderer's contract for `display: false` empty-content notes depends on this finding's resolution)
 - ""Consumers MUST deduplicate" — obligation on undefined party" — same-cluster (same Runtime event channel section)
-
----
-
-# `pi.setActiveTools` snapshot/restore relies on an unstated Pi serialisation guarantee
-
-**Source:** docs/reviews/spec-review/spec-20260506-064723.md
-**Original heading:** `pi.setActiveTools` single-threaded coordination assumption unverified
-**Kind:** implementability
-
-## Finding
-
-The snapshot/restore protocol in [Pi Integration Contract — Tool-registration lifetime and visibility](../../../spec_topics/pi-integration-contract.md) wraps every prompt-mode query (and every prompt → prompt invoke per [Invocation](../../../spec_topics/invocation.md)) in a four-step dance: `pi.getActiveTools()` → `pi.setActiveTools([...snapshot, ...callable, respond?])` → query → `pi.setActiveTools(snapshot)` in a `finally`. The "snapshot taken just before swap is always the correct restoration target" invariant is justified by appeal to "Pi's per-session sequential turn execution" — but no concrete Pi capability, event, or contractual statement is named. The Pi extensions documentation does describe sequential command dispatch and an idle/streaming model (`ctx.isIdle`, `ctx.waitForIdle`, `deliverAs: "steer"`), but never publishes the "per-session sequential turn execution" phrase the spec leans on, and the loom plan-leaf V14 already encodes a test that asserts this property.
-
-Two distinct concurrency cases collapse into the same hand-wave:
-
-1. **Two loom invocations in the same Pi session.** Pi dispatches slash-command handlers serially within a session (the command input loop is not re-entrant), so two `/loom-foo` calls cannot interleave their snapshot/restore windows. This is the case the spec's "per-session sequential turn execution" sentence is intended to cover, but it is the *command dispatch* property, not "turn execution", that delivers it. The sentence as written is wrong about *which* Pi guarantee is in play.
-
-2. **Another extension calling `pi.setActiveTools` mid-window.** Extensions like the bundled `plan-mode` example call `pi.setActiveTools(...)` from event handlers (e.g. `session_start`, `tool_call`, custom commands). Pi's event dispatch is cooperative — between the loom runtime's swap and its `finally` restore, the event loop runs other extensions' awaited handlers. Any `pi.setActiveTools` issued from such a handler will be silently overwritten when the loom restores its pre-loom snapshot. The spec acknowledges "Restoration trusts that no other extension mutated the registry between snapshot and restore" but treats this as a side observation rather than a behavioural rule, and does not say which side gives way.
-
-The defect is documentation-grade for case 1 (the right guarantee exists; the spec just cites the wrong name) and behavioural for case 2 (no rule exists; the design is "loom wins", and that needs to be said outright so other extension authors and loom users know what to expect when the two interact).
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — *Tool-registration lifetime and visibility* (edited)
-- `spec_topics/invocation.md` — *Cross-mode semantics* paragraph that references the same protocol (read-only)
-- `spec_topics/pi-integration.md` — capability bullet for "Tool registration and gating" referenced from `spec.md` Prerequisites (option-dependent — only edited if the rename "per-session sequential turn execution" → the actual guarantee name propagates)
-
-## Plan Impact
-
-**Phases:** Horizontal, Vertical V6, Vertical V14, Vertical V15
-
-**Leaves (implementation order):**
-
-- H4 — Pi extension shell — (modified) — owns `withActiveTools(set, fn)`; the helper's contract gains the cross-extension overwrite rule
-- V6i — Synthesised respond tool: schema lowering, AJV-validating `execute`, per-mode wiring — (modified) — typed-query response tool relies on the swap window
-- V6l — Two-phase tool-loop driver for typed queries — (modified) — its `withActiveTools([...frontmatterCallableSet, respondToolName], ...)` wrap is the canonical user of the protocol
-- V14e — Pi tool wired into `@` queries as model-callable — (modified) — V14's existing test assertion *"concurrent prompt-mode invocations against the same session serialise their snapshot/restore correctly (sequential per Pi's per-session turn ordering)"* needs its rationale re-anchored to the actual Pi guarantee, and a new test should cover the cross-extension overwrite case
-- V15h — Cross-mode cell: prompt → prompt — (modified) — re-uses the snapshot/restore protocol for the entire child body and inherits the same serialisation assumption
-
-## Consequence
-
-**Severity:** correctness
-
-If left as-is, two failure modes follow. (1) Implementers reading "Pi's per-session sequential turn execution" cannot find that guarantee in the Pi docs, so they will either invent a loom-side mutex (overhead, deadlock risk against `await`s inside the swap window), or rely on the sentence and ship a regression the moment Pi changes its dispatch model. (2) The cross-extension overwrite is unspecified: a user who runs `/plan-mode` and then `/some-loom` will see plan-mode's tool restrictions silently revert when the loom finishes — and there is no diagnostic, no documented behaviour, and no contract for the plan-mode author to read.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Replace the "Pi's per-session sequential turn execution" justification in `pi-integration-contract.md` and `invocation.md` with two concrete Pi guarantees, plus an explicit V1 acceptance of cross-extension overwrite.
-
-**Spec edits.**
-
-Rewrite the relevant bullet in `pi-integration-contract.md` (and the equivalent paragraph in `invocation.md`) to read:
-
-> The loom runtime relies on two Pi guarantees: (a) `pi.setActiveTools(string[])` is synchronous and atomic on the JS event loop, so a single swap or restore call cannot be interleaved with anything else; (b) Pi dispatches slash-command handlers one at a time per session, so two loom invocations against the same session cannot overlap their snapshot/restore windows.
->
-> If another extension calls `pi.setActiveTools` between a loom's snapshot and its `finally` restore, the loom's restore overwrites that change. Extensions wishing to coexist with loom should mutate the active set outside of any in-flight loom invocation, or accept the overwrite. The loom runtime emits no diagnostic for this case.
-
-Cross-link from `pi-integration.md`'s Prerequisites bullet for "Tool registration and gating".
-
-Edge cases for the implementer:
-
-- The rule covers prompt-mode queries, prompt-mode typed-query free + forced phases, and prompt → prompt invocation bodies — same protocol, same overwrite rule.
-- Restoration in nested prompt → prompt invocations peels the stack reverse-LIFO (already in V15h) and the overwrite rule applies at every level.
-- The rule does NOT apply to subagent mode, which never touches `pi.setActiveTools` on the user session.
-
-## Related Findings
-
-- "SDK capability call failure modes not specified" — same-cluster (the failure-mode of `pi.setActiveTools` snapshot succeeding but restore failing is the highest-risk case identified there; the rule chosen here determines what "restore failing" means)
-- ""Snapshot/restore" not a named Pi API" — co-resolve (both are answered by the same edit naming the actual Pi capabilities and clarifying that loom synthesises snapshot/restore on top of `pi.setActiveTools`)
-- "`pi.getActiveTools()` return type ambiguity vs `pi.setActiveTools()`" — same-cluster (touches the same code surface — the spread-based snapshot/restore call — but resolves independently with a return-type clarification)
 
