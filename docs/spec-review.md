@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-06T06:31:26Z_
 _Source: docs/reviews/spec-review/spec-20260506-064723.md_
-_9 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
+_8 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
 
 _Severity: 27 correctness · 17 advisory · 12 cosmetic · 0 blocking_
 _Shape: 56 single · 0 multiple · 0 unresolved_
@@ -529,73 +529,4 @@ Edge cases for the implementer:
 - "SDK capability bullets carry no traceable identifiers" — decision-dependency (Option A's surface-inventory constant should key on the GOV-N anchors that finding adds)
 - "Peer-dep mismatch failure mode unspecified" — same-cluster (both sit on the `peerDependencies` enforcement story; one covers the contributor-side gate, the other the runtime-side failure surface)
 - "`pi-agent-core` / `pi-ai` / `pi-tui` lock-step version assumption" — co-resolve (the literal-read assertion in Option A pins all four version literals together)
-
----
-
-# Lock-step minor invariant for `pi-agent-core` / `pi-ai` / `pi-tui` is asserted without provenance
-
-**Source:** docs/reviews/spec-review/spec-20260506-064723.md
-**Original heading:** `pi-agent-core` / `pi-ai` / `pi-tui` lock-step version assumption
-**Kind:** assumptions
-
-## Finding
-
-The orientation block in `spec.md` and the opening paragraph of `pi-integration-contract.md` both treat the proposition "the matching `pi-agent-core` / `pi-ai` / `pi-tui` minor is also required" as a stand-alone fact. Neither page cites the upstream artefact that makes the proposition true, names the release-coordination boundary that keeps it true, or states what loom does if a future Pi minor breaks the invariant (e.g. a patch ships against a stale sub-package version).
-
-The invariant is in fact load-bearing for loom semantics — `pi-ai`'s named-tool `toolChoice` mapping (cited later in the same contract page under *Provider compatibility for typed queries*), `pi-ai`'s provider error mapping (under *Provider error mapping*), and `pi-ai`'s seed-field table (under *Provider seed-field mapping*) are all version-coupled to a specific `pi-ai` minor, not just to `pi-coding-agent`'s minor. The orientation paragraph therefore makes a claim the rest of the spec depends on but does not anchor.
-
-The provenance the spec is missing already exists in the upstream package graph: `@mariozechner/pi-coding-agent`'s own `dependencies` block pins `@mariozechner/pi-agent-core`, `@mariozechner/pi-ai`, and `@mariozechner/pi-tui` at the same `^X.Y.Z` minor, and all four packages live in the `pi-mono` monorepo and are released together. That is the source of truth the spec should cite, rather than asserting the lock-step as if loom itself enforces it.
-
-## Spec Documents
-
-- `spec.md` — Orientation → Prerequisites → Pi SDK and capabilities (edited)
-- `spec_topics/pi-integration-contract.md` — preamble and *Host prerequisites — Pi SDK pin* (edited)
-- `package.json` (loom-side) — `peerDependencies` block (edited; not a spec page but co-changed under the recommendation)
-- `C:/Users/thomasa/AppData/Roaming/npm/node_modules/@mariozechner/pi-coding-agent/package.json` — upstream `dependencies` block (read-only; cited as provenance)
-
-## Plan Impact
-
-**Phases:** Horizontal
-
-**Leaves (implementation order):**
-
-- H1 — Repository scaffold and test framework — (modified)
-
-H1 already carries a literal-read test for `package.json`'s `engines.node` field anchored to two spec sites (`pi-integration-contract.md` *Host prerequisites* and `spec.md` *Host runtime*). The fix here adds a sibling literal-read assertion over `peerDependencies` against the same two sites, so a future minor bump cannot drift one site without updating the others. No vertical-slice leaf currently exercises peer-dependency content, so the impact is confined to H1.
-
-## Consequence
-
-**Severity:** advisory
-
-A reader who tries to verify the lock-step claim has nowhere to look — the spec presents it as ambient fact rather than as an inherited consequence of `pi-coding-agent`'s own `dependencies`. Two implementers can therefore draw different conclusions about whether loom must independently re-validate the sub-package versions on every Pi bump (the spec implies yes via the *re-validate before widening* clause) versus inheriting the guarantee transitively (which is what actually happens). The empirical lock-step holds at the pinned `^0.72.1` snapshot, so nothing breaks today; the gap is in maintainer guidance, not runtime behaviour.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `spec_topics/pi-integration-contract.md`, replace the bare "matching `pi-agent-core` / `pi-ai` / `pi-tui` minor" clause with an explicit provenance sentence:
-
-> The lock-step minor is inherited from `@mariozechner/pi-coding-agent`'s own `dependencies` block, which pins `@mariozechner/pi-agent-core`, `@mariozechner/pi-ai`, and `@mariozechner/pi-tui` at the same `^X.Y.Z` minor. All four packages are released together from the `pi-mono` monorepo; no skew across the four is supported, and loom does not attempt to detect or accommodate skew. A Pi minor bump moves all four together and requires re-validating this contract before the loom `peerDependencies` range is widened.
-
-In `spec.md`'s orientation paragraph, shorten the corresponding sentence to a single back-reference: "the matching `pi-agent-core` / `pi-ai` / `pi-tui` minor is required (see *Host prerequisites — Pi SDK pin* for provenance)" so the literal version policy lives in exactly one place.
-
-Keep the three sub-package entries in loom's `peerDependencies` as belt-and-braces — the redundancy is harmless and surfaces a clear install-time error under pnpm/yarn resolution algorithms that do not auto-deduplicate transitive peer-dep ranges. Add a one-sentence note in the contract page stating that the redundancy is intentional.
-
-Edge cases the implementer must watch:
-
-- The H1 literal-read test must assert all four `peerDependencies` entries share the same minor (`^X.Y.Z` shape) and that the major/minor matches the value cited in `pi-integration-contract.md`'s preamble. Asserting the literal `^0.72.1` is sufficient for V1; the test fails loudly on bump and forces the maintainer to update both spec sites.
-- The provenance sentence must NOT introduce a runtime probe — loom does not at runtime read `pi-coding-agent`'s `package.json` to verify the upstream pin, because that would re-introduce the very skew-tolerance the spec disclaims.
-- The `re-validating ... before the range moves` obligation already exists in the contract page; the new sentence should reuse it verbatim rather than restate it, so the *Re-validating obligation undefined* finding (related, below) can address the gate question once for all three obligations.
-
-## Related Findings
-
-- "Minor" used as a noun without antecedent" — co-resolve (same sentence in `spec.md`; the rewrite above subsumes the antecedent fix)
-- "`peerDependencies` over-prescribed as the enforcement mechanism" — co-resolve (same paragraph; the rewrite naturally demotes `peerDependencies` to a cited mechanism rather than the prescribed one)
-- "\"Re-validating\" obligation undefined; no enforcement gate named" — same-cluster (same paragraph, separate gap; the new provenance sentence reuses the re-validate clause but does not define the gate)
-- "Pi SDK symbols treated as verified facts without a verification mechanism" — same-cluster (adjacent paragraph; same flavour of unanchored-fact gap, resolved separately)
-- "Peer-dep mismatch failure mode unspecified" — decision-dependency (the failure-mode finding's answer depends on whether the three sub-package peerDeps are kept; the recommendation above commits to keeping them)
-
----
 
