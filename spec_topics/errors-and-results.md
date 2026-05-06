@@ -19,7 +19,7 @@ let score = match @<ReviewScore>`Rate the critique 1-5: ${critique}` {
 | Identifier | `x` | anything; binds the value to `x` |
 | Literal | `"validation"`, `0`, `true`, `null` | structural equality |
 | Constructor | `Ok(p)`, `Err(p)` | the named `Result` variant; recurses into `p` |
-| Object/schema | `QueryError { kind: "validation", attempts }` | object whose listed fields match the inner patterns; unlisted fields are ignored. Field shorthand `{ attempts }` is sugar for `{ attempts: attempts }` |
+| Object/schema | `QueryError { kind: "validation", cause: "schema_validation", attempts }` | object whose listed fields match the inner patterns; unlisted fields are ignored. Field shorthand `{ attempts }` is sugar for `{ attempts: attempts }` |
 | Array | `[a, b]`, `[first, _, _]` | exact-length array; each slot matches its pattern |
 
 Disambiguation: lowercase identifiers bind, capitalised identifiers refer to constructors or schema names. `Ok` and `Err` are reserved.
@@ -115,12 +115,20 @@ schema ValidationIssue {
 
 schema ValidationError {
   kind: "validation",
+  cause: "schema_validation" | "empty_template",  // required; disjoint subcauses, see below
   message: string,
   attempts: number,                          // respond-repair follow-ups made before giving up
-  validation_errors: array<ValidationIssue>,
-  raw_response: string | null                // final malformed assistant text
+  validation_errors: array<ValidationIssue>, // empty when cause = "empty_template"
+  raw_response: string | null                // final malformed assistant text; null when cause = "empty_template"
 }
 ```
+
+`cause` is the wire-level subcause discriminator within `kind: "validation"`. Two arms:
+
+- `cause: "schema_validation"` — the runtime issued a user turn, the model produced a response, and AJV (or the depth walk in [Schema Subset](./schema-subset.md)) rejected it. Fires on initial AJV failure, on terminal exhaustion of the respond-repair loop ([Query — Schema-validation respond-repair](./query.md)), and on depth-5 violations (`ValidationIssue { schema_keyword: "maxDepth" }`). The author's recovery path is to tighten the schema, raise `respond_repair.attempts`, or switch methodology. Untyped queries never produce this cause (no AJV step runs on an untyped response).
+- `cause: "empty_template"` — the runtime refused to issue a fully-rendered user turn whose body matches `^\s*$` ([Query — Degenerate rendered templates](./query.md)). No provider round-trip occurred, no model output exists. The author's recovery path is to fix the template; this cause is a programming defect, not a model-quality signal. Fires on both typed and untyped queries. `validation_errors` is `[]` and `raw_response` is `null` on this arm.
+
+Authors who want to handle the two arms differently destructure `cause` (consistent with the established `CodeToolError.cause` / `InvokeInfraError.reason` patterns); authors who match `ValidationError { ... }` without inspecting `cause` get arm-uniform handling — the same retry / report path runs for both.
 
 Fires on provider transport / network failure for a query turn (see [Query — Failure modes](./query.md)).
 

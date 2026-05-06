@@ -44,7 +44,7 @@
 
 - **Spec.** [Errors and Results](../spec_topics/errors-and-results.md) (pattern grammar).
 - **Adds.** `Schema { field: pat, ... }` matches by field-name; shorthand `{ field }` ≡ `{ field: field }`; unlisted fields ignored.
-- **Tests.** Spec's `QueryError { kind: "validation", attempts }` example; missing field on scrutinee is no-match (returns to next arm); rest pattern `...other` rejected (deferred).
+- **Tests.** Spec's `QueryError { kind: "validation", cause: "schema_validation", attempts }` example (the canonical pattern-grammar example uses the `schema_validation` arm of `ValidationError` per [`errors-and-results.md`](../spec_topics/errors-and-results.md)); a `match` arm that destructures only `{ ... }` (without binding `cause`) matches both arms uniformly; missing field on scrutinee is no-match (returns to next arm); rest pattern `...other` rejected (deferred).
 - **Deps.** V7a.
 - **Ships when.** Schema-shaped destructuring works.
 

@@ -51,7 +51,7 @@
 ## V5g — `QueryError` union — initial variants
 
 - **Spec.** [Query](../spec_topics/query.md) (failure modes).
-- **Adds.** Discriminated union with `TransportError` (wire `kind: "transport"`), `ContextOverflowError` (wire `kind: "context_overflow"`), and `CancelledError` (wire `kind: "cancelled"`) variants only. (`ValidationError` lands V6i; `CodeToolError` V14f–V14i; `ModelToolError` V14r; `InvokeInfraError` V15l; `InvokeCalleeError` V15m.) Schema declared once at runtime level so later leaves extend non-breakingly.
+- **Adds.** Discriminated union with `TransportError` (wire `kind: "transport"`), `ContextOverflowError` (wire `kind: "context_overflow"`), and `CancelledError` (wire `kind: "cancelled"`) variants only. (`ValidationError` lands V6i carrying a required `cause: "schema_validation" | "empty_template"` field per [`errors-and-results.md` — `ValidationError`](../spec_topics/errors-and-results.md); the empty-template short-circuit emits `cause: "empty_template"` and the AJV / depth-walk / respond-repair-exhaustion paths emit `cause: "schema_validation"`. `CodeToolError` V14f–V14i; `ModelToolError` V14r; `InvokeInfraError` V15l; `InvokeCalleeError` V15m.) Schema declared once at runtime level so later leaves extend non-breakingly.
 - **Tests.** Each variant constructible; `match`-on-`kind` works (semantically; full match grammar in V7); `raw_response` field present only on relevant variants.
 - **Deps.** V5e.
 - **Ships when.** Errors flow through the spec's surface even though `?` doesn't exist yet.
