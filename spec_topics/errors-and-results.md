@@ -77,7 +77,7 @@ There is exactly one message string per panic. The same string flows unchanged t
 
 Panics surface to the loom's caller as:
 
-- **Slash-command / prompt-mode invocation** — a Pi system note formatted as "loom `/<name>` aborted: `<message>`", where `<message>` is the panic message string defined above. The user's session is not torn down; the user can type a follow-up turn.
+- **Slash-command / prompt-mode invocation** — a Pi system note formatted as "loom `/<name>` aborted: `<message>`", where `<message>` is the panic message string defined above. The user's session is not torn down; the user can type a follow-up turn. The runtime emits this surface as **one** `loom-system-note` carrying `details: { diagnostics: [Diagnostic] }` with the `loom/runtime/*` diagnostic and the `"loom /<name> aborted: <message>"` string in `content` — not two notes. See [Pi Integration Contract — Runtime event channel](./pi-integration-contract.md) for the partition rule that routes panics through the `diagnostics` shape rather than `details: { event }`.
 - **`invoke` parent** — `Err(QueryError { kind: "invoke_failure", reason: "panic", message: <message>, ... })` (see [Invocation](./invocation.md)), where `<message>` is the same panic message string. Author code that pattern-matches on `InvokeInfraError.message` to discriminate panic causes can therefore rely on the registered template, though matching on the `loom/runtime/*` code (when surfaced through the diagnostics channel) is the more stable discriminator.
 
 Panics are not values — they do not flow through `?` and cannot be caught by `match`. Authors who need recoverable behaviour must write code that cannot panic (bounds-check before indexing, add a final `_ => ...` arm to `match`).

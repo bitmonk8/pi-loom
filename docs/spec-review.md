@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-06T06:31:26Z_
 _Source: docs/reviews/spec-review/spec-20260506-064723.md_
-_32 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
+_31 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
 
 _Severity: 27 correctness · 17 advisory · 12 cosmetic · 0 blocking_
 _Shape: 56 single · 0 multiple · 0 unresolved_
@@ -2393,72 +2393,4 @@ Edge cases for the implementer:
 - "`session.sendUserMessage(text)` does not exist on `AgentSession`" — same-cluster (Pi-SDK alignment; resolves independently)
 - "`createAgentSession({ tools: string[] })` conflicts with Pi SDK `tools: Tool[]`" — same-cluster (Pi-SDK alignment; resolves independently)
 - "`pi.sendMessage` returns `void`, not `Promise<void>`" — same-cluster (return-type pin for an adjacent Pi surface)
-
----
-
-# Panic routing through `loom-system-note` is under-specified across two pages
-
-**Source:** docs/reviews/spec-review/spec-20260506-064723.md
-**Original heading:** `RuntimeEvent` routing: panics appear in both always-log set and `details: {diagnostics}` path
-**Kind:** implementability
-
-## Finding
-
-`pi-integration-contract.md` describes the `loom-system-note` channel as carrying three disjoint `details` payload shapes (`{ diagnostics }`, `{ event }`, `{ structural }`) and then enumerates an "always-log set" of `QueryError` kinds whose first-class routing is `details: { event: RuntimeEvent }`. Runtime panics appear inside that bullet list with a parenthetical aside: "these flow through the `details: { diagnostics: [...] }` shape rather than `details: { event: ... }`". Reading the same enumeration two ways — "panics belong to the always-log set" vs. "panics are explicitly carved out of the always-log routing" — leaves the partition implicit.
-
-The deferred-rule paragraph two paragraphs later compounds the ambiguity: "Panics emit through the existing `details: { diagnostics: [...] }` shape … **before** the panic system note (`'loom /<name> aborted: <message>'`) is rendered." Read literally, this describes **two** emissions per panic on the `loom-system-note` channel: a diagnostic-shape note carrying the `loom/runtime/*` diagnostic, then a separate human-facing "panic system note" whose `details` shape is not stated. `errors-and-results.md` independently describes the slash-command surface as "a Pi system note formatted as 'loom `/<name>` aborted: `<message>`'" — singular — with no mention of a preceding diagnostic note. The two pages cannot both be the literal truth: either there are two notes (and the second's `details` shape is undefined), or there is one note (and either the `aborted:` framing wraps the diagnostic content, or the diagnostic shape is suppressed at the slash-command surface).
-
-The dedup-key contract (`(kind, query_site, message, occurred_at)`) lives on `RuntimeEvent`, but if panics never produce a `RuntimeEvent` then the dedup key cannot apply to them. This further suggests that the spec author intended panics to be cleanly outside the `details: { event }` channel, but the always-log enumeration and the "before… is rendered" sentence both blur that intent.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — System notes (`details` shape enumeration), Runtime event channel (always-log set, deduplication and lifetime rules) (edited)
-- `spec_topics/errors-and-results.md` — Runtime panics, slash-command / prompt-mode panic surface (edited)
-- `spec_topics/diagnostics.md` — `loom/runtime/*` registry, message templates (read-only)
-
-## Plan Impact
-
-**Phases:** Vertical V18
-
-**Leaves (implementation order):**
-
-- V18q — Runtime event channel and always-log emission — (modified)
-- V18m — Panic routing: slash-command surface — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two implementers reading these passages will diverge on (a) whether a panic produces one `loom-system-note` or two, (b) what `details` shape the user-facing `"loom /<name> aborted: <message>"` note carries, and (c) whether the `RuntimeEvent` dedup key applies to panics at all. Test (g) of V18q ("panic emissions arrive through `details: { diagnostics: [...] }` and never through `details: { event: ... }`") is unambiguous about the diagnostic emission but does not constrain the second note, so two conformant V18q implementations could disagree on whether a one-note or two-note transcript is correct, and renderers reading the channel could mishandle whichever shape the second note ends up carrying.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Restate the always-log enumeration as a partition by routing channel and pin the panic surface to a single emission. Concretely, in `pi-integration-contract.md`:
-
-1. Replace the inline parenthetical at the panic bullet with a leading sentence on the always-log enumeration: "The always-log set partitions by routing channel. Members in group A emit `details: { event: RuntimeEvent }`; members in group B emit `details: { diagnostics: Diagnostic[] }`. A given failure emits through exactly one shape."
-   - Group A: `transport`, `code_tool`, `model_tool`, `tool_loop_exhausted`, `invoke_failure`, every binder-failure cause.
-   - Group B: every row of `loom/runtime/*` (panics).
-
-2. Rewrite the panic-emission rule to describe **one** `loom-system-note` per panic, not two:
-   > "A panic emits exactly one `loom-system-note` with `details: { diagnostics: [Diagnostic] }` carrying the `loom/runtime/*` diagnostic. The companion `content` field carries the user-facing framing `'loom /<name> aborted: <message>'` per [Errors and Results — Runtime panics](./errors-and-results.md#runtime-panics), where `<message>` is the registered diagnostic message template. There is no separate `details: { event }` emission for panics; the `RuntimeEvent` dedup key does not apply."
-
-3. Update the deduplication-and-lifetime bullet (currently "Panics emit through the existing `details: { diagnostics: [...] }` shape … **before** the panic system note is rendered") to make explicit that the diagnostic-shape note and the `'aborted:'`-framed `content` are the **same** emission, so "before" is no longer load-bearing prose.
-
-4. In `errors-and-results.md`, append a cross-reference to the `pi-integration-contract.md` rule so that both pages converge on "one note, diagnostic shape, `'aborted:'` framing in `content`".
-
-Edge cases the implementer must watch:
-- The `loom/runtime/internal-error` route (V18m's "unexpected interpreter throw" branch) follows the same one-note rule with its own template.
-- The fallback chain (`ctx.ui.notify` → `loom/runtime/system-note-delivery-failed`) still applies if `pi.sendMessage` rejects on the panic note; the fallback's diagnostic emission is independent and not subject to the dedup key.
-- Test (g) of V18q already asserts that panic emissions never use `details: { event }`; the rewrite must preserve that assertion verbatim. Add a companion assertion in V18m that the panic note's `details` is `{ diagnostics: [Diagnostic] }` and that exactly one `loom-system-note` is emitted per top-level panic (not two).
-
-## Related Findings
-
-- "`loom-system-note` with `display: false` and empty `content`" — same-cluster (same channel, also concerns the relationship between `display`, `content`, and `details` shape; resolves independently)
-- "'Consumers MUST deduplicate' — obligation on undefined party" — decision-dependency (the dedup key applies only to `details: { event }`; clarifying the partition first lets that finding rephrase the MUST as a runtime-side single-emission obligation scoped to group A)
-- "V1 emission contract and `RuntimeEvent` shape buried in deferrals document" — same-cluster (both concern where the normative `RuntimeEvent` rules live; co-edit opportunity but each resolves independently)
-- "Observability contract for three terminal failure modes unstated" — same-cluster (panic observability is one of the three terminal modes; this finding sharpens the panic case specifically)
 
