@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-06T06:31:26Z_
 _Source: docs/reviews/spec-review/spec-20260506-064723.md_
-_27 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
+_26 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
 
 _Severity: 27 correctness · 17 advisory · 12 cosmetic · 0 blocking_
 _Shape: 56 single · 0 multiple · 0 unresolved_
@@ -1939,72 +1939,3 @@ Edge cases for the implementer:
 - "V18s CI gate failure surface unspecified" — same-cluster (GOV-2 / GOV-6)
 
 ---
-
-## spec.md — Missing top-level concerns
-
----
-
-# README contradicts spec on loom return values
-
-**Source:** docs/reviews/spec-review/spec-20260506-064723.md
-**Original heading:** README contradicts spec on loom return values
-**Kind:** doc-alignment-broad
-
-## Finding
-
-`README.md`'s opening paragraph asserts that "Evaluating a loom does not return a value or write a file — it appends turns to a conversation". This is wrong on the return-value point: `spec.md`'s introduction states that "Evaluation also produces a final value (the loom's last expression or `return expr`) consumed by `invoke` callers and propagated across the subagent boundary", and `spec_topics/overview.md` reinforces that "Evaluating a loom produces two outputs: a structured sequence of text fragments … and a final value — the loom's last expression or `return expr` — consumed by programmatic callers". The README's own *Highlights* section even contradicts its opening paragraph, listing "subagent mode runs in an isolated child conversation and returns a value".
-
-The README is the first artefact a new contributor reads. A flat denial of the return-value contract there will mislead readers about the `invoke` semantics, the subagent boundary, and the existence of `return expr` as a meaningful surface — the very features the rest of the project hangs on.
-
-The companion file-write claim ("or write a file") is technically true of loom evaluation in isolation but is itself the subject of a separate finding ("looms do not write files" claim) because tools like `write` / `edit` plainly do write files. The fix here should align both clauses with their normative counterparts in one edit.
-
-## Spec Documents
-
-- `README.md` — opening paragraph (and *Highlights → Two execution modes* for internal consistency check) (edited)
-- `spec.md` — Introduction (read-only)
-- `spec_topics/overview.md` — opening paragraph and *prompt mode* / *subagent mode* sections (read-only)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None. README maintenance is governed by the per-leaf "Doc updates" rule in `plan_topics/conventions.md` (status-table entry after each leaf); no leaf owns the descriptive prose. The fix can ship as a standalone documentation correction at any time.
-
-## Consequence
-
-**Severity:** advisory
-
-A new reader auditing the project will form an incorrect mental model of loom's return semantics on first contact and may carry that misunderstanding into reading `spec.md`. Nothing breaks at runtime; the spec itself is correct. The cost is wasted reader time and a credibility hit on a project whose value proposition rests on careful specification.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Replace the contradictory sentences in `README.md`, `spec.md`, and `spec_topics/overview.md` simultaneously to converge on one phrasing about (a) loom return values and (b) the relationship between loom evaluation and file outputs. This commit also resolves the sibling finding "Unqualified 'looms do not write files' claim misleads on sandboxing posture" — the same factual claim appears at three sites and is fixed in one coordinated edit.
-
-**Spec / doc edits.**
-
-- `README.md` opening (and any *Highlights → Two execution modes* paraphrases): rewrite the existing "does not return a value or write a file" sentence to two precise sentences:
-
-  > A loom evaluates to a final value (its last expression or `return expr`), available to programmatic callers and propagated across the subagent boundary.
-  >
-  > Loom evaluation itself produces no file outputs; any file writes occur only through Pi tools the loom explicitly admits via frontmatter `tools:` (e.g. `write`, `edit`).
-
-- `spec.md` paragraph 2 (the introduction sentence ending "…consumed by `invoke` callers and propagated across the subagent boundary; looms do not write files."): replace the bare "looms do not write files" clause with the qualified second sentence above; keep the surrounding clause about `invoke` callers and the subagent boundary intact.
-
-- `spec_topics/overview.md` paragraph 2 (the sentence "Looms do not write files."): replace with the same qualified phrasing.
-
-Edge cases for the implementer:
-
-- All three sites use exactly the same two-sentence wording so a future audit can grep for either sentence and find every site.
-- `overview.md` is narrative; an inline cross-reference to `frontmatter.md` does not trigger Spec-field closure (per GOV-12).
-- The README opening is informative; the spec.md and overview.md paragraphs are narrative orientation. None require REQ-ID anchors.
-
-## Related Findings
-
-- `"looms do not write files" claim` — co-resolve (the recommended README rewrite incorporates the file-write rewording; the spec-side edits remain owned by that finding)
-- `Final value contract on failure unstated` — same-cluster (both touch the "loom produces a final value" contract; the failure-case gap is a spec-side problem and resolves independently)

@@ -5,11 +5,15 @@ purpose-built scripting language for authoring parameterized, programmatic
 templates that drive an LLM conversation.
 
 A `.loom` file interleaves ordinary code (variables, loops, conditionals,
-functions) with literal text destined for the model. Evaluating a loom does
-not return a value or write a file — it appends turns to a conversation:
-either the caller's current conversation (*prompt mode*) or a fresh isolated
-conversation (*subagent mode*). `.warp` files are library modules that share
-loom's grammar and type system and are imported by `.loom` files.
+functions) with literal text destined for the model. Evaluating a loom
+appends turns to a conversation — either the caller's current conversation
+(*prompt mode*) or a fresh isolated conversation (*subagent mode*) — and
+evaluates to a final value (its last expression or `return expr`),
+available to programmatic callers and propagated across the subagent
+boundary. Loom evaluation itself produces no file outputs; any file writes
+occur only through Pi tools the loom explicitly admits via frontmatter
+`tools:` (e.g. `write`, `edit`). `.warp` files are library modules that
+share loom's grammar and type system and are imported by `.loom` files.
 
 The full design lives in [`spec.md`](./spec.md). The implementation roadmap
 lives in [`plan.md`](./plan.md).
