@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-06T06:31:26Z_
 _Source: docs/reviews/spec-review/spec-20260506-064723.md_
-_47 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
+_46 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
 
 _Severity: 27 correctness · 17 advisory · 12 cosmetic · 0 blocking_
 _Shape: 56 single · 0 multiple · 0 unresolved_
@@ -3476,65 +3476,3 @@ Edge cases the implementer must keep in mind: the line-level 120-code-point cap 
 - "Diagnostic message placeholder rendering not defined" — same-cluster (parallel "rendered text underspecified" gap in the diagnostics surface)
 
 ---
-
-# Session-context truncation: cap-equality boundaries lack normative test vectors
-
-**Source:** docs/reviews/spec-review/spec-20260506-064723.md
-**Original heading:** Session truncation boundary conditions unspecified
-**Kind:** testability
-
-## Finding
-
-The session-context truncation rule in `spec_topics/binder.md` is phrased as "stops including a turn the moment the running token sum *would exceed* 8000 *or* the running turn count *would exceed* 20." Read carefully, "would exceed" is strict (`>`), so a running total of exactly 8000 tokens or a running count of exactly 20 turns includes the candidate turn; the next turn is the one excluded. This reading is consistent with the V16g plan-leaf gloss, which uses `≤ 20` and `≤ 8000` and the worked-example phrase "push the running sum *over* 8000."
-
-The spec text itself, however, never states the boundary in `≤` form and never exercises it in a worked example. The two examples present cover (a) a strictly-overshooting fifth turn (`5600 + 2800 = 8400 > 8000`) and (b) a single oversized newest turn — both clearly on the exclusion side of the cap. A conformance test author working from the normative prose alone has no anchor that pins the cap-equality cases, and "exceed" is colloquially used both strictly and loosely. The risk is low (the V16g plan already commits to the right reading) but the testability lens is real: the spec page should surface the equality cases so that the rule and its tests can be derived from the normative section without recourse to the plan.
-
-The same gap covers the joint-cap interaction: a worked example where the 20th turn arrives exactly at 8000 tokens (both caps simultaneously satisfied with equality) would pin both boundaries in one shot and confirm that the 21st turn is excluded by the count cap regardless of its token weight.
-
-## Spec Documents
-
-- `spec_topics/binder.md` — Session-context truncation (`bind_context: session`) (edited)
-
-## Plan Impact
-
-**Phases:** Vertical V16
-
-**Leaves (implementation order):**
-
-- V16g — `bind_context: session` truncation — (modified)
-
-## Consequence
-
-**Severity:** advisory
-
-The rule is derivable from the existing wording and the V16g plan leaf already encodes the intended `≤` semantics, so an attentive implementer will not diverge. A less attentive implementer who reads "exceed" as `≥` would tighten the cap by one turn and one example token, producing a silent off-by-one against tests authored from the spec alone. The cost of the fix is two short worked examples; the cost of leaving it is recurring boundary debate during V16g test review.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Edit the **Session-context truncation (`bind_context: session`)** section of `spec_topics/binder.md` as follows:
-
-1. **Restate the cap rule in `≤` form alongside the existing prose.** Append to the rule sentence: "Equivalently: a candidate turn is included iff, after inclusion, the running token total is ≤ 8000 *and* the running turn count is ≤ 20; the first candidate that would violate either inequality is excluded entirely and terminates the walk." This eliminates the strict-vs-loose reading of "exceed" without rewriting the existing sentence.
-
-2. **Add two normative worked examples** immediately after the existing two, in the same paragraph style:
-
-   - *Token-cap equality.* With per-turn counts (newest first) `[3000, 2500, 2500, 100, …]`, the walk includes the first three turns (running total exactly 8000, count 3) and evaluates the fourth: `8000 + 100 = 8100 > 8000`, so the fourth turn and everything older is dropped. Final included context: 3 turns, 8000 tokens. The cap-equality boundary is inclusive.
-   - *Turn-cap equality.* With 21 turns whose running token total never exceeds 8000, the walk includes the 20 newest turns (count exactly 20) and evaluates the 21st: count would become 21 > 20, so it is excluded regardless of its token weight. Final included context: 20 turns. The 20-turn boundary is inclusive.
-
-3. **Mirror the new vectors in V16g's Tests bullet** (`plan_topics/v16-binder.md`) so the V16g leaf cites them by name. The existing V16g tests already encode the right semantics; add one bullet per new vector to keep the coverage matrix one-to-one with the spec examples.
-
-Edge cases the implementer must watch:
-- Both caps are evaluated against the *post-inclusion* state (the candidate is hypothetically added, then the inequality is checked); this is what "would exceed" already means and what the new `≤` restatement preserves.
-- The walk terminates on the first violating candidate; older turns that would individually fit are *not* reconsidered. This was already specified by "and everything older is dropped" and is unchanged.
-- The single-oversized-newest-turn example continues to apply unchanged; the new cap-equality vectors do not interact with it.
-
-## Related Findings
-
-- "`Message` shape for `estimateTokens` and turn-walker undefined" — same-cluster (both touch the truncation algorithm in `binder.md` but resolve independently — one fixes boundary semantics, the other fixes the `Message` contract `estimateTokens` reads)
-
----
-
-
