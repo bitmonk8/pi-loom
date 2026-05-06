@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-06T06:31:26Z_
 _Source: docs/reviews/spec-review/spec-20260506-064723.md_
-_14 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
+_13 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
 
 _Severity: 27 correctness · 17 advisory · 12 cosmetic · 0 blocking_
 _Shape: 56 single · 0 multiple · 0 unresolved_
@@ -885,88 +885,3 @@ Edge cases for the implementer:
 - "Bypass criterion ambiguous" — same-cluster (touches the same bullet's bypass parenthetical; resolved by a separate clarification of the parenthetical, not by adding cross-links)
 
 ---
-
-## spec.md — Orientation → Prerequisites → Host runtime
-
----
-
-# Runtime version / capability mismatch: no failure contract
-
-**Source:** docs/reviews/spec-review/spec-20260506-064723.md
-**Original heading:** Runtime version / capability mismatch: no failure contract
-**Kind:** completeness, error-model
-
-## Finding
-
-`spec.md`'s **Host runtime** paragraph asserts three host preconditions — `>=20.6.0` Node, the WHATWG `AbortSignal`/`AbortController` shape, and a JS engine value model with IEEE-754 numbers / native `Map`/`Set` / `JSON.stringify` / `Object.is` semantics — and labels the SDK-shape one as "load-bearing." It then stops. Nothing in `spec.md`, `spec_topics/pi-integration-contract.md` (**Extension entry point**), or the `loom/load/*` registry in `spec_topics/diagnostics.md` defines what the runtime *does* when one of these preconditions is observably violated at extension load.
-
-The gaps are concrete and independent: (1) Node version. `package.json#engines.node` is enforced only at install time, and `npm install --engine-strict` is opt-in; an end user can launch Pi under a Node binary below `20.6.0` and reach the loom factory. (2) Bundled WHATWG shape. Even on Node ≥ 20.6.0, individual `AbortSignal` members the runtime relies on (`AbortSignal.any`, `AbortSignal.timeout`, `signal.reason`, `throwIfAborted`) landed in different minors above the floor; a host that is in-range can still be missing them (this overlap with the AbortSignal-surface finding is intentional). (3) Value model. The IEEE-754 / `Map` / `Set` / `Object.is` clause is editorial; nothing checks or names a violation surface.
-
-For each precondition the runtime currently has three implicit options — hard-fail load, refuse to register the slash command but emit a diagnostic, or proceed and crash later from a downstream `TypeError` — and the spec picks none. The H1 leaf already pins `engines.node === ">=20.6.0"` as a literal-read test, but that gate fires in CI, not on the user's host; it does not close the runtime contract.
-
-## Spec Documents
-
-- `spec.md` — Orientation → Prerequisites → Host runtime (edited)
-- `spec_topics/pi-integration-contract.md` — Extension entry point; Pi-supplied `AbortSignal` (edited)
-- `spec_topics/diagnostics.md` — `loom/load/*` registry table (option-dependent; edited only if a new code is added)
-- `spec_topics/runtime-value-model.md` — referenced by Host runtime (read-only)
-- `spec_topics/cancellation.md` — AbortSignal usage sites (read-only)
-
-## Plan Impact
-
-**Phases:** Horizontal
-
-**Leaves (implementation order):**
-
-- H1 — Repository scaffold and test framework — (modified; the existing `engines.node` literal-read test must be cross-referenced from the runtime probe and may need to assert that the in-process probe constant matches the manifest floor)
-- H4 — Pi extension shell — (modified; the extension factory in `extensions/index.ts` is where the probe runs and where the `pi.registerCommand` decision is made)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers will diverge: one will add a defensive probe and refuse to register the slash command on a sub-floor Node, the other will assume Node's manifest-time check is sufficient and ship a runtime that throws `TypeError: AbortSignal.any is not a function` from inside an unrelated `coercion`-loop turn. Users on the wrong host see either a clean refusal-with-diagnostic or an uncorrelated mid-turn crash, depending on which implementer they got.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add a synchronous capability probe as the first action of the extension factory, and emit a single tagged diagnostic on any failure. This single commit also resolves the sibling findings "`peerDependencies` named as enforcement, but enforces nothing" and "Peer-dep mismatch failure mode unspecified" — one probe, one diagnostic code, four discriminated causes.
-
-**Probe behaviour.** Before any `pi.registerCommand`, `pi.registerTool`, `pi.registerMessageRenderer`, `pi.registerFlag`, or `pi.on` call, the factory:
-
-1. Compares `process.versions.node` against the floor `>=20.6.0` (the same literal H1 asserts in `package.json`).
-2. Probes `typeof AbortController === "function"`, `typeof AbortSignal === "function"`, and the specific `AbortSignal` static methods the runtime depends on (the union enumerated by the sibling AbortSignal-surface finding).
-3. Probes each named SDK capability by `typeof <member> === "function"` (the seven capabilities: `pi.registerCommand`, `pi.sendUserMessage`, `createAgentSession`, `pi.registerTool`, `pi.setActiveTools` / `pi.getActiveTools`, `pi.registerMessageRenderer`, `pi.sendMessage`).
-4. Reads the installed `@mariozechner/pi-coding-agent` version from its `package.json` via Node's package-resolution APIs and compares against the pinned range.
-
-On any failure: skip every Pi mutator, emit `loom/load/host-incompatible` with `details: { kind, observed, required }` where `kind ∈ {"node-floor", "abortsignal-shape", "sdk-capability-missing", "peer-dep-out-of-range"}`, and route the message through `sendSystemNote` → `ctx.ui.notify` → `console.error` fallback chain (the renderer may itself be the missing capability). The factory MUST return normally (no throw).
-
-**Spec edits.**
-
-- `spec.md` Orientation → Prerequisites → "Pi SDK and capabilities": replace "`package.json` `peerDependencies` is the enforcement point" with: "The extension MUST verify the seven enumerated SDK capabilities, the Node version floor, the `AbortSignal`/`AbortController` shape, and the installed `@mariozechner/pi-coding-agent` version at extension-factory entry; on any mismatch it MUST refuse to register slash commands, tools, renderers, or flags, and MUST emit `loom/load/host-incompatible`. `peerDependencies` declares the supported range; install-time enforcement is package-manager-dependent and non-load-bearing."
-- `spec.md` Orientation → Prerequisites → Host runtime: state explicitly that load fails with `loom/load/host-incompatible` on Node-floor or `AbortSignal`-shape violation; the value-model bullets remain non-checked invariants ("undefined behaviour on violation").
-- `pi-integration-contract.md` Extension entry point: insert step 0 "Capability probe" before the existing step 1.
-- `diagnostics.md` `loom/load/*` table: add `loom/load/host-incompatible` (severity `error`) with the message template and the four `details.kind` discriminators.
-
-Edge cases for the implementer:
-
-- Probe MUST be limited to `typeof <member> === "function"` checks — not arity, not return-shape sniffing — so it does not drift into a fragile shape contract.
-- The probe MUST avoid using anything it is checking (e.g. cannot use `AbortSignal.any` to detect `AbortSignal.any`).
-- The four pinned constants (Node floor, AbortSignal members, capability list, peer-dep range) MUST live in one source of truth that the H1 literal-read tests (introduced by the "Re-validating obligation" commit later in bottom-up order) also consume.
-- Idempotency: a second invocation of the factory under `/reload` runs the probe again with no state.
-- Subagent mode is not affected by this probe; it runs at extension load, before any session is created.
-
-## Related Findings
-
-- "`AbortSignal`/`AbortController` surface across Node versions" — co-resolve (supplies the member list the probe checks)
-- "Peer-dep mismatch failure mode unspecified" — co-resolve (same `loom/load/host-incompatible` diagnostic shape; same refuse-vs-stub registration question)
-- "\"Load-bearing SDK contract\" jargon undefined" — decision-dependency (Option A vs. B determines whether the phrase becomes "non-checked invariant" or "probed at factory entry")
-- "Host runtime paragraph: four obligations fused, no identifiers" — same-cluster (the edits here will need GOV-N anchors when that finding is resolved)
-- "\">=20.6.0\" described as a \"range\"; should be \"floor\"" — same-cluster (same paragraph; adjacent wording fix)
-- "JS engine value-model assumptions: placement, prescription, and completeness" — same-cluster (the value-model bullets are explicitly carved out as non-checked invariants by either option)
-
----
-
