@@ -8,7 +8,16 @@ This page owns the spec corpus's REQ-ID governance: the per-page prefix table, t
 
 **GOV-2.** Once H6 lands, the plan's coverage matrix in [`plan_topics/coverage-matrix.md`](../plan_topics/coverage-matrix.md) is keyed per REQ-ID, mapping each ID to its closing leaf, and the [V18s coverage-matrix closing gate](../plan_topics/v18-cancellation.md#v18s-coverage-matrix-closing-ci-gate) treats any unmapped REQ-ID as a CI failure. Until H6 closes, the spec-side REQ-ID set is empty, the matrix is section-keyed scaffolding, and the V18s diff is vacuously satisfied.
 
-**GOV-3.** The REQ-ID extraction regex is `\b[A-Z]{3,4}-[0-9]+\b`, applied to non-narrative `spec_topics/*.md` files. The Prefix column of the table below is the single source of truth for which pages are non-narrative: a row whose Prefix cell carries `(no IDs — narrative)` is excluded from extraction. IDs are immutable: when a rule is split, the original ID retires and two new IDs appear; numbering never collapses to fill holes.
+**GOV-3.** REQ-ID prefixes are byte-exact uppercase ASCII tokens of length 2–4 (`[A-Z]{2,4}`). Prefix matching is case-sensitive; `lex-1` does not match `LEX-1`. REQ-ID extraction operates on raw Markdown source bytes, not on rendered HTML. Before regex application, the following are stripped, in order: (i) fenced code blocks (` ```…``` ` and `~~~…~~~`, inclusive of fence lines), (ii) HTML comments (`<!--…-->`), (iii) inline code spans (`` `…` `` and the multi-backtick variants). Markdown link text is in scope; link targets are out of scope.
+
+Two regexes apply:
+
+1. **Primary extractor** (used by H6's anchor pass and by V18s gates 1, 4, 5): `\b(<live-prefix-alternation>)-[1-9][0-9]*\b`, where `<live-prefix-alternation>` is built from the prefix table below at gate time (never hard-coded). Leading zeros in the numeric tail are forbidden.
+2. **Unknown-prefix detector** (used by V18s gate 6 only): `\b[A-Z]{2,4}-[1-9][0-9]*\b`, applied to the same exclusion-stripped corpus. Any token that matches but whose prefix is not in the live + retired union fails the gate.
+
+Pages whose row in the prefix table below carries the literal cell `(no IDs — narrative)` are excluded from extraction; all other rows in `spec_topics/*.md` are in scope. The exclusion cell's canonical byte sequence is `(no IDs — narrative)` — open paren, `no IDs`, ASCII space, U+2014 EM DASH, ASCII space, `narrative`, close paren — and cosmetic variants (smart quotes, trailing whitespace, en-dash, ASCII double-hyphen) are not recognised and silently change the page's exclusion status; the V18s prefix-table parser MUST compare bytes.
+
+IDs are immutable: when a rule is split, the original ID retires and two new IDs appear; numbering never collapses to fill holes.
 
 | Page | Prefix |
 |---|---|

@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-06T06:31:26Z_
 _Source: docs/reviews/spec-review/spec-20260506-064723.md_
-_20 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
+_19 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
 
 _Severity: 27 correctness · 17 advisory · 12 cosmetic · 0 blocking_
 _Shape: 56 single · 0 multiple · 0 unresolved_
@@ -1352,94 +1352,5 @@ Edge cases for the implementer:
 - "`FN` prefix (2 letters) contradicts `[A-Z]{3,4}` extraction regex" — same-cluster (the gate's extractor regex is a separate question from its failure surface; both feed contributor experience but resolve independently)
 - "Extraction regex scope unclear" — same-cluster (defines what the gate sees; this finding defines what the gate emits)
 - "GOV-N governance rules: scope boundary in spec.md" — decision-dependency (its outcome — whether `spec.md` may carry CI-observable obligations at all — bears directly on the choice between Option A and Option B here)
-
----
-
-## spec.md — Appendix → GOV-3
-
----
-
-# GOV-3 narrative exclusion list duplicates the prefix table cells, allowing GOV-7 promotion to silently desynchronise extraction
-
-**Source:** docs/reviews/spec-review/spec-20260506-064723.md
-**Original heading:** GOV-3 narrative exclusion list out of sync with GOV-7 promotion
-**Kind:** completeness
-
-## Finding
-
-GOV-3 records the set of pure-narrative pages in two independent places. The first is a prose enumeration inside the GOV-3 paragraph itself: "Pure-narrative pages (`overview.md`, `glossary.md`, `influences.md`, `comparison.md`, `related-work.md`, `future-considerations.md`) are excluded from extraction." The second is the per-row marker `(no IDs — narrative)` in the *Page → Prefix* table immediately below GOV-3. The two enumerations carry the same membership but are stored as separate text.
-
-GOV-7's *Narrative-to-normative promotion* procedure mutates only the table: "Replace the `(no IDs — narrative)` cell with a freshly allocated prefix in the same edit that introduces the first obligation." It says nothing about the prose list inside GOV-3. A faithful application of GOV-7 alone therefore leaves the page on the GOV-3 exclusion list while assigning it a real prefix in the table. Per the GOV-3 sentence as written, the extraction regex would still skip that page; any new `PREFIX-N` markers it carries would be invisible to GOV-6's table-completeness gate and to V18s' coverage-matrix closing gate, which are the only mechanisms that turn REQ-IDs into a CI obligation.
-
-The defect is the duplication, not the GOV-7 wording per se. Two enumerations that must always agree, with no rule binding them, is a desynchronisation invariant waiting to fire on the first promotion.
-
-## Spec Documents
-
-- `spec.md` — Appendix → GOV-3 (edited)
-- `spec.md` — Appendix → GOV-7 *Narrative-to-normative promotion* (option-dependent)
-- `spec.md` — Appendix → REQ-ID prefix table (read-only)
-- `plan_topics/h6-req-ids.md` — non-narrative-page enumeration in Tests bullets (read-only)
-- `plan_topics/v18-cancellation.md` — V18s gate definitions (read-only)
-- `plan_topics/conventions.md` — narrative-cross-link list in **Spec** field closure rule (read-only)
-
-## Plan Impact
-
-**Phases:** Horizontal, Vertical V18
-
-**Leaves (implementation order):**
-
-- H6 — REQ-ID anchoring + coverage-matrix re-pivot — (modified)
-- V18s — Coverage-matrix closing CI gate (and sibling V18 gates) — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-The first time GOV-7 *Narrative-to-normative promotion* fires after H6 closes, the promoted page's `PREFIX-N` markers will be silently skipped by extraction. GOV-6 will report no missing matrix rows for that prefix (because the prefix produces no extracted IDs), V18s will pass, and the page will ship with normative obligations that no leaf has claimed. The failure is silent: the gates that exist precisely to prevent this case are themselves bypassed.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Rewrite GOV-3 in one pass: replace the `[A-Z]{3,4}` open extractor with a two-regex scheme, adopt strict syntactic exclusions, and make the prefix table the single source of truth for "pure-narrative page" status. This commit also resolves "GOV-3 extraction regex: scope, source form, and number-grammar undefined" and (by construction, since `FN` is in the live alternation) "`FN` prefix violates GOV-3's `[A-Z]{3,4}` extraction regex". This commit further resolves the sibling finding "Prefix shape and case-sensitivity not stated as a constraint" — the two-regex scheme pins prefix shape (`[A-Z]{2,4}`, byte-exact uppercase ASCII) and the syntactic-exclusion rules pin case-sensitivity by construction; the GOV-3 paragraph carries the constraint explicitly.
-
-**Spec edits.**
-
-In `spec_topics/governance.md` GOV-3, replace the existing paragraph with:
-
-> **GOV-3.** REQ-ID prefixes are byte-exact uppercase ASCII tokens of length 2–4 (`[A-Z]{2,4}`). Prefix matching is case-sensitive; `lex-1` does not match `LEX-1`. REQ-ID extraction operates on raw Markdown source bytes, not on rendered HTML. Before regex application, the following are stripped, in order: (i) fenced code blocks (` ```…``` ` and `~~~…~~~`, inclusive of fence lines), (ii) HTML comments (`<!--…-->`), (iii) inline code spans (`` `…` `` and the multi-backtick variants). Markdown link text is in scope; link targets are out of scope.
->
-> Two regexes apply:
->
-> 1. **Primary extractor** (used by H6's anchor pass and by V18s gates 1, 4, 5): `\b(<live-prefix-alternation>)-[1-9][0-9]*\b`, where `<live-prefix-alternation>` is built from the prefix table below at gate time. Leading zeros in the numeric tail are forbidden.
-> 2. **Unknown-prefix detector** (used by V18s gate 6 only): `\b[A-Z]{2,4}-[1-9][0-9]*\b`, applied to the same exclusion-stripped corpus. Any token that matches but whose prefix is not in the live + retired union fails the gate.
->
-> Pages whose row in the prefix table below carries the literal cell `(no IDs — narrative)` are excluded from extraction; all other rows in `spec_topics/*.md` are in scope.
-
-Plus: remove the existing parenthetical exclusion list (`overview.md`, `glossary.md`, `influences.md`, `comparison.md`, `related-work.md`, `future-considerations.md`) from the GOV-3 paragraph — the table cell is now the only authoritative signal.
-
-**Adjacent edits.**
-
-- Reframe the narrative-page enumerations in `plan_topics/h6-req-ids.md` and `plan_topics/conventions.md` as derived-from-the-table reminders, not independent normative lists.
-
-Edge cases for the implementer:
-
-- The cell text `(no IDs — narrative)` is now load-bearing — any cosmetic edit (smart quotes, trailing whitespace, em-dash variant) silently changes membership. State the cell's canonical form explicitly when making the edit.
-- The prefix alternation must be built from the table at gate time, not hardcoded; H6's self-test already does this — restate the property in GOV-3 so V18s implementers do not duplicate the literal.
-- The leading-zero policy applies to **both** regexes; otherwise `LEX-01` slips past gate 1 but fails gate 5 for non-obvious reasons.
-- The exclusion order matters: strip fenced blocks before HTML comments before inline spans, because a comment can sit inside a fenced block and an inline span can sit inside a comment.
-- Link targets are out of scope for the gate-6 detector.
-- The prefix-shape constraint (`[A-Z]{2,4}`) and case-sensitivity rule are stated as the FIRST sentence of GOV-3 so that no future ALL-CAPS-with-digit token (e.g. `ok-1`, `os-2`) is silently extractable.
-
-## Related Findings
-
-- "Rename: plan.md Spec-field update not addressed" — co-resolve (same class of bug: a GOV-7 sub-procedure mutates one location but a duplicated enumeration elsewhere is not bound to follow; both yield to a single-source-of-truth fix or to symmetric same-edit clauses)
-- "GOV-7 atomicity: five independent procedures under one identifier" — decision-dependency (if GOV-7 is split into GOV-7a–e, the edit lands on the *Narrative-to-normative promotion* sub-rule under whichever new identifier it receives)
-- "GOV-4 \"append-only / immutable\" contradicts GOV-7 Delete / Merge / Rename" — same-cluster (both touch GOV-4/GOV-7 wording in the same appendix paragraph block; resolve in one editing pass)
-- "`PIE` prefix allocated but page is pure-narrative pointer content" — decision-dependency (whichever fix defines "pure-narrative" must classify `pi-integration.md` consistently — either it carries the `PIE` prefix and is non-narrative, or its row should read `(no IDs — narrative)` and the prefix retires per GOV-7 *Delete*)
-- "`FN` prefix (2 letters) contradicts `[A-Z]{3,4}` extraction regex" — same-cluster (sibling GOV-3 defect; both should land in the same GOV-3 edit)
-- "Extraction regex scope unclear" — same-cluster (also a GOV-3 extraction-scope gap; co-locate the fix)
 
 
