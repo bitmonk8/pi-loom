@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-06T06:31:26Z_
 _Source: docs/reviews/spec-review/spec-20260506-064723.md_
-_51 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
+_50 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
 
 _Severity: 27 correctness · 17 advisory · 12 cosmetic · 0 blocking_
 _Shape: 56 single · 0 multiple · 0 unresolved_
@@ -3739,74 +3739,4 @@ The default value `25` remains stated normatively in the example block (line 22)
 
 ---
 
-## spec_topics/slash-invocation.md
-
----
-
-# Call chain suffix is illustrative, not normative
-
-**Source:** docs/reviews/spec-review/spec-20260506-064723.md
-**Original heading:** Call chain suffix format illustrative, not normative
-**Kind:** testability
-
-## Finding
-
-`spec_topics/slash-invocation.md` opens its top-level-`Err` rendering section with the explicit normative gate "**The shapes below are normative templates.** Renderers MUST emit the surrounding template text verbatim; only the `<…>` placeholders are interpolated. Conformance tests MAY assert on the exact rendered string." That gate covers the per-`kind` table. It does not cover the chain-attribution suffix, which is described one paragraph later as prose:
-
-> When the leaf failure originated inside an `invoke`d child loom that cascaded out via `?`, the note identifies the leaf and prints the call chain (`"... from child.loom invoked at parent.loom:42"`).
-
-The example is leading-ellipsis-prefixed and parenthesised, signalling illustrative intent. Nothing in the surrounding text fixes the separator before `from`, the path form (relative to invocation site? discovery-root-relative? `realpath`-normalised absolute?), whether the line number is 1- or 0-indexed, whether a column follows the line, whether `at` and `invoked` are normative keywords, or how a multi-hop chain is assembled — left-to-right outermost-first, right-to-left innermost-first, with `,` between hops, with a single space, etc. The same prose paragraph also says the chain "applies to every row, including the catch-all," but the per-`kind` rows themselves end with quotation marks and no continuation marker, so it is unclear whether the suffix replaces the row's terminator, is appended after a separator, or is appended as a second sentence.
-
-V18i's tests in `plan_topics/v18-cancellation.md` already pin a specific shape (`"... from grandchild.loom invoked at child.loom:N from child.loom invoked at parent.loom:M"`), but the plan is not normative spec — implementers reading only `spec_topics/` get an example string and an `at` keyword, nothing more. Two implementers will diverge on the exact form, and conformance tests cannot cite a normative source for the assertion.
-
-## Spec Documents
-
-- `spec_topics/slash-invocation.md` — top-level-`Err` rendering, paragraph immediately after the per-`kind` table (edited)
-- `spec_topics/errors-and-results.md` — `QueryError.invoke_callee_error` variant definition, for `inner` recursion semantics (read-only)
-- `spec_topics/invocation.md` — for `realpath` / discovery-root path normalisation rules that govern `<callee_path>` and `<parent_path>` rendering (read-only)
-
-## Plan Impact
-
-**Phases:** Vertical V18
-
-**Leaves (implementation order):**
-
-- V18i — Per-`kind` formatting for prompt-mode top-level `Err` — modified
-
-V15p (`invoke_callee_error` propagation) is read-only here: it shapes the `QueryError.inner` chain that V18i walks, but its own acceptance criteria are unaffected.
-
-## Consequence
-
-**Severity:** correctness
-
-The chain suffix is part of the user-visible surface that conformance tests may assert on (per the paragraph's own rule). With only an illustrative example, two reasonable implementers will diverge on separator, path normalisation, line/column rendering, hop ordering, and the boundary between the per-`kind` template and the suffix — all observable. V18i's tests as currently written assume a particular shape with no normative anchor, so they pin the runtime to the test author's choice rather than to spec.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Promote the chain suffix to a normative template inside the same "shapes below are normative templates" gate. Replace the existing prose paragraph with:
-
-> **Chain attribution.** When the leaf failure originated inside an `invoke`d child loom that cascaded out via `?` (i.e. the rendered `QueryError` is `invoke_callee_error`, possibly nested), renderers MUST append a chain suffix to the per-`kind` row above. The suffix is built by walking `inner` recursively to the leaf and emitting, for each `invoke_callee_error` hop encountered, the literal text ` from <callee_path> invoked at <parent_path>:<line>`, in leaf-first order (innermost hop first), each hop separated from the next by a single space. `<callee_path>` and `<parent_path>` are the post-`realpath` absolute paths recorded at the invocation site (per [Invocation — Path resolution](./invocation.md)); `<line>` is the 1-indexed source line of the `invoke(...)` call site in `<parent_path>` (no column). The descriptive text in the per-`kind` row is computed from the **leaf** `kind` (the innermost non-`invoke_callee_error` variant), not from the wrapper. The suffix applies to every row including the catch-all.
-
-Edge cases the implementer must pin in the same edit:
-
-- **Single-hop example.** Add a worked example: a `transport` failure inside `child.loom` cascaded out of `parent.loom:42` renders as `loom /entry returned Err: transport — connection reset from /abs/path/to/child.loom invoked at /abs/path/to/parent.loom:42`. The `transport — <message>` body comes from the leaf's per-`kind` row applied to the leaf `kind`, with the wrapper's `<callee_path>` from the immediate parent's record.
-- **Multi-hop example.** A three-level cascade (`grandchild → child → parent`) where the leaf is `model_tool` renders as `loom /entry returned Err: tool foo failed — bad arg from /abs/grandchild.loom invoked at /abs/child.loom:7 from /abs/child.loom invoked at /abs/parent.loom:42`. Confirms leaf-first ordering and single-space hop separator.
-- **Catch-all interaction.** When the leaf `kind` is unlisted, the catch-all row renders first (`<kind> — <message>` form, leaf values), then the suffix appends.
-- **Path form.** Use the `realpath`-normalised absolute paths the invoke runtime already records; do not invent a discovery-root-relative form for rendering. This matches how invocation-cycle and load-time error messages already cite paths.
-- **`<line>` source.** The line is the source line of the textual `invoke(` token in the parent file, not the line of the receiving binding — avoids ambiguity for multi-line `invoke(...)` calls.
-
-V18i's existing test text already aligns with this shape; the spec edit retroactively anchors it.
-
-## Related Findings
-
-- "Page heading \"Invocation from Pi\" collides with \"Invocation\"" — same-cluster (same spec page, independent fix)
-- "Diagnostic message placeholder rendering not defined" — same-cluster (parallel testability gap on placeholder semantics in a different registry; resolved by the same drafting discipline but in a different file)
-- "Multiple untestable quality assertions and advisory language in normative prose" — same-cluster (sibling testability finding on `binder.md`; resolves independently)
-- "`loom-system-note` with `display: false` and empty `content`" — same-cluster (touches the same `loom-system-note` rendering surface but a disjoint concern)
-
----
 
