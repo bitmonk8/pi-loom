@@ -152,7 +152,50 @@ pi.sendMessage(
 );
 ```
 
-The `display` and `content` arguments vary per the `details` variant documented below — they are not fixed to `display: true` or to a non-empty string. A `pi.registerMessageRenderer("loom-system-note", ...)` formats these as one-line, dim-styled notes in the transcript. The custom-type approach (rather than `ctx.ui.notify(...)`) is chosen because notes need to persist in the session transcript for replay and `/tree` navigation, not just appear transiently.
+The `display` and `content` arguments vary per the `details` variant documented below — they are not fixed to `display: true` or to a non-empty string. A `pi.registerMessageRenderer("loom-system-note", renderer)` registered by the loom extension factory formats these as one-line, dim-styled notes in the transcript. The custom-type approach (rather than `ctx.ui.notify(...)`) is chosen because notes need to persist in the session transcript for replay and `/tree` navigation, not just appear transiently.
+
+**Renderer registration (`pi.registerMessageRenderer`).** The pinned signature, lifecycle, and ownership rules below are normative for the loom extension. The canonical Pi-side declarations live at `dist/core/extensions/types.d.ts` in `@mariozechner/pi-coding-agent ^0.72.1` (the V1 Pi-SDK pin from **Host prerequisites** above) and the `Component` interface lives at `@mariozechner/pi-tui`'s `dist/tui.d.ts`; the inline shapes below are the loom-load-bearing subset and MUST be re-validated against those files on each Pi minor bump (per the re-validating obligation in **Host prerequisites** above).
+
+*Signature.* The Pi-side surface, reproduced verbatim from `dist/core/extensions/types.d.ts`:
+
+```ts
+export interface MessageRenderOptions {
+  expanded: boolean;
+}
+
+export type MessageRenderer<T = unknown> = (
+  message: CustomMessage<T>,
+  options: MessageRenderOptions,
+  theme: Theme,
+) => Component | undefined;
+
+// On `pi: ExtensionAPI`:
+registerMessageRenderer<T = unknown>(
+  customType: string,
+  renderer: MessageRenderer<T>,
+): void;
+```
+
+The call returns `void` (synchronous); the loom extension factory MUST NOT `await` it and MUST NOT attach a `.then`/`.catch`. Failures propagate as synchronous throws and fault the extension factory body — there is no separate Promise rejection path.
+
+The `Component` return type is the `pi-tui` widget interface (`{ render(width: number): string[]; handleInput?(...): void; invalidate(): void; ... }`), **not** a string and **not** a React node. A renderer body of the form `(message) => message.content` is therefore a type error that silently leaves the channel unrendered — the loom renderer MUST construct a `pi-tui` `Component` instance (e.g. a text component composed from the `theme` parameter) and return it. Returning `undefined` is legal and tells Pi to skip rendering this message; the V1 loom renderer uses `undefined` only when `display === false` (see **Empty `content` is legal** below).
+
+The `theme: Theme` parameter is Pi's active TUI theme; the loom renderer MUST source any styling (dim text colour, etc.) from `theme` rather than hard-coding ANSI escapes, so re-themes propagate without renderer changes.
+
+The `options: MessageRenderOptions` carries `{ expanded: boolean }` from the Pi host; `expanded` is the Pi-host hint for whether the user has requested an expanded view of this message in the transcript. The V1 loom renderer MUST be defined for both `expanded === false` and `expanded === true`; V1 MAY render identically in both modes. Widening the renderer to use `expanded` to disclose the structured `details` payload (e.g. expanding the diagnostic batch or runtime-event fields) is reserved for a future revision and is not part of V1 conformance.
+
+*Lifecycle.*
+
+- **Registration timing.** The loom extension factory MUST call `pi.registerMessageRenderer("loom-system-note", renderer)` synchronously inside the factory body, before the factory returns. Registration after the factory returns (e.g. inside an event subscriber that fires asynchronously) is undefined behaviour at the Pi-SDK level and the loom runtime MUST NOT rely on it.
+- **Re-registration within an extension.** Pi's loader stores renderers in a `Map<string, MessageRenderer>` keyed by `customType` (`@mariozechner/pi-coding-agent`'s `dist/core/extensions/loader.js`), so a second call from the same factory with the same `customType` silently overwrites the first; Pi emits no warning. The loom factory MUST register exactly once per factory invocation.
+- **Teardown.** Pi exposes no `unregisterMessageRenderer` API. The renderer entry lives for the lifetime of the extension instance; on `ctx.reload()` or any other path that replaces the extension instance, Pi discards the prior `Map` along with the old extension, and the freshly loaded factory registers afresh against a Pi state that has no prior `loom-system-note` registration. The loom runtime MUST NOT attempt to clean up the registration in its `session_shutdown` handler.
+
+*`customType` ownership and collision rule.*
+
+- The literal `"loom-system-note"` is owned by the pi-loom extension. No other extension SHOULD register a renderer for this `customType`.
+- Pi does not enforce ownership: collision is a coordination failure between extensions, not a Pi-level error. Pi's runner resolves a `customType` by iterating `this.extensions` in load order and returning the first hit (`@mariozechner/pi-coding-agent`'s `dist/core/extensions/runner.js` `getMessageRenderer`), so when two installed extensions both register `"loom-system-note"` the **first-loaded** extension's renderer wins and the later registration is unreachable. Whether pi-loom or the other extension wins is non-deterministic from loom's point of view (Pi controls extension load order).
+- Loom emits no diagnostic for this case in V1 — ownership is by convention.
+- The `customType` naming convention for loom-internal channels is `loom-<purpose>` (kebab-case, `loom-` prefix). Future loom channels MUST follow this convention; other extensions SHOULD NOT use the `loom-` prefix. V1 ships exactly one channel under this prefix (`loom-system-note`).
 
 **Delivery surface.** All three `details` payload variants below emit through the single `pi.sendMessage` call above. The runtime has no second channel for `display: false` notes; they land in the same session transcript as `display: true` notes and are filtered out of visible rendering by the renderer (or by Pi's own `display` handling), but remain available to transcript-replay and `/tree` consumers. *Subagent-mode `display: false` cascades* (the subagent top-level `Err` case noted under **Runtime event channel** below) use the same `pi.sendMessage` call against the spawned `AgentSession` — i.e., they reach `pi.sendMessage` after the per-loom `sessionManager` swap from **Tool execution from loom code** above has routed messaging at the spawned session — so the note lands in the subagent's private transcript, not the parent user session's.
 
