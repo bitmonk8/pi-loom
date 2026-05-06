@@ -143,15 +143,37 @@ Edge cases:
 - For nested subagent invocations (a subagent that itself invokes a subagent-mode child), each level owns its own session and runs its own `finally`. Disposal order is deepest-first, naturally produced by the call stack's `finally` unwinding.
 - Disposal must precede the parent observing the result — the parent's `match`/`?` arm runs after the child's session is gone, so the child's listeners cannot leak into work the parent does next.
 
-**System notes.** Echoes (binder result), `Err`-in-prompt-mode notes, and binder failure messages are emitted via `pi.sendMessage({ customType: "loom-system-note", content, display: true, details: { ... } }, { triggerTurn: false })`. A `pi.registerMessageRenderer("loom-system-note", ...)` formats them as one-line, dim-styled notes in the transcript. The custom-type approach (rather than `ctx.ui.notify(...)`) is chosen because notes need to persist in the session transcript for replay and `/tree` navigation, not just appear transiently.
+**System notes.** Echoes (binder result), `Err`-in-prompt-mode notes, binder failure messages, watcher structural-change notes, and operator-facing runtime events all emit through a single call shape:
 
-The `details` field carries one of two normative payload shapes, distinguished by which key is present:
+```ts
+pi.sendMessage(
+  { customType: "loom-system-note", content, display, details },
+  { triggerTurn: false },
+);
+```
+
+The `display` and `content` arguments vary per the `details` variant documented below — they are not fixed to `display: true` or to a non-empty string. A `pi.registerMessageRenderer("loom-system-note", ...)` formats these as one-line, dim-styled notes in the transcript. The custom-type approach (rather than `ctx.ui.notify(...)`) is chosen because notes need to persist in the session transcript for replay and `/tree` navigation, not just appear transiently.
+
+**Delivery surface.** All three `details` payload variants below emit through the single `pi.sendMessage` call above. The runtime has no second channel for `display: false` notes; they land in the same session transcript as `display: true` notes and are filtered out of visible rendering by the renderer (or by Pi's own `display` handling), but remain available to transcript-replay and `/tree` consumers. *Subagent-mode `display: false` cascades* (the subagent top-level `Err` case noted under **Runtime event channel** below) use the same `pi.sendMessage` call against the spawned `AgentSession` — i.e., they reach `pi.sendMessage` after the per-loom `sessionManager` swap from **Tool execution from loom code** above has routed messaging at the spawned session — so the note lands in the subagent's private transcript, not the parent user session's.
+
+**Empty `content` is legal.** When the variant prescribes `content: ""` (the `display: false` runtime-event case below), the runtime passes the empty string verbatim. `pi.sendMessage`'s `content` parameter accepts any string per Pi's `CustomMessage<T>` interface; no placeholder substitution is required or permitted. The renderer registered for `loom-system-note` MUST tolerate `content === ""` — in V1 this only ever co-occurs with `display: false` and `details: { event: RuntimeEvent }`, so the renderer MAY short-circuit on `display === false` without inspecting `content`.
+
+The `details` field carries one of three normative payload shapes, distinguished by which key is present:
 
 - `details: { diagnostics: Diagnostic[] }` — a parse / load / type / runtime-panic diagnostic batch, exactly the shape defined in [Diagnostics](./diagnostics.md). The companion `content` is the serialised `<file>:<line>:<col>: <code>: <message>` line(s).
 - `details: { event: RuntimeEvent }` — a runtime failure event from one of the always-log kinds (see **Runtime event channel** below). The companion `content` is the normative user-facing template from [Slash-Command Invocation — Top-level `Err` in prompt mode](./slash-invocation.md) when `display: true`, or omitted (empty string) when `display: false`.
-- `details: { structural: { added: string[]; removed: string[] } }` — informational note for watcher-observed structural changes (added or removed `.loom` files, settings-array changes that add or remove sources); `added` and `removed` carry absolute file paths from the debounce-window batch. Settings-array edits surface as the resolved `.loom` file paths the source change brought in or removed, not the settings-file path itself, so a single settings edit that adds N sources contributes N entries to `added`. The shape is disjoint from the `diagnostics` and `event` shapes by key, per the additive-only convention below. The companion `content` is the verbatim template defined under **Structural changes** above.
+- `details: { structural: { added: string[]; removed: string[] } }` — informational note for watcher-observed structural changes (added or removed `.loom` files, settings-array changes that add or remove sources); `added` and `removed` carry absolute file paths from the debounce-window batch. Settings-array edits surface as the resolved `.loom` file paths the source change brought in or removed, not the settings-file path itself, so a single settings edit that adds N sources contributes N entries to `added`. The shape is disjoint from the `diagnostics` and `event` shapes by key, per the additive-only convention below. The companion `content` is the verbatim template defined under **Structural changes** above; `display: true` always.
 
-The three shapes are disjoint by key; renderers MUST NOT assume more than one is present. Future payload shapes added to this channel are additive and disjoint by the same convention.
+Per-variant `display` / `content` pairings (normative):
+
+| Variant | `display` | `content` |
+|---|---|---|
+| `details: { diagnostics: Diagnostic[] }` | `true` | serialised `<file>:<line>:<col>: <code>: <message>` line(s) (multi-line for batches) — non-empty |
+| `details: { event: RuntimeEvent }`, top-level cascade in prompt mode | `true` | normative user-facing template per [Slash-Command Invocation — Top-level `Err` in prompt mode](./slash-invocation.md) — non-empty |
+| `details: { event: RuntimeEvent }`, author-handled or subagent-mode cascade | `false` | `""` (empty string, verbatim) |
+| `details: { structural: { added; removed } }` | `true` | verbatim template from **Structural changes** above — non-empty |
+
+The three `details` shapes are disjoint by key; renderers MUST NOT assume more than one is present. Future payload shapes added to this channel are additive and disjoint by the same convention. Future variants MAY widen the `display: false` + `content: ""` combination to other `details` shapes additively; the renderer's `display === false` short-circuit above remains safe under that widening because it does not inspect `content`.
 
 **Runtime event channel.** A subset of `QueryError` failures — the **always-log set** — emit a structured runtime event through the `loom-system-note` channel exactly once per occurrence, regardless of whether the author matched the `Err`, propagated it via `?`, or discarded it via `let _ =`. The set is:
 
@@ -193,8 +215,8 @@ Aggregation, latency histograms, per-loom token reports, retention policies, and
 
 The `pi.sendMessage` call for `loom-system-note` is treated as best-effort. `pi.sendMessage` returns `void` (synchronous); the runtime MUST NOT `await` it and MUST NOT attach a `.catch` handler. The best-effort fallback below covers synchronous throws only. If it throws, the runtime falls back in this order:
 
-1. `ctx.ui.notify(content, "error")` — a transient surface so the user still sees the message in the current session, even if it does not persist in the transcript.
-2. A `loom/runtime/system-note-delivery-failed` diagnostic emitted through the standard diagnostics channel (see [Diagnostics](./diagnostics.md)), with `message` set to the original note's `content` and `hint` set to the underlying `sendMessage` error's message. This diagnostic is itself best-effort: if both channels fail, the failure is logged to `console.error` and execution continues.
+1. `ctx.ui.notify(content, "error")` — a transient surface so the user still sees the message in the current session, even if it does not persist in the transcript. **Skipped when `display: false`**: notifying the user transiently about an event whose author handled the underlying `Err` (or a subagent-private cascade) defeats the purpose of `display: false`; the fallback proceeds straight to step 2. This step is also skipped when the original note's `content` is `""`, since `ctx.ui.notify("", "error")` carries no signal — but in V1 this case is fully covered by the `display: false` skip rule above (the only `content: ""` variant is the `display: false` runtime-event case).
+2. A `loom/runtime/system-note-delivery-failed` diagnostic emitted through the standard diagnostics channel (see [Diagnostics](./diagnostics.md)), with `message` set to the original note's `content` (which MAY be `""`) and `hint` set to the underlying `sendMessage` error's message. This diagnostic is itself best-effort: if both channels fail, the failure is logged to `console.error` and execution continues.
 
 The fallback path is taken on any thrown value from `sendMessage`; it does not retry the original call. The fallback never aborts the slash-command handler or the spawned subagent session. Implementers must guard against re-entry: if a future `loom/runtime/*` handler ever routes diagnostics back through `loom-system-note`, the diagnostic step in this fallback MUST NOT re-invoke `pi.sendMessage`. `ctx.ui.notify` itself can throw (e.g. in print mode where Pi's UI is not attached); wrap it in the same try/catch and proceed to the diagnostic step. For panic-routed notes, the original panic message MUST be included in the final-resort `console.error` log so post-mortem debugging retains the stack.
 

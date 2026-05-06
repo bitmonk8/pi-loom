@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-06T06:31:26Z_
 _Source: docs/reviews/spec-review/spec-20260506-064723.md_
-_33 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
+_32 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
 
 _Severity: 27 correctness · 17 advisory · 12 cosmetic · 0 blocking_
 _Shape: 56 single · 0 multiple · 0 unresolved_
@@ -2461,64 +2461,4 @@ Edge cases the implementer must watch:
 - "'Consumers MUST deduplicate' — obligation on undefined party" — decision-dependency (the dedup key applies only to `details: { event }`; clarifying the partition first lets that finding rephrase the MUST as a runtime-side single-emission obligation scoped to group A)
 - "V1 emission contract and `RuntimeEvent` shape buried in deferrals document" — same-cluster (both concern where the normative `RuntimeEvent` rules live; co-edit opportunity but each resolves independently)
 - "Observability contract for three terminal failure modes unstated" — same-cluster (panic observability is one of the three terminal modes; this finding sharpens the panic case specifically)
-
----
-
-# `loom-system-note` channel: `display: false` delivery and empty `content` not contracted
-
-**Source:** docs/reviews/spec-review/spec-20260506-064723.md
-**Original heading:** `loom-system-note` with `display: false` and empty `content`
-**Kind:** implementability
-
-## Finding
-
-`pi-integration-contract.md` defines the `loom-system-note` channel by exhibiting one canonical `pi.sendMessage` call shape under **System notes** (line 124) that hardcodes `display: true`. Two paragraphs later, **Runtime event channel** (line 161) introduces a `display: false` variant for operator-facing runtime events whose author handled the `Err`, and the `details: { event: RuntimeEvent }` description (line 129) further notes that the companion `content` is "omitted (empty string) when `display: false`". The spec never restates the `pi.sendMessage` call shape for the `display: false` case, never confirms that `pi.sendMessage` is in fact the delivery surface for those events (vs. some other in-memory channel), and never confirms that `content: ""` is a legal argument to `pi.sendMessage`.
-
-A plausible misreading is that `display: false` events bypass `pi.sendMessage` entirely (since the canonical call shape mentions only `display: true`) and live in a separate operator log. Another plausible misreading is that empty `content` is rejected by `pi.sendMessage` and must be replaced with a placeholder string. The real Pi API (`pi-coding-agent` `CustomMessage<T>` interface, `content: string | (TextContent | ImageContent)[]`) imposes no non-empty constraint and the V18q plan leaf already assumes the `display: false` runtime event flows through `pi.sendMessage` — but this is implementer convention, not spec text.
-
-The same gap covers subagent-mode top-level `Err` cascades (line 161 says they "likewise emit with `display: false`"): the spec does not say whether they too land in the user-visible session transcript via `pi.sendMessage`, or in some subagent-private surface.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — System notes / Runtime event channel (edited)
-- `spec_topics/diagnostics.md` — `loom-system-note` channel paragraph (read-only)
-
-## Plan Impact
-
-**Phases:** Horizontal, Vertical V18
-
-**Leaves (implementation order):**
-
-- H4 — Extension shell, `loom-system-note` renderer registration, `sendSystemNote` helper — (modified)
-- V18q — Always-log runtime-event emission helper — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two implementers reading the current text would diverge: one routes `display: false` runtime events through `pi.sendMessage` (and exposes them to transcript replay, `/tree` navigation, and any future log consumer), the other treats them as ephemeral and never persists them. The latter silently breaks the operator-facing observability promise of the always-log set. The empty-`content` ambiguity additionally invites placeholder strings that consumers would then have to special-case.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `pi-integration-contract.md` **System notes**, replace the single hardcoded call-shape example with explicit text that the `display` and `content` fields vary per the variants documented below, and pin both:
-
-1. **Delivery surface.** All three `details` payload variants (`{ diagnostics }`, `{ event }`, `{ structural }`) emit through `pi.sendMessage({ customType: "loom-system-note", content, display, details }, { triggerTurn: false })`. The runtime has no second channel for `display: false` notes; they land in the session transcript and are filtered out of visible rendering by the renderer (or by Pi's own `display` handling), but are available to transcript-replay and `/tree` consumers.
-
-2. **Empty `content` is legal.** When the variant prescribes `content: ""` (the `display: false` runtime-event case), the runtime passes the empty string verbatim. `pi.sendMessage`'s `content` parameter accepts any string per `CustomMessage<T>`; no placeholder substitution is required or permitted. The renderer registered for `loom-system-note` MUST tolerate `content === ""` (it will only ever co-occur with `display: false` and `details: { event: RuntimeEvent }`, so the renderer can short-circuit on `display === false` without inspecting `content`).
-
-3. **Subagent-mode `display: false` cascades.** The same `pi.sendMessage` call is used; the subagent's private session is the recipient (per the `sessionManager` swap rule above), so the note lands in the subagent transcript, not the parent's.
-
-Edge cases the implementer must watch: the H4 `sendSystemNote` helper is currently scoped to `display: true` user-facing notes. The V18q emission helper calls `pi.sendMessage` directly with a per-call `display` argument and MUST NOT route through `sendSystemNote` (which would lose the `display` parameter). Both helpers share the same best-effort fallback chain (`ctx.ui.notify` → `loom/runtime/system-note-delivery-failed` → `console.error`); for `display: false` notes the `ctx.ui.notify` step is skipped (notifying the user about an event the author handled defeats the purpose), and the fallback proceeds straight to the diagnostic step.
-
-## Related Findings
-
-- "`pi.sendMessage` returns `void`, not `Promise<void>`" — same-cluster (also constrains the `pi.sendMessage` call shape; both should land in the same edit pass)
-- "`customType: "loom-system-note"` namespacing not specified" — same-cluster (same `pi.sendMessage` call site, different field)
-- "`RuntimeEvent` routing: panics appear in both always-log set and `details: {diagnostics}` path" — co-resolve (the same System notes / Runtime event channel paragraphs need a partition rewrite that also clarifies which variants emit at `display: false`)
-- "`pi.registerMessageRenderer` registration timing and race" — decision-dependency (the renderer's contract for `display: false` empty-content notes depends on this finding's resolution)
-- ""Consumers MUST deduplicate" — obligation on undefined party" — same-cluster (same Runtime event channel section)
 
