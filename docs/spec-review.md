@@ -1,9 +1,9 @@
 # pi-loom — Consolidated Spec Review
 
 _Generated: 2026-05-06T14:41:04Z_
-_Source: docs/reviews/spec-review/spec-20260506-142846.md_
 _20 findings retained (correctness 20, blocking 0); 18 cosmetic and 40 advisory findings filtered out_
 _Re-filtered: 2026-05-06T14:41:04Z — correctness/blocking only_
+_Decisions applied: 2026-05-06 — all 10 multi-shape findings reduced to single-shape; cross-finding cohesion enforced (one Step-0 probe contract, one normative-ID scheme for `spec.md`, one V1.x stability gate)_
 
 ---
 
@@ -13,7 +13,6 @@ _Re-filtered: 2026-05-06T14:41:04Z — correctness/blocking only_
 
 # Partial-append boundary undefined when cancellation lands mid-stream
 
-**Source:** docs/reviews/spec-review/spec-20260506-142846.md
 **Original heading:** Partial-append / cancellation boundary undefined at orientation level
 **Kind:** completeness, error-model
 
@@ -99,7 +98,6 @@ Edge cases the implementer must watch:
 
 # "Minor-version line" is undefined and ambiguous in spec.md
 
-**Source:** docs/reviews/spec-review/spec-20260506-142846.md
 **Original heading:** "minor-version line" is ambiguous
 **Kind:** clarity, consistency
 
@@ -167,7 +165,6 @@ Edge cases the implementer must watch:
 
 # Sub-package version MUST contradicts the "single load-bearing check" claim
 
-**Source:** docs/reviews/spec-review/spec-20260506-142846.md
 **Original heading:** Sub-packages (`pi-agent-core`, `pi-ai`, `pi-tui`) MUST requirement has no load-bearing probe step
 **Kind:** consistency, assumptions
 
@@ -207,45 +204,19 @@ Two reasonable implementers diverge: one treats the orientation MUST literally a
 
 ## Solution Space
 
-**Shape:** multiple
-
-### Option A — Add a fifth probe step
-
-**Approach.** Extend Step 0 to read the three sub-package `package.json` files, compare their versions against the same `^0.72.1` range, and emit `loom/load/host-incompatible` with a new `details.kind = "sub-package-skew"` on mismatch.
-
-**Spec edits.**
-
-- Append a fifth check (e) to the Step 0 enumeration in `pi-integration-contract.md`.
-- Add `"sub-package-skew"` to the `details.kind` set in the Step 0 paragraph and in the `loom/load/host-incompatible` row in `diagnostics.md`.
-- Change "four pinned constants" → "five pinned constants" everywhere (Step 0 text, Pi version bump procedure step 5, H1 SDK surface-inventory test description in `h1-scaffold.md`).
-- Delete the contract page's explicit disclaimer that "Loom does not at runtime read `pi-coding-agent`'s `package.json` to verify the upstream pin."
-- Reword the orientation MUST to match: "The extension MUST verify … and the installed `@mariozechner/pi-coding-agent` and `pi-agent-core` / `pi-ai` / `pi-tui` versions at extension-factory entry."
-
-**Pros.** Honours the orientation MUST literally. Catches the rare case where a package manager (pnpm strict mode, npm with `--legacy-peer-deps`) installs a `pi-coding-agent` minor whose own `dependencies` block resolved to a sub-package outside `^0.72.1` (e.g. via overrides).
-
-**Cons.** Re-introduces the skew-tolerance the contract page deliberately disclaims. Adds three filesystem reads to factory startup. Requires the probe to know about three sibling package names that the seven SDK capabilities have no need to mention. Multiplies the failure surface (sub-package missing, sub-package present but wrong minor, sub-package `package.json` malformed) without a corresponding implementer-relevant payoff: the H1 `peerDependencies` literal-read test already fails the build before any user can install a skewed combination from the loom side.
-
-**Risks.** A `package.json#dependencies` skew inside Pi's monorepo would now produce a runtime `loom/load/host-incompatible` rather than a Pi-side build failure, shifting blame onto loom for an upstream packaging bug.
-
-### Option B — Downgrade the orientation MUST to a structural statement
-
-**Approach.** Rewrite the orientation sentence to state what the contract page already says: the three sub-packages ride along transitively from `@mariozechner/pi-coding-agent`'s own `dependencies` block (`pi-mono` releases all four together; no skew is supported), loom's `peerDependencies` declares the four belt-and-braces, the H1 `peerDependencies` literal-read test is the build-time gate, and the runtime probe deliberately checks only `@mariozechner/pi-coding-agent`'s version.
-
-**Spec edits.**
-
-- Replace the second sentence of **Pi SDK and capabilities** with: "The `pi-agent-core`, `pi-ai`, and `pi-tui` packages resolve transitively from `@mariozechner/pi-coding-agent`'s own `dependencies` block at the same minor-version line; loom's `peerDependencies` declares all four for surfacing install-time errors under package managers that do not auto-deduplicate transitive peer-dep ranges, and the build-time `peerDependencies` literal-read test (per [`h1-scaffold.md`](./plan_topics/h1-scaffold.md)) is the gate that keeps the four minors aligned. See [Pi Integration Contract — Host prerequisites — Pi SDK pin](./spec_topics/pi-integration-contract.md) for provenance."
-- In the same paragraph, narrow the runtime-verify list to the four checks the probe actually performs: seven SDK capabilities, Node floor, `AbortSignal` shape, installed `@mariozechner/pi-coding-agent` version. Drop any implication that sub-package versions are runtime-checked.
-- No edit to `pi-integration-contract.md` Step 0, the four pinned constants, the four `details.kind` discriminators, or `diagnostics.md` is needed.
-
-**Pros.** Aligns the orientation with what the contract page already states and what H1 already tests. Removes a contradiction without inventing new diagnostic surface. Keeps the probe minimal and avoids the skew-tolerance the contract page disclaims.
-
-**Cons.** Loosens the MUST in the orientation paragraph (becomes a structural assertion, not a runtime obligation). A reader who expects a runtime check for sub-package skew must read the contract page to learn that no such check exists.
-
-**Risks.** None significant. The only failure mode the runtime check would have caught — a package manager installing a sub-package outside the pinned range despite the four-entry `peerDependencies` — is already unsupported per the explicit "no skew supported" rule in [`pi-integration-contract.md` — Host prerequisites — Pi SDK pin](spec_topics/pi-integration-contract.md).
+**Shape:** single
 
 ### Recommendation
 
-**Option B.** The contract page has already settled the design — sub-package alignment is build-time, not runtime — and explicitly disclaims the very probe step Option A would introduce. Option B reconciles the orientation paragraph with that decision in two sentence-level edits and requires no diagnostic-surface, plan-leaf, or test changes beyond an anchor pointer. The implementer must take care to keep the runtime-verify list in the orientation paragraph in lock-step with the four-check enumeration in `pi-integration-contract.md` Step 0; both name the same four checks and a future fifth check would have to land in both places in the same edit.
+Downgrade the orientation MUST to a structural statement. Rewrite the orientation sentence to state what the contract page already says: the three sub-packages ride along transitively from `@mariozechner/pi-coding-agent`'s own `dependencies` block (`pi-mono` releases all four together; no skew is supported), loom's `peerDependencies` declares the four belt-and-braces, the H1 `peerDependencies` literal-read test is the build-time gate, and the runtime probe deliberately checks only `@mariozechner/pi-coding-agent`'s version.
+
+Spec edits:
+
+- Replace the second sentence of **Pi SDK and capabilities** with: "The `pi-agent-core`, `pi-ai`, and `pi-tui` packages resolve transitively from `@mariozechner/pi-coding-agent`'s own `dependencies` block at the same minor-version line; loom's `peerDependencies` declares all four for surfacing install-time errors under package managers that do not auto-deduplicate transitive peer-dep ranges, and the build-time `peerDependencies` literal-read test (per [`h1-scaffold.md`](./plan_topics/h1-scaffold.md)) is the gate that keeps the four minors aligned. See [Pi Integration Contract — Host prerequisites — Pi SDK pin](./spec_topics/pi-integration-contract.md) for provenance."
+- In the same paragraph, narrow the runtime-verify list to the four checks the probe actually performs: seven SDK capabilities, Node floor, `AbortSignal` shape, installed `@mariozechner/pi-coding-agent` version. Drop any implication that sub-package versions are runtime-checked.
+- No edit to `pi-integration-contract.md` Step 0, the four pinned constants, the `details.kind` discriminators, or `diagnostics.md` is needed for this finding.
+
+The contract page has already settled the design — sub-package alignment is build-time, not runtime — and explicitly disclaims the runtime probe step the alternative would have introduced. This reconciles the orientation paragraph with that decision in two sentence-level edits and requires no diagnostic-surface, plan-leaf, or test changes beyond an anchor pointer. The implementer must take care to keep the runtime-verify list in the orientation paragraph in lock-step with the four-check enumeration in `pi-integration-contract.md` Step 0; both name the same four checks and a future fifth check would have to land in both places in the same edit.
 
 ## Related Findings
 
@@ -262,7 +233,6 @@ Two reasonable implementers diverge: one treats the orientation MUST literally a
 
 # Probe-failure refusal surface omits `pi.on` and uses two non-equivalent enumerations
 
-**Source:** docs/reviews/spec-review/spec-20260506-142846.md
 **Original heading:** `pi.register*` four-name list vs. umbrella; `pi.on` missing from refusal surface
 **Kind:** consistency, implementability
 
@@ -332,7 +302,6 @@ Implementer edge case: `pi.subscribe(eventName, handler)` (used by V14t for `res
 
 # Capability probe — peer-dep version comparator and malformed-version handling unspecified
 
-**Source:** docs/reviews/spec-review/spec-20260506-142846.md
 **Original heading:** Semver comparator for the peer-dep probe unspecified
 **Kind:** completeness, implementability
 
@@ -368,48 +337,28 @@ Two reasonable implementers will diverge on the comparator. A naive `installed >
 
 ## Solution Space
 
-**Shape:** multiple
-
-### Option A — Single comparator, subsume malformed into `peer-dep-out-of-range`
-
-**Approach.** Amend Step 0 (d) to read: "compares using `semver.satisfies(installed, range, { includePrerelease: false })` from the `semver` npm package, where `installed` is the `version` field of the resolved `package.json` and `range` is the pinned literal. If `installed` is missing, non-string, or not a valid SemVer (rejected by `semver.valid`), or the `package.json` cannot be resolved, the probe treats the precondition as violated and emits `details: { kind: "peer-dep-out-of-range", observed: <raw-string-or-"<unresolvable>">, required: "^0.72.1" }`." The `semver` package becomes a dependency listed alongside the four pinned constants.
-
-**Spec edits.**
-- `pi-integration-contract.md` Step 0 (d): name `semver.satisfies`, add the option, define the malformed/unresolvable disposition.
-- `pi-integration-contract.md` step 5 of the version-bump procedure ("five pinned constants" if the chosen `semver` major is itself pinned, otherwise still four).
-- `diagnostics.md` `loom/load/host-incompatible` row: extend the `peer-dep-out-of-range` parenthetical to "(the installed `@mariozechner/pi-coding-agent` version, read from its `package.json`, is outside the pinned range, malformed, or the `package.json` is unresolvable)".
-
-**Pros.** Closed `details.kind` enumeration stays at four. Single comparator across the codebase. `semver.satisfies` is the de-facto Node ecosystem standard and matches the caret syntax the spec already uses. No churn in H3 or V18s closing gates.
-
-**Cons.** Operator triage loses precision — a git-pinned install and an outright incompatible version surface identically. The `observed` string becomes the only triage signal.
-
-**Risks.** Adding a new runtime dependency (`semver`) widens the H1 literal-read surface; H4's probe tests must assert that `semver.satisfies` is the actual call site (not a hand-rolled equivalent), otherwise the spec's prescription is unenforceable.
-
-### Option B — Single comparator, separate `details.kind` for malformed input
-
-**Approach.** Same comparator (`semver.satisfies`), but introduce a fifth `details.kind`: `"peer-dep-malformed-version"` (covering non-SemVer `version`, missing `version`, and unresolvable `package.json`).
-
-**Spec edits.**
-- `pi-integration-contract.md` Step 0 (d): name `semver.satisfies`, define malformed → `peer-dep-malformed-version`.
-- `pi-integration-contract.md` Step 0 (ii): expand the `kind ∈ { … }` set to five entries.
-- `diagnostics.md` `loom/load/host-incompatible` row: list the fifth kind.
-- The `four pinned constants` phrasing recurs in step 5 of the version-bump procedure and in the related-finding "Peer-dep range not anchored at point of use" — those uses do not change because the comparator is not a constant, but reviewers may need to re-check that the count "four" still refers to inputs not kinds.
-
-**Pros.** Operator triage distinguishes "Pi installed at an unsupported version" from "Pi install metadata is broken". The latter usually means a packaging mistake (workspace symlink, git-pinned dev install) rather than a real version skew, and the recovery path differs.
-
-**Cons.** Five-element closed enum is mildly less symmetric than four. Diagnostic-table edit forces synchronised updates across two spec files.
-
-**Risks.** None beyond the synchronised edit. H3's gate keys on the diagnostic *code* (`loom/load/host-incompatible`), not on `details.kind` values, so no closing-gate update is required.
+**Shape:** single
 
 ### Recommendation
 
-**Option B.** The comparator is `semver.satisfies(installed, range, { includePrerelease: false })` from the `semver` npm package, applied to the `version` field of the resolved `@mariozechner/pi-coding-agent/package.json`. A missing or non-SemVer `version`, or a `package.json` that cannot be resolved from the loom factory's module-resolution context, MUST emit `details: { kind: "peer-dep-malformed-version", observed: <raw-string-or-"<unresolvable>">, required: "^0.72.1" }`; an installed `version` that parses as SemVer but falls outside the pinned range MUST emit `details: { kind: "peer-dep-out-of-range", observed: <version-string>, required: "^0.72.1" }`.
+Name `semver.satisfies` (from the `semver` npm package) as the comparator and introduce a fifth `details.kind` for malformed input. The comparator is `semver.satisfies(installed, range, { includePrerelease: false })`, applied to the `version` field of the resolved `@mariozechner/pi-coding-agent/package.json`.
+
+- An installed `version` that parses as SemVer but falls outside the pinned range MUST emit `details: { kind: "peer-dep-out-of-range", observed: <version-string>, required: "^0.72.1" }`.
+- A missing or non-SemVer `version`, or a `package.json` that cannot be resolved from the loom factory's module-resolution context, MUST emit `details: { kind: "peer-dep-malformed-version", observed: <raw-string-or-"<unresolvable>">, required: "^0.72.1" }`.
+
+Spec edits:
+- `pi-integration-contract.md` Step 0 (d): name `semver.satisfies`, add the `includePrerelease: false` option, define the malformed/unresolvable disposition routing to `peer-dep-malformed-version`.
+- `pi-integration-contract.md` Step 0 (ii): expand the `kind ∈ { … }` set to include `peer-dep-malformed-version` (the sixth value `probe-failed` lands via the sibling self-failure finding).
+- `diagnostics.md` `loom/load/host-incompatible` row: list the new kind alongside the existing four.
+
+Distinguishing "Pi installed at an unsupported version" from "Pi install metadata is broken" gives operator triage a real signal: the latter usually means a packaging mistake (workspace symlink, git-pinned dev install) rather than a real version skew, and the recovery path differs. H3's gate keys on the diagnostic *code* (`loom/load/host-incompatible`), not on `details.kind`, so no closing-gate update is required.
 
 Edge cases the implementer must watch:
-- The `semver` package version itself is a new pinned input. Add it to the H1 literal-read coverage (peerDependency or runtime dependency, whichever the build settles on) so a silent bump cannot widen comparator behaviour.
+- The `semver` package version itself is a new pinned input. Add it to the H1 literal-read coverage so a silent bump cannot widen comparator behaviour.
 - `package.json` resolution must use the loom factory's resolution context (not the loom runtime's `cwd`), since the extension may be installed globally. Resolve via `import.meta.resolve` or `createRequire(import.meta.url).resolve('@mariozechner/pi-coding-agent/package.json')`; the latter is the conservative choice on Node 20.6.0.
 - `includePrerelease: false` is the default but stating it pins the behaviour against future `semver` major bumps that might flip the default.
-- The same comparator-naming sentence should be propagated to Host runtime obligation 1's Node-floor compare (sibling finding "Obligation 1 — Node version comparison algorithm unspecified") in the same edit; pick `semver.gte(process.versions.node, "20.6.0")` for symmetry.
+- The same comparator-naming sentence is propagated to Host runtime obligation 1's Node-floor compare (sibling finding "Obligation 1 — Node version comparison algorithm unspecified") in the same edit; that sibling uses `semver.satisfies(process.versions.node, ">=20.6.0", { includePrerelease: true })` (note the deliberate asymmetry: Node nightlies must satisfy the floor; Pi pre-releases are not supported in V1).
+- Step (d) catches its own foreseeable shape failures (missing field, non-SemVer string, `MODULE_NOT_FOUND` on resolution) and routes them to `peer-dep-malformed-version`. Only **unforeseen** throws inside step (d) escalate to `probe-failed` per the sibling "Probe self-failure" finding. This precedence rule MUST be stated in the Step 0 prose so the two kinds are disjoint.
 
 ## Related Findings
 
@@ -426,7 +375,6 @@ Edge cases the implementer must watch:
 
 # Step-0 capability probe has no error contract for its own throws
 
-**Source:** docs/reviews/spec-review/spec-20260506-142846.md
 **Original heading:** Probe self-failure (probe throws) has no error contract
 **Kind:** error-model
 
@@ -465,41 +413,22 @@ On any host where a probe step's input is unreadable rather than merely wrong (c
 
 ## Solution Space
 
-**Shape:** multiple
-
-### Option A — Per-step trap; reuse existing four kinds
-
-**Approach.** Wrap each of steps (a)–(d) in its own `try`/`catch`. A throw inside step (a) maps to `details.kind = "node-floor"`, step (b) to `"abortsignal-shape"`, step (c) to `"sdk-capability-missing"`, step (d) to `"peer-dep-out-of-range"`. Add a `details.cause` sub-field (string, the caught error's `message`) that is populated when the kind was reached via a throw rather than a comparison.
-
-**Spec edits.**
-- In the Step 0 paragraph, add: "Each of the four checks runs inside its own `try`/`catch`. A throw inside any check is treated as a failure of that check: the probe emits `loom/load/host-incompatible` with the check's `details.kind`, sets `details.observed = null`, copies the comparison's pinned constant into `details.required`, and adds `details.cause = <error.message>` to record that the verdict came from a throw rather than a comparison. The probe MUST NOT propagate the error to the host extension loader."
-- In `diagnostics.md`'s `loom/load/host-incompatible` row, document the optional `details.cause` sub-field and note that `details.observed` is `null` when `details.cause` is present.
-
-**Pros.** Closed `kind` set stays at four. Implementer's catch site is co-located with the step it guards — easy to keep the mapping correct.
-
-**Cons.** `"node-floor"` / `"peer-dep-out-of-range"` no longer cleanly mean "version is below floor" / "version is out of range" — they also mean "we couldn't determine the version". `details.observed = null` is a discriminator that an inattentive consumer may miss.
-
-**Risks.** Operators reading just `details.kind = "peer-dep-out-of-range"` from a log will believe they need to bump the peer dep, when in fact the install is corrupt — the actionable remediation is different.
-
-### Option B — Add `"probe-failed"` as a fifth kind
-
-**Approach.** Extend the closed `details.kind` set to five values by adding `"probe-failed"`. A throw in any probe step short-circuits to a single `loom/load/host-incompatible` with `details.kind = "probe-failed"`, `details.step ∈ { "node-floor", "abortsignal-shape", "sdk-capability-missing", "peer-dep-out-of-range" }` naming which step threw, and `details.cause = <error.message>` carrying the underlying error text. The four existing kinds retain their narrow meaning ("comparison ran and produced no").
-
-**Spec edits.**
-- In the Step 0 paragraph, change the kind enumeration to `kind ∈ { "node-floor", "abortsignal-shape", "sdk-capability-missing", "peer-dep-out-of-range", "probe-failed" }` and add: "If any probe step throws (including, but not limited to, `process.versions` evaluation, `typeof` evaluation against a Proxy or hostile getter, `package.json` resolution / read / parse), the probe traps the throw, emits `loom/load/host-incompatible` with `details.kind = "probe-failed"`, `details.step` naming which step threw, and `details.cause = <error.message>`. The probe MUST NOT propagate the error to the host extension loader."
-- In `diagnostics.md`'s `loom/load/host-incompatible` row, extend the kind enumeration to include `"probe-failed"`, document `details.step` and `details.cause`, and update the Resolution column with "for `"probe-failed"`, inspect `details.cause` to identify the unreadable input — the host's installation is malformed rather than out of range".
-
-**Pros.** Each of the four original kinds keeps its precise meaning. Operators see at a glance "the host is broken, not just non-conforming". The `details.step` sub-field still localises the failure for debugging.
-
-**Cons.** Closed list grows from four to five. H1's `SDK_SURFACE_INVENTORY` constant is unaffected, but any test that pattern-matches the four kinds must learn the fifth.
-
-**Risks.** Minimal — adding an enumerator to a load-diagnostic discriminator is a backwards-compatible shape change for any consumer that handles unknown kinds.
+**Shape:** single
 
 ### Recommendation
 
-**Option B.** Adding `"probe-failed"` keeps the four existing kinds semantically clean (each one still means "comparison ran and produced no") and forces the implementer to confront the indeterminate-verdict case explicitly, rather than smuggling unreadable inputs through a kind that suggests a determined defect. Implementer edge cases:
+Add `"probe-failed"` to the closed `details.kind` set. A throw in any probe step short-circuits to a single `loom/load/host-incompatible` with `details.kind = "probe-failed"`, `details.step ∈ { "node-floor", "abortsignal-shape", "sdk-capability-missing", "peer-dep-out-of-range" }` naming which step threw, and `details.cause = <error.message>` carrying the underlying error text. The other kinds retain their narrow meaning ("comparison ran and produced no").
 
-- The probe MUST still run all four checks if any of them succeed independently (a `package.json`-read throw in step (d) does not excuse skipping the deterministic typeof checks in steps (a)–(c) — emit one `loom/load/host-incompatible` per ordering policy, deferred to the related "Probe ordering / aggregation" finding).
+Spec edits:
+- In the Step 0 paragraph, extend the kind enumeration to include `"probe-failed"` (alongside `"peer-dep-malformed-version"` from the sibling comparator finding) and add: "If any probe step throws (including, but not limited to, `process.versions` evaluation, `typeof` evaluation against a Proxy or hostile getter, `package.json` resolution / read / parse), the probe traps the throw, emits `loom/load/host-incompatible` with `details.kind = "probe-failed"`, `details.step` naming which step threw, and `details.cause = <error.message>`. The probe MUST NOT propagate the error to the host extension loader."
+- In `diagnostics.md`'s `loom/load/host-incompatible` row, extend the kind enumeration to include `"probe-failed"`, document `details.step` and `details.cause`, and update the Resolution column with "for `"probe-failed"`, inspect `details.cause` to identify the unreadable input — the host's installation is malformed rather than out of range".
+
+Keeping `"probe-failed"` separate from the other kinds forces the implementer to confront the indeterminate-verdict case explicitly, rather than smuggling unreadable inputs through a kind that suggests a determined defect. Each of the comparison-verdict kinds still means "comparison ran and produced no."
+
+Implementer edge cases:
+
+- Step (d) catches its own foreseeable shape failures (missing `version` field, non-SemVer string, unresolvable `package.json` via `MODULE_NOT_FOUND`) and routes them to `"peer-dep-malformed-version"` per the sibling comparator finding. Only **unforeseen** throws inside step (d) — e.g. permission errors, a `JSON.parse` on a binary file, a hostile `Proxy` on the resolved object — escalate to `"probe-failed"`. This precedence rule MUST be stated explicitly in Step 0 so the two kinds are disjoint.
+- Per the sibling "Probe ordering / aggregation" finding, a throw at any check terminates the probe immediately with `"probe-failed"` and supersedes the in-order kind for that check; the fixed `(a)`→`(b)`→`(c)`→`(d)` short-circuit order applies only to comparison verdicts.
 - `details.cause` is the JS `Error.message` string, not the `Error` object — diagnostics are serialisable per the existing diagnostics contract.
 - The `details.step` value is one of the four original kind names (reused as a discriminator inside `"probe-failed"`), not a free-form label, so it stays grep-able from the H1 surface-inventory constant.
 - The "factory MUST NOT throw" rule remains the over-arching invariant; the per-step try/catch is the mechanical means of upholding it.
@@ -520,7 +449,6 @@ On any host where a probe step's input is unreadable rather than merely wrong (c
 
 # Probe-failure ordering is unspecified; same broken host yields nondeterministic diagnostics
 
-**Source:** docs/reviews/spec-review/spec-20260506-142846.md
 **Original heading:** Probe ordering / aggregation across simultaneous failures unspecified
 **Kind:** completeness, error-model
 
@@ -590,7 +518,6 @@ Edge case for the implementer: the probe MUST evaluate just enough of each check
 
 # Node version comparison algorithm unspecified in Host runtime obligation 1
 
-**Source:** docs/reviews/spec-review/spec-20260506-142846.md
 **Original heading:** Obligation 1 — Node version comparison algorithm unspecified
 **Kind:** completeness
 
@@ -661,7 +588,6 @@ Edge cases the implementer must watch:
 
 # Obligation 2 — Probe rule prescribes `typeof === "function"` for properties that are not functions
 
-**Source:** docs/reviews/spec-review/spec-20260506-142846.md
 **Original heading:** Obligation 2 — Typeof probe rule contradicts non-function members (`signal.aborted`, `signal.reason`)
 **Kind:** completeness, prescription
 
@@ -699,11 +625,11 @@ A literal-conformant implementation refuses every load on every host, because tw
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-### Option A — Kind-tagged member table; per-kind detection rule
+### Recommendation
 
-**Approach.** Replace the single uniform `typeof` rule with a small fixed enumeration of member kinds. The single source of truth (the `SDK_SURFACE_INVENTORY` constant on the H1 side, plus the `AbortSignal` / `AbortController` member list) carries one `kind` tag per entry, and the probe applies the kind-appropriate check.
+Replace the single uniform `typeof` rule with a kind-tagged member table. The single source of truth (the `SDK_SURFACE_INVENTORY` constant on the H1 side, plus the `AbortSignal` / `AbortController` member list) carries one `kind` tag per entry, and the probe applies the kind-appropriate check.
 
 Concrete kind table for obligation 2:
 
@@ -719,36 +645,17 @@ Concrete kind table for obligation 2:
 | `AbortSignal.prototype.aborted`       | prototype-property  | `"aborted" in AbortSignal.prototype`             |
 | `AbortSignal.prototype.reason`        | prototype-property  | `"reason" in AbortSignal.prototype`              |
 
-**Spec edits.** In `spec.md` obligation 2: rewrite the named-member sentence to use the prototype-rooted names above and replace the uniform `typeof` clause with "checks each member by the rule prescribed for its kind in [Pi Integration Contract — Step 0](...)". In `pi-integration-contract.md` Step 0(b): replace the bare `typeof <member>` phrasing with the per-kind enumeration; explicitly note that prototype-property checks use the `in` operator against the prototype (no instance construction required, side-stepping the self-reference clause); restate the "MUST NOT use any member it is itself checking" rule in light of the new shape.
+Spec edits. In `spec.md` obligation 2: rewrite the named-member sentence to use the prototype-rooted names above and replace the uniform `typeof` clause with "checks each member by the rule prescribed for its kind in [Pi Integration Contract — Step 0](...)". In `pi-integration-contract.md` Step 0(b): replace the bare `typeof <member>` phrasing with the per-kind enumeration; explicitly note that prototype-property checks use the `in` operator against the prototype (no instance construction required, side-stepping the self-reference clause); restate the "MUST NOT use any member it is itself checking" rule in light of the new shape.
 
-**Pros.** Determinism preserved; H1's "single source of truth" gate keeps biting; `details.kind = "abortsignal-shape"` surface and refusal contract unchanged; matches the highly-prescriptive register of the rest of `pi-integration-contract.md`.
-
-**Cons.** Adds a small typology (four kinds) implementers must learn. The kind table grows the source-of-truth constant.
-
-**Risks.** A future Pi version might add a member whose kind is none of the four (e.g. a `Symbol`-keyed member); the table needs an extension point. Fixed by adding `kind: "other"` with a per-entry custom predicate, or by deferring to Option B's looser contract for that one entry.
-
-### Option B — Drop the prescriptive algorithm; keep only the observable contract
-
-**Approach.** Remove the `typeof`-rule sentence entirely from both files. State only the observable: "The factory probe MUST detect that any of the named members is missing or wrong-shape and on detection MUST refuse every `pi.register*` call and emit `loom/load/host-incompatible` with `details.kind = \"abortsignal-shape\"`. The detection algorithm is unspecified." Keep the "MUST NOT use any member it is itself checking" clause.
-
-**Spec edits.** Delete the `typeof <member> === "function"` clause from both `spec.md` obligation 2 and `pi-integration-contract.md` Step 0(b). Keep the named-member list and the refusal-and-diagnostic contract.
-
-**Pros.** Smallest spec edit. Lets implementers pick whatever check works on their target host. Sidesteps the self-reference question.
-
-**Cons.** Two implementations may produce different refusal sets on a partially-conformant host — exactly the contract divergence the prescription was trying to prevent. Erodes the "single source of truth" invariant H1 leans on (the constant becomes a name list with no detection contract). Inconsistent with how Step 0 prescribes the Node-floor and SDK-capability checks (which remain mechanical).
-
-**Risks.** A lazy implementer may probe nothing for property-typed members and ship a runtime that silently uses a missing `signal.aborted`; the spec has no test gate that would catch this.
-
-### Recommendation
-
-**Option A.** The kind-tagged table preserves the determinism the rest of Step 0 has, keeps H1's single-source-of-truth gate sharp, and resolves the obligation-3 sibling finding by the same mechanism (the `Binder LLM model` capability gets `kind: "value"` or similar).
+The kind-tagged table preserves the determinism the rest of Step 0 has, keeps H1's single-source-of-truth gate sharp, and resolves the obligation-3 sibling finding (Capability 7 not factory-probable) by the same mechanism: the `Binder LLM model` capability gets a `load-time-resolution` kind so the factory probe skips it.
 
 Edge cases the implementer must watch:
 
-- The probe MUST NOT instantiate `new AbortController()` to read instance properties — that is both unnecessary (use `"name" in AbortSignal.prototype`) and tangles the probe with the constructors it is itself checking.
+- The probe MUST NOT instantiate `new AbortController()` to read instance properties — that is both unnecessary (use `"aborted" in AbortSignal.prototype`) and tangles the probe with the constructors it is itself checking.
 - `AbortSignal.prototype.aborted` is a getter; `"aborted" in AbortSignal.prototype` returns `true` even though the descriptor is an accessor, which is the desired observable. Do not use `AbortSignal.prototype.aborted !== undefined` — that would invoke the getter on the prototype and throw `TypeError: Illegal invocation` on most engines.
 - The kind-tag for the global constructors is "constructor", not "static-method"; the probe must read the global namespace, not a constructor property.
 - The H1 literal-read test must assert both the name *and* the kind for every entry, so a future spec edit that flips a member from "prototype-method" to "prototype-property" without the corresponding probe edit fails loudly at the H1 gate.
+- A future Pi version that adds a member whose kind is none of the four (e.g. a `Symbol`-keyed member) requires extending the kind enumeration; treat that as a closed-set extension under GOV-7.
 
 ## Related Findings
 
@@ -765,7 +672,6 @@ Edge cases the implementer must watch:
 
 # Capability 7 (Binder LLM model) is not factory-probable; the blanket "typeof === function" rule contradicts the per-capability contract
 
-**Source:** docs/reviews/spec-review/spec-20260506-142846.md
 **Original heading:** Obligation 3 — Capability-7 (Binder LLM model) is not a function; typeof check gives false-negative
 **Kind:** completeness, prescription
 
@@ -842,7 +748,6 @@ Edge cases the implementer must watch:
 
 # V1.x source-language stability promise has no executable conformance contract
 
-**Source:** docs/reviews/spec-review/spec-20260506-142846.md
 **Original heading:** Source-language stability guarantee has no violation contract or regression gate
 **Kind:** error-model, testability
 
@@ -884,59 +789,27 @@ A normative promise that no test enforces is not a guarantee — it is an aspira
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-### Option A — Define a fixture-anchored regression gate
+### Recommendation
 
-**Approach.** Promote the stability promise from prose to a checked invariant. Spec edit to the `Source-language stability` bullet defines two terms operationally:
+Promote the stability promise from prose to a checked invariant. Rewrite the `Source-language stability` bullet to define two terms operationally:
 
 - *Loads cleanly* — the loom emits zero diagnostics of phase `parse` or `load` (severity `E` or `W`) on the file.
 - *Behaves identically* — for a fixture invoked via the registered slash command with a recorded argument record, the loom produces (a) the same final return value (under deep equality on the runtime value model), (b) the same ordered list of `loom-system-note` event `code` values, and (c) the same diagnostic batch (codes only, in `(file, line, col)` order).
 
-A new GOV rule (or sub-bullet under `GOV-8`) in `governance.md` makes the suite a release obligation: each V1.x release MUST run the V1.0 conformance fixture suite and pass every fixture; the suite is append-only across V1.x (a fixture committed under V1.x is part of the suite for V1.(x+1)+).
+A new `GOV-9` rule in `governance.md` makes the suite a release obligation: each V1.x release MUST run the V1.0 conformance fixture suite and pass every fixture; the suite is append-only across V1.x (a fixture committed under V1.x is part of the suite for V1.(x+1)+). The new rule is independent of `GOV-8` (REQ-ID hygiene); see the sibling "GOV-8 cannot, by itself, deliver the V1.x equivalence promise" finding for the co-resolved bullet wording.
 
-A new V18 plan leaf (`V18t — V1.0 conformance fixture suite`) owns:
+A new V18 plan leaf `V18t — V1.0 conformance fixture suite` owns:
 
 - The fixture-tree shape under `test/fixtures/conformance/v1.0/`, one subdirectory per fixture containing `loom.loom` (or `warp.warp` + driver), `args.json`, `expected.json` (return value, sorted system-note code list, sorted diagnostic code list).
 - The runner that invokes each fixture through the harness from H5 and asserts the three equivalence relations above.
 - A seed set sized to cover one fixture per closed REQ-ID prefix at the moment V18t lands (the size grows as V1.x adds fixtures; it does not need to cover every REQ-ID at the V1.0 cut).
 - `Ships when` — the runner is wired to `npm run check:conformance` and to CI; the seed fixtures pass; a synthetic spec edit that flips a diagnostic code on any seeded fixture flips the gate to non-zero.
 
-**Spec edits.** `spec.md` Source-language stability bullet rewritten to define the two terms and forward-link the new GOV rule and V18t. `governance.md` gains a new GOV-N rule (or extends GOV-8 with a stability sub-rule) naming the suite and the release obligation. `future-considerations.md` cross-link refreshed.
+Spec edits: `spec.md` Source-language stability bullet rewritten to define the two terms and forward-link the new GOV-9 rule and V18t. `governance.md` gains the new GOV-9. `future-considerations.md` cross-link refreshed. `plan_topics/coverage-matrix.md` gains a row for the bullet keyed to V18t. `plan_topics/v18-cancellation.md` gains the V18t leaf and V18s coverage-row cites it.
 
-**Pros.** Promise becomes a CI line. Diagnostic-code, runtime-event, and return-value scopes are all explicitly in or out of scope (the equivalence definition pins it). Implementers and downstream users can both point at the same artefact. Co-resolves the three sibling findings under "Source-language stability".
-
-**Cons.** Adds a plan leaf and a release-time obligation. Author-facing message strings are deliberately *not* part of the equivalence relation under this option (only codes are) — this is a substantive trade-off and must be called out in the bullet. Fixture-suite maintenance is non-trivial: every new `.loom` syntax surface needs a representative fixture or it does not gain stability protection.
-
-**Risks.** The fixture suite is only as good as its coverage. A diagnostic code never exercised by any seed fixture is not protected by the gate; the V18s diagnostic-code-coverage gate already requires every registry code to be asserted by *some* test, but those are unit tests, not stability fixtures. The two coverage axes are independent.
-
-### Option B — Weaken the wording to "best-effort under GOV-8"
-
-**Approach.** Drop "is guaranteed to" from the spec bullet. Rewrite as "We follow `GOV-8` REQ-ID lifecycle discipline, which is intended to make V1.x source-compatible with V1.0; we do not run a mechanical conformance suite, and a V1.x release that breaks a V1.0 fixture is a bug to be fixed in V1.(x+1), not a violation of a written contract." Add a forward-link to `future-considerations.md` for the deferred conformance-suite work.
-
-**Spec edits.** `spec.md` Source-language stability bullet rewritten as above. `future-considerations.md` gains a new bullet for the deferred conformance suite. `governance.md` unchanged.
-
-**Pros.** Honest about what is actually shipped. Zero plan churn; no new V18 leaf. Co-resolves the GOV-8-discipline-insufficient sibling finding (the wording no longer claims the discipline is sufficient).
-
-**Cons.** Downstream users have no version-pinning recourse beyond "file a bug." Loses the marketing/engineering value of a stability guarantee. Does not co-resolve the diagnostic-code-coverage sibling finding (the question of whether codes are part of "behaviour" simply disappears, replaced by "we don't promise anything").
-
-**Risks.** The promise is the kind of thing that gets cited in slide decks once and then quietly violated. Weakening it now is cleaner than discovering the violation at V1.3.
-
-### Option C — Bound the guarantee to load-time only
-
-**Approach.** Narrow "behaves identically" to "loads cleanly," dropping the runtime-equivalence claim. Define *loads cleanly* exactly as in Option A. Runtime equivalence is explicitly out of scope across V1.x and is deferred to the major-version migration mechanism. Fixture suite still owned by a V18 leaf, but its assertions are limited to (a) zero parse/load diagnostics and (b) successful slash registration — no execution, no return-value comparison.
-
-**Spec edits.** `spec.md` Source-language stability bullet rewritten with the narrowed definition and a sentence stating runtime behaviour is not part of V1.x stability. `governance.md` gains the same GOV-N rule as Option A but pointing at the narrower suite. `future-considerations.md` gains a bullet for the deferred runtime-equivalence promise.
-
-**Pros.** Cheaper to maintain than Option A's full runtime fixtures (no `args.json`, no `expected.json`). Still co-resolves the substantive-boundary and diagnostic-code-coverage siblings (load-phase diagnostics are explicitly in scope; runtime ones are explicitly out). Provides a real CI gate without committing to behaviour equivalence the spec cannot easily define.
-
-**Cons.** A V1.x release that changes the runtime semantics of an accepted V1.0 program does not violate the (narrowed) guarantee. This is likely the most surprising failure mode for downstream users — "my program parses fine but produces a different answer under V1.1" — so the narrowing must be very explicitly stated in the bullet.
-
-**Risks.** The narrowing is easy to miss when reading the spec. Users will infer "stability" means runtime stability unless the bullet is emphatic.
-
-### Recommendation
-
-Adopt **Option A**. The Source-language stability bullet is the cross-cutting V1 disposition that downstream users and the project's own future authors will read as a behavioural promise; the right shape is to make the promise checkable rather than to weaken it (Option B) or partially withdraw it (Option C). The fixture-suite maintenance cost is real but bounded — the suite grows incrementally and only at release time — and the V18s gate already establishes the precedent for closing the spec corpus with a CI check.
+The Source-language stability bullet is the cross-cutting V1 disposition that downstream users and the project's own future authors will read as a behavioural promise; making the promise checkable is preferable to weakening it or partially withdrawing it. The fixture-suite maintenance cost is real but bounded — the suite grows incrementally and only at release time — and the V18s gate already establishes the precedent for closing the spec corpus with a CI check.
 
 Edge cases the implementer must pin:
 
@@ -945,6 +818,7 @@ Edge cases the implementer must pin:
 - *Runtime-event payload shape is in scope; payload `details` field values are not.* Two V1.x runs may legitimately differ on `details.duration_ms` or other timing-derived fields; the suite compares the sequence of event `code` values, not the full payload.
 - *The seed fixture set need not cover every REQ-ID at V18t commit.* It only needs to cover the REQ-IDs the gate is intended to protect; coverage grows monotonically as later V1.x releases add fixtures. The V18s coverage-matrix gate is independent and continues to handle REQ-ID closure.
 - *`.warp` import graphs are part of fixtures.* A fixture may be a directory containing one `.loom` and any number of imported `.warp` files; the runner discovers them via the same import resolution as production.
+- *Coverage-axis caveat.* The fixture suite is only as good as its coverage. A diagnostic code never exercised by any seed fixture is not protected by the gate; the V18s diagnostic-code-coverage gate already requires every registry code to be asserted by *some* test, but those are unit tests, not stability fixtures. The two coverage axes are independent.
 
 ## Related Findings
 
@@ -958,7 +832,6 @@ Edge cases the implementer must pin:
 
 # Source-language stability — GOV-8 cannot, by itself, deliver the V1.x equivalence promise
 
-**Source:** docs/reviews/spec-review/spec-20260506-142846.md
 **Original heading:** Source-language stability — GOV-8 discipline insufficient to guarantee behaviour equivalence
 **Kind:** assumptions
 
@@ -994,39 +867,19 @@ Two reasonable implementers reading the current bullet diverge: one trusts the p
 
 ## Solution Space
 
-**Shape:** multiple
-
-### Option A — Keep the strong promise, back it with a mechanism
-
-**Approach.** Decouple the stability promise from `GOV-8` in the spec.md bullet. State that V1.x stability is enforced by a frozen V1.0 fixture suite re-run on every release, and add the gate as a ninth V18s sub-gate. `GOV-8` continues to govern only REQ-ID hygiene.
-
-**Spec edits.**
-- Rewrite the second sentence of the *Source-language stability* bullet to: "V1.x stability is enforced by the frozen V1.0 fixture suite owned by [V18s `gov-9`](./plan_topics/v18-cancellation.md). `GOV-8`'s REQ-ID hygiene is independent: it governs how substantive edits are recorded, not whether they preserve V1.0 behaviour." Drop the "so the user-facing observable … is what `GOV-8`'s change discipline produces" clause entirely.
-- Add a new `gov-9` gate under `plan_topics/v18-cancellation.md` V18s listing: enumerate `test/fixtures/v1-stability/**/*.{loom,warp}`; for each fixture, assert (a) zero `loom/parse/*` and zero `loom/load/*` errors, (b) the post-execution top-level return value matches a checked-in JSON snapshot, and (c) the multiset of diagnostic `code` strings emitted on `loom-system-note` matches a checked-in code-list snapshot. Snapshots are immutable post-V1.0 cut; updating one is a major-version-bump action.
-- Append a coverage-matrix row mapping the spec.md bullet (as a referenced narrative anchor) to V18s.
-
-**Pros.** Stability becomes observable, regressions are caught in CI on every PR, the existing user-facing promise stands, and `GOV-8`'s scope is crisp again.
-
-**Cons.** Requires committing to a concrete equivalence definition before V1.0 cut (the "is diagnostic-code list in scope?" question this finding's `Coverage of diagnostic codes` sibling raises). Adds a non-trivial fixture-curation task to V18 closing.
-
-**Risks.** If the fixture set is too small at V1.0 cut, the gate gives false confidence; if too large, fixture maintenance crowds out work. Mitigate by requiring at least one fixture per non-narrative spec page introduced before V1.0 cut, and per top-level diagnostic code in `spec_topics/diagnostics.md`.
-
-### Option B — Weaken the promise to match the available mechanism
-
-**Approach.** Acknowledge in the bullet that `GOV-8` is a discipline, not a guarantee, and downgrade the user-facing claim from "guaranteed" to "intended."
-
-**Spec edits.**
-- Rewrite the bullet to: "We follow `GOV-8`'s REQ-ID lifecycle (split / merge / deletion-plus-add) so substantive grammar or semantics changes are visible at review. V1.x releases are *intended* to remain compatible with V1.0 source files but no automated regression gate enforces this in V1." Cross-link `governance.md#gov-8`. Move the strong "is guaranteed to load and behave identically" wording to `spec_topics/future-considerations.md` as a post-V1 goal.
-
-**Pros.** Truthful with no plan-side investment. `GOV-8`'s scope is crisp.
-
-**Cons.** Silently retracts a stated user contract. Operators making `.loom` libraries with multi-quarter lifetimes lose a pillar they may already be relying on. Tooling consumers (the binder, slash-invocation, schema cache hashes) lose a stability anchor.
-
-**Risks.** Stakeholders who read the original promise into a planning document will need to be re-aligned. The `### Source-language stability guarantee has no violation contract or regression gate` finding becomes a `wontfix` rather than a co-resolved item, which may surface as future review rework.
+**Shape:** single
 
 ### Recommendation
 
-Take Option A. The promise is already stated in user-facing prose and is load-bearing for any `.warp` library that ships across more than one V1.x release; retracting it is more disruptive than building the gate. Implementer must lock the equivalence scope in the same edit (return value plus emitted diagnostic-code list — the two observable surfaces a `.loom` exposes per `spec_topics/diagnostics.md` and `spec_topics/return.md`), and must pin the fixture corpus directory and snapshot format under `plan_topics/v18-cancellation.md` so the gate's failure surface follows the existing eight-gate contract (single-line `<source>:<context>: gov-9: <fixture> <reason>`). The V1.0 cut is the only opportunity to freeze the snapshot baseline; landing the gate later means re-deriving "what V1.0 did" from notes.
+Decouple the stability promise from `GOV-8` in the `spec.md` bullet. V1.x stability is enforced by the V1.0 conformance fixture suite owned by the new `V18t` leaf and the new `GOV-9` release obligation in `governance.md` (defined by the sibling "V1.x source-language stability promise has no executable conformance contract" finding). `GOV-8` continues to govern only REQ-ID hygiene.
+
+Spec edits:
+- Rewrite the second sentence of the *Source-language stability* bullet to: "V1.x stability is enforced by the V1.0 conformance fixture suite owned by [V18t](./plan_topics/v18-cancellation.md) and the GOV-9 release obligation in [`governance.md`](./spec_topics/governance.md). `GOV-8`'s REQ-ID hygiene is independent: it governs how substantive edits are recorded, not whether they preserve V1.0 behaviour." Drop the "so the user-facing observable … is what `GOV-8`'s change discipline produces" clause entirely.
+- Append a coverage-matrix row mapping the bullet to V18t.
+
+The corpus and runner are owned by the sibling finding (V18t leaf + GOV-9 rule + the operational equivalence definition: return value, ordered system-note codes, and diagnostic batch by code only). This finding's edit is purely the prose decoupling — it removes the misattribution that `GOV-8` produces V1.x stability and points the bullet at the mechanism that actually does.
+
+The promise is already stated in user-facing prose and is load-bearing for any `.warp` library that ships across more than one V1.x release; retracting it is more disruptive than building the gate. The V1.0 cut is the only opportunity to freeze the snapshot baseline; landing the gate later means re-deriving "what V1.0 did" from notes.
 
 ## Related Findings
 
@@ -1044,7 +897,6 @@ Take Option A. The promise is already stated in user-facing prose and is load-be
 
 # Scope subsection bullets carry no stable IDs
 
-**Source:** docs/reviews/spec-review/spec-20260506-142846.md
 **Original heading:** Four scope bullets carry no stable IDs
 **Kind:** traceability
 
@@ -1080,59 +932,30 @@ The hard-ceilings migration MUST cannot be cited by any closing-leaf row, cannot
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-### Option A — Promote `spec.md` to a normative page with prefix `SCOPE`
+### Recommendation
 
-**Approach.** Apply GOV-7 *Narrative-to-normative promotion* to `spec.md`: append a row `| spec.md | SCOPE |` to the GOV-1 prefix table. Insert `**SCOPE-N.**` markers on the four Scope bullets and on the load-bearing MUSTs in the Pi-SDK paragraph and Host-runtime preamble (these are the same surface the related Prerequisites finding flags). Replace "this bullet" in the hard-ceilings migration MUST with a concrete `SCOPE-N` reference. Append a `## Retired REQ-IDs` skeleton to `spec.md`.
+Apply GOV-7 *Narrative-to-normative promotion* to `spec.md`: append a row `| spec.md | SCOPE |` to the GOV-1 prefix table. Insert `**SCOPE-N.**` markers on the four Scope bullets and on the residual load-bearing MUSTs that *remain* in `spec.md` after the sibling findings finish their relocations. Append a `## Retired REQ-IDs` skeleton to `spec.md`.
 
-**Spec edits.**
+SCOPE-N is applied **only** to content that remains in `spec.md` after the sibling findings finish their relocations:
 
-- `spec.md`: insert `**SCOPE-N.**` anchors at the four Scope bullets and at any other normative obligation in Orientation; add `## Retired REQ-IDs` skeleton.
+- SCOPE-1..4 = the four Scope bullets (Trust boundary, Source-language stability, Runtime observability, Hard runtime ceilings).
+- The hard-ceilings bullet is split into atomic SCOPE-N entries (one per ceiling, plus the migration MUST as its own SCOPE-N) concurrent with this finding's resolution. The migration MUST's "this bullet" self-reference is replaced with the concrete SCOPE-N for the ceilings list aggregator (not the four atomic ceilings), since the MUST is about updating the aggregator when a fifth ceiling appears.
+- The Pi-SDK paragraph's seven MUSTs are **not** given SCOPE-N anchors here — they are relocated to PIC-N anchors in `pi-integration-contract.md` per the sibling "Prerequisites probe block has six MUST obligations with no IDs" finding.
+- Host runtime obligations 1–3 are **not** given SCOPE-N anchors — they are trimmed to forward-links per the sibling "Obligation 2 bundles …" finding. Their existing ordinals ("Host runtime obligation 1/2/3/4") remain as citation handles.
+
+Spec edits:
+
+- `spec.md`: insert `**SCOPE-N.**` anchors at the four Scope bullets, at the hard-ceilings sub-bullet split, and at any other normative obligation that remains in Orientation after sibling-finding relocations; add `## Retired REQ-IDs` skeleton.
 - `spec_topics/governance.md`: append `| spec.md | SCOPE |` to the prefix table.
 - `spec_topics/future-considerations.md`: retarget the two `spec.md#scope` cross-links at the SCOPE-N anchors instead of the section anchor.
 - `plan_topics/h6-req-ids.md`: remove the explicit `spec.md`-exclusion sentence and add `spec.md` to the per-page anchor loop; preserve the introduction's negative gate (zero non-prefix anchors pointing at non-narrative pages) but rewrite it so it does not assert `spec.md` itself is narrative.
 - `plan_topics/coverage-matrix.md`: add one row per SCOPE-N keyed to its closing leaf (the hard-ceilings migration MUST closes at V18s as a structural gate; the trust-boundary, source-language-stability, and runtime-observability bullets close at the topic-page leaves they forward-link to).
 
-**Pros.**
+The corpus already commits to one anchor mechanism (GOV-1 inline `**PREFIX-N.**`); promoting `spec.md` to a normative page with prefix `SCOPE` is the existing GOV-7 procedure for exactly this situation. The alternative — introducing plain HTML navigational anchors in `spec.md` while keeping it narrative — would require a GOV-1 carve-out and would not co-resolve the sibling Prerequisites-probe and hard-ceilings findings.
 
-- Uses the spec corpus's existing single mechanism uniformly; no second anchor scheme.
-- Co-resolves with "Hard-ceilings bullet bundles four independently testable items under one identifier" (split into SCOPE-N atomic IDs in the same edit) and with "Prerequisites probe block has six MUST obligations with no IDs" (those MUSTs get SCOPE-N anchors too).
-- Makes V18s's SDK-capability and ceilings closure mechanically checkable.
-
-**Cons.**
-
-- Requires editing H6 to remove its load-bearing exclusion sentence; H6's existing tests assume `spec.md` is narrative.
-- Increases spec.md's surface area as an obligation owner (which contradicts the soft convention that `spec.md` is an index).
-
-**Risks.** H6 currently asserts `spec.md` introduction has zero `./spec_topics/<page>.md#<non-prefix-anchor>` links; that gate must be preserved (the rewrite is local to the spec.md exclusion sentence, not the gate's intent).
-
-### Option B — Keep `spec.md` narrative; relocate the only load-bearing obligation
-
-**Approach.** Move the hard-ceilings migration MUST out of `spec.md` into `governance.md` as a new GOV-N (or into a new ceilings-aggregator section in an existing topic page). Reword the four Scope bullets so each is purely a forward-link to its owning topic page with no normative force. Add navigational HTML anchors (`<a id="scope-trust-boundary"></a>` etc.) on the four bullets so cross-document links from `future-considerations.md` and review tooling resolve deterministically — these anchors are NOT REQ-IDs and live outside GOV-1's permitted-alternate-contexts list (an explicit GOV-1 carve-out for `spec.md` navigational anchors is needed, or the carve-out is encoded by `spec.md` simply not being in the prefix table).
-
-**Spec edits.**
-
-- `spec.md`: rewrite the four Scope bullets to remove all "MUST" / "guaranteed" / "complete set" language; insert HTML anchors at each bullet head.
-- `spec_topics/governance.md`: append a new `GOV-N` for "ceiling enumeration co-edit obligation" (or relocate to `pi-integration-contract.md` as a `PIC-N`).
-- `spec_topics/future-considerations.md`: retarget cross-links to the new HTML anchors.
-
-**Pros.**
-
-- Preserves the H6 invariant that `spec.md` carries no REQ-IDs.
-- Cleaner separation: `spec.md` becomes pure orientation; obligations live where they are owned.
-
-**Cons.**
-
-- Two anchor mechanisms in the corpus (REQ-ID anchors elsewhere, plain HTML anchors in `spec.md`) — review tooling needs to know about both.
-- The GOV-1 "permitted alternate contexts" closed list does not list `spec.md` Scope bullets; either GOV-1 grows a fourth context or `spec.md`'s carve-out is left implicit (fragile).
-- Does not co-resolve with the Prerequisites-probe finding — those MUSTs remain unanchored, requiring a parallel relocation.
-
-**Risks.** Drift between the relocated migration MUST and its narrative summary in `spec.md` (the orientation bullet would still summarise the rule, but the binding text lives elsewhere).
-
-### Recommendation
-
-**Option A.** The corpus already commits to one anchor mechanism (GOV-1 inline `**PREFIX-N.**`); promoting `spec.md` to a normative page with prefix `SCOPE` is the existing GOV-7 procedure for exactly this situation. Option A also discharges two related findings in the same edit (the hard-ceilings split and the Prerequisites-probe MUST identifiers), which Option B cannot. Implementer notes: (i) edit `H6`'s tests in lockstep — the exclusion sentence and the introduction's negative gate must be reworked together; (ii) the hard-ceilings bullet is split into four SCOPE-N atomic IDs concurrent with this finding's resolution, not after; (iii) the migration MUST's "this bullet" pointer is replaced with the concrete SCOPE-N for the ceilings list aggregator (not the four atomic ceilings), since the MUST is about updating the aggregator when a fifth ceiling appears.
+Implementer notes: (i) edit `H6`'s tests in lockstep — the exclusion sentence and the introduction's negative gate must be reworked together; (ii) the hard-ceilings bullet split into atomic SCOPE-N IDs lands concurrent with this finding's resolution, not after; (iii) H6 currently asserts `spec.md` introduction has zero `./spec_topics/<page>.md#<non-prefix-anchor>` links; that gate must be preserved (the rewrite is local to the spec.md exclusion sentence, not the gate's intent).
 
 ## Related Findings
 
@@ -1149,7 +972,6 @@ The hard-ceilings migration MUST cannot be cited by any closing-leaf row, cannot
 
 # Host runtime obligation 2 bundles a normative member list with a duplicated probe contract under one ordinal
 
-**Source:** docs/reviews/spec-review/spec-20260506-142846.md
 **Original heading:** Obligation 2 bundles four independently testable sub-requirements under one ordinal
 **Kind:** traceability
 
@@ -1188,57 +1010,25 @@ A plan leaf or review that cites "Host runtime obligation 2" today is ambiguous 
 
 ## Solution Space
 
-**Shape:** multiple
-
-### Option A — Trim obligation 2 to the member-surface declaration; delete the duplicated probe-contract sentence
-
-**Approach.** Rewrite obligation 2 so its body is only the WHATWG-constructor-plus-named-member enumeration. Replace the `Violation is observable: …` sentence with a single forward-link: *"Detection, registration refusal, and the `details.kind = "abortsignal-shape"` discriminator are owned by [Pi Integration Contract — Extension entry point — Step 0 (Capability probe)](./spec_topics/pi-integration-contract.md#entry-capability-probe)."* Apply the same trimming to obligations 1 and 3 (their `Violation is observable: …` sentences likewise duplicate `details.kind` literals owned by Step 0). Add the `<a id="entry-capability-probe"></a>` anchor on pi-integration-contract.md Step 0 if not already present (the related finding *"`Step 0` cross-reference to `pi-integration-contract.md` is not an anchor; inconsistently named"* is co-resolved by this same anchor add).
-
-**Spec edits.**
-- `spec.md`: rewrite obligation 2 (and parallel-trim obligations 1 and 3) per above.
-- `spec_topics/pi-integration-contract.md`: add `<a id="entry-capability-probe"></a>` immediately above the `**Step 0 — Capability probe …**` line.
-
-**Pros.**
-- Eliminates duplication root cause; `details.kind` literals now have one normative source.
-- Obligation 2's single remaining claim (the member list) maps unambiguously to a single test (the H1 SDK surface-inventory test, which already covers the constructor-plus-member enumeration).
-- The Pi version-bump procedure already pivots on pi-integration-contract.md as the source of truth for probe constants — Option A aligns spec.md with that pivot.
-
-**Cons.**
-- Loses the convenience of reading obligation 2 as a self-contained "what / how-detected / what-emitted" unit. Readers who land on obligation 2 must follow the forward-link to learn the failure shape.
-- The preamble sentence *"obligations 1–3 (preconditions enforced by the host or by call-site failure)"* loses some of its in-place evidence; it now relies on the forward-linked Step 0 to back the "enforced" claim.
-
-**Risks.**
-- The forward-link must point at a stable anchor on pi-integration-contract.md; without the anchor add, the trimming creates a brittle paraphrase reference (the related finding called out by *"`Step 0` cross-reference to `pi-integration-contract.md` is not an anchor"*). Both edits must land in the same commit.
-
-### Option B — Split obligation 2 into addressable sub-IDs (`OBL-2a` member list, `OBL-2b` detection, `OBL-2c` refusal, `OBL-2d` diagnostic-kind)
-
-**Approach.** Restructure obligation 2 as a parent header plus four numbered sub-bullets, each with an explicit ID anchor. Mirror the same split for obligations 1 and 3. Update H1's surface-inventory test description to cite `OBL-2a`. Update pi-integration-contract.md's Step 0 cross-reference to spec.md to point at the parent ID (or at the four sub-IDs jointly).
-
-**Spec edits.**
-- `spec.md`: restructure obligation 2 (and 1 and 3) into parent + 4 sub-bullets with `<a id="obl-2a"></a>` … `<a id="obl-2d"></a>` anchors. Update the preamble sentence *"plan leaves and reviews MAY cite Host runtime obligation N"* to *"…obligation N or sub-ID OBL-Na/OBL-Nb/OBL-Nc/OBL-Nd"*.
-- `spec_topics/pi-integration-contract.md`: update Step 0's reference to spec.md obligation 2 to cite the four sub-IDs.
-- `plan_topics/h1-scaffold.md`: update the SDK surface-inventory test's citation from *"Host runtime obligation 2"* to *"`OBL-2a`"*.
-
-**Pros.**
-- Each sub-requirement is independently addressable; tests can cite `OBL-2c` (refusal) without implying coverage of `OBL-2d` (diagnostic kind).
-- Matches the suggested fix from the related finding *"Prerequisites probe block has six MUST obligations with no IDs"* — same ID-introduction pattern, applied uniformly.
-
-**Cons.**
-- Preserves the duplication: `OBL-2c` (refusal) and `OBL-2d` (`details.kind = "abortsignal-shape"`) restate what Step 0 already owns. A drift between `OBL-2c` / `OBL-2d` text and Step 0 text remains possible.
-- Multiplies the surface area of obligation 2 from one ordinal to five (parent + 4 children), increasing the volume of citations a future leaf must thread through.
-- The existing preamble's *"plan leaves and reviews MAY cite Host runtime obligation N"* invitation now needs a second clause for the sub-IDs.
-
-**Risks.**
-- The parallel split for obligations 1 and 3 is needed for consistency, but obligation 4 (the non-checked invariant) has no symmetric structure — leaves the obligation list visually uneven.
+**Shape:** single
 
 ### Recommendation
 
-Option A. Trim obligation 2 (and parallel-trim 1 and 3) to its unique normative payload — the WHATWG constructor and named-member enumeration — and forward-link probe behaviour to a newly-anchored `<a id="entry-capability-probe"></a>` on pi-integration-contract.md Step 0. Edge cases the implementer must watch:
+Trim Host runtime obligations 1, 2, and 3 in `spec.md` to their unique normative payload (the WHATWG-constructor-plus-named-member enumeration for obligation 2, and the analogous unique payloads for obligations 1 and 3). Replace each `Violation is observable: …` sentence with a single forward-link: *"Detection, registration refusal, and the `details.kind = "<kind>"` discriminator are owned by [Pi Integration Contract — Extension entry point — Step 0 (Capability probe)](./spec_topics/pi-integration-contract.md#entry-capability-probe)."* Add the `<a id="entry-capability-probe"></a>` anchor on `pi-integration-contract.md` Step 0 (the related "Step 0 cross-reference is not an anchor" finding is co-resolved by this same anchor add).
 
-- The Pi-version-bump procedure already lists *"the four pinned constants (Node floor, AbortSignal member list, capability list, peer-dep range) live in **one source of truth** inside the extension module"*. The trimmed obligation 2 must remain that source of truth for the member list (Step 0 only references it, does not enumerate it); preserve the seven-member enumeration verbatim.
-- The forward-link sentence must name `details.kind = "abortsignal-shape"` in passing (one sentence, not a re-statement of the probe contract) so a reader landing on obligation 2 still learns the discriminator literal without following the link.
-- Apply the same trim to obligations 1 (`details.kind = "node-floor"`) and 3 (`details.kind ∈ { "sdk-capability-missing", "peer-dep-out-of-range" }`) in the same edit; trimming only obligation 2 leaves an asymmetric three-way split where 1 and 3 still bundle and 2 does not.
+Spec edits:
+- `spec.md`: rewrite obligations 1, 2, and 3 per above. Trim only the duplicated probe-contract sentences; preserve the unique normative payload of each obligation verbatim.
+- `spec_topics/pi-integration-contract.md`: add `<a id="entry-capability-probe"></a>` immediately above the `**Step 0 — Capability probe …**` line.
+
+This eliminates the duplication root cause: `details.kind` literals now have one normative source. Obligation 2's single remaining claim (the member list) maps unambiguously to a single test (the H1 SDK surface-inventory test, which already covers the constructor-plus-member enumeration). The Pi version-bump procedure already pivots on `pi-integration-contract.md` as the source of truth for probe constants — this aligns `spec.md` with that pivot.
+
+Edge cases the implementer must watch:
+
+- The Pi-version-bump procedure already lists *"the four pinned constants (Node floor, AbortSignal member list, capability list, peer-dep range) live in **one source of truth** inside the extension module"*. The trimmed obligation 2 must remain that source of truth for the member list (Step 0 only references it, does not enumerate it); preserve the seven-member enumeration verbatim. Per the sibling "Typeof probe rule contradicts non-function members" finding, each entry now also carries a `kind` tag.
+- The forward-link sentence must name `details.kind = "abortsignal-shape"` in passing (one sentence, not a re-statement of the probe contract) so a reader landing on obligation 2 still learns the discriminator literal without following the link. Likewise for obligations 1 (`details.kind = "node-floor"`) and 3 (`details.kind ∈ { "sdk-capability-missing", "peer-dep-out-of-range", "peer-dep-malformed-version", "probe-failed" }`).
+- Apply the same trim to obligations 1 and 3 in the same edit; trimming only obligation 2 leaves an asymmetric three-way split where 1 and 3 still bundle and 2 does not.
 - Update `plan_topics/h1-scaffold.md`'s citation of *"Host runtime obligation 2"* in the SDK surface-inventory test description to point at the now-anchored member-list paragraph (e.g. via a stable `<a id="host-runtime-abortsignal-shape"></a>` on the obligation 2 line) rather than at the trimmed forward-link.
+- The forward-link must point at the stable `entry-capability-probe` anchor; both edits MUST land in the same commit so the trimming does not create a brittle paraphrase reference.
 
 ## Related Findings
 
@@ -1253,7 +1043,6 @@ Option A. Trim obligation 2 (and parallel-trim 1 and 3) to its unique normative 
 
 # Prerequisites "Pi SDK and capabilities" prose bundles seven MUSTs under no addressable IDs
 
-**Source:** docs/reviews/spec-review/spec-20260506-142846.md
 **Original heading:** Prerequisites probe block has six MUST obligations with no IDs
 **Kind:** traceability
 
@@ -1347,7 +1136,6 @@ Edge cases the implementer must watch:
 
 # Type-display reference table uses `int` / `array<int>` but the canonical primitive is `integer`
 
-**Source:** docs/reviews/spec-review/spec-20260506-142846.md
 **Original heading:** `int` / `array<int>` used in type-display table; canonical name is `integer`
 **Kind:** naming
 
@@ -1406,7 +1194,6 @@ Edge case for the implementer: the same correction must propagate to any worked 
 
 # `loom/runtime/binder-malformed-envelope` is referenced by spec prose and plan leaves but missing from the closed diagnostic registry
 
-**Source:** docs/reviews/spec-review/spec-20260506-142846.md
 **Original heading:** `loom/runtime/binder-malformed-envelope` referenced but absent from the closed diagnostic registry
 **Kind:** naming
 
@@ -1440,65 +1227,25 @@ The closed-registry rule and the code-emission rule are mutually load-bearing �
 
 ## Solution Space
 
-**Shape:** multiple
-
-### Option A — Add `loom/runtime/binder-malformed-envelope` to the registry
-
-**Approach.** Insert a new row in the `loom/runtime/*` registry table in `diagnostics.md`, between `registry-swap-failed` and `internal-error` (alphabetical placement is not enforced by the table; group near other binder/load-adjacent runtime rows). Treat malformed-envelope as a code-bearing diagnostic that is *also* surfaced as the user-facing system note from `binder.md`'s failure-modes table — the two channels coexist (the diagnostic carries the code; the system note carries the operator-facing message).
-
-**Spec edits.**
-- `diagnostics.md` — add a row:
-  - Code: `loom/runtime/binder-malformed-envelope`
-  - Sev: `E`
-  - Phase: `runtime`
-  - Trigger: `The binder returned an envelope that failed JSON-parse or envelope-`anyOf` discriminator validation on both the initial attempt and its single retry (per V16o budget rules in [Slash-Command Argument Binding — Failure-mode templates](./binder.md#failure-mode-templates-normative)).`
-  - Spec rule: link to `binder.md` failure-modes section
-  - Message template: `argument binding failed — could not parse arguments` (matches the failure-mode row, minus the `loom /<name>:` prefix which the system-note formatter contributes).
-- `binder.md` line 252 row — extend the row with a `Code` column or add an inline note that this row's system note also carries the `loom/runtime/binder-malformed-envelope` code.
-- No edits required at `binder.md` line 14 or in `v16-binder.md`.
-
-**Pros.**
-- V16o/V16e tests as written remain valid.
-- Operator tooling can filter binder-malformed failures by code rather than by message-string regex.
-- Symmetric with `loom/runtime/system-note-delivery-failed`, `subagent-dispose-failure`, etc., which are already registered runtime-event-style codes that don't fit the panic mould.
-
-**Cons.**
-- Asymmetric with the other binder failure rows (transport, AJV, ambiguous, needs_info, cancelled), which remain code-less. Either malformed-envelope is special, or the rest of the binder failure surface eventually grows codes too.
-- One more code in the closed surface to maintain.
-
-**Risks.**
-- If the spec later wants every binder failure class to be code-bearing for symmetry, this row commits to a naming pattern (`loom/runtime/binder-<class>`) that the others will have to follow.
-
-### Option B — Remove the code reference; failure is system-note-only
-
-**Approach.** Delete the `loom/runtime/binder-malformed-envelope` reference. The malformed-envelope failure is described entirely by the failure-mode template in `binder.md` line 252 — same shape as the other five binder failure rows. The strict-capability-unknown branch reduces to "runtime envelope-malformed failures surface via the failure-mode template" with no code distinguished.
-
-**Spec edits.**
-- `binder.md` line 14 — replace `runtime envelope-malformed failures surface as `loom/runtime/binder-malformed-envelope` per V16o` with `runtime envelope-malformed failures surface via the failure-mode template per V16o`.
-- `plan_topics/v16-binder.md` — V16e Adds: replace `runtime envelope-malformed failure surfaces as `loom/runtime/binder-malformed-envelope` per V16o` with `runtime envelope-malformed failure surfaces via the failure-mode template per V16o`. V16e Tests: replace `runtime envelope-malformed failure surfaces as `loom/runtime/binder-malformed-envelope` per V16o` similarly. (Plan edits are out of this finding's scope but flagged for the implementer.)
-- No edits to `diagnostics.md`.
-
-**Pros.**
-- Symmetric: every binder failure class uses the failure-mode template, none carries a code.
-- Smaller closed-registry surface.
-- No new test obligations.
-
-**Cons.**
-- Operator tooling must match on the system-note message string (subject to the failure-mode template's stability guarantee, which is normative).
-- The strict-capability-unknown branch loses its only observable downstream signal — the load-time `loom/load/binder-model-strict-capability-unknown` (W) is the only diagnostic; there is no way to tell which malformed-envelope failures originated from a non-strict model versus a strict one.
-
-**Risks.**
-- If a future Pi minor adds the strict-capability indicator and `loom/load/binder-model-not-strict-capable` (E) starts firing, the lack of a runtime-side code makes it harder to correlate load-time and runtime failures in observability dashboards.
+**Shape:** single
 
 ### Recommendation
 
-Option B. The malformed-envelope failure is shaped like the other five binder failure rows — surfacing through the user-facing failure-mode template rather than a code-bearing diagnostic — and `binder.md` already specifies its rendering normatively at line 252. Adding the code (Option A) introduces an asymmetry with the rest of the binder failure surface that would either be sustained as an oddity or force codes onto the other five rows over time.
+Remove the `loom/runtime/binder-malformed-envelope` code reference. The malformed-envelope failure is described entirely by the failure-mode template in `binder.md` line 252 — same shape as the other five binder failure rows (transport, AJV, ambiguous, needs_info, cancelled), all of which are code-less. The strict-capability-unknown branch reduces to "runtime envelope-malformed failures surface via the failure-mode template" with no code distinguished.
+
+Spec edits:
+- `binder.md` line 14 — replace `runtime envelope-malformed failures surface as `loom/runtime/binder-malformed-envelope` per V16o` with `runtime envelope-malformed failures surface via the failure-mode template per V16o`.
+- `plan_topics/v16-binder.md` — V16e Adds and Tests: drop the `loom/runtime/binder-malformed-envelope` mention; keep the `per V16o` cross-link.
+- No edits to `diagnostics.md`.
+
+The malformed-envelope failure is shaped like the other five binder failure rows — surfacing through the user-facing failure-mode template rather than a code-bearing diagnostic — and `binder.md` already specifies its rendering normatively at line 252. Adding the code would introduce an asymmetry with the rest of the binder failure surface that would either be sustained as an oddity or force codes onto the other five rows over time.
 
 Edge cases the implementer must watch:
 - `binder.md` line 14 still needs the `per V16o` cross-link so the strict-capability paragraph remains coupled to V16o's malformed-envelope handling; only the *code* token is removed, not the cross-link.
 - `binder.md` line 14 currently distinguishes the `loom/load/binder-model-not-strict-capable` (E) and `loom/load/binder-model-strict-capability-unknown` (W) load-time codes; both remain registered and are unaffected by this finding.
 - `plan_topics/v16-binder.md` carries the same code reference twice in V16e (Adds and Tests). Both must be removed in the same change.
 - The malformed-envelope retry budget (V16o owns the "retried once" rule) and the system-note template wording stay normatively identical; only the diagnostic-code claim is dropped.
+- Trade-off accepted: operator tooling must match on the system-note message string (subject to the failure-mode template's stability guarantee, which is normative). If a future Pi minor adds the strict-capability indicator and `loom/load/binder-model-not-strict-capable` (E) starts firing, the lack of a runtime-side code makes it harder to correlate load-time and runtime failures in observability dashboards — the symmetry-with-other-binder-rows benefit is judged to outweigh that risk.
 
 ## Related Findings
 
@@ -1515,7 +1262,6 @@ Edge cases the implementer must watch:
 
 # `ValidationError` conflates AJV-rejection of a model response with empty-template short-circuit
 
-**Source:** docs/reviews/spec-review/spec-20260506-142846.md
 **Original heading:** `kind: "validation"` overloaded for two semantically distinct failure causes
 **Kind:** naming
 
@@ -1563,43 +1309,26 @@ Two reasonable implementers will diverge on whether the empty-template short-cir
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-### Option A — Distinct `kind: "empty_template"` variant
+### Recommendation
 
-**Approach.** Introduce a tenth `QueryError` wire variant `EmptyTemplateError { kind: "empty_template", message: string, query_site: SourceLocation }` for the runtime short-circuit. `ValidationError` becomes the AJV-rejection variant exclusively; its rationale paragraph in `query.md` is deleted.
+Keep `kind: "validation"` as the single wire discriminator. Add a normative required field `cause: "schema_validation" | "empty_template"` to `ValidationError`. The empty-template short-circuit emits `cause: "empty_template", validation_errors: [], raw_response: null, attempts: 0`; every other path (initial AJV, respond-repair exhaustion, depth-5 violation) emits `cause: "schema_validation"`.
 
-**Spec edits.**
-- `errors-and-results.md`: add the new variant block alongside the eight existing query-time variants; update the `QueryError` union enumeration; update the pattern-grammar example.
-- `query.md`: rewrite the "Runtime short-circuit" bullet to use `kind: "empty_template"`; delete the "variant is reused" rationale and the paragraph defending `attempts: 0` on respond-repair follow-ups (the new variant carries no `attempts` field).
-- `pi-integration-contract.md`: add `empty_template` to the always-log exclusion list (it is a programming defect, not an operational event).
-- `glossary.md` / `type-system.md`: refresh the example literal.
-
-**Pros.** Clean `match` discrimination. No `attempts: 0` / `validation_errors: []` sentinel pattern. Distinguishes "model failed validation" from "loom author shipped a degenerate prompt" at the wire level.
-
-**Cons.** Tenth variant in a union the spec already calls "closed for V1" in its conformance tests. Touches every leaf that enumerates the union (V5g, V18q always-log set, V18q test (b) "four excluded kinds").
-
-**Risks.** A future user-defined-error-type extension already wants the `kind` type-openness seam (`errors-and-results.md` "Discriminator type-openness"); landing a new V1 wire variant first is on-trend, but each new variant adds a closed-set assertion that V1 conformance tests must enumerate.
-
-### Option B — Add `cause: "schema_validation" | "empty_template"` to `ValidationError`
-
-**Approach.** Keep `kind: "validation"` as the single discriminator. Add a normative required field `cause: "schema_validation" | "empty_template"` to `ValidationError`. The empty-template short-circuit emits `cause: "empty_template", validation_errors: [], raw_response: null, attempts: 0`; every other path (initial AJV, respond-repair exhaustion, depth-5 violation) emits `cause: "schema_validation"`.
-
-**Spec edits.**
-- `errors-and-results.md`: add `cause` to the `ValidationError` schema with the two-arm enum and a one-line gloss on each arm. Note that untyped queries can only produce `cause: "empty_template"`.
+Spec edits:
+- `errors-and-results.md`: add `cause` to the `ValidationError` schema with the two-arm enum and a one-line gloss on each arm. Mark `cause` as **required** so older AJV-only emit paths don't accidentally omit it. Note that untyped queries can only produce `cause: "empty_template"`. Update the pattern-grammar example.
 - `query.md`: replace the "variant is reused" paragraph with one sentence stating the empty-template short-circuit emits `cause: "empty_template"`. Update the respond-repair exhaustion text to specify `cause: "schema_validation"`.
 - `schema-subset.md`: clarify that depth violations carry `cause: "schema_validation"`.
 - `glossary.md`: update the `respond_repair` entry to mention `cause: "schema_validation"` exhaustion.
 
-**Pros.** Consistent with existing variants that already carry sub-discriminators (`CodeToolError.cause`, `InvokeInfraError.reason`). Wire union stays at nine variants. Always-log set composition unchanged. V5g / V18q tests need only field-level updates.
+The two-tier `kind` + `cause` shape already exists in the spec for `CodeToolError` (four causes) and `InvokeInfraError` (five reasons); extending it to `ValidationError` is a one-field, one-enum-row change that costs no plan-leaf re-shuffling. The wire variant set stays closed at nine, the always-log set keeps a single uniform "exclude `validation`" rule, and the structural sentinel pattern (`validation_errors: []` + `raw_response: null`) becomes a redundant tell rather than the load-bearing discriminator.
 
-**Cons.** Authors who want to handle the cases differently must destructure two fields. The discriminator-vs-field convention in the loom surface is now: "match on `kind` for the broad class, then on `cause`/`reason` for the subclass."
+Edge cases the implementer must watch:
 
-**Risks.** Authors who write `match err { ValidationError { … } => log_and_retry(); … }` and ignore the `cause` will silently misbehave on `cause: "empty_template"` exactly the same way they would today. The fix is observability, not behavioural.
-
-### Recommendation
-
-Take **Option B**. The two-tier `kind` + `cause` shape already exists in the spec for `CodeToolError` (four causes) and `InvokeInfraError` (five reasons); extending it to `ValidationError` is a one-field, one-enum-row change that costs no plan-leaf re-shuffling. The wire variant set stays closed at nine, the always-log set keeps a single uniform "exclude `validation`" rule, and the structural sentinel pattern (`validation_errors: []` + `raw_response: null`) becomes a redundant tell rather than the load-bearing discriminator. Edge cases the implementer must watch: (a) `errors-and-results.md` must mark `cause` as required so older AJV-only emit paths don't accidentally omit it; (b) the V11i depth-walk path must set `cause: "schema_validation"` even though it short-circuits before AJV; (c) V13j's "non-validation failures during a follow-up do not consume an `attempts` slot" rule must be re-stated as "non-`schema_validation` causes do not consume an `attempts` slot" so that an empty-template short-circuit on a follow-up (defensive case the spec already covers) remains non-counting.
+- The V11i depth-walk path must set `cause: "schema_validation"` even though it short-circuits before AJV.
+- V13j's "non-validation failures during a follow-up do not consume an `attempts` slot" rule must be re-stated as "non-`schema_validation` causes do not consume an `attempts` slot" so that an empty-template short-circuit on a follow-up (defensive case the spec already covers) remains non-counting.
+- V18q's always-log exclusion test continues to exclude `kind: "validation"` (both causes).
+- Trade-off accepted: authors who write `match err { ValidationError { … } => log_and_retry(); … }` and ignore the `cause` will silently misbehave on `cause: "empty_template"` exactly the same way they would today. The fix is observability, not behavioural — authors who want to handle the cases differently destructure both fields, consistent with the established `CodeToolError.cause` / `InvokeInfraError.reason` pattern.
 
 ## Related Findings
 
@@ -1616,7 +1345,6 @@ Take **Option B**. The two-tier `kind` + `cause` shape already exists in the spe
 
 # Placeholder rendering rules cover only a fraction of the registry's placeholders
 
-**Source:** docs/reviews/spec-review/spec-20260506-142846.md
 **Original heading:** Diagnostic placeholder categories incomplete — many placeholders have no rendering rule
 **Kind:** testability
 
@@ -1724,7 +1452,6 @@ Implementer-relevant edge cases:
 
 # Provider error/seed-field mapping re-validation has no acceptance criterion
 
-**Source:** docs/reviews/spec-review/spec-20260506-142846.md
 **Original heading:** Provider error/seed-field mapping re-validation has no acceptance criterion
 **Kind:** testability
 
