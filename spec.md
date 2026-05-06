@@ -101,7 +101,7 @@ Implementer-facing notes about the runtime and Pi SDK contract.
 
 **GOV-2.** Once H6 lands, the plan's coverage matrix in [`plan_topics/coverage-matrix.md`](./plan_topics/coverage-matrix.md) is keyed per REQ-ID, mapping each ID to its closing leaf, and the [V18s coverage-matrix closing gate](./plan_topics/v18-cancellation.md#v18s-coverage-matrix-closing-ci-gate) treats any unmapped REQ-ID as a CI failure. Until H6 closes, the spec-side REQ-ID set is empty, the matrix is section-keyed scaffolding, and the V18s diff is vacuously satisfied.
 
-**GOV-3.** The REQ-ID extraction regex is `\b[A-Z]{3,4}-[0-9]+\b`, applied to non-narrative `spec_topics/*.md` files. Pure-narrative pages (`overview.md`, `glossary.md`, `influences.md`, `comparison.md`, `related-work.md`, `future-considerations.md`) are excluded from extraction. IDs are immutable: when a rule is split, the original ID retires and two new IDs appear; numbering never collapses to fill holes.
+**GOV-3.** The REQ-ID extraction regex is `\b[A-Z]{3,4}-[0-9]+\b`, applied to non-narrative `spec_topics/*.md` files. Pure-narrative pages (`overview.md`, `glossary.md`, `influences.md`, `comparison.md`, `related-work.md`, `future-considerations.md`, `pi-integration.md`) are excluded from extraction. IDs are immutable: when a rule is split, the original ID retires and two new IDs appear; numbering never collapses to fill holes.
 
 | Page | Prefix |
 |---|---|
@@ -129,7 +129,7 @@ Implementer-facing notes about the runtime and Pi SDK contract.
 | `runtime-value-model.md` | `RVM` |
 | `pi-integration-contract.md` | `PIC` |
 | `implementation-notes.md` | `IMPL` |
-| `pi-integration.md` | `PIE` |
+| `pi-integration.md` | (no IDs — narrative) |
 | `grammar.md` | `GRAM` |
 | `glossary.md` | (no IDs — narrative) |
 | `overview.md` | (no IDs — narrative) |
@@ -154,6 +154,7 @@ The `GOV` row covers the governance rules in this appendix; per GOV-3, the extra
 - **Delete.** The row is moved from the live table to the Retired prefixes sub-table. The prefix MUST NOT be reused.
 - **Merge.** The surviving page keeps its prefix; the absorbed page's prefix is moved to the Retired prefixes sub-table.
 - **Narrative-to-normative promotion.** Replace the `(no IDs — narrative)` cell with a freshly allocated prefix in the same edit that introduces the first obligation.
+- **Normative-to-narrative demotion.** When a page that previously owned a prefix becomes pure narrative (every claim it carried is canonically owned elsewhere): (a) move its prefix from the live table to the *Retired prefixes* sub-table per GOV-7 *Delete*; (b) append a new live table row for the page carrying `(no IDs — narrative)`; (c) add the page to the GOV-3 narrative exclusion list. Re-promotion later (per *Narrative-to-normative promotion* above) requires a *fresh* prefix — the original is retired and immutable per GOV-4 / GOV-5, and the *Retired prefixes* sub-table is itself append-only.
 
 **GOV-8 (REQ-ID lifecycle).**
 
@@ -173,5 +174,6 @@ All retirements (per GOV-7 *Delete* / *Merge* and per GOV-8 *Split* / *Merge* / 
 |---|---|---|
 | `BIND` | `binder.md` (transitional, post-`BIND` / `BNDG` split) | `7851d7c` |
 | `BNDG` | `bindings.md` (transitional, post-`BIND` / `BNDG` split) | `7851d7c` |
+| `PIE` | `pi-integration.md` (demoted to narrative) | `<demotion commit>` |
 
 The Retired prefixes sub-table is itself append-only — a retired prefix cannot be un-retired or reassigned. The `Retired in` column carries the commit SHA (or release tag) of the retiring change. A fourth `Reason` column MAY be added without breaking the GOV-6 gate.

@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-06T06:31:26Z_
 _Source: docs/reviews/spec-review/spec-20260506-064723.md_
-_39 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
+_38 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
 
 _Severity: 27 correctness · 17 advisory · 12 cosmetic · 0 blocking_
 _Shape: 56 single · 0 multiple · 0 unresolved_
@@ -2852,86 +2852,3 @@ Edge case the implementer must watch: a rename observed as `removed` of path P f
 - ""Consumers MUST deduplicate" — obligation on undefined party" — same-cluster (adjacent on the same channel, but about RuntimeEvent dedup rather than structural-note suppression).
 
 ---
-
-## spec_topics/pi-integration.md
-
----
-
-# `PIE` prefix allocated to a page that owns no rules
-
-**Source:** docs/reviews/spec-review/spec-20260506-064723.md
-**Original heading:** `PIE` prefix allocated but page is pure-narrative pointer content
-**Kind:** cross-spec-consistency-broad
-
-## Finding
-
-`spec.md`'s GOV-3 prefix table assigns the `PIE` prefix to `spec_topics/pi-integration.md`, marking it as a non-narrative page that H6 must annotate with REQ-IDs. But `pi-integration.md`'s body is four summary bullets plus a sub-topic link list, and every claim in those bullets is owned canonically by another page:
-
-- Slash-command discovery of `.loom`, exclusion of `.warp`, the four discovery channels — `discovery.md`.
-- `argument-hint` not surfaced in Pi's autocomplete UI — `slash-invocation.md`, `frontmatter.md`, and `future-considerations.md` (with the advisory diagnostic in `diagnostics.md`).
-- File-watcher mechanism (in-process re-parse + atomic registry swap, no `ctx.reload()` for content edits, one-line system note for add/remove) — `pi-integration-contract.md`.
-- Parse-time diagnostic surfacing — `schema-subset.md` and `diagnostics.md`.
-- Runtime AJV validation surfacing — `query.md`, `errors-and-results.md`, and `diagnostics.md`.
-
-H6 will hit a contradiction. Its own gate (`plan_topics/h6-req-ids.md`) requires every non-narrative page to carry at least one inline `**PREFIX-N.**` marker matching its prefix, computed from the live prefix table itself. With no rule that `pi-integration.md` solely owns, H6 must either (a) fabricate `PIE-N` anchors that duplicate obligations canonically asserted on other pages — creating dual-source-of-truth for those rules and forcing lockstep edits across pages — or (b) skip the page and fail its own ≥ 1 gate. Neither outcome is acceptable.
-
-The page is genuinely valuable as an integration overview / table-of-contents, but its REQ-ID status in the prefix table does not match its actual content shape.
-
-## Spec Documents
-
-- `spec.md` — Appendix → GOV-3 prefix table, GOV-7 mutation procedures, *Retired prefixes* sub-table (edited)
-- `spec_topics/pi-integration.md` — entire page (option-dependent)
-- `spec_topics/discovery.md` — read-only
-- `spec_topics/slash-invocation.md` — read-only
-- `spec_topics/pi-integration-contract.md` — read-only
-- `spec_topics/frontmatter.md` — read-only
-- `spec_topics/diagnostics.md` — read-only
-- `spec_topics/imports.md` — read-only
-- `plan_topics/h6-req-ids.md` — read-only (consumes the prefix table)
-- `plan_topics/v18-cancellation.md` — read-only (V18s gate consumes the table)
-- `plan_topics/coverage-matrix.md` — read-only (carries a `pi-integration.md` row)
-
-## Plan Impact
-
-**Phases:** Horizontal
-
-**Leaves (implementation order):**
-
-- H6 — REQ-ID anchor insertion and coverage-matrix re-pivot — (modified)
-- V18s — Coverage-matrix closing CI gate — (modified)
-
-V18s only needs revisiting if Option 2 is chosen (a new live `PIE-1` row would need to remain mapped); under Option 1 the V18s gates are robust to the change because GOV-6 only requires that prefixes appearing in `spec_topics/*.md` be a subset of (live ∪ retired), and a retired-or-narrative `PIE` satisfies that vacuously.
-
-## Consequence
-
-**Severity:** correctness
-
-H6 cannot satisfy its "every non-narrative page carries ≥ 1 REQ-ID" gate against `pi-integration.md` without fabricating anchors that duplicate obligations owned elsewhere. Two reasonable implementers will diverge — one silently elides the gate for this page, the other manufactures duplicate `PIE-N` anchors that thereafter require lockstep edits with the canonical owners. Either outcome corrupts the GOV-1 / GOV-3 / GOV-6 invariant chain that H6 exists to establish.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Demote `pi-integration.md` to a pure-narrative integration index (same footing as `overview.md` and `glossary.md`), retire the `PIE` prefix, and extend GOV-7 with a *Normative-to-narrative demotion* procedure to cover this case symmetrically with the existing *Narrative-to-normative promotion*.
-
-**Spec edits.**
-
-- In `spec_topics/governance.md` prefix table, locate the existing `| pi-integration.md | PIE |` row and remove it; append a new live row `| pi-integration.md | (no IDs — narrative) |`. Move `PIE` to the *Retired prefixes* sub-table with `Formerly = pi-integration.md (demoted to narrative)` and `Retired in = <demotion commit SHA>`.
-- Add a new GOV-7 procedure — *Normative-to-narrative demotion* — directly below the existing *Narrative-to-normative promotion* clause. The procedure: (a) move the page's prefix from the live table to the *Retired prefixes* sub-table per GOV-7 *Delete*; (b) append a new live table row carrying `(no IDs — narrative)`; (c) note that re-promotion (per GOV-7 *Narrative-to-normative promotion*) requires a fresh prefix because the original is now retired and immutable.
-- In `spec_topics/pi-integration.md`, no content edit is required — the page already reads as a narrative index. (Optionally trim or polish, but no normative changes.)
-
-**Plan edits.**
-
-- Update `plan_topics/h6-req-ids.md` `**Spec.**` field to drop the `pi-integration.md` reference (since H6 no longer visits it for anchor insertion).
-
-Edge case for the implementer: a future contributor may re-promote the page (per GOV-7 *Narrative-to-normative promotion*) and discover they cannot reuse `PIE` because GOV-4 / GOV-5 immutability forbids it. State this consequence one-line in the new *Normative-to-narrative demotion* procedure so it is not surprising.
-
-## Related Findings
-
-- "GOV-3 narrative exclusion list out of sync with GOV-7 promotion" — same-cluster (both expose the same GOV-3 / GOV-7 synchronisation gap; this finding's Option A motivates a symmetric *demotion* procedure that complements that finding's *promotion* fix)
-- "SDK capability list duplicates `pi-integration-contract.md`" — same-cluster (both flag duplicated normative content that should reduce to a cross-reference into `pi-integration-contract.md`)
-- "GOV-4 'append-only / immutable' contradicts GOV-7 Delete / Merge / Rename" — decision-dependency (Option A executes a GOV-7 *Delete* that finding flags as contradicting GOV-4; whichever resolution that finding adopts must accommodate this case)
-
-
