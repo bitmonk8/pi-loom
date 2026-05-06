@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-06T06:31:26Z_
 _Source: docs/reviews/spec-review/spec-20260506-064723.md_
-_11 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
+_10 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
 
 _Severity: 27 correctness · 17 advisory · 12 cosmetic · 0 blocking_
 _Shape: 56 single · 0 multiple · 0 unresolved_
@@ -663,93 +663,6 @@ Edge cases the implementer must watch:
 - "`ExtensionContext` forwarded member list: no signatures or behavioural contracts" — same-cluster (both want behavioural contracts on Pi-borrowed members; `waitForIdle` belongs in the same forthcoming behavioural-contract pass)
 - "`session.sendUserMessage(text)` does not exist on `AgentSession`" — same-cluster (parallel SDK-surface accuracy concern on the subagent-mode side; resolves independently)
 - "Pi SDK symbols treated as verified facts without a verification mechanism" — decision-dependency (the pinned Pi version named there is what fixes the field name `session.errorMessage` vs. any future rename in this finding's recommendation)
-
----
-
-# Pi SDK capability calls have no failure contract
-
-**Source:** docs/reviews/spec-review/spec-20260506-064723.md
-**Original heading:** SDK capability call failure modes not specified
-**Kind:** error-model
-
-## Finding
-
-`pi-integration-contract.md` enumerates the seven Pi SDK capabilities loom consumes (`pi.registerCommand`, `pi.registerMessageRenderer`, `pi.registerTool`, `pi.setActiveTools`, `pi.sendUserMessage`, `pi.sendMessage`, `createAgentSession`), but only three of them have a documented failure protocol: `pi.sendMessage` (best-effort fallback chain → `loom/runtime/system-note-delivery-failed`), `pi.registerTool` (collision → `loom/runtime/registration-cache-collision`), and `AgentSession.dispose()` (→ `loom/runtime/subagent-dispose-failure`). The remaining four are described entirely on the happy path. `loom/runtime/internal-error` is registered as a catch-all for "an unanticipated SDK reject", but its routing channels (slash-command system note, `Err(InvokeInfraError)` to an `invoke` parent) only make sense inside a loom invocation; it is silent on extension-load-time failures, and it does not address the security-adjacent restore case below.
-
-The four uncovered capabilities split cleanly by surface:
-
-1. **Extension-load-time SDK throws** — `pi.registerCommand` (called from the `session_start` handler per the **Extension entry point** rule), `pi.registerMessageRenderer` (called synchronously inside the factory, *before* any discovery side effect, per H4's ordering probe), and the factory-time / handler-registration calls themselves. There is no loom invocation in scope, so the runtime-event channel does not apply; the spec does not say whether a throw at these sites disables the affected loom, disables the whole extension, or escapes uncaught into Pi.
-2. **Runtime SDK throws / rejections** — `pi.sendUserMessage` rejecting in the prompt-mode driver, `createAgentSession` throwing or returning a handle that is not disposable, the `tool.execute` / model-driven query path raising outside the documented `QueryError` table. The contract does not say whether these route through `loom/runtime/internal-error`, through `kind: "transport"` (which is the natural shape for `sendUserMessage` since it is a transport call), or through some new code.
-3. **`pi.setActiveTools` restore failure inside the prompt-mode `finally`** — the highest-risk case. The spec asserts that the snapshot/restore "preserve[s] the invariant" through cancellation, panic, and provider exceptions, but says nothing about the restore call itself rejecting. Tool gating is a security-adjacent invariant: if `pi.setActiveTools(snapshot)` throws inside the `finally` block, the user's bare Pi session is left with the loom's callable set live for the remainder of the session, including any synthesised respond tool. Silent leak is unacceptable; `loom/runtime/internal-error` does not name a remediation.
-
-The gap is concentrated in `pi-integration-contract.md`'s **Extension entry point**, **Tool-registration lifetime and visibility** (active-set restore), **Conversation drive — prompt mode** (`sendUserMessage`), and **Conversation drive — subagent mode** (`createAgentSession`); the diagnostic-code consequences land in `diagnostics.md`.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — Extension entry point (edited)
-- `spec_topics/pi-integration-contract.md` — Tool-registration lifetime and visibility (edited)
-- `spec_topics/pi-integration-contract.md` — Conversation drive — prompt mode (edited)
-- `spec_topics/pi-integration-contract.md` — Conversation drive — subagent mode (edited)
-- `spec_topics/pi-integration-contract.md` — System notes (read-only — sets the existing fallback-chain template the new rules mirror)
-- `spec_topics/diagnostics.md` — `loom/load/*` table (edited — adds extension-load-time SDK-failure code)
-- `spec_topics/diagnostics.md` — `loom/runtime/*` table (edited — adds active-set restore-failure code; clarifies `internal-error` coverage of runtime SDK rejects)
-- `spec_topics/errors-and-results.md` — Runtime panics (read-only — `internal-error` routing already lives here)
-
-## Plan Impact
-
-**Phases:** Horizontal, Vertical V5, Vertical V6, Vertical V12, Vertical V14, Vertical V15, Vertical V18
-
-**Leaves (implementation order):**
-
-- H4 — Pi extension shell — both (the factory-time `pi.registerMessageRenderer` call, the `session_start`-time `pi.registerCommand` call, and the `withActiveTools` helper all live here; restore-failure handling is added to `withActiveTools`)
-- V5e — Prompt-mode driver `pi.sendUserMessage` — modified (adds rejection-routing rule)
-- V6l — Two-phase typed-query driver — modified (uses `withActiveTools` around the typed-query exchange; inherits restore-failure handling from H4)
-- V12a — `mode: subagent` accepted; `AgentSession` spawn — modified (`createAgentSession` throw / non-disposable-handle routing)
-- V14e — Pi tool wired into `@` queries as model-callable — modified (uses `withActiveTools` snapshot/restore; inherits restore-failure handling from H4)
-- V15j — Prompt → prompt cross-mode invoke — modified (the cross-mode `setActiveTools` snapshot/restore pattern in `v15-invoke.md` consumes the same restore-failure rule)
-- V18m — Panic routing: slash-command surface — modified (the new `loom/runtime/active-set-restore-failed` and `loom/load/extension-bootstrap-failed` codes need their own routing assertions parallel to the existing `internal-error` and `system-note-delivery-failed` cases)
-
-## Consequence
-
-**Severity:** correctness
-
-Implementers without an explicit contract will pick different defaults: one will let `pi.registerCommand` throw out of `session_start` (crashing every other extension's command registration), another will swallow it. Most damaging, the unspecified `pi.setActiveTools` restore-failure path is a silent privilege leak — a loom that exposes `bash` or `edit` to its model leaves those tools live in the user's bare session if restore rejects. The leak is invisible to the user and to the runtime's diagnostic channel.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add three rules to `pi-integration-contract.md` and two diagnostic codes to `diagnostics.md`:
-
-1. **Extension-bootstrap SDK failures.** Add to **Extension entry point**: any throw or rejection from `pi.registerMessageRenderer`, `pi.registerCommand` (factory-time *or* `session_start`-time), or `pi.registerFlag` is fatal at the granularity of the failing surface. A `pi.registerMessageRenderer` failure disables the renderer registration but the extension factory still completes (system notes degrade to `ctx.ui.notify` permanently for that extension instance via the existing fallback chain — which is already specified). A `pi.registerCommand` failure for one loom drops only that loom and emits `loom/load/extension-bootstrap-failed` (E, load) naming the failing capability, the loom slash name (where applicable), and the underlying error message; surviving looms still register. A `pi.registerFlag` failure is fatal to the whole extension because subsequent discovery depends on `pi.getFlag`. The new code is registered in `diagnostics.md`'s `loom/load/*` table with cross-reference to **Extension entry point**.
-
-2. **Runtime SDK call failures (non-restore).** Add to **Conversation drive — prompt mode**: a thrown or rejected `pi.sendUserMessage` is mapped to `Err(QueryError { kind: "transport", message: <error.message>, http_status: null, provider: <resolved-model-provider>, retryable: false })` — the `transport` kind is the natural shape because `sendUserMessage` *is* the transport call, and this routes through the existing always-log channel without inventing a new variant. Add to **Conversation drive — subagent mode**: a thrown or rejected `createAgentSession`, or a returned handle whose `dispose` member is not a function, is treated as an unanticipated SDK reject and routed through the existing `loom/runtime/internal-error` code with the trigger condition broadened from "an unanticipated SDK reject" to explicitly enumerate `createAgentSession`. The rule is "spec it twice rather than open-coding it later": the `internal-error` description in `diagnostics.md` gains an explicit example listing `createAgentSession`, and **Conversation drive — subagent mode** gains a one-line cross-reference.
-
-3. **`pi.setActiveTools` restore failure.** Add a new normative paragraph to **Tool-registration lifetime and visibility** immediately after the four-step `try`/`finally` snapshot-restore protocol:
-
-   > If the restoring `pi.setActiveTools(snapshot)` call inside the `finally` block throws or rejects, the runtime MUST (a) re-attempt the restore exactly once with the same snapshot (covering transient failures); (b) on a second failure, emit `loom/runtime/active-set-restore-failed` (E, runtime) with `message` carrying the underlying error and `hint` listing the snapshot tool names so an operator can manually restore via Pi's `/tools` interface; (c) emit a `display: true` `loom-system-note` with the verbatim template `loom: failed to restore tool active-set after /<name>; the user session may have unexpected tools active. Run /reload to reset.`; and (d) propagate the original exception (or terminal `Err`) that the `finally` was protecting — restore failure does not mask the inner error. The new code MUST NOT chain back into `pi.setActiveTools`. Subagent-mode invocations are unaffected (the subagent's tools are scoped to the spawned `AgentSession` and released by `dispose`); the rule applies only to the prompt-mode and cross-mode `invoke` snapshot/restore paths.
-
-   The new code is registered in `diagnostics.md`'s `loom/runtime/*` table with cross-reference to **Tool-registration lifetime and visibility**.
-
-Implementer edge cases:
-
-- The `withActiveTools` helper in H4 is the one place restore-failure handling lives; V6l, V14e, and V15j all reach the rule by calling that helper. Do not duplicate the protocol per call site.
-- For `pi.sendUserMessage`-as-transport mapping, ensure `provider` is populated from the loom's resolved `model:` rather than left `null`; the `RuntimeEvent` always-log emission depends on it.
-- The `loom/load/extension-bootstrap-failed` code's severity is `E` and is NOT routed through `loom-system-note` (the renderer may itself have failed); it routes through the existing diagnostic channel that `loom/parse/*` and `loom/load/*` use, which falls back to `console.error` if the renderer is dead.
-- `loom/runtime/active-set-restore-failed` MUST be added to the always-log set in **Runtime event channel** if and only if the spec wants operators paged on it — recommended, since it is security-adjacent. Add the row alongside `transport`, `model_tool`, etc.
-
-## Related Findings
-
-- "Peer-dep mismatch failure mode unspecified" — same-cluster (different lifecycle stage — install vs. SDK call — but both are SDK-boundary error-model gaps; resolve under the same authoring pass).
-- "Runtime version / capability mismatch: no failure contract" — same-cluster (parallel gap for runtime/capability surfaces).
-- "`pi.setActiveTools` single-threaded coordination assumption unverified" — co-resolve (touches the exact same snapshot/restore protocol; the restore-failure paragraph and the coordination-assumption clarification belong in one edit).
-- "`pi.registerMessageRenderer` registration timing and race" — co-resolve (renderer-registration timing and renderer-registration failure are adjacent paragraphs in **Extension entry point**).
-- "`pi.registerMessageRenderer` signature not given" — same-cluster (signature gap and failure-mode gap on the same capability).
-- "`pi.sendMessage` returns `void`, not `Promise<void>`" — decision-dependency (if `pi.sendMessage` cannot reject — only throw — the **System notes** fallback chain wording must be reconciled before the `pi.sendUserMessage` rejection rule above is finalised, because `sendUserMessage` may have the same return-type nuance).
-- "Hot-reload `ctx.reload()` pre-teardown contract missing" — same-cluster (another lifecycle SDK-boundary gap).
-- "Observability contract for three terminal failure modes unstated" — same-cluster (the always-log-set membership for the new `active-set-restore-failed` code lives at the same surface).
 
 ---
 
