@@ -74,7 +74,7 @@ How loom integrates with the Pi runtime.
 - [Slash-Command Invocation](./spec_topics/slash-invocation.md) — prompt-mode `Err` formatting, no-params overflow, call-chain note.
 - [Slash-Command Argument Binding](./spec_topics/binder.md) — LLM-driven binder: model, context, envelope, defaulting, echo, failure modes.
 - [Cancellation](./spec_topics/cancellation.md) — `AbortSignal` rules.
-- [Diagnostics](./spec_topics/diagnostics.md) — diagnostic shape, code-registry rules, normative code registry, multi-error reporting.
+- [Diagnostics](./spec_topics/diagnostics.md) — diagnostic shape, code-registry rules, placeholder rendering, normative code registry, multi-error reporting.
 
 ---
 

@@ -60,6 +60,133 @@ Three rules govern the diagnostic-code surface:
 
 Naming convention for codes is `<namespace>/<kebab-case-rule-name>`. The rule-name component derives from the spec rule's short name; it is not generated, so the registry below is the source of truth.
 
+## Placeholder rendering (normative)
+
+The registry's *Message* column carries `<…>` placeholders that the renderer interpolates at the diagnostic site (rule 4 above). This subsection groups every placeholder used by V1 messages into six categories and fixes one rendering rule per category, so two conformant implementations produce byte-identical strings for the same source defect. Each rule below carries normative test vectors; conformance tests asserting on a rendered message MUST match these vectors and SHOULD include the boundary cases called out in *Edge cases* at the end of this subsection.
+
+The category-to-placeholder map is closed: introducing a new placeholder, retiring one, or moving a placeholder between categories is a spec-versioned breaking change governed by **GOV-7** and **GOV-8** in [`spec.md` — Governance](../spec.md), exactly as the registry rows themselves are. The closed token-name table in category 3 below carries the same governance posture.
+
+### 1. Static-type placeholders
+
+**Placeholders.** `<type>`, `<expected>`, `<actual>`, `<left>`, `<right>`, `<element>`.
+
+**Rule.** Render the Loom static type by re-serialising it in the source-grammar form defined in [Type System](./type-system.md):
+
+- Primitive type names lowercase: `string`, `integer`, `number`, `boolean`, `null`.
+- Literal types as their literal source: `"foo"`, `42`, `true`.
+- Unions joined by ` | ` (space-pipe-space) with no surrounding parentheses.
+- Arrays as `array<T>` (the angle-bracket form; never `T[]`, never `[T]`).
+- Named schemas, enums, and type aliases by their loom-side identifier (no wire-name translation; the identifier shape is fixed by [Lexical — Identifiers](./lexical.md)).
+- `Result<T, E>` rendered as written, with the inner types recursing this rule.
+- Inline anonymous object types as `{ f₁: T₁, f₂: T₂ }`, fields in declaration order, single space after each `:` and after each `,`.
+
+**Test vectors.**
+
+- A binding typed `array<integer | string>` renders as `array<integer | string>`.
+- A binding typed `Foo | null` renders as `Foo | null`.
+
+### 2. Runtime-value placeholders
+
+**Placeholders.** `<scrutinee summary>`, `<value>`.
+
+**Rule.** Render via the canonical interpolation-stringification table in [Query — Stringification of interpolated values](./query.md), with one extension and one supplementary case:
+
+- **String truncation.** A string whose length exceeds 80 Unicode code points is truncated to the first 77 code points followed by the literal three-character ellipsis `...`. The 80-code-point cap, the 77-code-point prefix, and the literal ellipsis are normative; counting is by Unicode code point, not by UTF-16 code unit and not by grapheme cluster.
+- **`Result<T, E>` values.** A scrutinee whose static type is `Result<T, E>` (the case the query-stringification table reserves for a static parse error) renders as `Ok(<inner>)` or `Err(<inner>)`, with `<inner>` recursing this rule. Panics may legitimately fire on `Result` values (e.g. a `match` whose arms collectively miss an `Err` variant), so this case is reachable here even though it is unreachable in interpolated query templates.
+
+**Test vectors.**
+
+- A `match` panic on a scrutinee `Cat { name: "fluffy" }` renders `MatchError: no arm matched Cat { name: "fluffy" }`.
+- A `match` panic on the integer `42` renders `MatchError: no arm matched 42`.
+- A `match` panic on a 100-character ASCII string `s` renders `MatchError: no arm matched ` followed by the first 77 code points of `s` followed by the literal `...` (a single trailing three-character ellipsis, no surrounding quotes — the `string` row of the stringification table renders strings verbatim without quoting).
+
+### 3. Syntactic-construct placeholder
+
+**Placeholders.** `<construct>` in `loom/parse/unsupported-feature`; `<expr>` in `loom/parse/default-not-literal` and `loom/parse/tool-arg-not-literal`.
+
+**Rule.**
+
+- For `<expr>` in the two literal-sublanguage codes, render the offending source span verbatim, copied byte-for-byte from the source file between the offending sub-expression's start and end token positions (post-newline-normalisation per [Lexical — Encoding](./lexical.md)), with internal whitespace preserved.
+- For `<construct>` in `loom/parse/unsupported-feature`, the offending site is a whole node category with no single source-span anchor (e.g. `=>` lambdas span the entire arrow form, including the body). Use the closed token-name table below.
+
+| Construct | Token name |
+|---|---|
+| arrow function (`=>`) | `arrow function` |
+| spread / rest (`...`) | `spread` |
+| optional chaining (`?.`) | `optional chaining` |
+| nullish coalescing (`??`) | `nullish coalescing` |
+| strict equality (`===` / `!==`) | `strict equality` |
+| bitwise op (`&`, `\|`, `^`, `~`, `<<`, `>>`, `>>>`) | `bitwise <op>` (where `<op>` is the source token verbatim) |
+| comma operator (expression-position `,`) | `comma operator` |
+| nested template literal | `nested template` |
+| `new` expression | `new` |
+| `typeof` operator | `typeof` |
+| `instanceof` operator | `instanceof` |
+| `delete` operator | `delete` |
+| `void` operator | `void` |
+| `yield` expression | `yield` |
+| `await` expression | `await` |
+
+**Test vectors.**
+
+- A loom containing `let f = (x) => x + 1` renders `unsupported syntactic feature: arrow function`.
+- A `params:` default whose RHS is `a + b` renders `params default RHS must be a literal-sublanguage form; offending sub-expression: a + b`.
+
+### 4. Numeric placeholders
+
+**Placeholders.** `<i>`, `<length>`, `<depth>`, `<offset>`, `<count>`, `<index>`, `<required>`, `<provided>`, `<max>`.
+
+**Rule.** Render as the shortest decimal representation per the `integer` row of the canonical stringification table in [Query — Stringification of interpolated values](./query.md): no scientific notation, no leading zeros, leading `-` for negatives, `0` for the value `-0` (signed zero is normalised at the rendering boundary). `Infinity` and `NaN` are unreachable for these placeholders by construction (every emitting site is bounded — array length is non-negative, invoke depth is bounded by 32, etc.); a renderer that nonetheless encounters one MUST surface it through `loom/runtime/internal-error` rather than emitting `Infinity` or `NaN` into a panic message.
+
+**Test vectors.**
+
+- A negative-index OOB on a 3-element array renders `index out of bounds: -1 not in 0..3`.
+- A 33-deep `invoke` chain renders `invoke chain depth exceeded: 33 > 32`.
+
+### 5. Source-derived placeholders
+
+**Placeholders.** `<path>`, `<file>`, `<descriptor>`, `<name>`, `<field>`, `<param>`, `<variant>`, `<keyword>`, `<key>`, `<char>`.
+
+**Rule.** Render verbatim from the source as the offending text would appear there:
+
+- **`<path>`, `<file>`** — the literal text inside the path-literal quotes, with no realpath normalisation, no symlink resolution, no scheme prefixing. This generalises the convention already pinned at `loom/parse/invoke-non-loom-extension`.
+- **`<name>`, `<field>`, `<param>`, `<variant>`, `<keyword>`** — identifier-shaped per [Lexical — Identifiers](./lexical.md); rendered unquoted. Any quoting in the rendered message comes from the surrounding registry template (e.g. the literal `'<name>'` in `cannot reassign immutable binding '<name>'`), not from the placeholder.
+- **`<key>`** — quoted with double quotes only when the key string is *not* identifier-shaped per [Lexical — Identifiers](./lexical.md) (i.e. would not match `[A-Za-z_][A-Za-z0-9_]*`); otherwise rendered bare. The identifier-shape predicate is a runtime check on the key string, not a parse-time grammar production.
+- **`<char>`** — the raw character itself when printable (any code point outside the Unicode general categories `Cc` and `Cn`); otherwise the standard `\xNN` (for code points ≤ U+00FF) or `\u{NNNN}` escape per the escape forms accepted in [Lexical — String literals](./lexical.md).
+- **`<descriptor>`** — the discovery-source descriptor as a `kind:value` pair, rendered as `<kind>:"<value>"` (the kind unquoted, the value double-quoted). Kinds are drawn from the closed set defined in [Discovery](./discovery.md) (`settings`, `cli-flag`, `package`); the value is the descriptor's source text verbatim (the settings entry, the CLI flag string, the npm package name). The descriptor format is normative.
+
+**Test vectors.**
+
+- An unknown frontmatter field `wibble` renders `unknown field 'wibble'` (the registry template supplies the surrounding single quotes; the placeholder itself contributes the bare identifier).
+- A non-existent settings-sourced loom directory `~/work/looms` renders `discovery source path does not exist: settings:"~/work/looms"`.
+- A `match` on `obj["my-key"]` against a missing key renders `missing object key: "my-key"` (key is not identifier-shaped, so quoted).
+- A member access `obj["kind"]` on a missing key renders `missing object key: kind` (key is identifier-shaped, so bare).
+
+### 6. Underlying-error placeholders
+
+**Placeholders.** `<error.message>`, `<original content first line>`, `<dispose error first line>`.
+
+**Rule.** Render as the underlying string truncated to its first line:
+
+1. Newline-normalise the underlying string per [Lexical — Encoding](./lexical.md) (`\r\n` and bare `\r` collapse to `\n`).
+2. Take the prefix up to (but not including) the first `\n`.
+3. Preserve trailing whitespace on the resulting line — no rstrip.
+4. When the underlying string is empty, or contains nothing before its first `\n`, render the literal text `<no message>`.
+
+Only `\n` (post-normalisation) is a line break for this rule. The Unicode line separators `\u2028` and `\u2029` are *not* recognised by the lexical newline rule and are *not* recognised here either: a host throwing an `Error` whose message embeds `\u2028` produces a single first-line cut at the first `\n` (or at end-of-string if there is none), with `\u2028` rendered as an ordinary character.
+
+**Test vectors.**
+
+- A `pi.sendMessage` rejection whose underlying error message is `file:5:3: loom/parse/binding-case-mismatch: ...` renders `system-note delivery failed: file:5:3: loom/parse/binding-case-mismatch: ...`.
+- A `pi.sendMessage` rejection whose underlying error was constructed without a message (`new Error()`) renders `system-note delivery failed: <no message>`.
+- An `AgentSession.dispose()` rejection whose error message is `connection closed\nstack trace ...\n` renders the prefix up to the first `\n` — the literal text `connection closed` — preserving any trailing space on that line.
+
+### Edge cases
+
+- **Category 2 boundary.** A test that constructs an exactly-80-code-point string scrutinee MUST observe the full string (no truncation); a test at 81 code points MUST observe the truncated form (77-code-point prefix + literal `...`). Boundary-condition test vectors are mandatory for the V18s closing CI gate.
+- **Category 5 identifier predicate.** The identifier-shape check for `<key>` is a *runtime* string predicate against the regular expression `^[A-Za-z_][A-Za-z0-9_]*$`; a key like `kind` renders bare, `my-key` renders quoted. Keys whose string value happens to match a reserved keyword from [Lexical — Reserved keywords](./lexical.md) are still identifier-shaped for this rule (the reserved-keyword rule fires at parse time on identifier *positions* in source, not at runtime on string values).
+- **Category 6 line-separator scope.** Restating for emphasis: `\u2028` and `\u2029` are ordinary characters for this rule. Implementations MUST NOT split on them, MUST NOT strip them, and MUST NOT promote them into `\n` — the runtime is byte-stable in their presence even though authors cannot introduce them through a regular string literal (see [Lexical — String literals](./lexical.md)).
+
 ## Code registry
 
 The table enumerates every diagnostic the V1 spec defines. *Severity* is `error` (`E`) or `warning` (`W`); a few discovery-source codes carry severity `E/W`, meaning the severity is decided per-source by the table in [Discovery — Failure modes](./discovery.md) rather than fixed at the code level. *Phase* identifies which pipeline stage emits the diagnostic: `lex` (lexing / encoding), `parse` (parsing / static checks performed by the parser), `type` (type-system checks), `load` (file-load, registration, discovery), or `runtime` (panic during execution). *Trigger* is the canonical condition; *Spec rule* points to the topic page where the rule is stated; *Hint* gives the normative author-facing hint when the spec mandates one; *Message* is the rendered author-facing string template (one line; `<…>` placeholders are interpolated by the renderer).
