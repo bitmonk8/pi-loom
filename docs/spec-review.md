@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-06T06:31:26Z_
 _Source: docs/reviews/spec-review/spec-20260506-064723.md_
-_44 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
+_43 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
 
 _Severity: 27 correctness · 17 advisory · 12 cosmetic · 0 blocking_
 _Shape: 56 single · 0 multiple · 0 unresolved_
@@ -3245,82 +3245,5 @@ Edge cases the implementer must watch:
 
 ---
 
-## spec_topics/binder.md
-
----
-
-# Untestable advisory prose embedded in normative binder sections
-
-**Source:** docs/reviews/spec-review/spec-20260506-064723.md
-**Original heading:** Multiple untestable quality assertions and advisory language in normative prose
-**Kind:** testability
-
-## Finding
-
-Three sentences in `spec_topics/binder.md` sit inside normative sections but cannot be reduced to pass/fail conformance criteria, because they assert qualities (capability, suitability, statistical likelihood) without operational thresholds:
-
-1. **Binder model — capability claim.** "Binder calls are structurally function-calling tasks — schema in, JSON out — and a cheap tier-2 model (Claude Haiku, GPT-4o-mini, Gemini Flash, etc.) is more than capable" (`binder.md` §"Binder model"). No accuracy floor, eval set, or task-success metric is given. The actual normative obligation in this paragraph — the strict structured-output / strict-tool-input capability gate and the `loom/load/binder-model-unresolved` failure code — is specified separately and is testable on its own; the "more than capable" sentence adds no obligation that V16e or any other leaf could assert.
-
-2. **Binder context — usage guidance.** Both `bind_context` bullets close with a "right choice when …" sentence (`binder.md` §"Binder context"): `none` is "the right choice when arguments are self-contained"; `session` is "the right choice when the loom relies on conversational anaphora." These prescribe author taste, not runtime behaviour. The runtime obligation is unchanged whichever value the author picks (and is captured by V16f / V16g).
-
-3. **Determinism — distribution claim.** "Two different looms produce different seed values with overwhelming probability" (`binder.md` §"Determinism"). No distinguishability threshold is given, no test could fail on this, and the surrounding paragraph already carries the testable obligation ("Conforming implementations MUST reproduce these values exactly", plus the three reference vectors `code-review` / `hello` / `a`). For context: this sentence is *not* a backstop against any registration-cache collision path — `loom/runtime/registration-cache-collision` (per `diagnostics.md` and `pi-integration-contract.md`) covers SHA-256 hashes of *lowered tool schemas*, not FNV-1a binder seeds, and binder seeds are not used as registration keys at all. The sentence is pure reassurance about FNV-1a's distribution properties.
-
-In each case the surrounding paragraph already carries the testable normative content; the offending sentence is editorial colour that an implementer or test author could mistake for an obligation.
-
-## Spec Documents
-
-- `spec_topics/binder.md` — §"Binder model" (edited)
-- `spec_topics/binder.md` — §"Binder context" (edited)
-- `spec_topics/binder.md` — §"Determinism" (edited)
-- `spec_topics/diagnostics.md` — §`loom/runtime/registration-cache-collision` row (read-only, to confirm collision-path scope)
-- `spec_topics/pi-integration-contract.md` — §"Provider seed-field mapping" / registration cache (read-only, to confirm seed is not a registration key)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):** None
-
-(The fix moves no normative obligation. V16e — `bind_model` resolution chain — already pins the strict-capability gate and the unresolved-model failure; V16f / V16g already pin `bind_context` runtime behaviour; V16h already pins `temperature: 0`, the FNV-1a algorithm, and the three reference vectors. None of those leaves' Tests / Ships-when criteria reference the three sentences being demoted.)
-
-## Consequence
-
-**Severity:** cosmetic
-
-A reviewer or test author working from the normative text alone may waste cycles trying to operationalise "more than capable", "right choice when …", or "overwhelming probability" — or may quietly skip them and leave a feeling that part of the spec is unchecked. No observable runtime behaviour and no leaf acceptance criterion is at risk.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Demote the three sentences to non-normative status in place, keeping the surrounding normative paragraphs intact. Concrete edits to `spec_topics/binder.md`:
-
-1. **§"Binder model"** — replace the trailing clause "and a cheap tier-2 model (Claude Haiku, GPT-4o-mini, Gemini Flash, etc.) is more than capable; authors with unusually subtle schemas can override per-loom by setting `bind_model:`." with a paragraph break followed by:
-
-   > **Note (non-normative):** Binder calls are structurally function-calling tasks (schema in, JSON out), so cheaper structured-output-capable models (e.g. Claude Haiku, GPT-4o-mini, Gemini Flash) are usually adequate; authors with unusually subtle schemas can override per-loom via `bind_model:`. The model-selection guidance is advisory only — the only normative requirement is the strict-capability gate above.
-
-2. **§"Binder context"** — strip the "The right choice when …" sentence from each of the two bullets, then append a single non-normative paragraph after the bullet list:
-
-   > **Note (non-normative):** Use `bind_context: none` when the slash arguments are self-contained (e.g. `/code-review TypeScript focusing on error handling, by Ada Lovelace`). Use `bind_context: session` when the loom relies on conversational anaphora (e.g. `/review the spec` resolving "the spec" against the surrounding session). The choice is an authoring decision; runtime behaviour for each value is fully specified above.
-
-3. **§"Determinism"** — delete the trailing clause "; two different looms produce different seed values with overwhelming probability." from the sentence ending "across processes and runs". Optionally append a non-normative footnote:
-
-   > **Note (non-normative):** FNV-1a 32-bit is non-cryptographic and offers no collision guarantees; the hash is used only to make the per-loom binder seed deterministic across processes, not as a registration key (registration-cache collisions are governed by `loom/runtime/registration-cache-collision`, which hashes lowered tool schemas under SHA-256, not binder names).
-
-Edge cases for the editor:
-
-- Use the project's existing non-normative marker convention (`> **Note (non-normative):**` per the original `Suggested fix`) so the demotion is mechanically detectable.
-- Do not rephrase the surrounding normative sentences; the load-failure code, the strict-capability obligation, the `temperature: 0` / FNV-1a contract, and the three reference vectors must read identically after the edit.
-- Keep the `bind_context` bullet labels (`none` — …; `session` — prompt-mode-only; …) intact; only the trailing "right choice when …" sentence is removed from each.
-
-## Related Findings
-
-- "`tool_loop` \"calibrated\" rationale in normative prose" — same-cluster (identical pattern: design-rationale prose in `frontmatter.md`; same demotion-to-non-normative remedy)
-- "\"Millisecond-scale\" performance claim without a testable threshold" — same-cluster (identical pattern in `cancellation.md`; same demotion-or-quantify remedy)
-- "Binder model bullet: two independent obligations, no identifiers" — co-resolve (touches the same `binder.md` §"Binder model" paragraph; the suggested split into two GOV-N entries is naturally done in the same edit pass that demotes the "more than capable" clause)
-
----
 
 
