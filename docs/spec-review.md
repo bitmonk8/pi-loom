@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-06T06:31:26Z_
 _Source: docs/reviews/spec-review/spec-20260506-064723.md_
-_16 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
+_15 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
 
 _Severity: 27 correctness · 17 advisory · 12 cosmetic · 0 blocking_
 _Shape: 56 single · 0 multiple · 0 unresolved_
@@ -1055,74 +1055,4 @@ Edge cases for the implementer:
 - "\"Load-bearing SDK contract\" jargon undefined" — co-resolve (rewords obligation #3).
 - "Runtime version / capability mismatch: no failure contract" — decision-dependency (may add a fifth obligation about a load-time capability probe; if accepted, allocate one additional GOV-N here).
 - "GOV-N governance rules: scope boundary in spec.md" — decision-dependency (proposes extracting GOV-N machinery into a separate governance page; if accepted, the prefix family used to anchor the Host runtime obligations changes accordingly).
-
----
-
-## spec.md — Orientation → Prerequisites → Cancellation propagation
-
----
-
-# Orientation conflates cancellation with a separate failure mode
-
-**Source:** docs/reviews/spec-review/spec-20260506-064723.md
-**Original heading:** Cancellation not stated as a distinct outcome in orientation
-**Kind:** error-model
-
-## Finding
-
-The orientation paragraph in `spec.md` reads: *"Evaluation either succeeds … or fails — by returning `Err`, by panicking, or by being cancelled."* This three-way framing is misleading and is not consistent with the surfacing rules pinned downstream.
-
-The downstream pages establish the actual structure unambiguously:
-
-- `errors-and-results.md` declares `CancelledError { kind: "cancelled", message }` as a member of the `QueryError` discriminated union — the same union as `TransportError`, `CodeToolError`, etc. A cancelled query, tool call, or invoke surfaces as `Err(CancelledError)`, not as a fourth thing.
-- `cancellation.md` repeats this surfacing rule per call site (`Err(QueryError { kind: "cancelled" })` for queries; `Err(QueryError { kind: "code_tool", cause: "cancelled" })` for code tools; `Err(QueryError { kind: "invoke_callee_error", inner: { kind: "cancelled" } })` for invokes whose abort originated in the child).
-- `slash-invocation.md` adds the top-level row `cancelled` → "loom `/<name>` cancelled" to the per-`kind` system-note table — the same table that handles every other `Err`-shaped top-level outcome. Top-level cancellation is just the propagation of an `Err(CancelledError)` to the slash boundary, with a per-`kind` formatter chosen for it.
-- `cancellation.md` also states that the runtime performs no rollback of side effects already committed before the abort was observed, and `slash-invocation.md` confirms that partial assistant text already streamed remains visible. The "no implicit rollback" sentence already in the orientation paragraph therefore applies to cancellation just as it applies to `Err` and panic — but the current wording attaches it to "the failure" without confirming that "cancelled" counts.
-
-The orientation paragraph thus presents `Err` and `cancelled` as siblings when the rest of the spec treats `cancelled` as one wire-`kind` value within the `Err` arm. Panic is the only outcome genuinely outside the `Result` channel. A reader who stops at the orientation may model cancellation as a fourth `Result` arm, a panic-shaped value, or an out-of-band exception, none of which match the implementation contract that downstream leaves are tested against.
-
-## Spec Documents
-
-- `spec.md` — Orientation paragraph (the second prose paragraph, beginning "Evaluation either succeeds…") (edited)
-- `spec_topics/errors-and-results.md` — `QueryError` union and `CancelledError` schema (read-only)
-- `spec_topics/cancellation.md` — Surfacing section (read-only)
-- `spec_topics/slash-invocation.md` — Per-`kind` top-level note table (read-only)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None — the surfacing rules the corrected orientation will summarise are already owned by V5d (`CancelledError` variant), V14h (`code_tool` cause `cancelled`), V18a–V18e (cancellation propagation), V18i (per-`kind` top-level formatter including the `cancelled` row), and V18p (binder cancellation). None of those leaves' acceptance criteria change; the edit is a clarifying summary in narrative prose. No leaf is blocked or unblocked.
-
-## Consequence
-
-**Severity:** advisory
-
-An implementer who only reads the orientation may build a mental model in which cancellation is a fourth `Result` arm or a thrown exception, then discover the actual `Err(CancelledError)` shape only when reading `errors-and-results.md` or a downstream V18 leaf. The downstream pages are correct and tested, so the runtime will not actually diverge; the cost is wasted reading and a higher chance that early scaffolding (e.g. tool-host glue, panic-vs-error routing) is built against the wrong shape and reworked.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Rewrite paragraph 3 of `spec.md` Introduction (the "Evaluation either succeeds or fails…" paragraph) to (a) treat cancellation as a distinct third terminal outcome alongside success and failure, (b) state the partial-append / no-rollback rule for both prompt and subagent modes, and (c) name the normative cancellation cross-link explicitly. This commit also resolves the sibling findings "Intro narrows the no-rollback rule to prompt mode" and "Orientation cancellation bullet does not say which cross-link is normative".
-
-**Spec edits.**
-
-In `spec.md` Introduction, replace paragraph 3 with:
-
-> Loom evaluation produces one of three terminal outcomes: it succeeds (turns appended; final value available to programmatic callers), it fails (by returning `Err`, by panicking, or by exhausting a runtime limit), or it is cancelled (per the `AbortSignal` plumbed through `ctx.signal`). In every case turns appended *before* the terminal event remain in the conversation the loom was driving — the caller's conversation in `prompt` mode, or the disposable subagent conversation in `subagent` mode — and the runtime performs no implicit rollback. See [Errors and Results](./spec_topics/errors-and-results.md) and [Diagnostics](./spec_topics/diagnostics.md) for the per-stage error surfaces and the partial-append contract; [Cancellation](./spec_topics/cancellation.md) is the normative source for cancellation semantics, with [Invocation from Pi](./spec_topics/slash-invocation.md) and [Pi Integration Contract — Cancellation source](./spec_topics/pi-integration-contract.md) covering the prompt-mode delivery path.
-
-Edge cases for the implementer:
-
-- The "no implicit rollback" rule now applies uniformly to prompt and subagent modes — the prior wording's prompt-mode-only framing was the defect.
-- Cancellation is named as a third outcome on equal footing with success and failure — agents enumerating the terminal-state space (`RuntimeEvent` consumers, the `loom-system-note` channel) MUST carry exactly three discriminators.
-- The cancellation cross-link points at `[Cancellation](./spec_topics/cancellation.md)` as the single normative source. The other two cross-links are explicitly delivery-path elaborations; they do not create competing normative contracts.
-
-## Related Findings
-
-- "Pronoun antecedent ambiguous in cancellation bullet" — co-resolve (same orientation→prerequisites→cancellation passage; both edits land in the same paragraph cluster and should ship together so the prerequisites bullet's links and the orientation paragraph's framing are revised in one pass)
 
