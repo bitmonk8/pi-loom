@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-06T06:31:26Z_
 _Source: docs/reviews/spec-review/spec-20260506-064723.md_
-_42 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
+_41 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
 
 _Severity: 27 correctness · 17 advisory · 12 cosmetic · 0 blocking_
 _Shape: 56 single · 0 multiple · 0 unresolved_
@@ -3061,88 +3061,6 @@ Either way, `loom/lex/*` disappears from the heading. Edge cases for the impleme
 
 - "`loom/type/*` namespace declared but empty; type-check codes live in `loom/parse/*`" — decision-dependency (the chosen fix for the type-namespace finding determines the exact replacement heading text; both findings should be edited in one pass)
 - "`loom/parse/empty-schema-body` and `loom/parse/non-string-discriminator` missing from registry" — same-cluster (also a registry-completeness issue on the same page; resolves independently)
-
----
-
-# `loom/parse/empty-schema-body` and `loom/parse/non-string-discriminator` missing from the registry table
-
-**Source:** docs/reviews/spec-review/spec-20260506-064723.md
-**Original heading:** `` `loom/parse/empty-schema-body` and `loom/parse/non-string-discriminator` missing from registry ``
-**Kind:** naming
-
-## Finding
-
-`spec_topics/schemas.md` cites two diagnostic codes by name in normative prose: `loom/parse/empty-schema-body` (line 19, with the message `"'X' has no fields; an empty schema cannot be validated."` quoted inline) and `loom/parse/non-string-discriminator` (line 103, gating numeric/boolean literal discriminators under both implicit detection and explicit `by <field>`). Neither code appears as a row in the registry table of `spec_topics/diagnostics.md` (the `loom/lex/*` and `loom/parse/*` table at lines 69–155, which is the registry section the codes belong under).
-
-The registry rule in `diagnostics.md` is that the table "enumerates every diagnostic the V1 spec defines" and is the single source of truth for `Sev`, `Phase`, `Hint`, and the rendered `Message` template. Two normative codes named in another topic page but absent from the table contradict that closure property directly, and the gap propagates into `plan.md`: V4b's tests assert the verbatim message for `empty-schema-body`, V11a and V11d assert `non-string-discriminator` "matches the diagnostics registry *Message* template verbatim", and the V18s closing gate is specified as a CI diff that fails on "any code present in tests but absent from the registry". Until the rows land, the V18s gate cannot pass; until then, the message wording for `non-string-discriminator` is also undefined (`schemas.md` does not quote one inline, so V11a/V11d have no canonical string to assert against).
-
-## Spec Documents
-
-- `spec_topics/diagnostics.md` — `loom/lex/*` and `loom/parse/*` registry table (edited)
-- `spec_topics/schemas.md` — empty-body paragraph (line 19) and discriminator paragraph (lines 100–105) (read-only — verifies trigger phrasing and the verbatim message string for `empty-schema-body`)
-
-## Plan Impact
-
-**Phases:** Vertical V4, Vertical V11, Vertical V18
-
-**Leaves (implementation order):**
-
-- V4b — Object schema declaration and lowering — (blocked: tests assert the verbatim `empty-schema-body` message but no registry row exists to anchor it; V18s gate fails on the unregistered emission)
-- V11a — Implicit discriminator detection — (blocked: tests assert `non-string-discriminator` "matches the diagnostics registry *Message* template verbatim" but the template does not exist)
-- V11d — Explicit `by <field>` form — (blocked: same reason as V11a, applied under explicit `by`)
-- V18s — Closing gates — (blocked: the diagnostic-code closing gate diffs registry against tests and fails on any code present in tests but absent from registry)
-
-## Consequence
-
-**Severity:** correctness
-
-The spec contradicts its own registry-is-single-source-of-truth rule by emitting normative codes from `schemas.md` that the registry does not carry. Two implementers reading only the registry would not produce these emissions; one reading both pages would, and would then have to invent the `non-string-discriminator` message string (where `schemas.md` quotes none) — guaranteeing divergence in author-visible output. The V18s closing gate is specified to fail in exactly this configuration, so the spec is not shippable as written.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add two rows to the `loom/lex/*` and `loom/parse/*` table in `spec_topics/diagnostics.md` (the table starting at line 69). The columns are `Code | Sev | Phase | Trigger | Spec rule | Hint | Message`.
-
-Row 1 — `loom/parse/empty-schema-body`:
-
-| field | value |
-|---|---|
-| Sev | `E` |
-| Phase | `parse` |
-| Trigger | `schema X { }` declaration with no fields. |
-| Spec rule | `[Schemas — Object schemas](./schemas.md)` |
-| Hint | `—` |
-| Message | `` `'<X>' has no fields; an empty schema cannot be validated.` `` |
-
-The message is reproduced verbatim from `schemas.md` line 19 with `X` rendered as the `<X>` placeholder, matching the placeholder convention the table preamble (line 69) describes.
-
-Row 2 — `loom/parse/non-string-discriminator`:
-
-| field | value |
-|---|---|
-| Sev | `E` |
-| Phase | `parse` |
-| Trigger | Discriminator field's per-variant literal type is not `string` — i.e. a numeric or boolean literal `const`. Applies equally to implicit detection and to the explicit `by <field>` form. |
-| Spec rule | `[Schemas — Discriminated unions](./schemas.md)` |
-| Hint | `` Wrap the tag as a string (e.g. `kind: "v1"` rather than `kind: 1`). `` |
-| Message | `` `discriminator '<field>' on <X> must be a string-literal type; got <kind>` `` |
-
-The message string for `non-string-discriminator` is not quoted inline in `schemas.md`, so the registry row is the source of truth. The proposed wording mirrors the surrounding rows in shape: `'<field>'` (single-quoted identifier, matching `wire-name-collision`, `unknown-variant`, `duplicate-enum-value`); `<X>` for the union's printed name (matching `ambiguous-discriminator`, `missing-discriminator`); a trailing `; got <kind>` clause naming the rejected literal kind (matching `non-string-enum-value`'s `got <kind>` tail). Place both rows next to the existing discriminator codes (`ambiguous-discriminator`, `missing-discriminator`, `duplicate-discriminator-value`, `nested-discriminator`) — currently lines 132–135 of the table — and place `empty-schema-body` near the other schema-body codes (`wire-name-collision`, `redundant-wire-name`).
-
-Edge cases the implementer must verify:
-
-- `schemas.md` line 103 says the rule "applies equally to implicit detection and to the explicit `by <field> form`" — the *Trigger* column must capture both. Plan V11d's test for `schema X by kind = A | B` with numeric-literal `kind` already depends on this.
-- The wire-renamed case (`kind as "Kind": 1`, asserted by V11a) emits `non-string-discriminator` keyed off the value type, not the rename. The trigger phrasing must not accidentally suggest the rename suppresses the check.
-- If the related finding "`loom/type/*` namespace declared but empty" lands the *Split* posture (renaming `loom/parse/<name>` codes whose Phase is `type` to `loom/type/<name>`), neither of these new rows is affected — both have phase `parse`, not `type`. They stay under `loom/parse/*` regardless of how that finding resolves.
-
-## Related Findings
-
-- "`binder-malformed-envelope` code not in the diagnostics registry" — same-cluster (identical defect class — code cited normatively by a topic page but absent from the registry table; same fix shape, different code)
-- "`loom/type/*` namespace declared but empty; type-check codes live in `loom/parse/*`" — same-cluster (both touch the registry table's namespace organisation; resolution is independent because both new rows are phase `parse`, not phase `type`)
-- "`loom/lex/*` phantom namespace in registry section heading" — same-cluster (touches the same `loom/lex/*` and `loom/parse/*` section heading where the new rows land; if that finding renames the section heading, the edit is in the same file but does not block this row addition)
 
 ---
 
