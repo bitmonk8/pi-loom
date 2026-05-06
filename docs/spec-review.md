@@ -2,10 +2,10 @@
 
 _Generated: 2026-05-06T06:31:26Z_
 _Source: docs/reviews/spec-review/spec-20260506-064723.md_
-_57 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
+_56 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
 
-_Severity: 27 correctness · 18 advisory · 12 cosmetic · 0 blocking_
-_Shape: 57 single · 0 multiple · 0 unresolved_
+_Severity: 27 correctness · 17 advisory · 12 cosmetic · 0 blocking_
+_Shape: 56 single · 0 multiple · 0 unresolved_
 
 ---
 
@@ -4151,82 +4151,3 @@ Edge cases for the implementer:
 - "`.loom callable` vs \"registered loom\" / \"registered subagent loom\" / \"registered-loom call\"" — same-cluster (independent naming inconsistency in the same review section)
 - "`callable set` vs \"`tools:` set\" vs \"tool set\"" — same-cluster (independent naming inconsistency in the same review section)
 
----
-
-# "Callable set" prose synonyms erode the no-inheritance invariant
-
-**Source:** docs/reviews/spec-review/spec-20260506-064723.md
-**Original heading:** `` `callable set` vs "`tools:` set" vs "tool set" ``
-**Kind:** naming
-
-## Finding
-
-`spec_topics/glossary.md` coins **callable set** as the formal name for the unified collection of Pi tools and registered `.loom` paths declared by a loom's frontmatter `tools:` field, and ties a load-bearing invariant to that name: the Pi session's ambient tools are deliberately *not* inherited, and an absent or empty `tools:` yields an *empty callable set*. That invariant is repeated in `frontmatter.md` and the Pi Integration Contract.
-
-In prose elsewhere, the same concept appears under several ad-hoc synonyms:
-
-- `spec_topics/implementation-notes.md` (line 21) — "the loom's frontmatter `tools:` set."
-- `spec_topics/pi-integration-contract.md` (line 61) — "any frontmatter `tools:` entry … the V14e 'same `tools:` set serves both code and model' invariant."
-- `spec_topics/invocation.md` (line 50) — "the child's `tools:` set replaces the parent's."
-
-These three pages are exactly where an implementer reasons about what the model sees during a turn, and "the loom's `tools:` set" reads like a literal reference to the YAML field rather than the named glossary term that carries the no-inheritance guarantee. Two pages further introduce the modifier-prefixed forms `loom's declared callable set` (`pi-integration-contract.md` line 44) and `frontmatter callable set` (`pi-integration-contract.md` line 61, `implementation-notes.md` line 21); these are not synonyms — they are the term plus a scoping modifier — but they coexist with the bare `tools:` set form on the same pages, so a reader cannot tell whether the variation is meaningful.
-
-The one prose use of `tool set` that does *not* belong to this cluster is `spec.md` line 5 ("does not inherit the caller's transcript, system prompt, or tool set"), which refers to the Pi *session's* ambient tool set — the very thing a loom's callable set deliberately excludes. Conflating the two terms would erase that distinction, so the fix must treat that occurrence as a different concept and leave it alone (or re-word it as "ambient tool set" for clarity).
-
-## Spec Documents
-
-- `spec_topics/glossary.md` — `callable set` and `Pi tool` vs `.loom callable` entries (read-only)
-- `spec_topics/frontmatter.md` — `tools` field contract and prose (read-only; already uses `callable set` consistently, anchors the term)
-- `spec_topics/pi-integration-contract.md` — `Tool-registration lifetime and visibility` step 2; `Issuing typed queries` paragraph (edited)
-- `spec_topics/implementation-notes.md` — Runtime → typed-query respond-tool registration (edited)
-- `spec_topics/invocation.md` — prompt → prompt cross-mode cell (edited)
-- `spec_topics/query.md` — Tool-call loop description (read-only; already uses `callable set`)
-- `spec_topics/influences.md` — Original-to-loom bullet (read-only; already uses `callable set`)
-- `spec.md` — Introduction paragraph 1 (read-only; `tool set` here refers to the Pi session's ambient tools, a distinct concept that must be preserved or re-tagged as `ambient tool set` to avoid any future drift)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):** None
-
-(The fix is spec-prose tightening. No plan leaf's acceptance criteria — Tests/Ships when — depend on which of the synonyms the spec uses; `plan_topics/v14-tool-calls.md` references the spec sections by link, not by reproducing the terminology verbatim. The V14e leaf body does say "Same `tools:` set presented to model" in its **Adds** prose, but that wording survives unchanged because it parrots the YAML field name, not the concept.)
-
-## Consequence
-
-**Severity:** advisory
-
-The no-inheritance invariant remains explicitly stated wherever `callable set` is used, so an attentive implementer will not get the wiring wrong. But the synonyms appear concentrated on the three pages an implementer reads when wiring `customTools`, `setActiveTools`, and the typed-query respond tool — exactly the contract surface where mistaking "the loom's `tools:` set" for "whatever Pi has registered, filtered by `tools:`" would produce a session that silently inherits ambient tools. Standardising the prose closes that gap before it can be exploited.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Standardise two overloaded vocabulary clusters across the spec corpus in one coordinated terminology pass. This commit also resolves the sibling finding "Inconsistent prose names for a `.loom` entry in `tools:`".
-
-**Spec edits.**
-
-**Cluster 1: `callable set` (the no-inheritance invariant).** Across `pi-integration-contract.md`, `implementation-notes.md`, `invocation.md`, every prose mention of "tools: set", "tool set", "loom's tools", "available tools", or any other synonym for the per-loom resolved tool list MUST be replaced with the canonical term `callable set`. The single exception is `spec.md` Orientation, where "tool set" refers to the Pi session's *ambient* tools (a distinct concept) — that occurrence MUST be replaced with `ambient tool set` to disambiguate from the loom-side `callable set`.
-
-The Glossary entry for `callable set` is already canonical; this commit ensures every prose mention uses the canonical term.
-
-**Cluster 2: `.loom callable` (the in-tools `.loom` entry).** Across `tool-calls.md`, `invocation.md`, `binder.md`, `expressions.md`, `implementation-notes.md`, `pi-integration-contract.md`, `diagnostics.md`, `comparison.md`, `influences.md`, every prose mention of "registered loom", "registered subagent loom", "registered-loom call", or any other synonym for a `.loom` entry in `tools:` MUST be replaced with the canonical term `.loom callable` (the term defined in `glossary.md`).
-
-**Cross-cutting edits.**
-
-- `glossary.md`: confirm both entries (`callable set` and `.loom callable`) are present and stable. Add cross-references between them so readers landing on one entry discover the other.
-- Every page edited above gains a one-line "Terminology" note at top-of-file or in the Glossary section pointing at the canonical entry, to deter future drift.
-
-Edge cases for the implementer:
-
-- The `spec.md` Orientation occurrence of "tool set" refers to the Pi *ambient* tool set (the host's), not the loom's `callable set` — replace with `ambient tool set` and cross-link to the Pi Integration Contract section that defines it. Do NOT replace with `callable set` blindly.
-- "Active tools" in the context of `pi.setActiveTools` / `pi.getActiveTools` is yet a third concept (the Pi runtime's currently-enabled subset of registered tools); leave that vocabulary untouched.
-- The `.loom callable` rename does NOT affect any code identifiers, file extensions, or wire formats — it is purely prose. Diagnostic codes, frontmatter field names, and identifier syntax remain unchanged.
-- A grep sweep for "registered loom", "registered subagent loom", "tools: set" should return zero matches after this commit (excluding code blocks, fenced examples, and historical sections).
-
-## Related Findings
-
-- "`.loom callable` vs "registered loom" / "registered subagent loom" / "registered-loom call"" — same-cluster (independent naming-consistency fix on the *element* of a callable set; same edit pass touches some of the same pages — `tool-calls.md`, `invocation.md`, `binder.md`)
-- "`coercion` overloaded: schema-validation repair vs. type conversion" — same-cluster (also a glossary-anchored naming clarification, resolves independently)

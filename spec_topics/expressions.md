@@ -8,7 +8,7 @@ Loom expressions are a bounded subset of TypeScript. The same grammar applies wh
 - Identifiers (variables, parameters, function names, schema constructors)
 - Member access: `a.b`
 - Indexed access: `a["b"]`, `a[0]`, `a[i]`
-- Function, method, and tool calls: `f(x)`, `obj.method(x, y)`, `<name>(args)` where `<name>` resolves to a Pi tool or registered loom from the loom's `tools:` frontmatter (see [Tool Calls](./tool-calls.md))
+- Function, method, and tool calls: `f(x)`, `obj.method(x, y)`, `<name>(args)` where `<name>` resolves to a Pi tool or `.loom` callable from the loom's `tools:` frontmatter (see [Tool Calls](./tool-calls.md))
 - Unary: `!`, `-`
 - Binary arithmetic: `+`, `-`, `*`, `/`, `%`
 - Comparison: `==`, `!=`, `<`, `<=`, `>`, `>=`
@@ -45,7 +45,7 @@ A bare identifier in call position (`name(args)`) resolves in this order, first 
 1. A local `let` binding or function parameter currently in scope.
 2. A top-level `fn` declaration in the same `.loom` or `.warp` file.
 3. A symbol imported from a `.warp` file (see [Imports](./imports.md)).
-4. A name registered in the loom's frontmatter `tools:` set (Pi tool or `.loom` path; see [Tool Calls](./tool-calls.md)).
+4. A name registered in the loom's callable set (Pi tool or `.loom` callable; see [Tool Calls](./tool-calls.md)).
 
 No match is `loom/parse/unknown-identifier`. Collisions across (2)–(4) are rejected at load time — a `tools:` entry whose post-rename name shadows a top-level `fn` or import in the same file fails to register; resolve with the `as` clause. Local bindings (1) shadow everything else lexically, the same as in Rust or TypeScript.
 
@@ -129,7 +129,7 @@ Two ambiguities deserve explicit rules:
 Schema-typed values are constructed with `Schema { field: expr, ... }`. Every declared field of the schema must be present (omissions are `loom/parse/missing-object-field`); extra fields are `loom/parse/extra-object-field`; field order is irrelevant. Bare object literals (`{ field: expr }` with no leading schema name) surface as `loom/parse/bare-object-literal` — every constructed object must name its schema, so the type is unambiguous from the syntax alone. There are exactly two carve-outs, and in both an external schema supplies the type so the literal is bare (and the contents are restricted to the [Loom literal sublanguage](./grammar.md#loom-literal-sublanguage), not the full expression grammar):
 
 1. **Frontmatter `params:` defaults.** The param's declared type supplies the schema name. See [Parameters and Frontmatter — Defaults](./frontmatter.md).
-2. **Single positional argument of a Pi-tool call.** When a call's callee resolves (via the `tools:` table) to a Pi tool, a single bare-object argument is admitted; the Pi tool's registered input schema (TypeBox / JSON Schema) supplies the shape. See [Tool Calls — Argument shape](./tool-calls.md). The exception applies only when the callee is a Pi tool — `f({ ... })` for a `let`-bound name or a registered loom callee remains `loom/parse/bare-object-literal` — and only to the single positional argument; multi-argument forms (`read({...}, {...})`) are rejected regardless.
+2. **Single positional argument of a Pi-tool call.** When a call's callee resolves (via the `tools:` table) to a Pi tool, a single bare-object argument is admitted; the Pi tool's registered input schema (TypeBox / JSON Schema) supplies the shape. See [Tool Calls — Argument shape](./tool-calls.md). The exception applies only when the callee is a Pi tool — `f({ ... })` for a `let`-bound name or a `.loom` callable remains `loom/parse/bare-object-literal` — and only to the single positional argument; multi-argument forms (`read({...}, {...})`) are rejected regardless.
 
 For a discriminated union `schema Animal = Cat | Dog | Lizard`, construct via the variant schema name (`Cat { ... }`), not the union name. The constructed value is statically typed as the variant; assignment to an `Animal`-typed slot widens it.
 
