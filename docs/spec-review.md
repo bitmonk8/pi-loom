@@ -2,7 +2,7 @@
 
 _Generated: 2026-05-06T06:31:26Z_
 _Source: docs/reviews/spec-review/spec-20260506-064723.md_
-_52 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
+_51 findings retained (collapsed from 93 by merge / subsumption), 14 false positives dropped, 0 persistent failures_
 
 _Severity: 27 correctness · 17 advisory · 12 cosmetic · 0 blocking_
 _Shape: 56 single · 0 multiple · 0 unresolved_
@@ -3807,56 +3807,6 @@ V18i's existing test text already aligns with this shape; the spec edit retroact
 - "Diagnostic message placeholder rendering not defined" — same-cluster (parallel testability gap on placeholder semantics in a different registry; resolved by the same drafting discipline but in a different file)
 - "Multiple untestable quality assertions and advisory language in normative prose" — same-cluster (sibling testability finding on `binder.md`; resolves independently)
 - "`loom-system-note` with `display: false` and empty `content`" — same-cluster (touches the same `loom-system-note` rendering surface but a disjoint concern)
-
----
-
-# Page heading "Invocation from Pi" collides with sibling page "Invocation"
-
-**Source:** docs/reviews/spec-review/spec-20260506-064723.md
-**Original heading:** Page heading "Invocation from Pi" collides with "Invocation"
-**Kind:** naming
-
-## Finding
-
-Two adjacent topic pages in `spec.md`'s ToC share "Invocation" as their leading word: `spec_topics/invocation.md` (heading `# Invocation`, covering the `invoke(...)` language construct, cross-mode matrix, invoke errors, cycle detection) and `spec_topics/slash-invocation.md` (heading `# Invocation from Pi`, covering the slash-command entry point and prompt-mode `Err` formatting). The qualifier "from Pi" does not name what the page is actually about — slash-command invocation — and forces the reader to disambiguate two near-identical link texts that sit only eleven lines apart in the ToC (lines 63 and 74 of `spec.md`).
-
-The file basename (`slash-invocation.md`), the diagnostics prefix (`SLSH`), and the existing ToC sub-description ("slash-command surface") all already use "slash" as the disambiguator. The page heading is the only place that diverges, and it is the user-visible artifact that breaks the otherwise consistent naming axis.
-
-## Spec Documents
-
-- `spec_topics/slash-invocation.md` — H1 page heading (edited)
-- `spec.md` — ToC line 74, prose cross-references at lines 7 and 9 (edited)
-- `spec_topics/cancellation.md` — link text "Invocation from Pi" (edited)
-- `spec_topics/future-considerations.md` — link text (edited)
-- `spec_topics/pi-integration-contract.md` — link text (edited)
-- `spec_topics/pi-integration.md` — link text (edited)
-- `spec_topics/invocation.md` — confirming the colliding heading (read-only)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):** None
-
-(Plan files `plan_topics/coverage-matrix.md`, `plan_topics/v3-frontmatter.md`, and `plan_topics/v18-cancellation.md` carry the link text "Invocation from Pi" and would be touched by the rename, but no leaf's acceptance criteria, Spec field, or blocking relationship changes.)
-
-## Consequence
-
-**Severity:** cosmetic
-
-Readers must perform an extra disambiguation step every time the ToC or a cross-reference cites one of the two pages. No implementation behaviour, conformance test, or diagnostic surface depends on the heading text. Cost of leaving it: a small, persistent friction in spec navigation; cost of fixing it: a one-pass rename across nine files.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Rename the H1 of `spec_topics/slash-invocation.md` from `# Invocation from Pi` to `# Slash-Command Invocation`. Update every Markdown link text "Invocation from Pi" → "Slash-Command Invocation" across `spec.md`, `spec_topics/cancellation.md`, `spec_topics/future-considerations.md`, `spec_topics/pi-integration-contract.md`, `spec_topics/pi-integration.md`, `plan_topics/coverage-matrix.md`, `plan_topics/v3-frontmatter.md`, and `plan_topics/v18-cancellation.md`. Update the ToC sub-description on `spec.md` line 74 to drop "slash-command surface" (now redundant with the new page name) — replace with "prompt-mode `Err` formatting, no-params overflow, call-chain note." File basename, anchor IDs (`slash-invocation.md` URL fragments), the `SLSH` diagnostics prefix, and the `# Invocation` heading on `spec_topics/invocation.md` all stay as-is. Edge case: any anchor link of the form `slash-invocation.md#invocation-from-pi` would break, but `grep` confirms none exist in the repo (only the bare file path is linked).
-
-## Related Findings
-
-None
 
 ---
 

@@ -1,4 +1,4 @@
-# Invocation from Pi
+# Slash-Command Invocation
 
 A loom is invoked as a slash command using its filename, exactly like a Pi prompt template:
 

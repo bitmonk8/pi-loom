@@ -43,6 +43,6 @@ Edge cases:
 - A tool call whose signal aborts returns `Err(QueryError { kind: "code_tool", cause: "cancelled", ... })`.
 - A child invoke whose signal aborts surfaces to the parent as `Err(QueryError { kind: "invoke_callee_error", inner: { kind: "cancelled", ... } })` when the abort originated inside the child, or directly as `kind: "cancelled"` when the parent's own signal fired first.
 - A cancelled binder call (abort observed before or during the binder's LLM call) is runtime-internal: it never surfaces as a `Result` to loom code (the loom never starts). Instead it produces the cancelled-binder system note defined in the failure-modes table in [Slash-Command Argument Binding](./binder.md). The loom does not run.
-- The loom's *top-level* cancellation surfaces to Pi as the `cancelled` row in the per-`kind` system-note table in [Invocation from Pi](./slash-invocation.md).
+- The loom's *top-level* cancellation surfaces to Pi as the `cancelled` row in the per-`kind` system-note table in [Slash-Command Invocation](./slash-invocation.md).
 
 Per-call timeouts (a separate cancellation source independent of the user) are deferred to a later release; declaring a `timeout:` field on a query, tool call, or invoke is `loom/parse/timeout-field-rejected`. See [Future Considerations](./future-considerations.md) and [Diagnostics](./diagnostics.md).

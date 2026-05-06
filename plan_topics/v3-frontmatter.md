@@ -18,7 +18,7 @@
 
 ## V3c — Bypass binder (no-params and single-string forms)
 
-- **Spec.** [Slash-Command Argument Binding](../spec_topics/binder.md) (binder bypass), [Invocation from Pi](../spec_topics/slash-invocation.md) (no-params overflow).
+- **Spec.** [Slash-Command Argument Binding](../spec_topics/binder.md) (binder bypass), [Slash-Command Invocation](../spec_topics/slash-invocation.md) (no-params overflow).
 - **Adds.** Two static bypass cases, checked at load time in this order:
   1. **No-params bypass.** When `params:` is absent or `{}`, the loom takes no parameters; the binder is skipped, no envelope schema is constructed, and the loom runs with an empty params object. Trailing slash text after the command name is trimmed; if the trimmed remainder is non-empty, the runtime emits a single `customType: "loom-system-note"` message before the loom starts, formatted as `loom /<name>: ignoring extra arguments — this loom takes no parameters`. Whitespace-only remainders trim to empty and emit no note. The note fires only on the slash-invocation path; `invoke(...)` and registered-tool callers skip the slash parser entirely. `bind_echo: true` on a no-params loom is `loom/load/bind-echo-without-params` (warning) and produces no echo regardless; `bind_context` and `bind_model` on a no-params loom are silently ignored.
   2. **Single-string bypass.** When `params:` declares exactly one field, that field's type is `string`, and the field has no default, the runtime sets that param to the trimmed slash text and skips the binder. AJV runs as safety net.

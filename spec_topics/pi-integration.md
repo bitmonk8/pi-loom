@@ -10,7 +10,7 @@
 Detailed sub-topics:
 
 - [Directory Convention](./discovery.md) — discovery sources, priority, collision rules.
-- [Invocation from Pi](./slash-invocation.md) — how a slash command runs, prompt-mode `Err` surfacing.
+- [Slash-Command Invocation](./slash-invocation.md) — how a slash command runs, prompt-mode `Err` surfacing.
 - [Slash-Command Argument Binding](./binder.md) — LLM-driven binding of slash arguments to typed `params`.
 - [Cancellation](./cancellation.md) — `AbortSignal` propagation and surfacing.
 - [Diagnostics](./diagnostics.md) — diagnostic shape, codes, and serialisation.
