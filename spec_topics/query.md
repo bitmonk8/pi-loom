@@ -205,7 +205,64 @@ The technique used to obtain the structured payload is provider-specific (synthe
 
 ## Tool-call loop bound
 
+<a id="tool-call-loop-bound"></a>
+
 Every query — untyped, typed, and any respond-repair follow-up — runs its tool-call loop under a per-query round cap configured by the loom's `tool_loop` frontmatter block (see [Parameters and Frontmatter — `tool_loop`](./frontmatter.md)). The cap counts *tool-call rounds* (one round = the model emits one or more `tool_use` blocks, the runtime executes them all in parallel where the provider supports parallel tool calls, feeds the results back, and the model produces its next turn) — a model that emits three parallel tool calls in one round consumes one slot. The forced respond turn for typed queries also consumes one slot. When the cap is reached without the model producing a terminating turn (a plain text turn for untyped queries, a respond-tool call for typed queries), the runtime returns `Err(QueryError { kind: "tool_loop_exhausted", ... })` with the fields documented in **Failure modes** below. Cancellation via `AbortSignal` (see [Cancellation](./cancellation.md)) preempts the loop at any round boundary; the cap is a ceiling, not a floor. Each respond-repair follow-up gets a *fresh* `tool_loop` budget — the existing rule that "each follow-up counts as one against `respond_repair.attempts` regardless of how many tool-call rounds it contains" composes naturally with this.
+
+### Worked example: depth-6 forced respond at `max_rounds`
+
+<a id="worked-example-depth-6-forced-respond"></a>
+
+This example pins the only V1-reachable hard-ceiling co-fire (per [Pi Integration Contract — PIC-1 *Hard-ceiling co-fire (`masked`)*](./pi-integration-contract.md#pic-1) and CIO-3 / CIO-4 / CIO-6 in [Hard Runtime Ceilings — Interaction between ceilings](./hard-ceilings.md#ceiling-interaction-order)). It is normative: V18q's `RuntimeEvent`-shape conformance test and V6i's typed-query test suite both cite this vector.
+
+*Loom source* (a typed query with `tool_loop.max_rounds: 2` and a single frontmatter tool the model uses to occupy the free phase):
+
+~~~loom
+---
+name: depth-6-co-fire
+tools: [search]
+tool_loop: { max_rounds: 2 }
+respond_repair: { attempts: 0 }
+---
+@<{ deeply: { nested: { value: string } } }>`Probe.`
+~~~
+
+*Mock provider transcript* (two tool-using free-phase rounds, then a forced respond turn whose response payload is a depth-6 JSON document):
+
+1. Round 1 — model emits one `tool_use` for `search`; runtime executes it, feeds the result back. Slot count after CIO-4's increment: 1.
+2. Round 2 — model emits one `tool_use` for `search`; runtime executes it, feeds the result back. Slot count after CIO-4's increment: 2 (`= max_rounds`). Per CIO-4, the next turn issued is the forced respond turn (the `max_rounds`-final branch).
+3. Forced respond turn — the synthesised `__loom_respond_<slug>` tool is invoked by the model with a payload that nests six levels of objects, e.g. `{"deeply":{"nested":{"value":{"a":{"b":{"c":{}}}}}}}`. The depth-walk in [Schema Subset — Depth Enforcement](./schema-subset.md) fires *inside* the respond tool's `execute` (per CIO-3) before AJV runs.
+
+*Expected outcome.* The query returns:
+
+~~~ts
+Err(QueryError {
+  kind: "validation",
+  cause: "schema_validation",
+  attempts: 0,
+  validation_errors: [
+    { schema_keyword: "maxDepth", path: "<JSON Pointer to first too-deep node>", message: "JSON document depth exceeds 5" }
+  ],
+  raw_response: "<the depth-6 payload as JSON text>",
+  message: "<the validation message>"
+})
+~~~
+
+The corresponding `RuntimeEvent` payload, surfaced via `details.event` per [Pi Integration Contract — Runtime event channel](./pi-integration-contract.md), carries:
+
+~~~ts
+{
+  kind: "validation",
+  loom: "/depth-6-co-fire",
+  query_site: { file: <abs-path>, line: <line>, column: <col> },
+  message: "<the validation message>",
+  attempts: 0,
+  masked: ["ceiling#2"],
+  occurred_at: <epoch-ms>
+}
+~~~
+
+The `masked: ["ceiling#2"]` is the only non-empty `masked` value reachable in V1 — it fires because PIC-1's V1 reachable predicate holds: the surfaced event was raised on a forced respond turn whose origin round, after CIO-4's slot increment, leaves the slot count equal to `max_rounds` (2 = 2). On a respond-repair follow-up of the same query, the predicate is re-evaluated against the follow-up's *fresh* `tool_loop` budget (each follow-up gets a new budget per the rule above), not the parent query's exhausted budget. With `max_rounds: 0`, no free phase runs (the model gets an empty tool-set per V6k), the forced respond turn is the only turn, and `masked` is omitted on the surfaced event.
 
 ### Untyped return type (V1)
 
