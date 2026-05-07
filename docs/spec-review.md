@@ -5,7 +5,7 @@ _Source: docs/reviews/spec-review/spec-20260507-064438-enriched.md_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T26) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 high, 6 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
+_Triage tally: 1 high, 5 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
 
 ---
 
@@ -274,66 +274,3 @@ Edge cases for the implementer:
 
 - T03 "`@mariozechner/` scope dropped from sibling-package names on first mention" — same-cluster (same Prerequisites paragraph; co-located edits)
 - T26 "`semver` not declared as a production dependency in `package.json`" — same-cluster (adjacent `package.json` defect; co-located edit window)
-
----
-
-# T05 — Item 8 of binder system-prompt structure has no testable surface
-
-**Source:** docs/reviews/spec-review/spec-20260507-064438-enriched.md
-**Original heading:** System-prompt instruction for defaulted parameters is not testable
-**Original section:** spec_topics/binder.md
-**Kind:** testability
-**Importance:** medium
-
-## Finding
-
-`spec_topics/binder.md` § *System-prompt structure (normative)* enumerates eight obligations the rendered binder system prompt MUST satisfy. Items 1–7 each pin at least one literal token or structural marker that a conformance test can grep for: `Loom: /<name>`, `Description:`, `Argument hint:`, `Parameters:` (plus per-field structure), `User arguments:`, the `Recent session context` opener, and the kind-name tokens `ok` / `needs_info` / `ambiguous`. Item 8 — the no-invent-defaults instruction — names no token, no structural marker, no required clause, and explicitly declares "Wording is non-normative; the instruction's presence is."
-
-The combination is contradictory: a conformance test cannot detect "presence of an instruction directing the model not to invent values for defaulted parameters" without some pinned anchor — any non-empty system prompt arguably contains, or arguably does not contain, such an instruction depending on how the reader paraphrases the rule. Two implementers can disagree about whether a given prompt satisfies item 8, and a test asserting compliance has no fixed string to assert against. This breaks the symmetry the rest of the list relies on and leaves the only rule whose subject (defaulting) is genuinely model-behavioural — and therefore the most likely to be silently dropped — without a test.
-
-The illustrative prompt in the same section already supplies a sentence that would do the job (`Do not invent values for defaulted parameters that the user did not specify; omit them.`); the gap is purely that the section's normative obligations do not pin any of its tokens.
-
-## Spec Documents
-
-- `spec_topics/binder.md` — System-prompt structure (normative), item 8 (edited)
-
-## Plan Impact
-
-**Phases:** V16
-
-**Leaves (implementation order):**
-
-- V16f — `bind_context: none` — (modified)
-
-V16f is the only leaf that asserts on the rendered binder system prompt (currently the `Argument hint:` line). Tightening item 8 adds one structural-prompt assertion to V16f's *Tests* list; no other leaf needs to move.
-
-## Consequence
-
-**Severity:** advisory
-
-A conformance suite that takes item 8 at face value cannot fail any prompt for omitting the no-invent guidance, so an implementation that ships a binder system prompt without that instruction passes structure tests while degrading binder accuracy on defaulted-parameter looms (the binder is more likely to invent values for omitted defaulted fields, which then survive AJV and reach the loom). The damage is bounded — the example prompt already shows the right sentence and most implementers will copy it — but the obligation as written cannot be enforced.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Rewrite item 8 to pin a literal token, mirroring the pattern items 1–7 already establish. Concretely, replace the current text with:
-
-> **No-invent-defaults instruction.** The prompt MUST contain a single line that includes both the literal substring `defaulted` (case-sensitive) and at least one of the directive substrings `Do not`, `omit`, or `skip` (case-sensitive). The rest of the wording is non-normative.
-
-This keeps the "wording is non-normative" posture the section uses elsewhere while giving conformance tests a deterministic predicate (`line contains "defaulted" AND line contains one of {"Do not", "omit", "skip"}`). The section's illustrative fenced prompt already satisfies this rule (`Do not invent values for defaulted parameters that the user did not specify; omit them.`) and needs no edit. The conditional-presence machinery used by items 2/3/4/6 does not apply here — the obligation is unconditional, so no negative-half assertion is required.
-
-Edge cases for the implementer:
-
-- Apply the predicate to a single rendered line, not to the whole prompt — the spec's existing items use line-scoped tokens (`Loom:`, `User arguments:`) and a same-line co-occurrence rule keeps the test cheap.
-- The `defaulted` token is chosen over `default` because the latter collides with the `default=<literal>` markers the *Parameters block* (item 4) emits per field; requiring `defaulted` (the adjective) avoids accidental satisfaction by a Parameters line.
-- V16f's test list adds one assertion: render the system prompt for a loom whose `params:` declares ≥1 defaulted field, find the no-invent line by the predicate above, fail when no line matches.
-
-## Relationships
-
-None
-
----
-

@@ -52,7 +52,7 @@
 
 - **Spec.** [Slash-Command Argument Binding — Binder context, Binder system prompt](../spec_topics/binder.md).
 - **Adds.** Default mode; binder sees only slash text + frontmatter. The frontmatter `argument-hint:` value (when present) flows into the binder's system prompt under `Argument hint:` as the binder-grounding payload (no other surface consumes it in loom 1.0; the autocomplete dropdown does not show it — see V3a).
-- **Tests.** No session context attached; deterministic output for identical inputs (modulo provider non-determinism); when `argument-hint:` is set, the binder's system prompt contains `Argument hint: <value>` exactly once; when absent, the line is omitted. Cross-linked from V18q — every binder-failure cause owned by this leaf emits exactly one runtime event at the originating site.
+- **Tests.** No session context attached; deterministic output for identical inputs (modulo provider non-determinism); when `argument-hint:` is set, the binder's system prompt contains `Argument hint: <value>` exactly once; when absent, the line is omitted. No-invent-defaults predicate (item 8 of *System-prompt structure (normative)* in [binder.md](../spec_topics/binder.md)): for a loom whose `params:` declares ≥1 defaulted field, the rendered system prompt contains exactly one line that includes both the substring `defaulted` and at least one of `Do not`, `omit`, or `skip` (all case-sensitive); a renderer that emits no such line fails. Cross-linked from V18q — every binder-failure cause owned by this leaf emits exactly one runtime event at the originating site.
 - **Deps.** V16c, V16e.
 - **Ships when.** Default binder path works end-to-end and `argument-hint` reaches the binder grounding payload.
 
