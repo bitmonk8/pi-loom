@@ -5,7 +5,7 @@ _Source: docs/reviews/spec-review/spec-20260507-064438-enriched.md_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T26) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 2 high, 11 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
+_Triage tally: 1 high, 11 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
 
 ---
 
@@ -700,82 +700,6 @@ The non-overlap claim for ceiling #3 should also be added explicitly because the
 
 - T12 "`invoke`-chain depth-32 cap: counting origin and subagent-mode boundary semantics undefined" — decision-overlap (precedence rule needs to know which event the depth cap trips on; pinning the breach inequality there makes "the 32nd-deep `invoke` also exhausts the binder LLM-call cap" precisely answerable)
 - T15 "Ceiling #3 (binder LLM-call cap) is misclassified across the hard-ceilings aggregator" — co-resolve (both rest on tightening which ceilings can produce evaluation outcomes)
-
----
-
-# T11 — `loom-system-note` messages re-enter model context as `user`-role text
-
-**Source:** docs/reviews/spec-review/spec-20260507-064438-enriched.md
-**Original heading:** `loom-system-note` channel: Pi serialization contract not pinned (messages re-entering model context)
-**Original section:** spec.md — Orientation > Prerequisites > Host runtime
-**Kind:** assumptions
-**Importance:** high
-
-## Finding
-
-The spec routes every operator-facing diagnostic — parse, load, type, runtime-panic batches; binder failures; always-log runtime events; structural watcher notes — through a single `pi.sendMessage({ customType: "loom-system-note", … }, { triggerTurn: false })` call (PIC §**System notes**), and asserts in `spec_topics/errors-and-results.md` that pre-evaluation failures "surface per [Diagnostics] on the `loom-system-note` channel, never produce appended turns or a final value." `triggerTurn: false` is treated as the load-bearing guarantee that these notes do not perturb the model.
-
-Pi's actual contract is the opposite of what that wording invites the reader to assume. `pi.sendMessage(..., { triggerTurn: false })` only suppresses the *immediate* turn fire; the message is still appended to the session as a `CustomMessage` (role `"custom"`). On every subsequent provider call, Pi's `convertToLlm` transformer (`@mariozechner/pi-coding-agent` `dist/core/messages.js`, the `case "custom":` arm) maps each `CustomMessage` to a fresh `{ role: "user", content }` entry — unconditionally, ignoring `display`, with no opt-out flag analogous to `BashExecutionMessage.excludeFromContext`. The cumulative effect: every parse error, binder failure, AJV-validation note, runtime panic note, and `display: false` always-log event the runtime emits is silently injected as user-authored text into the next turn the user sends in their bare Pi session.
-
-This subverts several spec invariants without being visible at the spec surface. (a) The "subagent-private" claim for subagent-mode `display: false` cascades holds inside the subagent session but the parent's `display: true` cascade still leaks the panic prose into the user session's model context. (b) The `loom-system-note` becomes a hidden injection vector — a malformed loom file emits diagnostics that the model then reads as if the user had typed them. (c) Compaction and context-budget accounting now include diagnostic prose the spec implicitly treats as out-of-band. PIC nowhere pins what Pi does with custom-channel messages on subsequent provider calls; the reader (and the implementer) is left to assume `triggerTurn: false` means "side channel, not in context," which it does not.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — **System notes** / **Delivery surface** / **Runtime event channel** / SDK capability 6 (edited)
-- `spec_topics/errors-and-results.md` — pre-evaluation failure paragraph using "never produce appended turns" wording (edited)
-- `spec_topics/diagnostics.md` — channel description and renderer/fallback section (edited)
-- `C:/Users/thomasa/AppData/Roaming/npm/node_modules/@mariozechner/pi-coding-agent/dist/core/messages.js` — `convertToLlm`'s `case "custom"` arm (read-only — primary evidence)
-- `C:/Users/thomasa/AppData/Roaming/npm/node_modules/@mariozechner/pi-coding-agent/dist/core/messages.d.ts` — `CustomMessage` interface (no `excludeFromContext` field) (read-only)
-- `C:/Users/thomasa/AppData/Roaming/npm/node_modules/@mariozechner/pi-coding-agent/dist/core/agent-session.d.ts` — `sendCustomMessage` JSDoc on `triggerTurn` (read-only)
-
-## Plan Impact
-
-**Phases:** Horizontal H3, Horizontal H4, Vertical V18
-
-**Leaves (implementation order):**
-
-- H3 — Diagnostics primitive and multi-error accumulator — (modified)
-- H4 — Pi extension shell — (modified)
-- V18i — Per-`kind` formatting for prompt-mode top-level `Err` — (modified)
-- V18q — Runtime event channel and always-log emission — (modified)
-- V18r — Settings-file watcher (`~/.pi/agent/settings.json`, `.pi/settings.json`) — (modified)
-- V18m — Panic routing: slash-command surface — (modified)
-
-(The `sendSystemNote` helper in H4 is the single chokepoint; H3, V18i, V18q, V18r, V18m all emit through it.)
-
-## Consequence
-
-**Severity:** correctness
-
-The runtime as specified leaks diagnostic prose into the user's bare-Pi conversation context as user-role text on every turn after a `loom-system-note` is emitted. Two implementers reading the spec will diverge: one will trust the "never produce appended turns" wording and ship the leak; another will probe Pi's `convertToLlm` and either route notes elsewhere or add a Pi-side workaround. The leak is silent, accumulates across a session, and turns parse errors and panic messages into adversarial-injection surface for the model.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Document the leak honestly for V1 and pursue a Pi-SDK enhancement (`CustomMessage.excludeFromContext` field, mirroring `BashExecutionMessage.excludeFromContext`) as a fast-follow.
-
-Concrete V1 spec edits:
-
-1. In `errors-and-results.md`, replace "never produce appended turns or a final value" with "do not fire a new turn (`triggerTurn: false`) and produce no final value; the note enters subsequent provider calls as a `user`-role transcript entry per Pi's `convertToLlm` transform — see [PIC §Delivery surface]."
-2. In PIC §**Delivery surface**, add a paragraph: "Custom-message channel persistence and LLM-context entry. Per `@mariozechner/pi-coding-agent`'s `dist/core/messages.js` `convertToLlm` transformer, every `CustomMessage` (including `loom-system-note`) is converted to `{ role: "user", content }` on every subsequent provider call. `triggerTurn: false` suppresses the immediate turn fire only; it does not exclude the message from the LLM context window. The `display` flag controls renderer behaviour, not serialization. Loom diagnostics therefore enter the user-session model context durably and contribute to `ctx.getContextUsage()` and compaction decisions. Operators authoring looms should expect parse errors, binder failures, panic notes, and always-log runtime events emitted in a session to be visible to subsequent model turns."
-3. In PIC §**Runtime event channel**, add: "`display: false` gates only renderer visibility; the underlying `CustomMessage` still enters subsequent provider calls per **Delivery surface** above. Operators MUST treat all `loom-system-note` content (regardless of `display`) as durable session-context input."
-4. Open a Pi-side issue requesting a `CustomMessage.excludeFromContext` field mirroring `BashExecutionMessage.excludeFromContext`. When Pi ships it, file a follow-up spec change to bump the SDK floor and set `excludeFromContext: true` on the canonical call.
-
-This is the honest baseline; the spec must stop claiming "never produce appended turns" because Pi's `convertToLlm` contradicts it. A channel-split alternative (using `ctx.ui.notify` plus `ctx.sessionManager.appendCustomEntry`) would lose the inline transcript rendering and is too steep a UX regression for V1.
-
-Edge cases the implementer must watch:
-
-- The H4 `sendSystemNote` helper currently has no `excludeFromContext` parameter; the V1 helper signature stays unchanged.
-- The H4 fallback-chain step that emits `loom/runtime/system-note-delivery-failed` via the diagnostics channel must not invoke `pi.sendMessage` again (existing re-entry guard); under this disposition this is unchanged.
-- Subagent-mode `display: true` cascades land in the parent user session's transcript and therefore in the parent user session's model context — the spec must not promise subagent-private behaviour for the parent surface.
-- Compaction sees these entries as ordinary `user` messages; nothing distinguishes them from real user input in token-accounting.
-
-## Relationships
-
-None
 
 ---
 
