@@ -4,7 +4,7 @@ _Generated: 2026-05-07T13:35:00Z_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T21) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 high, 6 medium retained; 23 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped (13 false positives were filtered upstream by the enricher)._
+_Triage tally: 1 high, 5 medium retained; 23 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped (13 false positives were filtered upstream by the enricher)._
 
 ---
 
@@ -347,66 +347,3 @@ Edge cases the implementer must watch:
 ## Relationships
 
 None
-
----
-
-# T06 — `loom/runtime/*` namespace summary mis-describes the namespace as panics-only
-
-**Original heading:** `loom/runtime/*` namespace description overstates — contains non-panic codes
-**Original section:** spec_topics/ — Naming inconsistencies (multiple files)
-**Kind:** naming
-**Importance:** medium
-
-## Finding
-
-The namespace overview in `spec_topics/diagnostics.md` line 46 reads:
-
-> `loom/runtime/*` — runtime errors surfaced as panics (`MatchError`, index out of bounds, etc.) reported back to Pi as system notes.
-
-This description is wrong about its own namespace. The `loom/runtime/*` registry table further down the same page (starting at line 329, under the heading `### loom/runtime/* — runtime panics, runtime-defect surface, and delivery failures`) contains six panic codes plus *eleven* non-panic codes covering at least three other categories:
-
-- **Runtime-defect surface** — `loom/runtime/internal-error` (explicitly carved out as "outside the closed V1 panic-source list").
-- **Delivery / fallback failures** — `loom/runtime/system-note-delivery-failed`, `loom/runtime/active-set-restore-failed`, `loom/runtime/subagent-dispose-failure`, `loom/runtime/registration-cache-collision`.
-- **Lifecycle / teardown events** — `loom/runtime/registry-swap-failed`, `loom/runtime/cancelled-by-session-shutdown`, `loom/runtime/reload-teardown-timeout` (the last is explicitly routed through `console.error`, not via the system-note channel, per the carve-out at line 5).
-
-The three-bullet namespace summary at lines 44–46 is the natural index a reader uses to decide which namespace a new code belongs in, and it is the only place on the page that pretends to characterise the namespace as a whole. The detailed section header at line 329 already gets the wording right; only the index summary is wrong.
-
-## Spec Documents
-
-- `spec_topics/diagnostics.md` — namespace summary bullet at line 46 (edited)
-- `spec_topics/diagnostics.md` — `### loom/runtime/* — …` registry section at line 329 (read-only; reference for correct phrasing)
-- `spec_topics/errors-and-results.md` — Runtime panics section, referenced by both the index and the registry rows (read-only)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None. The fix is a single line of orientation prose; no leaf's acceptance criteria depend on the wording of the namespace summary. `H3` and `V18` leaves consume the registry table directly, not the index bullet.
-
-## Consequence
-
-**Severity:** advisory
-
-A reader who skims the namespace summary may assume every `loom/runtime/*` code routes to the panic surface (system note for top-level looms; `Err(QueryError { kind: "invoke_failure", cause: "panic", … })` to an `invoke` parent). That assumption is wrong for over half the namespace and could lead an implementer to mis-route delivery-failure or lifecycle codes — though the per-row `Trigger` and `Spec rule` columns plus `errors-and-results.md` correct the misreading on first contact with any specific code.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Replace the line-46 bullet with wording aligned to the section header at line 329:
-
-> - `loom/runtime/*` — runtime-phase events: execution panics (`MatchError`, index out of bounds, etc.), the runtime-defect surface (`loom/runtime/internal-error`), and delivery / lifecycle / teardown failures. Routing varies per code — see the [`loom/runtime/*` registry section](#loomruntime--runtime-panics-runtime-defect-surface-and-delivery-failures) and [Errors and Results — Runtime panics](./errors-and-results.md) for per-code channels (most route through `loom-system-note`; `loom/runtime/reload-teardown-timeout` routes through `console.error`).
-
-Edge cases the editor must watch:
-
-- Verify the anchor slug used in the cross-link matches whatever slug Markdown rendering produces for the line-329 heading; if the rendering pipeline normalises punctuation differently, prefer adding an explicit `<a id="loom-runtime-namespace">` anchor at line 329 and link to that.
-- Keep the parenthetical `console.error` carve-out for `reload-teardown-timeout` consistent with the existing carve-out paragraph at line 5; do not introduce a third phrasing.
-- Do not enumerate every non-panic code in the index — that would duplicate the registry. Three category labels (panics / defect / delivery-and-lifecycle) is the right granularity.
-
-## Relationships
-
-- T04 "Placeholder rendering exemption is open-ended; affected registry rows are not enumerated" — same-cluster (both touch `diagnostics.md` registry-section accuracy; resolve independently)
