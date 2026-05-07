@@ -5,7 +5,7 @@ _Source: docs/reviews/spec-review/spec-20260507-064438-enriched.md_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T26) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 3 high, 11 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
+_Triage tally: 2 high, 11 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
 
 ---
 
@@ -776,74 +776,6 @@ Edge cases the implementer must watch:
 ## Relationships
 
 None
-
----
-
-# T12 — `invoke`-chain depth-32 cap: counting origin and subagent-mode boundary semantics undefined
-
-**Source:** docs/reviews/spec-review/spec-20260507-064438-enriched.md
-**Original heading:** Invoke-chain depth 32: counting convention and subagent boundary interaction not stated
-**Original section:** spec.md — Orientation > Scope > Hard runtime ceilings
-**Kind:** completeness
-**Importance:** high
-
-## Finding
-
-`spec.md` and [`invocation.md` — Invocation depth bound](./spec_topics/invocation.md) state that "the interpreter caps the nesting depth of an `invoke` chain at **32**, counting both direct `invoke(...)`, `.loom` callable calls through `tools:`, and `.warp` `fn` invokes (the count is per-chain, not per-process — sibling invokes do not share budget)." Two independent contracts are missing from this paragraph:
-
-1. **Counting origin / breach inequality.** The text names *which call sites count* (direct `invoke`, registered-loom calls, cross-file `.warp` `fn` invokes) but never states what depth the slash-invoked top-level loom occupies, where counting begins, or whether the cap is `≤32` or `<32`. The diagnostic message in `errors-and-results.md` and `diagnostics.md` (`invoke chain depth exceeded: <depth> > 32`, with the worked example "A 33-deep `invoke` chain renders `33 > 32`") implies one specific reading — depth equals the number of countable frames in the chain, the slash entry is depth 0, and the breach fires when a frame would push the count past 32 — but this convention has to be reverse-engineered from a rendered example. An implementer asked "is the first nested `invoke` depth 1 or depth 2?" cannot answer from the normative text alone.
-
-2. **Subagent-boundary interaction.** The cross-mode matrix on the same page describes subagent-mode children as spawning a *fresh isolated conversation* and (for `subagent → subagent`) as *sibling to* the caller's. The depth paragraph's "per-chain, not per-process — sibling invokes do not share budget" disclaimer addresses only *parallel* siblings (two invokes from the same parent get independent budgets); it does not say whether crossing into a subagent-mode child *resets* the depth counter, *shares* the parent's remaining budget, or *inherits* the absolute count. The choice has direct safety consequences: if subagent crossings reset the counter, runaway recursion through subagent-mode loom callees is bounded only by host stack — defeating the cap's stated rationale ("legitimate-but-runaway recursive divide-and-conquer"). The leaf V18n already encodes one specific reading in its test ("synthesized 33-deep `invoke` chain… sibling invokes do not share the depth budget"), but does not exercise the subagent-crossing case, so even the test surface does not pin the answer.
-
-## Spec Documents
-
-- `spec_topics/invocation.md` — *Invocation depth bound* (edited)
-- `spec.md` — *Orientation > Scope > Hard runtime ceilings*, ceiling #1 (edited)
-- `spec_topics/diagnostics.md` — code-registry row for `loom/runtime/invoke-depth-exceeded`, plus the worked-example bullet "A 33-deep `invoke` chain renders `invoke chain depth exceeded: 33 > 32`" (read-only — confirms the intended counting reading; no edit needed if the spec edit aligns with it)
-- `spec_topics/errors-and-results.md` — message-template row for `loom/runtime/invoke-depth-exceeded` (read-only — same as above)
-
-## Plan Impact
-
-**Phases:** Vertical V15, Vertical V18
-
-**Leaves (implementation order):**
-
-- V15i — Cross-mode cell: prompt → subagent — (modified)
-- V15j — Cross-mode cell: subagent → prompt — (modified)
-- V15k — Cross-mode cell: subagent → subagent — (modified)
-- V18n — Panic routing: `invoke` parent surface — (modified)
-
-V15i/V15j/V15k each currently verify only conversation-isolation and transcript-leakage properties of one cross-mode cell. Each needs a small additional assertion that the depth counter passes through the boundary (i.e., a 32-level chain that crosses the relevant boundary still trips `loom/runtime/invoke-depth-exceeded` when the next frame would push to 33). V18n currently synthesizes a same-mode 33-deep chain; it needs an additional fixture chain that crosses into subagent mode partway through to make the per-chain semantics testable, and its existing depth-31-vs-32 fixture should explicitly pin the breach inequality (`33 > 32`, not `32 > 32`).
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers will diverge on (a) whether the slash entry counts as a frame and (b) whether subagent-mode descents reset the counter. Divergence on (a) shifts every breach test by one frame and produces inconsistent diagnostic messages across implementations. Divergence on (b) is more serious: an implementer who resets across subagents leaves a runaway-recursion attack/footgun open precisely along the path the cap was designed to bound, and the resulting host-stack overflow falls outside the closed V1 panic-source list and is not catchable through the `invoke` boundary's `Err(InvokeInfraError)` envelope.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Extend the *Invocation depth bound* paragraph in `spec_topics/invocation.md` with two additional sentences and propagate the result via the existing forward-link from `spec.md` ceiling #1 (no separate aggregator edit needed; the bullet already says "per [Invocation — Invocation depth bound]"). The added contract:
-
-> Depth is the count of *countable frames* on the active call chain, where a countable frame is any direct `invoke(...)` call, any `.loom` callable call dispatched through a `tools:` entry, or any cross-file `.warp` `fn` call. The slash-invoked top-level loom is depth 0; the first such frame nested inside it is depth 1. The cap is breached when the runtime is about to push a frame that would bring the count to 33, so the legal range is 1 ≤ depth ≤ 32 and the diagnostic renders `invoke chain depth exceeded: 33 > 32` (matching [Diagnostics — code registry](./diagnostics.md#code-registry)).
->
-> The counter is per-chain and crosses subagent-mode boundaries unchanged. A `subagent → subagent` or `prompt → subagent` invocation does **not** reset the count: from the perspective of the cap, the subagent's spawned `AgentSession` is a continuation of the same call chain even though it owns a fresh conversation. The `subagent` carve-outs in the cross-mode matrix concern *conversation isolation*, not *call-chain accounting*. Two concurrent invokes spawned from the same parent (the "sibling invokes do not share budget" rule above) remain independent regardless of mode — the existing per-chain definition already covers that case.
-
-Implementer-relevant edge cases:
-
-- Within a `.warp` file, a `fn` calling another `fn` defined in the *same* `.warp` file is an in-file function call and does not count as a countable frame; only cross-file `.warp` `fn` invocations do. (This matches the existing wording — keep it as-is; the new paragraph does not relax it.)
-- The depth counter is incremented before the child frame begins executing (so a child whose body itself overflows from depth 32 surfaces the panic at the child's very first nested `invoke`, not after some work has run).
-- For subagent-mode children, the counter passes through the `customTools` / `AgentSession` boundary as a runtime-side invariant carried by the invoke trampoline; it is not part of the wire-level data passed to the spawned session and therefore does not appear anywhere in the Pi SDK surface.
-- A `loom/runtime/invoke-depth-exceeded` raised inside a subagent-mode child still surfaces to its `invoke` parent as `Err(InvokeInfraError { reason: "panic", ... })` per V18n; the only thing the new contract changes is which frame trips the cap, not the routing of the resulting panic.
-
-## Relationships
-
-- T10 "Hard-ceiling interaction: no rule for which surface fires when two ceilings could trip on the same event" — decision-overlap (precedence rule needs to know which event the depth cap trips on; pinning the breach inequality here makes "the 32nd-deep `invoke` also exhausts the binder LLM-call cap" precisely answerable)
-- T13 "`tool_loop.max_iterations`: validation rules and diagnostic surface unspecified" — same-cluster (parallel completeness gap on a sibling ceiling)
 
 ---
 
