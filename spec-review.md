@@ -4,7 +4,7 @@ _Generated: 2026-05-07T17:37:47Z_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 11 high, 9 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
+_Triage tally: 10 high, 9 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
 
 ---
 
@@ -1307,67 +1307,3 @@ Edge cases for the editor: keep the inline-label citation surface (CIO-1, HC3-a.
 - T20 "CIO-3 enumerates four AJV boundaries; ceiling #4's table has five" — same-cluster (sibling consistency defect in the same Hard ceilings block)
 - T21 "Hard ceilings block does load-bearing definitional work inside informative orientation" — must-follow
 
----
-
-# T20 — CIO-3 enumerates four AJV boundaries; ceiling #4's table has five
-
-**Original heading:** CIO-3 enumerates 4 AJV boundaries; ceiling #4 table has 5 (code-driven site missing from CIO-3)
-**Original section:** spec.md — Orientation > Scope > Hard ceilings > Ceiling #4 and CIO rules
-**Kind:** consistency
-**Importance:** high
-## Finding
-
-`spec.md` ceiling #4's per-boundary table at line 60 enumerates **five** distinct AJV enforcement points, with the model-driven and code-driven tool-arg sites split into separate rows that carry different surface contracts (`tool_use` model-driven → tool-error result fed back to the model; code-driven `<name>(args)` → `Err(CodeToolError { cause: "validation", … })` to loom code). Two paragraphs later, **CIO-3** ([`spec.md` line 78](spec.md)) lists only four boundaries — "typed-query response, `tool_use` args, `params` merge, `invoke<T>` return" — folding the code-driven site into the Anthropic-API term `tool_use`, which by definition refers only to model-emitted tool-call blocks.
-
-The same four-element list propagates downstream: **CIO-6**'s masked-domain analysis ([`spec.md` line 81](spec.md)) attaches its "only ceiling #2 can co-fire" rule to "the typed-query response / tool-arg / `params` / `invoke<T>` return boundary (ceiling #4's site, CIO-3)", and the `masked` paragraph in [`spec_topics/pi-integration-contract.md` line 450](spec_topics/pi-integration-contract.md) repeats that same four-item enumeration. Neither location says whether the code-driven `<name>(args)` AJV boundary participates in CIO-3's depth-walk-before-AJV ordering or what its `masked` reachable domain is. The table treats it as a peer site with a peer surface; the CIO rules silently exclude it.
-
-The plan corpus already enumerates all five sites correctly (V11i in [`plan_topics/v11-discriminated-unions.md`](plan_topics/v11-discriminated-unions.md) cites the per-boundary table verbatim and assigns V14f as the owner of the code-driven boundary), so the defect is isolated to spec prose. But an implementer reading CIO-3 / CIO-6 in isolation has no normative basis for installing depth-walk ordering at the code-driven site or for populating its `masked` field.
-
-## Spec Documents
-
-- `spec.md` — Hard ceilings, CIO-3 (edited)
-- `spec.md` — Hard ceilings, CIO-6 masked-domain analysis (edited)
-- `spec_topics/pi-integration-contract.md` — Hard-ceiling co-fire (`masked`) paragraph (edited)
-- `spec.md` — Hard ceilings, ceiling #4 per-boundary table (read-only — source of truth)
-- `spec_topics/schema-subset.md` — Depth Enforcement (read-only)
-- `spec_topics/tool-calls.md` — Failures, code-driven path (read-only)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):** None
-
-(V11i, V14e, V14f, V6i, V16p already enumerate all five sites correctly via the per-boundary table; the spec correction tightens prose but does not retract or add normative behaviour the plan must track.)
-
-## Consequence
-
-**Severity:** correctness
-
-CIO-3 is the only normative statement that ceiling #4's depth-walk runs *before* AJV at every boundary. An implementer who reads `tool_use args` in its precise Anthropic-API sense will install the pre-AJV depth walk on the model-driven path and may fall back to plain AJV (depth check via `maxDepth` keyword, or none) at the code-driven site — diverging on error shape (`schema_keyword` vs. arbitrary AJV keyword), error first-fire location, and short-circuit semantics. CIO-6's masked-domain silence at the code-driven site additionally leaves `masked` field population at that boundary undefined, so two implementers will not agree on whether `details.masked` is omitted, `[]` (forbidden), or `["ceiling#2"]` when a code-driven `<name>(args)` validation fires.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Edit CIO-3 to enumerate the code-driven boundary as a distinct site, and propagate the corrected enumeration into CIO-6 and the `pi-integration-contract.md` `masked` paragraph. Concretely:
-
-1. **CIO-3** (`spec.md` line 78) — replace `(typed-query response, `tool_use` args, `params` merge, `invoke<T>` return)` with `(typed-query response, model-driven `tool_use` args, code-driven `<name>(args)` args, `params` merge, `invoke<T>` return)` — five sites, in the same order as the ceiling #4 table rows. Use the same row labels the table uses so the cross-reference is mechanical.
-
-2. **CIO-6** (`spec.md` line 81) — split the "typed-query response / tool-arg / `params` / `invoke<T>` return boundary" group so the code-driven site is named, and state its `masked` reachable domain explicitly. The reachable set at the code-driven `<name>(args)` AJV site is **empty**: ceiling #2 fires only at the tool-call-round boundary per CIO-4 and is not reached at a synchronous code-side dispatch (no round counter advances at this site), ceilings #1 and #3 are unreachable for the same reasons given in the existing paragraph. Suggested phrasing for that arm: `at the code-driven <name>(args) tool-arg boundary (ceiling #4's code-driven row, CIO-3) the reachable set is empty (the call site is not inside a tool-call-round counter context, so ceiling #2's slot accounting is not reachable, and ceilings #1 / #3 are unreachable as in the typed-query case)`.
-
-3. **`spec_topics/pi-integration-contract.md` line 450** — the parenthetical `(ceiling #4 surface at the typed-query response / tool-arg / `params` / `invoke<T>` return boundary)` and the `(in V1: only `["ceiling#2"]` is reachable on a `validation` event …)` clauses must agree with the corrected CIO-6: list the code-driven row explicitly and state its empty reachable domain. The `validation` runtime-event case for code-driven `<name>(args)` carries `cause: "schema_validation"` per V14f and the `masked` field MUST be omitted at this site.
-
-Edge cases the implementer must watch:
-
-- The five-site list must stay in lockstep with the ceiling #4 per-boundary table; if a future leaf adds or splits a row, all three locations need the same update (call this out in the Hard ceilings block as a co-edit obligation, alongside the existing GOV-12 aggregator note).
-- `tool_use` is an Anthropic-API term — keep it qualified as `model-driven \`tool_use\` args` to prevent the same conflation recurring.
-- The masked-domain text for the code-driven site should not silently inherit the typed-query rationale; the code-driven site's emptiness comes from absence-of-counter-context, not from CIO-2 / CIO-1 / CIO-5 ordering, and the prose should make that distinction so a future "what about an inner tool_loop counter for code-driven calls?" question has a documented answer.
-
-## Relationships
-
-- T17 "Ceiling #4 slash-load `params` arm: budget accounting, `masked` provenance, and unnamed binder hook" — same-cluster (also extends CIO-6's masked-domain rules at a specific row, but for the slash-load `params` arm rather than the code-driven row)
-- T18 "CIO-6 hard-ceiling co-fire: predicate, test vector, and normative ownership" — must-precede
-- T19 "Ceiling #4's opening classification contradicts its own table and CIO-1" — same-cluster (same opening bullet of ceiling #4; resolves independently)
