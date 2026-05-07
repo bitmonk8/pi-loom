@@ -5,7 +5,7 @@ _Source: docs/reviews/spec-review/spec-20260507-064438-enriched.md_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T26) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 12 high, 12 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
+_Triage tally: 11 high, 12 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
 
 ---
 
@@ -1641,55 +1641,4 @@ Edge cases the implementer must observe:
 ## Relationships
 
 - T26 "`semver` not declared as a production dependency in `package.json`" — must-follow (the extended (d) check uses `semver.satisfies` against four packages instead of one; the missing `semver` `dependencies` entry must be added before this finding's check can run)
-
----
-# T24 — Trust-boundary aggregator names `tools` for the subagent-mode tool-definition wiring; the SDK field is `customTools`
-
-**Source:** docs/reviews/spec-review/spec-20260507-064438-enriched.md
-**Original heading:** Trust boundary uses `tools` where `customTools` is the correct SDK field
-**Original section:** spec.md — Orientation > Scope > Trust boundary
-**Kind:** codebase-grounding-broad
-**Importance:** high
-
-## Finding
-
-The Trust-boundary bullet in `spec.md` (Orientation > Scope) describes the per-mode tool-visibility enforcement as: "subagent mode: explicit `tools` array on `createAgentSession`; prompt mode: `pi.setActiveTools` snapshot/restore around each query." On `CreateAgentSessionOptions` (verified at `@mariozechner/pi-coding-agent` 0.73.0, `dist/core/sdk.d.ts`), the two relevant fields are distinct:
-
-- `tools?: string[]` — a name allowlist that suppresses default built-ins.
-- `customTools?: ToolDefinition[]` — the array carrying actual tool definitions (built-in `ToolDefinition`s and `defineTool`-wrapped `.loom` callables).
-
-`spec_topics/pi-integration-contract.md` ("Conversation drive — subagent mode") models this correctly: it passes `customTools` *and* a parallel `tools` allowlist derived from the same lowered set, and Rule 2 explicitly states the allowlist is what suppresses Pi's default built-ins. The `spec.md` aggregator collapses both fields into a single mention of `tools` and drops `customTools` entirely, so a reader who treats the hub as authoritative would conclude that loom callees travel as `ToolDefinition[]` under the key `tools` — which the SDK ignores (excess option) for that shape, and which would, under the canonical reading of `tools` as `string[]`, fail TypeScript compilation outright.
-
-The error is confined to the `spec.md` Trust-boundary bullet; PIC, the V14 plan leaves, and H4's spawner-shim test (`h4-extension-shell.md`) already use the `customTools` / `tools` pair correctly.
-
-## Spec Documents
-
-- `spec.md` — Orientation > Scope > Trust boundary (edited)
-- `spec_topics/pi-integration-contract.md` — Conversation drive — subagent mode; Tool-registration lifetime and visibility (read-only — already canonical)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):** None
-
-(All affected plan leaves — H4, V12a, V14e, V14j — already cite the `customTools` / `tools` allowlist pair correctly. No leaf acceptance criteria change.)
-
-## Consequence
-
-**Severity:** correctness
-
-A reader treating `spec.md` as authoritative for the SDK shape would write `createAgentSession({ tools: customToolDefinitions })`. Under the actual SDK type, `tools` is `string[]`; the call would either fail at TypeScript compile time or — under loose typing — silently drop the entire callable set, leaving the spawned `AgentSession` with Pi's default built-ins (`read`, `bash`, `edit`, `write`) and zero loom callables, breaking subagent-mode tool dispatch wholesale.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Rewrite the Trust-boundary bullet's subagent-mode parenthetical to mirror PIC's wording: replace "subagent mode: explicit `tools` array on `createAgentSession`" with "subagent mode: explicit `customTools` array (with the matching tool names listed in a `tools` allowlist) on `createAgentSession`". The phrasing in `pi-integration-contract.md` ("Conversation drive — subagent mode" and Rule 2 under it) is the source of truth — copy its `customTools` / `tools` framing rather than coining a new aggregator-level shorthand. Edge case for the implementer: when the loom's callable set is empty, both fields must still be passed (`customTools: []`, `tools: []`); omitting `tools` re-enables Pi's default built-ins, per PIC Rule 2 and V14j.
-
-## Relationships
-
-- T25 "Subagent cancellation wiring depends on a non-existent `createAgentSession({ signal })` option" — co-resolve (sibling SDK-grounding error against `CreateAgentSessionOptions`; both edits land at the same call site)
 
