@@ -4,7 +4,7 @@ _Generated: 2026-05-07T13:35:00Z_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T21) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 high, 8 medium retained; 23 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped (13 false positives were filtered upstream by the enricher)._
+_Triage tally: 1 high, 7 medium retained; 23 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped (13 false positives were filtered upstream by the enricher)._
 
 ---
 
@@ -473,65 +473,3 @@ None
 
 ---
 
-# T08 — `loomAbort` ↔ `ctx.signal` linkage: spec.md hand-waves the wiring and reason-propagation is unpinned
-
-**Original heading:** `loomAbort` ↔ `ctx.signal` linkage mechanism not specified
-**Original section:** spec.md — Orientation > Prerequisites: Session model
-**Kind:** assumptions, implementability
-**Importance:** medium
-
-## Finding
-
-The Orientation paragraph in `spec.md` says only "the runtime forwards Pi's per-handler `ctx.signal` … into `loomAbort` rather than using `ctx.signal` directly," and links to `./spec_topics/pi-integration-contract.md` (with no `#cancellation-source` fragment) under the label "Cancellation source." The forward link drops the reader on the file's top, not on the owning paragraph; nothing in `spec.md` itself names the per-entry-point linkage shape or distinguishes the slash-command path from the tool-exposed and `invoke` paths.
-
-The owning topic pages do specify the per-entry-point wiring functionally — `cancellation.md` describes (a) Pi-event-handler observation of `ctx.signal.aborted` inside `tool_call`/`tool_result`/`message_update`/`turn_end`/`agent_end` for the slash-command entry, (b) "a one-shot listener registered at entry" on the tool-exposed entry's `signal` parameter, and (c) "a derived controller that aborts when the parent's signal aborts but not vice versa" for `invoke`. PIC's `#cancellation-source` repeats the same per-entry shape. PIC's Step 0 (b) capability table inventories both `AbortSignal.any` and `AbortSignal.prototype.addEventListener`, so the inventoried-member set covers either implementation choice. The originally-flagged worry that the linkage might rest on an unprobed dependency does not hold.
-
-What does remain genuinely under-specified is **abort-reason propagation across the linkage**. `AbortSignal.prototype.reason` sits in the probe inventory, implying reason carries observable weight, but no spec text states whether `loomAbort.signal.reason` reflects `ctx.signal.reason` (or the tool-exposed `signal.reason`, or the parent-`invoke` signal's `reason`) or instead carries a default `AbortError`. The choice flips with the wiring: `AbortSignal.any([source])` produces a derived signal whose `reason` is the source's `reason`; a manual `addEventListener` callback that calls `loomAbort.abort()` with no argument loses the source reason; calling `loomAbort.abort(source.reason)` preserves it. Two implementers reading `cancellation.md` and PIC together can pick conformant wiring that produces materially different `loomAbort.signal.reason` values. The downstream `QueryError { kind: "cancelled", message: "..." }` shape does not currently consume the reason, so the divergence is invisible today; once any future surface (a system note, a `cancelled-by-session-shutdown` `details` field, a test-harness assertion) reads the reason, the gap surfaces as observable drift.
-
-A secondary issue is purely editorial: the spec.md sentence's link label says "Cancellation source" but the URL is anchorless, so even an attentive reader follows it to the wrong place. That is a special case of the cross-cutting anchor-resolution finding elsewhere in this review, but the local fix is cheap and worth doing in the same edit.
-
-## Spec Documents
-
-- `spec.md` — Orientation > Prerequisites > Session model paragraph (edited)
-- `spec_topics/cancellation.md` — Signal source / Forwarding into `loomAbort` (edited)
-- `spec_topics/pi-integration-contract.md` — Cancellation source (edited)
-- `spec_topics/pi-integration-contract.md` — Step 0 (b) `AbortSignal` member table (read-only — verifies both `AbortSignal.any` and `AbortSignal.prototype.addEventListener` are inventoried)
-
-## Plan Impact
-
-**Phases:** MVP, H4, V18
-
-**Leaves (implementation order):**
-
-- Mb — MVP runtime + slash-command registration + per-invocation cancellation plumbing — (modified — the slash-command-path wiring lives here; reason-propagation assertion would land in its cancellation tests)
-- H4 — Extension shell + `PiSubagentSpawner` one-shot `loomAbort.signal` listener — (modified — the subagent and tool-exposed listener wiring lives here; would assert reason-propagation behaviour for the `addEventListener` path)
-- V18d — `AbortSignal` before every `invoke` (derived child signal) — (modified — the derived-controller mechanism for the `invoke` entry needs a reason-propagation assertion if the chosen wiring is `AbortSignal.any`)
-- V18e — Cancellation propagates downward only — (modified — the parent → child propagation test would gain a reason-propagation assertion)
-
-## Consequence
-
-**Severity:** advisory
-
-`spec.md`'s hand-wave is repaired by the per-entry-point text in `cancellation.md` and PIC, so a careful implementer can produce a working system. The reason-propagation gap does not break any currently-specified surface, but it leaves implementations free to diverge on `loomAbort.signal.reason` in ways no test would catch — a latent foot-gun if a later leaf consumes the reason (e.g. plumbing it into a `details` field on `loom/runtime/cancelled-by-session-shutdown`).
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `spec.md`'s Orientation paragraph, replace the bare `./spec_topics/pi-integration-contract.md` URL with `./spec_topics/pi-integration-contract.md#cancellation-source`, and reword the linkage sentence to defer the per-entry-point wiring to the topic without describing it twice — e.g. "the runtime forwards Pi's per-handler `ctx.signal` (and the tool-exposed `signal` parameter, and parent-`invoke` signals) into `loomAbort` per the per-entry-point rules in [Cancellation — Forwarding into `loomAbort`](./spec_topics/cancellation.md) and [Pi Integration Contract — Cancellation source](./spec_topics/pi-integration-contract.md#cancellation-source)." Make no further normative claim in `spec.md`.
-
-In `cancellation.md` (or PIC `#cancellation-source`, whichever the editor judges authoritative), pin abort-reason propagation as one normative rule covering all three forwarding shapes: when forwarding fires, the runtime MUST call `loomAbort.abort(source.reason)` so that `loomAbort.signal.reason === source.signal.reason` (or `=== source.reason` for the case where the trigger is an `agent_end` event, where `source.reason` is the runtime-synthesised value the spec already implies). The `session_shutdown` carve-out in `cancellation.md` should state its own reason value explicitly — current text says "aborts every entry's `loomAbort`" without naming a reason, leaving the same gap on the teardown path.
-
-Edge cases the implementer must watch:
-- The slash-command path's `agent_end`-driven trigger has no source `AbortSignal` — there is no `reason` to forward, so the runtime synthesises one (e.g. an `Error("user cancelled turn")` or equivalent); the chosen value should be pinned, not left to implementation.
-- `AbortSignal.any([source])` and manual `addEventListener` calling `loomAbort.abort(source.reason)` produce equivalent reason-propagation observable behaviour; either is conformant. The choice may be left to the implementation provided the observable rule above holds.
-- The one-shot guard on `loomAbort.abort()` already documented in `cancellation.md` means a second forwarder firing after the first does not re-stamp the reason; the first source's reason wins. Tests that fire two sources concurrently must order their assertions accordingly.
-- The `invoke` entry's "derived controller" wording is most naturally implemented with `AbortSignal.any([parent])`, but a manual derived-`AbortController` whose `abort()` is wired to the parent's `addEventListener("abort", …, { once: true })` is equally conformant under the rule above.
-
-## Relationships
-
-None
-
----
