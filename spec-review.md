@@ -4,7 +4,7 @@ _Generated: 2026-05-07T17:37:47Z_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 17 high, 10 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
+_Triage tally: 16 high, 10 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
 
 ---
 
@@ -1527,7 +1527,6 @@ Edge cases the implementer must watch:
 ## Relationships
 
 - T23 "Per-call `AbortController` / `AbortSignal` defect routing has gaps" — same-cluster (both findings concern silent failure modes around the cancellation surface, but resolve independently)
-- T27 "Spec mandates `Promise.race` / `Promise.allSettled` but no plan leaf carries the required allow-list citation" — same-cluster
 
 ---
 
@@ -1796,76 +1795,3 @@ Edge cases the implementer must observe: the static call-site label in `details.
 - T25 "Session-shutdown teardown: `console.error` is the unguarded last resort, but no rule says emission MUST NOT propagate" — same-cluster (the diagnostic-channel-failure question constrains how the new `teardown-step-failed` code degrades when `console.error` itself is unavailable)
 - T28 "`session_shutdown` teardown contract has no plan-leaf owner" — must-follow (the new isolation rule is one of the acceptance criteria the missing leaf must carry)
 
----
-
-# T27 — Spec mandates `Promise.race` / `Promise.allSettled` but no plan leaf carries the required allow-list citation
-
-**Original heading:** `Promise.race` / `Promise.allSettled` spec mandates conflict with plan's "Sequential by default" rule
-**Original section:** Plan corpus / spec_topics cross-spec
-**Kind:** cross-spec-consistency-broad
-**Importance:** high
-## Finding
-
-Two normative spec passages name a forbidden concurrency primitive verbatim:
-
-- `spec_topics/discovery.md` — "each candidate `package.json` read is wrapped in `Promise.race([read, Clock.setTimeout(deadline)])` where `deadline = max(200, floor(looms.scanPackagesTimeoutMs / 10))` milliseconds".
-- `spec_topics/pi-integration-contract.md` — `session_shutdown` sub-step 3: "`await Promise.allSettled(activeInvocations.map(inv => inv.disposeBarrier))`", with sub-step iteration order "observable to tests asserting on the order of `loom/runtime/reload-teardown-timeout`'s `<list>` rendering".
-
-`plan_topics/conventions.md` (Sequential by default) forbids `Promise.all`, `Promise.race`, `Promise.allSettled`, and `Promise.any` anywhere under `src/**` unless the calling leaf's `Spec.` field cites a REQ-ID whose normative text mandates concurrency at this site **and** the leaf's `Adds.` field names the construct alongside the REQ-ID. The H1 lint rule (`no-restricted-syntax`, per `plan_topics/h1-scaffold.md`) enumerates the allow-list of `<file>:<line-range>` exemptions and asserts every entry has a same-line `// allow: <REQ-ID> — <spec-page>` comment plus a matching coverage-matrix row.
-
-Neither construct currently has a home in the plan:
-
-- `V14m` (`plan_topics/v14-tool-calls.md`) is the leaf that owns the per-read deadline, but its `Adds.` describes the deadline only behaviourally ("each candidate `package.json` read is additionally wrapped in a per-read deadline … scheduled through the injected `Clock.setTimeout`") — `Promise.race` is not named.
-- The `session_shutdown` handler has no plan leaf at all (see related finding on the missing teardown leaf), so `Promise.allSettled` has no candidate `Adds.` field to register against.
-
-A faithful implementation of either spec passage therefore trips the H1 ESLint rule. The V18s coverage gate cannot rescue it: there is no allow-list entry to validate, and there is no leaf-level signal that one is needed.
-
-## Spec Documents
-
-- `spec_topics/discovery.md` — Package discovery, per-read deadline rule (option-dependent)
-- `spec_topics/pi-integration-contract.md` — Extension entry point, `session_shutdown` sub-step 3 and iteration-order invariant (option-dependent)
-- `plan_topics/conventions.md` — Sequential by default (read-only)
-- `plan_topics/h1-scaffold.md` — `no-restricted-syntax` allow-list seed (edited)
-- `plan_topics/v14-tool-calls.md` — V14m `Adds.` / `Tests.` (edited)
-- `plan_topics/v18-cancellation.md` — host page for the new teardown leaf, if added here (option-dependent)
-- `plan_topics/h4-extension-shell.md` — alternate host page for the new teardown leaf (option-dependent)
-- `plan_topics/coverage-matrix.md` — REQ-ID → leaf rows for the new allow-list entries (edited)
-
-## Plan Impact
-
-**Phases:** H1 (Scaffold), V14 (Tool calls and discovery), and either H4 (Extension shell) or V18 (Cancellation) depending on where the teardown leaf lands.
-
-**Leaves (implementation order):**
-
-- H1 — Scaffold — (modified — seed two new allow-list entries in the lint rule's `<file>:<line-range>` table and call them out in the canonical seed list inside `Adds.`)
-- H4a — Extension shell — (option-dependent — the teardown leaf may land here as a sibling, e.g. `H4b`)
-- V14m — Discovery: package `looms/` and `pi.looms` — (modified — `Adds.` must name `Promise.race` with a DISC REQ-ID; `Tests.` already exercises the timeout path and needs no new test, only the construct citation)
-- *(new leaf)* — `session_shutdown` handler / `ActiveInvocationRegistry` teardown — (blocked — must exist before `Promise.allSettled` can be allow-listed; this is the leaf the related finding calls out)
-
-## Consequence
-
-**Severity:** correctness
-
-An implementer who follows the spec verbatim writes `Promise.race(...)` in the V14m package walker and `Promise.allSettled(...)` in the `session_shutdown` handler; both call sites trip the H1 ESLint rule and CI rejects the change. The implementer's only spec-conformant escape routes are (a) silently widen the lint allow-list outside the `Adds.`-citation discipline (corrupting the convention's audit-by-grep guarantee), or (b) deviate from the spec's explicit construct choice (breaking the PIC iteration-order invariant the teardown tests are expected to assert against). Two reasonable implementers will diverge on which escape they pick.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Keep PIC's `Promise.allSettled` mandate (the iteration-order invariant and the bounded-await timing budget both depend on parallel awaiting) and add the missing teardown leaf with the construct named in `Adds.`. Soften discovery.md's `Promise.race` to behavioural ("a deadline race scheduled through `Clock.setTimeout`"), and let V14m's existing `Adds.` wording stand — the implementation can use an `AbortController` derived from `Clock.setTimeout` instead.
-
-**Spec edits.** Only discovery.md line 129's `Promise.race(...)` clause.
-
-The PIC `Promise.allSettled` mandate is load-bearing — the iteration-order invariant is observed by tests, and serialising the await would inflate teardown latency unpredictably; cite it explicitly in a new teardown leaf's `Adds.` and add the H1 allow-list entry. The discovery.md `Promise.race` is incidental — softening it to "a deadline race scheduled through `Clock.setTimeout`, with the abandoned read's late settlement silenced" lets V14m's existing `Adds.` stand and removes one allow-list entry from `src/`.
-
-Edge cases the implementer must watch:
-
-- The new teardown leaf's `Adds.` must name `Promise.allSettled` (with `per pi-integration-contract.md — Extension entry point` until H6 mints PIC REQ-IDs); the H1 allow-list entry must carry the same anchor in its `// allow:` comment, and `coverage-matrix.md` must gain the corresponding row (or accept the transitional spec-page-anchor form per conventions.md).
-- The softened discovery.md wording must still pin the iteration order of the per-read timer arming relative to `Clock.now()` cap-checks, so the `FakeClock`-driven test in V14m (which currently relies on advancing past the per-read deadline while the read promise stays pending) keeps its determinism.
-- The PIC iteration-order invariant survives only if `Promise.allSettled` is preserved; if a future audit narrows the allow-list, the iteration-order paragraph (line 116) and the `<list>`-rendering test obligation must be revisited together.
-
-## Relationships
-
-None
