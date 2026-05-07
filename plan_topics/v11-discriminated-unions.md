@@ -27,7 +27,7 @@
 ## V11d — Explicit `by <field>` form
 
 - **Spec.** [Schema Declarations](../spec_topics/schemas.md) (discriminated unions), [Grammar Appendix — `schema X by <field>`](../spec_topics/grammar.md#schema-x-by-field).
-- **Adds.** `schema X by kind = A | B`. The `by` clause is admitted **only** on the union form (the alternative beginning with `=`); a `schema X by f { ... }` declaration with an object body is `loom/parse/by-on-object-schema`. Resolves to loom-side identifier; lowering uses each variant's wire name.
+- **Adds.** `schema X by kind = A | B`. The `by` clause is admitted **only** on the union form (the alternative beginning with `=`); a `schema X by f { ... }` declaration with an object body is `loom/parse/by-on-object-schema`. Resolves to loom-side name; lowering uses each variant's wire name.
 - **Tests.** Explicit form overrides detection; loom-side name accepted; wire name forbidden in `by` clause; `schema X by f { a: string }` (object body with `by`) emits `loom/parse/by-on-object-schema` whose message matches the [diagnostics registry](../spec_topics/diagnostics.md#code-registry) *Message* template; `schema X by f` (no RHS at all) is rejected; `schema X by kind = A | B` where the named `kind` field has numeric or boolean literal values across variants emits `loom/parse/non-string-discriminator` (the rule applies under explicit `by` exactly as under implicit detection); two variants under explicit `by kind` carrying the same string-literal `kind` value emits `loom/parse/duplicate-discriminator-value` (asserted as the literal registry code string per the V18s diagnostic-code gate).
 - **Deps.** V11a, V4b.
 - **Ships when.** Author can override detection on union schemas; misuse on object schemas is rejected with a clear diagnostic.

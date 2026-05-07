@@ -92,7 +92,7 @@ A small stdlib is exposed on the primitive composite types. No user-defined meth
 |---|---|---|
 | `keys()` | `(): array<string>` | Loom-side field names, in schema declaration order for named schemas; insertion order otherwise |
 | `values()` | `(): array<T>` (heterogeneous; element type is the union of field types) | Field values in the same order as `keys()` |
-| `has(k)` | `(k: string): boolean` | Whether a loom-side field name is present. Returns `false` for unknown keys (no panic) — this is the explicit safe-check |
+| `has(k)` | `(k: string): boolean` | Whether a loom-side name is present. Returns `false` for unknown keys (no panic) — this is the explicit safe-check |
 
 Additional methods may be added non-breakingly later (see [Future Considerations](./future-considerations.md)). Anything not on this list is `loom/parse/unknown-method` rather than a runtime failure.
 
