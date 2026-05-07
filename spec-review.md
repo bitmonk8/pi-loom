@@ -4,7 +4,7 @@ _Generated: 2026-05-07T17:37:47Z_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 7 high, 8 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
+_Triage tally: 6 high, 8 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
 
 ---
 
@@ -951,70 +951,4 @@ Then sweep `invocation.md`, `overview.md`, `binder.md`, and `errors-and-results.
 ## Relationships
 
 - T16 "Pi API surfaces asserted without `.d.ts` citations: setActiveTools, createAgentSession, ExtensionCommandContext, AgentSession, tool-result envelope" — same-cluster (G2's wrong event-name attribution would be caught by the same Pi-API-citation discipline that finding asks for)
-
----
-
-# T15 — Concurrent prompt-mode invocations: isolation claim is unbacked for the prompt-mode arm
-
-**Original heading:** Concurrent prompt-mode invocations: isolation claim not backed by a mechanism
-**Original section:** spec.md — Orientation > Prerequisites > Session model
-**Kind:** consistency, implementability
-**Importance:** high
-## Finding
-
-The Session-model paragraph in `spec.md` asserts that "[c]oncurrent loom invocations within a session — whether spawned by parallel tool calls into the same `.loom` callable, by sibling `invoke(...)` sites, or by independent slash dispatches — are **permitted, isolated, and independently cancellable**" and immediately enumerates the supporting mechanisms: a per-invocation `AbortController` (always), a private `AgentSession` "in subagent mode (no shared transcript or `tools:` table)", and an `ActiveInvocationRegistry` entry. Two of those three mechanisms are explicitly subagent-only. The prompt-mode arm has no transcript-isolation mechanism by design (a prompt-mode loom drives the user's session) and shares one mutating control surface — `pi.setActiveTools` against the user session — with every other prompt-mode loom that is in flight.
-
-The actual prompt-mode concurrency story is implicit and scattered. `pi-integration-contract.md` (Tool-registration) leans on two Pi guarantees to make snapshot/restore safe: `pi.setActiveTools` is synchronous and atomic, and "Pi dispatches slash-command handlers one at a time per session, so two loom invocations against the same session cannot overlap their snapshot/restore windows" — but that second guarantee covers only the slash entry point. `invocation.md` then explicitly contemplates "[t]wo concurrent invokes spawned from the same parent" and the cross-mode matrix's prompt → prompt cell (V15h) re-uses the same `pi.setActiveTools` snapshot/restore protocol around each nested call. Nothing in the spec corpus rules out a prompt-mode parent emitting sibling `invoke(...)` calls whose bodies overlap, in which case two snapshot/restore windows would interleave on the same `pi` singleton with no defined outcome.
-
-The spec needs to say one of two things and currently says neither: (a) prompt-mode loom bodies execute strictly sequentially with respect to one another within a session — making the snapshot/restore stack-discipline LIFO-safe — or (b) if overlap is permitted, define the synchronisation that keeps `pi.setActiveTools` swaps from interleaving. Until that is pinned, the blanket "isolated" claim contradicts the mechanisms it cites.
-
-## Spec Documents
-
-- `spec.md` — Orientation > Prerequisites > Session model (edited)
-- `spec_topics/pi-integration-contract.md` — Tool-registration lifetime and visibility; `ActiveInvocationRegistry` (edited)
-- `spec_topics/invocation.md` — Cross-mode semantics (prompt → prompt cell); Invocation depth bound (sibling-invokes paragraph) (edited)
-- `spec_topics/cancellation.md` — Signal source / propagation (read-only)
-- `spec_topics/frontmatter.md` — `tools:` (`.loom` callee mode rule) (read-only)
-
-## Plan Impact
-
-**Phases:** Vertical slices V14, V15, V18.
-
-**Leaves (implementation order):**
-
-- V14e — `tools:` set presented to model — (modified — prompt-mode active-set swap test must witness the new sequential-dispatch invariant)
-- V15g — Prompt-mode `.loom` callee in `tools:` is load error — (modified — `Adds.` should cite the no-prompt-mode-concurrency rationale, not just "interleaving concern")
-- V15h — Cross-mode cell: prompt → prompt — (modified — must state that nested prompt → prompt invokes execute sequentially and that sibling prompt-mode invoke spawns are forbidden or queued)
-- V18a–V18c — per-invocation `loomAbort` / cancellation forwarding — (modified — cancellation isolation claim must be re-anchored to the per-`AbortController` mechanism, not to transcript isolation, for the prompt-mode arm)
-
-## Consequence
-
-**Severity:** correctness
-
-Two conforming implementations will diverge on prompt-mode concurrency: one will treat sibling prompt-mode invokes as forbidden (relying on the implicit serialization), another will permit them and produce undefined `pi.setActiveTools` interleavings — a snapshot taken by sibling A may be restored by sibling B, leaving the user session with the wrong active set after both complete. The current text actively encourages the second reading by promising "isolated."
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Pin a per-mode concurrency contract in `spec.md`'s Session-model paragraph and propagate it to the two owning topic pages:
-
-1. **Re-scope the headline claim.** Replace "permitted, isolated, and independently cancellable" with mode-qualified language: every invocation carries its own `AbortController` (so cancellation is always independent); transcript and tool-table isolation hold only for subagent-mode invocations; prompt-mode invocations share the user session's transcript by definition.
-
-2. **Pin prompt-mode sequentiality.** State that within a single user session, prompt-mode loom bodies (top-level slash dispatches and nested prompt → prompt `invoke(...)` calls alike) execute strictly sequentially: at most one prompt-mode body holds an open `pi.setActiveTools` snapshot/restore window at a time. The supporting mechanisms — already in the corpus, just not joined up — are (i) Pi's per-session slash-handler serialization (cited at `pi-integration-contract.md`'s active-set Consequences bullet), (ii) the V15g load-time rejection of prompt-mode `.loom` callees in `tools:` (so the model cannot fan out parallel prompt-mode tool calls), and (iii) a new explicit rule that `invoke(...)` to a prompt-mode callee suspends the parent's body until the child returns. Sibling `invoke(...)` spawns from a single parent into prompt-mode children must therefore be either (a) forbidden by construction (the only legal way to call a prompt-mode child is one at a time) or (b) parse-time rejected when the language gains a parallel-invoke surface — V1 should pick (a) since loom has no parallel-invoke surface.
-
-3. **Reconcile `invocation.md`.** Amend the "Two concurrent invokes spawned from the same parent" sentence to read "two concurrent invokes spawned from the same parent (only reachable when both children resolve to subagent mode)." The depth-counter rule it makes is unaffected.
-
-4. **Reconcile the enumerated concurrency sources on `spec.md` line 39.** The three sources listed ("parallel tool calls into the same `.loom` callable", "sibling `invoke(...)` sites", "independent slash dispatches") all collapse to subagent-only concurrency once V15g and Pi's slash-handler serialization are in scope. Either drop the "independent slash dispatches" source (factually impossible in prompt mode, and `pi-integration-contract.md` already says so) or annotate each source with the modes that can actually produce overlap.
-
-5. **State the registry consequence.** Note in `pi-integration-contract.md`'s `ActiveInvocationRegistry` section that the registry tracks both prompt-mode and subagent-mode entries (so session-shutdown teardown reaches all of them), but that the prompt-mode entries can only be linearly nested, not concurrent siblings.
-
-Edge cases for the implementer: a prompt-mode loom may legitimately appear as a registry entry while an `invoke(...)`-spawned prompt-mode child is in flight (the parent is suspended, not dispatched) — both entries must exist for cancellation reach, but only the child's `pi.setActiveTools` window is open. The session-shutdown teardown must still iterate both. Subagent-mode children spawned from a prompt-mode parent are genuinely concurrent and must be supported by the registry as such.
-
-## Relationships
-
-- T16 "Pi API surfaces asserted without `.d.ts` citations: setActiveTools, createAgentSession, ExtensionCommandContext, AgentSession, tool-result envelope" — must-follow
-- T28 "`session_shutdown` teardown contract has no plan-leaf owner" — co-resolve (the new plan leaf that owns the registry must also encode the prompt-mode-sequentiality invariant on registry insertion)
 
