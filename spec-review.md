@@ -4,7 +4,7 @@ _Generated: 2026-05-07T17:37:47Z_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 14 high, 10 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
+_Triage tally: 13 high, 10 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
 
 ---
 
@@ -1602,72 +1602,4 @@ Edge cases the implementer must watch:
 ## Relationships
 
 - T28 "`session_shutdown` teardown contract has no plan-leaf owner" — must-follow (a hypothetical H4b owning the registry would naturally own the extended setup-wrap surface this finding requires)
-
----
-
-# T24 — `details.event.reason` coercion is unspecified for non-string Pi values
-
-**Original heading:** `details.event.reason` value when reason is out-of-set or unreadable
-**Original section:** spec.md — Orientation > Prerequisites > Session model
-**Kind:** completeness
-**Importance:** high
-## Finding
-
-The `loom/runtime/cancelled-by-session-shutdown` per-invocation note is specified to carry `details.event.reason` typed as `"quit" | "reload" | "new" | "resume" | "fork" | string`, with the wider `string` arm "reserved for the unknown-reason path" and described as carrying "the observed value verbatim (or the literal string `\"<unreadable>\"` when the property access threw)" (`spec_topics/pi-integration-contract.md`, **Per-invocation operator visibility (clean-cancel path)**). The closed-set case and the property-throw case are unambiguous; the throw sentinel is also distinct from every closed-set member.
-
-The gap is the meaning of "verbatim" when `event.reason` materialises as a value that is not a string at all. The Pi SDK type pins `event.reason` to a string union, but the **Unknown-reason rule** (`spec_topics/pi-integration-contract.md`, sub-paragraph above the teardown sequence) explicitly anticipates the host violating that contract — that is the entire reason the unknown-reason path exists. For its own diagnostic `loom/host/session-shutdown-reason-unknown`, the rule pins `details.observed` to `String(event.reason)` so that symbols, `undefined`, numbers, and objects all coerce to a string without themselves throwing. The per-invocation note's `details.event.reason` field, written from the same teardown event, makes no equivalent commitment. "Verbatim" then breaks the typed `string` arm: `details.event.reason: 42`, `Symbol("x")`, `undefined`, or `{}` would all satisfy "verbatim" but violate the type, and a `Symbol` payload would crash the renderer's `JSON.stringify` path used by `pi.sendMessage` system-note emission.
-
-The two diagnostics are reading the same `event.reason` slot and surfacing it to the same operator — they should not pin different coercion rules.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — **Unknown-reason rule** and **Per-invocation operator visibility (clean-cancel path)** under step 4 (edited)
-- `spec_topics/diagnostics.md` — `loom/host/session-shutdown-reason-unknown` row and the `<reason>` placeholder enumeration in **Placeholder rendering** (read-only — already pins `String(event.reason)`)
-
-## Plan Impact
-
-**Phases:** Horizontal H4
-
-**Leaves (implementation order):**
-
-- H4 — Pi extension shell — (modified)
-
-The `session_shutdown` handler and the per-invocation `finally` that emits `cancelled-by-session-shutdown` both fall under H4's umbrella citation of [Pi Integration Contract](../spec_topics/pi-integration-contract.md) (per `plan_topics/coverage-matrix.md` row 69). H4's body does not currently mention either diagnostic by name, but the spec edit lands inside the surface H4 owns; tests asserting the coerced value will be added under H4 (or a sub-leaf the plan grows for the teardown handler — see the related "Plan corpus has no leaf for `session_shutdown` handler" finding). V18s's diagnostic-code closing gate already covers code-literal presence; no V18 leaf needs editing for the coercion rule itself.
-
-## Consequence
-
-**Severity:** correctness
-
-A Pi version that hands `event.reason` as a symbol or other non-string value would currently produce a `details.event.reason` payload that either violates the declared `string` type (silent contract drift downstream parsers cannot detect) or throws inside `pi.sendMessage`'s serialisation path — turning a clean-cancel operator note into a teardown-time exception in the very `finally` block that is supposed to be the safe-emission site. Two implementers reading "verbatim" against the typed `string` arm will reasonably diverge: one will pass the value through unchanged, one will coerce.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Pin `details.event.reason` on `loom/runtime/cancelled-by-session-shutdown` to the same coercion rule that `loom/host/session-shutdown-reason-unknown`'s `details.observed` already uses:
-
-- **Closed-set path** (one of `"quit" | "reload" | "new" | "resume" | "fork"`): the literal string member, byte-identical to what Pi delivered.
-- **Unknown-reason path, value materialised**: `String(event.reason)`. This handles `undefined`, `null`, numbers, booleans, objects, and symbols without throwing (per the `String()` total-function contract the Unknown-reason rule already relies on).
-- **Unknown-reason path, property access threw**: the literal string `"<unreadable>"` (unchanged).
-
-Capture the coerced value once at handler entry — the same site the Unknown-reason rule already does its `try`/`catch` and `String(event.reason)` coercion for `details.observed` — and thread that single string through to every per-invocation `finally`. This avoids re-reading `event.reason` from the per-invocation site (where the throwing-getter case would have to be re-handled) and guarantees the two diagnostics surface the same observed string for the same shutdown event.
-
-Spec edits, both in `spec_topics/pi-integration-contract.md`:
-
-1. In the **Unknown-reason rule** paragraph, change "the handler emits exactly one `loom/host/session-shutdown-reason-unknown` … with `details: { observed: <String(event.reason)> }`" to additionally state that the coerced string is captured into a handler-scoped variable and re-used by the per-invocation note path defined below.
-2. In the **Per-invocation operator visibility (clean-cancel path)** bullet, replace "carrying Pi's `event.reason` typed as `\"quit\" | \"reload\" | \"new\" | \"resume\" | \"fork\" | string` — the wider `string` arm is reserved for the unknown-reason path defined in the **Unknown-reason rule** above and carries the observed value verbatim (or the literal string `\"<unreadable>\"` when the property access threw)" with: "carrying the handler-captured `event.reason` string: a closed-set member when Pi delivered one of the five literals, otherwise the `String(event.reason)` coercion captured by the **Unknown-reason rule** above (or the literal string `\"<unreadable>\"` when the property-access read threw). The wider `string` arm is the unknown-reason path; the value is always a string."
-
-Edge cases the implementer must watch:
-
-- The `String()` total-function contract is what makes this safe for symbols (`String(Symbol("x"))` returns `"Symbol(x)"`, does not throw); a future swap to template-literal coercion (`` `${event.reason}` ``) would re-introduce the symbol-throw bug. Pin `String()` explicitly, not the template form.
-- The `"<unreadable>"` sentinel is distinct from all five closed-set members but is **not** distinct from a hypothetical hostile `event.reason` value of literally `"<unreadable>"`. This residual ambiguity is acceptable for V1: the diagnostic is operator-facing and the unknown-reason path also fires `loom/host/session-shutdown-reason-unknown` with `details.observed` populated by the same coerced string, so an operator can cross-reference whether a `"<unreadable>"` reading is the throw sentinel or a literal host value.
-- The handler-captured-once rule must run **before** sub-step 1 (matching where the Unknown-reason rule already places the diagnostic emission), so that a later teardown-step throw does not strand the per-invocation `finally` without the captured value.
-
-## Relationships
-
-- T25 "Session-shutdown teardown: `console.error` is the unguarded last resort, but no rule says emission MUST NOT propagate" — same-cluster (same paragraph, independent fix)
-- T26 "Teardown sub-steps 1, 4, and 5 lack a per-step isolation rule" — same-cluster (same teardown handler; the capture-before-sub-step-1 ordering noted above interacts with any per-step isolation rule)
-- T28 "`session_shutdown` teardown contract has no plan-leaf owner" — must-follow (this finding's H4 attribution becomes a sub-leaf attribution if that finding's recommended carve-out lands)
 
