@@ -430,10 +430,10 @@ The Pi version bump procedure (`pi-integration-contract.md` step 4) names the si
 
 ## Spec Documents
 
-- `spec.md` — Orientation > Prerequisites > Pi SDK and capabilities (edited)
-- `spec_topics/pi-integration-contract.md` — preamble; Host prerequisites — Pi SDK pin; Pi version bump procedure step 4 (option-dependent)
+- `spec.md` — Orientation > Prerequisites > Pi SDK and capabilities (edited — placeholder rewritten as explicit deferral to PIC)
+- `spec_topics/pi-integration-contract.md` — Host prerequisites — Pi SDK pin (read-only — the existing "references this pin by location rather than restating the literal value" clause becomes accurate once `spec.md` is rewritten)
 - `package.json` — `peerDependencies` block (read-only — already carries `~0.72.1`)
-- `plan_topics/h1-scaffold.md` — `peerDependencies` literal-read test description (option-dependent — its anchor list either keeps or drops `spec.md`)
+- `plan_topics/h1-scaffold.md` — `peerDependencies` literal-read test description (edited — drop `spec.md` from the literal-anchor list)
 
 ## Plan Impact
 
@@ -443,7 +443,7 @@ The Pi version bump procedure (`pi-integration-contract.md` step 4) names the si
 
 - H1 — Repository scaffold and test framework — (modified)
 
-The H1 `peerDependencies` literal-read test enumerates `spec.md` as one of the literal-anchor sites a Pi minor bump must update. Whichever resolution is chosen, the test description (and, under Option A, the anchor list it checks) must change in lockstep.
+The H1 `peerDependencies` literal-read test currently enumerates `spec.md` as one of the literal-anchor sites a Pi minor bump must update. The test description must drop `spec.md` from that anchor list; the four remaining sites are `package.json`, `pi-integration-contract.md` preamble, `pi-integration-contract.md` Host prerequisites — Pi SDK pin, and the H1 test's own constant.
 
 ## Consequence
 
@@ -453,43 +453,19 @@ A first-time implementer reading `spec.md` cannot determine the actual peer-dep 
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-### Option A — `spec.md` carries the literal `~0.72.1`
+### Recommendation
 
-**Approach.** Replace `~X.Y.Z` with `~0.72.1` in the Prerequisites paragraph. Treat `spec.md` as one of the literal-anchor sites that the Pi version bump procedure updates atomically alongside `package.json` and `pi-integration-contract.md`.
-
-**Spec edits.**
-
-- `spec.md` Prerequisites paragraph: `the same \`~X.Y.Z\` minor-version line` → `the same \`~0.72.1\` tilde-pinned minor line`.
-- `pi-integration-contract.md` Host prerequisites — Pi SDK pin (item 1): drop the "references this pin by location rather than restating the literal value" clause; replace with "the literal `~0.72.1` is restated in [`spec.md`](../spec.md#…) and MUST move atomically with the four `peerDependencies` entries per the bump procedure."
-- `pi-integration-contract.md` Pi version bump procedure step 4: add `spec.md` to the list of literal sites moved in the same commit.
-
-**Pros.** Implementers see the actual version on the page they are reading. The H1 literal-read test's existing anchor list works unchanged. One mental model: the literal lives wherever `~0.72.1` appears in prose.
-
-**Cons.** One more site to remember to update on every minor bump. The H1 test must be extended to actually grep `spec.md` for the literal (currently it only checks `package.json`); without that extension, drift is still possible.
-
-**Risks.** If H1's test is not updated to mechanically assert the `spec.md` literal, the four-site lock-step claim is aspirational rather than enforced.
-
-### Option B — `spec.md` defers to PIC; placeholder is rewritten as prose
-
-**Approach.** Honour PIC's "by location, not literal" rule. Rewrite the spec.md sentence so the deferral is explicit and no version-range syntax appears in `spec.md`. Update the H1 leaf to drop `spec.md` from the literal-anchor list.
+Honour PIC's "by location, not literal" rule: rewrite the `spec.md` sentence so the deferral to PIC is explicit and no version-range syntax appears in `spec.md`, then drop `spec.md` from the H1 literal-anchor list so the test description matches reality. This minimises the literal-anchor count, leaves the Pi version bump procedure unchanged, and removes the placeholder that today reads as an unfilled drafting marker.
 
 **Spec edits.**
 
 - `spec.md` Prerequisites paragraph: `at the same \`~X.Y.Z\` minor-version line as \`pi-coding-agent\`` → `at the same tilde-pinned minor-version line as \`pi-coding-agent\` (the literal range is owned by [Pi Integration Contract — Host prerequisites — Pi SDK pin](./spec_topics/pi-integration-contract.md))`.
-- `pi-integration-contract.md`: no normative change; the existing "references this pin by location" clause is now accurate.
+- `pi-integration-contract.md`: no normative change; the existing "references this pin by location rather than restating the literal value" clause is now accurate as written.
 - `plan_topics/h1-scaffold.md` `peerDependencies` literal-read test description: remove `spec.md` from the literal-anchor list; the four sites become `package.json`, `pi-integration-contract.md` preamble, `pi-integration-contract.md` Host prerequisites — Pi SDK pin, and the H1 test's own constant.
 
-**Pros.** One fewer literal site to keep in sync. Honours PIC's stated design. The bump procedure stays as written.
-
-**Cons.** Implementers reading `spec.md` cold must follow a forward-link to learn the actual version. Slight redirection cost on the orientation page that is supposed to be self-contained.
-
-**Risks.** None mechanical; the H1 leaf-description edit is straightforward.
-
-### Recommendation
-
-Either option resolves the contradiction; pick one and align the documents. **Option A** is preferred when the orientation page should be self-contained for implementers reading cold (the H1 plan leaf already expects `spec.md` to carry the literal); the implementer must extend the H1 `peerDependencies` literal-read test (currently only parses `package.json`) to also grep `spec.md` for the same literal, or explicitly name `spec.md` as a manual checklist entry in the bump-procedure step 4. **Option B** is preferred when minimising the literal-anchor count is the priority; it requires editing the H1 leaf description to drop `spec.md` from the anchor list. Whichever is chosen, the H1 test description and the PIC "by location" sentence must both be brought into agreement in the same commit.
+All three edits must land in the same commit so the `spec.md` deferral, the PIC "by location" sentence, and the H1 test description agree. The implementer should also confirm the `spec.md` link target resolves to the intended PIC heading anchor (this finding's editorial fix; cross-cutting anchor-resolution concerns are tracked elsewhere in this review).
 
 ## Relationships
 
