@@ -4,7 +4,7 @@ _Generated: 2026-05-07T17:37:47Z_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 13 high, 10 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
+_Triage tally: 12 high, 10 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
 
 ---
 
@@ -1529,77 +1529,4 @@ Edge cases the implementer must watch:
 - T23 "Per-call `AbortController` / `AbortSignal` defect routing has gaps" — same-cluster (both findings concern silent failure modes around the cancellation surface, but resolve independently)
 
 ---
-
-# T23 — Per-call `AbortController` / `AbortSignal` defect routing has gaps
-
-**Original heading:** `loomAbort`/`AbortController` per-use failure not covered
-**Original section:** spec.md — Orientation > Prerequisites > Session model
-**Kind:** error-model
-**Importance:** high
-## Finding
-
-The runtime touches the WHATWG `AbortController` / `AbortSignal` surface at several per-invocation call sites that can throw under host-API regression (cf. **Post-probe SDK-shape drift** in [pi-integration-contract.md](../../../spec_topics/pi-integration-contract.md#post-probe-sdk-shape-drift)) or per-call resource pressure. The spec already routes a closed enumeration of these throws:
-
-- The **Dispatch-site setup wrap** rule ([pi-integration-contract.md, `ActiveInvocationRegistry`](../../../spec_topics/pi-integration-contract.md#active-invocation-registry)) covers exactly three pre-evaluation steps — `new AbortController()` for `loomAbort`, the `Set.add` registry insertion, and the awaited `createAgentSession(...)` call — routing throws through `loom/runtime/internal-error`.
-- The **Subagent session lifecycle** paragraph routes a synchronous `AgentSession.abort()` throw (and the rejection of its returned promise) through the same code.
-- The **`session_shutdown` sub-step 2** rule explicitly swallows `loomAbort.abort()` throws during the registry iteration.
-
-Three call shapes on the same surface are left unspecified:
-
-1. **Forwarding-listener attachment.** The slash, tool-exposed, and `invoke`-parent entry points each register a one-shot `signal.addEventListener('abort', …)` on the inbound `AbortSignal` ([cancellation.md, Signal source](../../../spec_topics/cancellation.md)); subagent mode additionally registers `loomAbort.signal.addEventListener('abort', …)` after `createAgentSession(...)` resolves. None of these `addEventListener` calls is enumerated in the dispatch-site setup wrap. A throw at attachment escapes the slash handler as an unhandled rejection (or surfaces variably as `InvokeInfraError` / unhandled rejection at the `invoke` site, depending on implementer choice).
-2. **Steady-state `loomAbort.abort(reason)` from forwarding listeners.** When a forwarding listener fires (`ctx.signal` aborted, tool `signal` aborted, or the `invoke`-parent derived-controller trigger) it calls `loomAbort.abort(source.reason)` per the **Abort-reason propagation** rule. The `session_shutdown` swallow rule is scoped to sub-step 2's iteration only; the steady-state path has no analogue, so an `abort()` throw on operator-Esc escapes into Pi's event-handler frame.
-3. **`ctx.abort()` override.** The synthesised `ExtensionContext.abort()` is wrapped in both modes to call `loomAbort.abort()` ([pi-integration-contract.md, ExtensionContext member surface table](../../../spec_topics/pi-integration-contract.md#extensioncontext-interface)); a throw from the underlying `loomAbort.abort()` invoked from loom-driven tool code has no documented routing.
-
-The existing surface already prescribes the right channel — `loom/runtime/internal-error` — for every comparable throw on this surface. The gap is specification, not mechanism.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — `ActiveInvocationRegistry` / Dispatch-site setup wrap (edited)
-- `spec_topics/pi-integration-contract.md` — Subagent session lifecycle (`AgentSession.abort()` throw rule, used as exemplar) (read-only)
-- `spec_topics/pi-integration-contract.md` — ExtensionContext member surface (`ctx.abort` override) (edited)
-- `spec_topics/cancellation.md` — Signal source / Abort-reason propagation (edited; the forwarding-listener paragraphs gain a defect-routing pointer)
-- `spec_topics/errors-and-results.md` — Runtime panics / runtime-defect surface (read-only; no new arm needed — existing `cause: "internal_error"` carries the new sites)
-- `spec_topics/diagnostics.md` — `loom/runtime/internal-error` row (read-only; trigger-description copy may gain a forwarding-listener example)
-
-## Plan Impact
-
-**Phases:** Horizontal H4, MVP, Vertical V12, V15, V18
-
-**Leaves (implementation order):**
-
-- H4 — Pi extension shell — (modified; `PiSubagentSpawner` `loomAbort.signal.addEventListener` attach must be wrapped, with a contract test)
-- V12a — Subagent mode (in `v12-subagent.md`) — (modified; the `AgentSession.abort()`-throws clause is extended to cover the listener-attach throw on the same line)
-- V15 — `invoke`, registered loom callees, cross-mode — (modified; the `invoke`-parent forwarding-listener attach and steady-state `loomAbort.abort()` throw must route via `InvokeInfraError { cause: "internal_error" }`)
-- V18b — `AbortSignal` before every `@` query — (modified; assert listener-attach throw routing for slash and tool entry points the slice exercises)
-- V18c — `AbortSignal` before every tool call — (modified; same)
-- V18d — `AbortSignal` before every `invoke` — (modified; covers the `invoke`-parent leg)
-- V18m — Panic routing: slash-command surface — (modified; broaden the `internal-error` test fixture to include a forwarding-listener `abort()`-throw probe)
-- V18n — Panic routing: `invoke` parent surface — (modified; same on the parent leg)
-- V18s — Coverage-matrix closing CI gate — (modified; the new defect-routing sites are added to the `internal-error` row of `coverage-matrix.md` and the `no-broad-catch` allow-list)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers will diverge on the unenumerated paths. One will rely on the existing dispatch-site setup wrap's verbatim list ("`new AbortController()`, `Set.add`, `createAgentSession`") and let an `addEventListener` or steady-state `loomAbort.abort()` throw escape into Pi's promise / event frame as an unhandled rejection (operator sees no system note; the user session may degrade unpredictably). Another will catch broadly and route through `loom/runtime/internal-error`. Both readings are defensible against the current text, and the divergence is observable to the V18s coverage-matrix gate.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Extend the **Dispatch-site setup wrap** rule in [pi-integration-contract.md, `ActiveInvocationRegistry`](../../../spec_topics/pi-integration-contract.md#active-invocation-registry) so its verbatim enumeration includes the per-entry-point `signal.addEventListener('abort', …)` attach for the inbound Pi-side `AbortSignal` (slash, tool-exposed, `invoke`-parent) and, on the subagent-mode path, the post-`createAgentSession` `loomAbort.signal.addEventListener('abort', …)` attach. A throw on attach routes through the same `loom/runtime/internal-error` channel and the same `InvokeInfraError { cause: "internal_error" }` arm at an `invoke` parent. No new `details.kind` discriminator is introduced — the existing surface carries `error.message` and `error.stack` and that is sufficient for triage; a new discriminator would be the only field of its shape on `loom/runtime/internal-error` and would create a precedent the rest of the runtime-defect surface does not honour.
-
-Add a parallel **Forwarding-listener throw** clause to [cancellation.md, Abort-reason propagation](../../../spec_topics/cancellation.md), mirroring the existing `AgentSession.abort()`-throws clause in **Subagent session lifecycle**: a throw from a forwarding listener's `loomAbort.abort(source.reason)` call (slash `ctx.signal` trigger, tool `signal` trigger, or `invoke`-parent derived-controller trigger) is trapped at the listener boundary and routed through `loom/runtime/internal-error` without masking the abort the listener was forwarding (the source signal remains aborted; the next [`Checkpoint` seam](../../../spec_topics/pi-integration-contract.md#checkpoint-seam) await still observes cancellation through the source path). Cite this clause from the **`ctx.abort()` override** row of the `ExtensionContext` member-surface table so the loom-tool-driven `ctx.abort()` site is covered by reference rather than re-derivation.
-
-Edge cases the implementer must watch:
-
-- The trap MUST NOT swallow the cancellation itself — only the defect throw. The next checkpoint observation still surfaces `Err(QueryError { kind: "cancelled" })` on its existing rule because `source.signal.aborted` is unchanged.
-- The `session_shutdown` sub-step 2 swallow rule remains the governing rule for the teardown-iteration path and is not subsumed by the new clause; the clause covers steady-state forwarding only.
-- The `no-broad-catch` allow-list seeded by H1 (per [conventions.md](../../../plan_topics/conventions.md)) gains entries for each new wrap site; V18s asserts each entry has a matching REQ-ID once H6 mints them.
-
-## Relationships
-
-- T28 "`session_shutdown` teardown contract has no plan-leaf owner" — must-follow (a hypothetical H4b owning the registry would naturally own the extended setup-wrap surface this finding requires)
 
