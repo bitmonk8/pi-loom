@@ -5,7 +5,7 @@ _Source: docs/reviews/spec-review/spec-20260507-064438-enriched.md_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T26) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 high, 5 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
+_Triage tally: 1 high, 4 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
 
 ---
 
@@ -206,71 +206,3 @@ Subsequent mentions in the same paragraph may abbreviate, provided the abbreviat
 
 - T04 "`^X.Y.Z` prose label \"minor-version line\" only coincides with npm caret semantics while Pi is in 0.x" — same-cluster (same Prerequisites paragraph; both edits land in adjacent prose)
 
----
-
-# T04 — `^X.Y.Z` prose label "minor-version line" only coincides with npm caret semantics while Pi is in 0.x
-
-**Source:** docs/reviews/spec-review/spec-20260507-064438-enriched.md
-**Original heading:** `^X.Y.Z` labeled "minor-version line" conflicts with npm caret semantics
-**Original section:** spec.md — Orientation > Prerequisites > Pi SDK and capabilities
-**Kind:** clarity, completeness
-**Importance:** medium
-
-## Finding
-
-`spec.md` (Orientation > Prerequisites > Pi SDK and capabilities) and `spec_topics/pi-integration-contract.md` (Host prerequisites — Pi SDK pin) both describe the lock-step rule across `pi-coding-agent`, `pi-agent-core`, `pi-ai`, and `pi-tui` as pinning all four to "the same `^X.Y.Z` minor-version line." The `peerDependencies` literal-read test in `plan_topics/h1-scaffold.md` enforces the literal `"^0.72.1"` for each entry. The prose label and the operator disagree in the general case: npm's `^X.Y.Z` is a *major-version* range (`>=X.Y.Z, <(X+1).0.0`) when X ≥ 1, a *minor-version* range (`>=X.Y.Z, <X.(Y+1).0`) when X = 0 and Y ≥ 1, and a *patch-pinned* range (`>=X.Y.Z, <X.Y.(Z+1)`) when X = Y = 0. Only the middle case — which happens to match the current `^0.72.1` pin — produces "minor-version line" semantics.
-
-This matters in two directions. First, an implementer reading the abstract `^X.Y.Z` template alongside the prose "minor-version line" cannot tell which constraint is normative: the prose says minor-line, the operator says (in the general case) major-line, and the only thing reconciling them is the unstated invariant "we are currently in 0.x." Should the spec ever change one without the other, lock-step intent silently widens. Second, when `pi-coding-agent` crosses to `1.0`, the same `^X.Y.Z` template — interpreted literally and copied forward to `^1.Y.Z` — becomes a major-pinned range that permits all four `peerDependencies` to drift across minor lines independently, which is precisely the skew the lock-step rule exists to forbid. The Pi version bump procedure (PIC, *Pi version bump procedure*, step 4) instructs contributors to "update the version pin in `peerDependencies` and the equivalent literal here" but never names the operator (`^` vs `~`) or the major-zero hazard, so a contributor following the checklist on the day Pi releases `1.0.0` would write `^1.0.0` and break the invariant the spec claims to enforce.
-
-The current `^0.72.1` pin is not itself broken — it produces the intended `>=0.72.1, <0.73.0` range — and contrary to the original review note, npm does not interpret `^0.72.1` as patch-pinned (patch-pinning applies only to `^0.0.Z`). The defect is that the spec describes a behavioural contract ("same minor-version line") in terms of an operator (`^`) whose semantics happen to match only by accident of being in major-zero with a non-zero minor.
-
-## Spec Documents
-
-- `spec.md` — Orientation > Prerequisites > Pi SDK and capabilities (edited)
-- `spec_topics/pi-integration-contract.md` — Host prerequisites #1 (Pi SDK pin) (edited)
-- `spec_topics/pi-integration-contract.md` — Pi version bump procedure, step 4 (edited)
-- `package.json` — `peerDependencies` block (edited)
-
-## Plan Impact
-
-**Phases:** Horizontal H1
-
-**Leaves (implementation order):**
-
-- H1 — Repository scaffold and test framework — (modified)
-
-The `peerDependencies` literal-read test and the `peer-dep-range` entry of `SDK_SURFACE_INVENTORY` (both in `plan_topics/h1-scaffold.md`) assert the literal `"^0.72.1"`. The operator change to `~` requires updating both the constant and the test literal in lockstep with the spec edit.
-
-## Consequence
-
-**Severity:** correctness
-
-Today the contract holds by coincidence: `^0.72.1` resolves to the intended minor-pinned range. The defect is latent — at the next major-zero exit (`pi-coding-agent 1.0.0`) a contributor following the documented bump procedure mechanically copies `^0.Y.Z → ^1.Y.Z` and silently converts a minor-line pin into a major-line pin, allowing the four `peerDependencies` to drift independently. The lock-step invariant the spec claims to enforce mechanically becomes unenforced; install-time skew across `pi-coding-agent`, `pi-agent-core`, `pi-ai`, `pi-tui` becomes possible without any spec, test, or probe firing.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Switch the operator to `~` and update the prose to match. Replace `^X.Y.Z` with `~X.Y.Z` in both spec sites and in `package.json`'s four `peerDependencies` entries. The `~` operator's semantics are uniform across all major versions: `~X.Y.Z := >=X.Y.Z, <X.(Y+1).0`. Keep the prose label "minor-version line."
-
-**Spec edits.**
-- `spec.md` Prerequisites: `^X.Y.Z` → `~X.Y.Z`.
-- PIC Host prerequisites #1: `^X.Y.Z` → `~X.Y.Z`; the four anchor citations of `^0.72.1` become `~0.72.1`.
-- PIC Pi version bump procedure step 4: no wording change required (the operator is now stable across the 0.x → 1.x transition).
-- `package.json`: four entries change from `"^0.72.1"` to `"~0.72.1"`; `typebox: "*"` unchanged.
-- H1 leaf: `peer-dep-range` literal in `SDK_SURFACE_INVENTORY` and the `peerDependencies` literal-read assertion both change to `"~0.72.1"`.
-
-Operator semantics now match the prose unconditionally — no major-zero coincidence. Survives the `1.0.0` transition without contributor action. The mechanical gates (literal-read test, surface-inventory constant) continue to enforce the invariant after Pi reaches 1.0 with no further spec change. The resolved range under `^0.72.1` and `~0.72.1` is identical for the current pin (`>=0.72.1, <0.73.0`), so the change is mechanical with no behavioural risk today.
-
-Edge cases for the implementer:
-
-- The H1 `peerDependencies` literal-read test and the `peer-dep-range` entry of `SDK_SURFACE_INVENTORY` must change literals in the same commit as `package.json`; splitting these leaves the H1 test red on `main`.
-- The four `@mariozechner/*` entries must move together; `typebox: "*"` is unaffected and remains asserted by its own one-line literal-read assertion per PIC Host prerequisites #1.
-- The `^0.72.1` example literal in PIC's opening sentence and at the renderer-registration / `ExtensionContext` paragraphs must be updated to `~0.72.1` in the same commit.
-
-## Relationships
-
-- T03 "`@mariozechner/` scope dropped from sibling-package names on first mention" — same-cluster (same Prerequisites paragraph; co-located edits)
-- T26 "`semver` not declared as a production dependency in `package.json`" — same-cluster (adjacent `package.json` defect; co-located edit window)
