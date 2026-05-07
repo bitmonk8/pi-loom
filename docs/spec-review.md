@@ -5,7 +5,7 @@ _Source: docs/reviews/spec-review/spec-20260507-064438-enriched.md_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T26) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 high, 7 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
+_Triage tally: 1 high, 6 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
 
 ---
 
@@ -330,87 +330,6 @@ Edge cases for the implementer:
 - Apply the predicate to a single rendered line, not to the whole prompt — the spec's existing items use line-scoped tokens (`Loom:`, `User arguments:`) and a same-line co-occurrence rule keeps the test cheap.
 - The `defaulted` token is chosen over `default` because the latter collides with the `default=<literal>` markers the *Parameters block* (item 4) emits per field; requiring `defaulted` (the adjective) avoids accidental satisfaction by a Parameters line.
 - V16f's test list adds one assertion: render the system prompt for a loom whose `params:` declares ≥1 defaulted field, find the no-invent line by the predicate above, fail when no line matches.
-
-## Relationships
-
-None
-
----
-
-# T06 — `cause` vs `reason` sub-discriminator fields inconsistent across error variants
-
-**Source:** docs/reviews/spec-review/spec-20260507-064438-enriched.md
-**Original heading:** `cause` vs `reason` sub-discriminator fields inconsistent across error variants
-**Original section:** spec_topics/errors-and-results.md
-**Kind:** naming
-**Importance:** medium
-
-## Finding
-
-Three `QueryError` variants in `spec_topics/errors-and-results.md` carry a wire-level field that refines the top-level `kind` discriminator into a finer-grained sub-category, but the field is named two different things:
-
-- `ValidationError.cause: "schema_validation" | "empty_template"`
-- `CodeToolError.cause: "validation" | "execution" | "cancelled" | "unknown_tool"`
-- `InvokeInfraError.reason: "load_failure" | "parse_failure" | "validation" | "panic" | "internal_error"`
-
-The semantic role is identical in all three cases — a closed enum that partitions a single `kind` into design-level sub-arms that authors `match` on when they need arm-specific recovery. No other `QueryError` variant carries a sub-discriminator, so these three define the entire population.
-
-The spec acknowledges the split in passing — the `ValidationError` body says `"consistent with the established `CodeToolError.cause` / `InvokeInfraError.reason` patterns"` — but that aside is the only place the divergence is mentioned, and it does not justify the choice. There is no glossary note, no naming convention page, and no rule that says "infra-class envelopes use `reason`, content-class envelopes use `cause`" (or any other rationale that would predict which name a future fourth variant should pick). Authors writing `match` patterns must memorise the variant-by-variant mapping, and a future variant author has no rule to consult.
-
-## Spec Documents
-
-- `spec_topics/errors-and-results.md` — `QueryError variants` (edited)
-- `spec_topics/glossary.md` — new entry (edited)
-- `spec_topics/invocation.md` — Failures section, references to `InvokeInfraError { reason: ... }` (edited)
-- `spec_topics/query.md` — Failure-mode references to `ValidationError.cause` arms (read-only)
-- `spec_topics/tool-calls.md` — Failures section, references to `CodeToolError { cause: ... }` (read-only)
-- `spec_topics/cancellation.md` — references to `InvokeInfraError { reason: "panic" }` and the `CodeToolError { cause: "cancelled" }` arm (edited)
-
-## Plan Impact
-
-**Phases:** Vertical V5, V6, V7, V11, V13, V14, V15, V18
-
-**Leaves (implementation order):**
-
-- V5g — `QueryError` union — initial variants — (modified)
-- V6i — Synthesised respond tool: schema lowering, AJV-validating `execute`, per-mode wiring — (modified)
-- V7f — Object/schema pattern with field shorthand — (modified)
-- V11i — Runtime depth cap of 5 — (modified)
-- V13j — Respond-repair preserves tool-call side effects — (modified)
-- V14f — `CodeToolError` variant: `validation` cause — (modified)
-- V14g — `CodeToolError` variant: `execution` cause — (modified)
-- V14h — `CodeToolError` variant: `cancelled` cause — (modified)
-- V14i — `CodeToolError` variant: `unknown_tool` cause — (modified)
-- V14s — `tools:` resolution-snapshot invariants — (modified)
-- V15a — `invoke("./path.loom", ...)` parsing and resolution — (modified)
-- V15d — Positional argument binding for `invoke` — (modified)
-- V15e — `.loom` paths in `tools:` (default basename naming) — (modified)
-- V15l — `InvokeInfraError` variant — (modified)
-- V18c — `AbortSignal` before every tool call — (modified)
-- V18n — Panic routing: `invoke` parent surface — (modified)
-
-## Consequence
-
-**Severity:** advisory
-
-Authors must memorise which of two field names a given variant carries when writing `match` arms; a wrong-field destructure (e.g. `InvokeInfraError { cause: "panic" }`) does not match — under the V1 pattern grammar an unmet listed field is a non-match, not a parse error — so the arm silently falls through and authors hit a `MatchError` panic at runtime instead of getting an early signal. The runtime is unambiguous and conformant in either naming, so no observer divergence; the cost is author cognitive load and a recurring footgun for every new author and every new sub-discriminated variant added in V1.x.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Standardise to `cause` across all three variants. Rename `InvokeInfraError.reason` to `InvokeInfraError.cause` on the wire and in every spec / plan reference. The enum values stay unchanged. Add a one-sentence glossary entry for `cause` defining it as "the closed sub-discriminator that refines a `QueryError.kind` into design-level sub-arms; every variant whose `kind` partitions into multiple causes carries this field."
-
-**Spec edits.**
-- `errors-and-results.md`: rename the `reason` field on the `InvokeInfraError` schema; rewrite the in-body aside to drop the `/ InvokeInfraError.reason` half; update the Runtime panics paragraph (two occurrences of `reason: "panic"` and `reason: "internal_error"`).
-- `invocation.md`, `cancellation.md`: rewrite every `InvokeInfraError { reason: ... }` reference.
-- `glossary.md`: add a `cause` entry per above.
-
-Two of three variants already use `cause`; the rename moves the minority, not the majority. The label "cause" reads more naturally for a sub-category-of-failure role than "reason," which is also overloaded with the runtime-event `reason` field on `resources_discover` (V14t). A single name is the only convention that scales without further glossary maintenance as future variants land.
-
-The wire-format change is acceptable at this stage — the spec is pre-V1 and there is no shipping wire contract to break. The risk is editorial drift (missing one of the call-site references in `invocation.md` / `cancellation.md`); a coverage-matrix grep for `reason\s*:` constrained to `InvokeInfraError` contexts catches stragglers. The wire `kind: "invoke_failure"` discriminator stays unchanged (only the inner sub-discriminator field name moves), so all `match` arms keyed on `kind` are unaffected.
 
 ## Relationships
 

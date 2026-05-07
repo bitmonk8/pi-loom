@@ -67,14 +67,14 @@ The trichotomy applies only once evaluation has begun. The complete V1 set of fa
 
 No additional pre-evaluation failure surface applies in V1 — a future leaf that introduces one updates this list and the new failure's owner page in the same commit per the GOV-12 lock-step convention extended to this paragraph.
 
-An `invoke` parent whose callee fails to load observes a separate evaluation-time failure of its own: `InvokeInfraError { reason: "load_failure", ... }` per [Invocation — Failures](./invocation.md), which IS an evaluation outcome of the *parent*.
+An `invoke` parent whose callee fails to load observes a separate evaluation-time failure of its own: `InvokeInfraError { cause: "load_failure", ... }` per [Invocation — Failures](./invocation.md), which IS an evaluation outcome of the *parent*.
 
 *Per-cause caller surfaces.* The mapping from internal failure cause to caller-observable surface is owned by the relevant per-cause topic page; the table below indexes them:
 
 | Cause | `invoke` parent | Slash caller (user-visible) | Operator (`loom-system-note`) |
 |---|---|---|---|
 | Author-returned `Err` | corresponding `QueryError` variant per [Invocation — Failures](./invocation.md) (wrapped in `InvokeCalleeError`) | per-`kind` row in [Slash-Command Invocation — Top-level `Err`](./slash-invocation.md) | runtime event when `kind` is in the always-log set per [Pi Integration Contract — Runtime event channel](./pi-integration-contract.md) |
-| Panic | `InvokeInfraError { reason: "panic", ... }` per **Runtime panics** below | `"loom /<name> aborted: <message>"` system note per **Runtime panics** below | `loom-system-note` carrying `details: { diagnostics: [Diagnostic] }` (PIC group B) |
+| Panic | `InvokeInfraError { cause: "panic", ... }` per **Runtime panics** below | `"loom /<name> aborted: <message>"` system note per **Runtime panics** below | `loom-system-note` carrying `details: { diagnostics: [Diagnostic] }` (PIC group B) |
 | Hard-ceiling exhaustion | per the per-ceiling routing class named at [`spec.md` — Hard ceilings](../spec.md#hard-runtime-ceilings) | same | same |
 | Cancellation | `Err(QueryError { kind: "cancelled", ... })` per [Cancellation](./cancellation.md) | per [Cancellation — Surfacing](./cancellation.md) | not in the always-log set |
 
@@ -84,7 +84,7 @@ An `invoke` parent whose callee fails to load observes a separate evaluation-tim
 
 <a id="no-rollback"></a>
 
-**No rollback.** Neither `?` nor a panic nor cancellation unwinds prior side effects. Tool calls that have already returned, queries already appended to the conversation, and `invoke` children that have already run remain final on early return, abort, or cancellation. This applies uniformly to `?` early-return inside a function, `?` early-return at the top of a loom block, a panic in a slash-command loom (surfaced per the **Runtime panics** paragraph below), and a panic in an `invoke` child (surfaced to the parent as `kind: "invoke_failure", reason: "panic"` — wrapped in an `InvokeInfraError` per [Invocation](./invocation.md)) — in the last case, the child's already-committed tool calls remain committed even though the parent observes only the failure envelope.
+**No rollback.** Neither `?` nor a panic nor cancellation unwinds prior side effects. Tool calls that have already returned, queries already appended to the conversation, and `invoke` children that have already run remain final on early return, abort, or cancellation. This applies uniformly to `?` early-return inside a function, `?` early-return at the top of a loom block, a panic in a slash-command loom (surfaced per the **Runtime panics** paragraph below), and a panic in an `invoke` child (surfaced to the parent as `kind: "invoke_failure", cause: "panic"` — wrapped in an `InvokeInfraError` per [Invocation](./invocation.md)) — in the last case, the child's already-committed tool calls remain committed even though the parent observes only the failure envelope.
 
 *Cancellation behaves the same way.* A tool call, query, or `invoke` child whose signal aborts mid-execution leaves any external side effect already produced (filesystem writes, network requests, calls into Pi-side services, sub-loom mutations) in place; the runtime does not roll back, compensate, or enumerate completed side effects to the caller or to the operator. Tool-call completion is not transcript-visible (see [Tool Calls — No conversation turn](./tool-calls.md)) and is not in the [always-log set](./pi-integration-contract.md#runtime-event-channel), so a panic-, cancellation-, or `?`-driven terminal event surfaces only the failure envelope — not a manifest of what completed before it. Idempotency and compensation are the loom author's responsibility.
 
@@ -101,7 +101,7 @@ Loom has no implicit transactional layer; authors who need compensating actions 
 - Indexed access on a missing object key — `loom/runtime/missing-object-key`.
 - `invoke` chain depth exceeded — `loom/runtime/invoke-depth-exceeded` (per the depth bound stated in [Invocation — Invocation depth bound](./invocation.md)).
 
-This list is closed for *spec-defined* panic sources: division by zero, integer overflow, and explicit author-driven panics are deliberately excluded (see [Diagnostics](./diagnostics.md)). Separately, *unexpected interpreter exceptions* — any throw originating inside the runtime, an adapter it called, or a host function the runtime did not anticipate, that is not one of the six closed-list sources above — form a distinct **runtime-defect surface**. They are not a new authoring concept (no loom expression "causes" one) and they do not extend the closed list. They share the same routing channels as panics (slash-command system note + `InvokeInfraError` to an `invoke` parent), but carry the dedicated code `loom/runtime/internal-error` and a separate `reason: "internal_error"` arm on `InvokeInfraError`. The slash-command surface formats the system note as `"loom /<name> aborted with internal error: <error.message>"`; the `loom/runtime/internal-error` diagnostic carries `error.message` in its `message` and `error.stack` (or `"<no stack available>"` when falsy) in its `hint` for operator-facing triage. The user session is not torn down.
+This list is closed for *spec-defined* panic sources: division by zero, integer overflow, and explicit author-driven panics are deliberately excluded (see [Diagnostics](./diagnostics.md)). Separately, *unexpected interpreter exceptions* — any throw originating inside the runtime, an adapter it called, or a host function the runtime did not anticipate, that is not one of the six closed-list sources above — form a distinct **runtime-defect surface**. They are not a new authoring concept (no loom expression "causes" one) and they do not extend the closed list. They share the same routing channels as panics (slash-command system note + `InvokeInfraError` to an `invoke` parent), but carry the dedicated code `loom/runtime/internal-error` and a separate `cause: "internal_error"` arm on `InvokeInfraError`. The slash-command surface formats the system note as `"loom /<name> aborted with internal error: <error.message>"`; the `loom/runtime/internal-error` diagnostic carries `error.message` in its `message` and `error.stack` (or `"<no stack available>"` when falsy) in its `hint` for operator-facing triage. The user session is not torn down.
 
 **Panic message string (normative).** Every panic carries a single human-readable message string formatted at the panic site according to the *Message template* registered for its `loom/runtime/*` code in the [Diagnostics code registry](./diagnostics.md#loomruntime--runtime-panics). The templates are normative: a conformant runtime MUST emit the registered string (with template placeholders filled from the offending value) for every panic of that source, and conformance tests MAY assert on the exact string. The `<…>` placeholders inside each template are interpolated by the per-category rules in [Diagnostics — Placeholder rendering](./diagnostics.md#placeholder-rendering-normative); the table summary below is shorthand for the registry rows and inherits the same placeholder rendering. The six V1 templates and their placeholders are summarised below — the registry is authoritative if the two ever drift:
 
@@ -119,7 +119,7 @@ There is exactly one message string per panic. The same string flows unchanged t
 Panics surface to the loom's caller as:
 
 - **Slash-command / prompt-mode invocation** — a Pi system note formatted as "loom `/<name>` aborted: `<message>`", where `<message>` is the panic message string defined above. The user's session is not torn down; the user can type a follow-up turn. The runtime emits this surface as **one** `loom-system-note` carrying `details: { diagnostics: [Diagnostic] }` with the `loom/runtime/*` diagnostic and the `"loom /<name> aborted: <message>"` string in `content` — not two notes. See [Pi Integration Contract — Runtime event channel](./pi-integration-contract.md) for the partition rule that routes panics through the `diagnostics` shape rather than `details: { event }`.
-- **`invoke` parent** — `Err(QueryError { kind: "invoke_failure", reason: "panic", message: <message>, ... })` (see [Invocation](./invocation.md)), where `<message>` is the same panic message string. Author code that pattern-matches on `InvokeInfraError.message` to discriminate panic causes can therefore rely on the registered template, though matching on the `loom/runtime/*` code (when surfaced through the diagnostics channel) is the more stable discriminator.
+- **`invoke` parent** — `Err(QueryError { kind: "invoke_failure", cause: "panic", message: <message>, ... })` (see [Invocation](./invocation.md)), where `<message>` is the same panic message string. Author code that pattern-matches on `InvokeInfraError.message` to discriminate panic causes can therefore rely on the registered template, though matching on the `loom/runtime/*` code (when surfaced through the diagnostics channel) is the more stable discriminator.
 
 Panics are not values — they do not flow through `?` and cannot be caught by `match`. Authors who need recoverable behaviour must write code that cannot panic (bounds-check before indexing, add a final `_ => ...` arm to `match`).
 
@@ -169,7 +169,7 @@ schema ValidationError {
 - `cause: "schema_validation"` — the runtime issued a user turn, the model produced a response, and AJV (or the depth walk in [Schema Subset](./schema-subset.md)) rejected it. Fires on initial AJV failure, on terminal exhaustion of the respond-repair loop ([Query — Schema-validation respond-repair](./query.md)), and on depth-5 violations (`ValidationIssue { schema_keyword: "maxDepth" }`). Also fires when a typed query's forced respond turn produces plain text instead of calling the synthesised `__loom_respond_<slug>` tool: per [Pi Integration Contract — V1 diagnostic limitation](./pi-integration-contract.md), the runtime synthesises a single `ValidationIssue { path: "", schema_keyword: "required", message: "model returned plain text instead of calling the forced respond tool" }` for that turn and feeds it into the same respond-repair pipeline. The author's recovery path is to tighten the schema, raise `respond_repair.attempts`, or switch methodology. Untyped queries never produce this cause (no AJV step runs on an untyped response).
 - `cause: "empty_template"` — the runtime refused to issue a fully-rendered user turn whose body matches `^\s*$` ([Query — Degenerate rendered templates](./query.md)). No provider round-trip occurred, no model output exists. The author's recovery path is to fix the template; this cause is a programming defect, not a model-quality signal. Fires on both typed and untyped queries. `validation_errors` is `[]` and `raw_response` is `null` on this arm.
 
-Authors who want to handle the two arms differently destructure `cause` (consistent with the established `CodeToolError.cause` / `InvokeInfraError.reason` patterns); authors who match `ValidationError { ... }` without inspecting `cause` get arm-uniform handling — the same retry / report path runs for both.
+Authors who want to handle the two arms differently destructure `cause` (consistent with the established `CodeToolError.cause` / `InvokeInfraError.cause` patterns — every `QueryError` variant whose `kind` partitions into multiple sub-arms uses the field name `cause`, per [Glossary — `cause`](./glossary.md)); authors who match `ValidationError { ... }` without inspecting `cause` get arm-uniform handling — the same retry / report path runs for both.
 
 Fires on provider transport / network failure for a query turn (see [Query — Failure modes](./query.md)).
 
@@ -252,11 +252,11 @@ schema InvokeInfraError {
   kind: "invoke_failure",
   message: string,
   callee_path: string,
-  reason: "load_failure"     // callee file unreadable
-        | "parse_failure"    // callee file failed to parse
-        | "validation"       // typed invoke: child's return value failed AJV validation
-        | "panic"            // callee aborted via runtime panic (see Runtime panics above)
-        | "internal_error"   // callee threw an unexpected interpreter exception outside the closed V1 panic-source list
+  cause: "load_failure"      // callee file unreadable
+       | "parse_failure"     // callee file failed to parse
+       | "validation"        // typed invoke: child's return value failed AJV validation
+       | "panic"             // callee aborted via runtime panic (see Runtime panics above)
+       | "internal_error"    // callee threw an unexpected interpreter exception outside the closed V1 panic-source list
 }
 ```
 
