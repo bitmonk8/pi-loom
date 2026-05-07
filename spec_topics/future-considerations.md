@@ -42,6 +42,8 @@ Each bullet below describes a deferred V1 extension and points at the normative 
   *Depends on:* First-class loom values (for non-loom harnesses needing structured observation).
 - **Per-loom `binder_temperature` knob**, if real usage shows authors need to tune the binder's nondeterminism budget.
   *Anchored at:* [Parameters and Frontmatter — Unknown-key policy](./frontmatter.md).
+- **Operator-level `looms.toolLoopMaxIterations` settings override** — V1 provides no operator-level fallback for `tool_loop.max_iterations`; the value is per-loom only. A future minor may add a `looms.toolLoopMaxIterations` settings key that supplies the default when `tool_loop:` is absent, mirroring the `bind_model` → `looms.binderModel` chain.
+  *Anchored at:* [Parameters and Frontmatter — `tool_loop`](./frontmatter.md).
 - **User-overridable binder system prompt** — V1 fixes the binder prompt for predictability.
   *Anchored at:* same unknown-key policy as `binder_temperature` — [Parameters and Frontmatter — Unknown-key policy](./frontmatter.md). The deferred extension also needs an injection point in the binder for an author-supplied prompt template; that injection point does not exist in V1.
 - **Automatic context escalation:** when binding fails without context, automatically retry with `bind_context: session` attached — trades a second binder call for a smoother success rate on context-sensitive looms that forgot to opt in.

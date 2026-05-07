@@ -5,7 +5,7 @@ _Source: docs/reviews/spec-review/spec-20260507-064438-enriched.md_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T26) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 4 high, 11 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
+_Triage tally: 3 high, 11 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
 
 ---
 
@@ -844,75 +844,6 @@ Implementer-relevant edge cases:
 
 - T10 "Hard-ceiling interaction: no rule for which surface fires when two ceilings could trip on the same event" — decision-overlap (precedence rule needs to know which event the depth cap trips on; pinning the breach inequality here makes "the 32nd-deep `invoke` also exhausts the binder LLM-call cap" precisely answerable)
 - T13 "`tool_loop.max_iterations`: validation rules and diagnostic surface unspecified" — same-cluster (parallel completeness gap on a sibling ceiling)
-
----
-
-# T13 — `tool_loop.max_iterations`: validation rules and diagnostic surface unspecified
-
-**Source:** docs/reviews/spec-review/spec-20260507-064438-enriched.md
-**Original heading:** `tool_loop.max_iterations`: bounds, validation, and configurability unspecified
-**Original section:** spec.md — Orientation > Scope > Hard runtime ceilings
-**Kind:** completeness, prescription
-**Importance:** high
-
-## Finding
-
-The `tool_loop.max_iterations` frontmatter field is one of the four hard runtime ceilings (`spec.md` Scope > Hard runtime ceilings, item 2), and `frontmatter.md` documents its default (`25`), what one "round" counts (free-phase tool-call rounds plus the typed-query forced respond turn), per-query and per-respond-repair-follow-up scoping, and the `0`-disables rule. Beyond that the field's input contract is undernormalized:
-
-1. **Type ambiguity.** `frontmatter.md` line 143 calls `max_iterations` "a positive integer," but the same paragraph documents `max_iterations: 0` as the disable form. Plan leaf V13f's test list says "non-negative integers." The three statements disagree on whether `0` is in-range or a special-case escape; the spec does not pick one.
-2. **No diagnostic code for invalid values.** `diagnostics.md` lists `loom/load/*` and `loom/parse/*` codes for `mode`, `params`, `tools`, `system`, and `argument-hint`, but no code covers `tool_loop.max_iterations` being negative, a non-integer number (`25.5`), a non-number (`"25"`), or a structurally bad block (`tool_loop: 25` with no `max_iterations` key, `tool_loop: null`, `tool_loop: {}`). The plan test "negative or non-integer values rejected" therefore has no spec-named code to assert against.
-3. **No upper bound.** The field accepts arbitrarily large values; an author writing `max_iterations: 1000000` produces a valid loom under the current spec. Whether that is intentional (no cap) or oversight is not stated.
-4. **Partial / empty block behaviour.** The field-contract table says `tool_loop` defaults to `{ max_iterations: 25 }`, but `tool_loop: {}` (block present, key absent) is not addressed: it could mean "use the default," "diagnostic for missing required sub-key," or undefined.
-5. **Operator override silent.** `bind_model` documents a frontmatter → `looms.binderModel` settings chain. `tool_loop.max_iterations` documents only the frontmatter form; whether V1 deliberately omits an operator-level fallback (e.g. `looms.toolLoopMaxIterations`) is not stated, leaving readers to infer it from absence.
-
-The semantics inside the loop (what a round is, when the cap fires, the resulting `QueryError`) are well specified; the gap is purely the input-validation perimeter.
-
-## Spec Documents
-
-- `spec_topics/frontmatter.md` — `tool_loop` prose (line 143) and field-contract table row (line 48) (edited)
-- `spec_topics/diagnostics.md` — `loom/load/*` table (edited)
-- `spec.md` — Scope > Hard runtime ceilings, ceiling #2 (read-only; the aggregator forward-link target)
-- `spec_topics/query.md` — Tool-call loop bound (read-only; defines the runtime semantics that the validated value feeds)
-
-## Plan Impact
-
-**Phases:** V3, V6, V13
-
-**Leaves (implementation order):**
-
-- V3a — Frontmatter parsing — (modified — `tool_loop` is currently parsed as a deferred-frontmatter-field warning in V3a; once V13f fully parses it, V3a's deferred-warning test must drop `tool_loop` from its expected set)
-- V13f — `respond_repair:` and `tool_loop:` frontmatter parsing — (modified — its test "negative or non-integer values rejected" needs the spec-named diagnostic code to assert against, and the "non-negative integers" framing must align with the spec's chosen type)
-- V6k — `tool_loop` cap enforcement and `ToolLoopExhaustedError` — (modified — `max_iterations: 0` semantics ("model receives an empty `tools` set") are already in V6k's test list; once the spec resolves "positive" vs "non-negative," V6k's test wording follows)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementations diverge: one rejects `max_iterations: -1` with a generic `loom/load/unknown-frontmatter-field` (wrong code), one silently coerces it to `0`, one rejects it with a new ad-hoc code. Conformance tests cannot be authored against an unnamed code. The "positive vs non-negative" contradiction means an author reading `frontmatter.md` cannot confidently predict whether `max_iterations: 0` is rejected or accepted as the disable form, which is observable behaviour at load time.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Tighten the `tool_loop.max_iterations` input contract in `spec_topics/frontmatter.md` and add the corresponding diagnostic code(s) to `spec_topics/diagnostics.md`:
-
-1. **Type and range.** Reword the prose at `frontmatter.md` line 143 from "a positive integer" to "a non-negative integer (V1 imposes no upper bound). `0` disables model-driven tool calls entirely; positive values cap the loop." Drop the word "positive" from the sentence describing rounds.
-2. **Single rejection code.** Add `loom/load/frontmatter-value-out-of-range` (E, load) covering: negative integer; non-integer number (e.g. `25.5`); non-number scalar (e.g. `"25"`); `null`. Message template: `frontmatter field '<dotted-key>' must be a non-negative integer; got <observed>`. Apply uniformly to `tool_loop.max_iterations` and `respond_repair.attempts` (the latter has the same gap and the plan v13f test already references "out-of-range `attempts` rejected" without a code).
-3. **Empty / partial block.** Add to the field-contract table row for `tool_loop`: "`tool_loop: {}` (block present, `max_iterations` absent) is equivalent to omitting `tool_loop:` entirely; the default `25` applies." Mirror the same rule for `respond_repair: {}`.
-4. **Operator override.** Add a one-sentence non-goal to `frontmatter.md`'s `tool_loop` prose: "V1 provides no operator-level override for `max_iterations`; the value is per-loom only. Adding a `looms.toolLoopMaxIterations` settings key is deferred per [Future Considerations]."
-5. **Per-query scope confirmation.** The existing sentence "The cap applies independently to each query" already covers the nested-`invoke` case implicitly (each callee runs its own queries under its own frontmatter), but add an explicit half-sentence: "and to every query inside an `invoke`d callee, which uses the callee's own `tool_loop` frontmatter — the parent's budget is not debited by `invoke`."
-
-Edge cases the implementer must watch:
-- YAML coerces `25` and `25.0` to the same numeric scalar in many parsers; the validator must reject `25.0` based on the parsed-number's integer-ness, not on YAML lexical form.
-- `max_iterations: 0` must round-trip through the cap-enforcement counter without producing a spurious `tool_loop_exhausted` on the very first turn — V6k already specifies the model receives an empty `tools` set in this case, but the counter must not double-charge.
-- The new `loom/load/frontmatter-value-out-of-range` code must be added to `diagnostics.md` with a `<dotted-key>` placeholder rendered byte-identically; otherwise it inherits the testability gap that affects unenumerated diagnostic placeholders generally.
-
-## Relationships
-
-- T12 "`invoke`-chain depth-32 cap: counting origin and subagent-mode boundary semantics undefined" — same-cluster (parallel completeness gap on a sibling ceiling)
-- T15 "Ceiling #3 (binder LLM-call cap) is misclassified across the hard-ceilings aggregator" — same-cluster (same Hard runtime ceilings bullet)
 
 ---
 
