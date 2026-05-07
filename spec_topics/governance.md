@@ -135,6 +135,6 @@ The Retired prefixes sub-table is itself append-only — a retired prefix cannot
 
 | REQ-ID | Retired in | Replaced by | Reason |
 |---|---|---|---|
-| GOV-13 | `<retirement commit>` | GOV-15 | Modal weakening (RFC-2119 SHOULD → non-binding "is expected to") per GOV-8 *Pure rewording* limit; original wording promised a property the spec deliberately leaves un-gated. |
+| GOV-13 | `c253233` | GOV-15 | Modal weakening (RFC-2119 SHOULD → non-binding "is expected to") per GOV-8 *Pure rewording* limit; original wording promised a property the spec deliberately leaves un-gated. |
 
 The Retired REQ-IDs sub-table is append-only per GOV-8. The `Retired in` column carries either the 7-character abbreviated commit SHA or a release tag (the `<retirement commit>` placeholder is replaced with a concrete SHA at the moment of the retiring commit). A retired ID's prefix-position number MUST NOT be reused per GOV-8 *Deletion*.
