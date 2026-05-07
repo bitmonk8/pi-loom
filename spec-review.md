@@ -4,7 +4,7 @@ _Generated: 2026-05-07T17:37:47Z_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 15 high, 10 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
+_Triage tally: 14 high, 10 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
 
 ---
 
@@ -1671,64 +1671,3 @@ Edge cases the implementer must watch:
 - T26 "Teardown sub-steps 1, 4, and 5 lack a per-step isolation rule" — same-cluster (same teardown handler; the capture-before-sub-step-1 ordering noted above interacts with any per-step isolation rule)
 - T28 "`session_shutdown` teardown contract has no plan-leaf owner" — must-follow (this finding's H4 attribution becomes a sub-leaf attribution if that finding's recommended carve-out lands)
 
----
-
-# T25 — Session-shutdown teardown: `console.error` is the unguarded last resort, but no rule says emission MUST NOT propagate
-
-**Original heading:** Session shutdown: `console.error` over-prescribes, failure handling unspecified, and diagnostic-channel failure unaddressed
-**Original section:** spec.md — Orientation > Prerequisites > Session model
-**Kind:** prescription, completeness, error-model
-**Importance:** high
-## Finding
-
-`spec.md`'s Session-model paragraph names a specific JS host API — `console.error` — for the `loom/host/session-shutdown-reason-unknown` diagnostic, with no rationale at the citation site. PIC step 4 and `diagnostics.md` later explain why (`pi.sendMessage` and `ctx.ui.notify` are reachable through a runtime that `ExtensionRuntime.invalidate(...)` may already have torn down, so the persistent-diagnostic channel and the `sendSystemNote` fallback chain are both banned from the teardown handler), but the orientation paragraph repeats the prescription naked. A reader who lands on `spec.md` first sees an apparently arbitrary host-API pin.
-
-The spec normatively resolves several of the obvious failure cases: `event.reason` access is wrapped in `try`/`catch`, an unreadable value is coerced to the literal sentinel `"<unreadable>"`, the diagnostic is emitted *before* sub-step 1 so it survives a later teardown throw, and the unknown-reason path explicitly disables the no-active-invocations fast-path. PIC also pins per-step isolation for `loomAbort.abort()` throws inside the registry-iteration sub-step. What is **not** pinned anywhere is the contract for the diagnostic-emission call itself: nothing says that a throw out of `console.error` (closed stdio, file-descriptor exhaustion, a host that proxies `console` and rejects writes during teardown) must be caught. With the call unguarded, an exception from the last-resort sink unwinds the `session_shutdown` handler, leaving watchers open, forwarding listeners attached, and the registry partially drained — exactly the strand-resource outcome step 4 was designed to prevent.
-
-The same gap reappears for `loom/runtime/reload-teardown-timeout`, the only other diagnostic the teardown handler may emit. PIC's "Edge cases" bullet enumerates these two codes, names `console.error` as the channel, and stops there. The "no ceiling fails silently" claim from the Hard ceilings block is therefore contingent on a sink that the spec does not require the runtime to defend against — a single observable failure mode that two reasonable implementers will resolve differently (one wraps in `try`/`catch` and swallows; one trusts the host).
-
-## Spec Documents
-
-- `spec.md` — Orientation > Prerequisites > Session model (edited)
-- `spec_topics/pi-integration-contract.md` — Extension entry point, step 4 (Unknown-reason rule, Edge cases) (edited)
-- `spec_topics/diagnostics.md` — Persistent diagnostics carve-out, `loom/host/session-shutdown-reason-unknown` row, `loom/runtime/reload-teardown-timeout` row (edited)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None — no current leaf owns the `session_shutdown` handler, the `ActiveInvocationRegistry`, or the two `console.error`-routed teardown diagnostics. `H4` registers only a no-op `/loom-status` command and the discovery/system-note plumbing; the teardown handler is unowned, as a separate finding ("Plan corpus has no leaf for `session_shutdown` handler / `ActiveInvocationRegistry` teardown") already records. Until that leaf is added, the rule below has no implementer.
-
-## Consequence
-
-**Severity:** correctness
-
-If a teardown-handler `console.error` call throws (closed stdio is the realistic case in test runners and CI sandboxes; redirected `console` proxies behave similarly), the handler unwinds before later sub-steps run. Watchers remain open, forwarding listeners stay attached, and the next factory invocation inherits the leaked state — the precise outcome step 4 exists to prevent. Two reasonable implementers will differ on whether to guard the call.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In PIC step 4's "Edge cases" block (the bullet that already pins `console.error` as the diagnostic channel for `loom/host/session-shutdown-reason-unknown` and `loom/runtime/reload-teardown-timeout`), add one rule:
-
-> **Diagnostic-emission isolation.** Each `console.error` call inside the `session_shutdown` handler MUST be wrapped in `try`/`catch`. A throw out of `console.error` MUST be swallowed; the handler MUST continue to the next sub-step. No further diagnostic is emitted on the inner throw (the only sink available has already failed).
-
-In `spec.md`'s Session-model paragraph, replace the bare "via `console.error`" with a forward-link: "via the teardown-handler last-resort sink defined in [Pi Integration Contract — Extension entry point, step 4]." This removes the unrationalised host-API pin from orientation and centralises both the rationale and the new isolation rule on the owning page.
-
-In `diagnostics.md`'s "Persistent diagnostics" carve-out paragraph and the `loom/host/*` namespace preamble, both of which already explain *why* `console.error` is used, add the cross-reference to the new rule so the closure claim ("no ceiling fails silently") rests on an explicit, defended sink rather than an implicit assumption that `console.error` always works.
-
-Implementer edge cases:
-- The wrap is around the `console.error` call only; the `String(event.reason)` coercion that builds the diagnostic payload already tolerates symbols, `undefined`, and objects, per PIC's existing rule.
-- Emission ordering ("*before* sub-step 1 runs") is preserved: a swallowed throw still leaves the handler in the same position it would be after a successful emit.
-- The rule is symmetric for both teardown-handler diagnostics (`session-shutdown-reason-unknown` and `reload-teardown-timeout`); no per-code carve-outs.
-- The `loom/runtime/cancelled-by-session-shutdown` per-invocation note is *not* emitted from the teardown handler — it routes through the standard `sendSystemNote` fallback chain from the invocation's own `finally`, which already terminates in `console.error`. Apply the same isolation there: a throw from the chain's terminal `console.error` MUST NOT propagate out of the per-invocation `finally`.
-
-## Relationships
-
-- T24 "`details.event.reason` coercion is unspecified for non-string Pi values" — same-cluster (already partially answered by PIC's `"<unreadable>"` sentinel; touches the same diagnostic payload)
-- T26 "Teardown sub-steps 1, 4, and 5 lack a per-step isolation rule" — co-resolve (same per-step-isolation discipline; one PIC edit can pin both the generic teardown-step isolation rule and the diagnostic-emission isolation rule)
-- T28 "`session_shutdown` teardown contract has no plan-leaf owner" — must-follow (this rule has no implementer until that leaf exists; the leaf's `Adds.` field must enumerate the wrap)
