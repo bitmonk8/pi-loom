@@ -4,7 +4,7 @@ _Generated: 2026-05-07T13:35:00Z_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T21) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 high, 7 medium retained; 23 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped (13 false positives were filtered upstream by the enricher)._
+_Triage tally: 1 high, 6 medium retained; 23 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped (13 false positives were filtered upstream by the enricher)._
 
 ---
 
@@ -410,66 +410,3 @@ Edge cases the editor must watch:
 ## Relationships
 
 - T04 "Placeholder rendering exemption is open-ended; affected registry rows are not enumerated" — same-cluster (both touch `diagnostics.md` registry-section accuracy; resolve independently)
-
----
-
-# T07 — SDK version pin in `spec.md` reads as an unfilled template
-
-**Original heading:** SDK version pin `~X.Y.Z` is a placeholder; no concrete version stated
-**Original section:** spec.md — Orientation > Prerequisites: Pi SDK and capabilities
-**Kind:** completeness, implementability, assumptions
-**Importance:** medium
-
-## Finding
-
-The Prerequisites paragraph states that `pi-agent-core`, `pi-ai`, and `pi-tui` are pinned in `peerDependencies` "at the same `~X.Y.Z` minor-version line as `pi-coding-agent`." The `~X.Y.Z` token is *meant* to be read as a meta-syntactic stand-in ("whichever tilde minor-line `pi-coding-agent` happens to be on"), but it is typeset as if it were a literal SemVer range — same backticks, same shape as `~0.72.1` — which an implementer reading `spec.md` cold cannot distinguish from an unfilled drafting placeholder. The actual literal is `~0.72.1` (carried in `package.json`, `pi-integration-contract.md`'s preamble, and Host prerequisites — Pi SDK pin), but `spec.md` never resolves the token and never gestures that resolution is deferred.
-
-There is also a three-way inconsistency about *whether* `spec.md` should carry the literal at all. PIC item 1 (Host prerequisites — Pi SDK pin) asserts that `spec.md` "references this pin **by location** rather than restating the literal value." The H1 plan leaf's `peerDependencies` literal-read test asserts the opposite: "The literal `~0.72.1` value is anchored in `pi-integration-contract.md` … and in `spec.md` under **Orientation — Prerequisites — Pi SDK and capabilities**; a Pi minor bump that moves the four-package lock-step must update all sites in one edit." Today neither contract is satisfied: `spec.md` neither restates the literal (failing H1's expectation) nor obviously defers to PIC (failing PIC's "by location" framing). The placeholder masks the contradiction.
-
-The Pi version bump procedure (`pi-integration-contract.md` step 4) names the sites that move together when the pin changes; if `spec.md` is intended to be one of them, the literal must appear there. If it is not, the placeholder syntax should be replaced with prose that does not look like an unsubstituted variable.
-
-## Spec Documents
-
-- `spec.md` — Orientation > Prerequisites > Pi SDK and capabilities (edited — placeholder rewritten as explicit deferral to PIC)
-- `spec_topics/pi-integration-contract.md` — Host prerequisites — Pi SDK pin (read-only — the existing "references this pin by location rather than restating the literal value" clause becomes accurate once `spec.md` is rewritten)
-- `package.json` — `peerDependencies` block (read-only — already carries `~0.72.1`)
-- `plan_topics/h1-scaffold.md` — `peerDependencies` literal-read test description (edited — drop `spec.md` from the literal-anchor list)
-
-## Plan Impact
-
-**Phases:** Horizontal
-
-**Leaves (implementation order):**
-
-- H1 — Repository scaffold and test framework — (modified)
-
-The H1 `peerDependencies` literal-read test currently enumerates `spec.md` as one of the literal-anchor sites a Pi minor bump must update. The test description must drop `spec.md` from that anchor list; the four remaining sites are `package.json`, `pi-integration-contract.md` preamble, `pi-integration-contract.md` Host prerequisites — Pi SDK pin, and the H1 test's own constant.
-
-## Consequence
-
-**Severity:** correctness
-
-A first-time implementer reading `spec.md` cannot determine the actual peer-dep range without leaving the page (the placeholder is indistinguishable from a fill-me-in marker). Two reviewers reading the spec, PIC, and H1 plan leaf together will disagree on whether `spec.md` should carry the literal — the documents currently make incompatible claims. The Pi version bump procedure presupposes a settled answer; today there isn't one.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Honour PIC's "by location, not literal" rule: rewrite the `spec.md` sentence so the deferral to PIC is explicit and no version-range syntax appears in `spec.md`, then drop `spec.md` from the H1 literal-anchor list so the test description matches reality. This minimises the literal-anchor count, leaves the Pi version bump procedure unchanged, and removes the placeholder that today reads as an unfilled drafting marker.
-
-**Spec edits.**
-
-- `spec.md` Prerequisites paragraph: `at the same \`~X.Y.Z\` minor-version line as \`pi-coding-agent\`` → `at the same tilde-pinned minor-version line as \`pi-coding-agent\` (the literal range is owned by [Pi Integration Contract — Host prerequisites — Pi SDK pin](./spec_topics/pi-integration-contract.md))`.
-- `pi-integration-contract.md`: no normative change; the existing "references this pin by location rather than restating the literal value" clause is now accurate as written.
-- `plan_topics/h1-scaffold.md` `peerDependencies` literal-read test description: remove `spec.md` from the literal-anchor list; the four sites become `package.json`, `pi-integration-contract.md` preamble, `pi-integration-contract.md` Host prerequisites — Pi SDK pin, and the H1 test's own constant.
-
-All three edits must land in the same commit so the `spec.md` deferral, the PIC "by location" sentence, and the H1 test description agree. The implementer should also confirm the `spec.md` link target resolves to the intended PIC heading anchor (this finding's editorial fix; cross-cutting anchor-resolution concerns are tracked elsewhere in this review).
-
-## Relationships
-
-None
-
----
-
