@@ -160,7 +160,7 @@ The truncation walk above selects which turns are included; this sub-section pin
 
 ### Binder system prompt
 
-The runtime constructs a system prompt that conveys the loom's binding context to the binder model. The exact wording is not part of the contract; the structural obligations enumerated under *System-prompt structure (normative)* below are. The fenced block that follows is one conforming rendering, included for illustration; an alternative renderer that satisfies every obligation in the structure list is equally conformant.
+The runtime constructs a system prompt that conveys the loom's binding context to the binder model. The exact wording is not part of the contract; the structural obligations enumerated under *System-prompt structure (normative)* below are. The fenced block that follows is one conforming rendering, included for illustration; an alternative renderer that satisfies every obligation in the structure list is equally conformant. The three per-field lines inside the `Parameters:` block of the example are an exception: they are reproduced as normative reference renderings under *Parameter-line reference renderings* below and a conforming implementation MUST emit those bytes verbatim for the inputs shown.
 
 ```
 You bind free-form slash-command arguments to typed loom parameters.
@@ -194,7 +194,13 @@ The rendered prompt MUST satisfy each obligation below. Wording may vary; the li
 1. **Loom identity line.** A line of the form `Loom: /<name>` MUST appear, where `<name>` is the bare slash command name (no leading `/`, matching the byte sequence hashed by [Determinism](#determinism) below). Exactly one such line per prompt.
 2. **Description line.** When the loom's frontmatter `description:` is non-empty, a line of the form `Description: <description>` MUST appear. When `description:` is absent or empty, the line MUST be omitted entirely (no `Description:` token with an empty value).
 3. **Argument-hint line.** When frontmatter `argument-hint:` is non-empty, a line of the form `Argument hint: <value>` MUST appear exactly once. When absent or empty, the line MUST be omitted entirely.
-4. **Parameters block.** When `params:` declares ≥1 field, the block MUST contain a header line `Parameters:` followed by one indented line per declared field, in declaration order. Each per-field line MUST contain (a) the field's wire name, (b) its declared type rendered per *Type display* below, and (c) one of the tokens `required` or `default=<literal>` where `<literal>` is the default rendered in [Loom literal sublanguage](./grammar.md#loom-literal-sublanguage) surface syntax. When the field carries a non-empty `description:` (per [Descriptions](./descriptions.md)), the line MUST also include that description; when absent or empty, the description segment MUST be omitted. When `params:` is absent or empty, the entire `Parameters:` block (header **and** all per-field lines) MUST be omitted.
+4. **Parameters block.** When `params:` declares ≥1 field, the block MUST contain a header line `Parameters:` (unindented) followed by one per-field line per declared field, in declaration order. Each per-field line MUST be indented with exactly two U+0020 SPACE characters and MUST contain no other leading whitespace (no tabs, no additional spaces). After the indent, each per-field line MUST match the template
+
+   ```
+   <wire-name> (<type>) <requirement>[ — <description>]
+   ```
+
+   where `<wire-name>` is the field's wire name; `<type>` is rendered per *Type display* below; `<requirement>` is exactly one of the literal tokens `required` or `default=<literal>` with `<literal>` rendered per *Default-literal rendering* below; and the `— <description>` segment is appended iff the field carries a non-empty `description:` (per [Descriptions](./descriptions.md), after that section's normalisation), in which case the separator preceding the description is exactly the byte sequence U+0020 U+2014 U+0020 (one space, em-dash, one space) and the description follows verbatim. When the field's `description:` is absent or empty after normalisation, the entire ` — <description>` segment — including its leading space and the em-dash — MUST be omitted, and the line MUST end immediately after `<requirement>` with no trailing whitespace. The fixed token order `<wire-name> (<type>) <requirement>` is normative; renderers MUST NOT reorder these three tokens, MUST NOT insert additional whitespace between them beyond the single U+0020 SPACE shown, and MUST NOT omit the parentheses around `<type>`. When `params:` is absent or empty, the entire `Parameters:` block (header **and** all per-field lines) MUST be omitted.
 5. **User-arguments line.** A line of the form `User arguments: <raw>` MUST appear, where `<raw>` is the raw slash text after the command name with leading and trailing whitespace stripped and no other normalisation. When the user supplied no arguments, `<raw>` is the empty string and the line still appears (the `User arguments:` token is followed by a single space and then nothing).
 6. **Session-context block.** When `bind_context: session` and the [Session-context truncation](#session-context-truncation-bind_context-session) walk produced ≥1 included turn, the prompt MUST contain a delimited block whose opening line begins with the literal token `Recent session context` and whose body is the included transcript rendered per [Compact-transcript format](#compact-transcript-format-normative). When the walk produced zero included turns (single oversized newest turn, empty session) or `bind_context: none`, the entire block — opening line and body — MUST be omitted (no header with empty body).
 7. **Envelope-kinds enumeration.** The prompt MUST list all three envelope kinds by their `kind`-token names: `ok`, `needs_info`, `ambiguous`. The exact phrasing of each kind's accompanying description is non-normative; the three kind-name tokens are normative.
@@ -214,6 +220,16 @@ The rendered prompt MUST satisfy each obligation below. Wording may vary; the li
 | `Cat \| Dog` (discriminated union) | `Cat \| Dog` |
 
 *Default-literal rendering.* The `<literal>` in `default=<literal>` (item 4) MUST be the field's default value rendered in the [Loom literal sublanguage](./grammar.md#loom-literal-sublanguage) surface syntax — the same notation accepted on the RHS of `params:` defaults. A default of `Severity.High` round-trips as `default=Severity.High`; a string default `"hello"` round-trips as `default="hello"`; an array default `[1, 2, 3]` round-trips as `default=[1, 2, 3]`; the empty-array default `[]` round-trips as `default=[]`.
+
+*Parameter-line reference renderings.* The per-field lines reproduced from the *Binder system prompt* example above are normative; conforming implementations MUST reproduce these exact byte sequences (each row's rendering is the indent-and-content portion of one per-field line, ending immediately before its terminating `\n`):
+
+| Field declaration (Loom source) | Per-field line |
+| --- | --- |
+| `language: string` with `description: "the language being reviewed"` | `  language (string) required — the language being reviewed` |
+| `focus_areas: array<string> = []` with `description: "comma-separated focus areas"` | `  focus_areas (array<string>) default=[] — comma-separated focus areas` |
+| `author: Author` with `description: "the author of the code under review"` | `  author (Author) required — the author of the code under review` |
+
+A fourth reference rendering pins the description-omitted form: a field declared `language: string` with no `description:` (or with a `description:` that normalises to empty) renders as `  language (string) required` — the line ends after `required`, with no trailing space, no em-dash, and no `\n`-internal whitespace. The two leading spaces are U+0020 U+0020; an implementation that emits `\t`, a single space, three or more spaces, or any non-space leading whitespace is non-conforming.
 
 ## Defaulting
 

@@ -4,7 +4,7 @@ _Generated: 2026-05-07T13:35:00Z_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T21) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 high, 3 medium retained; 23 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped (13 false positives were filtered upstream by the enricher)._
+_Triage tally: 1 high, 2 medium retained; 23 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped (13 false positives were filtered upstream by the enricher)._
 
 ---
 
@@ -148,77 +148,4 @@ Edge cases the V16i test author must cover:
 - T03 "Parameters block: indentation and per-field token order are not normative" — same-cluster (sibling testability gap in the same binder rendering surface; resolved independently)
 - T15 "Compact-transcript format for the session-context block is unspecified" — same-cluster (third testability gap in binder rendering; resolved independently)
 - T04 "Placeholder rendering exemption is open-ended; affected registry rows are not enumerated" — same-cluster (testability gap in a different rendering surface; resolved independently)
-
----
-
-# T03 — Parameters block: indentation and per-field token order are not normative
-
-**Original heading:** Parameters block: "indented" undefined; token ordering not mandated normatively
-**Original section:** spec_topics/binder.md
-**Kind:** testability
-**Importance:** medium
-
-## Finding
-
-`spec_topics/binder.md` § *System-prompt structure (normative)*, item 4 ("Parameters block"), specifies that when `params:` declares ≥1 field the prompt MUST contain a header line `Parameters:` followed by **"one indented line per declared field, in declaration order"**, and that each per-field line MUST contain (a) the field's wire name, (b) its declared type, (c) the token `required` or `default=<literal>`, and (d) when `description:` is non-empty, that description. The illustrative fenced example renders these as `  language (string) required — the language being reviewed` (two-space indent; `name (type) requirement [— description]` order), but the prose immediately above that block disclaims it as non-normative ("an alternative renderer that satisfies every obligation in the structure list is equally conformant").
-
-Two distinct conformance gaps result:
-
-1. **Indentation is unspecified.** "Indented" names no character (space vs. tab), no count (one space vs. two vs. four), and no leading-whitespace exclusion. A renderer using `\t` or a single space satisfies the literal text. A test asserting `^  <wire-name>` (the only assertion the example would support) is asserting an explicitly non-normative property.
-
-2. **Per-field token order is unspecified.** The "(a) … (b) … (c)" enumeration in item 4 lists *what* must appear on the line; it does not say "in this order". A renderer that emits `required language (string)` or `(string) required language — desc` satisfies item 4's "MUST contain" obligations as written. Two implementers can produce different orderings — and the binder model receives differently-shaped prompts — without either being non-conformant.
-
-The header line `Parameters:` itself is fixed; the omission rule when `params:` is empty is fixed; declaration order across lines is fixed. Only the *intra-line* shape of each field row is underspecified.
-
-## Spec Documents
-
-- `spec_topics/binder.md` — *System-prompt structure (normative)*, item 4 (Parameters block) (edited)
-- `spec_topics/binder.md` — *Binder system prompt* (illustrative example block above the structure list) (read-only — example becomes a normative reference under the recommendation)
-
-## Plan Impact
-
-**Phases:** Vertical V16
-
-**Leaves (implementation order):**
-
-- V16f — `bind_context: none` — (modified)
-
-V16f is the only plan leaf that owns binder system-prompt rendering and tests the *System-prompt structure (normative)* list (it already cites item 8 by number). Pinning indentation and per-field token order extends the per-item assertions V16f's test suite must carry; the feature scope is unchanged. No other V16 leaf renders the Parameters block: V16g extends the same prompt with the session-context block but does not rewrite the parameter table; V16o/V16n/V16h/V16e/V16k–m operate on envelopes, retries, models, echo, and failure modes, none of which touch the system-prompt structure list.
-
-## Consequence
-
-**Severity:** correctness
-
-A spec-conformant renderer can emit `\tlanguage (string) required` while another emits `  required language (string)`; both pass the current obligations. Conformance tests cannot assert byte-exact prompt content for the Parameters block, and binder-model A/B comparisons across implementations will see different prompt shapes attributable to spec ambiguity rather than implementer choice. The binder is an LLM and tolerates surface variation in practice, so live behaviour is unlikely to diverge dramatically — but the spec's *System-prompt structure (normative)* heading promises a contract that this item does not deliver.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Amend item 4 to pin both indentation and per-field token order:
-
-- **Indentation.** Add: "Each per-field line MUST be indented with exactly two U+0020 SPACE characters and MUST contain no other leading whitespace (no tabs, no additional spaces)."
-- **Per-field grammar.** Replace the "(a) … (b) … (c) …" enumeration with a normative template:
-
-  ```
-  <wire-name> (<type>) <requirement>[ — <description>]
-  ```
-
-  where `<wire-name>` is the field's wire name; `<type>` is rendered per *Type display*; `<requirement>` is exactly one of the literal tokens `required` or `default=<literal>` (with `<literal>` rendered per *Default-literal rendering*); and the `— <description>` segment is appended (with the literal U+0020 U+2014 U+0020 separator) iff the field's `description:` is non-empty after the *Descriptions* normalisation, otherwise omitted entirely.
-
-- **Status of the existing fenced example.** Promote the example block's parameter rows to normative reference renderings (the same pattern *Type display* and *Default-literal rendering* already use elsewhere in this section), so the example is a conformance fixture rather than illustration.
-
-Edge cases the implementer must watch:
-
-- The em-dash separator is U+2014 (not a hyphen-minus and not U+2013); the surrounding spaces are U+0020 (not U+00A0).
-- When `description:` is empty after normalisation, the trailing separator is omitted *with* its leading space — the line ends after `<requirement>`, with no trailing whitespace.
-- The two-space indent applies only to per-field lines; the `Parameters:` header line itself is unindented.
-- V16f's test suite must add per-field assertions covering: indentation byte sequence (`/^  /` and not `/^\t/` or `/^   /`), token-order regex anchored on `<wire-name> \(<type>\) (required|default=…)(?: — .+)?$`, and the description-omitted form.
-
-## Relationships
-
-- T15 "Compact-transcript format for the session-context block is unspecified" — same-cluster (sibling item in the same *System-prompt structure (normative)* list — item 6 — with an analogous "header is normative, body shape is not" gap; resolves independently with its own format pinning)
-- T02 "Object-value echo rendering: single-field case undefined" — same-cluster (different rendering surface — *Echo policy* rather than *System-prompt structure* — but the same testability lens)
 
