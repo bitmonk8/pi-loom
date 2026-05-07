@@ -4,7 +4,7 @@ _Generated: 2026-05-07T13:35:00Z_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T21) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 8 high, 12 medium retained; 23 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped (13 false positives were filtered upstream by the enricher)._
+_Triage tally: 8 high, 11 medium retained; 23 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped (13 false positives were filtered upstream by the enricher)._
 
 ---
 
@@ -1302,79 +1302,3 @@ Edge case the implementer must watch: `RangeError: Maximum call stack size excee
 
 - T20 "Hard-ceiling interaction paragraph: missing anchor, undefined jargon, and bundled ordering rules" — co-resolve (sister paragraph in the same Hard Ceilings block; one editing pass installs both anchors and both ID schemes — `CIO-*` and `NOCEIL-*`)
 - T21 "Masked ceilings: no observability requirement for the unreported breach" — must-follow (the at-most-one-per-event rule that masks rival ceilings is settled by the masked-ceilings decision; the NOCEIL paragraph's host-OOM routing must not be confused for an additional ceiling that could be masked)
-
----
-
-# T20 — Hard-ceiling interaction paragraph: missing anchor, undefined jargon, and bundled ordering rules
-
-**Original heading:** Interaction paragraph: no anchor; "unfired condition" / "round-completion accounting" undefined; ordering rules lack IDs
-**Original section:** spec.md — Scope: Hard ceilings — "Interaction between ceilings" and closing paragraph
-**Kind:** clarity, traceability
-**Importance:** medium
-
-## Finding
-
-The "**Interaction between ceilings.**" sub-block inside `spec.md`'s hard-ceilings bullet (lines 58–59, nested under `<a id="hard-runtime-ceilings">`) is bold inline prose with no anchor of its own and no per-rule identifiers. Its first sentence — "the first check whose precondition is satisfied fires, and *the unfired condition* is then unreachable for that event" — uses the singular "the unfired condition" as if exactly one rival ceiling competed at each check site. The paragraph immediately afterwards lists four ceilings situated at four *different* sites (slash-load, `invoke` entry, every AJV boundary, the tool-call-round boundary), so the framing of a binary fire/non-fire choice at each site does not match the underlying model: ceilings are sequential along the control-flow path, not concurrent at one site. The reader has to reconstruct the actual rule (loosely: "the first ceiling reached along the event's control-flow path ends the event; later ceilings on the same path are not evaluated") from the worked examples that follow.
-
-The paragraph also relies on the term **"round-completion accounting"** in its second worked example ("depth-walk fires before the round-completion accounting that would tip into `tool_loop_exhausted`"). The phrase appears nowhere else in the corpus — it is not in `spec_topics/glossary.md`, and `spec_topics/query.md` and `spec_topics/frontmatter.md` use only "tool-call rounds", "iteration cap", and the per-query slot counter described in V6k of the plan. An implementer cannot determine from the spec alone whether "round-completion accounting" is the slot-increment that fires after each completed round, the post-round comparison against `max_iterations`, or both — the answer matters because it pins exactly when ceiling #2 is evaluated relative to the depth walk on the forced respond turn at iteration `max_iterations`.
-
-Finally, the paragraph bundles at least five independently testable ordering obligations (depth-walk before AJV at the same site; ceiling #1 at `invoke` entry before the callee body; ceiling #4 as the first sub-check at every AJV boundary; ceiling #2 after a round completes and before the next model turn; ceiling #3 never interleaves with #1/#2/#4) plus the at-most-one-ceiling-per-event guarantee, and it carries the only normative anchoring of the depth-walk-precedes-AJV ordering and the tool-loop-counter timing. None of these has its own ID, so a conformance test cannot record a partial result against this paragraph and a future revision cannot cite a single rule by name.
-
-## Spec Documents
-
-- `spec.md` — `## Orientation > Scope`, hard-ceilings bullet, "Interaction between ceilings" sub-block (edited)
-- `spec_topics/glossary.md` — definitions list (edited; new entry for the slot-accounting term, or for "tool-call round")
-- `spec_topics/query.md` — "Tool-call loop bound" section (read-only; pins what "round" and the iteration cap mean)
-- `spec_topics/schema-subset.md` — depth-enforcement section (read-only; pins the depth-walk-before-AJV ordering at AJV boundaries)
-- `spec_topics/frontmatter.md` — `tool_loop` field (read-only; pins what one slot is and that the forced respond turn consumes one)
-- `spec_topics/binder.md` — `#bypass-cases` (read-only; pins that `invoke` does not run the binder, justifying the no-interleave clause for ceiling #3)
-
-## Plan Impact
-
-**Phases:** Horizontal H6.
-
-**Leaves (implementation order):**
-
-- H6 — REQ-ID anchor insertion and coverage-matrix re-pivot — (modified)
-
-V6k (`tool_loop` cap), V11i (depth walk), V18n (invoke-depth-exceeded panic surface), V16n / V16o (binder retry budgets) all encode the observable behaviour the paragraph describes; their acceptance criteria do not change because the spec edit clarifies wording and assigns IDs without altering the underlying rules. H6 is modified because it owns the bulk REQ-ID anchor insertion and would carry the new `CIO-N` (or equivalent) prefix and its coverage-matrix rows.
-
-## Consequence
-
-**Severity:** advisory
-
-A careful implementer reaches the right behaviour from the worked examples and the topic-page anchors the paragraph forward-links to, so nothing ships wrong. But the paragraph cannot be cited rule-by-rule from a test or a future revision, and the depth-walk-vs-`tool_loop`-accounting precedence on the forced respond turn at iteration `max_iterations` rests entirely on undefined jargon — two reviewers can read it and agree the rule "looks right" without agreeing on what "round-completion accounting" denotes.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Promote the sub-block to a stable, citable structure and replace the misleading singular framing with the underlying control-flow-path rule, then enumerate the ordering obligations as numbered items with stable IDs.
-
-Concretely, edit the hard-ceilings bullet in `spec.md` so the Interaction sub-block reads:
-
-1. Insert `<a id="ceiling-interaction-order"></a>` immediately before the bold lead-in "**Interaction between ceilings.**".
-2. Replace the opening sentence with a path-based formulation: *"Each ceiling is checked at a distinct point in single-threaded interpreter execution. The first ceiling reached along an event's control-flow path that finds its precondition satisfied fires and ends the event; ceilings situated at later points on the same path are not evaluated for that event."* This drops the singular "the unfired condition" and stops implying a per-site rivalry that does not exist.
-3. Reformat the fixed evaluation order as a numbered list with stable sub-IDs (suggested prefix `CIO-`, but any prefix that satisfies the H6 prefix-table check works):
-   - **CIO-1** — Ceiling #3 (binder per-class retry budget) is evaluated at slash-load time, before any runtime ceiling.
-   - **CIO-2** — Ceiling #1 (`invoke`-chain depth) is evaluated at `invoke` entry, before the callee body runs.
-   - **CIO-3** — Ceiling #4 (JSON-document depth) is the first sub-check at every AJV validation boundary (typed-query response, `tool_use` args, `params` merge, `invoke<T>` return); the depth walk runs before AJV at the same site per [Schema Subset — Depth Enforcement].
-   - **CIO-4** — Ceiling #2 (`tool_loop.max_iterations`) is evaluated at the tool-call-round boundary — *after* the round's tool calls have completed and the slot count has been incremented for the just-completed round, and *before* the next model turn (or, on a typed query at iteration `max_iterations`, the forced respond turn) is requested.
-   - **CIO-5** — Ceiling #3 never interleaves with #1, #2, or #4: the binder runs only at slash-invocation load time, and `invoke(...)` calls do not invoke the binder per [Slash-Command Argument Binding — Binder bypass].
-   - **CIO-6** — At most one ceiling surfaces per event; the spec does not promise reporting masked ceilings (cross-link to the masked-ceilings finding's resolution if it adopts a `details.masked` field).
-4. Replace "round-completion accounting" with concrete prose that names the slot-increment step, e.g. *"the slot-increment for the just-completed round (the bookkeeping that ceiling #2 consults to decide whether the next turn would exceed `max_iterations`)"*. Optionally add a glossary entry **tool-call round slot accounting** that points to `query.md`'s "Tool-call loop bound" section and to V6k's slot-counting rule, and reference it from CIO-4. The phrase "round-completion accounting" should not survive the edit.
-5. Keep the three worked-consequence sentences but rewrite each to cite the relevant `CIO-N` ID(s) it illustrates — this turns them from disambiguation prose into named test fixtures.
-
-Edge cases the implementer must watch:
-
-- The depth-walk-before-AJV ordering (CIO-3) is also asserted by `schema-subset.md` and exercised by V11i at the service level; the spec edit must keep the `spec.md` statement consistent with `schema-subset.md` rather than introducing a second source of truth (this is the GOV-12 lock-step concern).
-- CIO-4's "after slot-increment, before next turn" ordering is the load-bearing rule for the second worked example (depth-6 forced respond at `max_iterations`). If the H6 prefix already encodes a different precedence convention for slot-counting, align CIO-4's wording to that convention rather than coining a parallel one.
-- The masked-ceiling clause (CIO-6) and the separate masked-ceilings finding co-resolve: whichever fix is taken there should be reflected in CIO-6's wording so the two are not contradictory.
-
-## Relationships
-
-- T19 "'No additional V1 runtime ceiling' closing paragraph: missing anchor / per-claim IDs and an unverifiable host-OOM routing claim" — co-resolve (immediately adjacent paragraph with the identical anchor + per-claim-ID gap; one H6 editing pass introduces both `CIO-*` and `NOCEIL-*`)
-- T21 "Masked ceilings: no observability requirement for the unreported breach" — must-follow (CIO-6's exact wording depends on whether a `details.masked` field is added)
-
