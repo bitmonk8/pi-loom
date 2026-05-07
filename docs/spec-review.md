@@ -1,10 +1,1472 @@
 # Triaged Spec Review — spec.md
 
-_Generated: <timestamp>_
-_Source: <source-path>_
-_Spec: <spec-path>_
-_Process: <process-description>_
+_Generated: 2026-05-07T13:35:00Z_
+_Spec: spec.md_
+_Process: bottom-up — the last finding (T21) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: <H> high, <M> medium retained; <L> low discarded; <merged-low> low findings merged into <merged-medium> medium findings; <nit> nit dropped; <false> false dropped._
+_Triage tally: 8 high, 13 medium retained; 23 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped (13 false positives were filtered upstream by the enricher)._
 
 ---
+
+# T01 — "loom-side name" vs "loom-side identifier": defined-term drift across topic pages
+
+**Original heading:** "loom-side name" (glossary canonical) vs "loom-side identifier" (three topic pages)
+**Original section:** spec_topics/ — Naming inconsistencies (multiple files)
+**Kind:** naming
+**Importance:** medium
+
+## Finding
+
+The glossary defines a single canonical pair — **`loom-side name`** vs **`wire name`** — and stipulates that the "loom-side name is the identifier a schema field is declared and referenced by in loom code." Three topic pages and one diagnostic message template use a competing phrasing, **`loom-side identifier(s)`**, for the same concept:
+
+- `runtime-value-model.md` lines 12, 22, 28 ("JS plain object keyed by **loom-side identifiers**", "key set (loom-side identifiers)", "rebuilds the value with loom-side identifiers using each schema's translation map").
+- `diagnostics.md` line 255, in both the *Description* and *Message* columns of `loom/parse/redundant-wire-name`: `redundant 'as' clause: wire name '<name>' equals the loom-side identifier`.
+- `query.md` line 164 ("the loom-side identifiers an author writes never appear in the rendered prompt").
+
+A fourth phrasing, **`loom-side field name`**, also appears (`diagnostics.md` line 339 in the `loom/runtime/missing-object-key` template; `expressions.md` line 95 in the `has(k)` row), giving four surface forms for one defined concept. One use of "loom-side identifier" is intentionally distinct: `diagnostics.md` line 81 ("Named schemas, enums, and type aliases by their loom-side identifier") refers to the lexical identifier *shape* fixed by `lexical.md`, not the loom-side-name/wire-name pairing. That single occurrence should be retained.
+
+The drift matters because the glossary entry is cited as the authority for the term ("See: [Schema Declarations]…") and because the synonym `identifier` invites readers to suspect a second concept exists — particularly in `diagnostics.md` line 256 where `loom-side name` and `loom-side identifier` appear two lines apart in the same registry table.
+
+## Spec Documents
+
+- `spec_topics/glossary.md` — "loom-side name vs. wire name" entry (read-only)
+- `spec_topics/runtime-value-model.md` — Representation table; equality bullets; inbound/outbound translation passes (edited)
+- `spec_topics/diagnostics.md` — `loom/parse/redundant-wire-name` row (Description + Message); `loom/runtime/missing-object-key` row (edited)
+- `spec_topics/query.md` — String-interpolation rendering bullet on outbound translation (edited)
+- `spec_topics/expressions.md` — `has(k)` row in the built-in functions table (edited)
+- `spec_topics/lexical.md` — Identifier-shape rules (read-only; cited as the rationale for retaining "loom-side identifier" at `diagnostics.md` line 81)
+- `spec_topics/schemas.md` — `by <field>` discussion using "loom-side name" (read-only; reference exemplar)
+
+## Plan Impact
+
+**Phases:** Vertical V11, Vertical V13
+
+**Leaves (implementation order):**
+
+- V11d — Explicit `by <field>` form — (modified) — *Adds* says "Resolves to loom-side identifier"; *Tests* says "loom-side name accepted". Align both on `loom-side name`.
+- V13b — Inbound wire-name translation — (modified) — *Adds* and *Ships when* both reference "loom-side identifiers"; align on `loom-side names`.
+- V13c — Outbound wire-name translation — (modified) — Uses "loom-side value"; safe as-is, but the surrounding *Adds* should not reintroduce "identifier" when reworded.
+- V13d — Discriminator detection on wire names — (modified) — Already uses "loom-side name"; keep, and ensure consistent with the renamed V11d/V13b text.
+
+## Consequence
+
+**Severity:** advisory
+
+A reader of the diagnostic registry will encounter two terms (`loom-side name`, `loom-side identifier`) within adjacent rows for the same concept and reasonably ask whether the registry is distinguishing them. The diagnostic *message template* itself shipping with the inconsistent term means the runtime will emit text that contradicts its own glossary, which is awkward but not behavior-altering. Implementers writing the value-model walk and the AJV translation map will not produce divergent code, but tests asserting message strings (V18s diagnostic-code gate; V13a redundant-rename test) will lock in whichever phrasing is current at implementation time, making post-hoc renames a multi-leaf edit.
+
+## Solution Space
+
+**Shape:** single
+
+### Recommendation
+
+Standardize on the glossary canonical **`loom-side name`** (plural `loom-side names`) wherever the concept refers to the schema-field-declaration name paired with a wire name. Apply to:
+
+1. `runtime-value-model.md` lines 12, 22, 28 — replace `loom-side identifier(s)` with `loom-side name(s)`.
+2. `query.md` line 164 — replace `loom-side identifiers` with `loom-side names`.
+3. `diagnostics.md` line 255 — both columns: change `loom-side identifier` to `loom-side name` in the Description sentence; rewrite the Message template to `redundant 'as' clause: wire name '<name>' equals the loom-side name`.
+4. `diagnostics.md` line 339 and `expressions.md` line 95 — change `loom-side field name` to `loom-side name` (the "field" qualifier is redundant given the glossary definition already scopes the term to schema fields).
+
+Retain the existing phrasing in two places:
+
+- `diagnostics.md` line 81 ("Named schemas, enums, and type aliases by their loom-side identifier") — here `identifier` denotes the *lexical* identifier shape per `lexical.md`, not the wire-name pairing. The trailing parenthetical ("the identifier shape is fixed by [Lexical — Identifiers]") is what disambiguates; leave as-is.
+- `runtime-value-model.md` line 31 (`loom-side-named`) — hyphenated adjectival form derived from the canonical noun; consistent and may stay.
+
+Update plan leaves V11d, V13b, V13c, V13d to use `loom-side name(s)` in their *Adds* / *Tests* / *Ships when* prose so that diagnostic-message-string tests (V13a redundant-rename, V18s diagnostic-code gate) pin the canonical form.
+
+Edge case for the implementer: the `loom/parse/redundant-wire-name` Message template change is a wire-visible diagnostic surface. If any test fixture or golden-output file already exists, it must change in lock-step. Grep for the literal string `equals the loom-side identifier` before merging.
+
+## Relationships
+
+None
+
+---
+
+# T02 — Object-value echo rendering: single-field case undefined
+
+**Original heading:** Object value echo rendering for single-field schemas unspecified
+**Original section:** spec_topics/binder.md
+**Kind:** testability
+**Importance:** medium
+
+## Finding
+
+The `bind_echo` echo-policy format rule for object values reads: *"Object values shown as `{first-field-value, …}` — just the first field's value as a hint."* The two normative reference renderings supplied in the table beneath the rule both describe two-field objects (`Cat { name, color }` → `{Whiskers, …}`; `Pet::Cat { kind, name }` → `{cat, …}`). No example or explicit clause covers an object whose declared schema has exactly one field — the case where the `…` token would, on the elision reading, signal nothing elided.
+
+Two readings of the rule survive equally well from the prose:
+
+1. The literal-format reading: `{<first-field-value>, …}` is the fixed shape; the `, …` is part of the format and is rendered for every object value, single-field or not. Under this reading `Cat { name: "Whiskers" }` renders as `{Whiskers, …}`. The wording *"first field's value as a hint"* and the contrast with the array rule (which carries an explicit `…+N more` count and an empty-array form `[]`) both lean this way: object echo never enumerates the dropped fields, so there is nothing for the marker to count and no reason for it to disappear when the count happens to be zero.
+2. The elision-marker reading: `…` is an indicator that fields were elided, by analogy with the array rule's count-bearing marker. Under this reading a single-field object renders as `{Whiskers}` and the marker disappears whenever the count of remaining fields is zero.
+
+Both readings are defensible from the current text, neither is contradicted, and the V16i conformance leaf — which already enumerates one assertion per echo format rule — has no input to disambiguate.
+
+## Spec Documents
+
+- `spec_topics/binder.md` — Echo policy → Format rules and Reference renderings table (edited)
+
+## Plan Impact
+
+**Phases:** V16 — Slash-command argument binder (LLM path)
+
+**Leaves (implementation order):**
+
+- V16i — `bind_echo` formatter — (modified)
+
+## Consequence
+
+**Severity:** correctness
+
+Two reasonable implementers will diverge on the single-field rendering (`{val}` vs `{val, …}`) because both can be argued from the current text. The `bind_echo` echo is a user-facing system note appended verbatim before every loom run, and the V16i test suite already asserts rule 4 against synthetic params/args pairs. Without a normative tiebreak the conformance suite cannot pin this case at all, and any author whose params block declares a single-field nested object will see the rendering shape decided by whichever interpretation the implementer happened to take.
+
+## Solution Space
+
+**Shape:** single
+
+### Recommendation
+
+Pin the literal-format reading: the `, …` token is part of the fixed object-value format and MUST be rendered regardless of how many fields the declaring schema (or discriminated-union variant) has.
+
+Add to the Format-rules bullet for object values, after the existing "first field's value as a hint" sentence:
+
+> The trailing `, …` is part of the format and MUST be rendered for every object value, including objects whose declaring schema (or discriminated-union variant) declares exactly one field; the marker is fixed text, not an elided-field indicator (contrast with the array rule's count-bearing `…+N more`).
+
+Add a third row to the Reference renderings table immediately after the two existing object rows:
+
+| Value | Rendering |
+| --- | --- |
+| `Cat { name: "Whiskers" }` (schema declares only `name`) | `{Whiskers, …}` |
+
+Edge cases the V16i test author must cover:
+
+- Single-field plain object (the new reference row).
+- Single-variant discriminated union whose variant declares exactly one field — same rule applies; `…` is still emitted.
+- Single-field variant whose only declared field is the discriminator — `…` still emitted.
+- Empty-object value: not reachable through the schema subset (objects must declare at least one field per `schema-subset.md`); the rule need not address it, but the test should assert that the V16i formatter is never called with one and panics or short-circuits if it is.
+
+## Relationships
+
+- T03 "Parameters block: indentation and per-field token order are not normative" — same-cluster (sibling testability gap in the same binder rendering surface; resolved independently)
+- T15 "Compact-transcript format for the session-context block is unspecified" — same-cluster (third testability gap in binder rendering; resolved independently)
+- T04 "Placeholder rendering exemption is open-ended; affected registry rows are not enumerated" — same-cluster (testability gap in a different rendering surface; resolved independently)
+
+---
+
+# T03 — Parameters block: indentation and per-field token order are not normative
+
+**Original heading:** Parameters block: "indented" undefined; token ordering not mandated normatively
+**Original section:** spec_topics/binder.md
+**Kind:** testability
+**Importance:** medium
+
+## Finding
+
+`spec_topics/binder.md` § *System-prompt structure (normative)*, item 4 ("Parameters block"), specifies that when `params:` declares ≥1 field the prompt MUST contain a header line `Parameters:` followed by **"one indented line per declared field, in declaration order"**, and that each per-field line MUST contain (a) the field's wire name, (b) its declared type, (c) the token `required` or `default=<literal>`, and (d) when `description:` is non-empty, that description. The illustrative fenced example renders these as `  language (string) required — the language being reviewed` (two-space indent; `name (type) requirement [— description]` order), but the prose immediately above that block disclaims it as non-normative ("an alternative renderer that satisfies every obligation in the structure list is equally conformant").
+
+Two distinct conformance gaps result:
+
+1. **Indentation is unspecified.** "Indented" names no character (space vs. tab), no count (one space vs. two vs. four), and no leading-whitespace exclusion. A renderer using `\t` or a single space satisfies the literal text. A test asserting `^  <wire-name>` (the only assertion the example would support) is asserting an explicitly non-normative property.
+
+2. **Per-field token order is unspecified.** The "(a) … (b) … (c)" enumeration in item 4 lists *what* must appear on the line; it does not say "in this order". A renderer that emits `required language (string)` or `(string) required language — desc` satisfies item 4's "MUST contain" obligations as written. Two implementers can produce different orderings — and the binder model receives differently-shaped prompts — without either being non-conformant.
+
+The header line `Parameters:` itself is fixed; the omission rule when `params:` is empty is fixed; declaration order across lines is fixed. Only the *intra-line* shape of each field row is underspecified.
+
+## Spec Documents
+
+- `spec_topics/binder.md` — *System-prompt structure (normative)*, item 4 (Parameters block) (edited)
+- `spec_topics/binder.md` — *Binder system prompt* (illustrative example block above the structure list) (read-only — example becomes a normative reference under the recommendation)
+
+## Plan Impact
+
+**Phases:** Vertical V16
+
+**Leaves (implementation order):**
+
+- V16f — `bind_context: none` — (modified)
+
+V16f is the only plan leaf that owns binder system-prompt rendering and tests the *System-prompt structure (normative)* list (it already cites item 8 by number). Pinning indentation and per-field token order extends the per-item assertions V16f's test suite must carry; the feature scope is unchanged. No other V16 leaf renders the Parameters block: V16g extends the same prompt with the session-context block but does not rewrite the parameter table; V16o/V16n/V16h/V16e/V16k–m operate on envelopes, retries, models, echo, and failure modes, none of which touch the system-prompt structure list.
+
+## Consequence
+
+**Severity:** correctness
+
+A spec-conformant renderer can emit `\tlanguage (string) required` while another emits `  required language (string)`; both pass the current obligations. Conformance tests cannot assert byte-exact prompt content for the Parameters block, and binder-model A/B comparisons across implementations will see different prompt shapes attributable to spec ambiguity rather than implementer choice. The binder is an LLM and tolerates surface variation in practice, so live behaviour is unlikely to diverge dramatically — but the spec's *System-prompt structure (normative)* heading promises a contract that this item does not deliver.
+
+## Solution Space
+
+**Shape:** single
+
+### Recommendation
+
+Amend item 4 to pin both indentation and per-field token order:
+
+- **Indentation.** Add: "Each per-field line MUST be indented with exactly two U+0020 SPACE characters and MUST contain no other leading whitespace (no tabs, no additional spaces)."
+- **Per-field grammar.** Replace the "(a) … (b) … (c) …" enumeration with a normative template:
+
+  ```
+  <wire-name> (<type>) <requirement>[ — <description>]
+  ```
+
+  where `<wire-name>` is the field's wire name; `<type>` is rendered per *Type display*; `<requirement>` is exactly one of the literal tokens `required` or `default=<literal>` (with `<literal>` rendered per *Default-literal rendering*); and the `— <description>` segment is appended (with the literal U+0020 U+2014 U+0020 separator) iff the field's `description:` is non-empty after the *Descriptions* normalisation, otherwise omitted entirely.
+
+- **Status of the existing fenced example.** Promote the example block's parameter rows to normative reference renderings (the same pattern *Type display* and *Default-literal rendering* already use elsewhere in this section), so the example is a conformance fixture rather than illustration.
+
+Edge cases the implementer must watch:
+
+- The em-dash separator is U+2014 (not a hyphen-minus and not U+2013); the surrounding spaces are U+0020 (not U+00A0).
+- When `description:` is empty after normalisation, the trailing separator is omitted *with* its leading space — the line ends after `<requirement>`, with no trailing whitespace.
+- The two-space indent applies only to per-field lines; the `Parameters:` header line itself is unindented.
+- V16f's test suite must add per-field assertions covering: indentation byte sequence (`/^  /` and not `/^\t/` or `/^   /`), token-order regex anchored on `<wire-name> \(<type>\) (required|default=…)(?: — .+)?$`, and the description-omitted form.
+
+## Relationships
+
+- T15 "Compact-transcript format for the session-context block is unspecified" — same-cluster (sibling item in the same *System-prompt structure (normative)* list — item 6 — with an analogous "header is normative, body shape is not" gap; resolves independently with its own format pinning)
+- T02 "Object-value echo rendering: single-field case undefined" — same-cluster (different rendering surface — *Echo policy* rather than *System-prompt structure* — but the same testability lens)
+
+---
+
+# T04 — Placeholder rendering exemption is open-ended; affected registry rows are not enumerated
+
+**Original heading:** Placeholder rendering exemption open-ended: affected registry rows not annotated
+**Original section:** spec_topics/diagnostics.md
+**Kind:** testability
+**Importance:** medium
+
+## Finding
+
+`spec_topics/diagnostics.md` rule 4 declares the *Message* column normative and requires renderers to "emit it character-for-character with placeholders interpolated." The "Placeholder rendering (normative)" subsection then names six closed placeholder categories and pins one byte-identical rendering rule per category. A trailing **V1.0 scope** paragraph (line 69) carves out an exemption: "Registry rows whose `Message` template uses placeholder names outside the six categories carry no byte-identical rendering rule … tests asserting on those messages MUST treat the unenumerated portion as implementation-defined."
+
+The exemption is open-ended. No row in the registry is annotated as falling under it, and the spec offers no procedure for deriving the affected set from the templates. A grep over the 137 registry rows turns up at least the following placeholders in *Message* templates that are not in any of the six categories: `<callee>`, `<cap>`, `<capability>`, `<dotted-key>`, `<enum>`, `<error>`, `<fields>`, `<higher>`, `<invocation-id>`, `<kind>`, `<list>`, `<lower>`, `<message>`, `<method>`, `<model>`, `<ms>`, `<name1>`, `<name2>`, `<observed>`, `<op>`, `<path-a>`, `<path-b>`, `<paths>`, `<provider>`, `<reason>`, `<root>`, `<schema>`, `<slash-name>`, `<slug>`, `<source>`, `<uuid>`. The cited example `loom/load/discovery-slow` uses both `<root>` and `<cap>`; neither is categorised, neither is annotated.
+
+A test author reading the registry cannot tell which rows they are entitled to assert on byte-for-byte and which require a relaxed match against an "implementation-defined" tail. Two conformant implementations may diverge on every placeholder above without violating any stated rule, but a conformance suite that asserted equality against the registry's literal *Message* string would also be conformant under rule 4. The two postures are mutually exclusive yet both currently authorised.
+
+## Spec Documents
+
+- `spec_topics/diagnostics.md` — Placeholder rendering (normative); Code registry (edited)
+- `spec_topics/discovery.md` — Package discovery (read-only — confirms `<cap>` ranges over a small closed set and `<root>` is host-supplied path data)
+- `spec_topics/governance.md` — GOV-7 / GOV-8 closure rules cited by the exemption (read-only)
+
+## Plan Impact
+
+**Phases:** Horizontal (H3), Vertical (V18)
+
+**Leaves (implementation order):**
+
+- H3 — Diagnostics primitive and multi-error accumulator — (modified — its serialiser turns the registry *Message* templates into the line-format `content`; its tests assert on rendered output and need to know which strings are byte-deterministic vs. tail-implementation-defined)
+- V18s — Coverage-matrix closing CI gate — (modified — gate (2) "Diagnostic-code registry closing gate" already greps the registry's code column; the same parser must widen to detect the new `Rendering` column or a row-marker so the gate can enforce the closure)
+
+## Consequence
+
+**Severity:** correctness
+
+Two reasonable implementers will diverge: one writes test vectors that assert each registry *Message* literally, citing rule 4; the other writes loose matchers that ignore tails containing `<root>`, `<error>`, or `<reason>`, citing the V1.0 scope exemption. Both can be conformant under the current text. The conformance suite cannot be authoritative because the surface it must assert on is undefined.
+
+## Solution Space
+
+**Shape:** single
+
+### Recommendation
+
+Apply a hybrid posture: categorise every placeholder the runtime can deterministically render and explicitly annotate the residue that genuinely passes through host-supplied freeform text.
+
+1. **Extend §§1–6 (or open §7) to cover the deterministic placeholders.** Most currently-uncategorised placeholders are deterministic — `<cap>` is one of two enum values, `<reason>` is the closed `session_shutdown` set, `<provider>`/`<model>`/`<slash-name>` are identifier-shaped registry keys, `<root>`/`<paths>`/`<path-a>`/`<path-b>`/`<source>` are source-derived path text already covered by category 5's rule, `<ms>` is a category 4 integer, `<callee>`/`<capability>`/`<invocation-id>`/`<uuid>`/`<dotted-key>`/`<kind>`/`<op>`/`<slug>` are identifier-shaped or come from closed enums. Fold them into the existing categories with one-line rendering rules.
+
+2. **Add a `Rendering` column (or a dedicated row marker) to the registry table.** Default value is `byte-identical`. Rows whose template uses a placeholder that cannot be rendered deterministically (Pi transport error text via `<error>` / `<message>`, AJV-formatted schema-validation output via `<schema>` / `<fields>` / `<list>` when used to inline AJV output, raw rejection reasons via `<higher>` / `<lower>` / `<name1>` / `<name2>` if they carry host-shaped content) carry `implementation-defined-tail`, with the specific placeholder names listed inline so tests can construct partial-match patterns.
+
+3. **Rewrite the V1.0 scope exemption paragraph** to reference the column instead of describing an open-ended set; the exempt set becomes machine-readable and the V18s registry-parser can enumerate it.
+
+Edge cases the implementer must watch:
+
+- `<error.message>`, `<original content first line>`, `<dispose error first line>` are already in category 6 and have a defined truncation rule; do not re-categorise them.
+- `<schema>` appears in at least one registry row as an inlined schema fragment; decide once whether it renders as the loom-side schema name (deterministic — category 5) or as a serialised JSON-Schema fragment (host-derived — annotated).
+- The V18s closing gate currently parses only the code column. The gate must be extended to assert that every row carries a value from the closed set `{byte-identical, implementation-defined-tail}` and that no row tagged `byte-identical` references a placeholder outside the (now-extended) six categories.
+- GOV-7 / GOV-8 closure posture must extend to the new `Rendering` column: changing a row from `byte-identical` to `implementation-defined-tail` (or vice versa) is a spec-versioned breaking change.
+
+## Relationships
+
+- T06 "`loom/runtime/*` namespace summary mis-describes the namespace as panics-only" — same-cluster (both touch `diagnostics.md` registry-section accuracy; resolve independently)
+
+---
+
+# T05 — `tool_loop.max_iterations` is named for the wrong unit (rounds, not iterations)
+
+**Original heading:** `max_iterations` field counts "rounds" not "iterations"
+**Original section:** spec_topics/ — Naming inconsistencies (multiple files)
+**Kind:** naming
+**Importance:** medium
+
+## Finding
+
+The frontmatter cap on the model's tool-call loop is exposed as `tool_loop.max_iterations`, but every normative description of what it counts uses a different unit. `spec_topics/frontmatter.md` defines it as "a non-negative integer counting tool-call *rounds*, not individual tool calls," then has to spend a clause defining what "round" means (model emits ≥1 `tool_use` blocks → runtime executes them all → results returned). `spec_topics/query.md`, `spec_topics/implementation-notes.md`, and the V6k / V13f plan leaves all repeat the same "counts rounds, not tool calls" disclaimer. The disclaimer is necessary precisely because the field name asserts the opposite.
+
+The same mis-naming propagates to the failure surface: `ToolLoopExhaustedError` carries an `iterations: number` field whose documented value is `tool_loop.max_iterations` on exhaustion — i.e. a round count surfaced under a name that authors will read as a tool-call count. With parallel tool-use a single round may cover several tool calls, so the field name is not just stylistically off but observationally misleading: an author who interprets `iterations: 25` as "the model called tools 25 times" can be wrong by a wide margin.
+
+The whole `tool_loop` block is pre-V1 with no installed user base; the field name is editable at the same cost as any other spec edit.
+
+## Spec Documents
+
+- `spec_topics/frontmatter.md` — `tool_loop` field-contract row, `tool_loop` prose bullet, frontmatter YAML example, naming-convention paragraph (edited)
+- `spec_topics/query.md` — Tool-call loop bound section, forced-respond-turn paragraph (edited)
+- `spec_topics/errors-and-results.md` — `ToolLoopExhaustedError` schema (`iterations: number` field) (edited)
+- `spec_topics/diagnostics.md` — `loom/load/frontmatter-value-out-of-range` description row (edited)
+- `spec_topics/implementation-notes.md` — tool-loop enforcement bullet citing the field name in the `Err` payload (edited)
+- `spec_topics/future-considerations.md` — `looms.toolLoopMaxIterations` deferred settings key (edited)
+- `spec.md` — Hard ceiling #2 (`tool_loop.max_iterations` per query) (edited)
+- `plan_topics/v6-typed-queries.md` — V6k leaf (read-only; no spec-text edits, but field-name references will need to follow)
+- `plan_topics/v13-wire-names.md` — V13f leaf (read-only; same)
+
+## Plan Impact
+
+**Phases:** V6, V13
+
+**Leaves (implementation order):**
+
+- V6k — `tool_loop` cap enforcement and `ToolLoopExhaustedError` — (modified)
+- V13f — `respond_repair:` and `tool_loop:` frontmatter parsing — (modified)
+
+## Consequence
+
+**Severity:** advisory
+
+The cap still works under either name and implementations will agree on its semantics (the prose is unambiguous). The cost is paid by every author who reads `max_iterations: 25` and assumes it bounds tool-call count, and by every reader of `ToolLoopExhaustedError.iterations` who reads "iterations: 25" as "25 tool calls." With parallel tool-use widely supported by V1 providers, the gap between rounds and tool calls can be a small integer multiplier — large enough to mis-size budgets in real usage.
+
+## Solution Space
+
+**Shape:** single
+
+### Recommendation
+
+Rename `tool_loop.max_iterations` → `tool_loop.max_rounds`; rename `ToolLoopExhaustedError.iterations` → `ToolLoopExhaustedError.rounds`; rename the deferred `looms.toolLoopMaxIterations` settings key in `future-considerations.md` → `looms.toolLoopMaxRounds`. Drop the "counting *rounds*, not individual tool calls" disclaimer at every site where it currently appears (`frontmatter.md`, `query.md`, `implementation-notes.md`, V6k, V13f) — the name now carries that meaning.
+
+This is pre-V1 spec with no installed users; the field name is the cheapest editable surface in the system, and the spec already standardises on "round" as the unit-of-counting noun in every adjacent paragraph. Renaming both the frontmatter field and the error payload removes the disclaimer permanently and makes `iterations: 25` (now `rounds: 25`) mean what it says.
+
+Edge cases the implementer must watch:
+
+- V6k's test names ("`max_iterations: 25` and 24 free-phase rounds") and `loom/load/frontmatter-value-out-of-range`'s "currently `tool_loop.max_iterations` and `respond_repair.attempts`" enumeration in `diagnostics.md` both spell the field name in prose and must be updated in the same pass.
+- The pin in `errors-and-results.md` (`iterations: number`) is observable wire surface, so any V1 implementation sketch already committing to the field name must follow.
+
+## Relationships
+
+None
+
+---
+
+# T06 — `loom/runtime/*` namespace summary mis-describes the namespace as panics-only
+
+**Original heading:** `loom/runtime/*` namespace description overstates — contains non-panic codes
+**Original section:** spec_topics/ — Naming inconsistencies (multiple files)
+**Kind:** naming
+**Importance:** medium
+
+## Finding
+
+The namespace overview in `spec_topics/diagnostics.md` line 46 reads:
+
+> `loom/runtime/*` — runtime errors surfaced as panics (`MatchError`, index out of bounds, etc.) reported back to Pi as system notes.
+
+This description is wrong about its own namespace. The `loom/runtime/*` registry table further down the same page (starting at line 329, under the heading `### loom/runtime/* — runtime panics, runtime-defect surface, and delivery failures`) contains six panic codes plus *eleven* non-panic codes covering at least three other categories:
+
+- **Runtime-defect surface** — `loom/runtime/internal-error` (explicitly carved out as "outside the closed V1 panic-source list").
+- **Delivery / fallback failures** — `loom/runtime/system-note-delivery-failed`, `loom/runtime/active-set-restore-failed`, `loom/runtime/subagent-dispose-failure`, `loom/runtime/registration-cache-collision`.
+- **Lifecycle / teardown events** — `loom/runtime/registry-swap-failed`, `loom/runtime/cancelled-by-session-shutdown`, `loom/runtime/reload-teardown-timeout` (the last is explicitly routed through `console.error`, not via the system-note channel, per the carve-out at line 5).
+
+The three-bullet namespace summary at lines 44–46 is the natural index a reader uses to decide which namespace a new code belongs in, and it is the only place on the page that pretends to characterise the namespace as a whole. The detailed section header at line 329 already gets the wording right; only the index summary is wrong.
+
+## Spec Documents
+
+- `spec_topics/diagnostics.md` — namespace summary bullet at line 46 (edited)
+- `spec_topics/diagnostics.md` — `### loom/runtime/* — …` registry section at line 329 (read-only; reference for correct phrasing)
+- `spec_topics/errors-and-results.md` — Runtime panics section, referenced by both the index and the registry rows (read-only)
+
+## Plan Impact
+
+**Phases:** None
+
+**Leaves (implementation order):**
+
+None. The fix is a single line of orientation prose; no leaf's acceptance criteria depend on the wording of the namespace summary. `H3` and `V18` leaves consume the registry table directly, not the index bullet.
+
+## Consequence
+
+**Severity:** advisory
+
+A reader who skims the namespace summary may assume every `loom/runtime/*` code routes to the panic surface (system note for top-level looms; `Err(QueryError { kind: "invoke_failure", cause: "panic", … })` to an `invoke` parent). That assumption is wrong for over half the namespace and could lead an implementer to mis-route delivery-failure or lifecycle codes — though the per-row `Trigger` and `Spec rule` columns plus `errors-and-results.md` correct the misreading on first contact with any specific code.
+
+## Solution Space
+
+**Shape:** single
+
+### Recommendation
+
+Replace the line-46 bullet with wording aligned to the section header at line 329:
+
+> - `loom/runtime/*` — runtime-phase events: execution panics (`MatchError`, index out of bounds, etc.), the runtime-defect surface (`loom/runtime/internal-error`), and delivery / lifecycle / teardown failures. Routing varies per code — see the [`loom/runtime/*` registry section](#loomruntime--runtime-panics-runtime-defect-surface-and-delivery-failures) and [Errors and Results — Runtime panics](./errors-and-results.md) for per-code channels (most route through `loom-system-note`; `loom/runtime/reload-teardown-timeout` routes through `console.error`).
+
+Edge cases the editor must watch:
+
+- Verify the anchor slug used in the cross-link matches whatever slug Markdown rendering produces for the line-329 heading; if the rendering pipeline normalises punctuation differently, prefer adding an explicit `<a id="loom-runtime-namespace">` anchor at line 329 and link to that.
+- Keep the parenthetical `console.error` carve-out for `reload-teardown-timeout` consistent with the existing carve-out paragraph at line 5; do not introduce a third phrasing.
+- Do not enumerate every non-panic code in the index — that would duplicate the registry. Three category labels (panics / defect / delivery-and-lifecycle) is the right granularity.
+
+## Relationships
+
+- T04 "Placeholder rendering exemption is open-ended; affected registry rows are not enumerated" — same-cluster (both touch `diagnostics.md` registry-section accuracy; resolve independently)
+
+---
+
+# T07 — SDK version pin in `spec.md` reads as an unfilled template
+
+**Original heading:** SDK version pin `~X.Y.Z` is a placeholder; no concrete version stated
+**Original section:** spec.md — Orientation > Prerequisites: Pi SDK and capabilities
+**Kind:** completeness, implementability, assumptions
+**Importance:** medium
+
+## Finding
+
+The Prerequisites paragraph states that `pi-agent-core`, `pi-ai`, and `pi-tui` are pinned in `peerDependencies` "at the same `~X.Y.Z` minor-version line as `pi-coding-agent`." The `~X.Y.Z` token is *meant* to be read as a meta-syntactic stand-in ("whichever tilde minor-line `pi-coding-agent` happens to be on"), but it is typeset as if it were a literal SemVer range — same backticks, same shape as `~0.72.1` — which an implementer reading `spec.md` cold cannot distinguish from an unfilled drafting placeholder. The actual literal is `~0.72.1` (carried in `package.json`, `pi-integration-contract.md`'s preamble, and Host prerequisites — Pi SDK pin), but `spec.md` never resolves the token and never gestures that resolution is deferred.
+
+There is also a three-way inconsistency about *whether* `spec.md` should carry the literal at all. PIC item 1 (Host prerequisites — Pi SDK pin) asserts that `spec.md` "references this pin **by location** rather than restating the literal value." The H1 plan leaf's `peerDependencies` literal-read test asserts the opposite: "The literal `~0.72.1` value is anchored in `pi-integration-contract.md` … and in `spec.md` under **Orientation — Prerequisites — Pi SDK and capabilities**; a Pi minor bump that moves the four-package lock-step must update all sites in one edit." Today neither contract is satisfied: `spec.md` neither restates the literal (failing H1's expectation) nor obviously defers to PIC (failing PIC's "by location" framing). The placeholder masks the contradiction.
+
+The Pi version bump procedure (`pi-integration-contract.md` step 4) names the sites that move together when the pin changes; if `spec.md` is intended to be one of them, the literal must appear there. If it is not, the placeholder syntax should be replaced with prose that does not look like an unsubstituted variable.
+
+## Spec Documents
+
+- `spec.md` — Orientation > Prerequisites > Pi SDK and capabilities (edited)
+- `spec_topics/pi-integration-contract.md` — preamble; Host prerequisites — Pi SDK pin; Pi version bump procedure step 4 (option-dependent)
+- `package.json` — `peerDependencies` block (read-only — already carries `~0.72.1`)
+- `plan_topics/h1-scaffold.md` — `peerDependencies` literal-read test description (option-dependent — its anchor list either keeps or drops `spec.md`)
+
+## Plan Impact
+
+**Phases:** Horizontal
+
+**Leaves (implementation order):**
+
+- H1 — Repository scaffold and test framework — (modified)
+
+The H1 `peerDependencies` literal-read test enumerates `spec.md` as one of the literal-anchor sites a Pi minor bump must update. Whichever resolution is chosen, the test description (and, under Option A, the anchor list it checks) must change in lockstep.
+
+## Consequence
+
+**Severity:** correctness
+
+A first-time implementer reading `spec.md` cannot determine the actual peer-dep range without leaving the page (the placeholder is indistinguishable from a fill-me-in marker). Two reviewers reading the spec, PIC, and H1 plan leaf together will disagree on whether `spec.md` should carry the literal — the documents currently make incompatible claims. The Pi version bump procedure presupposes a settled answer; today there isn't one.
+
+## Solution Space
+
+**Shape:** multiple
+
+### Option A — `spec.md` carries the literal `~0.72.1`
+
+**Approach.** Replace `~X.Y.Z` with `~0.72.1` in the Prerequisites paragraph. Treat `spec.md` as one of the literal-anchor sites that the Pi version bump procedure updates atomically alongside `package.json` and `pi-integration-contract.md`.
+
+**Spec edits.**
+
+- `spec.md` Prerequisites paragraph: `the same \`~X.Y.Z\` minor-version line` → `the same \`~0.72.1\` tilde-pinned minor line`.
+- `pi-integration-contract.md` Host prerequisites — Pi SDK pin (item 1): drop the "references this pin by location rather than restating the literal value" clause; replace with "the literal `~0.72.1` is restated in [`spec.md`](../spec.md#…) and MUST move atomically with the four `peerDependencies` entries per the bump procedure."
+- `pi-integration-contract.md` Pi version bump procedure step 4: add `spec.md` to the list of literal sites moved in the same commit.
+
+**Pros.** Implementers see the actual version on the page they are reading. The H1 literal-read test's existing anchor list works unchanged. One mental model: the literal lives wherever `~0.72.1` appears in prose.
+
+**Cons.** One more site to remember to update on every minor bump. The H1 test must be extended to actually grep `spec.md` for the literal (currently it only checks `package.json`); without that extension, drift is still possible.
+
+**Risks.** If H1's test is not updated to mechanically assert the `spec.md` literal, the four-site lock-step claim is aspirational rather than enforced.
+
+### Option B — `spec.md` defers to PIC; placeholder is rewritten as prose
+
+**Approach.** Honour PIC's "by location, not literal" rule. Rewrite the spec.md sentence so the deferral is explicit and no version-range syntax appears in `spec.md`. Update the H1 leaf to drop `spec.md` from the literal-anchor list.
+
+**Spec edits.**
+
+- `spec.md` Prerequisites paragraph: `at the same \`~X.Y.Z\` minor-version line as \`pi-coding-agent\`` → `at the same tilde-pinned minor-version line as \`pi-coding-agent\` (the literal range is owned by [Pi Integration Contract — Host prerequisites — Pi SDK pin](./spec_topics/pi-integration-contract.md))`.
+- `pi-integration-contract.md`: no normative change; the existing "references this pin by location" clause is now accurate.
+- `plan_topics/h1-scaffold.md` `peerDependencies` literal-read test description: remove `spec.md` from the literal-anchor list; the four sites become `package.json`, `pi-integration-contract.md` preamble, `pi-integration-contract.md` Host prerequisites — Pi SDK pin, and the H1 test's own constant.
+
+**Pros.** One fewer literal site to keep in sync. Honours PIC's stated design. The bump procedure stays as written.
+
+**Cons.** Implementers reading `spec.md` cold must follow a forward-link to learn the actual version. Slight redirection cost on the orientation page that is supposed to be self-contained.
+
+**Risks.** None mechanical; the H1 leaf-description edit is straightforward.
+
+### Recommendation
+
+Either option resolves the contradiction; pick one and align the documents. **Option A** is preferred when the orientation page should be self-contained for implementers reading cold (the H1 plan leaf already expects `spec.md` to carry the literal); the implementer must extend the H1 `peerDependencies` literal-read test (currently only parses `package.json`) to also grep `spec.md` for the same literal, or explicitly name `spec.md` as a manual checklist entry in the bump-procedure step 4. **Option B** is preferred when minimising the literal-anchor count is the priority; it requires editing the H1 leaf description to drop `spec.md` from the anchor list. Whichever is chosen, the H1 test description and the PIC "by location" sentence must both be brought into agreement in the same commit.
+
+## Relationships
+
+None
+
+---
+
+# T08 — `loomAbort` ↔ `ctx.signal` linkage: spec.md hand-waves the wiring and reason-propagation is unpinned
+
+**Original heading:** `loomAbort` ↔ `ctx.signal` linkage mechanism not specified
+**Original section:** spec.md — Orientation > Prerequisites: Session model
+**Kind:** assumptions, implementability
+**Importance:** medium
+
+## Finding
+
+The Orientation paragraph in `spec.md` says only "the runtime forwards Pi's per-handler `ctx.signal` … into `loomAbort` rather than using `ctx.signal` directly," and links to `./spec_topics/pi-integration-contract.md` (with no `#cancellation-source` fragment) under the label "Cancellation source." The forward link drops the reader on the file's top, not on the owning paragraph; nothing in `spec.md` itself names the per-entry-point linkage shape or distinguishes the slash-command path from the tool-exposed and `invoke` paths.
+
+The owning topic pages do specify the per-entry-point wiring functionally — `cancellation.md` describes (a) Pi-event-handler observation of `ctx.signal.aborted` inside `tool_call`/`tool_result`/`message_update`/`turn_end`/`agent_end` for the slash-command entry, (b) "a one-shot listener registered at entry" on the tool-exposed entry's `signal` parameter, and (c) "a derived controller that aborts when the parent's signal aborts but not vice versa" for `invoke`. PIC's `#cancellation-source` repeats the same per-entry shape. PIC's Step 0 (b) capability table inventories both `AbortSignal.any` and `AbortSignal.prototype.addEventListener`, so the inventoried-member set covers either implementation choice. The originally-flagged worry that the linkage might rest on an unprobed dependency does not hold.
+
+What does remain genuinely under-specified is **abort-reason propagation across the linkage**. `AbortSignal.prototype.reason` sits in the probe inventory, implying reason carries observable weight, but no spec text states whether `loomAbort.signal.reason` reflects `ctx.signal.reason` (or the tool-exposed `signal.reason`, or the parent-`invoke` signal's `reason`) or instead carries a default `AbortError`. The choice flips with the wiring: `AbortSignal.any([source])` produces a derived signal whose `reason` is the source's `reason`; a manual `addEventListener` callback that calls `loomAbort.abort()` with no argument loses the source reason; calling `loomAbort.abort(source.reason)` preserves it. Two implementers reading `cancellation.md` and PIC together can pick conformant wiring that produces materially different `loomAbort.signal.reason` values. The downstream `QueryError { kind: "cancelled", message: "..." }` shape does not currently consume the reason, so the divergence is invisible today; once any future surface (a system note, a `cancelled-by-session-shutdown` `details` field, a test-harness assertion) reads the reason, the gap surfaces as observable drift.
+
+A secondary issue is purely editorial: the spec.md sentence's link label says "Cancellation source" but the URL is anchorless, so even an attentive reader follows it to the wrong place. That is a special case of the cross-cutting anchor-resolution finding elsewhere in this review, but the local fix is cheap and worth doing in the same edit.
+
+## Spec Documents
+
+- `spec.md` — Orientation > Prerequisites > Session model paragraph (edited)
+- `spec_topics/cancellation.md` — Signal source / Forwarding into `loomAbort` (edited)
+- `spec_topics/pi-integration-contract.md` — Cancellation source (edited)
+- `spec_topics/pi-integration-contract.md` — Step 0 (b) `AbortSignal` member table (read-only — verifies both `AbortSignal.any` and `AbortSignal.prototype.addEventListener` are inventoried)
+
+## Plan Impact
+
+**Phases:** MVP, H4, V18
+
+**Leaves (implementation order):**
+
+- Mb — MVP runtime + slash-command registration + per-invocation cancellation plumbing — (modified — the slash-command-path wiring lives here; reason-propagation assertion would land in its cancellation tests)
+- H4 — Extension shell + `PiSubagentSpawner` one-shot `loomAbort.signal` listener — (modified — the subagent and tool-exposed listener wiring lives here; would assert reason-propagation behaviour for the `addEventListener` path)
+- V18d — `AbortSignal` before every `invoke` (derived child signal) — (modified — the derived-controller mechanism for the `invoke` entry needs a reason-propagation assertion if the chosen wiring is `AbortSignal.any`)
+- V18e — Cancellation propagates downward only — (modified — the parent → child propagation test would gain a reason-propagation assertion)
+
+## Consequence
+
+**Severity:** advisory
+
+`spec.md`'s hand-wave is repaired by the per-entry-point text in `cancellation.md` and PIC, so a careful implementer can produce a working system. The reason-propagation gap does not break any currently-specified surface, but it leaves implementations free to diverge on `loomAbort.signal.reason` in ways no test would catch — a latent foot-gun if a later leaf consumes the reason (e.g. plumbing it into a `details` field on `loom/runtime/cancelled-by-session-shutdown`).
+
+## Solution Space
+
+**Shape:** single
+
+### Recommendation
+
+In `spec.md`'s Orientation paragraph, replace the bare `./spec_topics/pi-integration-contract.md` URL with `./spec_topics/pi-integration-contract.md#cancellation-source`, and reword the linkage sentence to defer the per-entry-point wiring to the topic without describing it twice — e.g. "the runtime forwards Pi's per-handler `ctx.signal` (and the tool-exposed `signal` parameter, and parent-`invoke` signals) into `loomAbort` per the per-entry-point rules in [Cancellation — Forwarding into `loomAbort`](./spec_topics/cancellation.md) and [Pi Integration Contract — Cancellation source](./spec_topics/pi-integration-contract.md#cancellation-source)." Make no further normative claim in `spec.md`.
+
+In `cancellation.md` (or PIC `#cancellation-source`, whichever the editor judges authoritative), pin abort-reason propagation as one normative rule covering all three forwarding shapes: when forwarding fires, the runtime MUST call `loomAbort.abort(source.reason)` so that `loomAbort.signal.reason === source.signal.reason` (or `=== source.reason` for the case where the trigger is an `agent_end` event, where `source.reason` is the runtime-synthesised value the spec already implies). The `session_shutdown` carve-out in `cancellation.md` should state its own reason value explicitly — current text says "aborts every entry's `loomAbort`" without naming a reason, leaving the same gap on the teardown path.
+
+Edge cases the implementer must watch:
+- The slash-command path's `agent_end`-driven trigger has no source `AbortSignal` — there is no `reason` to forward, so the runtime synthesises one (e.g. an `Error("user cancelled turn")` or equivalent); the chosen value should be pinned, not left to implementation.
+- `AbortSignal.any([source])` and manual `addEventListener` calling `loomAbort.abort(source.reason)` produce equivalent reason-propagation observable behaviour; either is conformant. The choice may be left to the implementation provided the observable rule above holds.
+- The one-shot guard on `loomAbort.abort()` already documented in `cancellation.md` means a second forwarder firing after the first does not re-stamp the reason; the first source's reason wins. Tests that fire two sources concurrently must order their assertions accordingly.
+- The `invoke` entry's "derived controller" wording is most naturally implemented with `AbortSignal.any([parent])`, but a manual derived-`AbortController` whose `abort()` is wired to the parent's `addEventListener("abort", …, { once: true })` is equally conformant under the rule above.
+
+## Relationships
+
+None
+
+---
+
+# T09 — "No invocation cap / event-loop-only ordering" normative claim has no owning page
+
+**Original heading:** "No invocation cap / event-loop-only ordering" normative claim has no owning page
+**Original section:** spec.md — Orientation > Prerequisites: Session model
+**Kind:** prescription, traceability
+**Importance:** medium
+
+## Finding
+
+The Session model paragraph in `spec.md` (lines 39, inside *Orientation > Prerequisites: Session model*) carries the sentence:
+
+> V1 imposes **no maximum on the number of in-flight invocations** within a session and no fairness or scheduling rule beyond Pi's event-loop ordering.
+
+This is a behaviourally observable, testable normative disposition: an implementer that imposed a cap, a queue, or a fairness scheduler would diverge from the spec. It is the only obligation in the Session model paragraph that lacks a forward-link — every other claim in that paragraph is anchored elsewhere (`session_shutdown` reason set → PIC `#session-shutdown-semantics`; abort-and-await → PIC `#session-shutdown-semantics`; per-invocation `AbortController` → `cancellation.md`; private subagent `AgentSession` → `implementation-notes.md` *Per-invocation single-threaded execution*; registry → PIC `#active-invocation-registry`; per-invocation budgets → `binder.md` / `frontmatter.md` / hard-ceilings; parent→child-only propagation → `cancellation.md`).
+
+`spec_topics/governance.md` GOV-12 makes this an explicit defect: "[`spec.md`] is treated as informative orientation: every normative obligation it appears to state is owned by a topic page that `spec.md` forward-links to." The no-cap / event-loop-ordering rule has no such owner. PIC's `#active-invocation-registry` describes the registry as a `Set<{ loomAbort, disposeBarrier }>` but does not state that the set is uncapped or that scheduling reduces to event-loop ordering. `implementation-notes.md` *Per-invocation single-threaded execution* describes per-invocation isolation and notes that "Sibling invocations can interleave on the event loop" but does not assert the absence of a cap or of any fairness/scheduling layer above the event loop. No other topic page addresses concurrency caps or scheduling.
+
+The result: a normative rule sits exclusively in an informative-orientation surface that disclaims normative ownership. Per GOV-12 the rule is unowned, uncitable from tests or from sibling pages, and unprotected against silent removal during a `spec.md` rewrite.
+
+## Spec Documents
+
+- `spec.md` — *Orientation > Prerequisites: Session model* (edited — drop or replace the unowned sentence with a forward-link)
+- `spec_topics/implementation-notes.md` — *Per-invocation single-threaded execution* bullet (edited — gain the no-cap / event-loop-ordering rule as a normative sentence with an `<a id>`)
+- `spec_topics/pi-integration-contract.md` — `#active-invocation-registry` (option-dependent — alternative home if the rule is co-located with the registry definition)
+- `spec_topics/governance.md` — GOV-12 (read-only — the governance rule the defect violates)
+
+## Plan Impact
+
+**Phases:** None
+
+**Leaves (implementation order):** None
+
+The rule is a normative *absence* (no cap, no scheduler) that no V1 code implements; no leaf currently tests it and none would gain a test from re-anchoring the sentence. Adding the sentence to `implementation-notes.md` does not change any existing leaf's **Spec** field closure under GOV-11 because every leaf already in the V18 (cancellation/teardown) and V15 (invoke) slices that touches concurrent invocations either does not cite `implementation-notes.md` for this rule or cites it for unrelated bullets. The fix is editorial-internal to the spec corpus.
+
+## Consequence
+
+**Severity:** advisory
+
+GOV-12 is silently violated: a behaviourally observable rule sits in an aggregator paragraph that disclaims normative ownership, with no topic page to cite from tests, plan leaves, or sibling spec pages. An implementer who adds an in-flight cap "for safety" or a fairness queue "to prevent starvation" would have no spec text to point to as authoritative refusal. A future `spec.md` rewrite that drops the sentence loses the rule entirely with no detectable trace because no other page asserts it.
+
+## Solution Space
+
+**Shape:** single
+
+### Recommendation
+
+Move the sentence to `spec_topics/implementation-notes.md` as a normative addition to the *Per-invocation single-threaded execution* bullet (or as a sibling bullet under the same heading), giving it a stable anchor. Replace the orientation sentence in `spec.md` with a forward-link of the same shape used by every other claim in the Session model paragraph.
+
+Concretely:
+
+1. In `implementation-notes.md`, extend the *Per-invocation single-threaded execution* bullet (which already establishes the surrounding concurrency model — sibling independence, event-loop interleaving, shared-validator-cache safety) with an anchored sentence such as:
+
+   > <a id="no-invocation-cap"></a> V1 imposes no maximum on the number of in-flight loom invocations within an extension instance and no fairness or scheduling rule above Pi's event-loop ordering. The runtime MUST NOT introduce an admission cap, a priority queue, or any scheduler interposed between sibling invocations and the event loop; widening or narrowing this rule is a major-version concern.
+
+   Place it adjacent to the existing "Sibling invocations can interleave on the event loop" sentence, which provides natural context.
+
+2. In `spec.md`, replace the bare sentence with a forward-link of the canonical form used by adjacent claims:
+
+   > V1 concurrency disposition for in-flight invocations — no admission cap, no scheduler interposed above Pi's event loop — is owned by [Implementation Notes — No invocation cap](./spec_topics/implementation-notes.md#no-invocation-cap).
+
+`implementation-notes.md` is the correct home over PIC's `#active-invocation-registry` because the rule is a *runtime architecture* statement (the runtime imposes no scheduler, no admission control), not a Pi-SDK integration contract; the surrounding *Per-invocation single-threaded execution* bullet already owns the per-invocation/event-loop interleaving substrate the rule extends. PIC's registry section may add a one-line cross-reference if reviewers find the absence-of-cap surprising at the registry definition site, but the source of truth is `implementation-notes.md`.
+
+Edge cases the implementer must watch:
+
+- The rule constrains the **runtime** only. Pi's own session-level serialisation (the host already serialises slash-command turns within one user session in prompt mode; see PIC) is upstream of the runtime and remains in force; the no-cap rule does not promise that a single user can dispatch unbounded *user-visible* slash commands in parallel.
+- The rule does not promise *resource* unboundedness — host-OOM still routes through `loom/runtime/internal-error` per the existing aggregator. The rule prohibits a runtime-imposed admission cap; it does not prohibit observable OOM-class failures from below.
+
+## Relationships
+
+None
+
+---
+
+# T10 — Post-probe SDK-shape drift has no stated routing or operator attribution
+
+**Original heading:** Mid-session capability invalidation unaddressed
+**Original section:** spec.md — Orientation > Prerequisites: Host runtime
+**Kind:** error-model
+**Importance:** medium
+
+## Finding
+
+The Step 0 capability probe (`spec_topics/pi-integration-contract.md#entry-capability-probe`) is single-shot at extension-factory entry. After it succeeds, the spec gives no general rule for what happens if a previously-probed Pi capability degrades or disappears later in the session: a member that was `typeof === "function"` at probe time stops being callable, returns the wrong shape, or starts throwing; `pi.setActiveTools` is replaced by an object with a different signature; the binder model handle resolved at load time is unregistered before the next binder call; `pi.sendUserMessage` rejects when the SDK contract says it returns `void`; an `AgentSession.sendUserMessage` call rejects with a transport error rather than yielding through the message stream; and so on.
+
+For three specific surfaces, the spec does provide a dedicated code: `loom/runtime/active-set-restore-failed` (restore-side `pi.setActiveTools` throw), `loom/runtime/system-note-delivery-failed` (`pi.sendMessage` synchronous throw), and `loom/runtime/subagent-dispose-failure` (`AgentSession.dispose()` throw). The catch-all `loom/runtime/internal-error` row in `spec_topics/diagnostics.md` enumerates "a host-function `TypeError`, an internal invariant violation, an unanticipated SDK reject" as triggers and routes them through the panic surface. Read together, these cover the *throw* path for almost every host-drift scenario that an implementer would actually encounter.
+
+What is still missing is (a) an explicit aggregator-level statement that post-probe capability drift routes through `loom/runtime/internal-error` (the `internal-error` row's example list does not name the snapshot-side `pi.setActiveTools` call, the per-invocation `pi.sendUserMessage` call, the post-load `ctx.modelRegistry` re-resolution, or any "previously probed but now wrong shape" case, and the spec nowhere says the runtime does not re-run the probe); (b) any operator-facing way to distinguish a host-drift failure from a genuine loom-runtime defect — both currently surface as the same `"loom /<name> aborted with internal error: <message>"` system note with the underlying error's `message`/`stack` in `hint`, leaving the operator no signal about which side of the seam to investigate; and (c) the silent-shape-drift sub-case (a member that no longer matches its probed shape but does not throw — e.g., `pi.setActiveTools` becoming a Promise-returning function the runtime forgets to `await`), which has no detection rule at all.
+
+## Spec Documents
+
+- `spec_topics/pi-integration-contract.md` — Host prerequisites / Step 0 (Capability probe) / SDK capability inventory (edited)
+- `spec_topics/pi-integration-contract.md` — Tool-registration lifetime and visibility (read-only under the recommendation)
+- `spec_topics/pi-integration-contract.md` — Conversation drive (prompt mode and subagent mode) (read-only)
+- `spec_topics/diagnostics.md` — `loom/runtime/internal-error` row (edited)
+- `spec_topics/errors-and-results.md` — Runtime panics / runtime-defect surface (read-only)
+- `spec_topics/binder.md` — Binder model resolution (read-only)
+- `spec.md` — Orientation > Prerequisites: Host runtime (read-only — the orientation paragraph the finding cites stays a forward-link to PIC)
+
+## Plan Impact
+
+**Phases:** Horizontal H4, Vertical V14, Vertical V16, Vertical V18
+
+**Leaves (implementation order):**
+
+- H4 — Pi extension shell — (modified: `withActiveTools` and `sendSystemNote` plumbing, plus the `PiSubagentSpawner`/`PiToolHost` shims, are the call sites that would carry the drift-routing rule)
+- V14e — Pi tool wired into `@` queries as model-callable — (modified: prompt-mode `pi.setActiveTools` snapshot-side failure currently has no asserted routing; the leaf would gain a snapshot-side drift test paralleling its existing restore-side coverage)
+- V16 (binder leaves under `plan_topics/v16-binder.md`) — (modified: post-load binder-model re-resolution needs a defined route when the cached `Model<Api>` handle has been invalidated between load and call)
+- V18m — Panic routing: slash-command surface — (modified: add a new test case that synthesises a probed-capability post-call throw and confirms it lands on `internal-error`)
+- V18n — Panic routing: `invoke` parent surface — (modified: same shape, on the `InvokeInfraError { cause: "internal_error" }` arm)
+
+## Consequence
+
+**Severity:** advisory
+
+Without the explicit rule, two implementers will diverge on the silent-shape-drift case (one `await`s a function the probe said was sync, the other does not; one re-probes on each invocation, the other does not), and operators triaging an `"aborted with internal error"` note have no way to decide whether to file a Pi bug or a loom bug. Throw-side behavior is recoverable from the existing `internal-error` row, so nothing critical breaks; the gap shows up as inconsistent triage and as a quiet correctness hazard for the no-throw drift path.
+
+## Solution Space
+
+**Shape:** single
+
+### Recommendation
+
+Add one paragraph under PIC's Step 0 (or under the SDK capability inventory) stating: (i) the probe runs exactly once at factory entry and is not re-run; (ii) any post-probe call to a previously-probed Pi member that throws, rejects, or returns a value of the wrong shape is routed to `loom/runtime/internal-error` per the existing catch-all, except where a more specific code applies (cross-link the four existing dedicated codes — `active-set-restore-failed`, `system-note-delivery-failed`, `subagent-dispose-failure`, `registry-swap-failed`); (iii) silent-shape drift that does not throw is undefined behavior — the runtime is not required to detect it. Then extend the `internal-error` row in `diagnostics.md` to mention "post-probe SDK-shape drift" alongside the existing examples.
+
+This is a documentation-only edit over an already-implemented routing rule. The runtime keeps its existing single catch-all wrap and the existing test scaffolding in V18m/V18n still applies. The operator-facing attribution gap (host-drift vs. loom-defect) is real but small enough to defer; if triage proves painful in practice after V1 ships, a `details.kind` discriminator on `loom/runtime/internal-error` is an additive registry-minor change that does not break any existing emission or routing.
+
+Edge cases the implementer must watch:
+
+- The binder-model handle is re-resolved per call (`spec_topics/binder.md` — "the resolved binder-model handle [is] constructed afresh on every binder call"); a mid-session unregistration therefore surfaces on the *next* binder call as a `ctx.modelRegistry.find` throw (or a falsy return). The catch-all wrap MUST cover this surface; it is not the binder transport-failure case (`binder.md`'s `Binder model transport failure` row), which fires after a successful resolution.
+- The `pi.setActiveTools` snapshot-side call (the *first* `setActiveTools` of the swap) is not covered by `loom/runtime/active-set-restore-failed`; that code is restore-side only. A snapshot-side throw must route to `internal-error` and the swap must be aborted before the wrapped `fn` runs.
+- `pi.sendUserMessage` returns `void` per the `ExtensionAPI` surface; a synchronous throw from it is the observable failure mode and routes to `internal-error`. The runtime MUST NOT `await` it (the `Promise<void>` shape exists only on `AgentSession.sendUserMessage` and `ReplacedSessionContext.sendUserMessage`).
+- The probe's "single-shot" property must be stated in the same paragraph that introduces the post-probe drift rule, otherwise an implementer reading PIC top-to-bottom will reasonably guess that the runtime re-probes per invocation.
+
+## Relationships
+
+- T17 "Tool failure modes beyond `throw` / `isError: true` unspecified" — same-cluster (analogous error-model gap on a different host surface; resolves independently using the same routing-class taxonomy)
+- T16 "Pre-evaluation setup failures: no routing rule for the slash, `invoke()`, or tool-call dispatch surfaces" — same-cluster (both extend `loom/runtime/internal-error`'s reach across boundaries the existing taxonomy does not name)
+
+---
+
+# T11 — `session_shutdown` fast-path: spec.md sentence implies a branching short-circuit that PIC does not authorise
+
+**Original heading:** `session_shutdown` fast-path condition undefined; contradicts PIC Step 4; non-testable
+**Original section:** spec.md — Orientation > Prerequisites: Session model
+**Kind:** clarity, completeness, testability
+**Importance:** medium
+
+## Finding
+
+The `*Session model.*` paragraph in `spec.md` Prerequisites says the `session_shutdown` handler "treats every reason identically and **may fast-path to a no-op when the underlying reason did not invalidate the extension runtime**." The italicised clause is the problem: it reads as permission for the implementer to take a separate, branching short-circuit code path keyed off `event.reason`, with the branch condition ("did not invalidate") left undefined in `spec.md` itself. None of the five enumerated reasons (`"quit" | "reload" | "new" | "resume" | "fork"`) is mapped to an invalidation status in this paragraph, and no observable post-condition is given by which a test could check that the fast-path was correctly taken.
+
+PIC step 4 is more careful and arrives at a different rule: "The handler runs in fixed order regardless of `event.reason`," with the no-op behaviour falling out as a *consequence* — sub-step 2 (`loomAbort.abort()` over every `ActiveInvocationRegistry` entry) and sub-step 3 (`Promise.allSettled` over their `disposeBarrier`s) iterate an empty set on `new | resume | fork` because Pi serialises turns at session boundaries, so no active invocations exist; sub-step 1 (drain the registry), sub-step 4 (close watchers), and sub-step 5 (detach forwarding listeners) still run unconditionally, and PIC explicitly accepts that watcher closure on a no-teardown reason is a `/reload` away. PIC's "fast-path no-op" is therefore an emergent property of running the same fixed sequence over an empty registry, *not* a branch the handler may take.
+
+`spec.md`'s wording invites two divergent implementations: (a) an implementer who reads only the orientation paragraph writes `if (reasonDidNotInvalidate(event.reason)) return;` at handler entry and skips watcher closure and listener detachment entirely; (b) an implementer who reads PIC writes the fixed five-sub-step sequence. Both can claim conformance to their respective surfaces. Worse, "did not invalidate" has no spec-anchored mapping, so even implementer (a) has to invent the predicate. The clause should be deleted (or rewritten to restate PIC's actual rule) so the orientation paragraph aligns with PIC and stops authorising a branch PIC does not.
+
+## Spec Documents
+
+- `spec.md` — Orientation > Prerequisites: Session model paragraph (edited)
+- `spec_topics/pi-integration-contract.md` — Extension entry point, step 4 + Edge cases the handler must observe (read-only; already correct)
+
+## Plan Impact
+
+**Phases:** None
+
+**Leaves (implementation order):**
+
+None. The plan does not currently have a leaf that owns the `session_shutdown` handler implementation directly — H4 covers only the factory shell and `/loom-status`; V18 covers cancellation checkpoints, the file watcher, and panic routing but never enumerates the five-sub-step teardown sequence as a leaf. The fix is a `spec.md` wording edit; PIC already states the operative rule correctly. No existing leaf's `Tests` or `Ships when` clauses change.
+
+## Consequence
+
+**Severity:** advisory
+
+An implementer reading only the spec.md orientation paragraph could write a `event.reason`-keyed short-circuit at handler entry that skips watcher closure and listener detachment on `new | resume | fork`, leaking chokidar handles, debounce timer handles, and `AbortSignal` listeners across user-session swaps until the next `/reload`. An implementer who reads PIC will not diverge. The leak is bounded by `/reload`, so this is degradation rather than incorrectness, but the ambiguity also blocks any test from asserting "the fast-path was correctly taken" because the fast-path's observable invariants are unstated.
+
+## Solution Space
+
+**Shape:** single
+
+### Recommendation
+
+Delete the clause "and may fast-path to a no-op when the underlying reason did not invalidate the extension runtime" from the `*Session model.*` paragraph in `spec.md`. Replace the surrounding sentence with: "the runtime's handler treats every reason identically; the fixed teardown sequence and the V1 acceptance that it may close watchers on a reason that did not in fact tear down the extension are owned by [Pi Integration Contract — Extension entry point, step 4](./spec_topics/pi-integration-contract.md)."
+
+This removes the apparent contradiction without adding any normative content to `spec.md`: PIC's "fixed order regardless of `event.reason`" rule and its "no-teardown reason makes the sequence a fast-path no-op (no active invocations exist at session boundaries because Pi serialises turns)" explanation already cover the behaviour. The orientation paragraph reverts to its proper role — pointing at the authoritative surface — and stops authorising a branch PIC does not.
+
+Edge cases the implementer must watch:
+- The `*Session model.*` paragraph already forward-links PIC for the closed reason set; the new sentence consolidates that link with the teardown-sequence link rather than introducing a second one. Keep both anchors (`#entry-capability-probe` is unrelated; the relevant anchor is the "Extension entry point" section heading and the `#session-shutdown-semantics` anchor for the semantics paragraph).
+- Do not introduce a new `event.reason → invalidates?` mapping table in `spec.md`. PIC already pins the rule contextually ("`reason: \"new\" | \"resume\" | \"fork\"` does not always tear down the *extension* runtime"); duplicating it in the orientation paragraph re-creates the source-of-truth split this finding flags.
+
+## Relationships
+
+- T12 "`session_shutdown` unknown reason: no closed-set validation, no fail-safe" — same-cluster (both touch the same `*Session model.*` sentence; resolve independently — that finding adds an out-of-set fallback rule, this one removes the fast-path clause)
+
+---
+
+# T12 — `session_shutdown` unknown reason: no closed-set validation, no fail-safe
+
+**Original heading:** `session_shutdown` unknown reason: no closed-set validation, no fail-safe
+**Original section:** spec.md — Orientation > Prerequisites: Session model
+**Kind:** assumptions, completeness, error-model
+**Importance:** high
+
+## Finding
+
+`spec.md`'s Session model paragraph and `pi-integration-contract.md` step 4 both treat `event.reason: "quit" | "reload" | "new" | "resume" | "fork"` as a closed normative set, and the PIC handler is specified to "[treat] every reason identically" with a permitted fast-path no-op when the reason "did not invalidate the extension runtime." Neither page states what the runtime does if Pi delivers a reason outside this set. There is no validation step, no fallback behaviour, no diagnostic, and no operator-visible signal that an unrecognised value was observed.
+
+The omission has two concrete failure paths. (1) An implementer reading the PIC sub-steps may write `switch (event.reason) { case "quit": …; case "reload": …; … }` against the enumerated set with no `default` arm, silently doing nothing for an unknown reason — leaking the chokidar watcher handle, the settings watcher handle, every pending debounce timer, every entry in `ActiveInvocationRegistry`, and every forwarding listener attached to Pi-side `ctx.signal` / tool `execute(signal)` / parent-`invoke` signals onto an extension instance Pi is about to invalidate. (2) A future Pi minor that adds a sixth reason (e.g., `"swap"`) lands as a host-drift hazard with no stated routing class, no diagnostic code, and no test that can fail in CI to surface the drift.
+
+The closed-set claim is also load-bearing for one other surface: `loom/runtime/cancelled-by-session-shutdown` carries `details.event.reason` typed as the same five-arm union (per `diagnostics.md`'s registry row and PIC's Per-invocation operator visibility bullet). An unknown reason flowing into that emission produces a payload outside the documented `details` schema, with no rule for substitution, sanitisation, or rejection.
+
+## Spec Documents
+
+- `spec.md` — Orientation > Prerequisites > Session model paragraph (edited)
+- `spec_topics/pi-integration-contract.md` — Extension entry point, step 4 and the `reason: "new" | "resume" | "fork"` edge-case bullet (edited)
+- `spec_topics/pi-integration-contract.md` — Session-swap behaviour for in-flight invocations, Per-invocation operator visibility bullet (edited; `details.event.reason` typing)
+- `spec_topics/diagnostics.md` — `loom/runtime/*` registry table (edited if a new code is registered; read-only otherwise)
+- `spec_topics/cancellation.md` — second-trigger paragraph that enumerates `/reload`, `/new`, fork, or quit (read-only; cross-reference for consistency)
+
+## Plan Impact
+
+**Phases:** None
+
+**Leaves (implementation order):**
+
+None. No leaf in the current plan owns the `session_shutdown` handler implementation: H4 (`h4-extension-shell.md`) registers only the renderer and a no-op `/loom-status` command, Mb (`m-mvp.md`) owns the `session_start` subscription and the per-invocation `loomAbort` construction but not the shutdown handler, and `coverage-matrix.md` carries no row for the PIC step-4 sequence. The unknown-reason rule will become a constraint on whichever leaf eventually closes the handler implementation; once that leaf exists, its acceptance criteria must include the validation, the fail-safe routing, and the diagnostic emission.
+
+## Consequence
+
+**Severity:** correctness
+
+A reasonable implementer can produce a session-shutdown handler that silently no-ops on an unknown reason, leaking watchers, timers, abort controllers, and registry entries onto an about-to-be-invalidated extension runtime — with no diagnostic the operator can observe and no test that can fail. A Pi minor that introduces a new reason value would land as a silent regression, and the typed `details.event.reason` payload on `loom/runtime/cancelled-by-session-shutdown` would carry an out-of-schema value with no defined handling.
+
+## Solution Space
+
+**Shape:** single
+
+### Recommendation
+
+Add an explicit unknown-reason rule to PIC step 4 (and a one-line restatement in `spec.md`'s Session model paragraph):
+
+1. **Validation.** On handler entry, compare `event.reason` against the closed set `{"quit", "reload", "new", "resume", "fork"}`. The comparison is the only pre-sequence branch the handler MAY take.
+2. **Fail-safe routing.** An unknown reason MUST be treated as the most-invalidating case: the five-sub-step sequence runs in full, the fast-path no-op MUST NOT be taken, and the `ActiveInvocationRegistry` is drained via `loomAbort.abort()` + bounded `Promise.allSettled` exactly as for `"quit"` / `"reload"`.
+3. **Diagnostic.** Emit exactly one `loom/host/session-shutdown-reason-unknown` (W, runtime; new registry row in `diagnostics.md`) via `console.error` (the teardown handler's documented channel — `pi.sendMessage` may already be invalidated). `details: { observed: <event.reason as string> }`. The diagnostic is emitted before sub-step 1 so it survives even if the handler later throws.
+4. **Payload contract.** The `details.event.reason` field on `loom/runtime/cancelled-by-session-shutdown` carries the observed string verbatim when the reason is unknown; the registry row's typing for that field widens to `"quit" | "reload" | "new" | "resume" | "fork" | string` with a normative note that the wider arm is reserved for the unknown-reason path.
+5. **Test obligation.** The leaf that lands the handler implementation asserts the unknown-reason path with a synthesised reason (e.g., `"swap"`): the diagnostic is emitted exactly once, the full five-sub-step sequence runs (registry drained, watchers closed, listeners detached), and the fast-path bullet under PIC's edge-case list is not taken.
+
+Edge cases the implementer must observe: an unknown reason at a moment when `ExtensionRuntime.invalidate()` has already fired still routes the diagnostic through `console.error` (not through the `sendSystemNote` chain — same rule as `loom/runtime/reload-teardown-timeout`); the validation step itself MUST be wrapped in `try`/`catch` so a getter that throws on `event.reason` access is treated as an unknown reason, not as an unhandled exception escaping the handler; the `details.event.reason` widening on `cancelled-by-session-shutdown` is the only place the wider type appears in the diagnostic registry, and the rest of the spec's `event.reason` references continue to use the closed five-arm union.
+
+## Relationships
+
+- T11 "`session_shutdown` fast-path: spec.md sentence implies a branching short-circuit that PIC does not authorise" — same-cluster (both touch the step-4 reason-handling surface; resolutions interlock — removing the fast-path simplifies the unknown-reason rule to "always run the full sequence")
+
+---
+
+# T13 — `resourceLoader` example mis-names the `LoadExtensionsResult` field as `diagnostics`; the SDK shape is `errors`
+
+**Original heading:** `getExtensions()` resourceLoader adapter uses `diagnostics` key; installed SDK uses `errors`
+**Original section:** spec_topics/pi-integration-contract.md
+**Kind:** doc-alignment
+**Importance:** high
+
+## Finding
+
+The `resourceLoader` code block in *Conversation drive — subagent mode* (`spec_topics/pi-integration-contract.md` line 247) declares `getExtensions: () => ({ extensions: [], diagnostics: [] })`. Pi's `ResourceLoader.getExtensions()` returns `LoadExtensionsResult`, whose two fields are `extensions: Extension[]` and `errors: Array<{ path: string; error: string }>` — not `diagnostics`. A literal copy of the example fails TypeScript's structural check against the pinned `ResourceLoader` interface.
+
+The spec is also internally inconsistent. `spec_topics/diagnostics.md` line 3 explicitly references `LoadExtensionsResult.errors` by its correct name when explaining why loom does not consume that field; the PIC code example uses the wrong name for the same field on the same SDK pin. The four sibling adapter members in the same code block (`getSkills`, `getPrompts`, `getThemes`, plus the unused-by-loom `extendResources` / `reload`) genuinely return `{ …, diagnostics: ResourceDiagnostic[] }` — `getExtensions` is the one outlier whose field name diverges, and the example has been written by analogy with its neighbours rather than against the actual `LoadExtensionsResult` declaration.
+
+The shape mismatch was confirmed against the installed `@mariozechner/pi-coding-agent@0.73.0` types; under the spec's pinned `~0.72.1` range the relevant declaration site (`dist/core/extensions/types.d.ts`) is the same `LoadExtensionsResult { extensions, errors }` interface that `dist/core/resource-loader.d.ts` re-exports. There is no `diagnostics` field on this type at any version in the supported range.
+
+## Spec Documents
+
+- `spec_topics/pi-integration-contract.md` — *Conversation drive — subagent mode*, the `resourceLoader` code block (line 247) (edited)
+- `spec_topics/diagnostics.md` — opening paragraph that already references `LoadExtensionsResult.errors` correctly (read-only)
+- `spec_topics/pi-integration-contract.md` — *Pi version bump procedure*, step 1 ("Re-typecheck against the new package") (read-only — establishes that a future SDK rename of this field is caught by typecheck and would be expected to update the example)
+
+## Plan Impact
+
+**Phases:** Vertical V12
+
+**Leaves (implementation order):**
+
+- V12a — `mode: subagent` accepted; AgentSession spawn — (modified)
+
+V12a constructs the loom-side `ResourceLoader` adapter in production code; its acceptance tests assert that `agentSession.systemPrompt` after spawn equals the resolved `system:` string, which presupposes the adapter compiles against the SDK's `ResourceLoader` type. With the spec example using the wrong field name, a faithful V12a implementation either silently diverges from the example to satisfy `tsc`, or copies the example verbatim and fails to build. No other leaf references `getExtensions` or `LoadExtensionsResult`.
+
+## Consequence
+
+**Severity:** correctness
+
+A TypeScript implementation copying the spec's object literal produces an immediate `tsc` error against `ResourceLoader.getExtensions(): LoadExtensionsResult`. The shape is also semantically wrong — `errors` is keyed by `path`, `diagnostics` was being treated as a parallel of the `ResourceDiagnostic[]` arrays returned by the four sibling getters — so a JavaScript-only implementation that dropped types would silently return an object Pi's loader cannot interpret as an extension-load result. The spec contradicts itself between PIC and `diagnostics.md`, leaving no in-spec way to determine which form is canonical without reading the SDK.
+
+## Solution Space
+
+**Shape:** single
+
+### Recommendation
+
+In `spec_topics/pi-integration-contract.md`, change the `getExtensions` line of the `resourceLoader` code block from
+
+```ts
+getExtensions: () => ({ extensions: [], diagnostics: [] }),
+```
+
+to
+
+```ts
+getExtensions: () => ({ extensions: [], errors: [] }),
+```
+
+No other adapter line changes — `getSkills` / `getPrompts` / `getThemes` correctly return `{ …, diagnostics: ResourceDiagnostic[] }` per the SDK and stay as written.
+
+Edge cases the implementer must watch:
+
+- The `errors` field's element shape is `{ path: string; error: string }` (note the singular `error` for the message), not `{ path: string; message: string }` or a `ResourceDiagnostic`. The empty-array literal `[]` is valid against either spelling, but any future revision that pre-populates entries (e.g. for tests) must use the SDK's exact element shape.
+- `Pi version bump procedure` step 1 (`Re-typecheck against the new package`) is the existing mechanical gate for this kind of drift. No new step is needed; the typecheck would catch a future rename. Optionally, the *bump procedure* preamble may note that the four `ResourceLoader` member return shapes are part of the loom-load-bearing surface that step 1 covers, but this is not required to fix the immediate defect.
+- The fix does not affect runtime behaviour of any current prototype — Pi never calls `getExtensions` on the spawned subagent's adapter (subagent sessions do not load nested extensions), so the empty-array return is observationally inert. The defect is purely a static contract violation that would block compilation of a faithful implementation.
+
+## Relationships
+
+None
+
+---
+
+# T14 — Ceiling #3 (binder retry budget): provider-failure classification rule undefined; bullet bundles five untraceable obligations
+
+**Original heading:** Binder failure taxonomy assumed; AJV dependency undeclared; out-of-taxonomy failures have no routing; atomicity violation
+**Original section:** spec.md — Scope: Hard ceilings — ceiling #3 (Binder retry budget)
+**Kind:** assumptions, traceability
+**Importance:** high
+
+## Finding
+
+`spec.md` ceiling #3 and `spec_topics/binder.md` jointly define a binder retry budget over a closed taxonomy of three failure classes — *transport*, *malformed envelope*, and *AJV-on-`args`* — and assign each class a fixed retry policy (1, 1, and 0 respectively). Neither page defines the **classification rule** that maps an observed binder-call outcome onto one of those three classes. Concretely, an implementer reading the binder spec in isolation cannot tell which class receives:
+
+- HTTP 429 / rate-limit responses;
+- HTTP 5xx responses;
+- network / TCP / TLS errors and provider-SDK timeouts;
+- mid-stream truncation (the assistant turn ends before the structured-output tool call completes);
+- a model turn that returns plain text instead of calling the synthesised respond tool (provider content-policy refusal, model failure to follow the structured-output contract);
+- a structurally valid envelope whose `kind` discriminator is outside `ok | needs_info | ambiguous`.
+
+The typed-query path already classifies provider failures via the V5g classifier (`spec_topics/errors-and-results.md` `TransportError` / `ContextOverflowError`; `plan_topics/v5-untyped-queries.md` V5g), but the binder spec does not state whether it reuses that classifier. As written, two implementers can reasonably route an HTTP 429 either as transport (consuming the transport-retry budget) or as malformed envelope (consuming the malformed-retry budget) or as a third unclassified bucket that surfaces immediately with no system-note row defined. They will produce different observable retry behaviour, different worst-case binder LLM call counts, and — for outcomes routed to the unclassified bucket — different system-note text or none at all. The "worst-case 3 binder LLM calls" guarantee in `spec.md` ceiling #3 is itself unverifiable until the classifier is pinned, because an outcome the spec does not classify cannot be counted.
+
+Separately, the ceiling #3 bullet packs five independently testable obligations into one anonymous list item (per-class transport retry cap of 1; per-class malformed-envelope retry cap of 1; AJV-on-`args` non-retry; worst-case sum of 3 binder LLM calls; most-recent-failure determines surfaced template). The bullet has no anchor and no per-obligation IDs, matching the same traceability anti-pattern flagged on ceilings #2 and #4 and on the Trust-boundary bullet.
+
+## Spec Documents
+
+- `spec.md` — Hard ceilings, ceiling #3 bullet (edited)
+- `spec_topics/binder.md` — Failure-mode templates (normative); the per-invocation retry-budget paragraph immediately below the table (edited)
+- `spec_topics/errors-and-results.md` — `TransportError`, `ContextOverflowError` definitions (read-only)
+- `spec_topics/implementation-notes.md` — AJV / `SchemaValidator` reference-implementation context (read-only)
+- `plan_topics/v5-untyped-queries.md` — V5g provider-error classifier specification (read-only)
+
+## Plan Impact
+
+**Phases:** V16, V18
+
+**Leaves (implementation order):**
+
+- V16o — Binder malformed envelope handling — modified (must enumerate exactly which observed outcomes are "malformed envelope" vs. transport vs. neither; cross-link to the chosen classifier)
+- V16n — Binder transport failure single retry — modified (must enumerate exactly which observed outcomes consume the transport-class retry; cross-link to V5g classifier)
+- V16p — AJV validation of `args` post-default-merge — modified (must define the disposition of an envelope whose `kind` discriminator is out of set: malformed-envelope vs. AJV-args; the depth-walk-before-AJV ordering at this site is already covered)
+- V18p — `AbortSignal` before and during the binder LLM call — modified (text says "the single transport-failure retry honours the signal"; `binder.md` says every retry permitted by the budget honours the signal — V18p must be widened to cover the malformed-envelope retry too, and any new retry-eligible class added by the resolution)
+
+## Consequence
+
+**Severity:** correctness
+
+Two reasonable implementers reading the spec at the pinned `~0.72.1` SDK will diverge on whether HTTP 429, HTTP 5xx, mid-stream truncation, and content-policy refusals are retried (transport budget), retried under a different budget (malformed envelope), or surfaced immediately with no system-note row defined. The "worst-case 3 binder LLM calls" guarantee is unprovable while the classification rule is open, and the ceiling #3 bullet's five bundled obligations cannot be cited individually by any conformance test or coverage-matrix row.
+
+## Solution Space
+
+**Shape:** single
+
+### Recommendation
+
+State once, at the top of `binder.md` § *Failure modes*, that the binder reuses the provider-error classifier specified by V5g (the typed-query / prompt-mode classifier in `spec_topics/errors-and-results.md`). Define each retry class in observable terms of that classifier's output:
+
+- *Transport-class* = any classifier output of `TransportError` (covers all 4xx-not-overflow, 5xx, network errors, SDK timeouts, mid-stream truncation per V5g's existing rule).
+- *Malformed-envelope class* = the classifier returned a successful provider response, the assistant turn called the structured-output tool, but the resulting JSON either fails JSON parsing, fails the envelope-`anyOf` discriminator, has a `kind` outside `ok | needs_info | ambiguous`, or violates the envelope schema's `maxLength: 500` cap. Includes the case where the assistant turn returned plain text instead of calling the structured-output tool (treated as malformed envelope, not transport).
+- *AJV-on-`args` class* = `kind: "ok"` envelope whose `args` fail AJV against the lowered params schema after default-merge.
+- `ContextOverflowError` (the only other classifier output) = treated as transport-class for retry purposes (rationale: the binder system prompt is fixed, so a context-overflow failure is a flake-equivalent and the retry will see the same prompt; if the cap is structural, the second attempt also fails and surfaces as transport).
+
+Add one paragraph to `binder.md` § *Failure modes* before the table; add one cross-reference sentence to ceiling #3 in `spec.md` ("classification rule per `binder.md` § *Failure modes*"). Promote the classifier paragraph in `errors-and-results.md` to normative status if it is not already, so V5g and the binder both anchor on the same prose.
+
+Then split the ceiling #3 bullet into sub-IDs `HC3-a` (transport retry cap 1), `HC3-b` (malformed-envelope retry cap 1), `HC3-c` (AJV-on-`args` no retry), `HC3-d` (worst-case 3 binder LLM calls per slash invocation), `HC3-e` (most-recent-failure determines surfaced template row). Add an `<a id="hard-ceiling-3">` anchor on the bullet so each sub-ID is citable.
+
+Edge cases the implementer must watch:
+
+- A malformed-envelope retry observed as a transport failure consumes the transport budget (already in `binder.md`); the classifier is consulted on every attempt independently.
+- An abort observed during either retry suppresses that retry and surfaces the cancelled-binder note immediately, irrespective of which class's budget remains (V18p's text must be widened from "the single transport-failure retry" to "every retry permitted by the per-invocation budget").
+- A `ContextOverflowError` returned twice in a row (initial + transport-class retry) surfaces as the transport row, not a dedicated overflow row. There is no `ContextOverflowError` row in the binder failure-mode templates table, and that absence is intentional under this rule.
+- Treating content-policy refusal as malformed-envelope (a content-policy refusal is the model declining the request, not a flake) means the malformed-envelope retry will burn budget on a non-flaky failure. Acceptable because the malformed-envelope budget is bounded at 1.
+- V5g currently lives only in the plan, not in `errors-and-results.md`'s normative classifier paragraph; if V5g's wording is ever loosened, the binder inherits the loosening silently. Mitigation: pin the classifier in `errors-and-results.md` rather than only in V5g.
+
+## Relationships
+
+None
+
+---
+
+# T15 — Compact-transcript format for the session-context block is unspecified
+
+**Original heading:** "Compact transcript" format for session-context injection undefined
+**Original section:** spec_topics/binder.md
+**Kind:** testability
+**Importance:** high
+
+## Finding
+
+When `bind_context: session`, the binder's system prompt carries the truncated caller-session messages as a "compact transcript". The spec pins two things about this block: (a) the truncation walk in `Session-context truncation (bind_context: session)` selects which turns are included, and (b) item 6 of *System-prompt structure (normative)* in `spec_topics/binder.md` requires the block's opening line to begin with the literal token `Recent session context`. Nothing else about the body is normative.
+
+Concretely undefined: the per-message line format, the role label vocabulary (`user` / `assistant` / `toolResult` / `custom` exist on the `Message` union sourced from `ctx.sessionManager.buildSessionContext().messages`), the inter-turn delimiter, how `assistant` messages with `thinking` and `toolCalls` arrays are rendered, how `toolResult` payloads (string text vs. structured content) are flattened, and how `CustomMessage` channels (notably `loom-system-note`, which `convertToLlm` converts to user-role context — see `spec_topics/pi-integration-contract.md` "Custom-message channel persistence and LLM-context entry") are surfaced or suppressed. The illustrative fenced block under *Binder system prompt* uses the literal placeholder `<truncated transcript>`, which is honest about the gap but does not close it.
+
+Two consequences: (1) a conformance suite can verify the header line and the truncation algorithm but cannot assert any byte of the body; (2) the binder model — which is the actual consumer of this text — sees materially different inputs across implementations (one renderer might dump `JSON.stringify(message)` per entry, another might emit `[user]: …` lines, another might include tool-call arguments verbatim or strip them). Since the entire point of `bind_context: session` is to ground the binder in conversational anaphora, format divergence translates directly into binding-output divergence. This is not a cosmetic-rendering question; it is a model-input contract.
+
+## Spec Documents
+
+- `spec_topics/binder.md` — Session-context truncation (`bind_context: session`); Binder system prompt; *System-prompt structure (normative)* item 6 (edited)
+- `spec_topics/pi-integration-contract.md` — `ctx.sessionManager.buildSessionContext()`, `estimateTokens`, custom-message persistence rules (read-only — defines the `Message` union shape that any rendering rule must enumerate)
+
+## Plan Impact
+
+**Phases:** Vertical slices
+
+**Leaves (implementation order):**
+
+- V16f — `bind_context: none` — (modified — owns the *System-prompt structure (normative)* test surface; item 6 acceptance currently tests only header presence and absence)
+- V16g — `bind_context: session` truncation — (modified — currently tests only the truncation walk; the new format obligation lands here as additional reference renderings)
+
+## Consequence
+
+**Severity:** correctness
+
+Two reasonable implementers will produce binders with different observable behaviour on the same `bind_context: session` loom and the same caller transcript, because the model sees different prompts. Conformance tests cannot detect or arbitrate the divergence — the only assertable surface is the header line. Regressions in the format (e.g. accidentally dropping tool-result content) are silent and undetectable from outside the runtime.
+
+## Solution Space
+
+**Shape:** single
+
+### Recommendation
+
+Add a normative *Compact-transcript format* sub-section under *Session-context truncation (`bind_context: session`)* in `spec_topics/binder.md`, and have item 6 of *System-prompt structure (normative)* point at it instead of saying "the truncated transcript per that section". The format MUST cover every variant of the `Message` union returned by `ctx.sessionManager.buildSessionContext().messages` so the rendering function is total over its input.
+
+Concrete obligations to encode (each gets a reference rendering in a normative table, mirroring the *Reference renderings* tables already used for *Type display* and *Echo policy*):
+
+1. **Turn delimiter.** Each turn (a user message plus all subsequent assistant / toolResult / custom messages up to but not including the next user message — the same turn boundary used by the truncation walk) is rendered as a contiguous block separated from the next turn by a single blank line. The included turns are emitted oldest-to-newest within the block (the truncation walk runs newest-to-oldest, but the rendered transcript is chronological so the binder reads it in the order the conversation happened).
+2. **Per-message line prefix.** Each message renders as one or more lines whose first line begins with a role tag from the closed set `[user]`, `[assistant]`, `[tool]`, `[custom:<type>]` followed by `: ` (one U+003A, one U+0020). `<type>` is the `customType` string verbatim. Continuation lines of the same message carry no prefix.
+3. **Per-variant body.**
+   - `user` → the message's text content verbatim.
+   - `assistant` → the text content verbatim. The `thinking` array is omitted (it is provider-internal and not part of the conversation the binder is grounding against). Each entry of the `toolCalls` array renders as a sibling line `[tool-call <name>(<args-json>)]` where `<args-json>` is `JSON.stringify(args)` with no whitespace; multiple tool calls render as multiple lines in array order.
+   - `toolResult` → `[tool]: <text>` where `<text>` is the result's string content; structured content is `JSON.stringify`'d with no whitespace. The role tag in (2) for this variant is `[tool]`, not `[toolResult]`, to keep the vocabulary at three plus the `custom:` family.
+   - `custom` → the `CustomMessage.content` string verbatim under the `[custom:<type>]` prefix. Renderers that suppress display via the `display: false` flag still surface in the transcript (consistent with `convertToLlm`'s LLM-context behaviour documented in `pi-integration-contract.md`).
+4. **No sanitisation.** The newline-collapse / 120-code-point cap discipline from *System-note rendering* does **not** apply to transcript rendering — that discipline is for one-line user-facing notes; the binder's transcript is a multi-line model input where preserving message structure is the point. State this explicitly so a future reader does not over-apply the shared discipline.
+5. **Reference renderings.** A normative table giving the rendered output for: a single-message user turn; a user + assistant + tool-call + tool-result + assistant turn; a turn containing a `loom-system-note` custom message; the empty-content user message edge case (renders as `[user]: ` with the trailing space, mirroring the *User-arguments line* convention).
+
+Implementer edge cases to call out alongside the format:
+
+- The truncation walk is described in newest-to-oldest order but the rendered output is chronological — be explicit about the reversal so an implementer who mirrors the walk direction does not emit reversed-order transcripts.
+- `assistant` messages with empty text but non-empty `toolCalls` MUST still emit the `[assistant]: ` prefix line (with empty body) followed by the tool-call lines, so the role boundary stays detectable; do not collapse to a bare `[tool-call …]` line with no owning role.
+- The custom-message rule must be reconciled with the loom's *own* system notes (`loom-system-note`) appearing in the caller transcript: they will render as `[custom:loom-system-note]: …`, which is correct — they are part of the conversational record the binder is grounding against.
+
+## Relationships
+
+- T03 "Parameters block: indentation and per-field token order are not normative" — same-cluster (both are testability gaps in the binder system prompt; both resolve by promoting prose into a normative structural rule plus a reference-rendering table; the edits land in adjacent sub-sections of `spec_topics/binder.md`)
+
+---
+
+# T16 — Pre-evaluation setup failures: no routing rule for the slash, `invoke()`, or tool-call dispatch surfaces
+
+**Original heading:** Pre-invocation spawn/registry failures: no routing rule for `invoke()` callers
+**Original section:** spec.md — Orientation > Prerequisites: Session model
+**Kind:** error-model
+**Importance:** high
+
+## Finding
+
+The runtime executes a fixed pre-evaluation setup sequence at every dispatch site (slash-command handler entry, `tool.execute(...)` adapter entry for `.loom`-callable tools, and `invoke(...)` spawn-site entry): construct a per-invocation `AbortController` (`loomAbort`), insert an `ActiveInvocationRegistry` entry holding `{ loomAbort, disposeBarrier }`, and — for subagent mode — spawn an `AgentSession` via `createAgentSession(...)`. The PIC pins this ordering ("Insertion happens at slash-command handler entry, `tool.execute(...)` adapter entry, and `invoke` spawn-site entry, before any awaitable work").
+
+Of the three setup steps, only one is given an explicit failure-routing rule. PIC's "Subagent session lifecycle" paragraph routes a thrown or rejected `createAgentSession` (and a returned handle whose `dispose` is non-callable) through `loom/runtime/internal-error`, with the parent invocation observing `Err(InvokeInfraError { cause: "internal_error", ... })` and a slash-command surface emitting the `"loom /<name> aborted with internal error: <message>"` system note. A throw from `new AbortController()` and a throw from `ActiveInvocationRegistry` insertion (or its `Set.add` step) have no analogous rule. The runtime-defect surface in `errors-and-results.md` ("any throw originating inside the runtime, an adapter it called, or a host function the runtime did not anticipate ... share the same routing channels as panics") is described in the context of evaluation-time throws inside the loom body; it does not unambiguously cover throws that happen *before* evaluation begins, while the dispatch frame is still inside the slash handler / tool adapter / `invoke` trampoline.
+
+The `tool.execute(...)` adapter case is the most observably under-specified. When the model emits a parallel tool-call into a `.loom` callable and pre-spawn setup throws inside the adapter, the spec does not state that the adapter MUST translate the throw into a `{ isError: true, content: [...] }` tool result before returning to Pi. Pi's tool loop will turn an unhandled adapter throw into *something* the model sees, but the wire shape and the operator-visibility note are not pinned, and a future Pi minor that changes that translation would silently shift loom behaviour. The aggregator's "no ceiling fails silently" / "silent success on denial is forbidden" stance does not extend to pre-evaluation setup throws, and `errors-and-results.md`'s closed pre-evaluation failure list (seven items) covers config-shaped failures (host-incompatibility, lex/parse/type, frontmatter rejection, binder-model resolution, binder LLM exhaustion, `tools:` resolution, watcher-time reload) — none of them are SDK-object construction failures at the dispatch frame.
+
+## Spec Documents
+
+- `spec_topics/pi-integration-contract.md` — Extension entry point step 4 (`ActiveInvocationRegistry` definition + Registry contract bullets); Subagent session lifecycle (`createAgentSession` reject paragraph) (edited)
+- `spec_topics/errors-and-results.md` — Terminal outcomes / pre-evaluation failure list; Runtime panics (runtime-defect surface paragraph) (edited)
+- `spec_topics/invocation.md` — Failures (`InvokeInfraError` cause arms) (edited)
+- `spec_topics/tool-calls.md` — Failures (the `code_tool` / `model_tool` adapter-throw mapping) (edited)
+- `spec.md` — Orientation > Scope: Hard ceilings (closing paragraph that asserts "host-OOM throws route through `loom/runtime/internal-error`") (read-only)
+- `spec_topics/diagnostics.md` — `loom/runtime/internal-error` registry entry (read-only)
+
+## Plan Impact
+
+**Phases:** Horizontal H4, Vertical V12, Vertical V14, Vertical V15, Vertical V18
+
+**Leaves (implementation order):**
+
+- H4 — Pi extension shell — (modified) — owns `PiSubagentSpawner.spawn` and the slash-command shell; needs delegation tests for `createAgentSession`-rejects and registry-insertion / `AbortController`-construction throw paths
+- V12a — `mode: subagent` accepted; AgentSession spawn — (modified) — needs an `Adds`/`Tests` row asserting routing of pre-spawn setup throws to `loom/runtime/internal-error` for the subagent surface
+- V14 (tool-execute adapter leaves, e.g. V14a–V14c) — (modified) — adapter MUST translate pre-evaluation setup throws into `{ isError: true, ... }` so Pi's parallel-tool-call dispatch sees a defined wire shape rather than an unhandled rejection
+- V15a / V15l — `invoke` spawn-site entry / `InvokeInfraError` variant — (modified) — `cause: "internal_error"` arm needs a test asserting it fires for setup throws (not only for callee-body throws), and the leaf list of `cause` values must include `"internal_error"` (currently V15l enumerates only `load_failure`, `parse_failure`, `validation`, `panic`)
+- V18m — Panic routing: slash-command surface — (modified) — the `internal-error` template-routing test must cover a synthesised pre-evaluation throw, not only a body-injected `TypeError`
+- V18n — Panic routing: `invoke` parent surface — (modified) — symmetric coverage at the invoke-parent surface
+
+## Consequence
+
+**Severity:** correctness
+
+Two implementers will diverge on what happens when pre-evaluation setup throws. One may extend the runtime-defect surface to cover the dispatch frame and route through `loom/runtime/internal-error`; another may let the throw escape the slash handler (Pi treats it as an unhandled rejection, the user sees nothing actionable) or escape the `tool.execute(...)` adapter (the model sees whatever Pi's tool loop synthesises, with no `isError: true` guarantee). For the parallel tool-call dispatch path the silent-loss surface is genuine: nothing in the spec forbids returning to Pi with no tool result on adapter throw.
+
+## Solution Space
+
+**Shape:** single
+
+### Recommendation
+
+Extend the runtime-defect surface to cover the pre-evaluation dispatch frame at all three sites, and pin the per-surface translation explicitly. Concretely:
+
+1. In `errors-and-results.md` Runtime panics, broaden the runtime-defect surface paragraph: the surface covers any throw from "the runtime itself, an adapter it called, or a host function the runtime did not anticipate" *whether observed during evaluation or during pre-evaluation dispatch setup* (specifically: `new AbortController()`, `ActiveInvocationRegistry.add`, and `createAgentSession(...)` rejection). A single rule, three call sites.
+
+2. In PIC `ActiveInvocationRegistry` Registry contract, add a bullet pinning the dispatch-site wrap: each of the three insertion sites (slash handler, `tool.execute(...)` adapter, `invoke` spawn site) MUST wrap the `AbortController` construction + registry insertion + (subagent only) `createAgentSession(...)` await in a `try`/`catch` whose `catch` arm routes the captured error through the runtime-defect surface. On a throw before insertion completes, no entry leaks (nothing to remove); on a throw after insertion, the same `finally` removes the entry and settles `disposeBarrier`. The existing `createAgentSession`-rejects paragraph becomes a worked example of this rule rather than a one-off.
+
+3. Pin per-surface translations:
+   - **Slash dispatch** — `loom-system-note` formatted `"loom /<name> aborted with internal error: <error.message>"`, plus one `loom/runtime/internal-error` diagnostic carrying `error.stack` in `hint` (identical to V18m's body-throw routing).
+   - **`invoke()` parent** — `Err(InvokeInfraError { kind: "invoke_failure", cause: "internal_error", ... })`. Add `"internal_error"` to the `cause` enum in `errors-and-results.md`'s `InvokeInfraError` schema (currently enumerates `load_failure | parse_failure | validation | panic` — the `internal_error` arm is referenced in PIC and the runtime-defect paragraph but missing from the schema definition itself) and add it to V15l's `Adds` row.
+   - **Parallel tool-call dispatch into a `.loom` callable** — the adapter MUST translate the captured error into `{ isError: true, content: [{ type: "text", text: "loom <name> aborted with internal error: <error.message>" }] }` and return it to Pi normally; in parallel, emit the same `loom/runtime/internal-error` diagnostic and `loom-system-note` so the operator observes the failure even though the model's surface is the tool result. Forbid letting the throw propagate as an unhandled rejection out of the adapter.
+
+4. Edge case the implementer must handle: a throw from `loomAbort.abort()` invoked by the catch arm (e.g. on cleanup of a half-constructed registry entry) is itself swallowed by the existing per-entry `try`/`catch` in the `session_shutdown` sub-step 2 rule; do not let cleanup throws mask the original setup throw.
+
+## Relationships
+
+- T17 "Tool failure modes beyond `throw` / `isError: true` unspecified" — same-cluster (the parallel-tool-call translation rule above closes one of that finding's open enumeration items)
+- T10 "Post-probe SDK-shape drift has no stated routing or operator attribution" — same-cluster (also extends `loom/runtime/internal-error`'s reach; the dispatch-site wrap and the post-entry host-drift surface share the same diagnostic code)
+
+---
+
+# T17 — Tool failure modes beyond `throw` / `isError: true` unspecified
+
+**Original heading:** Tool failure modes beyond `throw` / `isError: true` unspecified
+**Original section:** spec.md — Orientation > Scope: Trust boundary
+**Kind:** completeness, error-model
+**Importance:** high
+
+## Finding
+
+The Trust-boundary bullet in `spec.md` and the `Failures` paragraph in `spec_topics/tool-calls.md` map exactly two tool outcomes to `Err(QueryError { kind: "code_tool", … })`: a thrown `execute()` and a returned `{ isError: true, … }`. The `CodeToolError.cause` enum is correspondingly closed at four members — `validation`, `execution`, `cancelled`, `unknown_tool` — and the lowering recipe in `spec_topics/pi-integration-contract.md` ("Tool execution from loom code") jumps straight from a returned envelope to `content.filter(e => e.type === "text").map(e => e.text).join("\n")` with no precondition check on the envelope's shape.
+
+That leaves at least three observable tool outcomes with no stated routing:
+
+1. **Non-resolving Promise (the tool's `execute()` neither resolves nor rejects).** `spec.md` Hard ceilings declares no V1 wall-clock timeout, and the `tool-calls.md` "V1 seam — per-call timeout" reservation makes the absence explicit, so the loom-side observable is "blocks at the await indefinitely." But the consequence is never written down at the tool boundary: a reader cannot tell whether the runtime is supposed to insert a guard, whether cancellation is the only termination path, or whether a hung tool ever surfaces a system note.
+2. **Non-conforming return shape** — the resolved value is not an object, lacks `content`, lacks `isError`, has `content` whose entries lack `type` / `text`, etc. The lowering procedure will throw at the first property access (`TypeError` from `content.filter`), but no spec text says so. With nothing pinned, two implementers will diverge: one wraps the lowering in a `try` and routes to `Err(CodeToolError { cause: "execution" })`; another lets the throw escape into the runtime-defect surface and `loom/runtime/internal-error`; a third silently coerces (`content ?? []`, `Boolean(isError)`) and returns `Ok("")`. All three pass the existing tests.
+3. **Post-cancel resolution** — `loomAbort` fires, the runtime surfaces `cause: "cancelled"` at the next checkpoint, and the tool's underlying Promise then resolves (with `Ok` or with `isError: true`) some microtasks later. `spec_topics/cancellation.md`'s no-retroactive-rewrite rule covers `Ok(v)` followed by an abort at the *next* checkpoint, but it does not address a post-cancel value arriving at the tool-boundary `await` itself. The runtime might rebind to the late `Ok`, surface a second `Err`, or leak the resolved value — nothing pins which.
+
+The finding's framing of these as a "silent-success surface larger than the two named cases" is exactly right: in each of the three, a denial-or-failure semantics can degrade to a success-shaped value (`Ok("")` from coerced shape; an indefinite hang is observationally indistinguishable from in-flight; a late `Ok` could overwrite a cancellation) without violating any normative rule on the books.
+
+## Spec Documents
+
+- `spec.md` — Orientation > Scope: Trust boundary (edited)
+- `spec_topics/tool-calls.md` — Failures paragraph and `cause` enum (edited)
+- `spec_topics/pi-integration-contract.md` — Tool execution from loom code (edited)
+- `spec_topics/errors-and-results.md` — `CodeToolError` variant definition (option-dependent; edited if the `cause` enum widens)
+- `spec_topics/cancellation.md` — Race semantics / no-retroactive-rewrite (edited; extend the rule to the tool-boundary `await`)
+- `spec_topics/diagnostics.md` — `loom/runtime/internal-error` `details.kind` registry (edited if a new discriminator is added)
+
+## Plan Impact
+
+**Phases:** V14, V18
+
+**Leaves (implementation order):**
+
+- V14g — `CodeToolError` variant: `execution` cause — (modified)
+- V14h — `CodeToolError` variant: `cancelled` cause — (modified)
+- V18l — Top-level panic / unanticipated-throw routing through `loom/runtime/internal-error` — (modified)
+
+## Consequence
+
+**Severity:** correctness
+
+Two reasonable implementers will produce divergent observable behaviour for any tool whose contract V1 already permits to exist. The most damaging case is the non-conforming-shape path: a coercing implementation silently lands `Ok("")` where a strict implementation surfaces an `Err`, defeating the bullet's own "silent success on denial is forbidden" rule. The hang case turns the ungoverned absence of a timeout into an unbounded lock-up with no operator note. The post-cancel-resolution case can rebind a cancelled invocation to a late success, breaking the cancellation contract author code relies on for `?` and `match` arms.
+
+## Solution Space
+
+**Shape:** single
+
+### Recommendation
+
+Extend `spec_topics/tool-calls.md` *Failures* (and the `CodeToolError.cause` enum) to enumerate all observable tool outcomes; mirror the lowering rule in `spec_topics/pi-integration-contract.md` — *Tool execution from loom code*; replace the Trust-boundary sentence in `spec.md` with the same forward-link summary it currently is, but pointing at the now-complete enumeration.
+
+Concrete dispositions:
+
+1. **`execute()` returns a Promise that never settles.** The runtime makes no V1 attempt at internal timeout enforcement (consistent with the Hard-ceilings "no wall-clock timeout" rule). The tool blocks at the `await` until `loomAbort.signal` fires, at which point cancellation surfaces through the existing `cause: "cancelled"` path (V14h). State this explicitly at the tool boundary so the absence is not mistaken for an unspecified gap, and forward-link to the per-call-timeout V1 seam already documented in `tool-calls.md`.
+
+2. **Non-conforming return shape.** Wrap the lowering in `pi-integration-contract.md` so that any throw from envelope inspection (`content` not iterable, entries missing `type` / `text`, the resolved value not an object, etc.) is caught and routed to `loom/runtime/internal-error` with `details.kind = "tool-return-shape"`, carrying `tool_name` and the offending shape's discriminator (e.g., `typeof resolved`, `Array.isArray(content)`). This is the runtime-defect surface — a non-conforming Pi tool is a bug in that tool, not in loom code, and `internal-error` is the existing routing class for "an unanticipated SDK reject" per V18l. Do **not** widen `CodeToolError.cause` for this case: the `cause` enum is the *contract surface for loom authors*, and a non-conforming shape is not something an author can `match` on usefully.
+
+3. **Post-cancel resolution at the tool-boundary `await`.** Extend `cancellation.md`'s no-retroactive-rewrite rule explicitly to the tool-call checkpoint: once `cause: "cancelled"` has been surfaced at a `tool-call` checkpoint, any later settlement of the underlying Promise (resolve or reject, `Ok` or `isError: true` or throw) is discarded — no rebinding, no second `Err`, no second `RuntimeEvent`. The existing `Checkpoint` seam (per H2 / V18d) is already the deterministic-test substrate; one new `FakeCheckpoint` test under V14h asserts the discard.
+
+Implementer-relevant edge cases:
+
+- **`isError: true` with non-conforming shape inside.** If `isError: true` but `content` is malformed, the existing `cause: "execution"` recipe in `pi-integration-contract.md` (filtered/joined text, falling back to `"tool reported an error with no text content"`) already covers the empty-or-missing-text case. State that any *throw* during this lowering still routes to `internal-error` (case 2), so the two paths are uniform.
+- **Late rejection vs. late resolution.** Both are discarded under (3); the discriminator at the checkpoint is whether cancellation has already been surfaced, not the settle kind.
+- **Tool ignores its `signal` and runs forever.** This is observationally identical to (1); no new rule is needed. The operator-visible signal is the absence of completion, which is an existing operator concern outside V1's scope.
+
+## Relationships
+
+- T16 "Pre-evaluation setup failures: no routing rule for the slash, `invoke()`, or tool-call dispatch surfaces" — same-cluster (analogous failure-mode-enumeration gap on the spawn surface; resolves independently using the same routing-class taxonomy)
+- T10 "Post-probe SDK-shape drift has no stated routing or operator attribution" — same-cluster (another instance of post-entry host-shape mismatch with no routing rule)
+
+---
+
+# T18 — Ceiling #4 routing class collapses four boundaries whose destinations differ
+
+**Original heading:** Ceiling #4 routing: "recoverable `Err`" conflicts with "returned to the model" at tool-arg boundary
+**Original section:** spec.md — Scope: Hard ceilings — ceiling #4 (JSON-document depth)
+**Kind:** consistency, clarity, completeness
+**Importance:** high
+
+## Finding
+
+The hard-ceiling bullet for #4 (JSON-document depth) in `spec.md` declares a single routing class — **recoverable `Err`** — and then says the depth violation is shaped as `QueryError { kind: "validation", cause: "schema_validation" }` at the typed-query response boundary "and analogously at the tool-arg / `params` boundaries." The "Interaction between ceilings" paragraph immediately below contradicts the analogy in the worked example: a depth-6 `tool_use` round produces "a `validation` `Err` returned to the model" and the round "is then permitted to continue the loop." That is not a `match`-handleable `Err` reaching loom code; it is a tool-error result fed back into the model's tool-call loop.
+
+The four boundaries enumerated in `spec_topics/schema-subset.md` ("Enforcement point" 1–4) actually route to four different destinations:
+
+1. **Typed-query response** — `Err(QueryError { kind: "validation", cause: "schema_validation" })` returned to loom code.
+2. **Tool-call args, model-driven** (inside an `@`...`` tool loop) — synthesised tool-error result handed back to the model as the next user turn; the loop continues and the round counts toward `tool_loop.max_iterations`. Loom code sees nothing unless the loop later exhausts (`ToolLoopExhaustedError`) or the model gives up some other way.
+3. **Tool-call args, code-driven** (`<name>(args)`) — `Err(CodeToolError { cause: "validation", … })` returned to loom code (per `spec_topics/tool-calls.md` "Failures" and `spec_topics/errors-and-results.md` `CodeToolError`).
+4. **`params` validation** — splits by call site: at `invoke(...)` it is `Err(InvokeInfraError)` returned to the calling loom; at slash-invocation load time the binder catches it under ceiling #3's "AJV-on-`args`" arm and emits a load-time **system note**, not an `Err` (see `spec_topics/binder.md` "Failure-mode templates" and `spec.md` ceiling #3, which carves out load-time-failure routing as "not an evaluation outcome").
+
+Of the four, only #1, #3, and the `invoke(...)`-side of #4 are honestly "recoverable `Err`" to loom code. #2 routes to the model and only indirectly (and possibly not at all) to loom code. The slash-load arm of #4 routes to a system note. The schema-subset page also undersells this — its "Error shape" paragraph names `CodeToolError` as the analog at the model-driven tool-arg boundary, which is wrong (`CodeToolError` is by definition the code-side variant; `spec_topics/errors-and-results.md` is explicit). It says nothing about the load-time arm of `params` validation.
+
+## Spec Documents
+
+- `spec.md` — Scope > Hard ceilings, ceiling #4 bullet (edited)
+- `spec.md` — Scope > Hard ceilings, "Interaction between ceilings" worked-example sentence (edited; aligns with the per-boundary list)
+- `spec_topics/schema-subset.md` — Depth Enforcement > "Error shape" paragraph (edited; corrects the `CodeToolError` mis-attribution at the model-driven boundary and adds the slash-load arm of `params`)
+- `spec_topics/tool-calls.md` — Failures (read-only; defines `ModelToolError` vs `CodeToolError` split)
+- `spec_topics/query.md` — Tool-call loop bound, Schema-validation respond-repair (read-only; defines what "fed back to the model" means and how `tool_loop` rounds count)
+- `spec_topics/errors-and-results.md` — QueryError variants (read-only; canonical schemas for `ModelToolError`, `CodeToolError`, `InvokeInfraError`, `ValidationError`)
+- `spec_topics/binder.md` — Failure-mode templates (read-only; defines the load-time system-note routing for the AJV-on-`args` arm)
+- `spec_topics/invocation.md` — Argument binding, return-value validation (read-only; defines `InvokeInfraError` for the `invoke<T>` `params` and return paths)
+
+## Plan Impact
+
+**Phases:** V6, V11, V14, V16 (vertical slices)
+
+**Leaves (implementation order):**
+
+- V6i — Synthesised respond tool: schema lowering, AJV-validating `execute`, per-mode wiring — (modified)
+- V11i — Runtime depth cap of 5 — (modified)
+- V14e — Pi tool wired into `@` queries as model-callable — (modified)
+- V14f — `CodeToolError` variant: `validation` cause — (modified)
+- V16p — AJV validation of `args` post-default-merge — (modified)
+
+V14e already says the model-driven tool-arg depth-6 case "surface[s] to the model as the boundary's standard validation failure" — that wording is right but vague; it must name the destination explicitly (tool-error result handed back into the loop, NOT a `ModelToolError`-terminating-the-query, and the round counts against `tool_loop.max_iterations`). V11i must extend its per-boundary surfacing pointer list to distinguish the four destinations rather than treat them uniformly.
+
+## Consequence
+
+**Severity:** correctness
+
+Two reasonable implementers reading only ceiling #4 plus the "Error shape" paragraph in `schema-subset.md` would diverge at the model-driven tool-arg boundary: one would surface depth-6 args as a query-terminating `ModelToolError` (the only `QueryError` variant whose context matches "the model invoked a tool inside the query loop"), the other would synthesise a tool-error result and let the loop continue (the "Interaction between ceilings" worked example). Those two behaviours are observably different — the first ends the query; the second consumes a `tool_loop` round and may or may not eventually exhaust. The slash-load arm of `params` validation is the same problem at smaller scale: implementers may try to construct an `InvokeInfraError` at slash-load time when the actual contract is a load-time system note with no `Err` value at all.
+
+## Solution Space
+
+**Shape:** single
+
+### Recommendation
+
+Replace ceiling #4's blanket routing-class label and "analogously" handwave with an explicit per-boundary table inline in the bullet. The four rows:
+
+| Check point | Destination | Surface |
+|---|---|---|
+| Typed-query response | loom code | `Err(QueryError { kind: "validation", cause: "schema_validation", validation_errors: [{ schema_keyword: "maxDepth", … }], … })` |
+| Tool-call args, model-driven | the model (loop continues; round counts against `tool_loop.max_iterations`) | tool-error result fed back as the next user turn; no `QueryError` surfaces unless the loop later hits ceiling #2 |
+| Tool-call args, code-driven (`<name>(args)`) | loom code | `Err(CodeToolError { cause: "validation", validation_errors: [{ schema_keyword: "maxDepth", … }], … })` |
+| `params` validation | depends on call site: `invoke(...)` → calling loom; slash-load → operator | `invoke(...)`: `Err(InvokeInfraError)`. Slash-load: load-time system note rendered from the binder's AJV-on-`args` failure-mode template (ceiling #3's no-retry arm); not an evaluation outcome, no `Result` value observable |
+
+Drop "routing class: **recoverable `Err`**" from the bullet header; replace with "routing class: **boundary-dependent — see table**" so the label no longer asserts a uniformity that does not exist. Pair this with a one-paragraph patch to `spec_topics/schema-subset.md` "Error shape" that mirrors the same four rows (currently it claims `CodeToolError` covers the model-driven boundary — wrong) and explicitly notes the slash-load arm of `params` (currently absent).
+
+Edge cases the implementer must watch:
+
+- The model-driven row is the only one where ceiling #4 firing is silent at the loom-code level. The "no ceiling fails silently" claim in the opening of the Hard ceilings bullet must be reconciled with this — either by tightening "silent" to mean "no observer at all" (the model is an observer; the depth violation is in its tool-result), or by adding a runtime-event obligation at the model-driven boundary so the silence is operator-visible. The masked-ceiling finding (T21) is the natural place to anchor that decision.
+- For the slash-load arm of `params`, the depth-walk fires *before* the binder's AJV step but the failure routes through ceiling #3's no-retry classification, not ceiling #4's "recoverable `Err`" routing. The bullet must say so explicitly; otherwise the cross-ceiling routing handoff is invisible.
+- `invoke<T>` *return*-value validation (the fourth enforcement point in `schema-subset.md`) is missing from the spec.md ceiling-#4 bullet entirely; the bullet currently lists "typed-query response, `tool_use` args, `params` merge, `invoke<T>` return" only inside the "Interaction between ceilings" paragraph. Carry it into the table so all four enforcement points are surfaced where the routing class is declared.
+
+## Relationships
+
+- T21 "Masked ceilings: no observability requirement for the unreported breach" — must-follow (the model-driven tool-arg row is the canonical "silent to loom code" case; observability decision lands at the masked-ceilings finding and shapes the resolution here)
+- T20 "Hard-ceiling interaction paragraph: missing anchor, undefined jargon, and bundled ordering rules" — same-cluster (the worked example whose wording surfaces the contradiction lives in that paragraph)
+
+---
+
+# T19 — "No additional V1 runtime ceiling" closing paragraph: missing anchor / per-claim IDs and an unverifiable host-OOM routing claim
+
+**Original heading:** "No additional V1 runtime ceiling" paragraph: 4 independent claims without anchor or IDs; host-OOM catchability unverified
+**Original section:** spec.md — Scope: Hard ceilings — "Interaction between ceilings" and closing paragraph
+**Kind:** traceability, clarity, assumptions
+**Importance:** high
+
+## Finding
+
+The closing paragraph of the **Hard ceilings** scope bullet (`spec.md` line 60, immediately after the `<a id="hard-runtime-ceilings">` block) carries four independent normative non-existence claims:
+
+1. No wall-clock timeout per query / tool-call / invoke (parse-time enforced by rejecting any `timeout:` field).
+2. No per-query response-token cap or cumulative-token budget (only `ContextOverflowError` covers the token domain).
+3. No runtime-value memory ceiling (string length, array length, total heap bounded only by the host process; "host-OOM throws route through `loom/runtime/internal-error`").
+4. No host-language stack-depth ceiling within a single loom invocation distinct from the 32-level `invoke`-chain bound.
+
+The paragraph itself has no `<a id>` anchor, so it cannot be cited stably; the four claims share one prose blob with no per-claim IDs, so a downstream test, REQ-ID gate, or governance edit cannot pin to claim 1 vs. claim 3. The aggregator-vs-source lockstep that GOV-12 promises for the bullet body has nothing to lock onto at sub-claim granularity.
+
+Two of the claims are also written too loosely to be safely implemented:
+
+- **Claim 3 (host-OOM routing).** "Host-OOM throws route through `loom/runtime/internal-error`" is true for the *catchable* throws V8 surfaces as JavaScript exceptions — `RangeError: Invalid string length` (string allocation past V8's max length, ≈ 2³⁰ − 25 chars on 64-bit), `RangeError: Invalid array length` (typed-array / array allocation past 2³² − 1), `RangeError: Maximum call stack size exceeded` (engine recursion bound) — all of which the runtime-defect surface in [Errors and Results — runtime panics](./spec_topics/errors-and-results.md) does correctly route. It is **not** true for the V8 fatal heap-OOM path (`FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory`): on Node ≥ 20.6.0 that path invokes V8's `OOMErrorCallback`, calls `abort()`, terminates the process, and is not observable as a JavaScript exception — `process.on('uncaughtException')` does not see it, no `try` / `catch` can intercept it, and therefore no `loom/runtime/internal-error` diagnostic can be emitted. The blanket sentence as written promises a routing the runtime cannot deliver and leaves V18m / V18n's `internal-error` wrap claiming a guarantee it cannot honour.
+
+- **Claim 4 (stack-depth).** "No host-language stack-depth ceiling within a single loom invocation distinct from the 32-level `invoke`-chain bound" reads two ways: either (a) the 32-level bound *is* the de facto stack ceiling and there is no separate one, or (b) there is no stack ceiling at all (in which case claim 3's catchable-RangeError observation directly contradicts it — V8's call-stack overflow is exactly such a ceiling, just one the spec disclaims). The intent is presumably (a) — V1 does not impose a *loom-level* stack ceiling beyond the 32-frame `invoke` count, and the host engine's native recursion bound is observed only as a runtime-defect-surface throw — but the current sentence does not say that.
+
+## Spec Documents
+
+- `spec.md` — Scope → Hard ceilings, closing paragraph (`spec.md:60`) (edited)
+- `spec_topics/errors-and-results.md` — Runtime panics → runtime-defect surface paragraph defining `loom/runtime/internal-error` routing (edited — must state that uncatchable host fatals are out of routing scope)
+- `spec_topics/diagnostics.md` — `loom/runtime/internal-error` registry row (edited — same uncatchable-OOM carve-out)
+- `spec_topics/cancellation.md` — per-call timeout deferral (read-only; backs claim 1)
+- `spec_topics/future-considerations.md` — pre-flight token-count check, per-call timeouts (read-only; back claims 1 and 2)
+- `spec_topics/query.md` — `ContextOverflowError` detection (read-only; backs claim 2)
+- `spec_topics/invocation.md` — invocation depth bound (read-only; backs claim 4)
+- `spec_topics/governance.md` — GOV-12 aggregator lockstep (read-only; the per-claim IDs created here are the lockstep targets)
+
+## Plan Impact
+
+**Phases:** Vertical V18 (Cancellation & runtime-error routing).
+
+**Leaves (implementation order):**
+
+- V18m — Top-level interpreter wrap → `loom/runtime/internal-error` — (modified — Adds/Tests must state that fatal V8 heap-OOM is process-terminal and *not* observable through this wrap; only the catchable `RangeError` family routes here)
+- V18n — `invoke`-boundary wrap → `loom/runtime/internal-error` — (modified — same carve-out for the `invoke` parent surface)
+- V18o — Per-call timeout marker (deferral confirmation) — (modified only if the new sub-ID for claim 1, e.g. `NOCEIL-1`, is added to V18o's REQ-ID list as the closing leaf)
+
+## Consequence
+
+**Severity:** correctness
+
+Two reasonable implementers will diverge on claim 3: one will ship a top-level wrap that promises to route every host throw to `loom/runtime/internal-error` and quietly silently fail when the V8 fatal-OOM path skips it; the other will recognise the path is uncatchable and either document the gap or wire `--max-old-space-size` / `--heapsnapshot-near-heap-limit` workarounds. Either choice is defensible against the current text. The missing per-claim IDs are an advisory-tier traceability gap on their own, but combined with the wrong host-OOM claim they prevent V18m / V18n from citing exactly which sub-claim their tests close.
+
+## Solution Space
+
+**Shape:** single
+
+### Recommendation
+
+Edit the closing paragraph as follows:
+
+1. **Anchor.** Insert `<a id="no-additional-ceilings"></a>` immediately before "No additional V1 runtime ceiling applies …" so the paragraph is citable.
+
+2. **Per-claim IDs.** Restructure the prose into four labelled clauses `NOCEIL-1` … `NOCEIL-4`, one per non-existence claim, in the order the paragraph already uses (timeout, token-cap, memory, stack-depth). The labels enter GOV-12's lockstep set; the coverage-matrix row pointing at this paragraph cites them individually.
+
+3. **Fix claim 3 (NOCEIL-3).** Replace "host-OOM throws route through `loom/runtime/internal-error`" with a partition that distinguishes catchable from uncatchable:
+   > "*Catchable* host allocation failures — `RangeError: Invalid string length`, `RangeError: Invalid array length`, `RangeError: Maximum call stack size exceeded`, and any other JavaScript-exception-shaped allocation failure the host throws — are part of the runtime-defect surface and route through `loom/runtime/internal-error` per [Errors and Results — runtime panics](./spec_topics/errors-and-results.md). *Uncatchable* host fatals — V8's `FATAL ERROR: Allocation failed - JavaScript heap out of memory` and any other engine fatal that bypasses the JavaScript exception machinery — terminate the host process; the runtime cannot observe them and emits no diagnostic. Operators relying on a finite heap ceiling MUST use a host-side mechanism (e.g. `--max-old-space-size`, container memory caps, `--heapsnapshot-near-heap-limit` for triage); V1 makes no claim that the loom runtime can intercept the fatal path."
+
+4. **Fix claim 4 (NOCEIL-4).** Replace the ambiguous sentence with: "The 32-level `invoke`-chain bound is the only loom-level frame-depth ceiling. The host language's native call-stack bound (e.g. V8's recursion limit) is not separately ceilinged by the runtime; an exhaustion of that bound surfaces through the catchable-`RangeError` arm of NOCEIL-3 (`RangeError: Maximum call stack size exceeded`)."
+
+5. **V18m / V18n alignment.** The Adds bullets for V18m and V18n already say "outside the closed V1 panic-source list … is caught at the [top-level | invoke] wrap and routed to `loom/runtime/internal-error`." Append: "Fatal host failures that bypass the JavaScript exception machinery (V8 heap-OOM via `OOMErrorCallback` / `abort()`) are out of scope for this wrap; the process terminates and no diagnostic is emitted." The Tests bullet adds a non-test acknowledgement (no synthesised fixture — the path cannot be exercised in-process without crashing the test runner); the gap is documentation-only.
+
+Edge case the implementer must watch: `RangeError: Maximum call stack size exceeded` thrown from inside the runtime's recursive descent (interpreter frames, AJV validation, JSON depth-walk) is catchable and reaches the top-level wrap — so V18m's existing fixture surface is already capable of closing it; only V18n needs an additional case where a deep `invoke` chain triggers the engine bound *before* hitting the 32-frame ceiling (currently impossible by construction, but the wrap must remain robust against host frame inflation).
+
+## Relationships
+
+- T20 "Hard-ceiling interaction paragraph: missing anchor, undefined jargon, and bundled ordering rules" — co-resolve (sister paragraph in the same Hard Ceilings block; one editing pass installs both anchors and both ID schemes — `CIO-*` and `NOCEIL-*`)
+- T21 "Masked ceilings: no observability requirement for the unreported breach" — must-follow (the at-most-one-per-event rule that masks rival ceilings is settled by the masked-ceilings decision; the NOCEIL paragraph's host-OOM routing must not be confused for an additional ceiling that could be masked)
+
+---
+
+# T20 — Hard-ceiling interaction paragraph: missing anchor, undefined jargon, and bundled ordering rules
+
+**Original heading:** Interaction paragraph: no anchor; "unfired condition" / "round-completion accounting" undefined; ordering rules lack IDs
+**Original section:** spec.md — Scope: Hard ceilings — "Interaction between ceilings" and closing paragraph
+**Kind:** clarity, traceability
+**Importance:** medium
+
+## Finding
+
+The "**Interaction between ceilings.**" sub-block inside `spec.md`'s hard-ceilings bullet (lines 58–59, nested under `<a id="hard-runtime-ceilings">`) is bold inline prose with no anchor of its own and no per-rule identifiers. Its first sentence — "the first check whose precondition is satisfied fires, and *the unfired condition* is then unreachable for that event" — uses the singular "the unfired condition" as if exactly one rival ceiling competed at each check site. The paragraph immediately afterwards lists four ceilings situated at four *different* sites (slash-load, `invoke` entry, every AJV boundary, the tool-call-round boundary), so the framing of a binary fire/non-fire choice at each site does not match the underlying model: ceilings are sequential along the control-flow path, not concurrent at one site. The reader has to reconstruct the actual rule (loosely: "the first ceiling reached along the event's control-flow path ends the event; later ceilings on the same path are not evaluated") from the worked examples that follow.
+
+The paragraph also relies on the term **"round-completion accounting"** in its second worked example ("depth-walk fires before the round-completion accounting that would tip into `tool_loop_exhausted`"). The phrase appears nowhere else in the corpus — it is not in `spec_topics/glossary.md`, and `spec_topics/query.md` and `spec_topics/frontmatter.md` use only "tool-call rounds", "iteration cap", and the per-query slot counter described in V6k of the plan. An implementer cannot determine from the spec alone whether "round-completion accounting" is the slot-increment that fires after each completed round, the post-round comparison against `max_iterations`, or both — the answer matters because it pins exactly when ceiling #2 is evaluated relative to the depth walk on the forced respond turn at iteration `max_iterations`.
+
+Finally, the paragraph bundles at least five independently testable ordering obligations (depth-walk before AJV at the same site; ceiling #1 at `invoke` entry before the callee body; ceiling #4 as the first sub-check at every AJV boundary; ceiling #2 after a round completes and before the next model turn; ceiling #3 never interleaves with #1/#2/#4) plus the at-most-one-ceiling-per-event guarantee, and it carries the only normative anchoring of the depth-walk-precedes-AJV ordering and the tool-loop-counter timing. None of these has its own ID, so a conformance test cannot record a partial result against this paragraph and a future revision cannot cite a single rule by name.
+
+## Spec Documents
+
+- `spec.md` — `## Orientation > Scope`, hard-ceilings bullet, "Interaction between ceilings" sub-block (edited)
+- `spec_topics/glossary.md` — definitions list (edited; new entry for the slot-accounting term, or for "tool-call round")
+- `spec_topics/query.md` — "Tool-call loop bound" section (read-only; pins what "round" and the iteration cap mean)
+- `spec_topics/schema-subset.md` — depth-enforcement section (read-only; pins the depth-walk-before-AJV ordering at AJV boundaries)
+- `spec_topics/frontmatter.md` — `tool_loop` field (read-only; pins what one slot is and that the forced respond turn consumes one)
+- `spec_topics/binder.md` — `#bypass-cases` (read-only; pins that `invoke` does not run the binder, justifying the no-interleave clause for ceiling #3)
+
+## Plan Impact
+
+**Phases:** Horizontal H6.
+
+**Leaves (implementation order):**
+
+- H6 — REQ-ID anchor insertion and coverage-matrix re-pivot — (modified)
+
+V6k (`tool_loop` cap), V11i (depth walk), V18n (invoke-depth-exceeded panic surface), V16n / V16o (binder retry budgets) all encode the observable behaviour the paragraph describes; their acceptance criteria do not change because the spec edit clarifies wording and assigns IDs without altering the underlying rules. H6 is modified because it owns the bulk REQ-ID anchor insertion and would carry the new `CIO-N` (or equivalent) prefix and its coverage-matrix rows.
+
+## Consequence
+
+**Severity:** advisory
+
+A careful implementer reaches the right behaviour from the worked examples and the topic-page anchors the paragraph forward-links to, so nothing ships wrong. But the paragraph cannot be cited rule-by-rule from a test or a future revision, and the depth-walk-vs-`tool_loop`-accounting precedence on the forced respond turn at iteration `max_iterations` rests entirely on undefined jargon — two reviewers can read it and agree the rule "looks right" without agreeing on what "round-completion accounting" denotes.
+
+## Solution Space
+
+**Shape:** single
+
+### Recommendation
+
+Promote the sub-block to a stable, citable structure and replace the misleading singular framing with the underlying control-flow-path rule, then enumerate the ordering obligations as numbered items with stable IDs.
+
+Concretely, edit the hard-ceilings bullet in `spec.md` so the Interaction sub-block reads:
+
+1. Insert `<a id="ceiling-interaction-order"></a>` immediately before the bold lead-in "**Interaction between ceilings.**".
+2. Replace the opening sentence with a path-based formulation: *"Each ceiling is checked at a distinct point in single-threaded interpreter execution. The first ceiling reached along an event's control-flow path that finds its precondition satisfied fires and ends the event; ceilings situated at later points on the same path are not evaluated for that event."* This drops the singular "the unfired condition" and stops implying a per-site rivalry that does not exist.
+3. Reformat the fixed evaluation order as a numbered list with stable sub-IDs (suggested prefix `CIO-`, but any prefix that satisfies the H6 prefix-table check works):
+   - **CIO-1** — Ceiling #3 (binder per-class retry budget) is evaluated at slash-load time, before any runtime ceiling.
+   - **CIO-2** — Ceiling #1 (`invoke`-chain depth) is evaluated at `invoke` entry, before the callee body runs.
+   - **CIO-3** — Ceiling #4 (JSON-document depth) is the first sub-check at every AJV validation boundary (typed-query response, `tool_use` args, `params` merge, `invoke<T>` return); the depth walk runs before AJV at the same site per [Schema Subset — Depth Enforcement].
+   - **CIO-4** — Ceiling #2 (`tool_loop.max_iterations`) is evaluated at the tool-call-round boundary — *after* the round's tool calls have completed and the slot count has been incremented for the just-completed round, and *before* the next model turn (or, on a typed query at iteration `max_iterations`, the forced respond turn) is requested.
+   - **CIO-5** — Ceiling #3 never interleaves with #1, #2, or #4: the binder runs only at slash-invocation load time, and `invoke(...)` calls do not invoke the binder per [Slash-Command Argument Binding — Binder bypass].
+   - **CIO-6** — At most one ceiling surfaces per event; the spec does not promise reporting masked ceilings (cross-link to the masked-ceilings finding's resolution if it adopts a `details.masked` field).
+4. Replace "round-completion accounting" with concrete prose that names the slot-increment step, e.g. *"the slot-increment for the just-completed round (the bookkeeping that ceiling #2 consults to decide whether the next turn would exceed `max_iterations`)"*. Optionally add a glossary entry **tool-call round slot accounting** that points to `query.md`'s "Tool-call loop bound" section and to V6k's slot-counting rule, and reference it from CIO-4. The phrase "round-completion accounting" should not survive the edit.
+5. Keep the three worked-consequence sentences but rewrite each to cite the relevant `CIO-N` ID(s) it illustrates — this turns them from disambiguation prose into named test fixtures.
+
+Edge cases the implementer must watch:
+
+- The depth-walk-before-AJV ordering (CIO-3) is also asserted by `schema-subset.md` and exercised by V11i at the service level; the spec edit must keep the `spec.md` statement consistent with `schema-subset.md` rather than introducing a second source of truth (this is the GOV-12 lock-step concern).
+- CIO-4's "after slot-increment, before next turn" ordering is the load-bearing rule for the second worked example (depth-6 forced respond at `max_iterations`). If the H6 prefix already encodes a different precedence convention for slot-counting, align CIO-4's wording to that convention rather than coining a parallel one.
+- The masked-ceiling clause (CIO-6) and the separate masked-ceilings finding co-resolve: whichever fix is taken there should be reflected in CIO-6's wording so the two are not contradictory.
+
+## Relationships
+
+- T19 "'No additional V1 runtime ceiling' closing paragraph: missing anchor / per-claim IDs and an unverifiable host-OOM routing claim" — co-resolve (immediately adjacent paragraph with the identical anchor + per-claim-ID gap; one H6 editing pass introduces both `CIO-*` and `NOCEIL-*`)
+- T21 "Masked ceilings: no observability requirement for the unreported breach" — must-follow (CIO-6's exact wording depends on whether a `details.masked` field is added)
+
+---
+
+# T21 — Masked ceilings: no observability requirement for the unreported breach
+
+**Original heading:** Masked ceilings: no observability requirement for the unreported breach
+**Original section:** spec.md — Orientation > Scope: Hard ceilings (general)
+**Kind:** error-model
+**Importance:** medium
+
+## Finding
+
+The Hard-ceilings "Interaction between ceilings" paragraph in `spec.md` fixes a deterministic evaluation order for ceilings #1–#4 and concludes: "At most one ceiling surfaces per event; the spec does not promise reporting both." Worked examples confirm that when two ceilings would fire at the same site (e.g. a `tool_use` round whose tool-arg payload is depth-6 at iteration `max_iterations`), only the earlier-in-order ceiling — here #4 (`schema_validation`) — surfaces, and the later one (`tool_loop_exhausted`) is silently suppressed.
+
+No companion obligation requires the suppressed condition to be recorded anywhere. `spec_topics/diagnostics.md` defines no `details` field for masking, the always-log set in `spec_topics/pi-integration-contract.md` (and its implementation leaf V18q) emits one `RuntimeEvent` per originating `Err` with no provision for a co-fired condition, and the panic emission path (V18m, V18n) carries only the panic code. An operator inspecting `loom-system-note` after a masked event sees the surfaced ceiling and has no signal — not even at debug level — that a second hard ceiling was simultaneously breached at the same site.
+
+This is an under-specified observability surface, not a routing bug. Two reasonable implementers will diverge: one will record the masked condition somewhere (a `display: false` companion event, a `details` field, a debug log) on the assumption that "no ceiling fails silently" implies all breaches are at least logged; the other will read the spec literally and discard the masked condition entirely. The aggregator's "no ceiling fails silently" claim is in tension with the masking rule and needs explicit reconciliation.
+
+## Spec Documents
+
+- `spec.md` — Scope > Hard ceilings > Interaction between ceilings (edited)
+- `spec_topics/diagnostics.md` — `loom-system-note` `details` shapes (edited)
+- `spec_topics/pi-integration-contract.md` — Runtime event channel / always-log set (edited)
+- `spec_topics/errors-and-results.md` — Runtime panics (read-only)
+
+## Plan Impact
+
+**Phases:** Vertical V18
+
+**Leaves (implementation order):**
+
+- V18q — Runtime event channel and always-log emission — (modified)
+- V18m — Panic routing: slash-command surface — (modified)
+- V18n — Panic routing: `invoke` parent surface — (modified)
+
+## Consequence
+
+**Severity:** advisory
+
+When two hard ceilings fire at the same site (the documented `tool_loop` × depth-6 case being the canonical example, but #1 × #4 is also reachable), the operator-facing record contains exactly one of them and no marker that masking occurred. Post-mortem analysis cannot distinguish "depth-6 happened at a healthy round" from "depth-6 happened at a near-exhausted query." The system still works; the failure surface is still observable for the surfaced ceiling; but the diagnosability claim implicit in "no ceiling fails silently" is overstated.
+
+## Solution Space
+
+**Shape:** single
+
+### Recommendation
+
+Extend the surfaced diagnostic / runtime event to carry an optional `details.masked` field (or `event.masked` on `RuntimeEvent`) listing the ceiling identifiers (`"ceiling#1" | "ceiling#2" | "ceiling#3" | "ceiling#4"`) whose preconditions were also satisfied at the same check site. The field is omitted when no masking occurred. Detection happens at the surfaced ceiling's check site by re-evaluating the would-be siblings' preconditions before short-circuiting.
+
+Spec edits:
+
+- `spec.md` Hard-ceilings interaction paragraph: replace "the spec does not promise reporting both" with "the surfaced diagnostic / runtime event carries `details.masked: <ceiling-id[]>` enumerating any other ceiling whose precondition was satisfied at the same check site; an empty/absent field means no co-fire."
+- `spec_topics/diagnostics.md`: extend the `details` shape catalogue to permit `masked: string[]` on the affected codes (`loom/runtime/invoke-depth-exceeded`, the `validation` system-note shape, the `tool_loop_exhausted` event shape).
+- `spec_topics/pi-integration-contract.md` Runtime event channel: add `masked?: string[]` to the `RuntimeEvent` schema.
+
+This preserves "no ceiling fails silently" as written, gives operators a one-shot post-mortem signal without paying for two emissions, and keeps detection cost bounded — only the ≤3 sibling ceilings need to be re-evaluated at the surfaced site.
+
+Edge cases the implementer must watch:
+
+- The reachable mask domain differs per check site. At the typed-query response / tool-arg / `params` boundary (ceiling #4 site) only ceiling #2 can co-fire (binder #3 is load-time, depth #1 is at `invoke` entry). At the `invoke` entry site (ceiling #1) only ceiling #4 can co-fire (against the `invoke<T>` return payload after the callee runs, but #1 is checked at entry — so the reachable set at #1's site is empty). The spec must enumerate the per-site reachable set or the field will be inconsistent across implementations.
+- Ceiling #3 (binder) is load-time and runs before any runtime ceiling can be checked; its surface is a `loom-system-note` rendered from a failure-mode template, not an `Err` value. The `masked` field on #3's surface is always empty by construction; the spec should say so.
+- The detection step must not have observable side effects. Re-evaluating ceiling #2's `tool_loop` counter or ceiling #4's depth-walk for masking purposes must be a pure read; it must not advance the counter, mutate the round bookkeeping, or trip a second emission.
+- Tests must cover both the co-fire case (depth-6 at iteration `max_iterations` produces a `validation` event with `masked: ["ceiling#2"]`) and the no-mask case (depth-6 at a healthy round produces `masked` absent or `[]`) — pick one of "absent" or "empty array" as canonical and enforce it.
+
+## Relationships
+
+- T20 "Hard-ceiling interaction paragraph: missing anchor, undefined jargon, and bundled ordering rules" — co-resolve (same paragraph; the masking sentence and the ordering rules need IDs together)
+- T18 "Ceiling #4 routing class collapses four boundaries whose destinations differ" — must-precede (the model-driven tool-arg row is the canonical 'silent to loom code' case; the observability decision here shapes how T18's per-boundary table phrases the model-driven row)
+- T19 "'No additional V1 runtime ceiling' closing paragraph: missing anchor / per-claim IDs and an unverifiable host-OOM routing claim" — must-precede (the at-most-one-per-event rule that masks rival ceilings is settled here; T19's host-OOM routing must not be confused for an additional ceiling that could be masked)
