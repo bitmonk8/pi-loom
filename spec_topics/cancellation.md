@@ -30,6 +30,8 @@ Synchronous in-process work — schema lowering at file-load time, AJV validatio
 
 Symmetrically, an in-flight operation whose underlying provider observes the abort surfaces as `Err` per the **Surfacing** rules below; this is the only path by which an operation's own result becomes `cancelled`.
 
+The no-retroactive-rewrite rule extends to the tool-call boundary specifically: once a `tool-call` checkpoint has surfaced `Err(QueryError { kind: "code_tool", cause: "cancelled", ... })` for a given tool invocation, any later settlement of the underlying `execute()` Promise (resolve with `Ok` or `isError: true`, reject with a throw, or any other outcome enumerated in [Pi Integration Contract — Tool execution from loom code](./pi-integration-contract.md#tool-execution-from-loom-code)) is discarded — the runtime MUST NOT rebind the call site to the late value, MUST NOT emit a second `Err` for the same invocation, and MUST NOT emit a second `RuntimeEvent`. The discriminator is whether cancellation has already been surfaced at the checkpoint, not the late-settle kind. The `Checkpoint` seam (per [Pi Integration Contract — `Checkpoint` seam](./pi-integration-contract.md#checkpoint-seam)) is the deterministic-test substrate for this discard.
+
 Edge cases:
 
 - Statement boundaries are *not* themselves checkpoints; the next checkpoint is the next loop-iter boundary, `@`-query, tool call, or `invoke`. A straight-line statement sequence with no such operations runs to completion regardless of when the abort fired.

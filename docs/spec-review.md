@@ -4,7 +4,7 @@ _Generated: 2026-05-07T13:35:00Z_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T21) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 6 high, 11 medium retained; 23 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped (13 false positives were filtered upstream by the enricher)._
+_Triage tally: 5 high, 11 medium retained; 23 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped (13 false positives were filtered upstream by the enricher)._
 
 ---
 
@@ -1072,73 +1072,3 @@ Extend the runtime-defect surface to cover the pre-evaluation dispatch frame at 
 
 ---
 
-# T17 — Tool failure modes beyond `throw` / `isError: true` unspecified
-
-**Original heading:** Tool failure modes beyond `throw` / `isError: true` unspecified
-**Original section:** spec.md — Orientation > Scope: Trust boundary
-**Kind:** completeness, error-model
-**Importance:** high
-
-## Finding
-
-The Trust-boundary bullet in `spec.md` and the `Failures` paragraph in `spec_topics/tool-calls.md` map exactly two tool outcomes to `Err(QueryError { kind: "code_tool", … })`: a thrown `execute()` and a returned `{ isError: true, … }`. The `CodeToolError.cause` enum is correspondingly closed at four members — `validation`, `execution`, `cancelled`, `unknown_tool` — and the lowering recipe in `spec_topics/pi-integration-contract.md` ("Tool execution from loom code") jumps straight from a returned envelope to `content.filter(e => e.type === "text").map(e => e.text).join("\n")` with no precondition check on the envelope's shape.
-
-That leaves at least three observable tool outcomes with no stated routing:
-
-1. **Non-resolving Promise (the tool's `execute()` neither resolves nor rejects).** `spec.md` Hard ceilings declares no V1 wall-clock timeout, and the `tool-calls.md` "V1 seam — per-call timeout" reservation makes the absence explicit, so the loom-side observable is "blocks at the await indefinitely." But the consequence is never written down at the tool boundary: a reader cannot tell whether the runtime is supposed to insert a guard, whether cancellation is the only termination path, or whether a hung tool ever surfaces a system note.
-2. **Non-conforming return shape** — the resolved value is not an object, lacks `content`, lacks `isError`, has `content` whose entries lack `type` / `text`, etc. The lowering procedure will throw at the first property access (`TypeError` from `content.filter`), but no spec text says so. With nothing pinned, two implementers will diverge: one wraps the lowering in a `try` and routes to `Err(CodeToolError { cause: "execution" })`; another lets the throw escape into the runtime-defect surface and `loom/runtime/internal-error`; a third silently coerces (`content ?? []`, `Boolean(isError)`) and returns `Ok("")`. All three pass the existing tests.
-3. **Post-cancel resolution** — `loomAbort` fires, the runtime surfaces `cause: "cancelled"` at the next checkpoint, and the tool's underlying Promise then resolves (with `Ok` or with `isError: true`) some microtasks later. `spec_topics/cancellation.md`'s no-retroactive-rewrite rule covers `Ok(v)` followed by an abort at the *next* checkpoint, but it does not address a post-cancel value arriving at the tool-boundary `await` itself. The runtime might rebind to the late `Ok`, surface a second `Err`, or leak the resolved value — nothing pins which.
-
-The finding's framing of these as a "silent-success surface larger than the two named cases" is exactly right: in each of the three, a denial-or-failure semantics can degrade to a success-shaped value (`Ok("")` from coerced shape; an indefinite hang is observationally indistinguishable from in-flight; a late `Ok` could overwrite a cancellation) without violating any normative rule on the books.
-
-## Spec Documents
-
-- `spec.md` — Orientation > Scope: Trust boundary (edited)
-- `spec_topics/tool-calls.md` — Failures paragraph and `cause` enum (edited)
-- `spec_topics/pi-integration-contract.md` — Tool execution from loom code (edited)
-- `spec_topics/errors-and-results.md` — `CodeToolError` variant definition (option-dependent; edited if the `cause` enum widens)
-- `spec_topics/cancellation.md` — Race semantics / no-retroactive-rewrite (edited; extend the rule to the tool-boundary `await`)
-- `spec_topics/diagnostics.md` — `loom/runtime/internal-error` `details.kind` registry (edited if a new discriminator is added)
-
-## Plan Impact
-
-**Phases:** V14, V18
-
-**Leaves (implementation order):**
-
-- V14g — `CodeToolError` variant: `execution` cause — (modified)
-- V14h — `CodeToolError` variant: `cancelled` cause — (modified)
-- V18l — Top-level panic / unanticipated-throw routing through `loom/runtime/internal-error` — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers will produce divergent observable behaviour for any tool whose contract V1 already permits to exist. The most damaging case is the non-conforming-shape path: a coercing implementation silently lands `Ok("")` where a strict implementation surfaces an `Err`, defeating the bullet's own "silent success on denial is forbidden" rule. The hang case turns the ungoverned absence of a timeout into an unbounded lock-up with no operator note. The post-cancel-resolution case can rebind a cancelled invocation to a late success, breaking the cancellation contract author code relies on for `?` and `match` arms.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Extend `spec_topics/tool-calls.md` *Failures* (and the `CodeToolError.cause` enum) to enumerate all observable tool outcomes; mirror the lowering rule in `spec_topics/pi-integration-contract.md` — *Tool execution from loom code*; replace the Trust-boundary sentence in `spec.md` with the same forward-link summary it currently is, but pointing at the now-complete enumeration.
-
-Concrete dispositions:
-
-1. **`execute()` returns a Promise that never settles.** The runtime makes no V1 attempt at internal timeout enforcement (consistent with the Hard-ceilings "no wall-clock timeout" rule). The tool blocks at the `await` until `loomAbort.signal` fires, at which point cancellation surfaces through the existing `cause: "cancelled"` path (V14h). State this explicitly at the tool boundary so the absence is not mistaken for an unspecified gap, and forward-link to the per-call-timeout V1 seam already documented in `tool-calls.md`.
-
-2. **Non-conforming return shape.** Wrap the lowering in `pi-integration-contract.md` so that any throw from envelope inspection (`content` not iterable, entries missing `type` / `text`, the resolved value not an object, etc.) is caught and routed to `loom/runtime/internal-error` with `details.kind = "tool-return-shape"`, carrying `tool_name` and the offending shape's discriminator (e.g., `typeof resolved`, `Array.isArray(content)`). This is the runtime-defect surface — a non-conforming Pi tool is a bug in that tool, not in loom code, and `internal-error` is the existing routing class for "an unanticipated SDK reject" per V18l. Do **not** widen `CodeToolError.cause` for this case: the `cause` enum is the *contract surface for loom authors*, and a non-conforming shape is not something an author can `match` on usefully.
-
-3. **Post-cancel resolution at the tool-boundary `await`.** Extend `cancellation.md`'s no-retroactive-rewrite rule explicitly to the tool-call checkpoint: once `cause: "cancelled"` has been surfaced at a `tool-call` checkpoint, any later settlement of the underlying Promise (resolve or reject, `Ok` or `isError: true` or throw) is discarded — no rebinding, no second `Err`, no second `RuntimeEvent`. The existing `Checkpoint` seam (per H2 / V18d) is already the deterministic-test substrate; one new `FakeCheckpoint` test under V14h asserts the discard.
-
-Implementer-relevant edge cases:
-
-- **`isError: true` with non-conforming shape inside.** If `isError: true` but `content` is malformed, the existing `cause: "execution"` recipe in `pi-integration-contract.md` (filtered/joined text, falling back to `"tool reported an error with no text content"`) already covers the empty-or-missing-text case. State that any *throw* during this lowering still routes to `internal-error` (case 2), so the two paths are uniform.
-- **Late rejection vs. late resolution.** Both are discarded under (3); the discriminator at the checkpoint is whether cancellation has already been surfaced, not the settle kind.
-- **Tool ignores its `signal` and runs forever.** This is observationally identical to (1); no new rule is needed. The operator-visible signal is the absence of completion, which is an existing operator concern outside V1's scope.
-
-## Relationships
-
-- T16 "Pre-evaluation setup failures: no routing rule for the slash, `invoke()`, or tool-call dispatch surfaces" — same-cluster (analogous failure-mode-enumeration gap on the spawn surface; resolves independently using the same routing-class taxonomy)
-- T10 "Post-probe SDK-shape drift has no stated routing or operator attribution" — same-cluster (another instance of post-entry host-shape mismatch with no routing rule)
