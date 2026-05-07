@@ -4,7 +4,7 @@ _Generated: 2026-05-07T13:35:00Z_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T21) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 5 high, 11 medium retained; 23 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped (13 false positives were filtered upstream by the enricher)._
+_Triage tally: 4 high, 11 medium retained; 23 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped (13 false positives were filtered upstream by the enricher)._
 
 ---
 
@@ -1000,75 +1000,4 @@ Implementer edge cases to call out alongside the format:
 ## Relationships
 
 - T03 "Parameters block: indentation and per-field token order are not normative" — same-cluster (both are testability gaps in the binder system prompt; both resolve by promoting prose into a normative structural rule plus a reference-rendering table; the edits land in adjacent sub-sections of `spec_topics/binder.md`)
-
----
-
-# T16 — Pre-evaluation setup failures: no routing rule for the slash, `invoke()`, or tool-call dispatch surfaces
-
-**Original heading:** Pre-invocation spawn/registry failures: no routing rule for `invoke()` callers
-**Original section:** spec.md — Orientation > Prerequisites: Session model
-**Kind:** error-model
-**Importance:** high
-
-## Finding
-
-The runtime executes a fixed pre-evaluation setup sequence at every dispatch site (slash-command handler entry, `tool.execute(...)` adapter entry for `.loom`-callable tools, and `invoke(...)` spawn-site entry): construct a per-invocation `AbortController` (`loomAbort`), insert an `ActiveInvocationRegistry` entry holding `{ loomAbort, disposeBarrier }`, and — for subagent mode — spawn an `AgentSession` via `createAgentSession(...)`. The PIC pins this ordering ("Insertion happens at slash-command handler entry, `tool.execute(...)` adapter entry, and `invoke` spawn-site entry, before any awaitable work").
-
-Of the three setup steps, only one is given an explicit failure-routing rule. PIC's "Subagent session lifecycle" paragraph routes a thrown or rejected `createAgentSession` (and a returned handle whose `dispose` is non-callable) through `loom/runtime/internal-error`, with the parent invocation observing `Err(InvokeInfraError { cause: "internal_error", ... })` and a slash-command surface emitting the `"loom /<name> aborted with internal error: <message>"` system note. A throw from `new AbortController()` and a throw from `ActiveInvocationRegistry` insertion (or its `Set.add` step) have no analogous rule. The runtime-defect surface in `errors-and-results.md` ("any throw originating inside the runtime, an adapter it called, or a host function the runtime did not anticipate ... share the same routing channels as panics") is described in the context of evaluation-time throws inside the loom body; it does not unambiguously cover throws that happen *before* evaluation begins, while the dispatch frame is still inside the slash handler / tool adapter / `invoke` trampoline.
-
-The `tool.execute(...)` adapter case is the most observably under-specified. When the model emits a parallel tool-call into a `.loom` callable and pre-spawn setup throws inside the adapter, the spec does not state that the adapter MUST translate the throw into a `{ isError: true, content: [...] }` tool result before returning to Pi. Pi's tool loop will turn an unhandled adapter throw into *something* the model sees, but the wire shape and the operator-visibility note are not pinned, and a future Pi minor that changes that translation would silently shift loom behaviour. The aggregator's "no ceiling fails silently" / "silent success on denial is forbidden" stance does not extend to pre-evaluation setup throws, and `errors-and-results.md`'s closed pre-evaluation failure list (seven items) covers config-shaped failures (host-incompatibility, lex/parse/type, frontmatter rejection, binder-model resolution, binder LLM exhaustion, `tools:` resolution, watcher-time reload) — none of them are SDK-object construction failures at the dispatch frame.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — Extension entry point step 4 (`ActiveInvocationRegistry` definition + Registry contract bullets); Subagent session lifecycle (`createAgentSession` reject paragraph) (edited)
-- `spec_topics/errors-and-results.md` — Terminal outcomes / pre-evaluation failure list; Runtime panics (runtime-defect surface paragraph) (edited)
-- `spec_topics/invocation.md` — Failures (`InvokeInfraError` cause arms) (edited)
-- `spec_topics/tool-calls.md` — Failures (the `code_tool` / `model_tool` adapter-throw mapping) (edited)
-- `spec.md` — Orientation > Scope: Hard ceilings (closing paragraph that asserts "host-OOM throws route through `loom/runtime/internal-error`") (read-only)
-- `spec_topics/diagnostics.md` — `loom/runtime/internal-error` registry entry (read-only)
-
-## Plan Impact
-
-**Phases:** Horizontal H4, Vertical V12, Vertical V14, Vertical V15, Vertical V18
-
-**Leaves (implementation order):**
-
-- H4 — Pi extension shell — (modified) — owns `PiSubagentSpawner.spawn` and the slash-command shell; needs delegation tests for `createAgentSession`-rejects and registry-insertion / `AbortController`-construction throw paths
-- V12a — `mode: subagent` accepted; AgentSession spawn — (modified) — needs an `Adds`/`Tests` row asserting routing of pre-spawn setup throws to `loom/runtime/internal-error` for the subagent surface
-- V14 (tool-execute adapter leaves, e.g. V14a–V14c) — (modified) — adapter MUST translate pre-evaluation setup throws into `{ isError: true, ... }` so Pi's parallel-tool-call dispatch sees a defined wire shape rather than an unhandled rejection
-- V15a / V15l — `invoke` spawn-site entry / `InvokeInfraError` variant — (modified) — `cause: "internal_error"` arm needs a test asserting it fires for setup throws (not only for callee-body throws), and the leaf list of `cause` values must include `"internal_error"` (currently V15l enumerates only `load_failure`, `parse_failure`, `validation`, `panic`)
-- V18m — Panic routing: slash-command surface — (modified) — the `internal-error` template-routing test must cover a synthesised pre-evaluation throw, not only a body-injected `TypeError`
-- V18n — Panic routing: `invoke` parent surface — (modified) — symmetric coverage at the invoke-parent surface
-
-## Consequence
-
-**Severity:** correctness
-
-Two implementers will diverge on what happens when pre-evaluation setup throws. One may extend the runtime-defect surface to cover the dispatch frame and route through `loom/runtime/internal-error`; another may let the throw escape the slash handler (Pi treats it as an unhandled rejection, the user sees nothing actionable) or escape the `tool.execute(...)` adapter (the model sees whatever Pi's tool loop synthesises, with no `isError: true` guarantee). For the parallel tool-call dispatch path the silent-loss surface is genuine: nothing in the spec forbids returning to Pi with no tool result on adapter throw.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Extend the runtime-defect surface to cover the pre-evaluation dispatch frame at all three sites, and pin the per-surface translation explicitly. Concretely:
-
-1. In `errors-and-results.md` Runtime panics, broaden the runtime-defect surface paragraph: the surface covers any throw from "the runtime itself, an adapter it called, or a host function the runtime did not anticipate" *whether observed during evaluation or during pre-evaluation dispatch setup* (specifically: `new AbortController()`, `ActiveInvocationRegistry.add`, and `createAgentSession(...)` rejection). A single rule, three call sites.
-
-2. In PIC `ActiveInvocationRegistry` Registry contract, add a bullet pinning the dispatch-site wrap: each of the three insertion sites (slash handler, `tool.execute(...)` adapter, `invoke` spawn site) MUST wrap the `AbortController` construction + registry insertion + (subagent only) `createAgentSession(...)` await in a `try`/`catch` whose `catch` arm routes the captured error through the runtime-defect surface. On a throw before insertion completes, no entry leaks (nothing to remove); on a throw after insertion, the same `finally` removes the entry and settles `disposeBarrier`. The existing `createAgentSession`-rejects paragraph becomes a worked example of this rule rather than a one-off.
-
-3. Pin per-surface translations:
-   - **Slash dispatch** — `loom-system-note` formatted `"loom /<name> aborted with internal error: <error.message>"`, plus one `loom/runtime/internal-error` diagnostic carrying `error.stack` in `hint` (identical to V18m's body-throw routing).
-   - **`invoke()` parent** — `Err(InvokeInfraError { kind: "invoke_failure", cause: "internal_error", ... })`. Add `"internal_error"` to the `cause` enum in `errors-and-results.md`'s `InvokeInfraError` schema (currently enumerates `load_failure | parse_failure | validation | panic` — the `internal_error` arm is referenced in PIC and the runtime-defect paragraph but missing from the schema definition itself) and add it to V15l's `Adds` row.
-   - **Parallel tool-call dispatch into a `.loom` callable** — the adapter MUST translate the captured error into `{ isError: true, content: [{ type: "text", text: "loom <name> aborted with internal error: <error.message>" }] }` and return it to Pi normally; in parallel, emit the same `loom/runtime/internal-error` diagnostic and `loom-system-note` so the operator observes the failure even though the model's surface is the tool result. Forbid letting the throw propagate as an unhandled rejection out of the adapter.
-
-4. Edge case the implementer must handle: a throw from `loomAbort.abort()` invoked by the catch arm (e.g. on cleanup of a half-constructed registry entry) is itself swallowed by the existing per-entry `try`/`catch` in the `session_shutdown` sub-step 2 rule; do not let cleanup throws mask the original setup throw.
-
-## Relationships
-
-- T17 "Tool failure modes beyond `throw` / `isError: true` unspecified" — same-cluster (the parallel-tool-call translation rule above closes one of that finding's open enumeration items)
-- T10 "Post-probe SDK-shape drift has no stated routing or operator attribution" — same-cluster (also extends `loom/runtime/internal-error`'s reach; the dispatch-site wrap and the post-entry host-drift surface share the same diagnostic code)
-
----
 
