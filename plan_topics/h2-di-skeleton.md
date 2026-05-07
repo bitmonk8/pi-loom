@@ -73,6 +73,15 @@ interface SubagentSpawner {
 interface SubagentSession {
   sendUserMessage(text: string): Promise<void>;
   subscribe(handler: (event: AgentEvent) => void): Unsubscribe;
+  abort(): Promise<void>;                           // delegates to AgentSession.abort(); the cancellation
+                                                    // primitive the runtime invokes from a one-shot
+                                                    // loomAbort.signal listener registered at spawn time
+                                                    // (CreateAgentSessionOptions has no signal field in the
+                                                    // V1 Pi SDK pin, so the seam carries no `signal` field
+                                                    // either; cancellation is wired via this method, not as
+                                                    // a passthrough option). Per pi-integration-contract.md
+                                                    // (Conversation drive — subagent mode, Subagent session
+                                                    // lifecycle, Cancellation source).
   dispose(): Promise<void>;                         // idempotent; delegates to AgentSession.dispose()
 }
 ```
@@ -91,6 +100,7 @@ Forward references on the loom-internal seams (`Diagnostic`, `ModelRequest`, `Mo
 - A grep-test asserts that `Date.now`, `performance.now`, `Date.prototype.getTime`, and the global `setTimeout` / `clearTimeout` do not appear anywhere under `src/` outside the `WallClock` adapter (parallel to the existing `process.env.HOME` ban for `homedir()`).
 - `FakeToolHost.getCommandContext()` returns `undefined` until `setCommandContext(ctx)` is called, then returns the most recently set `ctx`; `setCommandContext(undefined)` resets it to `undefined`.
 - `FakeSubagentSpawner.spawn(...)` returns a handle whose `dispose()` is observable (call-count probe) and idempotent (a second `dispose()` is a no-op, per [Pi Integration Contract — Subagent session lifecycle](../spec_topics/pi-integration-contract.md)).
+- `FakeSubagentSpawner.spawn(...)` returns a handle whose `abort()` is observable (call-count probe); the production `PiSubagentSession.abort()` delegates to the underlying `AgentSession.abort()`. The production-side wiring that arms a one-shot `loomAbort.signal` listener to invoke this method is owned by H4 / V12a (see [`h4-extension-shell.md`](./h4-extension-shell.md) and [`v12-subagent.md`](./v12-subagent.md)).
 - `FakeSubagentSpawner.spawn(...)` rejects with a typed error when no scripted spawn response is queued (matches the existing "no silent default" rule for `FakeModelClient`).
 - `FakeCheckpoint.before(kind, site)` records each call (kind, site, ordinal) and returns the per-call hook supplied by the test (default: an already-resolved promise); a test that registers a hook firing `loomAbort.abort()` from inside `before(...)` observes the abort *at* that checkpoint, and a test that registers the same hook on the *previous* checkpoint observes the abort *between* checkpoints (the no-retroactive-rewrite test pattern from [Cancellation](../spec_topics/cancellation.md)). The production `NoOpCheckpoint.before(...)` is asserted to return an already-resolved promise on every call and to record nothing.
 - Every fake has at least one negative-path test.

@@ -5,7 +5,7 @@ _Source: docs/reviews/spec-review/spec-20260507-064438-enriched.md_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T26) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 13 high, 12 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
+_Triage tally: 12 high, 12 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
 
 ---
 
@@ -1693,88 +1693,3 @@ Rewrite the Trust-boundary bullet's subagent-mode parenthetical to mirror PIC's 
 
 - T25 "Subagent cancellation wiring depends on a non-existent `createAgentSession({ signal })` option" — co-resolve (sibling SDK-grounding error against `CreateAgentSessionOptions`; both edits land at the same call site)
 
----
-# T25 — Subagent cancellation wiring depends on a non-existent `createAgentSession({ signal })` option
-
-**Source:** docs/reviews/spec-review/spec-20260507-064438-enriched.md
-**Original heading:** `createAgentSession` has no `signal` option in SDK; subagent cancellation silently broken
-**Original section:** spec_topics/pi-integration-contract.md
-**Kind:** codebase-grounding-broad
-**Importance:** high
-
-## Finding
-
-The spec describes subagent-mode cancellation as flowing automatically through a `signal` option on `createAgentSession({ signal: loomAbort.signal })`. That option does not exist. In `@mariozechner/pi-coding-agent` (verified at the version `npm view` currently resolves to, 0.73.0), `CreateAgentSessionOptions` (in `dist/core/sdk.d.ts`) declares only `cwd`, `agentDir`, `authStorage`, `modelRegistry`, `model`, `thinkingLevel`, `scopedModels`, `noTools`, `tools`, `customTools`, `resourceLoader`, `sessionManager`, `settingsManager`, and `sessionStartEvent` — no `signal` field. JavaScript will silently ignore the extra option; the spawned `AgentSession`'s in-flight provider call will never observe `loomAbort` aborting.
-
-The error is repeated in at least five normative places. `pi-integration-contract.md` § *Host prerequisites #4* lists "the `signal` option of `createAgentSession({ signal })`" as a Pi-supplied prerequisite; the *Subagent state-isolation matrix* prose reads "cancellation forwards via the parent's `loomAbort.abort()` call propagating through the `signal` option passed to `createAgentSession({ signal: loomAbort.signal })`"; § *Cancellation source* repeats the same claim; § *Extension entry point* step 4 sub-step 2 says `loomAbort.abort()` "propagates through … `createAgentSession({ signal })` to in-flight provider calls"; and SDK-capability inventory item 5 enumerates the same option as a `MUST`. `cancellation.md` § *Forwarding into `loomAbort`* concludes "The subagent-mode counterpart needs no separate wiring: `createAgentSession({ signal: loomAbort.signal })` already cancels the spawned `AgentSession` whenever `loomAbort` fires." Plan leaf H4 also instructs the `PiSubagentSpawner` shim to forward `signal` into `createAgentSession`.
-
-The cascade is structural. Three downstream contracts collapse silently if an implementer follows the spec verbatim: the V1 invariant that `loomAbort.signal` is "always defined; tool adapters and Pi APIs that accept an `AbortSignal` receive it directly without optional-chaining"; the `session_shutdown` step that aborts every `ActiveInvocationRegistry` entry to drain subagent provider connections before `ExtensionRuntime.invalidate(...)` runs; and the cross-mode subagent cancellation matrix in `cancellation.md`. The actual SDK surface that *can* tear down a subagent is `AgentSession.abort(): Promise<void>` ("Abort current operation and wait for agent to become idle"), reachable on the handle returned by `createAgentSession`.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — *Host prerequisites #4* (edited)
-- `spec_topics/pi-integration-contract.md` — *Extension entry point* step 4 sub-step 2 (edited)
-- `spec_topics/pi-integration-contract.md` — *Conversation drive — subagent mode* (edited)
-- `spec_topics/pi-integration-contract.md` — *Subagent state-isolation matrix* (edited)
-- `spec_topics/pi-integration-contract.md` — *Subagent session lifecycle* (edited)
-- `spec_topics/pi-integration-contract.md` — *Cancellation source* (edited)
-- `spec_topics/pi-integration-contract.md` — *SDK capability inventory* item 5 (edited)
-- `spec_topics/pi-integration-contract.md` — *Entry capability probe* (Step 0 b) (edited — add `AgentSession.abort` to factory-probable members)
-- `spec_topics/cancellation.md` — *Signal source* (edited)
-- `spec_topics/cancellation.md` — *Forwarding into `loomAbort`* — slash-command bullet trailing sentence (edited)
-- `spec_topics/diagnostics.md` — `loom/runtime/internal-error` row (read-only — already enumerates `createAgentSession` reject paths; no shape change)
-
-## Plan Impact
-
-**Phases:** Horizontal H2, Horizontal H4, Horizontal H5, Vertical V12, Vertical V18
-
-**Leaves (implementation order):**
-
-- H2 — Dependency-injection skeleton with fakes — (modified — `SubagentSpawner` factory seam contract must specify the `session.abort()`-via-listener wiring as the cancellation primitive, not a passthrough `signal` option)
-- H4 — Pi extension shell — (modified — `PiSubagentSpawner.spawn(opts)` MUST register a one-shot `loomAbort.signal` listener that calls the returned `AgentSession.abort()` and detach it in the same `finally` that runs `dispose()`; the literal `createAgentSession({ ..., signal, ... })` argument list and the "calls the captured `createAgentSession` exactly once with the lowered `customTools` / `tools` allowlist pair" delegation-contract test both need updating)
-- H5 — Pi end-to-end harness — (modified — harness wiring against the real `createAgentSession` cannot rely on a `signal` option; cancellation in integration tests must be exercised via `session.abort()`)
-- V12a — `mode: subagent` accepted; AgentSession spawn — (modified — the "`dispose()` invoked on parent-`AbortSignal`-fired-before-first-turn" test must drive cancellation through the new listener path rather than through a `signal` option that the SDK ignores)
-- V18d — `AbortSignal` before every `invoke` — (modified — the "for subagent-mode children, cancellation observed before the first turn still triggers `AgentSession.dispose()` via the `finally` block" assertion needs the listener+`session.abort()` pathway as its operative mechanism)
-- V18e — Cancellation propagates downward only — (modified — the parent → child propagation contract for subagent-mode children depends on the listener+`session.abort()` wiring landed in H4)
-
-## Consequence
-
-**Severity:** correctness
-
-A naive implementer who mirrors the spec emits `createAgentSession({ signal: loomAbort.signal, ... })`, the option is silently dropped, and subagent provider calls become uncancellable: Esc during a long subagent turn does nothing, `/reload` mid-turn cannot drain in-flight subagents before `ExtensionRuntime.invalidate(...)`, and the V1 "always defined `loomAbort.signal`" invariant becomes load-bearing for nothing on the subagent path. A sharper implementer notices the missing field and routes through `AgentSession.abort()`; the two implementations differ in observable teardown timing and in error surfaces (an `abort()` rejection has no spec-defined disposition).
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Replace every reference to `createAgentSession({ signal })` with the actual SDK wiring: at the call site that spawns a subagent, the runtime registers a one-shot `loomAbort.signal` listener that invokes `session.abort()` on the handle returned by `createAgentSession(...)`. The listener is attached immediately after the awaited `createAgentSession(...)` returns and is removed in the same per-invocation `finally` block that calls `AgentSession.dispose()` and detaches every other forwarding listener (per the existing rule in `cancellation.md`). If `loomAbort.signal.aborted` is already true at listener-registration time, the runtime invokes `session.abort()` synchronously before issuing the first user turn so the spawn-then-immediate-cancel path tested by V12a remains correct.
-
-Concrete spec edits required:
-
-- `pi-integration-contract.md` *Host prerequisites #4*: drop "the `signal` option of `createAgentSession({ signal })`" from the enumerated extension entry points; the surviving entries are `ctx.signal` and `tool.execute`'s `signal` parameter.
-- `pi-integration-contract.md` *Conversation drive — subagent mode* code block: remove any `signal` field; keep `customTools`, `tools`, `model`, `sessionManager`, etc.
-- `pi-integration-contract.md` *Subagent state-isolation matrix* `loomAbort` row: replace "propagating through the `signal` option passed to `createAgentSession({ signal: loomAbort.signal })`" with "propagating through a one-shot `loomAbort.signal` listener that calls `session.abort()` on the spawned `AgentSession`".
-- `pi-integration-contract.md` *Subagent session lifecycle*: state that the `finally` block detaches the cancellation-forwarding listener in addition to calling `dispose()`.
-- `pi-integration-contract.md` *Cancellation source* and *Extension entry point* step 4 sub-step 2: rewrite both to describe the listener + `session.abort()` mechanism.
-- `pi-integration-contract.md` SDK-capability inventory item 5: replace "the `signal` option of `createAgentSession({ signal })`" with "`AgentSession.abort()` on the handle returned by `createAgentSession(...)`"; add `AgentSession.abort` to the *Entry capability probe* (Step 0 b) factory-probable members so a Pi version that drops or renames it surfaces as `loom/load/host-incompatible` rather than as a runtime-time `TypeError`.
-- `cancellation.md` *Signal source*: drop "the `signal` passed into `createAgentSession(...)` in subagent mode" from the single-source-of-truth enumeration.
-- `cancellation.md` *Forwarding into `loomAbort`* slash-command bullet: replace the trailing "The subagent-mode counterpart needs no separate wiring …" sentence with a description of the `loomAbort.signal` → `session.abort()` listener registered at spawn and detached in the `finally`.
-- H4 leaf: rewrite the `PiSubagentSpawner.spawn(opts)` shim contract and its delegation-contract test against `FakeExtensionAPI` to assert (a) `createAgentSession` is called with no `signal` field, and (b) a `loomAbort.signal` listener is registered such that firing the parent `AbortController` causes exactly one `session.abort()` call on the returned handle.
-
-Implementer-relevant edge cases:
-
-- The `loom/runtime/internal-error` row in `diagnostics.md` already enumerates `createAgentSession` rejecting or returning a handle whose `dispose` is non-callable. Extend the same row (or the prose at PIC *Subagent session lifecycle*) to cover an `AgentSession.abort()` that throws or rejects — the rejection MUST NOT mask the original error the `finally` was protecting, mirroring the existing `dispose()` rule.
-- `AgentSession.abort()` returns `Promise<void>` and waits for the agent to become idle. The `session_shutdown` handler's `SHUTDOWN_AWAIT_CAP_MS = 2000` budget already covers the disposal phase; specify whether the `abort()` await is part of that budget or counted separately so step 4 sub-step 3's `Promise.allSettled(...)` semantics remain deterministic.
-- The runtime must be re-entrancy-safe: `loomAbort.abort()` may fire after `session.abort()` has already started (e.g. operator hits Esc twice). The one-shot listener and the existing one-shot guard on `loomAbort.abort()` together make double-abort a no-op; keep both.
-- Spawn-then-immediate-cancel: if `loomAbort.signal.aborted` is true at the moment `createAgentSession(...)` resolves, call `session.abort()` synchronously before the listener is registered, so V12a's "`dispose()` invoked on parent-`AbortSignal`-fired-before-first-turn" assertion holds without depending on microtask ordering.
-
-## Relationships
-
-- T24 "Trust boundary uses `tools` where `customTools` is the correct SDK field" — co-resolve (independent codebase-grounding error on the same `createAgentSession(...)` call site)
-- T22 "`pi.getCommands()` returns `SlashCommandInfo[]`, not `readonly Command[]`" — same-cluster (sibling codebase-grounding error in PIC; same lens, different Pi surface)
-- T21 "`pi.sendUserMessage` returns `void`" — same-cluster (sibling codebase-grounding error in PIC's prompt-mode driver)
-- T17 "Session model: rewrite of concurrent-invocations and `ActiveInvocationRegistry` framing" — must-precede (the unspecified `session_shutdown` cancellation contract must reference the listener-based `session.abort()` path defined here)
-- T18 "Session-swap behaviour for in-flight loom invocations is under-specified" — must-precede (teardown step 2's `loomAbort.abort()` propagation into spawned subagents only works once this finding's wiring is corrected)
-- T19 "Subagent state-isolation matrix presupposes Pi context-passing model" — must-precede (the matrix's `loomAbort` row is one of the locations rewritten by this finding; the system-prompt fix and this fix should land coherently)

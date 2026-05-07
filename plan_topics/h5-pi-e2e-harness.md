@@ -9,6 +9,7 @@
 - The harness tears the session down cleanly between tests (no leaked subscriptions, no surviving registered commands).
 - Provider scripting is deterministic across runs: identical script + identical input ⇒ identical transcript.
 - The harness rejects construction when a real provider API key would otherwise be required (CI guard).
+- Cancellation exercised in integration is wired through `AgentSession.abort()` on the handle returned by `createAgentSession(...)` (and, for subagent-mode child invocations spawned from inside an end-to-end loom, through the runtime's one-shot `loomAbort.signal` listener that calls the same), not through any `signal` option on `CreateAgentSessionOptions` (no such option exists in the V1 Pi SDK pin); per [Pi Integration Contract — Subagent session lifecycle and Cancellation source](../spec_topics/pi-integration-contract.md).
 
 **Deps.** H4.
 
