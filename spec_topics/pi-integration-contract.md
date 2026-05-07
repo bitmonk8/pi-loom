@@ -97,7 +97,17 @@ If step 0 succeeds, the factory then:
 
    The handler is **idempotent**: a second `session_shutdown` fired before the first returns is a no-op (the second invocation observes the registry already drained and returns immediately). It does **not** call `ctx.reload()` (Pi is already executing it) and does **not** call `pi.unregisterTool` (Pi exposes none; the registration-cache leak is the V1 cosmetic acceptance documented under **Tool-registration lifetime and visibility** below).
 
+   <a id="active-invocation-registry"></a>
+
    The **`ActiveInvocationRegistry`** is an extension-instance-scoped `Set<{ loomAbort: AbortController; disposeBarrier: Promise<void> }>` that the runtime maintains in lock-step with each loom invocation: the slash-command `handler`, the `tool.execute(...)` adapter for tool-exposed looms, and the parent-`invoke` spawn site each insert their own entry on entry and remove it from the same `finally` block that already disposes any subagent session (per **Subagent session lifecycle** below). The `disposeBarrier` is the promise that the per-invocation `finally` settles after `AgentSession.dispose()` returns (subagent mode) or immediately (prompt mode). Concurrent loom invocations therefore each carry one entry; the registry is the structure the teardown handler iterates.
+
+   *Registry contract.*
+
+   - **Insertion** happens at slash-command handler entry, `tool.execute(...)` adapter entry, and `invoke` spawn-site entry, before any awaitable work.
+   - **Removal** happens in the same `finally` block that disposes the subagent `AgentSession`, after `disposeBarrier` settles.
+   - **Iteration order** in the `session_shutdown` handler's sub-step 2 (`loomAbort.abort()` over every entry) and sub-step 3 (`Promise.allSettled` over every entry's `disposeBarrier`) is insertion order, matching the V8 `Set` insertion-order invariant the rest of the spec already relies on. The order is observable to tests asserting on the order of `loom/runtime/reload-teardown-timeout`'s `<list>` rendering.
+   - **`loomAbort.abort()` throwing inside the sub-step 2 iteration** is swallowed by a per-entry `try`/`catch`; the handler continues to the next entry. No diagnostic is emitted (the abort is best-effort and the entry's own `finally` will still settle `disposeBarrier`, which sub-step 3 already awaits with `Promise.allSettled`).
+   - **The registry name is internal.** It is not part of the loom-facing or extension-facing contract; tests assert on observable side effects (entry counts via probe seams, ordered `loomAbort.abort()` calls, `disposeBarrier` settlement) rather than on the symbol itself.
 
    *Edge cases the handler must observe:*
 
