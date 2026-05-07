@@ -4,7 +4,7 @@ _Generated: 2026-05-07T13:35:00Z_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T21) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 4 high, 11 medium retained; 23 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped (13 false positives were filtered upstream by the enricher)._
+_Triage tally: 3 high, 11 medium retained; 23 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped (13 false positives were filtered upstream by the enricher)._
 
 ---
 
@@ -933,71 +933,3 @@ Edge cases the implementer must watch:
 ## Relationships
 
 None
-
----
-
-# T15 — Compact-transcript format for the session-context block is unspecified
-
-**Original heading:** "Compact transcript" format for session-context injection undefined
-**Original section:** spec_topics/binder.md
-**Kind:** testability
-**Importance:** high
-
-## Finding
-
-When `bind_context: session`, the binder's system prompt carries the truncated caller-session messages as a "compact transcript". The spec pins two things about this block: (a) the truncation walk in `Session-context truncation (bind_context: session)` selects which turns are included, and (b) item 6 of *System-prompt structure (normative)* in `spec_topics/binder.md` requires the block's opening line to begin with the literal token `Recent session context`. Nothing else about the body is normative.
-
-Concretely undefined: the per-message line format, the role label vocabulary (`user` / `assistant` / `toolResult` / `custom` exist on the `Message` union sourced from `ctx.sessionManager.buildSessionContext().messages`), the inter-turn delimiter, how `assistant` messages with `thinking` and `toolCalls` arrays are rendered, how `toolResult` payloads (string text vs. structured content) are flattened, and how `CustomMessage` channels (notably `loom-system-note`, which `convertToLlm` converts to user-role context — see `spec_topics/pi-integration-contract.md` "Custom-message channel persistence and LLM-context entry") are surfaced or suppressed. The illustrative fenced block under *Binder system prompt* uses the literal placeholder `<truncated transcript>`, which is honest about the gap but does not close it.
-
-Two consequences: (1) a conformance suite can verify the header line and the truncation algorithm but cannot assert any byte of the body; (2) the binder model — which is the actual consumer of this text — sees materially different inputs across implementations (one renderer might dump `JSON.stringify(message)` per entry, another might emit `[user]: …` lines, another might include tool-call arguments verbatim or strip them). Since the entire point of `bind_context: session` is to ground the binder in conversational anaphora, format divergence translates directly into binding-output divergence. This is not a cosmetic-rendering question; it is a model-input contract.
-
-## Spec Documents
-
-- `spec_topics/binder.md` — Session-context truncation (`bind_context: session`); Binder system prompt; *System-prompt structure (normative)* item 6 (edited)
-- `spec_topics/pi-integration-contract.md` — `ctx.sessionManager.buildSessionContext()`, `estimateTokens`, custom-message persistence rules (read-only — defines the `Message` union shape that any rendering rule must enumerate)
-
-## Plan Impact
-
-**Phases:** Vertical slices
-
-**Leaves (implementation order):**
-
-- V16f — `bind_context: none` — (modified — owns the *System-prompt structure (normative)* test surface; item 6 acceptance currently tests only header presence and absence)
-- V16g — `bind_context: session` truncation — (modified — currently tests only the truncation walk; the new format obligation lands here as additional reference renderings)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers will produce binders with different observable behaviour on the same `bind_context: session` loom and the same caller transcript, because the model sees different prompts. Conformance tests cannot detect or arbitrate the divergence — the only assertable surface is the header line. Regressions in the format (e.g. accidentally dropping tool-result content) are silent and undetectable from outside the runtime.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add a normative *Compact-transcript format* sub-section under *Session-context truncation (`bind_context: session`)* in `spec_topics/binder.md`, and have item 6 of *System-prompt structure (normative)* point at it instead of saying "the truncated transcript per that section". The format MUST cover every variant of the `Message` union returned by `ctx.sessionManager.buildSessionContext().messages` so the rendering function is total over its input.
-
-Concrete obligations to encode (each gets a reference rendering in a normative table, mirroring the *Reference renderings* tables already used for *Type display* and *Echo policy*):
-
-1. **Turn delimiter.** Each turn (a user message plus all subsequent assistant / toolResult / custom messages up to but not including the next user message — the same turn boundary used by the truncation walk) is rendered as a contiguous block separated from the next turn by a single blank line. The included turns are emitted oldest-to-newest within the block (the truncation walk runs newest-to-oldest, but the rendered transcript is chronological so the binder reads it in the order the conversation happened).
-2. **Per-message line prefix.** Each message renders as one or more lines whose first line begins with a role tag from the closed set `[user]`, `[assistant]`, `[tool]`, `[custom:<type>]` followed by `: ` (one U+003A, one U+0020). `<type>` is the `customType` string verbatim. Continuation lines of the same message carry no prefix.
-3. **Per-variant body.**
-   - `user` → the message's text content verbatim.
-   - `assistant` → the text content verbatim. The `thinking` array is omitted (it is provider-internal and not part of the conversation the binder is grounding against). Each entry of the `toolCalls` array renders as a sibling line `[tool-call <name>(<args-json>)]` where `<args-json>` is `JSON.stringify(args)` with no whitespace; multiple tool calls render as multiple lines in array order.
-   - `toolResult` → `[tool]: <text>` where `<text>` is the result's string content; structured content is `JSON.stringify`'d with no whitespace. The role tag in (2) for this variant is `[tool]`, not `[toolResult]`, to keep the vocabulary at three plus the `custom:` family.
-   - `custom` → the `CustomMessage.content` string verbatim under the `[custom:<type>]` prefix. Renderers that suppress display via the `display: false` flag still surface in the transcript (consistent with `convertToLlm`'s LLM-context behaviour documented in `pi-integration-contract.md`).
-4. **No sanitisation.** The newline-collapse / 120-code-point cap discipline from *System-note rendering* does **not** apply to transcript rendering — that discipline is for one-line user-facing notes; the binder's transcript is a multi-line model input where preserving message structure is the point. State this explicitly so a future reader does not over-apply the shared discipline.
-5. **Reference renderings.** A normative table giving the rendered output for: a single-message user turn; a user + assistant + tool-call + tool-result + assistant turn; a turn containing a `loom-system-note` custom message; the empty-content user message edge case (renders as `[user]: ` with the trailing space, mirroring the *User-arguments line* convention).
-
-Implementer edge cases to call out alongside the format:
-
-- The truncation walk is described in newest-to-oldest order but the rendered output is chronological — be explicit about the reversal so an implementer who mirrors the walk direction does not emit reversed-order transcripts.
-- `assistant` messages with empty text but non-empty `toolCalls` MUST still emit the `[assistant]: ` prefix line (with empty body) followed by the tool-call lines, so the role boundary stays detectable; do not collapse to a bare `[tool-call …]` line with no owning role.
-- The custom-message rule must be reconciled with the loom's *own* system notes (`loom-system-note`) appearing in the caller transcript: they will render as `[custom:loom-system-note]: …`, which is correct — they are part of the conversational record the binder is grounding against.
-
-## Relationships
-
-- T03 "Parameters block: indentation and per-field token order are not normative" — same-cluster (both are testability gaps in the binder system prompt; both resolve by promoting prose into a normative structural rule plus a reference-rendering table; the edits land in adjacent sub-sections of `spec_topics/binder.md`)
-
