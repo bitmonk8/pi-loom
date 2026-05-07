@@ -4,7 +4,7 @@ _Generated: 2026-05-07T17:37:47Z_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 10 high, 9 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
+_Triage tally: 9 high, 9 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
 
 ---
 
@@ -1247,63 +1247,3 @@ Edge cases the implementer must watch: (a) a typed query with `max_rounds: 0` ca
 - T17 "Ceiling #4 slash-load `params` arm: budget accounting, `masked` provenance, and unnamed binder hook" — must-precede
 - T20 "CIO-3 enumerates four AJV boundaries; ceiling #4's table has five" — must-follow
 - T21 "Hard ceilings block does load-bearing definitional work inside informative orientation" — must-follow
-
----
-
-# T19 — Ceiling #4's opening classification contradicts its own table and CIO-1
-
-**Original heading:** Ceiling #4 misclassified as uniformly runtime-class
-**Original section:** spec.md — Orientation > Scope > Hard ceilings > Ceiling #4 and CIO rules
-**Kind:** consistency
-**Importance:** high
-## Finding
-
-The Hard ceilings preamble at `spec.md:51` opens with a clean three-versus-one taxonomy: "Three are *runtime-class* (ceilings #1, #2, #4) — they fire during evaluation and route to the success / fail / cancelled trichotomy's *fail* arm via panic or `Err`. One is *load-time* (ceiling #3 …)." That blanket claim is contradicted in three places within the same `## Scope` block:
-
-1. Ceiling #4's own routing-class field reads `boundary-dependent — see table below`, not `runtime`.
-2. Row 4 of the per-boundary table (`params` validation, slash-load arm) routes the failure "through ceiling #3's no-retry classification … surfaces as a load-time system note … not an evaluation outcome, no `Result` value observable."
-3. The trailing prose under the table states explicitly: "this cross-ceiling handoff is the only case where ceiling #4's enforcement point produces a non-`Err` surface."
-
-CIO-1 ("Ceiling #3 … is evaluated at slash-load time, before any runtime ceiling") compounds the inconsistency: it implies a clean partition where #4 is a runtime ceiling, yet one of #4's enforcement sites also runs at slash-load time. A reader skimming the opening sentence and CIO-1 — the two summary-shaped statements — comes away with a contract the detail prose then contradicts.
-
-## Spec Documents
-
-- `spec.md` — Orientation > Scope > Hard ceilings, opening sentence (edited)
-- `spec.md` — Orientation > Scope > Hard ceilings > CIO-1 (edited)
-- `spec.md` — Orientation > Scope > Hard ceilings > ceiling #4 per-boundary table and trailing prose (read-only — already correct, used to verify the contradiction)
-- `spec_topics/binder.md` — Failure-mode templates (read-only — confirms the slash-load `params` arm surfaces as a load-time system note)
-- `spec_topics/schema-subset.md` — Depth Enforcement (read-only)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):** None
-
-The two leaves that own slash-load `params` depth surfacing (V11i in `plan_topics/v11-discriminated-unions.md`, V16p referenced therein) and the model-driven boundary leaf (V14e in `plan_topics/v14-tool-calls.md`) cite the per-boundary table directly and already describe V16p as a "load-time system note … not an evaluation outcome." No leaf relies on the opening sentence's blanket runtime-class framing or on CIO-1's "before any runtime ceiling" wording, so the spec-only edit does not propagate.
-
-## Consequence
-
-**Severity:** correctness
-
-A test author or implementer who anchors on the opening sentence or CIO-1 will model ceiling #4 as uniformly producing an `Err` during evaluation, and may write conformance tests that expect a `QueryError`/`InvokeInfraError` for the slash-load `params` depth-6 case — which actually surfaces as a load-time system note via the binder. The detail prose is correct but is buried beneath a citable summary statement that flatly contradicts it; the two are equally normative-looking in an informative-but-load-bearing section.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Rewrite the opening sentence at `spec.md:51` to acknowledge the boundary-dependent routing of ceiling #4, then tighten CIO-1 to match. Concretely:
-
-- Replace "Three are *runtime-class* (ceilings #1, #2, #4) — they fire during evaluation and route to the success / fail / cancelled trichotomy's *fail* arm via panic or `Err`. One is *load-time* (ceiling #3 …)" with: "Ceilings #1 and #2 are uniformly *runtime-class* — they fire during evaluation and route to the trichotomy's *fail* arm via panic or `Err`. Ceiling #4 is runtime-class at four of its five enforcement points; its slash-load `params` arm cross-routes through ceiling #3's load-time classification per the per-boundary table below. Ceiling #3 is *load-time* — it fires at slash-invocation load time before evaluation begins, is governed by the pre-evaluation failure list above, and is NOT an evaluation outcome."
-- Reword CIO-1 from "Ceiling #3 (binder per-class retry budget) is evaluated at slash-load time, before any runtime ceiling" to "Ceiling #3 (binder per-class retry budget) is evaluated at slash-load time, before any *runtime-class* ceiling fires; the slash-load `params` arm of ceiling #4 also occurs at slash-load time and is routed by ceiling #3's failure-mode templates per the per-boundary table above."
-
-Edge cases for the editor: keep the inline-label citation surface (CIO-1, HC3-a..e, the `<a id="hard-runtime-ceilings">` anchor) intact — downstream plan leaves and tests cite them. The trailing prose paragraph and table are already accurate and require no edit.
-
-## Relationships
-
-- T17 "Ceiling #4 slash-load `params` arm: budget accounting, `masked` provenance, and unnamed binder hook" — must-precede
-- T20 "CIO-3 enumerates four AJV boundaries; ceiling #4's table has five" — same-cluster (sibling consistency defect in the same Hard ceilings block)
-- T21 "Hard ceilings block does load-bearing definitional work inside informative orientation" — must-follow
-
