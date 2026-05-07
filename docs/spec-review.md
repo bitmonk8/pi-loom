@@ -4,7 +4,7 @@ _Generated: 2026-05-07T13:35:00Z_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T21) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 high, 11 medium retained; 23 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped (13 false positives were filtered upstream by the enricher)._
+_Triage tally: 1 high, 10 medium retained; 23 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped (13 false positives were filtered upstream by the enricher)._
 
 ---
 
@@ -673,58 +673,4 @@ Edge cases the implementer must watch:
 
 - T17 "Tool failure modes beyond `throw` / `isError: true` unspecified" — same-cluster (analogous error-model gap on a different host surface; resolves independently using the same routing-class taxonomy)
 - T16 "Pre-evaluation setup failures: no routing rule for the slash, `invoke()`, or tool-call dispatch surfaces" — same-cluster (both extend `loom/runtime/internal-error`'s reach across boundaries the existing taxonomy does not name)
-
----
-
-# T11 — `session_shutdown` fast-path: spec.md sentence implies a branching short-circuit that PIC does not authorise
-
-**Original heading:** `session_shutdown` fast-path condition undefined; contradicts PIC Step 4; non-testable
-**Original section:** spec.md — Orientation > Prerequisites: Session model
-**Kind:** clarity, completeness, testability
-**Importance:** medium
-
-## Finding
-
-The `*Session model.*` paragraph in `spec.md` Prerequisites says the `session_shutdown` handler "treats every reason identically and **may fast-path to a no-op when the underlying reason did not invalidate the extension runtime**." The italicised clause is the problem: it reads as permission for the implementer to take a separate, branching short-circuit code path keyed off `event.reason`, with the branch condition ("did not invalidate") left undefined in `spec.md` itself. None of the five enumerated reasons (`"quit" | "reload" | "new" | "resume" | "fork"`) is mapped to an invalidation status in this paragraph, and no observable post-condition is given by which a test could check that the fast-path was correctly taken.
-
-PIC step 4 is more careful and arrives at a different rule: "The handler runs in fixed order regardless of `event.reason`," with the no-op behaviour falling out as a *consequence* — sub-step 2 (`loomAbort.abort()` over every `ActiveInvocationRegistry` entry) and sub-step 3 (`Promise.allSettled` over their `disposeBarrier`s) iterate an empty set on `new | resume | fork` because Pi serialises turns at session boundaries, so no active invocations exist; sub-step 1 (drain the registry), sub-step 4 (close watchers), and sub-step 5 (detach forwarding listeners) still run unconditionally, and PIC explicitly accepts that watcher closure on a no-teardown reason is a `/reload` away. PIC's "fast-path no-op" is therefore an emergent property of running the same fixed sequence over an empty registry, *not* a branch the handler may take.
-
-`spec.md`'s wording invites two divergent implementations: (a) an implementer who reads only the orientation paragraph writes `if (reasonDidNotInvalidate(event.reason)) return;` at handler entry and skips watcher closure and listener detachment entirely; (b) an implementer who reads PIC writes the fixed five-sub-step sequence. Both can claim conformance to their respective surfaces. Worse, "did not invalidate" has no spec-anchored mapping, so even implementer (a) has to invent the predicate. The clause should be deleted (or rewritten to restate PIC's actual rule) so the orientation paragraph aligns with PIC and stops authorising a branch PIC does not.
-
-## Spec Documents
-
-- `spec.md` — Orientation > Prerequisites: Session model paragraph (edited)
-- `spec_topics/pi-integration-contract.md` — Extension entry point, step 4 + Edge cases the handler must observe (read-only; already correct)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None. The plan does not currently have a leaf that owns the `session_shutdown` handler implementation directly — H4 covers only the factory shell and `/loom-status`; V18 covers cancellation checkpoints, the file watcher, and panic routing but never enumerates the five-sub-step teardown sequence as a leaf. The fix is a `spec.md` wording edit; PIC already states the operative rule correctly. No existing leaf's `Tests` or `Ships when` clauses change.
-
-## Consequence
-
-**Severity:** advisory
-
-An implementer reading only the spec.md orientation paragraph could write a `event.reason`-keyed short-circuit at handler entry that skips watcher closure and listener detachment on `new | resume | fork`, leaking chokidar handles, debounce timer handles, and `AbortSignal` listeners across user-session swaps until the next `/reload`. An implementer who reads PIC will not diverge. The leak is bounded by `/reload`, so this is degradation rather than incorrectness, but the ambiguity also blocks any test from asserting "the fast-path was correctly taken" because the fast-path's observable invariants are unstated.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Delete the clause "and may fast-path to a no-op when the underlying reason did not invalidate the extension runtime" from the `*Session model.*` paragraph in `spec.md`. Replace the surrounding sentence with: "the runtime's handler treats every reason identically; the fixed teardown sequence and the V1 acceptance that it may close watchers on a reason that did not in fact tear down the extension are owned by [Pi Integration Contract — Extension entry point, step 4](./spec_topics/pi-integration-contract.md)."
-
-This removes the apparent contradiction without adding any normative content to `spec.md`: PIC's "fixed order regardless of `event.reason`" rule and its "no-teardown reason makes the sequence a fast-path no-op (no active invocations exist at session boundaries because Pi serialises turns)" explanation already cover the behaviour. The orientation paragraph reverts to its proper role — pointing at the authoritative surface — and stops authorising a branch PIC does not.
-
-Edge cases the implementer must watch:
-- The `*Session model.*` paragraph already forward-links PIC for the closed reason set; the new sentence consolidates that link with the teardown-sequence link rather than introducing a second one. Keep both anchors (`#entry-capability-probe` is unrelated; the relevant anchor is the "Extension entry point" section heading and the `#session-shutdown-semantics` anchor for the semantics paragraph).
-- Do not introduce a new `event.reason → invalidates?` mapping table in `spec.md`. PIC already pins the rule contextually ("`reason: \"new\" | \"resume\" | \"fork\"` does not always tear down the *extension* runtime"); duplicating it in the orientation paragraph re-creates the source-of-truth split this finding flags.
-
-## Relationships
-
-- T12 "`session_shutdown` unknown reason: no closed-set validation, no fail-safe" — same-cluster (both touch the same `*Session model.*` sentence; resolve independently — that finding adds an out-of-set fallback rule, this one removes the fast-path clause)
 
