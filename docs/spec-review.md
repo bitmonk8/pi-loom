@@ -4,7 +4,7 @@ _Generated: 2026-05-07T13:35:00Z_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T21) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 high, 4 medium retained; 23 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped (13 false positives were filtered upstream by the enricher)._
+_Triage tally: 1 high, 3 medium retained; 23 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped (13 false positives were filtered upstream by the enricher)._
 
 ---
 
@@ -222,65 +222,3 @@ Edge cases the implementer must watch:
 - T15 "Compact-transcript format for the session-context block is unspecified" — same-cluster (sibling item in the same *System-prompt structure (normative)* list — item 6 — with an analogous "header is normative, body shape is not" gap; resolves independently with its own format pinning)
 - T02 "Object-value echo rendering: single-field case undefined" — same-cluster (different rendering surface — *Echo policy* rather than *System-prompt structure* — but the same testability lens)
 
----
-
-# T04 — Placeholder rendering exemption is open-ended; affected registry rows are not enumerated
-
-**Original heading:** Placeholder rendering exemption open-ended: affected registry rows not annotated
-**Original section:** spec_topics/diagnostics.md
-**Kind:** testability
-**Importance:** medium
-
-## Finding
-
-`spec_topics/diagnostics.md` rule 4 declares the *Message* column normative and requires renderers to "emit it character-for-character with placeholders interpolated." The "Placeholder rendering (normative)" subsection then names six closed placeholder categories and pins one byte-identical rendering rule per category. A trailing **V1.0 scope** paragraph (line 69) carves out an exemption: "Registry rows whose `Message` template uses placeholder names outside the six categories carry no byte-identical rendering rule … tests asserting on those messages MUST treat the unenumerated portion as implementation-defined."
-
-The exemption is open-ended. No row in the registry is annotated as falling under it, and the spec offers no procedure for deriving the affected set from the templates. A grep over the 137 registry rows turns up at least the following placeholders in *Message* templates that are not in any of the six categories: `<callee>`, `<cap>`, `<capability>`, `<dotted-key>`, `<enum>`, `<error>`, `<fields>`, `<higher>`, `<invocation-id>`, `<kind>`, `<list>`, `<lower>`, `<message>`, `<method>`, `<model>`, `<ms>`, `<name1>`, `<name2>`, `<observed>`, `<op>`, `<path-a>`, `<path-b>`, `<paths>`, `<provider>`, `<reason>`, `<root>`, `<schema>`, `<slash-name>`, `<slug>`, `<source>`, `<uuid>`. The cited example `loom/load/discovery-slow` uses both `<root>` and `<cap>`; neither is categorised, neither is annotated.
-
-A test author reading the registry cannot tell which rows they are entitled to assert on byte-for-byte and which require a relaxed match against an "implementation-defined" tail. Two conformant implementations may diverge on every placeholder above without violating any stated rule, but a conformance suite that asserted equality against the registry's literal *Message* string would also be conformant under rule 4. The two postures are mutually exclusive yet both currently authorised.
-
-## Spec Documents
-
-- `spec_topics/diagnostics.md` — Placeholder rendering (normative); Code registry (edited)
-- `spec_topics/discovery.md` — Package discovery (read-only — confirms `<cap>` ranges over a small closed set and `<root>` is host-supplied path data)
-- `spec_topics/governance.md` — GOV-7 / GOV-8 closure rules cited by the exemption (read-only)
-
-## Plan Impact
-
-**Phases:** Horizontal (H3), Vertical (V18)
-
-**Leaves (implementation order):**
-
-- H3 — Diagnostics primitive and multi-error accumulator — (modified — its serialiser turns the registry *Message* templates into the line-format `content`; its tests assert on rendered output and need to know which strings are byte-deterministic vs. tail-implementation-defined)
-- V18s — Coverage-matrix closing CI gate — (modified — gate (2) "Diagnostic-code registry closing gate" already greps the registry's code column; the same parser must widen to detect the new `Rendering` column or a row-marker so the gate can enforce the closure)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers will diverge: one writes test vectors that assert each registry *Message* literally, citing rule 4; the other writes loose matchers that ignore tails containing `<root>`, `<error>`, or `<reason>`, citing the V1.0 scope exemption. Both can be conformant under the current text. The conformance suite cannot be authoritative because the surface it must assert on is undefined.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Apply a hybrid posture: categorise every placeholder the runtime can deterministically render and explicitly annotate the residue that genuinely passes through host-supplied freeform text.
-
-1. **Extend §§1–6 (or open §7) to cover the deterministic placeholders.** Most currently-uncategorised placeholders are deterministic — `<cap>` is one of two enum values, `<reason>` is the closed `session_shutdown` set, `<provider>`/`<model>`/`<slash-name>` are identifier-shaped registry keys, `<root>`/`<paths>`/`<path-a>`/`<path-b>`/`<source>` are source-derived path text already covered by category 5's rule, `<ms>` is a category 4 integer, `<callee>`/`<capability>`/`<invocation-id>`/`<uuid>`/`<dotted-key>`/`<kind>`/`<op>`/`<slug>` are identifier-shaped or come from closed enums. Fold them into the existing categories with one-line rendering rules.
-
-2. **Add a `Rendering` column (or a dedicated row marker) to the registry table.** Default value is `byte-identical`. Rows whose template uses a placeholder that cannot be rendered deterministically (Pi transport error text via `<error>` / `<message>`, AJV-formatted schema-validation output via `<schema>` / `<fields>` / `<list>` when used to inline AJV output, raw rejection reasons via `<higher>` / `<lower>` / `<name1>` / `<name2>` if they carry host-shaped content) carry `implementation-defined-tail`, with the specific placeholder names listed inline so tests can construct partial-match patterns.
-
-3. **Rewrite the V1.0 scope exemption paragraph** to reference the column instead of describing an open-ended set; the exempt set becomes machine-readable and the V18s registry-parser can enumerate it.
-
-Edge cases the implementer must watch:
-
-- `<error.message>`, `<original content first line>`, `<dispose error first line>` are already in category 6 and have a defined truncation rule; do not re-categorise them.
-- `<schema>` appears in at least one registry row as an inlined schema fragment; decide once whether it renders as the loom-side schema name (deterministic — category 5) or as a serialised JSON-Schema fragment (host-derived — annotated).
-- The V18s closing gate currently parses only the code column. The gate must be extended to assert that every row carries a value from the closed set `{byte-identical, implementation-defined-tail}` and that no row tagged `byte-identical` references a placeholder outside the (now-extended) six categories.
-- GOV-7 / GOV-8 closure posture must extend to the new `Rendering` column: changing a row from `byte-identical` to `implementation-defined-tail` (or vice versa) is a spec-versioned breaking change.
-
-## Relationships
-
-- T06 "`loom/runtime/*` namespace summary mis-describes the namespace as panics-only" — same-cluster (both touch `diagnostics.md` registry-section accuracy; resolve independently)
