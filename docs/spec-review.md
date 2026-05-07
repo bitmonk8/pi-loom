@@ -5,7 +5,7 @@ _Source: docs/reviews/spec-review/spec-20260507-064438-enriched.md_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T26) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 high, 11 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
+_Triage tally: 1 high, 10 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
 
 ---
 
@@ -631,75 +631,3 @@ Edge cases the implementer must watch:
 None
 
 ---
-
-# T10 — Hard-ceiling interaction: no rule for which surface fires when two ceilings could trip on the same event
-
-**Source:** docs/reviews/spec-review/spec-20260507-064438-enriched.md
-**Original heading:** Hard-ceiling interaction (two ceilings tripped on the same event): no precedence rule
-**Original section:** spec.md — Orientation > Scope > Hard runtime ceilings
-**Kind:** error-model
-**Importance:** medium
-
-## Finding
-
-`spec.md` § *Hard runtime ceilings* asserts that each of the four ceilings has "a distinct, observable failure surface and no ceiling fails silently," but never states what happens when execution arrives at a point where two ceilings could plausibly fire for the same logical event. The owner pages do not fill the gap either: `errors-and-results.md` § *Runtime panics*, `query.md` § *Tool-call loop bound*, `invocation.md` § *Invocation depth bound*, and `schema-subset.md` § *Depth Enforcement* each describe their own surface in isolation; none names a precedence rule against the other three.
-
-Three concrete overlaps exist within the runtime-evaluated subset (#1 invoke-depth panic, #2 `tool_loop_exhausted` `Err`, #4 JSON-depth-5 `Err`):
-
-- A tool-call round at iteration `max_iterations` whose `tool_use` arguments are depth-6 (depth-walk runs at the tool-arg validation boundary per V14e/V14f vs. exhaustion check at the round boundary per V6k).
-- A `?`-propagation point where the model's forced respond turn at iteration `max_iterations` of a typed query produces a depth-6 payload (depth-walk at the typed-query response boundary per V6i vs. exhaustion check on the same forced respond turn).
-- An `invoke(...)` issued from inside iteration N of a parent's `tool_loop` that pushes the chain to depth 33 (panic at invoke entry per `loom/runtime/invoke-depth-exceeded` vs. tool_loop accounting in the parent).
-
-Ceiling #3 (binder LLM-call cap) cannot interleave with the other three: per `binder.md` § *Binder bypass* and § *Binder model*, the binder runs once at slash-load time, only for slash invocations, and never for `invoke(...)` or registered-loom calls — by construction it cannot fire concurrently with a runtime ceiling.
-
-The interpreter is single-threaded and each ceiling is checked at a distinct, well-defined site in evaluation order, so a working implementation will produce a deterministic answer in every overlap above. The defect is purely textual: the rule is implicit and a reader, test author, or fixer cannot cite it.
-
-## Spec Documents
-
-- `spec.md` — Orientation > Scope > Hard runtime ceilings (edited)
-- `spec_topics/errors-and-results.md` — Terminal outcomes; Runtime panics (read-only)
-- `spec_topics/query.md` — Tool-call loop bound (read-only)
-- `spec_topics/invocation.md` — Invocation depth bound (read-only)
-- `spec_topics/schema-subset.md` — Depth Enforcement (read-only)
-- `spec_topics/binder.md` — Binder bypass; Binder model (read-only — confirms #3 cannot interleave)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):** None
-
-The fix is a spec-text addition that codifies the evaluation order already implied by the per-site checks. No acceptance criterion in V6k (`tool_loop` exhaustion), V11i (depth walk), V14e/V14f (tool-arg depth), V16p (binder `args` depth), V18n (panic `invoke`-parent surface), or V18m (panic slash-command surface) needs to change — each leaf already tests its own surface in isolation, and the precedence rule does not introduce a new observable behaviour.
-
-## Consequence
-
-**Severity:** advisory
-
-A reviewer or test author cannot cite the spec to justify which `loom-system-note` / `Err` variant a conformance test should expect for an event that satisfies two ceiling preconditions. Two implementers will most likely converge on the same observable behaviour because each ceiling is checked at a distinct site, but the spec leaves them no anchor to argue against an oddball implementation that, for example, defers depth-walk validation until after the tool_loop counter is incremented.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add a short paragraph immediately after the four-ceiling enumeration in `spec.md` § *Hard runtime ceilings*, before the "No additional V1 runtime ceiling applies" non-goals bullet:
-
-> **Interaction between ceilings.** Each ceiling is checked at a distinct point in single-threaded interpreter execution; the first check whose precondition is satisfied fires, and the unfired condition is then unreachable for that event. The fixed evaluation order is: ceiling #3 (binder LLM-call cap) at slash-load time, before any runtime ceiling can be checked; ceiling #1 (`invoke`-chain depth) at `invoke` entry, before the callee body runs; ceiling #4 (JSON-document depth) at every AJV validation boundary (typed-query response, `tool_use` args, `params` merge, `invoke<T>` return), before the boundary's other validation runs; ceiling #2 (`tool_loop.max_iterations`) at the tool-call-round boundary, after the round's tool calls have completed and before the next model turn is requested. Ceiling #3 never interleaves with #1, #2, or #4 — the binder runs only for slash invocations and only at load time, and `invoke(...)` calls do not invoke the binder per [Slash-Command Argument Binding — Binder bypass](./spec_topics/binder.md#bypass-cases). At most one ceiling surfaces per event; the spec does not promise reporting both.
-
-Edge cases the implementer must watch:
-
-- The depth-walk *precedes* AJV at every boundary per `schema-subset.md` (§ *Enforcement point*: "The walk runs **before** AJV at each site"). The precedence statement above must not silently re-order this — the depth-walk site is *the same* AJV boundary, just the first sub-check at it.
-- A `tool_use` round whose tool-arg payload is depth-6 produces ceiling #4 (`validation` `Err` to the model) and the round is then permitted to continue the loop — this is one round of `tool_loop`, not exhaustion.
-- An `invoke` issued from inside a tool-loop round counts against the parent chain's depth budget; if it panics with `invoke-depth-exceeded`, the panic propagates per V18n and the parent's `tool_loop` counter is irrelevant (the loop never resumes).
-- A typed-query forced respond turn that produces depth-6 output surfaces as `cause: "schema_validation"` (per V6i) regardless of where the round count stands — depth-walk fires before the round-completion accounting that would tip into `tool_loop_exhausted`.
-
-The non-overlap claim for ceiling #3 should also be added explicitly because the original review (and a reasonable reader) can wrongly imagine an "invoke also exhausts the binder cap" scenario; the rule above forecloses it.
-
-## Relationships
-
-- T12 "`invoke`-chain depth-32 cap: counting origin and subagent-mode boundary semantics undefined" — decision-overlap (precedence rule needs to know which event the depth cap trips on; pinning the breach inequality there makes "the 32nd-deep `invoke` also exhausts the binder LLM-call cap" precisely answerable)
-- T15 "Ceiling #3 (binder LLM-call cap) is misclassified across the hard-ceilings aggregator" — co-resolve (both rest on tightening which ceilings can produce evaluation outcomes)
-
----
-
