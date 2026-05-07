@@ -5,7 +5,7 @@ _Source: docs/reviews/spec-review/spec-20260507-064438-enriched.md_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T26) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 4 high, 12 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
+_Triage tally: 4 high, 11 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
 
 ---
 
@@ -916,84 +916,3 @@ Edge cases the implementer must watch:
 
 ---
 
-# T14 — Pre-evaluation failure enumeration: inline restatement in preamble, list never marked closed at owner
-
-**Source:** docs/reviews/spec-review/spec-20260507-064438-enriched.md
-**Original heading:** Pre-evaluation failure enumeration: normative content in preamble, list not closed
-**Original section:** spec.md — Opening paragraphs (before `## Orientation`)
-**Kind:** placement, completeness
-**Importance:** medium
-
-## Finding
-
-The second paragraph of `spec.md`'s pre-`## Orientation` preamble carries this passage verbatim:
-
-> Failures that occur *before* evaluation begins — host-incompatibility detected by the capability probe, lex / parse / type batches, frontmatter rejection, binder-model resolution failure, `tools:` resolution failure, watcher-time reload failures — are NOT evaluation outcomes; they surface per [Diagnostics](./spec_topics/diagnostics.md) on the `loom-system-note` channel, never produce appended turns or a final value, and are not subject to cancellation.
-
-The same six-item enumeration and the same routing assertions appear, almost word-for-word, in `spec_topics/errors-and-results.md` immediately under the **Terminal outcomes** anchor (line 58). That topic-page paragraph is the canonical owner: it sits inside the section that GOV-12 already cites as the `## Errors and Results — Terminal outcomes` rule and is two lines below the closure phrase `the set is closed:` for the trichotomy.
-
-Two distinct defects follow:
-
-1. **Undeclared aggregator.** GOV-12 enumerates the spec.md aggregator surfaces by name. The pre-evaluation failure list is not in that enumeration, yet the preamble paragraph behaves like an aggregator — it restates the routing rule (`loom-system-note` channel, no appended turns, no cancellation) inline rather than confining itself to a forward-link.
-
-2. **Closure absent at the owner.** Neither the preamble version nor the canonical `errors-and-results.md` version states that the six items are exhaustive. A reviewer encountering a seventh failure mode (path collision between `.loom` files, secret-store unavailability at frontmatter resolution, watcher-startup failure distinct from reload failure, manifest-load failure for the binder model registry, etc.) cannot determine from either page whether it joins the bucket or constitutes an unanchored case. Closure of the trichotomy itself is asserted ("the set is closed"); closure of the pre-evaluation bucket is not.
-
-## Spec Documents
-
-- `spec.md` — pre-`## Orientation` preamble, paragraph 2 (`Loom evaluation produces one of three terminal outcomes…`) (edited)
-- `spec_topics/errors-and-results.md` — `<a id="terminal-outcomes"></a>` block, sentence beginning `The trichotomy applies only once evaluation has begun.` (edited)
-- `spec_topics/diagnostics.md` — read-only (referenced as the diagnostic-code owner that the pre-evaluation bucket routes through)
-
-## Plan Impact
-
-**Phases:** Horizontal H6
-
-**Leaves (implementation order):**
-
-- H6 — REQ-ID anchor insertion and coverage-matrix re-pivot — (modified)
-
-H6 already plans to retarget every `spec.md` introduction link from a section anchor to a `#prefix-n` REQ-ID anchor. Resolving this finding tightens that carve-out: the preamble paragraph collapses to a single `[Errors and Results — Terminal outcomes](#err-N)` link, which H6 then retargets to the closed-list REQ-ID once it lands.
-
-## Consequence
-
-**Severity:** advisory
-
-A maintainer who later adds a seventh pre-evaluation failure mode has no signal from either page that the list was meant to be closed, so the new mode may be added in one place and not the other. A reviewer attempting to classify a novel runtime failure cannot decide from `errors-and-results.md` alone whether it belongs in the pre-evaluation bucket or constitutes a missing case. The implementation is unaffected — every individual diagnostic code is owned and tested elsewhere.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Make two coordinated edits.
-
-1. **In `spec_topics/errors-and-results.md`** — close the bucket at its owner. Rewrite the sentence under `<a id="terminal-outcomes"></a>` so the six items are presented as an explicitly closed enumeration. Suggested shape:
-
-   > The trichotomy applies only once evaluation has begun. The complete V1 set of failures that occur *before* evaluation begins is the six below; each surfaces per [Diagnostics](./diagnostics.md) on the `loom-system-note` channel, never produces appended turns or a final value, and is not subject to cancellation:
-   >
-   > 1. host-incompatibility detected by the capability probe (per [Pi Integration Contract — Step 0](./pi-integration-contract.md#entry-capability-probe))
-   > 2. lex / parse / type batches (per [Diagnostics](./diagnostics.md))
-   > 3. frontmatter rejection (per [Parameters and Frontmatter](./frontmatter.md))
-   > 4. binder-model resolution failure (per [Slash-Command Argument Binding — Strict-capability requirement](./binder.md#strict-capability-requirement))
-   > 5. `tools:` resolution failure (per [Parameters and Frontmatter — `tools`](./frontmatter.md#tools))
-   > 6. watcher-time reload failures (per [Discovery](./discovery.md))
-   >
-   > No additional pre-evaluation failure surface applies in V1 — a future leaf that introduces one updates this list and the new failure's owner page in the same commit per the GOV-12 lock-step convention extended to this paragraph.
-
-2. **In `spec.md` preamble** — replace the inline restatement with a single forward-link sentence:
-
-   > Failures that occur before evaluation begins are owned, with their closed enumeration and per-cause routing rule, by [Errors and Results — Terminal outcomes](./spec_topics/errors-and-results.md#terminal-outcomes); they never become evaluation outcomes.
-
-   No item names, no channel name, no cancellation assertion in the preamble.
-
-Edge cases the implementer must watch:
-
-- The preamble paragraph still carries the trichotomy itself, the cancellation-wiring claim, and the partial-append claim. Each of those is a separate concern; do not collapse the whole paragraph to a single link in this edit. Touch only the `Failures that occur *before* evaluation begins…` sentence.
-- H6's introduction-link gate greps for `./spec_topics/<non-narrative-page>.md#<non-prefix-anchor>` residue. After this edit the preamble paragraph contains exactly one such link (the new forward-link to `#terminal-outcomes`), which H6 will then retarget to the REQ-ID anchor it assigns to the closed-list rule on `errors-and-results.md`.
-
-## Relationships
-
-- T15 "Ceiling #3 (binder LLM-call cap) is misclassified across the hard-ceilings aggregator" — co-resolve (the same pre-evaluation list is the target of both fixes; closing the list and adding binder-cap exhaustion can land in one edit)
-
----

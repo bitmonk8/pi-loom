@@ -55,7 +55,19 @@ A function or loom that uses `?` thus implicitly returns `Result<T, QueryError>`
 - **Failure.** The body returned `Err` (whether via `?` propagation or an explicit `Err(...)` return), panicked (the closed list under **Runtime panics** below), or exhausted a runtime-class hard ceiling (per [`spec.md` — Hard ceilings](../spec.md#hard-runtime-ceilings), with the per-ceiling routing class — panic or `Err` variant — named at that bullet; the load-time binder cap is excluded — see ceiling #3 there and the pre-evaluation failure list in the next paragraph below). No final value flows; the caller observes only the `Err` envelope per the per-surface mappings below.
 - **Cancelled.** An `AbortSignal` aborted a query, tool call, or `invoke` child mid-execution per [Cancellation](./cancellation.md). No final value flows; the caller observes `Err(QueryError { kind: "cancelled", ... })` per the `CancelledError` variant under [QueryError variants](#queryerror-variants).
 
-The trichotomy applies only once evaluation has begun. Failures that occur *before* evaluation begins — host-incompatibility detected by the capability probe, lex / parse / type batches, frontmatter rejection, binder-model resolution failure, binder LLM-call exhaustion (per [`spec.md` — Hard ceilings, ceiling #3](../spec.md#hard-runtime-ceilings)), `tools:` resolution failure, watcher-time reload failures — are NOT evaluation outcomes; they surface per [Diagnostics](./diagnostics.md) on the `loom-system-note` channel, never produce appended turns or a final value, and are not subject to cancellation. An `invoke` parent whose callee fails to load observes a separate evaluation-time failure of its own: `InvokeInfraError { reason: "load_failure", ... }` per [Invocation — Failures](./invocation.md), which IS an evaluation outcome of the *parent*.
+The trichotomy applies only once evaluation has begun. The complete V1 set of failures that occur *before* evaluation begins is the seven below; each surfaces per [Diagnostics](./diagnostics.md) on the `loom-system-note` channel, never produces appended turns or a final value, and is not subject to cancellation:
+
+1. host-incompatibility detected by the capability probe (per [Pi Integration Contract — Step 0](./pi-integration-contract.md#entry-capability-probe))
+2. lex / parse / type batches (per [Diagnostics](./diagnostics.md))
+3. frontmatter rejection (per [Parameters and Frontmatter](./frontmatter.md))
+4. binder-model resolution failure (per [Slash-Command Argument Binding — Strict-capability requirement](./binder.md#strict-capability-requirement))
+5. binder LLM-call exhaustion (per [`spec.md` — Hard ceilings, ceiling #3](../spec.md#hard-runtime-ceilings))
+6. `tools:` resolution failure (per [Parameters and Frontmatter — `tools`](./frontmatter.md#tools))
+7. watcher-time reload failures (per [Discovery](./discovery.md))
+
+No additional pre-evaluation failure surface applies in V1 — a future leaf that introduces one updates this list and the new failure's owner page in the same commit per the GOV-12 lock-step convention extended to this paragraph.
+
+An `invoke` parent whose callee fails to load observes a separate evaluation-time failure of its own: `InvokeInfraError { reason: "load_failure", ... }` per [Invocation — Failures](./invocation.md), which IS an evaluation outcome of the *parent*.
 
 *Per-cause caller surfaces.* The mapping from internal failure cause to caller-observable surface is owned by the relevant per-cause topic page; the table below indexes them:
 
