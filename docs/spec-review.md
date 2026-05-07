@@ -4,7 +4,7 @@ _Generated: 2026-05-07T13:35:00Z_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T21) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 2 high, 11 medium retained; 23 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped (13 false positives were filtered upstream by the enricher)._
+_Triage tally: 1 high, 11 medium retained; 23 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped (13 false positives were filtered upstream by the enricher)._
 
 ---
 
@@ -727,63 +727,4 @@ Edge cases the implementer must watch:
 ## Relationships
 
 - T12 "`session_shutdown` unknown reason: no closed-set validation, no fail-safe" — same-cluster (both touch the same `*Session model.*` sentence; resolve independently — that finding adds an out-of-set fallback rule, this one removes the fast-path clause)
-
----
-
-# T12 — `session_shutdown` unknown reason: no closed-set validation, no fail-safe
-
-**Original heading:** `session_shutdown` unknown reason: no closed-set validation, no fail-safe
-**Original section:** spec.md — Orientation > Prerequisites: Session model
-**Kind:** assumptions, completeness, error-model
-**Importance:** high
-
-## Finding
-
-`spec.md`'s Session model paragraph and `pi-integration-contract.md` step 4 both treat `event.reason: "quit" | "reload" | "new" | "resume" | "fork"` as a closed normative set, and the PIC handler is specified to "[treat] every reason identically" with a permitted fast-path no-op when the reason "did not invalidate the extension runtime." Neither page states what the runtime does if Pi delivers a reason outside this set. There is no validation step, no fallback behaviour, no diagnostic, and no operator-visible signal that an unrecognised value was observed.
-
-The omission has two concrete failure paths. (1) An implementer reading the PIC sub-steps may write `switch (event.reason) { case "quit": …; case "reload": …; … }` against the enumerated set with no `default` arm, silently doing nothing for an unknown reason — leaking the chokidar watcher handle, the settings watcher handle, every pending debounce timer, every entry in `ActiveInvocationRegistry`, and every forwarding listener attached to Pi-side `ctx.signal` / tool `execute(signal)` / parent-`invoke` signals onto an extension instance Pi is about to invalidate. (2) A future Pi minor that adds a sixth reason (e.g., `"swap"`) lands as a host-drift hazard with no stated routing class, no diagnostic code, and no test that can fail in CI to surface the drift.
-
-The closed-set claim is also load-bearing for one other surface: `loom/runtime/cancelled-by-session-shutdown` carries `details.event.reason` typed as the same five-arm union (per `diagnostics.md`'s registry row and PIC's Per-invocation operator visibility bullet). An unknown reason flowing into that emission produces a payload outside the documented `details` schema, with no rule for substitution, sanitisation, or rejection.
-
-## Spec Documents
-
-- `spec.md` — Orientation > Prerequisites > Session model paragraph (edited)
-- `spec_topics/pi-integration-contract.md` — Extension entry point, step 4 and the `reason: "new" | "resume" | "fork"` edge-case bullet (edited)
-- `spec_topics/pi-integration-contract.md` — Session-swap behaviour for in-flight invocations, Per-invocation operator visibility bullet (edited; `details.event.reason` typing)
-- `spec_topics/diagnostics.md` — `loom/runtime/*` registry table (edited if a new code is registered; read-only otherwise)
-- `spec_topics/cancellation.md` — second-trigger paragraph that enumerates `/reload`, `/new`, fork, or quit (read-only; cross-reference for consistency)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None. No leaf in the current plan owns the `session_shutdown` handler implementation: H4 (`h4-extension-shell.md`) registers only the renderer and a no-op `/loom-status` command, Mb (`m-mvp.md`) owns the `session_start` subscription and the per-invocation `loomAbort` construction but not the shutdown handler, and `coverage-matrix.md` carries no row for the PIC step-4 sequence. The unknown-reason rule will become a constraint on whichever leaf eventually closes the handler implementation; once that leaf exists, its acceptance criteria must include the validation, the fail-safe routing, and the diagnostic emission.
-
-## Consequence
-
-**Severity:** correctness
-
-A reasonable implementer can produce a session-shutdown handler that silently no-ops on an unknown reason, leaking watchers, timers, abort controllers, and registry entries onto an about-to-be-invalidated extension runtime — with no diagnostic the operator can observe and no test that can fail. A Pi minor that introduces a new reason value would land as a silent regression, and the typed `details.event.reason` payload on `loom/runtime/cancelled-by-session-shutdown` would carry an out-of-schema value with no defined handling.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add an explicit unknown-reason rule to PIC step 4 (and a one-line restatement in `spec.md`'s Session model paragraph):
-
-1. **Validation.** On handler entry, compare `event.reason` against the closed set `{"quit", "reload", "new", "resume", "fork"}`. The comparison is the only pre-sequence branch the handler MAY take.
-2. **Fail-safe routing.** An unknown reason MUST be treated as the most-invalidating case: the five-sub-step sequence runs in full, the fast-path no-op MUST NOT be taken, and the `ActiveInvocationRegistry` is drained via `loomAbort.abort()` + bounded `Promise.allSettled` exactly as for `"quit"` / `"reload"`.
-3. **Diagnostic.** Emit exactly one `loom/host/session-shutdown-reason-unknown` (W, runtime; new registry row in `diagnostics.md`) via `console.error` (the teardown handler's documented channel — `pi.sendMessage` may already be invalidated). `details: { observed: <event.reason as string> }`. The diagnostic is emitted before sub-step 1 so it survives even if the handler later throws.
-4. **Payload contract.** The `details.event.reason` field on `loom/runtime/cancelled-by-session-shutdown` carries the observed string verbatim when the reason is unknown; the registry row's typing for that field widens to `"quit" | "reload" | "new" | "resume" | "fork" | string` with a normative note that the wider arm is reserved for the unknown-reason path.
-5. **Test obligation.** The leaf that lands the handler implementation asserts the unknown-reason path with a synthesised reason (e.g., `"swap"`): the diagnostic is emitted exactly once, the full five-sub-step sequence runs (registry drained, watchers closed, listeners detached), and the fast-path bullet under PIC's edge-case list is not taken.
-
-Edge cases the implementer must observe: an unknown reason at a moment when `ExtensionRuntime.invalidate()` has already fired still routes the diagnostic through `console.error` (not through the `sendSystemNote` chain — same rule as `loom/runtime/reload-teardown-timeout`); the validation step itself MUST be wrapped in `try`/`catch` so a getter that throws on `event.reason` access is treated as an unknown reason, not as an unhandled exception escaping the handler; the `details.event.reason` widening on `cancelled-by-session-shutdown` is the only place the wider type appears in the diagnostic registry, and the rest of the spec's `event.reason` references continue to use the closed five-arm union.
-
-## Relationships
-
-- T11 "`session_shutdown` fast-path: spec.md sentence implies a branching short-circuit that PIC does not authorise" — same-cluster (both touch the step-4 reason-handling surface; resolutions interlock — removing the fast-path simplifies the unknown-reason rule to "always run the full sequence")
 
