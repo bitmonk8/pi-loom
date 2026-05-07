@@ -1,0 +1,84 @@
+# Hard Runtime Ceilings
+
+This page is the normative owner of the cross-ceiling content that no single per-ceiling topic page is responsible for: the binder per-class retry budget's sub-obligations (HC3-a … HC3-e), the JSON-document-depth ceiling's per-boundary destination/surface table, the fixed evaluation order between ceilings (CIO-1 … CIO-6), the `masked` field's per-site reachable domain and wire-location rules, the four enumerated non-existence claims (NOCEIL-1 … NOCEIL-4), and the worked consequences of the interaction order. The four-item ceiling list itself, with its per-ceiling routing-class one-liner, is owned by [`spec.md` — Hard ceilings](../spec.md#hard-runtime-ceilings) as an aggregator paragraph per [Governance — GOV-12](./governance.md); this page carries the load-bearing definitions that aggregator forward-links into.
+
+Each per-ceiling rule's *first* enforcement point still lives on the topic page that owns the breach surface — `loom/runtime/invoke-depth-exceeded` on [Invocation](./invocation.md), `Err(QueryError { kind: "tool_loop_exhausted", … })` on [Errors and Results](./errors-and-results.md) and [Query](./query.md), the binder retry classifier on [Slash-Command Argument Binding](./binder.md), the depth-walk on [Schema Subset](./schema-subset.md). This page pins the *cross-ceiling* obligations that no single per-ceiling page can own.
+
+## Per-class retry budget (ceiling #3)
+
+<a id="hc3"></a>
+
+The binder per-class retry budget is ceiling #3 in the four-item list at [`spec.md` — Hard ceilings](../spec.md#hard-runtime-ceilings). Routing class: **load-time system note**. The loom does not start; the operator-facing note is rendered from the failure-mode template matching the *most recent* failure's class — see [Slash-Command Argument Binding — Failure-mode templates](./binder.md#failure-mode-templates-normative). Not an evaluation outcome — nothing reaches loom code, no `Result` value is observable. Governed by the load-time-failure carve-out under [Errors and Results — Terminal outcomes](./errors-and-results.md#terminal-outcomes). The classification rule that maps an observed binder-call outcome onto a retry class is the provider-error classifier in [Slash-Command Argument Binding — Failure-class taxonomy](./binder.md#failure-class-taxonomy). The five sub-obligations — each a stable inline label citable from tests and downstream revisions — are:
+
+- **HC3-a.** At most one transport-class retry per slash invocation.
+- **HC3-b.** At most one malformed-envelope-class retry per slash invocation.
+- **HC3-c.** AJV-on-`args` failures are not retried (no per-class retry budget).
+- **HC3-d.** Worst-case sum: 3 binder LLM calls per slash invocation (1 initial attempt + 1 transport-class retry + 1 malformed-envelope-class retry).
+- **HC3-e.** When the chain ends with both budgets exhausted, the surfaced system note is the row matching the *most recent* failure observed.
+
+## Per-boundary destination/surface table (ceiling #4)
+
+<a id="ceiling-4-table"></a>
+
+Ceiling #4 is the JSON-document depth-5 ceiling against typed-query / tool-arg / `params` / `invoke<T>` return schemas (the four-item list entry at [`spec.md` — Hard ceilings](../spec.md#hard-runtime-ceilings)). Routing class: **boundary-dependent** per the table below. Every breach surfaces with `schema_keyword: "maxDepth"` and the canonical message `"JSON document depth exceeds 5"` per [Schema Subset — Depth Enforcement](./schema-subset.md); the carrier shape and destination depend on which of the five enforcement points fires:
+
+| Check point | Destination | Surface |
+|---|---|---|
+| Typed-query response | loom code | `Err(QueryError { kind: "validation", cause: "schema_validation", validation_errors: [{ schema_keyword: "maxDepth", … }], … })` per [Errors and Results — `ValidationError`](./errors-and-results.md#queryerror-variants) |
+| Tool-call args, model-driven (`@`...`` loop) | the model (loop continues; round counts against `tool_loop.max_rounds`) | tool-error result fed back as the next user turn per [Query — Tool calls during a query](./query.md); no `QueryError` surfaces unless the loop later hits ceiling #2 |
+| Tool-call args, code-driven (`<name>(args)`) | loom code | `Err(CodeToolError { cause: "validation", validation_errors: [{ schema_keyword: "maxDepth", … }], … })` per [Tool Calls — Failures](./tool-calls.md) and [Errors and Results — `CodeToolError`](./errors-and-results.md#queryerror-variants) |
+| `params` validation | depends on call site | `invoke(...)`: `Err(InvokeInfraError { cause: "validation", … })` per [Invocation — Failures](./invocation.md). Slash-load: routes through ceiling #3's no-retry classification (the binder's AJV-on-`args` arm) and surfaces as a load-time system note per [Slash-Command Argument Binding — Failure-mode templates](./binder.md#failure-mode-templates-normative); not an evaluation outcome, no `Result` value observable |
+| `invoke<T>` return value | calling loom | `Err(InvokeInfraError { cause: "validation", … })` per [Invocation — Failures](./invocation.md) |
+
+The model-driven row is the only one whose surface is silent at the loom-code level — the depth violation reaches the model as a tool-result and reaches the operator only via the `loom-system-note` channel if and when the loop later exhausts under ceiling #2 (the `validation` runtime event defined in [Pi Integration Contract — Runtime event channel](./pi-integration-contract.md) is keyed off the `Err` variant and therefore does not fire on this row). The "no ceiling fails silently" claim recorded with the four-item list at [`spec.md` — Hard ceilings](../spec.md#hard-runtime-ceilings) is honoured in the model-as-observer sense: the depth violation is materialised in the model's tool-result and the round still counts against `tool_loop.max_rounds`. The slash-load arm of `params` validation is the only row that crosses ceilings — the depth-walk fires at the `params` AJV boundary per CIO-3 below, but the failure routes through ceiling #3's load-time system-note classification rather than ceiling #4's recoverable-`Err` path; this cross-ceiling handoff is the only case where ceiling #4's enforcement point produces a non-`Err` surface.
+
+## Interaction between ceilings
+
+<a id="ceiling-interaction-order"></a>
+
+Each ceiling is checked at a distinct point in single-threaded interpreter execution. The first ceiling reached along an event's control-flow path that finds its precondition satisfied fires and ends the event; ceilings situated at later points on the same path are not evaluated for that event. The fixed evaluation order — each item below is a stable inline label citable from tests and downstream revisions — is:
+
+- **CIO-1.** Ceiling #3 (binder per-class retry budget) is evaluated at slash-load time, before any runtime ceiling.
+- **CIO-2.** Ceiling #1 (`invoke`-chain depth) is evaluated at `invoke` entry, before the callee body runs.
+- **CIO-3.** Ceiling #4 (JSON-document depth) is the first sub-check at every AJV validation boundary (typed-query response, `tool_use` args, `params` merge, `invoke<T>` return); the depth-walk runs *before* AJV at the same site per [Schema Subset — Depth Enforcement](./schema-subset.md), so #4 always precedes the boundary's other validation.
+- **CIO-4.** Ceiling #2 (`tool_loop.max_rounds`) is evaluated at the tool-call-round boundary — *after* the round's tool calls have completed and the slot count has been incremented for the just-completed round (the *tool-call round slot accounting*: the bookkeeping ceiling #2 consults to decide whether the next turn would exceed `max_rounds`; see [Glossary — tool-call round slot accounting](./glossary.md) and [Query — Tool-call loop bound](./query.md#tool-call-loop-bound)), and *before* the next model turn (or, on a typed query at the final round permitted by `max_rounds`, the forced respond turn) is requested.
+- **CIO-5.** Ceiling #3 never interleaves with #1, #2, or #4: the binder runs only at slash-invocation load time, and `invoke(...)` calls do not invoke the binder per [Slash-Command Argument Binding — Binder bypass](./binder.md#bypass-cases).
+- **CIO-6.** At most one ceiling surfaces per event. The surfaced diagnostic / runtime event carries an optional `masked` field enumerating any other ceiling whose precondition was *also* satisfied at the same check site — see [`masked` field](#masked-field) below for the field's per-site reachable domain, wire-location split, and probe-purity rule.
+
+## `masked` field
+
+<a id="masked-field"></a>
+
+Each `masked` entry is one of the string identifiers `"ceiling#1"`, `"ceiling#2"`, `"ceiling#3"`, `"ceiling#4"`; the field is **omitted** when no co-fire occurred (canonical absence — implementations MUST NOT emit `masked: []`).
+
+The reachable mask domain is per-site:
+
+- At the typed-query response / tool-arg / `params` / `invoke<T>` return boundary (ceiling #4's site, CIO-3) only ceiling #2 can co-fire (ceiling #3 is load-time per CIO-1 / CIO-5, ceiling #1 is checked at `invoke` entry per CIO-2 before the callee body runs).
+- At the `invoke` entry site (ceiling #1, CIO-2) the reachable set is empty (the callee body has not yet run, so neither #4's depth-walk nor #2's tool-call round slot accounting has been reached for this frame).
+- At the tool-call-round boundary (ceiling #2's site, CIO-4) the reachable set is empty (ceiling #4's depth-walk runs at every AJV boundary earlier in the round per CIO-3, so any depth-6 payload would have already surfaced #4 and short-circuited the round before #2's slot accounting).
+- Ceiling #3's surface always omits `masked` by construction (the binder runs before any runtime ceiling can be checked per CIO-1).
+
+Detection at the surfaced ceiling's site MUST be a pure read of the sibling preconditions — re-evaluating ceiling #2's `tool_loop` counter or ceiling #4's depth-walk for masking purposes MUST NOT advance the counter, mutate round bookkeeping, or trip a second emission.
+
+The field's location on the wire is `details.masked` for diagnostic-shape surfaces (the `loom/runtime/invoke-depth-exceeded` panic per [Diagnostics](./diagnostics.md)) and `details.event.masked` for runtime-event surfaces (the `validation` and `tool_loop_exhausted` cases per [Pi Integration Contract — Runtime event channel](./pi-integration-contract.md)).
+
+## Worked consequences
+
+Worked consequences of the interaction order — each illustrates one or more `CIO-N` rules above and is named so a conformance test can cite it directly:
+
+- *Depth-6 tool-arg mid-loop* (CIO-3, CIO-4): a `tool_use` round whose tool-arg payload is depth-6 produces ceiling #4 at the AJV boundary per CIO-3 (the model-driven row of the per-boundary table above — a tool-error result fed back to the model as the next user turn, NOT a `QueryError` returned to loom code), and the round is then permitted to continue the loop — that is one round of `tool_loop`, not exhaustion (CIO-4's slot accounting has not yet fired for this round, and the model gets to react to the validation error).
+- *Depth-6 forced respond at `max_rounds`* (CIO-3, CIO-4): a typed-query forced respond turn at the final round permitted by `max_rounds` that produces depth-6 output surfaces as `cause: "schema_validation"` because CIO-3's depth-walk fires at the typed-query response AJV boundary before CIO-4's slot-increment for the just-completed round would tip into `tool_loop_exhausted`.
+- *`invoke` panic mid-loop* (CIO-2, CIO-4): an `invoke(...)` issued from inside a tool-loop round counts against the parent chain's depth budget per CIO-2 and, if it panics with `loom/runtime/invoke-depth-exceeded`, the panic propagates per [Errors and Results — Runtime panics](./errors-and-results.md) and the parent's `tool_loop` counter is irrelevant (the loop never resumes — CIO-4's slot accounting is not reached for the aborted round).
+
+## No additional V1 runtime ceiling applies
+
+<a id="no-additional-ceilings"></a>
+
+The four enumerated non-existence claims below — each a stable inline label citable from tests and downstream revisions — are:
+
+- **NOCEIL-1.** No wall-clock timeout per query / tool-call / invoke. Per-call timeouts are deferred per [Cancellation](./cancellation.md) and [Future Considerations](./future-considerations.md), and the absence is enforced at parse time by rejecting any `timeout:` field at every site where a future per-call timeout could land.
+- **NOCEIL-2.** No per-query response-token cap and no cumulative-token budget. The only token-domain failure surface in V1 is provider-detected `ContextOverflowError` per [Errors and Results — `ContextOverflowError`](./errors-and-results.md#queryerror-variants); a pre-flight token-count check is deferred per [Future Considerations](./future-considerations.md).
+- **NOCEIL-3.** No runtime-value memory ceiling. String length, array length, and total heap are bounded only by the host process. *Catchable* host allocation failures — `RangeError: Invalid string length`, `RangeError: Invalid array length`, `RangeError: Maximum call stack size exceeded`, and any other JavaScript-exception-shaped allocation failure the host throws — are part of the runtime-defect surface and route through `loom/runtime/internal-error` per [Errors and Results — Runtime panics](./errors-and-results.md). *Uncatchable* host fatals — V8's `FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory` and any other engine fatal that bypasses the JavaScript exception machinery (the V8 `OOMErrorCallback` / `abort()` path) — terminate the host process; the runtime cannot observe them and emits no diagnostic. Operators relying on a finite heap ceiling MUST use a host-side mechanism (e.g. `--max-old-space-size`, container memory caps, `--heapsnapshot-near-heap-limit` for triage); V1 makes no claim that the loom runtime can intercept the fatal path.
+- **NOCEIL-4.** No loom-level host-language stack-depth ceiling distinct from the 32-level `invoke`-chain bound above. The 32-level `invoke`-chain bound is the only loom-level frame-depth ceiling. The host language's native call-stack bound (e.g. V8's recursion limit) is not separately ceilinged by the runtime; an exhaustion of that bound surfaces through the catchable-`RangeError` arm of NOCEIL-3 (`RangeError: Maximum call stack size exceeded`).
+
+The four-item ceiling list at [`spec.md` — Hard ceilings](../spec.md#hard-runtime-ceilings) is an aggregator under [Governance — GOV-12](./governance.md); a future V1 leaf that introduces a new ceiling updates that aggregator and the new ceiling's owner page (this one for cross-ceiling content, the per-ceiling owner pages for surface and emission) in the same commit per GOV-12.
