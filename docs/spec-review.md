@@ -4,7 +4,7 @@ _Generated: 2026-05-07T13:35:00Z_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T21) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 high, 2 medium retained; 23 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped (13 false positives were filtered upstream by the enricher)._
+_Triage tally: 1 high, 1 medium retained; 23 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped (13 false positives were filtered upstream by the enricher)._
 
 ---
 
@@ -79,73 +79,4 @@ Edge case for the implementer: the `loom/parse/redundant-wire-name` Message temp
 ## Relationships
 
 None
-
----
-
-# T02 — Object-value echo rendering: single-field case undefined
-
-**Original heading:** Object value echo rendering for single-field schemas unspecified
-**Original section:** spec_topics/binder.md
-**Kind:** testability
-**Importance:** medium
-
-## Finding
-
-The `bind_echo` echo-policy format rule for object values reads: *"Object values shown as `{first-field-value, …}` — just the first field's value as a hint."* The two normative reference renderings supplied in the table beneath the rule both describe two-field objects (`Cat { name, color }` → `{Whiskers, …}`; `Pet::Cat { kind, name }` → `{cat, …}`). No example or explicit clause covers an object whose declared schema has exactly one field — the case where the `…` token would, on the elision reading, signal nothing elided.
-
-Two readings of the rule survive equally well from the prose:
-
-1. The literal-format reading: `{<first-field-value>, …}` is the fixed shape; the `, …` is part of the format and is rendered for every object value, single-field or not. Under this reading `Cat { name: "Whiskers" }` renders as `{Whiskers, …}`. The wording *"first field's value as a hint"* and the contrast with the array rule (which carries an explicit `…+N more` count and an empty-array form `[]`) both lean this way: object echo never enumerates the dropped fields, so there is nothing for the marker to count and no reason for it to disappear when the count happens to be zero.
-2. The elision-marker reading: `…` is an indicator that fields were elided, by analogy with the array rule's count-bearing marker. Under this reading a single-field object renders as `{Whiskers}` and the marker disappears whenever the count of remaining fields is zero.
-
-Both readings are defensible from the current text, neither is contradicted, and the V16i conformance leaf — which already enumerates one assertion per echo format rule — has no input to disambiguate.
-
-## Spec Documents
-
-- `spec_topics/binder.md` — Echo policy → Format rules and Reference renderings table (edited)
-
-## Plan Impact
-
-**Phases:** V16 — Slash-command argument binder (LLM path)
-
-**Leaves (implementation order):**
-
-- V16i — `bind_echo` formatter — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers will diverge on the single-field rendering (`{val}` vs `{val, …}`) because both can be argued from the current text. The `bind_echo` echo is a user-facing system note appended verbatim before every loom run, and the V16i test suite already asserts rule 4 against synthetic params/args pairs. Without a normative tiebreak the conformance suite cannot pin this case at all, and any author whose params block declares a single-field nested object will see the rendering shape decided by whichever interpretation the implementer happened to take.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Pin the literal-format reading: the `, …` token is part of the fixed object-value format and MUST be rendered regardless of how many fields the declaring schema (or discriminated-union variant) has.
-
-Add to the Format-rules bullet for object values, after the existing "first field's value as a hint" sentence:
-
-> The trailing `, …` is part of the format and MUST be rendered for every object value, including objects whose declaring schema (or discriminated-union variant) declares exactly one field; the marker is fixed text, not an elided-field indicator (contrast with the array rule's count-bearing `…+N more`).
-
-Add a third row to the Reference renderings table immediately after the two existing object rows:
-
-| Value | Rendering |
-| --- | --- |
-| `Cat { name: "Whiskers" }` (schema declares only `name`) | `{Whiskers, …}` |
-
-Edge cases the V16i test author must cover:
-
-- Single-field plain object (the new reference row).
-- Single-variant discriminated union whose variant declares exactly one field — same rule applies; `…` is still emitted.
-- Single-field variant whose only declared field is the discriminator — `…` still emitted.
-- Empty-object value: not reachable through the schema subset (objects must declare at least one field per `schema-subset.md`); the rule need not address it, but the test should assert that the V16i formatter is never called with one and panics or short-circuits if it is.
-
-## Relationships
-
-- T03 "Parameters block: indentation and per-field token order are not normative" — same-cluster (sibling testability gap in the same binder rendering surface; resolved independently)
-- T15 "Compact-transcript format for the session-context block is unspecified" — same-cluster (third testability gap in binder rendering; resolved independently)
-- T04 "Placeholder rendering exemption is open-ended; affected registry rows are not enumerated" — same-cluster (testability gap in a different rendering surface; resolved independently)
 
