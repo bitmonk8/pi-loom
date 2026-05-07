@@ -5,7 +5,7 @@ _Source: docs/reviews/spec-review/spec-20260507-064438-enriched.md_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T26) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 11 high, 12 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
+_Triage tally: 10 high, 12 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
 
 ---
 
@@ -1583,62 +1583,4 @@ Edge cases the implementer must handle:
 
 - T21 "`pi.sendUserMessage` returns `void`" — same-cluster (another PIC-pinned SDK signature that disagrees with the installed types)
 - T25 "`createAgentSession` has no `signal` option in SDK" — same-cluster (another PIC-pinned SDK signature that does not match the installed `@mariozechner/pi-coding-agent`)
-
----
-# T23 — Capability probe verifies only one of four lock-step peer-dep versions
-
-**Source:** docs/reviews/spec-review/spec-20260507-064438-enriched.md
-**Original heading:** Peer-dep runtime version mismatch not detected by capability probe
-**Original section:** spec.md — Cross-cutting / Whole-document
-**Kind:** error-model
-**Importance:** high
-
-## Finding
-
-The Step 0 capability probe in `pi-integration-contract.md` (sub-step (d)) reads the installed version of `@mariozechner/pi-coding-agent` from its `package.json` and compares it against the pinned `^0.72.1` range, surfacing mismatches as `loom/load/host-incompatible` with `details.kind ∈ { "peer-dep-out-of-range", "peer-dep-malformed-version" }`. That check covers exactly one of the four `@mariozechner/*` packages the spec declares as lock-step `peerDependencies` (`pi-coding-agent`, `pi-agent-core`, `pi-ai`, `pi-tui`) and does not touch the fifth Pi-bundled package, `typebox`, at all. The lock-step rule on the other three packages is left to the package manager's transitive resolution. Under `pnpm` strict mode, `--legacy-peer-deps`, monorepo overrides, or any tool that honours the explicit `^0.72.1` peer-dep entries independently, all four packages are pulled together; under flat resolvers with overrides or local file links the host can end up with a `pi-coding-agent ^0.72.1` install but a `pi-ai` from a different minor line.
-
-When that skew occurs, sub-step (c)'s `typeof <path> === "function"` probes do not distinguish between minor versions that both still expose the named function members, so the loom factory completes Step 0 and proceeds to register. Failures then surface unpredictably: as a `TypeError` deep inside a tool registration or a subagent spawn (routed through `loom/runtime/internal-error` if it is even caught), as a behavioural divergence with no diagnostic at all, or — if the skew happens to break a probed surface — as `kind: "sdk-capability-missing"`, naming the missing function rather than the underlying version skew. The operator-facing message in the latter case names a removed function on a single namespace; it does not say "your `pi-ai` install is on a different minor line than your `pi-coding-agent` install," which is the actionable diagnosis.
-
-The H1 `peerDependencies` literal-read test asserts that all four entries equal the `^0.72.1` literal in the loom package's *declared* `package.json`, but this is a declaration check, not an installed-version check; it does nothing to detect a host whose installed graph diverges from those declarations.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — Step 0 (Capability probe), sub-step (d), and the failure-classification table in **On failure: refusal and diagnostic** (edited)
-- `spec_topics/pi-integration-contract.md` — Host prerequisites — Pi SDK pin (the `typebox` sub-paragraph) (edited)
-- `spec_topics/diagnostics.md` — `loom/load/host-incompatible` row, `details.kind` enumeration (edited)
-- `spec.md` — Orientation > Prerequisites > Pi SDK and capabilities (read-only; orientation aggregator)
-
-## Plan Impact
-
-**Phases:** Horizontal H1
-
-**Leaves (implementation order):**
-
-- H1 — Repository scaffold and test framework — (modified) — the `SDK_SURFACE_INVENTORY` constant under `src/extension/` (the single source of truth the probe and the `pinned-surface.test.ts` literal-read test both consume) gains the additional peer-dep packages (and possibly `typebox`); the four-pinned-constants enumeration named in the leaf body widens to include them; the test that today asserts the `peer-dep-range` entry must also assert per-package coverage.
-
-## Consequence
-
-**Severity:** correctness
-
-A host whose installed `pi-agent-core`, `pi-ai`, or `pi-tui` has drifted off the lock-step minor line passes Step 0, then either silently misbehaves at evaluation time or surfaces a misleading `kind: "sdk-capability-missing"` diagnostic that points at the removed function rather than the underlying version skew. Operators have no `loom-system-note` they can use to diagnose lock-step breakage, and the `^0.72.1` invariant the spec advertises as a load-time gate is in fact only enforced for one of the four packages.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Extend Step 0 (d) to read and compare the installed `version` of each of the four lock-step peers (`@mariozechner/pi-coding-agent`, `@mariozechner/pi-agent-core`, `@mariozechner/pi-ai`, `@mariozechner/pi-tui`) against the same pinned `^0.72.1` literal sourced from the pinned-constants block. The check iterates over a fixed array of package names; each resolution uses `createRequire(import.meta.url).resolve("<pkg>/package.json")` and `semver.satisfies(installedVersion, "^0.72.1")` exactly as today's single-package check does. The diagnostic envelope gains a `details.package: "<scoped-name>"` field on `kind: "peer-dep-out-of-range"` and `kind: "peer-dep-malformed-version"` so the operator-visible message names the offending package; the `kind` discriminator enumeration in **On failure: refusal and diagnostic** does not need to grow.
-
-`typebox` is not on the lock-step line (it is declared `"*"` per the bundled-package convention) and therefore is not added to the iteration; the spec should explicitly say so in (d) so a future reader does not assume `typebox` was overlooked. The check terminates on the first out-of-range or malformed package in the fixed iteration order — same short-circuit slot as today's single-package (d), no aggregation across packages.
-
-Edge cases the implementer must observe:
-- A `MODULE_NOT_FOUND` on any of the four packages routes to `kind: "peer-dep-malformed-version"` with `details.observed = "<unresolvable>"` and `details.package` naming which one, mirroring the existing single-package shape.
-- The fixed iteration order is the spec's source-of-truth list order, not alphabetical, so Self-failure trapping in step (d) can name a deterministic `details.step.package`.
-- The H1 `pinned-surface.test.ts` peer-dep-range entry must assert that all four packages appear in the probe's iteration array, not just that the `^0.72.1` literal is present once; otherwise a future leaf can silently drop a package from the probe loop without failing a test.
-- The H1 `peerDependencies` literal-read test (declaration check) and the runtime probe (installed check) remain disjoint by design — both must pass for the lock-step invariant to hold.
-
-## Relationships
-
-- T26 "`semver` not declared as a production dependency in `package.json`" — must-follow (the extended (d) check uses `semver.satisfies` against four packages instead of one; the missing `semver` `dependencies` entry must be added before this finding's check can run)
 
