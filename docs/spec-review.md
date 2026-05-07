@@ -5,7 +5,7 @@ _Source: docs/reviews/spec-review/spec-20260507-064438-enriched.md_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T26) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 high, 8 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
+_Triage tally: 1 high, 7 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
 
 ---
 
@@ -418,66 +418,3 @@ None
 
 ---
 
-# T07 — `loom/parse/explicit-schema-mismatch`: "disagree" not anchored to the type compatibility relation
-
-**Source:** docs/reviews/spec-review/spec-20260507-064438-enriched.md
-**Original heading:** `loom/parse/explicit-schema-mismatch` "disagree" undefined against type compatibility relation
-**Original section:** spec_topics/query.md
-**Kind:** testability
-**Importance:** medium
-
-## Finding
-
-`spec_topics/query.md` (Explicit form, paragraph after the `match` example) says the warning fires "if both a binding annotation and an explicit `<Schema>` are present, the explicit one is used (with `loom/parse/explicit-schema-mismatch` warning if they disagree)." The diagnostics-registry row for the same code (`spec_topics/diagnostics.md`, code-registry table) mirrors the wording: "Both a binding annotation and an explicit `@<Schema>` ascription are present and disagree."
-
-"Disagree" is not a defined relation in this spec. `spec_topics/type-system.md` defines exactly one type-comparison relation, `T₁ ⊑ T₂` ("Type compatibility"), enumerated by an eight-row rule table; the same page is the normative referent for every other site that asks "may a `T₁` value be used where `T₂` is expected." Three readings of "disagree" survive this prose:
-
-- **strict identity** — fires whenever `ascription ≠ annotation` syntactically (e.g. `let x: number = @<integer>\`...\`?` warns even though `integer ⊑ number` by Type-compatibility rule 2);
-- **non-subtype** — fires only when `ascription ⋢ annotation` (i.e. when running with the explicit ascription would not produce a value the annotation would accept);
-- **mutual incompatibility** — fires only when neither `⊑` direction holds.
-
-Sibling sites in the spec already commit to one of these readings (e.g. `loom/parse/invoke-return-type-mismatch` is defined against the same `⊑` relation per `plan_topics/v15-invoke.md` V15c citation), so the omission here is asymmetric. Two implementers would diverge: a strict-equality reader fires the warning on `let x: number = @<integer>\`...\``, a subtype reader does not. The `V6h` plan leaf inherits the ambiguity verbatim — its **Tests** bullet says "wins over inference (with parse warning if it disagrees with binding annotation)" without naming the relation, so the test author cannot write the assertion.
-
-## Spec Documents
-
-- `spec_topics/query.md` — Explicit form (edited)
-- `spec_topics/diagnostics.md` — code-registry row for `loom/parse/explicit-schema-mismatch` (edited)
-- `spec_topics/type-system.md` — Type compatibility (read-only — referent)
-
-## Plan Impact
-
-**Phases:** Vertical slices
-
-**Leaves (implementation order):**
-
-- V6h — Explicit `@<Schema>`...`` ascription — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-A V1.0 author writing `let x: number = @<integer>\`Rate 1-5: ${q}\`?` either gets a warning or does not, depending on which implementer read the prose. The warning is non-fatal, so divergence will not be caught by load-success tests; it surfaces only in diagnostic-tail snapshots, where two conformant implementations will disagree silently. The closing test leaf for V6h cannot write the assertion at all without the relation pinned.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Pin "disagree" to non-subtype under the established `⊑` relation. Replace "disagree" in both sites with: "the explicit `<Schema>` ascription is not compatible with the binding annotation under [Type System — Type compatibility](./type-system.md#type-compatibility) — i.e. `ascription ⋢ annotation`." Keep the warning severity. Add at least two normative test vectors to `query.md`: one no-warning case (`let x: number = @<integer>\`...\`?` — fires no warning, by Type-compatibility rule 2: `integer ⊑ number`), one warning case (`let x: integer = @<number>\`...\`?` — fires the warning; the explicit `number` could yield `3.5`, which the `integer` binding cannot accept).
-
-**Spec edits.** `query.md` Explicit-form paragraph; `diagnostics.md` Description column for the row; `query.md` add a "Test vectors" subsection or inline pair.
-
-This reuses the single normative relation already cited from every other compatibility site (`invoke` return, `match` arms, function arguments). It eliminates the "warning fires on a safe widening" surprise and is symmetric with `loom/parse/invoke-return-type-mismatch`.
-
-Implementer edge cases:
-
-- The check is parser-time; when either side is past the parser's static view (the `Unresolvable operands` paragraph in `type-system.md`), the warning is skipped — runtime AJV remains the safety net.
-- Both directions `⊑` should be considered: the canonical "warn" condition is `ascription ⋢ annotation` (the value the explicit form produces could not be assigned through the annotation). The reverse (`annotation ⋢ ascription`) is not the warning condition — the binding annotation is the wider type by intent.
-- Update the V6h leaf's **Tests** bullet to cite the same Type-compatibility anchor and to include the no-warning widening vector (otherwise the test will encode the strict-identity reading by default).
-
-## Relationships
-
-None
-
----

@@ -61,7 +61,14 @@ let score = match @<ReviewScore>`Rate the critique 1-5: ${critique}` {
 }
 ```
 
-The explicit form also wins over inference: if both a binding annotation and an explicit `<Schema>` are present, the explicit one is used (with `loom/parse/explicit-schema-mismatch` warning if they disagree).
+The explicit form also wins over inference: if both a binding annotation and an explicit `<Schema>` are present, the explicit one is used (with `loom/parse/explicit-schema-mismatch` warning if the explicit `<Schema>` ascription is not compatible with the binding annotation under [Type System — Type compatibility](./type-system.md#type-compatibility) — i.e. `ascription ⋢ annotation`). The check fires in one direction only: a value the explicit form would produce that the binding annotation could not accept is the warned condition; a binding annotation wider than the ascription (a safe widening) is silently allowed. When either side is past the parser's static view (per [Type System — Unresolvable operands](./type-system.md#type-compatibility)), the warning is skipped and the runtime AJV check is the safety net.
+
+*Test vectors (normative).*
+
+- `let x: number = @<integer>\`Rate 1-5: ${q}\`?` — **no warning**. `integer ⊑ number` by Type-compatibility rule 2; the explicit form's value is acceptable to the binding.
+- `let x: integer = @<number>\`...\`?` — **fires `loom/parse/explicit-schema-mismatch`**. `number ⋢ integer` (the explicit `number` could yield `3.5`, which the `integer` binding cannot accept).
+- `let x: ReviewScore = @<ReviewScore>\`...\`?` — **no warning**. Reflexivity (rule 1).
+- `let x: Animal = @<Cat>\`...\`?` where `schema Animal = Cat | Dog` — **no warning**. Variant-to-union (rule 4): `Cat ⊑ Animal`.
 
 ## Multi-line templates
 

@@ -60,7 +60,7 @@
 
 - **Spec.** [Query](../spec_topics/query.md) (explicit form).
 - **Adds.** `@<T>`...`` syntax overrides inference; required in any position with no usable sink.
-- **Tests.** Wins over inference (with parse warning if it disagrees with binding annotation); allowed in `match` scrutinee; parsed correctly when `T` is a generic like `array<Score>`.
+- **Tests.** Wins over inference (with `loom/parse/explicit-schema-mismatch` warning when the ascription is not compatible with the binding annotation under [Type System — Type compatibility](../spec_topics/type-system.md#type-compatibility) — `ascription ⋢ annotation`); safe widenings do **not** warn (`let x: number = @<integer>\`...\`?` is silent by Type-compatibility rule 2); the warning fires on `let x: integer = @<number>\`...\`?` (number not assignable to integer); allowed in `match` scrutinee; parsed correctly when `T` is a generic like `array<Score>`.
 - **Deps.** V6g.
 - **Ships when.** Untypeable positions become typeable.
 
