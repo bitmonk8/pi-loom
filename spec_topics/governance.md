@@ -2,7 +2,7 @@
 
 *Audience.* This page is directed at spec maintainers and at the coverage-matrix closing CI gate (specified in the plan corpus), not at implementers of the loom runtime. It governs the spec corpus itself — how REQ-IDs are coined, anchored, retired, and gated — and sources no software requirement on the runtime, the binder, the type system, or the Pi integration. Implementers who restrict their reading per GOV-10 will reach this page only via the initial REQ-ID anchor pass and the coverage-matrix closing gate (both specified in the plan corpus).
 
-This page owns the spec corpus's REQ-ID governance: the per-page prefix table, the per-prefix retirement registry, and the rules (GOV-1 through GOV-14) that govern how REQ-IDs are coined, anchored, retired, and gated. The rules apply to every non-narrative page under `spec_topics/`; tooling enforcement lives in the coverage-matrix closing CI gate (specified in the plan corpus).
+This page owns the spec corpus's REQ-ID governance: the per-page prefix table, the per-prefix retirement registry, and the rules (GOV-1 through GOV-12, GOV-14, GOV-15; GOV-13 retired — see [Retired REQ-IDs](#retired-req-ids)) that govern how REQ-IDs are coined, anchored, retired, and gated. The rules apply to every non-narrative page under `spec_topics/`; tooling enforcement lives in the coverage-matrix closing CI gate (specified in the plan corpus).
 
 ## REQ-ID prefix table
 
@@ -88,15 +88,11 @@ IDs are immutable: when a rule is split, the original ID retires and two new IDs
 
 **GOV-8 (REQ-ID lifecycle).**
 
-*Scope note (non-normative).* GOV-8 is a *bookkeeping* discipline: it pins how a substantive edit is recorded, not whether two V1.x releases produce the same output for the same `.loom` / `.warp` source file. The behavioural V1.x stability promise (per **GOV-13** below) is intentionally *not* derived from this rule.
-
-<a id="gov-13"></a>
-
-**GOV-13 (V1.x source-language equivalence — no mechanical gate).** A `.loom` or `.warp` file that loads cleanly under V1.0 SHOULD load under every V1.x release and produce, for any given input, identical (a) return values, (b) ordered diagnostic-code sequences, and (c) `loom-system-note` content strings. Wall-clock timing, token counts, and log-line volume are explicitly excluded from the equivalence claim. V1.0 ships without an automated equivalence gate; equivalence between two V1.x releases is a release-process responsibility verified by reviewer inspection of the diff against the prior V1.x release. A conformance fixture suite that mechanically diffs the three observables above against a frozen V1.0 baseline is a recognised post-V1.0 follow-up; see [Future Considerations](./future-considerations.md).
+*Scope note (non-normative).* GOV-8 is a *bookkeeping* discipline: it pins how a substantive edit is recorded, not whether two V1.x releases produce the same output for the same `.loom` / `.warp` source file. The behavioural V1.x stability statement (per **GOV-15** at the page tail) is intentionally *not* derived from this rule.
 
 <a id="gov-14"></a>
 
-**GOV-14 (review posture on the V1.0-equivalence gate).** Reviews of `spec.md` and `spec_topics/*.md` SHOULD NOT cite GOV-8 as a substitute for the gate above and SHOULD NOT re-raise its absence as a V1.0 correctness finding. The V1.0 release decision treats the absence of an automated equivalence gate as a recorded scope choice, not a defect.
+**GOV-14 (review posture on the V1.x-equivalence release-process goal).** Reviews of `spec.md` and `spec_topics/*.md` SHOULD NOT cite GOV-8 as a substitute for the V1.x source-language equivalence release-process goal recorded at [GOV-15](#gov-15) and SHOULD NOT re-raise the absence of an automated equivalence gate as a V1.0 correctness finding. The V1.0 release decision treats the absence of an automated equivalence gate as a recorded scope choice, not a defect.
 
 - **Split.** When one rule splits into N rules, the original ID retires and N fresh IDs are appended at the page's tail.
 - **Merge.** When N rules merge into one, all N source IDs retire and one fresh ID is appended at the page's tail.
@@ -128,3 +124,17 @@ All retirements (per GOV-7 *Delete* / *Merge* and per GOV-8 *Split* / *Merge* / 
 | `PIE` | `pi-integration.md` | `<demotion commit>` |
 
 The Retired prefixes sub-table is itself append-only — a retired prefix cannot be un-retired or reassigned. The `Retired in` column carries either the 7-character abbreviated commit SHA (e.g. `7851d7c`) or a release tag (e.g. `v0.42.0`), nothing else — no prose, no parentheticals, no qualifiers (the `<demotion commit>` placeholder above is replaced with a concrete SHA at the moment of the demoting commit). The `Formerly` column names the page that historically carried the prefix; for rows recording a GOV-7 *Merge*, the cell takes the standard form `<absorbed-page> (merged into <surviving-page> at <sha>)` so future merges produce consistent rows. A fourth `Reason` column MAY be added without breaking the GOV-6 gate; if added, it carries free-form prose, while the `Retired in` cell remains strictly SHA-or-tag.
+
+<a id="gov-15"></a>
+
+**GOV-15 (V1.x source-language equivalence — release-process goal).** A `.loom` or `.warp` file that loads cleanly under V1.0 is expected to load under every V1.x release and to produce, for any given input, identical (a) return values, (b) ordered diagnostic-code sequences, and (c) `loom-system-note` content strings. Wall-clock timing, token counts, and log-line volume are explicitly excluded from this expectation. This rule states a release-process goal, not a verifiable obligation: V1.0 ships without an automated equivalence gate; equivalence between two V1.x releases is a release-process responsibility verified by reviewer inspection of the diff against the prior V1.x release. A conformance fixture suite that mechanically diffs the three observables above against a frozen V1.0 baseline is a recognised post-V1.0 follow-up; see [Future Considerations](./future-considerations.md). The companion review-posture rule that bars reviewers from re-raising the missing gate as a V1.0 correctness finding is [GOV-14](#gov-14).
+
+<a id="retired-req-ids"></a>
+
+## Retired REQ-IDs
+
+| REQ-ID | Retired in | Replaced by | Reason |
+|---|---|---|---|
+| GOV-13 | `<retirement commit>` | GOV-15 | Modal weakening (RFC-2119 SHOULD → non-binding "is expected to") per GOV-8 *Pure rewording* limit; original wording promised a property the spec deliberately leaves un-gated. |
+
+The Retired REQ-IDs sub-table is append-only per GOV-8. The `Retired in` column carries either the 7-character abbreviated commit SHA or a release tag (the `<retirement commit>` placeholder is replaced with a concrete SHA at the moment of the retiring commit). A retired ID's prefix-position number MUST NOT be reused per GOV-8 *Deletion*.
