@@ -5,7 +5,7 @@ _Source: docs/reviews/spec-review/spec-20260507-064438-enriched.md_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T26) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 10 high, 12 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
+_Triage tally: 9 high, 12 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
 
 ---
 
@@ -1512,75 +1512,5 @@ Edge cases the implementer must handle:
 
 ## Relationships
 
-- T22 "`pi.getCommands()` pinned signature names a non-existent type" — same-cluster (sister PIC SDK-shape mismatch; co-resolve in the same PIC editing pass)
 - T25 "`createAgentSession` has no `signal` option in SDK" — same-cluster (third PIC SDK signature drift; same SDK-grounding pass)
-
----
-# T22 — `pi.getCommands()` pinned signature names a non-existent type
-
-**Source:** docs/reviews/spec-review/spec-20260507-064438-enriched.md
-**Original heading:** `pi.getCommands()` returns `SlashCommandInfo[]`, not `readonly Command[]`
-**Original section:** spec_topics/pi-integration-contract.md
-**Kind:** codebase-grounding-broad
-**Importance:** high
-
-## Finding
-
-`spec_topics/pi-integration-contract.md` step 2 of *Extension entry point* pins the V1 contract as: *"The signature pinned by V1 is `pi.getCommands(): readonly Command[]` (synchronous, returns the current registered-commands snapshot)."* Both the element type and the `readonly` modifier are wrong relative to the SDK pinned in the same document.
-
-The actual declaration in `@mariozechner/pi-coding-agent` (`dist/core/extensions/types.d.ts:861`, version `0.73.0`, satisfying the spec's own `^0.72.1` peer-dep range) is:
-
-```ts
-getCommands(): SlashCommandInfo[];
-```
-
-`SlashCommandInfo` is exported from `dist/core/slash-commands.d.ts` with fields `{ name, description?, source, sourceInfo }` where `source: SlashCommandSource = "extension" | "prompt" | "skill"`. No type named bare `Command` is exported anywhere from `@mariozechner/pi-coding-agent`. The result array is a plain mutable `SlashCommandInfo[]`, not a `readonly` view.
-
-The same spec topic is internally inconsistent on this point: the very next sub-step (step 3, around line 75) reads the snapshot's `source` field against the literal arms `"prompt" | "extension" | "skill"`, citing `SlashCommandSource` from `core/slash-commands.d.ts` — i.e. exactly the file in which `SlashCommandInfo` is declared. Step 2 pins one type; step 3 unwittingly destructures another.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — *Extension entry point*, step 2 (the pinned-signature sentence) (edited)
-- `spec_topics/pi-integration-contract.md` — *Discovery API* paragraph (~line 539) referencing `pi.getCommands()` on `session_start` (read-only — no type rename needed; mentions the call but not its return type)
-- `C:/Users/thomasa/AppData/Roaming/npm/node_modules/@mariozechner/pi-coding-agent/dist/core/extensions/types.d.ts` (read-only — authoritative SDK type)
-- `C:/Users/thomasa/AppData/Roaming/npm/node_modules/@mariozechner/pi-coding-agent/dist/core/slash-commands.d.ts` (read-only — authoritative `SlashCommandInfo` and `SlashCommandSource` declarations)
-
-## Plan Impact
-
-**Phases:** MVP, Vertical V14
-
-**Leaves (implementation order):**
-
-- Mb — Minimal runtime + slash registration + two-root discovery + no-params overflow note — (modified)
-- V14q — Slash collision at the same priority (uniform across formats and sources) — (modified)
-
-The Mb leaf body in `plan_topics/m-mvp.md` carries an additional, distinct error: it says the `session_start` handler "drops pending entries whose name collides with an entry whose `source` is `"prompt"`, `"subagent"`, or `"extension"`". `"subagent"` is not a member of `SlashCommandSource`; the third arm is `"skill"`. Resolving the spec finding by naming the correct element type (`SlashCommandInfo`) makes this plan-side typo immediately visible and it should be fixed in the same edit.
-
-## Consequence
-
-**Severity:** correctness
-
-A TypeScript implementation written verbatim against the pinned signature will not compile (no exported `Command` type to import); an implementer who silently invents a local `Command` interface will diverge from the real SDK shape. The bug is small enough to catch on first compilation, but the spec is internally contradictory — step 2 pins one element type, step 3 reads fields from another — which is exactly the kind of drift the PIC's "pinned constants + literal-read assertion" discipline is designed to prevent. Two implementers reading only step 2 versus only step 3 will form different mental models of what `getCommands()` returns.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `spec_topics/pi-integration-contract.md`, replace the pinned-signature clause in the *Extension entry point* step 2 paragraph with:
-
-> The signature pinned by V1 is `pi.getCommands(): SlashCommandInfo[]` (synchronous, returns the current registered-commands snapshot, where `SlashCommandInfo` is the interface exported from `@mariozechner/pi-coding-agent`'s `core/slash-commands.d.ts` with fields `{ name, description?, source: SlashCommandSource, sourceInfo }`); the snapshot is only meaningful on or after `session_start`.
-
-Edge cases the implementer must handle:
-
-- The returned array is mutable (`SlashCommandInfo[]`, not `ReadonlyArray<SlashCommandInfo>`). The runtime MUST treat the snapshot as read-only by convention — never mutate it in place — but cannot rely on a type-system guarantee. A defensive copy is unnecessary for the V1 collision check (a single forward pass) and is not required by the spec.
-- `SlashCommandInfo.description` is optional; the collision check keys on `name` and `source` only, so this does not affect Mb / V14q.
-- The cited declaration file (`dist/core/extensions/types.d.ts`) and the cited type (`SlashCommandInfo`) are already inside the build-time SDK surface-inventory assertion's scope per *Host prerequisites*; no new assertion is required, but the surface inventory MUST list `SlashCommandInfo` (and its three-arm `SlashCommandSource`) explicitly so a Pi minor that renames either fails the build.
-- In the same edit, fix the related plan-side typo at `plan_topics/m-mvp.md` Mb: replace `"subagent"` with `"skill"` in the source-arm enumeration.
-
-## Relationships
-
-- T21 "`pi.sendUserMessage` returns `void`" — same-cluster (another PIC-pinned SDK signature that disagrees with the installed types)
-- T25 "`createAgentSession` has no `signal` option in SDK" — same-cluster (another PIC-pinned SDK signature that does not match the installed `@mariozechner/pi-coding-agent`)
 
