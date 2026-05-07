@@ -5,7 +5,7 @@ _Source: docs/reviews/spec-review/spec-20260507-064438-enriched.md_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T26) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 9 high, 12 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
+_Triage tally: 8 high, 12 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
 
 ---
 
@@ -1447,70 +1447,4 @@ Edge cases for the implementer of the fix:
 ## Relationships
 
 None
-
----
-# T21 — `pi.sendUserMessage` returns `void`; prompt-mode transport-error detection path is mis-described
-
-**Source:** docs/reviews/spec-review/spec-20260507-064438-enriched.md
-**Original heading:** `pi.sendUserMessage` returns `void`, not `Promise`; transport-error detection path is wrong
-**Original section:** spec_topics/pi-integration-contract.md
-**Kind:** codebase-grounding-broad
-**Importance:** high
-
-## Finding
-
-The **Conversation drive — prompt mode** paragraph in `spec_topics/pi-integration-contract.md` (around line 151) describes the prompt-mode transport-error mapping as: *"A thrown or rejected `pi.sendUserMessage` (the call returns a `Promise`; both synchronous throw and asynchronous rejection are observable) is the transport call for a prompt-mode untyped query, so it is mapped to `Err(QueryError { kind: \"transport\", … })`."*
-
-That parenthetical is wrong against the pinned SDK. In `@mariozechner/pi-coding-agent`'s `core/extensions/types.d.ts`, the `ExtensionAPI` surface — the `pi` reference the loom factory captures — declares both `sendUserMessage(...)` and `sendMessage(...)` as `void`-returning. (The `Promise<void>` shape exists only on `AgentSession.sendUserMessage` for subagent mode and on `ReplacedSessionContext.sendUserMessage` for post-replacement contexts — neither is in scope for prompt-mode driving, since V1 looms never trigger session replacement.) An implementer following the spec will write `try { await pi.sendUserMessage(text, …); } catch (e) { /* map to TransportError */ }`; the `await` resolves immediately on `undefined`, the `catch` only fires for synchronous throws, and every asynchronous transport/provider failure is silently lost.
-
-The same paragraph already documents the *correct* mechanism three sentences later under *Error detection*: failures land on the user `AgentSession`'s `errorMessage` field and the runtime probes that field after `waitForIdle()` resolves. The page is therefore internally inconsistent — the parenthetical contradicts the post-`waitForIdle` probe it itself describes — and PIC's own diagnostics block (line 382) already states the dual rule for `pi.sendMessage` (*"returns `void` (synchronous); the runtime MUST NOT `await` it and MUST NOT attach a `.catch` handler"*) which `sendUserMessage` should match.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — Conversation drive — prompt mode (edited)
-- `spec_topics/pi-integration-contract.md` — Conversation drive — subagent mode (read-only; uses the `Promise`-returning `AgentSession.sendUserMessage`, kept distinct)
-- `spec_topics/pi-integration-contract.md` — System notes / best-effort fallback chain (read-only; already states the `void`-return rule for `pi.sendMessage` and is the model wording to mirror)
-- `spec_topics/diagnostics.md` — Persistent diagnostics (read-only; already correctly notes `pi.sendMessage` returns `void` with synchronous-throw-only observability)
-
-## Plan Impact
-
-**Phases:** MVP, V5
-
-**Leaves (implementation order):**
-
-- Mb — Minimal runtime + slash registration + two-root discovery + no-params overflow note — (modified)
-- V5e — Prompt-mode conversation driver — (modified)
-- V5h — Provider error mapping for `ContextOverflowError` — (modified)
-
-(Mb and V5e currently call `pi.sendUserMessage` directly; their fakes and tests assume async observability of transport failure. V5h's "transport failure → `Err({kind:'transport'})`" and overflow-envelope assertions need test harnesses that seed `AgentSession.errorMessage` rather than reject `sendUserMessage`. V6's typed-query leaves consume the same prompt-mode driver but inherit the change transparently — no per-leaf edit beyond the ones above.)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers reading the current spec will produce divergent and broken code: one writes `await pi.sendUserMessage(...)` inside a try/catch and silently loses every asynchronous transport failure (the `Err({kind:"transport"})` branch never fires); the other notices the post-`waitForIdle` `errorMessage` probe and wires only that, but cannot reconcile it with the "thrown or rejected" sentence above. The runtime-event channel's always-log emission for `kind: "transport"` depends on this mapping firing, so the bug cascades into observability gaps for every non-OK prompt-mode turn.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Rewrite the offending sentence in the prompt-mode paragraph so that prompt-mode transport-error detection is anchored exclusively on the post-`waitForIdle()` `AgentSession.errorMessage` probe, and the `pi.sendUserMessage` call surface is correctly described as `void`-returning with synchronous-throw-only observability. Concretely:
-
-1. Replace the parenthetical *"(the call returns a `Promise`; both synchronous throw and asynchronous rejection are observable)"* with *"(the call returns `void`; only synchronous throws — e.g. argument validation in Pi — are observable directly from this call)"*.
-2. Reorder the paragraph so the *Error detection* clause is presented as the **primary** transport-failure surface, and the synchronous-throw branch as a narrow secondary mapping. Make explicit that the runtime MUST NOT `await pi.sendUserMessage(...)` and MUST NOT attach a `.catch` handler — matching the rule already pinned for `pi.sendMessage` at line 382.
-3. State explicitly that the `provider` field on the resulting `TransportError` is populated from the resolved `model:` regardless of which surface (synchronous throw vs. `errorMessage` probe) detected the failure, since the `errorMessage` string carries no structured provider field.
-
-Edge cases the implementer must handle:
-
-- **Cancellation collision.** If `loomAbort.signal.aborted` is true on `waitForIdle()` resolution, the existing rule (synthesise `Err({kind:"cancelled"})` instead of reading `errorMessage`) takes precedence over the transport mapping — even when `errorMessage` is non-empty. Pinning the precedence here avoids ambiguity for tests that abort mid-turn after Pi has already written an error.
-- **`errorMessage` lifetime.** The probe must read `errorMessage` synchronously immediately on `waitForIdle()` resolution, before any subsequent `pi.sendUserMessage` is issued on the same context — Pi may clear or overwrite the field on the next turn.
-- **Subagent mode is unaffected.** `session.sendUserMessage(text)` on the spawned `AgentSession` (PIC line 219) genuinely does return `Promise<void>` and the `await`-with-try/catch shape there remains correct. The new wording must not accidentally generalise the prompt-mode rule to subagent mode.
-- **`ReplacedSessionContext` carve-out.** `Future Considerations — Mid-loom user-session replacement` already pins that V1 prompt-mode looms hold a single factory-captured `pi: ExtensionAPI` for the lifetime of each invocation; the post-V1 re-acquisition seam (which would land a `Promise`-returning surface) is out of scope. State this so a future reader does not mistake the `Promise<void>` shape on `ReplacedSessionContext.sendUserMessage` for a hedge.
-- **Plan ripple.** Mb / V5e / V5h test fakes and the `PromptModeConversationDriver` interface need to be updated in lock-step: the `ConversationDriver.send` implementation calls `pi.sendUserMessage(...)` without `await`, then `await ctx.waitForIdle()`, then reads `ctx.session.errorMessage` (or whichever spelling the pinned SDK exposes — the spec should pin the exact field path here). Test harnesses must seed `errorMessage` on the fake session rather than have the fake `sendUserMessage` reject.
-
-## Relationships
-
-- T25 "`createAgentSession` has no `signal` option in SDK" — same-cluster (third PIC SDK signature drift; same SDK-grounding pass)
 
