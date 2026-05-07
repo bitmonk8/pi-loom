@@ -4,7 +4,7 @@ _Generated: 2026-05-07T17:37:47Z_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 7 high, 9 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
+_Triage tally: 7 high, 8 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
 
 ---
 
@@ -1017,88 +1017,4 @@ Edge cases for the implementer: a prompt-mode loom may legitimately appear as a 
 
 - T16 "Pi API surfaces asserted without `.d.ts` citations: setActiveTools, createAgentSession, ExtensionCommandContext, AgentSession, tool-result envelope" — must-follow
 - T28 "`session_shutdown` teardown contract has no plan-leaf owner" — co-resolve (the new plan leaf that owns the registry must also encode the prompt-mode-sequentiality invariant on registry insertion)
-
----
-
-# T16 — Pi API surfaces asserted without `.d.ts` citations: setActiveTools, createAgentSession, ExtensionCommandContext, AgentSession, tool-result envelope
-
-**Original heading:** Uncited Pi API surfaces (group): setActiveTools, createAgentSession, ctx.signal, ExtensionCommandContext, AgentSession, tool-result envelope
-**Original section:** spec.md — Orientation > Prerequisites > Session model
-**Kind:** assumptions
-**Importance:** medium
-## Finding
-
-`spec_topics/pi-integration-contract.md` (PIC) makes two distinct kinds of statement about Pi-side types: those *anchored* to a specific declaration file in the pinned `@mariozechner/pi-coding-agent ~0.72.1` SDK, and those *asserted* as fact without anchor. Examples of the anchored style: `MessageRenderer` is pinned to `dist/core/extensions/types.d.ts` (PIC §"Renderer registration"), `ExtensionContext` is pinned to the same file (PIC §"`ExtensionContext` (member surface loom touches)"), `SlashCommandSource` to `core/slash-commands.d.ts`, the renderer-loader behaviour to `dist/core/extensions/loader.js` and `dist/core/extensions/runner.js`, and the `triggerTurn` semantics to `dist/core/messages.js`. The pattern is established and the build-time literal-read tests (per `plan_topics/h1-scaffold.md`) gate it.
-
-The following load-bearing surfaces are asserted in PIC without that anchor, even though each is verifiable in the same pinned SDK at a stable path:
-
-1. **`pi.setActiveTools` / `pi.getActiveTools` snapshot/restore semantics and concurrency contract.** PIC §"Tool-registration lifetime and visibility" claims `pi.setActiveTools(string[])` is "synchronous and atomic on the JS event loop" and that "Pi dispatches slash-command handlers one at a time per session" — Pi guarantees on which the prompt-mode concurrency story rests. Neither is anchored. The signature lives at `dist/core/extensions/types.d.ts` `ExtensionAPI.setActiveTools` (line 859 in the installed `~0.72.1`); the dispatch-serialisation guarantee, if it exists, lives in Pi's runner, not on the type surface.
-2. **`createAgentSession` parameter shape: `{ customTools, tools, model, sessionManager, resourceLoader, ... }` and the absence of a `signal` field.** PIC §"Conversation drive — subagent mode" reproduces the call shape inline and asserts "`CreateAgentSessionOptions` has no `signal` field in the V1 Pi SDK pin". The function and `CreateAgentSessionOptions` live at `dist/core/sdk.d.ts` (lines 56–106 in the installed pin); neither is cited.
-3. **`ctx.signal: AbortSignal | undefined` and the tool `signal` parameter shape.** PIC's inline `ExtensionContext` block carries `signal: AbortSignal | undefined` and PIC §"Cancellation source" cites "`@mariozechner/pi-coding-agent`'s extension docs, `ctx.signal` section" for the "undefined in idle / non-turn contexts" claim. The extension-docs reference is a doc-page name, not a path. The canonical declaration is `dist/core/extensions/types.d.ts` (`ExtensionContext.signal` at line 222–223 with the JSDoc "current abort signal, or undefined when the agent is not streaming"; tool `execute(...)`'s `signal: AbortSignal | undefined` at line 354).
-4. **`ExtensionCommandContext` as a Pi-declared subtype with a stable enumerable field set.** PIC names it as "the per-handler subtype that extends `ExtensionContext`" and references members `waitForIdle`, but the type itself is not anchored. It lives at `dist/core/extensions/types.d.ts` line 241 (`extends ExtensionContext`) with `waitForIdle`, `newSession`, `fork`, `navigateTree`, `ReplacedSessionContext`, etc. Plan leaves H2 and H4 import the type from `@mariozechner/pi-coding-agent` without further qualification, so a Pi minor that renames or moves it would surface as a build break before the spec catches it.
-5. **`AgentSession` as a named export and its export path.** PIC §"Step 0 (c)" probes `AgentSession.prototype.abort` "against the imported `AgentSession` class on the `@mariozechner/pi-coding-agent` namespace" but does not pin the export's source. `dist/core/index.d.ts` re-exports it via `export { AgentSession, ... } from "./agent-session.js"`; the underlying class lives in `@mariozechner/pi-agent-core`. The import-path expectation matters: H2 / H4 / H5 all consume the symbol through the `@mariozechner/pi-coding-agent` namespace re-export, and a future Pi reorganisation that drops the re-export would break loom even though `pi-agent-core` (a separately-pinned peer dependency) still ships the class.
-6. **Tool-result envelope `{ content, isError }` shape.** PIC §"Tool execution from loom code" lowers the envelope into `Ok` / `Err(CodeToolError { cause: "execution", ... })` and routes shape violations to `loom/runtime/internal-error` with `details.kind = "tool-return-shape"`. The envelope shape — `content: { type: "text"; text: string }[]`, `isError: boolean` — is the contract every code-driven tool call's outcome routing depends on. The declaration lives at `dist/core/extensions/types.d.ts` (`isError` appears at lines 323, 538, 634, 729 across the tool-result type family); none is cited.
-7. **Pi exposes no per-extension privilege scoping.** Spec.md §"Trust boundary" treats this as a foundational fact ("Pi exposes no per-extension privilege scoping that the runtime can rely on as a security boundary"). It is a claim about the *absence* of a Pi-side surface; without a citation to the SDK module(s) inspected to reach that conclusion (the extension API surface, the resource-loader surface, the tool-host surface), a future Pi minor that quietly adds a privilege facet would not register as a spec-breaking event.
-
-The pattern is uneven in ways that reduce shape-drift detection. The H1 `pinned-surface.test.ts` constant covers items (1)–(5)'s factory-probe presence as named members, but it does not assert their declaration paths or their member shapes; the spec prose is the only place those shape assumptions are recorded, and where the prose does not anchor them, the literal-read assertion has nothing to fail against on the next Pi minor.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — Tool-registration lifetime and visibility (edited)
-- `spec_topics/pi-integration-contract.md` — Conversation drive — subagent mode (edited)
-- `spec_topics/pi-integration-contract.md` — Subagent session lifecycle (edited)
-- `spec_topics/pi-integration-contract.md` — Cancellation source (edited)
-- `spec_topics/pi-integration-contract.md` — Tool execution from loom code (edited)
-- `spec_topics/pi-integration-contract.md` — Step 0 (c) Factory-probable SDK capabilities (edited)
-- `spec_topics/pi-integration-contract.md` — SDK capability inventory (edited)
-- `spec.md` — Orientation > Scope > Trust boundary (edited)
-- `spec_topics/pi-integration-contract.md` — Renderer registration; `ExtensionContext` (member surface loom touches) (read-only — precedent for the citation pattern)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None. The fix is a spec-prose enrichment; it does not change any leaf's `Tests` or `Ships when` criterion. The H1 `pinned-surface.test.ts` constant already enumerates each named member as a factory probe; H2 imports `ExtensionAPI` and `ExtensionCommandContext` by name from `@mariozechner/pi-coding-agent`; H4 / V12a / V14g / V18 already exercise the runtime behaviour the surfaces drive. Adding `.d.ts`-path citations strengthens the spec's anchor coverage but does not unblock or reframe any leaf.
-
-## Consequence
-
-**Severity:** advisory
-
-A second implementer reading the spec independently would arrive at the same runtime behaviour because the surface members are individually probed at H1 and the inline shapes in PIC are correct. The cost of leaving the citations missing is shape-drift detection at the next Pi minor: a renamed member, a widened return type on `pi.setActiveTools`, or an additive field on `CreateAgentSessionOptions` (e.g. a future `signal`) would not light up a spec-text mismatch even though it might be load-bearing. The trust-boundary claim about absence of per-extension privilege scoping is the only item where a future Pi addition could silently invalidate a spec-asserted security disposition.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-For each surface, append an inline citation in the same form PIC already uses for `MessageRenderer` and `ExtensionContext`: a `dist/...` path inside `@mariozechner/pi-coding-agent ~0.72.1` (or its lock-step peer where the symbol originates), with a one-clause note on what the citation pins.
-
-Specifically, in `spec_topics/pi-integration-contract.md`:
-
-- §"Tool-registration lifetime and visibility" — anchor `pi.setActiveTools` / `pi.getActiveTools` to `ExtensionAPI` in `dist/core/extensions/types.d.ts`. The atomicity / handler-serialisation guarantees should either be cited to a Pi document that states them, or downgraded to "the loom runtime treats `pi.setActiveTools(string[])` as synchronous-and-atomic on the JS event loop and assumes Pi serialises slash-command dispatch per session; if either guarantee weakens in a future Pi minor, the snapshot/restore protocol below MUST be re-validated" — i.e. an explicit dependency the H1 surface-inventory test can be extended to detect.
-- §"Conversation drive — subagent mode" — anchor `createAgentSession` and `CreateAgentSessionOptions` to `dist/core/sdk.d.ts`. State the no-`signal`-field claim as "verified against `CreateAgentSessionOptions` at `dist/core/sdk.d.ts` in `~0.72.1`" so a future minor that adds the field surfaces in the bump-procedure typecheck (Pi version bump procedure step 1) rather than as silent runtime drift.
-- §"Cancellation source" — replace "Pi documents `ctx.signal` as `undefined` in idle / non-turn contexts (`@mariozechner/pi-coding-agent`'s extension docs, `ctx.signal` section)" with the canonical anchor to `ExtensionContext.signal` at `dist/core/extensions/types.d.ts` and quote the JSDoc verbatim.
-- §"`ExtensionContext` (member surface loom touches)" already anchors `ExtensionContext`. Add a parallel sub-block for `ExtensionCommandContext` citing `dist/core/extensions/types.d.ts` `ExtensionCommandContext extends ExtensionContext` and enumerating the members loom touches (`waitForIdle`) and the members loom MUST NOT touch (`newSession`, `fork`, `navigateTree`, `switchSession`) as the dual to the existing `ExtensionContext` "members loom does not touch" rule.
-- §"Step 0 (c)" — extend the `AgentSession.prototype.abort` line to cite the export source: `dist/core/index.d.ts` re-export of `AgentSession` from `./agent-session.js`, with a one-clause note that the loom runtime depends on the re-export specifically (not on direct consumption from `@mariozechner/pi-agent-core`) so a Pi minor that drops the re-export is detected at the H1 surface-inventory test.
-- §"Tool execution from loom code" — anchor the `{ content, isError }` envelope to its declaration path in `dist/core/extensions/types.d.ts` and cite the specific tool-result type whose shape the lowering procedure consumes, so the H1 test can be extended to assert the field set.
-
-In `spec.md` §"Trust boundary":
-
-- Replace the bare assertion "Pi exposes no per-extension privilege scoping" with one that names the surfaces inspected to reach that conclusion (e.g. "Pi's `ExtensionAPI` and `ExtensionContext` in `dist/core/extensions/types.d.ts` expose no per-extension privilege facet, and the resource-loader / tool-host surfaces grant capabilities at the host-process level"). This makes a future privilege-related addition visible at the next Pi-bump typecheck rather than silent.
-
-Edge cases the implementer must watch:
-
-- Citations are paths inside the *installed* SDK at the pinned `~0.72.1`, not at `pi-mono`'s source repository — the existing precedent in PIC uses `dist/...` paths and the bump procedure (PIC §"Pi version bump procedure" step 2) re-runs against the candidate minor's installed shape; new citations MUST follow the same convention so the procedure's typecheck step covers them.
-- Where the spec depends on Pi *behaviour* not encoded in the type system (the `setActiveTools` atomicity claim, the per-session dispatch serialisation), a `.d.ts` citation alone does not pin the guarantee. Either cite the Pi document that states it, or convert the assertion into an explicit precondition the bump procedure must re-validate.
-- Adding citations to surfaces that H1 already probes by name does not require modifying the H1 inventory constant; the inventory's role is name presence, the spec's role is shape and contract anchoring.
-
-## Relationships
-
-- T12 "`ExtensionContext.compact()` declared as async-no-args; SDK shape is sync with optional `CompactOptions`" — same-cluster (same surface, same `.d.ts`; resolves independently — that finding is about an incorrect inline signature, this one is about anchoring)
-- T13 "`ExtensionContext.sessionManager` is `ReadonlySessionManager`, not `SessionManager`; `buildSessionContext()` is not on the exposed surface" — same-cluster (also about the `ExtensionContext` shape in `dist/core/extensions/types.d.ts`; resolves independently — that finding is about a wrong type, this one is about missing citations)
-- T15 "Concurrent prompt-mode invocations: isolation claim is unbacked for the prompt-mode arm" — must-precede
-- T23 "Per-call `AbortController` / `AbortSignal` defect routing has gaps" — same-cluster
 
