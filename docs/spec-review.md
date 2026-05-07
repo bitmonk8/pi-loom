@@ -5,7 +5,7 @@ _Source: docs/reviews/spec-review/spec-20260507-064438-enriched.md_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T26) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 6 high, 12 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
+_Triage tally: 5 high, 12 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
 
 ---
 
@@ -1066,69 +1066,6 @@ Edge cases the implementer must watch:
 - T14 "Pre-evaluation failure enumeration: inline restatement in preamble, list never marked closed at owner" — co-resolve (same pre-evaluation list edit; closing the list and adding binder-cap exhaustion can land in one edit)
 - T13 "`tool_loop.max_iterations`: validation rules and diagnostic surface unspecified" — same-cluster (same Hard runtime ceilings bullet)
 - T10 "Hard-ceiling interaction: no rule for which surface fires when two ceilings could trip on the same event" — co-resolve (both rest on tightening which ceilings can produce evaluation outcomes)
-
----
-# T16 — `switchSession` listed as a session-swap trigger and teardown described unconditionally
-
-**Source:** docs/reviews/spec-review/spec-20260507-064438-enriched.md
-**Original heading:** `switchSession` incorrectly listed as session_shutdown trigger; teardown described as unconditional
-**Original section:** spec.md — Orientation > Prerequisites > Session model
-**Kind:** cross-spec-consistency-broad, assumptions
-**Importance:** high
-
-## Finding
-
-`spec.md` (Orientation > Prerequisites > Session model, line 39) states:
-
-> *Session model.* A Pi extension instance is bound to exactly one active user session at a time. A session swap (`new` / `resume` / `fork` / `switchSession`) tears the extension instance down via `session_shutdown` and re-binds a fresh instance against the new session …
-
-Two claims in this paragraph contradict the topic page it forward-links to.
-
-1. **`switchSession` is not a `session_shutdown` reason.** The Pi Integration Contract (PIC) pins the closed normative set as `event.reason: "quit" | "reload" | "new" | "resume" | "fork"` (PIC step 4, line 76). `switchSession` appears in PIC only at line 415, in the explicit "members loom does not touch" list, where it is normatively forbidden in V1; `future-considerations.md` (line 59) anchors it under deferred mid-loom user-session-replacement. Listing it among the session-swap reasons in the hub paragraph contradicts both the PIC enumeration and the deferred-feature anchor.
-
-2. **Teardown is not unconditional.** PIC line 92 explicitly says `reason: "new" | "resume" | "fork"` "does not always tear down the *extension* runtime (only the user session)"; the V1 acceptance is that the `session_shutdown` handler treats every reason identically because a no-teardown reason becomes a fast-path no-op. `cancellation.md` line 15 also softens the trigger language ("on `/reload`, `/new`, fork, or quit"). The hub paragraph's flat "tears the extension instance down" overstates this and would mislead a reader who never follows the link.
-
-The orientation paragraph is meant to forward-link the normative contract, not to redefine it; here it does both, and its restatement diverges from the source on a closed enumeration and on a teardown invariant.
-
-## Spec Documents
-
-- `spec.md` — Orientation > Prerequisites > Session model (edited)
-- `spec_topics/pi-integration-contract.md` — Extension entry point step 4; "Members loom does not touch" table (read-only)
-- `spec_topics/cancellation.md` — second-trigger paragraph (read-only)
-- `spec_topics/future-considerations.md` — Mid-loom user-session replacement anchor (read-only)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None. No plan leaf cites the wording of the spec.md Session-model paragraph; H4 (extension shell) and V18 (cancellation, file watcher) carry no `session_shutdown` handler leaf, and the relevant PIC/cancellation pages already encode the correct enumeration. The fix is confined to `spec.md` orientation prose.
-
-## Consequence
-
-**Severity:** correctness
-
-A reader who relies on the hub paragraph without chasing the forward-link will (a) believe `switchSession` is a session-swap reason the runtime must handle, contradicting the V1 MUST-NOT-call rule, and (b) believe the extension instance is always torn down on `new`/`resume`/`fork`, missing the fast-path no-op disposition. Both errors steer implementation and review effort onto code paths the contract does not require.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Replace the parenthetical and the teardown clause in `spec.md` line 39 with text that mirrors PIC verbatim:
-
-> *Session model.* A Pi extension instance is bound to exactly one active user session at a time. Pi fires `session_shutdown` with `event.reason: "quit" | "reload" | "new" | "resume" | "fork"` (the closed normative set anchored at [Pi Integration Contract — Extension entry point, step 4](./spec_topics/pi-integration-contract.md)); the runtime's handler treats every reason identically and may fast-path to a no-op when the underlying reason did not invalidate the extension runtime. Concurrent loom invocations within a session …
-
-Drop `switchSession` from the enumeration entirely — it is V1-forbidden and its deferred-feature home is already anchored at [Future Considerations — Mid-loom user-session replacement](./spec_topics/future-considerations.md#mid-loom-user-session-replacement); a hub mention only invites the reader to assume it is in scope.
-
-Edge cases the editor must preserve: (a) the enumeration must remain a closed set quoted exactly as PIC quotes it (no informal abbreviations like "swap reasons"), since downstream readers grep on the literal reason values; (b) the softened teardown clause must not promise a specific fast-path detection algorithm — PIC's V1 acceptance is that the handler runs the same sequence regardless and a no-active-invocations registry trivially settles, and any tighter promise here would re-open a cross-spec inconsistency.
-
-## Relationships
-
-- T17 "Session model: rewrite of concurrent-invocations and `ActiveInvocationRegistry` framing" — co-resolve (same paragraph; both fixes land in the same rewrite)
-- T18 "Session-swap behaviour for in-flight loom invocations is under-specified" — co-resolve (same Session-model paragraph; the lifecycle/error gap is the larger half of this same paragraph rewrite)
 
 ---
 
