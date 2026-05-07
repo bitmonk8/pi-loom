@@ -4,7 +4,7 @@ _Generated: 2026-05-07T17:37:47Z_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 18 high, 10 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
+_Triage tally: 17 high, 10 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
 
 ---
 
@@ -1868,89 +1868,4 @@ Edge cases the implementer must watch:
 
 ## Relationships
 
-- T28 "`session_shutdown` teardown contract has no plan-leaf owner" — must-follow
-
----
-
-# T28 — `session_shutdown` teardown contract has no plan-leaf owner
-
-**Original heading:** Plan corpus has no leaf for `session_shutdown` handler / `ActiveInvocationRegistry` teardown
-**Original section:** spec.md — Orientation > Prerequisites > Session model
-**Kind:** cross-spec-consistency-broad
-**Importance:** high
-## Finding
-
-`spec_topics/pi-integration-contract.md` (extension-entry-point step 4 plus its **Session-swap behaviour for in-flight invocations** sub-block) defines a five-sub-step normative teardown contract: drain the `LoomRegistry`, iterate the `ActiveInvocationRegistry` calling `loomAbort.abort(reason)` on each entry, `await Promise.allSettled(...)` over every `disposeBarrier` bounded by the constant `SHUTDOWN_AWAIT_CAP_MS = 2000` measured against the `Clock` seam, close the chokidar `discoveryWatcher` and `settingsWatcher`, and detach forwarding listeners. The handler is subscribed via `pi.on("session_shutdown", handler)`, validates `event.reason` against the closed five-arm union with a `try`/`catch` around the property read, and emits four diagnostic codes: `loom/runtime/cancelled-by-session-shutdown`, `loom/runtime/reload-teardown-timeout`, `loom/host/session-shutdown-reason-unknown`, plus a per-site `loom/runtime/subagent-dispose-failure` cross-ref. The contract also pins the `ActiveInvocationRegistry` itself — an extension-instance-scoped `Set<{ loomAbort: AbortController; disposeBarrier: Promise<void> }>` whose insertion-order iteration is observable through `reload-teardown-timeout`'s `<list>` rendering — and obliges the slash-command handler, `tool.execute(...)` adapter, and `invoke` spawn site to insert and remove entries in lock-step with each invocation's `finally` block.
-
-`plan_topics/coverage-matrix.md` row 69 maps `[Pi Integration Contract]` to `H4, H5, Mb, V5h, V6i, V12a, V14a–V14j, V14t, V18f, V18q`. None of those leaves owns step 4. `H4` (`plan_topics/h4-extension-shell.md`) covers the factory entry, the `loom-system-note` channel, the `sendSystemNote` helper, the registration cache, and `withActiveTools` — its `Adds.` block contains no reference to `session_shutdown`, the registry, `SHUTDOWN_AWAIT_CAP_MS`, or `Promise.allSettled`. `V18f` and `V18r` create the discovery and settings watchers but do not close them on teardown. `V12a` lands per-invocation `AgentSession.dispose()` in a `finally` and the `loom/runtime/subagent-dispose-failure` diagnostic, but it does not insert into or remove from the registry, does not subscribe the handler, and does not own the bounded await. The remaining three runtime-and-host diagnostic codes (`cancelled-by-session-shutdown`, `reload-teardown-timeout`, `session-shutdown-reason-unknown`) appear nowhere in `plan.md` or `plan_topics/**.md` outside of V18s's placeholder-closure gate text — which is CI scaffolding, not an implementation owner.
-
-The V18s diagnostic-code gate would eventually fire on three of the four codes (registry-present-but-untested), but only after a leaf author tries and fails to find a home for them. The structural gap — no leaf whose `Adds.` block names the teardown contract — remains undetected by the gate set.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — Extension entry point step 4; `ActiveInvocationRegistry` block; Session-swap behaviour for in-flight invocations (read-only)
-- `spec_topics/diagnostics.md` — `loom/runtime/cancelled-by-session-shutdown`, `loom/runtime/reload-teardown-timeout` rows; `loom/host/*` namespace and `loom/host/session-shutdown-reason-unknown` row (read-only)
-- `spec_topics/cancellation.md` — second `loomAbort.abort()` trigger paragraph; cross-ref to `ActiveInvocationRegistry` (read-only)
-- `spec_topics/invocation.md` — `InvokeInfraError` `cause: "internal_error"` cross-ref to PIC `ActiveInvocationRegistry` (read-only)
-- `plan_topics/coverage-matrix.md` — Pi Integration Contract row (edited)
-- `plan_topics/h4-extension-shell.md` — Extension shell `Adds.` block (option-dependent: edited if the new leaf is co-located with H4; otherwise read-only cross-ref)
-- `plan_topics/v12-subagent.md` — V12a per-invocation `finally` (edited: must insert/remove registry entries)
-- `plan_topics/v14-tool-calls.md` — V14c-a tool-call dispatch (edited: must insert/remove registry entries from the `tool.execute(...)` adapter)
-- `plan_topics/v15-invoke.md` — V15a `invoke` spawn site (edited: must insert/remove registry entries)
-- `plan_topics/v18-cancellation.md` — V18f and V18r watcher leaves (edited: `.close()` calls must be reachable from the teardown handler; or: explicit cross-ref pointing at the new leaf)
-- New file under `plan_topics/` for the new leaf (edited)
-
-## Plan Impact
-
-**Phases:** Horizontal H4 (or a new horizontal slot adjacent to H4), with downstream modifications in M, V12, V14, V15.
-
-**Leaves (implementation order):**
-
-- H4 — Pi extension shell — (modified: must either grow to own step 4 or hand off to a new sibling leaf and drop a forward-link)
-- *new leaf, e.g. H4b — `session_shutdown` handler, `ActiveInvocationRegistry`, teardown diagnostics* — (added)
-- V12a — `mode: subagent` accepted; AgentSession spawn — (modified: per-invocation `finally` inserts/removes a registry entry whose `disposeBarrier` settles after `dispose()` returns)
-- V14c-a — code-side tool-call dispatch — (modified: `tool.execute(...)` adapter inserts/removes a registry entry)
-- V15a — `invoke` spawn site — (modified: `invoke` parent inserts/removes a registry entry; the registry `Adds.` clause already cited from `invocation.md`'s `InvokeInfraError` `cause: "internal_error"` description)
-- V18f — File watcher (chokidar) over discovery roots — (modified: `discoveryWatcher.close()` must be invocable from the teardown handler; the watcher exposes a disposal hook)
-- V18r — Settings-file watcher — (modified: same `.close()` reachability obligation as V18f)
-
-## Consequence
-
-**Severity:** correctness
-
-A normative five-sub-step teardown contract with four diagnostic codes has no implementation owner. Two implementers building V1 from the present plan will independently invent the registry data structure, the handler subscription point, the `SHUTDOWN_AWAIT_CAP_MS` constant, and the diagnostic-emission ordering — or will silently skip the contract, leaking chokidar watchers and abandoning in-flight subagents on every `/reload`, `/new`, fork, and quit. The V18s coverage gate would later flag three of the four codes as registry-present-but-untested, but only after the structural omission has shaped a release candidate.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add one new horizontal-phase leaf under `plan_topics/` (suggested ID `H4b` — the next-letter-after-H4 slot keeps it adjacent to the extension-shell leaf that owns the rest of the entry-point sequence):
-
-- **Spec.** Cite `[Pi Integration Contract — Extension entry point](../spec_topics/pi-integration-contract.md)` step 4, the `[ActiveInvocationRegistry](../spec_topics/pi-integration-contract.md#active-invocation-registry)` block, the Session-swap behaviour for in-flight invocations sub-block, and `[Diagnostics](../spec_topics/diagnostics.md)` (the four diagnostic-code rows enumerated below).
-- **Adds.** (a) `pi.on("session_shutdown", handler)` subscription wired in the extension factory, after H4's renderer registration and before the discovery scan starts. (b) The `ActiveInvocationRegistry` data structure as an extension-instance-scoped `Set<{ loomAbort: AbortController; disposeBarrier: Promise<void> }>` exposed on the H2-injected runtime so the per-site inserters in V12a, V14c-a, V15a, and the slash handler can reach it; the spec pins the symbol as internal, so the leaf MUST expose it through descriptive seam methods (`registerInvocation(entry) → Unsubscribe`) rather than the literal name. (c) The constant `SHUTDOWN_AWAIT_CAP_MS = 2000` measured against the H2-injected `Clock` seam (`Clock.now()` at handler entry, compared against per-`Promise.allSettled`-tick reads). (d) The five-sub-step teardown sequence: drain the `LoomRegistry`, iterate the registry calling `loomAbort.abort(reason)` (per-entry `try`/`catch`, swallowed), `await Promise.allSettled(activeInvocations.map(inv => inv.disposeBarrier))` bounded by `SHUTDOWN_AWAIT_CAP_MS`, close `discoveryWatcher` and `settingsWatcher` (reaches into V18f / V18r seams), detach forwarding listeners. (e) The unknown-reason validation: `try`/`catch` around the read of `event.reason`, set comparison against `{"quit","reload","new","resume","fork"}`, falling through to the full sequence on unknown / throw. (f) Diagnostic-code emission for `loom/runtime/cancelled-by-session-shutdown` (from each invocation's own `finally` when `disposeBarrier` settles inside the cap window), `loom/runtime/reload-teardown-timeout` (from the handler when the bounded await exhausts; renders elapsed wall time and the comma-and-space-joined `<list>` of still-in-flight invocations in registry insertion order), `loom/host/session-shutdown-reason-unknown` (W; from the handler on unknown / throwing `event.reason`), and a cross-ref note that `loom/runtime/subagent-dispose-failure` continues to be owned by V12a. (g) Idempotency: a second `session_shutdown` fired before the first returns is a no-op. (h) The `console.error` delivery sink for the two handler-emitted codes (`reload-teardown-timeout`, `session-shutdown-reason-unknown`) per the diagnostics-sink carve-out.
-- **Tests.** Handler subscription happens during factory entry (probe on `FakeExtensionAPI`). Synthetic registry contents (entries inserted by the test, not by V12a/V14c-a/V15a) drive: clean-cancel of all entries inside the cap window emits one `loom/runtime/cancelled-by-session-shutdown` per entry from the entry's own `finally`, no `reload-teardown-timeout`; one entry whose `disposeBarrier` never settles drives `FakeClock.advance(2000)` and produces exactly one `reload-teardown-timeout` whose `<ms>` is the elapsed time and whose `<list>` is the comma-and-space-joined invocation list in insertion order; `discoveryWatcher.close()` and `settingsWatcher.close()` are invoked exactly once per teardown (probes on V18f / V18r fakes). Unknown `event.reason` value emits `loom/host/session-shutdown-reason-unknown` (W) once and proceeds with the full sequence. A `try`/`catch` around `event.reason` survives a getter that throws (synthetic `Object.defineProperty` probe) and routes through the same unknown-reason path. Idempotency: a second `session_shutdown` fired during the first's await window is a no-op. `console.error` is the delivery channel for both handler-emitted codes (probe on the diagnostics service). Sub-step iteration order over `loomAbort.abort()` and `Promise.allSettled` is registry-insertion order (asserted by inserting three entries with distinct `loomAbort` identities and observing the per-entry `abort()` call order). Per-entry `loomAbort.abort()` throw is swallowed; iteration continues to the next entry; no diagnostic fires for the swallowed throw.
-- **Deps.** H2 (the `Clock` seam, the runtime factory that exposes `registerInvocation(entry)`), H3 (the diagnostic-code primitive used by the four codes), H4 (the extension factory entry point and `console.error` access path).
-- **Ships when.** Pi firing `session_shutdown` against the loaded extension drives the full five-sub-step sequence end-to-end against the harness, the four diagnostic codes are observable, and `FakeClock.advance(2000)` deterministically forces the `reload-teardown-timeout` path.
-
-Cross-cutting modifications required at the same time:
-
-- V12a, V14c-a, V15a, and H4's slash-command handler each grow a single new line in `Adds.` naming `registerInvocation(entry)` and a corresponding test that the per-invocation `finally` removes the entry exactly once after `disposeBarrier` settles. The dispatch-site setup wrap (`new AbortController()` + `Set.add` + `createAgentSession(...)` for subagent mode) gets the runtime-defect routing the spec already pins.
-- V18f and V18r expose disposal hooks (`watcher.close()`) that the new leaf invokes from sub-step 4.
-- `plan_topics/coverage-matrix.md` row 69 grows the new leaf, and a new dedicated row keyed `[Pi Integration Contract — Extension entry point step 4 / Session-swap behaviour for in-flight invocations]` maps to the new leaf plus the modified V12a / V14c-a / V15a leaves.
-
-Edge cases the implementer must watch:
-
-- The registry must expose iteration order observably (V8 `Set` insertion order is the spec's anchor), because `reload-teardown-timeout`'s `<list>` rendering is byte-asserted.
-- The bounded await uses `Clock.now()` deltas, not `setTimeout` racing — `FakeClock.advance` must drive the timeout deterministically without a real timer.
-- The four diagnostics' delivery sinks differ from the rest of the corpus (`console.error`, not `loom-system-note`); the H3 primitive must accept the channel selector.
-- `loom/runtime/cancelled-by-session-shutdown` is emitted from the *invocation's own* `finally`, not from the teardown handler — V12a, V14c-a, V15a, and the slash-command handler each carry that emission, gated on observing the synthesised abort reason from the handler. The new leaf only specifies the abort reason value; the per-site emission logic lives in the existing leaves.
-
-## Relationships
-
-- T23 "Per-call `AbortController` / `AbortSignal` defect routing has gaps" — must-precede
-- T24 "`details.event.reason` coercion is unspecified for non-string Pi values" — must-precede
-- T25 "Session-shutdown teardown: `console.error` is the unguarded last resort, but no rule says emission MUST NOT propagate" — must-precede
-- T26 "Teardown sub-steps 1, 4, and 5 lack a per-step isolation rule" — must-precede (the new leaf's per-step `try`/`catch` shape depends on which isolation rule the spec pins)
-- T27 "Spec mandates `Promise.race` / `Promise.allSettled` but no plan leaf carries the required allow-list citation" — must-precede
+None
