@@ -5,7 +5,7 @@ _Source: docs/reviews/spec-review/spec-20260507-064438-enriched.md_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T26) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 8 high, 12 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
+_Triage tally: 7 high, 12 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
 
 ---
 
@@ -1365,86 +1365,4 @@ Edge case the implementer must watch: `DefaultResourceLoader` accepts a `systemP
 
 - T25 "Subagent cancellation wiring depends on a non-existent `createAgentSession({ signal })` option" — must-follow (the matrix's `loomAbort` row narration is rewritten by that finding; this finding's edit must land coherently with the wiring change there)
 - T24 "Trust-boundary aggregator names `tools` for the subagent-mode tool-definition wiring" — same-cluster (both touch the same `createAgentSession` call surface and same matrix area)
-
----
-# T20 — V1 seam-preservation MUSTs hidden inside the deferred-features narrative page
-
-**Source:** docs/reviews/spec-review/spec-20260507-064438-enriched.md
-**Original heading:** V1 normative requirements (MUSTs) embedded inside deferred-features document
-**Original section:** spec_topics/future-considerations.md
-**Kind:** scope
-**Importance:** high
-
-## Finding
-
-`spec_topics/future-considerations.md` is classified `(no IDs — narrative)` in the GOV-3 REQ-ID prefix table. Per GOV-3 it is excluded from REQ-ID extraction; per GOV-9 a section-level link to it suffices and triggers no closure obligation; per GOV-10 / GOV-11 an implementer who restricts their reading to the topic pages listed in their plan leaf's `**Spec**` field will not transitively pick it up. The page is therefore unreachable through the corpus's own reading-discipline rules.
-
-It nonetheless carries normative V1 obligations on implementer architecture, embedded in the *Surface extensions (V1 leaves a seam)* section as conditions the V1 carriers MUST preserve so the deferred features can land additively. Two examples:
-
-1. The **Binder refinement loop** bullet asserts that "three V1 carriers preserve the post-V1 migration and must not be 'simplified' away": (i) the binder envelope schema's three-arm `ok | needs_info | ambiguous` discriminator (collapsing to two arms is breaking); (ii) the `ambiguous.candidates` field staying in the schema even though V1 suppresses it (dropping it is breaking); (iii) the per-arm `loom /<name>:` system-note prefix grammar (collapsing the two failure-arm prefixes is breaking). `binder.md` documents each of (i)–(iii) individually as V1 behaviour but does not aggregate them as a seam-preservation contract or attach the "must not be simplified" obligation to any of the three; that framing exists only in `future-considerations.md`.
-
-2. The **Symlink-resolution hardening for invoke-path containment** bullet asserts in its *Anchored at:* clause that "the path-resolution call site in the invoke runtime is a single named function used by both load-time and invocation-time checks; replacing its body is additive." `invocation.md` describes the load-time and invocation-time `realpath`+containment checks but never pins the structural V1 mandate — that the call site MUST be factored as a single named function shared between the two sites — anywhere in its own text.
-
-The asymmetry is visible elsewhere in the same section: the **Named-argument / key=value invocation syntax** bullet's V1 seam is correctly mirrored as a normative `> **V1 seam — named-argument invocation.**` block in `invocation.md` (with the discriminator-switch MUST stated locally), so a V15 implementer reading only `invocation.md` sees the obligation. The two cases above are the defect: a V15 / V16 implementer reading only the leaf's listed topic pages preserves neither structure, and a future revision that lands either deferred feature discovers the V1 carriers were silently simplified.
-
-A scan of the same section turns up further candidates that carry V1 architectural mandates phrased as seam descriptions rather than as MUSTs on a topic page — at minimum the *Typed-query support* "single named runtime constant", the *Mid-loom user-session replacement* "single captured reference", the *Pi-owned subagents* "single named set", and the *Package-style imports* "single `Resolver` seam". Each is the same shape: a V1 implementation choice the deferred extension depends on, asserted only on the deferred-features page. The fix should sweep the section rather than patch the two examples.
-
-## Spec Documents
-
-- `spec_topics/future-considerations.md` — *Surface extensions (V1 leaves a seam)* (edited)
-- `spec_topics/binder.md` — *Binder envelope schema*, *System-note rendering* rule 5, *Failure-mode templates* (edited)
-- `spec_topics/invocation.md` — *Resolution* (edited)
-- `spec_topics/governance.md` — GOV-3 prefix table, GOV-9 cross-link form, GOV-10 plan-leaf reading scope, GOV-11 Spec-field closure (read-only)
-- `spec_topics/imports.md` — *Resolver interface* (edited if the sweep covers the package-style imports seam)
-- `spec_topics/pi-integration-contract.md` — *Provider compatibility for typed queries*, *Conversation drive — prompt mode*, *Extension entry point* (edited if the sweep covers the typed-query, mid-loom-replacement, or Pi-owned-subagents seams)
-- `plan_topics/h6-req-ids.md` — narrative-page exclusion list (read-only; remains correct as long as `future-considerations.md` stays narrative after the sweep)
-
-## Plan Impact
-
-**Phases:** Horizontal (H6), Vertical (V15, V16); Vertical (V17) is option-dependent.
-
-**Leaves (implementation order):**
-
-- H6 — REQ-ID anchor insertion and coverage-matrix re-pivot — (modified)
-- V15a — `invoke("./path.loom", ...)` parsing and resolution — (modified)
-- V15e — `.loom` paths in `tools:` (default basename naming) — (modified)
-- V16c — Binder envelope schema construction — (modified)
-- V16l — `needs_info` envelope handling — (modified)
-- V16m — `ambiguous` envelope handling — (modified)
-- V16o — Binder malformed envelope handling — (modified)
-- V17 leaves carrying the `Resolver` seam — (option-dependent)
-
-H6's exclusion list keys off the `(no IDs — narrative)` cell. The sweep moves obligations *out* of `future-considerations.md` to topic pages that already carry prefixes, so H6 picks them up automatically and the exclusion list is unchanged. V15 / V16 leaves are listed as *modified* because each currently sources its V1 carrier shape from the topic page only; under the fix they will additionally need to honour an explicit seam-preservation MUST that lands on the topic page (i.e. the leaf's tests grow an assertion that the structural distinction is preserved, not just that the V1 behaviour is correct).
-
-## Consequence
-
-**Severity:** correctness
-
-An implementer working a V15 or V16 leaf under GOV-10 reads `invocation.md` or `binder.md` and sees no obligation to factor the path-resolution call site as a shared single function, or to keep the binder envelope's three-arm discriminator and `candidates` field structurally intact even though V1 ignores them. A reasonable optimising implementer collapses either: a single inlined `realpath`+containment block at each call site, or a two-arm envelope that conflates `needs_info` and `ambiguous` since V1 surfaces both as terminating system notes. Both choices ship a working V1 and silently break the deferred feature when it lands. The defect is unreachable through the corpus's own gates: the coverage-matrix gate (GOV-2 / GOV-6) cannot key on REQ-IDs that do not exist; the closure gate (GOV-11) does not pull narrative pages into the leaf's `**Spec**` field.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Sweep the *Surface extensions (V1 leaves a seam)* section of `future-considerations.md` and, for every bullet whose seam description carries a V1 architectural obligation, lift that obligation to the owning topic page as an explicit `> **V1 seam — <name>.**` block (matching the form already used by *V1 seam — named-argument invocation* and *V1 seam — per-call timeout* in `invocation.md`). Each lifted block lands inside the topic page's normative body, picks up a fresh REQ-ID under that page's prefix when H6 runs, and remains the canonical home; the `future-considerations.md` bullet retains only a description of the deferred feature plus an *Anchored at:* link to the new block.
-
-Concretely for the two cited examples:
-
-- **Binder refinement loop.** Add a `> **V1 seam — binder refinement loop.**` block to `binder.md` (a natural site is immediately after the existing seam paragraph at line 51) that names all three V1 carriers explicitly and binds them with MUST: "the envelope schema MUST retain the three-arm `ok | needs_info | ambiguous` discriminator; the `ambiguous.candidates` field MUST remain in the schema (binder may emit it; AJV accepts `null`); the failure-mode template table MUST keep distinct `needs_info` and `ambiguous` row prefixes." Each MUST is testable: V16c asserts the three-arm shape; V16m asserts `candidates` is schema-accepted but unrendered; V16l / V16m together assert the prefixes diverge.
-- **Symlink-resolution hardening.** Add a `> **V1 seam — symlink-resolution hardening.**` block to `invocation.md` immediately after the *Resolution* paragraph that pins: "the V1 implementation of the `realpath`+discovery-root-containment check MUST be exposed as a single named function reused by the load-time check and the invocation-time re-check; future hardening replaces the function body in place." V15a's `Tests` line then grows a structural assertion (e.g. that the load-time and invocation-time call sites resolve to the same function reference, or via a code-grep test in V18-class infrastructure).
-
-Apply the same lift to every other bullet in the section whose *Anchored at:* clause asserts a V1 structural promise rather than merely pointing at where V1 already documents the seam — at minimum the four candidates flagged in the Finding (typed-query single named constant, mid-loom-replacement single captured reference, Pi-owned-subagents single named set, package-style imports single `Resolver` seam). The sweep is bounded by the section length and is a one-pass mechanical edit.
-
-Edge cases for the implementer of the fix:
-
-- The lift must preserve the deferred feature's reverse link. After lifting, the `future-considerations.md` bullet keeps a one-line summary plus *Anchored at: [Topic — V1 seam: <name>](./topic.md#…)* pointing at the new block's anchor.
-- `future-considerations.md` stays classified `(no IDs — narrative)` after the sweep — the page becomes purely descriptive, which is its declared purpose. Promoting it to a normative page would require GOV-7 *Narrative-to-normative promotion*, GOV-7 *Add* of a fresh prefix, an H6 re-run scope expansion, and a coverage-matrix re-pivot; the lift accomplishes the same outcome without those mutations.
-- A bullet whose seam description merely *restates* an obligation already pinned on the topic page (e.g. *Per-call timeouts*, where `invocation.md` already carries the open-struct seam) needs no lift; the sweep skips it.
-- The H6 anchor pass already excludes `future-considerations.md`. After the sweep, the bullets that remain on the page carry no MUSTs, so H6's exclusion remains correct without modification.
-
-## Relationships
-
-None
 
