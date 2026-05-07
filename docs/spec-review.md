@@ -5,7 +5,7 @@ _Source: docs/reviews/spec-review/spec-20260507-064438-enriched.md_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T26) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 high, 4 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
+_Triage tally: 1 high, 3 medium retained; 31 low discarded; 4 low findings merged into 2 medium findings; 8 nit dropped; 0 false dropped._
 
 ---
 
@@ -149,60 +149,4 @@ Edge cases for the implementer:
 ## Relationships
 
 None
-
----
-
-# T03 — `@mariozechner/` scope dropped from sibling-package names on first mention
-
-**Source:** docs/reviews/spec-review/spec-20260507-064438-enriched.md
-**Original heading:** `@mariozechner/` scope omitted for sibling packages in spec.md
-**Original section:** spec.md — Orientation > Prerequisites > Pi SDK and capabilities
-**Kind:** implementability
-**Importance:** medium
-
-## Finding
-
-The Prerequisites paragraph in `spec.md` (the `**Pi SDK and capabilities.**` block immediately under `### Prerequisites`) names the host as `@mariozechner/pi-coding-agent` but introduces the three sibling packages bare: "additionally pins `pi-agent-core`, `pi-ai`, and `pi-tui` as direct `peerDependencies`". The actual installable names — verified against `package.json#peerDependencies` and against `pi-coding-agent`'s own `dependencies` block — are `@mariozechner/pi-agent-core`, `@mariozechner/pi-ai`, and `@mariozechner/pi-tui`. The scope is implied by parallelism with the host name and is correctly used elsewhere in the spec corpus (e.g. PIC's *Pi SDK pin* item 1 uses the scoped form), but on this first-mention paragraph the scope is missing and no parenthetical recovers it.
-
-The same defect appears in `pi-integration-contract.md`'s opening paragraph (line 3): "the lock-step pin requiring `pi-agent-core`, `pi-ai`, and `pi-tui` to resolve to the same minor-version line…". PIC then immediately switches to the scoped form in the very next item; the inconsistency is internal to PIC as well as between PIC's intro and `spec.md`.
-
-A reader or automation that copies the literal package names from either first-mention sentence into a `package.json` produces an installable-but-wrong manifest (npm will resolve unscoped `pi-agent-core` to a different package on the public registry, or fail to resolve at all if no such package exists). Every other site in the corpus that the build-time `peerDependencies` literal-read assertion in H1 consumes already uses scoped names, so the defect is confined to the two introductory paragraphs.
-
-## Spec Documents
-
-- `spec.md` — Orientation > Prerequisites > Pi SDK and capabilities (edited)
-- `spec_topics/pi-integration-contract.md` — opening paragraph (edited)
-- `package.json` — `peerDependencies` (read-only; ground truth)
-- `spec_topics/pi-integration-contract.md` — *Host prerequisites — Pi SDK pin* item 1 (read-only; canonical scoped reference)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None. H1's `peerDependencies` literal-read test (`plan_topics/h1-scaffold.md`) already keys on the scoped names (`peerDependencies["@mariozechner/pi-agent-core"]` etc.), and no other leaf consumes the affected sentences as a ground-truth literal. The fix is doc-only.
-
-## Consequence
-
-**Severity:** advisory
-
-A human implementer is unlikely to install unscoped packages because the host-package scope makes the convention obvious, but a literal extraction (LLM-assisted manifest generation, regex-driven dependency-list scrape, or a contributor copying the sentence verbatim) yields a manifest that either resolves to the wrong package or fails to install. The cost is small but the fix is mechanical and removes a trap.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In both first-mention sentences (`spec.md` Prerequisites paragraph and `pi-integration-contract.md` opening paragraph), write the three sibling packages with their `@mariozechner/` scope on first mention:
-
-- `spec.md`: "additionally pins `@mariozechner/pi-agent-core`, `@mariozechner/pi-ai`, and `@mariozechner/pi-tui` as direct `peerDependencies` …"
-- `pi-integration-contract.md` opening paragraph: "the lock-step pin requiring `@mariozechner/pi-agent-core`, `@mariozechner/pi-ai`, and `@mariozechner/pi-tui` to resolve to the same minor-version line …"
-
-Subsequent mentions in the same paragraph may abbreviate, provided the abbreviation is unambiguous (e.g. "the four `@mariozechner/*` packages"). Edge case for the implementer: do not introduce a parenthetical-only fix ("the three siblings, scoped under `@mariozechner/`") in lieu of writing the names in full — the build-time literal-read assertion in H1 keys on the scoped strings, and a future automated cross-check between the spec text and `package.json` should be able to grep the scoped name directly out of the spec.
-
-## Relationships
-
-- T04 "`^X.Y.Z` prose label \"minor-version line\" only coincides with npm caret semantics while Pi is in 0.x" — same-cluster (same Prerequisites paragraph; both edits land in adjacent prose)
 
