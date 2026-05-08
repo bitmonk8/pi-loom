@@ -4,7 +4,7 @@ _Generated: 2026-05-07T17:37:47Z_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 high, 2 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
+_Triage tally: 0 high, 1 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
 
 ---
 
@@ -67,75 +67,4 @@ Edge cases the implementer must watch:
 ## Relationships
 
 - T21 "Hard ceilings block does load-bearing definitional work inside informative orientation" — same-cluster (if the Hard ceilings block is extracted into its own top-level section, the `#hard-runtime-ceilings` anchor target in recommendation step 3 must be updated to follow it)
-
----
-
-# T02 — Surface-extension seam obligations are not consistently marked on the topic pages they live on
-
-**Original heading:** 14 "surface extension" seam obligations not tracked in normative pages
-**Original section:** spec_topics/future-considerations.md
-**Kind:** scope
-**Importance:** medium
-## Finding
-
-The "Surface extensions (V1 leaves a seam)" section of `spec_topics/future-considerations.md` enumerates 18 deferred items (not 14), and its preamble promises that "the seams themselves live on the topic pages that own each surface; this page enumerates only what V1 chose not to do, and where to read the seam contract." The promise is honoured unevenly:
-
-- Nine items have an explicit `> **V1 seam — <name>.**` blockquote callout on the owning topic page that pins the V1 obligation with MUST language: per-call timeouts (three callouts in `query.md`, `tool-calls.md`, `invocation.md`), typed-query supported provider set (`pi-integration-contract.md`), per-query overrides (folded into the per-call-timeout callout in `query.md`), automatic context escalation (`binder.md`), binder refinement loop (`binder.md`), named-argument invocation (`invocation.md`), mid-loom user-session replacement (`pi-integration-contract.md`), Pi-owned subagents collision source set (`pi-integration-contract.md`), and symlink-resolution hardening (`invocation.md`).
-- Four items rely on flowing prose at the anchored section that names the seam without the `> **V1 seam — ...**` marker: user-defined error types and `BinderError`-as-`QueryError` (both ride the "Discriminator type-openness" paragraph in `errors-and-results.md`), richer `system:` expression sublanguage (the "Parser entry point" paragraph in `frontmatter.md` mentions "the seam is what allows…"), and package/project-rooted import paths (the "Resolver interface" paragraph in `imports.md` mentions a "single named seam"). A reader scanning a topic page for the regular V1-seam blockquote marker will not match these.
-- Five items have no topic-page seam contract at all. `binder_temperature` and the user-overridable binder system prompt are anchored at the generic "Unknown-key policy" in `frontmatter.md` — that policy provides forward tolerance for any unrecognised key and names no specific deferred field; the binder-system-prompt bullet in `future-considerations.md` even admits "the deferred extension also needs an injection point in the binder for an author-supplied prompt template; that injection point does not exist in V1." The `looms.toolLoopMaxRounds` operator-level override is anchored at `frontmatter.md`'s `tool_loop` field, which has no seam callout. The `argumentHint` and Pi-owned-subagents items are upstream Pi-API dependencies that only need a V1 carrier if Pi extends its surface (these overlap with the separate "Pi-owned upstream items" finding).
-- Pre-flight token-count check is anchored at `query.md` "Detection of `ContextOverflowError`", which mentions `tokens_used` / `tokens_limit` nullability and forward-links Future Considerations but never establishes a `> **V1 seam — pre-flight token estimate.**` obligation; the seam consists entirely of "those two fields are nullable today."
-
-Separately, `spec.md`'s Scope subsection enumerates four cross-cutting V1 dispositions and forward-links Future Considerations for the "Known V1 limitations" bucket, but never names the count or existence of the Surface-extensions bucket. A reader of `spec.md` alone has no signal that V1 carries a fixed inventory of forward-compatibility obligations that future-feature work depends on.
-
-## Spec Documents
-
-- `spec.md` — Scope subsection (edited)
-- `spec_topics/future-considerations.md` — Surface extensions (V1 leaves a seam) (edited)
-- `spec_topics/errors-and-results.md` — Discriminator type-openness (edited)
-- `spec_topics/frontmatter.md` — Parser entry point, Unknown-key policy, `tool_loop` field, prose on `argument-hint` (edited)
-- `spec_topics/imports.md` — Resolver interface (edited)
-- `spec_topics/query.md` — Detection of `ContextOverflowError`, Options surface (read-only — already carries the per-call-timeout callout)
-- `spec_topics/binder.md` — V1 seam callouts (read-only — already carry MUST language)
-- `spec_topics/invocation.md` — V1 seam callouts (read-only — already carry MUST language)
-- `spec_topics/tool-calls.md` — V1 seam callouts (read-only — already carry MUST language)
-- `spec_topics/pi-integration-contract.md` — V1 seam callouts (read-only — already carry MUST language)
-- `spec_topics/governance.md` — GOV-12 aggregator-vs-source convention (read-only)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None. The plan keys its leaves on topic-page sections (`Spec.` fields cite specific topic-page anchors), and the Surface-extensions inventory is informative-with-forward-links — none of the V20-series leaves carry an acceptance criterion that would change if a missing seam callout were added or if `spec.md` gained a count. The `coverage-matrix.md` row for Future Considerations explicitly tags it `– (out of scope)` for plan coverage. The fix is a documentation pass under GOV-12's aggregator-vs-source convention; no leaf is blocked or modified.
-
-## Consequence
-
-**Severity:** advisory
-
-The nine items with explicit V1-seam blockquotes are well-protected against accidental "simplification" by an implementer who reads only the topic page. The other nine rely on prose, generic policy, or external dependency framing, which raises the risk that a topic-page-only reader (typical during V1 implementation, since `future-considerations.md` is a non-implementation page) will not recognise the seam contract — e.g. tightening `QueryError.kind` from `string` to a closed enum, omitting the `style` discriminator from invocation AST nodes that today aren't stress-tested, or open-coding the resolver as a relative-path computation. The risk is mitigated by GOV-12's lock-step convention but the convention has nothing to lock onto when the topic page carries no seam marker. The summary-count gap in `spec.md` is purely organisational.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Apply a one-pass alignment with three parts.
-
-1. **Add a `> **V1 seam — <name>.**` blockquote callout** on each owning topic-page section for the four items currently carried only in prose (user-defined error types and `BinderError`-as-`QueryError` both ride a single new callout under "Discriminator type-openness" in `errors-and-results.md`; richer `system:` expression sublanguage gets one in `frontmatter.md` under "Parser entry point"; package/project-rooted import paths get one in `imports.md` under "Resolver interface") and for the pre-flight token-count item in `query.md` under "Detection of `ContextOverflowError`". Each callout follows the same shape the existing nine use: a one-sentence MUST that names the V1 invariant the future extension depends on, plus a forward link back to the corresponding bullet in `future-considerations.md`.
-
-2. **For the five items that have no genuine V1 seam — `binder_temperature`, user-overridable binder system prompt, `looms.toolLoopMaxRounds`, `argumentHint`, Pi-owned subagents** (the last two coordinate with the separate "Pi-owned upstream items bundled as pi-loom future work" finding) — split the Surface-extensions bucket so these items move to a clearly-marked sub-bucket whose preamble states the pattern (e.g. "Items below ride the frontmatter unknown-key policy as their forward-compatibility carrier; no dedicated topic-page seam exists") or, for the upstream-Pi pair, are delegated to the external-dependency tracker per the related finding's recommendation. The Surface-extensions section after this split contains only items with a topic-page seam contract.
-
-3. **Add one informative bullet to `spec.md`'s Scope subsection** of the form: "Forward-compatibility seams. V1 reserves N typed/structural seams in the runtime to enable a fixed set of deferred extensions; the inventory and per-seam contracts are owned by [Future Considerations — Surface extensions](./spec_topics/future-considerations.md#surface-extensions-v1-leaves-a-seam)." The N value is the post-split count (likely 13). Per GOV-12, this aggregator bullet and the source list move in lock-step.
-
-Edge cases:
-
-- The N count after the split must match the post-split bullet count exactly; if a future revision adds or removes a Surface-extensions item, both the topic-page callout and the `spec.md` bullet must update in the same change. GOV-12's lock-step rule already covers this once both surfaces exist.
-- The pre-flight token-count seam is unusual: it is *not* a runtime-internal options-record open struct nor a discriminator-openness; it is a nullability contract on two existing fields. The callout text needs to spell out that the seam is the `tokens_used`/`tokens_limit` `null`-permitted state, not a hidden runtime hook.
-- The "Discriminator type-openness" section in `errors-and-results.md` carries one paragraph that supports two future items (user-defined error types and `BinderError`-as-`QueryError`). One V1 seam callout suffices for both — duplicate callouts would over-anchor.
-
-## Relationships
-
-None
 
