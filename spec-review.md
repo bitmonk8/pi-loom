@@ -4,7 +4,7 @@ _Generated: 2026-05-07T17:37:47Z_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 high, 8 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
+_Triage tally: 0 high, 8 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
 
 ---
 
@@ -510,74 +510,4 @@ Edge cases the editor must preserve:
 ## Relationships
 
 - T21 "Hard ceilings block does load-bearing definitional work inside informative orientation" — must-follow
-
----
-
-# T09 — `typebox` host-shape failure has no named diagnostic; `Type.Unsafe` stability claim is uncited
-
-**Original heading:** `typebox`: bundled-package convention uncited, no probe, packaging over-prescribed
-**Original section:** spec.md — Orientation > Prerequisites > Pi SDK and capabilities
-**Kind:** assumptions, completeness, prescription
-**Importance:** high
-## Finding
-
-The runtime imports exactly one symbol from the Pi-bundled `typebox` package — `Type.Unsafe<unknown>(...)` — and uses it at every tool-registration site (subagent `customTools`, prompt-mode `pi.registerTool`, the synthesised `__loom_respond_<slug>` tool in V6, and the loom-callee `defineTool` wrap in V14e). Two facts make a missing or renamed `Type.Unsafe` a load-bearing failure mode:
-
-1. The Step 0 capability probe is the runtime's single load-bearing host-shape check, and it explicitly excludes `typebox` — `pi-integration-contract.md` says under Step 0 (d) that "the probe MUST NOT extend the iteration to cover it" and under **Host prerequisites — Pi SDK pin** that "the capability probe under Step 0 (d) does not check `typebox` at all and MUST NOT be extended to do so." The exclusion is asserted without a named alternative diagnostic.
-2. The same page elsewhere (`AgentSession.prototype.abort`, Step 0 (c)) takes the opposite posture for an analogous one-symbol Pi import, justifying the probe with the rationale "a missing or renamed member surfaces as `loom/load/host-incompatible` rather than as a runtime-time `TypeError` at the spawn site." The asymmetry between the two single-symbol Pi imports is not explained.
-
-Consequently, if a host violates the bundled-package convention or a future TypeBox release renames/removes `Type.Unsafe`, the runtime fails with an uncaught `TypeError` at the first tool-registration call (factory time for prompt mode, spawn time for subagent mode) instead of emitting a named `loom/load/*` diagnostic. The `details.kind` enumeration in **On failure: refusal and diagnostic** has no slot for this case.
-
-A second, narrower gap: the supporting claim "`Type.Unsafe` is stable across the TypeBox 0.x → 1.x line; no version pin is warranted" is asserted in PIC without citation. This is the one assertion that justifies pinning to `"*"` rather than a versioned range, and it carries the entire forward-compatibility argument; nothing in PIC, the spec, or `packages.md` corroborates it.
-
-(The original framing also implied the bundled-package convention itself is uncited and that `"typebox": "*"` is over-prescribed packaging mechanism; both of those sub-claims are weaker than they sound — `pi-integration-contract.md` cites `@mariozechner/pi-coding-agent` `docs/packages.md` *Dependencies* for the convention, and `"*"` is the literal mandated by that convention rather than a packaging choice loom invented. The remaining gaps above are the substantive ones.)
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — *Host prerequisites — Pi SDK pin* (`typebox` sub-paragraph) (edited)
-- `spec_topics/pi-integration-contract.md` — *Step 0 (Capability probe)* and **On failure: refusal and diagnostic** `details.kind` enumeration (option-dependent)
-- `spec_topics/pi-integration-contract.md` — *Tool definition shape* (read-only; consumer site)
-- `spec.md` — *Orientation > Prerequisites > Pi SDK and capabilities* (`typebox` sentence) (edited)
-- `spec_topics/diagnostics.md` — `loom/load/*` registry (option-dependent; new `details.kind` value)
-- `C:/Users/thomasa/AppData/Roaming/npm/node_modules/@mariozechner/pi-coding-agent/docs/packages.md` — *Dependencies* (read-only; convention source)
-
-## Plan Impact
-
-**Phases:** H1 (option-dependent), V6, V14
-
-**Leaves (implementation order):**
-
-- H1 — Repository scaffold and test framework — (modified) — the `SDK_SURFACE_INVENTORY` constant and the per-package literal-read tests would gain a `typebox` row under the recommended option (the constant is the single source of truth the probe also consumes, per the leaf's own contract).
-- V6 — Typed queries, `Result`, `?`, schema inference — (read-only; consumer of `Type.Unsafe` at `__loom_respond_<slug>` construction; no test changes required)
-- V14e — Pi tool wired into `@` queries as model-callable — (read-only; consumer of `Type.Unsafe` at `defineTool` wrap; no test changes required)
-
-## Consequence
-
-**Severity:** correctness
-
-If the bundled-package convention is violated by a host packaging path (a transitive dep installs a duplicate, a future TypeBox 2.x renames `Type.Unsafe`, an exotic pnpm hoisting layout fails to dedupe), the runtime crashes with an uncaught `TypeError` at the first tool-registration call instead of refusing cleanly with `loom/load/host-incompatible`. Two reasonable implementers will diverge on whether to add a probe, whether to wrap the call site in a guard, or whether to leave the failure as a raw `TypeError`, because the spec explicitly forbids extending the probe but offers no alternative diagnostic surface.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Extend the capability probe with a fifth sub-step that checks `typeof Type.Unsafe === "function"` against the imported `typebox` namespace. Failure routes to `loom/load/host-incompatible` with a new `details.kind = "typebox-shape"` discriminator. Mirror the framing already used for `AgentSession.prototype.abort` in Step 0 (c).
-
-**Spec edits.**
-- `pi-integration-contract.md` — *Host prerequisites — Pi SDK pin* (`typebox` sub-paragraph): delete "the capability probe under Step 0 (d) does not check `typebox` at all and MUST NOT be extended to do so" and the corresponding exclusion paragraph after Step 0 (d); replace with a forward-link to a new Step 0 (e).
-- `pi-integration-contract.md` — *Step 0 (Capability probe)*: add sub-step (e) defining the `Type.Unsafe` check, its `details.kind = "typebox-shape"` discriminator, and its position in the short-circuit order (after (d), since it depends on a peer-dep import resolving).
-- `pi-integration-contract.md` — **On failure: refusal and diagnostic**: extend the `kind` enumeration from `{ "node-floor", "abortsignal-shape", "sdk-capability-missing", "peer-dep-out-of-range", "peer-dep-malformed-version", "probe-failed" }` to add `"typebox-shape"`. Update the *Self-failure* paragraph's `details.step` enumeration symmetrically.
-- `pi-integration-contract.md` — *Tool definition shape*: drop the uncited "stable across the TypeBox 0.x → 1.x line; no version pin is warranted" sentence; replace with a forward-reference to Step 0 (e) as the load-bearing check.
-- `spec.md` — *Pi SDK and capabilities* `typebox` sentence: keep the bundled-package framing, replace the implicit "host's bundled version wins" mechanism claim with a forward-link to PIC Step 0 (e).
-- `diagnostics.md` — extend the `loom/load/host-incompatible` `details.kind` enumeration entry.
-
-The asymmetry with `AgentSession.prototype.abort` is the strongest signal — that probe entry exists for exactly this reason and the rationale ("missing or renamed member surfaces as `loom/load/host-incompatible` rather than as a runtime-time `TypeError`") transfers verbatim. Edge cases the implementer must handle: the probe MUST NOT itself construct a TypeBox schema (no `Type.Unsafe<unknown>({})` call) — `typeof Type.Unsafe === "function"` is sufficient and keeps the probe's invariant of not exercising the member it is checking; and the `details.observed` field for a missing `Type.Unsafe` should report `typeof Type.Unsafe` (e.g. `"undefined"`) rather than the namespace contents to keep diagnostic payload small.
-
-Independently of the option chosen, delete the uncited "stable across the TypeBox 0.x → 1.x line" sentence and replace with a citation-grounded justification (a TypeBox CHANGELOG link confirming `Type.Unsafe` is API-stable, or a deferral of the compatibility question to the runtime probe).
-
-## Relationships
-
-- T16 "Pi API surfaces asserted without `.d.ts` citations: setActiveTools, createAgentSession, ExtensionCommandContext, AgentSession, tool-result envelope" — same-cluster
 
