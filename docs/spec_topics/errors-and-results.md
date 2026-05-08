@@ -65,7 +65,7 @@ The trichotomy applies only once evaluation has begun. The complete V1 set of fa
 6. `tools:` resolution failure (per [Parameters and Frontmatter — `tools`](./frontmatter.md#tools))
 7. watcher-time reload failures (per [Discovery](./discovery.md))
 
-No additional pre-evaluation failure surface applies in V1 — a future leaf that introduces one updates this list and the new failure's owner page in the same commit per the GOV-12 lock-step convention extended to this paragraph.
+No additional pre-evaluation failure surface applies in V1 — a future leaf that introduces one updates this list and the new failure's owner page in the same commit per the GOV-12 lock-step convention extended to this paragraph. Each of the seven list items above is an independent normative obligation in its own right — each names a distinct failure surface that sibling pages cite into individually — so the H6 anchor pass (per [Governance — GOV-1](./governance.md)) MUST assign a separate `ERR-N` REQ-ID anchor to each item rather than a single `ERR-N` to the list as a whole, so that cross-references from `hard-ceilings.md`, `binder.md`, `frontmatter.md`, `discovery.md`, and `pi-integration-contract.md` into one specific pre-evaluation failure can bind to the per-item anchor once H6 lands. Any insertion or reordering of items, and the `the seven below` count assertion in the preceding paragraph, moves in lock-step with the list under the same co-edit obligation.
 
 An `invoke` parent whose callee fails to load observes a separate evaluation-time failure of its own: `InvokeInfraError { cause: "load_failure", ... }` per [Invocation — Failures](./invocation.md), which IS an evaluation outcome of the *parent*.
 
