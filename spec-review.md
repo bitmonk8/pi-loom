@@ -4,7 +4,7 @@ _Generated: 2026-05-07T17:37:47Z_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 high, 6 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
+_Triage tally: 0 high, 5 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
 
 ---
 
@@ -323,61 +323,4 @@ Edge cases the implementer must watch:
 ## Relationships
 
 - T22 "Post-cancel late Promise settlement: discard mechanism unspecified, leaves `unhandledRejection` exposure" — same-cluster (adjacent cancellation observability gap on a different surface — late tool-call settlements rather than streaming fragments)
-
----
-
-# T06 — `peerDependencies` ranges silently deviate from Pi's documented `"*"` convention
-
-**Original heading:** peerDependencies: tilde-pinned ranges conflict with Pi's documented `"*"` convention
-**Original section:** spec.md — Orientation > Prerequisites > Pi SDK and capabilities
-**Kind:** doc-alignment-broad, assumptions
-**Importance:** medium
-## Finding
-
-Pi's `@mariozechner/pi-coding-agent/docs/packages.md` (*Dependencies*) is unambiguous about the bundled-package convention: "If you import any of these, list them in `peerDependencies` with a `"*"` range and do not bundle them: `@mariozechner/pi-ai`, `@mariozechner/pi-agent-core`, `@mariozechner/pi-coding-agent`, `@mariozechner/pi-tui`, `typebox`." All five bundled packages are named, and the prescribed range is `"*"` for every one.
-
-The spec follows this convention only for the fifth entry. `pi-integration-contract.md` — *Host prerequisites — Pi SDK pin* pins the four `@mariozechner/*` packages to `~0.72.1` (matching the literal in the project's own `package.json`) and explicitly cites `packages.md` only when discussing `typebox`. The `~0.72.1` choice for the four `@mariozechner/*` packages is presented as the loom contract without any acknowledgement that it diverges from the convention `packages.md` prescribes for the same packages. The "belt-and-braces against package managers that do not auto-deduplicate transitive peer-dep ranges" parenthetical justifies declaring all four entries together; it does not name `"*"` as the alternative being rejected, does not cite `packages.md`, and does not record the trade-off.
-
-The deviation is also load-bearing: the H1 `peerDependencies` literal-read test (per `plan_topics/h1-scaffold.md`) asserts the four entries equal `"~0.72.1"` literally and that `typebox` equals `"*"`, baking the divergence into the test corpus. A future reader auditing whether `pi-loom` follows Pi's published packaging convention will find the convention cited for one of five packages and silently broken for the other four.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — *Host prerequisites — Pi SDK pin* (edited)
-- `spec_topics/pi-integration-contract.md` — *Step 0 (d) Peer-dep version* (option-dependent)
-- `spec_topics/pi-integration-contract.md` — *Pi version bump procedure* (option-dependent)
-- `spec.md` — *Orientation > Prerequisites > Pi SDK and capabilities* (read-only; references PIC by location)
-- `package.json` (option-dependent; `peerDependencies` literals)
-- `C:/Users/thomasa/AppData/Roaming/npm/node_modules/@mariozechner/pi-coding-agent/docs/packages.md` — *Dependencies* (read-only; convention source)
-
-## Plan Impact
-
-**Phases:** Horizontal H1
-
-**Leaves (implementation order):**
-
-- H1 — Repository scaffold and test framework — (modified)
-
-The `SDK_SURFACE_INVENTORY` `peer-dep-range` entry and the `package.json` `peerDependencies` literal-read test both encode `"~0.72.1"` for the four `@mariozechner/*` packages; both change under Option A and stay put with new doc anchors under Option B. The bump-procedure leaf list is not affected — `Pi version bump procedure` is in `pi-integration-contract.md`, not in a plan leaf.
-
-## Consequence
-
-**Severity:** correctness
-
-A reviewer comparing `pi-loom`'s packaging against Pi's `packages.md` finds an undocumented divergence on four of five bundled packages. Under Option A (align with `"*"`) the divergence simply disappears; under Option B (keep `~0.72.1`) the divergence becomes intentional and citable. Left as-is, the next person to bump Pi has to re-derive the rationale from scratch and may "fix" the deviation by aligning to `"*"`, silently dropping the install-time skew gate the current design relies on.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Retain the `~0.72.1` ranges. Add an explicit acknowledgement to *Host prerequisites — Pi SDK pin* that this is a deliberate deviation from `packages.md`, citing the convention, naming what it gives up (Pi-prescribed alignment) and what it buys (install-time skew detection on non-deduplicating package managers).
-
-**Spec edits.** In *Host prerequisites — Pi SDK pin*, after the existing lock-step paragraph, insert a short paragraph: cite `@mariozechner/pi-coding-agent/docs/packages.md` — *Dependencies* as prescribing `"*"` for all five bundled packages; state that `pi-loom` deliberately deviates for the four `@mariozechner/*` entries by pinning `~0.72.1`; name the deviation rationale (install-time skew detection on pnpm-isolated and yarn installs that do not auto-dedupe transitive peer-dep ranges); state that `typebox` follows the convention because the runtime depends only on `Type.Unsafe`, which is stable across the TypeBox 0.x → 1.x line. Add a sentence to *Pi version bump procedure* step 4 noting that this deviation must be re-justified if a future Pi minor changes the lock-step expectation. No `package.json` or H1 test changes.
-
-The install-time skew gate is concrete value on the package managers most production hosts use, and the existing design (the H1 literal-read test, the Step 0 (d) probe, and the bump-procedure literal-anchor list) has been built around the four-anchor invariant. Pay the documentation cost: cite `packages.md`, name the deviation, record the rationale in `pi-integration-contract.md`. Edge case the editor must watch — keep the `typebox` paragraph distinct, since `typebox` follows the convention and the four `@mariozechner/*` entries do not; do not let a future copy-edit collapse them into a single "all five follow `packages.md`" sentence.
-
-## Relationships
-
-- T09 "`typebox` host-shape failure has no named diagnostic; `Type.Unsafe` stability claim is uncited" — same-cluster (touches the same `peerDependencies` block and the same `packages.md` convention, but resolves around a different sub-question — `typebox` probe and packaging-vs-behavioural-contract — and the edits do not coincide)
 
