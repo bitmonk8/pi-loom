@@ -4,7 +4,7 @@ _Generated: 2026-05-08T09:00:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T46) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 15 high, 29 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 0 nit dropped; 0 false dropped._
+_Triage tally: 15 high, 28 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 0 nit dropped; 0 false dropped._
 
 _Decision tally (recorded 2026-05-08): all 18 `Shape: multiple` findings resolved to `Shape: single`. 6 findings merged at decision time: T17→T24, T28→T27, T29→T30, T31→T32, T33→T03, T45→T44. See per-finding **Decision** / **STATUS** lines._
 
@@ -3170,77 +3170,3 @@ Edge cases for the implementer:
 - T40 "Pre-evaluation failure list has no per-item anchors" — same-cluster.
 - T42 "Race semantics: cancellation MUSTs lack per-obligation REQ-ID anchors" — same-cluster.
 - T46 "GOV-9 cross-link contract is unsatisfiable for body-paragraph REQ-IDs" — must-follow.
-
----
-
-# T42 — Race semantics: cancellation MUSTs lack per-obligation REQ-ID anchors
-
-**Original heading:** Race semantics: four independent MUST obligations in continuous prose with no per-obligation identifier
-**Original section:** docs/spec_topics/cancellation.md
-**Kind:** traceability
-**Importance:** medium
-
-## Finding
-
-The `**Race semantics.**` block in `cancellation.md` (lines 33–39) bundles several independently testable MUST obligations into continuous prose under a single bolded section label that is neither a `**CNCL-N.**` REQ-ID anchor nor an `<a id>` HTML anchor. The CNCL prefix is reserved for `cancellation.md` in the GOV-3 prefix table, but the page currently carries zero `**CNCL-N.**` markers.
-
-Counting MUSTs in the block: (1) no retroactive `Ok(v) → Err({kind:"cancelled"})` rewrite; (2) no top-level synthesis of `cancelled` when no further checkpoint executes before the loom returns; (3) the late-settlement discard at the tool-call boundary, which itself nests three sub-MUSTs and is mirrored to four Promise-owning sites; (4) the swallowing-handler attachment requirement for the lifetime of every Pi-returned Promise the runtime might abandon.
-
-Plan leaves under V18 already cite "the swallowing-handler rule in [Cancellation — Race semantics]" by descriptive name across V18a/b/c/d/e/p, because no per-obligation anchor exists. The H6 anchor-pass leaf is specified to insert one `**PREFIX-N.**` marker per *normative obligation* per page; with the obligations bundled in continuous prose, H6 cannot annotate them at the granularity GOV-1 requires without first splitting the prose.
-
-## Spec Documents
-
-- `docs/spec_topics/cancellation.md` — `**Race semantics.**` paragraph cluster, lines 33–39 (edited)
-- `docs/spec_topics/governance.md` — GOV-1, GOV-3, GOV-8 (read-only)
-- `docs/spec_topics/errors-and-results.md` — `Mid-stream cancellation, conversation state` cross-reference (read-only)
-- `docs/spec_topics/pi-integration-contract.md` — `Checkpoint` seam and Subagent session lifecycle (read-only)
-
-## Plan Impact
-
-**Phases:** Horizontal H6, Vertical V18
-
-**Leaves (implementation order):**
-
-- H6 — REQ-ID anchor insertion and coverage-matrix re-pivot — (modified)
-- V18a — `AbortSignal` at every loop iteration boundary — (modified)
-- V18b — `AbortSignal` before every `@` query — (modified)
-- V18c — `AbortSignal` before every tool call — (modified)
-- V18d — `AbortSignal` before every `invoke` — (modified)
-- V18e — Cancellation propagates downward only — (modified)
-- V18p — `AbortSignal` before and during the binder LLM call — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Plan-leaf citations across V18 currently reference these MUSTs by English paraphrase; without per-obligation anchors, the V18s GOV-9 spec-anchor gate cannot enforce that each cited rule resolves to a stable target, and a future split or rewording silently breaks every consumer with no GOV-8 retirement record.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Split the `**Race semantics.**` block into discrete `**CNCL-N.**` paragraphs at obligation granularity. The minimum split is four:
-
-- **CNCL-N₁** — No retroactive `Ok → Err({kind:"cancelled"})` rewrite.
-- **CNCL-N₂** — No top-level synthesis of `cancelled` when no further checkpoint executes before the loom returns.
-- **CNCL-N₃** — Late-settlement discard at every checkpoint that has surfaced `cause:"cancelled"`. Three sub-MUSTs (no rebind, no second `Err`, no second `RuntimeEvent`). Applies to the `execute()` Promise, the `@`-query provider Promise, the `invoke` callee's top-level Promise, and the subagent `AgentSession.abort()` Promise.
-- **CNCL-N₄** — Swallowing-handler attachment, attached at the construction site before the first microtask boundary.
-
-Sequencing constraint: the prose split lands first (so the H6 pass annotates four discrete paragraphs rather than one).
-
-Edge cases the implementer must watch:
-
-- The late-settlement discard's three sub-MUSTs are tightly coupled. Bundling them under one `**CNCL-N.**` is acceptable per GOV-1, but the paragraph MUST enumerate the three sub-MUSTs explicitly so reviewers can cite "CNCL-N₃ clause (b)" unambiguously.
-- The swallowing-handler attachment-timing sub-MUST can stay folded into CNCL-N₄.
-- The cross-page extension to `AgentSession.abort()`'s discarded Promise lives in CNCL-N₄'s applicability list.
-- Update every plan-leaf citation under V18a–V18p in the same H6 commit so the V18s spec-anchor gate is green.
-
-## Relationships
-
-- T39 "Mid-stream cancellation paragraph bundles multiple obligations under one anchor" — same-cluster.
-- T41 "Binder refinement-loop seam bundles three independent MUSTs under one navigational anchor" — same-cluster.
-- T46 "GOV-9 cross-link contract is unsatisfiable for body-paragraph REQ-IDs" — must-follow.
-- T07 "`QueryError.message` content has no normativity rule" — same-cluster.
-
