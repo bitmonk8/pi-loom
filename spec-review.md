@@ -4,7 +4,7 @@ _Generated: 2026-05-07T17:37:47Z_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 high, 3 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
+_Triage tally: 0 high, 2 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
 
 ---
 
@@ -139,62 +139,3 @@ Edge cases:
 
 None
 
----
-
-# T03 — "High-privilege callable" qualifier is undefined and conceals a universal rule
-
-**Original heading:** "High-privilege callable" undefined; universal rule obscured
-**Original section:** spec.md — Orientation > Scope > Trust boundary
-**Kind:** clarity
-**Importance:** medium
-## Finding
-
-The Trust boundary bullet in `spec.md` (Orientation > Scope) reads "A loom that declares a **high-privilege callable** (e.g. `bash`) exposes the full underlying capability of that callable to its model." The bolded term **high-privilege callable** appears exactly once in the entire spec corpus and is defined nowhere — there is no glossary entry, no anchor, no enumeration, and no classification rule that an implementer can use to decide whether a given callable is "high-privilege" or not.
-
-This leaves a reader with two incompatible readings. Reading A: the rule is conditional and applies only to a privileged subset, in which case the spec owes a classifier (and presumably some enforcement around the lower-privilege complement). Reading B: the rule is universal — *every* declared callable exposes its full underlying capability, because the runtime interposes no privilege layer per [Pi Integration Contract — No additional access channels](./spec_topics/pi-integration-contract.md#no-extra-mediation), and `bash` is just a salient example. The surrounding text and the cross-referenced PIC clause make Reading B the intended meaning, but the bolded qualifier actively pushes a reader toward Reading A.
-
-The same paragraph already states the universal premise — the runtime "interposes no additional access channels (sandbox, capability filter, mediated proxy)" and the `tools:` allowlist "is NOT a host-process sandbox" — so the conditional phrasing is not just unclear, it is internally inconsistent with the page's own thesis.
-
-## Spec Documents
-
-- `spec.md` — Orientation > Scope > Trust boundary (edited)
-- `spec_topics/pi-integration-contract.md` — No additional access channels (read-only)
-- `spec_topics/future-considerations.md` — No per-loom sandbox or capability model (read-only)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None
-
-## Consequence
-
-**Severity:** advisory
-
-An implementer scanning the trust boundary bullet may conclude that a privilege classifier is owed somewhere downstream and either invent one (introducing divergence) or stall waiting for it. The runtime contract itself is unaffected — the per-mode wiring rule in PIC is precise — but the spec's own statement of why callable declaration matters becomes unreliable as an authoritative reference.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Drop the "high-privilege" qualifier and restate the rule universally. Replace the existing sentence:
-
-> A loom that declares a high-privilege callable (e.g. `bash`) exposes the full underlying capability of that callable to its model.
-
-with:
-
-> Any callable a loom declares exposes the full underlying capability of that callable to the loom's model; the runtime applies no privilege classification or filtering. `bash` and `read` are illustrative — the rule does not depend on a callable being deemed "privileged."
-
-Edge cases for the implementer:
-
-- Do not introduce a glossary entry for "high-privilege callable"; the term is being retired, not defined.
-- The companion paragraph on `tools:` already establishes that the allowlist scopes the *model's reachable* set, not host-process privilege. The replacement sentence must remain consistent with that — it speaks to *capability exposure once a callable is declared*, not to whether a callable is reachable at all.
-- If a future privilege model is ever introduced, it lands as a major-version migration per the existing future-considerations entry; this rewording does not foreclose that path because it makes no claim about V2+.
-
-## Relationships
-
-None
