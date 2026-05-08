@@ -48,13 +48,13 @@ The binder is asked to return one of three structured outputs (the schema is con
 
 The envelope is runtime-internal; it is never a Loom-visible type and never appears in loom code. Authors only see the *consequences* of binding (loom runs, or system note appears).
 
-> **V1 seam — binder refinement loop.** <a id="v1-seam-binder-refinement-loop"></a> The structural distinction between the two failure arms exists for the deferred binder refinement loop (cf. [Future Considerations — Binder refinement loop](./future-considerations.md#binder-refinement-loop)), where only `needs_info` reopens for a clarifying turn while `ambiguous` still terminates. Three V1 carriers preserve the post-V1 migration and MUST be retained — none of them MAY be "simplified" in V1 on the grounds that V1 does not surface the distinction:
->
-> 1. The [Binder envelope schema](#binder-envelope-schema-constructed-dynamically-from-params) MUST keep the three-arm `ok | needs_info | ambiguous` discriminator. Collapsing to two arms (e.g. folding `ambiguous` into `needs_info` because V1 surfaces both as terminating system notes) is a breaking change to the deferred loop.
-> 2. The `ambiguous.candidates` field MUST remain in the envelope schema (`array<string> | null`; the binder may emit it; AJV accepts `null`). Dropping it from the schema is breaking. The V1 runtime MUST NOT surface it on the user-facing system note — the `ambiguous` row of the [failure-mode templates](#failure-mode-templates-normative) renders only `<message>`, per [System-note rendering](#system-note-rendering) rule 5.
-> 3. The [failure-mode templates](#failure-mode-templates-normative) table MUST keep distinct `loom /<name>: argument binding needs more info — <message>` and `loom /<name>: ambiguous arguments — <message>` row prefixes. Collapsing the two failure-arm prefixes into a single shared phrase is breaking.
->
-> Forward-compatible without the cost of either collapsing the arms now or rendering candidates the V1 templates do not require.
+> **V1 seam — binder refinement loop.** <a id="v1-seam-binder-refinement-loop"></a> The structural distinction between the two failure arms exists for the deferred binder refinement loop (cf. [Future Considerations — Binder refinement loop](./future-considerations.md#binder-refinement-loop)), where only `needs_info` reopens for a clarifying turn while `ambiguous` still terminates. Three V1 carriers preserve the post-V1 migration; each is pinned individually below as its own normative obligation. The split is forward-compatible without the cost of either collapsing the arms now or rendering candidates the V1 templates do not require.
+
+**BNDR-<i>.** The [Binder envelope schema](#binder-envelope-schema-constructed-dynamically-from-params) MUST keep the three-arm `ok | needs_info | ambiguous` discriminator. Collapsing to two arms (e.g. folding `ambiguous` into `needs_info` because V1 surfaces both as terminating system notes) is a breaking change to the deferred loop.
+
+**BNDR-<j>.** The `ambiguous.candidates` field MUST remain in the envelope schema (`array<string> | null`; the binder may emit it; AJV accepts `null`). Dropping it from the schema is breaking. The V1 runtime MUST NOT surface it on the user-facing system note — the `ambiguous` row of the [failure-mode templates](#failure-mode-templates-normative) renders only `<message>`, per [System-note rendering](#system-note-rendering) rule 5.
+
+**BNDR-<k>.** The [failure-mode templates](#failure-mode-templates-normative) table MUST keep distinct `loom /<name>: argument binding needs more info — <message>` and `loom /<name>: ambiguous arguments — <message>` row prefixes. Collapsing the two failure-arm prefixes into a single shared phrase is breaking.
 
 ### Binder envelope schema (constructed dynamically from `params:`)
 
