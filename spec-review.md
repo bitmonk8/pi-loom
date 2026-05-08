@@ -4,7 +4,7 @@ _Generated: 2026-05-07T17:37:47Z_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 high, 5 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
+_Triage tally: 0 high, 4 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
 
 ---
 
@@ -257,70 +257,3 @@ Edge cases the rewrite must preserve:
 - T25 "Session-shutdown teardown: `console.error` is the unguarded last resort, but no rule says emission MUST NOT propagate" — same-cluster (same teardown handler, separate axis: diagnostic emission contract)
 - T26 "Teardown sub-steps 1, 4, and 5 lack a per-step isolation rule" — same-cluster (same handler, separate axis: per-step error containment)
 - T28 "`session_shutdown` teardown contract has no plan-leaf owner" — same-cluster (touches the same handler; resolved separately by adding a plan leaf, not by editing spec prose)
-
----
-
-# T05 — Mid-stream cancellation: no observable rule for loom-runtime conversation behaviour
-
-**Original heading:** Mid-stream partial-append: no observable criterion for loom conformance
-**Original section:** spec_topics/errors-and-results.md + spec_topics/slash-invocation.md
-**Kind:** testability
-**Importance:** medium
-## Finding
-
-`errors-and-results.md` (Partial-append contract) explicitly excludes mid-stream cancellation from the contract:
-
-> a turn that streams to the user but whose stream is interrupted by cancellation before the query's `Ok` materialises is NOT a partial-append-contract obligation — the conversation may carry the partial fragment per Pi's session semantics, but loom's per-turn finality applies only at the granularity defined here.
-
-`slash-invocation.md` (User-visible streaming) covers only the *visual* surface:
-
-> Cancellation mid-stream: whatever partial text Pi has already rendered remains visible; partial output is not rolled back. The cancellation system note is appended after the partial prefix.
-
-Both passages are scoped to what the *user* sees in the transcript. Neither says what *the next loom-issued query in the same prompt-mode loom* observes when it inspects conversation history (or, equivalently, what shape the next turn's request will carry to the model). The carve-out "loom's per-turn finality applies only at the granularity defined here" leaves a vacuum: a runtime that proactively truncated or rewrote the partial assistant text before issuing the next query would violate no stated rule.
-
-The implicit intent — "the runtime defers to whatever Pi committed; it must not mutate" — is consistent with the `## No rollback` paragraph immediately below in `errors-and-results.md`, but it is never stated as a normative constraint on the loom runtime, and there is no observable assertion a conformance test can make. The cancellation surfacing leaves (V18a–V18e) all assert the abort signal's *Result-typed surface* (`Err({kind:"cancelled"})`), not the post-cancel conversation state visible to a follow-up `@`-query within the same prompt-mode loom.
-
-## Spec Documents
-
-- `spec_topics/errors-and-results.md` — Partial-append contract (edited)
-- `spec_topics/slash-invocation.md` — User-visible streaming (edited)
-- `spec_topics/cancellation.md` — Surfacing (read-only)
-- `spec_topics/pi-integration-contract.md` — Conversation drive (read-only)
-
-## Plan Impact
-
-**Phases:** V5, V18
-
-**Leaves (implementation order):**
-
-- V5e — Prompt-mode conversation driver — (modified)
-- V18b — `AbortSignal` before every `@` query — (modified)
-
-## Consequence
-
-**Severity:** advisory
-
-Two reasonable implementers can satisfy V18b's tests (signal-fired-mid-stream surfaces `Err({kind:"cancelled"})`) while diverging on what the *next* `@`-query in the same loom sees: one leaves Pi's session state untouched, the other prunes the orphaned partial assistant turn before re-driving. Both behaviours pass the existing surface tests; only the second silently changes the prompt the next query receives. Without an observable rule, neither V5e nor V18b can include a conformance assertion that the post-cancel conversation matches Pi's committed state byte-for-byte.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Replace the mid-stream carve-out paragraph in `errors-and-results.md` (Partial-append contract) with a positive runtime-side rule, and cross-link it from `slash-invocation.md` (User-visible streaming) and `cancellation.md` (Surfacing). Wording sketch:
-
-> **Mid-stream cancellation, conversation state.** When a query's stream is interrupted by cancellation before its `Ok` materialises, the loom runtime MUST NOT mutate the conversation maintained by Pi: it MUST NOT truncate, re-write, replace, or remove any assistant tokens, tool-call cards, or system notes that Pi has committed to the conversation, and it MUST NOT inject compensating turns. Whether the partial fragment appears in the conversation observed by a subsequent `@`-query in the same prompt-mode loom is determined entirely by Pi's session semantics; the loom runtime's obligation is non-mutation.
-
-Make the rule observable at V5e and V18b by asserting, after a cancelled mid-stream query, that the conversation handle the prompt-mode driver next reads from is byte-identical to what Pi committed — the test fixture controls Pi-side commitment via the existing `PromptModeConversationDriver` seam (V5e), pins the committed transcript snapshot, fires `loomAbort.abort()` mid-stream via the V18b checkpoint hook, then drives a follow-up `@`-query and asserts its outbound conversation matches the snapshot exactly. The same fixture also asserts that no `pi.sendMessage`, `setActiveTools`, or other Pi-mutating call interleaves between the cancellation observation and the next driver send.
-
-Edge cases the implementer must watch:
-
-- The rule applies symmetrically to the cancellation path *and* to `?`-propagation after a partial stream (the existing `slash-invocation.md` Edge cases bullet covers visibility but not mutation).
-- For typed queries with respond-repair follow-ups, the rule binds the runtime between the cancelled streaming turn and the next driver send; respond-repair's own conversation appends remain governed by `query.md`.
-- Subagent mode is unaffected — no observer exists for the subagent's conversation outside the subagent itself, but the runtime obligation still holds within the subagent loom.
-
-## Relationships
-
-- T22 "Post-cancel late Promise settlement: discard mechanism unspecified, leaves `unhandledRejection` exposure" — same-cluster (adjacent cancellation observability gap on a different surface — late tool-call settlements rather than streaming fragments)
-
