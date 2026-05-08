@@ -508,11 +508,13 @@ interface ExtensionContext {
   abort(): void;                                         // documented by Pi as "abort the current agent operation"; **the loom runtime wraps this** — see override table below
   getContextUsage(): ContextUsage | undefined;           // aggregate session-level usage; `undefined` arm is the "not yet computable" sentinel (no throw); loom MUST NOT substitute this for per-turn token accounting (see `buildSessionContext` above)
   hasPendingMessages(): boolean;                          // observed by the slash-command handler's pre-turn idle probe; not consumed elsewhere in the loom runtime
-  compact(): Promise<void>;                              // host-driven compaction trigger; not invoked by loom in V1 — listed for completeness so the override table below is exhaustive
+  compact(options?: CompactOptions): void;               // host-driven compaction trigger; not invoked by loom in V1 (`await ctx.compact()` is a type-safe no-op — `await void` resolves immediately and the completion signal is silently lost); completion / failure observed via `options.onComplete(result: CompactionResult)` / `options.onError(err: Error)`; forwarded unchanged in both modes, listed here so the touched-surface inventory is exhaustive
   shutdown(): void;                                      // documented by Pi for in-process shutdown; not invoked by loom in V1
   getSystemPrompt(): string;                             // host's effective system prompt; not consumed by loom in V1
 }
 ```
+
+`CompactOptions` and `CompactionResult` (referenced by the `compact` row above) are declared at `dist/core/extensions/types.d.ts` lines 199–203 and 233 respectively in `@mariozechner/pi-coding-agent ~0.72.1` (the V1 Pi-SDK pin from **Host prerequisites** above) as `CompactOptions = { customInstructions?: string; onComplete?: (result: CompactionResult) => void; onError?: (error: Error) => void }`; `CompactionResult` is the host-defined result payload threaded through `onComplete`. Loom does not construct either value in V1 — both are listed only so the touched-surface inventory is closed against the cited declarations and re-validated on each Pi minor bump per [Pi version bump procedure](#pi-version-bump-procedure) below.
 
 Members loom does not touch (e.g. `reload()`, `newSession()`, `fork()`, `switchSession()`) are deliberately omitted; their absence from this table is normative — the loom runtime MUST NOT call them in V1, and a future widening is a spec-versioned change. `waitForIdle()` is intentionally absent: it is a member of `ExtensionCommandContext` (the per-handler subtype that extends `ExtensionContext`; see **`ExtensionCommandContext` (per-handler subtype loom touches)** below), not of `ExtensionContext` itself, and is consulted only on the captured slash-command handler context (see **Conversation drive — prompt mode** above), never on the synthesised tool-execution `ctx`.
 

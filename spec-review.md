@@ -4,7 +4,7 @@ _Generated: 2026-05-07T17:37:47Z_
 _Spec: spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 4 high, 8 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
+_Triage tally: 3 high, 8 medium retained; 10 low discarded; 0 low findings merged into 0 medium findings; 19 nit dropped; 0 false dropped._
 
 ---
 
@@ -703,67 +703,4 @@ Edge cases the implementer must watch:
 - T12 "`ExtensionContext.compact()` declared as async-no-args; SDK shape is sync with optional `CompactOptions`" — same-cluster (same SDK-transcription failure mode; resolved independently)
 - T13 "`ExtensionContext.sessionManager` is `ReadonlySessionManager`, not `SessionManager`; `buildSessionContext()` is not on the exposed surface" — same-cluster (same SDK surface, both about transcribing Pi types accurately into the contract; resolved independently)
 - T16 "Pi API surfaces asserted without `.d.ts` citations: setActiveTools, createAgentSession, ExtensionCommandContext, AgentSession, tool-result envelope" — same-cluster (broader citation gap of which this is one specific instance; resolved independently)
-
----
-
-# T12 — `ExtensionContext.compact()` declared as async-no-args; SDK shape is sync with optional `CompactOptions`
-
-**Original heading:** `` `ExtensionContext.compact()` signature misstated: async with no args vs. sync with optional `CompactOptions` ``
-**Original section:** spec_topics/pi-integration-contract.md — ExtensionContext interface
-**Kind:** codebase-grounding-broad
-**Importance:** high
-## Finding
-
-The inline `ExtensionContext` block in `spec_topics/pi-integration-contract.md` records `compact(): Promise<void>`. The pinned Pi SDK at `~0.72.1` declares `compact(options?: CompactOptions): void` (synchronous, with `CompactOptions = { customInstructions?: string; onComplete?: (result: CompactionResult) => void; onError?: (error: Error) => void }`) at `dist/core/extensions/types.d.ts` lines 199–203 and 233. The spec's own JSDoc gloss — "host-driven compaction trigger; not invoked by loom in V1 — listed for completeness" — is consistent with Pi's `Trigger compaction without awaiting completion` comment, but the typed signature it pairs with that gloss is wrong on both axes: return type and parameter list.
-
-The block is preceded by an explicit "MUST be re-validated against that file on each Pi minor bump" instruction, so the inline shape is normative-by-reference rather than indicative. A correct rendering needs the parameter (`options?: CompactOptions`), the synchronous return (`void`, not `Promise<void>`), and either an inline expansion of the `CompactOptions` shape or a typed cite to it — without that, an implementer cannot tell from the spec how completion or failure of a compaction is observed.
-
-A second consequence: the inline block's stated rationale for including `compact` at all is "listed for completeness so the override table below is exhaustive," but `compact` is not in the override table — that table covers only `signal`, `sessionManager`, and `abort`. The justification clause for keeping `compact` in the inventory needs a re-grounding (e.g. "forwarded unchanged in both modes, listed so the per-mode override table is exhaustive over the touched surface") regardless of the signature correction.
-
-## Spec Documents
-
-- `spec_topics/pi-integration-contract.md` — `ExtensionContext` interface (inline shape block at line ~479; per-mode forwarding bullets at line ~497) (edited)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None. No leaf in `plan.md` or `plan_topics/` cites `compact` or asserts the inline-shape conformance for `ExtensionContext` members beyond the factory-probable subset; H1's `SDK_SURFACE_INVENTORY` enumerates `pi.<name>` namespace members and `AbortSignal` members but does not cover `ExtensionContext` instance methods, so the existing surface-inventory test would not catch this drift. The fix is spec-only.
-
-## Consequence
-
-**Severity:** correctness
-
-An implementer reading the inline block — explicitly framed as the loom-load-bearing subset to be re-validated against Pi's `.d.ts` — will write `await ctx.compact()` against an SDK whose return type is `void`, will assume completion is observed by promise resolution rather than by `options.onComplete`, and will not know that `customInstructions` exists. Loom does not call `compact` in V1, so no runtime breaks today; the breakage is in the spec's role as the authoritative inventory of touched Pi surface and in any future leaf that needs the real shape.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Replace the line
-
-```ts
-compact(): Promise<void>;                              // host-driven compaction trigger; not invoked by loom in V1 — listed for completeness so the override table below is exhaustive
-```
-
-with
-
-```ts
-compact(options?: CompactOptions): void;               // host-driven compaction trigger; not invoked by loom in V1; completion / failure observed via options.onComplete(result: CompactionResult) / options.onError(err: Error); listed so the touched-surface inventory is exhaustive
-```
-
-and add a one-line definition of `CompactOptions` (and a reference to `CompactionResult`) immediately after the inline block, in the same form already used for `ContextUsage` etc., citing `dist/core/extensions/types.d.ts` line 199 as the source of truth. Edge cases the implementer must keep in mind:
-
-- The synchronous return makes `compact()` fire-and-forget from the caller's POV; `await ctx.compact()` is a type-safe no-op (`await void` resolves immediately) and any code written that way silently loses the completion signal.
-- The justification clause ("listed for completeness so the override table below is exhaustive") is misleading because `compact` is not in the override table. Reword to something like "forwarded unchanged in both modes; listed here so the touched-surface inventory is exhaustive," matching the wording used for the other forwarded members in the per-mode bullets at line ~497.
-- The Pi version-bump procedure already requires re-validation against the `.d.ts` on each minor; no new gate is needed, but consider lifting `ExtensionContext` instance members into the H1 `SDK_SURFACE_INVENTORY` if a future leaf starts depending on `compact` (out of scope here).
-
-## Relationships
-
-- T13 "`ExtensionContext.sessionManager` is `ReadonlySessionManager`, not `SessionManager`; `buildSessionContext()` is not on the exposed surface" — co-resolve (same inline-shape block; both fixes are line edits in the same `interface ExtensionContext { … }` listing and should ship in one pass against the pinned `dist/core/extensions/types.d.ts`)
-- T16 "Pi API surfaces asserted without `.d.ts` citations: setActiveTools, createAgentSession, ExtensionCommandContext, AgentSession, tool-result envelope" — same-cluster (different surfaces, but the same root failure mode of spec-vs-SDK drift in the Pi integration contract page)
 
