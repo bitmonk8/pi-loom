@@ -22,7 +22,8 @@ Thumbs.db
 .env.*
 !.env.example
 
-# Pi local state — tmp is local-only, agents/prompts are tracked
+# Pi local state — tmp is local-only, agents/prompts/project-config are tracked
 .pi/*
 !.pi/agents/
 !.pi/prompts/
+!.pi/project-config.md
