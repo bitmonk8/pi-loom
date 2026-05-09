@@ -20,6 +20,7 @@ V1 design choices that ship with a known behavioural or diagnostic gap — i.e. 
 - **LSP support** for `.loom` and `.warp` files (syntax highlighting, type checking, autocomplete).
 - **`loom test` command** for dry-run execution that runs a loom against a recorded transcript or a stub model without hitting a live provider.
 - **Richer runtime-event telemetry** — per-loom token aggregation, latency histograms, cost reporting, retention policies, and a consumer-facing read API for the `details: { event }` stream defined in [Pi Integration Contract — Runtime event channel](./pi-integration-contract.md). V1 ships only the per-occurrence emission and the `RuntimeEvent` payload shape; downstream consumers in V1 read from Pi's session transcript via existing surfaces.
+- **Automated cadence for re-importing Pi patches** — V1 has no Renovate, no scheduled CI re-install, and no nightly cron that proactively re-imports candidate `@mariozechner/pi-coding-agent` patches into the loom contributor's typecheck cycle. The patch-skew window between a Pi patch landing on a user's machine and the loom-side snapshot edit shipping is therefore bounded only by contributor cadence; see [Pi Integration Contract — Patch-skew degradation contract](./pi-integration-contract.md#patch-skew-degradation-contract) for the V1 detection contract this defers.
 
 ---
 
