@@ -4,7 +4,7 @@ _Generated: 2026-05-08T09:00:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T46) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 13 high, 26 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 0 nit dropped; 0 false dropped._
+_Triage tally: 13 high, 25 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 0 nit dropped; 0 false dropped._
 
 _Decision tally (recorded 2026-05-08): all 18 `Shape: multiple` findings resolved to `Shape: single`. 6 findings merged at decision time: T17→T24, T28→T27, T29→T30, T31→T32, T33→T03, T45→T44. See per-finding **Decision** / **STATUS** lines._
 
@@ -2307,86 +2307,4 @@ Adopt **Option A**. The trichotomy paragraph's job is to enumerate query-termina
 - T28 "Ceiling #4 aggregator: schema-kind list of length 4 paired with 'five enforcement points'" — same-cluster.
 - T27 "Hard ceilings aggregator duplicates owner-page error codes and sub-obligation labels" — same-cluster.
 - T26 "Terminal-outcomes paragraph in Overview restates routing taxonomy owned by Errors and Results" — must-precede (if that finding's reduction is adopted, the qualifier this finding edits moves to `errors-and-results.md`).
-
----
-
-# T31 — Hard-ceiling closure asserted at the aggregator without pointing at the backing audit
-
-**Original heading:** Hard ceilings asserted as a complete closed set of four without audit citation
-**Original section:** docs/spec.md — Orientation > Scope > Hard ceilings
-**Kind:** assumptions
-**Importance:** medium
-
-**STATUS:** Merged into T32 on 2026-05-08. T31 chose Option B (audit-methodology paragraph on `hard-ceilings.md § No additional V1 runtime ceiling applies`, plus a tightened aggregator pointer in spec.md). The methodology paragraph gates T32 Option A's GOV-15 carve-out for V1.x ceiling additions and lands in the same commit. The body below is retained for traceability; the actionable hardened recommendation lives in T32.
-
-## Finding
-
-The Hard-ceilings bullet in `spec.md` opens with "The complete V1 set of hard ceilings is the four below" — a closure claim treated as fact. The aggregator gives no inline pointer to whatever evidence backs the closure; a reader has no path from "four" to "and here is why a fifth cannot exist."
-
-The owning topic page does carry that evidence. `hard-ceilings.md` § *No additional V1 runtime ceiling applies* enumerates four non-existence claims `NOCEIL-1 … NOCEIL-4`, each fixing one axis the runtime is *not* ceilinged on (wall-clock timeouts, response/cumulative tokens, runtime-value memory, host-language stack depth) and naming the surface that any breach falls through to instead (`loom/runtime/internal-error` for catchable host allocation/stack failures; uncatchable host fatals terminate the process). `spec.md` line 63 forward-links those four claims, but as part of a bundle of cross-ceiling content, not as the closure receipt for the headline assertion three lines above.
-
-Two distinct audit-trail gaps remain. (a) The aggregator sentence asserts closure without naming the receipt. (b) Even on the owner page, the closure rests on a hand-picked four-axis taxonomy (`{ time, tokens, memory, stack }`) with no record of the methodology that established that this axis set is itself exhaustive — no `grep`-and-shape pattern, no enumeration of the candidate axes considered and rejected, no rule binding the next spec-editor to re-run the same check when adding a ceiling under GOV-12. The original framing's specific examples (regex backtracking, schema width, pattern-match recursion) mostly resolve against existing rules — `expressions.md` lines 75–76 forbid regex in `split`/`replace`, `schema-subset.md` line 16 rejects `maxProperties` and friends at parse time, and pattern-match recursion falls through NOCEIL-3/4 — but the absence of a documented method to demonstrate that result is the load-bearing problem.
-
-## Spec Documents
-
-- `docs/spec.md` — Orientation > Scope > Hard ceilings (edited)
-- `docs/spec_topics/hard-ceilings.md` — No additional V1 runtime ceiling applies (option-dependent)
-- `docs/spec_topics/governance.md` — GOV-12 (read-only)
-- `docs/spec_topics/expressions.md` — string built-ins (read-only; rules out one candidate implicit ceiling)
-- `docs/spec_topics/schema-subset.md` — Explicitly-rejected JSON Schema keywords (read-only; rules out another)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None. The `NOCEIL-3` panic-source closure is already exercised by V18m / V18n (catchable `RangeError` arms route through `loom/runtime/internal-error`); no leaf currently tests the four-ceiling closure as such, and neither candidate fix changes a leaf's acceptance criteria — the work is spec-side documentation and an optional GOV-12-shaped editor procedure.
-
-## Consequence
-
-**Severity:** advisory
-
-Implementers can build a conformant V1 runtime from the existing text — every observable surface is named and every NOCEIL fall-through is pinned. The cost shows up at spec-evolution time: a future editor introducing a new ceiling under GOV-12 has no documented method for confirming it is genuinely new (vs. a re-statement of an existing axis), and a reviewer auditing the closure has nothing to compare the claim against.
-
-## Solution Space
-
-**Shape:** single
-
-**Decision (2026-05-08):** Option B. Resolved by merge into T32 — see STATUS banner at top of this finding.
-
-### Option A — Tighten the aggregator phrasing only
-
-**Approach.** Reword `spec.md`'s opening clause so the closure cites its receipt inline: replace "The complete V1 set of hard ceilings is the four below" with something like "The four ceilings below are the V1 set; the closure rests on the four non-existence claims `NOCEIL-1 … NOCEIL-4` (no wall-clock, token, memory, or host-stack ceiling) at [Hard Runtime Ceilings — No additional V1 runtime ceiling applies], which name the fall-through surface for each axis."
-
-**Spec edits.** One sentence in `spec.md` § Hard ceilings (the line beginning "The complete V1 set of hard ceilings is the four below"). No edits on the topic page.
-
-**Pros.** Minimal surface area. Aligns with the existing GOV-12 aggregator/owner split — the aggregator forward-links rather than restating evidence. Makes the receipt visible to a reader who only reads `spec.md`.
-
-**Cons.** Does not document *how* the four-axis NOCEIL set was itself established to be exhaustive; future editors still have no procedure.
-
-**Risks.** Low.
-
-### Option B — Document the audit methodology on the owner page
-
-**Approach.** Add a short methodology paragraph to `hard-ceilings.md` § *No additional V1 runtime ceiling applies* — naming the four candidate-axis families considered (time, token economy, memory/handle exhaustion, frame depth), the rule that any future axis surfaces either as a new ceiling or as a documented fall-through to one of the four NOCEIL surfaces, and a GOV-12 edit obligation that introducing a ceiling MUST add a one-line entry to the methodology paragraph naming the axis it ceilings. Then apply Option A's pointer in `spec.md`.
-
-**Spec edits.** One paragraph appended to `hard-ceilings.md` § *No additional V1 runtime ceiling applies*; the same one-sentence rewording in `spec.md` from Option A; one-line addition to the GOV-12 ceiling-update co-edit list (already present at the end of the same section) naming the methodology paragraph as a required co-edit site.
-
-**Pros.** Closes both gaps — the aggregator points at the receipt, and the receipt is itself auditable. Binds the next spec-editor to a check that survives the current authors.
-
-**Cons.** Adds a methodology section that is itself a non-machine-checkable claim; the closure's quality depends on the editor running the axis check honestly. More edit surface than Option A.
-
-**Risks.** The methodology paragraph could be perceived as guidance rather than a normative gate; mitigated by tying it to GOV-12's existing co-edit obligation list, which already governs the aggregator and per-ceiling owner pages.
-
-### Recommendation
-
-Option B. The cheap rewording in Option A papers over the visible gap but leaves the underlying audit unrecorded; the next editor adding a fifth ceiling under GOV-12 still has no method. Option B costs one paragraph and one bullet on the existing co-edit list and produces a closure that survives author turnover. Edge case for the implementer of the spec edit: the methodology paragraph is the load-bearing artefact — keep it factual (axes considered, fall-through surface for each) and avoid turning it into a justification for the specific limit values, which are owned elsewhere.
-
-## Relationships
-
-- T25 "Forward-compatibility-seam aggregator count is not gated by CI" — same-cluster (sibling closure-without-audit on the adjacent Forward-compatibility-seams bullet).
-- T35 "SDK capability inventory closed-set claim has no negative-direction audit" — same-cluster (closed-set assertion in another Orientation bullet).
-- T32 "Source-language stability bullet leaves equivalence undefined at the aggregator and silently contradicts the open-set ceiling clause" — must-precede (its sub-issue 3 turns on whether adding a ceiling within V1.x is breaking; resolving the closure-audit question informs the answer).
-- T27 "Hard ceilings aggregator duplicates owner-page error codes and sub-obligation labels" — same-cluster (same bullet; the aggregator-trim is compatible with Option B's pointer-insertion).
 
