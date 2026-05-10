@@ -4,7 +4,7 @@ _Generated: 2026-05-08T09:00:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T46) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 14 high, 27 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 0 nit dropped; 0 false dropped._
+_Triage tally: 14 high, 26 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 0 nit dropped; 0 false dropped._
 
 _Decision tally (recorded 2026-05-08): all 18 `Shape: multiple` findings resolved to `Shape: single`. 6 findings merged at decision time: T17→T24, T28→T27, T29→T30, T31→T32, T33→T03, T45→T44. See per-finding **Decision** / **STATUS** lines._
 
@@ -169,9 +169,9 @@ The result is a hidden coupling between three documents: PIC's recipe parentheti
 
 ## Spec Documents
 
-- `docs/spec_topics/pi-integration-contract.md` — Host prerequisites; Step 0 (a) Node floor recipe; Step 0 (d) peer-dep range recipe (edited)
-- `docs/spec.md` — Orientation > Prerequisites > Host runtime, item 1 (option-dependent)
-- `docs/plan_topics/h1-scaffold.md` — SDK surface-inventory test paragraph; `package.json` `dependencies` literal-read assertion (read-only; verifies that a manifest assertion already exists)
+- `docs/spec_topics/pi-integration-contract.md` — Host prerequisites; Step 0 (a) Node floor recipe; Step 0 (d) peer-dep range recipe; Pi version bump procedure step 3 (edited; bump-procedure step 3 edit absorbed from T33)
+- `docs/spec.md` — Orientation > Prerequisites > Host runtime, item 1 (edited under Option B; sentence rewrite absorbed from T33)
+- `docs/plan_topics/h1-scaffold.md` — SDK surface-inventory test paragraph; `package.json` `dependencies` literal-read assertion; `engines.node` literal-read test (edited; surface-inventory row + cross-package read absorbed from T33)
 
 ## Plan Impact
 
@@ -193,7 +193,19 @@ A fresh implementer reading the spec end-to-end sees `semver` only inside parent
 
 **Shape:** single
 
-**Decision (2026-05-08):** Option B. Decision-time merge: T33 absorbed (cross-package `engines.node` equality test rides this commit; both edit Host runtime item 1). See T33 stub.
+**Decision (2026-05-08):** Option B for the `semver` dependency framing, plus T33 Option A (cross-package `engines.node` equality test in the H1 SDK surface inventory) absorbed into the same Host-runtime-item-1 cleanup commit. T33's stub has since been removed from this review document; its spec-edit content is reproduced below so this finding is self-contained.
+
+**Absorbed T33 Option A spec edits (land in the same commit as Option B):**
+
+- `docs/spec.md` Host runtime item 1: replace "matching `@mariozechner/pi-coding-agent`'s `engines.node` floor" with "verified equal to `@mariozechner/pi-coding-agent`'s `engines.node` floor by the H1 SDK surface-inventory test."
+- `docs/plan_topics/h1-scaffold.md`: add a `{ kind: "pi-engines-node", literal: ">=20.6.0" }` row to `SDK_SURFACE_INVENTORY` so the four pinned constants the probe consumes plus the cross-package floor share one source of truth; extend the `engines.node` literal-read test (or add a sibling assertion in `test/extension/pinned-surface.test.ts`) to import `@mariozechner/pi-coding-agent/package.json` (via `require.resolve(...)` plus `JSON.parse(readFileSync(...))`, or a `with { type: "json" }` import) and assert `pi.engines.node === loom.engines.node` literally.
+- `docs/spec_topics/pi-integration-contract.md` Pi version bump procedure step 3: replace the manual-compare instruction with "the H1 cross-package `engines.node` test fails red at the bump commit if the upstream floor has moved; update the loom literal, Step 0 (a), and the spec.md sentence in the same edit."
+
+**Edge cases the implementer must watch (from T33):**
+
+- The cross-package read MUST resolve `pi-coding-agent`'s `package.json` via `require.resolve` (or the `exports` map's `./package.json` entry) rather than a hard-coded `node_modules/...` path, so workspace and pnpm hoisting layouts both work.
+- The assertion MUST compare strings literally, not via `semver.subset` — the contract is exact-equality, matching the H1 test's existing posture on `engines.node` and `peerDependencies`.
+- The bump-procedure step 3 narrative MUST be updated in the same edit; otherwise PIC and the test diverge on which side is authoritative.
 
 ### Option A — Promote `semver` to a formal entry in PIC `Host prerequisites`
 
@@ -245,7 +257,7 @@ Take Option B. The spec's own framing already separates "the comparator contract
 
 ## Relationships
 
-- T33 "Node floor `>=20.6.0` not automatically audited against Pi's `engines.node`" — same-cluster (same Host runtime item 1; concerns the floor literal's audit path, not the comparator dependency).
+- T33 "Node floor `>=20.6.0` not automatically audited against Pi's `engines.node`" — absorbed (Decision 2026-05-08 merged T33 Option A into this finding's commit; T33 stub removed from review document; see Decision section above for the absorbed spec edits).
 
 ---
 
@@ -2470,89 +2482,4 @@ Edge cases the implementer (here, the spec editor) must watch: (i) the carve-out
 
 - T31 "Hard-ceiling closure asserted at the aggregator without pointing at the backing audit" — same-cluster (both touch the open-vs-closed status of the ceiling set).
 - T29 "Pre-evaluation exclusion clause names ceiling #3 only" — same-cluster (different cross-clause inconsistency in the same Hard ceilings aggregator).
-
----
-
-# T33 — Node floor `>=20.6.0` not automatically audited against Pi's `engines.node`
-
-**Original heading:** Node floor `>=20.6.0` asserted as matching Pi's `engines.node` without audit
-**Original section:** docs/spec.md — Orientation > Prerequisites > Host runtime
-**Kind:** assumptions
-**Importance:** medium
-
-**STATUS:** Merged into T03 on 2026-05-08. T33 chose Option A (cross-package `engines.node` equality test in H1 surface-inventory; PIC bump-procedure step 3 rewritten to reference the test). The H1 test extension and PIC bump-procedure rewrite land in the same Host-runtime-item-1 cleanup commit as T03 Option B's `**Loom-package implementation dependencies (V1).**` PIC sub-paragraph. The body below is retained for traceability; the actionable hardened recommendation lives in T03.
-
-## Finding
-
-`spec.md` Host runtime obligation 1 states the loom runtime requires Node `>=20.6.0`, "matching `@mariozechner/pi-coding-agent`'s `engines.node` floor." `pi-integration-contract.md` Step 0 (a) restates the same literal as the canonical pinned floor, and `package.json#engines.node` carries the same string. The "matching" claim is asserted as a fact; nothing in the spec corpus or the test suite mechanically verifies that loom's literal equals Pi's `engines.node` at the pinned `~0.72.1` version.
-
-The H1 `engines.node` literal-read test (per `plan_topics/h1-scaffold.md`) asserts only that loom's own `package.json#engines.node === ">=20.6.0"`. The cross-package match is enforced exclusively by step 3 of the **Pi version bump procedure** (`pi-integration-contract.md`), which instructs the maintainer to compare floors by hand. Under the `~0.72.1` tilde range a patch release of `pi-coding-agent` could raise `engines.node` (e.g. to `>=20.10.0`) without producing any test failure, leaving loom claiming a floor below Pi's actual requirement until the next deliberate bump cycle.
-
-The defect is the audit path, not the current literal: the codebase-grounding lens confirms the floors do match at `~0.72.1`. The aggregator sentence ("matching `@mariozechner/pi-coding-agent`'s `engines.node` floor") makes a Pi-side claim with no automated check standing behind it and no citation of where the check would fail if drift occurred.
-
-## Spec Documents
-
-- `docs/spec.md` — Orientation > Prerequisites > Host runtime, item 1 (edited)
-- `docs/spec_topics/pi-integration-contract.md` — Step 0 (a); Pi version bump procedure, step 3 (option-dependent)
-- `docs/plan_topics/h1-scaffold.md` — `engines.node` literal-read test; SDK surface-inventory test (option-dependent)
-- `docs/spec_topics/diagnostics.md` — `loom/load/host-incompatible` `node-floor` discriminator row (read-only)
-- `package.json` — `engines.node`, `peerDependencies` (read-only)
-
-## Plan Impact
-
-**Phases:** Horizontal H1
-
-**Leaves (implementation order):**
-
-- H1 — Repository scaffold and test framework — (modified)
-
-## Consequence
-
-**Severity:** advisory
-
-A patch-level `pi-coding-agent` release that raises `engines.node` within the `~0.72.1` tilde range silently widens the gap between the floor loom advertises and the floor Pi enforces. The runtime would refuse only the lower of the two floors at Step 0 (a), so an operator on a Node version that satisfies loom but not Pi sees an undiagnosed Pi-side failure rather than the `loom/load/host-incompatible` `node-floor` route the spec contracts. No correctness divergence occurs at the present pin; the cost is an audit gap that the bump procedure relies on a human to close.
-
-## Solution Space
-
-**Shape:** single
-
-**Decision (2026-05-08):** Option A. Resolved by merge into T03 — see STATUS banner at top of this finding.
-
-### Option A — Cross-package equality test in H1
-
-**Approach.** Extend the H1 `engines.node` literal-read test (or add a sibling assertion in `test/extension/pinned-surface.test.ts`) that imports `@mariozechner/pi-coding-agent/package.json` (e.g. `require.resolve(...)` then `JSON.parse(readFileSync(...))`, or a `with { type: "json" }` import) and asserts `pi.engines.node === loom.engines.node` literally. Add a `{ kind: "pi-engines-node", literal: ">=20.6.0" }` row to `SDK_SURFACE_INVENTORY` so the four pinned constants the probe consumes plus the cross-package floor share one source of truth.
-
-**Spec edits.**
-- `docs/spec.md` Host runtime item 1: replace "matching `@mariozechner/pi-coding-agent`'s `engines.node` floor" with "verified equal to `@mariozechner/pi-coding-agent`'s `engines.node` floor by the H1 SDK surface-inventory test."
-- `docs/plan_topics/h1-scaffold.md`: add the new `pi-engines-node` inventory row and a bullet describing the cross-package read in the `engines.node` literal-read test paragraph.
-- `docs/spec_topics/pi-integration-contract.md` Pi version bump procedure step 3: replace the manual-compare instruction with "the H1 cross-package `engines.node` test fails red at the bump commit if the upstream floor has moved; update the loom literal, Step 0 (a), and the spec.md sentence in the same edit."
-
-**Pros.** Drift fails red at the bump commit (not at user runtime). Eliminates a manual step from the bump procedure. Single source of truth for the cross-package floor.
-**Cons.** Adds one production-package import to H1 (already permitted for the SDK surface-inventory test, so the precedent exists). Test runs fail in environments where `@mariozechner/pi-coding-agent` is not installed — but H1's existing surface-inventory test already requires it.
-**Risks.** None material; the read is a single JSON parse of a stable manifest field.
-
-### Option B — Cite the existing manual audit and disclaim auto-detection
-
-**Approach.** Leave the audit manual but make the spec honest about it. Replace the bare "matching" assertion with an explicit citation of the H1 literal-read test (loom side) plus the bump-procedure step 3 (cross-package side), and add an explicit disclaimer that intra-tilde-range upstream drift is detected only at the next bump cycle.
-
-**Spec edits.**
-- `docs/spec.md` Host runtime item 1: "The runtime requires Node `>=20.6.0`. The literal is pinned by the H1 `engines.node` literal-read test against `package.json` and re-confirmed against `@mariozechner/pi-coding-agent`'s `engines.node` floor by step 3 of [Pi version bump procedure]; intra-tilde-range upstream drift is detected only at the next bump cycle."
-- No plan or PIC edits required.
-
-**Pros.** No new test infrastructure. Honest about the audit path.
-**Cons.** Drift still surfaces only at the next bump commit, which may lag the upstream patch release indefinitely. Lengthens an aggregator sentence the doc-level findings already flag as overweight.
-**Risks.** Future maintainer skips bump-procedure step 3 silently; the gap reopens.
-
-### Recommendation
-
-Option A. The cost is one additional row in `SDK_SURFACE_INVENTORY` plus a JSON-read assertion in a test file that already imports `@mariozechner/pi-coding-agent`, against the benefit of converting an open-ended "trust the maintainer at bump time" gate into a build-time gate that fails on the same commit that introduces drift. Edge cases the implementer must watch:
-- The cross-package read MUST resolve `pi-coding-agent`'s `package.json` via `require.resolve` (or the `exports` map's `./package.json` entry) rather than a hard-coded `node_modules/...` path, so workspace and pnpm hoisting layouts both work.
-- The assertion MUST compare strings literally, not via `semver.subset` — the contract is exact-equality, matching the H1 test's existing posture on `engines.node` and `peerDependencies`.
-- The bump procedure step 3 narrative MUST be updated in the same edit; otherwise PIC and the test diverge on which side is authoritative.
-
-## Relationships
-
-- T03 "`semver` dependency obligation buried in a non-normative recipe paragraph" — co-resolve (same Host runtime item 1 paragraph; H1 already adds `semver` as a direct dependency).
-- T36 "`SessionShutdownEvent.reason` closed set has no build-time pin against the SDK type" — same-cluster (identical drift-under-tilde concern, different surface).
-- T37 "Built-artefact path `dist/core/extensions/types.d.ts` cited as the source of truth for Pi-SDK types" — same-cluster (stability of Pi surfaces across minor bumps under the tilde range).
 
