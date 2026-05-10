@@ -4,7 +4,7 @@ _Generated: 2026-05-08T09:00:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T46) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 11 high, 23 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 0 nit dropped; 0 false dropped._
+_Triage tally: 11 high, 22 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 0 nit dropped; 0 false dropped._
 
 _Decision tally (recorded 2026-05-08): all 18 `Shape: multiple` findings resolved to `Shape: single`. 6 findings merged at decision time: T17→T24, T28→T27, T29→T30, T31→T32, T33→T03, T45→T44. See per-finding **Decision** / **STATUS** lines._
 
@@ -1818,72 +1818,3 @@ Take **Option A**. The fix is a wording tightening plus one new `W`-severity dia
 - T17 "`console.error` teardown sink: unverified and over-prescribed in aggregator" — co-resolve (both edit PIC step 4 and rely on the `console.error` last-resort sink).
 - T36 "`SessionShutdownEvent.reason` closed set has no build-time pin against the SDK type" — must-precede (Option A's `details.event.reason` enumeration pivots on the closed reason set).
 - T15 "Session-model paragraph mixes architectural rules and scope deferrals into one Orientation block" — same-cluster.
-
----
-
-# T25 — Forward-compatibility-seam aggregator count is not gated by CI
-
-**Original heading:** Count of 13 seams hard-coded without build-time verification; no cost/priority signal
-**Original section:** docs/spec.md — Orientation > Scope > Forward-compatibility seams
-**Kind:** assumptions, scope
-**Importance:** medium
-
-## Finding
-
-`spec.md` Scope > Forward-compatibility seams asserts "V1 reserves 13 typed/structural seams" as a literal integer; the source-of-truth seams live as `> **V1 seam — <name>.**` blockquotes scattered across `spec_topics/*.md`. Today the inventory grep returns 14 such blockquotes (one of which — `pi-integration-contract.md`'s *Pi-owned subagents collision source set* — is then explicitly excluded by `future-considerations.md` prose because the dependent feature only activates if Pi widens `SlashCommandSource`), yielding the documented 13. Reproducing that arithmetic is a non-trivial reading exercise even with the sources open, and nothing prevents a future PR that adds, removes, or recategorises a seam from leaving the literal stale.
-
-GOV-12 governs this aggregator-vs-source relationship and disclaims any CI gate on the grounds that "semantic equivalence between an aggregator paragraph and a set of topic-page paragraphs is not mechanically decidable, mirroring the GOV-8 *Pure rewording* limit." That reasoning is sound for prose-equivalent aggregators (e.g. the Host-runtime obligations summary), but it is over-broad for the seam tally specifically: counting `> **V1 seam — <name>.**` blockquotes across a fixed file set and comparing against a single integer literal in `spec.md` is a `grep | wc -l` / `diff` shape — exactly the kind of check V18s already runs for REQ-IDs, diagnostic codes, and the prefix table. The same pattern recurs in three other Scope/Overview aggregators that hard-code small integer counts (`.warp` top-level forms `currently five`; the four-item Hard ceilings list; the seven-element Pi capabilities list), so the right design unit is a parameterised aggregator-count gate rather than a one-off seam check.
-
-The original framing also flagged the absence of a "cost/priority signal" per seam — cheap (open-struct field) vs. expensive (named function exposing a shared subroutine). On inspection this is not a spec gap: every seam carries equally-weighted V1 MUST language ("the runtime MUST …", "consumers MUST switch on … exhaustively"), and `future-considerations.md` already maintains the only normatively meaningful tier (with-seam vs. no-seam-rides-unknown-key-policy). Implementer effort estimation is appropriately a plan concern.
-
-## Spec Documents
-
-- `docs/spec.md` — Orientation > Scope > Forward-compatibility seams (read-only — the literal `13` stays; what changes is that a CI gate now defends it)
-- `docs/spec_topics/governance.md` — GOV-12 (edited — the "not mechanically decidable" carve-out needs a sentence acknowledging that count-shaped aggregator claims are an exception with a CI gate)
-- `docs/spec_topics/future-considerations.md` — *Surface extensions (V1 leaves a seam)* and the *Surface extensions without a dedicated topic-page seam* sub-bucket (read-only — the prose explaining why the Pi-owned-subagents seam is not counted in the 13 is the canonical reconciliation)
-
-## Plan Impact
-
-**Phases:** Vertical V18
-
-**Leaves (implementation order):**
-
-- V18s — Coverage-matrix closing CI gate — (modified)
-
-V18s already specifies nine numbered gates (`gov-1` … `gov-9`) over REQ-IDs, diagnostic codes, prefix tables, and spec/plan link integrity. A tenth gate enforcing aggregator-count equality slots into the same `<source-path>:<context>: <gate-id>: <symbol> <reason>` failure-line contract and the same exit-code / accumulation semantics. No other leaf needs modification: the seam-bearing leaves (V5e/V14c-a/V15a for per-call timeout, V6/V11/V13 for discriminator type-openness, V12a/V14n for Pi-owned subagents, V16 for binder seams, V17 for `Resolver`, etc.) already carry the per-seam MUSTs.
-
-## Consequence
-
-**Severity:** advisory
-
-Without the gate, drift between `spec.md`'s literal "13" and the actual blockquote inventory is a latent documentation defect that GOV-12 reclassifies as non-correctness. Implementers can still build a working V1 — the seam contracts each stand on their own MUST language. The cost is silent erosion of GOV-12's lock-step promise across V1.x releases, and harder reviewer diffs when a future seam is added.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add a tenth gate to V18s — `gov-10` (*Aggregator-count gate*) — that asserts equality between hard-coded integer literals in `spec.md` aggregator paragraphs and the actual count of source items each summarises. Implementation shape:
-
-- The gate is data-driven over a closed table of *(aggregator-literal location, source predicate, expected adjustment)* tuples maintained in V18s's gate source. Initial entries:
-  - **Forward-compatibility seams.** Source predicate: `grep -rE '^[[:space:]]*> \*\*V1 seam — ' docs/spec_topics/`. Adjustment: subtract the count of seams referenced from the *Surface extensions without a dedicated topic-page seam* sub-bucket of `future-considerations.md` (currently 1 — the Pi-owned-subagents seam). Expected: matches the integer in `spec.md`'s "V1 reserves N typed/structural seams" sentence.
-  - **`.warp` top-level forms.** Source predicate: rows of the canonical list at `imports.md#permitted-top-level-forms`. Expected: matches `(currently N: …)` in `spec.md`'s file-extension paragraph.
-  - **Hard ceilings.** Source predicate: numbered ceilings in `spec.md`'s Hard-ceilings list itself, cross-checked against owner-page anchors. Expected: matches "the four below".
-  - **Pi capabilities.** Source predicate: bullet list under the *Host runtime / Pi SDK and capabilities* aggregator. Expected: matches the literal "seven".
-- Failure-line shape: `docs/spec.md:<line>: gov-10: <aggregator-name> expected <N>, found <M>` (literal aggregator name from the table; reasons add `aggregator count drift` to the closed `<reason>` vocabulary).
-- The exclusion list (the "subtract these" set, currently just the Pi-owned-subagents seam) is itself encoded in the gate's source table with a comment naming the `future-considerations.md` paragraph that justifies each exclusion.
-- GOV-12 is amended by one sentence acknowledging the aggregator-count exception: e.g. "Aggregator paragraphs that take the shape of an integer count of source items (e.g. *N seams*, *N ceilings*) are checked mechanically by V18s gate (10); the prose-equivalence carve-out above does not extend to count-shaped claims."
-
-Edge cases the implementer must watch:
-
-- The seam grep MUST anchor to the `> **V1 seam — ` prefix and tolerate leading whitespace (the `frontmatter.md` `system:` seam is indented under a list — `^[[:space:]]*>` is required, not `^>`). The current `^>`-only inventory miscounts by 1.
-- The exclusion list is per-seam, not per-extension item: the *Per-call timeouts* future-considerations entry consumes three distinct seams (query, tool-calls, invocation), and all three are in the count of 13 even though they pin a single deferred extension. The gate counts blockquotes, not extensions.
-- The `.warp` permitted-forms gate must accommodate the *or, after V12, `protocol`* lookahead phrasing without double-counting once V12 lands; either the source predicate excludes `protocol` until its anchor is live, or the literal in `spec.md` is updated in lock-step with V12 and the gate's expectation table is bumped in the same commit.
-
-## Relationships
-
-- T31 "Hard-ceiling closure asserted at the aggregator without pointing at the backing audit" — same-cluster (sibling closed-set claim that the same gate covers).
-- T35 "SDK capability inventory closed-set claim has no negative-direction audit" — same-cluster (sibling closed-set claim).
-- T38 "Non-goals are not consolidated into a single section" — same-cluster (touches the aggregator-vs-source relationship).
-
