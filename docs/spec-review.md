@@ -4,11 +4,15 @@ _Generated: 2026-05-08T09:00:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding in the file (T22a, after the 2026-05-11 manual T22 split) is addressed first; the first finding in the file (T02, after the 2026-05-11 spec-sweeps extraction) is addressed last in addressing order. After the reshape pass, split children replace their parents at the parent's file position; addressing within a child cluster runs alphabetically (a addressed first)._
 
-_Triage tally: 10 high, 22 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 0 nit dropped; 0 false dropped._
+_Triage tally: 10 high, 27 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 0 nit dropped; 0 false dropped. (Updated 2026-05-11 manual T03 split: +5 medium for the additional T03b–T03f children replacing the original T03; T03 was importance:medium, all six children inherit medium.)_
 
 _Decision tally (recorded 2026-05-08): all 18 `Shape: multiple` findings resolved to `Shape: single`. 6 findings merged at decision time: T17→T24, T28→T27, T29→T30, T31→T32, T33→T03, T45→T44. See per-finding **Decision** / **STATUS** lines._
 
-_Reshape pass (2026-05-11, mode `reshape-only`, `PreserveIDs: true`): T01 and T04 extracted into [`docs/spec-sweeps.md`](./spec-sweeps.md) as deferred mechanical sweeps that cannot be addressed atomically by the per-finding fix-loop; T03, T08, T19 flagged UNSPLITTABLE (composite-3+ with no enumerable Edit Plan in their Recommendation blocks); T11 split into T11a/b/c (must-precede chain); T15 split into T15a/b/c (co-resolve cluster); T16 split into T16a/b/c/d (co-resolve cluster); T18 split into T18a/b/c/d (T18a must-precede the rest)._
+_Reshape pass (2026-05-11, mode `reshape-only`, `PreserveIDs: true`): T01 and T04 extracted into [`docs/spec-sweeps.md`](./spec-sweeps.md) as deferred mechanical sweeps that cannot be addressed atomically by the per-finding fix-loop; T03 flagged UNSPLITTABLE (composite-3+ with no enumerable Edit Plan in its Recommendation blocks); T11 split into T11a/b/c (must-precede chain); T15 split into T15a/b/c (co-resolve cluster); T16 split into T16a/b/c/d (co-resolve cluster); T18 split into T18a/b/c/d (T18a must-precede the rest)._
+
+_Second reshape pass (2026-05-11, mode `reshape-only`, `PreserveIDs: true`, re-run with broadened splitter logic): T08 split into T08a/b/c (co-resolve cluster — three per-file prose sweeps via splitter location (v) `(file, verb)` prose pairs); T19 split into T19a/b/c/d/e (co-resolve cluster — five entries from chosen Option A's `Spec edits` block via splitter location (iv)). T03 re-flagged UNSPLITTABLE with refreshed diagnostic — under current splitter logic Option B's `Spec edits` block enumerates 3 bullets (one no-op, one composite-2), and the Decision-block-level *Absorbed T33 Option A spec edits* bullets are not captured by any source location, so a clean mechanical split would strand 3 of the 6 effective edits._
+
+_Manual T03 reshape (2026-05-11): T03 split into T03a/b/c/d/e/f (must-precede chain plus same-cluster siblings). The split consolidates Option B's chosen `**Spec edits.**` bullets and the Decision-block's *Absorbed T33 Option A spec edits* bullets into a unified 6-edit set; pairwise dependencies make T03a (PIC sub-paragraph addition) and T03b (`SDK_SURFACE_INVENTORY` row) the cluster roots, T03c/d/e/f the dependents. The T33 absorption metadata is preserved via the `**Split from:**` field on each child._
 
 # T02 — Subagent state-isolation enumeration duplicates PIC matrix in Overview opening paragraph
 
@@ -71,28 +75,24 @@ Edge cases for the implementer:
 
 ---
 
-# T03 — `semver` dependency obligation buried in a non-normative recipe paragraph
+# T03f — `h1-scaffold.md` manifest assertion: anchor at the new PIC sub-paragraph; extend `engines.node` literal-read test to cross-package equality
 
 **Original heading:** `semver` not declared as a dependency
 **Original section:** docs/spec.md — Orientation > Prerequisites > Host runtime
-**Kind:** assumptions
+**Split from:** "T03 — `semver` dependency obligation buried in a non-normative recipe paragraph" (entry 6 of 6; manual reshape 2026-05-11; T33 absorbed-edit list consolidated with Option B's chosen-edit list into a unified 6-edit Edit Plan)
+**Kind:** assumptions, traceability
 **Importance:** medium
-**Atomicity:** composite-3+
-**Triage note:** UNSPLITTABLE — manual reshape required (Recommendation block is unstructured prose with no numbered/lettered Edit-Plan items; the splitter has no enumerable boundary. The finding's effective edit set lives in the **Decision** block's *Absorbed T33 Option A spec edits* bullets plus Option B's *Spec edits* bullets — six distinct edits across `pi-integration-contract.md` (new sub-paragraph + recipe-parenthetical trim + bump-procedure step 3), `docs/spec.md` (Host-runtime item 1 sentence rewrite), and `docs/plan_topics/h1-scaffold.md` (SDK surface-inventory row + cross-package `engines.node` test). A human reshape pass should fold those bullets into a numbered Recommendation Edit Plan or split the finding by edit cluster.)
+**Atomicity:** atomic
 
 ## Finding
 
-The spec describes the loom runtime's own production dependency on `semver` only inside the parenthetical of a paragraph it explicitly labels *non-normative*. The two `*Recommended recipe (non-normative).*` blocks in `pi-integration-contract.md` (the Step 0 (a) Node-floor check and the Step 0 (d) peer-dep range check) carry the sentence "pinned by H1 as a direct production dependency of the loom package," and that is the spec's only declaration of a `semver` obligation. The `**Host prerequisites.**` enumeration immediately above those recipes lists four items (Pi SDK pin, Binder model, Binder credentials, Pi-supplied `AbortSignal`) and does not include `semver`. The `spec.md` orientation aggregator for Host runtime references the same recipes but explicitly disclaims them ("not a library prescription"), so a reader following the aggregator down sees no dependency obligation at all.
-
-The plan does carry a real `dependencies["semver"]` manifest assertion — it lives in `h1-scaffold.md`'s SDK-surface-inventory test paragraph, alongside an `@types/semver` mention. But the spec gives that test no anchor to assert against: there is no normative sentence saying "the loom package's `dependencies` block MUST contain `semver`," no pinned version range for `semver`, and no statement of why it lands in `dependencies` rather than `peerDependencies`. The two recipe paragraphs simultaneously promise that "a future swap to a different SemVer implementation (or a hand-rolled comparator) is permitted" — which is incompatible with a hard dependency declaration unless the spec separates the comparator *contract* (normative) from the V1 *implementation choice* (a recipe).
-
-The result is a hidden coupling between three documents: PIC's recipe parentheticals are the only spec text that mentions the dep, h1-scaffold.md has the manifest assertion, and `package.json` carries the literal — but no aggregator names `semver` as part of the loom runtime's own dependency surface, and the version range is unstated everywhere except (eventually) the manifest itself.
+H1's `package.json` `dependencies` literal-read assertion currently references the recipe parenthetical in PIC; once T03a installs the dedicated `**Loom-package implementation dependencies (V1).**` sub-paragraph, the assertion's spec anchor must move there and pin the version literal stated in that sub-paragraph (`semver`: `^7.0.0`, `@types/semver` in `devDependencies` not `dependencies`). Separately, T03b adds an `{ kind: "pi-engines-node", literal: ">=20.6.0" }` row to `SDK_SURFACE_INVENTORY` so the four pinned constants the probe consumes plus the cross-package floor share one source of truth — once that row is in place, the `engines.node` literal-read test (or a sibling assertion in `test/extension/pinned-surface.test.ts`) must be extended to import `@mariozechner/pi-coding-agent/package.json` (via `require.resolve(...)` plus `JSON.parse(readFileSync(...))`, or a `with { type: "json" }` import) and assert `pi.engines.node === loom.engines.node` literally.
 
 ## Spec Documents
 
-- `docs/spec_topics/pi-integration-contract.md` — Host prerequisites; Step 0 (a) Node floor recipe; Step 0 (d) peer-dep range recipe; Pi version bump procedure step 3 (edited; bump-procedure step 3 edit absorbed from T33)
-- `docs/spec.md` — Orientation > Prerequisites > Host runtime, item 1 (edited under Option B; sentence rewrite absorbed from T33)
-- `docs/plan_topics/h1-scaffold.md` — SDK surface-inventory test paragraph; `package.json` `dependencies` literal-read assertion; `engines.node` literal-read test (edited; surface-inventory row + cross-package read absorbed from T33)
+- `docs/plan_topics/h1-scaffold.md` — (edited)
+- `docs/spec_topics/pi-integration-contract.md` — (read-only)
+- `test/extension/pinned-surface.test.ts` — (read-only (referenced))
 
 ## Plan Impact
 
@@ -102,83 +102,293 @@ The result is a hidden coupling between three documents: PIC's recipe parentheti
 
 - H1 — Repository scaffold and test framework — (modified)
 
-The H1 leaf already adds `semver` and `@types/semver` and asserts the `dependencies` entry in its manifest test. Under any chosen option below, the assertion language and the version literal that test pins must align with whatever the spec declares — so H1 is touched, but only at the language/literal level (not in scope of work).
+The H1 leaf already adds `semver` and `@types/semver` and asserts the `dependencies` entry in its manifest test; this finding is one of six children sharing that leaf-touch, with all six landing in coordinated commits (must-precede chain plus same-cluster siblings).
 
 ## Consequence
 
 **Severity:** advisory
 
-A fresh implementer reading the spec end-to-end sees `semver` only inside parentheticals labelled non-normative and concludes nothing is obligated. They will then run into the H1 manifest test failing for an undocumented reason, or — worse — they will follow the spec's own escape hatch ("a hand-rolled comparator is permitted") and ship a loom package with no `semver` dep, which the H1 manifest test then fails on without a spec sentence to point at. The implementation gets there either way; the spec is just internally inconsistent about whether the library is required.
+This finding is one atomic edit in the 6-edit consolidation that resolves the parent T03 (`semver` dependency obligation buried in a non-normative recipe paragraph). The parent's full consequence applies to the cluster as a whole; this child's slice contributes the specific surface listed in **Spec Documents** above.
 
 ## Solution Space
 
 **Shape:** single
+**Atomicity:** atomic
 
-**Decision (2026-05-08):** Option B for the `semver` dependency framing, plus T33 Option A (cross-package `engines.node` equality test in the H1 SDK surface inventory) absorbed into the same Host-runtime-item-1 cleanup commit. T33's stub has since been removed from this review document; its spec-edit content is reproduced below so this finding is self-contained.
-
-**Absorbed T33 Option A spec edits (land in the same commit as Option B):**
-
-- `docs/spec.md` Host runtime item 1: replace "matching `@mariozechner/pi-coding-agent`'s `engines.node` floor" with "verified equal to `@mariozechner/pi-coding-agent`'s `engines.node` floor by the H1 SDK surface-inventory test."
-- `docs/plan_topics/h1-scaffold.md`: add a `{ kind: "pi-engines-node", literal: ">=20.6.0" }` row to `SDK_SURFACE_INVENTORY` so the four pinned constants the probe consumes plus the cross-package floor share one source of truth; extend the `engines.node` literal-read test (or add a sibling assertion in `test/extension/pinned-surface.test.ts`) to import `@mariozechner/pi-coding-agent/package.json` (via `require.resolve(...)` plus `JSON.parse(readFileSync(...))`, or a `with { type: "json" }` import) and assert `pi.engines.node === loom.engines.node` literally.
-- `docs/spec_topics/pi-integration-contract.md` Pi version bump procedure step 3: replace the manual-compare instruction with "the H1 cross-package `engines.node` test fails red at the bump commit if the upstream floor has moved; update the loom literal, Step 0 (a), and the spec.md sentence in the same edit."
-
-**Edge cases the implementer must watch (from T33):**
-
-- The cross-package read MUST resolve `pi-coding-agent`'s `package.json` via `require.resolve` (or the `exports` map's `./package.json` entry) rather than a hard-coded `node_modules/...` path, so workspace and pnpm hoisting layouts both work.
-- The assertion MUST compare strings literally, not via `semver.subset` — the contract is exact-equality, matching the H1 test's existing posture on `engines.node` and `peerDependencies`.
-- The bump-procedure step 3 narrative MUST be updated in the same edit; otherwise PIC and the test diverge on which side is authoritative.
-
-### Option A — Promote `semver` to a formal entry in PIC `Host prerequisites`
-
-**Approach.** Extend PIC's `**Host prerequisites.**` enumeration (currently four items) with a fifth item — *Loom-package production dependencies* — that names `semver` (and `@types/semver` as the dev-dep companion), pins the version range as a literal, and states which `package.json` block the entries live in (`dependencies`, not `peerDependencies`). Keep both `*Recommended recipe (non-normative).*` paragraphs as-is for the comparator-contract framing, but drop the parenthetical "pinned by H1 as a direct production dependency of the loom package" since that obligation now lives in the dedicated entry.
-
-**Spec edits.**
-- `pi-integration-contract.md` — add the fifth `Host prerequisites` item; trim the dependency-pinning parentheticals from the two recipe paragraphs.
-- `spec.md` — orientation aggregator for Host runtime gains a one-line forward-link to the new fifth entry (per GOV-12 lock-step).
-- `h1-scaffold.md` — anchor the `dependencies["semver"]` manifest assertion at the new PIC entry instead of at the recipe paragraph.
-
-**Pros.** Single source of truth for the dep obligation; H1 manifest test has a clear spec anchor; version range becomes auditable from the spec.
-
-**Cons.** Forecloses, in practice, the "future swap to a hand-rolled comparator" the recipes currently promise — the moment `semver` is in `Host prerequisites`, removing it is a spec edit, not a leaf-level implementation choice.
-
-**Risks.** Locks the comparator implementation choice into the spec at V1, which is more prescription than the current text intends.
-
-### Option B — Add a separate "Loom-package dependencies" sub-paragraph that documents V1 implementation choices without making them normative
-
-**Approach.** Below `**Host prerequisites.**` in PIC, add a `**Loom-package implementation dependencies (V1).**` paragraph that lists the V1 implementation choices for the recipe contracts — currently just `semver` — with their version ranges and the `package.json` block they live in, framed as "V1 ships with `semver` as the chosen comparator implementation; a future spec edit may substitute another implementation" so the implementation-choice framing matches the recipe's existing escape hatch. Drop the dependency-pinning parentheticals from the two recipe paragraphs.
-
-**Spec edits.**
-- `pi-integration-contract.md` — add the new sub-paragraph; trim the recipe parentheticals; both edits in one commit.
-- `spec.md` — no change required; the orientation aggregator already disclaims library prescription.
-- `h1-scaffold.md` — anchor the manifest assertion at the new sub-paragraph.
-
-**Pros.** Preserves the comparator-swap flexibility the spec already promised; the dep declaration lives in the document a reader looks at when auditing the loom package's manifest; H1 has a clean anchor.
-
-**Cons.** Adds a small new structural unit ("implementation dependencies") that the rest of the spec does not currently use, which a future reader has to learn.
-
-**Risks.** Low. The framing matches the rest of PIC's recipe pattern.
-
-### Option C — Rewrite the recipe to not require an external library
-
-**Approach.** Replace `semver.satisfies(...)` with stdlib parsing — split `process.versions.node` and the floor `">=20.6.0"` on `.`, parse to integers, compare lexicographically with explicit prerelease handling. Same for the peer-dep range check. The recipe becomes self-contained, the dep disappears entirely.
-
-**Spec edits.**
-- `pi-integration-contract.md` — rewrite both recipe paragraphs.
-- `h1-scaffold.md` — drop the `semver` / `@types/semver` manifest assertions.
-
-**Pros.** No new dependency surface; one fewer supply-chain edge.
-
-**Cons.** Hand-rolled SemVer comparison with prerelease eligibility is non-trivial and famously easy to get subtly wrong (build metadata, prerelease tag ordering, the `~0.72.1` tilde semantic). The recipe paragraph in PIC would balloon. Re-implementing what `semver` already does correctly is a poor use of the recipe slot.
-
-**Risks.** Subtle SemVer-semantic bugs; the recipe stops being a recipe and becomes a normative algorithm.
+**Edit Plan:**
+1. docs/plan_topics/h1-scaffold.md — see **Recommendation** below. (one self-contained edit; 0 new IDs/anchors/sections beyond what is named in the recommendation)
 
 ### Recommendation
 
-Take Option B. The spec's own framing already separates "the comparator contract" from "the chosen library implementation"; matching that with a dedicated `**Loom-package implementation dependencies (V1).**` sub-paragraph in PIC keeps the contract/recipe distinction clean and gives H1's manifest assertion a stable anchor. State the version range as a literal (`"^7.0.0"` or whatever H1 lands on) so the H1 literal-read test asserts against a single source of truth. Edge case the implementer must watch: the `@types/semver` entry belongs in `devDependencies`, not `dependencies`, and the new sub-paragraph should call that out so the H1 assertion checks the correct manifest block for each.
+Update `docs/plan_topics/h1-scaffold.md` to (a) anchor the `dependencies["semver"]` and `devDependencies["@types/semver"]` manifest assertions at PIC's new `**Loom-package implementation dependencies (V1).**` sub-paragraph (added by T03a), and (b) extend the `engines.node` literal-read test to also import `@mariozechner/pi-coding-agent/package.json` via `require.resolve(...)` (so workspace and pnpm hoisting layouts both work — do NOT hard-code a `node_modules/...` path), parse the JSON, and assert string equality between `pi.engines.node` and the loom literal. Compare strings literally, not via `semver.subset` — the contract is exact-equality, matching H1's existing posture on `engines.node` and `peerDependencies`. The `pi-engines-node` row added to `SDK_SURFACE_INVENTORY` by T03b is the single source of truth the assertion consumes.
 
 ## Relationships
 
-- T33 "Node floor `>=20.6.0` not automatically audited against Pi's `engines.node`" — absorbed (Decision 2026-05-08 merged T33 Option A into this finding's commit; T33 stub removed from review document; see Decision section above for the absorbed spec edits).
+- T03a "Add `**Loom-package implementation dependencies (V1).**` sub-paragraph in PIC `Host prerequisites`" — must-follow (this finding anchors at the sub-paragraph T03a installs).
+- T03b "Add `pi-engines-node` row to `SDK_SURFACE_INVENTORY` in `h1-scaffold.md`" — must-follow (this finding consumes the row T03b adds).
+
+---
+
+# T03e — Update `spec.md` Host runtime item 1: rephrase to delegate the `engines.node`-equality check to the H1 SDK surface-inventory test
+
+**Original heading:** `semver` not declared as a dependency
+**Original section:** docs/spec.md — Orientation > Prerequisites > Host runtime
+**Split from:** "T03 — `semver` dependency obligation buried in a non-normative recipe paragraph" (entry 5 of 6; manual reshape 2026-05-11; T33 absorbed-edit list consolidated with Option B's chosen-edit list into a unified 6-edit Edit Plan)
+**Kind:** consistency, traceability
+**Importance:** medium
+**Atomicity:** atomic
+
+## Finding
+
+`spec.md`'s Orientation > Prerequisites > Host runtime item 1 currently reads "matching `@mariozechner/pi-coding-agent`'s `engines.node` floor". This phrasing implies a manual or coincidental match between the loom package's Node floor and Pi's Node floor with no audit. T03b adds a `pi-engines-node` row to H1's `SDK_SURFACE_INVENTORY` and T03f extends the literal-read test to assert cross-package equality, so the spec sentence should name the test as the audit mechanism rather than asserting bare equivalence in prose.
+
+## Spec Documents
+
+- `docs/spec.md` — (edited)
+- `docs/plan_topics/h1-scaffold.md` — (read-only)
+
+## Plan Impact
+
+**Phases:** Horizontal H1
+
+**Leaves (implementation order):**
+
+- H1 — Repository scaffold and test framework — (modified)
+
+The H1 leaf already adds `semver` and `@types/semver` and asserts the `dependencies` entry in its manifest test; this finding is one of six children sharing that leaf-touch, with all six landing in coordinated commits (must-precede chain plus same-cluster siblings).
+
+## Consequence
+
+**Severity:** advisory
+
+This finding is one atomic edit in the 6-edit consolidation that resolves the parent T03 (`semver` dependency obligation buried in a non-normative recipe paragraph). The parent's full consequence applies to the cluster as a whole; this child's slice contributes the specific surface listed in **Spec Documents** above.
+
+## Solution Space
+
+**Shape:** single
+**Atomicity:** atomic
+
+**Edit Plan:**
+1. docs/spec.md — see **Recommendation** below. (one self-contained edit; 0 new IDs/anchors/sections beyond what is named in the recommendation)
+
+### Recommendation
+
+In `docs/spec.md` Orientation > Prerequisites > Host runtime item 1, replace the phrase "matching `@mariozechner/pi-coding-agent`'s `engines.node` floor" with "verified equal to `@mariozechner/pi-coding-agent`'s `engines.node` floor by the H1 SDK surface-inventory test." No other change to the orientation aggregator — the rest of item 1 stands.
+
+## Relationships
+
+- T03b "Add `pi-engines-node` row to `SDK_SURFACE_INVENTORY` in `h1-scaffold.md`" — must-follow (this finding's sentence references the test row T03b adds).
+- T03f "`h1-scaffold.md` manifest assertion ..." — same-cluster (the test extension T03f installs is what the new sentence delegates to).
+
+---
+
+# T03d — Update PIC Pi version-bump procedure step 3: replace manual-compare instruction with H1-test-fails-red narrative
+
+**Original heading:** `semver` not declared as a dependency
+**Original section:** docs/spec.md — Orientation > Prerequisites > Host runtime
+**Split from:** "T03 — `semver` dependency obligation buried in a non-normative recipe paragraph" (entry 4 of 6; manual reshape 2026-05-11; T33 absorbed-edit list consolidated with Option B's chosen-edit list into a unified 6-edit Edit Plan)
+**Kind:** consistency, prescription
+**Importance:** medium
+**Atomicity:** atomic
+
+## Finding
+
+PIC's Pi version-bump procedure step 3 currently instructs the contributor to manually compare loom's Node floor against Pi's `engines.node` field at bump time. Once T03b's `SDK_SURFACE_INVENTORY` row plus T03f's cross-package equality assertion are in place, that manual compare is obviated — H1's test fails red automatically when the upstream floor moves, and the bump-procedure narrative should describe that automatic detection rather than prescribing a manual check that contradicts it.
+
+## Spec Documents
+
+- `docs/spec_topics/pi-integration-contract.md` — (edited)
+
+## Plan Impact
+
+**Phases:** Horizontal H1
+
+**Leaves (implementation order):**
+
+- H1 — Repository scaffold and test framework — (modified)
+
+The H1 leaf already adds `semver` and `@types/semver` and asserts the `dependencies` entry in its manifest test; this finding is one of six children sharing that leaf-touch, with all six landing in coordinated commits (must-precede chain plus same-cluster siblings).
+
+## Consequence
+
+**Severity:** advisory
+
+This finding is one atomic edit in the 6-edit consolidation that resolves the parent T03 (`semver` dependency obligation buried in a non-normative recipe paragraph). The parent's full consequence applies to the cluster as a whole; this child's slice contributes the specific surface listed in **Spec Documents** above.
+
+## Solution Space
+
+**Shape:** single
+**Atomicity:** atomic
+
+**Edit Plan:**
+1. docs/spec_topics/pi-integration-contract.md — see **Recommendation** below. (one self-contained edit; 0 new IDs/anchors/sections beyond what is named in the recommendation)
+
+### Recommendation
+
+In `docs/spec_topics/pi-integration-contract.md` Pi version bump procedure step 3, replace the manual-compare instruction with: "the H1 cross-package `engines.node` test fails red at the bump commit if the upstream floor has moved; update the loom literal, Step 0 (a), and the spec.md sentence in the same edit." The narrative MUST be updated in the same commit as T03f's test extension; otherwise PIC and the test diverge on which side is authoritative.
+
+## Relationships
+
+- T03b "Add `pi-engines-node` row to `SDK_SURFACE_INVENTORY` in `h1-scaffold.md`" — must-follow (the test row this finding's narrative names is added by T03b).
+- T03f "`h1-scaffold.md` manifest assertion ..." — same-cluster (the test extension T03f installs is what this narrative delegates to).
+
+---
+
+# T03c — Trim dependency-pinning parentheticals from PIC's two `*Recommended recipe (non-normative).*` paragraphs
+
+**Original heading:** `semver` not declared as a dependency
+**Original section:** docs/spec.md — Orientation > Prerequisites > Host runtime
+**Split from:** "T03 — `semver` dependency obligation buried in a non-normative recipe paragraph" (entry 3 of 6; manual reshape 2026-05-11; T33 absorbed-edit list consolidated with Option B's chosen-edit list into a unified 6-edit Edit Plan)
+**Kind:** cruft, consistency
+**Importance:** medium
+**Atomicity:** atomic
+
+## Finding
+
+Both `*Recommended recipe (non-normative).*` paragraphs in PIC (Step 0 (a) Node-floor check; Step 0 (d) peer-dep range check) currently end with the parenthetical "pinned by H1 as a direct production dependency of the loom package". Once T03a installs the dedicated `**Loom-package implementation dependencies (V1).**` sub-paragraph, that obligation lives in its own structural unit and the recipe parentheticals become redundant — and worse, contradictory, because the recipes simultaneously promise "a future swap to a different SemVer implementation (or a hand-rolled comparator) is permitted".
+
+## Spec Documents
+
+- `docs/spec_topics/pi-integration-contract.md` — (edited)
+
+## Plan Impact
+
+**Phases:** Horizontal H1
+
+**Leaves (implementation order):**
+
+- H1 — Repository scaffold and test framework — (modified)
+
+The H1 leaf already adds `semver` and `@types/semver` and asserts the `dependencies` entry in its manifest test; this finding is one of six children sharing that leaf-touch, with all six landing in coordinated commits (must-precede chain plus same-cluster siblings).
+
+## Consequence
+
+**Severity:** advisory
+
+This finding is one atomic edit in the 6-edit consolidation that resolves the parent T03 (`semver` dependency obligation buried in a non-normative recipe paragraph). The parent's full consequence applies to the cluster as a whole; this child's slice contributes the specific surface listed in **Spec Documents** above.
+
+## Solution Space
+
+**Shape:** single
+**Atomicity:** atomic
+
+**Edit Plan:**
+1. docs/spec_topics/pi-integration-contract.md — see **Recommendation** below. (one self-contained edit; 0 new IDs/anchors/sections beyond what is named in the recommendation)
+
+### Recommendation
+
+In `docs/spec_topics/pi-integration-contract.md`, drop the parenthetical "pinned by H1 as a direct production dependency of the loom package" from both `*Recommended recipe (non-normative).*` paragraphs (the Step 0 (a) Node-floor recipe and the Step 0 (d) peer-dep range recipe). Leave the rest of each recipe intact — the comparator-contract framing and the future-swap escape hatch are still load-bearing for the recipe's stated purpose.
+
+## Relationships
+
+- T03a "Add `**Loom-package implementation dependencies (V1).**` sub-paragraph in PIC `Host prerequisites`" — must-follow (the sub-paragraph T03a adds is what these parentheticals become redundant with).
+
+---
+
+# T03b — Add `pi-engines-node` row to `SDK_SURFACE_INVENTORY` in `h1-scaffold.md`
+
+**Original heading:** `semver` not declared as a dependency
+**Original section:** docs/spec.md — Orientation > Prerequisites > Host runtime
+**Split from:** "T03 — `semver` dependency obligation buried in a non-normative recipe paragraph" (entry 2 of 6; manual reshape 2026-05-11; T33 absorbed-edit list consolidated with Option B's chosen-edit list into a unified 6-edit Edit Plan)
+**Kind:** completeness, traceability
+**Importance:** medium
+**Atomicity:** atomic
+
+## Finding
+
+H1's `SDK_SURFACE_INVENTORY` currently enumerates the four pinned constants the capability probe consumes. T03f extends the test infrastructure to assert cross-package `engines.node` equality between the loom literal and Pi's `engines.node` field — but for that assertion to share its source of truth with the rest of the surface inventory (rather than living as a one-off test), the inventory needs a corresponding row.
+
+## Spec Documents
+
+- `docs/plan_topics/h1-scaffold.md` — (edited)
+
+## Plan Impact
+
+**Phases:** Horizontal H1
+
+**Leaves (implementation order):**
+
+- H1 — Repository scaffold and test framework — (modified)
+
+The H1 leaf already adds `semver` and `@types/semver` and asserts the `dependencies` entry in its manifest test; this finding is one of six children sharing that leaf-touch, with all six landing in coordinated commits (must-precede chain plus same-cluster siblings).
+
+## Consequence
+
+**Severity:** advisory
+
+This finding is one atomic edit in the 6-edit consolidation that resolves the parent T03 (`semver` dependency obligation buried in a non-normative recipe paragraph). The parent's full consequence applies to the cluster as a whole; this child's slice contributes the specific surface listed in **Spec Documents** above.
+
+## Solution Space
+
+**Shape:** single
+**Atomicity:** atomic
+
+**Edit Plan:**
+1. docs/plan_topics/h1-scaffold.md — see **Recommendation** below. (one self-contained edit; 0 new IDs/anchors/sections beyond what is named in the recommendation)
+
+### Recommendation
+
+In `docs/plan_topics/h1-scaffold.md`, add a `{ kind: "pi-engines-node", literal: ">=20.6.0" }` row to `SDK_SURFACE_INVENTORY` so the four pinned constants the probe consumes plus the cross-package floor share one source of truth. The literal MUST match the loom package's `engines.node` floor exactly — when the floor changes, this row is updated in the same commit (the cross-package test added by T03f then exercises the equality).
+
+## Relationships
+
+- T03d "Update PIC Pi version-bump procedure step 3 ..." — must-precede (T03d's narrative names this row).
+- T03e "Update `spec.md` Host runtime item 1 ..." — must-precede (T03e's sentence names the test that consumes this row).
+- T03f "`h1-scaffold.md` manifest assertion ..." — must-precede (T03f's test extension uses this row as its source of truth).
+
+---
+
+# T03a — Add `**Loom-package implementation dependencies (V1).**` sub-paragraph in PIC `Host prerequisites`
+
+**Original heading:** `semver` not declared as a dependency
+**Original section:** docs/spec.md — Orientation > Prerequisites > Host runtime
+**Split from:** "T03 — `semver` dependency obligation buried in a non-normative recipe paragraph" (entry 1 of 6; manual reshape 2026-05-11; T33 absorbed-edit list consolidated with Option B's chosen-edit list into a unified 6-edit Edit Plan)
+**Kind:** assumptions, completeness
+**Importance:** medium
+**Atomicity:** atomic
+
+## Finding
+
+The spec describes the loom runtime's own production dependency on `semver` only inside the parenthetical of a paragraph it explicitly labels *non-normative* (the two `*Recommended recipe (non-normative).*` paragraphs in PIC). The `**Host prerequisites.**` enumeration immediately above those recipes lists four items (Pi SDK pin, Binder model, Binder credentials, Pi-supplied `AbortSignal`) and does not include `semver`. The plan's `dependencies["semver"]` manifest assertion in `h1-scaffold.md` has nothing to anchor against. The fix is to add a dedicated structural unit that names the V1 implementation choices for the recipe contracts (currently just `semver`) with their version ranges and `package.json` block placement, framed as implementation-choice rather than normative contract — preserving the comparator-swap flexibility the recipes already promise.
+
+## Spec Documents
+
+- `docs/spec_topics/pi-integration-contract.md` — (edited)
+
+## Plan Impact
+
+**Phases:** Horizontal H1
+
+**Leaves (implementation order):**
+
+- H1 — Repository scaffold and test framework — (modified)
+
+The H1 leaf already adds `semver` and `@types/semver` and asserts the `dependencies` entry in its manifest test; this finding is one of six children sharing that leaf-touch, with all six landing in coordinated commits (must-precede chain plus same-cluster siblings).
+
+## Consequence
+
+**Severity:** advisory
+
+This finding is one atomic edit in the 6-edit consolidation that resolves the parent T03 (`semver` dependency obligation buried in a non-normative recipe paragraph). The parent's full consequence applies to the cluster as a whole; this child's slice contributes the specific surface listed in **Spec Documents** above.
+
+## Solution Space
+
+**Shape:** single
+**Atomicity:** atomic
+
+**Edit Plan:**
+1. docs/spec_topics/pi-integration-contract.md — see **Recommendation** below. (one self-contained edit; 0 new IDs/anchors/sections beyond what is named in the recommendation)
+
+### Recommendation
+
+In `docs/spec_topics/pi-integration-contract.md`, immediately below the existing `**Host prerequisites.**` enumeration, add a new paragraph `**Loom-package implementation dependencies (V1).**` that lists the V1 implementation choices for the recipe contracts. Initially: `semver` with version range `^7.0.0` (or whatever H1 lands on) declared in `dependencies`, and `@types/semver` declared in `devDependencies` (NOT `dependencies` — the type-only companion belongs in dev-deps and the H1 manifest assertion checks the correct block for each). Frame the paragraph as: "V1 ships with `semver` as the chosen comparator implementation; a future spec edit may substitute another implementation" — matching the recipe's existing escape hatch language. State the version range as a literal so the H1 literal-read test asserts against a single source of truth.
+
+## Relationships
+
+- T03c "Trim dependency-pinning parentheticals from PIC's two `*Recommended recipe (non-normative).*` paragraphs" — must-precede (this finding installs the anchor that obviates the parentheticals T03c removes).
+- T03f "`h1-scaffold.md` manifest assertion: anchor at the new PIC sub-paragraph ..." — must-precede (T03f's manifest assertion anchors at the sub-paragraph this finding installs).
+
+---
 
 # T05 — `bind_*` (frontmatter) vs `binder*` / `binder-*` (settings, diagnostics, prose) — root-word inconsistency for the binder-model concept
 
@@ -436,36 +646,27 @@ Option A. The structured discriminant fields on each variant already carry the i
 
 ## Relationships
 
-- T08 "Inconsistent phrasing for the context-overflow failure across schema, wire kind, and user-facing system note" — same-cluster (touches the same `QueryError variants` surface).
+- T08a "Rewrite slash-invocation.md context_overflow system-note row to 'context overflow'" — same-cluster (touches the same `QueryError variants` surface; co-resolve siblings T08b/c also relevant).
 - T39 "Mid-stream cancellation paragraph bundles multiple obligations under one anchor" — same-cluster (cancellation pathway; independent obligation-splitting concern).
 
 ---
 
-# T08 — Inconsistent phrasing for the context-overflow failure across schema, wire kind, and user-facing system note
+# T08a — Rewrite slash-invocation.md context_overflow system-note row to "context overflow"
 
 **Original heading:** `ContextOverflowError` / `context_overflow` / "context window exceeded" — three phrasings for one concept
 **Original section:** docs/spec_topics/errors-and-results.md
+**Split from:** "Inconsistent phrasing for the context-overflow failure across schema, wire kind, and user-facing system note" (entry 1 of 3, second reshape pass 2026-05-11)
 **Kind:** naming
 **Importance:** medium
-**Atomicity:** composite-3+
-**Triage note:** UNSPLITTABLE — manual reshape required (Recommendation block is unstructured prose with no numbered/lettered Edit-Plan items. The effective edit set is three file-level rewrites — `slash-invocation.md` `context_overflow` row literal, `errors-and-results.md` line 206 prose, `query.md` line 285 prose — plus a leave-untouched note for four other files. A human reshape pass should re-author the Recommendation as three numbered items so the splitter can produce one child per file edit, with `co-resolve` topology since they must land before V18i pins the literal text.)
 
 ## Finding
 
-The same failure mode is described by two competing English phrasings depending on which surface the reader is looking at. The schema variant (`errors-and-results.md` line 209) is `ContextOverflowError`, the wire `kind` is `"context_overflow"`, and prose anchors throughout the corpus (`hard-ceilings.md`, `pi-integration-contract.md`, `binder.md`, `query.md`'s detection heading, `glossary.md`'s always-log entry) consistently say "overflow". The user-facing system-note template in `slash-invocation.md` (the `context_overflow` row of the per-`kind` formatting table, line 42) breaks that pattern with `"loom /<name> returned Err: context window exceeded"`.
-
-Because that table is normative, byte-pinned ("Renderers MUST emit the surrounding template text verbatim"; "Conformance tests MAY assert on the exact rendered string"; "Wording changes are spec-versioned breaking changes"), an implementer matching on `kind: "context_overflow"` to derive the user-facing string has no textual cue — schema, wire kind, and surrounding prose all point to "overflow"; only the table mandates a different word. Once V18i ships with the table's literal text, harmonising it later is a breaking spec-version bump.
-
-The supporting field name `tokens_limit` is unrelated — it names a numeric bound on tokens, not the failure category — and is not in scope for this finding.
+The user-facing system-note template in `slash-invocation.md` (the `context_overflow` row of the per-`kind` formatting table, line 42) currently reads `"loom /<name> returned Err: context window exceeded"`, breaking the corpus-wide "overflow" root word used by the schema (`ContextOverflowError`), the wire `kind` (`"context_overflow"`), and all surrounding prose (`hard-ceilings.md`, `pi-integration-contract.md`, `binder.md`, `query.md`'s detection heading, `glossary.md`'s always-log entry). Because that table is normative and byte-pinned ("Renderers MUST emit the surrounding template text verbatim"; "Wording changes are spec-versioned breaking changes"), once V18i ships with the table's literal text, harmonising it later is a breaking spec-version bump. This child rewrites the table-row literal so the user-facing string aligns with the schema/wire root word; siblings T08b and T08c sweep the supporting prose in `errors-and-results.md` and `query.md` respectively.
 
 ## Spec Documents
 
 - `docs/spec_topics/slash-invocation.md` — per-`kind` system-note table, `context_overflow` row (edited)
-- `docs/spec_topics/errors-and-results.md` — `ContextOverflowError` variant intro paragraph (line 206) and the `raw_response` notes block (line 290) (edited; prose only)
-- `docs/spec_topics/query.md` — Detection of `ContextOverflowError`; the "context window exceeded" phrase on line 285 describing what providers return (edited; prose only)
-- `docs/spec_topics/binder.md` — Context-overflow handling paragraph (read-only; already says "context-overflow")
-- `docs/spec_topics/pi-integration-contract.md` — Provider error mapping table header "Overflow signature → `ContextOverflowError`" (read-only; already aligned)
-- `docs/spec_topics/glossary.md` — always-log entry referencing `context_overflow` (option-dependent; only edited if Option B is chosen and a glossary mapping is added)
+- `docs/spec_topics/binder.md`, `docs/spec_topics/pi-integration-contract.md`, `docs/spec_topics/hard-ceilings.md`, `docs/spec_topics/glossary.md` — (read-only; already match the "overflow" root word)
 
 ## Plan Impact
 
@@ -473,33 +674,138 @@ The supporting field name `tokens_limit` is unrelated — it names a numeric bou
 
 **Leaves (implementation order):**
 
-- V18i — Per-`kind` formatting for prompt-mode top-level `Err` — (modified)
+- V18i — Per-`kind` formatting for prompt-mode top-level `Err` — (modified; pins the new literal)
 
-V5h, V13, V16n, V18q reference `ContextOverflowError` / `context_overflow` only by schema name or wire kind and are unaffected by a system-note wording change.
+V5h, V13, V16n, V18q reference `ContextOverflowError` / `context_overflow` only by schema name or wire kind and are unaffected by this row rewrite.
 
 ## Consequence
 
 **Severity:** advisory
 
-A reader synthesising the user-visible string from the wire `kind` will produce something other than "context window exceeded" and silently fail conformance once V18i pins the literal text. Implementers who copy the slash-invocation row verbatim are correct today, so nothing strictly blocks shipping; the cost is reader friction now and a breaking spec-version bump later if the inconsistency is fixed after V18i lands.
+A reader synthesising the user-visible string from the wire `kind` will produce something other than "context window exceeded" and silently fail conformance once V18i pins the literal text. Implementers who copy the slash-invocation row verbatim are correct today; the cost is reader friction now and a breaking spec-version bump later if the inconsistency is fixed after V18i lands.
 
 ## Solution Space
 
 **Shape:** single
+**Atomicity:** atomic
 
 ### Recommendation
 
-Rewrite the `slash-invocation.md` `context_overflow` row from `"loom /<name> returned Err: context window exceeded"` to `"loom /<name> returned Err: context overflow"`. Sweep `errors-and-results.md` line 206 ("context-window overflow") and `query.md` line 285 ("context window exceeded") to use the bare phrase "context overflow" so that schema name, wire kind, prose, and user-facing template all read with the same root word. Leave `binder.md`, `pi-integration-contract.md`, `hard-ceilings.md`, and `glossary.md` untouched — they already match.
+Rewrite the `slash-invocation.md` `context_overflow` row literal from `"loom /<name> returned Err: context window exceeded"` to `"loom /<name> returned Err: context overflow"`. No schema name, wire `kind` literal, or field name changes — purely user-facing prose. The renderer's `match` arm on `kind: "context_overflow"` is unaffected.
 
-Edge cases for the implementer:
+Edge cases (applies to all children of T08):
 
-- The edit lands before V18i so its tests pin the new string from the start; if V18i has already shipped, the change is a spec-versioned breaking bump under GOV-12 and the slash-invocation row's "Wording changes are spec-versioned breaking changes" clause.
-- No schema name, wire `kind` literal, or field name changes — purely user-facing prose. The renderer's `match` arm on `kind: "context_overflow"` is unaffected.
-- The `query.md` line 285 sentence describes what providers return ("recognised provider \"context window exceeded\" error responses"); replace it with a phrasing that names the provider behaviour without quoting, e.g. "recognised provider context-overflow error responses", to avoid implying providers literally emit the string "context window exceeded".
+- The edit must land before V18i so its tests pin the new string from the start; if V18i has already shipped, the change is a spec-versioned breaking bump under GOV-12 and the slash-invocation row's "Wording changes are spec-versioned breaking changes" clause.
+- Coordinate landing with siblings T08b and T08c so the corpus is harmonised in one commit.
+- Leave `binder.md`, `pi-integration-contract.md`, `hard-ceilings.md`, and `glossary.md` untouched — they already match.
 
 ## Relationships
 
+- T08b "Sweep errors-and-results.md line 206 'context-window overflow' to 'context overflow'" — co-resolve.
+- T08c "Sweep query.md line 285 'context window exceeded' to provider context-overflow phrasing" — co-resolve.
 - T07 "`QueryError.message` content has no normativity rule" — same-cluster (touches the same `QueryError variants` surface).
+
+---
+
+# T08b — Sweep errors-and-results.md line 206 "context-window overflow" to "context overflow"
+
+**Original heading:** `ContextOverflowError` / `context_overflow` / "context window exceeded" — three phrasings for one concept
+**Original section:** docs/spec_topics/errors-and-results.md
+**Split from:** "Inconsistent phrasing for the context-overflow failure across schema, wire kind, and user-facing system note" (entry 2 of 3, second reshape pass 2026-05-11)
+**Kind:** naming
+**Importance:** medium
+
+## Finding
+
+The `ContextOverflowError` variant intro paragraph at `errors-and-results.md` line 206 currently reads "context-window overflow"; the rest of the corpus uses the bare phrase "context overflow". This child sweeps the prose so all sites read with the same root word; siblings T08a and T08c handle the slash-invocation row literal and the `query.md` sweep respectively.
+
+## Spec Documents
+
+- `docs/spec_topics/errors-and-results.md` — `ContextOverflowError` variant intro paragraph (line 206) and the `raw_response` notes block (line 290) (edited; prose only)
+
+## Plan Impact
+
+**Phases:** None
+
+**Leaves (implementation order):** None — purely editorial prose sweep.
+
+## Consequence
+
+**Severity:** advisory
+
+Without this sweep, a reader auditing the corpus sees "context-window overflow" in `errors-and-results.md` while every other site says "context overflow"; the inconsistency is observable at every cross-page navigation.
+
+## Solution Space
+
+**Shape:** single
+**Atomicity:** atomic
+
+### Recommendation
+
+Replace "context-window overflow" with "context overflow" in `errors-and-results.md` line 206 (the `ContextOverflowError` variant intro paragraph). Sweep the `raw_response` notes block at line 290 for the same phrase if it is present.
+
+Edge cases (applies to all children of T08):
+
+- Schema name `ContextOverflowError` and wire `kind` literal `"context_overflow"` are unchanged.
+- Coordinate landing with siblings T08a and T08c so the corpus is harmonised in one commit.
+- Leave `binder.md`, `pi-integration-contract.md`, `hard-ceilings.md`, and `glossary.md` untouched — they already match.
+
+## Relationships
+
+- T08a "Rewrite slash-invocation.md context_overflow system-note row to 'context overflow'" — co-resolve.
+- T08c "Sweep query.md line 285 'context window exceeded' to provider context-overflow phrasing" — co-resolve.
+- T07 "`QueryError.message` content has no normativity rule" — same-cluster.
+
+---
+
+# T08c — Sweep query.md line 285 "context window exceeded" to provider context-overflow phrasing
+
+**Original heading:** `ContextOverflowError` / `context_overflow` / "context window exceeded" — three phrasings for one concept
+**Original section:** docs/spec_topics/errors-and-results.md
+**Split from:** "Inconsistent phrasing for the context-overflow failure across schema, wire kind, and user-facing system note" (entry 3 of 3, second reshape pass 2026-05-11)
+**Kind:** naming
+**Importance:** medium
+
+## Finding
+
+`query.md` line 285 currently describes provider behaviour as "recognised provider \"context window exceeded\" error responses" — quoting the exact "context window exceeded" string. This phrasing both (a) breaks the corpus-wide "context overflow" root word and (b) implies providers literally emit that exact string. This child sweeps the prose to use the bare "context-overflow" phrasing without quoting; siblings T08a and T08b handle the slash-invocation row literal and the `errors-and-results.md` sweep.
+
+## Spec Documents
+
+- `docs/spec_topics/query.md` — Detection of `ContextOverflowError`; the "context window exceeded" phrase on line 285 describing what providers return (edited; prose only)
+
+## Plan Impact
+
+**Phases:** None
+
+**Leaves (implementation order):** None — purely editorial prose sweep.
+
+## Consequence
+
+**Severity:** advisory
+
+Without this sweep, `query.md` continues to assert that providers return the literal string "context window exceeded", which both diverges from the corpus root word and over-commits the spec to a provider behaviour it cannot actually verify.
+
+## Solution Space
+
+**Shape:** single
+**Atomicity:** atomic
+
+### Recommendation
+
+Rewrite the `query.md` line 285 sentence from "recognised provider \"context window exceeded\" error responses" to "recognised provider context-overflow error responses" — naming the provider behaviour without quoting any specific provider error string.
+
+Edge cases (applies to all children of T08):
+
+- Schema name `ContextOverflowError` and wire `kind` literal `"context_overflow"` are unchanged.
+- Coordinate landing with siblings T08a and T08b so the corpus is harmonised in one commit.
+- Leave `binder.md`, `pi-integration-contract.md`, `hard-ceilings.md`, and `glossary.md` untouched — they already match.
+
+## Relationships
+
+- T08a "Rewrite slash-invocation.md context_overflow system-note row to 'context overflow'" — co-resolve.
+- T08b "Sweep errors-and-results.md line 206 'context-window overflow' to 'context overflow'" — co-resolve.
+- T07 "`QueryError.message` content has no normativity rule" — same-cluster.
 
 ---
 
@@ -985,7 +1291,7 @@ Edge cases the implementer must watch:
 
 - T23 "Pi's per-session slash-handler serialisation is asserted without a verifiable Pi source" — same-cluster (different premise of the same argument).
 - T15a "Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet" — same-cluster (touches the same Session-model paragraph; co-edit pass).
-- T19 "Concurrent subagent siblings: no operator demultiplexing or sibling-failure timing rule" — same-cluster (also concerns the sibling-subagent fan-out path, on the diagnostics axis).
+- T19a "Extend ActiveInvocationRegistry entry shape with invocationId" — same-cluster (also concerns the sibling-subagent fan-out path, on the diagnostics axis; co-resolve siblings T19b/c/d/e also relevant).
 - T20 "Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes" — same-cluster (same fan-out path, resource-exhaustion axis).
 
 ---
@@ -1111,7 +1417,7 @@ Edge cases (applies to all children of T15):
 - T15c "Lift Session-model scope deferrals into Non-goals (V1) section" — co-resolve (sibling restructure of the same paragraph).
 - T14 "Prompt-mode sequentiality argument has an unstated fourth premise" — must-follow (the three premises being relocated are the ones T14 needs to extend with the fourth premise; the relocation is the natural moment to add it).
 - T20 "Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes" — must-follow (the admission-cap disposition being relocated is the surface T20 needs the resource-exhaustion answer on).
-- T19 "Concurrent subagent siblings: no operator demultiplexing or sibling-failure timing rule" — same-cluster (lives in the same architectural area being created here).
+- T19a "Extend ActiveInvocationRegistry entry shape with invocationId" — same-cluster (lives in the same architectural area being created here; co-resolve siblings T19b/c/d/e also relevant).
 
 ---
 
@@ -1493,7 +1799,7 @@ Edge cases (applies to all children of T18):
 - T18b "Add per-mode operator-side null sentences to slash-invocation.md" — must-precede (the central PIC paragraph must land before the slash-invocation restatement points at it).
 - T18c "Widen spec.md Runtime observability bullet to forward-link the null-policy" — must-precede (the bullet's forward-link target must exist).
 - T18d "Add V18q test asserting zero `loom-system-note` emissions on successful termination" — must-precede (the test asserts against the spec sentence installed here).
-- T19 "Concurrent subagent siblings: no operator demultiplexing or sibling-failure timing rule" — same-cluster (operator-surface gap on the failure side; symmetric to this child's success-side gap).
+- T19a "Extend ActiveInvocationRegistry entry shape with invocationId" — same-cluster (operator-surface gap on the failure side; symmetric to this child's success-side gap; co-resolve siblings T19b/c/d/e also relevant).
 - T06 "Operator role: TUI binding asserted in glossary but never reconciled with non-interactive callers" — same-cluster.
 
 ---
@@ -1650,87 +1956,276 @@ Edge cases (applies to all children of T18): see T18a's edge-case list.
 
 ---
 
-# T19 — Concurrent subagent siblings: no operator demultiplexing or sibling-failure timing rule
+# T19a — Extend ActiveInvocationRegistry entry shape with invocationId
 
 **Original heading:** Concurrent subagent sibling failure: no aggregation rule for parent or operator surface
 **Original section:** docs/spec.md — Orientation > Session model
+**Split from:** "Concurrent subagent siblings: no operator demultiplexing or sibling-failure timing rule" (entry 1 of 5, second reshape pass 2026-05-11; chosen Option A's `Spec edits` block)
 **Kind:** error-model
 **Importance:** high
-**Atomicity:** composite-3+
-**Triage note:** UNSPLITTABLE — manual reshape required (Recommendation block is unstructured prose with three inline-numbered watch-out parentheticals, not a numbered Edit Plan. The chosen Option A's *Spec edits* enumeration (five numbered items across `pi-integration-contract.md` registry shape, `RuntimeEvent` field, dedup-key widening, per-invocation operator-visibility, and timing-rule paragraph) is in the Option block, not in Recommendation, so the splitter cannot read it. A human reshape pass should promote those five items into a numbered Recommendation Edit Plan; the natural topology is `co-resolve` since the new `invocation_id` field, the dedup-key widening, and the cascade-twin re-emission rule must all land in one V18q commit to keep the wire contract additive.)
 
 ## Finding
 
-When a query in a parent loom emits parallel tool calls into the same `.loom` callable, the runtime spawns N independent subagent-mode sibling invocations (`tool-calls.md` Concurrency section; `pi-integration-contract.md` re-entrant adapter rule and `ActiveInvocationRegistry` Per-mode concurrency invariants). Each sibling that fails for an always-log reason emits its own `loom-system-note` with `display: false` and a `RuntimeEvent` payload defined in `pi-integration-contract.md` Runtime event channel.
-
-The `RuntimeEvent` shape carries `loom: string` (the slash name) but no per-invocation correlation key. When two sibling invocations of `/code-review` run concurrently and both fail, the operator stream contains two notes whose `(loom, kind, query_site, message)` tuples are identical and whose `occurred_at` values may be arbitrarily close; an operator scanning the stream cannot tell which note belongs to which sibling, and consumers cannot stitch a sibling's diagnostic to its tool-call-id in the parent's transcript.
-
-The spec is also silent on two adjacent timing questions that surface only under sibling concurrency: (a) whether a sibling's always-log emission appears on `loom-system-note` at the moment of failure (origin-site emission per V18q) or is somehow held until the parent's tool-loop round closes — `pi-integration-contract.md`'s Deduplication and lifetime rules pin "exactly once per origin" but say nothing about ordering across concurrent origins; (b) whether the always-log channel is per-invocation or session-flat, which determines whether the dedup key `(kind, query_site, message, occurred_at)` is computed per-sibling or globally (two siblings with the same `query_site` that fail at the same `Clock.now()` tick would dedup to one if the key is global). Cancellation propagation (downward only, sibling-independent) is pinned; sibling failure surfacing is not.
+The parent finding established that `RuntimeEvent` carries no per-invocation correlation key, so concurrent sibling diagnostics from the same loom are indistinguishable on the operator stream and the dedup key collides under same-tick fan-out. Decision (2026-05-08) was Option A: add a per-invocation correlation key sourced at the registry-insertion site. This child installs the registry-side change — extending the `ActiveInvocationRegistry` entry shape with `invocationId: string` and pinning the id-derivation rule. Sibling children T19b–T19e add the field to the `RuntimeEvent` wire shape, widen the dedup key, populate the `cancelled-by-session-shutdown` details, and pin the timing rule respectively. All five must land in one V18q commit (co-resolve cluster) to keep the additive `RuntimeEvent` contract intact.
 
 ## Spec Documents
 
-- `docs/spec.md` — Orientation > Session model (read-only — concurrency disposition forward-links to PIC and the always-log channel)
-- `docs/spec_topics/pi-integration-contract.md` — `ActiveInvocationRegistry` Per-mode concurrency invariants; Runtime event channel; `RuntimeEvent` payload shape; Deduplication and lifetime rules (edited)
-- `docs/spec_topics/diagnostics.md` — `loom-system-note` `details` payload shapes (edited under Option A; read-only under Option B)
-- `docs/spec_topics/tool-calls.md` — Concurrency section (read-only — establishes the sibling-spawn surface)
-- `docs/spec_topics/glossary.md` — `RuntimeEvent` / always-log set entries (option-dependent — touched only if a new field is added)
-- `docs/spec_topics/future-considerations.md` — operator-stream aggregation deferral (option-dependent)
+- `docs/spec_topics/pi-integration-contract.md` — `ActiveInvocationRegistry` entry shape; Per-mode concurrency invariants (edited)
+- `docs/spec_topics/tool-calls.md` — Concurrency section (read-only — establishes the sibling-spawn surface this child's id-derivation runs at)
 
 ## Plan Impact
 
-**Phases:** V12, V14, V15, V18
+**Phases:** V12, V14, V15
 
 **Leaves (implementation order):**
 
-- V12a — `mode: subagent` accepted; AgentSession spawn — (modified — the subagent spawn site is the registry-insertion point that must source the per-invocation correlation key under Option A)
-- V14e — Pi tool wired into `@` queries as model-callable — (modified — the parallel-tool-call path into a `.loom` callable is the dominant sibling-spawn surface; tests must cover concurrent-sibling failure interleaving)
-- V15g — `invoke(...)` to subagent-mode callee — (modified — the second registry-insertion site for sibling-bearing concurrency under Option A; read-only under Option B)
-- V18q — Runtime event channel and always-log emission — (modified — owns the `RuntimeEvent` payload shape, the emission helper, and the dedup-key rule that all need adjustment; tests must cover the concurrent-sibling case explicitly)
+- V12a — `mode: subagent` accepted; AgentSession spawn — (modified — subagent spawn site is one registry-insertion point that must source the `invocationId`)
+- V14e — Pi tool wired into `@` queries as model-callable — (modified — parallel tool-call path into a `.loom` callable is the dominant sibling-spawn surface; tests must cover concurrent-sibling registry-insertion correctness)
+- V15g — `invoke(...)` to subagent-mode callee — (modified — second registry-insertion site for sibling-bearing concurrency)
 
 ## Consequence
 
 **Severity:** correctness
 
-Two reasonable implementers will diverge: one will add an ad-hoc per-invocation tag (process-local counter, `crypto.randomUUID`, or a `loomAbort` identity hash) to disambiguate sibling notes; another will leave the surface as-is and accept that an operator looking at two failing siblings of `/code-review` sees two indistinguishable notes. The dedup-key question compounds: if `(kind, query_site, message, occurred_at)` is computed globally, two siblings failing at the same fake-clock tick collapse to one note and one of the siblings' failures vanishes from the operator stream — the V18q test (l) explicitly relies on `FakeClock.advance` to force distinct `occurred_at` values, but two real siblings on a real clock can hit the same millisecond.
+Without the entry-shape extension, the per-invocation correlation key has no canonical home and sibling diagnostics emitted from concurrent invocations remain indistinguishable on the operator stream regardless of how the wire shape evolves.
 
 ## Solution Space
 
 **Shape:** single
-
-**Decision (2026-05-08):** Option A.
-
-### Option A — Add `invocation_id` to `RuntimeEvent` and pin per-invocation channel scope
-
-Approach. Add a required `invocation_id: string` field to `RuntimeEvent`. The id is sourced at the `ActiveInvocationRegistry` insertion site (slash-handler entry, `tool.execute(...)` adapter entry, `invoke(...)` spawn site) and stored on the registry entry alongside `loomAbort` and `disposeBarrier`. The emission helper reads it from the per-invocation context and includes it on every always-log event from that invocation. The dedup key is widened to `(invocation_id, kind, query_site, message, occurred_at)` so per-sibling dedup is structurally correct regardless of clock collisions.
-
-Spec edits. (1) In `pi-integration-contract.md` `ActiveInvocationRegistry`, extend the entry shape to `Set<{ loomAbort: AbortController; disposeBarrier: Promise<void>; invocationId: string }>` and pin the id-derivation rule (e.g. `crypto.randomUUID()` at insertion; the same id is used for the entry's lifetime). (2) In the `RuntimeEvent` declaration, add `invocation_id: string;` as a required additive field and note it on the additive-only contract. (3) In Deduplication and lifetime rules, widen the dedup key to include `invocation_id` and state explicitly that the always-log channel is session-flat at the wire level but the dedup key is per-invocation. (4) In Per-invocation operator visibility, populate `details.event.invocation_id` on `cancelled-by-session-shutdown` so teardown notes are correlatable. (5) Add one paragraph stating that sibling always-log emissions appear on `loom-system-note` in real time at the originating site (no batching, no aggregation, interleaving order is the JavaScript event-loop scheduling order — non-normative for tests, observable for operators).
-
-Pros. Small, additive, consistent with the additive-only `RuntimeEvent` contract. Implementable inside V18q's existing emission helper. Fixes the dedup-collision problem on a real clock. Forward-compatible with future aggregation/correlation features in `future-considerations.md` (e.g. tool-call-id correlation).
-
-Cons. Adds a required field, so V18q test (f) and the JSON-stringify-tolerant assumptions of the dedup-key tests need updating. The id is opaque to operators — a follow-on rendering rule would be needed to make it useful in transcripts (likely deferred to a renderer concern).
-
-Risks. Two registry entries must never share an id (covered by `crypto.randomUUID` collision-resistance, which is the same assumption the V1 SHA-256 schema-slug rule already takes). The `cascade-twin re-emission` rule must copy `invocation_id` verbatim like `occurred_at` and `masked` — easy to miss without an explicit rule.
-
-### Option B — Disclaim sibling demultiplexing for V1; pin only the timing rule
-
-Approach. State explicitly that V1 does not provide per-sibling correlation on the operator channel: notes from concurrent siblings of the same loom are indistinguishable in the operator stream, and operators relying on sibling identity are out of scope. Add only the two timing rules: (1) sibling always-log emissions surface in real time at the originating site, not batched into the parent's tool-loop round; (2) the always-log channel is session-flat and the dedup key is per-emission-site (as today) — sibling collisions on `occurred_at` are accepted as a V1 cosmetic limitation. Forward-link to `future-considerations.md` for the eventual correlation surface.
-
-Spec edits. (1) In `pi-integration-contract.md` Runtime event channel, add a "Concurrent sibling invocations" paragraph stating the disclaimer and the timing rule. (2) In `future-considerations.md`, add an entry for "Per-invocation correlation on the operator channel" as a deferred surface extension. (3) In `pi-integration-contract.md` Deduplication and lifetime rules, add an explicit note: when two distinct origins produce byte-identical `(kind, query_site, message, occurred_at)` tuples (the sibling-collision case), they are intentionally collapsed at the consumer-side dedup, accepted as a V1 cosmetic limitation.
-
-Pros. Zero `RuntimeEvent` shape change. No new field for the V18q helper or for tests to cover. Aligns with V1's "operator-facing channel is intentionally write-only" disposition.
-
-Cons. The dedup-collision case silently drops a sibling failure from the operator stream — an operator triaging "why did my parallel batch of 4 only show 3 failures?" gets no answer. Two implementers could still diverge on the timing rule's interpretation if it is stated only as prose ("real time"); a test vector is needed.
-
-Risks. The "cosmetic limitation" framing may not survive contact with operators using `/loom` looms in production fan-out scenarios; revisiting in V1.x then becomes a `RuntimeEvent`-shape change, which the additive-only contract permits but which has a higher coordination cost than landing it in V1.0.
+**Atomicity:** atomic
 
 ### Recommendation
 
-Option A. The cost is one field on the `RuntimeEvent` payload and one entry-shape extension on the registry; both are additive and land cleanly in V18q. Implementers must remember three things: (1) the cascade-twin re-emission rule extends to `invocation_id` (copy verbatim, never re-derive at the boundary site); (2) the registry's id-derivation rule must run inside the **Dispatch-site setup wrap** `try`/`catch`, before any awaitable work, so a setup-time throw still has an id available for the `internal-error` emission; (3) V18q test (l) — which uses `FakeClock.advance` between iterations to force distinct `occurred_at` values — should be supplemented with a same-tick concurrent-sibling test that exercises the per-`invocation_id` dedup arm without advancing the clock.
+In `pi-integration-contract.md` `ActiveInvocationRegistry`, extend the entry shape from `Set<{ loomAbort: AbortController; disposeBarrier: Promise<void> }>` to `Set<{ loomAbort: AbortController; disposeBarrier: Promise<void>; invocationId: string }>` and pin the id-derivation rule: each entry's `invocationId` is sourced via `crypto.randomUUID()` at the registry-insertion site (slash-handler entry, `tool.execute(...)` adapter entry, or `invoke(...)` spawn site) and is used for the entry's lifetime.
+
+Edge cases (applies to all children of T19):
+
+- The `invocationId` derivation MUST run inside the **Dispatch-site setup wrap** `try`/`catch`, before any awaitable work, so a setup-time throw still has an id available for the `internal-error` emission.
+- Two registry entries must never share an id (covered by `crypto.randomUUID` collision-resistance, the same assumption the V1 SHA-256 schema-slug rule already takes).
+- The cascade-twin re-emission rule extends to `invocation_id` (copy verbatim, never re-derive at the boundary site).
 
 ## Relationships
 
-- T20 "Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes" — same-cluster (both touch the unbounded-concurrent-sibling surface; admission cap vs observability).
-- T18a "Append success-side null-policy paragraph to PIC Runtime event channel" — must-precede (any decision to add operator-visibility for successful sibling outcomes will want to reuse the `invocation_id` field this finding adds).
+- T19b "Add invocation_id field to RuntimeEvent payload declaration" — co-resolve.
+- T19c "Widen always-log dedup key to include invocation_id" — co-resolve.
+- T19d "Populate cancelled-by-session-shutdown details with invocation_id" — co-resolve.
+- T19e "Add real-time sibling emission timing paragraph" — co-resolve.
+- T20 "Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes" — same-cluster.
+- T18a "Append success-side null-policy paragraph to PIC Runtime event channel" — must-precede (any decision to add operator-visibility for successful sibling outcomes will reuse the `invocation_id` field this child installs).
+- T15a "Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet" — same-cluster.
+
+---
+
+# T19b — Add invocation_id field to RuntimeEvent payload declaration
+
+**Original heading:** Concurrent subagent sibling failure: no aggregation rule for parent or operator surface
+**Original section:** docs/spec.md — Orientation > Session model
+**Split from:** "Concurrent subagent siblings: no operator demultiplexing or sibling-failure timing rule" (entry 2 of 5, second reshape pass 2026-05-11; chosen Option A's `Spec edits` block)
+**Kind:** error-model
+**Importance:** high
+
+## Finding
+
+The parent finding's Decision was Option A: add `invocation_id: string` to `RuntimeEvent` so emissions carry the per-invocation correlation key sourced by sibling T19a's registry change. This child adds the field to the wire shape; siblings T19a/c/d/e provide the registry-side source, dedup-key widening, cancelled-shutdown details population, and timing rule respectively.
+
+## Spec Documents
+
+- `docs/spec_topics/pi-integration-contract.md` — `RuntimeEvent` payload shape declaration; additive-only contract note (edited)
+- `docs/spec_topics/glossary.md` — `RuntimeEvent` / always-log set entries (edited if the glossary lists the field set; otherwise read-only)
+
+## Plan Impact
+
+**Phases:** V18
+
+**Leaves (implementation order):**
+
+- V18q — Runtime event channel and always-log emission — (modified — owns the `RuntimeEvent` payload shape; the emission helper that builds events must include the field; V18q test (f) needs updating for the new required field)
+
+## Consequence
+
+**Severity:** correctness
+
+Without this field on the wire shape, registry-sourced `invocationId` values (sibling T19a) have no destination and sibling correlation cannot be observed by operator-side consumers.
+
+## Solution Space
+
+**Shape:** single
+**Atomicity:** atomic
+
+### Recommendation
+
+In `pi-integration-contract.md`'s `RuntimeEvent` declaration, add `invocation_id: string;` as a required additive field. Note it on the additive-only contract (the addition is forward-compatible with the existing wire shape; consumers tolerant of unknown fields stay correct).
+
+Edge cases (applies to all children of T19): see T19a's edge-case list. Additionally, V18q test (f) and the JSON-stringify-tolerant assumptions of the dedup-key tests need updating to admit the new field.
+
+## Relationships
+
+- T19a "Extend ActiveInvocationRegistry entry shape with invocationId" — co-resolve (this child consumes the field T19a sources).
+- T19c "Widen always-log dedup key to include invocation_id" — co-resolve.
+- T19d "Populate cancelled-by-session-shutdown details with invocation_id" — co-resolve.
+- T19e "Add real-time sibling emission timing paragraph" — co-resolve.
+- T20 "Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes" — same-cluster.
+- T18a "Append success-side null-policy paragraph to PIC Runtime event channel" — must-precede.
+- T15a "Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet" — same-cluster.
+
+---
+
+# T19c — Widen always-log dedup key to include invocation_id
+
+**Original heading:** Concurrent subagent sibling failure: no aggregation rule for parent or operator surface
+**Original section:** docs/spec.md — Orientation > Session model
+**Split from:** "Concurrent subagent siblings: no operator demultiplexing or sibling-failure timing rule" (entry 3 of 5, second reshape pass 2026-05-11; chosen Option A's `Spec edits` block)
+**Kind:** error-model
+**Importance:** high
+
+## Finding
+
+The parent finding identified that the dedup key `(kind, query_site, message, occurred_at)` collides on real clocks when two siblings of the same loom fail at the same millisecond. The Decision was Option A: widen the dedup key to include the per-invocation correlation key. This child installs the dedup-rule change; siblings provide the registry source, the wire field, the cancelled-shutdown details, and the timing rule.
+
+## Spec Documents
+
+- `docs/spec_topics/pi-integration-contract.md` — Runtime event channel — Deduplication and lifetime rules (edited)
+
+## Plan Impact
+
+**Phases:** V18
+
+**Leaves (implementation order):**
+
+- V18q — Runtime event channel and always-log emission — (modified — implements the dedup-key check; tests must cover same-tick concurrent-sibling collisions per the Recommendation edge case)
+
+## Consequence
+
+**Severity:** correctness
+
+Without per-invocation dedup, two siblings failing at the same `Clock.now()` tick collapse to one note on the operator stream and one of the failures vanishes. V18q test (l) currently uses `FakeClock.advance` to force distinct `occurred_at` values, but two real siblings on a real clock can hit the same millisecond.
+
+## Solution Space
+
+**Shape:** single
+**Atomicity:** atomic
+
+### Recommendation
+
+In `pi-integration-contract.md` Runtime event channel — Deduplication and lifetime rules, widen the dedup key from `(kind, query_site, message, occurred_at)` to `(invocation_id, kind, query_site, message, occurred_at)`. State explicitly that the always-log channel is session-flat at the wire level but the dedup key is per-invocation.
+
+Edge cases (applies to all children of T19): see T19a's edge-case list. Additionally, V18q test (l) should be supplemented with a same-tick concurrent-sibling test that exercises the per-`invocation_id` dedup arm without advancing the clock.
+
+## Relationships
+
+- T19a "Extend ActiveInvocationRegistry entry shape with invocationId" — co-resolve.
+- T19b "Add invocation_id field to RuntimeEvent payload declaration" — co-resolve (this child reads the field T19b adds).
+- T19d "Populate cancelled-by-session-shutdown details with invocation_id" — co-resolve.
+- T19e "Add real-time sibling emission timing paragraph" — co-resolve.
+- T20 "Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes" — same-cluster.
+- T18a "Append success-side null-policy paragraph to PIC Runtime event channel" — must-precede.
+- T15a "Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet" — same-cluster.
+
+---
+
+# T19d — Populate cancelled-by-session-shutdown details with invocation_id
+
+**Original heading:** Concurrent subagent sibling failure: no aggregation rule for parent or operator surface
+**Original section:** docs/spec.md — Orientation > Session model
+**Split from:** "Concurrent subagent siblings: no operator demultiplexing or sibling-failure timing rule" (entry 4 of 5, second reshape pass 2026-05-11; chosen Option A's `Spec edits` block)
+**Kind:** error-model
+**Importance:** high
+
+## Finding
+
+The `cancelled-by-session-shutdown` event's `details.event` payload is the teardown-time operator-visibility surface. Per Option A's fourth spec edit, it must include `invocation_id` so teardown notes are correlatable across concurrent siblings. This child installs the population rule; siblings provide the registry source, the wire field, the dedup widening, and the timing rule.
+
+## Spec Documents
+
+- `docs/spec_topics/pi-integration-contract.md` — Per-invocation operator visibility — `cancelled-by-session-shutdown` payload (edited)
+- `docs/spec_topics/diagnostics.md` — `loom-system-note` `details` payload shapes for `cancelled-by-session-shutdown` (edited)
+
+## Plan Impact
+
+**Phases:** V18
+
+**Leaves (implementation order):**
+
+- V18q — Runtime event channel and always-log emission — (modified — emission helper for `cancelled-by-session-shutdown` must populate `details.event.invocation_id` from the registry entry's `invocationId` at teardown time)
+
+## Consequence
+
+**Severity:** correctness
+
+Without populating `invocation_id` on cancelled-by-shutdown notes specifically, teardown-time concurrent-sibling diagnostics remain indistinguishable on the operator stream even after sibling T19b adds the field to `RuntimeEvent` and sibling T19c widens the dedup key.
+
+## Solution Space
+
+**Shape:** single
+**Atomicity:** atomic
+
+### Recommendation
+
+In `pi-integration-contract.md`'s Per-invocation operator visibility section, pin that the emission helper for `cancelled-by-session-shutdown` populates `details.event.invocation_id` from the registry entry's `invocationId` at teardown time. Mirror the rule in `diagnostics.md`'s payload-shape entry for the same diagnostic if it enumerates the `details.event` field set.
+
+Edge cases (applies to all children of T19): see T19a's edge-case list.
+
+## Relationships
+
+- T19a "Extend ActiveInvocationRegistry entry shape with invocationId" — co-resolve (this child reads the registry entry T19a defines).
+- T19b "Add invocation_id field to RuntimeEvent payload declaration" — co-resolve.
+- T19c "Widen always-log dedup key to include invocation_id" — co-resolve.
+- T19e "Add real-time sibling emission timing paragraph" — co-resolve.
+- T20 "Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes" — same-cluster.
+- T18a "Append success-side null-policy paragraph to PIC Runtime event channel" — must-precede.
+- T15a "Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet" — same-cluster.
+
+---
+
+# T19e — Add real-time sibling emission timing paragraph
+
+**Original heading:** Concurrent subagent sibling failure: no aggregation rule for parent or operator surface
+**Original section:** docs/spec.md — Orientation > Session model
+**Split from:** "Concurrent subagent siblings: no operator demultiplexing or sibling-failure timing rule" (entry 5 of 5, second reshape pass 2026-05-11; chosen Option A's `Spec edits` block)
+**Kind:** error-model
+**Importance:** high
+
+## Finding
+
+The parent finding identified that `pi-integration-contract.md`'s Deduplication and lifetime rules pin "exactly once per origin" but say nothing about ordering across concurrent origins. Per Option A's fifth spec edit, the spec must explicitly pin that sibling always-log emissions surface in real time at the originating site rather than being batched into the parent's tool-loop round. Siblings T19a–T19d install the registry-side, wire-field, dedup, and cancelled-shutdown-details changes respectively.
+
+## Spec Documents
+
+- `docs/spec_topics/pi-integration-contract.md` — Runtime event channel (edited; one paragraph appended)
+
+## Plan Impact
+
+**Phases:** V18
+
+**Leaves (implementation order):**
+
+- V18q — Runtime event channel and always-log emission — (modified — tests must cover concurrent-sibling failure interleaving without asserting a specific interleaving order)
+
+## Consequence
+
+**Severity:** correctness
+
+Without the timing rule pinned, an implementer could batch sibling emissions until the parent's tool-loop round closes, changing the operator-observable timing of failures and breaking the implicit assumption behind V18q's emission tests.
+
+## Solution Space
+
+**Shape:** single
+**Atomicity:** atomic
+
+### Recommendation
+
+Append one paragraph to `pi-integration-contract.md`'s Runtime event channel section stating that sibling always-log emissions appear on `loom-system-note` in real time at the originating site (no batching, no aggregation; interleaving order is the JavaScript event-loop scheduling order — non-normative for tests, observable for operators).
+
+Edge cases (applies to all children of T19): see T19a's edge-case list. Additionally, the interleaving-order clause is deliberately non-normative — V18q tests should not assert a specific interleaving.
+
+## Relationships
+
+- T19a "Extend ActiveInvocationRegistry entry shape with invocationId" — co-resolve.
+- T19b "Add invocation_id field to RuntimeEvent payload declaration" — co-resolve.
+- T19c "Widen always-log dedup key to include invocation_id" — co-resolve.
+- T19d "Populate cancelled-by-session-shutdown details with invocation_id" — co-resolve.
+- T20 "Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes" — same-cluster.
+- T18a "Append success-side null-policy paragraph to PIC Runtime event channel" — must-precede.
 - T15a "Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet" — same-cluster.
 
 ---
@@ -1817,7 +2312,7 @@ Adopt **Option A**. The finding's real defect is silence, not absence of machine
 
 ## Relationships
 
-- T19 "Concurrent subagent siblings: no operator demultiplexing or sibling-failure timing rule" — same-cluster (same Session-model paragraph; addresses sibling-diagnostic correlation).
+- T19a "Extend ActiveInvocationRegistry entry shape with invocationId" — same-cluster (same Session-model paragraph; addresses sibling-diagnostic correlation; co-resolve siblings T19b/c/d/e also relevant).
 - T15b "Move concurrency semantics into Extension Architecture / Implementation Notes Concurrency-model subsection" — same-cluster (the relocated concurrency-model home is the natural surface for the resource-exhaustion disclaimer).
 
 ---
