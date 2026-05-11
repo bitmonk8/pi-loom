@@ -25,6 +25,14 @@ no runtime code has been written yet. Track progress against
 [`docs/plan.md`](./docs/plan.md) and the
 [spec coverage matrix](./docs/plan_topics/coverage-matrix.md).
 
+Open spec-review work lives in [`docs/spec-review.md`](./docs/spec-review.md)
+(per-finding fixes processed bottom-up by `/fix-spec-shape-single-findings`).
+Deferred mechanical sweeps that span too many files for the per-finding
+fix-loop — currently the `V1` terminology disambiguation across the spec
+corpus and the *load-bearing* qualifier rewrite — are tracked separately in
+[`docs/spec-sweeps.md`](./docs/spec-sweeps.md), each awaiting a scope
+decision before execution.
+
 ## Highlights
 
 - **Two file kinds, one grammar.** `.loom` files are invocable as Pi slash
