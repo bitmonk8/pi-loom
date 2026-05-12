@@ -4,7 +4,7 @@ _Generated: 2026-05-08T09:00:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding in the file (T22b, after the 2026-05-11 reshape-extract pass excised T22a to `spec-review-needs-reshape.md`) is addressed first; the first finding in the file (T02, after the 2026-05-11 spec-sweeps extraction) is addressed last in addressing order. After the reshape pass, split children replace their parents at the parent's file position; addressing within a child cluster runs alphabetically (a addressed first)._
 
-_Triage tally: 10 high, 25 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 0 nit dropped; 0 false dropped. (Updated 2026-05-11 manual T03 split: +5 medium for the additional T03b–T03f children replacing the original T03; T03 was importance:medium, all six children inherit medium.) (Updated 2026-05-11 reshape-extract pass: T22a parked to `docs/spec-review-needs-reshape.md` per criterion 4 — verbatim-source-citation pattern; −1 medium.) (Updated 2026-05-12: T21 resolved into PIC; −1 medium.)_
+_Triage tally: 10 high, 24 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 0 nit dropped; 0 false dropped. (Updated 2026-05-11 manual T03 split: +5 medium for the additional T03b–T03f children replacing the original T03; T03 was importance:medium, all six children inherit medium.) (Updated 2026-05-11 reshape-extract pass: T22a parked to `docs/spec-review-needs-reshape.md` per criterion 4 — verbatim-source-citation pattern; −1 medium.) (Updated 2026-05-12: T20 resolved into Implementation Notes no-invocation-cap disclaimer; −1 medium.) (Updated 2026-05-12: T21 resolved into PIC; −1 medium.)_
 
 _Decision tally (recorded 2026-05-08): all 18 `Shape: multiple` findings resolved to `Shape: single`. 6 findings merged at decision time: T17→T24, T28→T27, T29→T30, T31→T32, T33→T03, T45→T44. See per-finding **Decision** / **STATUS** lines._
 
@@ -1294,7 +1294,6 @@ Edge cases the implementer must watch:
 - T23 "Pi's per-session slash-handler serialisation is asserted without a verifiable Pi source" — same-cluster (different premise of the same argument).
 - T15a "Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet" — same-cluster (touches the same Session-model paragraph; co-edit pass).
 - T19a "Extend ActiveInvocationRegistry entry shape with invocationId" — same-cluster (also concerns the sibling-subagent fan-out path, on the diagnostics axis; co-resolve siblings T19b/c/d/e also relevant).
-- T20 "Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes" — same-cluster (same fan-out path, resource-exhaustion axis).
 
 ---
 
@@ -1418,7 +1417,6 @@ Edge cases (applies to all children of T15):
 - T15a "Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet" — co-resolve (the reduction at Orientation must land alongside this relocation).
 - T15c "Lift Session-model scope deferrals into Non-goals (V1) section" — co-resolve (sibling restructure of the same paragraph).
 - T14 "Prompt-mode sequentiality argument has an unstated fourth premise" — must-follow (the three premises being relocated are the ones T14 needs to extend with the fourth premise; the relocation is the natural moment to add it).
-- T20 "Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes" — must-follow (the admission-cap disposition being relocated is the surface T20 needs the resource-exhaustion answer on).
 - T19a "Extend ActiveInvocationRegistry entry shape with invocationId" — same-cluster (lives in the same architectural area being created here; co-resolve siblings T19b/c/d/e also relevant).
 
 ---
@@ -2012,7 +2010,6 @@ Edge cases (applies to all children of T19):
 - T19c "Widen always-log dedup key to include invocation_id" — co-resolve.
 - T19d "Populate cancelled-by-session-shutdown details with invocation_id" — co-resolve.
 - T19e "Add real-time sibling emission timing paragraph" — co-resolve.
-- T20 "Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes" — same-cluster.
 - T18a "Append success-side null-policy paragraph to PIC Runtime event channel" — must-precede (any decision to add operator-visibility for successful sibling outcomes will reuse the `invocation_id` field this child installs).
 - T15a "Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet" — same-cluster.
 
@@ -2066,7 +2063,6 @@ Edge cases (applies to all children of T19): see T19a's edge-case list. Addition
 - T19c "Widen always-log dedup key to include invocation_id" — co-resolve.
 - T19d "Populate cancelled-by-session-shutdown details with invocation_id" — co-resolve.
 - T19e "Add real-time sibling emission timing paragraph" — co-resolve.
-- T20 "Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes" — same-cluster.
 - T18a "Append success-side null-policy paragraph to PIC Runtime event channel" — must-precede.
 - T15a "Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet" — same-cluster.
 
@@ -2119,7 +2115,6 @@ Edge cases (applies to all children of T19): see T19a's edge-case list. Addition
 - T19b "Add invocation_id field to RuntimeEvent payload declaration" — co-resolve (this child reads the field T19b adds).
 - T19d "Populate cancelled-by-session-shutdown details with invocation_id" — co-resolve.
 - T19e "Add real-time sibling emission timing paragraph" — co-resolve.
-- T20 "Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes" — same-cluster.
 - T18a "Append success-side null-policy paragraph to PIC Runtime event channel" — must-precede.
 - T15a "Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet" — same-cluster.
 
@@ -2173,7 +2168,6 @@ Edge cases (applies to all children of T19): see T19a's edge-case list.
 - T19b "Add invocation_id field to RuntimeEvent payload declaration" — co-resolve.
 - T19c "Widen always-log dedup key to include invocation_id" — co-resolve.
 - T19e "Add real-time sibling emission timing paragraph" — co-resolve.
-- T20 "Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes" — same-cluster.
 - T18a "Append success-side null-policy paragraph to PIC Runtime event channel" — must-precede.
 - T15a "Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet" — same-cluster.
 
@@ -2226,94 +2220,6 @@ Edge cases (applies to all children of T19): see T19a's edge-case list. Addition
 - T19b "Add invocation_id field to RuntimeEvent payload declaration" — co-resolve.
 - T19c "Widen always-log dedup key to include invocation_id" — co-resolve.
 - T19d "Populate cancelled-by-session-shutdown details with invocation_id" — co-resolve.
-- T20 "Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes" — same-cluster.
 - T18a "Append success-side null-policy paragraph to PIC Runtime event channel" — must-precede.
 - T15a "Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet" — same-cluster.
-
----
-
-# T20 — Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes
-
-**Original heading:** No admission cap: resource exhaustion on concurrent subagent invocations is unspecified
-**Original section:** docs/spec.md — Orientation > Session model
-**Kind:** error-model
-**Importance:** medium
-
-## Finding
-
-The spec commits to "no admission cap, no scheduler interposed above Pi's event loop" for in-flight invocations (`spec.md` Session model → `implementation-notes.md#no-invocation-cap`). The only resource-exhaustion class that paragraph names is heap memory: catchable host-allocation `RangeError`s route through `loom/runtime/internal-error` (NOCEIL-3 carve-out), uncatchable V8 heap-OOM terminates the host. That coverage is partial. Two other classes that scale with concurrent-subagent fan-out are not addressed:
-
-- **OS-level descriptor / handle exhaustion** (`EMFILE`, `ENFILE`, ephemeral-port exhaustion, child-process slots). These manifest as JavaScript exceptions thrown from Pi-internal I/O or from the provider transport layer; nothing in `errors-and-results.md` or `hard-ceilings.md` names them. They will today fall through `loom/runtime/internal-error` (per the runtime-defect-surface paragraph in `errors-and-results.md`), but the operator has no signal that descriptor pressure — rather than a runtime defect — is the cause.
-- **Provider rate-limit / quota storms.** Each per-query 429 surfaces as `TransportError { http_status: 429, retryable, ... }` to the loom that issued it. Under fan-out, N siblings each receive an isolated `TransportError`; there is no aggregation surface, no operator-facing "many siblings rate-limited at once" diagnostic, and no per-class accounting in the `loom-system-note` channel.
-
-The result: under concurrent-subagent pressure, the first observable failure is host-process-level (OOM kill, EMFILE storm) or N independent in-loom `TransportError`s with no operator-facing correlation. The closed disclaimer in `implementation-notes.md#no-invocation-cap` ("the rule does not promise resource unboundedness") only names heap-OOM; the other classes inherit the disclaimer by silence, and the operator surface for diagnosing pre-exhaustion is empty.
-
-## Spec Documents
-
-- `docs/spec.md` — Orientation > Session model (read-only; the disclaimer lives on the owner page)
-- `docs/spec_topics/implementation-notes.md` — `no-invocation-cap` paragraph (edited)
-- `docs/spec_topics/hard-ceilings.md` — NOCEIL-3 (read-only; partition reference)
-- `docs/spec_topics/errors-and-results.md` — runtime-defect surface and `TransportError` (read-only)
-- `docs/spec_topics/diagnostics.md` — code registry (option-dependent — option B adds one row)
-
-## Plan Impact
-
-**Phases:** V18 (under option B only)
-
-**Leaves (implementation order):**
-
-- V18m — top-level interpreter `internal-error` wrap — (option-dependent; under option B, augment with descriptor/EMFILE classification or add a `loom/host/resource-exhausted` emission path)
-- V18n — `invoke`-boundary `internal-error` wrap — (option-dependent; same as V18m)
-
-(Under option A — disclaim only — no leaves are modified; the change is purely spec prose.)
-
-## Consequence
-
-**Severity:** advisory
-
-Under load (a parent fanning out parallel tool calls into many subagent-mode `.loom` callees), the operator sees either an opaque host crash (descriptor / port exhaustion at the OS layer) or an undifferentiated burst of `TransportError`s with `http_status: 429`. Both are diagnosable — the former via host logs, the latter by inspecting per-invocation diagnostics — but neither surfaces "the runtime is at a resource ceiling" as an actionable signal. Two reasonable implementers diverge silently: one will add a watchdog or a soft semaphore, the other will rely on the spec's "no admission cap" wording and ship without one.
-
-## Solution Space
-
-**Shape:** single
-
-**Decision (2026-05-08):** Option A.
-
-### Option A — Widen the existing disclaimer
-
-**Approach.** Extend the `implementation-notes.md#no-invocation-cap` parenthetical so the disclaimer enumerates the classes it covers, not just heap-OOM. Pin the operator-facing surface as `loom/runtime/internal-error` for catchable cases (EMFILE, port exhaustion thrown into JS) and host-process termination for uncatchable cases. Cross-reference `TransportError` (`errors-and-results.md`) as the per-query rate-limit surface and explicitly state that V1 has no aggregation surface across siblings.
-
-**Spec edits.**
-- `implementation-notes.md`, `no-invocation-cap` paragraph: replace `(host-OOM and analogous below-runtime exhaustion still route through loom/runtime/internal-error per [Errors and Results])` with an enumeration: heap (NOCEIL-3 partition), descriptor / port / child-process-slot exhaustion (catchable → `loom/runtime/internal-error`; uncatchable host fatals out of scope), provider rate-limit / quota (per-query `TransportError`; no aggregation across siblings in V1).
-- `spec.md` Session model: no edit (the disclaimer remains owned by the linked paragraph).
-
-**Pros.** No new diagnostic code; no test surface in V18; closes the silence by being explicit about which classes inherit the disclaimer.
-
-**Cons.** Operators still get no pre-exhaustion warning — only post-failure routing. Cross-sibling correlation remains absent.
-
-**Risks.** A future reviewer reads "covered by `internal-error`" and concludes descriptor exhaustion is observable through that code, when the diagnostic carries `error.message` with no `details.kind` distinguishing it from any other host throw. To mitigate, recommend that the lowering wrapper in V18m / V18n stamp a `details.kind = "host-resource-exhaustion"` discriminator when the underlying error matches a curated list of `EMFILE`, `ENFILE`, `ENOBUFS`, `ECONNREFUSED`-from-port-exhaustion, etc. — but this drifts toward option B.
-
-### Option B — Add `loom/host/resource-exhausted` (W, runtime)
-
-**Approach.** Introduce a dedicated diagnostic code emitted on a registry-level threshold crossing (e.g. concurrent-subagent count above some operator-configurable seam, or descriptor-pressure heuristic from `process.report.getReport().libuv` / `posix_resource` poll). Carries `details.kind ∈ { "memory", "descriptors", "provider-rate-limit", "concurrent-subagents" }` and `details.snapshot` with the measured value vs. seam. Emitted once per crossing, deduped while above the threshold.
-
-**Spec edits.**
-- `diagnostics.md`: add `loom/host/resource-exhausted` registry row (severity `W`, phase `runtime`).
-- `implementation-notes.md`: pin the threshold seam (suggest `concurrent-subagents` as the only V1 measured class; descriptors and rate-limit deferred to a V1 seam) and the dedup rule.
-- `spec.md` Session model: amend the no-admission-cap sentence to forward-link to the new diagnostic.
-
-**Pros.** Operator gets a pre-exhaustion warning. The `details.invocation_id` correlation surfaced by the related sibling-failure finding can ride the same emission. Designs in a per-class accounting hook for V1.x extension.
-
-**Cons.** Introduces a new code, a new threshold seam (operator-configurable or magic-numbered), and a new emission path that V18 must land. Threshold tuning is out of scope for V1 but the seam needs to exist. Crossing detection for descriptor pressure is non-portable (Linux-vs-macOS-vs-Windows).
-
-**Risks.** A new code without a test fixture fails the V18s diagnostic-code closing gate. The threshold seam, if left under-specified, becomes a config-divergence surface across implementers.
-
-### Recommendation
-
-Adopt **Option A**. The finding's real defect is silence, not absence of machinery — the spec already routes every catchable resource-exhaustion throw through `loom/runtime/internal-error` and every per-query rate-limit through `TransportError`. Naming those classes in the disclaimer closes the documentation gap without committing V1 to a measurement seam, a portable descriptor-pressure heuristic, or an operator-tunable threshold (all of which are V2-shaped). Edge cases the implementer must watch: (a) the curated list of error names that V18m / V18n route through `internal-error` should include the descriptor-exhaustion family so test fixtures can assert routing without crossing into option B; (b) the disclaimer must explicitly name "no aggregation across siblings" so an implementer does not invent a `loom-system-note` storm-detection layer; (c) if a future Pi version exposes a `pi.resourceReport()` or similar capability, the disclaimer should be revisited under the same GOV-12 lock-step as the seven-capabilities inventory.
-
-## Relationships
-
-- T19a "Extend ActiveInvocationRegistry entry shape with invocationId" — same-cluster (same Session-model paragraph; addresses sibling-diagnostic correlation; co-resolve siblings T19b/c/d/e also relevant).
-- T15b "Move concurrency semantics into Extension Architecture / Implementation Notes Concurrency-model subsection" — same-cluster (the relocated concurrency-model home is the natural surface for the resource-exhaustion disclaimer).
 
