@@ -4,7 +4,7 @@ _Generated: 2026-05-08T09:00:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding in the file (T22b, after the 2026-05-11 reshape-extract pass excised T22a to `spec-review-needs-reshape.md`) is addressed first; the first finding in the file (T02, after the 2026-05-11 spec-sweeps extraction) is addressed last in addressing order. After the reshape pass, split children replace their parents at the parent's file position; addressing within a child cluster runs alphabetically (a addressed first)._
 
-_Triage tally: 10 high, 26 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 0 nit dropped; 0 false dropped. (Updated 2026-05-11 manual T03 split: +5 medium for the additional T03b–T03f children replacing the original T03; T03 was importance:medium, all six children inherit medium.) (Updated 2026-05-11 reshape-extract pass: T22a parked to `docs/spec-review-needs-reshape.md` per criterion 4 — verbatim-source-citation pattern; −1 medium.)_
+_Triage tally: 10 high, 26 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 0 nit dropped; 0 false dropped. (Updated 2026-05-11 manual T03 split: +5 medium for the additional T03b–T03f children replacing the original T03; T03 was importance:medium, all six children inherit medium.) (Updated 2026-05-11 reshape-extract pass: T22a parked to `docs/spec-review-needs-reshape.md` per criterion 4 — verbatim-source-citation pattern; −1 medium.) (Updated 2026-05-12 T22a sub-split: T22a further split into T22a1 — anchor + paraphrase + spec.md forward-link, auto-resolvable, re-queued in this file — and T22a2 — citation upgrade, remains parked in `spec-review-needs-reshape.md` pending human SDK verification; +1 medium re-queued.)_
 
 _Decision tally (recorded 2026-05-08): all 18 `Shape: multiple` findings resolved to `Shape: single`. 6 findings merged at decision time: T17→T24, T28→T27, T29→T30, T31→T32, T33→T03, T45→T44. See per-finding **Decision** / **STATUS** lines._
 
@@ -15,6 +15,8 @@ _Second reshape pass (2026-05-11, mode `reshape-only`, `PreserveIDs: true`, re-r
 _Manual T03 reshape (2026-05-11): T03 split into T03a/b/c/d/e/f (must-precede chain plus same-cluster siblings). The split consolidates Option B's chosen `**Spec edits.**` bullets and the Decision-block's *Absorbed T33 Option A spec edits* bullets into a unified 6-edit set; pairwise dependencies make T03a (PIC sub-paragraph addition) and T03b (`SDK_SURFACE_INVENTORY` row) the cluster roots, T03c/d/e/f the dependents. The T33 absorption metadata is preserved via the `**Split from:**` field on each child._
 
 _Reshape-extract pass (2026-05-11): T22a excised to [`docs/spec-review-needs-reshape.md`](./spec-review-needs-reshape.md) — divergence criterion 4 (verbatim-source-citation pattern alongside existing paraphrase; confirmed divergence case from divergence-analysis.md). T22b and T22c remain in file but are blocked pending T22a resolution. 1 medium finding parked._
+
+_T22a sub-split (2026-05-12, manual): T22a further split into T22a1 (anchor + paraphrase + spec.md forward-link only — auto-resolvable, re-queued at end-of-file so the picker addresses it before T22b/T22c under bottom-up convention) and T22a2 (Pi-source citation upgrade — remains parked in [`spec-review-needs-reshape.md`](./spec-review-needs-reshape.md), gated on a human inspecting `docs/sdk.md`'s extension-lifecycle section). The criterion-4 divergence trigger is confined to T22a2; T22a1's edit set installs the `#session-binding-contract` anchor that T22b and T22c consume, unblocking both for the auto fix-loop._
 
 # T02 — Subagent state-isolation enumeration duplicates PIC matrix in Overview opening paragraph
 
@@ -2515,3 +2517,72 @@ Edge cases the implementer must watch:
 - T22a "Single-active-session premise lacks a Pi-source citation in PIC" — must-precede (the anchor `#session-binding-contract` and the spec.md opening-sentence forward-link both come from T22a; resolving T22b first would leave dangling links).
 - T22c "Pi version-bump procedure has no step for the session-binding contract" — independent (no shared edit surface; either order works after T22a).
 - T15c "Lift Session-model scope deferrals into Non-goals (V1) section" — co-resolve (T15c extracts the closing scope sentence into the Non-goals (V1) section; the forward-link this finding installs is the natural target for that extraction).
+
+---
+
+# T22a1 — Session-binding contract anchor and forward-link missing in PIC and spec.md
+
+**Original heading:** Single-active-session premise lacks a Pi-source citation in PIC (further split from T22a, anchor + paraphrase + forward-link only)
+**Original section:** docs/spec_topics/pi-integration-contract.md — Host prerequisites
+**Kind:** placement
+**Importance:** medium
+**Split from:** T22a (further sub-split 2026-05-12 — see `spec-review-needs-reshape.md` "Reshape rationale" for context; the parent T22a was parked under criterion 4 because of its citation block, which is now isolated to T22a2; this child carries only the anchor + paraphrase + forward-link, none of which trigger criterion 4).
+
+## Finding
+
+The Session-model paragraph in `spec.md` opens with "A Pi extension instance is bound to exactly one active user session at a time." `pi-integration-contract.md` has no anchor under which sibling findings (T22b's `future-considerations.md` cross-link, T22c's version-bump checklist item) can land their forward-references. Confirmed by grep: `session-binding-contract` appears in zero `docs/spec.md` or `docs/spec_topics/*.md` lines as of 2026-05-12.
+
+This sub-finding installs the **anchor and the paraphrase only** — no Pi-source citation, no SDK-doc pointer, no fallback condition. Those three elements are owned by T22a2 (parked in `spec-review-needs-reshape.md`, gated on a human inspecting `docs/sdk.md`'s extension-lifecycle section). Separating the anchor from the citation lets T22b and T22c land via the auto fix-loop without a dangling cross-link, while confining the criterion-4 divergence trigger to the parked sibling.
+
+## Spec Documents
+
+- `docs/spec_topics/pi-integration-contract.md` — Host prerequisites (edited; one new sub-section added with stable anchor `#session-binding-contract` carrying the existing-paraphrase sentence only)
+- `docs/spec.md` — Orientation > Session model (edited; opening sentence becomes a forward-link only)
+- `docs/spec_topics/pi-integration.md` — read-only (cross-check whether session-lifecycle vocabulary lives here; do not duplicate)
+
+## Plan Impact
+
+**Phases:** None
+
+**Leaves (implementation order):**
+
+None — the fix is a documentation/placement change. The H1 SDK surface-inventory test (`test/extension/pinned-surface.test.ts`) does not need to grow a new probe entry, because the single-active-session contract is a Pi-side lifecycle invariant rather than a probable named member; the paraphrase lives in prose, not in the surface inventory.
+
+## Consequence
+
+**Severity:** advisory
+
+Without this anchor, T22b's cross-link target and T22c's checklist item reference both dangle, and the inner `spec-diff-fix-loop`'s `traceability` lens flags both. Installing the anchor under this finding (without the citation block whose criterion-4 risk is parked to T22a2) is the minimum edit that unblocks the T22b / T22c siblings while keeping the divergence-prone citation work isolated.
+
+## Solution Space
+
+**Shape:** single
+
+### Recommendation
+
+**Hard edit budget:** one new sub-section in PIC of one sentence (the existing-paraphrase claim only) plus the stable HTML anchor, plus the spec.md opening-sentence forward-link rewrite. No source citation. No SDK-doc pointer. No fallback condition. No new MUSTs. No new test fixtures. No edits to `future-considerations.md` (owned by T22b) or to the version-bump procedure (owned by T22c). No edits under T22a2's body (the citation upgrade is parked).
+
+1. **In `docs/spec_topics/pi-integration-contract.md`**, add a new sub-section titled "Session-binding contract" with stable HTML anchor `<a id="session-binding-contract"></a>`, placed under Host prerequisites adjacent to the existing `ActiveInvocationRegistry` material. Body, in full:
+
+   > A Pi extension instance is bound to exactly one active user session at a time.
+
+   Do not add any further prose, behavioural claim, or normative MUST under this sub-section. The Pi-source citation block, the SDK-doc pointer, and the type-side anchor fallback are owned by T22a2 (parked in `spec-review-needs-reshape.md`) and are explicitly out of scope here. Downstream consumers (forward-link from `spec.md`, contingency in `future-considerations.md`, bump-procedure step) are owned by T22b and T22c respectively and are also out of scope.
+
+2. **In `docs/spec.md` — Session-model paragraph**, replace the bare opening sentence "A Pi extension instance is bound to exactly one active user session at a time." with a forward-link: "A Pi extension instance is bound to exactly one active user session at a time, per [Pi Integration Contract — Session-binding contract](./spec_topics/pi-integration-contract.md#session-binding-contract)." No other `spec.md` edit (the closing sentence is owned by T22b).
+
+Edge cases the implementer must watch:
+
+- The sub-section must contain exactly the one paraphrase sentence above and the anchor element. Adding any source citation under this finding re-introduces the criterion-4 divergence trigger that T22a2 was parked to isolate. If the implementer feels the urge to source the claim, stop — that is T22a2's job and requires the human SDK gate.
+- Do not pre-install hooks for T22b or T22c (no Future-Considerations cross-link, no bump-procedure item). Those are out of scope.
+- Do not rewrite the spec.md closing sentence about concurrent user sessions; that is owned by T22b.
+
+## Relationships
+
+- T22a2 "Session-binding contract Pi-source citation upgrade in PIC" — must-follow (T22a2 augments the sub-section installed here by adding the Pi-source citation block; T22a2 is parked in `spec-review-needs-reshape.md` pending human SDK verification).
+- T22b "Multi-session contingency response is unspecified in Future Considerations" — must-precede (this finding installs the `#session-binding-contract` anchor T22b's cross-link consumes).
+- T22c "Pi version-bump procedure has no step for the session-binding contract" — must-precede (this finding installs the `#session-binding-contract` anchor T22c's checklist item consumes).
+- T15c "Lift Session-model scope deferrals into Non-goals (V1) section" — must-precede (T15c's extraction of the 'concurrent user sessions … out of scope' sentence interacts with the forward-link this finding installs on the opening sentence).
+- T23 "Pi's per-session slash-handler serialisation is asserted without a verifiable Pi source" — co-resolve (same Session-model paragraph; T23's citation, when it lands, should target the same PIC sub-section).
+- T34 "Trust-boundary 'no privilege facet' claim is asserted but not gated by any audit the spec cites" — same-cluster (uncited-Pi-internals pattern).
+- T21 "Pi-side slash-handler promise lifecycle taken as given" — same-cluster.
+- T36 "`SessionShutdownEvent.reason` closed set has no build-time pin against the SDK type" — same-cluster (diff-audit-on-pin-bump remedy).
