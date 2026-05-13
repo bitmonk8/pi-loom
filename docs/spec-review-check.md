@@ -12,6 +12,7 @@ The following pre-flight problems were fixed directly:
 - **T15b — internal "Move … out of …" vs "do not edit session-model" contradiction resolved.** The Solution approach now says **Copy** (not Move) and explicitly identifies T15a as the owner of the corresponding removal. A new scope-guard bullet tells the inner spec-diff fix loop that the transient duplication between the new `Concurrency model` subsection and the still-untouched `<a id="session-model"></a>` paragraph is the **expected intermediate state** between the T15b commit and the T15a commit, and that any lens finding flagging that duplication MUST be classified `ignore — out-of-scope`.
 - **T15a — "co-resolve in one commit" framing dropped.** Replaced with an explicit "T15b and T15c MUST have already landed before this finding is addressed" precondition, aligning with the orchestrator's one-finding-one-commit rule.
 - **T07 — weasel "implementation-defined / non-normative" framing replaced with positive ecosystem-convention statement.** The original Solution approach added a normative rule declaring `message` content as "implementation-defined and non-normative" — a phrasing that does no real work in a single-implementation V1 spec and that `spec-lens-clarity` and `spec-lens-testability` are designed to flag. The rewrite drops both phrasings and instead anchors a positive statement: programmatic consumers and conformance tests assert against `kind` and structured fields; `message` carries human-readable debug prose on the JavaScript `Error.message` convention; the single exception is `InvokeInfraError.message` on the panic path. Conveys the same operative meaning while killing the lens-noise surface at the source.
+- **T19e — weasel "non-normative for tests" framing replaced with positive contract statement.** Same shape as the T07 fix. The original Solution approach pinned the cross-sibling interleaving order as "operator-observable but explicitly non-normative for tests" — a carve-out `spec-lens-testability` is designed to push back on. The rewrite drops the "non-normative for tests" phrasing and instead splits the contract into two positive halves: V18q asserts real-time emission at the per-sibling originating site (the binding behavioural contract); the relative cross-sibling interleaving sequence is a property of JavaScript event-loop scheduling and is operator-observable. Same operative meaning (no test asserts a specific interleaving), no carve-out surface for the lens layer.
 - **T11 / T18 / T19 cluster file ordering reversed** so bottom-up addressing reads them as `a → b → c (→ d → e)` (matching the spec-review.md preamble's documented "addressing within a child cluster runs alphabetically (a addressed first)" convention and, more importantly, the must-precede chains the bodies declare):
   - T11 was `a → b → c` top-to-bottom (bottom-up = `c → b → a`); now `c → b → a`. T11a's spec-side rule now lands first as required by T11b/T11c's `must-follow T11a`.
   - T18 was `a → b → c → d`; now `d → c → b → a`. T18a's central PIC rule now lands first as required by T18b/T18c/T18d's `must-follow T18a`.
@@ -20,18 +21,6 @@ The following pre-flight problems were fixed directly:
 ## Residual issues — require a human decision
 
 The following findings are likely to cause loop noise, limit-cycle exits, or marginal lens findings the fixer can't resolve without crossing scope guards. Each is small enough to leave alone if the user is willing to accept a `STATUS: limit-cycle` exit and re-shape afterwards, but addressing them up-front avoids the wasted passes.
-
-### T19e — "Operator-observable but explicitly non-normative for tests"
-
-The new timing-rule paragraph names the JavaScript event-loop scheduling order as the interleaving order across concurrent sibling emissions and explicitly marks that order as **non-normative for tests** — i.e. tests are not required to assert any specific interleaving.
-
-**Risk.** `spec-lens-testability` is designed to flag "non-normative for tests" framings, since the lens's whole job is to push every spec rule toward a verifiable assertion. The Solution approach pins the non-normativity as the substance of the rule (the interleaving order is operator-observable but tests don't depend on it), so the fixer cannot sharpen it without inverting the finding's intent.
-
-**Recommended human action.** Two options, parallel to how T07 was resolved:
-
-1. **Reframe positively (preferred).** Replace the "non-normative for tests" phrasing with a positive statement of what tests *do* assert: e.g. "sibling emissions surface in real time at the originating site (asserted by V18q); the relative interleaving order across concurrent sibling origins follows JavaScript event-loop scheduling and is observable to operators, but no test asserts a specific interleaving sequence". Same operative meaning, no "non-normative" weasel surface for the lens to catch.
-2. **Add a scope-guard bullet.** If the positive reframe doesn't fit cleanly:
-   > Inner-loop guidance: lens findings of the form "the interleaving-order clause uses 'non-normative for tests' framing and admits no testable assertion" MUST be classified `ignore — out-of-scope` for this commit. The non-testability of relative interleaving order is the substance of the rule; expanding it to assert a specific order is what the rule deliberately refuses to do.
 
 ### T20 — Widened parenthetical exposes "no aggregation across siblings in V1"
 
@@ -79,7 +68,6 @@ Several findings in the document still carry constraints of the form "Co-resolve
 
 Before running `/fix-spec-shape-single-findings`:
 
-- [ ] Decide on T19e (add scope-guard for "non-normative interleaving" lens findings).
 - [ ] Decide on T20 (add scope-guard for "missing aggregation surface" lens findings).
 - [ ] Plan a manual inspection of the spec.md / Concurrency-model subsection state when the loop reaches T17, in case T15b's verbatim copy carried the `console.error` literal into the new home.
 - [ ] (Optional) Reorder T08 and T16 child blocks to match the preamble's "a addressed first" convention; functionally irrelevant.
