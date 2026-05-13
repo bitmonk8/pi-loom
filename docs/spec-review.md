@@ -4,7 +4,7 @@ _Generated: 2026-05-08T09:00:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding in the file (T22b, after the 2026-05-11 reshape-extract pass excised T22a to `spec-review-needs-reshape.md`) is addressed first; the first finding in the file (T02, after the 2026-05-11 spec-sweeps extraction) is addressed last in addressing order. After the reshape pass, split children replace their parents at the parent's file position; addressing within a child cluster runs alphabetically (a addressed first)._
 
-_Triage tally: 10 high, 26 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 0 nit dropped; 0 false dropped. (Updated 2026-05-11 manual T03 split: +5 medium for the additional T03b–T03f children replacing the original T03; T03 was importance:medium, all six children inherit medium.) (Updated 2026-05-11 reshape-extract pass: T22a parked to `docs/spec-review-needs-reshape.md` per criterion 4 — verbatim-source-citation pattern; −1 medium.) (Updated 2026-05-12 T22a sub-split: T22a further split into T22a1 — anchor + paraphrase + spec.md forward-link, auto-resolvable, re-queued in this file — and T22a2 — citation upgrade, remains parked in `spec-review-needs-reshape.md` pending human SDK verification; +1 medium re-queued.)_
+_Triage tally: 10 high, 26 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 0 nit dropped; 0 false dropped. (Updated 2026-05-11 manual T03 split: +5 medium for the additional T03b–T03f children replacing the original T03; T03 was importance:medium, all six children inherit medium.) (Updated 2026-05-11 reshape-extract pass: T22a parked to `docs/spec-review-needs-reshape.md` per criterion 4 — verbatim-source-citation pattern; −1 medium.) (Updated 2026-05-12 T22a sub-split: T22a further split into T22a1 — anchor + paraphrase + spec.md forward-link, auto-resolvable, re-queued in this file — and T22a2 — citation upgrade, remains parked in `spec-review-needs-reshape.md` pending human SDK verification; +1 medium re-queued.) (Updated 2026-05-13 T17 retired: pre-flight review against current corpus state confirmed both halves of T17 are already addressed — the session-model paragraph in `docs/spec.md` no longer names `console.error` or `try`/`catch` inline (it forward-links the Diagnostic-emission isolation anchor in PIC), and PIC's Pi-version-bump-procedure editorial-review checklist already carries item (d) re-verifying the stdio-capture presupposition with the corresponding SP-1-compliant disclaimer at `future-considerations.md#pi-stdio-capture-facet`; T17's substantive concerns are therefore already in the corpus and the finding is dropped; −1 medium.)_
 
 _Decision tally (recorded 2026-05-08): all 18 `Shape: multiple` findings resolved to `Shape: single`. 6 findings merged at decision time: T17→T24, T28→T27, T29→T30, T31→T32, T33→T03, T45→T44. See per-finding **Decision** / **STATUS** lines._
 
@@ -1097,44 +1097,6 @@ Rewrite the closing capability-model sentence of the Trust-boundary bullet so it
 - T16b "Rewrite callable-set paragraph: drop inline `customTools` / `createAgentSession` / `pi.setActiveTools` names" — co-resolve.
 - T16c "Reduce host-side-denial paragraph to one sentence with forward-links" — co-resolve.
 - T38 "Non-goals are not consolidated into a single section" — must-follow (the disclaimer's permanent home is the proposed doc-level Non-goals section once T38 lands).
-
----
-
-# T17 — `console.error` teardown sink: unverified and over-prescribed in aggregator
-
-**Original heading:** `console.error` teardown sink: unverified and over-prescribed in aggregator
-**Original section:** docs/spec.md — Orientation > Prerequisites > Pi SDK and capabilities
-**Kind:** assumptions, prescription
-**Importance:** medium
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The session-model paragraph in `docs/spec.md` (Orientation > Prerequisites; anchor `id="session-model"`) restates the channel literal (`console.error`) and the control-flow primitive (`try`/`catch`) for the teardown-handler last-resort sink in its `event.reason`-routing parenthetical, duplicating implementation choices that the **Diagnostic-emission isolation** rule in `docs/spec_topics/pi-integration-contract.md` (anchor `id="diagnostic-emission-isolation"`) already owns verbatim, so the aggregator drifts the moment that rule changes shape. Separately, the choice of `console.error` as the teardown-time last-resort sink rests on an implicit Pi extension-host stdio-capture assumption (the channel must remain operator-visible while the extension runtime is being torn down) that is reasoned about purely from the loom side in PIC and `docs/spec_topics/diagnostics.md`, with no Pi-side citation anchoring the warrant.
-
-## Solution approach
-
-Rewrite the session-model paragraph in `docs/spec.md` so every site naming the teardown-handler last-resort sink characterises it only by its behavioural contract — the sink reaches an out-of-band channel and emission failure does not unwind the teardown handler — and forward-links the **Diagnostic-emission isolation** anchor in PIC; remove the inline channel literal and the inline control-flow primitive. In `docs/spec_topics/pi-integration-contract.md`'s **Diagnostic-emission isolation** rule, attach an SP-1-compliant host-side warrant by exactly one of two paths: add one sentence citing a concrete Pi-side source under the `@mariozechner/pi-coding-agent` SDK pin (file path plus symbol or named section, with no line numbers, byte offsets, or commit hashes) for Pi's extension-stdio policy; or, if no authoritative source can be located, add a best-effort presupposition note pinned to the current SDK pin version, paired with a re-verify entry in PIC's **Pi version bump procedure** editorial-review checklist that references the **Diagnostic-emission isolation** anchor and a separately-filed `loom/host/*` follow-up finding for the verification gap.
-
-## Solution constraints
-
-- In `docs/spec.md`, do not name `console.error` or `try`/`catch` inline at any site that names the teardown-handler last-resort sink; the channel literal and the wrap mechanism live only in the **Diagnostic-emission isolation** rule. Apply the reduction at every such site in the paragraph, not only the first.
-- The PIC edit is SP-1-compliant: do not paraphrase Pi's stdio-capture, suppression, or surfacing policy in spec voice. Resolve the citation gap by exactly one of (a) a Pi-side citation under `@mariozechner/pi-coding-agent` (file path plus symbol or named section, no line numbers, byte offsets, or commit hashes); or (b) a best-effort presupposition note pinned to the current SDK pin version, paired with both a re-verify line in PIC's **Pi version bump procedure** editorial-review checklist referencing the **Diagnostic-emission isolation** anchor AND a separately-filed `loom/host/*` follow-up finding for the verification gap.
-- The PIC edit is additive: leave the existing **Diagnostic-emission isolation** contract intact; only the host-side warrant attaches.
-- If Path A establishes that Pi captures or suppresses extension stdio in a way that hides the channel during teardown, swapping the last-resort sink (e.g. to a loom-controlled file under `~/.pi/`) is out of scope here and belongs in a separate follow-up.
-- Do not introduce a new diagnostic code, a new always-log `kind`, a new `customType` value, or a change to acceptance criteria for any current plan leaf.
-
-## Success criteria
-
-- The session-model paragraph in `docs/spec.md` (anchor `id="session-model"`) contains no occurrence of the literal `console.error` and no occurrence of the literal `try`/`catch` (or `try/catch`) inline; every site that names the teardown-handler last-resort sink in that paragraph forward-links the anchor `id="diagnostic-emission-isolation"` in `docs/spec_topics/pi-integration-contract.md` and characterises the sink only by its behavioural contract (out-of-band channel; emission failure does not unwind the teardown handler).
-- The **Diagnostic-emission isolation** rule in `docs/spec_topics/pi-integration-contract.md` (anchor `id="diagnostic-emission-isolation"`) contains either (a) one sentence citing a concrete Pi-side source — a file path under `@mariozechner/pi-coding-agent` plus a symbol or named section, with no line numbers, byte offsets, or commit hashes — for Pi's extension-stdio capture / surfacing policy, or (b) a best-effort presupposition note pinning the unverified status to the current SDK pin version, paired with a corresponding entry in PIC's **Pi version bump procedure** editorial-review checklist that references the **Diagnostic-emission isolation** anchor and a separately-filed `loom/host/*` follow-up finding for the verification gap.
-- The pre-existing **Diagnostic-emission isolation** contract in `docs/spec_topics/pi-integration-contract.md` — the five enumerated teardown-handler diagnostic codes, the wrapped serialisation-and-emission sequence, the bare-`code` and two-token serialiser-throw fallbacks, the construction-site wrap, and the count-semantics invocation-site framing — remains present and unchanged in normative content.
-- No new diagnostic-code identifier appears in `docs/spec_topics/diagnostics.md` under this finding, and no other section of `docs/spec.md` or any other topic file is edited.
-
-## Relationships
-
-- T24 "Fork-reason watcher closure leaves the extension in an unspecified, silently degraded state" — co-resolve (both edit PIC step 4's per-step isolation paragraph and rely on the `console.error` last-resort sink).
 
 ---
 
