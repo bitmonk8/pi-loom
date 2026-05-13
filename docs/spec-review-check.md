@@ -11,6 +11,7 @@ The following pre-flight problems were fixed directly:
 - **T05 — dangling cross-reference deleted.** The "Coordinate the root-word framing with the sibling 'Binder LLM model' / 'binder model' rename finding …" constraint named a sibling that does not exist in the current `spec-review.md` (Relationships block is `None`). The constraint was removed; the rest of the finding is unchanged.
 - **T15b — internal "Move … out of …" vs "do not edit session-model" contradiction resolved.** The Solution approach now says **Copy** (not Move) and explicitly identifies T15a as the owner of the corresponding removal. A new scope-guard bullet tells the inner spec-diff fix loop that the transient duplication between the new `Concurrency model` subsection and the still-untouched `<a id="session-model"></a>` paragraph is the **expected intermediate state** between the T15b commit and the T15a commit, and that any lens finding flagging that duplication MUST be classified `ignore — out-of-scope`.
 - **T15a — "co-resolve in one commit" framing dropped.** Replaced with an explicit "T15b and T15c MUST have already landed before this finding is addressed" precondition, aligning with the orchestrator's one-finding-one-commit rule.
+- **T07 — weasel "implementation-defined / non-normative" framing replaced with positive ecosystem-convention statement.** The original Solution approach added a normative rule declaring `message` content as "implementation-defined and non-normative" — a phrasing that does no real work in a single-implementation V1 spec and that `spec-lens-clarity` and `spec-lens-testability` are designed to flag. The rewrite drops both phrasings and instead anchors a positive statement: programmatic consumers and conformance tests assert against `kind` and structured fields; `message` carries human-readable debug prose on the JavaScript `Error.message` convention; the single exception is `InvokeInfraError.message` on the panic path. Conveys the same operative meaning while killing the lens-noise surface at the source.
 - **T11 / T18 / T19 cluster file ordering reversed** so bottom-up addressing reads them as `a → b → c (→ d → e)` (matching the spec-review.md preamble's documented "addressing within a child cluster runs alphabetically (a addressed first)" convention and, more importantly, the must-precede chains the bodies declare):
   - T11 was `a → b → c` top-to-bottom (bottom-up = `c → b → a`); now `c → b → a`. T11a's spec-side rule now lands first as required by T11b/T11c's `must-follow T11a`.
   - T18 was `a → b → c → d`; now `d → c → b → a`. T18a's central PIC rule now lands first as required by T18b/T18c/T18d's `must-follow T18a`.
@@ -20,26 +21,23 @@ The following pre-flight problems were fixed directly:
 
 The following findings are likely to cause loop noise, limit-cycle exits, or marginal lens findings the fixer can't resolve without crossing scope guards. Each is small enough to leave alone if the user is willing to accept a `STATUS: limit-cycle` exit and re-shape afterwards, but addressing them up-front avoids the wasted passes.
 
-### T07 — Adds a normative rule whose content is "implementation-defined and non-normative"
-
-The new rule under `## QueryError variants` → `### Notes` declares `message` content as implementation-defined for every variant except `InvokeInfraError` on the panic carve-out.
-
-**Risk.** `spec-lens-clarity` (weasel words / vague modals) and `spec-lens-testability` (untestable assertions) are likely to flag "implementation-defined" and "non-normative" framings. The Solution approach explicitly forbids per-variant `message` templates; action discipline says "demote rule"; the rule is already a non-normativity declaration. Could produce a stable stream of findings the classifier classifies as `fix` and the fixer can't address.
-
-**Recommended human action.** Add a scope-guard bullet to T07:
-> Inner-loop guidance: lens findings of the form "the message-content rule uses 'implementation-defined' / 'non-normative' framings" MUST be classified `ignore — out-of-scope` for this commit. The non-normativity is the substance of the finding, not a defect.
-
 ### T19e — "Operator-observable but explicitly non-normative for tests"
 
-Same shape as T07. The interleaving-order clause is intentionally non-normative for tests; the Solution approach pins this. Spec-lens-testability is likely to flag.
+The new timing-rule paragraph names the JavaScript event-loop scheduling order as the interleaving order across concurrent sibling emissions and explicitly marks that order as **non-normative for tests** — i.e. tests are not required to assert any specific interleaving.
 
-**Recommended human action.** Same scope-guard pattern as T07, naming the interleaving-order clause specifically.
+**Risk.** `spec-lens-testability` is designed to flag "non-normative for tests" framings, since the lens's whole job is to push every spec rule toward a verifiable assertion. The Solution approach pins the non-normativity as the substance of the rule (the interleaving order is operator-observable but tests don't depend on it), so the fixer cannot sharpen it without inverting the finding's intent.
+
+**Recommended human action.** Two options, parallel to how T07 was resolved:
+
+1. **Reframe positively (preferred).** Replace the "non-normative for tests" phrasing with a positive statement of what tests *do* assert: e.g. "sibling emissions surface in real time at the originating site (asserted by V18q); the relative interleaving order across concurrent sibling origins follows JavaScript event-loop scheduling and is observable to operators, but no test asserts a specific interleaving sequence". Same operative meaning, no "non-normative" weasel surface for the lens to catch.
+2. **Add a scope-guard bullet.** If the positive reframe doesn't fit cleanly:
+   > Inner-loop guidance: lens findings of the form "the interleaving-order clause uses 'non-normative for tests' framing and admits no testable assertion" MUST be classified `ignore — out-of-scope` for this commit. The non-testability of relative interleaving order is the substance of the rule; expanding it to assert a specific order is what the rule deliberately refuses to do.
 
 ### T20 — Widened parenthetical exposes "no aggregation across siblings in V1"
 
 The widened resource-unboundedness disclaimer enumerates three classes (runtime-value heap, OS-level descriptor exhaustion, provider rate-limit / quota) and explicitly states there is no cross-sibling aggregation surface in V1.
 
-**Risk.** `spec-lens-completeness` and `spec-lens-error-model` are likely to flag the missing aggregation rule, the missing storm-detection layer, the undefined per-class threshold. The constraint set still forbids adding any of those (the "rejected option B"). Action discipline says "demote rule" — but the rule is already a disclaimer, and the disclaimer's purpose is to legitimise the gaps. Same loop-noise pattern as T07.
+**Risk.** `spec-lens-completeness` and `spec-lens-error-model` are likely to flag the missing aggregation rule, the missing storm-detection layer, the undefined per-class threshold. The constraint set still forbids adding any of those (the "rejected option B"). Action discipline says "demote rule" — but the rule is already a disclaimer, and the disclaimer's purpose is to legitimise the gaps. The lens-noise pattern here is genuine and not addressable by sharpening the rule itself.
 
 **Recommended human action.** Add a scope-guard bullet:
 > Inner-loop guidance: lens findings of the form "the spec acknowledges resource-exhaustion classes but specifies no aggregation / storm-detection / threshold / operator surface" MUST be classified `ignore — out-of-scope` for this commit. The disclaimer is the substance of the finding; expanding it to add aggregation / threshold rules is the rejected Option B and is forbidden.
@@ -81,7 +79,6 @@ Several findings in the document still carry constraints of the form "Co-resolve
 
 Before running `/fix-spec-shape-single-findings`:
 
-- [ ] Decide on T07 (add scope-guard for "implementation-defined" lens findings).
 - [ ] Decide on T19e (add scope-guard for "non-normative interleaving" lens findings).
 - [ ] Decide on T20 (add scope-guard for "missing aggregation surface" lens findings).
 - [ ] Plan a manual inspection of the spec.md / Concurrency-model subsection state when the loop reaches T17, in case T15b's verbatim copy carried the `console.error` literal into the new home.
