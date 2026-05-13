@@ -4,7 +4,7 @@ _Generated: 2026-05-08T09:00:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding in the file (T22b, after the 2026-05-11 reshape-extract pass excised T22a to `spec-review-needs-reshape.md`) is addressed first; the first finding in the file (T02, after the 2026-05-11 spec-sweeps extraction) is addressed last in addressing order. After the reshape pass, split children replace their parents at the parent's file position; addressing within a child cluster runs alphabetically (a addressed first)._
 
-_Triage tally: 10 high, 26 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 0 nit dropped; 0 false dropped. (Updated 2026-05-11 manual T03 split: +5 medium for the additional T03b–T03f children replacing the original T03; T03 was importance:medium, all six children inherit medium.) (Updated 2026-05-11 reshape-extract pass: T22a parked to `docs/spec-review-needs-reshape.md` per criterion 4 — verbatim-source-citation pattern; −1 medium.) (Updated 2026-05-12 T22a sub-split: T22a further split into T22a1 — anchor + paraphrase + spec.md forward-link, auto-resolvable, re-queued in this file — and T22a2 — citation upgrade, remains parked in `spec-review-needs-reshape.md` pending human SDK verification; +1 medium re-queued.) (Updated 2026-05-13 T17 retired: pre-flight review against current corpus state confirmed both halves of T17 are already addressed — the session-model paragraph in `docs/spec.md` no longer names `console.error` or `try`/`catch` inline (it forward-links the Diagnostic-emission isolation anchor in PIC), and PIC's Pi-version-bump-procedure editorial-review checklist already carries item (d) re-verifying the stdio-capture presupposition with the corresponding SP-1-compliant disclaimer at `future-considerations.md#pi-stdio-capture-facet`; T17's substantive concerns are therefore already in the corpus and the finding is dropped; −1 medium.) (Updated 2026-05-13 T22a-family option-3 reshape: pre-flight review against current corpus state confirmed the single-active-session presupposition's canonical home is **already** `future-considerations.md#v1-non-goals` (cited as such from `pi-integration-contract.md` lines 221, 799, and the `degraded-state-host-prerequisites` sub-section), and the closing sentence of `docs/spec.md`'s `id="session-model"` paragraph **already** forward-links that anchor — T22a1's premise that PIC needs to own a new `#session-binding-contract` anchor was a misframing. T22a1 reshaped to a small spec.md-only edit on the redundant opening sentence; T22b and T22c retargeted at the existing `future-considerations.md#v1-non-goals` anchor; T22a2 retired from `spec-review-needs-reshape.md` (the citation block it would have appended dissolves with the abandoned PIC sub-section); −1 medium retired in the parked file. Net change to retained count: 0.)_
+_Triage tally: 10 high, 26 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 0 nit dropped; 0 false dropped. (Updated 2026-05-11 manual T03 split: +5 medium for the additional T03b–T03f children replacing the original T03; T03 was importance:medium, all six children inherit medium.) (Updated 2026-05-11 reshape-extract pass: T22a parked to `docs/spec-review-needs-reshape.md` per criterion 4 — verbatim-source-citation pattern; −1 medium.) (Updated 2026-05-12 T22a sub-split: T22a further split into T22a1 — anchor + paraphrase + spec.md forward-link, auto-resolvable, re-queued in this file — and T22a2 — citation upgrade, remains parked in `spec-review-needs-reshape.md` pending human SDK verification; +1 medium re-queued.) (Updated 2026-05-13 T17 retired: pre-flight review against current corpus state confirmed both halves of T17 are already addressed — the session-model paragraph in `docs/spec.md` no longer names `console.error` or `try`/`catch` inline (it forward-links the Diagnostic-emission isolation anchor in PIC), and PIC's Pi-version-bump-procedure editorial-review checklist already carries item (d) re-verifying the stdio-capture presupposition with the corresponding SP-1-compliant disclaimer at `future-considerations.md#pi-stdio-capture-facet`; T17's substantive concerns are therefore already in the corpus and the finding is dropped; −1 medium.)_
 
 _Decision tally (recorded 2026-05-08): all 18 `Shape: multiple` findings resolved to `Shape: single`. 6 findings merged at decision time: T17→T24, T28→T27, T29→T30, T31→T32, T33→T03, T45→T44. See per-finding **Decision** / **STATUS** lines._
 
@@ -1565,7 +1565,7 @@ In `docs/spec_topics/pi-integration-contract.md`, add one new loom-side consumpt
 
 ---
 
-# T22c — Pi version-bump procedure has no step for the single-active-session presupposition
+# T22c — Pi version-bump procedure has no step for the session-binding contract
 
 **Original heading:** Concurrent user sessions: Pi guarantee uncited; fallback if Pi adds support undefined (split from T22, part 3 of 3)
 **Original section:** docs/spec_topics/pi-integration-contract.md — Pi version-bump procedure
@@ -1573,36 +1573,33 @@ In `docs/spec_topics/pi-integration-contract.md`, add one new loom-side consumpt
 **Importance:** medium
 **Shape:** single
 **State:** reduced
-**Reshape note (2026-05-13, option-3):** retargeted from the never-installed `pi-integration-contract.md#session-binding-contract` anchor to the existing canonical home at `future-considerations.md#v1-non-goals` — see header tally update. The substantive bump-procedure work (one new audit item) is unchanged in shape and importance.
 
 ## Problem
 
-The "Editorial-review checklist for unpinned host presuppositions" sub-block under step 1 of the `#pi-version-bump-procedure` section in `docs/spec_topics/pi-integration-contract.md` enumerates audit items (a)–(e) for unpinned host presuppositions on each Pi minor bump but contains no item that re-confirms the single-active-session presupposition canonically pinned at [Future Considerations — V1 non-goals — "No concurrent user sessions in the same host process"](./future-considerations.md#v1-non-goals). A Pi minor that quietly broadened the binding — for example, by changing `ExtensionAPI` lifetime from per-session to per-process while keeping every named member intact — would pass step 2(a)'s literal-read inventory, step 2(b)'s closure audit, and the (a)–(e) editorial-review items, leaving the runtime's single-active-session assumptions (factory-captured `pi`, `ActiveInvocationRegistry`, prompt-mode `pi.setActiveTools` snapshot/restore) exposed to silent breakage. The detection mechanism for the presupposition is therefore missing from the bump procedure that gates every other host-presupposition re-validation, even though the presupposition itself is already cited as the source of truth from PIC paragraphs at `pi-integration-contract.md` lines 221, 799, and the `degraded-state-host-prerequisites` sub-section.
+The "Editorial-review checklist for unpinned host presuppositions" sub-block under step 1 of the `#pi-version-bump-procedure` section in `docs/spec_topics/pi-integration-contract.md` enumerates audit items (a)–(e) for unpinned host presuppositions on each Pi minor bump but contains no item that re-confirms the single-active-session binding contract pinned at `#session-binding-contract` (installed by T22a1). A Pi minor that quietly broadened the binding — for example, by changing `ExtensionAPI` lifetime from per-session to per-process while keeping every named member intact — would pass step 2(a)'s literal-read inventory, step 2(b)'s closure audit, and the (a)–(e) editorial-review items, leaving the runtime's single-active-session assumptions (factory-captured `pi`, `ActiveInvocationRegistry`, prompt-mode `pi.setActiveTools` snapshot/restore) exposed to silent breakage. The detection mechanism for the binding contract is therefore missing from the bump procedure that gates every other host-presupposition re-validation.
 
 ## Solution approach
 
-In `docs/spec_topics/pi-integration-contract.md`, append one new lettered item (f) to the editorial-review checklist immediately after item (e) under step 1 of `#pi-version-bump-procedure`, instructing the contributor on each Pi minor bump to re-read the candidate minor's lifecycle documentation against the single-active-session presupposition pinned at `future-considerations.md#v1-non-goals` and confirm the binding still holds. The new item is SHOULD-level and carries an inline escalation clause stating that the obligation upgrades to MUST plus a build-time pin once Pi exposes a typed session-lifetime contract that the surface-inventory probe can mechanically verify. Update the checklist preamble's lettered range from "(a)–(e)" to "(a)–(f)".
+In `docs/spec_topics/pi-integration-contract.md`, append one new lettered item (f) to the editorial-review checklist immediately after item (e) under step 1 of `#pi-version-bump-procedure`, instructing the contributor on each Pi minor bump to re-read the Pi-source paragraph cited under `#session-binding-contract` against the candidate minor's lifecycle documentation and confirm the single-active-session guarantee still holds. The new item is SHOULD-level and carries an inline escalation clause stating that the obligation upgrades to MUST plus a build-time pin once Pi exposes a typed session-lifetime contract that the surface-inventory probe can mechanically verify. Update the checklist preamble's lettered range from "(a)–(e)" to "(a)–(f)".
 
 ## Solution constraints
 
 - Item (f) is SHOULD-level only; do not introduce a MUST verb, a plan-leaf coverage obligation, or a test-fixture obligation in V1.
 - The only forward-looking clause permitted in (f) is the escalation trigger naming a typed Pi session-lifetime contract verifiable by the surface-inventory probe; do not enumerate other hypothetical Pi changes.
-- Do NOT install a new `#session-binding-contract` anchor anywhere in `pi-integration-contract.md`. The single-active-session presupposition's canonical home is `future-considerations.md#v1-non-goals` (already cited as such from PIC lines 221, 799, and the `degraded-state-host-prerequisites` sub-section); item (f) MUST link there.
-- The augmentation of the V1 non-goals entry itself (the disposition sentence naming the three single-session-scoped sites) is owned by T22b — do not pre-install it here.
-- Cross-references from `docs/spec.md` into the canonical home are owned by T22a1 (opening sentence) and the existing closing-sentence forward-link (already in place); do not edit `docs/spec.md` from this finding.
+- The `#session-binding-contract` anchor is installed by T22a1; do not introduce, restate, or relocate the anchor here.
+- Forward-links from `docs/spec.md` into the anchor are owned by T22a1; cross-references from `docs/spec_topics/future-considerations.md` by T22b — do not pre-install either.
 
 ## Success criteria
 
 - The editorial-review checklist under `#pi-version-bump-procedure` in `docs/spec_topics/pi-integration-contract.md` contains exactly one new lettered item (f) immediately following item (e), and the checklist preamble's lettered range reads "(a)–(f)" with no remaining "(a)–(e)" phrasing for that range.
-- Item (f) contains a link whose target resolves to `./future-considerations.md#v1-non-goals` and identifies the "No concurrent user sessions in the same host process" entry by name in the link text or surrounding prose.
+- Item (f) contains a link whose target resolves to the `id="session-binding-contract"` anchor in the same file.
 - Item (f) uses SHOULD (not MUST) for its audit obligation and contains the escalation clause naming a typed Pi session-lifetime contract verifiable by the surface-inventory probe.
 - Item (f)'s body contains no new MUST verb, no plan-leaf reference, and no test-fixture obligation.
-- No new HTML anchor is introduced in `pi-integration-contract.md` by this finding.
 
 ## Relationships
 
-- T22a1 "Session-binding presupposition: spec.md opening sentence not forward-linked to canonical home" — independent under option-3 reshape (the canonical anchor `future-considerations.md#v1-non-goals` already exists; either order works).
-- T22b "Multi-session contingency response is unspecified in Future Considerations" — independent (no shared edit surface; T22b augments the V1 non-goals entry's body, this finding adds a citing audit item in PIC).
+- T22a "Single-active-session premise lacks a Pi-source citation in PIC" — must-precede (T22a installs the `#session-binding-contract` anchor this step audits against; resolving T22c first leaves the anchor dangling).
+- T22b "Multi-session contingency response is unspecified in Future Considerations" — independent (no shared edit surface; either order works after T22a).
 - T21 "Pi-side slash-handler promise lifecycle taken as given" — same-cluster (sibling Pi-side guarantee under PIC).
 - T15a "Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet" — independent (T15a restructures `spec.md`'s Orientation block; this finding edits PIC only).
 
@@ -1616,77 +1613,78 @@ In `docs/spec_topics/pi-integration-contract.md`, append one new lettered item (
 **Importance:** medium
 **Shape:** single
 **State:** reduced
-**Reshape note (2026-05-13, option-3):** dropped the `*Recorded at:*` augmentation pointing at the never-installed `pi-integration-contract.md#session-binding-contract` anchor; the spec.md closing-sentence forward-link is already in place (current text already cross-links `future-considerations.md#v1-non-goals` from the closing parenthetical of the session-model paragraph), so the only substantive remaining work is the disposition-sentence augmentation in `future-considerations.md`. See header tally update.
 
 ## Problem
 
-The "No concurrent user sessions in the same host process" entry under `<a id="v1-non-goals"></a>` in `docs/spec_topics/future-considerations.md` records the V1 scope decision but does not state the runtime's response if Pi quietly relaxes the single-active-session binding within the `~0.72.1` tilde range or a subsequent pin. A future maintainer reading the entry after Pi relaxes the binding has no guidance on whether the V1 runtime should refuse to load, bind to the first session, key the registry by session, or emit a host-incompatibility diagnostic — even though the entry is already cited as the source of truth for the presupposition from `pi-integration-contract.md` lines 221, 799, and the `degraded-state-host-prerequisites` sub-section.
+The "No concurrent user sessions in the same host process" entry under `<a id="v1-non-goals"></a>` in `docs/spec_topics/future-considerations.md` records the V1 scope decision but does not state the runtime's response if Pi quietly relaxes the single-active-session binding within the `~0.72.1` tilde range or a subsequent pin. The closing sentence of the `id="session-model"` paragraph in `docs/spec.md` likewise reads as a flat scope decision rather than a documented disposition. A future maintainer reading the entry after Pi relaxes the binding has no guidance on whether the V1 runtime should refuse to load, bind to the first session, key the registry by session, or emit a host-incompatibility diagnostic.
 
 ## Solution approach
 
-In `docs/spec_topics/future-considerations.md`, augment the existing "No concurrent user sessions in the same host process" entry with one disposition sentence stating that every single-session-scoped site (factory-captured `pi`, `ActiveInvocationRegistry`, prompt-mode `pi.setActiveTools` snapshot/restore protocol) stays so scoped and any second session reaching the extension is out of V1 scope. The change is documentation-only and adds no normative obligations.
+In `docs/spec_topics/future-considerations.md`, augment the existing "No concurrent user sessions in the same host process" entry with one disposition sentence stating that every single-session-scoped site stays so scoped and any second session reaching the extension is out of V1 scope, and add `pi-integration-contract.md#session-binding-contract` to that entry's `*Recorded at:*` list. In `docs/spec.md`, rewrite the closing sentence of the `id="session-model"` paragraph as a forward-link into the V1 non-goals entry. The change is documentation-only and adds no normative obligations.
 
 ## Solution constraints
 
 - Augment the existing "No concurrent user sessions in the same host process" entry in place; do not add a duplicate or sibling V1 non-goals entry.
 - The appended disposition is documentation-only — no MUST verbs, no plan-leaf obligations, no test fixtures.
-- Do NOT edit `docs/spec.md`. The closing sentence of the `id="session-model"` paragraph already forward-links `future-considerations.md#v1-non-goals` (verified 2026-05-13); rewriting it from this finding would risk breaking the existing cross-link. Opening-sentence work is owned by T22a1.
-- Do NOT edit `docs/spec_topics/pi-integration-contract.md`. The presupposition's canonical home is `future-considerations.md#v1-non-goals` (already cited as such from PIC); no new `#session-binding-contract` anchor is introduced anywhere in the corpus under the option-3 reshape.
-- Do not pre-install the Pi version-bump checklist item; that is owned by T22c.
+- The only `docs/spec.md` edit permitted is the closing sentence of the `id="session-model"` paragraph; the opening-sentence forward-link is owned by T22a1.
+- Do not edit `docs/spec_topics/pi-integration-contract.md`; the `#session-binding-contract` anchor is owned by T22a1 and must already exist (consumed via must-precede).
+- Do not pre-install the Pi version-bump checklist item over `#session-binding-contract`; that is owned by T22c.
 
 ## Success criteria
 
 - The "No concurrent user sessions in the same host process" entry under `id="v1-non-goals"` in `docs/spec_topics/future-considerations.md` contains a disposition sentence naming the three single-session-scoped sites (factory-captured `pi`, `ActiveInvocationRegistry`, prompt-mode `pi.setActiveTools` snapshot/restore protocol) and stating that any second session reaching the extension is out of V1 scope.
-- No new HTML anchor is introduced in `pi-integration-contract.md` by this finding.
-- `docs/spec.md` is unmodified by this finding.
+- The same entry's `*Recorded at:*` list contains a link that resolves to `./pi-integration-contract.md#session-binding-contract`.
+- The closing clause of the `id="session-model"` paragraph in `docs/spec.md` resolves as a link to `./spec_topics/future-considerations.md#v1-non-goals`.
+- No occurrence of the bare sentence "Concurrent *user sessions* in the same host process are out of scope for V1 because Pi does not support them." remains in `docs/spec.md`.
 
 ## Relationships
 
-- T22a1 "Session-binding presupposition: spec.md opening sentence not forward-linked to canonical home" — independent under option-3 reshape (the canonical anchor `future-considerations.md#v1-non-goals` already exists in `docs/spec_topics/future-considerations.md`; either order works).
-- T22c "Pi version-bump procedure has no step for the single-active-session presupposition" — independent (no shared edit surface; either order works).
-- T15c "Lift Session-model scope deferrals into Non-goals (V1) section" — co-resolve (T15c extracts the closing scope sentence from `spec.md`'s session-model paragraph into the Non-goals (V1) section; the disposition sentence this finding adds is a natural co-location for that extraction).
+- T22a "Single-active-session premise lacks a Pi-source citation in PIC" — must-precede (the anchor `#session-binding-contract` and the spec.md opening-sentence forward-link both come from T22a; resolving T22b first would leave dangling links).
+- T22c "Pi version-bump procedure has no step for the session-binding contract" — independent (no shared edit surface; either order works after T22a).
+- T15c "Lift Session-model scope deferrals into Non-goals (V1) section" — co-resolve (T15c extracts the closing scope sentence into the Non-goals (V1) section; the forward-link this finding installs is the natural target for that extraction).
 
 ---
 
-# T22a1 — Session-binding presupposition: spec.md opening sentence not forward-linked to canonical home
+# T22a1 — Session-binding contract anchor and forward-link missing in PIC and spec.md
 
 **Original heading:** Single-active-session premise lacks a Pi-source citation in PIC (further split from T22a, anchor + paraphrase + forward-link only)
-**Original section:** docs/spec.md — Session model paragraph
+**Original section:** docs/spec_topics/pi-integration-contract.md — Host prerequisites
 **Kind:** placement
 **Importance:** medium
 **Shape:** single
 **State:** reduced
-**Split from:** T22a (further sub-split 2026-05-12 — anchor + paraphrase + forward-link only; reshaped 2026-05-13 under option 3 — see header tally update — when pre-flight review confirmed the canonical home for the single-active-session presupposition is already `future-considerations.md#v1-non-goals` and the originally-proposed new PIC sub-section is therefore unnecessary).
+**Split from:** T22a (further sub-split 2026-05-12 — see `spec-review-needs-reshape.md` "Reshape rationale" for context; the parent T22a was parked under criterion 4 because of its citation block, which is now isolated to T22a2; this child carries only the anchor + paraphrase + forward-link, none of which trigger criterion 4).
 
 ## Problem
 
-The `*Session model.*` paragraph in `docs/spec.md` (anchor `id="session-model"`) opens with the bare assertion "A Pi extension instance is bound to exactly one active user session at a time" with no forward-link, even though the *closing* sentence of the same paragraph already forward-links the canonical home for that presupposition at [Future Considerations — V1 non-goals — "No concurrent user sessions in the same host process"](./spec_topics/future-considerations.md#v1-non-goals). The opening and closing sentences therefore assert the same property at different framing densities, in violation of the GOV-12 informative-orientation convention (which says every normative obligation `spec.md` appears to state is owned by a topic page that `spec.md` forward-links to). The opening is bare paraphrase; the closing is forward-linked grounding; the redundancy is the defect.
+The `*Session model.*` paragraph in `docs/spec.md` (anchor `id="session-model"`) opens with the bare assertion "A Pi extension instance is bound to exactly one active user session at a time" without grounding the claim in `pi-integration-contract.md`. PIC's `**Host prerequisites.**` section currently exposes no anchor that sibling findings T22b (Future Considerations contingency cross-link) and T22c (Pi version-bump checklist item) can target for their forward-references. As a result, the single-active-session premise has no canonical home under which session-binding obligations are gathered, and the T22b / T22c cross-links would dangle.
 
 ## Solution approach
 
-Rewrite the opening sentence of the `id="session-model"` paragraph in `docs/spec.md` so the paraphrase is itself a forward-link into `./spec_topics/future-considerations.md#v1-non-goals`, identifying the "No concurrent user sessions in the same host process" entry by name in either the link text or the surrounding prose. No new HTML anchor is introduced anywhere in the corpus by this finding; no edit to `pi-integration-contract.md` is made.
+Add a new sub-section in `docs/spec_topics/pi-integration-contract.md` under `**Host prerequisites.**` — placed adjacent to the existing `ActiveInvocationRegistry` material — titled "Session-binding contract" and carrying the stable HTML anchor `id="session-binding-contract"`. The body is exactly the one existing-paraphrase sentence: "A Pi extension instance is bound to exactly one active user session at a time." Then rewrite the opening sentence of the `id="session-model"` paragraph in `docs/spec.md` as a forward-link to that new anchor. Install only the anchor, the paraphrase sentence, and the forward-link.
 
 ## Solution constraints
 
-- Do NOT install a new sub-section or HTML anchor in `pi-integration-contract.md`. The single-active-session presupposition's canonical home is already `future-considerations.md#v1-non-goals`, cited as such from PIC lines 221, 799, and the `degraded-state-host-prerequisites` sub-section. Introducing a competing PIC anchor would fork the citation pattern.
-- The only `docs/spec.md` edit permitted is the opening-sentence rewrite; do not modify the closing sentence (it already carries the forward-link this finding consumes — verified 2026-05-13 — and any extraction work on it is owned by T15c).
+- The new PIC sub-section contains exactly the one paraphrase sentence plus the anchor element — do not add any Pi-source citation, SDK-doc pointer, fallback condition, or normative MUST. Citation-block work is owned by T22a2 (currently parked in `spec-review-needs-reshape.md`).
+- Do not pre-install the Future-Considerations contingency cross-link (T22b) or the Pi version-bump checklist item (T22c).
+- The only `docs/spec.md` edit permitted is the opening-sentence forward-link rewrite; do not modify the closing sentence about concurrent user sessions (owned by T22b).
 - Do not duplicate session-lifecycle vocabulary in `docs/spec_topics/pi-integration.md` — cross-check only.
 - Do not extend the H1 SDK surface-inventory test (`test/extension/pinned-surface.test.ts`); the single-active-session premise is a Pi-side lifecycle invariant that lives in prose, not in the probe inventory.
 
 ## Success criteria
 
-- The opening sentence of the `id="session-model"` paragraph in `docs/spec.md` contains a markdown link whose target resolves to `./spec_topics/future-considerations.md#v1-non-goals`.
-- The link text or surrounding prose identifies the "No concurrent user sessions in the same host process" entry by name.
-- No new HTML anchor is introduced in `docs/spec_topics/pi-integration-contract.md`.
-- No new sub-section is added under `**Host prerequisites.**` in `docs/spec_topics/pi-integration-contract.md`.
-- No occurrence of the bare un-linked sentence "A Pi extension instance is bound to exactly one active user session at a time." remains in `docs/spec.md`.
+- An anchor with `id="session-binding-contract"` exists in `docs/spec_topics/pi-integration-contract.md`, located inside the `**Host prerequisites.**` section.
+- The sub-section under that anchor contains exactly one prose sentence stating the single-active-session paraphrase and contains no source citation, SDK-doc pointer, or normative MUST.
+- A link in `docs/spec.md`'s `id="session-model"` paragraph resolves to `./spec_topics/pi-integration-contract.md#session-binding-contract`.
+- No occurrence of the bare sentence "A Pi extension instance is bound to exactly one active user session at a time." remains in `docs/spec.md` outside the forward-linked rewrite (i.e. the spec.md opening sentence is no longer un-linked).
 
 ## Relationships
 
-- T22b "Multi-session contingency response is unspecified in Future Considerations" — independent under option-3 reshape (T22b augments the canonical entry's body; this finding adds a citing forward-link from `spec.md`; either order works).
-- T22c "Pi version-bump procedure has no step for the single-active-session presupposition" — independent under option-3 reshape (T22c adds an audit item in PIC that cites the same canonical anchor; either order works).
-- T15c "Lift Session-model scope deferrals into Non-goals (V1) section" — co-resolve (T15c may extract or restructure the closing sentence that today carries the only forward-link to the canonical home; the opening-sentence rewrite this finding installs preserves a forward-link from `spec.md` even after T15c's restructuring lands).
-- T23 "Pi's per-session slash-handler serialisation is asserted without a verifiable Pi source" — same-cluster (uncited-Pi-internals pattern; T23's resolution should follow the same canonical-home convention rather than introducing another PIC anchor).
-- T34 "Trust-boundary 'no privilege facet' claim is asserted but not gated by any audit the spec cites" — same-cluster.
+- T22a2 "Session-binding contract Pi-source citation upgrade in PIC" — must-follow (T22a2 augments the sub-section installed here by adding the Pi-source citation block; T22a2 is parked in `spec-review-needs-reshape.md` pending human SDK verification).
+- T22b "Multi-session contingency response is unspecified in Future Considerations" — must-precede (this finding installs the `#session-binding-contract` anchor T22b's cross-link consumes).
+- T22c "Pi version-bump procedure has no step for the session-binding contract" — must-precede (this finding installs the `#session-binding-contract` anchor T22c's checklist item consumes).
+- T15c "Lift Session-model scope deferrals into Non-goals (V1) section" — must-precede (T15c's extraction of the 'concurrent user sessions … out of scope' sentence interacts with the forward-link this finding installs on the opening sentence).
+- T23 "Pi's per-session slash-handler serialisation is asserted without a verifiable Pi source" — co-resolve (same Session-model paragraph; T23's citation, when it lands, should target the same PIC sub-section).
+- T34 "Trust-boundary 'no privilege facet' claim is asserted but not gated by any audit the spec cites" — same-cluster (uncited-Pi-internals pattern).
 - T21 "Pi-side slash-handler promise lifecycle taken as given" — same-cluster.
 - T36 "`SessionShutdownEvent.reason` closed set has no build-time pin against the SDK type" — same-cluster (diff-audit-on-pin-bump remedy).
