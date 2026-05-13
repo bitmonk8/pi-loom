@@ -1,7 +1,7 @@
 # Findings parked for reshape — pi-loom spec.md
 
 _Produced: 2026-05-11_
-_Last modified: 2026-05-12 (T22a sub-split: T22a1 re-queued in `spec-review.md`, T22a2 re-parked here)._
+_Last modified: 2026-05-13 (T22a-family Path-A reshape: T22a2 ratified back into T22a1 after a live SDK lookup against `@mariozechner/pi-coding-agent ~0.72.1` `docs/extensions.md` confirmed the citation text the human-gate was originally protecting against; see retirement note below)._
 _Source file: `docs/spec-review.md` (generated 2026-05-08T09:00:00Z; last modified 2026-05-12)_
 _Divergence reference: `C:/Users/thomasa/.pi/tmp/monitor-running-agents/2026-05-11T18-08-06Z/divergence-analysis.md`_
 
@@ -23,7 +23,21 @@ Findings NOT flagged: already-split children (Tnna/b/c form), MERGED stubs, genu
 
 ---
 
-## Parked finding 1 of 1
+## Retired finding (formerly parked)
+
+**T22a2 retired 2026-05-13 under the T22a-family Path-A reshape.** A live SDK lookup against the V1 pin (`@mariozechner/pi-coding-agent ~0.72.1`, `docs/extensions.md`) confirmed three facts that together resolve the criterion-4 ambiguity T22a2 was carved out to handle:
+
+1. **The named sections exist and are stable in the V1 pin.** `extensions.md` carries a *Lifecycle Overview* section (lines 273–340 of the V1-pin file) and a *Session Events* section (line 388 of the V1-pin file) that together pin the sequential `session_shutdown` → `session_start` flow on `/new`, `/resume`, and `/fork`. The original concern about source-pointer stability was over-conservative — the section headings are well-named and not at risk of paraphrase drift across patch versions.
+2. **The SDK supports the paraphrase as a guarantee, not a hedge.** The Lifecycle Overview's per-event arrows show no concurrent-session branch, the Session Events section reads "pi emits `session_shutdown` for the old extension instance, reloads and rebinds extensions for the new session, then emits `session_start`" (singular old/new), and the closed `SessionShutdownEvent['reason']` set `"startup" | "reload" | "new" | "resume" | "fork"` enumerates no concurrent-session signal. The original "if SDK says 'typically' rather than guaranteeing" edge case (which would have downgraded T22a1's paraphrase) is not triggered — no fallback-condition clause is needed.
+3. **The fallback-condition clause T22a2 originally proposed is unnecessary.** Because outcome (1) and (2) both land cleanly, the type-side fallback ("if the SDK doc page is unavailable at audit time, the type-side anchor stands as the corroborating source") would be writing prose against a hypothetical that the live lookup ruled out. Including it would create the criterion-4 divergence trigger (paraphrase-vs-citation gap risk) the original parking was meant to avoid.
+
+The citation block now lives **inline in T22a1's Recommendation** (in `spec-review.md`) with the wording grounded in the live SDK lookup. T22a2 is retired without loss — its substantive content (the citation text) is preserved in T22a1; its reason-for-parking (the human gate) is dissolved by the lookup.
+
+The retired finding's body is preserved below as a historical record. **It is not parked and not awaiting a human gate.**
+
+---
+
+## Historical record (formerly parked finding 1 of 1)
 
 **Reshape rationale:** T22a2 matches **Criterion 4 — Verbatim-source-citation pattern**. T22a2 is the second child of the 2026-05-12 manual sub-split of the originally-parked T22a; the first child (T22a1) carries only the anchor `<a id="session-binding-contract"></a>`, the existing-paraphrase sentence, and the `spec.md` opening-sentence forward-link, all of which are auto-resolvable and were re-queued in `spec-review.md`. T22a2 carries the **citation block** that was the actual criterion-4 divergence trigger: a Pi-source reference (`@mariozechner/pi-coding-agent ~0.72.1`, `docs/sdk.md` extension-lifecycle section, plus the `SessionShutdownEvent['reason']` type-side anchor as a corroborating fallback) that introduces a verbatim Pi-prose pin alongside the spec's existing paraphrase. The independently-flaggable components remain those identified in the original T22a parking rationale:
 
@@ -107,14 +121,14 @@ Edge cases the implementer must watch:
 | 1 — Bimodal obligation | 0 | — |
 | 2 — Authority-paragraph with inline enumeration | 0 | — |
 | 3 — Composite spec edits across 3+ files without dependency graph | 0 | — |
-| 4 — Verbatim-source-citation pattern | 1 | T22a2 |
+| 4 — Verbatim-source-citation pattern | 0 | — |
 | 5 — Transient Note / forward-reference to in-flight findings | 0 | — |
-| **Total parked** | **1** | **T22a2** |
+| **Total parked** | **0** | **—** |
 
-**Note on T22b and T22c:** After the 2026-05-12 sub-split, T22b and T22c are **no longer blocked** by anything in this file. T22a1 (re-queued in `spec-review.md`) installs the `#session-binding-contract` anchor that T22b's cross-link and T22c's checklist item consume. T22a2 (parked here) only adds the Pi-source citation block on top of T22a1's anchor; T22b and T22c do not reference the citation, only the anchor. Both can therefore be auto-resolved by the `spec-diff-fix-loop` once T22a1 has landed, in any order relative to each other. The "must-precede T22a" Relationships still recorded on T22b and T22c should now be read as "must-precede T22a1" — the auto fix-loop will pick T22a1 first under bottom-up addressing because it sits at the end of `spec-review.md`.
+**Note on T22 family (post-2026-05-13 Path-A reshape):** After T22a2's retirement above, T22a1 carries the full Recommendation (anchor + paraphrase + Pi-source citation block + spec.md forward-link) with citation text grounded in the live SDK lookup. T22b and T22c remain in `spec-review.md` in their original forms with their `must-precede T22a` Relationships still pointing at T22a's successor (now T22a1, since T22a was originally split and the 2026-05-12 sub-split has been collapsed back). The auto fix-loop addressing order under bottom-up convention is T22a1 → T22b → T22c.
 
 **Borderline calls reviewed and kept in spec-review.md:**
 
 - **T21** (Pi-side slash-handler promise lifecycle) — adds a new paragraph to PIC Cancellation source that includes behavioral MAY clauses referencing `pi.sendMessage` and `ExtensionCommandContext`. Reviewed against criterion 2 (authority-paragraph with inline enumeration): the paragraph does not enumerate discrete surfaces or files in the T60 sense; it makes sequential behavioral guarantees about one lifecycle scenario. Lens expansion risk is judged bounded (each potential finding reduces or clarifies existing text rather than adding new enumeration). Kept.
 - **T20** (Resource exhaustion disclaimer) — replaces an existing parenthetical with a 3-category enumeration in `implementation-notes.md`. The categories are resource-exhaustion classes (heap, descriptors, rate-limit), not named spec surfaces. Single-file edit. Kept.
-- **T22b** (multi-session contingency) and **T22c** (version-bump procedure step) — simple targeted edits (one appended sentence + one forward-link rewrite; one checklist item addition). Both clean. Both **unblocked as of 2026-05-12** by T22a1 re-queueing in `spec-review.md`.
+- **T22b** (multi-session contingency) and **T22c** (version-bump procedure step) — simple targeted edits, both consume the `#session-binding-contract` anchor T22a1 installs; auto-resolvable in T22a1 → T22b → T22c order under bottom-up addressing.
