@@ -20,17 +20,6 @@ The following pre-flight problems were fixed directly:
 
 The following findings are likely to cause loop noise, limit-cycle exits, or marginal lens findings the fixer can't resolve without crossing scope guards. Each is small enough to leave alone if the user is willing to accept a `STATUS: limit-cycle` exit and re-shape afterwards, but addressing them up-front avoids the wasted passes.
 
-### T03a — Authors normative content about an external npm package
-
-The Solution approach installs a sub-paragraph naming `semver` as the V1 implementation choice, with `@types/semver` under `devDependencies`. The post-trim version no longer carries a "single literal value" constraint, but the Solution approach still asks for "the chosen version range [stated] as a literal value … so downstream manifest tests have a single source of truth to anchor against".
-
-**Risk.** `spec-lens-external-entities` exists specifically to flag the spec authoring normative content about externally-owned identifiers (SP-1). The "implementation choice" framing and the future-substitution escape hatch help, but pinning a version-range literal for a third-party package is exactly the SP-1 pattern. Lens action discipline requires "demote rule" / "narrow to actual usage scope" / "delete entirely" — none of which the fixer can perform without violating the Solution approach's intent.
-
-**Recommended human action.** Either:
-1. Move the version-range literal to `package.json` and rewrite the Solution approach to "name `semver` and `@types/semver`; the H1 manifest assertion sources its expected literal from `package.json#dependencies.semver`"; or
-2. Add an explicit scope-guard bullet to T03a:
-   > Inner-loop guidance: lens findings of the form "the spec authors normative content about the external `semver` package (SP-1 violation)" MUST be classified `ignore — out-of-scope` for this commit. The version-range literal is a deliberate authorial choice required by the H1 SDK surface-inventory test that consumes it.
-
 ### T07 — Adds a normative rule whose content is "implementation-defined and non-normative"
 
 The new rule under `## QueryError variants` → `### Notes` declares `message` content as implementation-defined for every variant except `InvokeInfraError` on the panic carve-out.
@@ -92,7 +81,6 @@ Several findings in the document still carry constraints of the form "Co-resolve
 
 Before running `/fix-spec-shape-single-findings`:
 
-- [ ] Decide on T03a (rewrite to `package.json`-sourced literal, or add scope-guard).
 - [ ] Decide on T07 (add scope-guard for "implementation-defined" lens findings).
 - [ ] Decide on T19e (add scope-guard for "non-normative interleaving" lens findings).
 - [ ] Decide on T20 (add scope-guard for "missing aggregation surface" lens findings).
