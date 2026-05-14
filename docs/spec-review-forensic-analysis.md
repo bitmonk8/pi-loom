@@ -217,4 +217,95 @@ The recommendations in §5.1 are T22a1-specific. The user should run an analogou
 
 ---
 
+# Addendum — Why `/spec-review-audit` did not catch this (added 2026-05-14)
+
+The pipeline includes a `/spec-review-audit` pre-flight whose stated purpose is exactly to catch findings whose proposed solution would not survive the lens regime (per `prompts/spec-review-audit.md`: *"rewrite each finding's Solution approach / constraints / Success criteria to maximise the chance the proposed edit lands cleanly through `/fix-spec-shape-single-findings`"*). This addendum traces what the audit produced for T22a1 and explains why it did not flag the divergence.
+
+## A1. Audit timeline for T22a1
+
+| Commit | Date | Event |
+|---|---|---|
+| `5dcc5f2` | 2026-05-13 | Path-A reshape: T22a2 ratified back into T22a1 with the inlined `Source of truth:` block. Typo `"startup"` introduced in both the new T22a1 Solution approach and the line-7 reshape annotation. |
+| audit run `2026-05-13T22-09-55_df33e0` | 2026-05-13 22:09 UTC | `/spec-review-audit` dispatched 42 findings against `spec-review-finding-lens-auditor` in 3 parallel batches. T22a1 received its own per-finding report. |
+| `c842bf4` | 2026-05-14 00:30 | Audit pass committed. Result: **NO_ACTION: 40, INLINE_FIX: 1, HUMAN_REVIEW: 1**. The single human-review item was T15b (Concurrency-model placement), unrelated to T22a1. T22a1 was in the NO_ACTION 40. |
+| `ed9d75f` | 2026-05-14 | T15b human-review resolved. spec-review-doc considered audit-clean. |
+| (this session) 2026-05-14 ~09:00 | — | `/fix-spec-shape-single-findings` selected T22a1, fix-loop diverged at pass 5. |
+
+The audit was the most recent stage to look at T22a1 before the fix-loop ran. The audit's verdict was the user's signal that the finding was ready to fix.
+
+## A2. The audit verdict, verbatim
+
+From `.pi/tmp/spec-review-audit/2026-05-13T22-09-55_df33e0/reports/t22a1-session-binding-contract-sub-section-in-pic-anchor-paraphrase-pi-source-ci.md`:
+
+> **Overall risk:** LOW
+> **Recommended action:** NO_ACTION
+
+Per-lens predictions, every lens (n=14) returned `PASS` except `external-entities` which returned `RISK_LOW`. The risk synthesis paragraph argued explicitly against any inline edit:
+
+> The dominant residual risk is `external-entities` flagging the verbatim direct quotation from the SDK's *Session Events* prose [...] as brittle [...]. This risk is structurally bounded by three things: (i) the V1 pin `~0.72.1` localises the assertion; (ii) PIC already contains many sibling Pi-source citations [...] that follow the same demote-by-citation pattern and have not drawn external-entities findings; and (iii) the `Source of truth:` framing is exactly the demotion the lens prefers. [...] No inline edit improves the risk picture without unpinning content the finding deliberately froze.
+
+The inner fix-loop the next day raised real `fix`-class findings from **assumptions, cruft, clarity, consistency, traceability, testability, and naming** — seven of the lenses the auditor had marked `PASS`.
+
+## A3. Per-lens auditor failure analysis
+
+For each lens that the auditor predicted would PASS but the actual fix-loop saw raise findings, the table below records: (a) the auditor's PASS rationale, (b) what the fix-loop actually flagged, (c) why the auditor's reasoning was wrong.
+
+| Lens | Auditor said | Actual finding (which pass) | Why the auditor was wrong |
+|---|---|---|---|
+| **consistency** | PASS — *"Constraints block duplication in pi-integration.md; spec.md's opening sentence is rewritten as a single forward link with no other touched sentences."* | Pass 1 (P1 finding 1): `"startup"` literal contradicts every other site in the spec which uses `"quit"`. Pass 4 (P4 finding A merge): citation form `` `pkg ~ver`, `path` `` (comma-separated) drifts from established slash-joined convention at `discovery.md:3`. Pass 3 (P3 finding A): verbatim SDK quote contradicts existing `degraded-state-host-prerequisites` presupposition (a) at PIC line 19. | The auditor only checked consistency *with* the spec.md edit and *with* `pi-integration.md`. It did NOT grep the rest of PIC for prior occurrences of `SessionShutdownEvent['reason']` literals (5+ existing sites); did NOT check the citation form against `docs/spec_topics/discovery.md`'s established convention; did NOT compare the SDK quote against PIC's own degraded-state presupposition (a) about extension-instance survival. Three different consistency-class defects, all visible by grep, all missed. |
+| **cruft** | PASS — *"No TODO/TBD/status language in the spec text; dated split-history sits in finding metadata only."* | Pass 2 (P2 cruft finding 1): the new sub-section's opening sentence duplicates the spec.md Session-model paragraph verbatim. Pass 2 (P2 cruft finding 2): the trailing `"none of whose values enumerate a concurrent-session signal"` is rationale-not-requirement. | The auditor's cruft-PASS reasoning targeted the wrong cruft sub-rule: it checked for status/temporal language. The actual cruft lens *also* flags duplicated requirements and rationale-not-requirement prose — both of which were live in T22a1's pinned text and visible to the auditor. |
+| **assumptions** | PASS — *"the carve-out for properties of externally-owned identifiers applies"* | Pass 2 (P2 assumptions finding 1): the new sub-section silently contradicts FC's existing presupposition disclaimer at `docs/spec_topics/future-considerations.md:107`. Pass 4 (P4 assumptions finding B): the prose-doc-citation has no editorial-review gate in `Pi version bump procedure`. | The SP-1 carve-out the auditor invoked suppresses claims-about-external-entities. The actual finding was a spec-internal contradiction (PIC says "Source of truth", FC says "presupposition rather than claim of audit") — not an SP-1 violation, and not covered by the carve-out. The auditor invoked the wrong carve-out to silence the lens. |
+| **traceability** | PASS — *"Installs the stable anchor `#session-binding-contract` that downstream T22b/T22c/T23 cross-references depend on."* | Pass 2 (P2 traceability finding T-1): the inline reference *"already pinned in this document"* is a paraphrase, not an anchor — a reader cannot navigate to the cited target by ID. The relevant anchor `#unknown-reason-rule-membership-check` exists at PIC line 115. | The auditor checked OUTBOUND traceability (does the new anchor exist? does spec.md's link resolve?) but did not check INBOUND traceability of the Recommendation's own back-references (when the new sub-section says "already pinned in this document", does that pin actually have an anchor the reader can follow?). The relevant anchor existed; the Recommendation just didn't cite it. |
+| **testability** | PASS — *"Success criteria are greppable: anchor presence, link target, named-section citation, absent-bare-sentence check."* | Pass 4 (P4 testability finding A): the bolded `**Session-binding contract.**` heading promotes an externally-owned invariant to a contract item with no testable predicate (loom does not own the binding; Pi does). | The auditor confused the testability of the *finding's Success criteria block* with the testability of the *spec text the finding installs*. The Success criteria were greppable (`grep -c "id=\"session-binding-contract\""`). But the spec text the finding installed was a normative-looking contract item enforcing a Pi-side invariant — exactly the testability lens's risk pattern. The two are different surfaces and the auditor evaluated the wrong one. |
+| **naming** | PASS — *"matches the sibling kebab-case anchor convention"* | Pass 4 (P4 naming finding): spec.md's referring sentence uses prose that doesn't match the section's own title (`Session-binding contract`); inconsistent referring-language. | The auditor checked anchor-name conformance to convention (correct) but did not check the linkage *language* between the referring spec.md sentence and the new sub-section title — a separate naming sub-rule. |
+| **external-entities** | RISK_LOW — argued away by the risk synthesis | Pass 2/3/4: the verbatim SDK doc-prose quote (*"reloads and rebinds extensions for the new session"*) silently contradicts PIC's own `degraded-state-host-prerequisites` presupposition (a) about extension-instance survival, AND has no editorial-review gate in `Pi version bump procedure`. | The auditor partially identified the risk class but mis-calibrated its severity. Reasoning errors: (i) "V1 pin localises the assertion" — the lens flag is about the prose's STRUCTURAL contradiction with another spec section, not about staleness across pin bumps; (ii) "sibling Pi-source citations have not drawn external-entities findings" — those siblings are pre-existing text the lens regime does not re-attack on each pass; the lens only attacks NEW prose the diff introduces; (iii) `Source of truth:` is NOT a demotion — it is an elevation that frames the cited material as authoritative. RISK_LOW understated by at least one tier; the actual structural defect was HIGH. |
+
+**Score:** the auditor missed 7 distinct fix-class findings (not counting passes 5's restatements) across 5 of the 14 lenses, and miscalibrated the one lens it did flag. The audit's overall verdict (LOW / NO_ACTION) was a false negative.
+
+## A4. Why the audit's failure mode is structurally similar to the inner-fixer's
+
+Both `spec-review-finding-lens-auditor` (the audit-stage lens-risk predictor) and the lens-set the inner fix-loop dispatches face the same input — the verbatim Recommendation text — but with one critical asymmetry: the auditor predicts what *14 lenses would say if they saw this text in the spec*, while the inner-loop lenses *actually look at the diff*. The auditor is a single agent doing 14 mental simulations; the inner loop is 14 agents each doing one focused review.
+
+Failure modes the asymmetry produces:
+
+- **The auditor models lenses as a checklist, not as adversarial reviewers.** The actual lenses operate by reading the diff and asking "what would a hostile critic flag here?". The auditor reads the Recommendation and asks "does any of these 14 named rules trip on this prose?". The first framing surfaces drift, contradiction, and adjacency-clash defects (the failure modes that diverge the loop); the second surfaces direct-rule-match defects only. T22a1's defects were almost all drift / contradiction / adjacency-clash — exactly the class the auditor's framing under-detects.
+
+- **The auditor does not run greps.** The actual `spec-lens-consistency` agent reads `_diff.txt` and the surrounding files. It finds the 5+ `"quit"` sites in PIC by paragraph reading. The auditor — a single agent under bounded budget across 42 findings — does not have the time-budget to grep PIC for every term in every Recommendation's pinned text. T22a1's `"startup"` typo was caught by the inner loop's consistency lens at pass 1 by direct grep. The auditor missed it because the auditor's procedure doesn't include a grep step.
+
+- **The auditor's risk synthesis is a defense brief, not a critique.** Read the verbatim risk synthesis (§A2 above): it argues for why the finding will pass, citing protective factors (V1 pin, established precedents, anti-relitigation pin). A risk synthesis should argue against; the auditor's prompt does not require it to take an adversarial stance. Compare to the inner loop's lenses, each of which IS adversarial by design — the lens's job is to find defects, not to predict whether defects will be found.
+
+- **The carve-outs the auditor invokes are over-broad.** SP-1's carve-outs on `assumptions / consistency / naming / testability / error-model / completeness` are designed to suppress findings *that make claims about externally-owned entities*. The auditor invoked the SP-1 carve-out on assumptions for T22a1 ("the carve-out for properties of externally-owned identifiers applies"), but the actual assumptions defect was a spec-INTERNAL contradiction with FC's presupposition disclaimer — outside the carve-out's scope. The auditor's per-lens reasoning routinely cites carve-outs without checking whether the specific defect-class falls inside the carve-out's actual boundary.
+
+## A5. The audit's NO_ACTION classification is the gate the human relied on
+
+Per `prompts/spec-review-audit.md` step 5, NO_ACTION findings get NO commit and NO surfacing — they are silently considered audit-clean. INLINE_FIX findings get a mechanical wording change applied. HUMAN_REVIEW findings get queued in `summary.md` for human triage. This three-bucket scheme has no fourth bucket for *"audit thinks PASS but with low confidence"*. Every finding is either silently passed, silently fixed, or surfaced. T22a1 was silently passed.
+
+This is the structural reason `/spec-review-audit` did not save the user from the divergence: it can only catch what its own model predicts. False-negative findings flow straight through to `/fix-spec-shape-single-findings`, where they consume 5 inner-loop passes before the divergence detector fires.
+
+## A6. Recommendations specific to the audit
+
+**RA1.** **Add a mechanical pre-pass to the auditor.** Before running the model-based 14-lens prediction, the auditor should run a small set of grep-based sanity checks against the Recommendation's pinned text:
+
+- For each markdown code block in `## Solution approach`, grep the spec for any string literals (quoted tokens) and identifier-like names that appear in the block. Surface any that appear elsewhere in the spec with different spelling — terminology drift.
+- For each verbatim quote (text inside `".."` adjacent to a citation marker like `*Source of truth:*`), check if the quote's source path is documented in the spec's external-citation-style convention (e.g. `discovery.md:3`'s slash-joined form). Surface citation-form drift.
+- For each anchor / heading the Recommendation introduces, check if the same anchor is referenced as `(this is) a presupposition` / `(this is) unaudited` / `cannot confirm` / `does not enumerate` anywhere else in the spec. Surface epistemic-strength drift between the new anchor's framing and any existing reverse-cite.
+
+These mechanical checks would have caught the `"startup"` typo, the comma-separated citation form, and the FC-presupposition contradiction without any model judgment. They are O(50 lines of bash) and run in O(seconds) per finding.
+
+**RA2.** **Re-frame the risk synthesis as adversarial.** Change the auditor's prompt to require the risk synthesis paragraph to argue *for* the highest-severity per-lens verdict it produced, not against it. The current synthesis tends to defend a NO_ACTION classification by citing protective factors; the requested change forces the synthesis to enumerate concrete attack vectors against the proposed text. If the synthesis cannot construct an attack for the highest-severity verdict, the verdict itself is downgrade-able; if it can, the verdict stands.
+
+**RA3.** **Add a fourth bucket: `RECOMMEND_RESHAPE`.** Distinct from HUMAN_REVIEW (which presumes an inline-applier-impossible decision) and from NO_ACTION (which presumes audit-clean). RECOMMEND_RESHAPE is for findings the auditor cannot positively-recommend INLINE_FIX or HUMAN_REVIEW for, but where the residual risk profile is non-trivial — surfaced as a soft recommendation, not a blocker. The `summary.md` would then carry a third section listing soft-recommended reshapes the user can choose to act on or skip.
+
+**RA4.** **Validate auditor predictions against actual fix-loop outcomes.** When the inner fix-loop diverges, limit-cycles, or hits failed-cap on a finding the auditor previously rated NO_ACTION or INLINE_FIX, the orchestrator (`/fix-spec-shape-single-findings`) should record the discrepancy to a calibration log (e.g. `.pi/tmp/audit-calibration/<runId>.md`). After a small number of such records accumulate, audit the auditor — find which prediction patterns systematically false-negative (T22a1 case: "verbatim SDK quote + Source-of-truth framing + bundled SDK union enumeration" → NO_ACTION → diverged) and add explicit handling rules for those patterns.
+
+**RA5.** **The auditor should READ the affected spec files.** Currently the auditor reads only `<specReviewPath>` and the project config. The actual fix-loop's lenses read the full spec under `<specPath>` and `<specTopicsDir>` — that is what lets them find drift, contradiction, and adjacency-clash defects. The auditor should additionally read the spec sections cited in the Recommendation's `## Problem` and `## Solution approach` fields, so it has the same surface area the actual lenses operate over.
+
+**RA6.** **The auditor should evaluate co-edited siblings.** T22a1 cited `degraded-state-host-prerequisites` (presupposition (a) at PIC line 19) only obliquely ("placed between item 4 and the existing `<a id=\"degraded-state-host-prerequisites\"></a>` sub-paragraph"), but the actual contradiction the inner loop discovered was that the new sub-section's verbatim SDK quote silently denied that exact presupposition. The auditor should walk the immediate adjacency of every insertion point named in the Solution approach (the paragraph-before and paragraph-after), and check the inserted text against those siblings for direct contradiction. This is the **adjacency-consistency** check the inner fixer's `spec-diff-fixer.md` step 3a-bis verifies — the auditor should mirror it.
+
+## A7. The audit / fix-loop divergence chain in one paragraph
+
+The failure cascade was: a human SDK-lookup mis-transcribed `"quit"` as `"startup"` and bundled a verbatim SDK-prose quote into T22a1's Solution approach (commit `5dcc5f2`); the audit ran and produced 13×PASS + 1×RISK_LOW, missing 7 fix-class defects across 5 lens dimensions because its model-based-checklist framing under-detects drift / contradiction / adjacency-clash defects and because it doesn't run greps; the user, seeing NO_ACTION on T22a1 in the audit summary, ran `/fix-spec-shape-single-findings` two days later; the inner loop's actual lenses (which DO run greps and DO read affected files) immediately flagged the typo at pass 1 and the structural defects at passes 2–5; the loop diverged after 5 passes; the user's main-context orchestrator reverted the divergent changes; T22a1 now requires hand-reshape. The audit's NO_ACTION verdict was the load-bearing false-negative that let T22a1 reach the fix-loop in its divergent shape.
+
+---
+
 *End of forensic analysis.*
