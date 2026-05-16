@@ -361,3 +361,45 @@ Add a required `invocation_id: string` field to the `type RuntimeEvent = { ... }
 - T20 "Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes" — same-cluster.
 - T18a "Append success-side null-policy paragraph to PIC Runtime event channel" — must-precede.
 - T15a "Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet" — same-cluster.
+
+---
+
+## T19c — Widen always-log dedup key to include invocation_id
+
+> **PARKED** — 2026-05-16T05:40:24Z
+> **Reason:** The top-level spec-review-fixer refused to apply the recommended resolution. Refusal reason: Refusal reason: parked-prerequisite mismatch. T19c's Solution approach widens the dedup tuple to reference invocation_id, but the prerequisite siblings T19a (registry invocationId field) and T19b (RuntimeEvent.invocation_id wire field) have both been parked after diverging fix-loops. Applying T19c standalone would write a normative dedup tuple referencing an undefined field.
+> **Forensic report:** `.pi/tmp/spec-fix-failure-forensics/2026-05-15T18-46-12_c1e9c1/t19c-widen-always-log-dedup-key-to-include-invocation-id.md`
+
+# T19c — Widen always-log dedup key to include invocation_id
+
+**Kind:** error-model
+**Importance:** high
+**Atomicity:** atomic
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The **Deduplication and lifetime rules** sub-block of the **Runtime event channel** section in `docs/spec_topics/pi-integration-contract.md` pins the cascade-twin dedup tuple as `(kind, query_site, message, occurred_at)`, and rule PIC-1 (g) under `id="pic-1"` in the same file restates the same four-field tuple. The tuple has no per-invocation discriminator, so two same-loom sibling invocations whose always-log emissions stamp the same `kind`, `query_site`, `message`, and `occurred_at` collapse into a single dedup-equivalent occurrence even though they originated in distinct invocations. Sibling T19b adds an `invocation_id` field to the `RuntimeEvent` payload that this dedup rule could discriminate on, but the dedup tuple itself does not yet read that field.
+
+## Solution approach
+
+Widen the dedup tuple stated in the **Deduplication and lifetime rules** sub-block of the **Runtime event channel** section in `docs/spec_topics/pi-integration-contract.md` from `(kind, query_site, message, occurred_at)` to `(invocation_id, kind, query_site, message, occurred_at)`, and pin that the always-log channel is session-flat at the wire level while the dedup key is per-invocation. Mirror the same widening in rule PIC-1 (g) under `id="pic-1"` so the two enumerations of the dedup tuple in the same file remain identical. The widening reads the wire field that sibling T19b installs; do not re-author that field here.
+
+## Solution constraints
+
+- Both occurrences of the dedup tuple in the file (the consumer-deduplication clause inside **Deduplication and lifetime rules**, and the restatement in rule PIC-1 (g) under `id="pic-1"`) must be updated together — leaving them divergent is forbidden.
+- Preserve the existing four field names (`kind`, `query_site`, `message`, `occurred_at`) verbatim and in their existing order; do not rename, drop, or reorder them.
+- Preserve the cascade-twin clause (two emissions sharing the tuple collapse to one occurrence; re-emissions copy the originating instance verbatim including `occurred_at`) and the panic-emission `display: false`-not-applicable clause unchanged apart from the tuple replacement itself.
+- The `ActiveInvocationRegistry` shape change, the `RuntimeEvent` wire-field addition, the cancelled-by-session-shutdown details change, and the real-time timing paragraph are owned by T19a, T19b, T19d, and T19e respectively.
+- Do not introduce a new diagnostic code, `details.kind` discriminator, aggregation surface, or storm-detection layer.
+
+## Relationships
+
+- T19a "Extend ActiveInvocationRegistry entry shape with invocationId" — co-resolve.
+- T19b "Add invocation_id field to RuntimeEvent payload declaration" — co-resolve (this child reads the field T19b adds).
+- T19d "Populate cancelled-by-session-shutdown details with invocation_id" — co-resolve.
+- T19e "Add real-time sibling emission timing paragraph" — co-resolve.
+- T20 "Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes" — same-cluster.
+- T18a "Append success-side null-policy paragraph to PIC Runtime event channel" — must-precede.
+- T15a "Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet" — same-cluster.

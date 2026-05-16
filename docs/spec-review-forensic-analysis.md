@@ -404,3 +404,22 @@ human triage) can trace why the listed findings ended up in
 `spec-review-parked.md`.
 
 ---
+
+## 2026-05-16T05:40:24Z — T19c — Widen always-log dedup key to include invocation_id
+
+- **Failure mode:** top-level-refused
+- **Trajectory:** n/a
+- **Passes:** n/a
+- **Forensic report:** `.pi/tmp/spec-fix-failure-forensics/2026-05-15T18-46-12_c1e9c1/t19c-widen-always-log-dedup-key-to-include-invocation-id.md` _(gitignored)_
+- **Parked findings (this run):** `T19c — Widen always-log dedup key to include invocation_id`
+- **Loop notes:** none
+- **Fixer notes:** Refusal reason: parked-prerequisite mismatch. T19c's Solution approach widens the dedup tuple to reference invocation_id, but the prerequisite siblings T19a (registry invocationId field) and T19b (RuntimeEvent.invocation_id wire field) have both been parked after diverging fix-loops. Applying T19c standalone would write a normative dedup tuple referencing an undefined field.
+
+The detailed root-cause analysis, audit-vs-actual comparison, and
+ranked Immediate / Pipeline recommendations live in the gitignored
+forensic report cited above. This file records only the durable
+TL;DR pointer so future `/spec-review` regeneration runs (or future
+human triage) can trace why the listed findings ended up in
+`spec-review-parked.md`.
+
+---
