@@ -321,3 +321,43 @@ Extend the `ActiveInvocationRegistry` entry-shape `Set<...>` declaration under `
 - T20 "Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes" — same-cluster.
 - T18a "Append success-side null-policy paragraph to PIC Runtime event channel" — must-precede (any decision to add operator-visibility for successful sibling outcomes will reuse the `invocation_id` field this child installs).
 - T15a "Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet" — same-cluster.
+
+---
+
+## T19b — Add invocation_id field to RuntimeEvent payload declaration
+
+> **PARKED** — 2026-05-16T05:31:39Z
+> **Reason:** The inner spec-diff-fix-loop diverged: the most recent pass produced more fix-class findings than the previous one. FIXCOUNTS: 5,1,7,7,9. Loop notes: T19b's literal field addition keeps generating fresh lens findings because the field's semantics are owned by the parked T19a/T19c/T19d/T19e siblings. Pass-3 placement move expanded the surface; pass 4 surfaced 9 fresh findings against it. Recommend parking T19b alongside T19a, or reshaping the finding to land after T19a/T19c install the registry source and dedup-tuple widening.
+> **Forensic report:** `.pi/tmp/spec-fix-failure-forensics/2026-05-15T18-46-12_c1e9c1/t19b-add-invocation-id-field-to-runtimeevent-payload-declaration.md`
+
+# T19b — Add invocation_id field to RuntimeEvent payload declaration
+
+**Kind:** error-model
+**Importance:** high
+**Atomicity:** atomic
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The `type RuntimeEvent = { ... }` declaration in the **Runtime event channel** section of `docs/spec_topics/pi-integration-contract.md`, introduced by the sentence pinning the shape as "normative and additive-only", carries no per-invocation correlation field. Sibling T19a sources an `invocationId` from the `ActiveInvocationRegistry` entry, but the wire payload has no destination for that value, so operator-side consumers of the always-log channel cannot distinguish concurrent-sibling emissions from the same loom. T19c's dedup-key widening and T19d's cancelled-by-session-shutdown details population both read this field and require it to be present on the wire shape.
+
+## Solution approach
+
+Add a required `invocation_id: string` field to the `type RuntimeEvent = { ... }` declaration in the **Runtime event channel** section of `docs/spec_topics/pi-integration-contract.md`. Rely on the existing "normative and additive-only" sentence above the declaration to characterise the addition; do not re-author that contract note here. Do not edit the surrounding prose, the dedup-tuple statements, or any sibling-owned surface.
+
+## Solution constraints
+
+- Preserve every existing `RuntimeEvent` field (`kind`, `code`, `loom`, `query_site`, `message`, `attempts`, `tokens_used`, `masked`, `occurred_at`) verbatim — same name, type, optionality marker, inline comment, and order.
+- The `ActiveInvocationRegistry` entry-shape change, the dedup-tuple widening, the cancelled-by-session-shutdown details addition, and the sibling timing paragraph are owned by T19a, T19c, T19d, and T19e respectively.
+- Do not introduce a new diagnostic code, `details.kind` discriminator, aggregation surface, or storm-detection layer.
+
+## Relationships
+
+- T19a "Extend ActiveInvocationRegistry entry shape with invocationId" — co-resolve (this child consumes the field T19a sources).
+- T19c "Widen always-log dedup key to include invocation_id" — co-resolve.
+- T19d "Populate cancelled-by-session-shutdown details with invocation_id" — co-resolve.
+- T19e "Add real-time sibling emission timing paragraph" — co-resolve.
+- T20 "Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes" — same-cluster.
+- T18a "Append success-side null-policy paragraph to PIC Runtime event channel" — must-precede.
+- T15a "Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet" — same-cluster.

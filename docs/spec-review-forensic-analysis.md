@@ -385,3 +385,22 @@ human triage) can trace why the listed findings ended up in
 `spec-review-parked.md`.
 
 ---
+
+## 2026-05-16T05:31:39Z — T19b — Add invocation_id field to RuntimeEvent payload declaration
+
+- **Failure mode:** diverging
+- **Trajectory:** 5,1,7,7,9
+- **Passes:** 5
+- **Forensic report:** `.pi/tmp/spec-fix-failure-forensics/2026-05-15T18-46-12_c1e9c1/t19b-add-invocation-id-field-to-runtimeevent-payload-declaration.md` _(gitignored)_
+- **Parked findings (this run):** `T19b — Add invocation_id field to RuntimeEvent payload declaration`
+- **Loop notes:** T19b's literal field addition keeps generating fresh lens findings because the field's semantics are owned by the parked T19a/T19c/T19d/T19e siblings. Pass-3 placement move expanded the surface; pass 4 surfaced 9 fresh findings against it. Recommend parking T19b alongside T19a, or reshaping the finding to land after T19a/T19c install the registry source and dedup-tuple widening.
+- **Fixer notes:** none
+
+The detailed root-cause analysis, audit-vs-actual comparison, and
+ranked Immediate / Pipeline recommendations live in the gitignored
+forensic report cited above. This file records only the durable
+TL;DR pointer so future `/spec-review` regeneration runs (or future
+human triage) can trace why the listed findings ended up in
+`spec-review-parked.md`.
+
+---
