@@ -329,7 +329,7 @@ finding's next picker / audit / reshape pass).
 | `spec-review-fixer` (top-level) | Stop emitting class-3 in `## Scope guards (for inner loop)` section. |
 | `spec-diff-fixer` (inner) | No longer refuse fixes based on class-3 ScopeGuards. Class 1+2 still binding. |
 | `spec-diff-fix-loop` | ScopeGuards forwarded to inner fixer reduced to class 1+2 only. |
-| `docs/spec-review.md` + `docs/spec-review-parked.md` | Aggressive sweep (cheaper and more consistent). |
+| `docs/spec-review.md` + `docs/spec-review-parked.md` | Aggressive sweep — see workstream **W6** in §Implementation plan, executed by the disposable `spec-review-class3-stripper` agent specified in §Execution model. |
 
 ### Plan pipeline
 
@@ -831,6 +831,7 @@ output.
 | `impl-diff-fixer` | impl | Fixer split | Inner-loop fixer split from `fixer`. |
 | `impl-fix-failure-forensics` | impl | Symmetry backlog | Impl-side analogue of `spec-fix-failure-forensics`. |
 | `impl-review-parker` | impl | Symmetry backlog | Impl-side analogue of `spec-review-parker`. Requires `docs/impl-review-parked.md`. |
+| `spec-review-class3-stripper` | spec | B (W6 sweep) | One-off pi-loom doc-content migration agent. See `agents/spec-review-class3-stripper.md` in pi-config and §Workstream 6 below. Disposable — deleted by W6 step 5. |
 
 ### New STATUS codes per loop agent
 
@@ -874,11 +875,59 @@ Per-pipeline applicability follows from where the audit chain
 exists. The audit chain for plan and impl is in §Implementation
 plan as part of those pipelines' completion work.
 
+## Execution model
+
+§Implementation plan is executed by a Pi agent via the
+`/execute-prompt-subagent-changes` prompt in pi-config
+(`prompts/execute-prompt-subagent-changes.md`). That prompt is the
+authoritative source for repository layout, worktree-based branching,
+fast-forward merge discipline, subagent-extension limits, per-workstream
+dispatch patterns, and failure handling. This section names the
+moving parts; the driver prompt holds the mechanics.
+
+### Repositories
+
+- **`pi-config`** — canonical clone at
+  `~/.pi/agent/git/github.com/bitmonk8/pi-config/`. Owns all
+  agents (`agents/*.md`) and prompts (`prompts/*.md`). Every
+  agent-or-prompt edit from §Implementation plan (Changes A,
+  B-authoring, C1, D, C2; W4 renames; W5 rubrics; the driver
+  prompt and the disposable stripper agent) lands here.
+- **`pi-loom`** — this repository. Owns `docs/spec-review.md`,
+  `docs/spec-review-parked.md`, `docs/prompt-subagent-changes.md`
+  (this document), and the source spec docs. The Change B doc
+  sweep (W6) lands here. Future `docs/plan-review.md` /
+  `docs/impl-review.md` migrations land here too if those
+  documents come to exist.
+
+The canonical `pi-config` clone is governed by its own
+`AGENTS.md`: the working tree must stay clean on `main` because
+`pi update` runs `git pull` against it at any moment. The driver
+prompt honours this via per-workstream git worktrees in
+`~/.pi/agent/git-worktrees/`; the canonical clone is never touched
+except to fetch, fast-forward-merge, and push.
+
+### Subagent inventory introduced by the execution model
+
+| Artefact | Location | Purpose |
+|---|---|---|
+| `/execute-prompt-subagent-changes` | pi-config `prompts/` | Drives the plan end-to-end. Reads this document, orchestrates the six workstreams in dependency order. See the prompt itself for batched execution order, per-workstream dispatch, failure handling, and resumption protocol. |
+| `spec-review-class3-stripper` | pi-config `agents/` | One-off agent implementing the W6 per-file class-3 sweep. Classification rubric (class 1/2/3 decision procedure + worked examples) and output protocol live in the agent prompt itself. Disposable — deleted by W6 step 5. |
+
+No other new general-purpose agents are introduced by the
+execution model. The driver dispatches the existing `worker`
+agent (smart tier) for per-workstream orchestration; the sweep
+uses `spec-review-class3-stripper`; all other workstreams use
+the agents already listed in §Cross-pipeline rollup → New agents.
+
 ## Implementation plan
 
 Implementation is split into workstreams that can ship
 independently per pipeline. Within a pipeline, ordering is
-**A → B → C1 → D → C2**.
+**A → B → C1 → D → C2**. The execution mechanism (which agent
+runs each workstream, in which worktree, with what parallelism)
+is specified in §Execution model above and is referenced from
+each workstream below.
 
 ### Workstream 1 — spec pipeline
 
@@ -892,13 +941,18 @@ evidence. Ship in change order.
    STATUS. Update `/fix-spec-shape-single-findings`,
    `spec-fix-failure-forensics`, `spec-review-parker` to handle
    the new failure mode.
-2. **B** — stop authoring class-3 constraints in `/spec-review`,
-   `spec-review-shape-single-reducer`,
+2. **B (agent-side)** — stop authoring class-3 constraints in
+   `/spec-review`, `spec-review-shape-single-reducer`,
    `spec-review-finding-reducer`, `/reshape-spec-review`,
    `spec-review-finding-lens-auditor`, `spec-review-fixer`.
    Drop class-3 enforcement in `spec-diff-fixer` and
-   `spec-diff-fix-loop`. Aggressive sweep of `docs/spec-review.md`
-   + `docs/spec-review-parked.md`.
+   `spec-diff-fix-loop`. **The corresponding aggressive sweep
+   of `docs/spec-review.md` + `docs/spec-review-parked.md` is
+   split out as workstream W6** so the doc content migration is
+   trackable and parallelisable independently of the agent
+   edits. W6 must not start until this step lands on pi-config
+   `main` (otherwise the next `/spec-review` pass re-authors
+   class-3 constraints over the swept file).
 3. **C1** — declare tier in each `spec-lens-*`. Update
    `spec-diff-fix-loop` for staged dispatch + `STAGE:` /
    `STAGE_PASSES:` output. Make `spec-diff-fix-classifier`
@@ -1026,7 +1080,11 @@ across the three pipelines:
 - 6 `impl-lens-*-broad` (renamed from `review-lens-*-broad`)
 
 Execution model: dispatch one rubric-author agent per lens in
-parallel (38 concurrent tasks, batched per harness limits).
+parallel (38 concurrent tasks, batched per harness limits — see
+§Execution model → Subagent extension limits: max 16 tasks per
+`subagent` call, 8 concurrent in flight, so 38 lenses fan out
+as three sequential `subagent` calls of ≤16 tasks each, with
+glob fan-out `spec-lens-*` / `plan-lens-*` / `impl-lens-*`).
 Each agent reads the lens prompt, drafts the `## Scoring rubric`
 section, writes it back. Initial rubrics are approximate;
 fine-tuning per lens lands later as scoring distributions
@@ -1041,6 +1099,37 @@ findings. D is per-lens incrementally adoptable, not big-bang.
 Runs in parallel with workstream 4 — rubric authoring and bulk
 rename are orthogonal.
 
+### Workstream 6 — review-doc class-3 sweep
+
+Two-file sweep over pi-loom `docs/spec-review.md` (31
+`## Solution constraints` sections) and `docs/spec-review-parked.md`
+(11 sections), executed by the disposable
+`spec-review-class3-stripper` agent. Per-file fan-out
+(concurrency 2) — chosen over per-finding fan-out because the
+two target files are moderate in size and per-file concurrency
+avoids merge-tool risk of fanning 42 in-place rewrites into one
+markdown file.
+
+The sweep mechanics (worktree layout, two-repo coordination,
+verification checks, commit/merge/cleanup order, stripper
+deletion) live in `/execute-prompt-subagent-changes` §Step 3 in
+pi-config. The stripper's classification rubric (class 1/2/3
+decision procedure + worked examples + idempotency check) lives
+in `agents/spec-review-class3-stripper.md` in pi-config.
+
+**Dependency:** W6 step 3 may not begin until W1 step 2
+(B agent-side) has merged to pi-config `main`. W6 may run
+in parallel with W1 step 3 onward and with W2/W3/W5.
+
+**Plan and impl pipelines** — no analogous W6-plan / W6-impl is
+needed today. `docs/plan-review.md` does not yet exist; impl
+has no findings doc yet. Both pipelines' B-authoring changes
+are prophylactic for future content. If `docs/plan-review.md`
+is authored before W2's B step ships, a W6-plan sweep is
+required; spec it then as a copy of this workstream with the
+stripper agent parameterised on the target file (or generalise
+the agent at that point).
+
 ### Dependencies
 
 ```
@@ -1053,12 +1142,20 @@ Within each pipeline:
 
 W4 (renames + fixer split) ── runs after W3 stabilises
 W5 (rubric authoring)       ── runs in parallel with W4; required for D
+W6 (spec-review doc sweep)  ── runs after W1-step-2 (B agent-side) merges;
+                               parallel with W1 step 3+ and with W2/W3/W5
 ```
 
 W5 is a dependency of step "D" in each of W1, W2, W3, but only
 for the specific lens corpus that pipeline uses. So W5-spec must
 land before W1-step-4; W5-plan before W2-step-5; W5-impl before
 W3-step-5. These per-corpus blocks of W5 can ship independently.
+
+W6 has exactly one hard dependency (W1 step 2's agent-side
+class-3 stop). It is otherwise independent of every other
+workstream — it edits only pi-loom content and only two files.
+The driver prompt may dispatch W6 the moment W1 step 2 lands
+on pi-config `main`, even if the rest of W1 is still in flight.
 
 ## Accepted asymmetries
 
