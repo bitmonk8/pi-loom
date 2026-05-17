@@ -75,3 +75,26 @@ human triage) can trace why the listed findings ended up in
 `spec-review-parked.md`.
 
 ---
+
+## 2026-05-17T00:00:00Z — T22a1 — Session-binding contract sub-section in PIC: anchor, paraphrase, Pi-source citation, and spec.md forward-link
+
+- **Failure mode:** surface-expansion-irrecoverable
+- **Trajectory:** 2,1,2
+- **Score trajectory:** none vs S=n/a
+- **Passes:** 3
+- **Stage at exit:** 1 (3 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-16T23-05-10_ed2037`
+- **Poisoned fixes:** spec-lens-consistency:01
+- **Forensic report:** `c:/UnitySrc/pi-loom/.pi/tmp/spec-fix-failure-forensics/2026-05-16T17-52-36_347871/t22a1-session-binding-contract-sub-section-in-pic-anchor-paraphrase-pi-source-ci.md` _(gitignored)_
+- **Parked findings (this run):** `T22a1 — Session-binding contract sub-section in PIC: anchor, paraphrase, Pi-source citation, and spec.md forward-link, T22b — Multi-session contingency response is unspecified in Future Considerations, T22c — Pi version-bump procedure has no step for the session-binding contract, T15c — Lift Session-model scope deferrals into Non-goals (V1) section`
+- **Loop notes:** Two-strikes surface-expansion exit. Trajectory: pass1 fixCount=2; pass2 fixCount=1 (T22c-owned checklist extension refused on ScopeGuard 2); pass3 fixCount=1 (line-804 self-trip rewording); original-pass4 fixCount=3 score-sum jump 1→3 triggered detector; backtrack-and-exclude with poison spec-lens-consistency:01; replayed pass3 fixCount=2 again triggered detector (2 > 1.5×1) → two-strikes. Severity p1{medium:2}/{medium:2}/{}/{}; p2{high:1,medium:1}/{high:1}/{medium:1}/{}; p3{medium:1,NIT:1}/{medium:1,NIT:1}/{}/{}. Stage trajectory: stage1=3. Root cause: T22a1 routes detection of the named cardinality-regression class through editorial review, which trips the PIC bump-procedure catch-all MUST at line 804 requiring a same-edit checklist extension. ScopeGuard 2 reserves that extension for T22c. Both available remediations are infeasible in scope; recommended reshaping: drop the "editorial review on the same footing" routing clause, merge T22a1 with T22c, or split T22a1 so the cardinality-routing claim is removed from this fix.
+- **Fixer notes:** none
+
+The detailed root-cause analysis, audit-vs-actual comparison, and
+ranked Immediate / Pipeline recommendations live in the gitignored
+forensic report cited above. This file records only the durable
+TL;DR pointer so future `/spec-review` regeneration runs (or future
+human triage) can trace why the listed findings ended up in
+`spec-review-parked.md`.
+
+---
