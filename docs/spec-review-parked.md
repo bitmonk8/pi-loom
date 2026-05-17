@@ -328,3 +328,43 @@ In `docs/spec_topics/pi-integration-contract.md`, add one new loom-side consumpt
 - T22c "Pi version-bump procedure has no step for the session-binding contract" — same-cluster (Path B's bump-procedure audit step joins the (a)–(f) checklist T22c is also extending).
 - T23 "Pi's per-session slash-handler serialisation is asserted without a verifiable Pi source" — same-cluster (sibling SP-1.2 citation gap on Pi-side scheduling).
 
+
+---
+
+## T19e — Add real-time sibling emission timing paragraph
+
+> **PARKED** — 2026-05-17T03:19:02Z
+> **Reason:** The inner spec-diff-fix-loop diverged: the most recent pass produced more fix-class findings than the previous one. FIXCOUNTS: 8,4,3,2,2,3. Loop notes: Diverged at pass 6 (fixCount 2→3) while still in stage 1; pass-6 fixes were classified but not applied. T19e licenses unbounded normative prose about emission timing — each clarification opens new edge-cases lenses flag (classic SP-1 paragraph-spending). stage1=6.
+> **Forensic report:** .pi/tmp/spec-fix-failure-forensics/2026-05-16T17-52-36_347871/t19e-add-real-time-sibling-emission-timing-paragraph.md
+
+# T19e — Add real-time sibling emission timing paragraph
+
+**Kind:** error-model
+**Importance:** high
+**Atomicity:** atomic
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The **Runtime event channel** section in `docs/spec_topics/pi-integration-contract.md` pins exactly-once-per-origin emission semantics for `loom-system-note` always-log notes and lists Deduplication and lifetime rules, but does not pin emission timing across concurrent sibling invocations. An implementer reading the section could legally batch sibling always-log emissions until the parent's tool-loop round closes — deferring operator-visible failure timing — without violating any existing rule on the page. The omission also leaves V18q's concurrent-sibling emission tests without a normative anchor for whether sibling failures must surface in real time at the originating site.
+
+## Solution approach
+
+Extend the **Runtime event channel** section in `docs/spec_topics/pi-integration-contract.md` to pin the emission timing of sibling always-log notes on `loom-system-note`. The section must establish that each sibling emission surfaces in real time at its originating site (batching across the parent's tool-loop round is not permitted), with V18q's concurrent-sibling tests as the binding behavioural anchor. The relative interleaving order across concurrent sibling origins follows the host JavaScript runtime's event-loop scheduling and is operator-observable; no test asserts a specific cross-sibling interleaving sequence.
+
+## Solution constraints
+
+- Do not relocate or reword the existing paragraphs in the section.
+- The `ActiveInvocationRegistry` entry-shape change, the `RuntimeEvent` `invocation_id` wire field, the dedup-key widening, and the cancelled-by-session-shutdown details change are owned by T19a, T19b, T19c, and T19d respectively.
+- Do not introduce a new diagnostic code, `details.kind` discriminator, aggregation surface, or storm-detection layer.
+
+## Relationships
+
+- T19a "Extend ActiveInvocationRegistry entry shape with invocationId" — co-resolve.
+- T19b "Add invocation_id field to RuntimeEvent payload declaration" — co-resolve.
+- T19c "Widen always-log dedup key to include invocation_id" — co-resolve.
+- T19d "Populate cancelled-by-session-shutdown details with invocation_id" — co-resolve.
+- T20 "Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes" — same-cluster.
+- T18a "Append success-side null-policy paragraph to PIC Runtime event channel" — must-precede.
+- T15a "Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet" — same-cluster.

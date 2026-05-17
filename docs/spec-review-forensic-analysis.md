@@ -121,3 +121,26 @@ human triage) can trace why the listed findings ended up in
 `spec-review-parked.md`.
 
 ---
+
+## 2026-05-17T03:19:02Z — T19e — Add real-time sibling emission timing paragraph
+
+- **Failure mode:** diverging
+- **Trajectory:** 8,4,3,2,2,3
+- **Score trajectory:** 336,210,56,52,61,85 vs S=25
+- **Passes:** 6
+- **Stage at exit:** 1 (6 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-17T00-52-02_aa265e`
+- **Poisoned fixes:** spec-lens-assumptions:01,spec-lens-assumptions:02,spec-lens-completeness:03,spec-lens-completeness:04,spec-lens-traceability:05
+- **Forensic report:** `c:/UnitySrc/pi-loom/.pi/tmp/spec-fix-failure-forensics/2026-05-16T17-52-36_347871/t19e-add-real-time-sibling-emission-timing-paragraph.md` _(gitignored)_
+- **Parked findings (this run):** `T19e — Add real-time sibling emission timing paragraph`
+- **Loop notes:** Diverged at pass 6 (fixCount 2→3) while still in stage 1; pass-6 fixes were classified but not applied. T19e licenses unbounded normative prose about emission timing — each clarification opens new edge-cases lenses flag (classic SP-1 paragraph-spending). stage1=6.
+- **Fixer notes:** none
+
+The detailed root-cause analysis, audit-vs-actual comparison, and
+ranked Immediate / Pipeline recommendations live in the gitignored
+forensic report cited above. This file records only the durable
+TL;DR pointer so future `/spec-review` regeneration runs (or future
+human triage) can trace why the listed findings ended up in
+`spec-review-parked.md`.
+
+---
