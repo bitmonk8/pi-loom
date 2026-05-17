@@ -17,15 +17,24 @@ HEADLINE: W1 ships every architectural change the prior meta-analysis
           score budget. Of 11 findings unparked in cc91b23/44f2c5e
           to re-test under W1: 1 converged (T19c), 2 remain queued
           (T20, T15b), and 9 re-terminated. New failure-mode taxonomy
-          is more diagnostic; convergence rate did not improve.
-ROOT CAUSE: every audit-gate recommendation from the prior
-            meta-analysis (recs 1–3, rated 3/3 forensic coverage)
-            was NOT implemented in W1. The pre-flight audit still
-            returns LOW/NO_ACTION/AUTO_RESHAPE on findings the
-            inner loop then takes 0–6 passes to fail; 5 of 6 W1
-            re-attempts had audit verdicts that were 100% false
-            negatives.
-GENERATED: 2026-05-17T08:30:00Z
+          is more diagnostic; **fix rate did not improve**.
+ROOT CAUSE: the dominant W1 mechanics (Change A severity triage,
+            Change D score budget, Change C2 backtracking) are
+            failure-detection improvements, not fix-rate improvements.
+            They catch the same impasses faster and with better error
+            codes but do not convert any failure into a fix. The one
+            fix-rate-positive W1 change (Change B class-3 sweep)
+            closed T19c and introduced a T19e regression. To raise
+            the fix rate the dominant levers are upstream of the
+            pipeline: reshape the parked findings (pi-loom rec G,
+            FIX 6/6) and add cluster-resolution mode for tight
+            producer/consumer graphs (rec F, FIX 4/6). Audit-side
+            grepping (prior meta-analysis recs 1–3, this doc rec A)
+            is DIAG-only and does not change the fix rate; it was
+            mis-ranked as the top recommendation in the previous
+            revision of this document and corrected in §8.0.
+GENERATED: 2026-05-17T08:30:00Z (revised 2026-05-17T11:00:00Z to
+           correct the fix-rate-vs-failure-detection misframing)
 ```
 
 ## Sources
@@ -496,31 +505,123 @@ the reports.
 
 ## 8. Ranked recommendations
 
-Recommendations are partitioned by which repository owns the change.
-Within each partition, rows are ranked by **coverage** — how many of
+### 8.0 Two metrics, not one
+
+The goal is to **raise the fix rate** (findings that converge and land
+a spec edit), not to **lower the failure rate** (findings the pipeline
+rejects, parks, or routes to HUMAN_REVIEW). These are different
+problems and most of the recommendations the prior meta-analysis
+surfaced — and a chunk of what I drafted in the previous revision —
+address the second, not the first. A correction is in order.
+
+- **Fix rate ↑ (FIX)** = the recommendation converts a current failure
+  into a convergence. The finding lands in `docs/spec.md` instead of
+  in `docs/spec-review-parked.md`.
+- **Diagnostic rate ↑ (DIAG)** = the recommendation catches the same
+  failure earlier or with a more actionable error code. The finding
+  still ends up parked, but with less wasted compute and a clearer
+  reshape instruction for the human.
+
+DIAG recommendations are valuable for human throughput (less time
+reading per-pass artefacts) and for ops cost (fewer inner-loop passes
+burned). They are not valuable for fix rate. **Recs marked DIAG
+below should not be confused with progress toward the user's stated
+goal.**
+
+The ranking has been redone with **fix-rate impact as the primary
+metric**; diagnostic-only recs are surfaced separately and explicitly
+labelled. The numbers in parentheses (`N/6`) now count how many of
 the 6 W1 re-attempt failures (T19a, T19b, T19d, T19e, T21, T22a1) the
-recommendation would have prevented if it had been live. `6/6` means
-every re-attempt would have avoided re-parking.
+recommendation **converts into a converging fix**, not how many it
+merely catches faster.
 
 **Repo-ownership at a glance:**
 
-| Rec | Title | Coverage | pi-loom only | pi-config only | Both |
-|---|---|---:|:-:|:-:|:-:|
-| A | Audit-side gate upgrade (A.1–A.6) | 6/6 | | ✓ | |
-| B | Content-keyed C2 poisoning index | 4/6 | | ✓ | |
-| D | Cumulative-score budget (ΣΣ vs k·S) | 3/6 | | ✓ | |
-| E | Class-3 sweep regression mitigation (pipeline side) | 1/6 | | ✓ | |
-| C | `produces:` / `consumes:` Relationships taxonomy | 4/6 | | | ✓ |
-| F | `Shape: multiple` resolution for tight clusters | 3/6 | | | ✓ |
-| G | Reshape parked findings (per-finding, immediate) | 4/6 | ✓ | | |
-| H | Re-annotate T19e with explicit prose-budget constraint | 1/6 | ✓ | | |
-| I | Wait-then-retry T20 + T15b under W1 (queued, not failed) | 0/6¹ | ✓ | | |
+| Rec | Title | Metric | Fix coverage | DIAG coverage | pi-loom | pi-config | Both |
+|---|---|---|---:|---:|:-:|:-:|:-:|
+| G | Reshape parked findings per their forensic reports | **FIX** | 6/6 | 6/6 | ✓ | | |
+| F | `Shape: multiple` resolution for tight clusters | **FIX** | 4/6 | 4/6 | | | ✓ |
+| C | `produces:` / `consumes:` Relationships taxonomy | **FIX**¹ | 0–2/6 | 4/6 | | | ✓ |
+| B | Content-keyed C2 poisoning index | **FIX** | 1/6 | 2/6 | | ✓ | |
+| H | Re-annotate T19e with explicit prose-budget constraint | **FIX** | 1/6 | 1/6 | ✓ | | |
+| E | ProseBudget field (pipeline support for H) | **FIX** | 1/6² | 1/6 | | ✓ | |
+| A | Audit-side gate upgrade (A.1–A.6) | **DIAG** | 0–1/6³ | 6/6 | | ✓ | |
+| D | Cumulative-score budget (ΣΣ vs k·S) | **DIAG** | 0/6 | 3/6 | | ✓ | |
+| I | Re-dispatch queued T20 + T15b | process | n/a | n/a | ✓ | | |
 
-¹ T20 and T15b have not yet been dispatched under W1; recommendation I
-is a process step, not a defect fix — included for completeness.
+¹ Rec C alone produces a fix only in combination with G or F (it
+lets the dispatcher schedule T19d after T19a, etc., but the producer
+still has to land first).
+² Rec E ships the field; the actual T19e fix-rate impact comes from
+H using it. E without H is fix-rate-neutral.
+³ Rec A's sub-rec A.4 (Pattern-N auto-reshape into split + explicit
+deferral) could in principle convert T19e from failure to fix, but
+only if the auto-reshaper produces a converging shape — which is
+basically what H does manually. Counting A's fix coverage as
+optimistic-1 / pessimistic-0.
 
-The three partitions follow. Each entry restates the coverage number
-and names the exact file(s) that change.
+**Read in one sentence:** the only recommendations that meaningfully
+improve the fix rate are **G** (reshape the parked findings, pi-loom
+only, immediate) and **F** (cluster-mode resolution, both repos,
+larger change). Everything else either supports those (C, E, H, B) or
+improves diagnostic quality without affecting whether anything
+converges (A, D).
+
+### 8.0a Why audit-side checks don't improve the fix rate
+
+For explicitness, since this was the dominant misframing in the
+previous revision:
+
+- An audit-time grep against `spec-review-parked.md` flips four lens
+  dimensions to `RISK_HIGH` and emits an `AUTO_RESHAPE` or
+  `HUMAN_REVIEW` verdict. The finding does not enter the inner loop.
+  The finding is then either reshaped (still by a human or by the
+  auto-reshaper, with no new convergence signal) or routed to
+  HUMAN_REVIEW (where it sits until the human acts). The convergence
+  outcome is unchanged — the finding still cannot be auto-fixed by
+  the loop as authored.
+- A field-existence grep against the spec corpus that downgrades
+  T19d's verdict to `RISK_HIGH` does not give the fixer a way to read
+  a field that does not exist. It tells the human "this won't work";
+  the human still has to land T19a (or fuse the cluster, or reshape
+  T19d) before T19d converges.
+- A D-mode budget projection that warns T21's heavy branch will
+  exceed S=25 tells the human "this won't fit"; the human still has
+  to split T21 or raise its score before T21 converges.
+
+The audit gate is the cheapest place to **prevent wasted loop time**;
+it is not the cheapest place to **convert a failure into a fix**
+because it does not change the finding's text or the pipeline's
+ability to satisfy the finding. **Converting failures into fixes
+requires either (a) reshaping the finding so the loop can satisfy it
+(rec G) or (b) extending the pipeline so it can satisfy more finding
+shapes (recs B, E, F).**
+
+### 8.0b Why the W1 changes themselves were a mix
+
+The W1 changes already shipped to pi-config divide along the same
+seam:
+
+- **FIX-rate-positive:** Change B (drop class-3 authoring) closed
+  T19c's top-level refusal — that's the 1/10 W1 convergence. Change
+  C1 (staged lenses) reduced spurious early-stage cascades. Change C2
+  (backtrack on surface expansion) tries to convert surface
+  expansions into fixes via backtrack-and-exclude before exiting; on
+  T19a + T22a1 the backtrack ran but the slot-keyed poisoning index
+  defeated the re-execution attempt.
+- **DIAG-only:** Change A (severity-weighted triage) catches blocker
+  collisions with `must-fix-blocked-by-scope-guard` instead of
+  burning passes. Change D (per-pass score budget) catches
+  budget-exhausted findings with explicit S/Σ arithmetic instead of
+  limit-cycling. Both are strictly diagnostic.
+
+Net W1 fix-rate impact: +1 (T19c). Net W1 diagnostic improvement:
+universal (every failure now has a richer forensic report and a
+faster exit). **W1 is exactly what its mix of FIX and DIAG mechanics
+predicts.**
+
+The three partitions follow. Each entry restates its fix-coverage and
+diagnostic-coverage numbers and names the exact file(s) that change.
 
 ---
 
@@ -530,12 +631,21 @@ These are loop-side or audit-side pipeline changes. Once shipped via
 `pi update`, every consuming project (pi-loom, ImportService, future
 projects) benefits without per-project work.
 
-**A. (6/6) Audit-side gate upgrade.** Implement the prior
-meta-analysis's three audit recs plus four post-W1-empirical
+**A. (FIX 0–1/6 — DIAG 6/6) Audit-side gate upgrade.** Implement the
+prior meta-analysis's three audit recs plus four post-W1-empirical
 refinements. Per-finding audit cost: ~30s of grep per audit pass.
 Per-finding pipeline savings: every re-attempt that currently exits
 anywhere between top-level-fixer and inner-loop pass N exits at audit
 time instead.
+
+**Fix-rate caveat:** rec A is almost entirely diagnostic. It catches
+the same failures earlier with better error codes; it does not make
+any current failure converge. The single FIX-rate-positive sub-rec is
+A.4 (Pattern-N auto-reshape into split + explicit deferral), and only
+if the auto-reshaper produces a shape that converges — which is
+basically the same work as rec H done by the model instead of the
+human. Count A as DIAG-first; ship it for human-throughput reasons,
+not for fix-rate reasons.
 
 Files changed (all under `pi-config`):
 
@@ -593,10 +703,21 @@ Concrete sub-recommendations:
   the just-parked finding. **Coverage: T19b (when T19a parked
   mid-batch).**
 
-**B. (4/6) Content-keyed C2 poisoning index.** Replace `<lens>:<NN>`
-identifier with `(file_path, normalised_section_anchor,
-normalised_proposed_remediation_hash)`. Stable normalisation;
-index maintained across restore-and-re-execute.
+**B. (FIX 1/6 — DIAG 2/6) Content-keyed C2 poisoning index.** Replace
+`<lens>:<NN>` identifier with `(file_path, normalised_section_anchor,
+normalised_proposed_remediation_hash)`. Stable normalisation; index
+maintained across restore-and-re-execute.
+
+**Fix-rate analysis:** T19a's loop was *actively trying to converge*
+— C2 backtracking correctly fired at pass 4, poisoned the offending
+fixes, and re-executed; the re-execution then accepted an
+equivalent-content emission under a different NN slot and the loop
+limit-cycled on the resurrected defect. With content-keyed poisoning,
+the re-emission would have been suppressed and the loop would have
+continued without the bad fix; the trajectory `2,3,3,4,3` suggests
+convergence was plausible. Fix-rate coverage **1/6 (T19a)**, with
+T22a1 marked DIAG only because its underlying impasse (R1+R2+R3
+empty intersection) is structural, not poisoning-related.
 
 Files changed (all under `pi-config`):
 
@@ -614,11 +735,17 @@ Files changed (all under `pi-config`):
 T22a1 directly (replay pass 3' re-emission under different lens);
 preventive on T19b and T19e for the same pathology shape.**
 
-**D. (3/6) Cumulative-score budget.** Promote the per-pass D-mode
-Σ-vs-S budget to a cumulative `ΣΣ = sum(scoreSum[1..pass])` budget
-checked against `k×S` (suggested `k = 3`). Catches the cost of
-re-paying to detect-and-exclude the same defect cluster across
-passes.
+**D. (FIX 0/6 — DIAG 3/6) Cumulative-score budget.** Promote the
+per-pass D-mode Σ-vs-S budget to a cumulative
+`ΣΣ = sum(scoreSum[1..pass])` budget checked against `k×S` (suggested
+`k = 3`). Catches the cost of re-paying to detect-and-exclude the
+same defect cluster across passes.
+
+**Fix-rate caveat:** rec D is strictly diagnostic. It exits T19a /
+T19b / T19e earlier with a clearer error, but the exits are still
+failures. Ship for ops-cost reasons; do not expect fix-rate
+movement. Lower priority than A (which has at least an optimistic-1
+fix-rate read via A.4).
 
 Files changed (all under `pi-config`):
 
@@ -638,7 +765,8 @@ Files changed (all under `pi-config`):
 T19e partially (would have exited at pass 4 instead of 6). T19b
 partially (would have exited at stage 2 pass 5 instead of 6).**
 
-**E. (1/6) Class-3 sweep regression mitigation — pipeline side.**
+**E. (FIX 1/6 paired with H — DIAG 1/6) Class-3 sweep regression
+mitigation — pipeline side.**
 Either demote class 3 from constraint to hint (per prior
 meta-analysis's §B fallback), or extend `spec-review-finding-reducer`
 to emit an explicit prose-budget annotation field on findings whose
@@ -669,11 +797,17 @@ They unblock the live `docs/spec-review.md` but do not change the
 pipeline mechanics; the same shape problem on a future project would
 recur until a pi-config rec landed.
 
-**G. (4/6) Reshape parked findings per their forensic-report
-recommendations.** Each W1 forensic report ends with a `## Immediate
-(this finding)` subsection listing one to three reshape options. The
-user has the implementer view and is the only party who can pick
-between them.
+**G. (FIX 6/6 — DIAG 6/6) Reshape parked findings per their
+forensic-report recommendations.** Each W1 forensic report ends with
+a `## Immediate (this finding)` subsection listing one to three
+reshape options. The user has the implementer view and is the only
+party who can pick between them.
+
+**This is the single highest-fix-rate recommendation in the document.**
+Each reshape directly addresses the structural impasse the forensic
+report identifies. Doing rec G alone closes every current W1
+failure; doing any other recommendation without G leaves the parked
+findings parked.
 
 Files changed (all under `pi-loom`):
 
@@ -699,8 +833,8 @@ reshape lands and is fixed; no separate action.
 reshape closes the specific structural impasse named in the forensic
 report.**
 
-**H. (1/6) Re-annotate T19e with an explicit prose-budget
-constraint.** Stop-gap pending pi-config rec E. Replace the swept
+**H. (FIX 1/6 — DIAG 1/6) Re-annotate T19e with an explicit
+prose-budget constraint.** Stop-gap pending pi-config rec E. Replace the swept
 class-3 guards on T19e with a class-2-shaped budget bullet under
 `## Solution constraints`, e.g.:
 
@@ -722,8 +856,8 @@ fixer's scope-guard discipline already honours class 2.
 
 **Coverage: T19e directly.**
 
-**I. (0/6 — process step, not defect fix) Re-dispatch T20 and T15b
-under W1.** Both findings were unparked but the W1 re-run did not
+**I. (process step, not a defect fix) Re-dispatch T20 and T15b under
+W1.** Both findings were unparked but the W1 re-run did not
 reach them before the context graceful-stop fired. They remain live in
 `docs/spec-review.md`. Run `/fix-spec-shape-single-findings` again
 (picker walks bottom-up; T20 + T15b will surface in their natural
@@ -736,13 +870,21 @@ automatically via the orchestrator).
 
 ### 8.3 Recommendations requiring changes in both repos
 
-**C. (4/6) `produces:` / `consumes:` Relationships taxonomy
-extension.** Add explicit producer/consumer fields to the
-Relationships taxonomy so the read-channel dependency T19a→T19d
-(among others) is carried structurally rather than parenthetically.
-Lets the dispatcher establish a topological order on the picker
-queue; lets the parker propagate parking on producer parking; lets
-the auditor flag consumers when producers are parked.
+**C. (FIX 0–2/6 only when combined with G or F — DIAG 4/6)
+`produces:` / `consumes:` Relationships taxonomy extension.** Add
+explicit producer/consumer fields to the Relationships taxonomy so
+the read-channel dependency T19a→T19d (among others) is carried
+structurally rather than parenthetically. Lets the dispatcher
+establish a topological order on the picker queue; lets the parker
+propagate parking on producer parking; lets the auditor flag
+consumers when producers are parked.
+
+**Fix-rate caveat:** C is fix-rate-positive *only* in combination
+with G (a producer reshape that converges) or F (cluster mode that
+lands producer + consumer together). C without those just gives the
+dispatcher better scheduling information for findings the loop still
+cannot satisfy individually. Ship after G or alongside F; not
+standalone.
 
 Files changed in **pi-config**:
 
@@ -768,12 +910,22 @@ Files changed in **pi-loom**:
 **Coverage: T19b, T19d directly; T22a1 (forward-link consumers);
 T19e (implicit consumer of T19a's invocation_id field).**
 
-**F. (3/6) `Shape: multiple` resolution mode for tight clusters.**
-Authorise the picker + outer prompt + top-level fixer to operate on
-more than one finding at a time when their Relationships edges form
-a strongly-connected component over `co-resolve` / `produces:` /
-`consumes:` / `same-cluster`. One fixer pass lands the whole cluster's
-edits; the inner loop sees one stable post-edit state.
+**F. (FIX 4/6 — DIAG 4/6) `Shape: multiple` resolution mode for
+tight clusters.** Authorise the picker + outer prompt + top-level
+fixer to operate on more than one finding at a time when their
+Relationships edges form a strongly-connected component over
+`co-resolve` / `produces:` / `consumes:` / `same-cluster`. One fixer
+pass lands the whole cluster's edits; the inner loop sees one stable
+post-edit state.
+
+**Fix-rate analysis:** the T19a/b/d cluster fails one finding at a
+time under the per-finding architecture; under F it converges as one
+transaction because all the producer/consumer edges land
+simultaneously and the inner loop never sees an intermediate state
+where `entry.invocationId` is referenced but not declared.
+Fix-coverage **4/6** (T19a, T19b, T19d in one cluster; T19e if the
+cluster is widened to include emission-timing). T21 and T22a1 are
+standalone and do not benefit from F.
 
 Files changed in **pi-config**:
 
@@ -851,40 +1003,52 @@ post-W1-empirical refinements documented in §5 (sub-recs A.1–A.6 above)
 that the prior meta-analysis could not have anticipated because the
 empirical evidence for them came from W1's own forensic reports.
 
-Priority order for the next iteration, partitioned by repo (see
-§8.1–8.3 for exact files):
+Priority order for the next iteration, **ranked by fix-rate impact**
+(not by failure-detection improvement). Recs G, F, B, E+H produce
+actual convergence; recs A, D, C produce diagnostics. The split
+between pi-loom and pi-config is preserved within each tier.
 
-**In pi-loom (immediate, no pi-config changes needed):**
+**Tier 1 — directly raise the fix rate (do these first):**
 
-1. **Rec G** — reshape parked findings per their forensic-report
-   recommendations. Lowest cost, fastest live-doc unblock. Pick one
-   reshape per parked finding from the per-finding table in §8.2.
-2. **Rec H** — re-annotate T19e with explicit prose-budget class-2
-   constraint. Stop-gap for pi-config rec E; pure pi-loom edit.
-3. **Rec I** — re-run `/fix-spec-shape-single-findings` to dispatch
-   the queued T20 + T15b, surface any new forensic reports.
+1. **Rec G** (pi-loom only, FIX 6/6) — reshape parked findings per
+   the per-finding picks in §8.2. Single highest-leverage action.
+   Lowest cost (one human pick per parked entry). Unblocks every
+   current W1 failure.
+2. **Rec F** (both repos, FIX 4/6) — `Shape: multiple` resolution
+   mode for the T19a/b/d (+ optionally e) cluster. Larger
+   implementation cost but converts a cluster of failures into one
+   convergence. Lands the structural answer to the per-finding
+   architecture mismatch.
+3. **Rec B** (pi-config only, FIX 1/6) — content-keyed C2 poisoning
+   index. Lets T19a converge under its current shape (the loop was
+   already trying; the poisoning index was wrong).
+4. **Rec E + H** (both repos, FIX 1/6) — ProseBudget field in
+   pi-config + T19e re-annotation in pi-loom. Closes T19e.
 
-**In pi-config (next implementation wave):**
+**Tier 2 — improve diagnostic quality (do these for ops cost, not
+fix rate):**
 
-4. **Rec A** — audit-side gate upgrade (sub-recs A.1–A.6). Highest
-   leverage, cheapest cost; all six W1 failures would have exited at
-   audit time. Ship this before any other pi-config rec.
-5. **Rec B** — content-keyed C2 poisoning index. Closes the
-   re-emission-under-different-NN hole T19a and T22a1 hit.
-6. **Rec E** — class-3 sweep regression mitigation (hint-class or
-   ProseBudget field). Pairs with pi-loom rec H to close T19e.
-7. **Rec D** — cumulative-score budget. Lower coverage; defer pending
-   rec A's empirical impact before adding another exit branch.
+5. **Rec A** (pi-config only, FIX 0–1/6 — DIAG 6/6) — audit-side
+   gate upgrade. Catches the same failures earlier with better error
+   codes. Cheapest implementation; biggest impact on wasted compute.
+   Do **not** ship A in place of G; do them in parallel.
+6. **Rec D** (pi-config only, FIX 0/6 — DIAG 3/6) — cumulative-score
+   budget. Lowest priority; exits earlier on failures G has not yet
+   reshaped.
+7. **Rec C** (both repos, FIX 0–2/6 conditional on G or F) —
+   `produces:` / `consumes:` taxonomy. Ship after G or alongside F
+   so it has fixed producers to schedule consumers against.
 
-**In both repos (later; depends on pi-config taxonomy support):**
+**Tier 3 — process / hygiene:**
 
-8. **Rec C** — `produces:` / `consumes:` Relationships taxonomy. Ship
-   the pi-config side first (parser tolerates absent fields); backfill
-   pi-loom findings opportunistically.
-9. **Rec F** — `Shape: multiple` resolution mode. Highest implementation
-   cost; resolves the structural mismatch between cluster-level
-   findings and per-finding pipeline architecture. Ship after rec C
-   so the SCC detection has explicit producer/consumer edges to walk.
+8. **Rec I** (pi-loom only) — re-dispatch queued T20 + T15b under W1
+   to surface any new forensic reports.
+
+If only one item from this list is actioned, the recommendation is
+**rec G**. If only one pi-config item, **rec F** (highest fix-rate
+in the package). The single-line summary: **the fix-rate problem is
+upstream of the pipeline; the parked findings need reshape work the
+pipeline cannot infer.**
 
 ## Appendix — file and artifact references
 
