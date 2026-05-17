@@ -98,3 +98,26 @@ human triage) can trace why the listed findings ended up in
 `spec-review-parked.md`.
 
 ---
+
+## 2026-05-17T00:46:41Z — T21 — Pi-side slash-handler promise lifecycle taken as given
+
+- **Failure mode:** must-fix-blocked
+- **Trajectory:** n/a
+- **Score trajectory:** none vs S=25
+- **Passes:** 0
+- **Stage at exit:** 1 (0 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-17T00-26-01_25ea54`
+- **Poisoned fixes:** n/a
+- **Forensic report:** `c:/UnitySrc/pi-loom/.pi/tmp/spec-fix-failure-forensics/2026-05-16T17-52-36_347871/t21-pi-side-slash-handler-promise-lifecycle-taken-as-given.md` _(gitignored)_
+- **Parked findings (this run):** `T21 — Pi-side slash-handler promise lifecycle taken as given`
+- **Loop notes:** Classifier exited on score-budget-exhausted (Change D); S=25, Σ=35, breach-margin=10, 3 non-blocker raised findings counted toward the budget (consistency medium=25, completeness low=5, implementability low=5). Per-pass severity p1 raised{medium:3,low:3} fixed{medium:2,low:1} deferred{} blocked{medium:1,low:2}; sub-rationale score-budget-exhausted; stage1=0. The score budget detector classifies T21's fix as introducing more critique surface than the originating finding admits — the originating finding's score (25) is small relative to the cumulative score (35) of raised side-findings on the first pass. Recommended human reshaping: either narrow T21 further (drop one of Path A vs Path B and inline that choice into the recommendation), or split T21 so each child finding's score budget exceeds its raised surface.
+- **Fixer notes:** none
+
+The detailed root-cause analysis, audit-vs-actual comparison, and
+ranked Immediate / Pipeline recommendations live in the gitignored
+forensic report cited above. This file records only the durable
+TL;DR pointer so future `/spec-review` regeneration runs (or future
+human triage) can trace why the listed findings ended up in
+`spec-review-parked.md`.
+
+---

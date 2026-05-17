@@ -289,3 +289,42 @@ Verify that both deferrals appear in the V1 non-goals aggregator at anchor `id="
 - T15b "Move concurrency semantics into Extension Architecture / Implementation Notes Concurrency-model subsection" — co-resolve (sibling restructure of the same paragraph).
 - T38 "Non-goals are not consolidated into a single section" — must-follow (the lift target only exists once T38 lands).
 - T22b "Multi-session contingency response is unspecified in Future Considerations" — co-resolve (T22b proposes a forward-link from the closing scope sentence to `future-considerations.md#v1-non-goals`; the lift performed here is the natural target for that forward-link).
+
+---
+
+## T21 — Pi-side slash-handler promise lifecycle taken as given
+
+> **PARKED** — 2026-05-17T00:46:41Z
+> **Reason:** The inner spec-diff-fix-loop's severity-weighted triage exited on must-fix-blocked-by-scope-guard (plan §Change A clause 1 escape): a raised lens finding outranked this originating finding in importance, but every viable remediation would violate a class-1 or class-2 scope guard forwarded from the top-level fixer. FIXCOUNTS: none. Loop notes: Classifier exited on score-budget-exhausted (Change D); S=25, Σ=35, breach-margin=10, 3 non-blocker raised findings counted toward the budget (consistency medium=25, completeness low=5, implementability low=5). Per-pass severity p1 raised{medium:3,low:3} fixed{medium:2,low:1} deferred{} blocked{medium:1,low:2}; sub-rationale score-budget-exhausted; stage1=0. The score budget detector classifies T21's fix as introducing more critique surface than the originating finding admits — the originating finding's score (25) is small relative to the cumulative score (35) of raised side-findings on the first pass. Recommended human reshaping: either narrow T21 further (drop one of Path A vs Path B and inline that choice into the recommendation), or split T21 so each child finding's score budget exceeds its raised surface. A human must resolve the guard-vs-severity collision (relax the guard, split this finding so the higher-importance raised finding is no longer downstream of the guard, or accept the trade-off and annotate the raised finding as out-of-scope) before re-introducing this finding.
+> **Forensic report:** .pi/tmp/spec-fix-failure-forensics/2026-05-16T17-52-36_347871/t21-pi-side-slash-handler-promise-lifecycle-taken-as-given.md
+
+# T21 — Pi-side slash-handler promise lifecycle taken as given
+
+**Kind:** assumptions
+**Importance:** medium
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The runtime side of the slash-command cancellation chain is fully pinned: the **Cancellation source** section (`id="cancellation-source"`) of `docs/spec_topics/pi-integration-contract.md` and the orientation Session model paragraph (`id="session-model"`) of `docs/spec.md` together specify that `ctx.signal` triggers `loomAbort.abort(reason)`, that the symmetric direction unblocks `await ctx.waitForIdle()`, and that the `session_shutdown` handler awaits `Promise.allSettled(activeInvocations.map(inv => inv.disposeBarrier))`. The Pi side of the same chain is not pinned anywhere: nothing states whether Pi awaits the slash-handler promise for the full invocation, whether Pi imposes an internal deadline, or whether `ctx.signal` is Pi's only out-of-band interaction with the in-flight handler. SDK capability inventory item 5 (`id="sdk-cap-cancellation-propagation"`) only requires that Pi *supplies* the `AbortSignal` at the two entry points. A reader cross-checking the cancellation chain has nothing to verify against, and a future Pi change in this area would not be caught by any spec gate.
+
+## Solution approach
+
+In `docs/spec_topics/pi-integration-contract.md`, add one new loom-side consumption-posture paragraph inside the **Cancellation source** section under `id="cancellation-source"`, immediately following the existing `ctx.signal` JSDoc quote, naming the three loom-side presuppositions about Pi's slash-handler scheduling (Pi awaits the handler's returned `Promise` for the full invocation including any time after `ctx.signal` aborts; Pi imposes no internal deadline; `ctx.signal` is Pi's only out-of-band interaction with the in-flight handler). Resolve the paragraph's citation slot via **exactly one** of two paths under the boundary-discipline-at-external-entities principle (SP-1; see `docs/spec-principles.md`): **Path A** — a Pi-side source citation against the `@mariozechner/pi-coding-agent` SDK pin; or **Path B** — a best-effort disclaimer naming the SDK pin version plus a corresponding audit-step item appended to the editorial-review checklist under `id="pi-version-bump-procedure"`. Frame the paragraph strictly in loom-consumption voice; do not author Pi-side guarantees.
+
+## Solution constraints
+
+- The new paragraph uses loom-side voice (SP-1.1): no `Pi MUST`, `Pi SHALL`, or `Pi REQUIRED`, and no paraphrase of Pi behaviour in spec voice.
+- Resolve the citation slot by exactly one of Path A or Path B (SP-1.2 / SP-1.4) — no middle path. Path A: a Pi-side citation against the `@mariozechner/pi-coding-agent` SDK pin (file path plus symbol or named section, no line numbers, byte offsets, or commit hashes). Path B: a best-effort disclaimer naming the SDK pin version, paired with a corresponding lettered audit-step item appended to the editorial-review checklist under `id="pi-version-bump-procedure"` linking to the new paragraph's anchor. If a fix-loop pass cannot decide between A and B, prefer B over speculative paraphrase.
+- Item (f) of the `id="pi-version-bump-procedure"` editorial-review checklist is owned by T22c — do not pre-install or relocate it here.
+- Do not widen SDK capability inventory item 5 (`id="sdk-cap-cancellation-propagation"`) — or any other capability-inventory item — to add a clause about handler-promise settle time, internal deadline, force-resolve, abandon, or detach. Capability-inventory items enumerate behavioural surfaces the loom probes at entry, not Pi-side guarantees authored by this spec.
+- The `tool.execute(...)` adapter promise lifecycle and any extension of the cancellation chain into `docs/spec_topics/cancellation.md` are out of scope here.
+
+## Relationships
+
+- T22a "Single-active-session premise lacks a Pi-source citation in PIC" — same-cluster (parallel SP-1.2 citation pattern; T22a's resolution may produce the citation-search recipe Path A reuses).
+- T22b "Multi-session contingency response is unspecified in Future Considerations" — same-cluster.
+- T22c "Pi version-bump procedure has no step for the session-binding contract" — same-cluster (Path B's bump-procedure audit step joins the (a)–(f) checklist T22c is also extending).
+- T23 "Pi's per-session slash-handler serialisation is asserted without a verifiable Pi source" — same-cluster (sibling SP-1.2 citation gap on Pi-side scheduling).
+
