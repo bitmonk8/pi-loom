@@ -144,3 +144,28 @@ human triage) can trace why the listed findings ended up in
 `spec-review-parked.md`.
 
 ---
+
+## 2026-05-17 — MULTI: T19a — Extend ActiveInvocationRegistry entry shape with invocationId; T19b — Add invocation_id field to RuntimeEvent payload declaration; T19d — Populate cancelled-by-session-shutdown details with invocation_id; T19e — Add real-time sibling emission timing paragraph
+
+- **Cluster mode (rec F):** yes
+- **Cluster members:** 4
+- **Failure mode:** must-fix-blocked
+- **Trajectory:** n/a
+- **Score trajectory:** n/a vs S=25
+- **Passes:** 0
+- **Stage at exit:** 1 (0 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-17T21-29-55_b555b7`
+- **Poisoned fixes:** n/a
+- **Forensic report:** `.pi/tmp/spec-fix-failure-forensics/2026-05-17T16-41-31_b4324e/multi-t19a-extend-activeinvocationregistry-entry-shape-with-invocationid-t19b-ad.md` _(gitignored)_
+- **Parked findings (this run):** `T19a — Extend ActiveInvocationRegistry entry shape with invocationId, T19b — Add invocation_id field to RuntimeEvent payload declaration, T19d — Populate cancelled-by-session-shutdown details with invocation_id, T19e — Add real-time sibling emission timing paragraph`
+- **Loop notes:** Cluster-mode (MULTI: T19a/T19b/T19d/T19e). Classifier exited on score-budget-exhausted (Change D clause 3): origin score S=25 (default-medium; heading absent from spec-review.md), cumulative non-blocker/non-cheap Σ=60 at exhaustion, breach margin = 35 — Σ landed at AF6 (medium, score=35) after AF4 (medium, score=25) had already saturated S. A blocker (AF1, high, score=100, must-fix:true — `RuntimeEvent.invocation_id` declared required with no contract for emission arms lacking a live registry entry) was classifiable as fix but suppressed by the budget-exhausted exit (precedence rule). Three SP-2 auto-deferred findings (AF2, AF3, AF5 — all targeting one of the three NarrowedChunks) did not enter the budget. AF7 (low, score=5) was not summed (exit fired at AF6). severity p1 raised{high:1,medium:5,low:1} fixed{} deferred{medium:3} blocked{high:1,medium:2}. stage1=0 (no pass completed; exit at classifier in step 3e-bis). narrowings=3+0 (3 seeded from task body's NarrowedChunks block; 0 added in-loop because no inner-fixer dispatch occurred). Snapshot refs retained for forensics.
+- **Fixer notes:** none
+
+The detailed root-cause analysis, audit-vs-actual comparison, and
+ranked Immediate / Pipeline recommendations live in the gitignored
+forensic report cited above. This file records only the durable
+TL;DR pointer so future `/spec-review` regeneration runs (or future
+human triage) can trace why the listed findings ended up in
+`spec-review-parked.md`.
+
+---
