@@ -118,6 +118,47 @@ GENERATED: 2026-05-18T09:00:00Z
              table Rec V row updated; §6.8 priority Tier 1
              step 1 and Tier 4 step 10 annotated with shipped
              /unparked status.)
+           revised 2026-05-19T00:00:00Z (recs T + O + M + W
+             shipped to pi-config as commit b20536d, 983
+             insertions / 124 deletions across 6 files; rec V
+             reference 1240/130). Rec T: refusal mode (e)
+             stage-transition-structural-growth in
+             spec-diff-fixer; Stage1TouchedChunks set frozen
+             at the stage 1→2 transition; new STATUS code
+             must-fix-blocked-by-stage-transition in
+             spec-diff-fix-loop; new defer rationale
+             defer-to-debt — stage-transition-structural-
+             growth in spec-diff-fix-classifier (rule
+             b-quater). Rec O: pass-level shadow-budget gate
+             (rule a-bis) in spec-diff-fix-classifier with
+             k=3 multiplier; new sub-rationale
+             score-budget-exhausted-trust-override-suppressed.
+             Rec M: pre-dispatch precondition staleness check
+             (step 2d) in prompts/fix-spec-shape-single-
+             findings.md; new FailureMode stale-precondition
+             in parker / forensics. Rec W: CATEGORY field
+             threaded across loop output, classifier
+             _blocked.md templates, forensics TL;DR, parker
+             reasons; every failure-mode reason now leads
+             with 'Category 1' (malformed finding — reshape
+             spec-review.md) or 'Category 2' (fixer too-hard
+             — file pi-config issue). Validation canary T12
+             unparked in pi-loom as commit 1d0de7a (T12
+             appended at end of spec-review.md so bottom-up
+             dispatch picks it first; Rec O canary T16a and
+             Rec M canary T15a were already unparked in rec V
+             batch at 90968cf; Rec W has no specific canary).
+             Validation pending: requires running
+             /fix-spec-shape-single-findings to observe T12's
+             outcome under mode (e), T16a's outcome under the
+             shadow-budget gate, and T15a's outcome under the
+             orchestrator's pre-dispatch staleness check, plus
+             the CATEGORY field on every failure exit. §6.7
+             summary table T/O/M/W rows updated; §6.8 Tier 1
+             step 2 + Tier 2 steps 4/5/6 annotated with
+             shipped status; new Tier 4 step 11 added for the
+             T12 validation canary; Tier 3 unchanged (rec L
+             and rec P still postponed per user direction).)
 ```
 
 ## Sources
@@ -1207,12 +1248,12 @@ upstream lands; no per-cascade reshape.
 | Rec | Tier | Title | Coverage | pi-loom | pi-config |
 |---|---|---|:-:|:-:|:-:|
 | **V** | **S** | **Solution constraints as advisory (mirror of rec J on constraints surface; three-mode authoring guard per constraint sweep)** | **T15a + T16a (cures); T14 + T19 cluster + T22a1 cross-finding cases (three-mode guard refuses safely, no boundary violation); T13 partial; T22a1 const #1 + T20 SG1 deferred to rec L** | | **✓ (SHIPPED — pi-config 8f0ccfe; pending validation, pi-loom 90968cf unparked canary set)** |
-| **T** | **A** | **Stage-transition structural-growth refusal** | **T12 (1/7 parks)** | | **✓** |
+| **T** | **A** | **Stage-transition structural-growth refusal** | **T12 (1/7 parks)** | | **✓ (SHIPPED — pi-config b20536d; pending validation, pi-loom 1d0de7a unparked T12 canary)** |
 | **L** | **B** | **Audit-side binding-surface ratification (Problem / constraints / missing-prerequisite)** | **T13/T14/T16a/T16b (4/7 parks)** | | **✓** |
-| M | B | Pre-dispatch precondition staleness | T15a (1/7 parks) | | ✓ |
+| M | B | Pre-dispatch precondition staleness | T15a (1/7 parks) | | ✓ (SHIPPED — pi-config b20536d; pending validation, rec M is the orchestrator-side optimisation; rec V's fixer-side check is the backstop) |
 | P | B | Decision-axes Problem-metadata + score-vs-residue audit | T18a (1/7 parks) | | ✓ |
-| W | C | Reject-category exit-code tagging | all parks (signal) | | ✓ |
-| O | C | Trust-override / score-budget precedence | T16a-shape (signal) | | ✓ |
+| W | C | Reject-category exit-code tagging | all parks (signal) | | ✓ (SHIPPED — pi-config b20536d; pending validation, CATEGORY field emitted on every failure exit) |
+| O | C | Trust-override / score-budget precedence | T16a-shape (signal) | | ✓ (SHIPPED — pi-config b20536d; pending validation, pi-loom canary T16a already unparked in rec V batch at 90968cf) |
 | K | D | Cluster-importance aggregation | T19 cluster | | ✓ (SHIPPED) |
 | Tier E | E | Six per-finding reshapes + one new PIC-L213 finding | 6 parks + 1 prerequisite | ✓ | |
 
@@ -1237,8 +1278,18 @@ layer work postponed until rec V validation):
    `(f-stop-1)` canary, the T19 cluster is the `(f-stop-2)`
    heaviest canary.
 2. **Rec T** (pi-config) — stage-transition refusal. Closes the
-   one category-2 capability gap (T12). Can ship alongside or
-   shortly after rec V.
+   one category-2 capability gap (T12). **SHIPPED 2026-05-19
+   as pi-config commit b20536d** (alongside O + M + W, 983
+   insertions / 124 deletions across 6 files). **Pending
+   validation:** pi-loom commit 1d0de7a unparked T12 (the
+   sole Rec T canary; appended at end of spec-review.md so
+   bottom-up dispatch picks it first). Next: run
+   `/fix-spec-shape-single-findings` and observe T12's
+   outcome — either converges (the fixer's mode (e) defers
+   the stage-2 anchor-split that previously caused divergence)
+   or re-parks under the new STATUS
+   `must-fix-blocked-by-stage-transition` (Solution approach
+   genuinely needs widening). See §6.8 Tier 4 step 11.
 3. **Tier E reshapes** (pi-loom) — the per-finding reshapes
    for the parks rec V does **not** cure (T13, T14, T16b,
    T18a, plus T15a and T16a as optional clarity work).
@@ -1249,13 +1300,43 @@ layer work postponed until rec V validation):
 
 4. **Rec W** (pi-config) — reject-category exit-code tagging.
    Makes every future park commit readable in one line.
-   Update the exit-code table for rec V's retirement of
-   `must-fix-blocked-by-scope-guard`.
+   **SHIPPED 2026-05-19 as pi-config commit b20536d** (in the
+   same commit as T + O + M). **Pending validation:** CATEGORY
+   field emitted on every loop output, forensics TL;DR, and
+   parker reason; observable on the next `/fix-spec-shape-
+   single-findings` run (any failure exit — Rec T's canary
+   T12, Rec O's canary T16a, Rec M's canary T15a, or any rec
+   V canary that re-parks — will surface the field).
 5. **Rec M** (pi-config) — pre-dispatch precondition staleness.
-   May be subsumed by rec V's stale-prediction detection in the
-   fixer; re-evaluate after rec V ships.
+   **SHIPPED 2026-05-19 as pi-config commit b20536d** (in the
+   same commit as T + O + W). Implemented as orchestrator
+   step 2d in `prompts/fix-spec-shape-single-findings.md` with
+   new FailureMode `stale-precondition` plumbed through parker
+   and forensics. Not subsumed by rec V — rec M catches the
+   case pre-dispatch (saves a full top-level-fixer + inner-loop
+   run); rec V's fixer-side mode (f) sub-case 2 staleness
+   bypass remains the backstop if rec M's heuristic misses.
+   **Pending validation:** the existing rec V canary T15a is
+   the natural test — if rec M's step 2d fires pre-dispatch,
+   T15a parks immediately with `FailureMode: stale-precondition`
+   without the fixer running; if step 2d does not match the
+   constraint's exact wording, rec V's fixer-side check fires
+   instead and T15a still parks safely (just with the
+   `top-level-refused` shape from the fixer's pre-flight). See
+   §6.8 Tier 4 step 10's T15a outcome interpretation.
 6. **Rec O** (pi-config) — trust-override / score-budget
    precedence. Improves reject signal on T16a-shape findings.
+   **SHIPPED 2026-05-19 as pi-config commit b20536d** (in the
+   same commit as T + M + W). Implemented as pass-level
+   shadow-budget gate (rule a-bis) in `spec-diff-fix-
+   classifier.md` with `k = 3` multiplier; new sub-rationale
+   `score-budget-exhausted-trust-override-suppressed`.
+   **Pending validation:** the existing rec V canary T16a is
+   the natural test — pre-Rec-O the loop burned 5 passes
+   (Σ=125 vs S=25, 5× breach); under Rec O the shadow-budget
+   gate fires at pass 1 with the new sub-rationale (CATEGORY:
+   1) instead of letting trust-override suppress the exit and
+   diverging at pass 5.
 
 **Tier 3 — postponed (audit layer):**
 
@@ -1319,6 +1400,72 @@ layer work postponed until rec V validation):
     A failure on T15b is unexpected and would not invalidate
     rec V validation — it would be a separate finding-shape
     issue.
+
+11. **Validate rec T — T12 canary** (pi-loom). **T12 unparked
+    2026-05-19 as pi-loom commit 1d0de7a** (appended at end
+    of `spec-review.md` so bottom-up dispatch picks it first).
+    T12's W2 forensic was the type case for rec T: pass-7
+    divergence after a pass-6 anchor-split introduced fresh
+    stage-1 critique surface (anchor + bold label + blockquote
+    scaffolding on a chunk that had stabilised in stage 1).
+    Under rec T's mode (e), the fixer detects the scaffolding
+    markers (`<a id`, `> **`, `**Label.**`) in stage 2/3,
+    checks the chunk against the frozen `Stage1TouchedChunks`
+    set, and refuses pre-emptively. Two valid outcomes:
+
+    - **Cures:** the fixer's mode (e) defers the stage-2
+      anchor-split fix that previously caused divergence, the
+      loop converges on the top-level edit alone, T12
+      resolves on a single dispatch.
+    - **Re-parks under new STATUS:** the loop exits with
+      `must-fix-blocked-by-stage-transition` (CATEGORY: 2 —
+      fixer capability gap, not finding malformation). Routes
+      to a pi-loom-side Solution-approach widening (quote the
+      `<a id>` / `> **` / `**Label.**` markers in the
+      approach text so the scaffolding is explicitly
+      anticipated, OR pre-author the scaffolding at
+      top-level so the chunk is not tier-1-clean at the stage
+      transition).
+
+    Either outcome validates Rec T; the latter routes to
+    finding-authoring work rather than re-attempting the same
+    divergent path. Failure mode (mode (e) fails to fire on
+    the actual scaffolding pattern): harden the regex
+    discriminators (`anchor`, `blockquote-callout`,
+    `subsection-heading`, `bold-label-opener`) before extending
+    rec T's reach.
+
+    **T15a + T16a outcome re-interpretation under T+O+M+W**
+    (in addition to the rec V outcomes named in step 10):
+
+    - **T15a:** primary outcome remains the rec V staleness
+      bypass (cures cleanly after T15b lands). Rec M's
+      pre-dispatch check is a separate signal — if step 2d
+      detects the staleness BEFORE T15b lands and routes T15a
+      to parking with `FailureMode: stale-precondition`, that
+      validates rec M (the bypass test is satisfied at the
+      orchestrator layer rather than the fixer layer; both are
+      acceptable category-1 detections of the same
+      malformation).
+    - **T16a:** primary outcome remains the rec V over-fencing
+      narrowing (cures cleanly). Rec O's pass-level
+      shadow-budget gate is a separate signal — if the
+      first-pass shadow sum exceeds `k=3 × S` (likely:
+      pre-rec-O Σ was 125 vs S=25, 5×), the classifier exits
+      pre-dispatch with `score-budget-exhausted-trust-
+      override-suppressed` (CATEGORY: 1) instead of letting
+      the fixer attempt narrowing. If both rec O and rec V
+      apply (rec O fires first because it pre-empts the
+      fixer), T16a parks under the rec O exit rather than
+      cures under the rec V narrowing. Either outcome
+      validates a different mechanism; route the finding
+      accordingly (rec O exit → reshape per Tier E; rec V
+      cure → done).
+
+    **Rec W** is observable on every park commit and forensic
+    TL;DR from this dispatch onward — no separate canary.
+    Verify by reading the first failure-mode commit message
+    and confirming it leads with `Category 1` or `Category 2`.
 
 **Withdrawn (architectural-cut casualties):**
 
