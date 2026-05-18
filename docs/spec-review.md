@@ -639,3 +639,132 @@ Extend the **Runtime event channel** section in `docs/spec_topics/pi-integration
 - T20 "Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes" — same-cluster.
 - T18a "Append success-side null-policy paragraph to PIC Runtime event channel" — must-precede.
 - T15a "Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet" — same-cluster.
+
+---
+
+# T14 — Prompt-mode sequentiality argument has an unstated fourth premise
+
+**Kind:** assumptions
+**Importance:** medium
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The Session-model paragraph in `docs/spec.md` (anchored at `id="session-model"`) concludes that prompt-mode bodies execute strictly sequentially within a user session and supports that conclusion with three premises (i)/(ii)/(iii) that only close the user-session axis. Those three premises do not on their own rule out the sibling-subagent fan-out path that the next paragraph explicitly admits: a subagent-mode body may itself `invoke(...)` a prompt-mode child, and whether such a child can re-enter the user session and contend for `pi.setActiveTools` is the load-bearing question. The closing rule lives in the Cross-mode semantics section of `docs/spec_topics/invocation.md` (a `subagent → prompt` callee attaches to the subagent's own private `AgentSession`, not the user session), but a reader auditing the argument from `spec.md` alone cannot derive that — the fourth premise is unstated.
+
+## Solution approach
+
+Add a fourth premise to the parenthesised support list in the Session-model paragraph that names the Cross-mode rule closing the subagent-spawned-prompt-mode-child escape, and forward-link to the owning section in `docs/spec_topics/invocation.md`. Cite the Cross-mode rule rather than inlining or paraphrasing it. Leave the existing three premises and the follow-up "three potential sources of in-session overlap" sentence unchanged.
+
+## Solution constraints
+
+- The new premise must forward-link the Cross-mode semantics section and must not inline, restate, or paraphrase its content beyond a one-clause framing of which fan-out path is closed — that is the whole point of the finding (avoid aggregator overreach).
+- Do not modify the existing premises (i)/(ii)/(iii) or the follow-up "three potential sources of in-session overlap" sentence.
+- Restructuring of the Session-model paragraph is owned by T15a / T15b / T15c; the fourth premise is carried across whichever sibling lands first per T15b's coordination with this finding.
+- Plan-leaf edits to V15g / V15h / V15j are out of scope here.
+
+## Relationships
+
+- T23 "Pi's per-session slash-handler serialisation is asserted without a verifiable Pi source" — same-cluster (different premise of the same argument).
+- T15a "Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet" — same-cluster (touches the same Session-model paragraph; co-edit pass).
+- T19a "Extend ActiveInvocationRegistry entry shape with invocationId" — same-cluster (also concerns the sibling-subagent fan-out path, on the diagnostics axis; co-resolve siblings T19b/c/d/e also relevant).
+- T20 "Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes" — same-cluster (same fan-out path, resource-exhaustion axis).
+
+---
+
+# T16a — Reduce Trust-boundary SDK-surface clause: drop the `~0.72.1` literal
+
+**Kind:** placement
+**Importance:** medium
+**Atomicity:** atomic
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The SDK-surface clause of the Trust-boundary bullet under Orientation > Scope in `docs/spec.md` inlines the literal Pi-SDK pin `@mariozechner/pi-coding-agent ~0.72.1` while restating that Pi's `ExtensionAPI` and `ExtensionContext` surfaces expose no per-extension privilege facet. That literal pin is owned verbatim by **Host prerequisites — Pi SDK pin** in `docs/spec_topics/pi-integration-contract.md`; restating it inside the Trust-boundary bullet creates a second site that the **Pi version bump procedure** in `docs/spec_topics/pi-integration-contract.md` (anchor `id="pi-version-bump-procedure"`) expects to drift on the next bump. The behavioural property the scope decision actually rests on is the no-per-extension-privilege-facet property at the V1 Pi-SDK pin, not the literal version range.
+
+## Solution approach
+
+Rewrite the SDK-surface clause of the Trust-boundary bullet so it states only the behavioural property — that the peer packages expose no per-extension privilege facet at the V1 Pi-SDK pin — and forward-links **Host prerequisites — Pi SDK pin** in `docs/spec_topics/pi-integration-contract.md` in lieu of restating the pin. Drop the inline `~0.72.1` parenthetical entirely. Retain the build-time SDK surface-inventory assertion as a single sentence carrying its forward-link to the anchor `id="pi-version-bump-procedure"` in `docs/spec_topics/pi-integration-contract.md`.
+
+## Solution constraints
+
+- Do not inline the literal `~0.72.1` (or any structural variant restating the Pi SDK pin); that pin remains owned solely by **Host prerequisites — Pi SDK pin** in `docs/spec_topics/pi-integration-contract.md`.
+- The callable-set paragraph, the host-side-denial paragraph, and the closing capability-model sentence are owned by T16b, T16c, and T16d respectively — leave them present and untouched here.
+
+## Relationships
+
+- T16b "Rewrite callable-set paragraph: drop inline `customTools` / `createAgentSession` / `pi.setActiveTools` names" — co-resolve (same Trust-boundary bullet; must land in one commit).
+- T16c "Reduce host-side-denial paragraph to one sentence with forward-links" — co-resolve.
+- T16d "Replace closing capability-model paragraph with single forward-link sentence" — co-resolve.
+- T34 "Trust-boundary 'no privilege facet' claim is asserted but not gated by any audit the spec cites" — same-cluster (same bullet; orthogonal fix — adds an audit citation rather than restructures placement).
+- T15a "Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet" — same-cluster (the Session-model paragraph exhibits the same aggregator-overreach pattern).
+
+---
+
+# T15a — Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet
+
+**Kind:** placement
+**Importance:** medium
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The `<a id="session-model"></a>` paragraph in `docs/spec.md` Orientation > Prerequisites compresses five distinct content categories — Pi-session binding, `session_shutdown` payload contract, prompt-mode sequentiality argument with its three supporting premises, mode-qualified transcript/tool-table isolation, and admission-cap / per-invocation-budget posture — into one Orientation bullet. The architectural clauses belong in the new `Concurrency model` subsection owned by T15b, and the V1 scope deferrals (parallel-`invoke`, concurrent user sessions) belong at the V1 non-goals surfaces owned by T15c; until this reduction lands, those siblings have no room to relocate content into. The paragraph reads as a single mixed block rather than as Orientation-level forward-linking prose.
+
+## Solution approach
+
+Reduce the `<a id="session-model"></a>` paragraph in `docs/spec.md` Orientation > Prerequisites to orientation-level forward-link prose. The retained content categories are: the one-session-at-a-time Pi-session binding (forward-link to the Session-binding contract in `docs/spec_topics/pi-integration-contract.md`), the `session_shutdown` payload contract (forward-link to the Extension entry point in `docs/spec_topics/pi-integration-contract.md` and to the closed `event.reason` set in the SDK type at `@mariozechner/pi-coding-agent`'s `dist/core/extensions/types.d.ts`), and a pointer to the architectural `Concurrency model` subsection installed by T15b. Delete the clauses T15b relocated (mode-qualified isolation summary, prompt-mode sequentiality with premises (i)/(ii)/(iii), genuine-concurrency-only-between-subagent-invocations conclusion, cancellation-propagates-downward restatement, per-invocation budget scoping, no-admission-cap statement) and the deferrals T15c lifted (parallel-`invoke`, concurrent user sessions). Composition — sentence count, ordering of forward-links, whether closely-related pointers fold into one sentence — is the implementer's choice.
+
+## Solution constraints
+
+- The reduced paragraph must retain the `<a id="session-model"></a>` anchor — inbound links (the Overview's terminal-outcomes paragraph, the `[Session model](#session-model)` reference inside the V1 non-goals subsection) depend on it.
+- The destination `Concurrency model` subsection is owned by T15b — do not author it under this finding.
+- T15b and T15c MUST have already landed before this finding is addressed (bottom-up ordering guarantees this: T15c at the highest line number is addressed first, T15b second, this finding T15a last). If either the `Concurrency model` subsection installed by T15b or the V1 non-goals entries verified by T15c is absent at edit time, defer.
+
+## Relationships
+
+- T15b "Move concurrency semantics into Extension Architecture / Implementation Notes Concurrency-model subsection" — co-resolve (the reduction makes room for the relocated content).
+- T15c "Lift Session-model scope deferrals into Non-goals (V1) section" — co-resolve (the reduction makes room for the lifted deferrals).
+- T02 "Subagent state-isolation enumeration duplicates PIC matrix in Overview opening paragraph" — same-cluster (identical placement pattern).
+- T16a "Trust boundary bullet: keep scope claim and drop SDK-pin literal" — same-cluster (sibling Scope bullet exhibiting the same mixing of categories).
+- T18a "Append success-side null-policy paragraph to PIC Runtime event channel" — same-cluster (third instance of the pattern, in the Runtime-observability bullet).
+- T24 "Fork-reason watcher closure leaves the extension in an unspecified, silently degraded state" — same-cluster (touches the same Session-model paragraph but addresses content correctness).
+
+---
+
+# T15b — Move concurrency semantics into Extension Architecture / Implementation Notes Concurrency-model subsection
+
+**Kind:** placement
+**Importance:** medium
+**Atomicity:** atomic
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The architectural half of the `<a id="session-model"></a>` paragraph in `docs/spec.md` Orientation > Prerequisites — the mode-qualified isolation summary, prompt-mode strict sequentiality with its three supporting premises (i)/(ii)/(iii), the genuine-concurrency-only-between-subagent-invocations conclusion, the cancellation-propagates-downward-only restatement, and per-invocation budget scoping — sits inside an Orientation bullet labelled informative rather than in a normative-architectural home. T15a's reduction of that paragraph removes those clauses from Orientation; with no destination in `## Extension Architecture` or `## Implementation Notes` they are dropped on the floor and the architectural reader has no aggregator to land on. The spec presently has no `Concurrency model` subsection under either home.
+
+## Solution approach
+
+Add a new `Concurrency model` subsection in `docs/spec.md` under `## Extension Architecture` as a sibling entry to Pi Extension Integration. **Copy** the listed architectural clauses into the new subsection as an aggregator analogous to the Hard-ceilings bullet, preserving each clause's existing forward-links to `docs/spec_topics/pi-integration-contract.md`, `docs/spec_topics/implementation-notes.md`, `docs/spec_topics/cancellation.md`, `docs/spec_topics/invocation.md`, and `docs/spec_topics/frontmatter.md` verbatim. The corresponding **removal** from the `<a id="session-model"></a>` paragraph is owned by T15a and is out of scope here — the addition (this finding) and the removal (T15a) land as two consecutive single-finding commits under bottom-up ordering, with a transient content duplication in HEAD between them by design.
+
+## Solution constraints
+
+- Do not place it under `## Implementation Notes`.
+- Do not restate owner-page text beyond what the forward-links require.
+- Preserve every forward-link from the listed clauses verbatim — same targets, same count — across the copy. This is a copy, not a rewrite.
+- Preserve the three sequentiality premises (i)/(ii)/(iii) verbatim from the source paragraph; the fourth premise is owned by T14 and added in T14's edit pass, not here.
+- Do NOT edit the `<a id="session-model"></a>` paragraph under this finding — removal of the now-duplicated clauses from the source paragraph is owned by T15a and lands in the immediately-following commit under bottom-up ordering. A transient content duplication between the new `Concurrency model` subsection and the still-untouched `<a id="session-model"></a>` paragraph is the **expected intermediate state** between this commit and T15a's commit.
+- **Inner-loop guidance for the spec-diff fix loop on this commit:** the diff for this finding intentionally introduces content that duplicates the unchanged `<a id="session-model"></a>` paragraph in `docs/spec.md`. Findings of the form *"the new Concurrency model subsection duplicates the session-model paragraph"*, *"the same forward-link appears in two places"*, or *"premises (i)/(ii)/(iii) are stated twice"* are out of scope for the inner loop on this commit and MUST NOT be acted on by `spec-diff-fixer` — fixing them would either re-add removed content (defeating the finding's purpose) or remove content from the still-canonical session-model paragraph (crossing the scope guard above and pre-empting T15a's commit). Treat any such finding as `ignore — out-of-scope`.
+
+## Relationships
+
+- T15a "Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet" — co-resolve (the reduction at Orientation must land alongside this relocation).
+- T15c "Lift Session-model scope deferrals into Non-goals (V1) section" — co-resolve (sibling restructure of the same paragraph).
+- T14 "Prompt-mode sequentiality argument has an unstated fourth premise" — must-follow (the three premises being relocated are the ones T14 needs to extend with the fourth premise; the relocation is the natural moment to add it).
+- T20 "Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes" — must-follow (the admission-cap disposition being relocated is the surface T20 needs the resource-exhaustion answer on).
+- T19a "Extend ActiveInvocationRegistry entry shape with invocationId" — same-cluster (lives in the same architectural area being created here; co-resolve siblings T19b/c/d/e also relevant).
