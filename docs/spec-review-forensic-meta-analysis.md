@@ -57,6 +57,45 @@ GENERATED: 2026-05-18T09:00:00Z
              fixer-is-mechanism-not-author; reject-category
              taxonomy; recommendations restructured under
              Tier A / B / C / D)
+           revised 2026-05-18T15:00:00Z (binding-surface
+             tightening: Solution approach formally excluded
+             from category-1 attribution per rec J's
+             advisory/directional reading; §5.4 T16a / T16b /
+             T18a re-attributed to constraints /
+             missing-prerequisite / score; rec L re-scoped
+             from approach-surface to binding-surface
+             ratification; rec P reframed as Problem-metadata
+             + score-vs-residue audit; Tier E reshape entries
+             for T16a / T16b re-led with binding-surface
+             remediation)
+           revised 2026-05-18T17:00:00Z (rec V — Solution
+             constraints demoted to advisory, mirroring rec J
+             on the constraints surface; new Tier S header in
+             §6; rec V slotted first in priority order per user
+             direction to ship fixer-pipeline changes ahead of
+             rec L; supersedes the withdrawn rec U with an
+             added authoring-guard refusal mode that absorbs
+             rec L's T14-shape coverage in the interim;
+             §5.4 T15a / T16a rows annotated with rec V
+             self-resolution; §7 rec U withdrawal entry
+             updated to note supersession)
+           revised 2026-05-18T19:00:00Z (constraint load-bearing
+             sweep across pre-W2 forensics found rec V's original
+             single-predicate authoring guard insufficient;
+             replaced with three discriminating refusal modes per
+             docs/spec-review-constraint-sweep.md —
+             (f-stop-1) unanticipated authoring;
+             (f-stop-2) co-resolve / must-precede siblings'
+             territory;
+             (f-stop-3) would-weaken existing rule;
+             validation canary set expanded from T14-only to
+             T14 + T19 cluster + T22a1; T19 cluster is the
+             heaviest canary because the W2 T19b forensic
+             explicitly describes the boundary violation that
+             would occur without (f-stop-2); SP rule text
+             revised to enumerate the three guard predicates;
+             §6.7 summary table and §6.8 priority Tier 4
+             updated)
 ```
 
 ## Sources
@@ -435,16 +474,65 @@ distinct roles:
 
 Under this cut, rejection has exactly two valid categories:
 
-- **Category (1) — malformed finding.** The Problem and/or
-  Solution constraints are wrong. The finding-authoring layer
-  responds: delete it, split it, merge it with another finding,
-  reorder its precedence, or reformulate it. The fixer must not
-  paper over malformations by inventing new findings, widening
-  the edit surface beyond what the finding names, or narrowing
-  constraints the finding pins.
+- **Category (1) — malformed finding.** The finding is wrong on
+  at least one of its **binding surfaces** — the parts of the
+  finding the fixer is obligated to honour. The binding surfaces
+  are:
+  - **Problem** — the defect the finding asserts. Malformed when
+    it embeds a false claim about the corpus, omits engagement
+    with corpus state the remediation depends on, propagates an
+    undefined term, or assumes a prerequisite that does not
+    exist.
+  - **Solution constraints** — what the fixer is forbidden to
+    do. Malformed when they over-fence every reasonably valid
+    remediation site (no honest solution exists within the
+    constraints), or under-specify what's binding so the fixer
+    cannot tell which sites it may touch.
+  - **Score** — the budget the fixer's edit must fit within.
+    Malformed when it is too low to admit the residue the
+    Problem's work generates, regardless of which approach the
+    fixer narrows to.
+  - **Ordering edges** — `must-precede` / `co-resolve` /
+    `must-follow` relationships in `## Relationships`. Malformed
+    when stale (predicting a sibling resolution order that no
+    longer holds), missing (the Problem depends on another
+    finding landing first but no edge says so), or contradicted
+    by a sibling that already resolved.
+  - **Missing prerequisite finding** — the corpus state the
+    Problem assumes can only be established by another finding
+    that does not yet exist in `spec-review.md`. The malformation
+    is on the finding-authoring layer's set rather than on this
+    finding's body, but it parks this finding at the fixer.
+
+  Forward reference: **rec V** (§6.1) would demote Solution
+  constraints out of this list, mirroring rec J's treatment of
+  Solution approach. Under post-rec-V state the binding surfaces
+  reduce to Problem / score / ordering edges /
+  missing-prerequisite-finding. §5.4 attributions that name
+  constraints as the binding surface (T15a, T16a) self-resolve
+  under rec V; the remaining category-1 attributions are
+  unchanged. This section describes the pre-rec-V state.
+
+  Solution approach is **not** a binding surface (rec J makes it
+  advisory/directional). An approach-level defect alone is never
+  a category-1 malformation; the fixer is licensed to narrow,
+  redirect, or ignore the approach in favour of one that fits
+  the binding surfaces. Every category-1 attribution in §5.4
+  must name the binding surface where the malformation lives;
+  approach-level observations may appear as symptoms but never
+  as the attribution.
+
+  The finding-authoring layer's response to a category-1 reject
+  is to delete, split, merge, reorder, reformulate the Problem,
+  loosen the constraints, raise the score, repair the ordering
+  edges, or author the missing prerequisite finding. The fixer
+  must not paper over malformations by inventing new findings,
+  widening the edit surface beyond what the finding names, or
+  narrowing constraints the finding pins.
 - **Category (2) — fixer too-hard.** The finding is well-formed
-  but the fixer's current capability cannot execute the edit.
-  The pi-config side responds by extending the fixer.
+  on every binding surface but the fixer's current capability
+  cannot execute the edit. The pi-config side responds by
+  extending the fixer.
 
 Rejection paths that look like "the fixer needs to be smarter
 about authoring" are category errors. Either the finding is
@@ -463,17 +551,23 @@ rejects to the right place (reshape) earlier in the cycle.
 
 ### 5.4 Re-reading the W2 parks under the reject taxonomy
 
-Walking each park by category:
+Walking each park by category. Each category-1 row names the
+**binding surface** where the malformation lives (per §5.3:
+Problem / constraints / score / ordering / missing-prerequisite
+-finding). Approach-level observations are descriptive of what
+the fixer faced, not normative about which surface is malformed
+— under rec J the fixer is licensed to narrow approach, so an
+approach defect alone never warrants reshape.
 
 | Finding | Category | Specific malformation / capability gap |
 |---|---|---|
 | **T12** | (2) too-hard | Fixer doesn't recognise that adding `<a id>` / `> **Note**` blockquote / bold-label scaffolding in stage 2 to a chunk that converged stage 1 clean re-arms tier-1 lenses on the next pass. Problem and constraints are sound; Solution approach is acceptable. The fixer needs a discrete capability: refuse a mid-loop fix candidate whose proposed text adds structural scaffolding to an otherwise tier-1-clean chunk. |
 | **T13** | (1) malformed | Problem statement is incomplete — it asserts "the qualifier is omitted" without engaging with the corpus-state prerequisite that `cross-file` is undefined anywhere in `docs/`. The constraints then fence off the only definition site. Reshape: split into a defining-finding (own the term in the *countable-frame* paragraph or `glossary.md`) + the propagation finding, with `must-precede` ordering. |
 | **T14** | (1) malformed | Problem statement embeds a false factual claim ("the closing rule lives in `invocation.md` Cross-mode semantics"). The owner page enumerates and *permits* the cell rather than closing it. Reshape: retire (the case is already discharged structurally by *Transcript and tool-table isolation* + the supports list's "within a single user session" scoping), or reframe as a no-window observation citing the existing isolation clause. |
-| **T15a** | (1) malformed | Solution constraint #3 encodes an ordering prediction ("bottom-up ordering guarantees T15c first, T15b second, T15a last") that became false after T15c resolved. Reshape: rewrite constraint as a content-level check ("if `Concurrency model` subsection is absent in `spec.md`, defer"). Already caught by the fixer's pre-flight precondition check, which is the correct category-1 reject behaviour. |
-| **T16a** | (1) malformed | Solution approach pins a forward-link target (`PIC — Host prerequisites — Pi SDK pin`) that does not own the privilege-absence claim the reduction leaves behind on the surviving Trust-boundary prose. Constraints then fence the surviving prose. Reshape: widen the Solution approach to cover the orphan premises (and raise score to fit) OR split into the delete-literal + the source-the-premises atoms. |
-| **T16b** | (1) malformed | Solution approach mandates effect prose ("invocations see …") that picks one side of a corpus contradiction at PIC L213 (literal `pi.setActiveTools([...snapshot, ...names])` vs natural-language "exactly the loom's declared callable set") without naming the choice. Reshape T16b into mechanism-only delegation; **also** author a separate spec-review finding "PIC step 2 internal contradiction" that lands first via a `must-precede` edge. |
-| **T18a** | (1) malformed | Solution approach under-specifies 3 orthogonal axes the paragraph must commit on (caller-observation-surface taxonomy; quantifier domain of "regardless of terminal outcome"; pre-evaluation / no-terminal-outcome behaviour). One of them collides with a sibling-page assertion the approach should have either avoided or named in constraints. Reshape: pin the axes OR split into per-axis atoms OR raise score to admit the residue. |
+| **T15a** | (1) malformed | Solution constraint #3 encodes an ordering prediction ("bottom-up ordering guarantees T15c first, T15b second, T15a last") that became false after T15c resolved. Reshape: rewrite constraint as a content-level check ("if `Concurrency model` subsection is absent in `spec.md`, defer"). Already caught by the fixer's pre-flight precondition check, which is the correct category-1 reject behaviour. **Under rec V (§6.1):** self-resolves — the fixer detects the stale structural-ordering prediction and ignores the constraint, dispatching normally. The reshape is then optional clarity work, not blocking. |
+| **T16a** | (1) malformed | **Binding surface: constraints.** The Problem's reduction (delete the `~0.72.1` literal) leaves orphan premises on the surviving Trust-boundary prose; Solution constraints fence that prose, so the fixer has no remediation site for the orphans. A reasonably valid solution (re-source the orphan premises onto the surviving prose) is forbidden by the constraints; every site the constraints do permit contradicts the Problem. The approach's forward-link choice was a symptom of the fixer searching for a site the constraints allow; rec J licenses narrowing the approach, but the constraint fence is binding. Reshape: loosen the constraint that fences the surviving prose, OR split into delete-literal + source-the-premises atoms whose individual constraints each admit the atom's remediation, OR raise score to admit the residue. **Under rec V (§6.1):** self-resolves — the fixer detects the over-fencing (every honest remediation site for orphan premises is fenced), narrows the fence to admit the most-natural site, and dispatches. The reshape is then optional clarity work, not blocking. |
+| **T16b** | (1) malformed | **Binding surface: missing prerequisite finding.** The Problem treats the cited owner (PIC step 2 at L213) as authoritative on callable-set semantics, but the owner is internally self-contradictory (literal `pi.setActiveTools([...snapshot, ...names])` call shape vs natural-language "exactly the loom's declared callable set"). No reasonably valid solution exists for T16b until that contradiction is resolved by a prerequisite finding that does not yet exist in `spec-review.md`. Any approach the fixer narrows to — mechanism, effect, hybrid — collides with one side of the owner contradiction; this is not approach-rescuable. Reshape: author the missing prerequisite finding (PIC step 2 internal contradiction) and add a `must-precede` edge from it into T16b; T16b's Problem then lands cleanly against a non-contradictory owner. |
+| **T18a** | (1) malformed | **Binding surface: score** (with a related Problem-metadata gap). The Problem implicitly requires the paragraph to commit on 3 orthogonal axes (caller-observation-surface taxonomy; quantifier domain of "regardless of terminal outcome"; pre-evaluation / no-terminal-outcome behaviour); each axis generates ≥1 medium-importance lens follow-up. Medium-tier S=25 admits at most one such residue, so any reasonably valid solution exceeds the budget regardless of which axis positions the fixer narrows to. The Problem also omits the axis count as authoring metadata, so the auditor's budget check cannot fire pre-dispatch. Reshape: raise the score so the residue fits, OR split into per-axis atoms whose individual scores each admit one residue, OR pin the axis count in the Problem so a score-vs-axes audit can downgrade before dispatch. |
 | T15b, T18b–d | cascade | Re-dispatch when upstream lands; no per-finding reshape. |
 
 **Tally under the reject taxonomy:**
@@ -522,6 +616,11 @@ this document had it reversed.
 
 Structured under the §5.3 architectural cut:
 
+- **Tier S — finding-shape principle changes** (pi-config).
+  SP-level / architectural: change which surfaces of a finding
+  are binding on the fixer. Architecturally upstream of every
+  other tier because it changes the set of surfaces the rest of
+  the tiers operate on.
 - **Tier A — fixer-capability extensions** (pi-config). Category 2
   work: discrete capabilities the fixer needs to handle well-formed
   findings the current fixer cannot execute on.
@@ -537,12 +636,264 @@ Structured under the §5.3 architectural cut:
   finding-authoring layer owes the parked set.
 
 Rec K (shipped, commit 344da26) sits under Tier D and is no
-longer the headline. The headline work is now rec T (the only
-category-2 capability gap in W2) plus rec L + rec M + rec W
-(category-1 routing and signal hygiene) plus the six per-finding
-reshapes in pi-loom.
+longer the headline. The headline work is now **rec V** (Tier S
+— demote Solution constraints to advisory; ships first per user
+direction to validate the fixer pipeline before audit-layer work)
+plus rec T (the one category-2 capability gap in W2) plus
+follow-up rec M + rec W (signal hygiene and pre-dispatch
+staleness) plus the per-finding reshapes in pi-loom. Rec L
+is postponed until rec V validation completes; the
+authoring-guard refusal mode inside rec V absorbs rec L's
+T14-shape coverage in the interim.
 
-### 6.1 Tier A — fixer-capability extensions
+### 6.1 Tier S — finding-shape principle changes (architectural)
+
+**Rec V — Solution constraints are advisory, not binding.**
+
+*See also:* `docs/spec-review-constraint-sweep.md` — the
+constraint load-bearing sweep across 15 pre-W2 forensic reports
+that informed the three-mode authoring guard below.
+
+Architectural mirror of rec J on the **constraints** surface.
+Solution constraints become directional guidance the fixer is
+licensed to narrow, ignore, or relax — analogous to how rec J
+made Solution approach advisory. Removes constraints from the
+§5.3 binding-surfaces list, eliminating two W2 category-1
+malformation modes (stale precondition encoding; over-fencing of
+remediation sites). Supersedes the withdrawn rec U with a
+three-mode authoring guard that prevents the boundary violations
+rec U's prior framing rightly worried about — specifically the
+cross-finding scope-guard pattern (rec U's predecessor framing
+had no answer for it).
+
+**Motivation (from §5.4 W2 evidence + constraint-sweep pre-W2
+evidence):**
+
+- T15a parked on a stale structural-ordering prediction encoded
+  in constraint #3. Under rec V the fixer detects the stale
+  prediction and ignores the constraint; T15a dispatches.
+- T16a parked on constraints fencing every honest remediation
+  site for orphan premises the reduction left behind. Under
+  rec V the fixer narrows the fence to admit the most-natural
+  site; T16a dispatches.
+- T13 partly parked on constraints fencing the natural
+  definition site for `cross-file`. Under rec V the fixer can
+  narrow the fence — but the underlying Problem-surface defect
+  (Problem doesn't engage with the undefined-token corpus state)
+  remains; T13 still parks on the Problem surface (or as
+  missing-prerequisite). Coverage: partial.
+- T14 parked under `must-fix-blocked-by-scope-guard` on
+  constraints that correctly guarded against fixer-as-author
+  (rewriting premises (i)/(ii)/(iii) to manufacture a missing
+  "fourth premise"). Authoring guard mode `(f-stop-1)` refuses
+  the narrowing; T14 parks safely without boundary violation.
+- **T19 cluster (T19a/b/d/e)** — the constraint sweep's
+  load-bearing test. Each member's constraints encode a
+  cross-finding scope guard naming the other cluster members'
+  territory (Pattern G carve-out). The W2 T19b forensic
+  explicitly records: *"fixer would push T19c-territory MUSTs
+  into the field comment under D-mode clause 1 must-fix-blocker
+  pressure"* — i.e., when the constraint is binding the fixer
+  overflows into a field-comment surface to avoid the violation;
+  when advisory without the guard, the fixer authors T19c's
+  territory directly. Authoring guard mode `(f-stop-2)` refuses
+  the narrowing via the `co-resolve` edges already present in
+  `## Relationships`; cluster parks safely.
+- **T22a1** — four cross-finding scope guards (T36 / bump-
+  procedure step 5; T22b / T22c pre-installation; T15c
+  closing-sentence ownership; T22b `future-considerations.md`
+  ownership). Mode `(f-stop-2)` covers the cross-finding
+  cases; const #1's externally-owned-literal protection is
+  rec L territory and remains exposed under the rec-V-only
+  milestone (acceptable per user direction).
+- **T20 ScopeGuard 4** — "MUST-NOT-weaken existing rule,
+  stable-landmark" pin. Authoring guard mode `(f-stop-3)`
+  refuses narrowings that would strip or relax an existing
+  MUST / MUST-NOT / SHOULD.
+
+**Mechanism (sketch):**
+
+- **SP rule change** (`docs/spec-principles.md`): new subsection
+  "Solution constraints are advisory, not binding" — parallels
+  rec J's SP-2 treatment of Solution approach. Constraints are
+  directional guidance; the fixer is licensed to narrow, ignore,
+  or relax constraints that over-fence the only valid
+  remediation site for the Problem's residue, or that encode
+  stale structural predictions. The fixer must not narrow
+  constraints in ways that would (a) author content the Problem
+  does not name, (b) author content within a `co-resolve` or
+  `must-precede` peer's named territory, or (c) weaken an
+  existing MUST / MUST-NOT / SHOULD on the owner page — see
+  authoring guard for the three discriminating refusal modes.
+- **Fixer narrowing check** (`agents/spec-review-fixer.md`
+  step 5): add a fifth narrowing check — constraint over-fencing
+  detection. When every reasonably valid remediation site for
+  the Problem's residue is fenced by a constraint, narrow the
+  constraint to admit the most-natural site, and record the
+  narrowing in a new `## Narrowed constraints (for inner loop)`
+  output section.
+- **Inner-fixer refusal mode** (`agents/spec-diff-fixer.md`,
+  new mode `(f) constraint-as-advisory`): if a fix candidate
+  is rejected purely because of a constraint that fits the
+  over-fencing or stale-prediction pattern, defer the rejection
+  and try the narrowing path. Sub-case for staleness: detect
+  constraint text asserting structural-ordering predictions
+  ("MUST have already landed", "lands first / last", "bottom-up
+  ordering guarantees X") and verify the prediction against
+  current `spec-review.md` state; ignore if stale.
+- **Authoring guard** (`agents/spec-diff-fixer.md`, three new
+  refusal modes). The constraint sweep
+  (`docs/spec-review-constraint-sweep.md`) walked 19 load-bearing
+  cases across 15 pre-W2 forensic reports. An earlier sketch of
+  this guard used a single predicate ("narrowing would require
+  asserting content not on the owner page"); the sweep found
+  that predicate over-fires on every legitimate addition and
+  under-fires on the cross-finding pattern (the dominant
+  load-bearing shape, 9 of 19 cases). The guard is decomposed
+  into three discriminating modes:
+
+  - **`(f-stop-1) constraint-narrowing-would-author-unanticipated`**:
+    refuse if the proposed content's subject NP, object NP, and
+    verb-class are not all referenced explicitly in the Problem
+    or Solution approach text. Catches T14 (the "fourth
+    premise" content is unreferenced by the Problem's premises
+    (i)–(iii)) and any cross-finding case where the
+    unanticipated content is a sibling's territory and the
+    Problem doesn't name it.
+  - **`(f-stop-2) constraint-narrowing-would-author-co-resolve-siblings-territory`**:
+    refuse if the proposed content falls within a `co-resolve`
+    or `must-precede` peer's named edit surface (recovered from
+    that peer's Problem text or Solution approach). **Most
+    novel and most load-bearing refinement** — the sweep found
+    9 of 19 cases fit this α-pattern. Catches the entire T19
+    cluster, T22a1's pre-install of T22c chunk, T19d's source-
+    from-T19a's-field case, and all sibling-territory patterns
+    in the corpus.
+  - **`(f-stop-3) constraint-narrowing-would-weaken-existing-rule`**:
+    refuse if the proposed change would remove or relax an
+    existing MUST / MUST-NOT / SHOULD on the owner page
+    (detected by diffing the pre/post text of the affected
+    paragraph and matching modal-verb stripping, scope
+    reduction, or quantifier weakening). Catches T20-ScopeGuard-4
+    -shape cases.
+
+  When all three guards pass, the narrowing proceeds; constraint
+  is treated as advisory; the fix lands. **Critical for
+  postponing rec L** — the three guards together absorb rec L's
+  T14-shape coverage *and* the cross-finding scope-guard
+  coverage at the fixer layer until the audit layer ships. The
+  externally-owned-literal protection (T22a1 const #1, T20
+  ScopeGuard 1) is not covered by any of the three guards and
+  is the explicit deferred-to-rec-L gap (see §6.1 “Known gaps”
+  below).
+- **Classifier defer rationale**
+  (`agents/spec-diff-fix-classifier.md`): recognise
+  `defer-to-debt — constraint-narrowed` as a defer rationale,
+  mirroring `defer-to-debt — approach-narrowed`.
+- **Loop plumbing** (`agents/spec-diff-fix-loop.md`): thread
+  `NarrowedConstraints` through the inner loop analogous to
+  `NarrowedChunks`. Extend the set from inner-fixer NOTES.
+- **Orchestrator plumbing**
+  (`prompts/fix-spec-shape-single-findings.md`): plumb
+  `narrowedConstraints` through to forensics.
+- **Exit-code retirement** (`agents/spec-diff-fix-loop.md`,
+  `agents/spec-review-parker.md`): `must-fix-blocked-by-scope-guard`
+  becomes a category-2 exit
+  (`must-fix-blocked-constraint-narrowing-refused`) when the
+  authoring guard fires; otherwise the constraint is narrowed
+  and the loop continues. Update rec W's exit-code table
+  accordingly when rec W ships.
+
+**Coverage:** 
+
+- **Cures (rec V dispatches cleanly):** T15a (stale-prediction
+  detection), T16a (over-fencing narrowing).
+- **Guard refuses safely (rec V parks without boundary
+  violation):** T14 via `(f-stop-1)`; T19 cluster T19a/b/d/e
+  via `(f-stop-2)`; T22a1 cross-finding cases via `(f-stop-2)`;
+  T20-ScopeGuard-4-shape cases via `(f-stop-3)`. Same exit
+  shape as today (`must-fix-blocked-constraint-narrowing-refused`)
+  but with a discriminating reason code.
+- **Partial (binding-surface defect remains):** T13 (Problem-
+  surface defect remains after constraint narrowing).
+- **Out of scope for rec V:** T16b (missing-prerequisite
+  surface), T18a (score surface), T12 (category-2). These need
+  their named recs (P, rec T, etc.).
+- **Known gaps (rec L territory, exposed under rec-V-only
+  milestone):** T22a1 const #1 (externally-owned literal:
+  `SessionShutdownEvent['reason']` closed set owned by T36 /
+  bump-procedure step 5); T20 ScopeGuard 1 (mandated-cruft
+  ownership-attribution sentence). These defects produce real
+  lens findings post-fix; acceptable under user direction to
+  postpone rec L until rec V validation completes.
+
+**Risk — canary set expanded beyond T14.** The original sketch
+named T14 as the sole canary. The constraint sweep broadened
+this: T14 exercises mode `(f-stop-1)`, the T19 cluster exercises
+mode `(f-stop-2)`, and any T20-shape case (none in the W2 park
+set; surfaces on next dispatch) exercises mode `(f-stop-3)`.
+**The T19 cluster is the heaviest canary** because the W2 T19b
+forensic literally describes the boundary violation that would
+occur if the constraint were demoted without `(f-stop-2)`:
+*"fixer would push T19c-territory MUSTs into the field comment
+under D-mode clause 1 must-fix-blocker pressure"* — i.e., when
+binding, the fixer overflows into a field-comment surface to
+avoid the violation; when advisory without the guard, the fixer
+authors T19c's territory directly. `(f-stop-2)` is the most
+novel of the three modes and the one most likely to be
+incomplete.
+
+**Validation plan (staged re-dispatch in order):**
+
+1. **T15a** — cures cleanly. Confirms basic rec V dispatches a
+   constraint-fenced finding correctly.
+2. **T16a** — cures cleanly. Confirms over-fencing narrowing.
+3. **T14** — verify mode `(f-stop-1)` refuses with
+   `constraint-narrowing-would-author-unanticipated` rather
+   than manufacturing the missing fourth premise. Canary for
+   Problem-anticipation predicate.
+4. **T19 cluster (T19a/b/d/e)** — verify mode `(f-stop-2)`
+   refuses with
+   `constraint-narrowing-would-author-co-resolve-siblings-territory`
+   for each member. T19b is the load-bearing test — the W2
+   forensic names the exact boundary violation the guard must
+   prevent. **Heaviest canary.**
+5. **T22a1** (if re-dispatched; already resolved in W2 under
+   rec J for the const-#2/#3/#4 cases but the const-#1
+   externally-owned-literal case remains exposed) — verify
+   mode `(f-stop-2)` refuses pre-install of T22c chunk if
+   re-attempted; the const-#1 surface is expected to produce a
+   downstream lens finding (acceptable, rec L territory).
+
+**Failure response.** If any of steps 3–5 produces an
+authoring violation (the corresponding guard fails to refuse),
+harden that mode (or ship rec L earlier than planned) before
+rec V's reach extends to additional findings. The validation
+is staged precisely so a failure at step 3 does not contaminate
+the step-4 / step-5 evidence.
+
+**Files changed (pi-config):** `docs/spec-principles.md`,
+`agents/spec-review-fixer.md`, `agents/spec-diff-fixer.md`,
+`agents/spec-diff-fix-classifier.md`,
+`agents/spec-diff-fix-loop.md`, `agents/spec-review-parker.md`,
+`prompts/fix-spec-shape-single-findings.md`. Footprint analogous
+to rec J's (≈700 insertions / ≈70 deletions across 7 files).
+
+**Note on supersession.** Rec V supersedes the withdrawn rec U
+(constraint-narrowing license). Rec U was withdrawn under the
+prior architectural framing on the grounds that constraints were
+binding (§7). Rec V changes that framing at the SP level and
+revives the narrowing mechanic with the authoring guard added.
+
+**Sequence note.** Per user direction, rec V ships first; the
+W2 parked set is the re-dispatch validation target. Rec L is
+postponed until rec V validation completes (or until the fixer
+looks improvement-saturated). The intermediate state — rec V
+shipped, rec L not yet shipped — relies on the authoring guard;
+T14 re-dispatch is the canary for whether the guard is
+sufficient.
+
+### 6.2 Tier A — fixer-capability extensions
 
 **Rec T — Stage-transition structural-growth refusal in the fixer.**
 
@@ -592,43 +943,85 @@ multi-obligation prose bullet (the spec has ~12 such bullets;
 signal already exists in the loop's per-pass artefacts; the new
 work is the regex check + a NOTES surface + a STATUS code.
 
-### 6.2 Tier B — finding-authoring-layer empowerments
+### 6.3 Tier B — finding-authoring-layer empowerments
 
 These move category-1 detection earlier in the cycle. They do
 not extend the fixer; they extend the audit (rec L, rec M) or
 the reducer (rec P) so malformations route to reshape before the
 fixer dispatches.
 
-**Rec L — Audit-side forward-link target ratification.**
+**Rec L — Audit-side binding-surface ratification.**
 
-For each Solution approach naming a forward-link target, the
-auditor opens the target file at the named anchor and looks for
-a sentence that owns the asserted claim verbatim or by paraphrase.
-Flag if (a) the asserted claim is absent OR (b) a same-page
-sibling section asserts the opposite. Verdict downgrades to
-`RISK_HIGH` with one of the rationales:
+The auditor walks each finding's binding surfaces (per §5.3)
+and flags malformations the fixer would otherwise hit only at
+fix time. Four ratification checks, each scoped to a specific
+binding surface; the audit triggers on the **Problem** /
+**constraints** / **relationships**, not on Solution approach:
 
-- `forward-link-target-does-not-own-claim` (T16a-shape)
-- `cited-rule-absent-from-owner-page` (T14-shape)
-- `cited-target-self-contradictory` (T16b-shape)
-- `undefined-token-propagated` (T13-shape — variant: grep the
-  token across `docs/` rather than walking a forward-link)
+- **Problem — cited rule absent from owner page** (T14-shape).
+  For each Problem asserting that an owner page contains a
+  specific rule or clause ("the closing rule lives in…", "the
+  fourth premise of…"), the auditor opens the owner page and
+  greps for the asserted rule verbatim or by close paraphrase.
+  Absence downgrades to `RISK_HIGH` with rationale
+  `problem-asserts-rule-absent-from-owner-page`; suggested
+  reshape is drop the cited-rule clause OR retire the finding
+  if the structural case is already discharged.
+- **Problem — propagated undefined token** (T13-shape). For
+  each Problem whose remediation introduces or re-uses a
+  qualifier-grade token (`cross-file`, `task-mode-internal`,
+  etc.), the auditor greps `docs/` for a defining occurrence.
+  Absent definition downgrades with rationale
+  `problem-propagates-undefined-token`; suggested reshape is a
+  `must-precede` defining-finding split (one finding owns the
+  definition, this one consumes it).
+- **Constraints — all remediation sites fenced** (T16a-shape).
+  For each Problem describing a structural change (reduction,
+  split, anchor-introduction, literal-drop) whose surviving
+  prose carries orphan premises or unresolved obligations, the
+  auditor enumerates the prose surfaces those premises could
+  honestly land on; if Solution constraints fence every such
+  surface, downgrade with rationale
+  `constraints-fence-all-remediation-sites`; suggested reshape
+  is loosen-the-fencing-constraint OR atomise-the-reduction OR
+  raise-the-score so the residue fits.
+- **Missing prerequisite finding — cited owner internally
+  contradictory** (T16b-shape). For each Problem citing an
+  owner section as authoritative on a dimension, the auditor
+  scans the cited section for internal contradictions on that
+  dimension; if found and no `must-precede` edge points to a
+  finding that resolves the contradiction, downgrade with
+  rationale `cited-owner-contradictory-no-prerequisite-finding`;
+  suggested reshape is author-the-prerequisite-finding plus
+  add the `must-precede` edge.
 
 All four rationales route to `HUMAN_REVIEW` or `AUTO_RESHAPE`
 depending on whether the auditor's confidence permits a
-deterministic reshape (e.g. for `cited-rule-absent`, drop the
-citation; for `undefined-token`, suggest a `must-precede`
-defining-finding split).
+deterministic reshape (e.g. for `problem-asserts-rule-absent`,
+drop the cited-rule clause from the Problem; for
+`problem-propagates-undefined-token`, suggest the `must-precede`
+split). None of the checks rewrite the finding themselves; they
+route it to the finding-authoring layer.
 
 **Coverage:** T13, T14, T16a, T16b at audit time (4 of 6
 category-1 parks). The reshape that resolves each finding is
 authored by the human/auto-reshaper, not by the audit; the
 audit's role is to route the finding there before it dispatches.
 
+**Note on framing change:** earlier revisions of this rec scoped
+the ratification around the **Solution approach's** forward-link
+target. Under the tightened §5.3 taxonomy approach is not a
+binding surface, so the checks are re-scoped to walk the actual
+binding surfaces (Problem / constraints / missing-prerequisite).
+The detection mechanics are largely the same — open cited files,
+grep for asserted content, walk relationships — but the trigger
+surface and the rationale labels change.
+
 **Files changed (pi-config):** the auditor prompt (whichever
 file in `agents/` or `prompts/` owns per-finding lens dispatch).
-~30–50 lines for the four rationales + worked examples; one
-extra read per audited finding (cheap).
+~40–60 lines for the four rationales + worked examples; one to
+two extra reads per audited finding (cheap; the auditor already
+opens the spec for context).
 
 **Rec M — Pre-dispatch precondition staleness check.**
 
@@ -649,32 +1042,47 @@ dispatch entirely.
 `prompts/fix-spec-shape-single-findings.md` pre-dispatch step.
 ~20 lines.
 
-**Rec P — Reducer surfaces decision axes.**
+**Rec P — Reducer surfaces decision axes as Problem metadata for
+score-vs-residue audit.**
 
-T18a's defect is that the Solution approach leaves 3 orthogonal
-decision axes un-pinned. Each axis the fixer picks raises lens
-findings the medium budget cannot absorb. The defect is detectable
-at the reducer layer (`agents/spec-review-finding-reducer.md`)
-because the unresolved axes are visible in the Solution approach
-text via lexical signals (modal verbs like \"name\", \"address\",
-\"describe\" without a downstream pin; bullet-points the approach
-enumerates without giving a position on each).
+T18a's category-1 malformation is on the **score** binding
+surface: the Problem implicitly requires committing on 3
+orthogonal axes, each generating ≥1 medium-importance lens
+follow-up, and the medium-tier S=25 cannot absorb the residue.
+The defect is detectable at the reducer layer
+(`agents/spec-review-finding-reducer.md`) because the axes are
+visible in the **Problem** text via lexical signals (the Problem
+enumerates what the paragraph must commit on without pre-deciding
+the positions; modal verbs like \"name\", \"address\",
+\"describe\" applied to ≥2 orthogonal dimensions of the same
+artefact).
 
-The reducer detects under-specification on ≥2 axes and either
-refuses to reduce (sending the finding back for re-authoring with
-axes pinned) or adds a `**Decision axes:** <count>` field that
-the auditor's budget-vs-axes check uses (each axis predicts ≥1
-expected lens follow-up of importance ≥medium; if the count
-exceeds the score-budget headroom the audit downgrades).
+The reducer detects axis-enumeration on ≥2 axes and adds a
+`**Decision axes:** <count>` Problem-metadata field. The auditor
+then runs a score-vs-residue check: each axis predicts ≥1
+expected lens follow-up of importance ≥medium; if axis-count
+times typical-follow-up-importance exceeds score-budget headroom,
+downgrade to `RISK_HIGH` with rationale
+`score-insufficient-for-axis-residue`. Reshape suggestions: raise
+the score, split into per-axis atoms whose individual scores each
+admit one residue, OR pin the axes in the Problem (which reduces
+the lens-arming surface in the first place).
 
 **Coverage:** T18a directly. Partial on any future finding whose
-Solution approach is under-specified across multiple axes.
+Problem under-specifies positions across multiple axes.
+
+**Note on framing change:** earlier revisions of this rec located
+the axes-metadata on the Solution approach. Under the tightened
+§5.3 taxonomy approach is not a binding surface, so the metadata
+attaches to the Problem (binding) and feeds a score-surface audit.
+The detection mechanics are the same; the field's home moves from
+approach to Problem.
 
 **Files changed (pi-config):**
-`agents/spec-review-finding-reducer.md`, optionally the auditor.
+`agents/spec-review-finding-reducer.md`, the auditor.
 ~30 lines.
 
-### 6.3 Tier C — pipeline rejection-signal hygiene
+### 6.4 Tier C — pipeline rejection-signal hygiene
 
 **Rec W — Distinguish reject categories in pipeline status codes.**
 
@@ -741,7 +1149,7 @@ exit was the right diagnosis).
 **Files changed (pi-config):**
 `agents/spec-diff-fix-classifier.md` precedence rule. ~10 lines.
 
-### 6.4 Tier D — known pipeline bugs (orthogonal to the taxonomy)
+### 6.5 Tier D — known pipeline bugs (orthogonal to the taxonomy)
 
 **Rec K — Cluster-importance aggregation (SHIPPED).**
 
@@ -751,7 +1159,7 @@ Cluster's effective S rises to `max(member S)`; the Σ=60 breach
 that parked the cluster no longer fires. T19 cluster unparked
 in pi-loom (commit e12ccf9) and queued for re-dispatch.
 
-### 6.5 Tier E — finding-authoring work (pi-loom)
+### 6.6 Tier E — finding-authoring work (pi-loom)
 
 Six per-finding reshapes plus one new spec-review entry. Each
 forensic report at
@@ -764,60 +1172,94 @@ specific reshape recommendation; the table below summarises:
 | T13 | Split into a defining-finding (own `cross-file` in the *countable-frame* paragraph or `glossary.md`) + the propagation finding, with `must-precede` ordering. | RI-1 of T13 forensic |
 | T14 | Retire (case already discharged structurally by *Transcript and tool-table isolation* + supports-list scoping) OR reframe as no-window observation. | RI-1 / RI-2 of T14 forensic |
 | T15a | Rewrite constraint #3 as a content-level check: \"if `Concurrency model` subsection is absent in `spec.md`, defer.\" Drop the structural ordering prediction. | RI-2 of T15a forensic |
-| T16a | Widen the Solution approach to cover the orphan premises (raise score to fit), OR split into delete-literal + source-the-premises atoms. | RI-1 / RI-2 of T16a forensic |
-| T16b | Reshape into mechanism-only delegation (forward-link covers both mechanism and per-mode model-visible set; no inline effect prose). | RI-1 of T16b forensic |
+| T16a | Loosen the constraint that fences the surviving Trust-boundary prose so orphan premises can re-source there, OR raise score to admit the residue, OR split into delete-literal + source-the-premises atoms whose individual constraints each admit the atom's remediation. | RI-1 / RI-2 of T16a forensic |
+| T16b | Author the prerequisite finding (PIC step 2 internal contradiction at L213: literal `pi.setActiveTools([...snapshot, ...names])` vs "exactly the loom's declared callable set") and add `must-precede` edge into T16b; T16b's Problem then lands cleanly against a non-contradictory owner. Mechanism-only delegation (no inline effect prose) is the natural Problem shape once the owner is consistent. | RI-1 of T16b forensic |
 | T18a | Pin the 3 axes (caller-observation-surface taxonomy; quantifier domain; pre-evaluation behaviour) OR split into per-axis atoms OR raise score to admit the residue. | RI-1 of T18a forensic |
 | **New** | Author a new spec-review entry: \"PIC step 2 internal contradiction: literal `pi.setActiveTools([...snapshot, ...names])` call shape vs natural-language 'exactly the loom's declared callable set'.\" Add `must-precede` edge from T16b. | RI-2 of T16b forensic |
 
 Cascade-parked findings (T15b, T18b/c/d) re-dispatch when their
 upstream lands; no per-cascade reshape.
 
-### 6.6 Summary table
+### 6.7 Summary table
 
 | Rec | Tier | Title | Coverage | pi-loom | pi-config |
 |---|---|---|:-:|:-:|:-:|
+| **V** | **S** | **Solution constraints as advisory (mirror of rec J on constraints surface; three-mode authoring guard per constraint sweep)** | **T15a + T16a (cures); T14 + T19 cluster + T22a1 cross-finding cases (three-mode guard refuses safely, no boundary violation); T13 partial; T22a1 const #1 + T20 SG1 deferred to rec L** | | **✓** |
 | **T** | **A** | **Stage-transition structural-growth refusal** | **T12 (1/7 parks)** | | **✓** |
-| **L** | **B** | **Audit-side cited-target ratification** | **T13/T14/T16a/T16b (4/7 parks)** | | **✓** |
+| **L** | **B** | **Audit-side binding-surface ratification (Problem / constraints / missing-prerequisite)** | **T13/T14/T16a/T16b (4/7 parks)** | | **✓** |
 | M | B | Pre-dispatch precondition staleness | T15a (1/7 parks) | | ✓ |
-| P | B | Reducer surfaces decision axes | T18a (1/7 parks) | | ✓ |
+| P | B | Decision-axes Problem-metadata + score-vs-residue audit | T18a (1/7 parks) | | ✓ |
 | W | C | Reject-category exit-code tagging | all parks (signal) | | ✓ |
 | O | C | Trust-override / score-budget precedence | T16a-shape (signal) | | ✓ |
 | K | D | Cluster-importance aggregation | T19 cluster | | ✓ (SHIPPED) |
 | Tier E | E | Six per-finding reshapes + one new PIC-L213 finding | 6 parks + 1 prerequisite | ✓ | |
 
-### 6.7 Priority order
+### 6.8 Priority order
 
-Ranked by combined fix-rate impact and architectural priority:
+Ranked per user direction (fixer-pipeline changes first; audit-
+layer work postponed until rec V validation):
 
-**Tier 1 — ship to unblock parked work:**
+**Tier 1 — ship now (architectural + fixer-pipeline):**
 
-1. **Tier E reshapes** (pi-loom) — six per-finding reshapes +
-   one new PIC-L213 finding. Highest fix-rate impact because
-   six of seven non-cascade parks resolve through reshape, not
-   through pipeline changes. The forensic reports already supply
-   the per-finding reshape text.
+1. **Rec V** (pi-config) — Solution constraints as advisory.
+   Architectural change; ships first. Re-dispatching the W2
+   parked set is the validation step. T14 is the canary for
+   the authoring-guard's adequacy.
 2. **Rec T** (pi-config) — stage-transition refusal. Closes the
-   one fixer-capability gap. Unparks T12 on re-dispatch.
-3. **Rec L** (pi-config) — audit-side cited-target ratification.
-   Routes T13/T14/T16a/T16b to reshape at audit time on next
-   authoring iteration; saves the 5–9 passes the W2 run burned
-   discovering each malformation.
+   one category-2 capability gap (T12). Can ship alongside or
+   shortly after rec V.
+3. **Tier E reshapes** (pi-loom) — the per-finding reshapes
+   for the parks rec V does **not** cure (T13, T14, T16b,
+   T18a, plus T15a and T16a as optional clarity work).
+   Re-evaluate the list after rec V re-dispatch resolves
+   which findings still need authoring work.
 
 **Tier 2 — ship to clean up routing and signal:**
 
 4. **Rec W** (pi-config) — reject-category exit-code tagging.
    Makes every future park commit readable in one line.
+   Update the exit-code table for rec V's retirement of
+   `must-fix-blocked-by-scope-guard`.
 5. **Rec M** (pi-config) — pre-dispatch precondition staleness.
-   Moves T15a-shape catches one layer earlier.
-6. **Rec P** (pi-config) — reducer surfaces decision axes.
-   Catches T18a-shape under-specification at authoring time.
-7. **Rec O** (pi-config) — trust-override / score-budget
+   May be subsumed by rec V's stale-prediction detection in the
+   fixer; re-evaluate after rec V ships.
+6. **Rec O** (pi-config) — trust-override / score-budget
    precedence. Improves reject signal on T16a-shape findings.
 
-**Tier 3 — process:**
+**Tier 3 — postponed (audit layer):**
 
-8. **Re-dispatch T19 cluster after rec K** (pi-loom) — already
-   queued (unpark commit e12ccf9 sits ahead of the next dispatch).
+7. **Rec L** (pi-config) — audit-side binding-surface
+   ratification. Postponed per user direction until rec V
+   validation completes (or until the fixer pipeline looks
+   improvement-saturated). Until then, rec V's authoring guard
+   absorbs rec L's T14-shape coverage at the fixer layer.
+8. **Rec P** (pi-config) — reducer surfaces decision axes.
+   Postponed alongside rec L (same audit/reducer layer).
+
+**Tier 4 — process:**
+
+9. **Re-dispatch T19 cluster after rec K** (pi-loom) — already
+   queued (unpark commit e12ccf9 sits ahead of the next
+   dispatch). Under rec V this re-dispatch doubles as the
+   step-4 validation canary for the cluster's `(f-stop-2)`
+   coverage — see step 10.
+10. **Validate rec V — staged re-dispatch** (pi-loom). Per the
+    revised validation plan in §6.1, dispatch in this fixed
+    order so a failure at any step does not contaminate the
+    later steps' evidence:
+    - **Step 1:** T15a (cures baseline)
+    - **Step 2:** T16a (cures baseline)
+    - **Step 3:** T14 — `(f-stop-1)` canary (Problem-anticipation)
+    - **Step 4:** T19 cluster T19a/b/d/e — `(f-stop-2)` canary
+      (co-resolve recognition). **Heaviest canary;** T19b is
+      the load-bearing single test (W2 forensic names the
+      exact boundary violation the guard must prevent).
+    - **Step 5:** T22a1 if re-dispatched — additional
+      `(f-stop-2)` evidence + expected const-#1 lens-finding
+      surface (rec L territory).
+    Failure at any canary triggers either hardening that mode
+    or shipping rec L earlier than planned, before rec V's
+    reach extends to additional findings.
 
 **Withdrawn (architectural-cut casualties):**
 
@@ -827,10 +1269,16 @@ Ranked by combined fix-rate impact and architectural priority:
   job. Routing category-1 rejects via audit (rec L) and
   category-2 rejects via clearer exit codes (rec W) achieves the
   same outcome without crossing the boundary.
-- **Rec U** (constraint-narrowing license) — same boundary
-  violation: constraints are part of the finding; the fixer must
-  not rewrite them. Reshape is the response when constraints are
-  malformed.
+- **Rec U** (constraint-narrowing license) — **superseded by
+  rec V** (§6.1). Under rec V's SP-level change, constraints
+  become advisory, so the original boundary objection ("the
+  fixer must not rewrite binding constraints") no longer
+  applies — there is nothing binding to rewrite. Rec V revives
+  the narrowing mechanic and adds the authoring-guard refusal
+  mode (`constraint-narrowing-would-author`) that the original
+  rec U lacked; the guard is what prevents the narrowing path
+  from collapsing into fixer-as-author for cases like T14.
+  Withdrawal entry retained here for traceability.
 - **Rec N** (classifier-side stage-transition guard) — subsumed
   by rec T, which is the same idea correctly located in the
   fixer (where capability extensions belong) rather than the
@@ -838,11 +1286,13 @@ Ranked by combined fix-rate impact and architectural priority:
 - **Rec Q** (SP-2 deferred-must-fix surfacing in NOTES) —
   subsumed by rec W's category-2 exit-code tagging.
 
-**Single-line summary:** **most of the work is in pi-loom**
-(Tier E reshapes), supported by a small targeted set of
-pi-config changes (rec T for the one fixer-capability gap; rec
-L/M/P for category-1 routing; rec W/O for signal hygiene).
-Rec K has already shipped.
+**Single-line summary:** ship **rec V** (constraints as advisory)
+as the headline pi-config change, validate against the W2 parked
+set (T14 is the canary), pair with **rec T** for the one
+category-2 capability gap, and trim the pi-loom Tier E reshape
+list to whatever rec V does not cure. Audit-layer work (rec L,
+rec P) is postponed until rec V validation completes. Rec K has
+already shipped.
 
 ## 7. What NOT to recommend
 
@@ -955,13 +1405,29 @@ recommendation set entirely.
 Failure shapes now visible in pure form that the W1 forensic
 set hinted at but did not exhibit:
 
-- **Forward-link target does not own the asserted claim**
-  (T13, T14, T16a, T16b). Category-1 malformations routed by
-  rec L.
-- **Stale precondition encoding** (T15a). Category-1
-  malformation routed by rec M.
-- **Resolver-must-decide axes** (T18a). Category-1 malformation
-  routed by rec P at the reducer layer.
+- **Problem asserts rule absent from owner page** (T14).
+  Category-1 malformation on the **Problem** surface. Routed
+  by rec L.
+- **Problem propagates undefined token** (T13). Category-1
+  malformation on the **Problem** surface (alternatively framed
+  as a missing prerequisite defining-finding). Routed by rec L.
+- **Constraints fence all remediation sites** (T16a).
+  Category-1 malformation on the **constraints** surface: the
+  Problem's reduction leaves orphan premises that have no
+  honest landing site within the constraints. Routed by rec L.
+- **Cited owner internally contradictory, no prerequisite
+  finding** (T16b). Category-1 malformation on the **missing
+  prerequisite finding** surface. Routed by rec L.
+- **Stale precondition encoding in constraint** (T15a).
+  Category-1 malformation on the **constraints** surface
+  (constraint encodes a structural ordering prediction). Routed
+  by rec M.
+- **Score insufficient for Problem's residue** (T18a).
+  Category-1 malformation on the **score** surface (the Problem
+  implicitly requires committing on ≥2 axes whose combined
+  residue exceeds the budget). Routed by rec P, which adds the
+  Problem-metadata field that lets the audit's score-vs-residue
+  check fire pre-dispatch.
 - **Stage-transition structural-growth divergence** (T12).
   Category-2 capability gap. The only one. Addressed by rec T.
 - **Trust-override suppresses score-budget signals** (T16a).
