@@ -575,3 +575,37 @@ Rewrite the counting-formula and exhaustion sentences in V6k's *Adds* paragraph 
 
 - T11a "Replace 'consumes one slot' prose with explicit forced-respond exemption rule" — must-follow (the spec rule must land first so V6k's formula has something to anchor against).
 - T11c "V6k normative test vector for `max_rounds: 0` typed query" — must-precede (the formula change must land before the test can assert against it).
+
+---
+
+## T10 — Single-string bypass: behaviour on whitespace-only / absent slash argument is unspecified
+
+> **PARKED** — 2026-05-19
+> **Reason:** Category 1 (malformed finding — constraints binding surface; the originating finding's Solution constraints fence every viable remediation that the lens admits). The inner spec-diff-fix-loop's severity-weighted triage exited on must-fix-blocked-by-scope-guard (plan §Change A clause 1 escape): a raised lens finding outranked this originating finding in importance, but every viable remediation would violate a class-1 or class-2 scope guard forwarded from the top-level fixer. FIXCOUNTS: 3. Loop notes: Classifier exit on pass 2 via Rec O pass-level shadow-budget gate; sub-rationale=score-budget-exhausted-trust-override-suppressed, 5 blocked findings. Budget triple: S=25 (defaulted — T10 heading already removed from spec-review, default medium→25), Σ_shadow=81, k=3, k×S threshold=75, breach margin over gate = 6 (Σ_shadow−k×S), breach margin over S = 56. 4 of 5 findings carried non-trivial Trust impact entries that would have classified as fix-via-trust-override absent the gate (suppression count=4). Pass 1 applied 3 fixes (whitespace-alphabet pin in slash-invocation.md, enum/const carve-out of single-string bypass in binder.md+glossary.md+diagnostics.md, link-text rewrite in binder.md) and deferred 1 atomicity finding to debt register. Pass 2's lens fan-out then surfaced 5 net-new findings concentrated on the surfaces pass 1 widened: the new `String.prototype.trim()` parenthetical (prescription/API-name nudge), the one-sided "shared with single-string bypass equivalence" cross-document claim (consistency/assumptions/completeness all flagging the same dangling pin), two PIC sites (`pi-integration-contract.md` L12/L787) now drifting from binder.md's 4-element bypass criterion (cross-spec consistency), the "field's schema" source-vs-lowered ambiguity (implementability), and bullet 2's now-three-obligation bundling under one tag (traceability). severity p1 raised{low:2,NIT:1,medium:1} fixed{low:2,NIT:1} deferred{medium:1} blocked{}; p2 raised{medium:3,low:1,NIT:1} fixed{} deferred{} blocked{medium:3,low:1,NIT:1}; stage1=1; narrowings=0+0+0+0; stage1Touched=4 mode-e-refusals=0. Reshape guidance from `_blocked.md`: T10 was defaulted to S=25 because the heading was already removed from spec-review.md by the top-level fixer (no in-flight metadata available); if T10's actual score was higher than 25 the budget is artificially tight and recovering its real score is the cheapest fix. A human must resolve the guard-vs-severity collision (relax the guard, split this finding so the higher-importance raised finding is no longer downstream of the guard, or accept the trade-off and annotate the raised finding as out-of-scope) before re-introducing this finding.
+> **Forensic report:** .pi/tmp/spec-fix-failure-forensics/2026-05-18T20-36-39_b9045e/t10-single-string-bypass-behaviour-on-whitespace-only-absent-slash-argument-is-u.md
+
+# T10 — Single-string bypass: behaviour on whitespace-only / absent slash argument is unspecified
+
+**Kind:** testability
+**Importance:** high
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The *Single-string bypass* clause (item 2 of *Binder bypass*, anchor `bypass-cases`) in `docs/spec_topics/binder.md` is silent on the case where the user supplies no slash argument or supplies only whitespace. After the documented leading/trailing-whitespace trim, the bound value is `""`, and AJV with the default `string` schema accepts it, but the bypass path has no binder fallback, no `needs_info` channel, and no reserved diagnostic for this case — so two reasonable implementers diverge on whether the loom starts with `""` bound or whether the runtime emits a system note and suppresses the loom. The choice is load-bearing for the user-visible surface and for V3c's test matrix in `docs/plan_topics/v3-frontmatter.md`, which currently has no row pinning the empty-trim outcome.
+
+## Solution approach
+
+Clarify item 2 of *Binder bypass* in `docs/spec_topics/binder.md` to pin the chosen behaviour: when the slash argument is absent or trims to the empty string, the param is bound to `""` and the loom starts; AJV validates `""` against the `string` schema (it passes by definition). Add a paired test row to V3c's *Tests* line in `docs/plan_topics/v3-frontmatter.md` asserting that the no-argument and whitespace-only-argument cases both bind the param to `""` and start the loom.
+
+## Solution constraints
+
+- Do not introduce a new diagnostic code, a new failure-mode-template row, or a new system-note template — the resolution is to clarify the bound value and start condition only.
+- Do not alter the existing trim semantics: leading/trailing whitespace stripped, internal whitespace preserved (e.g. `/foo  hello  ` still binds `"hello"`).
+- Do not change echo policy on the bypass path — echo auto-suppression on bypass per V16k must continue to hold for the absent / whitespace-only cases.
+- The *No-params overflow* note in `docs/spec_topics/slash-invocation.md` must remain gated on `params: {}` / absent; do not extend it to fire on the single-string bypass path.
+
+## Relationships
+
+None

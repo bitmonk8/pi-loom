@@ -428,3 +428,27 @@ human triage) can trace why the listed findings ended up in
 `spec-review-parked.md`.
 
 ---
+
+## 2026-05-19T00:00:00Z — T10 — Single-string bypass: behaviour on whitespace-only / absent slash argument is unspecified
+
+- **Failure mode:** must-fix-blocked
+- **Category:** 1 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** 3
+- **Score trajectory:** 36 vs S=25
+- **Passes:** 1
+- **Stage at exit:** 1 (1 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-18T21-54-04_ebb668`
+- **Poisoned fixes:** n/a
+- **Forensic report:** `.pi/tmp/spec-fix-failure-forensics/2026-05-18T20-36-39_b9045e/t10-single-string-bypass-behaviour-on-whitespace-only-absent-slash-argument-is-u.md` _(gitignored)_
+- **Parked findings (this run):** `T10 — Single-string bypass: behaviour on whitespace-only / absent slash argument is unspecified`
+- **Loop notes:** Classifier exit on pass 2 via Rec O pass-level shadow-budget gate; sub-rationale=score-budget-exhausted-trust-override-suppressed, 5 blocked findings. Budget triple: S=25 (defaulted — T10 heading already removed from spec-review, default medium→25), Σ_shadow=81, k=3, k×S threshold=75, breach margin over gate = 6 (Σ_shadow−k×S), breach margin over S = 56. 4 of 5 findings carried non-trivial Trust impact entries that would have classified as fix-via-trust-override absent the gate (suppression count=4). Pass 1 applied 3 fixes (whitespace-alphabet pin in slash-invocation.md, enum/const carve-out of single-string bypass in binder.md+glossary.md+diagnostics.md, link-text rewrite in binder.md) and deferred 1 atomicity finding to debt register. Pass 2's lens fan-out then surfaced 5 net-new findings concentrated on the surfaces pass 1 widened: the new `String.prototype.trim()` parenthetical (prescription/API-name nudge), the one-sided "shared with single-string bypass equivalence" cross-document claim (consistency/assumptions/completeness all flagging the same dangling pin), two PIC sites (`pi-integration-contract.md` L12/L787) now drifting from binder.md's 4-element bypass criterion (cross-spec consistency), the "field's schema" source-vs-lowered ambiguity (implementability), and bullet 2's now-three-obligation bundling under one tag (traceability). severity p1 raised{low:2,NIT:1,medium:1} fixed{low:2,NIT:1} deferred{medium:1} blocked{}; p2 raised{medium:3,low:1,NIT:1} fixed{} deferred{} blocked{medium:3,low:1,NIT:1}; stage1=1; narrowings=0+0+0+0; stage1Touched=4 mode-e-refusals=0. Reshape guidance from `_blocked.md`: T10 was defaulted to S=25 because the heading was already removed from spec-review.md by the top-level fixer (no in-flight metadata available); if T10's actual score was higher than 25 the budget is artificially tight and recovering its real score is the cheapest fix.
+- **Fixer notes:** none
+
+The detailed root-cause analysis, audit-vs-actual comparison, and
+ranked Immediate / Pipeline recommendations live in the gitignored
+forensic report cited above. This file records only the durable
+TL;DR pointer so future `/spec-review` regeneration runs (or future
+human triage) can trace why the listed findings ended up in
+`spec-review-parked.md`.
+
+---
