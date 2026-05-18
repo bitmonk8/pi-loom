@@ -330,3 +330,27 @@ human triage) can trace why the listed findings ended up in
 `spec-review-parked.md`.
 
 ---
+
+## 2026-05-18T16:54:56Z — T15b — Move concurrency semantics into Extension Architecture / Implementation Notes Concurrency-model subsection
+
+- **Failure mode:** must-fix-blocked
+- **Category:** 1 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** n/a
+- **Score trajectory:** n/a vs S=25
+- **Passes:** 0
+- **Stage at exit:** 1 (0 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-18T16-54-56_4e64a6`
+- **Poisoned fixes:** n/a
+- **Forensic report:** `c:/UnitySrc/pi-loom/.pi/tmp/spec-fix-failure-forensics/2026-05-18T15-13-27_a2e488/t15b-move-concurrency-semantics-into-extension-architecture-implementation-notes.md` _(gitignored)_
+- **Parked findings (this run):** `T15b — Move concurrency semantics into Extension Architecture / Implementation Notes Concurrency-model subsection`
+- **Loop notes:** Classifier early-exit on `_blocked.md` sub-rationale `score-budget-exhausted-trust-override-suppressed` (Rec O pass-level shadow-budget gate). S=25 (default — top-level fixer already removed T15b from `docs/spec-review.md` so classifier could not recover the originating `**Score:**`; sibling T15a/T14 both medium=25, consistent), Σ=260, breach-margin=235 (Σ/S ≈ 10.4×, well above k=3 multiplier). 6 non-blocker non-cheap raised findings counted toward budget; all 6 would have qualified for trust-override absent the Rec O gate. Breakdown by lens/tier: AF-1 spec-lens-consistency high/100 (same-document duplication — explicitly covered by forwarded scope guard but per Rec O still counts toward Σ_shadow), AF-2 spec-lens-traceability high/100 (8+ obligations under single `#concurrency-model` anchor), AF-3 spec-lens-assumptions+traceability medium/25 (clause (i) mis-pinning + fragmentless link), AF-4 spec-lens-assumptions medium/25 (closed-world "only" claim unexhausted by corpus), AF-5 spec-lens-prescription low/5 (mechanism-anchored top sentence via `pi.setActiveTools`), AF-6 spec-lens-assumptions low/5 (unpinned event-loop assumption). Even excluding AF-1 under scope-guard guidance, residue Σ=160 > 3×S=75 still exceeds gate; reshape — not further inner-loop iteration — is the correct disposition. severity p1 raised{high:2,medium:2,low:2} fixed{} deferred{} blocked{high:2,medium:2,low:2}; stage1=1; narrowings=0+0+0+0; stage1Touched=0 mode-e-refusals=0. Snapshot refs under `refs/loom/snapshots/2026-05-18T16-54-56_4e64a6/*` retained for forensics (baseline, baseline-post-top-level, pass-1). Zero `spec-diff-fixer` dispatches occurred; working tree unchanged from loop entry; outer prompt MUST NOT commit and should route the heading to forensics + parker per the `must-fix-blocked` branch.
+- **Fixer notes:** none
+
+The detailed root-cause analysis, audit-vs-actual comparison, and
+ranked Immediate / Pipeline recommendations live in the gitignored
+forensic report cited above. This file records only the durable
+TL;DR pointer so future `/spec-review` regeneration runs (or future
+human triage) can trace why the listed findings ended up in
+`spec-review-parked.md`.
+
+---
