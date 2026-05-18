@@ -261,3 +261,26 @@ human triage) can trace why the listed findings ended up in
 `spec-review-parked.md`.
 
 ---
+
+## 2026-05-18T03:45:00Z — T14 — Prompt-mode sequentiality argument has an unstated fourth premise
+
+- **Failure mode:** must-fix-blocked
+- **Trajectory:** 2,2
+- **Score trajectory:** 50,150 vs S=n/a
+- **Passes:** 2
+- **Stage at exit:** 1 (2 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-18T03-42-25_ed094f`
+- **Poisoned fixes:** n/a
+- **Forensic report:** `c:/UnitySrc/pi-loom/.pi/tmp/spec-fix-failure-forensics/2026-05-17T16-41-31_b4324e/t14-prompt-mode-sequentiality-argument-has-an-unstated-fourth-premise.md` _(gitignored)_
+- **Parked findings (this run):** `T14 — Prompt-mode sequentiality argument has an unstated fourth premise, T15b — Move concurrency semantics into Extension Architecture / Implementation Notes Concurrency-model subsection`
+- **Loop notes:** must-fix-blocked-by-scope-guard. Pass-3 classifier merged six lens findings into one must-fix:true high (clause iv cites a "further rule" that doesn't exist in invocation.md Cross-mode semantics). Three remediation paths blocked by ScopeGuards 1 or 2 or matrix-coverage break. T14 likely needs reshape — either retire (subagent→prompt already discharged elsewhere) or land T15a/b/c paragraph restructure first.
+- **Fixer notes:** none
+
+The detailed root-cause analysis, audit-vs-actual comparison, and
+ranked Immediate / Pipeline recommendations live in the gitignored
+forensic report cited above. This file records only the durable
+TL;DR pointer so future `/spec-review` regeneration runs (or future
+human triage) can trace why the listed findings ended up in
+`spec-review-parked.md`.
+
+---
