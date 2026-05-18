@@ -307,3 +307,26 @@ human triage) can trace why the listed findings ended up in
 `spec-review-parked.md`.
 
 ---
+
+## 2026-05-18T00:00:00Z — T12 — Dual-cap simultaneous breach: `<cap>` value in `loom/load/discovery-slow` diagnostic is indeterminate
+
+- **Failure mode:** diverging
+- **Trajectory:** 3,3,2,1,0,1,2
+- **Score trajectory:** 55,36,30,1,0,30,15 vs S=25
+- **Passes:** 7
+- **Stage at exit:** 2 (2 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-18T07-47-10_29ee83`
+- **Poisoned fixes:** n/a
+- **Forensic report:** `c:/UnitySrc/pi-loom/.pi/tmp/spec-fix-failure-forensics/2026-05-17T16-41-31_b4324e/t12-dual-cap-simultaneous-breach-cap-value-in-loom-load-discovery-slow-diagnosti.md` _(gitignored)_
+- **Parked findings (this run):** `T12 — Dual-cap simultaneous breach: `<cap>` value in `loom/load/discovery-slow` diagnostic is indeterminate`
+- **Loop notes:** Divergence at pass 7 (fixCounts 1→2 between p6 and p7). Pass-6 anchor-split introduced fresh critique surface; pass-7 fixes discarded. Originating T12 was addressed by top-level fixer; divergence is in the loop's own refinement. Reshape: move tie-break sub-rule into a sibling subsection under `## Package discovery`.
+- **Fixer notes:** none
+
+The detailed root-cause analysis, audit-vs-actual comparison, and
+ranked Immediate / Pipeline recommendations live in the gitignored
+forensic report cited above. This file records only the durable
+TL;DR pointer so future `/spec-review` regeneration runs (or future
+human triage) can trace why the listed findings ended up in
+`spec-review-parked.md`.
+
+---
