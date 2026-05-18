@@ -609,3 +609,35 @@ Clarify item 2 of *Binder bypass* in `docs/spec_topics/binder.md` to pin the cho
 ## Relationships
 
 None
+
+---
+
+## T09 — `bind_context: session` overview bullet uses tilde-approximate caps that contradict the exact bounds defined later in the same file
+
+> **PARKED** — 2026-05-19
+> **Reason:** Category 2 (fixer too-hard — capability gap in the fixer's narrowing mechanism; fix attempts systematically grow the raised-finding score). The inner spec-diff-fix-loop's surface-expansion detector (plan §Change C2) fired on two consecutive backtrack-and-exclude passes without converging: every fix the loop poisoned was followed by another fix whose application also triggered expansion. FIXCOUNTS: 1,1,0,0,3,1,5. SCORESUMS: 25,1,0,0,11,1,37 against S=25. Poisoned fixes: naming:01. Snapshot refs retained at refs/loom/snapshots/2026-05-18T22-27-20_00a21e/* for forensic diffing. Loop notes: severity p1 raised{medium:1} fixed{medium:1}; p2 raised{NIT:1} fixed{NIT:1}; p3 raised{} fixed{}; p4 raised{} fixed{}; p5 raised{low:2,NIT:1} fixed{low:2,NIT:1}; p6 raised{NIT:1} fixed{NIT:1}; p7(re) raised{medium:1,low:2,NIT:2} fixed{} (discarded un-applied at exit); stage1=3 stage2=1 stage3=3; narrowings=0+0+0+0; stage1Touched=1 mode-e-refusals=0. Surface-expansion detector fired on pass 8 (scoreSum 30 vs pass-7 score 1; ratio 30×); backtracked to pass-7 snapshot, poisoned `naming:01`. Pass 7 re-executed with naming:01 excluded; lenses surfaced 5 new findings, scoreSum jumped to 37. Second consecutive backtrack-and-exclude trigger → exit `surface-expansion-irrecoverable`. The originating T09 finding's Solution approach (replace inline tilde-approximate caps with a forward-link deferral, plus rewrite the trailing non-normative clause to drop "fully specified above") creates a structural fanout: every stage-3 phrasing variant of the rewritten bullet+note pair attracts a new combination of clarity/naming/traceability/consistency lens findings. Snapshot refs under `refs/loom/snapshots/2026-05-18T22-27-20_00a21e/` retained for forensics. A human must reshape this finding (split it into narrower pieces, demote MUSTs, or cap the prose the fix is allowed to add) before re-introducing it.
+> **Forensic report:** .pi/tmp/spec-fix-failure-forensics/2026-05-18T20-36-39_b9045e/t09-bind-context-session-overview-bullet-uses-tilde-approximate-caps-that-contra.md
+
+# T09 — `bind_context: session` overview bullet uses tilde-approximate caps that contradict the exact bounds defined later in the same file
+
+**Kind:** testability
+**Importance:** high
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The `bind_context: session` bullet in the *bind_context* value list of `docs/spec_topics/binder.md` (the bullet immediately under "Configured via `bind_context:` …") describes the session-context cap as "the last ~20 turns or ~8000 tokens (whichever is smaller)". The tildes read as approximation and "whichever is smaller" reads as a min-of-two cap, while the *Session-context truncation (`bind_context: session`)* subsection later in the same file pins exact, jointly-applied, boundary-inclusive bounds (a turn is included iff running token total ≤ 8000 *and* running turn count ≤ 20). A reader who consumes only the bullet cannot tell that the limits are exact, joint, or boundary-inclusive, so an implementer or test author working from the bullet alone may round counts, undercount tokens, or apply min-of-two and still believe themselves conformant.
+
+## Solution approach
+
+Rewrite the `bind_context: session` bullet so it stops asserting approximate, min-of-two caps. Either restate the caps verbatim as the exact joint inclusive bounds owned by the algorithm subsection, or — preferably — defer entirely with a forward-link to the *Session-context truncation (`bind_context: session`)* subsection (anchor `#session-context-truncation-bind_context-session`) and let that subsection own the literals. Drop the tildes and the "whichever is smaller" framing.
+
+## Solution constraints
+
+- Treat the *Session-context truncation* subsection and the rendered binder system-prompt example line (`Recent session context (most recent 20 turns / 8000 tokens):`) as read-only; the bullet either restates the caps verbatim from that subsection or defers via forward-link, and never paraphrases or re-derives.
+- Do not introduce a third independent statement of the caps in `binder.md` — the only acceptable copies remain the *Session-context truncation* subsection and the rendered system-prompt example line, both already present.
+
+## Relationships
+
+None

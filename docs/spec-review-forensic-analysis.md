@@ -452,3 +452,27 @@ human triage) can trace why the listed findings ended up in
 `spec-review-parked.md`.
 
 ---
+
+## 2026-05-19T00:00:00Z — T09 — `bind_context: session` overview bullet uses tilde-approximate caps that contradict the exact bounds defined later in the same file
+
+- **Failure mode:** surface-expansion-irrecoverable
+- **Category:** 2 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** 1,1,0,0,3,1,5
+- **Score trajectory:** 25,1,0,0,11,1,37 vs S=25
+- **Passes:** 7
+- **Stage at exit:** 3 (3 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-18T22-27-20_00a21e`
+- **Poisoned fixes:** naming:01
+- **Forensic report:** `.pi/tmp/spec-fix-failure-forensics/2026-05-18T20-36-39_b9045e/t09-bind-context-session-overview-bullet-uses-tilde-approximate-caps-that-contra.md` _(gitignored)_
+- **Parked findings (this run):** `T09 — `bind_context: session` overview bullet uses tilde-approximate caps that contradict the exact bounds defined later in the same file`
+- **Loop notes:** severity p1 raised{medium:1} fixed{medium:1}; p2 raised{NIT:1} fixed{NIT:1}; p3 raised{} fixed{}; p4 raised{} fixed{}; p5 raised{low:2,NIT:1} fixed{low:2,NIT:1}; p6 raised{NIT:1} fixed{NIT:1}; p7(re) raised{medium:1,low:2,NIT:2} fixed{} (discarded un-applied at exit); stage1=3 stage2=1 stage3=3; narrowings=0+0+0+0; stage1Touched=1 mode-e-refusals=0. Surface-expansion detector fired on pass 8 (scoreSum 30 vs pass-7 score 1; ratio 30×); backtracked to pass-7 snapshot, poisoned `naming:01`. Pass 7 re-executed with naming:01 excluded; lenses surfaced 5 new findings, scoreSum jumped to 37. Second consecutive backtrack-and-exclude trigger → exit `surface-expansion-irrecoverable`. The originating T09 finding's Solution approach (replace inline tilde-approximate caps with a forward-link deferral, plus rewrite the trailing non-normative clause to drop "fully specified above") creates a structural fanout: every stage-3 phrasing variant of the rewritten bullet+note pair attracts a new combination of clarity/naming/traceability/consistency lens findings. Snapshot refs under `refs/loom/snapshots/2026-05-18T22-27-20_00a21e/` retained for forensics.
+- **Fixer notes:** none
+
+The detailed root-cause analysis, audit-vs-actual comparison, and
+ranked Immediate / Pipeline recommendations live in the gitignored
+forensic report cited above. This file records only the durable
+TL;DR pointer so future `/spec-review` regeneration runs (or future
+human triage) can trace why the listed findings ended up in
+`spec-review-parked.md`.
+
+---
