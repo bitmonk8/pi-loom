@@ -21,39 +21,42 @@ INPUT: 8 forensic reports under
 
 HEADLINE: Rec J converted 2 of the 6 W1 failures (T21, T22a1 +
           cascade T22b/T22c/T15c) into clean fixes. The 4-member
-          T19a/T19b/T19d/T19e cluster was dispatched through rec F
-          (MULTI mode) and parked on a budget-exhaustion exit that
-          the cluster's content did not warrant — `_blocked.md`
-          records `Σ=60` against `S=25` because the synthesised
-          MULTI heading is absent from `spec-review.md` and the
-          classifier defaulted to medium even though every cluster
-          member carries `**Importance:** high`. This is an
-          engineering gap in rec F's classifier integration, not a
-          design flaw. Net W1 fix-rate change: +5 (T21, T22a1,
-          T22b, T22c, T15c) at a baseline of 6 → +5 on the original
-          W1 set (out of 6, with the 4-member cluster still in
-          flight as one rec-F unit rather than four).
+          T19a/b/d/e cluster was dispatched through rec F (MULTI
+          mode) and parked on a cluster-importance-aggregation
+          bug (Σ=60 vs S=25, defaulted-medium budget because the
+          synthesised MULTI heading is absent from `spec-review.md`
+          by construction). The fix — rec K — has shipped
+          (pi-config 344da26) and the cluster is unparked
+          (pi-loom e12ccf9) awaiting re-dispatch.
 
           Re-dispatch of the newly-active spec-review batch
           (T12–T18a, dispatched alongside the unparked W1 set)
-          surfaced 7 fresh failures across patterns the prior
-          analysis named but did not fully scope: citation-form
-          drift onto a target that does not own the claim
-          (T16a, T16b, T14, T13); structural-growth divergence
-          across the stage-1→stage-2 boundary (T12); finding-
-          malformed-at-root (T14); stale-precondition encoding
-          after a sibling resolved (T15a); resolver-must-decide
-          axes left to the fixer with a budget that cannot absorb
-          the residue (T18a).
+          produced 7 single-finding parks. Reading them through
+          the architectural cut "fixer = mechanism, not author;
+          rejection is either (1) malformed finding or (2) fixer
+          too-hard": 6 of the 7 parks are CATEGORY 1 (T13, T14,
+          T15a, T16a, T16b, T18a — the fixer correctly refused a
+          malformed finding); 1 is CATEGORY 2 (T12 — the fixer
+          lacks stage-transition structural-growth awareness).
+          This re-frames the work load: pi-config gets ONE
+          fixer-capability extension (rec T); the remaining six
+          parks resolve through finding-authoring reshapes in
+          pi-loom plus three audit-side / signal-hygiene
+          recommendations (L, M, W).
 
-PRIMARY FIX: rec K (this document) — close the cluster-importance
-             aggregation gap in `spec-diff-fix-classifier.md` so
-             MULTI headings inherit `max(member_importance)` rather
-             than defaulting to medium. One pi-config change
-             converts the T19a/b/d/e parked cluster into a
-             converging fix on re-dispatch.
+PRIMARY WORK: ship rec T (pi-config; one fixer-capability gap);
+              ship rec L + rec M + rec W (pi-config; route
+              category-1 malformations to reshape earlier and
+              with clearer signal); author 6 reshapes + 1 new
+              spec-review finding in pi-loom (finding-authoring
+              layer). Rec K has already shipped and rec K's
+              re-dispatch of the T19 cluster is queued.
 
 GENERATED: 2026-05-18T09:00:00Z
+           revised 2026-05-18T13:00:00Z (architectural cut:
+             fixer-is-mechanism-not-author; reject-category
+             taxonomy; recommendations restructured under
+             Tier A / B / C / D)
 ```
 
 ## Sources
@@ -346,8 +349,12 @@ that closing it would resolve 5/6 W1 failures. That prediction
 was directionally right on the failures rec J could reach — T21
 and T22a1 both resolved on first dispatch under the new fixer —
 but it overcounted by treating the T19 cluster as four single-
-finding rec-J targets when the actual dispatch now treats it as
-one rec-F cluster. Walking the new evidence:
+finding rec-J targets when the actual dispatch treats it as one
+rec-F cluster, and it under-named a deeper architectural cut
+that the W2 newly-dispatched batch makes unavoidable. This
+section works through the W1-set evidence first (where the prior
+prediction held), then states the architectural cut (§5.3), then
+re-reads the parked set through it (§5.4).
 
 ### 5.1 Where rec J worked, it worked cleanly
 
@@ -408,371 +415,464 @@ triage cycle); rec J's narrowing mechanism integrates correctly
 The bug is one missing aggregation step in
 `spec-diff-fix-classifier.md`'s origin-score lookup.
 
-### 5.3 The newly-dispatched batch shares a single audit-side pattern
+### 5.3 The fixer/finding architectural boundary
 
-The prior meta-analysis dismissed audit-side recommendations as
-"diagnostic-only" on the argument that they "do not change the
-finding's text or the pipeline's ability to satisfy it." That
-framing was correct for the W1 set, where every failure had a
-loop-side cause rec J could address. **It does not generalise
-to the W2 newly-dispatched batch.** Of the 7 single-finding
-parks (T12, T13, T14, T15a, T16a, T16b, T18a), 6 carry an
-explicit "audit predicted PASS / NO_ACTION on the lens that
-later fired in-loop" entry in their forensic reports:
+The prior meta-analysis (and earlier revisions of this one)
+treated the parked set as a heterogeneous list of "the loop
+couldn't fix this" failures and proposed pipeline mechanisms
+(narrowing license, followup emission, constraint loosening) to
+grow the loop's reach. That framing conflates two architecturally
+distinct roles:
 
-| Finding | Audit verdict | Lens that later fired in-loop | Audit miss-score (per report) |
-|---|---|---|---|
-| T12 | NO_ACTION, NONE | assumptions, consistency, traceability, prescription, placement (×4 false-negative fix-class) | 4 |
-| T13 | (LOW, AUTO_RESHAPE on metadata) | clarity (`cross-file` undefined) | implicit; not enumerated |
-| T14 | LOW, AUTO_RESHAPE on metadata | assumptions (cited rule does not exist) | implicit; not enumerated |
-| T15a | LOW, AUTO_RESHAPE | precondition staleness (no lens did this; the fixer's pre-flight caught it) | n/a (different surface) |
-| T16a | LOW, AUTO_RESHAPE on metadata | assumptions, consistency, traceability (×N false-negative across 5 passes) | implicit; not enumerated |
-| T16b | NONE, NO_ACTION | assumptions, completeness, consistency, implementability, traceability, clarity, cruft (×11 false-negative across 9 passes) | 11 |
-| T18a | (audit pass on rewound state not explicitly cited) | completeness ×2 budget-counted residue + consistency must-fix-true blocker | implicit |
+- **Fixer = mechanism.** Reads a finding, applies an edit that
+  solves the Problem within the constraints, or rejects. The
+  fixer is **not** an author. It does not decide what the work
+  is; it executes the work the finding describes.
+- **Finding-authoring layer = author.** Decides what the work
+  is. Composed of human review, the reducer, the auditor, and
+  any auto-reshape paths. Owns delete / split / merge / reorder /
+  reformulate decisions.
 
-The audit's failure shape is the same in all 6 cases: the
-auditor imagined a post-fix paragraph and ran the lens predicates
-against the imagined prose, **without performing a 30-second
-grep / forward-link walk / staleness check on the actual
-referent**. In each report the auditor "checked target-section
-existence" rather than "checked that the target section owns
-the asserted claim"; "checked terminology continuity at the
-surface" rather than "loaded the linked page and verified the
-contradiction-free reading the imagined prose presumes"; "trusted
-the gating Solution constraint" rather than "verified the
-gating constraint's structural predictions still match the
-live `spec-review.md` ordering".
+Under this cut, rejection has exactly two valid categories:
 
-This was named in the prior meta-analysis as one of three
-"diagnostic-only" recommendations (rec A — audit-side gate
-upgrade) and ranked behind the loop-side architectural changes.
-The W2 evidence shows the framing was wrong: **the audit-side
-gap is fix-rate-positive on the newly-dispatched batch**
-because the post-audit dispatch surfaces a class of defects the
-loop is structurally unable to fix (citation drift onto a
-non-owning target, finding malformed at root, mechanism→effect
-framing flip that contradicts an owner-page sibling). For those
-defects, the only convergence path is "do not dispatch the
-finding as authored" — a verdict the auditor must reach.
+- **Category (1) — malformed finding.** The Problem and/or
+  Solution constraints are wrong. The finding-authoring layer
+  responds: delete it, split it, merge it with another finding,
+  reorder its precedence, or reformulate it. The fixer must not
+  paper over malformations by inventing new findings, widening
+  the edit surface beyond what the finding names, or narrowing
+  constraints the finding pins.
+- **Category (2) — fixer too-hard.** The finding is well-formed
+  but the fixer's current capability cannot execute the edit.
+  The pi-config side responds by extending the fixer.
 
-The audit-side gap is fix-rate-positive **for any finding whose
-fix cannot exist within the loop's per-pass edit window**:
-recurring shape "the Solution approach asks the fixer to make a
-claim the corpus does not own anywhere" or "the Problem statement
-misreads an owner-page section" or "the precondition the
-constraint encodes is no longer true". The W1 failures were
-mostly inside the loop's reach (binding-vs-directional gap on a
-sound Problem); the W2 batch is mostly outside it (Problem or
-target misframing the loop cannot rewrite from inside a pass).
+Rejection paths that look like "the fixer needs to be smarter
+about authoring" are category errors. Either the finding is
+asking the fixer to do something it shouldn't be doing (the
+finding is malformed), or the fixer needs a discrete capability
+extension (and the extension should be specified in terms of
+recognising and applying a particular edit shape, not in terms
+of rewriting findings).
 
-### 5.4 Two narrower pipeline bugs visible across the batch
+This cut also tells us where the audit-side recommendations
+belong. The auditor is part of the finding-authoring layer —
+its job is to catch malformed findings before dispatch. Audit
+improvements are not pipeline empowerments; they are
+finding-authoring-layer empowerments that route category-1
+rejects to the right place (reshape) earlier in the cycle.
 
-In addition to rec K (cluster-importance aggregation) and the
-audit-side gap, two narrower bugs surface across multiple W2
-reports:
+### 5.4 Re-reading the W2 parks under the reject taxonomy
 
-- **Trust-always-wins precedence suppresses score-budget signals**
-  (visible in T16a's first pass: Σ=125 vs S=25, 5× breach, but
-  the trust-override fired on every fix selection across the loop
-  and the score-budget exit never triggered). The score budget
-  is the canonical exit for high-trust-cost defects in surviving
-  prose; precedence pre-empts it; the loop churns until divergence
-  detection fires on `fixCounts` instead. Net effect: the loop
-  burns 5 passes on a finding rec K's audit-side equivalent
-  would have parked at audit time.
-- **Stage-2 structural fixes re-arm stage-1 lenses** (visible in
-  T12: pass-6 anchor-split fix introduced `<a id>` + bold label +
-  blockquote; pass-7 stage-1 lenses raised three fresh findings
-  on the new structure). The stage-1 → stage-2 transition gates
-  *which lenses must be clean to advance*, not *which lenses
-  evaluate*. Recurrence shape: any finding whose Solution
-  approach asks for an inline normative obligation in a
-  multi-obligation prose bullet (the spec has ~12 such bullets).
+Walking each park by category:
 
-Both are smaller than rec K. They are listed in §7 for
-completeness.
+| Finding | Category | Specific malformation / capability gap |
+|---|---|---|
+| **T12** | (2) too-hard | Fixer doesn't recognise that adding `<a id>` / `> **Note**` blockquote / bold-label scaffolding in stage 2 to a chunk that converged stage 1 clean re-arms tier-1 lenses on the next pass. Problem and constraints are sound; Solution approach is acceptable. The fixer needs a discrete capability: refuse a mid-loop fix candidate whose proposed text adds structural scaffolding to an otherwise tier-1-clean chunk. |
+| **T13** | (1) malformed | Problem statement is incomplete — it asserts "the qualifier is omitted" without engaging with the corpus-state prerequisite that `cross-file` is undefined anywhere in `docs/`. The constraints then fence off the only definition site. Reshape: split into a defining-finding (own the term in the *countable-frame* paragraph or `glossary.md`) + the propagation finding, with `must-precede` ordering. |
+| **T14** | (1) malformed | Problem statement embeds a false factual claim ("the closing rule lives in `invocation.md` Cross-mode semantics"). The owner page enumerates and *permits* the cell rather than closing it. Reshape: retire (the case is already discharged structurally by *Transcript and tool-table isolation* + the supports list's "within a single user session" scoping), or reframe as a no-window observation citing the existing isolation clause. |
+| **T15a** | (1) malformed | Solution constraint #3 encodes an ordering prediction ("bottom-up ordering guarantees T15c first, T15b second, T15a last") that became false after T15c resolved. Reshape: rewrite constraint as a content-level check ("if `Concurrency model` subsection is absent in `spec.md`, defer"). Already caught by the fixer's pre-flight precondition check, which is the correct category-1 reject behaviour. |
+| **T16a** | (1) malformed | Solution approach pins a forward-link target (`PIC — Host prerequisites — Pi SDK pin`) that does not own the privilege-absence claim the reduction leaves behind on the surviving Trust-boundary prose. Constraints then fence the surviving prose. Reshape: widen the Solution approach to cover the orphan premises (and raise score to fit) OR split into the delete-literal + the source-the-premises atoms. |
+| **T16b** | (1) malformed | Solution approach mandates effect prose ("invocations see …") that picks one side of a corpus contradiction at PIC L213 (literal `pi.setActiveTools([...snapshot, ...names])` vs natural-language "exactly the loom's declared callable set") without naming the choice. Reshape T16b into mechanism-only delegation; **also** author a separate spec-review finding "PIC step 2 internal contradiction" that lands first via a `must-precede` edge. |
+| **T18a** | (1) malformed | Solution approach under-specifies 3 orthogonal axes the paragraph must commit on (caller-observation-surface taxonomy; quantifier domain of "regardless of terminal outcome"; pre-evaluation / no-terminal-outcome behaviour). One of them collides with a sibling-page assertion the approach should have either avoided or named in constraints. Reshape: pin the axes OR split into per-axis atoms OR raise score to admit the residue. |
+| T15b, T18b–d | cascade | Re-dispatch when upstream lands; no per-finding reshape. |
 
-### 5.5 Stale-precondition encoding (T15a) is its own shape
+**Tally under the reject taxonomy:**
 
-The T15a refusal is the cleanest demonstration of a shape the
-prior meta-analysis did not name: a finding's Solution constraint
-encodes a precondition as a structural prediction ("bottom-up
-ordering guarantees T15c is addressed first, T15b second, T15a
-last") that becomes false when a sibling resolves and shifts
-line positions. The fixer's pre-flight precondition check caught
-this correctly — the refusal is the right outcome and no spec
-edit was lost — but the orchestrator burned one dispatch cycle
-to discover that the finding's own ordering claim was no longer
-true. The audit pass did not catch it because the relevant lens
-(implementability) trusted the constraint's textual prediction
-rather than independently verifying the dispatch ordering.
+- **Category (1) malformed:** 6 (T13, T14, T15a, T16a, T16b, T18a)
+- **Category (2) too-hard:** 1 (T12)
+- **Cascade (upstream-bound):** 4 (T15b, T18b, T18c, T18d)
 
-This is a low-frequency shape but a generic one: any finding
-whose constraint pins resolution order via initial line positions
-is vulnerable the moment a co-resolve sibling lands. The fix is
-either to drop ordering predictions in favour of pure content
-checks ("if the destination subsection is absent, defer") or to
-add a pre-dispatch staleness verifier.
+Six of seven non-cascade parks are finding-malformed. The
+pipeline's per-finding refusal was correct in every case; the
+work to unpark them belongs to the finding-authoring layer, not
+to pi-config. Only T12 sits in category 2 — the fixer's
+stage-transition awareness is the single discrete capability
+gap visible in W2 forensic evidence.
+
+### 5.5 Implications for where work belongs
+
+The taxonomy redirects effort:
+
+- **pi-config (fixer-capability):** one rec (rec T, stage-
+  transition structural-growth refusal). Targeted, small, and
+  the only category-2 work visible in W2.
+- **pi-config (finding-authoring-layer empowerments):** three
+  recs (rec L for cited-target ratification, rec M for
+  precondition staleness, rec P for decision-axes surfacing in
+  the reducer). All three move category-1 detection earlier in
+  the cycle so the fixer stops burning passes on malformations
+  the audit could catch first.
+- **pi-config (signal hygiene):** one rec (rec W — distinguish
+  category-1 and category-2 exit codes so park commits / forensic
+  reports tell the reader immediately whether to reshape or to
+  file a pi-config issue).
+- **pi-loom (finding-authoring):** six per-finding reshapes
+  (T13, T14, T15a, T16a, T16b, T18a) + one new spec-review entry
+  for the PIC L213 contradiction that T16b depends on. The
+  per-finding forensic reports already include reshape
+  recommendations under each report's `### Immediate (this
+  finding)` subsection.
+
+The re-balance is the substantive observation: **most of the W2
+work load is in pi-loom, not pi-config.** Earlier revisions of
+this document had it reversed.
+
 
 ## 6. Recommendation set
 
-Ranked by **fix-rate impact** on the W2 evidence base —
-specifically the 8 currently-parked entries in
-`docs/spec-review-parked.md` (T19 cluster + T12 + T13 + T14 +
-T15a + T16a + T16b + T18a, with cascade T15b + T18b/c/d).
+Structured under the §5.3 architectural cut:
 
-### 6.1 Headline: rec K — close the cluster-importance aggregation gap
+- **Tier A — fixer-capability extensions** (pi-config). Category 2
+  work: discrete capabilities the fixer needs to handle well-formed
+  findings the current fixer cannot execute on.
+- **Tier B — finding-authoring-layer empowerments** (pi-config).
+  Category 1 work: move malformation detection earlier in the
+  cycle so the fixer stops burning passes discovering it.
+- **Tier C — pipeline rejection-signal hygiene** (pi-config).
+  Cross-cutting: tag pipeline exits with their reject category so
+  human readers know which layer responds.
+- **Tier D — known pipeline bugs** (pi-config). Orthogonal to the
+  taxonomy: correctness fixes for shipped mechanisms.
+- **Tier E — finding-authoring work** (pi-loom). The reshapes the
+  finding-authoring layer owes the parked set.
 
-**K. (FIX 4/6 of the cluster + restores rec F to its prior-meta
-coverage — pi-config only) Aggregate cluster-importance in the
-classifier's origin-score lookup.**
+Rec K (shipped, commit 344da26) sits under Tier D and is no
+longer the headline. The headline work is now rec T (the only
+category-2 capability gap in W2) plus rec L + rec M + rec W
+(category-1 routing and signal hygiene) plus the six per-finding
+reshapes in pi-loom.
 
-Change `spec-diff-fix-classifier.md`'s heading-lookup so that
-when the heading is a `MULTI: <H1>; <H2>; …; <Hn>` form, the
-classifier resolves each member heading in
-`docs/spec-review.md`, reads each member's `**Importance:**`
-(and `**Score:**` if present under D-mode), and aggregates via
-`max(member_importance)`. Fallback to default-medium fires only
-when zero members are resolvable.
+### 6.1 Tier A — fixer-capability extensions
 
-**Coverage analysis on the W2 parked set:**
+**Rec T — Stage-transition structural-growth refusal in the fixer.**
 
-- **T19 cluster** (4 of 6 of the original W1 failures) ✅ —
-  cluster's effective S rises to ≥100 (or 400 under sum); Σ=60
-  does not breach; loop applies AF1 (trust-override), AF4, AF6,
-  AF7; SP-2 narrowing handles AF2/AF3/AF5; cluster converges.
-- T12 / T13 / T14 / T15a / T16a / T16b / T18a ❌ — single-finding
-  parks, untouched by cluster-importance aggregation.
+The only category-2 capability gap visible in W2. T12's failure
+was not finding malformation; it was the fixer's lack of
+awareness that adding structural scaffolding in stage 2 to a
+chunk that converged stage 1 clean re-arms tier-1 lenses on the
+next pass.
 
-**Files changed (pi-config):**
+**Mechanism (sketch):**
 
-- `agents/spec-diff-fix-classifier.md` heading-lookup step:
-  detect the `MULTI:` prefix, split on `; `, resolve each
-  member heading, aggregate. ~15 lines + worked example.
+- New refusal mode in `agents/spec-diff-fixer.md`: `(e)
+  stage-transition-structural-growth`. Fires when:
+  - the proposed fix's diff hunk adds any of `<a id=`, `> **`,
+    `^### `, `**…\\.**$` (bold-label markers ending in period)
+    to a chunk; AND
+  - the chunk was tier-1-clean in the most recent stage-1 pass
+    on this finding (the loop already tracks per-chunk tier-1
+    cleanliness via `_summary.md` artefacts); AND
+  - the current pass is in stage 2 or stage 3.
+- The fixer refuses with NOTES line
+  `RefusalMode: (e) stage-transition-structural-growth;
+  chunk=<chunk-id>; markers=<list>`.
+- New defer rationale in `agents/spec-diff-fix-classifier.md`:
+  `defer-to-debt — stage-transition-structural-growth`. Used when
+  the underlying lens finding is fix-class but the fixer's
+  refusal blocks remediation. The classifier routes accordingly.
+- New STATUS in `agents/spec-diff-fix-loop.md`:
+  `must-fix-blocked-by-stage-transition` (category 2). Fires when
+  the refusal blocks a `must-fix:true` finding and the classifier
+  has no other viable remediation. The exit code tells the human
+  that the finding's Solution approach needs widening to
+  explicitly permit the scaffolding (or to pre-author it at
+  top-level), which is finding-authoring work but with a
+  category-2 reject reason rather than a category-1 one.
 
-**Implementation scope:** ~1 file edit; no new STATUS codes; no
-interface changes (every consumer of `S` is numeric-only). This
-is the smallest standalone change in this recommendation set.
+**Coverage:** T12 directly. Generalises to any finding whose
+Solution approach asks for an inline normative obligation in a
+multi-obligation prose bullet (the spec has ~12 such bullets;
+`discovery.md` package-walk-bounds bullet is the type specimen).
 
-**Why this works on the empirical case:** The MULTI cluster's
-classifier-exit `_blocked.md` records the budget breach
-explicitly; the breach margin (35) is well within the headroom
-that any reasonable aggregation rule provides; the cluster's
-content was sound (no class-1/2 guard collisions on AF1's
-remediation, no SP-2 thrashing on the other findings); the only
-mechanism that fired against the cluster was the wrong-budget
-exit. The aggregation step closes that exit and lets the
-already-correct rec-J + rec-F machinery proceed.
+**Files changed (pi-config):** `agents/spec-diff-fixer.md`,
+`agents/spec-diff-fix-classifier.md`,
+`agents/spec-diff-fix-loop.md`. ~40 lines total.
 
-### 6.2 Tier-1 follow-up: rec L — audit-side cited-target verification
+**Implementation scope:** small. The per-chunk tier-1 cleanliness
+signal already exists in the loop's per-pass artefacts; the new
+work is the regex check + a NOTES surface + a STATUS code.
 
-**L. (FIX 4/7 of the new-batch parks — pi-config only)
-Forward-link target ratifies the asserted claim.**
+### 6.2 Tier B — finding-authoring-layer empowerments
+
+These move category-1 detection earlier in the cycle. They do
+not extend the fixer; they extend the audit (rec L, rec M) or
+the reducer (rec P) so malformations route to reshape before the
+fixer dispatches.
+
+**Rec L — Audit-side forward-link target ratification.**
 
 For each Solution approach naming a forward-link target, the
 auditor opens the target file at the named anchor and looks for
 a sentence that owns the asserted claim verbatim or by paraphrase.
 Flag if (a) the asserted claim is absent OR (b) a same-page
 sibling section asserts the opposite. Verdict downgrades to
-`RISK_HIGH` with `forward-link-target-does-not-own-claim` as
-the rationale.
+`RISK_HIGH` with one of the rationales:
 
-**Coverage analysis:**
+- `forward-link-target-does-not-own-claim` (T16a-shape)
+- `cited-rule-absent-from-owner-page` (T14-shape)
+- `cited-target-self-contradictory` (T16b-shape)
+- `undefined-token-propagated` (T13-shape — variant: grep the
+  token across `docs/` rather than walking a forward-link)
 
-- **T14** ✅ — auditor opens `invocation.md` Cross-mode
-  semantics, greps for closure-flavoured language
-  (`closes|forbids|rejects|disallows|prevents|must not|cannot`)
-  against `subagent → prompt` cell, finds zero hits; verdict
-  flips to `RISK_HIGH`, finding routed to `HUMAN_REVIEW` or
-  `AUTO_RESHAPE` before dispatch.
-- **T16a** ✅ — auditor opens PIC `Host prerequisites`, looks
-  for the privilege-absence claim, finds it asserted only on the
-  bullet T16a is reducing; verdict flips.
-- **T16b** ✅ — auditor opens PIC `Tool-registration lifetime
-  and visibility`, finds L213 contradicts the "invocations see
-  the union" effect prose the Solution approach mandates; verdict
-  flips.
-- **T13** ✅ (variant — undefined-term grep) — auditor greps
-  `cross-file` across `docs/`, finds it appears only at the
-  propagation sites with no defining paragraph; verdict flips.
-- T12 / T15a / T18a ❌ — different failure shapes (structural
-  growth; precondition staleness; under-specified axes), not
-  forward-link mismatches.
+All four rationales route to `HUMAN_REVIEW` or `AUTO_RESHAPE`
+depending on whether the auditor's confidence permits a
+deterministic reshape (e.g. for `cited-rule-absent`, drop the
+citation; for `undefined-token`, suggest a `must-precede`
+defining-finding split).
 
-**Files changed (pi-config):**
+**Coverage:** T13, T14, T16a, T16b at audit time (4 of 6
+category-1 parks). The reshape that resolves each finding is
+authored by the human/auto-reshaper, not by the audit; the
+audit's role is to route the finding there before it dispatches.
 
-- `agents/spec-review-audit.md` or `prompts/spec-review-audit.md`
-  (whichever owns the per-finding lens dispatch): add a new
-  per-finding pre-pass step that extracts forward-link targets
-  from Solution approach (regex on `forward-link[s]?`,
-  `(see \[…\])`, `owned by \[…\]` patterns), reads each target,
-  and runs the ratification check. Hook the verdict downgrade
-  into the existing risk-aggregation step.
-- The audit playbook documentation (whichever doc enumerates
-  the lens dimensions) gains a section naming the four
-  recurring shapes: forward-link target absent; forward-link
-  target asserts the opposite; named witness absent
-  (e.g. T19e's V18q citation drift); undefined token in
-  pinned prose (e.g. T13's `cross-file`).
+**Files changed (pi-config):** the auditor prompt (whichever
+file in `agents/` or `prompts/` owns per-finding lens dispatch).
+~30–50 lines for the four rationales + worked examples; one
+extra read per audited finding (cheap).
 
-**Implementation scope:** ~30–50 lines in the auditor prompt;
-one extra read per audited finding (cheap); no
-classification-side changes.
-
-**Why this works on the empirical cases:** All four findings
-above ship a specific, named, file-grepable mismatch between the
-finding's text and the corpus state. The auditor's existing
-"PASS — target section exists" verdict is the structurally weak
-predicate; replacing it with "PASS — target section asserts the
-claim" requires only the additional grep. The W2 reports
-include the exact grep that would have caught each case.
-
-### 6.3 Tier-1 follow-up: rec M — audit-side precondition staleness
-
-**M. (FIX 1/7 of the new-batch parks — pi-config only) Pre-
-dispatch precondition staleness check.**
+**Rec M — Pre-dispatch precondition staleness check.**
 
 For each finding whose Solution constraints contain an ordering
-prediction (lexical signals: "MUST have already landed",
-"bottom-up ordering guarantees", "lands first / last", explicit
+prediction (lexical signals: \"MUST have already landed\",
+\"bottom-up ordering guarantees\", \"lands first / last\", explicit
 heading references), the orchestrator re-walks the
-`spec-review.md` ordering at dispatch time and flags any
-mismatch with the constraint's textual prediction. Flag emits a
+`spec-review.md` ordering at dispatch time and flags any mismatch
+with the constraint's textual prediction. Flag emits a
 `STALE_PRECONDITION` verdict that downgrades to `HUMAN_REVIEW`.
 
-**Coverage:**
-
-- **T15a** ✅ — orchestrator detects "T15c at the highest line
-  number is addressed first" no longer matches the current
-  bottom-up walk (T15c is absent; T15a is at the highest line);
-  emits `STALE_PRECONDITION` before dispatching.
-- Others ❌ — different shapes.
+**Coverage:** T15a. The current fixer pre-flight already catches
+this at the next layer (`top-level-refused` exit); rec M moves
+the catch to dispatch time so the orchestrator can skip the
+dispatch entirely.
 
 **Files changed (pi-config):**
+`prompts/fix-spec-shape-single-findings.md` pre-dispatch step.
+~20 lines.
 
-- `prompts/fix-spec-shape-single-findings.md` pre-dispatch
-  step: pattern-match the constraint text for ordering-
-  prediction signals; if matched, re-verify the prediction
-  against the live `spec-review.md` ordering; on mismatch,
-  refuse to dispatch.
+**Rec P — Reducer surfaces decision axes.**
 
-**Implementation scope:** ~20 lines in the orchestrator prompt;
-no agent changes. The W1 case T19d (pre-W2) was the
-producer/consumer variant of this same pattern, now handled by
-rec F's cluster mode rather than by a staleness check.
+T18a's defect is that the Solution approach leaves 3 orthogonal
+decision axes un-pinned. Each axis the fixer picks raises lens
+findings the medium budget cannot absorb. The defect is detectable
+at the reducer layer (`agents/spec-review-finding-reducer.md`)
+because the unresolved axes are visible in the Solution approach
+text via lexical signals (modal verbs like \"name\", \"address\",
+\"describe\" without a downstream pin; bullet-points the approach
+enumerates without giving a position on each).
 
-### 6.4 Tier-2 — narrower bug fixes
+The reducer detects under-specification on ≥2 axes and either
+refuses to reduce (sending the finding back for re-authoring with
+axes pinned) or adds a `**Decision axes:** <count>` field that
+the auditor's budget-vs-axes check uses (each axis predicts ≥1
+expected lens follow-up of importance ≥medium; if the count
+exceeds the score-budget headroom the audit downgrades).
 
-**N. (DIAG/FIX 1/7 — pi-config only) Stage-transition structural-
-growth guard.** On the stage-1 → stage-2 transition, snapshot the
-active spec hunks and forbid stage-2 fixes from mutating the
-*structure* of those hunks (anchors, headings, blockquote
-markers, bold-label markers). If a stage-2 fix candidate's
-proposed text contains `<a id=`, `^### `, `> **`, or `**…\.**$`,
-mark it `requires-tier-1-replay`; replay tier-1 lenses on the
-proposed text; defer the stage-2 fix if the replay raises fresh
-tier-1 findings rather than apply-then-discover. Covers T12.
-Recurrence shape: any finding whose Solution approach asks for
-an inline normative obligation in a multi-obligation prose
-bullet (~12 such bullets in the spec). Cost: one regex check +
-an optional tier-1-replay subagent dispatch per marked fix.
+**Coverage:** T18a directly. Partial on any future finding whose
+Solution approach is under-specified across multiple axes.
 
-**O. (DIAG/FIX 1/7 — pi-config only) Trust-override should not
-suppress score-budget exit when the budget breach is large.**
-T16a's pass 1 showed Σ=125 against S=25 (5× breach) and the
-trust-override absorbed every fix selection; the loop ran 4 more
-passes before divergence detection fired. The score-budget mechanism
-is the canonical exit for "the originating finding does not have
-score room to absorb the defects its remediation introduces".
+**Files changed (pi-config):**
+`agents/spec-review-finding-reducer.md`, optionally the auditor.
+~30 lines.
+
+### 6.3 Tier C — pipeline rejection-signal hygiene
+
+**Rec W — Distinguish reject categories in pipeline status codes.**
+
+Today the pipeline emits a flat set of exit codes
+(`top-level-refused`, `must-fix-blocked-by-scope-guard`,
+`must-fix-blocked / score-budget-exhausted`, `diverging`,
+`limit-cycle`, `surface-expansion-irrecoverable`) that conflate
+the two reject categories. A reader of a park commit or forensic
+report cannot immediately tell whether the response is \"reshape
+the finding\" (category 1) or \"file a pi-config issue to extend
+the fixer\" (category 2).
+
+Re-tag every exit code with its category:
+
+| Exit code | Category | Reason |
+|---|---|---|
+| `top-level-refused` | (1) or (2) | Currently fires for both fixer-pre-flight (category 1: stale precondition, missing destination subsection) and \"the work is too big to start\" (category 2). Split into `top-level-refused-malformed` and `top-level-refused-capacity`. |
+| `must-fix-blocked-by-scope-guard` | (1) | The constraint forbids the only remediation the lens admits; the constraint is the malformation. |
+| `must-fix-blocked / score-budget-exhausted` | (1) | Solution approach scope exceeds origin score; reshape or raise score; the score is the malformation. |
+| `diverging` | (2) | The fixer's iteration cannot converge on a well-formed finding. Category 2. |
+| `limit-cycle` | (2) | Same; the loop oscillates between two states the fixer cannot resolve. |
+| `surface-expansion-irrecoverable` | (2) | The fixer's per-pass edits keep expanding the defect surface; capacity gap in the fixer's narrowing mechanism. |
+| `must-fix-blocked-by-stage-transition` (new from rec T) | (2) | Fixer correctly refused mid-loop scaffolding; the Solution approach needs widening to permit it. Category 2 because the fixer is signalling its capability boundary. |
+
+Park commit messages and forensic-report TL;DR blocks gain a
+`Category:` field. Category 1 messages carry the reshape
+recommendation; category 2 messages carry a pi-config-issue
+template. The pi-loom maintainer reading a park commit reaches
+for `spec-review.md` (reshape) for category 1 and for pi-config's
+issue tracker for category 2.
+
+**Coverage:** all parks. Improves human throughput; doesn't
+change which findings park or resolve.
+
+**Files changed (pi-config):** `agents/spec-diff-fix-loop.md`,
+`agents/spec-diff-fix-classifier.md`,
+`agents/spec-fix-failure-forensics.md`,
+`agents/spec-review-parker.md`,
+`prompts/fix-spec-shape-single-findings.md`. ~50 lines spread
+across the exit-code emission sites.
+
+**Rec O — Trust-override should not suppress score-budget exit when breach is large.**
+
+T16a's pass 1 raised Σ=125 against S=25 (5× breach). The
+trust-override pre-empted the score-budget exit on every fix
+selection, and the loop ran 4 more passes before divergence
+detection fired. The score-budget mechanism is the canonical
+category-1 exit for \"the originating finding does not have score
+room to absorb the defects its remediation introduces\"; the
+divergence exit is the category-2 fallback for \"the fixer cannot
+converge.\" Letting trust-override suppress the score-budget exit
+mis-routes a category-1 reject as a category-2 reject.
+
 Modify the precedence rule: if Σ > k×S for some k (recommended
 k=3), the score-budget exit fires regardless of trust-override
-status. Covers T16a directly; partial coverage on T16b.
+status. The trust-override remains active for individual finding
+classifications (it still keeps trust-significant fixes from
+being deferred); only the pass-level exit decision changes.
 
-**P. (DIAG 1/7 — pi-config only) Bound the resolver-must-decide
-axes in the reducer.** T18a is the cleanest case: the originating
-Recommendation under-specifies 3 orthogonal axes the paragraph
-must commit on. The reducer (`spec-review-finding-reducer.md`)
-can surface this at audit time by checking whether the Solution
-approach contains modal verbs that leave the decision to the
-fixer ("name", "address", "describe") without a downstream pin.
-Add a `**Decision axes:** <count>` field the reducer authors
-when ≥2 such axes are visible; surface to the auditor for an
-explicit budget-vs-axes-count check (each axis adds expected
-follow-up findings of importance ≥medium). Covers T18a; partial
-on T16b.
+**Coverage:** improves reject signal on T16a-shaped findings.
+Reduces wasted passes (T16a burned 5 where a 1-pass score-budget
+exit was the right diagnosis).
 
-**Q. (DIAG 1/7 — pi-loom only) SP-2 deferred-must-fix surfacing.**
-T16b's pass 8 auto-deferred a `must-fix:true score:100` consistency
-finding (the spec.md / PIC L213 cross-section contradiction) to
-debt-register, then the loop continued and diverged on different
-defects. Add a `SP2_DEFERRED_MUST_FIX:` line to the loop's NOTES
-that lists any `must-fix:true` SP-2 deferrals so the orchestrator
-can abandon the dispatch and re-shape. Hand-applicable on pi-loom
-side as a debt-register annotation; cheap.
+**Files changed (pi-config):**
+`agents/spec-diff-fix-classifier.md` precedence rule. ~10 lines.
 
-### 6.5 Process step
+### 6.4 Tier D — known pipeline bugs (orthogonal to the taxonomy)
 
-**R. (n/a — pi-loom) Re-dispatch the T19 cluster after rec K
-ships.** With cluster-importance aggregation in place the
-cluster's `S` will be ≥100; Σ=60 will be inside budget; the
-existing rec-F + rec-J machinery converges. No reshape needed.
+**Rec K — Cluster-importance aggregation (SHIPPED).**
+
+Pi-config commit 344da26 (2026-05-17). Closes the rec-F
+integration bug surfaced in the W2 T19 cluster dispatch.
+Cluster's effective S rises to `max(member S)`; the Σ=60 breach
+that parked the cluster no longer fires. T19 cluster unparked
+in pi-loom (commit e12ccf9) and queued for re-dispatch.
+
+### 6.5 Tier E — finding-authoring work (pi-loom)
+
+Six per-finding reshapes plus one new spec-review entry. Each
+forensic report at
+`.pi/tmp/spec-fix-failure-forensics/2026-05-17T16-41-31_b4324e/`
+includes a `### Immediate (this finding)` subsection with the
+specific reshape recommendation; the table below summarises:
+
+| Finding | Reshape action | Per-forensic-report reference |
+|---|---|---|
+| T13 | Split into a defining-finding (own `cross-file` in the *countable-frame* paragraph or `glossary.md`) + the propagation finding, with `must-precede` ordering. | RI-1 of T13 forensic |
+| T14 | Retire (case already discharged structurally by *Transcript and tool-table isolation* + supports-list scoping) OR reframe as no-window observation. | RI-1 / RI-2 of T14 forensic |
+| T15a | Rewrite constraint #3 as a content-level check: \"if `Concurrency model` subsection is absent in `spec.md`, defer.\" Drop the structural ordering prediction. | RI-2 of T15a forensic |
+| T16a | Widen the Solution approach to cover the orphan premises (raise score to fit), OR split into delete-literal + source-the-premises atoms. | RI-1 / RI-2 of T16a forensic |
+| T16b | Reshape into mechanism-only delegation (forward-link covers both mechanism and per-mode model-visible set; no inline effect prose). | RI-1 of T16b forensic |
+| T18a | Pin the 3 axes (caller-observation-surface taxonomy; quantifier domain; pre-evaluation behaviour) OR split into per-axis atoms OR raise score to admit the residue. | RI-1 of T18a forensic |
+| **New** | Author a new spec-review entry: \"PIC step 2 internal contradiction: literal `pi.setActiveTools([...snapshot, ...names])` call shape vs natural-language 'exactly the loom's declared callable set'.\" Add `must-precede` edge from T16b. | RI-2 of T16b forensic |
+
+Cascade-parked findings (T15b, T18b/c/d) re-dispatch when their
+upstream lands; no per-cascade reshape.
 
 ### 6.6 Summary table
 
-| Rec | Title | Metric | Coverage | pi-loom | pi-config | Both |
-|---|---|---|---:|:-:|:-:|:-:|
-| **K** | **Cluster-importance aggregation** | **FIX** | **4/6 W1 cluster** | | **✓** | |
-| **L** | **Forward-link target ratifies claim** | **FIX** | **4/7 new batch** | | **✓** | |
-| M | Pre-dispatch precondition staleness | FIX | 1/7 new batch | | ✓ | |
-| N | Stage-transition structural-growth guard | DIAG/FIX | 1/7 new batch | | ✓ | |
-| O | Trust-override / score-budget precedence | DIAG/FIX | 1/7 new batch | | ✓ | |
-| P | Reducer surfaces decision axes | DIAG | 1/7 new batch | | ✓ | |
-| Q | SP-2 deferred-must-fix surfacing | DIAG | 1/7 new batch | | ✓ | |
-| R | Re-dispatch T19 cluster after K | process | n/a | ✓ | | |
+| Rec | Tier | Title | Coverage | pi-loom | pi-config |
+|---|---|---|:-:|:-:|:-:|
+| **T** | **A** | **Stage-transition structural-growth refusal** | **T12 (1/7 parks)** | | **✓** |
+| **L** | **B** | **Audit-side cited-target ratification** | **T13/T14/T16a/T16b (4/7 parks)** | | **✓** |
+| M | B | Pre-dispatch precondition staleness | T15a (1/7 parks) | | ✓ |
+| P | B | Reducer surfaces decision axes | T18a (1/7 parks) | | ✓ |
+| W | C | Reject-category exit-code tagging | all parks (signal) | | ✓ |
+| O | C | Trust-override / score-budget precedence | T16a-shape (signal) | | ✓ |
+| K | D | Cluster-importance aggregation | T19 cluster | | ✓ (SHIPPED) |
+| Tier E | E | Six per-finding reshapes + one new PIC-L213 finding | 6 parks + 1 prerequisite | ✓ | |
 
 ### 6.7 Priority order
 
-Ranked by fix-rate impact:
+Ranked by combined fix-rate impact and architectural priority:
 
-**Tier 1 — raise fix rate:**
+**Tier 1 — ship to unblock parked work:**
 
-1. **Rec K** (pi-config only) — cluster-importance aggregation.
-   Smallest change in this set (one file, ~15 lines, no
-   interface change). Resolves the T19 cluster, the lone
-   newly-introduced bug in W2. Ship first.
-2. **Rec L** (pi-config only) — forward-link target ratifies
-   claim. ~30–50 lines in the auditor prompt; one extra read
-   per audited finding. Converts T13, T14, T16a, T16b at audit
-   time (4 of 7 new-batch parks). Ship second.
-3. **Rec M** (pi-config only) — pre-dispatch precondition
-   staleness. ~20 lines in the orchestrator. Converts T15a.
-   Ship third.
+1. **Tier E reshapes** (pi-loom) — six per-finding reshapes +
+   one new PIC-L213 finding. Highest fix-rate impact because
+   six of seven non-cascade parks resolve through reshape, not
+   through pipeline changes. The forensic reports already supply
+   the per-finding reshape text.
+2. **Rec T** (pi-config) — stage-transition refusal. Closes the
+   one fixer-capability gap. Unparks T12 on re-dispatch.
+3. **Rec L** (pi-config) — audit-side cited-target ratification.
+   Routes T13/T14/T16a/T16b to reshape at audit time on next
+   authoring iteration; saves the 5–9 passes the W2 run burned
+   discovering each malformation.
 
-**Tier 2 — narrower bug fixes:**
+**Tier 2 — ship to clean up routing and signal:**
 
-4. **Rec N** (pi-config) — stage-transition structural-growth
-   guard. Converts T12.
-5. **Rec O** (pi-config) — trust-override / score-budget
-   precedence. Reduces wasted passes on T16a and other
-   high-trust-cost surviving-prose cases.
+4. **Rec W** (pi-config) — reject-category exit-code tagging.
+   Makes every future park commit readable in one line.
+5. **Rec M** (pi-config) — pre-dispatch precondition staleness.
+   Moves T15a-shape catches one layer earlier.
 6. **Rec P** (pi-config) — reducer surfaces decision axes.
-   Diagnostic for T18a-shaped findings.
-7. **Rec Q** (pi-loom + pi-config) — SP-2 deferred-must-fix
-   surfacing.
+   Catches T18a-shape under-specification at authoring time.
+7. **Rec O** (pi-config) — trust-override / score-budget
+   precedence. Improves reject signal on T16a-shape findings.
 
 **Tier 3 — process:**
 
-8. **Rec R** (pi-loom) — re-dispatch the T19 cluster after K.
+8. **Re-dispatch T19 cluster after rec K** (pi-loom) — already
+   queued (unpark commit e12ccf9 sits ahead of the next dispatch).
 
-**Single-line summary:** **ship rec K first** (closes the lone
-rec-F integration bug and recovers the prior meta-analysis's
-predicted T19-cluster convergence); then **rec L** (closes the
-shape gap the W2 newly-dispatched batch revealed — citation-form
-drift onto non-owning targets cannot be fixed inside the inner
-loop and must be caught at audit time).
+**Withdrawn (architectural-cut casualties):**
+
+- **Rec S** (fixer-emitted followup findings) — violates the
+  fixer-is-mechanism-not-author boundary. A fixer that emits new
+  findings is authoring; that's the finding-authoring layer's
+  job. Routing category-1 rejects via audit (rec L) and
+  category-2 rejects via clearer exit codes (rec W) achieves the
+  same outcome without crossing the boundary.
+- **Rec U** (constraint-narrowing license) — same boundary
+  violation: constraints are part of the finding; the fixer must
+  not rewrite them. Reshape is the response when constraints are
+  malformed.
+- **Rec N** (classifier-side stage-transition guard) — subsumed
+  by rec T, which is the same idea correctly located in the
+  fixer (where capability extensions belong) rather than the
+  classifier.
+- **Rec Q** (SP-2 deferred-must-fix surfacing in NOTES) —
+  subsumed by rec W's category-2 exit-code tagging.
+
+**Single-line summary:** **most of the work is in pi-loom**
+(Tier E reshapes), supported by a small targeted set of
+pi-config changes (rec T for the one fixer-capability gap; rec
+L/M/P for category-1 routing; rec W/O for signal hygiene).
+Rec K has already shipped.
 
 ## 7. What NOT to recommend
 
+- **The fixer must not author findings.** Rec S ("fixer-emitted
+  followup findings") and rec U ("constraint-narrowing license")
+  were considered and withdrawn. Both would let the fixer cross
+  the boundary into finding-authoring: rec S by emitting new
+  spec-review entries when lens evidence points at corpus-state
+  defects; rec U by treating Solution constraints as advisory
+  the way rec J treats Solution approach. Either move converts
+  the fixer from a mechanism into an author. The right routing
+  for category-1 rejects is the audit layer (rec L); the right
+  routing for category-2 capability gaps is targeted fixer
+  extensions (rec T). Both routes preserve the
+  fixer-is-not-author boundary; rec S and rec U do not.
+- **The fixer must not widen edit surface beyond what the
+  finding names.** When lens evidence indicates the right
+  resolution requires editing outside the finding's named
+  scope, the fixer's correct response is to reject (category 1
+  if the constraint is malformed; category 2 if the fixer
+  genuinely cannot execute). Letting the fixer expand scope
+  silently makes pipeline behaviour non-reproducible and gives
+  the fixer authoring authority through the back door.
+- **The audit layer must not become a substitute for the
+  finding-authoring layer.** Rec L, M, P move category-1
+  detection earlier in the cycle. They do not author the
+  reshape themselves — a human (or a constrained
+  auto-reshaper) does that. An audit pass that silently
+  rewrites findings has the same boundary-crossing problem as
+  rec S.
 - **Loosening any lens.** Across all 8 W2 parks (the cluster
   report plus the 7 single-finding reports), the lens findings
   are real defects against the imagined or actual post-fix text.
@@ -787,102 +887,93 @@ loop and must be caught at audit time).
   its frame (T21, T22a1 + cascade). Rec F's mechanism is
   structurally correct (one cluster → one stable post-edit state;
   one forensic report sized to the unit of work; clean MULTI
-  dispatch + parking semantics). The W2 problem is a single
-  missing aggregation step in rec F's classifier integration,
-  not a defect in either change.
+  dispatch + parking semantics). The lone rec-F integration
+  bug has shipped a fix as rec K.
 - **Raising the score-budget threshold or the `k` multiplier
-  globally.** Same reasoning as the prior meta-analysis: each
-  budget-counted finding is a real defect; the breach in the
-  T19 cluster was driven by a wrong-side-of-default-medium
-  classifier lookup, not by an undersized budget. Aggregate
-  member importances (rec K), do not raise the threshold.
+  globally.** Each budget-counted finding is a real defect; the
+  W2 budget exits are correctly fingering Solution approaches
+  whose scope exceeds the originating finding's score. The
+  category-1 response is reshape (raise score, split, narrow
+  approach), not raise the global threshold.
 - **Raising the 17-pass cap.** T16b burned 9 of 17 passes on
   structurally-irreconcilable cross-section contradictions; T12
   burned 7 of 17 on stage-2 structural growth; neither is
   pass-count-bound. The remaining capacity would have made the
   failures more expensive without changing the outcome.
-- **Re-dispatching parked findings as-authored.** The 7 new-
-  batch parks each carry an explicit per-finding reshape
-  recommendation in `## Recommendations / ### Immediate
-  (this finding)`. Re-dispatching without addressing those
-  reshapes will reproduce the same failures.
+- **Re-dispatching parked findings as-authored.** The 7
+  newly-dispatched parks each carry an explicit per-finding
+  reshape recommendation in `### Immediate (this finding)`.
+  Re-dispatching without the reshape reproduces the same
+  failure.
 - **Reverting the unparks (`037f8a3`, `fb771f3`).** The W2
-  outcomes are net-positive on the W1 set even without rec K
-  (5 of 6 resolved or under unit-of-work rec-F treatment). The
-  unparks are the right move; the T19 cluster's continued
-  parking is a one-bug-away state.
-- **Reading the audit-side gap (rec L) as a substitute for the
-  loop-side machinery.** The prior meta-analysis dismissed
-  audit-side recs as "diagnostic-only" because the W1 failures
-  were inside the loop's reach. The W2 newly-dispatched batch
-  shows the inverse: audit-side recs are fix-rate-positive for
-  findings whose fix cannot exist within the loop's per-pass
-  edit window. Both layers carry weight; neither replaces the
-  other.
+  outcomes are net-positive on the W1 set (5 of 6 resolved or
+  under unit-of-work rec-F treatment; rec K has now shipped to
+  unblock the cluster). The unparks were the right move.
 
 ## 8. What this analysis adds over the prior meta-analysis
 
 The prior meta-analysis (`52eae47`) made three load-bearing
 predictions and ranked recommendations under their assumed
-coverage. W2 evidence revises two of the three and confirms one:
+coverage. W2 evidence revises two of the three and confirms one.
+A fourth revision (the architectural cut in §5.3) reframes the
+recommendation set entirely.
 
 - **Confirmed.** Rec J's mechanism converges the failures whose
   Solution approach was the binding/directional gap (T21,
-  T22a1 + cascade). The five-step priority order with J at #1
-  was correct on the W1 cases that fit the frame.
+  T22a1 + cascade). The prior priority order with J at #1 was
+  correct on the W1 cases that fit the frame.
 - **Revised — coverage overcount.** The prior analysis credited
   rec J with 5/6 W1 failures (T19a, T19b, T19e, T21, T22a1).
   Under rec F's MULTI dispatch the 4-member T19 cluster is now
   one unit of work, not four; rec J's narrowing fires correctly
-  inside it but the rec-F integration introduces a budget bug
-  that ate the cluster's first dispatch. Realised W1 coverage
-  under W2: 2 of 6 named (T21, T22a1) + 3 cascade (T22b/T22c/
-  T15c). The remaining 4 are one rec-K change away.
+  inside it but the rec-F integration introduced a budget bug
+  (now fixed by rec K) that ate the cluster's first dispatch.
+  Realised W1 coverage under W2: 2 of 6 named (T21, T22a1) +
+  3 cascade (T22b/T22c/T15c); the remaining 4 land on the next
+  T19-cluster dispatch under rec K.
 - **Revised — audit-side framing.** The prior analysis ranked
   audit-side recommendations as "diagnostic-only" on the
   argument that they "do not change the finding's text or the
   pipeline's ability to satisfy it." That framing held for the
   W1 set (inside-loop failures); it does not hold for the W2
-  newly-dispatched batch (T13, T14, T16a, T16b — citation drift
-  onto non-owning targets that the loop cannot fix from inside a
-  pass). Rec L promotes the audit-side cited-target verification
-  from DIAG to FIX with coverage 4/7 on the new-batch parks.
+  newly-dispatched batch. Audit improvements **do** change which
+  findings dispatch and which route to reshape; they are
+  category-1-routing empowerments at the finding-authoring layer.
+  Not "diagnostic-only"; not "fix-rate-positive on the loop"
+  either; **category-1 routing.**
+- **New — the fixer/finding architectural cut (§5.3).** The W2
+  newly-dispatched batch made this cut unavoidable. Earlier
+  framings (including the first revision of this document)
+  conflated "the pipeline couldn't fix this" with "the fixer
+  needs more power." Under the cut, the fixer is a mechanism
+  with two valid reject categories (malformed finding;
+  fixer too-hard). Six of seven W2 parks are category-1
+  (malformed) and one is category-2 (too-hard). Rec S and
+  rec U — both seriously considered in earlier revisions —
+  violate the cut and are withdrawn.
 
-Three failure shapes are now visible in pure form that the W1
-forensic set hinted at but did not exhibit:
+Failure shapes now visible in pure form that the W1 forensic
+set hinted at but did not exhibit:
 
 - **Forward-link target does not own the asserted claim**
-  (T13, T14, T16a, T16b). The pattern is generic enough to
-  refactor as one audit-side check (rec L). The pre-W2 framing
-  treated each instance as a per-finding authoring defect; the
-  W2 evidence shows it is a recurring pipeline-routable shape.
-- **Stale precondition encoding** (T15a). New; not anticipated
-  by the prior meta-analysis. Addressed by rec M.
-- **Resolver-must-decide axes** (T18a). New; partial
-  anticipation in the prior meta-analysis's E + H
-  (`ProseBudget` field) but framed there as a paragraph-budget
-  problem rather than as an axes-of-decision problem. Addressed
-  by rec P.
-
-Two narrower bugs are now visible that the prior meta-analysis
-named but did not scope:
-
-- **Structural-growth divergence on stage-1 → stage-2**
-  (T12). The prior meta-analysis named this as a stage-boundary
-  problem on the audit gate; the W2 evidence shows it is also
-  a loop-side problem on the per-pass diff. Addressed by rec N.
-- **Trust-override suppresses score-budget signals**
-  (T16a). Not named in the prior meta-analysis. Addressed by
-  rec O.
+  (T13, T14, T16a, T16b). Category-1 malformations routed by
+  rec L.
+- **Stale precondition encoding** (T15a). Category-1
+  malformation routed by rec M.
+- **Resolver-must-decide axes** (T18a). Category-1 malformation
+  routed by rec P at the reducer layer.
+- **Stage-transition structural-growth divergence** (T12).
+  Category-2 capability gap. The only one. Addressed by rec T.
+- **Trust-override suppresses score-budget signals** (T16a).
+  Reject-signal hygiene; mis-routes a category-1 reject as a
+  category-2 reject. Addressed by rec O.
 
 The prior meta-analysis's `## What NOT to recommend` section
 remains correct line-by-line on the W2 evidence and is
-re-affirmed in §7 above. In particular, the temptation to
-"loosen the lenses" or "raise the score-budget threshold" is
-even stronger in W2 (because the budget exhausted on a cluster
-where the content was clearly sound), and the right fix is
-still upstream (aggregate member importances) rather than
-downstream (raise the threshold).
+re-affirmed in §7 above, with two new prohibitions added: the
+fixer-is-not-author boundary (rec S / rec U class) and the
+edit-surface-widening prohibition. Both are direct consequences
+of the §5.3 architectural cut.
 
 ## Appendix — file and artifact references
 
