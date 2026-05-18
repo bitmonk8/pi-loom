@@ -515,3 +515,35 @@ Add a new `Concurrency model` subsection in `docs/spec.md` under `## Extension A
 - T14 "Prompt-mode sequentiality argument has an unstated fourth premise" — must-follow (the three premises being relocated are the ones T14 needs to extend with the fourth premise; the relocation is the natural moment to add it).
 - T20 "Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes" — must-follow (the admission-cap disposition being relocated is the surface T20 needs the resource-exhaustion answer on).
 - T19a "Extend ActiveInvocationRegistry entry shape with invocationId" — same-cluster (lives in the same architectural area being created here; co-resolve siblings T19b/c/d/e also relevant).
+
+
+---
+
+## T13 — Invocation depth bound: introductory sentence omits the "cross-file" qualifier on `.warp fn` calls
+
+> **PARKED** — 2026-05-18
+> **Reason:** The inner spec-diff-fix-loop's severity-weighted triage exited on must-fix-blocked-by-scope-guard (plan §Change A clause 1 escape): a raised lens finding outranked this originating finding in importance, but every viable remediation would violate a class-1 or class-2 scope guard forwarded from the top-level fixer. FIXCOUNTS: 0,0. Loop notes: must-fix-blocked-by-scope-guard. Pass-3 classifier blocked one blocker (clarity/testability T1) — every remediation crosses the single [default] scope guard forbidding edits to the *countable-frame* paragraph. Reshape: relax the scope guard to permit a minimal `cross-file` definition, or split T13 to first install the definition then realign the three phrasing sites.. A human must resolve the guard-vs-severity collision (relax the guard, split this finding so the higher-importance raised finding is no longer downstream of the guard, or accept the trade-off and annotate the raised finding as out-of-scope) before re-introducing this finding.
+> **Forensic report:** .pi/tmp/spec-fix-failure-forensics/2026-05-17T16-41-31_b4324e/t13-invocation-depth-bound-introductory-sentence-omits-the-cross-file-qualifier-.md
+
+# T13 — Invocation depth bound: introductory sentence omits the "cross-file" qualifier on `.warp fn` calls
+
+**Kind:** naming
+**Importance:** high
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The "Invocation depth bound" subsection of `docs/spec_topics/invocation.md` defines the same rule twice with different breadth. Its introductory paragraph enumerates the countable dispatches as direct `invoke(...)`, `.loom` callable calls through `tools:`, and `.warp` `fn` invokes — omitting the `cross-file` qualifier that the normative *countable-frame* paragraph immediately below applies to `.warp` `fn` calls. The qualifier is load-bearing: without it, intra-`.warp`-file `fn` dispatch is wrongly read as consuming a depth slot, so two implementers reading the subsection in order arrive at incompatible 32-slot budgets. The same loose phrasing has already propagated to the V18n leaf's *Adds.* bullet in `docs/plan_topics/v18-cancellation.md`.
+
+## Solution approach
+
+Rewrite the enumeration in the introductory paragraph of the "Invocation depth bound" subsection of `docs/spec_topics/invocation.md` so its third item reads "cross-file `.warp` `fn` calls" — adding the `cross-file` qualifier and matching the noun (`calls`) used by the normative *countable-frame* paragraph that follows. Apply the same wording change to the *Adds.* bullet of V18n in `docs/plan_topics/v18-cancellation.md`. Leave the normative *countable-frame* paragraph and the rest of the subsection unchanged.
+
+## Solution constraints
+
+- None.
+
+## Relationships
+
+None

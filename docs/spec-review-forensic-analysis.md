@@ -284,3 +284,26 @@ human triage) can trace why the listed findings ended up in
 `spec-review-parked.md`.
 
 ---
+
+## 2026-05-18 — T13 — Invocation depth bound: introductory sentence omits the "cross-file" qualifier on `.warp fn` calls
+
+- **Failure mode:** must-fix-blocked
+- **Trajectory:** 0,0
+- **Score trajectory:** none vs S=n/a
+- **Passes:** 2
+- **Stage at exit:** 3 (0 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-18T07-18-35_8a7c91`
+- **Poisoned fixes:** n/a
+- **Forensic report:** `c:/UnitySrc/pi-loom/.pi/tmp/spec-fix-failure-forensics/2026-05-17T16-41-31_b4324e/t13-invocation-depth-bound-introductory-sentence-omits-the-cross-file-qualifier-.md` _(gitignored)_
+- **Parked findings (this run):** `T13 — Invocation depth bound: introductory sentence omits the "cross-file" qualifier on `.warp fn` calls`
+- **Loop notes:** must-fix-blocked-by-scope-guard. Pass-3 classifier blocked one blocker (clarity/testability T1) — every remediation crosses the single [default] scope guard forbidding edits to the *countable-frame* paragraph. Reshape: relax the scope guard to permit a minimal `cross-file` definition, or split T13 to first install the definition then realign the three phrasing sites.
+- **Fixer notes:** none
+
+The detailed root-cause analysis, audit-vs-actual comparison, and
+ranked Immediate / Pipeline recommendations live in the gitignored
+forensic report cited above. This file records only the durable
+TL;DR pointer so future `/spec-review` regeneration runs (or future
+human triage) can trace why the listed findings ended up in
+`spec-review-parked.md`.
+
+---
