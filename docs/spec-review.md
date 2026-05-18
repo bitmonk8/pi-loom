@@ -552,32 +552,3 @@ Rewrite the enumeration in the introductory paragraph of the "Invocation depth b
 ## Relationships
 
 None
-
----
-
-# T20 — Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes
-
-**Kind:** error-model
-**Importance:** medium
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The paragraph anchored at `id="no-invocation-cap"` in `docs/spec_topics/implementation-notes.md` carries a parenthetical disclaimer stating that the no-admission-cap rule does not promise resource unboundedness, but the parenthetical only addresses one resource class — runtime-value heap — split into the catchable `RangeError` family (routed through `loom/runtime/internal-error`) and uncatchable V8 heap-OOM (host-process termination). Two other classes that scale with concurrent-subagent fan-out are not addressed: OS-level descriptor / port / child-process-slot exhaustion, and provider rate-limit / quota responses. Each class already has an existing surface in the loom contract for what the loom does observe (catchable host throws fall through `loom/runtime/internal-error` per `docs/spec_topics/errors-and-results.md`; per-query 429s surface as `TransportError` on the same page), but the spec doesn't state where the **ownership boundary** sits — i.e. that the limits themselves and any cross-sibling aggregation, throttling, or storm-detection over them are owned by the host OS, the JavaScript runtime, and the LLM provider respectively, not by the loom spec. Without that boundary statement an implementer or operator is left to infer whether the loom is committing to add such surfaces in a future revision or whether they are out of the loom's scope by design.
-
-## Solution approach
-
-Rewrite the resource-unboundedness parenthetical inside the `id="no-invocation-cap"` paragraph in `docs/spec_topics/implementation-notes.md` as a positive ownership-boundary statement: the loom imposes no admission cap, no scheduler, no per-class threshold, and no cross-sibling aggregation, throttling, or storm-detection on the resources concurrent loom invocations consume. Those resources — runtime-value heap (V8), OS-level file descriptors / sockets / child-process slots, and provider-side rate-limit / quota — are owned by the host JavaScript runtime, the host OS, and the LLM provider respectively, and their limits and any aggregation over those limits live in those layers, not in the loom contract. The loom observes only the per-call surfacing of those limits through the existing routing it already pins: catchable host throws (e.g. the V8 `RangeError` family per `NOCEIL-3` in `docs/spec_topics/hard-ceilings.md`, plus catchable OS-level descriptor / port / child-process-slot exhaustion surfaced as throws by the host JavaScript runtime) route through `loom/runtime/internal-error` per `docs/spec_topics/errors-and-results.md`; per-query provider throttles (HTTP 429 and equivalents) surface as `TransportError` on the same page; uncatchable host fatals (V8 heap-OOM, OS process-kill) terminate the host process without any loom-level diagnostic, on the same footing as any other engine fatal. The Session-model paragraph in `docs/spec.md` is not edited; its existing forward-link to the disclaimer carries the rewritten wording.
-
-## Solution constraints
-
-- Do NOT use "non-normative" or "the spec is silent" carve-out phrasings — the positive framing carries the same operative meaning (loom commits to no aggregation surface; a future surface is not anticipated by V1) without coining a non-normativity marker.
-- Do not introduce a new diagnostic-code identifier, a new `details.kind` discriminator on `loom/runtime/internal-error`, a new threshold seam, or any cross-sibling aggregation / storm-detection surface — these belong to the rejected option B and are explicitly outside the ownership boundary the rewrite states.
-- Do not weaken, relocate, or restate the `MUST NOT introduce an admission cap` clause that precedes the parenthetical, and do not introduce any new MUST or SHOULD against the runtime — the edit rewrites an existing disclaimer, not a normative obligation.
-- Use stable landmarks for cross-references: cite `NOCEIL-3` by identifier; link `loom/runtime/internal-error` and `TransportError` to their existing targets in `docs/spec_topics/errors-and-results.md`; do not introduce, rename, or relocate any anchor.
-
-## Relationships
-
-- T19a "Extend ActiveInvocationRegistry entry shape with invocationId" — same-cluster (same Session-model paragraph; addresses sibling-diagnostic correlation; co-resolve siblings T19b/c/d/e also relevant).
-- T15b "Move concurrency semantics into Extension Architecture / Implementation Notes Concurrency-model subsection" — same-cluster (the relocated concurrency-model home is the natural surface for the resource-exhaustion disclaimer).
