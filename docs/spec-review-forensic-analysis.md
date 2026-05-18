@@ -354,3 +354,27 @@ human triage) can trace why the listed findings ended up in
 `spec-review-parked.md`.
 
 ---
+
+## 2026-05-18T17:17:38Z — T15a — Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet
+
+- **Failure mode:** stale-precondition
+- **Category:** 1 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** n/a
+- **Score trajectory:** n/a
+- **Passes:** n/a
+- **Stage at exit:** n/a (n/a pass(es) in stage)
+- **Snapshot refs (retained for forensics):** n/a
+- **Poisoned fixes:** n/a
+- **Forensic report:** `c:/UnitySrc/pi-loom/.pi/tmp/spec-fix-failure-forensics/2026-05-18T15-13-27_a2e488/t15a-reduce-session-model-orientation-paragraph-to-a-four-sentence-forward-linki.md` _(gitignored)_
+- **Parked findings (this run):** `T15a — Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet`
+- **Loop notes:** Rec M: detected 2 stale ordering prediction(s) in ## Solution constraints. "T15b and T15c MUST have already landed before this finding is addressed": predicted T15b had already landed, actual T15b was parked in docs/spec-review-parked.md in the immediately-preceding orchestrator iteration (FailureMode: must-fix-blocked, Category 1) and the `Concurrency model` subsection it was supposed to install in docs/spec.md is absent — `grep -n 'concurrency-model\|Concurrency model' docs/spec.md` returns no matches. "bottom-up ordering guarantees this: T15c at the highest line number is addressed first, T15b second, this finding T15a last": predicted T15c existed at a higher line in docs/spec-review.md and would be addressed before T15a, actual T15c does not appear in docs/spec-review.md or docs/spec-review-parked.md (no `^# T15c` match in either file — either already resolved in a prior run or never authored). The constraint itself says "If either the Concurrency model subsection installed by T15b or the V1 non-goals entries verified by T15c is absent at edit time, defer" — its own escape clause fires. Orchestrator parked T15a pre-dispatch without invoking spec-review-fixer or spec-diff-fix-loop.
+- **Fixer notes:** none
+
+The detailed root-cause analysis, audit-vs-actual comparison, and
+ranked Immediate / Pipeline recommendations live in the gitignored
+forensic report cited above. This file records only the durable
+TL;DR pointer so future `/spec-review` regeneration runs (or future
+human triage) can trace why the listed findings ended up in
+`spec-review-parked.md`.
+
+---
