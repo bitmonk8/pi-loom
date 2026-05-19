@@ -20,13 +20,68 @@ Hot-reload of Pi settings (`looms.binderModel` changed at runtime) re-resolves o
 Configured via `bind_context:` (`none` | `session`; default `none`).
 
 - `none` — the binder sees only the slash text and the loom's frontmatter. Predictable, cheap, deterministic.
-- `session` — prompt-mode-only; the binder additionally receives the last ~20 turns or ~8000 tokens (whichever is smaller) of the caller's session as grounding context.
+- `session` — prompt-mode-only; the binder additionally receives a bounded most-recent slice of the caller's session as grounding context (see [Session-context truncation](#session-context-truncation-bind_context-session) for the exact bounds).
 
 > **Note (non-normative):** Use `bind_context: none` when the slash arguments are self-contained (e.g. `/code-review TypeScript focusing on error handling, by Ada Lovelace`). Use `bind_context: session` when the loom relies on conversational anaphora (e.g. `/review the spec` resolving "the spec" against the surrounding session). The choice is an authoring decision; runtime behaviour for each value is fully specified above.
 
 Declaring `bind_context: session` on a subagent-mode loom is `loom/parse/bind-context-session-on-subagent` (warning, not error) — subagent-mode looms invoked from a slash command have no caller-session context to attach.
 
 > **V1 seam — automatic context escalation.** The binder-invocation path is **re-entrant per loom turn**: V1 issues exactly one binder call per slash invocation (and `bind_context` is therefore observed at most once per invocation), but the path makes no assumption that `bind_context` is set at most once per loom over the loom's lifetime. The binder's input record (parameter table, raw slash text, optional session-context block) and the resolved binder-model handle are constructed afresh on every binder call, with no cached state that would prevent a second call from observing a different `bind_context` snapshot. The seam is what allows the deferred *automatic context escalation* extension in [Future Considerations](./future-considerations.md) to land additively: a future revision in which a binder call returning `needs_info` triggers an automatic retry with `bind_context: session` attached needs no rework of the binder-invocation path.
+
+<a id="session-context-truncation-bind_context-session"></a>
+### Session-context truncation (`bind_context: session`)
+
+Token counts are computed per message via `estimateTokens` and the message list is sourced from `buildSessionContext(ctx.sessionManager.getEntries(), ctx.sessionManager.getLeafId()).messages` — both contracts are catalogued in [Pi Integration Contract](./pi-integration-contract.md). A turn's token count is the sum of `estimateTokens` over its constituent messages (user / assistant / toolResult / custom); a turn is a user message plus all subsequent assistant / toolResult / custom messages up to (but not including) the next user message. The runtime walks turns newest-to-oldest and stops including a turn the moment the running token sum would exceed 8000 *or* the running turn count would exceed 20 — whichever bound is reached first. The over-budget turn is excluded entirely (whole-turn truncation; partial messages are not split), as is everything older. Equivalently: a candidate turn is included iff, after inclusion, the running token total is ≤ 8000 *and* the running turn count is ≤ 20; the first candidate that would violate either inequality is excluded entirely and terminates the walk. The included context is rendered as a compact transcript and embedded in the binder's system prompt below the parameter table.
+
+*Worked example.* With per-turn token counts (newest first) `[1200, 900, 1500, 2000, 2800, …]` and the 8000-token budget, the walk includes the first four turns (running total 5600), then evaluates the fifth: 5600 + 2800 = 8400 > 8000, so the fifth turn and everything older is dropped. Final included context: 4 turns, 5600 tokens. *Single oversized turn at the front.* If the newest turn alone exceeds 8000 tokens, the walk includes nothing and the binder runs with no session-context block (no special-case; the same exclusive rule applies on the first turn evaluated). *Token-cap equality.* With per-turn counts (newest first) `[3000, 2500, 2500, 100, …]`, the walk includes the first three turns (running total exactly 8000, count 3) and evaluates the fourth: `8000 + 100 = 8100 > 8000`, so the fourth turn and everything older is dropped. Final included context: 3 turns, 8000 tokens. The cap-equality boundary is inclusive. *Turn-cap equality.* With 21 turns whose running token total never exceeds 8000, the walk includes the 20 newest turns (count exactly 20) and evaluates the 21st: count would become 21 > 20, so it is excluded regardless of its token weight. Final included context: 20 turns. The 20-turn boundary is inclusive.
+
+<a id="compact-transcript-format-normative"></a>
+#### Compact-transcript format (normative)
+
+The truncation walk above selects which turns are included; this sub-section pins the rendering of those included turns into the body of the `Recent session context` block referenced by *System-prompt structure (normative)* item 6 below. The rendering function MUST be total over the `Message` union returned by `buildSessionContext(ctx.sessionManager.getEntries(), ctx.sessionManager.getLeafId()).messages` (`user` / `assistant` / `toolResult` / `custom`, sourced per [Pi Integration Contract](./pi-integration-contract.md) — see `buildSessionContext`).
+
+1. **Turn order is chronological.** The truncation walk runs newest-to-oldest, but the rendered transcript MUST be emitted in chronological (oldest-to-newest) order so the binder reads the conversation in the order it happened. An implementation that mirrors the walk direction directly produces a reversed transcript and is non-conforming.
+2. **Turn delimiter.** Each included turn (the same turn boundary used by the walk above: a user message plus all subsequent assistant / toolResult / custom messages up to but not including the next user message) renders as a contiguous block. Successive turn blocks MUST be separated by exactly one blank line (a single `\n` between the trailing `\n` of one turn block and the leading byte of the next).
+3. **Per-message line prefix.** Each message renders as one or more lines whose first line begins with a role tag drawn from the closed set `[user]`, `[assistant]`, `[tool]`, `[custom:<type>]` followed by `: ` (one U+003A then one U+0020). For the `[custom:<type>]` form, `<type>` is the `CustomMessage.customType` string verbatim. Continuation lines of the same message (additional content lines, the `[tool-call …]` siblings of an assistant message) carry no role-tag prefix.
+4. **Per-variant body.**
+   - **`user`** → the message's text content verbatim. The empty-content user message renders as `[user]: ` (the trailing U+0020 from rule 3 is preserved with no body), mirroring the *User-arguments line* convention in *System-prompt structure (normative)* item 5.
+   - **`assistant`** → the text content verbatim. The provider-internal `thinking` array MUST be omitted (it is not part of the conversation the binder is grounding against). Each entry of the `toolCalls` array renders as a sibling line of the form `[tool-call <name>(<args-json>)]` where `<args-json>` is `JSON.stringify(args)` with no whitespace; multiple tool calls render as multiple sibling lines in array order. An assistant message with empty text but non-empty `toolCalls` MUST still emit the `[assistant]: ` prefix line (with empty body) followed by the `[tool-call …]` lines, so the role boundary stays detectable; an implementation MUST NOT collapse to a bare `[tool-call …]` line with no owning role.
+   - **`toolResult`** → renders under the `[tool]` role tag (chosen to keep the role vocabulary at three plus the `custom:` family — `[toolResult]` is not used). The body is the result's text content; structured (non-string) content is `JSON.stringify`'d with no whitespace and used as the body.
+   - **`custom`** → the `CustomMessage.content` string verbatim under the `[custom:<type>]` prefix. Custom messages with `display: false` are still surfaced in the transcript — consistent with the LLM-context behaviour pinned at [Pi Integration Contract](./pi-integration-contract.md) under *Custom-message channel persistence and LLM-context entry* (`convertToLlm` converts every `CustomMessage` to a `user`-role transcript entry on every subsequent provider call regardless of the `display` flag). The loom's own `loom-system-note` messages appearing in the caller transcript therefore render as `[custom:loom-system-note]: …`, which is correct: they are part of the conversational record the binder is grounding against.
+5. **No sanitisation.** The newline-collapse / 120-code-point cap discipline from [System-note rendering](#system-note-rendering) does **not** apply to transcript rendering — that discipline is for one-line user-facing notes; the binder's transcript is a multi-line model input where preserving message structure is the point. Implementations MUST NOT over-apply the shared discipline here.
+
+*Reference renderings* (normative; conforming implementations MUST reproduce these exactly). Each block below shows a scenario and its complete rendered transcript body — the bytes that follow the `Recent session context …:` opening line of the *Session-context block* up to (but not including) the next blank line of the surrounding system prompt.
+
+**A. Single-message user turn.** Session: one `user` message with text `hello`.
+
+```text
+[user]: hello
+```
+
+**B. User + assistant + tool-call + tool-result + assistant turn.** Session, in order: one `user` (text `What's the weather?`); one `assistant` (text `Let me check.`, `toolCalls: [{ name: "get_weather", args: { city: "Paris" } }]`); one `toolResult` (text `Sunny, 20°C`); one `assistant` (text `Sunny in Paris, 20°C.`).
+
+```text
+[user]: What's the weather?
+[assistant]: Let me check.
+[tool-call get_weather({"city":"Paris"})]
+[tool]: Sunny, 20°C
+[assistant]: Sunny in Paris, 20°C.
+```
+
+**C. Turn containing a `loom-system-note` custom message.** Session, in order: one `user` (text `/lookup foo`); one `custom` (`customType: "loom-system-note"`, `content: "loom /lookup: argument binding cancelled"`, `display: false`); one `user` (text `try again`). The first two messages form one turn; the third opens a second turn.
+
+```text
+[user]: /lookup foo
+[custom:loom-system-note]: loom /lookup: argument binding cancelled
+
+[user]: try again
+```
+
+**D. Empty-content user message edge case.** Session: one `user` whose text is the empty string. The line ends with the rule-3 trailing U+0020 (shown here as a literal trailing space) and a `\n`; the trailing space is part of the contract.
+
+```text
+[user]: 
+```
 
 ## Binder bypass
 
@@ -103,60 +158,6 @@ The `maxLength: 500` cap on `message` and on each `candidates[i]` is a budget fo
 `<params-schema-with-defaulted-fields-relaxed>` is a copy of the loom's lowered `params` schema with one transformation: each field that declared a default is removed from `required` (its type is unchanged). Required-without-default fields are unchanged. The binder may therefore omit any defaulted field; the runtime fills the actual default value after binding succeeds and before AJV validates the merged result. The relaxed copy must itself satisfy the subset, including `additionalProperties: false`; if every params field has a default, the copy's `required` is `[]`.
 
 The `args` arm embeds a schema fragment that may carry `$ref`s into the loom file's `$defs`. The envelope schema document handed to the provider (and to AJV) carries the transitive `$defs` closure of the params schema, computed by the same per-query pruning rule as [Schema Subset step 4](./schema-subset.md#lowering-algorithm).
-
-### Session-context truncation (`bind_context: session`)
-
-Token counts are computed per message via `estimateTokens` and the message list is sourced from `buildSessionContext(ctx.sessionManager.getEntries(), ctx.sessionManager.getLeafId()).messages` — both contracts are catalogued in [Pi Integration Contract](./pi-integration-contract.md). A turn's token count is the sum of `estimateTokens` over its constituent messages (user / assistant / toolResult / custom); a turn is a user message plus all subsequent assistant / toolResult / custom messages up to (but not including) the next user message. The runtime walks turns newest-to-oldest and stops including a turn the moment the running token sum would exceed 8000 *or* the running turn count would exceed 20 — whichever bound is reached first. The over-budget turn is excluded entirely (whole-turn truncation; partial messages are not split), as is everything older. Equivalently: a candidate turn is included iff, after inclusion, the running token total is ≤ 8000 *and* the running turn count is ≤ 20; the first candidate that would violate either inequality is excluded entirely and terminates the walk. The included context is rendered as a compact transcript and embedded in the binder's system prompt below the parameter table.
-
-*Worked example.* With per-turn token counts (newest first) `[1200, 900, 1500, 2000, 2800, …]` and the 8000-token budget, the walk includes the first four turns (running total 5600), then evaluates the fifth: 5600 + 2800 = 8400 > 8000, so the fifth turn and everything older is dropped. Final included context: 4 turns, 5600 tokens. *Single oversized turn at the front.* If the newest turn alone exceeds 8000 tokens, the walk includes nothing and the binder runs with no session-context block (no special-case; the same exclusive rule applies on the first turn evaluated). *Token-cap equality.* With per-turn counts (newest first) `[3000, 2500, 2500, 100, …]`, the walk includes the first three turns (running total exactly 8000, count 3) and evaluates the fourth: `8000 + 100 = 8100 > 8000`, so the fourth turn and everything older is dropped. Final included context: 3 turns, 8000 tokens. The cap-equality boundary is inclusive. *Turn-cap equality.* With 21 turns whose running token total never exceeds 8000, the walk includes the 20 newest turns (count exactly 20) and evaluates the 21st: count would become 21 > 20, so it is excluded regardless of its token weight. Final included context: 20 turns. The 20-turn boundary is inclusive.
-
-<a id="compact-transcript-format-normative"></a>
-#### Compact-transcript format (normative)
-
-The truncation walk above selects which turns are included; this sub-section pins the rendering of those included turns into the body of the `Recent session context` block referenced by *System-prompt structure (normative)* item 6 below. The rendering function MUST be total over the `Message` union returned by `buildSessionContext(ctx.sessionManager.getEntries(), ctx.sessionManager.getLeafId()).messages` (`user` / `assistant` / `toolResult` / `custom`, sourced per [Pi Integration Contract](./pi-integration-contract.md) — see `buildSessionContext`).
-
-1. **Turn order is chronological.** The truncation walk runs newest-to-oldest, but the rendered transcript MUST be emitted in chronological (oldest-to-newest) order so the binder reads the conversation in the order it happened. An implementation that mirrors the walk direction directly produces a reversed transcript and is non-conforming.
-2. **Turn delimiter.** Each included turn (the same turn boundary used by the walk above: a user message plus all subsequent assistant / toolResult / custom messages up to but not including the next user message) renders as a contiguous block. Successive turn blocks MUST be separated by exactly one blank line (a single `\n` between the trailing `\n` of one turn block and the leading byte of the next).
-3. **Per-message line prefix.** Each message renders as one or more lines whose first line begins with a role tag drawn from the closed set `[user]`, `[assistant]`, `[tool]`, `[custom:<type>]` followed by `: ` (one U+003A then one U+0020). For the `[custom:<type>]` form, `<type>` is the `CustomMessage.customType` string verbatim. Continuation lines of the same message (additional content lines, the `[tool-call …]` siblings of an assistant message) carry no role-tag prefix.
-4. **Per-variant body.**
-   - **`user`** → the message's text content verbatim. The empty-content user message renders as `[user]: ` (the trailing U+0020 from rule 3 is preserved with no body), mirroring the *User-arguments line* convention in *System-prompt structure (normative)* item 5.
-   - **`assistant`** → the text content verbatim. The provider-internal `thinking` array MUST be omitted (it is not part of the conversation the binder is grounding against). Each entry of the `toolCalls` array renders as a sibling line of the form `[tool-call <name>(<args-json>)]` where `<args-json>` is `JSON.stringify(args)` with no whitespace; multiple tool calls render as multiple sibling lines in array order. An assistant message with empty text but non-empty `toolCalls` MUST still emit the `[assistant]: ` prefix line (with empty body) followed by the `[tool-call …]` lines, so the role boundary stays detectable; an implementation MUST NOT collapse to a bare `[tool-call …]` line with no owning role.
-   - **`toolResult`** → renders under the `[tool]` role tag (chosen to keep the role vocabulary at three plus the `custom:` family — `[toolResult]` is not used). The body is the result's text content; structured (non-string) content is `JSON.stringify`'d with no whitespace and used as the body.
-   - **`custom`** → the `CustomMessage.content` string verbatim under the `[custom:<type>]` prefix. Custom messages with `display: false` are still surfaced in the transcript — consistent with the LLM-context behaviour pinned at [Pi Integration Contract](./pi-integration-contract.md) under *Custom-message channel persistence and LLM-context entry* (`convertToLlm` converts every `CustomMessage` to a `user`-role transcript entry on every subsequent provider call regardless of the `display` flag). The loom's own `loom-system-note` messages appearing in the caller transcript therefore render as `[custom:loom-system-note]: …`, which is correct: they are part of the conversational record the binder is grounding against.
-5. **No sanitisation.** The newline-collapse / 120-code-point cap discipline from [System-note rendering](#system-note-rendering) does **not** apply to transcript rendering — that discipline is for one-line user-facing notes; the binder's transcript is a multi-line model input where preserving message structure is the point. Implementations MUST NOT over-apply the shared discipline here.
-
-*Reference renderings* (normative; conforming implementations MUST reproduce these exactly). Each block below shows a scenario and its complete rendered transcript body — the bytes that follow the `Recent session context …:` opening line of the *Session-context block* up to (but not including) the next blank line of the surrounding system prompt.
-
-**A. Single-message user turn.** Session: one `user` message with text `hello`.
-
-```text
-[user]: hello
-```
-
-**B. User + assistant + tool-call + tool-result + assistant turn.** Session, in order: one `user` (text `What's the weather?`); one `assistant` (text `Let me check.`, `toolCalls: [{ name: "get_weather", args: { city: "Paris" } }]`); one `toolResult` (text `Sunny, 20°C`); one `assistant` (text `Sunny in Paris, 20°C.`).
-
-```text
-[user]: What's the weather?
-[assistant]: Let me check.
-[tool-call get_weather({"city":"Paris"})]
-[tool]: Sunny, 20°C
-[assistant]: Sunny in Paris, 20°C.
-```
-
-**C. Turn containing a `loom-system-note` custom message.** Session, in order: one `user` (text `/lookup foo`); one `custom` (`customType: "loom-system-note"`, `content: "loom /lookup: argument binding cancelled"`, `display: false`); one `user` (text `try again`). The first two messages form one turn; the third opens a second turn.
-
-```text
-[user]: /lookup foo
-[custom:loom-system-note]: loom /lookup: argument binding cancelled
-
-[user]: try again
-```
-
-**D. Empty-content user message edge case.** Session: one `user` whose text is the empty string. The line ends with the rule-3 trailing U+0020 (shown here as a literal trailing space) and a `\n`; the trailing space is part of the contract.
-
-```text
-[user]: 
-```
 
 ### Binder system prompt
 
