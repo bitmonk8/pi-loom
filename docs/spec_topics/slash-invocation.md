@@ -39,7 +39,7 @@ Per-`kind` formatting:
 | `validation` | "loom `/<name>` returned `Err`: model failed schema after `<n>` respond-repair attempts" |
 | `transport` | "loom `/<name>` returned `Err`: transport — `<message>`" |
 | `model_tool` | "loom `/<name>` returned `Err`: tool `<tool_name>` failed — `<message>`" |
-| `context_overflow` | "loom `/<name>` returned `Err`: context window exceeded" |
+| `context_overflow` | "loom `/<name>` returned `Err`: context overflow" |
 | `cancelled` | "loom `/<name>` cancelled" |
 | `code_tool` | "loom `/<name>` returned `Err`: tool `<tool_name>` call failed (`<cause>`) — `<message>`" |
 | `tool_loop_exhausted` | "loom `/<name>` returned `Err`: tool-call loop exhausted after `<rounds>` rounds (last tool: `<last_tool_name>`)" |
