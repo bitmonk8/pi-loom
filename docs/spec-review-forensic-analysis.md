@@ -693,3 +693,27 @@ human triage) can trace why the listed findings ended up in
 `spec-review-parked.md`.
 
 ---
+
+## 2026-05-19 — T05 — `bind_*` (frontmatter) vs `binder*` / `binder-*` (settings, diagnostics, prose) — root-word inconsistency for the binder-model concept
+
+- **Failure mode:** must-fix-blocked
+- **Category:** 1 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** 2,2
+- **Score trajectory:** 50,51 vs S=25
+- **Passes:** 2
+- **Stage at exit:** 1 (2 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-19T17-27-20_cbd159`
+- **Poisoned fixes:** n/a
+- **Forensic report:** `.pi/tmp/spec-fix-failure-forensics/2026-05-19T17-23-50_9cbe86/t05-bind-frontmatter-vs-binder-binder-settings-diagnostics-prose-root-word-incon.md` _(gitignored)_
+- **Parked findings (this run):** `T05 — `bind_*` (frontmatter) vs `binder*` / `binder-*` (settings, diagnostics, prose) — root-word inconsistency for the binder-model concept`
+- **Loop notes:** severity p1 raised{medium:2} fixed{medium:2}; p2 raised{medium:2,NIT:1} fixed{medium:2} deferred{NIT:1}; p3 raised{medium:3,low:1,NIT:1} blocked{medium:3,low:1,NIT:1}. Classifier exited on pass 3 with sub-rationale `score-budget-exhausted-trust-override-suppressed` (Rec O pass-level shadow-budget gate): S=25, Σ=Σ_shadow=81 across 5 non-blocker raised findings (multiplier 3.24× vs k=3 threshold of 75), breach margin Σ-S=56; 4 of the 5 findings would have been admitted via per-finding trust override absent the gate. Heading T05 was absent from live `docs/spec-review.md` (top-level fixer removed it post-resolution) — classifier defaulted to medium / S=25 / mustFix=false per heading-absent-default rule. No mode (d) / (e) / (f) / (g) refusals fired. stage1=3 narrowings=0+0+0+0 stage1Touched=2 mode-e-refusals=0.
+- **Fixer notes:** none
+
+The detailed root-cause analysis, audit-vs-actual comparison, and
+ranked Immediate / Pipeline recommendations live in the gitignored
+forensic report cited above. This file records only the durable
+TL;DR pointer so future `/spec-review` regeneration runs (or future
+human triage) can trace why the listed findings ended up in
+`spec-review-parked.md`.
+
+---

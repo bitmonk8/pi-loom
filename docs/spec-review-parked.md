@@ -648,3 +648,39 @@ Extend the normative *countable-frame* paragraph of the "Invocation depth bound"
 - T13b "Invocation depth bound: propagate the `cross-file` qualifier to the introductory paragraph and the V18n leaf" — must-precede (the defining clause must land before the propagation sites realign to it).
 
 ---
+
+## T05 — `bind_*` (frontmatter) vs `binder*` / `binder-*` (settings, diagnostics, prose) — root-word inconsistency for the binder-model concept
+
+> **PARKED** — 2026-05-19
+> **Reason:** Category 1 (malformed finding — constraints binding surface; the originating finding's Solution constraints fence every viable remediation that the lens admits). The inner spec-diff-fix-loop's severity-weighted triage exited on must-fix-blocked-by-scope-guard (plan §Change A clause 1 escape): a raised lens finding outranked this originating finding in importance, but every viable remediation would violate a class-1 or class-2 scope guard forwarded from the top-level fixer. FIXCOUNTS: 2,2. Loop notes: severity p1 raised{medium:2} fixed{medium:2}; p2 raised{medium:2,NIT:1} fixed{medium:2} deferred{NIT:1}; p3 raised{medium:3,low:1,NIT:1} blocked{medium:3,low:1,NIT:1}. Classifier exited on pass 3 with sub-rationale `score-budget-exhausted-trust-override-suppressed` (Rec O pass-level shadow-budget gate): S=25, Σ=Σ_shadow=81 across 5 non-blocker raised findings (multiplier 3.24× vs k=3 threshold of 75), breach margin Σ-S=56; 4 of the 5 findings would have been admitted via per-finding trust override absent the gate. Heading T05 was absent from live `docs/spec-review.md` (top-level fixer removed it post-resolution) — classifier defaulted to medium / S=25 / mustFix=false per heading-absent-default rule. No mode (d) / (e) / (f) / (g) refusals fired. stage1=3 narrowings=0+0+0+0 stage1Touched=2 mode-e-refusals=0. A human must resolve the guard-vs-severity collision (relax the guard, split this finding so the higher-importance raised finding is no longer downstream of the guard, or accept the trade-off and annotate the raised finding as out-of-scope) before re-introducing this finding.
+> **Forensic report:** .pi/tmp/spec-fix-failure-forensics/2026-05-19T17-23-50_9cbe86/t05-bind-frontmatter-vs-binder-binder-settings-diagnostics-prose-root-word-incon.md
+
+# T05 — `bind_*` (frontmatter) vs `binder*` / `binder-*` (settings, diagnostics, prose) — root-word inconsistency for the binder-model concept
+
+**Kind:** naming
+**Importance:** medium
+**Atomicity:** atomic
+**Shape:** single
+**State:** reduced
+**Decision axes:** 2
+
+## Problem
+
+The concept "the LLM the slash-command argument binder calls" appears across three surface conventions with two different root words: frontmatter uses `bind_` (`bind_model`, `bind_context`, `bind_echo`), while settings keys, diagnostic codes, anchors, and running prose use the longer root `binder` (`looms.binderModel`, `loom/load/binder-model-unresolved`, `## Binder model` in `docs/spec_topics/binder.md`, glossary entry `**binder**`). The per-surface case style (snake / camel / kebab) is already governed by documented conventions; the `binder` → `bind_` shortening inside the frontmatter family is not — the *Naming convention* paragraph in `docs/spec_topics/frontmatter.md` documents the snake-case rule but is silent on this root-word delta, and the glossary has an entry for `**binder**` (the mechanism) but no entry for the binder-model concept, so the cross-surface mapping has no canonical anchor. Author-facing remediation hints that name both surfaces in one sentence (e.g. the `loom/load/binder-model-unresolved` row in `docs/spec_topics/diagnostics.md`: ``set 'bind_model:' in frontmatter or 'looms.binderModel' in settings``) read as a typo until the convention is internalised.
+
+## Solution approach
+
+Declare a single canonical home for the convention: extend the *Naming convention* paragraph in `docs/spec_topics/frontmatter.md` with one sentence pinning the `bind_` (frontmatter) vs `binder` (settings, diagnostic, prose) root-word convention for the binder-related family. Add a `**binder model**` glossary entry to `docs/spec_topics/glossary.md`, alphabetised between the existing `**binder**` and `**callable set**` entries, whose body is a **back-reference** of the form `See the *Naming convention* paragraph in [frontmatter](./frontmatter.md#naming-convention) for the per-surface root-word mapping (`bind_*` frontmatter vs `binder*` / `binder-*` settings, diagnostic, prose).`, NOT a parallel statement of the convention. The convention itself is owned only by the frontmatter *Naming convention* paragraph; the glossary entry is a discoverable forward-link from a reader who lands on a `binder*` token first, not a second authoritative copy.
+
+## Solution constraints
+
+- Do not rename `bind_model`, `bind_context`, or `bind_echo` to `binder_model` / `binder_context` / `binder_echo`.
+- Do NOT restate the per-surface mapping (the four spellings, the `bind_` vs `binder` root-word delta, the relationship to sibling `bind_` fields) inside the glossary entry — the glossary entry is a back-reference only. Any prose-level statement of the convention lives in the frontmatter *Naming convention* paragraph and only there. This is the two-site-authoring guard rec AA's mode (g) would otherwise refuse against on stage-3 passes.
+- Scope the new convention sentence to the binder-model concept only: do NOT extend it to a universal claim about "every other binder-related frontmatter family surface". The `bind-context-*` and `bind-echo-*` diagnostic-code families use different patterns and are not in scope for this finding.
+- Do not coin a new anchor scheme on the glossary entry; reuse the existing `<a id="..."></a>` convention sibling entries already use.
+
+## Relationships
+
+None
+
+---
