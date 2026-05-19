@@ -184,6 +184,7 @@ Rewrite the relevant sentences in the *Tool-call loop bound* section of `docs/sp
 **Atomicity:** atomic
 **Shape:** single
 **State:** reduced
+**Decision axes:** 3
 
 ## Problem
 
@@ -209,8 +210,10 @@ Add a new sub-paragraph whose lead bold token is `**Loom-package implementation 
 **Kind:** testability
 **Importance:** high
 **Score:** 100
+**Atomicity:** atomic
 **Shape:** single
 **State:** reduced
+**Decision axes:** 2
 
 ## Problem
 
@@ -237,6 +240,7 @@ None
 
 **Kind:** testability
 **Importance:** medium
+**Atomicity:** atomic
 **Shape:** single
 **State:** reduced
 
@@ -300,8 +304,10 @@ Add a new `Concurrency model` subsection in `docs/spec.md` under `## Extension A
 
 **Kind:** assumptions
 **Importance:** high
+**Atomicity:** atomic
 **Shape:** single
 **State:** reduced
+**Decision axes:** 3
 
 ## Problem
 
@@ -329,6 +335,7 @@ Add an HTML anchor to the `operator` entry in `docs/spec_topics/glossary.md` mat
 
 **Kind:** testability
 **Importance:** high
+**Atomicity:** atomic
 **Shape:** single
 **State:** reduced
 
@@ -356,6 +363,7 @@ None
 
 **Kind:** naming
 **Importance:** medium
+**Atomicity:** atomic
 **Shape:** single
 **State:** reduced
 **Decision axes:** 2
@@ -383,7 +391,8 @@ None
 # T18a — Append success-side null-policy paragraph to PIC Runtime event channel
 
 **Kind:** completeness
-**Importance:** medium
+**Importance:** high
+**Score:** 100
 **Atomicity:** atomic
 **Decision axes:** 3
 **Shape:** single
@@ -418,6 +427,7 @@ Add a success-side null-policy statement to the **Runtime event channel** sectio
 
 **Kind:** completeness
 **Importance:** high
+**Atomicity:** atomic
 **Shape:** single
 **State:** reduced
 
@@ -445,6 +455,7 @@ Extend the normative *countable-frame* paragraph of the "Invocation depth bound"
 
 **Kind:** naming
 **Importance:** high
+**Atomicity:** atomic
 **Shape:** single
 **State:** reduced
 
@@ -531,6 +542,7 @@ Rewrite the callable-set paragraph in the Trust-boundary bullet so it states onl
 
 **Kind:** placement
 **Importance:** medium
+**Atomicity:** atomic
 **Shape:** single
 **State:** reduced
 
