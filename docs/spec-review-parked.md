@@ -580,3 +580,71 @@ Resolve the contradiction at the source by picking one shape for prompt-mode que
 - T16b "Rewrite callable-set paragraph: drop inline `customTools` / `createAgentSession` / `pi.setActiveTools` names" — must-precede (T16b's prompt-mode visibility characterisation cannot land until PIC step 2 owns a single coherent rule for it to forward-link to).
 
 ---
+
+
+## T13b — Invocation depth bound: propagate the `cross-file` qualifier to the introductory paragraph and the V18n leaf
+
+> **PARKED** — 2026-05-19
+> **Reason:** Category 1 (malformed finding — constraints binding surface; the originating finding's Solution constraints fence every viable remediation that the lens admits). The inner spec-diff-fix-loop's severity-weighted triage exited on must-fix-blocked-by-scope-guard (plan §Change A clause 1 escape): a raised lens finding outranked this originating finding in importance, but every viable remediation would violate a class-1 or class-2 scope guard forwarded from the top-level fixer. FIXCOUNTS: none. Loop notes: Sub-rationale: must-fix-blocked-by-scope-guard; 1 blocked finding (spec-lens-assumptions, raised=high, score=100, must-fix=true) whose only viable remediation — adding a one-sentence in-paragraph `cross-file` clarifier to the `invocation.md` L79 *countable-frame* paragraph — would (i) author a normative convention about `cross-file` `.warp` `fn` dispatch in direct violation of guard 2 and (ii) encroach on T13a's reserved definition site per guard 1. The inverse rewrite (removing the qualifier from L77 and L394) is a same-issue restatement of the very edit the outer loop just made. Origin T13b heading absent from current docs/spec-review.md (top-level fixer already deleted it post-resolution); classifier defaulted origin importance to medium / S=25 per heading-absent lookup rule; sibling T13a carries importance=high / score=100 in live spec-review.md. Severity p1 raised{high:1,medium:2} fixed{} deferred{} blocked{high:1}. stage1=0. narrowings=0+0+0+0. stage1Touched=0 mode-e-refusals=0. Snapshot refs retained under refs/loom/snapshots/2026-05-19T14-26-52_102877/{baseline,baseline-post-top-level,pass-1} for forensics; reshape menu per _blocked.md: (a) raise T13b score in spec-review.md to admit the clarifier within budget, (b) re-scope T13b to own the definition site (merge with T13a or split T13a's obligation back in), or (c) relax guard 2 to admit the one-sentence L79 clarifier while keeping the propagation-site restating prohibition (guard 1) intact. A human must resolve the guard-vs-severity collision (relax the guard, split this finding so the higher-importance raised finding is no longer downstream of the guard, or accept the trade-off and annotate the raised finding as out-of-scope) before re-introducing this finding.
+> **Forensic report:** .pi/tmp/spec-fix-failure-forensics/2026-05-19T10-47-33_8360aa/t13b-invocation-depth-bound-propagate-the-cross-file-qualifier-to-the-introducto.md
+
+# T13b — Invocation depth bound: propagate the `cross-file` qualifier to the introductory paragraph and the V18n leaf
+
+**Kind:** naming
+**Importance:** high
+**Atomicity:** atomic
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The introductory paragraph of the "Invocation depth bound" subsection in `docs/spec_topics/invocation.md` enumerates the countable dispatches as direct `invoke(...)`, `.loom` callable calls through `tools:`, and `.warp` `fn` invokes — omitting the `cross-file` qualifier that the normative *countable-frame* paragraph immediately below applies to `.warp` `fn` calls. The qualifier is load-bearing: without it, intra-`.warp`-file `fn` dispatch is wrongly read as consuming a depth slot, so two implementers reading the subsection in order arrive at incompatible 32-slot budgets. The same loose phrasing has already propagated to the V18n leaf's *Adds.* bullet in `docs/plan_topics/v18-cancellation.md`.
+
+## Solution approach
+
+Rewrite the third item of the introductory paragraph of the "Invocation depth bound" subsection in `docs/spec_topics/invocation.md` so it reads "cross-file `.warp` `fn` calls" — adding the `cross-file` qualifier and matching the noun (`calls`) used by the normative *countable-frame* paragraph that follows. Apply the same wording change to the *Adds.* bullet of V18n in `docs/plan_topics/v18-cancellation.md`. Leave the normative *countable-frame* paragraph (whose definition of `cross-file` is owned by T13a) and the rest of the subsection unchanged.
+
+## Solution constraints
+
+- The definition of `cross-file` is owned by T13a in the *countable-frame* paragraph; do not restate the definition at either propagation site.
+
+## Relationships
+
+- T13a "Define the `cross-file` qualifier in the *countable-frame* paragraph of `invocation.md`" — must-follow.
+
+---
+
+
+## T13a — Define the `cross-file` qualifier in the *countable-frame* paragraph of `invocation.md`
+
+> **PARKED** — 2026-05-19
+> **Reason:** Cascaded from parking of T13b — Invocation depth bound: propagate the `cross-file` qualifier to the introductory paragraph and the V18n leaf: this finding's ## Relationships block declares an ordering edge (must-precede or must-follow) on the parked finding, so its preconditions are no longer satisfied in spec-review.md.
+> **Forensic report:** .pi/tmp/spec-fix-failure-forensics/2026-05-19T10-47-33_8360aa/t13b-invocation-depth-bound-propagate-the-cross-file-qualifier-to-the-introducto.md
+
+# T13a — Define the `cross-file` qualifier in the *countable-frame* paragraph of `invocation.md`
+
+**Kind:** completeness
+**Importance:** high
+**Atomicity:** atomic
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The normative *countable-frame* paragraph of the "Invocation depth bound" subsection in `docs/spec_topics/invocation.md` uses the qualifier `cross-file` on `.warp` `fn` calls without defining what counts as cross-file dispatch. The token is load-bearing — it is the discriminator that decides whether an intra-`.warp`-file `fn` call consumes a depth slot — but no defining occurrence of `cross-file` exists in `docs/spec_topics/` reachable from the subsection. Sibling T13b realigns the introductory paragraph of the same subsection and the V18n leaf's *Adds.* bullet in `docs/plan_topics/v18-cancellation.md` to use the same qualifier; without a defining occurrence in the *countable-frame* paragraph, the two propagation sites have nothing canonical to anchor against.
+
+## Solution approach
+
+Extend the normative *countable-frame* paragraph of the "Invocation depth bound" subsection of `docs/spec_topics/invocation.md` with a short clarifying clause defining `cross-file`: a `.warp` `fn` call is *cross-file* when the caller and callee reside in different `.warp` source files, and an intra-file `fn` call (caller and callee in the same `.warp` source file) is not a countable frame. Frame the clause as an in-paragraph definition rather than as a new subsection or glossary entry; the qualifier already lives in this paragraph and a separate definition site would re-introduce the same two-site drift the propagation cleanup (T13b) closes.
+
+## Solution constraints
+
+- Do not coin a new term in place of `cross-file`; the qualifier is already in use across the subsection and the propagation sites T13b realigns.
+- Do not relocate the *countable-frame* paragraph or change its position within the subsection.
+- Do not add a new glossary entry or a separate definition section — the definition lives inline in the *countable-frame* paragraph.
+
+## Relationships
+
+- T13b "Invocation depth bound: propagate the `cross-file` qualifier to the introductory paragraph and the V18n leaf" — must-precede (the defining clause must land before the propagation sites realign to it).
+
+---

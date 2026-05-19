@@ -668,3 +668,28 @@ human triage) can trace why the listed findings ended up in
 `spec-review-parked.md`.
 
 ---
+
+
+## 2026-05-19 — T13b — Invocation depth bound: propagate the `cross-file` qualifier to the introductory paragraph and the V18n leaf
+
+- **Failure mode:** must-fix-blocked
+- **Category:** 1 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** none
+- **Score trajectory:** none vs S=25
+- **Passes:** 0
+- **Stage at exit:** 1 (0 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-19T14-26-52_102877`
+- **Poisoned fixes:** none
+- **Forensic report:** `.pi/tmp/spec-fix-failure-forensics/2026-05-19T10-47-33_8360aa/t13b-invocation-depth-bound-propagate-the-cross-file-qualifier-to-the-introducto.md` _(gitignored)_
+- **Parked findings (this run):** `T13b — Invocation depth bound: propagate the cross-file qualifier to the introductory paragraph and the V18n leaf, T13a — Define the cross-file qualifier in the *countable-frame* paragraph of invocation.md`
+- **Loop notes:** Sub-rationale: must-fix-blocked-by-scope-guard; 1 blocked finding (spec-lens-assumptions, raised=high, score=100, must-fix=true) whose only viable remediation — adding a one-sentence in-paragraph `cross-file` clarifier to the `invocation.md` L79 *countable-frame* paragraph — would (i) author a normative convention about `cross-file` `.warp` `fn` dispatch in direct violation of guard 2 and (ii) encroach on T13a's reserved definition site per guard 1. The inverse rewrite (removing the qualifier from L77 and L394) is a same-issue restatement of the very edit the outer loop just made. Origin T13b heading absent from current docs/spec-review.md (top-level fixer already deleted it post-resolution); classifier defaulted origin importance to medium / S=25 per heading-absent lookup rule; sibling T13a carries importance=high / score=100 in live spec-review.md. Severity p1 raised{high:1,medium:2} fixed{} deferred{} blocked{high:1}. stage1=0. narrowings=0+0+0+0. stage1Touched=0 mode-e-refusals=0. Snapshot refs retained under refs/loom/snapshots/2026-05-19T14-26-52_102877/{baseline,baseline-post-top-level,pass-1} for forensics; reshape menu per _blocked.md: (a) raise T13b score in spec-review.md to admit the clarifier within budget, (b) re-scope T13b to own the definition site (merge with T13a or split T13a's obligation back in), or (c) relax guard 2 to admit the one-sentence L79 clarifier while keeping the propagation-site restating prohibition (guard 1) intact.
+- **Fixer notes:** none
+
+The detailed root-cause analysis, audit-vs-actual comparison, and
+ranked Immediate / Pipeline recommendations live in the gitignored
+forensic report cited above. This file records only the durable
+TL;DR pointer so future `/spec-review` regeneration runs (or future
+human triage) can trace why the listed findings ended up in
+`spec-review-parked.md`.
+
+---
