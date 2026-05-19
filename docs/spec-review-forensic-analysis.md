@@ -524,3 +524,27 @@ human triage) can trace why the listed findings ended up in
 `spec-review-parked.md`.
 
 ---
+
+## 2026-05-19T02:54:58Z — T05 — `bind_*` (frontmatter) vs `binder*` / `binder-*` (settings, diagnostics, prose) — root-word inconsistency for the binder-model concept
+
+- **Failure mode:** surface-expansion-irrecoverable
+- **Category:** 2 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** 1,1,2,3
+- **Score trajectory:** 1,1,26,51 vs S=25
+- **Passes:** 4
+- **Stage at exit:** 1 (4 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-19T02-54-58_ae06a2`
+- **Poisoned fixes:** spec-lens-assumptions:03, spec-lens-traceability:01
+- **Forensic report:** `c:/UnitySrc/pi-loom/.pi/tmp/spec-fix-failure-forensics/2026-05-18T20-36-39_b9045e/t05-bind-frontmatter-vs-binder-binder-settings-diagnostics-prose-root-word-incon.md` _(gitignored)_
+- **Parked findings (this run):** `T05 — bind_* (frontmatter) vs binder* / binder-* (settings, diagnostics, prose) — root-word inconsistency for the binder-model concept`
+- **Loop notes:** Surface-expansion-irrecoverable two-strikes exit. The originating Recommendation's two-site authoring (glossary + Naming-convention sentence) creates a recurring critique surface: each rewrite attracts canonical-home / rationale-promise / family-scope / anchor-precision findings the scope guard prevents resolving cleanly. Reshape required: split so canonical-home declaration and per-surface mapping are authored as one unit (no two-site duplication) and explicitly scope to binder-model concept alone (not "binder-related frontmatter family" — bind-context-* / bind-echo-* diagnostic-code surfaces use different patterns).
+- **Fixer notes:** none
+
+The detailed root-cause analysis, audit-vs-actual comparison, and
+ranked Immediate / Pipeline recommendations live in the gitignored
+forensic report cited above. This file records only the durable
+TL;DR pointer so future `/spec-review` regeneration runs (or future
+human triage) can trace why the listed findings ended up in
+`spec-review-parked.md`.
+
+---

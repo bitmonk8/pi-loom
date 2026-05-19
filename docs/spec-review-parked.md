@@ -711,3 +711,32 @@ Add an HTML anchor to the `operator` entry in `docs/spec_topics/glossary.md` mat
 
 - T18a "Append success-side null-policy paragraph to PIC Runtime event channel" — same-cluster (overlapping scope: what the operator sees on success vs across non-interactive paths).
 - T38 "Non-goals are not consolidated into a single section" — same-cluster (the V1 "no non-interactive delivery path" disclaimer is one of the items the consolidated Non-goals section would cite back to the glossary entry).
+
+---
+
+## T05 — `bind_*` (frontmatter) vs `binder*` / `binder-*` (settings, diagnostics, prose) — root-word inconsistency for the binder-model concept
+
+> **PARKED** — 2026-05-19
+> **Reason:** Category 2 (fixer too-hard — capability gap in the fixer's narrowing mechanism; fix attempts systematically grow the raised-finding score). The inner spec-diff-fix-loop's surface-expansion detector (plan §Change C2) fired on two consecutive backtrack-and-exclude passes without converging: every fix the loop poisoned was followed by another fix whose application also triggered expansion. FIXCOUNTS: 1,1,2,3. SCORESUMS: 1,1,26,51 against S=25. Poisoned fixes: spec-lens-assumptions:03, spec-lens-traceability:01. Snapshot refs retained at refs/loom/snapshots/2026-05-19T02-54-58_ae06a2/* for forensic diffing. Loop notes: Surface-expansion-irrecoverable two-strikes exit. The originating Recommendation's two-site authoring (glossary + Naming-convention sentence) creates a recurring critique surface: each rewrite attracts canonical-home / rationale-promise / family-scope / anchor-precision findings the scope guard prevents resolving cleanly. Reshape required: split so canonical-home declaration and per-surface mapping are authored as one unit (no two-site duplication) and explicitly scope to binder-model concept alone (not "binder-related frontmatter family" — bind-context-* / bind-echo-* diagnostic-code surfaces use different patterns). A human must reshape this finding (split it into narrower pieces, demote MUSTs, or cap the prose the fix is allowed to add) before re-introducing it.
+> **Forensic report:** .pi/tmp/spec-fix-failure-forensics/2026-05-18T20-36-39_b9045e/t05-bind-frontmatter-vs-binder-binder-settings-diagnostics-prose-root-word-incon.md
+
+**Kind:** naming
+**Importance:** medium
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The concept "the LLM the slash-command argument binder calls" appears across three surface conventions with two different root words: frontmatter uses `bind_` (`bind_model`, `bind_context`, `bind_echo`), while settings keys, diagnostic codes, anchors, and running prose use the longer root `binder` (`looms.binderModel`, `loom/load/binder-model-unresolved`, `## Binder model` in `docs/spec_topics/binder.md`, glossary entry `**binder**`). The per-surface case style (snake / camel / kebab) is already governed by documented conventions; the `binder` → `bind_` shortening inside the frontmatter family is not — the *Naming convention* paragraph in `docs/spec_topics/frontmatter.md` documents the snake-case rule but is silent on this root-word delta, and the glossary has an entry for `**binder**` (the mechanism) but no entry for the binder-model concept, so the cross-surface mapping has no canonical anchor. Author-facing remediation hints that name both surfaces in one sentence (e.g. the `loom/load/binder-model-unresolved` row in `docs/spec_topics/diagnostics.md`: ``set 'bind_model:' in frontmatter or 'looms.binderModel' in settings``) read as a typo until the convention is internalised.
+
+## Solution approach
+
+Document the per-surface mapping rather than rename the frontmatter family. Add a new `**binder model**` glossary entry to `docs/spec_topics/glossary.md`, alphabetised between the existing `**binder**` and `**callable set**` entries; the entry covers the concept, the per-surface spellings (`bind_model:` frontmatter, `looms.binderModel` settings, `binder-model` / "binder model" diagnostic and prose), the relationship to sibling `bind_` frontmatter fields (`bind_context`, `bind_echo`), and forward-links to `./binder.md` and `./discovery.md#settings-file-reads`. Extend the *Naming convention* paragraph in `docs/spec_topics/frontmatter.md` to document the `bind_` (frontmatter) vs `binder` (settings, diagnostic, prose) root-word convention for the binder-related family.
+
+## Solution constraints
+
+- Do not rename `bind_model`, `bind_context`, or `bind_echo` to `binder_model` / `binder_context` / `binder_echo`.
+
+## Relationships
+
+None
