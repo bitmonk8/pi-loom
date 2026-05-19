@@ -476,3 +476,27 @@ human triage) can trace why the listed findings ended up in
 `spec-review-parked.md`.
 
 ---
+
+## 2026-05-19T00:00:00Z — T07 — `QueryError.message` content has no normativity rule
+
+- **Failure mode:** must-fix-blocked
+- **Category:** 1 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** 2,4
+- **Score trajectory:** 126,40,110 vs S=25
+- **Passes:** 2
+- **Stage at exit:** 1 (2 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-19T01-26-08_864cd3`
+- **Poisoned fixes:** none
+- **Forensic report:** `.pi/tmp/spec-fix-failure-forensics/2026-05-18T20-36-39_b9045e/t07-queryerror-message-content-has-no-normativity-rule.md` _(gitignored)_
+- **Parked findings (this run):** `T07 — `QueryError.message` content has no normativity rule`
+- **Loop notes:** Sub-rationale=score-budget-exhausted-trust-override-suppressed (Rec O pass-level shadow-budget gate); S=25, Σ_shadow=110, breach-margin=85, k×S=75, 4 findings would have been classified as fix-via-trust-override absent the gate. Pass-3 classifier exit, 7 raised findings on pass 3 all blocked; blocker A names a real consistency contradiction (closed "V1 pinning surface exhausted by single entry" framing introduced in pass-2 contradicts pre-existing `ValidationError.message = "rendered query template is empty"` pin at `docs/spec_topics/query.md:98`). Pass-2's enumeration-closure fix solved pass-1's prescription/assumptions/completeness lens cluster but generated a higher-residue surface than T07's default score=25 budget can absorb. Reshape required: either raise T07's authored score (high→100), split T07 into per-axis atoms, or narrow the Solution approach to install only the audience claim. severity p1 raised{high:1,medium:1,NIT:1} fixed{high:1,NIT:1} deferred{medium:1}; p2 raised{medium:1,low:3} fixed{medium:1,low:3}; p3 raised{high:1,medium:4,low:2} fixed{} blocked{high:1,medium:4,low:2}; stage1=3.
+- **Fixer notes:** none
+
+The detailed root-cause analysis, audit-vs-actual comparison, and
+ranked Immediate / Pipeline recommendations live in the gitignored
+forensic report cited above. This file records only the durable
+TL;DR pointer so future `/spec-review` regeneration runs (or future
+human triage) can trace why the listed findings ended up in
+`spec-review-parked.md`.
+
+---
