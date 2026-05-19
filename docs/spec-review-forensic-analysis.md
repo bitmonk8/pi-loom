@@ -596,3 +596,27 @@ human triage) can trace why the listed findings ended up in
 `spec-review-parked.md`.
 
 ---
+## 2026-05-19 — T18c — Widen spec.md Runtime observability bullet to forward-link the null-policy
+
+- **Failure mode:** must-fix-blocked
+- **Category:** 1 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** 4
+- **Score trajectory:** 145 vs S=25
+- **Passes:** 1
+- **Stage at exit:** 1 (1 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-19T12-13-42_29db80`
+- **Poisoned fixes:** none
+- **Forensic report:** `c:/UnitySrc/pi-loom/.pi/tmp/spec-fix-failure-forensics/2026-05-19T10-47-33_8360aa/t18c-widen-spec-md-runtime-observability-bullet-to-forward-link-the-null-policy.md` _(gitignored)_
+- **Parked findings (this run):** `T18c — Widen spec.md Runtime observability bullet to forward-link the null-policy, T18a — Append success-side null-policy paragraph to PIC Runtime event channel, T19a — Extend ActiveInvocationRegistry entry shape with invocationId, T19b — Add invocation_id field to RuntimeEvent payload declaration, T19d — Populate cancelled-by-session-shutdown details with invocation_id, T19e — Add real-time sibling emission timing paragraph, T18b — Add per-mode operator-side null sentences to slash-invocation.md`
+- **Loop notes:** Sub-rationale score-budget-exhausted-trust-override-suppressed (Rec O pass-level shadow-budget gate). S=25, Σ_shadow=76, breach margin Σ-S=51 (multiplier ≈ 3.04× exceeds k=3 threshold of 75 by 1 point); 3 would-be trust-override admissions on pass 2 counted toward shadow budget. T18c heading absent from spec-review.md (top-level fixer already removed it); classifier defaulted to severity=medium / S=25 / mustFix=false per heading-absent lookup rule. Severity tally: p1 raised{high:1,medium:1,low:2} fixed{high:1,medium:1,low:2} deferred{} blocked{}; p2 raised{high:1,medium:3,NIT:1} fixed{} deferred{} blocked{high:1,medium:3,NIT:1} (the blocker is a cross-page contract contradiction Pass-1 fixes introduced: the prompt-mode Ok(v) "audience" parenthetical at docs/spec.md L52 inverts slash-invocation.md L19's normative contract that the Ok return value is NOT surfaced to the user). Stage trajectory: stage1=1. Narrowings tally: narrowings=0+0+0+0. Stage-transition tally: stage1Touched=1 mode-e-refusals=0. Snapshot namespace refs/loom/snapshots/2026-05-19T12-13-42_29db80 retained (baseline, baseline-post-top-level, pass-1, pass-2) for forensics.
+- **Fixer notes:** none
+
+The detailed root-cause analysis, audit-vs-actual comparison, and
+ranked Immediate / Pipeline recommendations live in the gitignored
+forensic report cited above. This file records only the durable
+TL;DR pointer so future `/spec-review` regeneration runs (or future
+human triage) can trace why the listed findings ended up in
+`spec-review-parked.md`.
+
+---
+
