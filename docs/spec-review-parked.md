@@ -502,3 +502,81 @@ Reduce the `<a id="session-model"></a>` paragraph in `docs/spec.md` Orientation 
 - T18a "Append success-side null-policy paragraph to PIC Runtime event channel" — same-cluster (third instance of the pattern, in the Runtime-observability bullet).
 - T24 "Fork-reason watcher closure leaves the extension in an unspecified, silently degraded state" — same-cluster (touches the same Session-model paragraph but addresses content correctness).
 
+
+---
+
+
+## T16b — Rewrite callable-set paragraph: drop inline `customTools` / `createAgentSession` / `pi.setActiveTools` names
+
+> **PARKED** — 2026-05-19
+> **Reason:** Category 1 (malformed finding — constraints binding surface; the originating finding's Solution constraints fence every viable remediation that the lens admits). The inner spec-diff-fix-loop's severity-weighted triage exited on must-fix-blocked-by-scope-guard (plan §Change A clause 1 escape): a raised lens finding outranked this originating finding in importance, but every viable remediation would violate a class-1 or class-2 scope guard forwarded from the top-level fixer. FIXCOUNTS: 2,0,0,5. Loop notes: must-fix-blocked sub-rationale=score-budget-exhausted-trust-override-suppressed (Rec O pass-level shadow-budget gate); S=25, Σ_shadow=115, breach margin Σ−k·S=40 (multiplier 4.6× vs k=3 threshold 75). 5 raised findings counted toward the exhausted shadow budget on pass 5 (all targeting docs/spec.md#scope, the chunk already in NARROWED_CHUNKS — every finding would have been deferred under b-bis approach-narrowed absent the Rec O gate, so 0 trust-override-counted findings; gate fired on bare-residue grounds). severity p1 raised{high:1,low:1} fixed{high:1,low:1} deferred{} blocked{}; p2 raised{low:1} fixed{} deferred{low:1} blocked{}; p3 raised{medium:1} fixed{} deferred{medium:1} blocked{}; p4 raised{low:4,NIT:1} fixed{low:4,NIT:1} deferred{} blocked{}; p5 raised{medium:4,low:1} fixed{} deferred{} blocked{medium:4,low:1}. stage1=2 stage2=1 stage3=2 (pass 5 lens fan-out + classifier ran but exited before fixCount increment; counted in stage-3 attempt total). narrowings=0+1+0+0 (one in-loop approach-narrowing on docs/spec.md#scope via inner-fixer (d) refusal during pass 4 fix-05; the revert to baseline-post-top-level undid pass-1's high-severity union-with-snapshot fix and pass-1's swap-window rename, restoring exactly the residue the lens fleet then re-discovered as 5 raised findings on pass 5). stage1Touched=1 mode-e-refusals=0. A human must resolve the guard-vs-severity collision (relax the guard, split this finding so the higher-importance raised finding is no longer downstream of the guard, or accept the trade-off and annotate the raised finding as out-of-scope) before re-introducing this finding.
+> **Forensic report:** .pi/tmp/spec-fix-failure-forensics/2026-05-19T10-47-33_8360aa/t16b-rewrite-callable-set-paragraph-drop-inline-customtools-createagentsession-p.md
+
+# T16b — Rewrite callable-set paragraph: drop inline `customTools` / `createAgentSession` / `pi.setActiveTools` names
+
+**Kind:** placement
+**Importance:** medium
+**Atomicity:** atomic
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The callable-set paragraph in the Trust-boundary bullet under Orientation > Scope in `docs/spec.md` names packaging-level Pi-API identifiers — the `customTools` array on `createAgentSession` for subagent mode and the `pi.setActiveTools` snapshot/restore pair for prompt mode — to characterise how the per-mode callable-set wiring is enforced. Those identifiers are owned verbatim by the **Tool-registration lifetime and visibility** and **Conversation drive — subagent mode** sections of `docs/spec_topics/pi-integration-contract.md`; the aggregator restatement drifts the moment either Pi API surface is renamed, replaced, or restructured. The behavioural property the trust-boundary scope decision actually rests on is the per-mode wiring isolation, not the specific Pi APIs that implement it.
+
+## Solution approach
+
+Rewrite the callable-set paragraph in the Trust-boundary bullet so it states only the behavioural isolation rule — subagent-mode invocations see only the loom's declared callable set; prompt-mode invocations see the loom's declared callable set unioned with the user session's snapshot for the swap window — and forward-links the **Tool-registration lifetime and visibility** section in `docs/spec_topics/pi-integration-contract.md` for the SDK-call mechanism. Drop the inline `customTools`, `createAgentSession`, and `pi.setActiveTools` identifiers from the paragraph. The SDK-call mechanism remains owned by the linked PIC section.
+
+## Solution constraints
+
+- Do not inline the Pi-API identifiers `customTools`, `createAgentSession`, or `pi.setActiveTools` (or any other Pi-API symbol that names how callables are wired for either mode); those are owned by **Tool-registration lifetime and visibility** in `docs/spec_topics/pi-integration-contract.md`.
+- Preserve the *callable set* clarification — that the loom's declared callable set is a configuration knob over the *model's* reachable callable set, NOT a host-process sandbox — and its forward-link to [Parameters and Frontmatter — `tools`](./spec_topics/frontmatter.md#tools).
+- The host-side-denial paragraph and the closing capability-model sentence are owned by T16c and T16d respectively — leave them untouched here.
+
+## Relationships
+
+- T16a "Reduce Trust-boundary SDK-surface clause: drop the `~0.72.1` literal" — co-resolve.
+- T16c "Reduce host-side-denial paragraph to one sentence with forward-links" — co-resolve.
+- T16d "Replace closing capability-model paragraph with single forward-link sentence" — co-resolve.
+- T16e "PIC step 2 internal contradiction: literal `pi.setActiveTools([...snapshot, ...names])` call shape vs natural-language 'exactly the loom's declared callable set'" — must-follow (the prompt-mode visibility characterisation in this paragraph forward-links to a PIC step whose internal contradiction T16e resolves first).
+
+
+---
+
+
+## T16e — PIC step 2 internal contradiction: literal `pi.setActiveTools([...snapshot, ...names])` call shape vs natural-language "exactly the loom's declared callable set"
+
+> **PARKED** — 2026-05-19
+> **Reason:** Cascaded from parking of T16b — Rewrite callable-set paragraph: drop inline `customTools` / `createAgentSession` / `pi.setActiveTools` names: this finding's ## Relationships block declares an ordering edge (must-precede or must-follow) on the parked finding, so its preconditions are no longer satisfied in spec-review.md.
+> **Forensic report:** .pi/tmp/spec-fix-failure-forensics/2026-05-19T10-47-33_8360aa/t16b-rewrite-callable-set-paragraph-drop-inline-customtools-createagentsession-p.md
+
+# T16e — PIC step 2 internal contradiction: literal `pi.setActiveTools([...snapshot, ...names])` call shape vs natural-language "exactly the loom's declared callable set"
+
+**Kind:** consistency
+**Importance:** high
+**Score:** 100
+**Atomicity:** atomic
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+Step 2 of the `Around each query` enumeration under **Tool-registration lifetime and visibility** in `docs/spec_topics/pi-integration-contract.md` reads: ``Call `pi.setActiveTools([...snapshot, ...loomCallableSetNames, respondToolName?])` — the set the model sees for this turn is exactly the loom's declared callable set, plus the respond tool when the turn is a typed-query response turn.`` The literal call argument `[...snapshot, ...loomCallableSetNames, respondToolName?]` produces the **union** of the user-session snapshot and the loom's declared callable set (plus optionally the respond tool); the natural-language gloss that immediately follows asserts that the set the model sees is **exactly** the loom's declared callable set (plus optionally the respond tool), which excludes the snapshot. The two sentences are mutually exclusive — either the snapshot is part of the model's visible set for the turn or it is not — and a reader cannot determine which shape is normative. T16b's reshape of the `docs/spec.md` Trust-boundary callable-set paragraph depends on PIC owning a single, coherent prompt-mode visibility rule to forward-link to; with both shapes live in the cited owner section, T16b cannot characterise prompt-mode visibility without inheriting the contradiction.
+
+## Solution approach
+
+Resolve the contradiction at the source by picking one shape for prompt-mode query visibility under **Tool-registration lifetime and visibility** in `docs/spec_topics/pi-integration-contract.md`. Either (a) rewrite the natural-language gloss in step 2 to match the literal `[...snapshot, ...loomCallableSetNames, respondToolName?]` call — the set the model sees is the user-session snapshot unioned with the loom's declared callable set (and the respond tool on a typed-query response turn), keeping the snapshot/restore protocol's existing behaviour explicit; or (b) rewrite the literal call to match the natural-language gloss — `pi.setActiveTools([...loomCallableSetNames, respondToolName?])` with no snapshot union — and adjust the surrounding paragraphs (the `If another extension calls pi.setActiveTools` consequence in the same section, and any downstream `spec.md`-side framing of the per-mode callable-set rule) accordingly. Pick whichever shape is intended by the V1 prompt-mode design; do not introduce a third shape and do not preserve both.
+
+## Solution constraints
+
+- Do not widen the V1 prompt-mode callable surface beyond what one of the two existing shapes already authorises; the resolution picks between (a) snapshot-union (current literal call) and (b) snapshot-replaced (current natural-language gloss).
+- Do not introduce a new type, a new SDK call, or a new `details.kind` discriminator; the edit is a prose / call-literal reconciliation inside the existing step 2.
+- Do not touch the subagent-mode `createAgentSession({ customTools, ... })` paragraph; subagent-mode visibility is a separate mechanism unaffected by this contradiction.
+- The `docs/spec.md` Trust-boundary callable-set paragraph is owned by T16b — out of scope here.
+
+## Relationships
+
+- T16b "Rewrite callable-set paragraph: drop inline `customTools` / `createAgentSession` / `pi.setActiveTools` names" — must-precede (T16b's prompt-mode visibility characterisation cannot land until PIC step 2 owns a single coherent rule for it to forward-link to).
+
+---

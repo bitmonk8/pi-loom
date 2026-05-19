@@ -644,3 +644,27 @@ human triage) can trace why the listed findings ended up in
 `spec-review-parked.md`.
 
 ---
+
+## 2026-05-19 — T16b — Rewrite callable-set paragraph: drop inline `customTools` / `createAgentSession` / `pi.setActiveTools` names
+
+- **Failure mode:** must-fix-blocked
+- **Category:** 1 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** 2,0,0,5
+- **Score trajectory:** 105,5,25,21,115 vs S=25
+- **Passes:** 4
+- **Stage at exit:** 3 (1 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-19T13-06-44_a5fe87`
+- **Poisoned fixes:** n/a
+- **Forensic report:** `.pi/tmp/spec-fix-failure-forensics/2026-05-19T10-47-33_8360aa/t16b-rewrite-callable-set-paragraph-drop-inline-customtools-createagentsession-p.md` _(gitignored)_
+- **Parked findings (this run):** `T16b — Rewrite callable-set paragraph: drop inline customTools / createAgentSession / pi.setActiveTools names, T16e — PIC step 2 internal contradiction: literal pi.setActiveTools([...snapshot, ...names]) call shape vs natural-language "exactly the loom's declared callable set"`
+- **Loop notes:** must-fix-blocked sub-rationale=score-budget-exhausted-trust-override-suppressed (Rec O pass-level shadow-budget gate); S=25, Σ_shadow=115, breach margin Σ−k·S=40 (multiplier 4.6× vs k=3 threshold 75). 5 raised findings counted toward the exhausted shadow budget on pass 5 (all targeting docs/spec.md#scope, the chunk already in NARROWED_CHUNKS — every finding would have been deferred under b-bis approach-narrowed absent the Rec O gate, so 0 trust-override-counted findings; gate fired on bare-residue grounds). severity p1 raised{high:1,low:1} fixed{high:1,low:1} deferred{} blocked{}; p2 raised{low:1} fixed{} deferred{low:1} blocked{}; p3 raised{medium:1} fixed{} deferred{medium:1} blocked{}; p4 raised{low:4,NIT:1} fixed{low:4,NIT:1} deferred{} blocked{}; p5 raised{medium:4,low:1} fixed{} deferred{} blocked{medium:4,low:1}. stage1=2 stage2=1 stage3=2 (pass 5 lens fan-out + classifier ran but exited before fixCount increment; counted in stage-3 attempt total). narrowings=0+1+0+0 (one in-loop approach-narrowing on docs/spec.md#scope via inner-fixer (d) refusal during pass 4 fix-05; the revert to baseline-post-top-level undid pass-1's high-severity union-with-snapshot fix and pass-1's swap-window rename, restoring exactly the residue the lens fleet then re-discovered as 5 raised findings on pass 5). stage1Touched=1 mode-e-refusals=0.
+- **Fixer notes:** none
+
+The detailed root-cause analysis, audit-vs-actual comparison, and
+ranked Immediate / Pipeline recommendations live in the gitignored
+forensic report cited above. This file records only the durable
+TL;DR pointer so future `/spec-review` regeneration runs (or future
+human triage) can trace why the listed findings ended up in
+`spec-review-parked.md`.
+
+---
