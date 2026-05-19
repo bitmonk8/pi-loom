@@ -500,3 +500,27 @@ human triage) can trace why the listed findings ended up in
 `spec-review-parked.md`.
 
 ---
+
+## 2026-05-19T02:06:34Z — T06 — Operator role: TUI binding asserted in glossary but never reconciled with non-interactive callers
+
+- **Failure mode:** must-fix-blocked
+- **Category:** 1 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** 3,3
+- **Score trajectory:** 80,31 vs S=25
+- **Passes:** 2
+- **Stage at exit:** 1 (2 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-19T02-06-34_6b644e`
+- **Poisoned fixes:** n/a
+- **Forensic report:** `c:/UnitySrc/pi-loom/.pi/tmp/spec-fix-failure-forensics/2026-05-18T20-36-39_b9045e/t06-operator-role-tui-binding-asserted-in-glossary-but-never-reconciled-with-non.md` _(gitignored)_
+- **Parked findings (this run):** `T06 — Operator role: TUI binding asserted in glossary but never reconciled with non-interactive callers`
+- **Loop notes:** Classifier exited on must-fix-blocked / score-budget-exhausted-trust-override-suppressed (Rec O pass-level shadow-budget gate) at pass 3 with 6 blocked findings. S=25, Σ_shadow=106, k×S=75. Originating finding's defaulted S=25 is structurally insufficient for the residue the Solution approach generates. Reshape options: raise origin score, split T06 into per-axis atoms (glossary-side definition narrowing; overview-side enumeration sync; FC-side anchor coverage), or narrow the Solution approach to drop the cross-page consumer-enumeration sync.
+- **Fixer notes:** none
+
+The detailed root-cause analysis, audit-vs-actual comparison, and
+ranked Immediate / Pipeline recommendations live in the gitignored
+forensic report cited above. This file records only the durable
+TL;DR pointer so future `/spec-review` regeneration runs (or future
+human triage) can trace why the listed findings ended up in
+`spec-review-parked.md`.
+
+---
