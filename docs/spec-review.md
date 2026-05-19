@@ -301,7 +301,6 @@ Rewrite the user-facing template in the `context_overflow` row of the per-`kind`
 ## Relationships
 
 - T08b "Sweep errors-and-results.md line 206 'context-window overflow' to 'context overflow'" — co-resolve.
-- T08c "Sweep query.md line 285 'context window exceeded' to provider context-overflow phrasing" — co-resolve.
 - T07 "`QueryError.message` content has no normativity rule" — same-cluster (touches the same `QueryError variants` surface).
 
 ---
@@ -330,36 +329,5 @@ Rewrite the `ContextOverflowError` variant intro paragraph in the *Query-time va
 ## Relationships
 
 - T08a "Rewrite slash-invocation.md context_overflow system-note row to 'context overflow'" — co-resolve.
-- T08c "Sweep query.md line 285 'context window exceeded' to provider context-overflow phrasing" — co-resolve.
-- T07 "`QueryError.message` content has no normativity rule" — same-cluster.
-
----
-
-# T08c — Sweep query.md line 285 "context window exceeded" to provider context-overflow phrasing
-
-**Kind:** naming
-**Importance:** medium
-**Atomicity:** atomic
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The *Detection of `ContextOverflowError`* section in `docs/spec_topics/query.md` describes the runtime as mapping recognised provider `"context window exceeded"` error responses to this variant — quoting an exact provider error string. The quoted phrase both diverges from the corpus root word "context overflow" used by the schema name `ContextOverflowError`, the wire `kind` literal `"context_overflow"`, and the sibling sweeps in `slash-invocation.md` (T08a) and `errors-and-results.md` (T08b), and over-commits the spec to a literal provider string when the per-provider signatures actually live in *Pi Integration Contract — Provider error mapping*. A reader can't tell whether "context window exceeded" is a normative substring providers must emit or just one historical example.
-
-## Solution approach
-
-Rewrite the affected sentence in the *Detection of `ContextOverflowError`* section of `docs/spec_topics/query.md` to use the bare "context-overflow" phrasing — name the provider behaviour without quoting any specific provider error string. Keep the existing cross-reference to *Pi Integration Contract — Provider error mapping*, which retains ownership of the per-provider signatures. Coordinate landing with siblings T08a and T08b so the corpus root word is harmonised in one commit.
-
-## Solution constraints
-
-- Do not rename the schema identifier `ContextOverflowError` or the wire `kind` literal `"context_overflow"`.
-- The slash-invocation system-note row is owned by T08a; the `errors-and-results.md` sweep by T08b.
-- Do not introduce a new normative rule about what providers may or must emit — the per-provider signatures remain owned by *Pi Integration Contract — Provider error mapping*.
-
-## Relationships
-
-- T08a "Rewrite slash-invocation.md context_overflow system-note row to 'context overflow'" — co-resolve.
-- T08b "Sweep errors-and-results.md line 206 'context-window overflow' to 'context overflow'" — co-resolve.
 - T07 "`QueryError.message` content has no normativity rule" — same-cluster.
 
