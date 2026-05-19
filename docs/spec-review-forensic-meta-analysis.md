@@ -33,7 +33,9 @@ HEADLINE: The shipped pipeline (recs J, F, K, V, T, O, M, W) cures
              stripped it — the classifier defaults to S=25 and rec O's
              k×S=75 gate fires on residue the finding's true score
              (typically S=100) would have absorbed. Affects T19
-             cluster (1 unit, 4 H1s), T03a, T10, T11a.
+             cluster (1 unit, 4 H1s), T03a, T10, T11a. Response is
+             finding-authoring (manual metadata restoration / score
+             adjustment), not pipeline-side.
 
           2. **Audit-side misses are first-order.** Two W3 parks
              (T03a, T07) had pre-dispatch audit verdicts of LOW risk
@@ -54,17 +56,19 @@ HEADLINE: The shipped pipeline (recs J, F, K, V, T, O, M, W) cures
           `naming` / `clarity` term cycles before exit.
 
 PRIMARY WORK (in priority order):
-  Tier 1 — closes the dominant failure mode:
-    - rec X (pi-config) — classifier git-history metadata recovery
-    - Restore T19 cluster headings to docs/spec-review.md (pi-loom)
-  Tier 2 — closes the audit-layer gap:
-    - rec L (pi-config) — audit-side binding-surface ratification
-    - rec P (pi-config) — Problem-metadata decision-axes
-  Tier 3 — signal hygiene + remaining fixer-capability gap:
-    - rec Z (pi-config) — split surface-expansion-irrecoverable CATEGORY
-    - rec AA (pi-config) — stage-3 prose-quality oscillation detector
-  Tier 4 — pi-loom finding-authoring:
-    - 11 per-finding reshapes + 1 new spec-review entry
+  Tier 1 — closes the dominant failure mode (pi-loom):
+    - Restore T19 cluster member headings + high/S=100 metadata
+      to docs/spec-review.md
+    - Restore T11a heading + high/S=100 metadata to docs/spec-review.md
+    - Reshape T03a and T10 per Tier E (axis split or score raise)
+  Tier 2 — closes the audit-layer gap (pi-config):
+    - rec L — audit-side binding-surface ratification
+    - rec P — Problem-metadata decision-axes
+  Tier 3 — signal hygiene + remaining fixer-capability gap (pi-config):
+    - rec Z — split surface-expansion-irrecoverable CATEGORY
+    - rec AA — stage-3 prose-quality oscillation detector
+  Tier 4 — pi-loom finding-authoring for the remaining parks:
+    - 7 per-finding reshapes + 1 new spec-review entry
 
 GENERATED: 2026-05-19T19:00:00Z
            Document rewritten from a current-state perspective.
@@ -105,7 +109,7 @@ recommendations.
 |---|---|---|
 | J | pi-config `dd974d9` | Solution approach is directional, not binding. Fixer can narrow / redirect / ignore approach to fit the binding surfaces. Top-level fixer emits `## Narrowed chunks`; inner fixer carries refusal mode `(d) approach-narrowing`; classifier defers via `defer-to-debt — approach-narrowed`. |
 | F | pi-config `f10e3c1` | `**Shape:** multiple` + `**State:** reduced` cluster dispatch mode. Picker walks `co-resolve` edges; fixer unions Problems/constraints; one stable post-edit state; one forensic report per cluster. |
-| K | pi-config `344da26` | Cluster-importance aggregation: cluster's S = max(member S). Heading-absent fallback defaults to medium / S=25. **The heading-absent fallback has an integration gap** — see §3.1 + rec X. |
+| K | pi-config `344da26` | Cluster-importance aggregation: cluster's S = max(member S). Heading-absent fallback defaults to medium / S=25 — fires whenever the originating heading is missing from `spec-review.md` at classifier time (see §3.1). The current response is manual metadata restoration (no pipeline change). |
 | V | pi-config `8f0ccfe` | Solution constraints are advisory, not binding. Fixer's fifth narrowing check (over-fencing detection); inner-fixer refusal mode `(f) constraint-as-advisory` with three discriminating authoring-guard sub-modes `(f-stop-1)` unanticipated-content / `(f-stop-2)` co-resolve-siblings-territory / `(f-stop-3)` would-weaken-existing-rule. New STATUS `must-fix-blocked-constraint-narrowing-refused`. |
 | T | pi-config `b20536d` | Stage-transition structural-growth refusal. Inner-fixer mode `(e)` fires on stage-2/3 fixes adding `<a id`, `> **`, `^### `, or `**Label.**` markers to chunks that were tier-1-clean in stage 1. New STATUS `must-fix-blocked-by-stage-transition`. |
 | O | pi-config `b20536d` | Pass-level shadow-budget gate (rule a-bis), k=3. Catches trust-override-masked monotone-rising score sums. New sub-rationale `score-budget-exhausted-trust-override-suppressed`. |
@@ -147,7 +151,8 @@ anticipated by the Problem). The T19 cluster — designed as the
 `(f-stop-2)` heaviest canary — never reached the fixer because
 rec O preempted at pre-pass classifier exit (§3.1). No T20-shape
 findings were dispatched, so `(f-stop-3)` had nothing to fire
-on. Re-validation is queued for after rec X (§4.3) lands.
+on. Re-validation is queued for after the T19 cluster's metadata
+is restored to `docs/spec-review.md` (see §3.1 and §4.4).
 
 ## 2. The fixer/finding architectural cut
 
@@ -238,9 +243,24 @@ residue.
 
 **The T11a forensic's `_blocked.md` self-flagged this as a
 "likely category-1 reshape false-positive".** The classifier
-has the diagnostic; it lacks the recovery tool.
+has the diagnostic; it does not have a recovery tool.
 
-**Closes:** rec X (§4.3).
+**Response.** Manual finding-authoring work, per the Tier E
+entries in §4.4. For T19 cluster and T11a, the fix is to
+restore the heading + `**Importance:** high` / `**Score:** 100`
+metadata to `docs/spec-review.md` so the classifier's existing
+heading-lookup succeeds. For T03a and T10, the fix is a real
+reshape — even at the true score the multi-axis residue is
+large enough that a per-axis split or a narrowed Solution
+approach is the right move (see Tier E).
+
+A pipeline-side change (e.g. classifier git-history recovery,
+or preventing the top-level fixer from stripping headings
+pre-dispatch) is deliberately not recommended now. The four
+affected parks can be unblocked by hand in less time than a
+classifier extension would take to specify and review; the
+pattern's recurrence rate after manual restoration is the
+evidence that would justify revisiting the pipeline question.
 
 ### 3.2 Audit-side misses (first-order, 2 of 11 direct parks)
 
@@ -436,46 +456,7 @@ rationale `score-insufficient-for-axis-residue`.
 `agents/spec-review-finding-reducer.md`, the auditor.
 ~30 lines.
 
-### 4.3 Tier C — pipeline integration + signal hygiene
-
-**Rec X — Classifier git-history metadata recovery. (HIGHEST PRIORITY.)**
-
-Closes §3.1 (T19 cluster + T03a + T10 + T11a — 4 of 11 direct
-parks). When the originating finding's heading is absent from
-both `docs/spec-review.md` and `docs/spec-review-parked.md` at
-classification time, the classifier currently defaults
-`severity=medium`, `S=25`, `mustFix=false`. The recovery is
-mechanical:
-
-- New classifier sub-routine `recoverMetadataFromGitHistory`
-  in `agents/spec-diff-fix-classifier.md`. Inputs: heading
-  text (or cluster member heading list), the two spec-review
-  file paths. Output: `{severity, S, mustFix}` recovered from
-  the most recent commit whose diff contains `^# <heading>$`
-  on either file's `+` or `-` lines.
-- Implementation: `git log -p -50 -- docs/spec-review.md
-  docs/spec-review-parked.md`. Parse the patch hunks for
-  `^# <heading>$` matches. From the matched hunk, extract the
-  `**Importance:**` field value (typically within 20 lines of
-  the heading; readable verbatim from context). Map
-  importance → score using existing policy (high → 100,
-  medium → 25, low → 5).
-- For clusters: search runs against each member heading; rec K's
-  max-aggregation runs on the recovered set.
-- Recovery falls through to the existing medium default only
-  on zero matches. The default's semantics are preserved for
-  the genuinely-unrecoverable case.
-
-**Coverage on the current park set:** T19 cluster
-(S 25 → 100, gate ratio 6.0× → 1.5×, gate does not fire);
-T03a (S 25 → ≥100, gate ratio 5.28× → ≤1.32×); T11a
-(S 25 → 100, gate ratio 8.44× → 2.11×). T10's heading is
-beyond the searchable history range; the default falls
-through with its current semantics — acceptable.
-
-**Files changed (pi-config):**
-`agents/spec-diff-fix-classifier.md`. ~80 lines (sub-routine
-+ shell-out + parser + cluster-loop integration).
+### 4.3 Tier C — pipeline rejection-signal hygiene
 
 **Rec Z — Split `surface-expansion-irrecoverable` CATEGORY by finding shape.**
 
@@ -516,14 +497,14 @@ specific reshape recommendation.
 
 | Finding | Reshape action |
 |---|---|
-| **T19 cluster heading restoration** | `git show e12ccf9 -- docs/spec-review.md` and patch the four cluster member headings back into `docs/spec-review.md`. Highest-leverage single edit; under rec X this becomes automatic, but until then it unblocks the cluster dispatch immediately. |
-| **T03a** | Split into three per-axis atoms (literal pins / H1-test wiring / swap-procedure); OR raise score to high (S=100); OR narrow the Solution approach to forbid embedding implementation literals in a behavioural host-contract document. |
+| **T19 cluster metadata restoration** | `git show e12ccf9 -- docs/spec-review.md` and patch the four cluster member headings back into `docs/spec-review.md`, ensuring each member's `**Importance:** high` / `**Score:** 100` metadata block is present below the heading. This is the immediate response to the §3.1 metadata-recovery gap on the T19 cluster; rec K's max-aggregation will then succeed and the rec O gate's mis-firing stops. |
+| **T03a** | Split into three per-axis atoms (literal pins / H1-test wiring / swap-procedure); OR raise score to high (S=100) and ensure the heading + `**Importance:** high` metadata are present in `docs/spec-review.md` before re-dispatch (the heading was stripped pre-dispatch by Pattern I auto-reshape); OR narrow the Solution approach to forbid embedding implementation literals in a behavioural host-contract document. |
 | **T05** | Declare a canonical home (recommend frontmatter Naming-convention paragraph) and demote the glossary entry to back-reference; OR drop the "every other surface" universal claim and enumerate diagnostic-code-family scopes per-family; OR split into per-site atoms with explicit non-duplication constraints. |
 | **T06** | Raise score to high (S=100) on the strength that the V1 carve-out's downstream contract surface is genuinely multi-file; OR split into 3–4 per-axis atoms (glossary anchor + V1-invariant sentence; spec.md forward-link; cross-page consumer enumeration sync; FC anchor coverage); OR narrow approach to drop the cross-page consumer-enumeration work. |
 | **T07** | List the three known cross-file `.message` pins (`query.md:98`, `pi-integration-contract.md:262`, `implementation-notes.md:23`) in T07's Solution constraints so the fixer enumerates them; OR explicitly forbid closure-shaped predicates; OR narrow T07 to the audience claim only and defer the pinning-surface question. |
 | **T09** | Resolve the bimodal "either restate or forward-link" — pick one branch in the Solution approach; OR raise score to high; OR narrow the constraint to forbid renaming the link display text (the dominant cycle source). |
-| **T10** | Recover T10's real importance/score from outside the heading (unavailable in environment per the forensic — may need authoring decision); OR split T10 along the three axes pass-1 expansion revealed (binder-side bypass clarification, slash-invocation trim-semantics pin, PIC restatement sync). |
-| **T11a** | **Procedural reshape:** restore T11a's heading + `**Importance:** high` / `**Score:** 100` to `docs/spec-review.md` (the heading was stripped pre-dispatch). Once rec X ships this is automatic. Until then: restore by hand. Secondary content reshape: enumerate the wrong-tool diagnostic surface explicitly in the Solution approach. |
+| **T10** | Recover T10's real importance/score from outside the heading (unavailable in environment per the forensic — will need an authoring decision; recommend high/100 if the three-axis surface is intentional, medium/25 if it should be narrowed); OR split T10 along the three axes pass-1 expansion revealed (binder-side bypass clarification, slash-invocation trim-semantics pin, PIC restatement sync). Restore the chosen heading + metadata to `docs/spec-review.md` before re-dispatch. |
+| **T11a** | **Procedural reshape:** restore T11a's heading + `**Importance:** high` / `**Score:** 100` to `docs/spec-review.md` (the heading was stripped pre-dispatch). Sibling T11b/c are both `Importance: high`, so high/100 is the cluster-consistent choice. Secondary content reshape: enumerate the wrong-tool diagnostic surface explicitly in the Solution approach. |
 | **T15b** | Raise score to high (S=100); OR split into per-axis atoms (the ~600-word duplication bundles 8+ obligations behind one anchor); OR drop the verbatim-duplication requirement in favour of a forward-link from the new `<a id="concurrency-model">` site to the existing `<a id="session-model">` paragraph. |
 | **T13** | Split into a defining-finding (own `cross-file` in the *countable-frame* paragraph or `glossary.md`) + the propagation finding, with `must-precede` ordering. |
 | **T16b** | Author the prerequisite finding (PIC step 2 L213 internal contradiction: literal `pi.setActiveTools([...snapshot, ...names])` call shape vs natural-language "exactly the loom's declared callable set"). Add `must-precede` edge from T16b. |
@@ -533,45 +514,53 @@ specific reshape recommendation.
 Cascade-parked findings (T03b/c/d/e/f, T11b/c, T18b/c/d) re-
 dispatch when their upstream lands; no per-cascade reshape.
 
-After rec L + rec P + rec X ship, re-evaluate this list. Audit-
-side detection on Tier B will catch some of these pre-dispatch;
-the reshape recommendations stay the same but the routing layer
+After rec L + rec P ship, re-evaluate this list. Audit-side
+detection on Tier B will catch some of these pre-dispatch; the
+reshape recommendations stay the same but the routing layer
 changes.
 
 ### 4.5 Summary table
 
 | Rec | Tier | Title | Closes |
 |---|:-:|---|---|
-| **X** | C | Classifier git-history metadata recovery | §3.1 (4 of 11 parks) |
 | **L** | B | Audit-side binding-surface ratification | §3.2 (T03a, T07) |
 | **P** | B | Decision-axes Problem-metadata | §3.2 + §3.5 multi-axis components |
 | **Z** | C | Split surface-expansion-irrecoverable CATEGORY | §3.3 (T05, T09 tagging) |
 | **AA** | A | Stage-3 prose-quality oscillation detector | §3.4 (T09 + T05 cycle component) |
-| Tier E | E | 11 reshapes + 1 new finding + heading restoration | the remaining parks |
+| Tier E | E | 11 reshapes + 1 new finding + cluster metadata restoration | §3.1 (manual metadata restoration) + the remaining parks |
 
 ### 4.6 Priority order
 
-1. **Rec X** (pi-config) — closes 4 of 11 direct parks. Highest
-   leverage single pi-config change.
-2. **T19 cluster heading restoration** (pi-loom) — one-line
-   `git show` patch. Unblocks the cluster under rec X.
-3. **Rec L + Rec P** (pi-config) — close the audit-layer gap
+1. **Manual metadata restoration** (pi-loom) — unblocks the
+   four §3.1 parks. Restore the T19 cluster member headings +
+   `**Importance:** high` / `**Score:** 100` to
+   `docs/spec-review.md`; restore T11a's heading + same
+   metadata; reshape T03a and T10 per Tier E (axis split or
+   score raise). Highest-leverage immediate work; no pipeline
+   change required.
+2. **Rec L + Rec P** (pi-config) — close the audit-layer gap
    that turns LOW-risk audit verdicts into pass-1+ inner-loop
    parks.
-4. **Rec Z + Rec AA** (pi-config) — signal hygiene + remaining
+3. **Rec Z + Rec AA** (pi-config) — signal hygiene + remaining
    fixer-capability gap.
-5. **Tier E reshapes** (pi-loom) — re-evaluate the list after
-   recs L + P + X ship; some will be cured pre-dispatch by
-   audit-side detection.
+4. **Tier E reshapes** for the remaining parks (pi-loom) —
+   re-evaluate after recs L + P ship; some will be cured
+   pre-dispatch by audit-side detection.
 
-Validation work after Tier 1–3 ships:
+Validation work after the audit-layer recs ship:
 
-- Re-dispatch T14 / T16a / T12 with rec X + rec L + rec P to
-  confirm no regressions.
-- Re-dispatch the T19 cluster after rec X + heading restoration.
+- Re-dispatch T14 / T16a / T12 with rec L + rec P to confirm
+  no regressions.
+- Re-dispatch the T19 cluster after metadata restoration.
   Doubles as rec V's `(f-stop-2)` heaviest-canary validation.
-- Re-dispatch T22a1 if reshape surfaces a re-author opportunity.
-  Additional `(f-stop-2)` evidence for cross-finding cases.
+- Re-dispatch T22a1 if reshape surfaces a re-author
+  opportunity. Additional `(f-stop-2)` evidence for cross-
+  finding cases.
+- If §3.1 metadata-recovery parks recur on new findings after
+  manual restoration, revisit whether a pipeline-side fix
+  (classifier metadata recovery, or top-level fixer not
+  stripping headings pre-dispatch) is warranted on evidence
+  rather than speculation.
 
 ## 5. What NOT to recommend
 
@@ -601,13 +590,16 @@ Validation work after Tier 1–3 ships:
 - **Reverting any shipped rec (J, F, K, V, T, O, M, W).**
   Every shipped rec is either fully working as designed
   (J, F, V, T, M, W) or working with a known integration gap
-  that rec X closes (K, O). No revert is warranted.
+  that manual metadata restoration handles for the current park
+  set (K, O — see §3.1). No revert is warranted.
 - **Raising the rec O `k` multiplier from 3.** Tempting
   because it would let mis-aggregated cases squeeze through
   (e.g. T19 cluster at defaulted S=25 passes at k=7). But the
   gate's strictness is what surfaces the rec K metadata gap;
   weakening k weakens trust-override-suppression on
-  genuinely-undersized origins. Rec X fixes the right defect.
+  genuinely-undersized origins. Manual metadata restoration
+  (§3.1, §4.4) addresses the current park set without
+  weakening the gate.
 - **Raising the 17-pass cap.** T09 burned 7 of 17 on stage-3
   oscillation; T11a burned 3 of 17 (pre-emptive gate exit).
   Cap is not the binding constraint.
@@ -615,9 +607,10 @@ Validation work after Tier 1–3 ships:
   carries an explicit per-finding reshape recommendation.
   Re-dispatching without reshape reproduces the failure.
 - **Re-dispatching the T19 cluster without restoring the
-  headings (or shipping rec X).** The rec O gate fires
-  deterministically on the mis-aggregated budget; no random
-  component; re-running without a change is a no-op.
+  headings + `**Importance:** high` / `**Score:** 100`
+  metadata.** The rec O gate fires deterministically on the
+  mis-aggregated budget; no random component; re-running
+  without a change is a no-op.
 
 ## Appendix — file and artifact references
 
