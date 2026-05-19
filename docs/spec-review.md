@@ -300,34 +300,5 @@ Rewrite the user-facing template in the `context_overflow` row of the per-`kind`
 
 ## Relationships
 
-- T08b "Sweep errors-and-results.md line 206 'context-window overflow' to 'context overflow'" — co-resolve.
 - T07 "`QueryError.message` content has no normativity rule" — same-cluster (touches the same `QueryError variants` surface).
-
----
-
-# T08b — Sweep errors-and-results.md line 206 "context-window overflow" to "context overflow"
-
-**Kind:** naming
-**Importance:** medium
-**Atomicity:** atomic
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `ContextOverflowError` variant intro paragraph in the *Query-time variants* section of `docs/spec_topics/errors-and-results.md` — the prose sentence immediately preceding the ```` ```loom schema ContextOverflowError { ... } ```` block — describes the trigger as a "context-window overflow". The rest of the corpus (schema name `ContextOverflowError`, wire `kind` literal `"context_overflow"`, and the sibling sweeps in `slash-invocation.md` (T08a) and `query.md` (T08c)) uses the bare root word "context overflow". The hyphenated variant in this one prose site is observable at every cross-page navigation as a phrasing inconsistency.
-
-## Solution approach
-
-Rewrite the `ContextOverflowError` variant intro paragraph in the *Query-time variants* section of `docs/spec_topics/errors-and-results.md` to use the bare root word "context overflow" in place of "context-window overflow". Coordinate landing with siblings T08a and T08c so the corpus root word is harmonised in one commit.
-
-## Solution constraints
-
-- Do not rename the schema identifier `ContextOverflowError` or the wire `kind` literal `"context_overflow"`; the change is the prose root word only.
-- The slash-invocation system-note row is owned by T08a; the `query.md` sweep by T08c.
-
-## Relationships
-
-- T08a "Rewrite slash-invocation.md context_overflow system-note row to 'context overflow'" — co-resolve.
-- T07 "`QueryError.message` content has no normativity rule" — same-cluster.
 

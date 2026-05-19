@@ -211,7 +211,7 @@ schema ModelToolError {
 }
 ```
 
-Fires when the provider reports a context-window overflow for a query (see [Query — Detection of `ContextOverflowError`](./query.md)).
+Fires when the provider reports a context overflow for a query (see [Query — Detection of `ContextOverflowError`](./query.md)).
 
 ```loom
 schema ContextOverflowError {
