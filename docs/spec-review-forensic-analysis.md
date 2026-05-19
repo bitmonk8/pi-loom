@@ -572,3 +572,27 @@ human triage) can trace why the listed findings ended up in
 `spec-review-parked.md`.
 
 ---
+
+## 2026-05-19T00:00:00Z — T03e — Update `spec.md` Host runtime item 1: rephrase to delegate the `engines.node`-equality check to the H1 SDK surface-inventory test
+
+- **Failure mode:** must-fix-blocked
+- **Category:** 1 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** n/a
+- **Score trajectory:** n/a vs S=25
+- **Passes:** 0
+- **Stage at exit:** 1 (0 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-19T10-54-34_d30c6e`
+- **Poisoned fixes:** n/a
+- **Forensic report:** `.pi/tmp/spec-fix-failure-forensics/2026-05-19T10-47-33_8360aa/t03e-update-spec-md-host-runtime-item-1-rephrase-to-delegate-the-engines-node-eq.md` _(gitignored)_
+- **Parked findings (this run):** `T03e — Update `spec.md` Host runtime item 1: rephrase to delegate the `engines.node`-equality check to the H1 SDK surface-inventory test, T03b — Add `pi-engines-node` row to `SDK_SURFACE_INVENTORY` in `h1-scaffold.md`, T03d — Update PIC Pi version-bump procedure step 3: replace manual-compare instruction with H1-test-fails-red narrative`
+- **Loop notes:** Classifier early-exit on pass 1 via Rec O pass-level shadow-budget gate; sub-rationale score-budget-exhausted-trust-override-suppressed; S=25 (T03e heading absent from spec-review.md, defaulted from cluster siblings T03b/T03c/T03d carrying Importance=medium → score 25), Σ_shadow=101, breach margin Σ_shadow−S=76 (multiplier ≈ 4.04× exceeds k=3 gate threshold of 75); 2 non-blocker raised findings counted toward shadow budget, 1 trust-overridden; 7 tier-1 lenses dispatched, 4 silent, 3 raised (assumptions/consistency/implementability merged per triage Step 1.5 into Finding A high:1 with trust-override impact entry on reader mental-model of cross-package Pi engines.node gating; traceability raised Finding B NIT:1 on bare-paraphrase cross-reference style). severity p1 raised{high:1,NIT:1} fixed{} deferred{} blocked{high:1,NIT:1}; stage1=1; narrowings=0+0+0+0; stage1Touched=0 mode-e-refusals=0. Originating T03e finding admits three reshape paths per classifier hints: raise T03e's score to ~100..125, narrow Solution approach to the revert option ("matching ... floor"), or split into verifier-naming + hyperlink-style axes. Snapshot refs retained for forensics under refs/loom/snapshots/2026-05-19T10-54-34_d30c6e.
+- **Fixer notes:** none
+
+The detailed root-cause analysis, audit-vs-actual comparison, and
+ranked Immediate / Pipeline recommendations live in the gitignored
+forensic report cited above. This file records only the durable
+TL;DR pointer so future `/spec-review` regeneration runs (or future
+human triage) can trace why the listed findings ended up in
+`spec-review-parked.md`.
+
+---
