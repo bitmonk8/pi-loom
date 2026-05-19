@@ -477,26 +477,6 @@ through with its current semantics — acceptable.
 `agents/spec-diff-fix-classifier.md`. ~80 lines (sub-routine
 + shell-out + parser + cluster-loop integration).
 
-**Rec Y — Loom baseline-snapshot pre-flight delta check. (OPTIONAL.)**
-
-Closes the human-driven baseline-snapshot strip side of §3.1
-(the T19 cluster baseline that pre-removed 137 lines from
-`spec-review.md`). Warns when the loom baseline differs from
-main HEAD by >100 lines on `spec-review.md` or
-`spec-review-parked.md`: "the working tree has stripped large
-blocks from the review docs; if the strip removed the heading
-you are about to dispatch, the classifier's metadata-recovery
-may fall through to heading-absent default; consider unparking
-the heading or applying the parked content before proceeding".
-
-**Ship only if rec X has a measurable false-negative rate** on
-strip-then-add-back-in-different-commit patterns. Otherwise
-redundant.
-
-**Files changed (pi-config):**
-`prompts/fix-spec-shape-single-findings.md` pre-flight section.
-~20 lines.
-
 **Rec Z — Split `surface-expansion-irrecoverable` CATEGORY by finding shape.**
 
 Closes §3.3 (T05, T09 tagging). The current rec W mapping tags
@@ -567,7 +547,6 @@ changes.
 | **P** | B | Decision-axes Problem-metadata | §3.2 + §3.5 multi-axis components |
 | **Z** | C | Split surface-expansion-irrecoverable CATEGORY | §3.3 (T05, T09 tagging) |
 | **AA** | A | Stage-3 prose-quality oscillation detector | §3.4 (T09 + T05 cycle component) |
-| Y | C | Loom baseline-snapshot pre-flight delta check | redundant after rec X; optional |
 | Tier E | E | 11 reshapes + 1 new finding + heading restoration | the remaining parks |
 
 ### 4.6 Priority order
@@ -584,8 +563,6 @@ changes.
 5. **Tier E reshapes** (pi-loom) — re-evaluate the list after
    recs L + P + X ship; some will be cured pre-dispatch by
    audit-side detection.
-6. **Rec Y** (pi-config) — only ship if rec X has measurable
-   false-negative rate.
 
 Validation work after Tier 1–3 ships:
 
