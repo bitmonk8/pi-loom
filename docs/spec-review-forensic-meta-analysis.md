@@ -72,7 +72,130 @@ GENERATED: 2026-05-19T19:00:00Z
            Document rewritten from a current-state perspective.
            Prior revisions (including W1/W2 chronology) are
            recoverable via git log of this file.
+
+STATUS:    All recommendations have shipped and all parked
+           findings have been unparked. See §0 for the
+           implementation ledger; the analytical content in
+           §1–§5 is retained verbatim as the rationale record.
+           As of 2026-05-19T22:00:00Z the park set is empty
+           and every pi-config rec (L, P, Z, AA) referenced
+           by this document is live on bitmonk8/pi-config main.
 ```
+
+---
+
+## 0. Implementation status — all recommendations shipped
+
+_As of 2026-05-19T22:00:00Z. This section is the single
+source of truth for what landed. The analytical content in
+§1–§5 below is preserved as the rationale record but reads
+as of the original W3 generation timestamp — read §0 for the
+current state, §1–§5 for the reasoning._
+
+### 0.1 Pi-config recommendations — shipped
+
+| Rec | Title | pi-config commit | Closes |
+|---|---|---|---|
+| **L** | Audit-side binding-surface ratification | `1c17d6d` | §3.2 (T03a, T07) |
+| **P** | Decision-axes Problem-metadata + score-vs-residue audit | `6e2c259` | §3.2 + §3.5 multi-axis components |
+| **Z** | Split `surface-expansion-irrecoverable` CATEGORY by finding shape | `8e12608` | §3.3 (T05, T09 tagging) |
+| **AA** | Stage-3 prose-quality oscillation detector | `7005303` | §3.4 (T09 + T05 cycle component) |
+
+All four ship on top of the previously-shipped pipeline
+(recs J, F, K, V, T, O, M, W per §1.2). Rec Z's CATEGORY
+discriminator rule is referenced by rec AA's new STATUS
+`must-fix-blocked-by-stage3-naming-cycle` without
+duplication.
+
+### 0.2 Pi-loom finding work — complete
+
+| Phase | pi-loom commit | What landed |
+|---|---|---|
+| §4.7 priority-1 reshapes | `8f84e39` | T19 cluster metadata restored (T19a/b/d/e Importance:high / Score:100); T11a metadata restored; T03a reshape (raise score to high); T10 reshape (high/100) |
+| Rec L unpark | `f8f588e` | T07 unparked (chose branch 1: list the three known cross-file `.message` pins in Solution constraints) |
+| Rec P unpark | `7034d13` | T15b unparked (raise to S=100); T06 unparked (raise to S=100) |
+| Rec Z retag | `6fd7cd7` | T05 and T09 retagged Category 1 in place in `spec-review-parked.md` (still parked) |
+| Rec AA unpark | `572e5a3` | T05 unparked (canonical-home + scope-narrow; `**Decision axes:** 2`); T09 unparked (resolve bimodal to forward-link branch) |
+| §4.7 priority-4 reshapes + cascade cleanup | `2ac7092` | T18a reshape (pin 3 axes; `**Decision axes:** 3`); T13 split into T13a (defining) + T13b (propagating); T16b reshape; new **T16e** authored (PIC step 2 internal contradiction, `must-precede` T16b); T15a constraint rewrite; cascade unparks T03b/c/d/e/f, T11b/c, T18b/c/d |
+
+ID-allocation note: the new prerequisite finding authored
+per §4.5's "New spec-review entry" row uses **T16e**, not
+T16c. T16c was historically resolved in commit `8d2078f`
+and is still referenced as a stale co-resolve sibling in
+T16b's preserved Relationships block; re-using the ID
+would alias two distinct findings.
+
+### 0.3 Final park-set state
+
+| Surface | Count after implementation |
+|---|---:|
+| H1s active in `docs/spec-review.md` | 28 |
+| H1s parked in `docs/spec-review-parked.md` | 0 |
+
+The parked file retains only its title and intro paragraphs.
+Every direct park, every cascade park, and the one new
+authored prerequisite finding are now in `spec-review.md`
+ready for the next dispatch run.
+
+### 0.4 Decisions taken at implementation time
+
+Where §4.5 offered OR-branches, the following branches were
+chosen (recorded here for re-dispatch debugging):
+
+| Finding | Branch chosen | Rationale (concise) |
+|---|---|---|
+| T03a | Raise score to S=100 | Surgical metadata-only restoration consistent with the rec K recovery shape applied to T19/T11a |
+| T10 | Importance high / Score 100 | Body retained `Importance: high` across strip/recovery; three-axis surface is intentional |
+| T07 | List the three known `.message` pins in Solution constraints | Gives the fixer the corpus data rather than deferring; resolves the pass-3 consistency contradiction |
+| T15b | Raise to S=100 | `Σ_shadow=260 < k×S=300` at S=100; first listed and viable |
+| T06 | Raise to S=100 | `Σ_shadow=106 < k×S=300` at S=100; V1 carve-out is genuinely multi-file |
+| T05 | Declare canonical home + scope-narrow | Combines branch (a) home declaration with branch (b) scope narrowing; `**Decision axes:** 2` set |
+| T09 | Resolve bimodal to forward-link branch | Plus constraint forbidding link-display-text renaming (the dominant prior-pass cycle source) |
+| T18a | Pin the 3 axes via `**Decision axes:** 3` | Lowest-risk path that exercises rec P's new advisory-metadata channel |
+| T13 | Split into T13a (defining) + T13b (propagating) | Per §4.5 prescription; `must-precede` edge added |
+| T16b | Author T16e prereq + `must-follow` edge | T16e authored as new high/100 consistency finding grounded at PIC step 2 L213 |
+| T15a | Rewrite ordering-prediction as content-level check | Removed stale T15c reference (not present in corpus); kept T15b-subsection defer-if-absent check |
+
+### 0.5 Validation outstanding
+
+All recs and reshapes are landed but **none has been
+validated by re-dispatch yet**. The §4.7 validation queue
+still applies:
+
+- Re-dispatch T14 / T16a / T12 (the prior cures) to confirm
+  no regressions from recs L / P / Z / AA.
+- Re-dispatch the T19 cluster, T11a, T03a, T10 (metadata-
+  restored set) — doubles as rec V's `(f-stop-2)` heaviest-
+  canary validation.
+- Re-dispatch T18a — exercises rec P's Pattern Q gate on
+  the explicit `**Decision axes:** 3` field. **Warning:** if
+  T18a's score stays medium (S=25) Pattern Q's residue
+  heuristic (`axis_count × 25 ≥ 2 × origin_S`) will park
+  it pre-dispatch; raising T18a's score to high before
+  re-dispatch is a defensible follow-up if Pattern Q fires.
+- Re-dispatch T05, T09 — exercises rec AA's mode (g)
+  stage3-naming-cycle on the originating cycle shapes.
+- Re-dispatch T16e + T16b in order — exercises the new
+  `must-precede` edge and the inner-loop's prerequisite-
+  finding ordering machinery.
+- If §3.1 metadata-recovery parks recur on new findings
+  after manual restoration, revisit whether a pipeline-side
+  fix (classifier metadata recovery, or top-level fixer
+  not stripping headings pre-dispatch) is warranted on
+  evidence rather than speculation.
+
+### 0.6 Implementation order (chronological)
+
+The order matches §4.7 priority order:
+
+1. `8f84e39` — §4.7 priority-1 reshapes (pi-loom).
+2. `1c17d6d` (pi-config) → `f8f588e` (pi-loom) — rec L + T07 unpark.
+3. `6e2c259` (pi-config) → `7034d13` (pi-loom) — rec P + T15b/T06 unpark.
+4. `8e12608` (pi-config) → `6fd7cd7` (pi-loom) — rec Z + T05/T09 retag.
+5. `7005303` (pi-config) → `572e5a3` (pi-loom) — rec AA + T05/T09 unpark.
+6. `2ac7092` — §4.7 priority-4 reshapes + cascade cleanup (pi-loom).
+
+All commits are on `main` in both repos.
 
 ---
 
