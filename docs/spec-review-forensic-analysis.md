@@ -717,3 +717,27 @@ human triage) can trace why the listed findings ended up in
 `spec-review-parked.md`.
 
 ---
+
+## 2026-05-19T22:41:00Z — T06 — Operator role: TUI binding asserted in glossary but never reconciled with non-interactive callers
+
+- **Failure mode:** must-fix-blocked
+- **Category:** 1 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** n/a
+- **Score trajectory:** n/a vs S=25
+- **Passes:** 0
+- **Stage at exit:** 1 (0 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-19T20-27-38_67ad0d`
+- **Poisoned fixes:** n/a
+- **Forensic report:** `c:/UnitySrc/pi-loom/.pi/tmp/spec-fix-failure-forensics/2026-05-19T17-23-50_9cbe86/t06-operator-role-tui-binding-asserted-in-glossary-but-never-reconciled-with-non.md` _(gitignored)_
+- **Parked findings (this run):** `T06 — Operator role: TUI binding asserted in glossary but never reconciled with non-interactive callers`
+- **Loop notes:** Sub-rationale: score-budget-exhausted-trust-override-suppressed (Rec O pass-level shadow-budget gate). Origin S=25 (medium, default per heading-absent fallback — T06 already removed from spec-review.md by outer-loop fixer; classifier could not reach prior HEAD); Σ_shadow=107; k=3; k×S=75; breach-margin=Σ_shadow−k×S=32; breach-multiplier Σ_shadow/S=4.28×; 7 non-blocker/non-cheap raised findings counted toward shadow budget, of which 5 would have been classified fix-via-trust-override absent the gate. severity p1 raised{medium:4,low:1,NIT:2} fixed{} deferred{} blocked{medium:4,low:1,NIT:2}. Stage trajectory stage1=0 (classifier exited pre-fix-application; pass 1 never completed). narrowings=0+0+0+0. stage1Touched=0 mode-e-refusals=0. No blocker / must-fix findings; gate fires entirely on shadow-budget arithmetic. Reshape paths per _blocked.md: raise T06 score to ≥107 (or set must-fix:true), split T06 into per-axis atoms (TUI binding / non-interactive carve-out / always-present implication), or narrow T06 Solution approach to drop the closed-enumeration framing and always-present parenthetical that drive the assumptions/consistency residue.
+- **Fixer notes:** none
+
+The detailed root-cause analysis, audit-vs-actual comparison, and
+ranked Immediate / Pipeline recommendations live in the gitignored
+forensic report cited above. This file records only the durable
+TL;DR pointer so future `/spec-review` regeneration runs (or future
+human triage) can trace why the listed findings ended up in
+`spec-review-parked.md`.
+
+---
