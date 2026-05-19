@@ -415,40 +415,6 @@ None
 
 ---
 
-## T07 — `QueryError.message` content has no normativity rule
-
-> **PARKED** — 2026-05-19
-> **Reason:** Category 1 (malformed finding — constraints binding surface; the originating finding's Solution constraints fence every viable remediation that the lens admits). The inner spec-diff-fix-loop's severity-weighted triage exited on must-fix-blocked-by-scope-guard (plan §Change A clause 1 escape): a raised lens finding outranked this originating finding in importance, but every viable remediation would violate a class-1 or class-2 scope guard forwarded from the top-level fixer. FIXCOUNTS: 2,4. Loop notes: Sub-rationale=score-budget-exhausted-trust-override-suppressed (Rec O pass-level shadow-budget gate); S=25, Σ_shadow=110, breach-margin=85, k×S=75, 4 findings would have been classified as fix-via-trust-override absent the gate. Pass-3 classifier exit, 7 raised findings on pass 3 all blocked; blocker A names a real consistency contradiction (closed "V1 pinning surface exhausted by single entry" framing introduced in pass-2 contradicts pre-existing `ValidationError.message = "rendered query template is empty"` pin at `docs/spec_topics/query.md:98`). Pass-2's enumeration-closure fix solved pass-1's prescription/assumptions/completeness lens cluster but generated a higher-residue surface than T07's default score=25 budget can absorb. Reshape required: either raise T07's authored score (high→100), split T07 into per-axis atoms, or narrow the Solution approach to install only the audience claim. severity p1 raised{high:1,medium:1,NIT:1} fixed{high:1,NIT:1} deferred{medium:1}; p2 raised{medium:1,low:3} fixed{medium:1,low:3}; p3 raised{high:1,medium:4,low:2} fixed{} blocked{high:1,medium:4,low:2}; stage1=3. A human must resolve the guard-vs-severity collision (relax the guard, split this finding so the higher-importance raised finding is no longer downstream of the guard, or accept the trade-off and annotate the raised finding as out-of-scope) before re-introducing this finding.
-> **Forensic report:** .pi/tmp/spec-fix-failure-forensics/2026-05-18T20-36-39_b9045e/t07-queryerror-message-content-has-no-normativity-rule.md
-
-# T07 — `QueryError.message` content has no normativity rule
-
-**Kind:** testability
-**Importance:** medium
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-In `docs/spec_topics/errors-and-results.md`, every `QueryError` variant declared under `## QueryError variants` (`CancelledError`, `SchemaValidationError`, `TransportError`, `ModelToolError`, `ContextOverflowError`, `ToolLoopExhaustedError`, `CodeToolError`, `InvokeInfraError`, `InvokeCalleeError`) carries an unannotated `message: string` field. The single exception is the **Panic message string (normative)** rule, which pins `InvokeInfraError.message` to a registered `loom/runtime/*` template when `cause === "panic"`. The intended contract on the non-panic cases — `message` is human-readable debug prose for operators, on the JavaScript `Error.message` convention, and is not part of the conformance contract — is implicit in the silence and is not stated anywhere a test author or downstream reader can find it. Without that positive statement, a conformance test author has no anchor for what to assert against, and a future maintainer extending the variant set has no convention to follow.
-
-## Solution approach
-
-State in the `### Notes` subsection of `## QueryError variants` in `docs/spec_topics/errors-and-results.md` that (i) programmatic consumers and conformance tests assert against `kind` and each variant's structured fields, (ii) `message` carries human-readable debug prose on the JavaScript `Error.message` convention and is not part of the conformance contract, and (iii) the single exception is `InvokeInfraError.message` on the panic path, which the **Panic message string (normative)** rule immediately above pins to a registered `loom/runtime/*` template. Composition (paragraph count, sentence count, ordering of the three items) and framing posture are the implementer's choice.
-
-## Solution constraints
-
-- Preserve the existing **Panic message string (normative)** rule for `InvokeInfraError.message` when `cause === "panic"` byte-for-byte; the new paragraph is additive and must not weaken or restate the panic-template wording.
-- Do not introduce per-variant `message` templates in any form (e.g. a `loom/error/*` code-registry section).
-
-## Relationships
-
-- T08a "Rewrite slash-invocation.md context_overflow system-note row to 'context overflow'" — same-cluster (touches the same `QueryError variants` surface; co-resolve siblings T08b/c also relevant).
-- T39 "Mid-stream cancellation paragraph bundles multiple obligations under one anchor" — same-cluster (cancellation pathway; independent obligation-splitting concern).
-
-
----
-
 ## T06 — Operator role: TUI binding asserted in glossary but never reconciled with non-interactive callers
 
 > **PARKED** — 2026-05-19

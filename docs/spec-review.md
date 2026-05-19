@@ -231,3 +231,31 @@ Clarify item 2 of *Binder bypass* in `docs/spec_topics/binder.md` to pin the cho
 
 None
 
+---
+
+# T07 — `QueryError.message` content has no normativity rule
+
+**Kind:** testability
+**Importance:** medium
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+In `docs/spec_topics/errors-and-results.md`, every `QueryError` variant declared under `## QueryError variants` (`CancelledError`, `SchemaValidationError`, `TransportError`, `ModelToolError`, `ContextOverflowError`, `ToolLoopExhaustedError`, `CodeToolError`, `InvokeInfraError`, `InvokeCalleeError`) carries an unannotated `message: string` field. The single exception is the **Panic message string (normative)** rule, which pins `InvokeInfraError.message` to a registered `loom/runtime/*` template when `cause === "panic"`. The intended contract on the non-panic cases — `message` is human-readable debug prose for operators, on the JavaScript `Error.message` convention, and is not part of the conformance contract — is implicit in the silence and is not stated anywhere a test author or downstream reader can find it. Without that positive statement, a conformance test author has no anchor for what to assert against, and a future maintainer extending the variant set has no convention to follow.
+
+## Solution approach
+
+State in the `### Notes` subsection of `## QueryError variants` in `docs/spec_topics/errors-and-results.md` that (i) programmatic consumers and conformance tests assert against `kind` and each variant's structured fields, (ii) `message` carries human-readable debug prose on the JavaScript `Error.message` convention and is not part of the conformance contract, and (iii) the single exception is `InvokeInfraError.message` on the panic path, which the **Panic message string (normative)** rule immediately above pins to a registered `loom/runtime/*` template. Composition (paragraph count, sentence count, ordering of the three items) and framing posture are the implementer's choice.
+
+## Solution constraints
+
+- Preserve the existing **Panic message string (normative)** rule for `InvokeInfraError.message` when `cause === "panic"` byte-for-byte; the new paragraph is additive and must not weaken or restate the panic-template wording.
+- Do not introduce per-variant `message` templates in any form (e.g. a `loom/error/*` code-registry section).
+- Three pre-existing cross-file `.message` pins exist outside the `## QueryError variants` block: `ValidationError.message = "rendered query template is empty"` at `docs/spec_topics/query.md:98`; the pin at `docs/spec_topics/pi-integration-contract.md:262`; and the pin at `docs/spec_topics/implementation-notes.md:23`. The new audience-claim paragraph MUST NOT author a closure-shaped predicate over the cross-file `.message` pinning surface (no "the only cross-file `.message` pin is …" framing, no "V1 pinning surface exhausted by single entry" framing); the (ii) clause's audience statement about non-panic `message` content is scoped to the `QueryError variants` block and stands beside these three pre-existing pins without subsuming or contradicting them.
+
+## Relationships
+
+- T08a "Rewrite slash-invocation.md context_overflow system-note row to 'context overflow'" — same-cluster (touches the same `QueryError variants` surface; co-resolve siblings T08b/c also relevant).
+- T39 "Mid-stream cancellation paragraph bundles multiple obligations under one anchor" — same-cluster (cancellation pathway; independent obligation-splitting concern).
+
