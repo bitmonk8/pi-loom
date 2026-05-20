@@ -830,3 +830,27 @@ human triage) can trace why the listed findings ended up in
 - **Fixer notes:** none
 
 ---
+
+## 2026-05-20T17:21:16Z — T16e — PIC step 2 internal contradiction: literal `pi.setActiveTools([...snapshot, ...names])` call shape vs natural-language "exactly the loom's declared callable set"
+
+- **Failure mode:** surface-expansion-irrecoverable-bimodal
+- **Category:** 1 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** 1,0,1,1
+- **Score trajectory:** 100,0,5,25 vs S=100
+- **Passes:** 4
+- **Stage at exit:** 2 (2 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-20T17-21-16_a2759f`
+- **Poisoned fixes:** assumptions:01, traceability:01, placement:01, consistency:01
+- **Forensic report:** `/c/UnitySrc/pi-loom/.pi/tmp/spec-fix-failure-forensics/2026-05-20T16-01-36_59fbed/t16e-pic-step-2-internal-contradiction-literal-pi-setactivetools-snapshot-name.md` _(gitignored)_
+- **Parked findings (this run):** `T16e — PIC step 2 internal contradiction: literal pi.setActiveTools([...snapshot, ...names]) call shape vs natural-language "exactly the loom's declared callable set"`
+- **Loop notes:** Surface-expansion two-strikes exit (sub-variant surface-expansion-irrecoverable-bimodal, CATEGORY 1). T16e's Solution approach is bimodal ("Either (a) snapshot-union or (b) snapshot-replaced"); the top-level fixer picked shape (b), and every loop iteration that added prose to justify the snapshot-replaced semantics attracted multi-axial lens critique. Trigger trajectory: pass-2 assumptions:01 (no-inheritance rationale) → pass-3 3-finding surface; pass-3 re-run traceability:01 → pass-4 contradiction with Restore-failure protocol; backtrack-and-exclude assumptions:02 + placement:01 → pass-5 re-cascade; backtrack consistency:01 → same surface again. Score-sum 100, 0, 5, 25 against k=1.5. Two consecutive backtrack passes poisoned placement:01 and consistency:01. Side-effect: pass-1 applied a cross-doc edit to docs/plan_topics/v14-tool-calls.md (out-of-loop-scope); reverted before parking. Human action: reshape T16e's Solution approach — pick one shape at authoring time and remove the bimodal "Either (a)... or (b)..." phrasing, OR split T16e per-shape, OR cap the prose-budget. OriginDir: /c/UnitySrc/pi-loom/.pi/tmp/spec-fix-loop/2026-05-20T17-18-09_1d907a/_origin
+- **Fixer notes:** none
+
+The detailed root-cause analysis, audit-vs-actual comparison, and
+ranked Immediate / Pipeline recommendations live in the gitignored
+forensic report cited above. This file records only the durable
+TL;DR pointer so future `/spec-review` regeneration runs (or future
+human triage) can trace why the listed findings ended up in
+`spec-review-parked.md`.
+
+---
