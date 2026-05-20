@@ -765,3 +765,27 @@ human triage) can trace why the listed findings ended up in
 `spec-review-parked.md`.
 
 ---
+
+## 2026-05-20T10:38:06Z — T16e — PIC step 2 internal contradiction: literal `pi.setActiveTools([...snapshot, ...names])` call shape vs natural-language "exactly the loom's declared callable set"
+
+- **Failure mode:** diverging
+- **Category:** 2 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** 1,3,1,1,2
+- **Score trajectory:** 100,37,126,76,7 vs S=100
+- **Passes:** 5
+- **Stage at exit:** 1 (5 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-20T10-38-06_88f1f7`
+- **Poisoned fixes:** none
+- **Forensic report:** `c:/UnitySrc/pi-loom/.pi/tmp/spec-fix-failure-forensics/2026-05-20T06-38-04_bf2b2b/t16e-pic-step-2-internal-contradiction.md` _(gitignored)_
+- **Parked findings (this run):** `T16e — PIC step 2 internal contradiction: literal pi.setActiveTools([...snapshot, ...names]) call shape vs natural-language "exactly the loom's declared callable set", T16b — Rewrite callable-set paragraph: drop inline customTools / createAgentSession / pi.setActiveTools names`
+- **Loop notes:** T16e originating contradiction resolved on pass 1 (chose branch (b) snapshot-replaced). Pass 5 raised 2 net-new tier-1 traceability fixes on just-added in-page anchors (over-coverage / no structural terminus) — divergence detector fired (fixCount 1→2 at pass 5). Originating PIC step-2 reconciliation is stable and correct, but the frontmatter-side anchor-quality tail (added in passes 3+4) generates more critique surface than each fix closes — needs human reshaping (cap on per-fix anchor-restructuring obligations, or pre-author the obligation-per-anchor structure at top-level so the tail does not re-enter the loop). stage1=5; narrowings=0+1+0+0; stage1Touched=1 mode-e-refusals=0. OriginArtefactDir: c:/UnitySrc/pi-loom/.pi/tmp/spec-fix-loop/2026-05-20T10-34-06_198940/_origin. Category: 2.
+- **Fixer notes:** none
+
+The detailed root-cause analysis, audit-vs-actual comparison, and
+ranked Immediate / Pipeline recommendations live in the gitignored
+forensic report cited above. This file records only the durable
+TL;DR pointer so future `/spec-review` regeneration runs (or future
+human triage) can trace why the listed findings ended up in
+`spec-review-parked.md`.
+
+---
