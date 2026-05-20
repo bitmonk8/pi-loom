@@ -789,3 +789,27 @@ human triage) can trace why the listed findings ended up in
 `spec-review-parked.md`.
 
 ---
+
+## 2026-05-20T12:04:03Z — T15a — Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet
+
+- **Failure mode:** top-level-refused
+- **Category:** 1 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** n/a
+- **Score trajectory:** n/a
+- **Passes:** n/a
+- **Stage at exit:** n/a (n/a pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `n/a` _(or `n/a` if loop did not run)_
+- **Poisoned fixes:** n/a
+- **Forensic report:** `.pi/tmp/spec-fix-failure-forensics/2026-05-20T06-38-04_bf2b2b/t15a-reduce-session-model-orientation-paragraph.md` _(gitignored)_
+- **Parked findings (this run):** `T15a — Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet`
+- **Loop notes:** none
+- **Fixer notes:** Deferred per Solution constraint #3. The destination `Concurrency model` subsection (owned by T15b) is absent from `## Extension Architecture` in `docs/spec.md`, and T15b is still pending in `docs/spec-review.md`. T15a/T15b/T15c form a co-resolve cluster; T15b is the binding prerequisite (T15c already resolved). OriginArtefactDir: c:/UnitySrc/pi-loom/.pi/tmp/spec-fix-loop/2026-05-20T11-59-29_13ffa4/_origin. Category: 1.
+
+The detailed root-cause analysis, audit-vs-actual comparison, and
+ranked Immediate / Pipeline recommendations live in the gitignored
+forensic report cited above. This file records only the durable
+TL;DR pointer so future `/spec-review` regeneration runs (or future
+human triage) can trace why the listed findings ended up in
+`spec-review-parked.md`.
+
+---
