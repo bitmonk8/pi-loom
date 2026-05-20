@@ -813,3 +813,20 @@ human triage) can trace why the listed findings ended up in
 `spec-review-parked.md`.
 
 ---
+
+## 2026-05-20T16:01:36Z — T15a — Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet
+
+- **Failure mode:** stale-precondition
+- **Category:** 1 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** n/a
+- **Score trajectory:** n/a vs S=n/a
+- **Passes:** n/a
+- **Stage at exit:** n/a (n/a pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `n/a` _(loop did not run)_
+- **Poisoned fixes:** n/a
+- **Forensic report:** `.pi/tmp/spec-fix-failure-forensics/2026-05-20T16-01-36_59fbed/t15a-reduce-session-model-orientation-paragraph-to-a-four-sentence-forward-linki.md` _(gitignored)_
+- **Parked findings (this run):** `T15a — Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet`
+- **Loop notes:** Rec M: detected 1 stale ordering prediction(s) in ## Solution constraints. "If the `Concurrency model` subsection (owned by T15b) is absent from `## Extension Architecture` in `docs/spec.md` at edit time, defer": predicted T15b's Concurrency model subsection authored, actual T15b still live in spec-review.md at line 131 (its Concurrency model subsection has not yet been installed).
+- **Fixer notes:** none
+
+---
