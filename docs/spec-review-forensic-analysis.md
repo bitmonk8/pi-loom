@@ -854,3 +854,22 @@ human triage) can trace why the listed findings ended up in
 `spec-review-parked.md`.
 
 ---
+
+## 2026-05-21T00:00:00Z — MULTI: T19a — Extend ActiveInvocationRegistry entry shape with invocationId; T19b — Add invocation_id field to RuntimeEvent payload declaration; T19d — Populate cancelled-by-session-shutdown details with invocation_id; T19e — Add real-time sibling emission timing paragraph
+
+- **Cluster mode (rec F):** yes
+- **Cluster members:** 4
+- **Failure mode:** must-fix-blocked
+- **Category:** 1 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** 6,5
+- **Score trajectory:** 205,186 vs S=100
+- **Passes:** 2
+- **Stage at exit:** 1 (2 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-20T20-52-22_ec4ce0`
+- **Poisoned fixes:** spec-lens-completeness:01,spec-lens-traceability:02,spec-lens-assumptions:03,spec-lens-traceability:04
+- **Forensic report:** `.pi/tmp/spec-fix-failure-forensics/2026-05-20T16-01-36_59fbed/multi-t19a-extend-activeinvocationregistry-entry-shape-with-invocationid-t19b.md` _(gitignored)_
+- **Parked findings (this run):** `T19a — Extend ActiveInvocationRegistry entry shape with invocationId, T19b — Add invocation_id field to RuntimeEvent payload declaration, T19d — Populate cancelled-by-session-shutdown details with invocation_id, T19e — Add real-time sibling emission timing paragraph`
+- **Loop notes:** Cluster-mode run on 4-member MULTI: cluster (T19a/T19b/T19d/T19e). Exit via must-fix-blocked / sub-rationale score-budget-exhausted-trust-override-suppressed: Rec O pass-level shadow-budget gate fired on re-attempted pass 3 with Sigma_shadow=427 across 13 non-blocker raised findings against S=100 (k*S threshold=300; breach margin Sigma-S=327, breach multiplier 4.27x); 12 of 13 findings carried non-trivial Trust impact entries that would have suppressed the per-finding (c-bis) score-budget exit absent the gate; 0 blocker-tier findings, 13 score-budget-counted findings. Origin reshape required: raise the cluster's score, split into per-axis atoms, or narrow the Solution approach. Trajectory before exit: scoreSum=205,186 across passes 1-2; passes 3-4 rewound after C2 surface-expansion detector at pass 4 (scoreSum 162 > 1.5*106) poisoned all 4 pass-3 diagnostics.md fixes; re-pass-3 hit Rec O immediately. Narrowed chunk: docs/spec_topics/pi-integration-contract.md#real-time-sibling-emission-timing (T19e's appended paragraph). OriginDir: /c/UnitySrc/pi-loom/.pi/tmp/spec-fix-loop/2026-05-20T20-44-14_96ab3b/_origin
+- **Fixer notes:** none
+
+---
