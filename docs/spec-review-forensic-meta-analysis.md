@@ -137,6 +137,18 @@ GENERATED: 2026-05-20T08:00:00Z
            file; the W1/W2/W3 chronology and the per-commit
            implementation ledger from the previous revision
            have been dropped as no longer load-bearing.
+
+IMPLEMENTATION STATUS (as of 2026-05-20, post-implementation):
+  All seven pi-config recommendations (BB, HH, CC, DD, EE, FF,
+  GG) have shipped to pi-config main. The pi-loom side dedup of
+  stale T18c × 2 / T18a × 2 parked H2 entries (§2.1) has shipped
+  to pi-loom main. The §5.8 per-finding reshapes (T03e / T05 /
+  T06 / T13b / T16b / T18c / T15a) are conditional on validation
+  showing the pipeline patches do not close the case; none have
+  been performed pre-validation per §5.8's own disposition.
+
+  Per-rec status markers appear at each §5.x heading below.
+  Pi-config commit SHAs for each rec are listed in the Appendix.
 ```
 
 ---
@@ -635,6 +647,8 @@ substrate in the fixer's hands. Recs CC – GG layer on top.
 
 ### 5.1 Rec BB — Origin grounding artefact persisted at dispatch (pi-config)
 
+**Status: IMPLEMENTED** (pi-config `122d896`, 2026-05-20)
+
 Closes the classifier-side facet of §4.1 and §4.2 (6 of 7
 direct parks). The metadata loss is upstream of the classifier:
 the orchestrator already has the finding's full text in scope
@@ -702,6 +716,8 @@ classifier-side failure shape on its own and unlocks rec HH's
 fixer-side grounding behaviours.
 
 ### 5.2 Rec HH — Fixer grounded in origin artefact at every pass (pi-config)
+
+**Status: IMPLEMENTED** (pi-config `c714cda`, 2026-05-20)
 
 Closes the fixer-side facets of §4.1 (drift), §4.5
 (narrowing reverts good fixes), and §4.8 (pass-2 over-
@@ -809,6 +825,8 @@ Shipping HH together with BB closes the umbrella.
 
 ### 5.3 Rec CC — Orchestrator enforces must-precede at dispatch (pi-config)
 
+**Status: IMPLEMENTED** (pi-config `8a07d70`, 2026-05-20)
+
 Closes §4.3 (3 of 7 direct parks, with cascade unblock for an
 additional ~6 cascade parks once the upstreams land).
 
@@ -838,6 +856,12 @@ pre-check); `agents/spec-review-fixer.md` if it does its own
 selection. ~20 lines.
 
 ### 5.4 Rec DD — Auditor obligation-count vs score-budget pre-check (pi-config)
+
+**Status: IMPLEMENTED** (pi-config `83e4e65`, 2026-05-20). Shipped
+as finding-shape Pattern R rather than a free-standing pre-check
+so it integrates with the existing rec P / rec L multi-pattern
+routing machinery; routing order extended to
+`I → M → N → P → R → Q → A → B → F → J → L → O → D → E → G → K → H → C`.
 
 Closes §4.6 (audit-vs-actual gap on T05 and most §4.2 parks).
 Extends rec P's decision-axes idea from "count axes the
@@ -869,6 +893,8 @@ logic + the worked example.
 
 ### 5.5 Rec EE — Auditor distinguishes "uses" from "defines" (pi-config)
 
+**Status: IMPLEMENTED** (pi-config `b86b9f2`, 2026-05-20)
+
 Closes the assumptions-lens prediction class T13b's pre-split
 audit demonstrated. Narrow scope; cheap to implement.
 
@@ -890,6 +916,8 @@ audit demonstrated. Narrow scope; cheap to implement.
 `agents/spec-review-auditor.md`. ~10 lines.
 
 ### 5.6 Rec FF — Fixer mode (h): no-new-normative-claim guard (pi-config)
+
+**Status: IMPLEMENTED** (pi-config `d2b32c3`, 2026-05-20)
 
 Closes §4.8 (T05 pass-2 rule (4); T18c pass-2 prompt-mode
 audience parenthetical). Rec HH (§5.2) is the prerequisite —
@@ -931,6 +959,8 @@ specific refusal-mode wiring on top.
 
 ### 5.7 Rec GG — In-loop approach-narrowing preserves origin-aligned fixes (pi-config)
 
+**Status: IMPLEMENTED** (pi-config `0cf1338`, 2026-05-20)
+
 Closes §4.5 (T16b's all-or-nothing chunk revert). Depends on
 rec HH (§5.2): the OriginAlignment annotation rec HH adds to
 each applied fix is what tells the narrowing which fixes are
@@ -958,6 +988,14 @@ load-bearing for the originating Problem.
 `agents/spec-diff-fix-loop.md`. ~20 lines + a worked example.
 
 ### 5.8 Per-finding reshapes (pi-loom)
+
+**Status: PARTIALLY IMPLEMENTED** (pi-loom `8ac9a8f`, 2026-05-20).
+The unconditional housekeeping work — dedup of the stale T18c × 2
+/ T18a × 2 H2 entries called out in §2.1 — has shipped. The
+conditional per-finding reshapes in the table below are explicitly
+deferred to post-validation per the "applies *after* validation
+shows the pipeline patches do not close the case" rule below;
+none have been performed pre-validation.
 
 Most of the current park set is downstream of pipeline gaps
 (§4.1 / §4.3) and will not require reshape once recs BB + HH
@@ -1150,6 +1188,22 @@ under `git:github.com/bitmonk8/pi-config`, cloned to
 - `6e2c259` — rec P (decision-axes audit).
 - `8e12608` — rec Z (CATEGORY split).
 - `7005303` — rec AA (stage-3 oscillation detector).
+- `122d896` — rec BB (origin grounding artefact persisted at
+  dispatch; classifier reads it first).
+- `c714cda` — rec HH (fixer grounded in origin artefact at every
+  pass; refusal mode (i) drift-from-origin; OriginAlignment
+  annotations).
+- `8a07d70` — rec CC (orchestrator enforces must-precede at
+  dispatch; orderingBlocked list; dispatch-ordering-blocked
+  FailureMode).
+- `83e4e65` — rec DD (auditor obligation-count vs score-budget
+  pre-check, shipped as Pattern R).
+- `b86b9f2` — rec EE (auditor uses-vs-defines discriminator for
+  assumptions-lens predictions).
+- `d2b32c3` — rec FF (fixer mode (h) no-new-normative-claim
+  guard, origin-mandate-grounded via rec HH artefact).
+- `0cf1338` — rec GG (in-loop approach-narrowing preserves
+  OriginAlignment: forward fixes across mode (d) reverts).
 
 Pi-loom — current state references:
 
