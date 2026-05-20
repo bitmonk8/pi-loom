@@ -571,28 +571,3 @@ Resolve the contradiction at the source by picking one shape for prompt-mode que
 
 - T16b "Rewrite callable-set paragraph: drop inline `customTools` / `createAgentSession` / `pi.setActiveTools` names" — must-precede (T16b's prompt-mode visibility characterisation cannot land until PIC step 2 owns a single coherent rule for it to forward-link to).
 
----
-
-# T13b — Invocation depth bound: propagate the `cross-file` qualifier to the introductory paragraph and the V18n leaf
-
-**Kind:** naming
-**Importance:** high
-**Atomicity:** atomic
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The introductory paragraph of the "Invocation depth bound" subsection in `docs/spec_topics/invocation.md` enumerates the countable dispatches as direct `invoke(...)`, `.loom` callable calls through `tools:`, and `.warp` `fn` invokes — omitting the `cross-file` qualifier that the normative *countable-frame* paragraph immediately below applies to `.warp` `fn` calls. The qualifier is load-bearing: without it, intra-`.warp`-file `fn` dispatch is wrongly read as consuming a depth slot, so two implementers reading the subsection in order arrive at incompatible 32-slot budgets. The same loose phrasing has already propagated to the V18n leaf's *Adds.* bullet in `docs/plan_topics/v18-cancellation.md`.
-
-## Solution approach
-
-Rewrite the third item of the introductory paragraph of the "Invocation depth bound" subsection in `docs/spec_topics/invocation.md` so it reads "cross-file `.warp` `fn` calls" — adding the `cross-file` qualifier and matching the noun (`calls`) used by the normative *countable-frame* paragraph that follows. Apply the same wording change to the *Adds.* bullet of V18n in `docs/plan_topics/v18-cancellation.md`. Leave the normative *countable-frame* paragraph (whose definition of `cross-file` is owned by T13a) and the rest of the subsection unchanged.
-
-## Solution constraints
-
-- The definition of `cross-file` is owned by T13a in the *countable-frame* paragraph; do not restate the definition at either propagation site.
-
-## Relationships
-
-- T13a "Define the `cross-file` qualifier in the *countable-frame* paragraph of `invocation.md`" — must-follow.
