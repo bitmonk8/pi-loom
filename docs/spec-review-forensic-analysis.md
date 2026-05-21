@@ -890,3 +890,20 @@ human triage) can trace why the listed findings ended up in
 - **Fixer notes:** none
 
 ---
+
+## 2026-05-21T10:01:02Z — T19e — Add sendSystemNote synchronous-emission clause
+
+- **Failure mode:** must-fix-blocked
+- **Category:** 1 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** 4,4,6,0,0
+- **Score trajectory:** 116,162,186,85,106 vs S=100
+- **Passes:** 5
+- **Stage at exit:** 3 (0 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-21T10-01-02_7d4cfb`
+- **Poisoned fixes:** spec-lens-consistency:01, spec-lens-completeness:02, spec-lens-assumptions:01, spec-lens-completeness:01, spec-lens-implementability:01, spec-lens-traceability:01, spec-lens-assumptions:02, spec-lens-traceability:02, spec-lens-traceability:03, spec-lens-traceability:04
+- **Forensic report:** `.pi/tmp/spec-fix-failure-forensics/2026-05-21T09-09-12_uvpcp9/t19e-add-sendsystemnote-synchronous-emission-clause.md` _(gitignored)_
+- **Parked findings (this run):** `T19e — Add sendSystemNote synchronous-emission clause`
+- **Loop notes:** Exit sub-rationale `score-budget-exhausted-trust-override-suppressed` (Rec O pass-level shadow-budget gate) on stage-3 pass 6 entry: S=100, Σ_shadow=364, k×S=300, breach margin Σ_shadow−k×S=64, breach multiplier 3.64×; 9 of 14 raised findings carried Trust-override-eligible impact entries (would-be-fixed absent the gate), all 14 also map to chunk `docs/spec_topics/pi-integration-contract.md#runtime-event-channel` which was in the DriftFromOriginRefusedChunks set from pass 3's mode-(i) refusal. Two C2 backtrack-and-exclude protocols fired during stage 1 (after pass-2-original ratio 1.98× and after pass-3-original ratio 3.32×); both restored cleanly and the loop converged stage 1 at pass 4 and stage 2 at pass 5 before stage 3 tripped Rec O. Stage trajectory: stage1=4 stage2=1 stage3=0. narrowings=0+0+0+0. stage1Touched=1 mode-e-refusals=0.
+- **Fixer notes:** none
+
+---
