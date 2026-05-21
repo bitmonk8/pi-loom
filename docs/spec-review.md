@@ -221,7 +221,6 @@ Extend the `ActiveInvocationRegistry` entry-shape `Set<...>` declaration under `
 - T19b "Add invocation_id field to RuntimeEvent payload declaration" — co-resolve.
 - T19c "Widen always-log dedup key to include invocation_id" — co-resolve.
 - T19d "Populate cancelled-by-session-shutdown details with invocation_id" — co-resolve.
-- T19e "Add sendSystemNote synchronous-emission clause" — same-cluster (T19e is on the timing axis, orthogonal to the source/wire/consumer chain T19a/b/c/d form; the original co-resolve edge was a thematic mis-classification).
 - T20 "Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes" — same-cluster.
 - T18a "Append success-side null-policy paragraph to PIC Runtime event channel" — must-precede (any decision to add operator-visibility for successful sibling outcomes will reuse the `invocation_id` field this child installs).
 - T15a "Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet" — same-cluster.
@@ -256,7 +255,6 @@ Add a required `invocation_id: string` field to the `type RuntimeEvent = { ... }
 - T19a "Extend ActiveInvocationRegistry entry shape with invocationId" — co-resolve (this child consumes the field T19a sources).
 - T19c "Widen always-log dedup key to include invocation_id" — co-resolve.
 - T19d "Populate cancelled-by-session-shutdown details with invocation_id" — co-resolve.
-- T19e "Add sendSystemNote synchronous-emission clause" — same-cluster (T19e is on the timing axis, orthogonal to the source/wire/consumer chain T19a/b/c/d form; the original co-resolve edge was a thematic mis-classification).
 - T20 "Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes" — same-cluster.
 - T18a "Append success-side null-policy paragraph to PIC Runtime event channel" — must-precede.
 - T15a "Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet" — same-cluster.
@@ -292,7 +290,6 @@ Extend the `Per-invocation operator visibility (clean-cancel path)` rule under `
 - T19a "Extend ActiveInvocationRegistry entry shape with invocationId" — co-resolve (this child reads the registry entry T19a defines).
 - T19b "Add invocation_id field to RuntimeEvent payload declaration" — co-resolve.
 - T19c "Widen always-log dedup key to include invocation_id" — co-resolve.
-- T19e "Add sendSystemNote synchronous-emission clause" — same-cluster (T19e is on the timing axis, orthogonal to the source/wire/consumer chain T19a/b/c/d form; the original co-resolve edge was a thematic mis-classification).
 - T20 "Resource exhaustion under concurrent subagent invocations is undisclaimed for non-memory classes" — same-cluster.
 - T18a "Append success-side null-policy paragraph to PIC Runtime event channel" — must-precede.
 - T15a "Reduce Session-model Orientation paragraph to a four-sentence forward-linking bullet" — same-cluster.

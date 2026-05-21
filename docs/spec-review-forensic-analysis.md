@@ -907,3 +907,13 @@ human triage) can trace why the listed findings ended up in
 - **Fixer notes:** none
 
 ---
+
+## 2026-05-21T11:15:00Z — T19e — DELETED (over-restrictive mechanism prohibition)
+
+- **Failure mode:** n/a (post-park human review)
+- **Decision:** Delete finding entirely (not reshape, not re-introduce).
+- **Rationale:** The finding's `MUST NOT interpose buffering, coalescing, or per-round queueing` clause prohibits implementation mechanisms rather than constraining observable outcomes (e.g. a latency bound). Two of the three forbidden mechanisms admit correct implementations (microtask/event-loop-tick dispatch is buffering; coalescing of dedup-key duplicates is already implicitly licensed by the existing dedup rules; per-bounded-flush queueing satisfies operator-visibility intent). The third concern (unbounded queueing) is obvious-on-review and not motivated by any current performance pressure on this low-volume channel. The protected failure mode (an implementer adds an unbounded queue with no flush guarantee) is preventative scaffolding against unmotivated drift, not a defence against any observed or likely defect. Spec hardening at this cost-to-benefit ratio is not justified.
+- **Cleanup performed:** removed T19e body from `docs/spec-review-parked.md`; pruned three non-load-bearing `same-cluster` references from T19a/T19b/T19d `## Relationships` blocks in `docs/spec-review.md`; removed eight stale T19e-prior-shape entries from `.pi/spec-debt-register.md` (all targeting PIC L487-L494 content that no longer exists post-2026-05-21 reshape).
+- **Follow-up signal (pipeline-side, out of scope for this commit):** the T19e failure surfaced a generic spec-authoring trap the pipeline did not catch — a finding's `MUST NOT` may forbid mechanisms that the same chunk has elsewhere blessed (here: the watcher-note 250 ms debounce explicitly licenses `coalescing` on a sibling channel). A `spec-lens-consistency` rule that checks new `MUST NOT` clauses against the chunk's existing positive licenses would catch this class at audit time. Noted for the next meta-analysis pass.
+
+---
