@@ -959,3 +959,20 @@ human triage) can trace why the listed findings ended up in
 - **Fixer notes:** none
 
 ---
+
+## 2026-05-22T00:25:45Z — T11a — Replace "consumes one slot" prose with explicit forced-respond exemption rule
+
+- **Failure mode:** must-fix-blocked
+- **Category:** 1 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** 5,4,1,0
+- **Score trajectory:** 276,361,151,126 vs S=100
+- **Passes:** 4
+- **Stage at exit:** 2 (0 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-21T22-08-36_3fe3fa`
+- **Poisoned fixes:** spec-lens-consistency:01
+- **Forensic report:** `.pi/tmp/spec-fix-failure-forensics/2026-05-21T15-45-32_04fd18/t11a-replace-consumes-one-slot-prose-with-explicit-forced-respond-exemption-rule.md` _(gitignored)_
+- **Parked findings (this run):** `T11a — Replace "consumes one slot" prose with explicit forced-respond exemption rule`
+- **Loop notes:** Sub-rationale: must-fix-blocked-by-scope-guard (Change A clause 1 escape). spec-lens-consistency raised must-fix:true score=100 demanding that hard-ceilings.md CIO-4's parenthetical be reworded so CIO-4 stops gating the forced respond turn behind ceiling-#2 — but hard-ceilings.md is the forwarded read-only ScopeGuard from T11a's Solution constraints, asserted "already aligned with the new rule". The lens demonstrates that assertion is wrong: CIO-4 still gates the forced respond turn while the five updated pages assert exemption. Reshape required (Category 1): either lift the read-only guard on hard-ceilings.md so CIO-4's parenthetical can be reworded in the same diff, or split into a sibling finding owning the CIO-4 edit.
+- **Fixer notes:** none
+
+---
