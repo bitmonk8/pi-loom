@@ -1010,3 +1010,20 @@ human triage) can trace why the listed findings ended up in
 - **Fixer notes:** none
 
 ---
+
+## 2026-05-22T12:50:44Z — T11d — Define the three concept surfaces the forced-respond exemption rule introduces (CIO-4 branch predicate, `max_rounds: 0` step-(2) dispatch trigger, forced-respond non-compliance routing)
+
+- **Failure mode:** must-fix-blocked
+- **Category:** 1 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** 4
+- **Score trajectory:** 176 vs S=100
+- **Passes:** 1
+- **Stage at exit:** 1 (1 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-22T12-59-22_14d01f`
+- **Poisoned fixes:** n/a
+- **Forensic report:** `.pi/tmp/spec-fix-failure-forensics/2026-05-22T12-50-44_dcff5f/t11d-define-the-three-concept-surfaces-the-forced-respond-exemption-rule-introd.md` _(gitignored)_
+- **Parked findings (this run):** T11d — Define the three concept surfaces the forced-respond exemption rule introduces (CIO-4 branch predicate, `max_rounds: 0` step-(2) dispatch trigger, forced-respond non-compliance routing); T11a — Replace "consumes one slot" prose with explicit forced-respond exemption rule
+- **Loop notes:** Sub-rationale: score-budget-exhausted-trust-override-suppressed. Rec O pass-level shadow-budget gate fired on pass 2 of stage 1: S=100, Σ_shadow=306, k×S=300, breach-multiplier=3.06×, breach-margin=6; 2 findings would have been classified as fix-via-trust-override absent the gate (CIO-4 atomicity #9 and step-(2) anchor #10). Pass 2 also surfaced 2 must-fix blockers that bypassed budget arithmetic per D-clause 1: blocker-1 (untyped `max_rounds: 0` made unrunnable by the new CIO-4 loop-entry clause, contradicting V6k) and blocker-2 (the "two consecutive user turns" wire shape prescribed for `max_rounds: 0` typed-query opening conflicts with anthropic-messages strict role-alternation contract). severity p1 raised{medium:7,low:2,NIT:1} fixed{medium:1,low:1,medium-via-trust:2} deferred{medium:5,low:1,NIT:1} blocked{}; p2 raised{high:2,medium:7,low:1,NIT:1} fixed{} deferred{} blocked{high:2(must-fix),medium:7,low:1,NIT:1}. Reshape guidance from _blocked.md: split T11d's Solution approach (1) into per-axis sub-IDs (CIO-4a/4b/4c/4d) and require a stable anchor for the `max_rounds: 0` boundary case in approach (2), and narrow approach (2)'s wire-shape claim to a role-neutral framing (the inlined-schema follow-up is composed with the rendered query body rather than prescribed as two consecutive user turns). stage1=1. narrowings=1+0+0+0. stage1Touched=3 mode-e-refusals=0.
+- **Fixer notes:** none
+
+---
