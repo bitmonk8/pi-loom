@@ -976,3 +976,20 @@ human triage) can trace why the listed findings ended up in
 - **Fixer notes:** none
 
 ---
+
+## 2026-05-22T09:46:52Z — T11a — Replace "consumes one slot" prose with explicit forced-respond exemption rule
+
+- **Failure mode:** must-fix-blocked
+- **Category:** 1 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** none
+- **Score trajectory:** none vs S=100
+- **Passes:** 1
+- **Stage at exit:** 1 (1 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-22T09-29-33_8336fa`
+- **Poisoned fixes:** none
+- **Forensic report:** `.pi/tmp/spec-fix-failure-forensics/2026-05-22T09-24-47_c0dfbb/t11a-replace-consumes-one-slot-prose-with-explicit-forced-respond-exemption-rule.md` _(gitignored)_
+- **Parked findings (this run):** `T11a — Replace "consumes one slot" prose with explicit forced-respond exemption rule`
+- **Loop notes:** Classifier early-exit on Rec O pass-level shadow-budget gate; sub-rationale=score-budget-exhausted-trust-override-suppressed; S=100 (high), Σ_shadow=366, breach-margin=266, breach-multiplier=3.66× (k=3); 9 raised findings (2 must-fix blockers excluded from shadow sum, 7 non-blocker raised counted, 6 of those 7 would have triggered the trust-always-wins override absent the gate). severity p1 raised{high:5,medium:3,NIT:1} fixed{} deferred{} blocked{high:2,medium:3,NIT:1} (must-fix=2, trust-override-suppressed=6). stage1=1. narrowings=0+0+0+0. stage1Touched=0 mode-e-refusals=0. The originating finding T11a (S=100, six normative sites in Solution approach) generated three latent specification surfaces the approach does not enumerate: a "`max_rounds`-final branch" defined-term predicate (Finding B), a `max_rounds: 0` dispatch trigger when step (2)'s plain-text trigger cannot fire (Finding C), and a forced-respond non-compliance failure surface (Finding E); plus two must-fix consistency holes (A: tool_loop_exhausted typed-query branch contradicts new MUST; D: implementation-notes.md line 23 still tells V1 reference to count forced respond against cap) and three smaller scope-extension surfaces (F/G/H). Classifier's reshape guidance: split T11a into T11a-prose (six-site rewrite, S≈100) and T11a-defined-terms (B/C/E predicate definitions, S≈100); OR raise T11a to blocker tier (≥200) to authorise all three latent surfaces; OR narrow Solution approach to explicitly defer B/C/E to follow-on findings.
+- **Fixer notes:** none
+
+---
