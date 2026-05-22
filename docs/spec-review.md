@@ -9,6 +9,8 @@ _(Updated 2026-05-20 T05 — `bind_*` (frontmatter) vs `binder*` / `binder-*` (s
 
 _(Updated 2026-05-22 — T03a unparked and reshaped per forensic report `t03a-add-loom-package-implementation-dependencies-v1-sub-paragraph-in-pic-host-p.md`: dropped literal-version-range pin from Solution approach (the literal is owned by `h1-scaffold.md` per T03f); added four cap-the-elaboration-surface bullets to Solution constraints (no sub-anchors, no co-move MUSTs, no H1 fixture citations, ≤3 sentences); updated Relationships (T03c and T03f have landed; T03f reframed as must-follow context); updated Problem to surface the dangling cross-reference in `h1-scaffold.md:50` that this finding closes. Net change to retained count: +1.)_
 
+_(Updated 2026-05-22 — T11a unparked and reshaped (Option A) per forensic report `t11a-replace-consumes-one-slot-prose-with-explicit-forced-respond-exemption-rule.md`: lifted the file-level read-only fence on `docs/spec_topics/hard-ceilings.md` and narrowed it to per-line (line 75 worked consequence remains read-only; CIO-4 parenthetical at line 46 is now in-scope); extended Solution approach with the one-sentence CIO-4 rewording the consistency lens's blocker demanded; updated Problem to distinguish the aligned line-75 site from the contradicting line-46 site; added `consistency` to Kind. Net change to retained count: +1.)_
+
 ---
 
 # T03a — Add `**Loom-package implementation dependencies (V1).**` sub-paragraph in PIC `Host prerequisites`
@@ -41,3 +43,34 @@ Add a new sub-paragraph whose lead bold token is `**Loom-package implementation 
 ## Relationships
 
 - T03f "`h1-scaffold.md` manifest assertion: anchor at the new PIC sub-paragraph; extend engines.node literal-read test to cross-package equality" — must-follow (T03f landed at commit `a1e45d0` and currently carries a forward cross-reference to this paragraph in `h1-scaffold.md:50`; the edge is already satisfied at dispatch time and serves as historical context for the inverted ordering).
+
+---
+
+# T11a — Replace "consumes one slot" prose with explicit forced-respond exemption rule
+
+**Kind:** testability, consistency
+**Importance:** high
+**Score:** 100
+**Atomicity:** atomic
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The *Tool-call loop bound* section in `docs/spec_topics/query.md` (anchor `tool-call-loop-bound`) and the `tool_loop` field paragraph in `docs/spec_topics/frontmatter.md` each assert that the forced respond turn for a typed query consumes one `tool_loop` slot. That framing contradicts the *Depth-6 forced respond at `max_rounds`* worked consequence in `docs/spec_topics/hard-ceilings.md:75`, which treats the forced respond turn as "precisely the typed-query terminating mechanism CIO-4's `max_rounds`-final branch routes to" (slot-accounting is evaluated only against free-phase rounds). At `max_rounds: 0` the contradiction is directly observable: under the "consumes one slot" reading the only available turn is already over budget; under the worked consequence it MUST still be dispatched. The canonical CIO-4 rule at `docs/spec_topics/hard-ceilings.md:46` is itself only partially aligned with the new rule — it still carries the parenthetical "*before* the next model turn (or, on a typed query at the final round permitted by `max_rounds`, the forced respond turn) is requested", bundling the forced respond turn under ceiling-#2 evaluation in a way that contradicts the new exemption (an implementer reading CIO-4 alone gates the forced respond turn on a `max_rounds` check and suppresses dispatch at `max_rounds: 0`). The sibling findings T11b and T11c cannot land their V6k changes against the spec until this prose is reconciled across all six sites.
+
+## Solution approach
+
+Rewrite the relevant sentences in the *Tool-call loop bound* and *Typed queries are tool-loop-shaped* sections of `docs/spec_topics/query.md`, in the `tool_loop` field paragraph of `docs/spec_topics/frontmatter.md`, in the *tool-call round slot accounting* entry of `docs/spec_topics/glossary.md`, and in the *Issuing typed queries* bullet of `docs/spec_topics/pi-integration-contract.md` (the sentence beginning "The forced respond turn counts against the same `tool_loop.max_rounds` cap" — this sentence sits in the *Conversation drive* section and is distinct from PIC-1 (d), which remains read-only per the constraint below) to replace the "consumes one slot" framing with an explicit forced-respond-exemption rule: the forced respond turn is the typed-query terminating mechanism CIO-4's `max_rounds`-final branch routes to; the runtime MUST dispatch it on every typed query that reaches that branch (including the `max_rounds: 0` boundary case, where it is the only turn issued); and CIO-4's slot-accounting check is not evaluated against the forced respond turn itself. Additionally, reword the CIO-4 parenthetical at `docs/spec_topics/hard-ceilings.md:46` to move the forced respond turn out of the "or" clause: CIO-4 should describe only the free-phase ceiling-#2 evaluation (slot count incremented, check before the next model turn), and reference the forced respond turn separately as the exempt-routed terminator that follows CIO-4's gating check rather than being bundled under it. The *Depth-6 forced respond at `max_rounds`* worked consequence at `docs/spec_topics/hard-ceilings.md:75` is already aligned with the new rule (it explicitly names the forced respond turn as the typed-query terminating mechanism CIO-4 routes to) and is left unedited.
+
+## Solution constraints
+
+- Treat the *Depth-6 forced respond at `max_rounds`* worked consequence in `docs/spec_topics/hard-ceilings.md:75` as read-only — it already names the forced respond turn as the typed-query terminating mechanism the new rule asserts.
+- Treat PIC-1 (d) in `docs/spec_topics/pi-integration-contract.md` as read-only — already aligned with the new rule.
+- The CIO-4 parenthetical at `docs/spec_topics/hard-ceilings.md:46` is in scope for this finding (the per-line scope guard above is narrower than file-level read-only); reword to detach the forced respond turn from the ceiling-#2 evaluation clause. Do not touch CIO-4's other clauses (the canonical "after the round's tool calls have completed and the slot count has been incremented" wording) or any other CIO-N rule in the same enumeration.
+- Plan leaves V6k and V6l in `docs/plan_topics/v6-typed-queries.md` are owned by T11b and T11c — out of scope here.
+
+## Relationships
+
+- T11b "V6k counting-formula tighten: forced respond outside the budget" — must-precede (the prose rule must land before V6k's formula can be rewritten against it).
+- T11c "V6k normative test vector for `max_rounds: 0` typed query" — must-precede (the prose rule must land before V6k's test can assert against it).
