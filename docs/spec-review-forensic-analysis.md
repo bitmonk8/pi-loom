@@ -993,3 +993,20 @@ human triage) can trace why the listed findings ended up in
 - **Fixer notes:** none
 
 ---
+
+## 2026-05-22T10:45:02Z — T11d — Define the three concept surfaces the forced-respond exemption rule introduces (CIO-4 branch predicate, `max_rounds: 0` step-(2) dispatch trigger, forced-respond non-compliance routing)
+
+- **Failure mode:** must-fix-blocked
+- **Category:** 1 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** 6
+- **Score trajectory:** 365 vs S=100
+- **Passes:** 1
+- **Stage at exit:** 1 (1 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-22T10-51-53_efeab4`
+- **Poisoned fixes:** none
+- **Forensic report:** `.pi/tmp/spec-fix-failure-forensics/2026-05-22T10-45-02_6b00ac/t11d-define-the-three-concept-surfaces-the-forced-respond-exemption-rule-introdu.md` _(gitignored)_
+- **Parked findings (this run):** T11d — Define the three concept surfaces the forced-respond exemption rule introduces (CIO-4 branch predicate, `max_rounds: 0` step-(2) dispatch trigger, forced-respond non-compliance routing); T11a — Replace "consumes one slot" prose with explicit forced-respond exemption rule
+- **Loop notes:** pass 2 classifier exited on must-fix-blocked with sub-rationale=score-budget-exhausted-trust-override-suppressed (Rec O pass-level shadow-budget gate); 7 findings counted toward shadow budget (none must-fix:true), S=100, Σ_shadow=335, breach margin=35 (k=3, k·S=300), breach multiplier=3.35×; F6 (CIO-4 atomicity, score=100) is the finding at which the budget broke; F6 would otherwise have routed via rule b-septies drift-from-origin-defer (`docs/spec_topics/hard-ceilings.md#interaction-between-ceilings` was in DriftFromOriginRefusedChunks from pass-1 fix-05 refusal), but the pass-level gate fires before per-finding rules. severity p1 raised{high:2,medium:6,low:1} fixed{high:1,medium:3} deferred{medium:2,low:1} refused-by-fixer{high:1,medium:1} blocked{}; p2 raised{high:2,medium:5} fixed{} deferred{} blocked{high:2,medium:5}. stage1=1 (pass 2 aborted at classifier before step 3f). narrowings=1+0+0+0 (1 chunk seeded approach-narrowing from NarrowedChunks block, no in-loop narrowings authored). stage1Touched=4 mode-e-refusals=0. Pass-1 fixes applied: fix-01 (PIC machinery widened to both non-compliance shapes + errors-and-results paraphrase updated), fix-02 (CIO-4 additive sentence for max_rounds:0 degenerate entry), fix-03 (CIO-4 exempt-routed terminator defined with forward-link to frontmatter.md tool_loop), fix-04 (query.md item-2 parenthetical expanded to pin two-adjacent-user-role-turns); refused: fix-05 (CIO-4 sub-ID split refused under mode (i) drift-from-origin + scope guard 3 wholesale-rewrite + project-config no-invented-ids), fix-06 (query.md step-2 sub-ID split refused under mode (c) scope-guard cross with mode (f) sub-cases (f-stop-1) and (f-stop-2) refusals). Reshape guidance from _blocked.md: split T11d into per-surface atoms, raise score to blocker (200), or narrow Solution approach items (1) or (2) to suppress F6 / F5 surface generation.
+- **Fixer notes:** none
+
+---
