@@ -1044,3 +1044,20 @@ human triage) can trace why the listed findings ended up in
 - **Fixer notes:** none
 
 ---
+
+## 2026-05-24T13:05:00Z — T11d — Define CIO-4 branch predicate, `max_rounds: 0` dispatch trigger, and forced-respond non-compliance routing
+
+- **Failure mode:** must-fix-blocked-constraint-narrowing-refused
+- **Category:** 1 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** 8,9,1,3
+- **Score trajectory:** 570,640,641,1176 vs S=500
+- **Passes:** 4
+- **Stage at exit:** 2 (1 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-24T12-56-23_82a5cc`
+- **Poisoned fixes:** none
+- **Forensic report:** `.pi/tmp/spec-fix-failure-forensics/2026-05-24T12-46-52_a24539/t11d-define-cio-4-branch-predicate-max-rounds-0-dispatch-trigger-and-forced-resp.md` _(gitignored)_
+- **Parked findings (this run):** T11d — Define CIO-4 branch predicate, `max_rounds: 0` dispatch trigger, and forced-respond non-compliance routing; T11a — Forced-respond exemption: replace "consumes one slot" prose
+- **Loop notes:** must-fix-blocked-constraint-narrowing-refused fired at pass 4 step 3f condition 4-bis: pass-1 and pass-2 inner-fixer dispatches both refused the same must-fix:true consistency finding (raised by spec-lens-consistency targeting the CIO-4 slot-accounting contradiction) under mode (f) sub-case 3 with guard mode (f-stop-2) co-resolve-siblings-territory; the matching tuple is (lens=spec-lens-consistency, fstop=f-stop-2, chunkId=docs/spec_topics/hard-ceilings.md#ceiling-interaction-order); verbatim guard: "Do not touch the five T11a prose sites — docs/spec_topics/query.md Tool-call loop bound 'consumes one slot' sentence and the tool_loop_exhausted cap-trigger parenthetical, docs/spec_topics/frontmatter.md tool_loop field paragraph, docs/spec_topics/glossary.md tool-call round slot accounting entry, docs/spec_topics/pi-integration-contract.md Issuing typed queries 'counts against same cap' sentence, and docs/spec_topics/implementation-notes.md:23 enforcement clause — they are T11a's primary territory per T11a's Solution approach." The originating contradiction is the must-precede sibling pattern T11d/T11a were designed to resolve in sequence (T11d defines the exempt-routed-terminator model first; T11a sweeps the five "consumes one slot" sentences afterwards), but the inner fixer cannot author T11a's territory from within T11d's dispatch — every remediation path crosses the T11a scope guard, and the three-mode (f) authoring guard correctly refuses on (f-stop-2). Stage 1 actually cleared at pass 3 via budget-bounded clearance (Σ_pass=25 < α(1)·S=125, with stagePass=3); pass 4 (stage 2, tier-1+tier-2 lens corpus) raised new structural findings but the cumulative constraint-narrowing history from passes 1-2 fired the 4-bis exit before pass 4 could dispatch any fixes.
+- **Fixer notes:** none
+
+---
