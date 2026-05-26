@@ -213,7 +213,7 @@ Every query — untyped, typed, and any respond-repair follow-up — runs its to
 
 <a id="worked-example-depth-6-forced-respond"></a>
 
-This example pins the only V1-reachable hard-ceiling co-fire (per [Pi Integration Contract — PIC-1 *Hard-ceiling co-fire (`masked`)*](./pi-integration-contract.md#pic-1) and CIO-3 / CIO-4 / CIO-6 in [Hard Runtime Ceilings — Interaction between ceilings](./hard-ceilings.md#ceiling-interaction-order)). It is normative: V18q's `RuntimeEvent`-shape conformance test and V6i's typed-query test suite both cite this vector.
+This example pins the only V1-reachable hard-ceiling co-fire (per [Pi Integration Contract — PIC-1 *Hard-ceiling co-fire (`masked`)*](./pi-integration-contract.md#pic-1) and CIO-3 / CIO-4 / CIO-6 in [Hard Runtime Ceilings — Interaction between ceilings](./hard-ceilings.md#ceiling-interaction-order)). It is normative: the `RuntimeEvent`-shape conformance test and the typed-query test suite both cite this vector.
 
 *Loom source* (a typed query with `tool_loop.max_rounds: 2` and a single frontmatter tool the model uses to occupy the free phase):
 

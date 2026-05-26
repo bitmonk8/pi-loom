@@ -33,7 +33,7 @@ Wherever the spec asks whether a value of static type `T₁` may be used in a po
 | 1 | Reflexivity: `T ⊑ T` for every type. | Identical primitives, identical named schemas, identical inline objects. |
 | 2 | `integer ⊑ number`. | One-way only; the reverse is `loom/parse/integer-narrowing` (see [Lexical — Number literals](./lexical.md)). |
 | 3 | Literal-to-primitive: `L ⊑ T` when `L` is a literal type and the value `L` would be statically typed `T` in expression position. | E.g. `"validation" ⊑ string`, `42 ⊑ integer`, `42 ⊑ number`, `true ⊑ boolean`, `null ⊑ null`. |
-| 4 | Variant-to-union: for any discriminated union `schema U = A \| B \| ...`, every variant satisfies `A ⊑ U`. | This is the V15c "narrower callee under wider annotation" case (`Cat ⊑ Animal`). |
+| 4 | Variant-to-union: for any discriminated union `schema U = A \| B \| ...`, every variant satisfies `A ⊑ U`. | The "narrower callee under wider annotation" case (`Cat ⊑ Animal`). |
 | 5 | Union-widening: `T ⊑ T \| U` for any `U`. | Combined with rule 4, `A ⊑ A \| B` even when the union is anonymous. |
 | 6 | Union-distributive: `T₁ \| T₂ ⊑ T₃` iff `T₁ ⊑ T₃` and `T₂ ⊑ T₃`. | Each arm must individually satisfy the target. |
 | 7 | Element-wise on arrays: `array<T₁> ⊑ array<T₂>` iff `T₁ ⊑ T₂`. | Covariant — `array<Cat> ⊑ array<Animal>`. Already implied by the array-LUB rule in [Expressions — array construction](./expressions.md#object-construction-array-construction-and-operator-rules); restated here so it can be cited from non-array sites. |
