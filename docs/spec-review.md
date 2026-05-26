@@ -11,7 +11,6 @@ _Triage tally: 36 findings — 1 blocker, 8 high, 3 medium-high, 13 medium, 11 m
 
 **Kind:** cruft, doc-alignment-broad
 **Importance:** medium-low
-**Atomicity:** atomic
 **Shape:** single
 **State:** reduced
 
@@ -58,7 +57,6 @@ Rename the plan-corpus vertical-slice ID space from `V1`–`Vn` to a non-collidi
 
 **Kind:** cross-corpus-boundary, naming
 **Importance:** medium-low
-**Atomicity:** atomic
 **Shape:** single
 **State:** reduced
 
@@ -83,7 +81,6 @@ Rewrite the three `H1` call-sites in `docs/spec.md` (Pi SDK and capabilities par
 
 **Kind:** naming
 **Importance:** medium-low
-**Atomicity:** composite-2
 **Shape:** single
 **State:** reduced
 
@@ -107,7 +104,6 @@ Standardise on **Hard Runtime Ceilings** as the single canonical name throughout
 
 **Kind:** consistency, clarity
 **Importance:** medium
-**Atomicity:** composite-2
 **Decision axes:** 2
 **Shape:** single
 **State:** reduced
@@ -132,7 +128,6 @@ In `docs/spec.md` Host runtime bullet 2, delete the size adjective from the "a s
 
 **Kind:** placement
 **Importance:** medium-low
-**Atomicity:** atomic
 **Shape:** single
 **State:** reduced
 
@@ -155,7 +150,6 @@ None
 
 **Kind:** clarity
 **Importance:** medium
-**Atomicity:** composite-2
 **Shape:** single
 **State:** reduced
 
@@ -178,7 +172,6 @@ At GOV-15 in `docs/spec_topics/governance.md` and the mirrored Scope bullet at `
 
 **Kind:** testability
 **Importance:** medium
-**Atomicity:** atomic
 **Shape:** single
 **State:** reduced
 
@@ -202,7 +195,6 @@ Extend GOV-15 on `docs/spec_topics/governance.md` with a definition that binds "
 
 **Kind:** traceability
 **Importance:** medium-low
-**Atomicity:** atomic
 **Shape:** single
 **State:** reduced
 
@@ -228,7 +220,6 @@ Add a sub-anchor `<a id="scope-forward-compat-seams-count"></a>` inside the *For
 
 **Kind:** traceability
 **Importance:** medium-low
-**Atomicity:** atomic
 **Shape:** single
 **State:** reduced
 
@@ -257,7 +248,6 @@ Add anchor `<a id="scope-forward-compat-seams"></a>` to the *Forward-compatibili
 
 **Kind:** traceability
 **Importance:** medium-low
-**Atomicity:** atomic
 **Shape:** single
 **State:** reduced
 
@@ -284,7 +274,6 @@ Prepend an empty `<a id="scope-runtime-observability"></a>` anchor to the *Runti
 
 **Kind:** traceability
 **Importance:** medium-low
-**Atomicity:** atomic
 **Shape:** single
 **State:** reduced
 
@@ -312,7 +301,6 @@ Prepend `<a id="scope-trust-boundary"></a>` to the *Trust boundary* bullet in `d
 
 **Kind:** traceability
 **Importance:** medium
-**Atomicity:** atomic
 **Shape:** single
 **State:** reduced
 
@@ -339,7 +327,6 @@ Repoint the existing cross-reference in `docs/spec_topics/pi-integration-contrac
 
 **Kind:** traceability
 **Importance:** medium
-**Atomicity:** atomic
 **Shape:** single
 **State:** reduced
 
@@ -367,7 +354,6 @@ Restructure the aggregator paragraph at `docs/spec.md`'s `<a id="v1-non-goals"><
 
 **Kind:** traceability
 **Importance:** medium
-**Atomicity:** atomic
 **Shape:** single
 **State:** reduced
 
@@ -422,7 +408,6 @@ Split the cross-ceiling content paragraph in `docs/spec.md`'s Hard ceilings bull
 
 **Kind:** traceability
 **Importance:** medium-low
-**Atomicity:** composite-2
 **Shape:** single
 **State:** reduced
 
@@ -480,7 +465,6 @@ Split the pre-evaluation-failure exclusion sentences out of the `terminal-outcom
 
 **Kind:** traceability
 **Importance:** medium
-**Atomicity:** atomic
 **Shape:** single
 **State:** reduced
 
@@ -513,7 +497,6 @@ Add `<a id="outcome-success">`, `<a id="outcome-failure">`, and `<a id="outcome-
 
 **Kind:** traceability
 **Importance:** medium
-**Atomicity:** atomic
 **Shape:** single
 **State:** reduced
 
@@ -546,7 +529,6 @@ Restructure the `terminal-outcomes-aggregator` paragraph in `docs/spec.md` into 
 
 **Kind:** clarity
 **Importance:** medium
-**Atomicity:** composite-2
 **Shape:** single
 **State:** reduced
 
@@ -574,7 +556,6 @@ Rewrite the `terminal-outcomes-aggregator` paragraph in `docs/spec.md` as a sequ
 
 **Kind:** naming
 **Importance:** medium-high
-**Atomicity:** composite-2
 **Decision axes:** 2
 **Shape:** single
 **State:** reduced
@@ -601,7 +582,6 @@ Add a `**slash-load**` entry to `docs/spec_topics/glossary.md` carrying anchor `
 
 **Kind:** external-entities
 **Importance:** medium
-**Atomicity:** composite-2
 **Decision axes:** 2
 **Shape:** single
 **State:** reduced
@@ -627,7 +607,6 @@ At the first occurrence of `` `AgentSession` `` in spec.md's `<a id="session-mod
 
 **Kind:** clarity
 **Importance:** medium-low
-**Atomicity:** atomic
 **Shape:** single
 **State:** reduced
 
@@ -675,7 +654,6 @@ Rewrite the parenthetical at `<a id="session-model">` in `docs/spec.md` so the f
 
 **Kind:** traceability
 **Importance:** high
-**Atomicity:** atomic
 **Shape:** single
 **State:** reduced
 
@@ -704,7 +682,6 @@ Retarget each of the five `../spec.md#session-model` cross-references in `docs/s
 
 **Kind:** traceability
 **Importance:** high
-**Atomicity:** atomic
 **Shape:** single
 **State:** reduced
 
@@ -761,7 +738,6 @@ Decompose the `<a id="session-model"></a>` paragraph in `docs/spec.md` into eigh
 
 **Kind:** scope
 **Importance:** medium
-**Atomicity:** composite-2
 **Shape:** single
 **State:** reduced
 
@@ -788,7 +764,6 @@ Split the paragraph anchored by `id="session-model"` in `docs/spec.md` into two 
 
 **Kind:** placement
 **Importance:** medium-low
-**Atomicity:** composite-2
 **Shape:** single
 **State:** reduced
 
@@ -815,7 +790,6 @@ Promote the `<a id="session-model"></a>` paragraph out of `### Prerequisites` in
 
 **Kind:** cruft, naming, placement, scope, traceability
 **Importance:** high
-**Atomicity:** atomic
 **Shape:** single
 **State:** reduced
 
@@ -842,7 +816,6 @@ Rewrite the body of the Extension Architecture › Concurrency model bullet in `
 
 **Kind:** codebase-grounding-broad, cross-spec-consistency-broad, single-source-of-truth
 **Importance:** blocker
-**Atomicity:** composite-3+
 **Shape:** single
 **State:** reduced
 
@@ -898,7 +871,6 @@ Outcome: the spec corpus carries the version literal exactly once, the manifest 
 
 **Kind:** cross-corpus-boundary, cruft, doc-alignment-broad
 **Importance:** high
-**Atomicity:** composite-3+
 **Shape:** single
 **State:** reduced
 
@@ -953,7 +925,6 @@ The contributor SHOULD spot-check each git-recovered leaf against the PIC paragr
 
 **Kind:** cross-corpus-boundary, naming
 **Importance:** high
-**Atomicity:** unbounded
 **Shape:** single
 **State:** reduced
 
@@ -1005,7 +976,6 @@ After the sweep, `docs/spec_topics/*.md` MUST carry zero matches for the regex `
 
 **Kind:** cross-corpus-boundary, doc-alignment-broad
 **Importance:** high
-**Atomicity:** composite-3+
 **Shape:** single
 **State:** reduced
 
@@ -1057,7 +1027,6 @@ After the sweep, both `docs/spec_topics/diagnostics.md` and `docs/spec_topics/pi
 
 **Kind:** cross-corpus-boundary, scope, structural
 **Importance:** high
-**Atomicity:** unbounded
 **Shape:** multiple
 **State:** reduced
 
