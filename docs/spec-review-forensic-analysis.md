@@ -25,3 +25,22 @@ it does not persist across worktree wipes)._
 - **Fixer notes:** none
 
 ---
+
+## 2026-05-26 — MULTI: T27 — `governance.md` pervasive plan-corpus dependency (GOV-2 / GOV-7 / GOV-10 / GOV-11 / "specified in the plan corpus"); T28 — Articulate the "no methodology prescription" rule and audit `spec_topics/` against it
+
+- **Cluster mode (rec F):** yes
+- **Cluster members:** 2
+- **Failure mode:** must-fix-blocked
+- **Category:** 1 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** n/a
+- **Score trajectory:** n/a
+- **Passes:** 0
+- **Stage at exit:** 1 (0 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-26T15-18-10_f1d4da`
+- **Poisoned fixes:** n/a
+- **Forensic report:** `.pi/tmp/spec-fix-failure-forensics/2026-05-26T14-59-44_af3f5a/multi-t27-governance-md-plan-corpus-t28-no-methodology-prescription.md` _(gitignored)_
+- **Parked findings (this run):** `T27 — \`governance.md\` pervasive plan-corpus dependency (GOV-2 / GOV-7 / GOV-10 / GOV-11 / "specified in the plan corpus"), T28 — Articulate the "no methodology prescription" rule and audit \`spec_topics/\` against it`
+- **Loop notes:** Cluster-mode MULTI run (T27 + T28). Classifier exited in stage 1 with sub-rationale `score-budget-exhausted`: cluster combined S=200 (Rec OO aggregation T27=100 + T28=100), Σ=275 at exhaustion, breach margin=75. 5 non-blocker non-cheap raised findings counted toward budget (all from spec-lens-consistency: A high/100, D medium/25, E high/100, G medium/25, H medium/25; first crossing of S at finding E cumulative 225). 4 additional cheap-fix findings (B/C/F/I — placeholder-rename, drop-the-tail, replace-self-citation, cross-reference-in-corpus) did not consume budget. 0 blockers. Severity p1 raised{high:2,medium:6,NIT:1} fixed{} deferred{} blocked{high:2,medium:3} (cheap-fix high:0/medium:3/NIT:1 counted in raised but not blocked). stage1=0 (incomplete — exit during classification before any pass completed). No mode-e/f/g refusals; no narrowing tally. Recommended reshape (from classifier _blocked.md): split T27 into per-rule-cluster atoms, OR extend T27 Solution approach to enumerate replacement acceptance criteria for stripped plan-corpus verifiers (GOV-4/6/9/12), OR extend T28 Solution approach to require GOV-5/GOV-16 reconciliation pass against the new GOV-18, OR raise T27 to blocker (S→300). The breach is structural: post-strip GOV-17/18 prose carries MUSTs whose verification surface was deleted without replacement, leaving findings A and E (both high/100) plus G and H exposing GOV-5/GOV-6/GOV-12/GOV-16 contradictions the Solution approach did not enumerate. Snapshots retained at refs/loom/snapshots/2026-05-26T15-18-10_f1d4da/* for forensics.
+- **Fixer notes:** none
+
+---
