@@ -3,7 +3,7 @@
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding is addressed last._
 
-_Triage tally: 5 findings — 1 blocker, 4 high._
+_Triage tally: 4 findings — 4 high._
 
 ---
 
@@ -102,56 +102,3 @@ Rewrite the body of the Extension Architecture › Concurrency model bullet in `
 ## Relationships
 
 - T19a "Replace session-model paragraph with eight SM-N sub-units" — must-precede (decomposing `#session-model` into `SM-1`…`SM-8` is easier with one canonical body to decompose, not two)
-# T23 — Pi SDK version literal `~0.72.1` is duplicated across the corpus and is stale against installed `0.74.1`
-
-**Kind:** codebase-grounding-broad, cross-spec-consistency-broad, single-source-of-truth
-**Importance:** blocker
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The Pi SDK pin literal `~0.72.1` is authored in ~30 places across the spec corpus plus 4 `package.json` `peerDependencies` entries:
-
-- **Canonical pin (intended single source of truth):** `docs/spec_topics/pi-integration-contract.md` anchor `#pi-sdk-pin`.
-- **In-corpus echoes on the canonical owner page:** ~26 further occurrences on the same `pi-integration-contract.md` page (across §*Session-binding contract*, §*Entry capability probe*, §*Patch-skew degradation contract*, §*Pi version bump procedure*, §*Conversation drive — subagent mode*, and others).
-- **In-corpus echoes on other spec_topics:** `docs/spec_topics/binder.md`'s `<a id="strict-capability-requirement"></a>` paragraph (×1, as `pi-coding-agent ~0.72.1`); `docs/spec_topics/diagnostics.md`'s `loom/load/host-incompatible`, `loom/load/binder-model-not-strict-capable`, and `loom/load/binder-model-strict-capability-unknown` rows (×3); `docs/spec_topics/future-considerations.md`'s "No concurrent user sessions in the same host process." bullet (×1).
-- **Build manifest:** `package.json` `peerDependencies` entries for `@mariozechner/pi-coding-agent`, `@mariozechner/pi-agent-core`, `@mariozechner/pi-ai`, `@mariozechner/pi-tui` (×4).
-
-Two defects co-exist on this surface:
-
-1. **The literal is stale.** The installed Pi is `0.74.1`; the `~0.72.1` tilde range does not admit it. Every echo independently reinforces the stale literal; PIC describes an SDK version that contradicts reality, and `npm install` against `main` cannot satisfy the manifest pin until the four `package.json` entries are bumped.
-
-2. **The literal was authored in many places to begin with.** The single-source-of-truth invariant the canonical pin's anchor name (`#pi-sdk-pin`) advertises is undermined by ~30 in-corpus repetitions of the literal. Every future Pi bump becomes an N-site sweep across `pi-integration-contract.md`, `binder.md`, `diagnostics.md`, `future-considerations.md`, and the manifest; any missed echo silently re-introduces corpus self-inconsistency. The version bump exposes the structural defect: a literal whose role is to name the supported Pi version is the kind of obligation that MUST live in exactly one place.
-
-## Solution approach
-
-Consolidate the Pi SDK version literal to a single canonical site in the spec corpus, then bump that site once:
-
-1. **Designate the single source of truth.** The canonical pin at `docs/spec_topics/pi-integration-contract.md#pi-sdk-pin` is the only place in the spec corpus where the `~MAJOR.MINOR.PATCH` literal MAY appear. Tighten the surrounding prose so the pin is presented as the authoritative declaration and the single-source-of-truth rule is stated explicitly (e.g. "The supported Pi minor is pinned at `~0.74.1`. Every other reference to the supported Pi version in the spec corpus MUST cite this anchor and MUST NOT restate the literal.").
-
-2. **Replace every in-corpus echo with an anchor citation.** Sweep the four affected files and rewrite each `~0.72.1` occurrence so the surrounding prose cites the canonical pin by anchor (e.g. "the [pinned Pi minor](./pi-integration-contract.md#pi-sdk-pin)" / "the pin recorded at [PIC §Pi SDK pin](#pi-sdk-pin)") rather than restating the literal. Where a sentence's grammar required the literal as an inline token, rephrase the sentence so the anchor reference carries the same load. Apply to:
-   - `docs/spec_topics/pi-integration-contract.md` — the ~26 same-page echoes outside `#pi-sdk-pin` itself.
-   - `docs/spec_topics/binder.md` — the `#strict-capability-requirement` paragraph.
-   - `docs/spec_topics/diagnostics.md` — the three diagnostic-code rows (`loom/load/host-incompatible`, `loom/load/binder-model-not-strict-capable`, `loom/load/binder-model-strict-capability-unknown`).
-   - `docs/spec_topics/future-considerations.md` — the "No concurrent user sessions in the same host process." bullet.
-
-3. **Bump the canonical pin in the same commit.** Once the corpus carries the literal in exactly one place, rewrite `~0.72.1` → `~0.74.1` at `pi-integration-contract.md#pi-sdk-pin`. The bump is now a one-character edit in the spec corpus; the next bump after that is the same one-character edit.
-
-4. **Update the build manifest jointly.** `package.json`'s four `@mariozechner/*` `peerDependencies` entries (`pi-coding-agent`, `pi-agent-core`, `pi-ai`, `pi-tui`) MUST carry the literal because npm consumes the manifest mechanically — the manifest is the one legitimate non-spec restatement of the pin, since it cannot anchor-cite. Bump all four entries from `~0.72.1` to `~0.74.1` in the same commit as the spec consolidation.
-
-5. **Lock-step the manifest to the canonical pin under GOV-12.** Add a sentence at `pi-integration-contract.md#pi-sdk-pin` requiring the four `@mariozechner/*` peerDependencies entries in `package.json` to literally equal the canonical pin's range, and register the manifest as a GOV-12 lock-step downstream of the canonical pin. This closes the loophole that would otherwise let the manifest drift from the spec's canonical pin without surfacing as a spec edit, given that the manifest is the only legitimate restatement site.
-
-Outcome: the spec corpus carries the version literal exactly once, the manifest carries it exactly four times (one per Pi peer), and the GOV-12 lock-step makes any drift between the spec side and the manifest side a CI-detectable failure. Every future Pi bump becomes a one-character edit at the canonical site plus a four-entry manifest update.
-
-## Solution constraints
-
-- The single-source-of-truth rule applies to the spec corpus only. `package.json` is permitted to restate the literal because npm reads the manifest mechanically; the GOV-12 lock-step replaces the freedom-to-restate elsewhere.
-- The canonical pin's anchor slug `#pi-sdk-pin` MUST NOT be renamed; downstream pages will be retargeted at it during the sweep, and any rename fans out a second time across the same surfaces.
-- The `typebox` peer-dep entry remains `"*"` per PIC §*`typebox` (the fifth Pi-bundled package)*; this finding does not touch it.
-- Out of scope: cross-corpus restatements in `docs/plan_topics/**` — the plan corpus is a separate concern under T24a / T25 / T26's corpus-direction rule. The plan corpus MAY cite the canonical pin by anchor but MUST NOT restate the literal under the same single-source rule once that corpus is in scope.
-- The five edits (canonical-site bump, four-file in-corpus consolidation sweep, manifest bump, and the new GOV-12 lock-step sentence) MUST land in a single commit. A partial landing leaves the corpus in a state where the canonical pin and the echoes disagree, which is the failure mode the consolidation is designed to eliminate.
-
-## Relationships
-
-(no live cross-finding relationships)
