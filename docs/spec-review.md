@@ -3,7 +3,7 @@
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding is addressed last._
 
-_Triage tally: 4 findings — 4 high._
+_Triage tally: 3 findings — 3 high._
 
 ---
 
@@ -79,26 +79,3 @@ Decompose the `<a id="session-model"></a>` paragraph in `docs/spec.md` into eigh
 - T19b "Retarget the three `../spec.md#session-model` cross-references in pi-integration-contract.md" — must-precede (T19b's anchors-targets are established here)
 - T19c "Retarget the five `../spec.md#session-model` cross-references in future-considerations.md" — must-precede (T19c's anchor-targets are established here)
 - T22 "Extension Architecture › Concurrency model bullet duplicates the Session model concurrency prose" — must-follow (deduplication should land before this edit; if the concurrency content moves wholesale to `concurrency-model`, SM-7 collapses to a forward-link)
-# T22 — Extension Architecture › Concurrency model bullet duplicates the Session model concurrency prose
-
-**Kind:** cruft, naming, placement, scope, traceability
-**Importance:** high
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`docs/spec.md`'s Extension Architecture section is a navigational index whose bullets follow `[Page Name](path) — short description`. The `<a id="concurrency-model"></a>` bullet breaks the pattern by embedding a ~500-word concurrency contract inline, near-verbatim duplicated from the Orientation › Session model paragraph (`<a id="session-model"></a>`): identical opening sentence, `(i)`–`(iv)` prompt-mode serialisation list, three-sources-of-overlap analysis, cancellation-propagation sentence, and per-invocation-budget paragraph. Neither copy is marked authoritative and the two anchors do not cross-reference each other, so future edits to one surface will drift independently of the other.
-
-## Solution approach
-
-Rewrite the body of the Extension Architecture › Concurrency model bullet in `docs/spec.md` to match the navigational `[Page Name](path) — short description` shape used by its siblings, with a forward-link to `#session-model` designated as the sole owner of the concurrency contract. Preserve the `<a id="concurrency-model"></a>` anchor in place so existing inbound `#concurrency-model` references continue to resolve.
-
-## Solution constraints
-
-- Out of scope: the `<a id="session-model"></a>` paragraph — owned by T19a–T19c.
-- The rewritten bullet MUST NOT forward-link to `cancellation.md`, `implementation-notes.md`, `invocation.md`, or `pi-integration-contract.md`; every such link already lives inside the Session model paragraph and replicating any of them re-opens the drift surface this fix closes.
-
-## Relationships
-
-- T19a "Replace session-model paragraph with eight SM-N sub-units" — must-precede (decomposing `#session-model` into `SM-1`…`SM-8` is easier with one canonical body to decompose, not two)
