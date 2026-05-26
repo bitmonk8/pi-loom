@@ -1,14 +1,9 @@
 # Triaged Spec Review — spec
 
-_Generated: 2026-05-25T22:55:00Z_
-_Updated: 2026-05-26T00:00:00Z — reshape pass split 6 oversized composite-3+ singles into 27 children (T09→4, T10→3, T13→3, T19→3, T23→5, T24→9); existing T-IDs preserved._
-_Updated: 2026-05-26T12:00:00Z — rediagnosis pass on spec→plan cross-references. Findings T03 and T24a re-diagnosed under the corpus rule that the spec MUST NOT reference the plan (the plan may reference the spec, not the inverse — a plan deletion-and-rebuild from a given spec must not break any spec link). The original T24 diagnoses (split across T24a–T24h, T24j) treated the missing `docs/plan_topics/h1-scaffold.md` leaf as the defect and proposed authoring it; the actual defect is the 21 cross-links from `docs/spec_topics/pi-integration-contract.md` plus 2 from `docs/spec.md` to that plan-leaf path, and the PIC/`spec.md` paragraphs that defer normative ownership (test-harness wiring, file paths, constant names, comment grammars, fixture-row shapes, discriminator literals) to a plan leaf in the first place. T24a now carries the corrected diagnosis; T24b–T24h and T24j were children of the rejected framing and have been deleted (corpus count: 45 → 37). T23a–T23e (stale `~0.72.1` literals) are independent atomic edits; their `must-follow T24a` relationships were a consequence of the bad diagnosis and have been dropped._
-_Updated: 2026-05-26T15:00:00Z — corpus-direction audit follow-up: T25, T26, T27 added (corpus count: 37 → 40). T25 sweeps ~117 bare plan-leaf-ID tokens (`H1`, `V18s`, `V14a`, `V16h`, `V3a`, `V5h`, `V6i`, `V6k`, `V12a`, `V14q`, `V15c`, `V18q`, `MVP`) across `docs/spec_topics/*.md` (T03's complement: T03 covered only the 3 `H1` tokens in `spec.md`). T26 sweeps a `v18-cancellation.md` cross-link in `diagnostics.md` plus seven "plan corpus" / "plan leaves" / "plan-side" narrative deferrals in `pi-integration-contract.md` (T24a's complement: T24a covered only the `h1-scaffold.md` link path). T27 addresses the structurally hardest case: `governance.md`'s ~15 "specified in the plan corpus" deferrals plus GOV-2 / GOV-7 / GOV-10 / GOV-11 — rules whose role is partly to constrain the plan corpus's shape, authored in the spec; T24a had explicitly carved these out as a "permitted abstraction barrier" and T27 revisits that carve-out under the strict reading and concludes structural rework is required (option A: reframe as informative consumption schema; option B: delete and let `plan_topics/conventions.md` own its own shape)._
-_Updated: 2026-05-26T16:00:00Z — context correction across T24a, T25, T26, T27. The spec→plan references the corpus-direction audit surfaces are an artefact of commit 657ee76 ("pi-loom plan: reset to scaffold + template"), which deleted 25 plan leaves (h1-h6, m-mvp, v1-v18) on the working assumption that the spec did not reference the plan. The audit reveals that assumption was false in two distinct ways: (a) the spec contained pure-implementation deferrals to the plan that should be deleted on the spec side (the original T24a / T25 / T26 framing); (b) the spec contained references to material in the plan that was genuinely normative content the spec relied on (`SDK_SURFACE_INVENTORY` kind-discriminator inventory; the bidirectional type-equality probe pattern; the `loom/typecheck/session-shutdown-reason-snapshot` brand-string requirement; the four-entry peer-dep lock-step group; the cross-package `engines.node` equality property; and similar contract surfaces). For (b), the deferral cannot be deleted without orphaning a spec obligation; the content MUST be recovered from `git show 657ee76^:docs/plan_topics/<leaf>.md` and restored into the spec corpus (either inline in the citing topic page or as a new spec_topic). The classification step in each of T24a / T25 / T26 / T27 now carries an explicit fourth option for category-(b) occurrences, with the git provenance noted so the recovery is reproducible. T25 / T26 retitled / re-scoped accordingly. T27's structural-decision framing is unchanged (governance.md's plan-corpus rules are a different kind of defect from a delegation-of-normative-content)._
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T27) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 2 blocker, 5 high, 3 medium-high, 9 medium, 8 medium-low retained (24 originals → 45 findings after splitting 6 oversized parents into 27 children; → 37 after T24 re-diagnosis collapsed 9 children to 1; → 40 after T25/T26/T27 corpus-direction audit follow-up); 10 low discarded; 2 merges (4 lows → 2 mediums); 0 nit dropped; 0 false dropped._
+_Triage tally: 36 findings — 1 blocker, 8 high, 3 medium-high, 13 medium, 11 medium-low._
 
 ---
 
@@ -57,15 +52,15 @@ Rename the plan-corpus vertical-slice ID space from `V1`–`Vn` to a non-collidi
 ## Relationships
 
 - T03 "`H1` is used as a bare abbreviation in `spec.md` with no glossary entry or first-use expansion" — same-cluster (both findings turn on plan-phase tokens leaking into spec-corpus prose; resolve independently — the H1 fix adds a glossary entry, this one renames the colliding plan IDs)
-- T09a "Add `<a id="scope-trust-boundary"></a>` to *Trust boundary* Scope bullet" — same-cluster (touches the V1 Scope subsection prose; resolves independently; T09 was split — point at the scope-bounding first child)
-- T24a "Remove `docs/plan_topics/h1-scaffold.md` cross-links from `spec.md` and `pi-integration-contract.md` (corpus-direction violation)" — same-cluster (re-diagnosed 2026-05-26; both findings concern plan-phase-naming surface bleeding into spec prose, but along different axes — this finding renames the `V1` plan-ID space to avoid colliding with the loom-release `V1`, while T24a removes the `H1`-leaf cross-links that pull plan-corpus content into spec prose; resolve independently)
+- T09a "Add `<a id="scope-trust-boundary"></a>` to *Trust boundary* Scope bullet" — same-cluster (touches the V1 Scope subsection prose; resolves independently)
+- T24a "Remove `docs/plan_topics/h1-scaffold.md` cross-links from `spec.md` and `pi-integration-contract.md` (corpus-direction violation)" — same-cluster (both findings concern plan-phase-naming surface bleeding into spec prose, but along different axes — this finding renames the `V1` plan-ID space to avoid colliding with the loom-release `V1`, while T24a removes the `H1`-leaf cross-links that pull plan-corpus content into spec prose; resolve independently)
 # T03 — `H1` is a plan-corpus identifier leaking into `spec.md` prose
 
 **Kind:** cross-corpus-boundary, naming
 **Importance:** medium-low
 **Atomicity:** atomic
 **Shape:** single
-**State:** reduced (re-diagnosed 2026-05-26 — the original framing proposed a glossary entry forward-linking into the plan corpus; that approach inverts the corpus dependency direction and is rejected)
+**State:** reduced
 
 ## Problem
 
@@ -78,7 +73,7 @@ Rewrite the three `H1` call-sites in `docs/spec.md` (Pi SDK and capabilities par
 ## Solution constraints
 
 - Out of scope: `docs/plan_topics/conventions.md`'s `H1…Hn` reservation — the plan corpus is permitted to coin and own these identifiers; the defect is solely the spec-side reference.
-- Out of scope: the 21 cross-links from `docs/spec_topics/pi-integration-contract.md` to `../plan_topics/h1-scaffold.md` (owned by T24a's re-diagnosed scope below).
+- Out of scope: the 21 cross-links from `docs/spec_topics/pi-integration-contract.md` to `../plan_topics/h1-scaffold.md` (owned by T24a).
 
 ## Relationships
 
@@ -419,9 +414,9 @@ Split the cross-ceiling content paragraph in `docs/spec.md`'s Hard ceilings bull
 ## Relationships
 
 - T04 "Three different names for the same enforcement-limit set" — same-cluster (same Scope > Hard ceilings bullet, touches the surrounding anchor/heading hygiene; resolves independently)
-- T13a "Restructure terminal-outcomes-aggregator into success/failure/cancelled list items" — same-cluster (same pattern of an orientation aggregator carrying multiple independently testable obligations under one anchor; different section; T13 was split — point at the scope-bounding first child)
-- T19a "Replace session-model paragraph with eight SM-N sub-units" — same-cluster (same anchor-atomicity pattern in the `session-model` paragraph; T19 was split — point at the scope-bounding first child)
-- T09a "Add `<a id="scope-trust-boundary"></a>` to *Trust boundary* Scope bullet" — same-cluster (sibling Scope-bullet anchor-hygiene defect; T09 was split — point at the scope-bounding first child)
+- T13a "Restructure terminal-outcomes-aggregator into success/failure/cancelled list items" — same-cluster (same pattern of an orientation aggregator carrying multiple independently testable obligations under one anchor; different section)
+- T19a "Replace session-model paragraph with eight SM-N sub-units" — same-cluster (same anchor-atomicity pattern in the `session-model` paragraph)
+- T09a "Add `<a id="scope-trust-boundary"></a>` to *Trust boundary* Scope bullet" — same-cluster (sibling Scope-bullet anchor-hygiene defect)
 - T14 "Terminal-outcomes aggregator is one 347-word sentence with ambiguously-nested parentheses" — same-cluster (orientation-aggregator density in the Overview, same authoring antipattern)
 # T12 — Failure-cause exclusions `(a)` and `(b)` are uncitable inline prose labels
 
@@ -446,11 +441,11 @@ Promote exclusion (a) and exclusion (b) inside the `Failure.` bullet to individu
 ## Relationships
 
 - T14 "Terminal-outcomes aggregator is one 347-word sentence with ambiguously-nested parentheses" — same-cluster (same `spec.md` aggregator paragraph; a separate-bullet-list restructure on the `spec.md` side would also surface the exclusions as readable items, but the citability fix lives on the owner page regardless)
-- T13a "Restructure terminal-outcomes-aggregator into success/failure/cancelled list items" — same-cluster (the parent paragraph's anchoring problem; this finding is the narrower per-exclusion case of that broader atomicity violation; T13 was split — point at the scope-bounding first child)
+- T13a "Restructure terminal-outcomes-aggregator into success/failure/cancelled list items" — same-cluster (the parent paragraph's anchoring problem; this finding is the narrower per-exclusion case of that broader atomicity violation)
 - T15 "Undefined coined term: `slash-load`" — co-resolve (the term appears inside exclusion (a)'s prose, so the exclusion's restructure is the natural site to rename or define it)
 - T11 "Hard-ceilings orientation paragraph collocates two anchors, making CIO and NOCEIL obligations uncitable" — same-cluster (parallel anchoring-discipline issue on a different paragraph)
-- T10a "Add `<a id="ng-1">`…`<a id="ng-7">` to V1 non-goals bullets in future-considerations.md" — same-cluster (parallel per-item-anchor issue on a different aggregator; T10 was split — point at the scope-bounding first child)
-- T09a "Add `<a id="scope-trust-boundary"></a>` to *Trust boundary* Scope bullet" — same-cluster (parallel anchoring-discipline issue; T09 was split — point at the scope-bounding first child)
+- T10a "Add `<a id="ng-1">`…`<a id="ng-7">` to V1 non-goals bullets in future-considerations.md" — same-cluster (parallel per-item-anchor issue on a different aggregator)
+- T09a "Add `<a id="scope-trust-boundary"></a>` to *Trust boundary* Scope bullet" — same-cluster (parallel anchoring-discipline issue)
 # T13c — Extract pre-evaluation-failure exclusion into a sub-paragraph anchored `<a id="outcome-pre-eval">`
 
 **Kind:** traceability
@@ -572,7 +567,7 @@ Rewrite the `terminal-outcomes-aggregator` paragraph in `docs/spec.md` as a sequ
 
 ## Relationships
 
-- T13a "Restructure terminal-outcomes-aggregator into success/failure/cancelled list items" — co-resolve (same paragraph; this edit produces the structural baseline on which sub-anchors can land cleanly; apply this finding first; T13 was split — point at the scope-bounding first child)
+- T13a "Restructure terminal-outcomes-aggregator into success/failure/cancelled list items" — co-resolve (same paragraph; this edit produces the structural baseline on which sub-anchors can land cleanly; apply this finding first)
 - T12 "Failure-cause exclusions `(a)` and `(b)` are uncitable inline prose labels" — co-resolve (same paragraph; promoting (a)/(b) to bullets here is the structural prerequisite for attaching stable IDs there; apply this finding first)
 - T15 "Undefined coined term: `slash-load`" — same-cluster (same paragraph; resolves independently — a rename does not depend on the paragraph's shape)
 # T15 — Undefined coined term: `slash-load`
@@ -627,7 +622,7 @@ At the first occurrence of `` `AgentSession` `` in spec.md's `<a id="session-mod
 
 - T22 "Extension Architecture › Concurrency model bullet duplicates the Session model concurrency prose" — must-follow (if T22's body collapse lands first, edit 2 of this finding collapses to a no-op; without that, both surfaces need the qualification)
 - T20 "Session-model paragraph fuses lifecycle and concurrency content under one anchor" — same-cluster (touches the same Session model paragraph but resolves independently)
-- T19a "Replace session-model paragraph with eight SM-N sub-units" — same-cluster (also targets the Session model paragraph's anchor, independent fix; T19 was split — point at the scope-bounding first child)
+- T19a "Replace session-model paragraph with eight SM-N sub-units" — same-cluster (also targets the Session model paragraph's anchor, independent fix)
 # T17 — Ambiguous post-teardown editor-edit behaviour in the Session model paragraph
 
 **Kind:** clarity
@@ -650,7 +645,7 @@ Rewrite the `(with editor-driven .loom and settings edits silently no-opping unt
 
 ## Relationships
 
-- T19a "Replace session-model paragraph with eight SM-N sub-units" — co-resolve (an `SM-N` sub-section split of the session-model paragraph would naturally isolate the degraded-state clause and absorb this clarity edit; T19 was split — point at the scope-bounding first child)
+- T19a "Replace session-model paragraph with eight SM-N sub-units" — co-resolve (an `SM-N` sub-section split of the session-model paragraph would naturally isolate the degraded-state clause and absorb this clarity edit)
 - T20 "Session-model paragraph fuses lifecycle and concurrency content under one anchor" — same-cluster (same paragraph, lifecycle half)
 - T21 "Session model paragraph lives under 'Prerequisites' but is not a prerequisite" — same-cluster (same paragraph; promotion to its own `### Session Model` subsection is orthogonal to the wording fix)
 # T18 — `event.reason` enumeration mixes a normative closed-set claim with deferral to an externally-owned SDK type
@@ -674,8 +669,8 @@ Rewrite the parenthetical at `<a id="session-model">` in `docs/spec.md` so the f
 
 ## Relationships
 
-- T19a "Replace session-model paragraph with eight SM-N sub-units" — must-follow (decomposing the `session-model` anchor into `SM-1…SM-8` would create a sub-anchor for the reason-set obligation that this edit then targets; sequence the decomposition first if both land; T19 was split — point at the scope-bounding first child)
-- T23a "Replace ~0.72.1 with ~0.74.1 across pi-integration-contract.md" — same-cluster (also concerns SDK-pinned surfaces, but its fix is in the PIC `Host prerequisites` block, not the `session-model` paragraph; T23 was split — point at the first child which carries the canonical pin)
+- T19a "Replace session-model paragraph with eight SM-N sub-units" — must-follow (decomposing the `session-model` anchor into `SM-1…SM-8` would create a sub-anchor for the reason-set obligation that this edit then targets; sequence the decomposition first if both land)
+- T23 "Pi SDK version literal `~0.72.1` is duplicated across the corpus and is stale against installed `0.74.1`" — same-cluster (also concerns SDK-pinned surfaces, but its fix consolidates the pin literal to a single canonical site at `pi-integration-contract.md#pi-sdk-pin` and is independent of the `session-model` paragraph)
 # T19c — Retarget the five `../spec.md#session-model` cross-references in future-considerations.md to specific `sm-N-...` anchors
 
 **Kind:** traceability
@@ -786,7 +781,7 @@ Split the paragraph anchored by `id="session-model"` in `docs/spec.md` into two 
 ## Relationships
 
 - T21 "Session model paragraph lives under 'Prerequisites' but is not a prerequisite" — same-cluster (same paragraph; placement is independent of the lifecycle/concurrency split and can be applied to either output of this fix)
-- T19a "Replace session-model paragraph with eight SM-N sub-units" — must-follow (a 2-way split here is the first cut of T19's 8-way decomposition; doing this first gives that decomposition a stable boundary; T19 was split — point at the scope-bounding first child)
+- T19a "Replace session-model paragraph with eight SM-N sub-units" — must-follow (a 2-way split here is the first cut of T19a's 8-way decomposition; doing this first gives that decomposition a stable boundary)
 - T22 "Extension Architecture › Concurrency model bullet duplicates the Session model concurrency prose" — must-follow (selects which surface is the canonical concurrency aggregator; resolving it before this finding determines the anchor naming)
 - T17 "Ambiguous post-teardown editor-edit behaviour in the Session model paragraph" — same-cluster (lifecycle half)
 # T21 — Session model paragraph lives under "Prerequisites" but is not a prerequisite
@@ -813,7 +808,7 @@ Promote the `<a id="session-model"></a>` paragraph out of `### Prerequisites` in
 ## Relationships
 
 - T20 "Session-model paragraph fuses lifecycle and concurrency content under one anchor" — same-cluster (touches the same paragraph but resolves independently — splitting concerns is orthogonal to where the paragraph lives)
-- T19a "Replace session-model paragraph with eight SM-N sub-units" — same-cluster (anchor-decomposition on the same paragraph; lands cleanly on top of the promoted subsection; T19 was split — point at the scope-bounding first child)
+- T19a "Replace session-model paragraph with eight SM-N sub-units" — same-cluster (anchor-decomposition on the same paragraph; lands cleanly on top of the promoted subsection)
 - T17 "Ambiguous post-teardown editor-edit behaviour in the Session model paragraph" — same-cluster (clarification inside the same paragraph)
 - T22 "Extension Architecture › Concurrency model bullet duplicates the Session model concurrency prose" — same-cluster (duplication between Session model paragraph and Extension Architecture › Concurrency model bullet; independent of placement)
 # T22 — Extension Architecture › Concurrency model bullet duplicates the Session model concurrency prose
@@ -841,145 +836,71 @@ Rewrite the body of the Extension Architecture › Concurrency model bullet in `
 
 - T20 "Session-model paragraph fuses lifecycle and concurrency content under one anchor" — must-precede (that finding proposes splitting the Session model paragraph at exactly the sentence this fix designates as authoritative; resolving the present finding first establishes the Session model paragraph as the sole owner, after which the split is a local edit inside one section)
 - T21 "Session model paragraph lives under 'Prerequisites' but is not a prerequisite" — co-resolve (moving the Session model paragraph out of Prerequisites is cleaner once it is the sole owner of the concurrency contract; deferred until after consolidation)
-- T19a "Replace session-model paragraph with eight SM-N sub-units" — must-precede (decomposing `#session-model` into `SM-1`…`SM-8` is easier with one canonical body to decompose, not two; T19 was split — point at the scope-bounding first child)
+- T19a "Replace session-model paragraph with eight SM-N sub-units" — must-precede (decomposing `#session-model` into `SM-1`…`SM-8` is easier with one canonical body to decompose, not two)
 - T16 "Pi SDK identifiers `AgentSession` and `pi.setActiveTools` lack first-use definitional pointers in `spec.md`" — co-resolve (the merged finding flags the bare references appearing in *both* sections; consolidation reduces the fix surface from two sites to one)
-# T23a — Replace ~0.72.1 with ~0.74.1 across pi-integration-contract.md (canonical pin + ~27 echoes)
+# T23 — Pi SDK version literal `~0.72.1` is duplicated across the corpus and is stale against installed `0.74.1`
 
-**Kind:** codebase-grounding-broad
+**Kind:** codebase-grounding-broad, cross-spec-consistency-broad, single-source-of-truth
 **Importance:** blocker
-**Atomicity:** atomic
+**Atomicity:** composite-3+
 **Shape:** single
 **State:** reduced
 
 ## Problem
 
-The single-source-of-truth Pi SDK pin at `docs/spec_topics/pi-integration-contract.md` anchor `#pi-sdk-pin` reads `~0.72.1`, with the literal echoed throughout the same file (~27 occurrences across §*Session-binding contract*, §*Entry capability probe*, §*Patch-skew degradation contract*, §*Pi version bump procedure*, §*Conversation drive — subagent mode*, and others). The installed Pi is `0.74.1`; the `~0.72.1` tilde range does not admit it, so PIC describes a SDK version that contradicts reality and every page-internal echo reinforces the stale literal.
+The Pi SDK pin literal `~0.72.1` is authored in ~30 places across the spec corpus plus 4 `package.json` `peerDependencies` entries:
+
+- **Canonical pin (intended single source of truth):** `docs/spec_topics/pi-integration-contract.md` anchor `#pi-sdk-pin`.
+- **In-corpus echoes on the canonical owner page:** ~26 further occurrences on the same `pi-integration-contract.md` page (across §*Session-binding contract*, §*Entry capability probe*, §*Patch-skew degradation contract*, §*Pi version bump procedure*, §*Conversation drive — subagent mode*, and others).
+- **In-corpus echoes on other spec_topics:** `docs/spec_topics/binder.md`'s `<a id="strict-capability-requirement"></a>` paragraph (×1, as `pi-coding-agent ~0.72.1`); `docs/spec_topics/diagnostics.md`'s `loom/load/host-incompatible`, `loom/load/binder-model-not-strict-capable`, and `loom/load/binder-model-strict-capability-unknown` rows (×3); `docs/spec_topics/future-considerations.md`'s "No concurrent user sessions in the same host process." bullet (×1).
+- **Build manifest:** `package.json` `peerDependencies` entries for `@mariozechner/pi-coding-agent`, `@mariozechner/pi-agent-core`, `@mariozechner/pi-ai`, `@mariozechner/pi-tui` (×4).
+
+Two defects co-exist on this surface:
+
+1. **The literal is stale.** The installed Pi is `0.74.1`; the `~0.72.1` tilde range does not admit it. Every echo independently reinforces the stale literal; PIC describes an SDK version that contradicts reality, and `npm install` against `main` cannot satisfy the manifest pin until the four `package.json` entries are bumped.
+
+2. **The literal was authored in many places to begin with.** The single-source-of-truth invariant the canonical pin's anchor name (`#pi-sdk-pin`) advertises is undermined by ~30 in-corpus repetitions of the literal. Every future Pi bump becomes an N-site sweep across `pi-integration-contract.md`, `binder.md`, `diagnostics.md`, `future-considerations.md`, and the manifest; any missed echo silently re-introduces corpus self-inconsistency. The version bump exposes the structural defect: a literal whose role is to name the supported Pi version is the kind of obligation that MUST live in exactly one place.
 
 ## Solution approach
 
-In `docs/spec_topics/pi-integration-contract.md`, rewrite every `~0.72.1` literal to `~0.74.1` — the canonical pin at anchor `#pi-sdk-pin` and every echo on the same page. A missed echo leaves PIC self-inconsistent and re-opens this finding on the next pass.
+Consolidate the Pi SDK version literal to a single canonical site in the spec corpus, then bump that site once:
+
+1. **Designate the single source of truth.** The canonical pin at `docs/spec_topics/pi-integration-contract.md#pi-sdk-pin` is the only place in the spec corpus where the `~MAJOR.MINOR.PATCH` literal MAY appear. Tighten the surrounding prose so the pin is presented as the authoritative declaration and the single-source-of-truth rule is stated explicitly (e.g. "The supported Pi minor is pinned at `~0.74.1`. Every other reference to the supported Pi version in the spec corpus MUST cite this anchor and MUST NOT restate the literal.").
+
+2. **Replace every in-corpus echo with an anchor citation.** Sweep the four affected files and rewrite each `~0.72.1` occurrence so the surrounding prose cites the canonical pin by anchor (e.g. "the [pinned Pi minor](./pi-integration-contract.md#pi-sdk-pin)" / "the pin recorded at [PIC §Pi SDK pin](#pi-sdk-pin)") rather than restating the literal. Where a sentence's grammar required the literal as an inline token, rephrase the sentence so the anchor reference carries the same load. Apply to:
+   - `docs/spec_topics/pi-integration-contract.md` — the ~26 same-page echoes outside `#pi-sdk-pin` itself.
+   - `docs/spec_topics/binder.md` — the `#strict-capability-requirement` paragraph.
+   - `docs/spec_topics/diagnostics.md` — the three diagnostic-code rows (`loom/load/host-incompatible`, `loom/load/binder-model-not-strict-capable`, `loom/load/binder-model-strict-capability-unknown`).
+   - `docs/spec_topics/future-considerations.md` — the "No concurrent user sessions in the same host process." bullet.
+
+3. **Bump the canonical pin in the same commit.** Once the corpus carries the literal in exactly one place, rewrite `~0.72.1` → `~0.74.1` at `pi-integration-contract.md#pi-sdk-pin`. The bump is now a one-character edit in the spec corpus; the next bump after that is the same one-character edit.
+
+4. **Update the build manifest jointly.** `package.json`'s four `@mariozechner/*` `peerDependencies` entries (`pi-coding-agent`, `pi-agent-core`, `pi-ai`, `pi-tui`) MUST carry the literal because npm consumes the manifest mechanically — the manifest is the one legitimate non-spec restatement of the pin, since it cannot anchor-cite. Bump all four entries from `~0.72.1` to `~0.74.1` in the same commit as the spec consolidation.
+
+5. **Lock-step the manifest to the canonical pin under GOV-12.** Add a sentence at `pi-integration-contract.md#pi-sdk-pin` requiring the four `@mariozechner/*` peerDependencies entries in `package.json` to literally equal the canonical pin's range, and register the manifest as a GOV-12 lock-step downstream of the canonical pin. This closes the loophole that would otherwise let the manifest drift from the spec's canonical pin without surfacing as a spec edit, given that the manifest is the only legitimate restatement site.
+
+Outcome: the spec corpus carries the version literal exactly once, the manifest carries it exactly four times (one per Pi peer), and the GOV-12 lock-step makes any drift between the spec side and the manifest side a CI-detectable failure. Every future Pi bump becomes a one-character edit at the canonical site plus a four-entry manifest update.
 
 ## Solution constraints
 
-- Out of scope: the `~0.72.1` literals owned by T23b (`binder.md`), T23c (`diagnostics.md`), T23d (`future-considerations.md`), and T23e (`package.json` peerDependencies).
+- The single-source-of-truth rule applies to the spec corpus only. `package.json` is permitted to restate the literal because npm reads the manifest mechanically; the GOV-12 lock-step replaces the freedom-to-restate elsewhere.
+- The canonical pin's anchor slug `#pi-sdk-pin` MUST NOT be renamed; downstream pages will be retargeted at it during the sweep, and any rename fans out a second time across the same surfaces.
+- The `typebox` peer-dep entry remains `"*"` per PIC §*`typebox` (the fifth Pi-bundled package)*; this finding does not touch it.
+- Out of scope: cross-corpus restatements in `docs/plan_topics/**` — the plan corpus is a separate concern under T24a / T25 / T26's corpus-direction rule. The plan corpus MAY cite the canonical pin by anchor but MUST NOT restate the literal under the same single-source rule once that corpus is in scope.
+- The five edits (canonical-site bump, four-file in-corpus consolidation sweep, manifest bump, and the new GOV-12 lock-step sentence) MUST land in a single commit. A partial landing leaves the corpus in a state where the canonical pin and the echoes disagree, which is the failure mode the consolidation is designed to eliminate.
 
 ## Relationships
 
-- T23b "Replace ~0.72.1 with ~0.74.1 in binder.md" — co-resolve (joint bump — land all five literals in the same commit so the canonical pin and every echo move atomically)
-- T23c "Replace ~0.72.1 with ~0.74.1 in diagnostics.md (three rows)" — co-resolve (joint bump)
-- T23d "Replace ~0.72.1 with ~0.74.1 in future-considerations.md concurrent-sessions bullet" — co-resolve (joint bump)
-- T23e "Bump four `@mariozechner/*` peerDependencies in package.json from ~0.72.1 to ~0.74.1" — co-resolve (joint bump)
-- T24a "Remove `docs/plan_topics/h1-scaffold.md` cross-links" — independent (re-diagnosed 2026-05-26; the prior `must-follow T24a` relationship reflected the rejected framing that this stale-pin sweep depended on a plan leaf existing. The version-string sweep is a mechanical literal edit with no plan-corpus dependency.)
-- T03 "`H1` is a plan-corpus identifier leaking into `spec.md` prose" — independent (re-diagnosed 2026-05-26; the prior `same-cluster` framing claimed H1 tests were the enforcement surface for this bump, which entangled the version-string update with the bare-token sweep. They are independent.)
-# T23b — Replace ~0.72.1 with ~0.74.1 in binder.md strict-capability paragraph
-
-**Kind:** codebase-grounding-broad
-**Importance:** blocker
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`docs/spec_topics/binder.md`'s `<a id="strict-capability-requirement"></a>` paragraph echoes the V1 Pi-SDK pin as `pi-coding-agent ~0.72.1` when describing why the `strictCapable` probe lands on the universal-W branch. The installed Pi is `0.74.1` (the canonical pin on `pi-integration-contract.md` §*Pi SDK pin*), so this binder.md echo is stale against the canonical pin and against the joint bump T23a, T23c, T23d, T23e perform on the other echo sites and on `package.json`.
-
-## Solution approach
-
-Rewrite the `pi-coding-agent ~0.72.1` reference in binder.md's `#strict-capability-requirement` paragraph to `pi-coding-agent ~0.74.1`.
-
-## Solution constraints
-
-- Out of scope: the canonical pin on `pi-integration-contract.md` (T23a), the three `diagnostics.md` rows (T23c), the `future-considerations.md` concurrent-sessions bullet (T23d), and the four `package.json` peerDependencies entries (T23e).
-- MUST land in the same commit as T23a, T23c, T23d, T23e (joint atomic version-string update — a single literal echoed across multiple pages must move atomically to avoid corpus self-inconsistency). The prior citation to PIC §*Pi version bump procedure* step 4 is dropped: that procedure is itself in scope of T24a's re-diagnosis, and the joint-commit obligation here stands on its own ground without needing the procedure as authority.
-
-## Relationships
-
-- T23a "Replace ~0.72.1 with ~0.74.1 across pi-integration-contract.md" — co-resolve (joint bump)
-- T23c "Replace ~0.72.1 with ~0.74.1 in diagnostics.md (three rows)" — co-resolve (joint bump)
-- T23d "Replace ~0.72.1 with ~0.74.1 in future-considerations.md concurrent-sessions bullet" — co-resolve (joint bump)
-- T23e "Bump four `@mariozechner/*` peerDependencies in package.json from ~0.72.1 to ~0.74.1" — co-resolve (joint bump)
-# T23c — Replace ~0.72.1 with ~0.74.1 in three diagnostics.md rows
-
-**Kind:** codebase-grounding-broad
-**Importance:** blocker
-**Atomicity:** atomic
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`docs/spec_topics/diagnostics.md` carries the stale tilde range `~0.72.1` in three diagnostic-code rows — `loom/load/host-incompatible` (the `peer-dep-out-of-range` `kind` description), `loom/load/binder-model-not-strict-capable`, and `loom/load/binder-model-strict-capability-unknown` — while the installed Pi is `0.74.1`. These echoes drift from the canonical pin and must move jointly with the sibling bump findings as a single atomic literal update across the corpus.
-
-## Solution approach
-
-In `docs/spec_topics/diagnostics.md`, replace each `~0.72.1` literal in the `loom/load/host-incompatible`, `loom/load/binder-model-not-strict-capable`, and `loom/load/binder-model-strict-capability-unknown` rows with `~0.74.1`.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T23a "Replace ~0.72.1 with ~0.74.1 across pi-integration-contract.md" — co-resolve (joint bump)
-- T23b "Replace ~0.72.1 with ~0.74.1 in binder.md" — co-resolve (joint bump)
-- T23d "Replace ~0.72.1 with ~0.74.1 in future-considerations.md concurrent-sessions bullet" — co-resolve (joint bump)
-- T23e "Bump four `@mariozechner/*` peerDependencies in package.json from ~0.72.1 to ~0.74.1" — co-resolve (joint bump)
-# T23d — Replace ~0.72.1 with ~0.74.1 in future-considerations.md concurrent-sessions bullet
-
-**Kind:** codebase-grounding-broad
-**Importance:** blocker
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`docs/spec_topics/future-considerations.md`'s "No concurrent user sessions in the same host process." bullet still cites the V1 Pi-SDK pin as `~0.72.1`, but the installed Pi minor on `main` is `0.74.1`. The stale literal leaves the V1-seam framing for the concurrent-sessions presupposition inconsistent with the canonical pin once the joint bump lands.
-
-## Solution approach
-
-In `docs/spec_topics/future-considerations.md`, in the "No concurrent user sessions in the same host process." bullet, rewrite the `~0.72.1` substring to `~0.74.1`.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T23a "Replace ~0.72.1 with ~0.74.1 across pi-integration-contract.md" — co-resolve (joint bump)
-- T23b "Replace ~0.72.1 with ~0.74.1 in binder.md" — co-resolve (joint bump)
-- T23c "Replace ~0.72.1 with ~0.74.1 in diagnostics.md (three rows)" — co-resolve (joint bump)
-- T23e "Bump four `@mariozechner/*` peerDependencies in package.json from ~0.72.1 to ~0.74.1" — co-resolve (joint bump)
-# T23e — Bump four `@mariozechner/*` peerDependencies in package.json from ~0.72.1 to ~0.74.1
-
-**Kind:** codebase-grounding-broad
-**Importance:** blocker
-**Atomicity:** atomic
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`package.json`'s `peerDependencies` block pins the four `@mariozechner/*` packages (`pi-coding-agent`, `pi-agent-core`, `pi-ai`, `pi-tui`) at `~0.72.1`, but the installed Pi is `0.74.1`, which the tilde range does not admit. Until the manifest is bumped jointly with the spec literals owned by T23a–T23d, `npm install` against `main` cannot satisfy the pin, and the runtime's peer-dep capability check refuses to load every loom with `loom/host/host-incompatible`. All four entries MUST move together in the same commit as the spec-literal updates.
-
-## Solution approach
-
-Bump the four `@mariozechner/*` `peerDependencies` entries (`pi-coding-agent`, `pi-agent-core`, `pi-ai`, `pi-tui`) in `package.json` from `~0.72.1` to `~0.74.1`.
-
-## Solution constraints
-
-- Out of scope: the `typebox` peer-dep entry, which remains `"*"` per PIC §*`typebox` (the fifth Pi-bundled package)*.
-
-## Relationships
-
-- T23a "Replace ~0.72.1 with ~0.74.1 across pi-integration-contract.md" — co-resolve (joint bump)
-- T23b "Replace ~0.72.1 with ~0.74.1 in binder.md" — co-resolve (joint bump)
-- T23c "Replace ~0.72.1 with ~0.74.1 in diagnostics.md (three rows)" — co-resolve (joint bump)
-- T23d "Replace ~0.72.1 with ~0.74.1 in future-considerations.md concurrent-sessions bullet" — co-resolve (joint bump)
+- T18 "`event.reason` enumeration mixes a normative closed-set claim with deferral to an externally-owned SDK type" — same-cluster (parallel SDK-pinned-surface defect; resolves independently — T18 fixes the closure/deferral framing in the `session-model` paragraph, this finding fixes the literal-duplication defect on the pin itself)
+- T24a "Remove `docs/plan_topics/h1-scaffold.md` cross-links" — independent (corpus-direction sweep and version-literal consolidation are orthogonal)
+- T03 "`H1` is a plan-corpus identifier leaking into `spec.md` prose" — independent (bare-token sweep and version-literal consolidation are independent)
 # T24a — Remove `docs/plan_topics/h1-scaffold.md` cross-links from `spec.md` and `pi-integration-contract.md` (corpus-direction violation)
 
 **Kind:** cross-corpus-boundary, cruft, doc-alignment-broad
 **Importance:** high
-**Shape:** composite — per-paragraph audit, 23 link sites across 2 spec files
-**State:** re-diagnosed 2026-05-26 (original framing — "author the missing plan leaf" — rejected; see *Re-diagnosis rationale* below)
+**Atomicity:** composite-3+
+**Shape:** single
+**State:** reduced
 
 ## Problem
 
@@ -1021,27 +942,20 @@ The contributor SHOULD spot-check each git-recovered leaf against the PIC paragr
 - GOV-12 lock-step survives the audit unchanged: where the spec currently asserts "the count is N" against a topic-page enumeration, the integer-count gate's deferral to "the plan corpus" as the normative source of the gate's failure surface (per `governance.md`) is the established pattern and is NOT in scope of this finding — that wording defers to the plan corpus generically rather than naming a specific plan file or leaf, and is treated as a permitted abstraction barrier.
 - Out of scope: `docs/plan_topics/conventions.md`'s `H1`-`Hn` / `M` / `V1`-`Vn` reservation — the plan corpus is permitted to coin and own these identifiers.
 - Out of scope: T03's three bare-`H1` token rewrites in `spec.md` (co-resolve in the same pass).
-- Out of scope: T23a–T23e's stale-`~0.72.1`-literal sweep — those are mechanical version-string updates that commute with this finding and need not wait for it.
-
-## Re-diagnosis rationale
-
-The original framing of T24 (split across T24a–T24h and T24j) treated the missing `docs/plan_topics/h1-scaffold.md` leaf as the defect and proposed authoring it. That framing accepts the spec→plan cross-references as legitimate and accommodates them. It is rejected because:
-
-- The corpus rule requires that the spec stand independent of any particular plan. A reader must be able to delete `docs/plan_topics/**` entirely and find no broken references in the spec corpus; the original solution would make plan-leaf existence a precondition of spec correctness.
-- The leaf-side content the original T24a–T24h proposed pinning (npm test wiring, `SDK_SURFACE_INVENTORY` shape, `engines.node` literal-read test, `CAPABILITY_OBLIGATIONS` constant location, comment grammars, fixture file shapes, audit harness wiring) is uniformly implementation detail. The plan can be rebuilt with a different runner, different file paths, different constant names, and different discriminator strings without invalidating any spec obligation; pinning these in the plan because the spec demands them locks the implementation into a specific shape the spec has no business mandating.
-- T24j (the plan-index entry pointing at the new leaf) and T24b–T24h (the sub-section pins) were downstream consequences of the inversion and have been deleted from this triage; the IDs are not reused.
+- Out of scope: T23's Pi-SDK-pin consolidation and stale-`~0.72.1`-literal bump — that finding's edits commute with this one and need not wait for it.
 
 ## Relationships
 
 - T03 "`H1` is a plan-corpus identifier leaking into `spec.md` prose" — co-resolve (same corpus-direction defect; T03 sweeps the bare `H1` tokens, this finding sweeps the link-form `plan_topics/h1-scaffold.md` references)
-- T23a–T23e "Replace ~0.72.1 with ~0.74.1 …" — independent (the stale-pin sweep is a mechanical version-string update unrelated to corpus boundaries; the original `must-follow T24a` relationship lines on T23a–T23e were a consequence of the bad diagnosis and have been dropped)
+- T23 "Pi SDK version literal `~0.72.1` is duplicated across the corpus and is stale against installed `0.74.1`" — independent (version-literal consolidation is unrelated to corpus boundaries)
 - T16 "Pi SDK identifiers `AgentSession` and `pi.setActiveTools` lack first-use definitional pointers in `spec.md`" — same-cluster (both concern PIC's Pi-surface obligations; T16's resolution stays within the spec corpus, but the bump-procedure rewrite in step (3) above SHOULD double-check that any T16 cross-link landing in the same pass also stays within `spec_topics/`)
 # T25 — Bare plan-leaf-ID tokens scatter across `spec_topics/` (`H1`, `V18s`, `V14a`, `V16h`, `V3a`, `V5h`, `V6i`, `V6k`, `V12a`, `V14q`, `V15c`, `V18q`, `MVP`)
 
 **Kind:** cross-corpus-boundary, naming
 **Importance:** high
-**Shape:** composite — per-token sweep, ~117 occurrences across ≥5 spec_topics files
-**State:** new 2026-05-26 (corpus-direction audit follow-up to T03 / T24a)
+**Atomicity:** unbounded
+**Shape:** single
+**State:** reduced
 
 ## Problem
 
@@ -1091,8 +1005,9 @@ After the sweep, `docs/spec_topics/*.md` MUST carry zero matches for the regex `
 
 **Kind:** cross-corpus-boundary, doc-alignment-broad
 **Importance:** high
-**Shape:** composite — 1 explicit link site + 7 narrative deferrals across 2 files
-**State:** new 2026-05-26 (corpus-direction audit follow-up to T24a)
+**Atomicity:** composite-3+
+**Shape:** single
+**State:** reduced
 
 ## Problem
 
@@ -1142,8 +1057,9 @@ After the sweep, both `docs/spec_topics/diagnostics.md` and `docs/spec_topics/pi
 
 **Kind:** cross-corpus-boundary, scope, structural
 **Importance:** high
-**Shape:** structural — affects ~15 GOV-rule sub-paragraphs across one file
-**State:** new 2026-05-26 (corpus-direction audit follow-up; deepest of the three sister findings T25 / T26 / T27)
+**Atomicity:** unbounded
+**Shape:** multiple
+**State:** reduced
 
 ## Problem
 
