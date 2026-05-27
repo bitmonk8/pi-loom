@@ -63,3 +63,25 @@ it does not persist across worktree wipes)._
 - **Fixer notes:** none
 
 ---
+
+## 2026-05-27 — Unpark: MULTI cluster {T04, T17}
+
+- **Action:** unparked (re-introduced into `docs/spec-review.md`)
+- **Source park entry:** the 2026-05-27 `must-fix-blocked` entry immediately above (cluster T04+T17, FIXCOUNTS 2,1,4,0,2,1,0,4,10,0).
+- **Reshape applied:** critique-anticipation strategy. T17's `## Solution constraints` block was rewritten to pre-state the substance of the lens findings the parked run raised reactively on passes 3–10, so the next dispatch's fixer authors against the constraints on pass 1 rather than reacting to lens findings against partial work. Source: the 10 accumulated-constraints entries (C1–C10) harvested by the parked run's inner-loop classifier, translated from `MUST`-on-post-fix-spec obligations into authoring obligations on the fixer.
+- **Concrete edits to the finding bodies:**
+  - T04 — unchanged (already minimal; co-resolves with T17).
+  - T17 — `## Problem` extended with one paragraph naming the two dangling normative invariants (token-sense overload and dual-anchor lifecycle) the parked run surfaced. `## Solution approach` extended with a new *Sites — companion mechanical sweep folded in (carry-over)* sub-section folding C1 (`V2` → `loom 2.0`) and C2 (`Tooling deferrals` anchor alias) into the rename's site list. `## Solution constraints` block restructured into four sub-sections: *Cluster-coordination*, *Mechanical-rename and anchor-stability*, *Critique-anticipation constraints* (new — folds in C3–C10 as six authoring constraints), and *Cluster-internal out-of-scope*.
+  - Score, importance, must-fix, shape, state: **unchanged** (T04 medium/25, T17 high/100; cluster S stays at 125 under Rec OO sum). The reshape strategy is to reduce critique surface authored by pass 1, not to grow the budget.
+  - `Sites — companion mechanical sweep folded in` adds `V2` → `loom 2.0` callsites under `docs/spec_topics/` and the `<a id="tooling-deferrals-no-v1-impact"></a>` alias on the renamed *Tooling deferrals* heading.
+- **What this reshape is NOT:** not a split (no T17b created), not a budget raise (T17 stays high/100), not an edit-surface narrowing (the fixer is explicitly NOT forbidden from authoring a dual-anchor convention paragraph; the constraints just bind its shape if authored).
+- **Carry-over mapping (parked-run accumulated → reshape destination):**
+  - C1 (`V2` → `loom 2.0` uniformity) → `## Solution approach` *Sites — companion mechanical sweep folded in*.
+  - C2 (`Tooling deferrals` anchor alias) → same sub-section.
+  - C3 (glossary `loom <version>` sense) → `## Solution constraints` *Glossary registration*.
+  - C4 + C6 (token-sense disambiguation) → `## Solution constraints` *Sense disambiguation*. Strategy chosen: lexical (`loom 1.0.0` for baseline sense), per the user's preference for closing the dangling invariant rather than deferring it.
+  - C5 + C7 + C10 (dual-anchor convention) → `## Solution constraints` *Dual-anchor convention placement and shape*. Authoring is OPTIONAL; if authored, placement is GOV-8 (not GOV-15), definition is intensional, and per-sub-obligation anchors are required.
+  - C8 (retirement-audit witness) → `## Solution constraints` *Retirement-audit witness for dual-anchor `v1-*` retirement*.
+  - C9 (mechanically-checkable MUSTs only) → `## Solution constraints` *Mechanically-checkable MUSTs only*. Closes the parked run's testability blocker.
+- **Forensic report retained:** `.pi/tmp/spec-fix-failure-forensics/2026-05-27T11-51-12_03914b/multi-t04-v1-non-goals-heading-anchor-rename-plus-t17-v1-rename.md` (read-only reference for the next run if the reshape itself fails).
+- **Re-dispatch expectation:** the next `/fix-spec-shape-single-findings` run will re-pick the {T04, T17} cluster (co-resolve closure unchanged). Expected trajectory: pass 1 ships a wider mechanical edit (rename + sense-disambiguation + companion sweeps), pass 1 critique surface is small because the constraints pre-empted it, convergence within the original S=125 budget.
