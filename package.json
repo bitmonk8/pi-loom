@@ -20,7 +20,7 @@
     "extensions": ["./extensions"]
   },
   "engines": {
-    "node": ">=20.6.0"
+    "node": ">=22.19.0"
   },
   "dependencies": {
     "ajv": "^8.17.1",
@@ -32,10 +32,10 @@
     "@types/semver": "^7.5.0"
   },
   "peerDependencies": {
-    "@mariozechner/pi-coding-agent": "~0.74.1",
-    "@mariozechner/pi-agent-core": "~0.74.1",
-    "@mariozechner/pi-ai": "~0.74.1",
-    "@mariozechner/pi-tui": "~0.74.1",
+    "@mariozechner/pi-coding-agent": "~0.75.5",
+    "@mariozechner/pi-agent-core": "~0.75.5",
+    "@mariozechner/pi-ai": "~0.75.5",
+    "@mariozechner/pi-tui": "~0.75.5",
     "typebox": "*"
   }
 }
