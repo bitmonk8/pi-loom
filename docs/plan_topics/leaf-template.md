@@ -8,7 +8,7 @@ The leaf ID convention is `<group><letter>` where `<group>` is one of `H1`–`Hn
 
 # `<id>` — `<short title>`
 
-**Spec.** `<page-1.md>`, `<page-2.md>` — the `spec_topics/*.md` files this leaf implements. An implementer MAY restrict their reading to these pages per [`governance.md` GOV-10](../spec_topics/governance.md). The field MUST be closed under normative cross-link per [`governance.md` GOV-11](../spec_topics/governance.md): if a listed page cites a normative rule on another page, that other page is also listed. _(Use **Convention.** instead of **Spec.** for infrastructure leaves that operationalise [`conventions.md`](./conventions.md) rather than a spec page; cite the section by anchor.)_
+**Spec.** `<page-1.md>`, `<page-2.md>` — the `spec_topics/*.md` files this leaf implements. An implementer MAY restrict their reading to these pages. The field MUST be closed under normative cross-link: if a listed page cites a normative rule on another page, that other page is also listed. _(Use **Convention.** instead of **Spec.** for infrastructure leaves that operationalise [`conventions.md`](./conventions.md) rather than a spec page; cite the section by anchor.)_
 
 **Adds.** _One sentence describing what the leaf introduces — the new module, the new parser surface, the new diagnostic, etc._
 
