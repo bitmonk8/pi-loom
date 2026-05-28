@@ -223,36 +223,3 @@ Witness: after the rewrite, the five heading sites all carry an explicit `<a id=
 
 (none — depends only on commit 4a7afbf, which is landed)
 
----
-
-# T17f - Companion `V2` → `loom 2.0` sweep
-
-**Original heading:** Cross-spec — `V1` terminology collision with the plan corpus
-**Original section:** `docs/spec.md`
-**Kind:** cross-spec-consistency
-**Importance:** low
-**Score:** 5
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The spec corpus carries a small number of `V2` prose callsites (currently 3 known: `docs/spec_topics/governance.md` §*Ceiling-set carve-out* and §*Operational definitions*; `docs/spec_topics/future-considerations.md` no-formal-migration-mechanism bullet). Per [GOV-20](./spec_topics/governance.md#gov-20), `V2` aliases `loom 2.0` (design-scope only). The corpus is consistent under the alias today; this finding completes the rename so no bare `V<N>` token remains as a loom release name anywhere under `docs/spec.md` + `docs/spec_topics/`.
-
-## Solution approach
-
-1. Enumerate candidates: `grep -nE '\bV2\b' docs/spec.md docs/spec_topics/ | grep -v -E 'V8|peerDependenc'`.
-2. For each candidate, verify the surrounding context is loom-release naming (not the JavaScript engine `V8`, not a Pi SDK or Node version literal, not a diagnostic code). Sites whose context is anything other than loom-release naming are out of scope per GOV-20's out-of-scope token list.
-3. Rewrite each in-scope `V2` → `loom 2.0`.
-
-Witness: `grep -nE '\bV2\b' docs/spec.md docs/spec_topics/ | grep -v -E 'V8|peerDependenc'` returns zero hits after the rewrite.
-
-## Solution constraints
-
-- Out-of-scope tokens per GOV-20 MUST NOT be touched: `V8` (JavaScript engine), Pi SDK literals, Node literals, diagnostic codes, plan-phase IDs.
-- No new normative prose is authored. The rewrite is mechanical substitution.
-
-## Relationships
-
-(none — depends only on commit 4a7afbf, which is landed)
