@@ -206,6 +206,58 @@ The Retired prefixes sub-table is itself append-only — a retired prefix cannot
 - **Cross-link form.** GOV-9's cross-link contract applies to inline labels on identical terms — every cross-page reference to an inline label MUST resolve as a `#prefix-tail` URL fragment (rendered lowercase per *GOV-1 dual-form layout applies* above), so any cross-page link of the form `…#hc3-a` or `…#noceil-3` resolves to the depended-upon label's anchor site.
 - **GOV-12 lock-step coverage.** GOV-12's lock-step convention names `HC3-a`…`HC3-e`, `CIO-1`…`CIO-6`, and `NOCEIL-1`…`NOCEIL-4` explicitly. That enumeration is correct under this rule and stays as-written; a PR that adds, removes, or renames any of the identifiers enumerated above on `hard-ceilings.md` (whether an inline label under this rule or a `CIO-N` REQ-ID under GOV-1 / GOV-3 / GOV-8 / GOV-9) MUST update the corresponding `spec.md` aggregator in the same commit per GOV-12.
 
+## Release-version naming and legacy aliases
+
+<a id="gov-19"></a> **GOV-19 (release-version naming scheme).** Loom releases are named under two parallel literal forms:
+
+- **Design-scope literal.** `loom <major>.<minor>` (e.g. `loom 1.0`, `loom 2.0`) and `loom <major>.x` (e.g. `loom 1.x`) name a major design scope. A design-scope literal makes claims about the design direction, scope decisions, scope carve-outs, and forward-compatibility seams shared by every release in the named scope.
+- **Frozen-baseline literal.** `loom <major>.<minor>.<patch>` (e.g. `loom 1.0.0`, `loom 1.0.1`) names a frozen-baseline release — a closed inventory of the release's enumerated invariants at the publishing moment. A frozen-baseline literal makes claims about closed enumerations ("exactly N panic sources", "the closed `details.kind` set", "loads cleanly under"), discriminator inventories, and any other closure-shaped invariant whose membership is fixed at the publishing moment.
+
+The two literal forms are lexically distinguishable: `loom <major>.<minor>` matches `loom \d+\.(?:\d+|x)`; `loom <major>.<minor>.<patch>` matches `loom \d+\.\d+\.\d+`. A callsite's spelling chooses its sense. Versioning follows semver semantics: `loom <major>.<minor>` is the design scope of every `loom <major>.<minor>.<patch>` release sharing that `<major>.<minor>` prefix; the relation `loom 1.0 ⊇ loom 1.0.0` holds, so a claim that binds `loom 1.0` binds every concrete release the design scope admits including `loom 1.0.0`. The frozen-baseline literal does not by itself promise stability between adjacent patch releases under that scope — inter-release stability across `loom 1.0.x` is governed by [GOV-15](#gov-15)'s source-language-equivalence release-process goal, not by this rule.
+
+A *closed enumeration*, as used in the frozen-baseline literal definition above, is any spec-corpus enumeration whose intensional or extensional membership is asserted to be exhaustive at the publishing moment — detected by surface phrases including "exactly N", "the closed set", "the N-element set", a count-bearing list ("the four hard ceilings", "the seven non-goals"), "loads cleanly under", "closed at", "frozen at", or a closed `details.kind` / `Err`-variant / discriminator inventory. The phrase set is the same closure heuristic GOV-20's sense resolver below consumes.
+
+<a id="gov-20"></a> **GOV-20 (legacy version-token aliases).** The legacy version tokens `V1`, `V1.0`, `V1.x`, and `V2` are governed aliases under the present rule. Each legacy token maps to the new naming scheme per the table below; the alias is in force at every callsite in the spec corpus until that callsite is converted to its alias-mapped spelling. Conversion is incremental — a future spec edit MAY convert any single legacy-token callsite without converting siblings, and the spec MAY carry mixed spellings during a transitional period with every untouched callsite governed by this rule.
+
+| Legacy token | Maps to | Sense |
+|---|---|---|
+| `V1` | `loom 1.0` or `loom 1.0.0` | sense-overloaded — resolved per the *closure heuristic* below |
+| `V1.0` | `loom 1.0` or `loom 1.0.0` | sense-overloaded — resolved per the *closure heuristic* below |
+| `V1.x` | `loom 1.x` | design-scope only |
+| `V2` | `loom 2.0` | design-scope only |
+
+*Closure heuristic.* The legacy tokens `V1` and `V1.0` are sense-overloaded between design-scope and frozen-baseline. At a callsite where the surrounding sentence carries any closure phrase enumerated under GOV-19's *closed enumeration* definition above, the token aliases to `loom 1.0.0` (frozen-baseline). At every other callsite the token aliases to `loom 1.0` (design-scope). Default on ambiguity: `loom 1.0.0` — frozen-baseline is the stronger commitment, and design-scope claims subsume frozen-baseline claims.
+
+*Persistence of the alias.* For prose tokens, the alias is *transitional* — once every prose callsite of a legacy token has been converted to its alias-mapped new-scheme spelling, that token's row above MAY be retired in a future edit that updates this table per GOV-7 / GOV-8 lifecycle. For HTML `<a id>` anchors, the alias is *permanent* — see GOV-21 below.
+
+*Out-of-scope tokens.* The following tokens are NOT governed by this rule and MUST NOT be classified as legacy version-token aliases:
+
+- Pi SDK version literals (e.g. `~0.74.1`, `0.75.5`) — Pi-side `peerDependencies` versions, not loom versions.
+- Node version literals (e.g. `>= 20.6.0`, `>= 22.19.0`) — runtime engine versions.
+- Diagnostic codes (e.g. `loom/parse/non-string-enum-value`) — opaque tokens.
+- Inline labels `HC3-a` … `HC3-e`, `NOCEIL-1` … `NOCEIL-4` (governed by GOV-16) and REQ-IDs `CIO-1` … `CIO-6` (governed by GOV-1 / GOV-3 / GOV-8 / GOV-9).
+- `V8` (JavaScript engine).
+- Plan-phase identifiers `V1` … `Vn` reserved by `docs/plan_topics/conventions.md:9` — these are plan-document identifiers governed by the plan's own conventions, and are out of the spec corpus's binding scope per [GOV-17](#gov-17) / [GOV-18](#gov-18). The plan-side `V1` … `Vn` reservation is unaffected by this rule.
+
+<a id="gov-21"></a> **GOV-21 (dual-anchor convention for legacy-token HTML anchors).** GOV-20's prose-token alias mechanism does not directly govern HTML `<a id>` anchors, whose identity is byte-literal: an inbound `#v1-foo` cross-link resolves only to a literal `<a id="v1-foo">` anchor at the target. To preserve back-compat for inbound `#v1-…` cross-links while converting anchor sites to the new-scheme spelling, this rule pins a dual-anchor convention.
+
+A heading or paragraph is *dual-anchored* iff it carries both a `<a id="v1-…">` anchor and a `<a id="loom-1-0-…">` (or `<a id="loom-1-0-0-…">`) anchor that resolve to the same target. The convention is forward-looking — it governs how future conversions are performed and how dual-anchored sites, once they exist, behave under retirement. Pre-existing single-anchor `<a id="v1-…">` sites that have not yet been converted are governed by GOV-20's prose-token alias mechanism alone; they do not violate this rule's per-axis obligations until they are converted to dual-anchored form.
+
+1. <a id="gov-21-canonical-arm"></a> **Canonical arm.** When a heading or paragraph is dual-anchored, new cross-references in the spec corpus MUST cite the `loom-1-0-*` (or `loom-1-0-0-*`) arm rather than the `v1-*` arm. The `v1-*` arm is retained as a back-compat alias per the *Alias permanence* sub-clause below.
+
+2. <a id="gov-21-alias-permanence"></a> **Alias permanence.** The `v1-*` arm of a dual-anchored heading or paragraph is a permanent back-compat alias, not a deprecated arm. It is NOT eligible for retirement (i.e. removal of its `<a id="v1-…">` tag while keeping the heading and its `loom-1-0-*` arm) under ordinary GOV-7 *Rename* / GOV-8 *Retire* operations except as the *Retirement discharge* sub-clause below permits. Ordinary full-section retirement (GOV-7 *Delete* / *Merge*, GOV-8 *Deletion*) of the entire heading remains permitted on its own terms and is NOT gated on the *Retirement discharge* witness; only alias-only retirement is gated.
+
+3. <a id="gov-21-intensional-definition"></a> **Intensional definition.** "Dual-anchored heading or paragraph" is defined intensionally above. The definition admits every dual-anchor placement class consistent with it, including: at-heading explicit pair (two `<a id>` tags on consecutive lines immediately before an ATX heading); inline-blockquote pair (two `<a id>` tags inline within a `> **... seam — ...**` blockquote label on a single line); at-heading explicit-pair-replacing-auto-id (two `<a id>` tags immediately before a heading whose GitHub auto-id slug shifted under the conversion); inline-paragraph pair (two `<a id>` tags inline within a paragraph or list item body). The enumeration above is open by construction: any further placement class consistent with the intensional definition is admitted without an enumeration amendment. Both ids of a dual-anchored pair resolve to the same target on any GFM-compatible renderer; the spec corpus is rendered under GFM per [GOV-18 arm (a)](#gov-18-arm-a).
+
+4. <a id="gov-21-retirement-discharge"></a> **Retirement discharge.** The `v1-*` alias on a given dual-anchored heading or paragraph MAY be retired (its `<a id="v1-…">` tag removed) only when both (a) and (b) hold:
+
+   - (a) **Spec-corpus discharge predicate.** No inbound `#v1-<slug>` cross-reference to that specific alias remains in the spec corpus (`docs/spec.md` + `docs/spec_topics/*.md`). The non-normative detection recipe `grep -rnE '#v1-<slug>\b' docs/spec.md docs/spec_topics/` is illustrative; the normative gate is the absence of inbound references regardless of detection method.
+   - (b) **Audit record.** A retirement-record row is appended to the *Retired anchor aliases* sub-table on this page (immediately after *Retired REQ-IDs* below).
+
+*Cross-corpus scope.* This rule narrows to the spec corpus alone. Plan-side citations of `#v1-…` (none currently exist) are ungoverned by GOV-21; GOV-17 is NOT amended to extend cross-corpus jurisdiction. External documents that link into the spec corpus by `#v1-…` fragment are GOV-17 dependents and carry no spec-side governance; the *Spec-corpus discharge predicate* above is correspondingly scoped to in-corpus links only.
+
+*Sibling-rule reconciliation.* GOV-21 interacts with GOV-7 (lifecycle operations), GOV-8 (anchor-stability), GOV-17 (corpus direction), and GOV-18 (binding scope). The GOV-7 / GOV-8 interaction is the *alias-only retirement* vs *full section retirement* distinction in the *Alias permanence* sub-clause above; alias-only retirement is gated by *Retirement discharge*, while full-section retirement uses the GOV-7 / GOV-8 paths without GOV-21 interaction. The GOV-17 interaction is the *Cross-corpus scope* paragraph above. The GOV-18 interaction binds GOV-21 to arm (b) (the spec corpus itself); the detection recipe under *Retirement discharge* is non-normative per arm (b)'s separation of invariant from auditing machinery.
+
 <a id="retired-req-ids"></a>
 
 ## Retired REQ-IDs
@@ -218,3 +270,19 @@ The Retired prefixes sub-table is itself append-only — a retired prefix cannot
 | GOV-13 | `c253233` | GOV-15 | Modal weakening (RFC-2119 SHOULD → non-binding "is expected to") per GOV-8 *Pure rewording* limit; original wording promised a property the spec deliberately leaves un-gated. |
 
 The Retired REQ-IDs sub-table is append-only per GOV-8. The `Retired in` column carries either the 7-character abbreviated commit SHA or a release tag (the `<retirement commit>` placeholder is replaced with a concrete SHA at the moment of the retiring commit). A retired ID's prefix-position number MUST NOT be reused per GOV-8 *Deletion*.
+
+<a id="retired-anchor-aliases"></a>
+
+## Retired anchor aliases
+
+Records the retirement of `<a id="v1-…">` back-compat aliases under [GOV-21 *Retirement discharge*](#gov-21-retirement-discharge). Retirement is per-alias: each row retires one `v1-*` alias from one owner heading or paragraph, leaving the heading's surviving `loom-1-0-*` (or `loom-1-0-0-*`) arm intact. The sub-table is append-only on the same terms as the *Retired prefixes* sub-table earlier on this page and the *Retired REQ-IDs* sub-table above; retired alias slugs MUST NOT be re-coined.
+
+| Retired alias slug | Owner heading or paragraph | Retired in | Reason |
+|---|---|---|---|
+
+- **Retired alias slug** — the kebab-case slug (e.g. `v1-seam-binder-refinement-loop`), without the leading `#`.
+- **Owner heading or paragraph** — the heading text or paragraph reference the alias was attached to, with a markdown cross-link to the heading's surviving `loom-1-0-*` (or `loom-1-0-0-*`) arm.
+- **Retired in** — the 7-character abbreviated commit SHA of the retirement commit, or the release tag of the V1.x release that performed the retirement, on the same value-space as the *Retired in* column of the *Retired prefixes* sub-table.
+- **Reason** — one short prose line.
+
+Applicability: alias-only retirements on `docs/spec.md` and `docs/spec_topics/*.md` only. Plan-corpus aliases (none currently exist) and out-of-corpus pages (`README.md`, `CHANGELOG.md` — [GOV-17](#gov-17) dependents) are out of scope of this sub-table.
