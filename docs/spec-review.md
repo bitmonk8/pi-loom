@@ -201,7 +201,7 @@ The four sites are:
 For each of the five heading sites:
 
 1. Rename the heading text in place: `V1` → `loom 1.0` (these are non-closure callsites per the GOV-20 closure heuristic — none of the surrounding heading bodies pin a closed enumeration).
-2. Author an explicit `<a id="loom-1-0-…"></a><a id="v1-…"></a>` sibling pair on the source line immediately preceding the renamed heading, per [GOV-21 *Intensional definition*](./spec_topics/governance.md#gov-21-intensional-definition) class *at-heading explicit-pair-replacing-auto-id*. The slug derivation follows the GitHub auto-id rule: lowercase, hyphenate spaces, strip parens. Examples:
+2. Author an explicit `<a id="loom-1-0-…"></a><a id="v1-…"></a>` sibling pair on the source line immediately preceding the renamed heading, per [GOV-21 *Intensional definition*](./spec_topics/governance.md#gov-21-intensional-definition) class *at-heading explicit-pair-replacing-auto-id*. The slug derivation follows the GitHub auto-id rule: lowercase, hyphenate spaces, strip parens, `1.0` → `1-0`, applying it in-place to the post-rename heading text (canonical arm) and to the pre-rename heading text (alias arm) with no leading-token hoist and no token doubling. Examples:
 
    - `### loom 1.0 non-goals` → `<a id="loom-1-0-non-goals"></a><a id="v1-non-goals"></a>`
    - `## Tooling deferrals (no loom 1.0 impact)` → `<a id="tooling-deferrals-no-loom-1-0-impact"></a><a id="tooling-deferrals-no-v1-impact"></a>`
@@ -210,7 +210,11 @@ For each of the five heading sites:
 
 3. The pre-rename auto-id slug (`v1-non-goals` etc.) is preserved by the explicit `<a id="v1-…">` arm.
 
-Witness: after the rewrite, the five heading sites all carry an explicit `<a id="loom-1-0-…">` + `<a id="v1-…">` sibling pair, and the heading text uses the canonical `loom 1.0` spelling.
+4. In the same atomic commit, update every textual occurrence on the affected pages (`docs/spec.md` and `docs/spec_topics/future-considerations.md`) that *displays the name* of one of the five renamed headings — whether as a cross-reference link display text, an intro category-list / legend label that indexes a renamed heading, or an inline restatement of a renamed heading's name — so that each such occurrence presents the canonical `loom 1.0` spelling. This display-name update MUST be complete on each affected page: no occurrence that names a renamed heading may be left on the `V1` spelling, so that no intra-paragraph or cross-section `V1` / `loom 1.0` display-name split remains for the renamed headings. Folding these display-name updates into T17d (rather than deferring them) is what keeps the rename atomic; the licensed surface is bounded to occurrences that name a renamed heading, and does NOT extend to general narrative prose unrelated to the renamed heading names.
+
+5. Link and fragment targets are NOT renamed. Every `#v1-…` fragment arm MUST remain untouched because it resolves via the permanent GOV-21 alias arm; only the human-readable display text changes. Where a cross-reference already targets a `#loom-1-0-…` or `#v1-…` anchor, the target is left exactly as the dual-anchor scheme resolves it.
+
+Witness: after the rewrite, the five heading sites all carry an explicit `<a id="loom-1-0-…">` + `<a id="v1-…">` sibling pair and the heading text uses the canonical `loom 1.0` spelling; and every cross-reference display string, intro-legend label, and adjacent heading-name restatement on the affected pages that names a renamed heading reads `loom 1.0`, with all `#v1-…` fragment arms preserved.
 
 ## Solution constraints
 
