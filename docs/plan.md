@@ -8,7 +8,7 @@ Companion to [`spec.md`](./spec.md). The plan is a set of per-phase leaf pages u
 2. Author new leaves by copying [`plan_topics/leaf-template.md`](./plan_topics/leaf-template.md) and saving under `plan_topics/<id>-<short-name>.md`. Link the new leaf into the appropriate section below.
 3. Pick the next leaf whose **Deps** are satisfied. Open that leaf's page; read only the leaf and the spec topic(s) listed under its **Spec** field.
 4. Follow the TDD ritual; tag the commit `<id>-complete` when the **Ships when** condition is observable.
-5. Maintain [`plan_topics/coverage-matrix.md`](./plan_topics/coverage-matrix.md) so every executable spec REQ-ID has at least one closing leaf by the V1.0 release gate.
+5. Maintain [`plan_topics/coverage-matrix.md`](./plan_topics/coverage-matrix.md) so every executable spec REQ-ID has at least one closing leaf by the loom 1.0 release gate.
 
 ---
 

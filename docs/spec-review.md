@@ -259,47 +259,6 @@ Witness: `grep -nE '\bV2\b' docs/spec.md docs/spec_topics/ | grep -v -E 'V8|peer
 
 ---
 
-# T17g - Plan-side `V1.0` slip fixes
-
-**Original heading:** Cross-spec — `V1` terminology collision with the plan corpus
-**Original section:** `docs/spec.md`
-**Kind:** cross-spec-consistency
-**Importance:** low
-**Score:** 5
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The plan corpus carries three known callsites where the legacy `V1.0` token appears in release-name context, violating the plan-side reservation rule at `docs/plan_topics/conventions.md:9` (which reserves `V1`–`Vn` for plan-phase IDs and forbids reusing them for release names). The callsites are:
-
-- `docs/plan.md:11` — `V1.0 release gate`
-- `docs/plan_topics/conventions.md:37` — `V1.0 closing gate`
-- `docs/plan_topics/conventions.md:43` — `V1.0 closing gate`
-- `docs/plan_topics/coverage-matrix.md` — any `V1.0 release gate` / `V1.0 closing gate` callsite (verify by grep)
-
-This finding fixes the slip; the reservation rule on `conventions.md:9` is unchanged.
-
-## Solution approach
-
-1. `grep -nE 'V1\.0 (release|closing) gate' docs/plan.md docs/plan_topics/`.
-2. For each hit, rewrite `V1.0 release gate` → `loom 1.0 release gate` and `V1.0 closing gate` → `loom 1.0 closing gate`. These are design-scope callsites per GOV-20 (no closure phrase in the surrounding sentence).
-3. Leave `docs/plan_topics/conventions.md:9` (the reservation rule) untouched.
-
-Witness: `grep -nE 'V1\.0 (release|closing) gate' docs/plan.md docs/plan_topics/` returns zero hits.
-
-## Solution constraints
-
-- The plan-phase reservation rule at `conventions.md:9` MUST NOT be modified.
-- Other plan-corpus `V1`–`Vn` tokens (plan-phase IDs themselves, e.g. leaf IDs `V1a`, `V18o`) MUST NOT be touched per GOV-20's out-of-scope clause and the plan-side reservation rule.
-
-## Relationships
-
-(none — depends only on commit 4a7afbf, which is landed)
-
----
-
 # T17h - README parking-pointer paragraph removal
 
 **Original heading:** Cross-spec — `V1` terminology collision with the plan corpus
