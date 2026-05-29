@@ -104,7 +104,7 @@ Witness: after the rewrite, `grep -nE '\bV1(\.0)?\b' docs/spec.md docs/spec_topi
 
 The spec corpus carries 11 explicit `<a id="v1-…">` HTML anchors on `> **V1 seam — …**` blockquote labels and one heading-attached anchor (the `loom-package-implementation-dependencies-v1` anchor on `pi-integration-contract.md:18`). Per [GOV-21](./spec_topics/governance.md#gov-21), inbound `#v1-…` cross-references resolve only to literal `<a id="v1-…">` tokens at the target; preserving inbound back-compat under the rename requires authoring a sibling `<a id="loom-1-0-…">` canonical arm at each site, leaving the `v1-*` arm in place per GOV-21 *Alias permanence*.
 
-This finding's scope is the existing 11 explicit `<a id="v1-…">` anchor sites plus the one heading-attached anchor on `pi-integration-contract.md:18`. The four heading-derived auto-id cases (where the prose rename causes the heading's GitHub auto-id slug to shift) are handled by T17d. Inbound fragment-link repointing is handled by T17e.
+This finding's scope is the existing 11 explicit `<a id="v1-…">` anchor sites plus the one heading-attached anchor on `pi-integration-contract.md:18`. The four heading-derived auto-id cases (where the prose rename causes the heading's GitHub auto-id slug to shift) are handled by T17d in the general case, **except** the two `v1-non-goals` heading sites (`docs/spec.md` and `docs/spec_topics/future-considerations.md`) which fall into this finding's scope via step 3's *Canonical-arm uniqueness and the collision case* clause — the corpus-wide `v1-non-goals` slug collision forces this finding to author the canonical-arm pair (`loom-1-0-non-goals` at the owner, `loom-1-0-non-goals-aggregator` at the orientation site) per GOV-21 §5 *Cross-page canonical-arm uniqueness*. Inbound fragment-link repointing is handled by T17e.
 
 ## Solution approach
 
@@ -124,7 +124,7 @@ Witness: after the rewrite, `grep -rnE '<a id="v1-' docs/spec.md docs/spec_topic
 
 - Every existing `<a id="v1-…">` anchor MUST gain a sibling `<a id="loom-1-0-…">` (or `<a id="loom-1-0-0-…">` if the surrounding paragraph is a closure-callsite per the GOV-20 closure heuristic). Silently dropping a `v1-*` arm is forbidden.
 - The dual-anchor pair MUST conform to one of the placement classes admitted by GOV-21 *Intensional definition*: at-heading explicit pair, inline-blockquote pair, at-heading explicit-pair-replacing-auto-id, or inline-paragraph pair.
-- The four heading-rename sites whose GitHub auto-id slug shifts under T17a's prose rewrite are out of scope of this finding (T17d covers them).
+- Heading-rename sites whose GitHub auto-id slug shifts under T17a's prose rewrite are out of scope of this finding in the general case (T17d's territory), **EXCEPT** the two `v1-non-goals` heading sites (`docs/spec.md` and `docs/spec_topics/future-considerations.md`) which step 3's *Canonical-arm uniqueness and the collision case* clause explicitly requires this finding to address per GOV-21 §5. At those two sites this finding authors only the canonical-arm dual pair (`loom-1-0-non-goals` at the owner, `loom-1-0-non-goals-aggregator` at the aggregator) and leaves the heading-text rename and any other heading-site authoring to T17d.
 - No prose tokens are modified by this finding (T17a/T17b cover prose rewrites).
 
 ## Relationships
