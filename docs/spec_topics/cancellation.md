@@ -1,8 +1,8 @@
 # Cancellation
 
-Every loom invocation runs under an `AbortSignal` provided by Pi. V1 cancellation rules:
+Every loom invocation runs under an `AbortSignal` provided by Pi. loom 1.0 cancellation rules:
 
-**Signal source.** Each loom invocation owns a fresh `AbortController` (`loomAbort`) that the runtime constructs at invocation start. Its `loomAbort.signal` — never `ctx.signal` directly — is the single source of truth that every downstream component sees: the interpreter's loop, `@`-query, tool-call, and `invoke` checkpoints; the `signal` argument forwarded to `tool.execute(...)` for code-side tool calls; the synthesised `ExtensionContext.signal` for the same; the parent signal handed to a child invoke; and (in subagent mode) the trigger for the one-shot listener that calls `AgentSession.abort()` on the spawned session, since `CreateAgentSessionOptions` has no `signal` field in the V1 Pi SDK pin (see [Pi Integration Contract — Subagent session lifecycle](./pi-integration-contract.md)). `loomAbort.signal` is always defined; tool adapters and Pi APIs that accept an `AbortSignal` receive it directly without optional-chaining.
+**Signal source.** Each loom invocation owns a fresh `AbortController` (`loomAbort`) that the runtime constructs at invocation start. Its `loomAbort.signal` — never `ctx.signal` directly — is the single source of truth that every downstream component sees: the interpreter's loop, `@`-query, tool-call, and `invoke` checkpoints; the `signal` argument forwarded to `tool.execute(...)` for code-side tool calls; the synthesised `ExtensionContext.signal` for the same; the parent signal handed to a child invoke; and (in subagent mode) the trigger for the one-shot listener that calls `AgentSession.abort()` on the spawned session, since `CreateAgentSessionOptions` has no `signal` field in the loom 1.0 Pi SDK pin (see [Pi Integration Contract — Subagent session lifecycle](./pi-integration-contract.md)). `loomAbort.signal` is always defined; tool adapters and Pi APIs that accept an `AbortSignal` receive it directly without optional-chaining.
 
 **Forwarding into `loomAbort`** depends on the entry point:
 

@@ -38,7 +38,7 @@ while !satisfied && round < 5 {
 }
 ```
 
-**`break` / `continue`** — bare statements; legal only inside `for` / `while` bodies. `break` outside a loop is `loom/parse/break-outside-loop`; `continue` outside a loop is `loom/parse/continue-outside-loop`. `break` exits the innermost enclosing loop; `continue` skips to the next iteration. Neither carries a value in V1: `break expr` is `loom/parse/break-with-value`. See [Future Considerations](./future-considerations.md) and [Diagnostics](./diagnostics.md).
+**`break` / `continue`** — bare statements; legal only inside `for` / `while` bodies. `break` outside a loop is `loom/parse/break-outside-loop`; `continue` outside a loop is `loom/parse/continue-outside-loop`. `break` exits the innermost enclosing loop; `continue` skips to the next iteration. Neither carries a value in loom 1.0: `break expr` is `loom/parse/break-with-value`. See [Future Considerations](./future-considerations.md) and [Diagnostics](./diagnostics.md).
 
 ```loom
 for area in focus_areas {

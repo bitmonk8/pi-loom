@@ -26,7 +26,7 @@ Loom expressions are a bounded subset of TypeScript. The same grammar applies wh
 (Parse error — `loom/parse/unsupported-feature` unless a more specific code below applies.)
 
 - Assignment in expression position (`=`, `+=`, etc.) — assignment is a statement, see [Bindings and Mutability](./bindings.md)
-- Field- or index-level mutation (`obj.field = ...`, `arr[i] = ...`) — only whole-binding rebinding is supported in V1; see [Bindings and Mutability](./bindings.md)
+- Field- or index-level mutation (`obj.field = ...`, `arr[i] = ...`) — only whole-binding rebinding is supported in loom 1.0; see [Bindings and Mutability](./bindings.md)
 - Arrow functions and any callback-taking higher-order method (no `map` / `filter` / `reduce`; use `for`)
 - Spread / rest (`...`)
 - `new`, `typeof`, `instanceof`, `delete`, `void`, `yield`, `await`
@@ -59,13 +59,13 @@ Only `true` and `false` are accepted in boolean position (`if`, `while`, `&&`, `
 
 ## Built-in methods and properties
 
-A small stdlib is exposed on the primitive composite types. No user-defined methods; no `this`. V1 set:
+A small stdlib is exposed on the primitive composite types. No user-defined methods; no `this`. loom 1.0 set:
 
 *`string`*
 
 | Member | Signature | Semantics |
 |---|---|---|
-| `length` | `: integer` | Number of UTF-16 code units (matches JS `.length`; loom does not perform grapheme segmentation in V1) |
+| `length` | `: integer` | Number of UTF-16 code units (matches JS `.length`; loom does not perform grapheme segmentation in loom 1.0) |
 | `toLowerCase()` | `(): string` | Locale-independent (`String.prototype.toLowerCase`) |
 | `toUpperCase()` | `(): string` | Locale-independent |
 | `trim()` | `(): string` | Strips Unicode whitespace from both ends |
@@ -80,7 +80,7 @@ A small stdlib is exposed on the primitive composite types. No user-defined meth
 | Member | Signature | Semantics |
 |---|---|---|
 | `length` | `: integer` | Element count |
-| `join(sep)` | `(sep: string): string` | Concatenates elements with `sep`. Element type must be `string`; non-string element types are `loom/parse/non-string-array-join` (no implicit type conversion in V1) |
+| `join(sep)` | `(sep: string): string` | Concatenates elements with `sep`. Element type must be `string`; non-string element types are `loom/parse/non-string-array-join` (no implicit type conversion in loom 1.0) |
 | `includes(x)` | `(x: T): boolean` | Membership test using loom structural equality |
 | `indexOf(x)` | `(x: T): integer` | First index by structural equality, or `-1` if absent |
 | `slice(start, end?)` | `(start: integer, end?: integer): array<T>` | JS semantics: negative indices count from the end; `end` exclusive; omitted `end` slices to length |
@@ -147,4 +147,4 @@ For a discriminated union `schema Animal = Cat | Dog | Lizard`, construct via th
 
 ## Other arithmetic
 
-`-`, `*`, `/`, `%` accept only numeric operands. `/` always produces `number` (no integer-division operator in V1; see [Future Considerations](./future-considerations.md)). `%` requires same-typed operands and preserves the type. Division by zero produces IEEE-754 `Infinity` / `-Infinity` / `NaN` per JS semantics; it does not panic.
+`-`, `*`, `/`, `%` accept only numeric operands. `/` always produces `number` (no integer-division operator in loom 1.0; see [Future Considerations](./future-considerations.md)). `%` requires same-typed operands and preserves the type. Division by zero produces IEEE-754 `Infinity` / `-Infinity` / `NaN` per JS semantics; it does not panic.

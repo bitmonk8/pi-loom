@@ -22,7 +22,7 @@ findings = findings.concat([new_finding])
 
 Because assignment is statement-only, `if (x = 1) { ... }` is `loom/parse/assignment-as-expression`. Use a separate `let mut` + `if` instead.
 
-**Mutability is binding-level only.** V1 does not support `obj.field = ...` or `arr[i] = ...` (`loom/parse/assignment-to-member-or-index`). Update by rebinding the whole value — `concat`, `slice`, etc. already return fresh values, and `let mut` lets you swing the binding to point at the new one. This keeps data structurally immutable (no aliasing semantics to define) and matches the rest of the stdlib's pure-function style.
+**Mutability is binding-level only.** loom 1.0 does not support `obj.field = ...` or `arr[i] = ...` (`loom/parse/assignment-to-member-or-index`). Update by rebinding the whole value — `concat`, `slice`, etc. already return fresh values, and `let mut` lets you swing the binding to point at the new one. This keeps data structurally immutable (no aliasing semantics to define) and matches the rest of the stdlib's pure-function style.
 
 **Immutable contexts.** The following bindings are always immutable; `mut` on any of them is `loom/parse/mut-on-immutable-context`:
 
@@ -31,6 +31,6 @@ Because assignment is statement-only, `if (x = 1) { ... }` is `loom/parse/assign
 - `match` pattern bindings
 - The discard form `let _ = ...` (also: `let mut _ = ...` is `loom/parse/mut-on-discard` — `_` cannot be reassigned)
 
-Function parameters being immutable is a deliberate V1 simplification. See [Future Considerations](./future-considerations.md) for the deferred-feature inventory.
+Function parameters being immutable is a deliberate loom 1.0 simplification. See [Future Considerations](./future-considerations.md) for the deferred-feature inventory.
 
 **Increment / decrement.** `++` and `--` are `loom/parse/increment-decrement`. Use `count += 1` / `count -= 1`. Same Rust rationale: one obvious way, no prefix-vs-postfix confusion. See [Diagnostics](./diagnostics.md) for the full code registry.
