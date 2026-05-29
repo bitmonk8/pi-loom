@@ -153,3 +153,20 @@ it does not persist across worktree wipes)._
 - **Fixer notes:** none
 
 ---
+
+## 2026-05-29 — T17d - Heading-derived auto-id case: rename and explicit dual-anchor authoring
+
+- **Failure mode:** surface-expansion-irrecoverable-cycle (input FailureMode `surface-expansion-irrecoverable`; resolved to the `-cycle` subkind per loop notes — routes identically)
+- **Category:** 2 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** 1,0,3,5,1,4,3
+- **Score trajectory:** 5,0,50,80,35,140,50 vs S=15
+- **Passes:** 7
+- **Stage at exit:** 2 (5 pass(es) in stage)
+- **Snapshot refs (retained for forensics):** `refs/loom/snapshots/2026-05-28T23-48-58_d5b792`
+- **Poisoned fixes:** assumptions:01,placement:02,consistency:03,completeness:01
+- **Forensic report:** `.pi/tmp/spec-fix-failure-forensics/2026-05-28T17-46-50_881871/t17d-heading-derived-auto-id-case-rename-and-explicit-dual-anchor-authoring.md` _(gitignored)_
+- **Parked findings (this run):** `T17d - Heading-derived auto-id case: rename and explicit dual-anchor authoring, T17e - Inbound fragment-link `#v1-…` rewrite to canonical arm`
+- **Loop notes:** Phase-2 re-dispatch attempt 2 (status reported as surface-expansion-irrecoverable-cycle, a -cycle subkind of surface-expansion-irrecoverable; routes identically). Surface-expansion-irrecoverable on a single-site cycle confined to docs/spec_topics/governance.md §GOV-21: two consecutive backtrack-and-exclude events both triggered at pass 4 (Σ=80 then Σ=140) and neither recovered. CATEGORY 2 (fixer narrowing mechanism cannot converge on the GOV-21 text; no bimodal/two-site/multi-axis discriminator present). Snapshot refs retained under refs/loom/snapshots/2026-05-28T23-48-58_d5b792/ for forensics. Phase 2 generalization: outcome=converged-then-surface-expanded; attempts=1; axes=structural-shape-pin; peak-scoresums-trajectory=35,140; log=C:/UnitySrc/pi-loom/.pi/tmp/spec-fix-loop/2026-05-28T19-11-27_988901/_origin/_generalization-log.md. Widening regressed trajectory 4× by peak score: pre-widening (heading-only edit surface) peak=35 with constraint-contradiction-detected exit; post-widening (heading + display-name surface) peak=140 with surface-expansion-irrecoverable on GOV-21. Reshape required: re-narrow T17d to its original heading-only edit surface AND author missing T17a/T17e split point for display-name updates (or accept the original constraint-contradiction shape as the correct exit for T17d's surface as designed).
+- **Fixer notes:** none
+
+---
