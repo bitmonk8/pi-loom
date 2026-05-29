@@ -93,7 +93,7 @@ The five items below have no dedicated `> **V1 seam — <name>.**` blockquote on
 
 ---
 
-<a id="v1-non-goals"></a>
+<a id="loom-1-0-non-goals"></a><a id="v1-non-goals"></a>
 ## V1 non-goals
 
 The V1 non-goals are cross-cutting V1 scope decisions where V1 ships without a forward-compatibility seam: a future revision adding the disposition is not anticipated by V1 and will require a migration. The non-goals here are distinct from the model-level changes in category 3 of the intro list above — category 3 covers post-V1 changes to V1's runtime value, evaluation, or tool-result contracts, whereas the non-goals below are cross-cutting "we chose not to deliver this" scope dispositions that do not change those value-model contracts. (The seam-vs-non-goal distinction is stated in category 4 of the intro list at the top of this page; see also [`spec.md` — V1 non-goals](../spec.md#v1-non-goals) and [Governance — GOV-12](./governance.md).)
