@@ -4,7 +4,7 @@ _Generated: 2026-05-30T08:30:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T07) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 5 medium retained; 7 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 4 medium retained; 7 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
 
 ---
 
@@ -138,28 +138,3 @@ pooled" predicate, which is not separately observable from "not shared".
 - T03 "SM-7c states a sequential-execution guarantee without an observable test predicate" - same-cluster (same testability pattern in the SM block; resolve independently, read together).
 - T05 "SM-2 — `best-effort` qualifier carries no observable meaning at the spec.md layer" - same-cluster (same SM block; resolve independently).
 
----
-# T05 - SM-2 — `best-effort` qualifier carries no observable meaning at the spec.md layer
-
-**Kind:** clarity
-**Importance:** medium
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-SM-2's parenthetical ("visibility of that sink is best-effort per PIC and a failing emission never unwinds the teardown handler") uses `best-effort` as a bare qualifier with no in-text observable, so a reader of SM-2 alone cannot tell what the surviving guarantee is — may the `loom/host/session-shutdown-reason-unknown` diagnostic be dropped, and is delivery to an operator surface promised at all. The surviving guarantee is defined only downstream, in PIC's *Pi-side stdio visibility* sub-clause inside `#diagnostic-emission-isolation`: the runtime emits and wraps each call so a swallowed write never unwinds the handler, but the spec makes no normative claim the write reaches an operator surface. SM-2's `per PIC` points at the umbrella `#diagnostic-emission-isolation` anchor, which covers wire format, fallback, count semantics, and more — it does not pin the reader to the sentence that defines `best-effort`. The "failing emission never unwinds the teardown handler" half of the parenthetical is observable on its own and needs no rescue; only `best-effort` is empty at this layer.
-
-## Solution approach
-
-Rewrite the SM-2 parenthetical at `#sm-2-closed-shutdown-reason-set` in `spec.md` to state the observable inline instead of deferring with bare `best-effort per PIC`: the spec makes no normative claim that the emission reaches an operator surface, while the per-PIC wrap still guarantees a failing emission never unwinds the teardown handler. The defect is the wording, so carry that observable into the edit directly rather than leaving an unanchored deferral.
-
-## Solution constraints
-
-- Out of scope: `docs/spec_topics/pi-integration-contract.md` — the `#diagnostic-emission-isolation` paragraph already defines the term and is not edited.
-
-## Relationships
-
-- T06 "SM-1…SM-8 block sits under Orientation despite owning normative contracts cited by downstream topic pages" - must-follow (resolve after the SM block is relocated so this edit lands on the new home).
-- T03 "SM-7c states a sequential-execution guarantee without an observable test predicate" - same-cluster (same SM block; resolve independently).
-- T04 "SM-8 lacks observable acceptance criteria for non-sharing of per-invocation budgets across siblings" - same-cluster (same SM block; resolve independently).
