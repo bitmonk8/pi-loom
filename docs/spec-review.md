@@ -4,7 +4,7 @@ _Generated: 2026-05-30T08:30:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T07) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 2 high, 5 medium retained; 7 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 1 high, 5 medium retained; 7 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
 
 ---
 
@@ -188,25 +188,3 @@ Promote the SM-1…SM-8 block — together with its two governance/meta paragrap
 - T05 "SM-2 — `best-effort` qualifier carries no observable meaning at the spec.md layer" - must-precede (relocate the SM block before this SM-specific edit lands, so it applies to the new home).
 - T04 "SM-8 lacks observable acceptance criteria for non-sharing of per-invocation budgets across siblings" - must-precede (relocate the SM block before this edit lands).
 - T03 "SM-7c states a sequential-execution guarantee without an observable test predicate" - must-precede (relocate the SM block before this edit lands).
-# T07 - V1 non-goals aggregator out of lock-step with owning page (count and membership)
-
-**Kind:** cross-spec-consistency-broad
-**Importance:** high
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`spec.md`'s V1 non-goals orientation aggregator (`id="v1-non-goals"`) says "the seven items" and inlines a `;`-separated list of seven non-goals, but the GOV-12 owning page — `spec_topics/future-considerations.md` § V1 non-goals — carries eight bullets. The missing member is the stdio-capture non-goal at `id="pi-stdio-capture-facet"` ("No reliance on a Pi extension-host stdio-capture facet"). The aggregator's own closing sentence commits it to GOV-12 lock-step with that page, yet it both miscounts the list and omits a member, so an orientation reader cannot discover the stdio-capture disposition from `spec.md` nor trust the cardinality cue.
-
-## Solution approach
-
-In `spec.md`'s `id="v1-non-goals"` aggregator, update the cardinality cue from "seven" to "eight" and add a `;`-delimited clause paraphrasing the owning `#pi-stdio-capture-facet` bullet, with a cross-link to `future-considerations.md#pi-stdio-capture-facet`.
-
-## Solution constraints
-
-- Out of scope: `future-considerations.md` is the GOV-12 single-source owner of this list; reconcile by editing `spec.md` only, not the owning page.
-
-## Relationships
-
-None
