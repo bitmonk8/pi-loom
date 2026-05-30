@@ -4,7 +4,7 @@ _Generated: 2026-05-30T08:30:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T07) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 1 high, 5 medium retained; 7 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 5 medium retained; 7 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
 
 ---
 
@@ -163,30 +163,3 @@ Rewrite the SM-2 parenthetical at `#sm-2-closed-shutdown-reason-set` in `spec.md
 - T06 "SM-1…SM-8 block sits under Orientation despite owning normative contracts cited by downstream topic pages" - must-follow (resolve after the SM block is relocated so this edit lands on the new home).
 - T03 "SM-7c states a sequential-execution guarantee without an observable test predicate" - same-cluster (same SM block; resolve independently).
 - T04 "SM-8 lacks observable acceptance criteria for non-sharing of per-invocation budgets across siblings" - same-cluster (same SM block; resolve independently).
-# T06 - SM-1…SM-8 block sits under Orientation despite owning normative contracts cited by downstream topic pages
-
-**Kind:** placement
-**Importance:** high
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The SM-1…SM-8 block sits under `## Orientation` (between `### Prerequisites` and `### Scope`), introduced only by an italic `*Session model.*` lead-in with no heading of its own, yet it owns normative session-level obligations — SM-2's fail-safe routing of unknown `event.reason` values, SM-3a's fixed teardown sequence, SM-7c's prompt-mode sequential-execution contract, SM-8's per-invocation budget non-sharing — that no topic page restates; downstream pages cite back to its `sm-N-…` anchors rather than owning the rules. This inverts the convention the rest of `spec.md` uses, where `## Orientation` aggregates and forward-links to the normative topic pages. A reader scanning `## Extension Architecture` (whose `concurrency-model` bullet defers upward to SM-7) or `## Implementation Notes` for the session-shutdown teardown sequence, prompt-mode serialisation guarantee, or budget-isolation rule will not find them where the document structure trains them to look.
-
-## Solution approach
-
-Promote the SM-1…SM-8 block — together with its two governance/meta paragraphs (`<a id="sm-anchor-scheme-stability">` and the SM-3 / SM-7 sub-umbrella citation-guidance) — out of `## Orientation` into a new top-level `## Session Model` section placed among the post-Orientation body sections (`## Extension Architecture`, `## Implementation Notes`). Rewrite the italic `*Session model.*` lead-in as a section intro and add a forward-link from `## Orientation` → `### Reading order` to the new section.
-
-The new section carries a **mixed disposition**, not a uniform aggregator role: for each SM-N obligation that a topic page actually restates, the section forward-links that topic-page owner and frames the SM-N entry as informative orientation; for the obligations no topic page restates — at minimum SM-8 (per-invocation budget non-sharing) and SM-7c (prompt-mode sequential-execution / genuine-concurrency conclusion), and any further spec-native SM-N such as SM-2's fail-safe routing of out-of-set `event.reason` values — the section is the authoritative-in-place home and downstream pages cite back to its `sm-N-…` anchors. The orientation prose in `### Reading order` and the `### V1 non-goals` cross-reference to `[Session model](#session-model)` MUST NOT assert that the section "owns" obligations that have a topic-page owner, but they MUST NOT claim categorically that *every* SM-N forward-links an external owner either; the fixer SHOULD describe the section as forward-linking topic-page owners where one exists while being authoritative-in-place for the obligations no topic page restates, consistent with the open-ended (not counted) forward-link inventory. Leave the `concurrency-model` bullet in `## Extension Architecture` as a forward-link to the new section.
-
-## Solution constraints
-
-- Every `<a id="sm-…">` anchor and the umbrella `<a id="session-model">` anchor MUST stay byte-identical across the move; the SM-anchor-scheme-stability rule forbids reuse or renumbering of a published `sm-N-…` anchor.
-- Out of scope: the inbound `#session-model` / `#sm-N-…` citations on `spec_topics/pi-integration-contract.md` and `spec_topics/future-considerations.md` — do not retarget them; the move must keep them resolving as-is.
-
-## Relationships
-
-- T05 "SM-2 — `best-effort` qualifier carries no observable meaning at the spec.md layer" - must-precede (relocate the SM block before this SM-specific edit lands, so it applies to the new home).
-- T04 "SM-8 lacks observable acceptance criteria for non-sharing of per-invocation budgets across siblings" - must-precede (relocate the SM block before this edit lands).
-- T03 "SM-7c states a sequential-execution guarantee without an observable test predicate" - must-precede (relocate the SM block before this edit lands).
