@@ -4,7 +4,7 @@ _Generated: 2026-05-30T19:55:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - among retained findings the last is addressed first; the first (T14) is addressed last._
 
-_Retained after manual filter: 3 high findings only (T14, T16, T18). All 17 medium findings dropped per request (none is an absolute prerequisite of a high finding)._
+_Retained after manual filter: 2 high findings only (T14, T16). All 17 medium findings dropped per request (none is an absolute prerequisite of a high finding)._
 
 ---
 
@@ -51,29 +51,6 @@ Move the SM-7b isolation rule and the SM-7d no-cap / no-scheduler rule out of `i
 
 - Preserve the `no-invocation-cap` anchor name at its new location — spec.md (and any future page) cites it as a URL fragment.
 - Per GOV-9, retarget every back-reference to the moved rules in the same commit, including prose that names `implementation-notes.md` or the `Per-invocation single-threaded execution` bullet title as the owner.
-
-## Relationships
-
-None
-
-# T18 - Binder-envelope preservation MUSTs use placeholder REQ-ID labels
-
-**Kind:** naming, testability
-**Importance:** high
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The three forward-compatibility preservation MUSTs under the binder-refinement-loop seam in `docs/spec_topics/binder.md` are tagged `**BNDR-<i>.**`, `**BNDR-<j>.**`, `**BNDR-<k>.**`. The angle-bracket suffixes are template-metavariable placeholders, not numeric tails, so the labels match neither GOV-3's REQ-ID grammar nor GOV-16's inline-label grammar (`BNDR` is a REQ-ID prefix, so the inline-label arm is unavailable). The three obligations therefore fall outside every governed cross-page-citable identifier class: the GOV-3 extractor skips them, `#bndr-<i>` cannot serve as a URL fragment because the angle brackets are reserved HTML, and the coverage matrix has no key to map them to leaves. A future commit that drops one of the three would not surface as a coverage-matrix regression.
-
-## Solution approach
-
-Rename the three placeholder labels in `docs/spec_topics/binder.md` to sequentially allocated numeric REQ-IDs `BNDR-1`, `BNDR-2`, `BNDR-3` under the already-registered `BNDR` prefix (these are next-available), each rendered in GOV-1 dual-form for body-paragraph context.
-
-## Solution constraints
-
-- None.
 
 ## Relationships
 
