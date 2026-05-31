@@ -4,7 +4,7 @@ _Generated: 2026-05-30T19:55:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - among retained findings the last is addressed first; the first (T14) is addressed last._
 
-_Retained after manual filter: 2 high findings only (T14, T16). All 17 medium findings dropped per request (none is an absolute prerequisite of a high finding)._
+_Retained after manual filter: 1 high finding only (T14). All 17 medium findings dropped per request (none is an absolute prerequisite of a high finding)._
 
 ---
 
@@ -31,27 +31,3 @@ Rewrite the `#no-invocation-cap` MUST NOT clause as an observable conformance ob
 ## Relationships
 
 - T16 "SM-7b and SM-7d normative obligations live on an implementer-hints page" - must-follow (that finding may move the SM-7d-anchored rule to a new `session-model.md` topic page; if it lands first, this edit applies to the new home rather than to `implementation-notes.md`)
-
-# T16 - SM-7b and SM-7d normative obligations live on an implementer-hints page
-
-**Kind:** placement
-**Importance:** high
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-SM-7b and SM-7d in spec.md's Session Model delegate their substantive normative content to `spec_topics/implementation-notes.md` — SM-7b's subagent-mode transcript / tool-table isolation rule lives in the `Per-invocation single-threaded execution` bullet, and SM-7d's no-cap / no-scheduler prohibition lives at the `#no-invocation-cap` anchor. That page self-describes as a home for parser / runtime hints and explicitly non-normative implementation choices, giving a reviewer or implementer no topical signal that it houses MUST / MUST NOT obligations of the same standing as the SM-N sequence. An implementer reading the page per its advertised purpose could treat the concurrency / isolation contract as guidance and introduce, for example, a soft admission cap or a per-extension scheduler.
-
-## Solution approach
-
-Move the SM-7b isolation rule and the SM-7d no-cap / no-scheduler rule out of `implementation-notes.md` into the normative topic page T15 establishes (co-resolving with T15, which proposes `spec_topics/session-model.md` as the same destination), retaining the `no-invocation-cap` anchor at the new location. Retarget the SM-7b and SM-7d forward-links in spec.md to the new page. Reduce the vacated `implementation-notes.md` content to a stub or delete it, leaving the page to host only its non-normative hints.
-
-## Solution constraints
-
-- Preserve the `no-invocation-cap` anchor name at its new location — spec.md (and any future page) cites it as a URL fragment.
-- Per GOV-9, retarget every back-reference to the moved rules in the same commit, including prose that names `implementation-notes.md` or the `Per-invocation single-threaded execution` bullet title as the owner.
-
-## Relationships
-
-None
