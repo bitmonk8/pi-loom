@@ -2,9 +2,9 @@
 
 _Generated: 2026-06-01T12:18:38Z_
 _Spec: docs/spec.md_
-_Process: bottom-up - the last finding (T07) is addressed first; the first finding (T01) is addressed last._
+_Process: bottom-up - the last finding (T06) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 high, 6 medium retained; 20 low discarded; 3 low findings merged into 1 medium finding; 0 nit dropped; 0 false dropped._
+_Triage tally: 0 high, 6 medium retained; 20 low discarded; 3 low findings merged into 1 medium finding; 0 nit dropped; 0 false dropped._
 
 ---
 
@@ -143,25 +143,3 @@ Add an acceptance criterion to SM-8 covering each of its three enumerated budget
 ## Relationships
 
 - T05 "SM-7c lacks an acceptance criterion" — same-cluster (identical missing-acceptance-criterion defect shape on a sibling Session Model MUST; the same Pi-double / fixture-grid pattern applies — read the two together).
-# T07 - "obligation 2 above" cross-reference resolves to the wrong item
-
-**Kind:** consistency
-**Importance:** high
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-Inside `Orientation → Prerequisites` on `spec.md`, the term *obligation* is bound to two different lists. The **Pi SDK and capabilities** paragraph anchors "obligation N" to the seven SDK capabilities via the `CAPABILITY_OBLIGATIONS` constant and its `CAPABILITY_OBLIGATIONS.length === 7` assertion. The following **Host runtime** paragraph numbers three host *preconditions*, and Host-runtime item 3 cross-references the `AbortSignal` precondition as "obligation 2 above". Under the section's dominant reading "obligation 2" resolves to capability item 2 (prompt-mode conversation drive), so the sentence asserts a false coverage relationship for cancellation propagation. `pi-integration-contract.md` Step 0 (b) reciprocally labels the same item "Host runtime obligation 2", so the corpus has not settled on one term for the host-runtime list.
-
-## Solution approach
-
-Rename the colliding cross-reference in `spec.md`'s **Host runtime** item 3 so it refers to the host-runtime list (precondition 2) rather than reusing the capability-list "obligation N" vocabulary, and apply the chosen term consistently across the host-runtime list. Update the reciprocal "Host runtime obligation 2" back-reference in `pi-integration-contract.md` Step 0 (b) to match. Scan the rest of `Orientation → Prerequisites` for any other bare "obligation N" / "precondition N" host-runtime cross-reference and apply the same term.
-
-## Solution constraints
-
-- Out of scope: the `CAPABILITY_OBLIGATIONS` constant and the capability-list `obligation` = SDK-capability framing — the host-runtime relabel must not rename either.
-
-## Relationships
-
-None
