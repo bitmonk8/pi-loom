@@ -2,9 +2,9 @@
 
 _Generated: 2026-06-01T09:02:14Z_
 _Spec: docs/spec.md_
-_Process: bottom-up - the last finding (T12) is addressed first; the first finding (T10) is addressed last._
+_Process: bottom-up - the last finding is addressed first; the first finding (T10) is addressed last._
 
-_Triage tally: 3 high retained; 9 medium removed post-triage by request; 15 low discarded; 7 low findings merged (then removed with the mediums); 2 nit dropped; 0 false dropped._
+_Triage tally: 2 high retained; 9 medium removed post-triage by request; 15 low discarded; 7 low findings merged (then removed with the mediums); 2 nit dropped; 0 false dropped._
 
 ---
 
@@ -32,27 +32,3 @@ Clarify PIC's `typebox` sub-paragraph under `#pi-sdk-pin` to state the bundling-
 
 None
 
----
-# T12 - `loom-system-note` equivalence is undefined for strings that embed variable sub-fields
-
-**Kind:** testability
-**Importance:** high
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The Source-language stability bullet (`spec.md`, `source-language-stability`) and its normative owner GOV-15 (`governance.md`, `gov-15`) promise that loom 1.x releases produce "identical … `loom-system-note` content strings" for any given input, listing wall-clock timing, token counts, and log-line volume as exclusions from the expectation. But the diagnostics registry embeds wall-clock-derived and per-invocation values directly inside `loom-system-note` content strings via the closed placeholder categories in `diagnostics.md`'s "Placeholder rendering" section — e.g. the `<ms>` elapsed-wall-time and `<uuid>`/`<invocation-id>` per-invocation placeholders. Two loom 1.x releases run on the same input therefore cannot produce byte-identical content strings even when behaviour is unchanged. GOV-15 observable (c) consequently has no decision procedure: applied literally every release fails on the first wall-clock- or UUID-bearing note, and the exclusion list names out-of-scope observables rather than a rule for normalising the strings before comparison.
-
-## Solution approach
-
-Rewrite the bare "identical … `loom-system-note` content strings" promise in both the `spec.md` `source-language-stability` bullet and GOV-15's main paragraph (`governance.md`, `gov-15`) to define an equivalence relation over rendered content strings rather than asserting raw byte-identicality. Delegate the variable-versus-fixed sub-field distinction to the `diagnostics.md` "Placeholder rendering" categories (§1–§8), including the existing category-8 prefix/suffix-anchoring treatment, so the wall-clock and per-invocation placeholders are the named source of permitted variation. Reconcile the standalone exclusion-list sentence with the new equivalence rule rather than leaving it to carry the comparison semantics alone.
-
-## Solution constraints
-
-- Both edit sites (the `spec.md` `source-language-stability` bullet and GOV-15's main paragraph) MUST land in the same commit with mirrored phrasing, per the GOV-12 lock-step convention.
-- Out of scope: do not modify the `diagnostics.md` placeholder-rendering framework — the equivalence rule references it but the framework is the source of truth and stays unedited.
-
-## Relationships
-
-- T11 "`loads cleanly` is the GOV-15 trigger condition but is undefined" - same-cluster (same Source-language stability bullet / GOV-15 paragraph; T11 pins the *Given*, this finding pins the *Then* observable (c); independent gaps that will likely land in the same edit pass).
