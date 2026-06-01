@@ -4,7 +4,7 @@ _Generated: 2026-05-31T15:30:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T25) is addressed first; the first finding (T17) is addressed last._
 
-_Triage tally: 6 high retained._
+_Triage tally: 5 high retained._
 
 ---
 
@@ -124,25 +124,3 @@ Clarify expressions.md § "Other arithmetic" to specify modulo-by-zero behaviour
 ## Relationships
 
 - T19 "Integer-literal magnitude bound is unspecified" - same-cluster (independent numeric edge-case completeness gap on a different surface — lexical vs. operator).
-# T22 - Typed-query non-compliance paragraph names a placeholder (`<validator-errors>`) that does not exist
-
-**Kind:** implementability
-**Importance:** high
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The typed-query non-compliance paragraph in `docs/spec_topics/pi-integration-contract.md` (the synthesised-issue clause that feeds the respond-repair pipeline) names a `<validator-errors>` placeholder on the `validator_error` template. That template, defined normatively in `query.md` under *Follow-up turn templates*, carries no such placeholder — its sole AJV-derived placeholder is `<ajv-summary>`, the same name used by the sibling binder failure-mode templates. The token `<validator-errors>` appears nowhere else in the corpus, so an implementer or test author keying on it either searches for a token that does not exist or invents a second, divergent placeholder. This citation is the only documented bridge between the PIC non-compliance arm and the normatively-pinned template.
-
-## Solution approach
-
-In `pi-integration-contract.md`, rename the `<validator-errors>` placeholder reference in the typed-query non-compliance paragraph to `<ajv-summary>`, matching the placeholder the `validator_error` template actually defines in `query.md`. The surrounding clause describing the placeholder as rendered from the synthesised issue as if AJV had produced it remains accurate, since `<ajv-summary>` is the AJV-derived placeholder being described.
-
-## Solution constraints
-
-- Out of scope: the `validator_error` template and its `<ajv-summary>` placeholder rule in `query.md` are normative and read-only — align the PIC citation to the template, not the template to the citation.
-
-## Relationships
-
-None

@@ -269,7 +269,7 @@ No Pi-side change is required for loom 1.0; if Pi later adds `pi.unregisterTool`
 
 The `<provider-emitted-tool-name>` placeholder is the `name` field of the provider's `tool_use` block, verbatim; when multiple wrong-tool calls appear in the same turn, the first block's `name` is used (consistent with the "single `ValidationIssue`" rule above).
 
-The synthesised issue feeds the same respond-repair pipeline as an AJV failure: it consumes one `respond_repair.attempts` slot, and the follow-up template is the methodology-appropriate one (the `validator_error` template's `<validator-errors>` placeholder is rendered from this synthesised issue exactly as if AJV had produced it). Terminal exhaustion returns:
+The synthesised issue feeds the same respond-repair pipeline as an AJV failure: it consumes one `respond_repair.attempts` slot, and the follow-up template is the methodology-appropriate one (the `validator_error` template's `<ajv-summary>` placeholder is rendered from this synthesised issue exactly as if AJV had produced it). Terminal exhaustion returns:
 
 ```
 Err(QueryError {
