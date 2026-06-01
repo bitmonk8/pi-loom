@@ -4,7 +4,7 @@ _Generated: 2026-05-31T15:30:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T25) is addressed first; the first finding (T17) is addressed last._
 
-_Triage tally: 5 high retained._
+_Triage tally: 4 high retained._
 
 ---
 
@@ -101,26 +101,3 @@ Rewrite the `\u{XXXX}` escape definition in lexical.md's `**String literals.**` 
 ## Relationships
 
 - T19 "Integer-literal magnitude bound is unspecified" — same-cluster (sibling completeness gap in the same lexical section; resolve in the same editorial pass).
-# T21 - `%` by zero is unspecified
-
-**Kind:** completeness
-**Importance:** high
-**Decision axes:** 3
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`docs/spec_topics/expressions.md` § "Other arithmetic" pins division-by-zero behaviour (IEEE-754 `Infinity` / `-Infinity` / `NaN`, "does not panic") and states that `%` "requires same-typed operands and preserves the type", but never states what `n % 0` evaluates to. In the JS host this section keys off, `n % 0` is `NaN`, which collides with the type-preservation clause for `integer % integer`: `NaN` is a `number`, not an `integer`, so applying the operator type rule literally yields a value whose runtime type contradicts its static type. The diagnostics-page panic-catalogue exclusion paragraph lists "division by zero, integer overflow, and explicit author-driven panics" but omits modulo, so an implementer cannot infer the intended channel by analogy. Two reasonable implementations diverge — one returning `NaN`, another panicking, another widening the integer result to `number`.
-
-## Solution approach
-
-Clarify expressions.md § "Other arithmetic" to specify modulo-by-zero behaviour by analogy with the existing division-by-zero rule: `% 0` yields IEEE-754 `NaN` and does not panic, and the `%` type-preservation rule is conditional on a non-zero divisor so an `integer % 0` result widens to `number` per the `integer ⊑ number` rule (rule 2, [Type System — Type compatibility](./type-system.md#type-compatibility)). Extend diagnostics.md's `loom/runtime/*` closing exclusion paragraph to list modulo by zero alongside division by zero among the deliberately-excluded non-panics.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T19 "Integer-literal magnitude bound is unspecified" - same-cluster (independent numeric edge-case completeness gap on a different surface — lexical vs. operator).

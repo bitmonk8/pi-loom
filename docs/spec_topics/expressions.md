@@ -147,4 +147,4 @@ For a discriminated union `schema Animal = Cat | Dog | Lizard`, construct via th
 
 ## Other arithmetic
 
-`-`, `*`, `/`, `%` accept only numeric operands. `/` always produces `number` (no integer-division operator in loom 1.0; see [Future Considerations](./future-considerations.md)). `%` requires same-typed operands and preserves the type. Division by zero produces IEEE-754 `Infinity` / `-Infinity` / `NaN` per JS semantics; it does not panic.
+`-`, `*`, `/`, `%` accept only numeric operands. `/` always produces `number` (no integer-division operator in loom 1.0; see [Future Considerations](./future-considerations.md)). `%` requires same-typed operands and, for a non-zero divisor, preserves the type. Division by zero produces IEEE-754 `Infinity` / `-Infinity` / `NaN` per JS semantics; it does not panic. Modulo by zero (`n % 0`) likewise produces `NaN` and does not panic; because `NaN` is a `number`, an `integer % 0` result widens to `number` — the same `integer ⊑ number` widening defined in [Type System — Type compatibility](./type-system.md#type-compatibility) (rule 2).
