@@ -4,7 +4,7 @@ _Generated: 2026-05-31T15:30:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T25) is addressed first; the first finding (T17) is addressed last._
 
-_Triage tally: 3 high retained._
+_Triage tally: 2 high retained._
 
 ---
 
@@ -53,28 +53,3 @@ Add a per-key validation rule to "Settings file reads" in `discovery.md` stating
 ## Relationships
 
 None
-# T19 - Integer-literal magnitude bound is unspecified
-
-**Kind:** completeness
-**Importance:** high
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`lexical.md`'s **Number literals** paragraph gives a literal with no fractional or exponent part the type `integer`, and `runtime-value-model.md` pins both `integer` and `number` to a JS `number` (IEEE-754 double). The spec does not say what happens when an `integer`-typed literal exceeds the safe-integer range (`|value| > 2^53 − 1`, e.g. `12345678901234567890`): default JS behaviour silently rounds to the nearest representable double, and because the rounded value is still integral it passes an `integer` sink with no diagnostic. The same gap applies on the `number` side at a larger threshold — a literal exceeding `Number.MAX_VALUE` (e.g. `1e400`) parses to `Infinity` with no rule covering reject / warn / accept. Two conforming implementations therefore diverge between silent precision loss (or silent `Infinity`) and a parse error.
-
-## Solution approach
-
-Add a magnitude/finiteness clause to the **Number literals** paragraph in `lexical.md` making an over-range `integer`-typed literal (`|value| > 2^53 − 1`) and a `number`-typed literal whose parsed value is not a finite IEEE-754 double both parse errors, consistent with the existing `loom/parse/integer-narrowing` reject-at-parse-time treatment of `integer`/`number` boundary violations. Register the corresponding new `loom/parse/*` diagnostic codes in `diagnostics.md` alongside `loom/parse/integer-narrowing`. Judge magnitude on the lexed literal token before the parse-time unary-`-` fold, so `-9007199254740992` is still rejected and `9007199254740992 - 1` (two tokens) is not.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T20 "`\u{XXXX}` accepts non-scalar code points" - same-cluster (sibling completeness gap on literal value ranges in the same `lexical.md` section; resolve in the same edit pass for consistency).
-- T18 "Settings scalar keys lack a malformed / out-of-range rule" - same-cluster (parallel out-of-range-scalar theme on a different page; no shared edit).
-- T21 "`%` by zero is unspecified" - same-cluster (sibling numeric-semantics completeness gap; expressions.md side).
