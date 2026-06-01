@@ -4,7 +4,7 @@ _Generated: 2026-05-31T15:30:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T25) is addressed first; the first finding (T17) is addressed last._
 
-_Triage tally: 4 high retained._
+_Triage tally: 3 high retained._
 
 ---
 
@@ -78,26 +78,3 @@ Add a magnitude/finiteness clause to the **Number literals** paragraph in `lexic
 - T20 "`\u{XXXX}` accepts non-scalar code points" - same-cluster (sibling completeness gap on literal value ranges in the same `lexical.md` section; resolve in the same edit pass for consistency).
 - T18 "Settings scalar keys lack a malformed / out-of-range rule" - same-cluster (parallel out-of-range-scalar theme on a different page; no shared edit).
 - T21 "`%` by zero is unspecified" - same-cluster (sibling numeric-semantics completeness gap; expressions.md side).
-# T20 — `\u{XXXX}` accepts non-scalar code points
-
-**Kind:** completeness
-**Importance:** high
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `**String literals.**` paragraph in `docs/spec_topics/lexical.md` defines the Unicode escape as `\u{XXXX}` with "1–6 hex digits" and no value constraint. Six hex digits encode up to `0xFFFFFF`, exceeding the maximum Unicode scalar value `U+10FFFF`, and the unconstrained range includes the UTF-16 surrogate block `0xD800`–`0xDFFF`, which are code points but not scalar values. No diagnostic covers out-of-range or surrogate content inside a recognised `\u{...}` form: `loom/parse/illegal-escape` fires only on unrecognised characters after `\`, and `loom/load/invalid-encoding` checks raw source bytes, not ASCII-source escapes. Behaviour for `\u{110000}`, `\u{FFFFFF}`, and `\u{D800}` is therefore unspecified, so conforming implementations diverge between rejecting, emitting a lone surrogate, or substituting `U+FFFD`.
-
-## Solution approach
-
-Rewrite the `\u{XXXX}` escape definition in lexical.md's `**String literals.**` paragraph to constrain the escaped value `v` to a Unicode scalar value — well-formed iff `v ≤ 0x10FFFF` and `v` is outside the surrogate range `0xD800`–`0xDFFF` — and to name a parse diagnostic for any other value. Add the corresponding diagnostic row to diagnostics.md's `lex` / `E` block alongside `loom/parse/illegal-escape`.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T19 "Integer-literal magnitude bound is unspecified" — same-cluster (sibling completeness gap in the same lexical section; resolve in the same editorial pass).

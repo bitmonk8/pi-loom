@@ -251,6 +251,7 @@ The table enumerates every diagnostic the V1 spec defines. *Severity* is `error`
 | Code | Sev | Phase | Trigger | Spec rule | Hint | Message |
 |---|---|---|---|---|---|---|
 | `loom/parse/illegal-escape` | E | lex | Backslash followed by an unrecognised character inside a regular string literal. | [Lexical — String literals](./lexical.md) | — | `illegal escape sequence: \\<char>` |
+| `loom/parse/invalid-unicode-escape` | E | lex | A recognised `\u{...}` escape whose value exceeds `U+10FFFF` or lies in the UTF-16 surrogate range `U+D800`–`U+DFFF`. | [Lexical — String literals](./lexical.md) | Use a Unicode scalar value: `≤ U+10FFFF` and outside `U+D800`–`U+DFFF`. | `invalid Unicode escape: value is not a Unicode scalar value` |
 | `loom/parse/literal-newline-in-string` | E | lex | Literal newline inside a regular (single-line) string literal. | [Lexical — String literals](./lexical.md) | Use a `@`...`` query template, or split with `+ "\n" +`. | `literal newline in string literal` |
 | `loom/parse/unterminated-string` | E | lex | EOF reached while scanning a string literal. | [Lexical — String literals](./lexical.md) | — | `unterminated string literal` |
 | `loom/parse/invalid-path-separator` | E | lex | Backslash inside a path literal (`import`, `invoke`, `tools:` `.loom` entry). | [Lexical — Path literals](./lexical.md) | Use `/` separators only. | `invalid path separator: backslash in path literal` |
