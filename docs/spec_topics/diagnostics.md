@@ -106,7 +106,7 @@ The registry's *Message* column carries `<…>` placeholders that the renderer i
 
 **Test vectors.**
 
-- A `match` panic on a scrutinee `Cat { name: "fluffy" }` renders `MatchError: no arm matched Cat { name: "fluffy" }`.
+- A `match` panic on a schema-typed-object scrutinee whose runtime value is `{ name: "fluffy" }` renders `MatchError: no arm matched {"name":"fluffy"}` — the *Schema-typed object* row of the stringification table renders it as compact `JSON.stringify` with wire-name translation, and the schema name does not surface in the rendered string.
 - A `match` panic on the integer `42` renders `MatchError: no arm matched 42`.
 - A `match` panic on a 100-character ASCII string `s` renders `MatchError: no arm matched ` followed by the first 77 code points of `s` followed by the literal `...` (a single trailing three-character ellipsis, no surrounding quotes — the `string` row of the stringification table renders strings verbatim without quoting).
 

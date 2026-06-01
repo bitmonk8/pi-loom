@@ -4,7 +4,7 @@ _Generated: 2026-05-31T15:30:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T25) is addressed first; the first finding (T17) is addressed last._
 
-_Triage tally: 9 high retained._
+_Triage tally: 8 high retained._
 
 ---
 
@@ -193,27 +193,3 @@ Clarify the **Conversation drive — subagent mode** section to pin the untyped-
 ## Relationships
 
 - T23 "Prompt-mode untyped-query `Ok(string)` extraction is unspecified" - co-resolve (symmetric pair; the prompt-mode fix and the subagent-mode fix should land together and use parallel wording so the "same final-assistant-text rule on both sides" invariant is auditable).
-# T25 - §2 Runtime-value placeholder rule contradicts its own `Cat { name: "fluffy" }` test vector
-
-**Kind:** testability
-**Importance:** high
-**Score:** 100
-**Must-fix:** true
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`diagnostics.md` § *Placeholder rendering (normative)* › *2. Runtime-value placeholders* binds `<scrutinee summary>` and `<value>` to query.md's *Stringification of interpolated values* table, which renders a schema-typed object as compact `JSON.stringify` with wire-name translation — so `{ name: "fluffy" }` renders `{"name":"fluffy"}`. The runtime representation in `runtime-value-model.md` carries no schema-name marker, so the constructor form `Cat { name: "fluffy" }` is not producible. The first §2 test vector nonetheless asserts a `match` panic renders `MatchError: no arm matched Cat { name: "fluffy" }`. The rule and the vector are both normative, and no conforming implementation can satisfy both.
-
-## Solution approach
-
-The defect is the wording of the test vector. Rewrite the first test vector under diagnostics.md's `### 2. Runtime-value placeholders` so its rendered output aligns with the cited query.md stringification table: a `Cat { name: "fluffy" }` scrutinee renders `MatchError: no arm matched {"name":"fluffy"}`. Optionally clarify in that section that the schema name does not surface in rendered runtime-value strings (it surfaces through the diagnostic `code` and source location).
-
-## Solution constraints
-
-- Out of scope: the §2 `**Rule.**`, the other two §2 test vectors, query.md's *Stringification of interpolated values* table, and runtime-value-model.md's object representation — align the failing vector to these normative surfaces rather than widening the runtime value model with a schema-name tag.
-
-## Relationships
-
-None
