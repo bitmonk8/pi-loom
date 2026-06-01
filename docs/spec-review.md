@@ -33,29 +33,6 @@ Clarify PIC's `typebox` sub-paragraph under `#pi-sdk-pin` to state the bundling-
 None
 
 ---
-# T11 - `loads cleanly` is the GOV-15 trigger condition but is undefined
-
-**Kind:** testability
-**Importance:** high
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-GOV-15 (`gov-15`) in governance.md and the Source-language stability bullet (`source-language-stability`) in spec.md both open with "a `.loom` or `.warp` file that loads cleanly under loom 1.0.0", using `loads cleanly` as the condition that selects the input set for the loom 1.x equivalence promise on observables (a) return values, (b) ordered diagnostic-code sequences, and (c) `loom-system-note` content strings. The predicate is never defined anywhere in the corpus — not in GOV-15, the bullet, the glossary `loom 1.0.0` entry, diagnostics.md, or discovery.md. The candidate readings ("zero diagnostics of any severity", "no `E`-severity diagnostic", "a load that produced a registered loom") each select a materially different input set, because some `loom/load/*` codes leave the loom unregistered while others register it and emit only `W`-severity diagnostics. GOV-15's reviewer-inspection step and its deferred conformance fixture suite both need the predicate pinned; until then two reviewers will disagree on which inter-release diffs constitute a GOV-15 violation.
-
-## Solution approach
-
-Define `loads cleanly under loom 1.0.0` as a normative sub-clause of GOV-15 (`gov-15`) in governance.md, carrying a stable anchor, that fixes the predicate against existing diagnostics landmarks — the `Severity` column of the diagnostics.md Code registry (`code-registry`), with per-source `E/W` codes resolved against the Discovery — Failure modes classification — rather than coining a new severity classification. Rewrite the Source-language stability bullet (`source-language-stability`) in spec.md to forward-link the bare phrase to that new anchor.
-
-## Solution constraints
-
-- Out of scope: the observable (c) `loom-system-note` content-string equivalence definition owned by T12.
-
-## Relationships
-
-- T12 "`loom-system-note` equivalence is undefined for strings that embed variable sub-fields" - same-cluster (same Source-language stability bullet / GOV-15 paragraph; this finding pins the *Given* (`loads cleanly`) while T12 pins the *Then* (observable (c)); independent gaps that will likely land in the same edit pass).
 # T12 - `loom-system-note` equivalence is undefined for strings that embed variable sub-fields
 
 **Kind:** testability
