@@ -2,9 +2,9 @@
 
 _Generated: 2026-06-02T06:11:00Z_
 _Spec: docs/spec.md_
-_Process: bottom-up - the last finding (T14) is addressed first; the first finding (T11) is addressed last._
+_Process: bottom-up - the last finding (T13) is addressed first; the first finding (T11) is addressed last._
 
-_Triage tally: 4 high retained (T11-T14). Medium and lower findings (T01-T10) removed by request._
+_Triage tally: 3 high retained (T11-T13). Medium and lower findings (T01-T10) removed by request._
 
 ---
 
@@ -81,28 +81,3 @@ Pin a single named comparison basis at GOV-15 (`#gov-15`), rewriting its "byte-i
 ## Relationships
 
 - T14 "`SchemaValidator` `errors` array ordering is unspecified" — decision-overlap (both bear on the cross-implementation byte-identical / reproducibility contract for rendered content; a basis chosen here and the ordering chosen there must produce a jointly reproducible `<ajv-summary>` and observable-(c) comparison).
-# T14 - `SchemaValidator` `errors` array ordering is unspecified
-
-**Kind:** testability
-**Importance:** high
-**Score:** 100
-**Must-fix:** true
-**Decision axes:** 3
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `SchemaValidator` contract in `implementation-notes.md` (the `validate()` seam returning `errors: readonly ValidationError[]`) pins determinism for a given `(schema, value)` pair but does not constrain the ordering of the `errors` array, leaving cross-implementation ordering undefined. The `<ajv-summary>` placeholder defined in `binder.md`'s Failure-mode templates and consumed by `query.md`'s respond-repair follow-up template renders the failed validation's issues "in `validation_errors` array order", so two conforming validators emit different user-visible follow-up bytes — diverting model responses and making any byte-identical conformance check unwritable. Loom-side handlers reading `errors[0]` and conformance tests asserting sequence equality are likewise undefined without an ordering rule.
-
-## Solution approach
-
-In `implementation-notes.md`'s SchemaValidator contract, clarify that `errors` ordering is implementation-defined and must not be relied on by positional index, and that conformance tests match on issue content rather than sequence. Redefine the `<ajv-summary>` placeholder at `binder.md#failure-mode-templates-normative` and its consumer in `query.md` so the rendered order is deterministic regardless of which conforming validator produced the errors. Specify in `errors-and-results.md`'s `ValidationError` schema that the loom-observable `validation_errors` field carries the same deterministic order before it reaches loom code.
-
-## Solution constraints
-
-- Out of scope: the `byte-identical` encoding / code-unit comparison basis owned by T13.
-
-## Relationships
-
-- T13 "`byte-identical` lacks an encoding / code-unit basis at its owning sites" — decision-overlap (both bear on the cross-implementation reproducibility of rendered content; the comparison basis pinned at T13 and the deterministic `<ajv-summary>` order pinned here must jointly yield a reproducible rendered template).
