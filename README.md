@@ -64,7 +64,7 @@ field in `package.json`.
 | [`docs/plan_topics/`](./docs/plan_topics/) | Per-phase plan pages and coverage matrix. |
 | [`docs/spec-review.md`](./docs/spec-review.md) | Spec review log. |
 | `extensions/` | Pi extension entry points (populated during implementation). |
-| `package.json` | Package manifest; declares the Pi extension and peer-deps on `@mariozechner/pi-*`. |
+| `package.json` | Package manifest; declares the Pi extension and peer-deps on `@earendil-works/pi-*`. |
 
 ## License
 
