@@ -4,7 +4,7 @@ _Generated: 2026-06-02T06:11:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T12) is addressed first; the first finding (T11) is addressed last._
 
-_Triage tally: 2 high retained (T11-T12). Medium and lower findings (T01-T10) removed by request._
+_Triage tally: 1 high retained (T11). Medium and lower findings (T01-T10) removed by request._
 
 ---
 
@@ -28,31 +28,6 @@ In `README.md`'s repository-layout table, rename the `package.json` row's `@mari
 ## Solution constraints
 
 - None.
-
-## Relationships
-
-None
-# T12 - Glossary `bypass-eligible` predicate conflicts with the diagnostics registry
-
-**Kind:** naming
-**Importance:** high
-**Score:** 100
-**Must-fix:** true
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The closing sentence of the "no-params bypass vs. single-string bypass" entry in `docs/spec_topics/glossary.md` attributes the parse warning `loom/parse/bind-echo-on-bypass` to any "bypass-eligible" loom, but that unqualified predicate covers both bypass conditions defined in the same entry. The diagnostics registry partitions the two cases: `loom/parse/bind-echo-on-bypass` (W, parse) applies only to the single-string bypass, while the no-params case fires `loom/load/bind-echo-without-params` (W, load). The other corpus sites in `binder.md` and `frontmatter.md` already scope the codes correctly; the glossary sentence is the lone outlier, and it gives an implementer two viable codes for `bind_echo: true` on a no-params loom. The two codes differ in phase (parse vs. load) and message text, so the contradiction is wire-visible, not cosmetic.
-
-## Solution approach
-
-Rewrite the closing sentence of the "no-params bypass vs. single-string bypass" entry in `docs/spec_topics/glossary.md` to scope `loom/parse/bind-echo-on-bypass` to the single-string bypass case only. The no-params case is already covered earlier in the same entry by `loom/load/bind-echo-without-params`.
-
-## Solution constraints
-
-- Out of scope: the bypass-code citations in `binder.md` and `frontmatter.md` — already correctly scoped.
-- Out of scope: the two diagnostics registry rows in `diagnostics.md` — they are the source of truth this fix aligns to.
 
 ## Relationships
 
