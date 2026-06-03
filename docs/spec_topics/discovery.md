@@ -1,12 +1,12 @@
 # Discovery
 
-Loom files are discovered from five sources. The global, project, and package-conventional roots mirror the leaf-directory layout Pi uses for its own prompt templates, but the loom extension owns the discovery walk end-to-end: Pi has no `loomPaths` slot in `resources_discover` (the event carries `skillPaths`, `promptPaths`, `themePaths` only — see `@earendil-works/pi-coding-agent/docs/extensions.md` §`resources_discover`), and the `pi` manifest namespace recognises only `extensions`, `skills`, `prompts`, `themes`, `video`, and `image` (see `packages.md` §"Creating a Pi Package"). The package-manifest entry (`pi.looms`), the settings array (`looms`), and the CLI flag (`--loom`) are therefore conventions defined by **this extension**; Pi does not enumerate them and does not pass them to the extension. The loom extension reads them itself — settings via the injected `FileSystem` seam (see [Settings file reads](#settings-file-reads)), `pi.looms` and the conventional `looms/` directory by walking installed package roots (see [Package discovery](#package-discovery)), and `--loom` via a flag the extension registers itself in its factory (see [Pi Integration Contract](./pi-integration-contract.md)). The five sources are:
+Loom files are discovered from five sources. The global, project, and package-conventional roots mirror the leaf-directory layout Pi uses for its own prompt templates, but the loom extension owns the discovery walk end-to-end: Pi has no `loomPaths` slot in `resources_discover` (the event carries `skillPaths`, `promptPaths`, `themePaths` only — see `@earendil-works/pi-coding-agent/docs/extensions.md` §`resources_discover`), and the `pi` manifest namespace recognises only `extensions`, `skills`, `prompts`, `themes`, `video`, and `image` (see `packages.md` §"Creating a Pi Package"). The package-manifest entry (`pi.looms`), the settings array (`loomPaths`), and the CLI flag (`--loom`) are therefore conventions defined by **this extension**; Pi does not enumerate them and does not pass them to the extension. The loom extension reads them itself — settings via the injected `FileSystem` seam (see [Settings file reads](#settings-file-reads)), `pi.looms` and the conventional `looms/` directory by walking installed package roots (see [Package discovery](#package-discovery)), and `--loom` via a flag the extension registers itself in its factory (see [Pi Integration Contract](./pi-integration-contract.md)). The five sources are:
 
 - Global: `~/.pi/agent/looms/*.loom`
 - Project: `.pi/looms/*.loom`
 - Packages: each installed pi-package's `pi.looms` manifest entry (preferred) or its conventional `looms/` directory (fallback) — see [Package discovery](#package-discovery).
-- Settings: `looms` array (in `~/.pi/agent/settings.json` or `.pi/settings.json`) — `string[]` of file or directory paths; per-entry schema under [Settings file reads](#settings-file-reads).
-- CLI: `--loom <paths>` (single flag; multiple paths joined with the OS path-list separator — `:` POSIX, `;` Windows; uses Node's `path.delimiter`). Each entry is a file or directory, resolved with the same rules as the settings `looms` array (see [`looms` entry schema](#looms-entry-schema) below). Windows authors must use `;` to avoid colliding with drive-letter colons (`C:\foo`). Pi has no built-in `--loom` flag; the loom extension registers it itself via `pi.registerFlag('loom', { type: 'string', description: '…' })` (see [Pi Integration Contract](./pi-integration-contract.md)) and reads it with `pi.getFlag('loom')` during the discovery walk.
+- Settings: `loomPaths` array (in `~/.pi/agent/settings.json` or `.pi/settings.json`) — `string[]` of file or directory paths; per-entry schema under [Settings file reads](#settings-file-reads).
+- CLI: `--loom <paths>` (single flag; multiple paths joined with the OS path-list separator — `:` POSIX, `;` Windows; uses Node's `path.delimiter`). Each entry is a file or directory, resolved with the same rules as the settings `loomPaths` array (see [`loomPaths` entry schema](#loompaths-entry-schema) below). Windows authors must use `;` to avoid colliding with drive-letter colons (`C:\foo`). Pi has no built-in `--loom` flag; the loom extension registers it itself via `pi.registerFlag('loom', { type: 'string', description: '…' })` (see [Pi Integration Contract](./pi-integration-contract.md)) and reads it with `pi.getFlag('loom')` during the discovery walk.
 
 Discovery is **non-recursive** and matches only `*.loom`, mirroring Pi prompt-template behaviour. The `*.loom` glob is **byte-exact lowercase** per [Lexical — Extension matching](./lexical.md#extension-matching): a file named `Plan.LOOM` does not match the discovery glob on any platform, even on case-insensitive filesystems where the OS would consider the name equivalent to `plan.loom`. `.warp` library files are never discovered as slash commands regardless of where they live; they are reached only via `import` (with paths resolved relative to the importing file).
 
@@ -27,19 +27,19 @@ This check is a point-in-time observation, not a guarantee. If a future Pi-ecosy
 - The global root `~/.pi/agent/looms/` (when present).
 - The project root `.pi/looms/` (when present).
 - Each scanned package's contributing directory (the package's `looms/` directory, or each directory reached through a `pi.looms` glob).
-- Each settings `looms` entry, resolved as follows: a directory entry contributes its own path; a file entry contributes its parent directory.
+- Each settings `loomPaths` entry, resolved as follows: a directory entry contributes its own path; a file entry contributes its parent directory.
 - Each path component of the `--loom` CLI flag (after splitting on `path.delimiter`), resolved by the same file-vs-directory rule as settings entries.
 
 The term is referenced normatively by the path-restriction rule on `invoke` and `.loom` `tools:` entries (see [Invocation — Resolution](./invocation.md)): a resolved callee path must lie within at least one active root. Roots are computed once per discovery pass and cached for the lifetime of the resolved registry; hot-reload (per [Implementation Notes](./implementation-notes.md)) re-runs the computation.
 
 <a id="home-directory-expansion"></a>
 
-**Home-directory expansion.** Wherever the loom extension reads, interprets, or emits a path beginning with `~/`, the leading `~` MUST be expanded via the `homedir()` member of the injected `FileSystem` seam (see [Pi Integration Contract — `FakeFileSystem` / `FileSystem` interface](./pi-integration-contract.md)), whose production implementation calls Node's `os.homedir()` (resolving to `$HOME` on POSIX and `%USERPROFILE%` on Windows). This rule applies uniformly to: the global discovery root `~/.pi/agent/looms/`; the global package roots `~/.pi/agent/npm/` and `~/.pi/agent/git/<host>/<path>/`; the global settings file `~/.pi/agent/settings.json`; every `~`-prefixed entry in the settings `looms` array; and every `~`-prefixed component of the `--loom` CLI flag (after splitting on `path.delimiter`). The `~user` form (tilde followed by a username) is **not** honoured — only the bare `~` followed by `/` (or end-of-string). Implementations MUST NOT read `process.env.HOME` or `process.env.USERPROFILE` directly, and MUST NOT use any platform-conditional branch — the seam is the single source of truth so that test fakes can override it.
+**Home-directory expansion.** Wherever the loom extension reads, interprets, or emits a path beginning with `~/`, the leading `~` MUST be expanded via the `homedir()` member of the injected `FileSystem` seam (see [Pi Integration Contract — `FakeFileSystem` / `FileSystem` interface](./pi-integration-contract.md)), whose production implementation calls Node's `os.homedir()` (resolving to `$HOME` on POSIX and `%USERPROFILE%` on Windows). This rule applies uniformly to: the global discovery root `~/.pi/agent/looms/`; the global package roots `~/.pi/agent/npm/` and `~/.pi/agent/git/<host>/<path>/`; the global settings file `~/.pi/agent/settings.json`; every `~`-prefixed entry in the settings `loomPaths` array; and every `~`-prefixed component of the `--loom` CLI flag (after splitting on `path.delimiter`). The `~user` form (tilde followed by a username) is **not** honoured — only the bare `~` followed by `/` (or end-of-string). Implementations MUST NOT read `process.env.HOME` or `process.env.USERPROFILE` directly, and MUST NOT use any platform-conditional branch — the seam is the single source of truth so that test fakes can override it.
 
 **Source priority (high to low).** When the same slash name resolves from multiple sources, the higher-priority source wins and `loom/load/cross-source-shadow` is emitted naming both paths.
 
 1. CLI flag (`--loom <path>`) — explicit, single-invocation override.
-2. Settings (`looms` array, project `settings.json` overriding global).
+2. Settings (`loomPaths` array, project `settings.json` overriding global).
 3. Project (`.pi/looms/`).
 4. Packages (`looms/` directories or `pi.looms` entries).
 5. Global (`~/.pi/agent/looms/`).
@@ -52,7 +52,7 @@ The term is referenced normatively by the path-restriction rule on `invoke` and 
 | Project `.pi/looms/` | silent | warning | warning |
 | Package `looms/` directory | silent (package may ship none) | warning | warning |
 | Package `pi.looms` entry | error (manifest names a missing path) | warning | error |
-| Settings `looms` entry | error (config names a missing path) | warning | error |
+| Settings `loomPaths` entry | error (config names a missing path) | warning | error |
 | CLI `--loom <path>` | error (explicit user intent) | error | error |
 
 Three rules apply on top of the table:
@@ -132,7 +132,7 @@ The two `Package pi.looms entry` and `Package looms/ directory` rows of the fail
 
 ## Settings file reads
 
-The loom extension owns its own keys in `settings.json` — Pi does not recognise the `looms` array or `looms.binderModel`, does not surface them via `/settings` or schema validation, and does not expose them through `ExtensionContext`. The extension reads them itself from the same two files Pi uses for its own settings, mirroring Pi's precedence and merge rules.
+The loom extension owns its own keys in `settings.json` — Pi does not recognise the `loomPaths` array or `looms.binderModel`, does not surface them via `/settings` or schema validation, and does not expose them through `ExtensionContext`. The extension reads them itself from the same two files Pi uses for its own settings, mirroring Pi's precedence and merge rules.
 
 **Files (in precedence order, project over global).** Both files are optional.
 
@@ -154,9 +154,9 @@ None of these are fatal: the extension proceeds with whatever settings it could 
 - Array values are replaced wholesale (the project array, if present, fully replaces the global array; entries are not concatenated or deduplicated).
 - Scalar values (string, number, boolean, `null`) are replaced.
 
-**Keys read.** loom 1.0 reads five loom-extension keys:
+**Keys read.** loom 1.0 reads five loom-extension settings keys — `loomPaths` (a top-level `string[]` array) plus four scalar keys nested under the `looms` object namespace. The `loomPaths` array and the `looms` object are distinct top-level keys, so the on-disk JSON holds both without collision:
 
-- `looms` — a `string[]` of file or directory paths contributing additional looms (per the *Settings* row in the precedence table above; per-entry schema in [`looms` entry schema](#looms-entry-schema) below).
+- `loomPaths` — a `string[]` of file or directory paths contributing additional looms (per the *Settings* row in the precedence table above; per-entry schema in [`loomPaths` entry schema](#loompaths-entry-schema) below).
 - `looms.binderModel` — a string model identifier used as the fallback for the binder when `bind_model:` is omitted from frontmatter (see [Slash-Command Argument Binding](./binder.md)). The value is a free-form string, matched to a model per the [binder-model parse rule](./binder.md#binder-model-parse-rule). **Required when any non-bypass loom is in scope** — a non-bypass loom whose `bind_model:` is also absent fails to load with `loom/load/binder-model-unresolved`. The registry-capability (strict structured-output) check runs at loom-load time per [Binder model](./binder.md); failure surfaces as `loom/load/binder-model-not-strict-capable`.
 - `looms.scanPackages` — boolean, default `true`. When `false`, the package-discovery walk is skipped wholesale (see [Package discovery](#package-discovery) → "Edge cases"). The three `looms.scanPackages*` keys below are operator-tunable in loom 1.0 rather than hardcoded because package counts and walk time vary by install; the defaults are *upper bounds*, not target performance.
 - `looms.scanPackagesMaxFiles` — integer, default `2000`. Upper bound on the number of `package.json` files the package-discovery walk opens per session before tripping `loom/load/discovery-slow` and aborting further package inspection.
@@ -171,20 +171,20 @@ No other `looms.*` keys are recognised in loom 1.0; unknown keys under the `loom
 - `looms.scanPackagesMaxFiles` — an integer ≥ 1.
 - `looms.scanPackagesTimeoutMs` — an integer ≥ 1.
 
-`null` is out of range for every key; integer-ness is judged on the parsed numeric value, not the lexical form (`2000` and `2000.0` are both accepted, `25.5` is not). The `looms` array itself is not a scalar key; a non-string entry inside it is handled by `loom/load/settings-invalid-entry` (see [`looms` entry schema](#looms-entry-schema)).
+`null` is out of range for every key; integer-ness is judged on the parsed numeric value, not the lexical form (`2000` and `2000.0` are both accepted, `25.5` is not). The `loomPaths` array itself is not a scalar key; a non-string entry inside it is handled by `loom/load/settings-invalid-entry` (see [`loomPaths` entry schema](#loompaths-entry-schema)).
 
-### `looms` entry schema
+### `loomPaths` entry schema
 
-The `looms` array follows the same conventions Pi uses for its sibling resource arrays (`extensions`, `skills`, `prompts`, `themes`) — see the *Resources* section of `@earendil-works/pi-coding-agent/docs/settings.md`. Specifically:
+The `loomPaths` array follows the same conventions Pi uses for its sibling resource arrays (`extensions`, `skills`, `prompts`, `themes`) — see the *Resources* section of `@earendil-works/pi-coding-agent/docs/settings.md`. Specifically:
 
 - **Type.** `string[]`. Each entry is a file path or a directory path. Object-form entries are not accepted in loom 1.0; a non-string entry is rejected with `loom/load/settings-invalid-entry` (severity `error`) and the offending entry does not contribute looms — other entries in the array still process.
 - **Resolution.** Paths in `~/.pi/agent/settings.json` resolve relative to `~/.pi/agent/`; paths in `.pi/settings.json` resolve relative to `.pi/`. `~` expands per [Home-directory expansion](#home-directory-expansion). Absolute paths are accepted as-is.
-- **Glob patterns and exclusions.** Glob patterns are supported. A leading `!` excludes paths matching the pattern; a leading `+` force-includes an exact path; a leading `-` force-excludes an exact path. Glob and prefix semantics mirror Pi's `extensions`/`skills`/`prompts`/`themes` arrays exactly — the `looms` array is not a special snowflake.
+- **Glob patterns and exclusions.** Glob patterns are supported. A leading `!` excludes paths matching the pattern; a leading `+` force-includes an exact path; a leading `-` force-excludes an exact path. Glob and prefix semantics mirror Pi's `extensions`/`skills`/`prompts`/`themes` arrays exactly — the `loomPaths` array is not a special snowflake.
 - **Directory entries.** A directory entry expands to its non-recursive `*.loom` children, matching the global non-recursion rule stated at the top of this file. Subdirectories are not walked. `.warp` files inside a directory entry are ignored, consistent with the global rule that `.warp` is never discovered as a slash command.
 - **File entries.** A file entry must have the `.loom` extension. A file entry whose path does not end in `.loom` is rejected with `loom/load/invalid-extension` (severity `error`); the file does not register and does not participate in collision detection. The same diagnostic fires for a glob entry that resolves to a non-`.loom` file (e.g. `foo*` matching `foo.md`); non-`.loom` matches are filtered out and reported per match.
 - **Deduplication.** Entries that resolve to the same absolute path post-tilde-expansion and post-glob-expansion are deduplicated silently; this is not a collision.
 - **Project vs. global.** Per the *Merge semantics* rule above, the project array fully replaces the global array — entries are not concatenated. Authors who want to extend rather than replace must repeat the global entries in the project file.
 
-Path-existence and permission failures (missing path, unreadable path, wrong file/directory type) are covered by the *Settings `looms` entry* row of the failure-modes table at the top of this file; the diagnostics there (`loom/load/missing-source`, `loom/load/unreadable-source`, `loom/load/wrong-type-source`) carry an `"settings entry index N"` source descriptor identifying the offending array index.
+Path-existence and permission failures (missing path, unreadable path, wrong file/directory type) are covered by the *Settings `loomPaths` entry* row of the failure-modes table at the top of this file; the diagnostics there (`loom/load/missing-source`, `loom/load/unreadable-source`, `loom/load/wrong-type-source`) carry an `"settings entry index N"` source descriptor identifying the offending array index.
 
 **Caching and reload.** Both files are read once at extension load and cached. A file-watcher on each of the two paths invalidates the cache on change; reads following invalidation re-apply the merge. Watcher events are debounced to absorb partial writes from editors-in-progress; a malformed intermediate state is treated as a parse error per the failure-modes rule above and does not crash the extension.

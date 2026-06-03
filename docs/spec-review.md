@@ -4,7 +4,7 @@ _Generated: 2026-06-03T19:20:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T36) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 9 high, 22 medium retained; 13 low discarded; 4 low findings merged into 2 medium findings; 0 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 8 high, 22 medium retained; 13 low discarded; 4 low findings merged into 2 medium findings; 0 nit dropped; 0 false dropped._
 
 ---
 
@@ -794,28 +794,3 @@ Give the discarding `let _ =` / `void`-tail source location a single canonical h
 ## Relationships
 
 - T20 "Tool-call late-settlement discard paragraph needs three CNCL-N sub-anchors" — same-cluster (both concern observability of "discard" paths but resolve independently — that finding is about late-settlement promise discard, this is about user-written `let _ =` discard).
-# T30 - `settings.json` shape undetermined: `looms` array collides with `looms.*` namespace
-
-**Kind:** clarity
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The *Keys read* list in `discovery.md`'s "Settings file reads" section enumerates `looms` (typed `string[]`) alongside `looms.binderModel`, `looms.scanPackages`, `looms.scanPackagesMaxFiles`, and `looms.scanPackagesTimeoutMs`, but nothing states how these names map onto the on-disk JSON. Two incompatible readings are consistent with the text: `looms` as a flat top-level array with literal dotted-key siblings, or `looms` as an object namespace whose contents deep-merge. JSON cannot hold both `"looms": [...]` and `"looms": {...}` in the same object, so the *Merge semantics* deep-merge rule and the "unknown keys under the `looms` namespace" wording contradict the `string[]` typing of `looms`. Authors writing `settings.json`, parser implementers, and conformance-fixture authors cannot determine the structure without picking sides.
-
-## Solution approach
-
-Resolve the collision by making `looms` a single object namespace holding the `binderModel` / `scanPackages*` scalar keys, and rename the path-array key out of the collision (the framing and *Sources* prose already names the slot `loomPaths`). Update the *Sources* bullet, the *Keys read* entry, the *Scalar-key validation* prose, the CLI-flag cross-reference, and the `looms` entry schema heading/anchor (`#looms-entry-schema`) in `discovery.md` to the renamed key. Confirm the *Merge semantics* paragraph then reads without contradiction (array replace-wholesale, object deep-merge).
-
-## Solution constraints
-
-- `pi.looms` (the package-manifest namespace key) MUST NOT be renamed; only the settings path-array key changes.
-- Out of scope: the *Caching and reload* / settings-watcher debounce material owned by T04.
-
-## Relationships
-
-- T04 "Settings-watcher debounce window left unpinned" — same-cluster (same *Settings file reads* section, independent issue; the debounce fix touches **Caching and reload**, this one touches **Keys read**).
