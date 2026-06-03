@@ -4,7 +4,7 @@ _Generated: 2026-06-03T08:30:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T11) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 high, 9 medium retained; 8 low discarded; 9 low findings merged into 2 medium findings; 3 nit dropped; 0 false dropped._
+_Triage tally: 9 medium retained; 8 low discarded; 9 low findings merged into 2 medium findings; 3 nit dropped; 0 false dropped._
 
 ---
 
@@ -266,31 +266,3 @@ Clarify the renderer prose on `slash-invocation.md` (the "normative templates" p
 ## Relationships
 
 - T08 "`diagnostics.md` — category-4 numeric MUST for `Infinity`/`NaN` is unreachable and has no test seam" - same-cluster (identical unreachable-MUST testability pattern; the pure-function-renderer paragraph is the natural shared resolution; resolvable independently).
-# T10 - Alias-arm hrefs used for dual-anchored cross-references (GOV-21 violation)
-
-**Kind:** doc-alignment-broad
-**Importance:** high
-**Score:** 100
-**Must-fix:** true
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`docs/spec.md` cites two dual-anchored targets via their `v1-non-goals` alias arms rather than the canonical `loom-1-0-…` arms, violating [GOV-21-1 *Canonical arm*](./spec_topics/governance.md#gov-21-canonical-arm) (new in-corpus cross-references to a dual-anchored target MUST cite the canonical arm). The cross-page target is `future-considerations.md`'s `#loom-1-0-non-goals` arm; the self-reference target is `spec.md`'s own `#loom-1-0-non-goals-aggregator` arm. Leaving the alias-arm citations in place undermines the dual-anchor convention and invites further alias-arm citations from authors copying the pattern.
-
-## Solution approach
-
-In `docs/spec.md`, rewrite the alias-arm hrefs to cite the canonical arm. Cross-page citations to `./spec_topics/future-considerations.md#v1-non-goals` become `./spec_topics/future-considerations.md#loom-1-0-non-goals`; self-referencing `#v1-non-goals` hrefs become `#loom-1-0-non-goals-aggregator`. The two target slugs differ — do not collapse the self-reference slug onto the cross-page slug.
-
-## Solution constraints
-
-- Out of scope: the `#surface-extensions-v1-leaves-a-seam` citations — that target carries no authored `<a id>` arms and is not dual-anchored (a separate GOV-21 *Incidental auto-id prohibition* concern).
-- Do not remove or alter the `<a id="v1-non-goals">` alias arms at either target site; they remain present per [GOV-21-2 *Alias permanence*](./spec_topics/governance.md#gov-21-alias-permanence).
-
-## Relationships
-
-- T03 "Eight loom 1.0 non-goals lack per-item citation anchors" - same-cluster (operates on the same V1-non-goals aggregator paragraph; co-edit avoids merge churn).
-- T01 "Spec-corpus editorial and governance meta-commentary misplaced in implementer-facing orientation" - decision-overlap (T01's V1-non-goals closing-paragraph deletion removes two of the offending hrefs; resolve the remaining-citation scope consistently — preferably land T01's deletion first so this fix does not canonicalise hrefs that get deleted).
-- T02 "Orientation aggregators and Session-Model sub-obligations lack per-item citation anchors" - same-cluster (both touch the Scope / Forward-compatibility-seams surface; orthogonal anchor vs href edits).
-
