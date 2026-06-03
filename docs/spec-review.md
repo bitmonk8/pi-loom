@@ -4,7 +4,7 @@ _Generated: 2026-06-03T19:20:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T36) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 1 high, 11 medium retained; 13 low discarded; 4 low findings merged into 2 medium findings; 0 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 1 high, 10 medium retained; 13 low discarded; 4 low findings merged into 2 medium findings; 0 nit dropped; 0 false dropped._
 
 ---
 
@@ -231,28 +231,4 @@ Rewrite the `ui.notify` annotation in the `ui:` row of the `ExtensionContext` in
 
 - T34 "`estimateTokens` — ownership story is incoherent" — same-cluster (sibling normative-vs-SDK alignment issue on the same page; different remedy class — ownership story vs typo).
 - T10 "`chokidar` named repeatedly but never declared as a dependency" — same-cluster (sibling external-entity declaration gap on the same page; different remedy class).
-# T10 - `chokidar` named repeatedly but never declared as a dependency
 
-**Kind:** external-entities
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`chokidar` is the production adapter behind the `FileWatcher` seam and is named across `pi-integration-contract.md` (the `discoveryWatcher.close()` parenthetical, the `session_shutdown` stale-runtime edge-case bullet, the `FakeFileWatcher` / `FileWatcher` interface block, and the `watch` bullet's event-filter list) and `diagnostics.md`'s Transient-toasts bullet, yet no paragraph declares which `package.json` block it belongs in or whether its import sites fall inside the PIC inventory-closure audit's *Target surface categories* scope. This is asymmetric with the two other npm packages PIC names: `semver` has a dedicated declaration in *Loom-package implementation dependencies (loom 1.0)*, and `typebox` has its own Pi-bundled-package sub-paragraph with explicit manifest-block framing. As a result, two implementers can produce divergent `package.json` files (e.g. `dependencies` vs `peerDependencies`) and divergent audit-exemption setups with no spec text deciding which is conformant.
-
-## Solution approach
-
-Add a `chokidar` clause to the existing *Loom-package implementation dependencies (loom 1.0)* paragraph (anchor `id="loom-package-implementation-dependencies-loom-1-0"`), naming `chokidar` as a loom-package `dependencies` entry on the `semver` precedent and linking its npm page. State that `chokidar` is out of scope for the inventory-closure audit's *Target surface categories* (anchor `id="audit-target-surface-categories"`), so no audit exemption marker is required at `chokidar` import sites. Name the dependency, not a version literal.
-
-## Solution constraints
-
-- Out of scope: the `FakeFileWatcher` / `FileWatcher` interface block and its illustrative `chokidar` references (the event-name comment, the `close()` parenthetical, the `addDir` / `unlinkDir` / `ready` / `error` filter list) stay as-is; the seam contract remains library-agnostic.
-
-## Relationships
-
-- T09 "`ui.notify` inline signature contradicts the pinned SDK declaration" — same-cluster (sibling external-entity / SDK-alignment gap on the same page; resolve independently).
