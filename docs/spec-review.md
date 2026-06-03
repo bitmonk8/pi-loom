@@ -4,7 +4,7 @@ _Generated: 2026-06-03T19:20:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T36) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 1 high, 8 medium retained; 13 low discarded; 4 low findings merged into 2 medium findings; 0 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 1 high, 7 medium retained; 13 low discarded; 4 low findings merged into 2 medium findings; 0 nit dropped; 0 false dropped._
 
 ---
 
@@ -158,27 +158,3 @@ Rewrite the `GOV-N (governance rule)` entry in `glossary.md` so the range is exp
 ## Relationships
 
 None
-# T07 - Per-boundary tables use undefined `calling loom` instead of glossary `invoke parent`
-
-**Kind:** naming
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-Two parallel normative tables — the ceiling #4 per-boundary table in `hard-ceilings.md` (the `invoke<T>` return value row, anchor `#ceiling-4-table`) and the Depth Enforcement per-boundary table row #5 in `schema-subset.md` — label the destination of an `invoke<T>` return-value depth violation as `calling loom`. The glossary's `caller` entry canonizes a different term, `invoke parent`, for exactly this concept, while `calling loom` is used elsewhere in the spec for the distinct path-resolution-anchor concept. `calling loom` is nowhere defined as an alias for `invoke parent`, so a reader cannot tell from the table which concept the destination column names. The ambiguity bites precisely here, because the destination governs who observes the `Err` and therefore which surface contract applies.
-
-## Solution approach
-
-Rename `calling loom` to the glossary canon `invoke parent` in the Destination column of the `invoke<T>` return value row in both the ceiling #4 table in `hard-ceilings.md` (`#ceiling-4-table`) and the Depth Enforcement table row #5 in `schema-subset.md`.
-
-## Solution constraints
-
-- Out of scope: the `calling loom` occurrences in `invocation.md`, `frontmatter.md`, `overview.md`, and `pi-integration-contract.md` — those name the path-resolution anchor, a distinct concept, and must not be renamed.
-
-## Relationships
-
-- T22 "invocation.md carries no INV-N REQ-IDs" — decision-overlap (the INV-N anchor on typed return is the natural cross-link target for these tables once it lands; the two edits coordinate naturally but neither blocks the other).
