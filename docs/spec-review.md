@@ -4,7 +4,7 @@ _Generated: 2026-06-03T19:20:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T36) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 7 high, 22 medium retained; 13 low discarded; 4 low findings merged into 2 medium findings; 0 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 6 high, 22 medium retained; 13 low discarded; 4 low findings merged into 2 medium findings; 0 nit dropped; 0 false dropped._
 
 ---
 
@@ -745,28 +745,3 @@ Clarify in `imports.md` (*Visibility* / *Re-exports*) that an `import` or `expor
 ## Relationships
 
 None
-# T28 - Canonical schema hash, step 2 — numeric serialization underspecified
-
-**Kind:** implementability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The *Canonical form* sub-step (step 2 of *Canonical schema hash* in `schema-subset.md`) specifies numeric literals only as "JSON Schema integer/number form (no trailing zeros, no exponent unless necessary to represent the value)" — a constraint, not a serialization algorithm. That sentence admits multiple distinct byte outputs for the same value: `1e21` vs `1000000000000000000000`, `0.0001` vs `1e-4`, `42.0` vs `42`. Because the schema slug is on-disk and on-wire load-bearing — it appears in `__inline_<slug>` `$defs` keys, `__loom_respond_<slug>` synthesised tool names, and the AJV compiled-validator cache key — two conforming implementations that disagree on numeric serialization produce different slugs for the same lowered fragment, breaking the step-2 dedup invariant, byte-identical cross-implementation provider payloads, and fixture-based conformance diffs.
-
-## Solution approach
-
-Rewrite the numeric-literals bullet in `schema-subset.md`'s *Canonical form* sub-step to adopt by reference the `number` and `integer` rendering algorithm already pinned in `binder.md`'s *Format rules* (`#system-note-rendering`), including its normative reference-renderings vectors. Clarify the scope: the rule governs numeric *literals* embedded in the lowered JSON Schema fragment (`const`, `default`, `enum` positions), not the subset's own structural keywords.
-
-## Solution constraints
-
-- The `binder.md` reuse covers the `number` / `integer` rendering algorithm only; `binder.md`'s 120-code-point line cap and `(default)` suffix are echo-formatter concerns that must not enter the canonical-hash recipe.
-
-## Relationships
-
-- T03 "Determinism section over-pins FNV-1a as the binder-seed algorithm" — same-cluster (both pin a byte-level deterministic recipe whose output is load-bearing for cross-run reproducibility; resolutions are independent — the FNV-1a finding argues for tightening a rationale, this finding argues for tightening a recipe).
-
