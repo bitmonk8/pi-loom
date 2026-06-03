@@ -2,9 +2,9 @@
 
 _Generated: 2026-06-03T17:33:00Z_
 _Spec: docs/spec.md_
-_Process: bottom-up - the last finding (T02) is addressed first; the first finding (T01) is addressed last._
+_Process: bottom-up - the last finding is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 high, 2 medium retained; 13 low discarded; 3 low findings merged into 1 medium finding; 4 nit dropped; 0 false dropped._
+_Triage tally: 0 high, 1 medium retained; 13 low discarded; 3 low findings merged into 1 medium finding; 4 nit dropped; 0 false dropped._
 
 ---
 
@@ -117,33 +117,6 @@ Resolve in the order **A → B → C** so each fixer agent works against a stabl
 3. **C last** — relocate the now-cleaned paragraph. Prefer **C1** (sub-section of `## Language`); reserve C2 for the case where reviewers judge the aggregator co-equal to Language and Extension Architecture rather than subordinate to Language.
 
 Edge cases the implementer must watch on C: (i) the `#terminal-outcomes-aggregator` anchor must move with the paragraph; (ii) the Overview pointer left behind must still name the trichotomy by its three outcomes so a reader who never clicks through still learns the shape.
-
-## Relationships
-
-None
-
----
-
-# T02 - "PIC" abbreviation is used throughout the spec but never introduced
-
-**Kind:** clarity
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The abbreviation `PIC` (for *Pi Integration Contract*) is used in dozens of places across `docs/spec.md` and the topic pages, but its expansion is never spelled out — neither at first use in `spec.md` nor in `glossary.md`, which cites Pi Integration Contract by long name only and has no `PIC` entry. A reader must infer the mapping from neighbouring long-form link texts on the same page. The abbreviation is load-bearing rather than cosmetic: the `// allow-pi-surface:` exemption grammar in `pi-integration-contract.md` admits a `PIC#<anchor>` citation form, so contributors must type a token the spec never formally introduces.
-
-## Solution approach
-
-Add a Glossary entry in `glossary.md`, in alphabetical order, defining `PIC` as the abbreviation of *Pi Integration Contract* and forward-linking the contract page. Introduce the abbreviation against its long form at its first occurrence in `spec.md`'s **Pi SDK and capabilities** paragraph (the `owned by the same PIC section` clause), so later uses carry it legitimately without per-page re-introduction.
-
-## Solution constraints
-
-- None.
 
 ## Relationships
 
