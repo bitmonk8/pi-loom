@@ -4,7 +4,7 @@ _Generated: 2026-06-03T19:20:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T36) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 11 high, 22 medium retained; 13 low discarded; 4 low findings merged into 2 medium findings; 0 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 10 high, 22 medium retained; 13 low discarded; 4 low findings merged into 2 medium findings; 0 nit dropped; 0 false dropped._
 
 ---
 
@@ -891,28 +891,3 @@ errors-and-results.md.
 - T11 "Vestigial 'decided separately' pointers in query.md should link to Degenerate rendered templates" — same-cluster (both findings concern the `empty_template` short-circuit's normative footprint, but resolve in different files).
 - T16 "query.md missing QRY-N REQ-IDs" — decision-overlap (the `empty_template` rendering will likely cite the new QRY-5 *empty-template short-circuit* anchor; co-ordinate the inbound-link update).
 - T31 "Per-cause caller surfaces table — Cancellation row contradicts cancellation.md surfacing" — same-cluster (analogous index-table-flattens-a-multi-arm-reality defect, different page).
-# T33 - `max_rounds: 0` user-turn separator disagrees with the Follow-up turn templates it cites
-
-**Kind:** consistency
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-In `query.md` § *Typed queries are tool-loop-shaped*, the `max_rounds: 0` forced-respond-turn clause separates the user-supplied `@<T>`...`` prompt text from the *"Return your final answer using the `__loom_respond_<slug>` tool, conforming to this schema: …"* wording by **two U+000A line feeds (a single blank line)**, and justifies that as matching the separator the *Follow-up turn templates (normative)* section uses. The cited section says the opposite: its *Templates* prelude and both fenced template bodies (`validator_error`, `schema_repeat`) pin a **single** U+000A between the instruction sentence and the `<schema-json>` placeholder. Both surfaces are normative and feed the byte-identical reproducibility contract, so the false "matching" claim lets two conforming implementations emit different user-turn bytes (2 LFs vs 1 LF) for the `max_rounds: 0` boundary case.
-
-## Solution approach
-
-Rewrite the `max_rounds: 0` separator clause in `query.md` § *Typed queries are tool-loop-shaped* to specify a single U+000A line feed between the embedded prompt text and the *"Return your final answer …"* wording, and correct its cross-reference to `#follow-up-turn-templates-normative` so the "matching" claim is true against that section's single-LF pinning. Specify how an author-supplied prompt text already ending in a trailing LF interacts with the inserted separator, so a two-LF gap cannot reappear by other means.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T02 "Failure-mode templates use an undefined `<provider>` placeholder" — same-cluster (also a normative template-bytes contract bug, in `binder.md` rather than `query.md`; resolves independently).
-- T11 "Vestigial 'decided separately' pointers in query.md should link to Degenerate rendered templates" — same-cluster (another `query.md` cross-reference defect; independent fix).
