@@ -2,9 +2,9 @@
 
 _Generated: 2026-06-02T08:55:00Z_
 _Spec: docs/spec.md_
-_Process: bottom-up - the last finding (T13) is addressed first; the first finding (T10) is addressed last._
+_Process: bottom-up - the last finding (T12) is addressed first; the first finding (T10) is addressed last._
 
-_Triage tally: 4 high retained (T10-T13); 9 medium findings (T01-T09) removed by request._
+_Triage tally: 3 high retained (T10-T12); 9 medium findings (T01-T09) removed by request._
 
 ---
 
@@ -83,31 +83,3 @@ Add a `PREFIX-N` REQ-ID anchor at each defining obligation site across the 23 an
 ## Relationships
 
 None
-
-# T13 - `loom/runtime/reload-teardown-timeout` — `hint` wire format unspecified
-
-**Kind:** testability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `loom/runtime/reload-teardown-timeout` registry row in `diagnostics.md` states only that `hint` carries the elapsed wall time, but does not specify the string form. Because `hint` is a top-level `string` field on the `Diagnostic` shape (per the *Internal diagnostic shape* block), a bare decimal (`"2003"`), a unit-suffixed form (`"2003ms"`), and a sentence form are all compatible with the prose, and the §4 *Numeric placeholders* rule reaches only `<…>` Message placeholders, not top-level `Diagnostic` fields. This is the only `hint`-carrying row whose source value is a number and the only one without an explicit serialisation, so both `details.diagnostics[i].hint` and the rendered `loom-system-note` line `  hint: <hint>` diverge across conformant implementations. The accompanying two-invocation timeout test vector asserts only `message`, leaving `hint` unconstrained.
-
-## Solution approach
-
-Rewrite the `loom/runtime/reload-teardown-timeout` row in `diagnostics.md` to pin `hint` to the decimal-integer rendering of the elapsed wall time (`Clock.now() - start`) with no unit suffix, consistent with the §4 *Numeric placeholders* rule (a 2003 ms elapsed time renders as `"2003"`). Extend the existing two-invocation timeout test vector in the *Test vectors* subsection to assert `hint` alongside the `message` it already pins.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T16 "`loom/load/host-incompatible` — `<required>` placeholder rendering is undefined" - same-cluster (both concern category-4 numeric-rule scope and registry-row testability; resolve independently).
-- T15 "`host-incompatible` kind `\"abortsignal-shape\"` — observed/required undefined for the `\"in\"` checks" - same-cluster (registry-row payload-field underspecification; independent fix).
-- T14 "`host-incompatible` kind `\"sdk-capability-missing\"` — no failing-member discriminator" - same-cluster (registry-row `details` underspecification; independent fix).
