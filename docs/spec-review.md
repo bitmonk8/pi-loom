@@ -598,29 +598,4 @@ Rewrite the production-wiring bullet of PIC's `Checkpoint` seam (`id="checkpoint
 ## Relationships
 
 - T02 "`cancellation.md` carries no `CNCL-N` REQ-ID anchors" — decision-overlap (the Granularity-enumeration MUST this finding amends is one of the obligations T02 coins a `CNCL-N` for; the new sentence introduced here should land under that `CNCL-N` anchor).
-# T23 - Worked example: depth-6 forced respond — missing `mode:` and stray `name:` field
 
-**Kind:** consistency
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The normative depth-6 worked-example loom source under the `worked-example-depth-6-forced-respond` anchor in `query.md` contradicts the `frontmatter.md` contract it exercises in two ways. First, it carries no `mode:` field, yet `frontmatter.md`'s required-fields table marks `mode` as the only `yes`-required field whose absence fires `loom/load/missing-mode` with the loom not registered — so a harness loading the source verbatim never reaches the documented depth-6 forced-respond outcome. Second, it declares `name: depth-6-co-fire`, contradicting `frontmatter.md`'s Naming-convention rule ("No `name` field — the filename is canonical"); the key surfaces as a `loom/load/unknown-frontmatter-field` warning and implies a name-resolution model the spec forbids. The example is cited by the `RuntimeEvent`-shape conformance test and the typed-query test suite, so both defects propagate into the test corpus.
-
-## Solution approach
-
-In the `~~~loom` source block under `query.md`'s `worked-example-depth-6-forced-respond` anchor, add the required `mode:` field. Delete the `name: depth-6-co-fire` line and surface the source filename `depth-6-co-fire.loom` near the block so the `/depth-6-co-fire` slash name in the `RuntimeEvent` payload has a visible origin via the filename stem.
-
-## Solution constraints
-
-- Do not rename the section heading or its `worked-example-depth-6-forced-respond` anchor — consumed by cross-references in `pi-integration-contract.md` and `hard-ceilings.md`.
-- Do not alter `tool_loop.max_rounds: 2`, `respond_repair.attempts: 0`, the round-by-round trace, or the `RuntimeEvent` payload — the documented outcome depends on these values exactly as written.
-
-## Relationships
-
-None

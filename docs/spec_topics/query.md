@@ -217,11 +217,11 @@ Every query — untyped, typed, and any respond-repair follow-up — runs its to
 
 This example pins the only V1-reachable hard-ceiling co-fire (per [Pi Integration Contract — PIC-1 *Hard-ceiling co-fire (`masked`)*](./pi-integration-contract.md#pic-1) and CIO-3 / CIO-4 / CIO-6 in [Hard Runtime Ceilings — Interaction between ceilings](./hard-ceilings.md#ceiling-interaction-order)). It is normative: the `RuntimeEvent`-shape conformance test and the typed-query test suite both cite this vector.
 
-*Loom source* (a typed query with `tool_loop.max_rounds: 2` and a single frontmatter tool the model uses to occupy the free phase):
+*Loom source* (`depth-6-co-fire.loom` — a typed query with `tool_loop.max_rounds: 2` and a single frontmatter tool the model uses to occupy the free phase; the `/depth-6-co-fire` slash name in the `RuntimeEvent` payload below derives from this filename stem per [Parameters and Frontmatter — Naming convention](./frontmatter.md)):
 
 ~~~loom
 ---
-name: depth-6-co-fire
+mode: subagent
 tools: [search]
 tool_loop: { max_rounds: 2 }
 respond_repair: { attempts: 0 }
