@@ -4,7 +4,7 @@ _Generated: 2026-06-03T19:20:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T36) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 1 high, 10 medium retained; 13 low discarded; 4 low findings merged into 2 medium findings; 0 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 1 high, 9 medium retained; 13 low discarded; 4 low findings merged into 2 medium findings; 0 nit dropped; 0 false dropped._
 
 ---
 
@@ -206,29 +206,3 @@ Rewrite the typed-query Runtime bullet and the `params:` Runtime bullet in `impl
 ## Relationships
 
 - T26 "Defaulting — fill semantics undefined when the binder supplies a value for a defaulted field" — same-cluster (both involve the post-default-merge AJV/SchemaValidator step; the rename here is editorial and does not constrain the fill-semantics decision).
-# T09 - `ui.notify` inline signature contradicts the pinned SDK declaration
-
-**Kind:** doc-alignment-broad
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `ExtensionContext` inline block's `ui:` row in `pi-integration-contract.md` annotates `ui.notify` with a signature that contradicts the pinned SDK declaration of `ExtensionUIContext` in `@earendil-works/pi-coding-agent` (`dist/core/extensions/types.d.ts`). The inline form names the second parameter `kind` and marks it required; the SDK declares `type?` — optional. The optionality divergence is substantive: the SDK permits a one-argument `ui.notify("…")` call, while a consumer reading the inline annotation as authoritative would type its wrapper as requiring the second argument. The same block is governed by the in-page rule that this subset MUST be re-validated against the cited types file on each Pi minor bump, so the mismatch will recur as a false positive on every alignment audit until corrected.
-
-## Solution approach
-
-Rewrite the `ui.notify` annotation in the `ui:` row of the `ExtensionContext` inline block to match the SDK declaration: `ui.notify(message: string, type?: "info" | "warning" | "error"): void`.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T34 "`estimateTokens` — ownership story is incoherent" — same-cluster (sibling normative-vs-SDK alignment issue on the same page; different remedy class — ownership story vs typo).
-- T10 "`chokidar` named repeatedly but never declared as a dependency" — same-cluster (sibling external-entity declaration gap on the same page; different remedy class).
-
