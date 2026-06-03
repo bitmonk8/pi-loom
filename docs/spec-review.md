@@ -1,3 +1,996 @@
-# pi-loom — Consolidated Spec Review
+# Triaged Spec Review - spec
 
-_Findings: 0 open._
+_Generated: 2026-06-03T19:20:00Z_
+_Spec: docs/spec.md_
+_Process: bottom-up - the last finding (T36) is addressed first; the first finding (T01) is addressed last._
+
+_Triage tally: 1 blocker, 13 high, 22 medium retained; 13 low discarded; 4 low findings merged into 2 medium findings; 0 nit dropped; 0 false dropped._
+
+---
+
+# T01 - Echo policy illustrative example contradicts the quoting predicate
+
+**Kind:** clarity
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The illustrative example under the "Echo policy" section of `docs/spec_topics/binder.md` renders `focus_areas=[error handling, async]` and `author={Ada Lovelace, …}` with the space-containing strings `error handling` and `Ada Lovelace` left unquoted. The format rules that immediately follow require any string with a code point outside `[A-Za-z0-9_.-]` to be quoted, and the reference-rendering table makes this explicit with its `"has space"` → `"has space"` row. The example therefore contradicts the predicate it is meant to illustrate. A reader who pattern-matches on this first example and skips the predicate will emit non-conforming, unquoted output.
+
+## Solution approach
+
+Rewrite the illustrative example line under "Echo policy" so every interpolated value conforms to the format rules below it, quoting the two space-containing strings while leaving the unquoted-branch values intact — e.g. `Running \`/code-review\`: language=TypeScript, focus_areas=["error handling", async], author={"Ada Lovelace", …}`. Keeping `TypeScript` and `async` unquoted exercises both branches of the predicate in one example.
+
+## Solution constraints
+
+- None.
+
+## Relationships
+
+- T24 "Echo policy — 'first field' rule undefined for anonymous inline-object-typed values" — same-cluster (both touch the Echo policy section's example/format rules; resolve independently — the anonymous-inline-object rule is about a missing ordering source, not about quoting).
+- T25 "System-note rendering rule 1 — 'whitespace' undefined for collapse and trim" — same-cluster (same Echo policy / System-note rendering surface; resolves independently).
+# T02 - Failure-mode templates use an undefined `<provider>` placeholder
+
+**Kind:** clarity
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The "Failure-mode templates (normative)" section in `binder.md` opens with a MUST-emit-verbatim contract and enumerates exactly three interpolated placeholders — `<message>`, `<candidates>`, and `<ajv-summary>`. The transport-failure row of the six-row table renders `loom /<name>: argument binder unavailable (<provider>: <message>)`, but `<provider>` is never defined among the enumerated placeholders. Because the surrounding text is byte-exact normative, two conformant renderers can disagree on what string belongs inside the parenthetical.
+
+## Solution approach
+
+Add a fourth placeholder definition for `<provider>` to the paragraph in binder.md's "Failure-mode templates (normative)" section that currently introduces `<message>`, `<candidates>`, and `<ajv-summary>`, identifying it as the `provider` field of the classifier-produced `TransportError` rendered verbatim — the raw wire provider id, not a normalised form. Forward-link the definition to the `TransportError` schema at errors-and-results.md `#queryerror-variants` and to the Provider error mapping table at pi-integration-contract.md `#provider-error-mapping`.
+
+## Solution constraints
+
+- Out of scope: assigning a BNDR-N REQ-ID anchor to this paragraph (owned by T12).
+
+## Relationships
+
+- T25 "System-note rendering rule 1 — 'whitespace' undefined for collapse and trim" — same-cluster (both are under-defined-token gaps in the same set of normative renderings; resolved independently).
+- T12 "binder.md — un-anchored normative obligations missing BNDR-N REQ-IDs" — decision-overlap (the placeholder definition edited here will sit under whichever BNDR-N anchor the traceability fix assigns to this paragraph; resolve traceability first if both land together, otherwise independent).
+# T03 - Determinism section over-pins FNV-1a as the binder-seed algorithm
+
+**Kind:** prescription
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+`binder.md` §Determinism mandates the exact 32-bit FNV-1a algorithm (offset basis `0x811c9dc5`, prime `0x01000193`), the exact hashed byte sequence, and three frozen reference vectors under "Conforming implementations MUST reproduce these values exactly." The 32-bit seed value is not observable to loom authors or operators, and is omitted from the request payload for the `anthropic-messages` and `amazon-bedrock` transports the recommended binder models use. The strong MUST only purchases an observable property — cross-implementation byte-equivalence of binder provider requests — when the binder model resolves to a seed-supporting provider (`openai-completions` / `mistral`), and the section never states this as its rationale. A maintainer cannot tell which property is load-bearing when a provider deprecates its seed field, a transport is added, or a faster hash is proposed.
+
+## Solution approach
+
+In `binder.md` §Determinism (`#determinism`), keep the existing FNV-1a MUST and the three reference vectors — the gap is the missing rationale, not the algorithm choice — and add a justification clause naming the property the pin purchases: cross-implementation byte-equivalence of binder provider requests for seed-supporting providers. Cross-reference the `#provider-seed-field-mapping` anchor in `pi-integration-contract.md` and the GOV-15 conformance fixture suite (`#gov-15-fixture-suite`).
+
+## Solution constraints
+
+- Out of scope: the reproducibility-contract scope wording in §Determinism owned by T23 — add only the FNV-1a-pin rationale.
+- Reference `#provider-seed-field-mapping` by anchor; do not reproduce its supporting/omitting provider split inline.
+
+## Relationships
+
+- T23 "Binder Determinism — reproducibility scope overreaches the provider contract" — same-cluster (both target binder.md §Determinism and both turn on what loom actually controls vs. what is provider-dependent; resolve independently — the rationale clause added here should reference the narrowed reproducibility-contract wording produced by that finding, but neither blocks the other).
+- T28 "Canonical schema hash, step 2 — numeric serialization underspecified" — same-cluster (both pin a byte-level deterministic recipe whose output is load-bearing for cross-run reproducibility; resolutions are independent — this finding tightens the rationale for a recipe, that one tightens the recipe itself).
+# T04 - Settings-watcher debounce window left unpinned
+
+**Kind:** testability
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+`docs/spec_topics/discovery.md` §Settings file reads → **Caching and reload** says only that "Watcher events are debounced to absorb partial writes from editors-in-progress" — no numeric window is given and the watcher is not tied to the injected `Clock` seam at this site. `pi-integration-contract.md` §`Clock` / `FakeClock` interface cross-references this section for the settings-watcher debounce window, so the reference is circular: it points here for a number this section never provides. A `FakeClock`-driven conformance test cannot pick the `advance(N)` boundary distinguishing "still coalescing" from "reload fired", and two implementers will diverge on reload latency and burst-coalescing behaviour for editor partial writes.
+
+## Solution approach
+
+Rewrite the "Watcher events are debounced…" sentence in `docs/spec_topics/discovery.md` §Settings file reads → **Caching and reload** to pin the settings-watcher debounce window at `250 ms`, measured against the injected `Clock` seam via `Clock.setTimeout` / `Clock.clearTimeout`, with each fresh watcher event resetting the timer (drop-and-reschedule, holding only the most recent handle). Cross-link the `Clock` / `FakeClock` interface section of `docs/spec_topics/pi-integration-contract.md` so the existing back-reference there resolves to a concrete window.
+
+## Solution constraints
+
+- Out of scope: the **Keys read** sub-block of §Settings file reads (owned by T30).
+
+## Relationships
+
+- T30 "`settings.json` shape undetermined: `looms` array collides with `looms.*` namespace" — same-cluster (same §Settings file reads section; resolve independently — the ambiguity fix touches the **Keys read** sub-block, this fix touches **Caching and reload**).
+# T05 - future-considerations.md category headings still spelled `V1`
+
+**Kind:** naming
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+All four `## `-level category headings on `docs/spec_topics/future-considerations.md` still carry the legacy `V1` version token (`Tooling deferrals (no V1 impact)`, `Surface extensions (V1 leaves a seam)`, `Model-level changes (no V1 seam expected)`, `V1 non-goals`), while the rest of the corpus has converted to the canonical `loom 1.0` spelling per the GOV-20 alias table. Only `V1 non-goals` carries a GOV-21 dual-anchor pair; the other three headings have no authored anchor, so their only fragment identifier is the renderer-produced auto-id. Four in-corpus citations target `#surface-extensions-v1-leaves-a-seam` — two from `docs/spec.md` and two internal to `future-considerations.md` — and under [GOV-21 *Incidental auto-id prohibition*](./governance.md#gov-21-incidental-auto-id) that renderer auto-id is not a citable stable anchor, so a naive heading-text rename would silently break all four.
+
+## Solution approach
+
+Rename the four category headings on `docs/spec_topics/future-considerations.md` from the `V1` token to the `loom 1.0` spelling. Add GOV-21 dual anchors (a canonical `loom-1-0-*` arm plus a `v1-*` alias arm) to the three currently anchor-less headings so the rename is anchor-stable; the existing `V1 non-goals` pair is already correct and is retained. Repoint the four inbound citations of `#surface-extensions-v1-leaves-a-seam` (in `docs/spec.md` and internally in `future-considerations.md`) to the new canonical arm.
+
+## Solution constraints
+
+- Out of scope: retiring the `v1-*` alias arms. They are permanent back-compat aliases under [GOV-21 *Alias permanence*](./governance.md#gov-21-alias-permanence); alias-only retirement is gated on the separate *Retirement discharge* witness.
+
+## Relationships
+
+None
+# T06 - Glossary `GOV-N` entry under-describes the live GOV range and scope
+
+**Kind:** cross-spec-consistency-broad
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Decision axes:** 2
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The **GOV-N (governance rule)** glossary entry in `docs/spec_topics/glossary.md` defines the `GOV` prefix as "(`GOV-1` through `GOV-8`)" rules that "govern how REQ-IDs are coined, anchored, retired, and gated". Both the range and the scope are narrower than what `governance.md` — the page that owns the rules — actually carries: live rules now run through GOV-23 (with GOV-2/10/11/13 retired), and GOV scope extends well beyond REQ-ID lifecycle to aggregator lock-step (GOV-12), stable inline labels (GOV-16), corpus direction and binding scope (GOV-17/18), release-version naming (GOV-19/20/21), and Session Model anchor stability (GOV-23). Sibling glossary entries already cite rules outside the `1–8` window (e.g. GOV-19, GOV-20). The spec's central definition of the `GOV-N` token thus silently contradicts the canonical page it cross-links to.
+
+## Solution approach
+
+Rewrite the `GOV-N (governance rule)` entry in `glossary.md` so the range is expressed by pointer to `governance.md` rather than a fixed upper bound — orienting on the live range (currently through `GOV-23`, with retirements per [Retired REQ-IDs](./governance.md#retired-req-ids)) so the entry stays stable across future GOV additions. Broaden the scope clause beyond REQ-ID coining/anchoring/retirement to describe the live GOV surface (inline labels, `spec.md` aggregator lock-step, corpus direction and binding scope, release-version naming and legacy-token aliases, the source-language equivalence release-process goal, and Session Model anchor stability). Keep the existing per-page-prefix-table sentence and the `See: [Governance](./governance.md)` cross-link.
+
+## Solution constraints
+
+- Out of scope: `governance.md` rule bodies, the REQ-ID prefix table, and the *Retired REQ-IDs* section — edit `glossary.md` only.
+- MAY NOT coin a new REQ-ID at this site: the glossary page is narrative (`(no IDs — narrative)` in its prefix-table row).
+
+## Relationships
+
+None
+# T07 - Per-boundary tables use undefined `calling loom` instead of glossary `invoke parent`
+
+**Kind:** naming
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+Two parallel normative tables — the ceiling #4 per-boundary table in `hard-ceilings.md` (the `invoke<T>` return value row, anchor `#ceiling-4-table`) and the Depth Enforcement per-boundary table row #5 in `schema-subset.md` — label the destination of an `invoke<T>` return-value depth violation as `calling loom`. The glossary's `caller` entry canonizes a different term, `invoke parent`, for exactly this concept, while `calling loom` is used elsewhere in the spec for the distinct path-resolution-anchor concept. `calling loom` is nowhere defined as an alias for `invoke parent`, so a reader cannot tell from the table which concept the destination column names. The ambiguity bites precisely here, because the destination governs who observes the `Err` and therefore which surface contract applies.
+
+## Solution approach
+
+Rename `calling loom` to the glossary canon `invoke parent` in the Destination column of the `invoke<T>` return value row in both the ceiling #4 table in `hard-ceilings.md` (`#ceiling-4-table`) and the Depth Enforcement table row #5 in `schema-subset.md`.
+
+## Solution constraints
+
+- Out of scope: the `calling loom` occurrences in `invocation.md`, `frontmatter.md`, `overview.md`, and `pi-integration-contract.md` — those name the path-resolution anchor, a distinct concept, and must not be renamed.
+
+## Relationships
+
+- T22 "invocation.md carries no INV-N REQ-IDs" — decision-overlap (the INV-N anchor on typed return is the natural cross-link target for these tables once it lands; the two edits coordinate naturally but neither blocks the other).
+# T08 - Runtime bullets name AJV in normative prose despite SchemaValidator being the contract
+
+**Kind:** prescription
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+In `implementation-notes.md`, the **Schema validation** bullet establishes the injected `SchemaValidator` service as the observable contract and demotes AJV to a single non-normative *Implementation hint*. Two earlier normative Runtime bullets, however, name AJV directly as the validator of record: the typed-query bullet ("the returned tool-call payload is validated with **AJV**") and the `params:` bullet ("Parameter schemas … are likewise validated with AJV"). A reader following the contract front-to-back sees AJV named as the binding validator before learning the contract is library-agnostic, and a conformance-test author cannot tell whether an alternative conforming `SchemaValidator` satisfies the typed-query and `params` validation hooks.
+
+## Solution approach
+
+Rewrite the typed-query Runtime bullet and the `params:` Runtime bullet in `implementation-notes.md` to reference the injected `SchemaValidator` rather than AJV, forward-linking to the **Schema validation** bullet that introduces the seam.
+
+## Solution constraints
+
+- Out of scope: every AJV reference outside the two named Runtime bullets — the *Implementation hint (non-normative)* bullet (the correct home for the AJV v8 / `ajv-formats` choice), the `ValidationError` / `params` AJV-compatibility notes, and cross-page AJV terminology in `binder.md`, `errors-and-results.md`, and `frontmatter.md`.
+
+## Relationships
+
+- T26 "Defaulting — fill semantics undefined when the binder supplies a value for a defaulted field" — same-cluster (both involve the post-default-merge AJV/SchemaValidator step; the rename here is editorial and does not constrain the fill-semantics decision).
+# T09 - `ui.notify` inline signature contradicts the pinned SDK declaration
+
+**Kind:** doc-alignment-broad
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The `ExtensionContext` inline block's `ui:` row in `pi-integration-contract.md` annotates `ui.notify` with a signature that contradicts the pinned SDK declaration of `ExtensionUIContext` in `@earendil-works/pi-coding-agent` (`dist/core/extensions/types.d.ts`). The inline form names the second parameter `kind` and marks it required; the SDK declares `type?` — optional. The optionality divergence is substantive: the SDK permits a one-argument `ui.notify("…")` call, while a consumer reading the inline annotation as authoritative would type its wrapper as requiring the second argument. The same block is governed by the in-page rule that this subset MUST be re-validated against the cited types file on each Pi minor bump, so the mismatch will recur as a false positive on every alignment audit until corrected.
+
+## Solution approach
+
+Rewrite the `ui.notify` annotation in the `ui:` row of the `ExtensionContext` inline block to match the SDK declaration: `ui.notify(message: string, type?: "info" | "warning" | "error"): void`.
+
+## Solution constraints
+
+- None.
+
+## Relationships
+
+- T34 "`estimateTokens` — ownership story is incoherent" — same-cluster (sibling normative-vs-SDK alignment issue on the same page; different remedy class — ownership story vs typo).
+- T10 "`chokidar` named repeatedly but never declared as a dependency" — same-cluster (sibling external-entity declaration gap on the same page; different remedy class).
+# T10 - `chokidar` named repeatedly but never declared as a dependency
+
+**Kind:** external-entities
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Decision axes:** 2
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+`chokidar` is the production adapter behind the `FileWatcher` seam and is named across `pi-integration-contract.md` (the `discoveryWatcher.close()` parenthetical, the `session_shutdown` stale-runtime edge-case bullet, the `FakeFileWatcher` / `FileWatcher` interface block, and the `watch` bullet's event-filter list) and `diagnostics.md`'s Transient-toasts bullet, yet no paragraph declares which `package.json` block it belongs in or whether its import sites fall inside the PIC inventory-closure audit's *Target surface categories* scope. This is asymmetric with the two other npm packages PIC names: `semver` has a dedicated declaration in *Loom-package implementation dependencies (loom 1.0)*, and `typebox` has its own Pi-bundled-package sub-paragraph with explicit manifest-block framing. As a result, two implementers can produce divergent `package.json` files (e.g. `dependencies` vs `peerDependencies`) and divergent audit-exemption setups with no spec text deciding which is conformant.
+
+## Solution approach
+
+Add a `chokidar` clause to the existing *Loom-package implementation dependencies (loom 1.0)* paragraph (anchor `id="loom-package-implementation-dependencies-loom-1-0"`), naming `chokidar` as a loom-package `dependencies` entry on the `semver` precedent and linking its npm page. State that `chokidar` is out of scope for the inventory-closure audit's *Target surface categories* (anchor `id="audit-target-surface-categories"`), so no audit exemption marker is required at `chokidar` import sites. Name the dependency, not a version literal.
+
+## Solution constraints
+
+- Out of scope: the `FakeFileWatcher` / `FileWatcher` interface block and its illustrative `chokidar` references (the event-name comment, the `close()` parenthetical, the `addDir` / `unlinkDir` / `ready` / `error` filter list) stay as-is; the seam contract remains library-agnostic.
+
+## Relationships
+
+- T09 "`ui.notify` inline signature contradicts the pinned SDK declaration" — same-cluster (sibling external-entity / SDK-alignment gap on the same page; resolve independently).
+# T11 - Vestigial "decided separately" pointers in query.md should link to Degenerate rendered templates
+
+**Kind:** clarity, cruft
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+Two sites in `docs/spec_topics/query.md` carry a vestigial "decided separately" back-pointer about empty rendered templates: the vector commentary item 6 in the dedent/newline-trim reference table, and the per-slot bullet under "Stringification of interpolated values" → Notes. Both say how an empty rendered template is handled "is decided separately" and send the reader hunting for a separate decision. No separate decision exists — the rule is already fully pinned earlier in the same file under the "Degenerate rendered templates" subsection (parse-time `loom/parse/empty-template` warning plus a runtime short-circuit to `Err(QueryError { … cause: "empty_template", … })`). The phrasings are drafting residue left in after the disposition was settled in-file.
+
+## Solution approach
+
+Rewrite both "decided separately" parentheticals — vector commentary item 6 and the per-slot stringification Notes bullet — as direct in-file cross-references to the "Degenerate rendered templates" subsection, dropping the "decided separately" framing and using the same anchor target at both sites. The subsection heading carries no bespoke anchor, so the implementer establishes or reuses query.md's intra-file fragment convention for the target.
+
+## Solution constraints
+
+- None.
+
+## Relationships
+
+- T33 "`max_rounds: 0` user-turn separator disagrees with the Follow-up turn templates it cites" — same-cluster (another `query.md` cross-reference defect; independent fix).
+- T32 "Top-level `Err` per-`kind` table — `validation` row collapses the two causes" — same-cluster (both concern the `empty_template` short-circuit's normative footprint, but resolve in different files).
+
+---
+# T12 - binder.md — un-anchored normative obligations missing BNDR-N REQ-IDs
+
+**Kind:** traceability
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The `BNDR` prefix is registered in `governance.md`, but only `BNDR-1 … BNDR-3` are coined on `binder.md`, all three on the *Binder envelope* sub-section. The page's other dense normative-MUST surfaces — *Compact-transcript format (normative)*, *Session-context truncation (`bind_context: session`)*, *System-prompt structure (normative)*, and *Failure-mode templates (normative)* — carry no `BNDR-N` anchors, even though each rule is independently violable and independently testable. Per `GOV-22`, until these obligations are coined, `GOV-9`'s `#prefix-n` cross-link contract is unsatisfiable for them: inbound references from `spec.md`, `slash-invocation.md`, `frontmatter.md`, and `pi-integration-contract.md` resolve only to section-heading anchors or bespoke per-paragraph anchors, never to a per-obligation stable ID.
+
+## Solution approach
+
+Add dual-form `BNDR-N` anchors at the un-anchored normative obligation sites on `binder.md` — *Session-context truncation*, the *Compact-transcript format* MUST rules, the *System-prompt structure* items, the reference-rendering byte-pinning lead-ins, and the *Failure-mode templates* obligations — allocating numeric tails per `GOV-3` (next free integer starting at `BNDR-4`, no hole-filling) in the `GOV-1` *Dual-form layout*. Coin one ID per independently-testable obligation so each citable MUST resolves to its own `#bndr-n`, rather than a single block-level ID per section. Where a bespoke anchor already exists (e.g. `#per-invocation-retry-budget`), keep it in place and add the `BNDR-N` dual-form pair alongside.
+
+## Solution constraints
+
+- Out of scope: defining the `<provider>` placeholder (owned by T02) and repointing the `<ajv-summary>` cross-link to `#err-n` (owned by T18).
+
+## Relationships
+
+- T13 "cancellation.md carries no CNCL-N REQ-IDs" — same-cluster (same systemic GOV-22 gap on a different topic page; resolved independently).
+- T16 "query.md missing QRY-N REQ-IDs" — same-cluster (parallel GOV-22 gap; independent prefix).
+- T17 "slash-invocation.md carries no SLSH-N REQ-ID anchors" — same-cluster (parallel GOV-22 gap; independent prefix).
+- T18 "`validation-issue-ordering` paragraph carries no ERR-N REQ-ID" — decision-overlap (the `<ajv-summary>` clause on `binder.md` cites the `validation-issue-ordering` paragraph by parent-section anchor; once that paragraph gets its `ERR-N`, the `binder.md` `<ajv-summary>` text should be repointed to `#err-n`).
+- T02 "Failure-mode templates use an undefined `<provider>` placeholder" — decision-overlap (the `<provider>` definition will sit under whichever BNDR-N anchor this coinage assigns to the placeholder paragraph).
+# T13 - discovery.md carries zero DISC-N REQ-IDs
+
+**Kind:** traceability
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Decision axes:** 2
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+`discovery.md` is a non-narrative page carrying multiple independently-violable normative obligations — among them the home-directory-expansion seam-routing MUST, the `pi.looms` shape MUST, the package-walk `Clock.setTimeout` / silenced-`.catch` / no-reroute MUSTs, the per-source failure-mode table, the case- and cross-format-collision rejections, the per-source dedup rule, and the settings-file merge semantics — yet it coins zero `DISC-N` REQ-ID anchors, even though `governance.md`'s REQ-ID prefix table registers the `DISC` prefix for the page. This violates GOV-22, which obligates a non-narrative page with un-anchored normative obligations to coin the missing REQ-IDs so GOV-9's `#prefix-n` cross-link contract is satisfiable. Inbound cross-links from `binder.md`, `diagnostics.md`, `errors-and-results.md`, `frontmatter.md`, `future-considerations.md`, `glossary.md`, and `governance.md` therefore resolve only to section-heading slugs, so no callsite can cite a specific obligation by stable id and a heading rename silently breaks every inbound link.
+
+## Solution approach
+
+Add `DISC-N` dual-form anchors (`<a id="disc-n"></a> **DISC-N.**`) to `discovery.md` per GOV-1 layout, one per independently-violable normative obligation, splitting or merging per GOV-8. Rewrite the inbound `discovery.md#<heading-slug>` cross-links named in the Problem to target the corresponding `#disc-n` fragment wherever they cite a specific obligation rather than the whole page.
+
+## Solution constraints
+
+- Preserve the existing navigation anchors `discovery-roots`, `home-directory-expansion`, and `file-extension-namespace`; co-locate each new `DISC-N` pair rather than replacing them.
+
+## Relationships
+
+- T12 "binder.md — un-anchored normative obligations missing BNDR-N REQ-IDs" — same-cluster (parallel GOV-22 coinage gap; independent fix).
+- T14 "frontmatter.md carries no FRNT-N REQ-IDs" — same-cluster (parallel gap on a different page).
+- T21 "cancellation.md carries no CNCL-N REQ-IDs" — same-cluster (parallel gap; resolved by the same GOV-22-driven coinage pattern).
+- T22 "invocation.md carries no INV-N REQ-IDs" — same-cluster (parallel gap on a load-bearing page).
+# T14 - frontmatter.md carries no FRNT-N REQ-IDs
+
+**Kind:** traceability
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Decision axes:** 2
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+`governance.md`'s REQ-ID prefix table allocates the `FRNT` prefix to `frontmatter.md`, but the page carries zero `**FRNT-N.**` anchors — a corpus-wide grep for `FRNT-[0-9]+` returns no matches. The page nonetheless states a substantial body of independently-violable normative obligations (the Unknown-key policy, each *Field contract* table row, the *Naming convention* rules including the "**No `name` field**" prohibition, the `params`/`tools`/`system:` rules, the *Resolution snapshot* bullets, the `loom/parse/system-interp-*` diagnostics, and the `respond_repair`/`tool_loop` semantics), none of which carries a co-located REQ-ID anchor. As a result GOV-22 fires a fresh violation on every substantive edit to the page, and GOV-9's `#prefix-n` cross-link contract is permanently unsatisfiable for the dozen-plus inbound references from sibling pages that name a specific frontmatter obligation.
+
+## Solution approach
+
+Add dual-form `FRNT-N` anchors at each independently-violable defining obligation site on `frontmatter.md` — one anchor per obligation, not one per paragraph — allocated per GOV-3 and laid out per GOV-1 *Dual-form layout*. In the same commit, rewrite inbound cross-references on the sibling pages that name a specific frontmatter obligation (rather than the whole page) to `#frnt-n` targets per GOV-9.
+
+## Solution constraints
+
+- When adding a co-located `FRNT-N` anchor at a site that already carries a bespoke HTML `id="..."` slug (e.g. `binder-model-root-word-convention`, `loom-1-0-seam-system-expression-sublanguage`, the inline `id="tools"`), preserve the existing slug.
+- Repointing inbound cross-references edits only the link targets on sibling pages; coining those pages' own REQ-ID anchors is out of scope (T12, T13, T15, T16, T22 own their respective pages' coinage).
+
+## Relationships
+
+- T12 "binder.md — un-anchored normative obligations missing BNDR-N REQ-IDs" — same-cluster (parallel GOV-22 gap).
+- T13 "discovery.md carries zero DISC-N REQ-IDs" — same-cluster (parallel GOV-22 gap).
+- T22 "invocation.md carries no INV-N REQ-IDs" — same-cluster (`frontmatter.md` has multiple inbound-to-invocation cross-links; repointings are concurrent but the fixes are independent).
+# T15 - Probe-wide invariants block missing PIC-N REQ-IDs
+
+**Kind:** traceability
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The **Probe-wide invariants** block in `pi-integration-contract.md` (immediately after the (a)–(e) probe sub-step enumeration) bundles four independently violable normative obligations — no self-member use, `typeof`/`in`-only checks, no probes beyond the five enumerated, and the factory MUST NOT throw — but none carries a stable `PIC-N` identifier. The `PIC` prefix is registered in governance.md's per-page prefix table and in active use (`PIC-1`, `PIC-2`), so the anchor mechanism is available; these four obligations are simply un-coined. Without per-obligation anchors, conformance tests, diagnostics, and cross-page citations can reference the block only by parent-section heading, collapsing four independently-testable failure modes onto one citation surface and leaving GOV-9's `#prefix-n` cross-link contract unsatisfiable for any caller that needs to pin one obligation. GOV-22 is the rule that admits this gap and prescribes coining a dual-form `PIC-N` anchor at each defining site.
+
+## Solution approach
+
+Add four dual-form `PIC-N` anchors — `PIC-3`, `PIC-4`, `PIC-5`, `PIC-6`, the next free integers after `PIC-1` and `PIC-2` — one per bullet in the Probe-wide invariants block, following the GOV-1 dual-form layout already used at the `pic-1` and `pic-2` anchors.
+
+## Solution constraints
+
+- None.
+
+## Relationships
+
+- T12 "binder.md — un-anchored normative obligations missing BNDR-N REQ-IDs" — same-cluster (same GOV-22 trigger; resolved independently per its own page).
+- T21 "cancellation.md carries no CNCL-N REQ-IDs" — same-cluster (page-wide instance of the same gap).
+- T22 "invocation.md carries no INV-N REQ-IDs" — same-cluster (same page carries inbound-to-invocation cross-links that the INV-N coinage lands alongside).
+# T16 - query.md missing QRY-N REQ-IDs
+
+**Kind:** traceability
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Decision axes:** 2
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+`governance.md`'s REQ-ID prefix table registers the `QRY` prefix to `query.md`, but the page carries zero `QRY-N` anchors — neither the GOV-1 *Canonical form* inline `**QRY-N.**` marker nor the *Dual-form layout* `<a id="qry-n">` token — despite hosting many independently verifiable normative obligations. Because no `#qry-n` fragments exist, every inbound cross-link from sibling pages resolves only at section-heading granularity, violating the GOV-9 cross-link contract that requires a `#prefix-n` fragment when the depended-upon page is non-narrative. The GOV-15 "release blocked on uncoined obligations on a registered prefix" condition is currently tripped, and individual obligations cannot be cited by stable id.
+
+## Solution approach
+
+Add `QRY-N` REQ-ID anchors at each independently verifiable normative obligation on `query.md`, following GOV-1 *Canonical form* and *Dual-form layout* and GOV-22's progressive-coinage procedure, with numeric tails allocated per GOV-3. Add forward-links from the inbound cross-references on the sibling pages that cite `query.md` rules (`errors-and-results.md`, `hard-ceilings.md`, `pi-integration-contract.md`, `frontmatter.md`, `glossary.md`, `tool-calls.md`, `schema-subset.md`, and `spec.md`'s SM-8 aggregator) so each repoints to the specific `#qry-n` fragment it depends on.
+
+## Solution constraints
+
+- Preserve the existing bespoke HTML section anchors on `query.md` (`#tool-call-loop-bound`, `#worked-example-depth-6-forced-respond`, `#typed-queries-are-tool-loop-shaped`, `#forced-respond-turn-non-compliance`, and the pre-flight-token-nullability anchors); add the new dual-form `QRY-N` pairs alongside them, not in place of them, so existing inbound links keep resolving.
+
+## Relationships
+
+- T12 "binder.md — un-anchored normative obligations missing BNDR-N REQ-IDs" — same-cluster (parallel un-coined-prefix gap; resolve independently per page).
+- T17 "slash-invocation.md carries no SLSH-N REQ-ID anchors" — same-cluster (parallel gap).
+- T18 "`validation-issue-ordering` paragraph carries no ERR-N REQ-ID" — decision-overlap (QRY-21's `<ajv-summary>` placeholder links to `errors-and-results.md#validation-issue-ordering`; once that paragraph gains an `ERR-N`, the QRY-21 cross-link should be updated in the same edit).
+- T32 "Top-level `Err` per-`kind` table — `validation` row collapses the two causes" — decision-overlap (the resolution of that finding will likely cite the new QRY-5 *empty-template short-circuit* anchor; co-ordinate the inbound-link update).
+# T17 - slash-invocation.md carries no SLSH-N REQ-ID anchors
+
+**Kind:** traceability
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Decision axes:** 2
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+`governance.md`'s REQ-ID prefix table binds `slash-invocation.md` to the
+`SLSH` prefix, but the page coins zero `SLSH-N` anchors. Multiple defining
+obligation sites carry no co-located REQ-ID — the normative-templates
+verbatim-emission rule, each row of the per-`kind` system-note table, the
+chain-attribution suffix rule for `invoke_callee_error`, the no-params
+overflow emission rule, and the user-visible streaming rules. Because none
+of these sites is anchored, GOV-9's `#prefix-n` cross-link contract is
+unsatisfiable for them: every consumer page reaches the obligations only
+via heading-slug links, and individual per-`kind` table rows cannot be
+cited at all by other pages or by conformance tests.
+
+## Solution approach
+
+Coin `SLSH-N` dual-form anchors at each defining obligation site on
+`slash-invocation.md` per GOV-1 dual-form layout and GOV-22 progressive
+coinage, allocating next-free integers (GOV-3) in source order — covering
+the normative-templates verbatim sentence, each per-`kind` system-note
+table row (one anchor per row, including the catch-all), the
+chain-attribution suffix rule, the no-params overflow emission rule, and
+the user-visible streaming rules. Then rewrite the inbound cross-references
+from `binder.md`, `cancellation.md`, `errors-and-results.md`,
+`frontmatter.md`, `pi-integration-contract.md`, and `glossary.md` to target
+the specific `#slsh-n` fragment each consumes, per GOV-9.
+
+## Solution constraints
+
+- None.
+
+## Relationships
+
+- T12 "binder.md — un-anchored normative obligations missing BNDR-N REQ-IDs" — same-cluster (parallel GOV-22 deficit; same coinage procedure, independent edit).
+- T16 "query.md missing QRY-N REQ-IDs" — same-cluster (parallel page-wide gap).
+- T20 "Tool-call late-settlement discard paragraph needs three CNCL-N sub-anchors" — same-cluster (parallel per-sub-obligation coinage question; resolve the SLSH chain-attribution sub-obligations the same way).
+- T32 "Top-level `Err` per-`kind` table — `validation` row collapses the two causes" — must-follow (splitting the `validation` row changes how many per-row `SLSH-N` anchors the table needs; resolve that row split first, or accept a second coinage pass).
+# T18 - `validation-issue-ordering` paragraph carries no ERR-N REQ-ID
+
+**Kind:** traceability
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The `ValidationIssue` ordering paragraph in `errors-and-results.md` (anchored with the bespoke HTML id `validation-issue-ordering`) states an independent normative obligation: the canonical deterministic sort of `validation_errors` entries keyed on `(path, schema_keyword, message)` by Unicode code point. It is the load-bearing definition of `validation_errors[0]` and the binder failure-mode template's `<ajv-summary>` placeholder, and the reference point conformance tests compare against. It carries no `ERR-N` REQ-ID even though the `ERR` prefix is live on this page (`ERR-1` … `ERR-7`). Inbound cites from `binder.md`, `query.md`, and `implementation-notes.md` reach it via the bespoke fragment rather than a `#err-n` URL, which leaves GOV-9's cross-link contract unsatisfiable and the obligation un-coined under GOV-22.
+
+## Solution approach
+
+Coin the next free `ERR-N` dual-form anchor on the `validation-issue-ordering` paragraph in `errors-and-results.md`, retaining the legacy `validation-issue-ordering` fragment as an alias so existing inbound links keep resolving. Repoint the inbound `#validation-issue-ordering` cross-links in `binder.md`, `query.md`, and `implementation-notes.md` to the coined `#err-n` fragment.
+
+## Solution constraints
+
+- None.
+
+## Relationships
+
+- T19 "Mid-stream cancellation and No-rollback paragraphs lack ERR-N REQ-IDs" — co-resolve (shares the ERR-N integer namespace on the same page; the integer assigned here constrains the integers assigned there — co-edit in a single commit and assign in file-appearance order).
+- T16 "query.md missing QRY-N REQ-IDs" — decision-overlap (QRY-21's `<ajv-summary>` link should be updated to this paragraph's new `ERR-N` in the same edit).
+- T12 "binder.md — un-anchored normative obligations missing BNDR-N REQ-IDs" — same-cluster (corpus-wide GOV-22 progressive-coinage gap; resolves on its own page).
+# T19 - Mid-stream cancellation and No-rollback paragraphs lack ERR-N REQ-IDs
+
+**Kind:** traceability
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+`docs/spec_topics/errors-and-results.md` states six independent normative obligations in bold-headed paragraphs — the five `Mid-stream cancellation, *` paragraphs (non-mutation of committed surfaces, no compensating injection, cancellation/`?`-propagation symmetry, respond-repair scope window, subagent-mode internal binding) and the **No rollback** paragraph. None carries an `ERR-N` REQ-ID, although the `ERR` prefix is registered and `ERR-1 … ERR-7` already exist on the same page as dual-form anchors. Only paragraphs 1 and 6 carry a navigation anchor (`mid-stream-cancellation-conversation-state`, `no-rollback`); the rest have none. Per GOV-22 these defining obligation sites must coin co-located REQ-ID anchors, and per GOV-9 sibling-page citations cannot resolve to a `#prefix-n` fragment until they do.
+
+## Solution approach
+
+Add a dual-form `<a id="err-N"></a> **ERR-N.**` anchor at each of the six bold-headed obligation sites in `errors-and-results.md`, allocating the next free integers under the already-registered `ERR` prefix per GOV-3. Preserve the existing `mid-stream-cancellation-conversation-state` and `no-rollback` HTML anchors on the same lines as legacy aliases so inbound links continue to resolve.
+
+## Solution constraints
+
+- The new IDs are post-evaluation obligations and MUST NOT be folded into the page's "seven pre-evaluation failures" / "the seven below" count assertions, which bind only to `ERR-1 … ERR-7`.
+
+## Relationships
+
+- T18 "`validation-issue-ordering` paragraph carries no ERR-N REQ-ID" — co-resolve (same page, same `ERR` prefix; the same commit that coins these IDs should also coin the ordering paragraph's `ERR-N` to keep `ERR`-prefix numbering contiguous).
+- T21 "cancellation.md carries no CNCL-N REQ-IDs" — same-cluster (parallel GOV-22 / GOV-9 drain on the cancellation page).
+- T20 "Tool-call late-settlement discard paragraph needs three CNCL-N sub-anchors" — same-cluster (per-sub-obligation anchor split; same coining pattern).
+# T20 - Tool-call late-settlement discard paragraph needs three CNCL-N sub-anchors
+
+**Kind:** traceability
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Decision axes:** 3
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The `cancellation.md` paragraph `**Race semantics — late-settlement discard at the tool-call checkpoint.**` states a single discard rule that decomposes into three independently-violable sub-obligations: (a) no rebind of the call site to the late value, (b) no second `Err` for the same invocation, and (c) no second `RuntimeEvent`. With only a paragraph-head anchor, a test, conformance fixture, or cross-page citation cannot pin one sub-obligation without dragging in the other two, and a single `CNCL-N` covering all three would conflate them into one ID — the same atomicity violation the `SM-3a`/`SM-3b` and `SM-7a`…`SM-7e` sub-letter splits avoid. The immediately-following `**Race semantics — swallowing-handler attachment on every abandonable Promise.**` paragraph already cites these rules in-text as `clause (a)` / `clause (b)`, but those references cannot be promoted to GOV-9 `#cncl-n` cross-links until per-sub-obligation anchors exist.
+
+## Solution approach
+
+Split the `**Race semantics — late-settlement discard at the tool-call checkpoint.**` paragraph in `cancellation.md` so sub-obligations (a) no-rebind, (b) no-second-`Err`, and (c) no-second-`RuntimeEvent` each carry their own dual-form anchor at the sub-obligation's source line, adding three consecutive `CNCL-N` REQ-IDs in source order (a)→(b)→(c) per GOV-1 / GOV-22 and the `SM-7a`…`SM-7e` sub-letter precedent. Rewrite the following `**Race semantics — swallowing-handler attachment...**` paragraph's in-text `clause (a)` / `clause (b)` references as GOV-9 `#cncl-n` cross-links to the two new `Err`-channel anchors. Repoint the `Post-cancel resolution` bullet in `tool-calls.md` and the `tool-execution-from-loom-code` restatement in `pi-integration-contract.md` to cite the three new anchors.
+
+## Solution constraints
+
+- Out of scope: the corpus-wide inbound `#cncl-n` cross-link repointing and the page-wide `CNCL-N` numbering base, both owned by T21; this finding adds only the three sub-obligation anchors and repoints the adjacent swallowing-handler paragraph plus the two sibling restatements named in Solution approach.
+
+## Relationships
+
+- T21 "cancellation.md carries no CNCL-N REQ-IDs" — must-follow (the page-wide CNCL-N coinage finding determines the integer base and the GOV-22 progressive-coinage pass; resolve the page-wide coinage first — this finding lands on its baseline and constrains that pass to allocate three IDs to this paragraph).
+- T19 "Mid-stream cancellation and No-rollback paragraphs lack ERR-N REQ-IDs" — same-cluster (sibling rule on `errors-and-results.md` where multiple consecutive paragraphs each need their own REQ-ID; same atomicity-of-anchoring principle, resolved on a different page).
+# T21 - cancellation.md carries no CNCL-N REQ-IDs
+
+**Kind:** traceability
+**Importance:** medium
+**Score:** 35
+**Must-fix:** false
+**Decision axes:** 2
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+`cancellation.md` is registered in the per-page REQ-ID prefix table on `governance.md` with prefix `CNCL`, but the page carries zero `CNCL-N` anchor sites despite being dense with independently-violable normative obligations (signal source-of-truth, the per-mode forwarding paths, abort-reason propagation, the late-settlement discard sub-obligations, the swallowing-handler attachment rule, and the cancellation race rules). Because no obligation is coined, every inbound GOV-9 cross-link from depending pages (`binder.md`, `errors-and-results.md`, `pi-integration-contract.md`, `slash-invocation.md`, `hard-ceilings.md`, `diagnostics.md`, and the `spec.md` SM-7a / SM-7e aggregators) resolves only to a section-heading slug. This is exactly the permanently-unsatisfiable state GOV-22 was written to close.
+
+## Solution approach
+
+Coin `CNCL-N` dual-form anchors per GOV-1 / GOV-22 on `cancellation.md`, one per independently-violable normative obligation. Repoint every inbound cross-reference from the depending pages above from its `#section-slug` target to the new `#cncl-n` fragment.
+
+## Solution constraints
+
+- The `spec.md` SM-7a / SM-7e aggregator paragraphs are informative under GOV-12: repoint their cross-links only, coin no new REQ-IDs there.
+
+## Relationships
+
+- T20 "Tool-call late-settlement discard paragraph needs three CNCL-N sub-anchors" — must-precede (the three sub-anchors land inside this fix as `CNCL-15a` / `CNCL-15b` / `CNCL-15c`; resolve this page-wide coinage first so the sub-obligation finding lands on its baseline).
+- T12 "binder.md — un-anchored normative obligations missing BNDR-N REQ-IDs" — same-cluster (identical traceability gap on `binder.md`; inbound links from `cancellation.md` to `binder.md`'s cancelled-binder failure-mode benefit from being repointed in lock-step).
+- T31 "Per-cause caller surfaces table — Cancellation row contradicts cancellation.md surfacing" — decision-overlap (that finding's recommended pointer should target a CNCL-N anchor once these exist; today it targets the section heading).
+# T22 - invocation.md carries no INV-N REQ-IDs
+
+**Kind:** traceability
+**Importance:** medium
+**Score:** 35
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+`invocation.md` is registered with REQ-ID prefix `INV` in the governance.md REQ-ID prefix table, but the page carries zero `INV-N` anchor sites despite being normatively dense — the symlink-resolution hardening seam, the named-argument-invocation `style` discriminator, the per-call-timeout open-struct seam, the invoke-chain depth cap, the cross-mode snapshot/restore protocol, static resolution, typed return, argument arity, cycle detection, and the invoke-cause `QueryError` partition, among others. Because no `INV-N` anchors exist, GOV-9's `#prefix-n` cross-link contract is unsatisfiable for every inbound dependency: spec.md's Session Model aggregator plus cancellation.md, diagnostics.md, errors-and-results.md, frontmatter.md, functions.md, future-considerations.md, hard-ceilings.md, implementation-notes.md, pi-integration-contract.md, and tool-calls.md currently link only to section-heading slugs or bespoke `#static-resolution` / `#typed-return` / `#argument-binding` / `#final-value-propagation` / `#cycle-detection` anchors that are not REQ-ID anchors under GOV-1. This is the residue GOV-22 was written to close.
+
+## Solution approach
+
+Add `INV-N` dual-form anchors to `invocation.md` per GOV-1 and GOV-22, one per independently-violable normative obligation on the page, and repoint each inbound consumer's cross-references to the new `#inv-n` fragments in the same commit. Keep the bespoke `#static-resolution`, `#typed-return`, `#argument-binding`, `#final-value-propagation`, and `#cycle-detection` anchors as co-located aliases. Repoint future-considerations.md's symlink-hardening *Anchored at:* link to the `INV-N` anchor owning the single-named-function MUST.
+
+## Solution constraints
+
+- Out of scope: the `calling loom` → `invoke parent` per-boundary-table naming on hard-ceilings.md and tool-calls.md, owned by T07 — repoint only the cross-link targets in those rows, do not edit the surrounding cell wording.
+
+## Relationships
+
+- T13 "discovery.md carries zero DISC-N REQ-IDs" — same-cluster (same GOV-22 pattern, different page).
+- T14 "frontmatter.md carries no FRNT-N REQ-IDs" — same-cluster (`frontmatter.md` has multiple inbound-to-invocation cross-links; repointings are concurrent but the fixes are independent).
+- T07 "Per-boundary tables use undefined `calling loom` instead of glossary `invoke parent`" — decision-overlap (the new INV-7 anchor on typed return is the natural cross-link target for those tables once the naming finding lands).
+# T23 - Binder Determinism — reproducibility scope overreaches the provider contract
+
+**Kind:** assumptions
+**Importance:** high
+**Score:** 100
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+binder.md's "Compact-transcript format (normative)" section justifies byte-level pinning of the transcript renderer as a "hard reproducibility contract," and the Determinism section states the same loom produces the same seed and the same binder decision "on every run and across processes." This framing rests on an unstated assumption that the provider maps `(prompt-bytes, temperature: 0, seed)` to byte-identical output — a property of the provider stack, not of loom, which controls only deterministic seed derivation and deterministic prompt-byte construction. The Provider seed-field mapping table (`#provider-seed-field-mapping` in pi-integration-contract.md) omits the `seed` field for `anthropic-messages` and `amazon-bedrock` — exactly the transports the binder-model guidance steers authors toward (Claude Haiku) — so loom's cross-run determinism guarantee never reaches those providers, and alias-resolved snapshots can drift between runs. The over-broad output-determinism premise weakens the load-bearing justification for the MUST-reproduce-exactly transcript rendering and invites conformance tests asserting cross-run output equality that flake.
+
+## Solution approach
+
+Rewrite the "Why the transcript bytes are pinned" paragraph in binder.md's "Compact-transcript format (normative)" section to scope the reproducibility claim to what loom controls — byte-identical binder input and a deterministic seed value — and to state that whether the provider maps that input to byte-identical output is provider-dependent, naming the seed-omitted transports per `#provider-seed-field-mapping` and the upstream-API caveat for seed-accepting transports. Add a pointer noting alias-resolved binder models (per `binder-model-parse-rule`) further depend on the resolved concrete model staying stable across runs. Rewrite the Determinism section's closing sentence ("The same loom therefore produces the same seed on every binder call across processes and runs") to scope it to the seed value rather than the binder's sampled output, cross-referencing the seed-field mapping table for the transport-level caveat.
+
+## Solution constraints
+
+- The MUST-reproduce-exactly status of the reference transcript renderings A–D must remain normative; the rewrite re-justifies it on input-reproducibility / cache-stability / audit grounds, it does not weaken the rule.
+
+## Relationships
+
+- T03 "Determinism section over-pins FNV-1a as the binder-seed algorithm" — same-cluster (same Determinism section; that finding's rationale clause should reference the narrowed reproducibility-contract wording produced here, but neither blocks the other — sequence the edits to avoid merge churn).
+# T24 - Echo policy — 'first field' rule undefined for anonymous inline-object-typed values
+
+**Kind:** completeness
+**Importance:** high
+**Score:** 100
+**Must-fix:** false
+**Decision axes:** 2
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The Echo policy Object-value bullet (binder.md) renders an object value as `{first-field-value, …}` and defines "first field" only for values with a named `schema` block or a discriminated-union variant — both branches assume a named declaring block to consult. The type system admits inline anonymous object types `{ field: T, ... }` in any type position (type-system.md, Type forms), including transitively under `params:` via array-element and nested-object types, so a value can reach the formatter with no declaring `schema` block and no defined source order for it. Echo output is normatively byte-pinned (the Echo policy Reference renderings table is tagged "conforming implementations MUST reproduce these exactly"), so two conforming implementations can legitimately pick different "first fields" for the same inline-object value and emit divergent normative output.
+
+## Solution approach
+
+Clarify the Object-value bullet in binder.md's Echo policy section so the "first field" definition also covers a value whose static type is an inline anonymous object: the first field is the leftmost field of the inline type expression as written in the loom source. Make the rule apply recursively wherever the existing rule reaches — top-level `params:` fields, array-element types, and nested object-field types. Add a reference-rendering vector to the Echo policy Reference renderings table that exercises an inline-object-typed value.
+
+## Solution constraints
+
+- None.
+
+## Relationships
+
+- T01 "Echo policy illustrative example contradicts the quoting predicate" — same-cluster (sits in the same Echo policy bullet list; resolves independently).
+- T26 "Defaulting — fill semantics undefined when the binder supplies a value for a defaulted field" — same-cluster (both touch the Echo policy formatter; resolve independently).
+# T25 - System-note rendering rule 1 — 'whitespace' undefined for collapse and trim
+
+**Kind:** testability
+**Importance:** high
+**Score:** 100
+**Must-fix:** false
+**Decision axes:** 2
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+Rule 1 of §System-note rendering (`docs/spec_topics/binder.md`, anchor `id="system-note-rendering"`) is a normative MUST line-discipline. Step 1a (the bullet beginning "**Single line.**") enumerates the characters it replaces explicitly — `\r`, `\n`, `\r\n` → a single U+0020 — but the collapse and trim sub-steps say "Collapse runs of whitespace to one space" and "Trim leading and trailing whitespace" without defining what "whitespace" means. Model-supplied substrings (the `message` field, each `candidates[i]`, the echo's interpolated values) can carry U+0009 and other non-newline whitespace with no upstream guard, so two conforming implementations diverge on an input like `"a\tb"` — one reading "whitespace" as the JavaScript `\s` class collapses the tab, another reading it as U+0020-only preserves it. Both pass the existing reference renderings, undermining the byte-exact conformance basis.
+
+## Solution approach
+
+Rewrite rule 1's collapse and trim sub-steps to enumerate the whitespace set explicitly, matching step 1a's enumeration style. Define the set as the ASCII whitespace code points {U+0009, U+000A, U+000B, U+000C, U+000D, U+0020}, excluding Unicode whitespace such as U+00A0 and the U+2000–U+200A range, rather than the language-dependent regex `\s` class. Add a reference rendering to the failure-mode templates table that exercises a pre-existing tab in `message`, pinning the collapse behaviour for the conformance suite.
+
+## Solution constraints
+
+- Out of scope: coining BNDR-N REQ-ID anchors for the amended rule (owned by T12).
+
+## Relationships
+
+- T01 "Echo policy illustrative example contradicts the quoting predicate" — same-cluster (touches the same System-note rendering / Echo policy surface but resolves independently).
+- T02 "Failure-mode templates use an undefined `<provider>` placeholder" — same-cluster (another under-specified component of the same MUST-emit-verbatim contract; independent edit).
+- T12 "binder.md — un-anchored normative obligations missing BNDR-N REQ-IDs" — decision-overlap (when BNDR-N IDs are coined, the amended rule 1 should receive its own anchor so the new tab-handling reference rendering can cite it).
+- T17 "slash-invocation.md carries no SLSH-N REQ-ID anchors" — same-cluster (the slash-invocation page's system-note shape table references this rendering discipline; fixing it here does not affect SLSH-N coining).
+# T26 - Defaulting — fill semantics undefined when the binder supplies a value for a defaulted field
+
+**Kind:** testability
+**Importance:** high
+**Score:** 100
+**Must-fix:** false
+**Decision axes:** 2
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The `## Defaulting` section of `docs/spec_topics/binder.md` describes the
+runtime default-fill step as happening after the binder returns and before AJV
+validation, but does not state whether the fill is conditional on the field's
+absence from the binder-returned `args` or unconditional. Because
+`<params-schema-with-defaulted-fields-relaxed>` only relaxes defaulted fields
+out of `required` (leaving them in `properties` under
+`additionalProperties: false`), a binder that emits a value for a defaulted
+field produces a structurally valid envelope, so AJV cannot decide which value
+survives. The case is reachable: item 8's no-invent-defaults instruction only
+asks the binder not to invent defaults, yet a hallucinating binder may emit a
+value anyway. Two conforming implementations then diverge on both the merged
+`args` value passed to the loom body and the echo line's `(default)` tag,
+breaking the byte-equivalent echo contract on identical binder responses.
+
+## Solution approach
+
+In `docs/spec_topics/binder.md`'s `## Defaulting` section, clarify the
+runtime default-fill step as fill-if-absent: a defaulted field's wire name
+present in the binder-returned `args` preserves the binder-supplied value
+unchanged, while an absent wire name takes the declared default. Add a
+forward-link from the Echo policy "Defaulted fields tagged `(default)`" bullet
+to `## Defaulting` so the `(default)` tag's firing condition (default-supplied,
+not binder-supplied) is observable to a fixture author.
+
+## Solution constraints
+
+- Out of scope: the `AJV` → `SchemaValidator` rename owned by T08.
+
+## Relationships
+
+- T24 "Echo policy — 'first field' rule undefined for anonymous inline-object-typed values" — same-cluster (both touch the Echo policy formatter; resolve independently).
+- T08 "Runtime bullets name AJV in normative prose despite SchemaValidator being the contract" — same-cluster (both involve the post-default-merge validation step; the rename of "AJV" → "SchemaValidator" is editorial and does not constrain the fill-semantics decision).
+# T27 - Importing a non-existent symbol from a `.warp` file is unspecified
+
+**Kind:** completeness
+**Importance:** high
+**Score:** 100
+**Must-fix:** false
+**Decision axes:** 3
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+`imports.md` enumerates the static import failure modes (non-`.warp` extension, backslash separator, name collision, top-level statement, import cycle) but does not specify what happens when an `import { ... }` or `export { ... } from` specifier names a symbol that is not a top-level declaration of the resolved `.warp` file. The *Visibility* paragraph states only that every top-level `schema`/`enum`/`fn` is implicitly exported; it does not cover the requested-name-not-present case, and the `diagnostics.md` code registry offers no candidate. `loom/parse/unknown-identifier` is scoped to bare identifiers in expression position, not to import resolution. Two conforming implementations can therefore diverge on the diagnostic code, severity, firing phase, and even whether any separate diagnostic is emitted at all.
+
+## Solution approach
+
+Clarify in `imports.md` (*Visibility* / *Re-exports*) that an `import` or `export ... from` specifier naming a symbol that is not a top-level declaration — or a transitive re-export — of the resolved `.warp` file is a static error, and add the corresponding parse-phase diagnostic to the `diagnostics.md` `loom/parse/*` code registry with its severity and phase. State the firing point relative to the resolved file's own parse and how the error interacts with the existing multi-error batching rule. Cover both the `import { Foo }` and the `export { Foo } from` (including `as`-aliased) forms.
+
+## Solution constraints
+
+- Out of scope: the `loom/parse/unknown-identifier` scope defined in `expressions.md` and `diagnostics.md` must not be broadened to cover import or re-export specifiers.
+
+## Relationships
+
+None
+# T28 - Canonical schema hash, step 2 — numeric serialization underspecified
+
+**Kind:** implementability
+**Importance:** high
+**Score:** 100
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The *Canonical form* sub-step (step 2 of *Canonical schema hash* in `schema-subset.md`) specifies numeric literals only as "JSON Schema integer/number form (no trailing zeros, no exponent unless necessary to represent the value)" — a constraint, not a serialization algorithm. That sentence admits multiple distinct byte outputs for the same value: `1e21` vs `1000000000000000000000`, `0.0001` vs `1e-4`, `42.0` vs `42`. Because the schema slug is on-disk and on-wire load-bearing — it appears in `__inline_<slug>` `$defs` keys, `__loom_respond_<slug>` synthesised tool names, and the AJV compiled-validator cache key — two conforming implementations that disagree on numeric serialization produce different slugs for the same lowered fragment, breaking the step-2 dedup invariant, byte-identical cross-implementation provider payloads, and fixture-based conformance diffs.
+
+## Solution approach
+
+Rewrite the numeric-literals bullet in `schema-subset.md`'s *Canonical form* sub-step to adopt by reference the `number` and `integer` rendering algorithm already pinned in `binder.md`'s *Format rules* (`#system-note-rendering`), including its normative reference-renderings vectors. Clarify the scope: the rule governs numeric *literals* embedded in the lowered JSON Schema fragment (`const`, `default`, `enum` positions), not the subset's own structural keywords.
+
+## Solution constraints
+
+- The `binder.md` reuse covers the `number` / `integer` rendering algorithm only; `binder.md`'s 120-code-point line cap and `(default)` suffix are echo-formatter concerns that must not enter the canonical-hash recipe.
+
+## Relationships
+
+- T03 "Determinism section over-pins FNV-1a as the binder-seed algorithm" — same-cluster (both pin a byte-level deterministic recipe whose output is load-bearing for cross-run reproducibility; resolutions are independent — the FNV-1a finding argues for tightening a rationale, this finding argues for tightening a recipe).
+# T29 - Observability of discarded results — discard-site field double-specified on `RuntimeEvent`
+
+**Kind:** testability
+**Importance:** high
+**Score:** 100
+**Must-fix:** false
+**Decision axes:** 2
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+Two normative surfaces describe where a discarded query's failure event carries the discard-site source location, and they disagree on the `RuntimeEvent` wire shape. `query.md`'s *Observability of discarded results* says the event carries the usual fields "plus the source location of the discarding `let _ =`", which reads as a new field distinct from `query_site`. `pi-integration-contract.md`'s *Runtime event channel* declares a single `query_site?` field whose comment mode-overloads one slot across the `@`-template, tool call, invoke, and discarding `let _ =`. Because both surfaces feed the dedup tuple `(kind, query_site, message, occurred_at)`, the two readings also disagree on whether two discards of the same originating template collapse to one event or stay distinct — a conformance test asserting on the discard-site location cannot tell which field to inspect.
+
+## Solution approach
+
+Give the discarding `let _ =` / `void`-tail source location a single canonical home on `RuntimeEvent` so `query_site` stays single-meaning across all event kinds. In `pi-integration-contract.md`'s *Runtime event channel*, add a distinct discard-site field to the `RuntimeEvent` declaration populated only on discarded-query events, and narrow `query_site`'s comment back to the `@`-template / tool-call / invoke meaning. Rewrite `query.md`'s *Observability of discarded results* sentence to name that field instead of the unnamed additive "plus" location. Decide and state whether the discard-site field participates in the dedup tuple `(kind, query_site, message, occurred_at)`.
+
+## Solution constraints
+
+- The new discard-site field MUST follow the established canonical-absence convention on `RuntimeEvent` (omitted — not `null` or empty — when no discard applies); no tri-state.
+
+## Relationships
+
+- T20 "Tool-call late-settlement discard paragraph needs three CNCL-N sub-anchors" — same-cluster (both concern observability of "discard" paths but resolve independently — that finding is about late-settlement promise discard, this is about user-written `let _ =` discard).
+# T30 - `settings.json` shape undetermined: `looms` array collides with `looms.*` namespace
+
+**Kind:** clarity
+**Importance:** high
+**Score:** 100
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The *Keys read* list in `discovery.md`'s "Settings file reads" section enumerates `looms` (typed `string[]`) alongside `looms.binderModel`, `looms.scanPackages`, `looms.scanPackagesMaxFiles`, and `looms.scanPackagesTimeoutMs`, but nothing states how these names map onto the on-disk JSON. Two incompatible readings are consistent with the text: `looms` as a flat top-level array with literal dotted-key siblings, or `looms` as an object namespace whose contents deep-merge. JSON cannot hold both `"looms": [...]` and `"looms": {...}` in the same object, so the *Merge semantics* deep-merge rule and the "unknown keys under the `looms` namespace" wording contradict the `string[]` typing of `looms`. Authors writing `settings.json`, parser implementers, and conformance-fixture authors cannot determine the structure without picking sides.
+
+## Solution approach
+
+Resolve the collision by making `looms` a single object namespace holding the `binderModel` / `scanPackages*` scalar keys, and rename the path-array key out of the collision (the framing and *Sources* prose already names the slot `loomPaths`). Update the *Sources* bullet, the *Keys read* entry, the *Scalar-key validation* prose, the CLI-flag cross-reference, and the `looms` entry schema heading/anchor (`#looms-entry-schema`) in `discovery.md` to the renamed key. Confirm the *Merge semantics* paragraph then reads without contradiction (array replace-wholesale, object deep-merge).
+
+## Solution constraints
+
+- `pi.looms` (the package-manifest namespace key) MUST NOT be renamed; only the settings path-array key changes.
+- Out of scope: the *Caching and reload* / settings-watcher debounce material owned by T04.
+
+## Relationships
+
+- T04 "Settings-watcher debounce window left unpinned" — same-cluster (same *Settings file reads* section, independent issue; the debounce fix touches **Caching and reload**, this one touches **Keys read**).
+# T31 - Per-cause caller surfaces table — Cancellation row contradicts cancellation.md surfacing
+
+**Kind:** cross-spec-consistency-broad
+**Importance:** high
+**Score:** 100
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The *Per-cause caller surfaces* table in `errors-and-results.md` maps the **Cancellation** cause's `invoke` parent cell to a single `Err(QueryError { kind: "cancelled", ... })` surface. That flattens the two-arm rule in `cancellation.md`'s **Surfacing.** section, which distinguishes a child-internal abort (`invoke_callee_error` wrapping `inner: { kind: "cancelled" }`) from a parent-own-signal abort (bare `kind: "cancelled"`). Both pages are normative on `invoke` parent observability, so an implementer reading only the table loses the `invoke_callee_error` envelope that author `match`-arm dispatch relies on to distinguish its own cancellation from its callee's.
+
+## Solution approach
+
+Rewrite the **Cancellation** row's `invoke` parent cell to delegate to `cancellation.md`'s **Surfacing.** rules, following the existing delegation pattern of the *Author-returned `Err`* row, which points at `[Invocation — Failures](./invocation.md)` rather than inlining the envelope. Add a stable anchor on the **Surfacing.** heading in `cancellation.md` so the delegation target resolves precisely.
+
+## Solution constraints
+
+- Out of scope: the *Slash caller* cell of the same **Cancellation** row, which already delegates to `cancellation.md` correctly — do not re-flatten or rewrite it.
+
+## Relationships
+
+- T21 "cancellation.md carries no CNCL-N REQ-IDs" — decision-overlap (the recommended pointer should target a CNCL-N anchor once those exist; today it targets the section heading).
+- T07 "Per-boundary tables use undefined `calling loom` instead of glossary `invoke parent`" — same-cluster (sibling per-boundary-table defect; resolve independently).
+- T32 "Top-level `Err` per-`kind` table — `validation` row collapses the two causes" — same-cluster (analogous "index table flattens a multi-arm reality" defect, different table and cause).
+# T32 - Top-level `Err` per-`kind` table — `validation` row collapses the two causes
+
+**Kind:** cross-spec-consistency-broad
+**Importance:** high
+**Score:** 100
+**Must-fix:** true
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The per-`kind` system-note table in slash-invocation.md renders every
+`validation` failure as "model failed schema after `<n>` respond-repair
+attempts", but `QueryError { kind: "validation" }` has two normatively
+distinct causes (errors-and-results.md `ValidationError` `cause`
+enumeration; query.md "Degenerate rendered templates"):
+`schema_validation` and `empty_template`. The `empty_template` arm fires
+pre-provider (no model turn, no schema check, `attempts: 0`) and reaches
+the top of a prompt-mode loom, so the single row produces the misleading
+note "model failed schema after 0 respond-repair attempts" for a failure
+that never reached the provider. Because the surrounding template text is
+a normative byte-exact contract, two conformant renderers diverge on this
+case — one mechanically renders the `schema_validation` template against
+the `empty_template` envelope, the other has no defined output.
+
+## Solution approach
+
+Split the `validation` row in slash-invocation.md's per-`kind`
+system-note table into two `cause`-keyed rows: a `schema_validation` row
+keeping the existing "model failed schema after `<n>` respond-repair
+attempts" wording, and an `empty_template` row describing the
+pre-provider empty-rendered-template short-circuit. Key both rows on the
+`cause` field of the `ValidationError` envelope defined in
+errors-and-results.md.
+
+## Solution constraints
+
+- Out of scope: the `SLSH-N` REQ-ID anchor coining for the new row is
+  owned by T17; do not coin a one-off id here.
+
+## Relationships
+
+- T17 "slash-invocation.md carries no SLSH-N REQ-ID anchors" — must-precede (this row split changes how many per-row `SLSH-N` anchors the table needs; resolve the split first so the SLSH-N coining pass anchors the final row set).
+- T11 "Vestigial 'decided separately' pointers in query.md should link to Degenerate rendered templates" — same-cluster (both findings concern the `empty_template` short-circuit's normative footprint, but resolve in different files).
+- T16 "query.md missing QRY-N REQ-IDs" — decision-overlap (the `empty_template` rendering will likely cite the new QRY-5 *empty-template short-circuit* anchor; co-ordinate the inbound-link update).
+- T31 "Per-cause caller surfaces table — Cancellation row contradicts cancellation.md surfacing" — same-cluster (analogous index-table-flattens-a-multi-arm-reality defect, different page).
+# T33 - `max_rounds: 0` user-turn separator disagrees with the Follow-up turn templates it cites
+
+**Kind:** consistency
+**Importance:** high
+**Score:** 100
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+In `query.md` § *Typed queries are tool-loop-shaped*, the `max_rounds: 0` forced-respond-turn clause separates the user-supplied `@<T>`...`` prompt text from the *"Return your final answer using the `__loom_respond_<slug>` tool, conforming to this schema: …"* wording by **two U+000A line feeds (a single blank line)**, and justifies that as matching the separator the *Follow-up turn templates (normative)* section uses. The cited section says the opposite: its *Templates* prelude and both fenced template bodies (`validator_error`, `schema_repeat`) pin a **single** U+000A between the instruction sentence and the `<schema-json>` placeholder. Both surfaces are normative and feed the byte-identical reproducibility contract, so the false "matching" claim lets two conforming implementations emit different user-turn bytes (2 LFs vs 1 LF) for the `max_rounds: 0` boundary case.
+
+## Solution approach
+
+Rewrite the `max_rounds: 0` separator clause in `query.md` § *Typed queries are tool-loop-shaped* to specify a single U+000A line feed between the embedded prompt text and the *"Return your final answer …"* wording, and correct its cross-reference to `#follow-up-turn-templates-normative` so the "matching" claim is true against that section's single-LF pinning. Specify how an author-supplied prompt text already ending in a trailing LF interacts with the inserted separator, so a two-LF gap cannot reappear by other means.
+
+## Solution constraints
+
+- None.
+
+## Relationships
+
+- T02 "Failure-mode templates use an undefined `<provider>` placeholder" — same-cluster (also a normative template-bytes contract bug, in `binder.md` rather than `query.md`; resolves independently).
+- T11 "Vestigial 'decided separately' pointers in query.md should link to Degenerate rendered templates" — same-cluster (another `query.md` cross-reference defect; independent fix).
+# T34 - `estimateTokens` — ownership story is incoherent
+
+**Kind:** external-entities
+**Importance:** high
+**Score:** 100
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The `estimateTokens` (named export) paragraph in `pi-integration-contract.md` frames the function as a Pi-owned import ("Imported from `@earendil-works/pi-coding-agent`") yet authors a normative return-value contract on top of it: a pinned `Math.ceil(chars / 4)` formula, an itemised list of which strings contribute to `chars`, and a MUST reference vector requiring `"😀😀😀"` to estimate to exactly 2 tokens. A consuming spec cannot legitimately mandate the byte-for-byte behaviour of an upstream package's function. The "Pi parity (advisory)" sub-paragraph confirms the incoherence — it asserts the normative requirement is loom's formula rather than Pi parity, which only holds if loom owns the estimator, contradicting the import framing. Pi's actual estimator ceilings `chars` per message-variant branch while the spec sums once over the whole message, so the two disagree for any multi-block message — feeding divergent per-turn totals into the 8000-token truncation cutoff.
+
+## Solution approach
+
+Rewrite the `estimateTokens` paragraph in `pi-integration-contract.md` to defer the algorithm to Pi: keep the import and the `estimateTokens(message: AgentMessage): number` signature, and demote the `Math.ceil(chars / 4)` formula and the `"😀😀😀"` reference vector from normative to a non-normative description of behaviour at the [loom 1.0 Pi-SDK pin](#pi-sdk-pin), attributed to Pi's `core/compaction/compaction.ts`. State loom's observable contract — the returned `number` is the per-message token estimate fed into the truncation walk in binder.md's [session-context truncation](./binder.md#session-context-truncation-bind_context-session). Delete the redundant "Pi parity (advisory)" sub-paragraph.
+
+## Solution constraints
+
+- Out of scope: which type `estimateTokens` consumes (`AgentMessage` vs the binder's `Message`-union callsite) — owned by T35; this resolution must remain compatible with whichever way T35 lands but must not pre-empt it.
+
+## Relationships
+
+- T35 "Session-context truncation — `estimateTokens` callsite spans two unbridged message types" — same-cluster (same paragraph and adjacent binder callsite; resolution must remain compatible but the type-assignability question is independent of the ownership question).
+- T09 "`ui.notify` inline signature contradicts the pinned SDK declaration" — same-cluster (sibling normative-vs-SDK alignment issue on the same page; different remedy class — ownership story vs typo).
+# T35 - Session-context truncation — `estimateTokens` callsite spans two unbridged message types
+
+**Kind:** implementability
+**Importance:** high
+**Score:** 100
+**Must-fix:** false
+**Decision axes:** 2
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The `estimateTokens` callsite in `pi-integration-contract.md` § *`estimateTokens` (named export)* consumes `AgentMessage`, while `binder.md` § *Session-context truncation* and § *Compact-transcript format* call the `buildSessionContext(...).messages` elements "the `Message` union", and PIC § *`buildSessionContext` (named export)* describes `.messages` only as "the ordered message list" without naming its element type. No section states whether these references denote the same type or whether a conversion runs between the source and the `estimateTokens` parameter. The two callsites also disagree on the assistant tool-call field shape: PIC's formula sums `toolCall.name` / `JSON.stringify(toolCall.arguments)` (singular `toolCall`, field `arguments`), while `binder.md` rule 4 renders from a `toolCalls[]` array with fields `name` / `args`. Because the compact transcript is byte-pinned, the divergence is observable in the determinism contract.
+
+## Solution approach
+
+In `pi-integration-contract.md` § *`buildSessionContext` (named export)*, pin the element type of the returned `SessionContext.messages` and cite its SDK declaration. Rename the `Message`-union phrasing in `binder.md` § *Compact-transcript format* to the same type term so both pages name a single type; if the element type differs from the `estimateTokens` parameter, document the conversion at the binder callsite. Reconcile the assistant tool-call field names so PIC's `estimateTokens` formula and `binder.md` rule 4 read the same container and scalar field, matching the SDK declaration T36 cites.
+
+## Solution constraints
+
+- Out of scope: the `SessionContext` / `AgentMessage` element-type declaration block and per-variant field shapes owned by T36.
+
+## Relationships
+
+- T36 "Compact-transcript renderer references undeclared `SessionContext`/`AgentMessage` fields that do not match the SDK" — co-resolve (the SDK citation requested there is the same edit that pins the element type here; do both in one pass — resolve T36 first and this finding collapses to a one-line cross-reference).
+- T34 "`estimateTokens` — ownership story is incoherent" — same-cluster (both touch the PIC `estimateTokens` block; resolve independently — that finding governs who owns the formula, this one governs which type the formula consumes).
+# T36 - Compact-transcript renderer references undeclared `SessionContext`/`AgentMessage` fields that do not match the SDK
+
+**Kind:** implementability
+**Importance:** blocker
+**Score:** 200
+**Must-fix:** true
+**Decision axes:** 2
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+binder.md's "Compact-transcript format (normative)" sub-section pins byte-exact renderings A–D over the message union returned by `buildSessionContext(...).messages`, reading per-variant fields (`assistant.text`, `assistant.toolCalls[].args`, toolResult "text vs structured" content, and the `custom` fields). pi-integration-contract.md's `buildSessionContext` paragraph cites `.messages` as "the ordered message list" but never declares or cites the `SessionContext` type, the `.messages` element-type union, or the per-variant field shapes — the lone SDK surface the spec consumes without a `dist/**/*.d.ts` citation. The cited field names are also wrong against the SDK pin: `.messages` is `AgentMessage[]`; `AssistantMessage` has no `.text`/`.toolCalls` but a `content: (TextContent | ThinkingContent | ToolCall)[]` array; the tool-call field is `arguments`, not `args`; `ToolResultMessage.content` is always a typed-block array; and `CustomMessage.content` is a `string | (TextContent | ImageContent)[]` union, not a flat string. An implementer cannot produce renderings A–D as written, and divergent accessor guesses void the Determinism reproducibility contract those renderings underwrite.
+
+## Solution approach
+
+Add a `SessionContext` / `AgentMessage` type-declaration block to pi-integration-contract.md's `buildSessionContext` paragraph, alongside the existing `ExtensionContext` inline-shape block, citing `SessionContext` to `dist/core/session-manager.d.ts`, `AgentMessage` to the `@earendil-works/pi-agent-core/dist/types.d.ts` anchor the `estimateTokens` paragraph already uses, the `Message`-arm variants (`UserMessage` / `AssistantMessage` / `ToolResultMessage` and the `TextContent` / `ThinkingContent` / `ToolCall` content-block types) to `@earendil-works/pi-ai/dist/types.d.ts`, and `CustomMessage` to `@earendil-works/pi-coding-agent/dist/core/messages.d.ts`, under the same Pi-minor-bump re-validation obligation the sibling blocks carry. Rewrite binder.md's "Compact-transcript format (normative)" rule 4 to walk the cited shapes: concatenate `TextContent.text` in array order for the `assistant` and `toolResult` bodies, emit one `[tool-call …]` sibling per `ToolCall` using the SDK field name `arguments` (not `args`), and render the `CustomMessage.content` string-vs-array union. Re-state reference renderings A–D against the corrected accessors.
+
+## Solution constraints
+
+- The rendered byte output of reference renderings A–D MUST NOT change; only the prose describing the `assistant` message's `content` array (rendering B) is corrected.
+- Out of scope: the `estimateTokens` paragraph — reuse its existing `@earendil-works/pi-agent-core/dist/types.d.ts` anchor rather than re-citing or editing it.
+
+## Relationships
+
+- T35 "Session-context truncation — `estimateTokens` callsite spans two unbridged message types" — co-resolve (the `args` vs `arguments` reconciliation and the `Message`-union-vs-`AgentMessage` type-relationship statement are subsumed by this finding's declaration block; resolve this finding first and the sibling collapses to a one-line cross-reference).
+- T34 "`estimateTokens` — ownership story is incoherent" — same-cluster (touches the same `pi-integration-contract.md` `AgentMessage`-shape surface but the ownership question for the estimator formula is independent of declaring the message shapes).
