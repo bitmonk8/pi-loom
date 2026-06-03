@@ -4,7 +4,7 @@ _Generated: 2026-06-03T19:20:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T36) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 1 high, 19 medium retained; 13 low discarded; 4 low findings merged into 2 medium findings; 0 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 1 high, 17 medium retained; 13 low discarded; 4 low findings merged into 2 medium findings; 0 nit dropped; 0 false dropped._
 
 ---
 
@@ -467,55 +467,3 @@ the specific `#slsh-n` fragment each consumes, per GOV-9.
 - T16 "query.md missing QRY-N REQ-IDs" — same-cluster (parallel page-wide gap).
 - T20 "Tool-call late-settlement discard paragraph needs three CNCL-N sub-anchors" — same-cluster (parallel per-sub-obligation coinage question; resolve the SLSH chain-attribution sub-obligations the same way).
 - T32 "Top-level `Err` per-`kind` table — `validation` row collapses the two causes" — must-follow (splitting the `validation` row changes how many per-row `SLSH-N` anchors the table needs; resolve that row split first, or accept a second coinage pass).
-# T18 - `validation-issue-ordering` paragraph carries no ERR-N REQ-ID
-
-**Kind:** traceability
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `ValidationIssue` ordering paragraph in `errors-and-results.md` (anchored with the bespoke HTML id `validation-issue-ordering`) states an independent normative obligation: the canonical deterministic sort of `validation_errors` entries keyed on `(path, schema_keyword, message)` by Unicode code point. It is the load-bearing definition of `validation_errors[0]` and the binder failure-mode template's `<ajv-summary>` placeholder, and the reference point conformance tests compare against. It carries no `ERR-N` REQ-ID even though the `ERR` prefix is live on this page (`ERR-1` … `ERR-7`). Inbound cites from `binder.md`, `query.md`, and `implementation-notes.md` reach it via the bespoke fragment rather than a `#err-n` URL, which leaves GOV-9's cross-link contract unsatisfiable and the obligation un-coined under GOV-22.
-
-## Solution approach
-
-Coin the next free `ERR-N` dual-form anchor on the `validation-issue-ordering` paragraph in `errors-and-results.md`, retaining the legacy `validation-issue-ordering` fragment as an alias so existing inbound links keep resolving. Repoint the inbound `#validation-issue-ordering` cross-links in `binder.md`, `query.md`, and `implementation-notes.md` to the coined `#err-n` fragment.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T19 "Mid-stream cancellation and No-rollback paragraphs lack ERR-N REQ-IDs" — co-resolve (shares the ERR-N integer namespace on the same page; the integer assigned here constrains the integers assigned there — co-edit in a single commit and assign in file-appearance order).
-- T16 "query.md missing QRY-N REQ-IDs" — decision-overlap (QRY-21's `<ajv-summary>` link should be updated to this paragraph's new `ERR-N` in the same edit).
-- T12 "binder.md — un-anchored normative obligations missing BNDR-N REQ-IDs" — same-cluster (corpus-wide GOV-22 progressive-coinage gap; resolves on its own page).
-# T19 - Mid-stream cancellation and No-rollback paragraphs lack ERR-N REQ-IDs
-
-**Kind:** traceability
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`docs/spec_topics/errors-and-results.md` states six independent normative obligations in bold-headed paragraphs — the five `Mid-stream cancellation, *` paragraphs (non-mutation of committed surfaces, no compensating injection, cancellation/`?`-propagation symmetry, respond-repair scope window, subagent-mode internal binding) and the **No rollback** paragraph. None carries an `ERR-N` REQ-ID, although the `ERR` prefix is registered and `ERR-1 … ERR-7` already exist on the same page as dual-form anchors. Only paragraphs 1 and 6 carry a navigation anchor (`mid-stream-cancellation-conversation-state`, `no-rollback`); the rest have none. Per GOV-22 these defining obligation sites must coin co-located REQ-ID anchors, and per GOV-9 sibling-page citations cannot resolve to a `#prefix-n` fragment until they do.
-
-## Solution approach
-
-Add a dual-form `<a id="err-N"></a> **ERR-N.**` anchor at each of the six bold-headed obligation sites in `errors-and-results.md`, allocating the next free integers under the already-registered `ERR` prefix per GOV-3. Preserve the existing `mid-stream-cancellation-conversation-state` and `no-rollback` HTML anchors on the same lines as legacy aliases so inbound links continue to resolve.
-
-## Solution constraints
-
-- The new IDs are post-evaluation obligations and MUST NOT be folded into the page's "seven pre-evaluation failures" / "the seven below" count assertions, which bind only to `ERR-1 … ERR-7`.
-
-## Relationships
-
-- T18 "`validation-issue-ordering` paragraph carries no ERR-N REQ-ID" — co-resolve (same page, same `ERR` prefix; the same commit that coins these IDs should also coin the ordering paragraph's `ERR-N` to keep `ERR`-prefix numbering contiguous).
-- T21 "cancellation.md carries no CNCL-N REQ-IDs" — same-cluster (parallel GOV-22 / GOV-9 drain on the cancellation page).
-- T20 "Tool-call late-settlement discard paragraph needs three CNCL-N sub-anchors" — same-cluster (per-sub-obligation anchor split; same coining pattern).
