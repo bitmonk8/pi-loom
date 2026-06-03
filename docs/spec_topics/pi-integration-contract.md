@@ -501,7 +501,8 @@ type RuntimeEvent = {
   code?: string;                      // diagnostic code when one applies (loom/runtime/*, loom/load/*, etc.)
   loom: string;                       // slash name of the loom that owned the failure ("/code-review")
   invocation_id: string;              // per-invocation UUID sourced from the ActiveInvocationRegistry entry's `invocationId` field (canonical lowercase 8-4-4-4-12 hex form per §7 of Diagnostics); distinguishes concurrent sibling invocations of the same loom on operator-visible surfaces
-  query_site?: { file: string; line: number; column: number }; // source location of the @-template, tool call, invoke, or discarding `let _ =`; absent for binder failures (the binder runs before any loom code)
+  query_site?: { file: string; line: number; column: number }; // source location of the @-template, tool call, or invoke; absent for binder failures (the binder runs before any loom code)
+  discard_site?: { file: string; line: number; column: number }; // source location of the discarding `let _ =` / `void`-tail expression; present only on discarded-query events, omitted (not `null` or empty) on all other events; not part of the dedup key (each discard is a distinct occurrence stamped with its own `occurred_at`, so two discards of the same originating template stay distinct)
   message: string;                    // the same message string surfaced through the user-facing template (or the panic message template, for panics that take the diagnostic shape)
   attempts?: number;                  // populated for `validation` events on respond-repair exhaustion; absent otherwise
   tokens_used?: number;               // populated for `context_overflow` events when the provider supplies the count; absent otherwise

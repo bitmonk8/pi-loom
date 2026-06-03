@@ -4,7 +4,7 @@ _Generated: 2026-06-03T19:20:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T36) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 8 high, 22 medium retained; 13 low discarded; 4 low findings merged into 2 medium findings; 0 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 7 high, 22 medium retained; 13 low discarded; 4 low findings merged into 2 medium findings; 0 nit dropped; 0 false dropped._
 
 ---
 
@@ -769,28 +769,4 @@ Rewrite the numeric-literals bullet in `schema-subset.md`'s *Canonical form* sub
 ## Relationships
 
 - T03 "Determinism section over-pins FNV-1a as the binder-seed algorithm" — same-cluster (both pin a byte-level deterministic recipe whose output is load-bearing for cross-run reproducibility; resolutions are independent — the FNV-1a finding argues for tightening a rationale, this finding argues for tightening a recipe).
-# T29 - Observability of discarded results — discard-site field double-specified on `RuntimeEvent`
 
-**Kind:** testability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-Two normative surfaces describe where a discarded query's failure event carries the discard-site source location, and they disagree on the `RuntimeEvent` wire shape. `query.md`'s *Observability of discarded results* says the event carries the usual fields "plus the source location of the discarding `let _ =`", which reads as a new field distinct from `query_site`. `pi-integration-contract.md`'s *Runtime event channel* declares a single `query_site?` field whose comment mode-overloads one slot across the `@`-template, tool call, invoke, and discarding `let _ =`. Because both surfaces feed the dedup tuple `(kind, query_site, message, occurred_at)`, the two readings also disagree on whether two discards of the same originating template collapse to one event or stay distinct — a conformance test asserting on the discard-site location cannot tell which field to inspect.
-
-## Solution approach
-
-Give the discarding `let _ =` / `void`-tail source location a single canonical home on `RuntimeEvent` so `query_site` stays single-meaning across all event kinds. In `pi-integration-contract.md`'s *Runtime event channel*, add a distinct discard-site field to the `RuntimeEvent` declaration populated only on discarded-query events, and narrow `query_site`'s comment back to the `@`-template / tool-call / invoke meaning. Rewrite `query.md`'s *Observability of discarded results* sentence to name that field instead of the unnamed additive "plus" location. Decide and state whether the discard-site field participates in the dedup tuple `(kind, query_site, message, occurred_at)`.
-
-## Solution constraints
-
-- The new discard-site field MUST follow the established canonical-absence convention on `RuntimeEvent` (omitted — not `null` or empty — when no discard applies); no tri-state.
-
-## Relationships
-
-- T20 "Tool-call late-settlement discard paragraph needs three CNCL-N sub-anchors" — same-cluster (both concern observability of "discard" paths but resolve independently — that finding is about late-settlement promise discard, this is about user-written `let _ =` discard).
