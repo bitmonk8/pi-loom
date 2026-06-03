@@ -2,9 +2,9 @@
 
 _Generated: 2026-06-02T08:55:00Z_
 _Spec: docs/spec.md_
-_Process: bottom-up - the last finding (T12) is addressed first; the first finding (T10) is addressed last._
+_Process: bottom-up - the last finding (T11) is addressed first; the first finding (T10) is addressed last._
 
-_Triage tally: 3 high retained (T10-T12); 9 medium findings (T01-T09) removed by request._
+_Triage tally: 2 high retained (T10-T11); 9 medium findings (T01-T09) removed by request._
 
 ---
 
@@ -54,31 +54,6 @@ Move the *Automatic context escalation* bullet out of the committed-seam *Surfac
 ## Solution constraints
 
 - The `spec.md` Scope *Forward-compatibility seams* tally and the GOV-12 single-source-page / integer-count enumerations MUST stay consistent in the same commit as the move.
-
-## Relationships
-
-None
-# T12 - Non-narrative pages with zero coined REQ-IDs make most spec obligations non-referenceable
-
-**Kind:** traceability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The GOV-1 *REQ-ID prefix table* in `governance.md` registers a REQ-ID prefix for 28 non-narrative `spec_topics/*.md` pages, but only five prefixes (`ERR`, `BNDR`, `PIC`, `CIO`, and a single inline `**GOV-3.**`) are actually coined onto rules. The other 23 pages — including `lexical.md` (LEX), `grammar.md` (GRAM), `query.md` (QRY), `diagnostics.md` (DIAG), and the rest of the loom language definition — carry zero `**PREFIX-N.**` anchor sites despite hosting substantial MUST/SHALL/SHOULD obligations. Because no anchor exists on those pages, GOV-9's `#prefix-n` cross-link contract is unsatisfiable for them and any cross-reference degrades to a section slug that re-slugs on heading renames. GOV-1's *Per-page progressive normalisation* clause cannot drain the defect either: its trigger fires only when a commit touches an existing REQ-ID anchor token, and these pages have none.
-
-## Solution approach
-
-Add a `PREFIX-N` REQ-ID anchor at each defining obligation site across the 23 anchorless pages, using the dual-form layout GOV-1 already mandates and the prefixes already registered in the *REQ-ID prefix table*. Repoint in-corpus cross-references (including those in `spec.md`) to the new `#prefix-n` fragments per GOV-9. Optionally add a release-process obligation on or alongside GOV-15 requiring every non-narrative page in the prefix table to carry at least one `PREFIX-N` anchor before `loom 1.0.0` ships, as a deadline safety net.
-
-## Solution constraints
-
-- On `hard-ceilings.md` the anchorless prefix is `CEIL`; coining must not collide with or reuse the existing `CIO-1`..`CIO-6` sites.
 
 ## Relationships
 
