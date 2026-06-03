@@ -4,7 +4,7 @@ _Generated: 2026-06-03T12:45:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T29) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 blocker, 5 high, 18 medium retained; 6 low discarded; 11 low findings merged into 7 medium findings (plus two medium+medium and one high+high consolidation merges); 4 nit dropped; 0 false dropped._
+_Triage tally: 1 blocker, 4 high, 18 medium retained; 6 low discarded; 11 low findings merged into 7 medium findings (plus two medium+medium and one high+high consolidation merges); 4 nit dropped; 0 false dropped._
 
 ---
 
@@ -479,48 +479,3 @@ In `invocation.md`, rewrite the seam blockquote (`id="v1-seam-symlink-resolution
 - T16 "Named-argument seam MUST has no loom 1.0 observable" — must-precede (template-setter; that finding adopts the demotion shape).
 - T17 "Per-call timeout seam MUST is unobservable from any loom 1.0 surface" — must-precede (template-setter; that finding adopts the behavioural-restatement shape).
 - T01 "Invocation page carries the `INV` prefix but coins zero `INV-N` anchors" — must-precede (if this MUST is restated/demoted, T01 coins `INV-N` only for whatever normative obligation survives at the seam site).
-# T19 - `estimateTokens` signature names the wrong message type
-
-**Kind:** codebase-grounding-broad
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The PIC `estimateTokens` (named export) entry declares the signature as
-`estimateTokens(message: Message): number` and attributes the parameter
-shape to Pi via "the `Message` shape is owned by Pi", but the actual
-export takes `AgentMessage`, not `Message`. `Message` is the narrower
-LLM-side wire type; `AgentMessage` is the agent-state superset that
-additionally carries `thinking` blocks, `toolCall` blocks, and
-host-defined custom messages. The spec's own formula sums over
-`thinking`-block content, `toolCall.name`,
-`JSON.stringify(toolCall.arguments)`, and tool-result text — fields
-present only on `AgentMessage`. The documented callsite in binder.md's
-Session-context truncation already sources `AgentMessage[]` from
-`buildSessionContext(...).messages`, so an implementer typing strictly
-against the declared `Message` parameter imports the wrong symbol and
-loses the fields the formula requires.
-
-## Solution approach
-
-In `docs/spec_topics/pi-integration-contract.md`'s `estimateTokens`
-(named export) paragraph, rename the signature parameter type from
-`Message` to `AgentMessage` and update the "the `Message` shape is
-owned by Pi" attribution to name `AgentMessage`. Add a `.d.ts` pin for
-the export consistent with the page's external-entity pinning
-discipline, recording the declaring `dist/...` path and that
-`AgentMessage` re-exports from `@earendil-works/pi-agent-core`.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T27 "`Model<Api>` and `ModelRegistry` referenced by bare name" — same-cluster (same external-entity pinning-gap pattern on the same page).
-- T13 "Bare-name SDK types lack `.d.ts` pins at their PIC carrier sites" — same-cluster (same `.d.ts`-pin discipline applied to a Pi-supplied symbol).
-
