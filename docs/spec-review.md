@@ -4,7 +4,7 @@ _Generated: 2026-06-03T19:20:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T36) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 1 high, 9 medium retained; 13 low discarded; 4 low findings merged into 2 medium findings; 0 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 1 high, 8 medium retained; 13 low discarded; 4 low findings merged into 2 medium findings; 0 nit dropped; 0 false dropped._
 
 ---
 
@@ -182,27 +182,3 @@ Rename `calling loom` to the glossary canon `invoke parent` in the Destination c
 ## Relationships
 
 - T22 "invocation.md carries no INV-N REQ-IDs" — decision-overlap (the INV-N anchor on typed return is the natural cross-link target for these tables once it lands; the two edits coordinate naturally but neither blocks the other).
-# T08 - Runtime bullets name AJV in normative prose despite SchemaValidator being the contract
-
-**Kind:** prescription
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-In `implementation-notes.md`, the **Schema validation** bullet establishes the injected `SchemaValidator` service as the observable contract and demotes AJV to a single non-normative *Implementation hint*. Two earlier normative Runtime bullets, however, name AJV directly as the validator of record: the typed-query bullet ("the returned tool-call payload is validated with **AJV**") and the `params:` bullet ("Parameter schemas … are likewise validated with AJV"). A reader following the contract front-to-back sees AJV named as the binding validator before learning the contract is library-agnostic, and a conformance-test author cannot tell whether an alternative conforming `SchemaValidator` satisfies the typed-query and `params` validation hooks.
-
-## Solution approach
-
-Rewrite the typed-query Runtime bullet and the `params:` Runtime bullet in `implementation-notes.md` to reference the injected `SchemaValidator` rather than AJV, forward-linking to the **Schema validation** bullet that introduces the seam.
-
-## Solution constraints
-
-- Out of scope: every AJV reference outside the two named Runtime bullets — the *Implementation hint (non-normative)* bullet (the correct home for the AJV v8 / `ajv-formats` choice), the `ValidationError` / `params` AJV-compatibility notes, and cross-page AJV terminology in `binder.md`, `errors-and-results.md`, and `frontmatter.md`.
-
-## Relationships
-
-- T26 "Defaulting — fill semantics undefined when the binder supplies a value for a defaulted field" — same-cluster (both involve the post-default-merge AJV/SchemaValidator step; the rename here is editorial and does not constrain the fill-semantics decision).
