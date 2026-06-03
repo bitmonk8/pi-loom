@@ -1,11 +1,216 @@
 # Triaged Spec Review - spec
 
-_Generated: 2026-06-03T12:45:00Z_
+_Generated: 2026-06-03T17:33:00Z_
 _Spec: docs/spec.md_
-_Process: bottom-up - the last finding (T29) is addressed first; the first finding (T01) is addressed last._
+_Process: bottom-up - the last finding (T04) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 blocker, 4 high, 18 medium retained; 6 low discarded; 11 low findings merged into 7 medium findings (plus two medium+medium and one high+high consolidation merges); 4 nit dropped; 0 false dropped._
+_Triage tally: 0 high, 4 medium retained; 13 low discarded; 3 low findings merged into 1 medium finding; 4 nit dropped; 0 false dropped._
 
 ---
 
-_No open findings remain. All triaged findings have been resolved or removed._
+# T01 - Terminal-outcomes aggregator carries an inverted parenthetical and an unlinked disposition
+
+**Original heading:** Terminal-outcomes paragraph (`#terminal-outcomes-aggregator`)
+**Original section:** Overview
+**Kind:** clarity, placement
+**Importance:** medium
+**Score:** 35
+**Must-fix:** false
+
+## Finding
+
+The single ~400-word sentence anchored at `#terminal-outcomes-aggregator` (docs/spec.md line 10) carries three independent defects that should be resolved as three separate edits:
+
+1. **Unparseable nested contrast inside the Failure-exclusion list.** The "it fails" clause enumerates hard-ceiling cases that are *excluded* from the Failure-cause enumeration. Item (a) names binder argument-binding failure (slash-load `params` arm cross-routed through ceiling #3) — and then opens a parenthetical inside (a) which asserts the opposite of the enclosing list: *"the `invoke(...)` `params` arm of ceiling #4 IS an evaluation Failure that surfaces as `Err(InvokeInfraError { cause: "validation", ... })`"*. A reader cannot reliably decide whether the `invoke(...)` arm sits inside item (a)'s exclusion scope or contradicts it. Parenthetical depth on this sentence reaches three to four levels, and the contrast that most needs to be visible to an implementer is the most deeply nested fragment.
+
+2. **"Governed separately" with no owner pointer.** The partial-append cross-reference closes with *"mid-stream user-visible streaming fragments are governed separately"*. Every other disposition in this paragraph cites its owning section by link; this one does not. The rule does have an owner — `errors-and-results.md#mid-stream-cancellation-conversation-state` and `slash-invocation.md` ("User-visible streaming") — but a reader scanning the aggregator cannot find that owner without paraphrase search.
+
+3. **Wrong section for an aggregator of this density.** The full enumeration — per-cause routing rules, the binder-argument-binding exclusion logic with its ceiling-#3/#4 cross-routing, the partial-append forward-link, the success/fail/cancelled trichotomy boundary, the cancellation-source wiring — is implementation-grade specification material sitting inside the product Overview. The Language section begins at line 85; an implementer scanning Language or Errors-and-Results may not realise the authoritative aggregator lives in the Overview paragraph above.
+
+The three defects are independent (different surfaces, different fix shapes) and should be resolved in three separate edits so each lands on a stable baseline.
+
+## Spec Documents
+
+- `docs/spec.md` — Overview, `#terminal-outcomes-aggregator` paragraph (edited)
+- `docs/spec.md` — `## Language` section header / new section anchor (option-dependent)
+- `docs/spec_topics/errors-and-results.md` — `#terminal-outcomes`, `#partial-append-contract`, `#mid-stream-cancellation-conversation-state` (read-only)
+- `docs/spec_topics/hard-ceilings.md` — `#ceiling-4-table` (read-only)
+- `docs/spec_topics/invocation.md` — Failures section (read-only)
+- `docs/spec_topics/slash-invocation.md` — User-visible streaming (read-only)
+
+## Plan Impact
+
+**Phases:** N/A
+
+**Leaves (implementation order):** N/A
+
+(`docs/plan.md` exists but defines no leaves yet — Horizontal, MVP, and Vertical sections all read "No leaves yet — author per the template.")
+
+## Consequence
+
+**Severity:** advisory
+
+Authoritative content lives in `errors-and-results.md`, the ceiling-4 table, and `invocation.md`, all of which are correctly cross-linked; a careful implementer can reconstruct the right behaviour. The defect surface is reader friction: the inverted parenthetical invites mis-classification of the `invoke(...)` `params` arm, the unlinked "governed separately" forces a paraphrase hunt, and the Overview placement hides the aggregator from anyone scanning by section name.
+
+## Solution Space
+
+**Shape:** multiple
+**State:** shaped
+
+The three defects are independent and the per-finding fix loop will diverge if a single edit tries to resolve all three at once. Resolve them as three sequential sub-edits in the order below, smallest first, so each later edit lands on a stable baseline.
+
+### Option A — Replace "governed separately" with an explicit owner link
+
+**Approach.** In the partial-append parenthetical of the aggregator paragraph, replace `mid-stream user-visible streaming fragments are governed separately` with an inline cross-reference to the canonical owners.
+
+**Spec edits.**
+- `docs/spec.md` Overview paragraph, partial-append parenthetical: substitute the phrase with `mid-stream user-visible streaming fragments are governed by [Errors and Results — Mid-stream cancellation, conversation state](./spec_topics/errors-and-results.md#mid-stream-cancellation-conversation-state) and [Slash-Command Invocation — User-visible streaming](./spec_topics/slash-invocation.md)` (or equivalent phrasing).
+
+**Pros.** Single-sentence edit; matches the citation discipline of every other disposition in the same paragraph; zero structural change.
+
+**Cons.** Adds another link to an already link-dense sentence.
+
+**Risks.** None beyond the standard aggregator-vs-source lock-step (GOV-12).
+
+### Option B — Break the Failure-exclusion contrast out of the inverted parenthetical
+
+**Approach.** Lift the exclusion enumeration ("(a) binder argument-binding failure …; (b) ceiling #4's in-loop tool-call args row …") out of the inline `it fails (…)` clause into its own paragraph (or a short bulleted list immediately after) so the *contrasting* `invoke(...)` `params` arm is no longer nested inside item (a). State the contrast as a peer item, not as a parenthetical inside the excluded item.
+
+**Spec edits.**
+- `docs/spec.md` Overview, `#terminal-outcomes-aggregator`: after the trichotomy sentence, emit a short paragraph or bulleted list. Suggested structure:
+  - *Excluded from the Failure-cause enumeration:* (a) binder argument-binding failure (including ceiling #4's slash-load `params` arm cross-routed through ceiling #3); (b) ceiling #4's in-loop model-driven tool-call args row.
+  - *NOT excluded (these ARE evaluation Failures):* the `invoke(...)` `params` arm of ceiling #4, which surfaces as `Err(InvokeInfraError { cause: "validation", ... })` per [Invocation — Failures](./spec_topics/invocation.md).
+- Keep the existing forward-links to `hard-ceilings.md#ceiling-4-table` and `errors-and-results.md#terminal-outcomes` on the items that already carry them.
+
+**Pros.** Removes the three-deep parenthetical nesting; surfaces the most-likely-to-be-misread contrast at top level; preserves all existing forward-links and the spec-owned routing partition.
+
+**Cons.** Adds a paragraph (or list) to the Overview, marginally lengthening it.
+
+**Risks.** Editor must preserve the exact case split — the inclusion side is `invoke(...)` `params` only; the slash-load `params` arm remains excluded. Mis-paraphrase here re-introduces the original ambiguity.
+
+### Option C — Relocate the aggregator out of Overview
+
+**Approach.** Move the entire terminal-outcomes paragraph (after Options A and B have landed) to its proper home. Two viable destinations:
+
+- **C1 (preferred):** a new `### Terminal Outcomes` sub-section at the head of `## Language`, immediately before the existing Language sub-sections, mirroring the role Errors and Results plays for failure detail.
+- **C2:** a new top-level `## Terminal Outcomes` section between `## Language` and `## Extension Architecture`.
+
+In both variants, leave a one-sentence pointer in the Overview ("Evaluation produces one of three terminal outcomes — success, failure, or cancellation; the closed enumeration is in [Terminal Outcomes](#terminal-outcomes)") and preserve the `#terminal-outcomes-aggregator` anchor on the relocated paragraph (per GOV-23 anchor-stability) so all inbound links continue to resolve.
+
+**Spec edits.**
+- `docs/spec.md`: cut the paragraph from Overview; paste under the chosen destination header; keep the existing `<a id="terminal-outcomes-aggregator">` anchor on the relocated paragraph.
+- `docs/spec.md`: insert a one-sentence orientation pointer in the Overview where the paragraph used to live.
+- No edits to topic pages — all forward-links remain valid.
+
+**Pros.** Aligns the abstraction level of Overview with the rest of the section; gives implementers scanning by section name a discoverable home; trims the Overview to product-level abstraction by keeping implementation-grade enumerations in their owning sections.
+
+**Cons.** Larger diff than A or B; touches section structure.
+
+**Risks.** Anchor stability: the `#terminal-outcomes-aggregator` id must travel with the paragraph or every inbound link breaks. Verify by grepping `terminal-outcomes-aggregator` across `docs/` before and after.
+
+### Recommendation
+
+Resolve in the order **A → B → C** so each fixer agent works against a stable baseline:
+
+1. **A first** — smallest scope-bounding edit (one phrase swap), no structural change, removes a defect that is currently invisible to the placement decision.
+2. **B second** — restructures the contrast inside the paragraph; reduces the paragraph's parenthetical depth, which in turn makes C's cut-and-paste mechanical rather than interpretive.
+3. **C last** — relocate the now-cleaned paragraph. Prefer **C1** (sub-section of `## Language`); reserve C2 for the case where reviewers judge the aggregator co-equal to Language and Extension Architecture rather than subordinate to Language.
+
+Edge cases the implementer must watch on C: (i) the `#terminal-outcomes-aggregator` anchor must move with the paragraph; (ii) the Overview pointer left behind must still name the trichotomy by its three outcomes so a reader who never clicks through still learns the shape.
+
+## Relationships
+
+None
+
+---
+
+# T02 - "PIC" abbreviation is used throughout the spec but never introduced
+
+**Kind:** clarity
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The abbreviation `PIC` (for *Pi Integration Contract*) is used in dozens of places across `docs/spec.md` and the topic pages, but its expansion is never spelled out — neither at first use in `spec.md` nor in `glossary.md`, which cites Pi Integration Contract by long name only and has no `PIC` entry. A reader must infer the mapping from neighbouring long-form link texts on the same page. The abbreviation is load-bearing rather than cosmetic: the `// allow-pi-surface:` exemption grammar in `pi-integration-contract.md` admits a `PIC#<anchor>` citation form, so contributors must type a token the spec never formally introduces.
+
+## Solution approach
+
+Add a Glossary entry in `glossary.md`, in alphabetical order, defining `PIC` as the abbreviation of *Pi Integration Contract* and forward-linking the contract page. Introduce the abbreviation against its long form at its first occurrence in `spec.md`'s **Pi SDK and capabilities** paragraph (the `owned by the same PIC section` clause), so later uses carry it legitimately without per-page re-introduction.
+
+## Solution constraints
+
+- None.
+
+## Relationships
+
+None
+# T03 - Cross-cutting NFR bullets lack a discoverable home in spec.md
+
+**Kind:** placement
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Decision axes:** 4
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+Three bullets under `### Scope` in `docs/spec.md` — **Trust boundary**, **Source-language stability**, and **Runtime observability** — are cross-cutting non-functional-requirement aggregators (the loom 1.0 security/trust posture, the loom 1.x source-language-equivalence release goal, and the operator-facing observability contract), not scope-boundary statements. The `### Scope` intro paragraph itself concedes the mismatch, framing the bullets as "five cross-cutting loom 1.0 dispositions that no single topic page enumerates as a unit." spec.md has no Security, Trust, Observability, Compatibility, or Non-Functional Requirements section, and no `spec_topics/` page named for those concerns, so a reviewer with a security, observability, or compatibility mandate scanning the TOC or topic listing has no signpost to these bullets. The dispositions are well-owned by their topic pages, so the cost is reviewer-facing rather than implementation risk.
+
+## Solution approach
+
+Add a discoverable top-level home in `docs/spec.md` for cross-cutting NFR dispositions (the conventional umbrella reviewers look for) and move the Trust boundary, Source-language stability, and Runtime observability bullets out of `### Scope` into it. Rewrite the `### Scope` intro paragraph so its framing and item enumeration reflect the surviving scope bullets (Hard ceilings at `#hard-runtime-ceilings` and Forward-compatibility seams). Repoint the `docs/spec_topics/future-considerations.md` `Recorded at:` lines that currently target `../spec.md#scope` for Trust boundary and Source-language stability at the relocated content.
+
+## Solution constraints
+
+- Per GOV-12, the change to the Scope bullet count MUST update the "five Scope bullets" integer-count literal and the *multi-source-page* registry entry on `docs/spec_topics/governance.md` in the same commit.
+- Inbound citations to the moved bullets MUST keep resolving — re-emit the `source-language-stability` HTML anchor on the relocated content rather than orphaning the inbound links.
+
+## Relationships
+
+None
+# T04 - SM-2 mislabels a reproduced external union as "normative"
+
+**Kind:** external-entities, traceability
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The `SM-2 — Closed session_shutdown reason set` bullet at
+`sm-2-closed-shutdown-reason-set` in `docs/spec.md` reproduces the
+SDK-owned `SessionShutdownEvent['reason']` union inline and qualifies it
+as "the closed **normative** set", while the same parenthetical concedes
+the SDK type is the source of truth for the closed reason set. Labelling a
+reproduced external union "normative" while naming an external source of
+truth is internally contradictory: SM-2 owns the routing partition over
+the reason set (closed-set members vs. unknown reason), not the
+enumeration itself. The PIC `#session-binding-contract` already states the
+closed set matches the SDK union and forwards ownership of the set to the
+`#unknown-reason-rule`, so a reader cannot tell from SM-2 whether the
+bullet or the SDK type is authoritative for the enumeration.
+
+## Solution approach
+
+Rewrite the SM-2 parenthetical at `sm-2-closed-shutdown-reason-set` so the
+word "normative" no longer attaches to the reproduced enumeration: name
+the SDK `SessionShutdownEvent['reason']` type as authoritative for the
+enumeration and reserve the spec-owned obligation for the closed-set
+members vs. unknown-reason routing partition. Forward-link the
+spec-owned partition to the PIC `#unknown-reason-rule`.
+
+## Solution constraints
+
+- None.
+
+## Relationships
+
+None
