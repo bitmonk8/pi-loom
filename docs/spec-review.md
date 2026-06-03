@@ -4,7 +4,7 @@ _Generated: 2026-06-03T19:20:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T36) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 1 high, 20 medium retained; 13 low discarded; 4 low findings merged into 2 medium findings; 0 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 1 high, 19 medium retained; 13 low discarded; 4 low findings merged into 2 medium findings; 0 nit dropped; 0 false dropped._
 
 ---
 
@@ -519,29 +519,3 @@ Add a dual-form `<a id="err-N"></a> **ERR-N.**` anchor at each of the six bold-h
 - T18 "`validation-issue-ordering` paragraph carries no ERR-N REQ-ID" — co-resolve (same page, same `ERR` prefix; the same commit that coins these IDs should also coin the ordering paragraph's `ERR-N` to keep `ERR`-prefix numbering contiguous).
 - T21 "cancellation.md carries no CNCL-N REQ-IDs" — same-cluster (parallel GOV-22 / GOV-9 drain on the cancellation page).
 - T20 "Tool-call late-settlement discard paragraph needs three CNCL-N sub-anchors" — same-cluster (per-sub-obligation anchor split; same coining pattern).
-# T20 - Tool-call late-settlement discard paragraph needs three CNCL-N sub-anchors
-
-**Kind:** traceability
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Decision axes:** 3
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `cancellation.md` paragraph `**Race semantics — late-settlement discard at the tool-call checkpoint.**` states a single discard rule that decomposes into three independently-violable sub-obligations: (a) no rebind of the call site to the late value, (b) no second `Err` for the same invocation, and (c) no second `RuntimeEvent`. With only a paragraph-head anchor, a test, conformance fixture, or cross-page citation cannot pin one sub-obligation without dragging in the other two, and a single `CNCL-N` covering all three would conflate them into one ID — the same atomicity violation the `SM-3a`/`SM-3b` and `SM-7a`…`SM-7e` sub-letter splits avoid. The immediately-following `**Race semantics — swallowing-handler attachment on every abandonable Promise.**` paragraph already cites these rules in-text as `clause (a)` / `clause (b)`, but those references cannot be promoted to GOV-9 `#cncl-n` cross-links until per-sub-obligation anchors exist.
-
-## Solution approach
-
-Split the `**Race semantics — late-settlement discard at the tool-call checkpoint.**` paragraph in `cancellation.md` so sub-obligations (a) no-rebind, (b) no-second-`Err`, and (c) no-second-`RuntimeEvent` each carry their own dual-form anchor at the sub-obligation's source line, adding three consecutive `CNCL-N` REQ-IDs in source order (a)→(b)→(c) per GOV-1 / GOV-22 and the `SM-7a`…`SM-7e` sub-letter precedent. Rewrite the following `**Race semantics — swallowing-handler attachment...**` paragraph's in-text `clause (a)` / `clause (b)` references as GOV-9 `#cncl-n` cross-links to the two new `Err`-channel anchors. Repoint the `Post-cancel resolution` bullet in `tool-calls.md` and the `tool-execution-from-loom-code` restatement in `pi-integration-contract.md` to cite the three new anchors.
-
-## Solution constraints
-
-- Out of scope: the corpus-wide inbound `#cncl-n` cross-link repointing and the page-wide `CNCL-N` numbering base, both owned by T21; this finding adds only the three sub-obligation anchors and repoints the adjacent swallowing-handler paragraph plus the two sibling restatements named in Solution approach.
-
-## Relationships
-
-- T21 "cancellation.md carries no CNCL-N REQ-IDs" — must-follow (the page-wide CNCL-N coinage finding determines the integer base and the GOV-22 progressive-coinage pass; resolve the page-wide coinage first — this finding lands on its baseline and constrains that pass to allocate three IDs to this paragraph).
-- T19 "Mid-stream cancellation and No-rollback paragraphs lack ERR-N REQ-IDs" — same-cluster (sibling rule on `errors-and-results.md` where multiple consecutive paragraphs each need their own REQ-ID; same atomicity-of-anchoring principle, resolved on a different page).
