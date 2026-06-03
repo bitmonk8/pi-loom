@@ -1,6 +1,6 @@
 # pi-loom — Consolidated Spec Review (Parked)
 
-_Parked findings: 3._
+_Parked findings: 4._
 
 ---
 
@@ -109,3 +109,40 @@ Add `QRY-N` REQ-ID anchors at each independently verifiable normative obligation
 - T17 "slash-invocation.md carries no SLSH-N REQ-ID anchors" — same-cluster (parallel gap).
 - T18 "`validation-issue-ordering` paragraph carries no ERR-N REQ-ID" — decision-overlap (QRY-21's `<ajv-summary>` placeholder links to `errors-and-results.md#validation-issue-ordering`; once that paragraph gains an `ERR-N`, the QRY-21 cross-link should be updated in the same edit).
 - T32 "Top-level `Err` per-`kind` table — `validation` row collapses the two causes" — decision-overlap (the resolution of that finding will likely cite the new QRY-5 *empty-template short-circuit* anchor; co-ordinate the inbound-link update).
+
+---
+
+## T14 - frontmatter.md carries no FRNT-N REQ-IDs
+
+> **PARKED** — 2026-06-04
+> **Reason:** Category 2 (fixer too-hard — fast-loop capability gap; the fast single-finding fixer partially resolved the finding but could not complete the same-commit inbound cross-reference repointing on sibling pages). The fast `/spec-fix-findings-loop` fast loop returned FindingResolved=partial — 12 FRNT-N anchors were coined (GOV-22 half resolved) but the Solution approach's same-commit inbound cross-reference repointing on sibling pages (GOV-9 half) was deferred. Loop notes: finding not resolved by fast fix — B3 returned FindingResolved=partial; 12 FRNT-N anchors coined (GOV-22 half resolved) but the Solution approach's same-commit inbound cross-reference repointing on sibling pages (GOV-9 half) was deferred. A human (or a re-run once the FRNT-N anchors are confirmed on frontmatter.md) must complete the remaining inbound-link repointings before this finding can be marked resolved.
+> **Forensic report:** none (fast loop — no forensic report)
+
+# T14 - frontmatter.md carries no FRNT-N REQ-IDs
+
+**Kind:** traceability
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Decision axes:** 2
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+`governance.md`'s REQ-ID prefix table allocates the `FRNT` prefix to `frontmatter.md`, but the page carries zero `**FRNT-N.**` anchors — a corpus-wide grep for `FRNT-[0-9]+` returns no matches. The page nonetheless states a substantial body of independently-violable normative obligations (the Unknown-key policy, each *Field contract* table row, the *Naming convention* rules including the "**No `name` field**" prohibition, the `params`/`tools`/`system:` rules, the *Resolution snapshot* bullets, the `loom/parse/system-interp-*` diagnostics, and the `respond_repair`/`tool_loop` semantics), none of which carries a co-located REQ-ID anchor. As a result GOV-22 fires a fresh violation on every substantive edit to the page, and GOV-9's `#prefix-n` cross-link contract is permanently unsatisfiable for the dozen-plus inbound references from sibling pages that name a specific frontmatter obligation.
+
+## Solution approach
+
+Add dual-form `FRNT-N` anchors at each independently-violable defining obligation site on `frontmatter.md` — one anchor per obligation, not one per paragraph — allocated per GOV-3 and laid out per GOV-1 *Dual-form layout*. In the same commit, rewrite inbound cross-references on the sibling pages that name a specific frontmatter obligation (rather than the whole page) to `#frnt-n` targets per GOV-9.
+
+## Solution constraints
+
+- When adding a co-located `FRNT-N` anchor at a site that already carries a bespoke HTML `id="..."` slug (e.g. `binder-model-root-word-convention`, `loom-1-0-seam-system-expression-sublanguage`, the inline `id="tools"`), preserve the existing slug.
+- Repointing inbound cross-references edits only the link targets on sibling pages; coining those pages' own REQ-ID anchors is out of scope (T12, T13, T15, T16, T22 own their respective pages' coinage).
+
+## Relationships
+
+- T12 "binder.md — un-anchored normative obligations missing BNDR-N REQ-IDs" — same-cluster (parallel GOV-22 gap).
+- T13 "discovery.md carries zero DISC-N REQ-IDs" — same-cluster (parallel GOV-22 gap).
+- T22 "invocation.md carries no INV-N REQ-IDs" — same-cluster (`frontmatter.md` has multiple inbound-to-invocation cross-links; repointings are concurrent but the fixes are independent).

@@ -74,3 +74,20 @@ it does not persist across worktree wipes)._
 - **Fixer notes:** none
 
 ---
+
+## 2026-06-04 — T14 - frontmatter.md carries no FRNT-N REQ-IDs
+
+- **Failure mode:** fast-loop-unresolved
+- **Category:** 2 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** n/a
+- **Score trajectory:** n/a
+- **Passes:** n/a
+- **Stage at exit:** n/a (n/a pass(es) in stage)
+- **Snapshot refs (retained for forensics):** n/a (loop did not run)
+- **Poisoned fixes:** n/a
+- **Forensic report:** none (fast loop — no forensic report)
+- **Parked findings (this run):** `T14 - frontmatter.md carries no FRNT-N REQ-IDs`
+- **Loop notes:** finding not resolved by fast fix — B3 returned FindingResolved=partial; 12 FRNT-N anchors coined (GOV-22 half resolved) but the Solution approach's same-commit inbound cross-reference repointing on sibling pages (GOV-9 half) was deferred.
+- **Fixer notes:** none
+
+---
