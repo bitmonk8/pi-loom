@@ -108,27 +108,3 @@ Rewrite the "Watcher events are debounced…" sentence in `docs/spec_topics/disc
 ## Relationships
 
 - T30 "`settings.json` shape undetermined: `looms` array collides with `looms.*` namespace" — same-cluster (same §Settings file reads section; resolve independently — the ambiguity fix touches the **Keys read** sub-block, this fix touches **Caching and reload**).
-# T05 - future-considerations.md category headings still spelled `V1`
-
-**Kind:** naming
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-All four `## `-level category headings on `docs/spec_topics/future-considerations.md` still carry the legacy `V1` version token (`Tooling deferrals (no V1 impact)`, `Surface extensions (V1 leaves a seam)`, `Model-level changes (no V1 seam expected)`, `V1 non-goals`), while the rest of the corpus has converted to the canonical `loom 1.0` spelling per the GOV-20 alias table. Only `V1 non-goals` carries a GOV-21 dual-anchor pair; the other three headings have no authored anchor, so their only fragment identifier is the renderer-produced auto-id. Four in-corpus citations target `#surface-extensions-v1-leaves-a-seam` — two from `docs/spec.md` and two internal to `future-considerations.md` — and under [GOV-21 *Incidental auto-id prohibition*](./governance.md#gov-21-incidental-auto-id) that renderer auto-id is not a citable stable anchor, so a naive heading-text rename would silently break all four.
-
-## Solution approach
-
-Rename the four category headings on `docs/spec_topics/future-considerations.md` from the `V1` token to the `loom 1.0` spelling. Add GOV-21 dual anchors (a canonical `loom-1-0-*` arm plus a `v1-*` alias arm) to the three currently anchor-less headings so the rename is anchor-stable; the existing `V1 non-goals` pair is already correct and is retained. Repoint the four inbound citations of `#surface-extensions-v1-leaves-a-seam` (in `docs/spec.md` and internally in `future-considerations.md`) to the new canonical arm.
-
-## Solution constraints
-
-- Out of scope: retiring the `v1-*` alias arms. They are permanent back-compat aliases under [GOV-21 *Alias permanence*](./governance.md#gov-21-alias-permanence); alias-only retirement is gated on the separate *Retirement discharge* witness.
-
-## Relationships
-
-None

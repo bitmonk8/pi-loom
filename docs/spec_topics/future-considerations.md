@@ -15,7 +15,8 @@ loom 1.0 design choices that ship with a known behavioural or diagnostic gap —
 
 ---
 
-## Tooling deferrals (no V1 impact)
+<a id="tooling-deferrals-no-loom-1-0-impact"></a><a id="tooling-deferrals-no-v1-impact"></a>
+## Tooling deferrals (no loom 1.0 impact)
 
 - **LSP support** for `.loom` and `.warp` files (syntax highlighting, type checking, autocomplete).
 - **`loom test` command** for dry-run execution that runs a loom against a recorded transcript or a stub model without hitting a live provider.
@@ -24,7 +25,8 @@ loom 1.0 design choices that ship with a known behavioural or diagnostic gap —
 
 ---
 
-## Surface extensions (V1 leaves a seam)
+<a id="surface-extensions-loom-1-0-leaves-a-seam"></a><a id="surface-extensions-v1-leaves-a-seam"></a>
+## Surface extensions (loom 1.0 leaves a seam)
 
 Each bullet below describes a deferred loom 1.0 extension and points at the normative paragraph that pins the loom 1.0 seam the extension consumes. The seams themselves live on the topic pages that own each surface; this page enumerates only what loom 1.0 chose not to do, and where to read the seam contract.
 
@@ -84,7 +86,8 @@ The item below is **not** counted in the "Forward-compatibility seams" tally on 
 
 ---
 
-## Model-level changes (no V1 seam expected)
+<a id="model-level-changes-no-loom-1-0-seam-expected"></a><a id="model-level-changes-no-v1-seam-expected"></a>
+## Model-level changes (no loom 1.0 seam expected)
 
 - **First-class loom values** (`Loom<T>` type, passing looms as arguments, higher-order composition) — loom 1.0 only supports literal-path `invoke` and frontmatter-registered callables.
 - **Loom-level concurrency primitives** (e.g. `parallel { ... }` blocks or a parallel-`for` form) building on Pi tools' Promise-returning shape — loom 1.0 keeps every tool call sequential and synchronous-looking.
@@ -101,7 +104,7 @@ The item below is **not** counted in the "Forward-compatibility seams" tally on 
 ---
 
 <a id="loom-1-0-non-goals"></a><a id="v1-non-goals"></a>
-## V1 non-goals
+## loom 1.0 non-goals
 
 The loom 1.0 non-goals are cross-cutting loom 1.0 scope decisions where loom 1.0 ships without a forward-compatibility seam: a future revision adding the disposition is not anticipated by loom 1.0 and will require a migration. The non-goals here are distinct from the model-level changes in category 3 of the intro list above — category 3 covers post-loom 1.0 changes to loom 1.0's runtime value, evaluation, or tool-result contracts, whereas the non-goals below are cross-cutting "we chose not to deliver this" scope dispositions that do not change those value-model contracts. (The seam-vs-non-goal distinction is stated in category 4 of the intro list at the top of this page; see also [`spec.md` — loom 1.0 non-goals](../spec.md#v1-non-goals) and [Governance — GOV-12](./governance.md).)
 
