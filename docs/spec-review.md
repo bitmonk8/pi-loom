@@ -4,7 +4,7 @@ _Generated: 2026-06-04T03:10:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 11 high, 9 medium retained; 13 low discarded; 16 low findings merged into 6 medium findings (plus one co-resolve merge of two high findings); 4 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 10 high, 9 medium retained; 13 low discarded; 16 low findings merged into 6 medium findings (plus one co-resolve merge of two high findings); 4 nit dropped; 0 false dropped._
 
 ---
 
@@ -529,29 +529,3 @@ Add a distinct wall-clock seam member to the `Clock` interface (`#clock--fakeclo
 
 - T17 "`realpath` is required by Resolution but absent from the `FileSystem` seam" - same-cluster (sibling seam-coverage gap on the same page; resolve independently but apply the same review when extending either seam).
 - T01 "Operator-bound MUSTs mis-classified as runtime conformance requirements" - same-cluster (adjacent edit surface in the same **Runtime event channel** section; resolves independently).
-# T19 - Subagent spawn has no contract when both `model:` and `ctx.model` are absent
-
-**Kind:** implementability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 3
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The spec leaves the case (`mode: subagent` ∧ frontmatter `model:` omitted ∧ `ctx.model === undefined`) undefined. Subagent-mode invocation passes the resolved model directly into `createAgentSession` (PIC **Conversation drive — subagent mode**); when the inherited `ctx.model` is `undefined` the call is made with `model: undefined`, and nothing states whether the field is required, what `createAgentSession` does on receipt of `undefined`, or which loom diagnostic surfaces the failure. The `loom/load/model-unresolved` row in `diagnostics.md` explicitly excludes the absent-`model:` case, and `loom/runtime/internal-error` is generic and fires only if the SDK happens to throw. Two reasonable implementers diverge on the user-visible diagnostic code, message, and retry semantics, with no anchor for conformance tests.
-
-## Solution approach
-
-Treat (`mode: subagent` ∧ `model:` absent ∧ `ctx.model === undefined`) as a per-invocation failure with a targeted invocation-time diagnostic, emitted after `ctx.model` is captured and before `createAgentSession` is called. Add the diagnostic row to `diagnostics.md` — either a new runtime code or a new `details.kind` discriminator on `loom/load/model-unresolved`, per the existing diagnostic taxonomy. Add a pre-spawn guard to PIC **Conversation drive — subagent mode** stating that when `model` resolves to `undefined` the runtime emits the diagnostic and does not call `createAgentSession`, surfaced consistently across slash, tool, and `invoke` call surfaces. Add a forward-cross-reference from the `model` field-contract row in `frontmatter.md` so the absent-`model:` cell is no longer silent on subagent mode.
-
-## Solution constraints
-
-- Out of scope: the `model` field's lifetime/inheritance prose (the `frontmatter.md` behaviour-table `model` row and the `**`model`**` prose bullet) is owned by T20; limit the `frontmatter.md` edit to a cross-reference into the absent-`model:` cell.
-
-## Relationships
-
-- T20 "Frontmatter `model` — \"loom's lifetime\" conflicts with per-invocation inheritance" - must-follow (the per-invocation re-inheritance that finding recommends makes `ctx.model === undefined` a per-invocation check, scoping this diagnostic to invocation time rather than load time; resolve the lifetime ambiguity first so the guard's timing is settled).
-- T02 "Pi version-bump gate cannot detect three unstated host/provider behavioural presuppositions" - same-cluster (also a conversation-drive presupposition gap; independent resolution).
