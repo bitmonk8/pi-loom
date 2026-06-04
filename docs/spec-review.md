@@ -4,7 +4,7 @@ _Generated: 2026-06-04T17:12:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker + 8 high, 8 medium retained; 19 low discarded; 13 low findings merged into 3 medium findings; 3 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker + 7 high, 8 medium retained; 19 low discarded; 13 low findings merged into 3 medium findings; 3 nit dropped; 0 false dropped._
 
 ---
 
@@ -299,29 +299,3 @@ Pin the watcher swap's ordering so the build-aside-then-publish all-or-nothing p
 ## Relationships
 
 - T10 "`loom/runtime/internal-error` — `tool-return-shape` details discriminator is unpinned" — same-cluster (both touch the runtime-defect surface around tool registration / dispatch; resolve independently)
-# T12 - `pi.getCommands()` completeness at first `session_start` is an unstated presupposition
-
-**Kind:** assumptions
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`registration-steps.md` step 3 performs a single forward pass over `pi.getCommands()` at `session_start` and registers every pending loom whose slash name does not collide. This relies on an unstated precondition: that loom's `session_start` snapshot already enumerates every command Pi will register from prompt templates and skills, and every command sibling extensions will register. Because Pi emits `session_start` in non-deterministic load order (the seam already pinned in `binder-inference.md`), a sibling loaded after loom that registers a colliding command inside its own `session_start` handler is absent from loom's snapshot; the collision check silently passes and Pi disambiguates with `name:1` / `name:2` suffixes instead of the `loom/load/cross-format-collision` outcome DISC-4 prescribes. Neither DISC-4 nor step 3 names this ordering precondition or the first-check miss window, so two conforming implementations diverge on the first-startup case.
-
-## Solution approach
-
-Add a named presupposition paragraph to `registration-steps.md` step 3, anchored with a stable HTML anchor and mirroring the pattern of `host-interfaces-core.md#messages-chronological-order-presupposition`, stating that the first `session_start` collision pass relies on Pi having populated `pi.getCommands()`'s prompt-template and skill arms before emitting `session_start`, and on sibling commands being either factory-time-registered or load-ordered before loom — with a forward-cross-reference to DISC-4 for the next-cycle re-evaluation of later-loaded siblings, and noting that Pi's numeric-suffix disambiguation is the observable surface when a first-pass check misses. Add a matching item to the editorial-review checklist in `version-bump-step2.md` so each Pi minor bump re-validates the `session_start` emit order and the load-order-iterating `emit` against the precondition.
-
-## Solution constraints
-
-- Recovery / de-registration semantics (post-bind activations, `ctx.reload()` re-runs) are owned by DISC-4; cross-reference DISC-4 rather than restate them.
-
-## Relationships
-
-- T13 "Registration step 1 — factory-time working-directory source unstated" — same-cluster (same `registration-steps.md`, same factory-vs-`session_start` boundary; resolves independently)
-- T08 "Subagent-mode `agent_end` payload chronological-ordering presupposition unstated" — same-cluster (same "is this Pi-side surface ready/ordered at a load-time boundary?" remedy pattern — documented presupposition plus per-bump editorial-review item)
