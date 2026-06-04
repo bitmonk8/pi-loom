@@ -4,7 +4,7 @@ _Generated: 2026-06-04T21:31:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T34) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 blocker, 17 high, 15 medium retained; 12 low discarded; 10 low findings merged into 4 medium findings; 3 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 17 high, 15 medium retained; 12 low discarded; 10 low findings merged into 4 medium findings; 3 nit dropped; 0 false dropped._
 
 ---
 
@@ -865,30 +865,3 @@ Add an `AgentSession` (member surface loom touches) subsection to `host-interfac
 - T29 "Open-ended 'foreseeable shape failure' clause" - same-cluster (both under-pinned PIC boundaries; resolve independently).
 - T06 "PIC external-entity citations lack consistent fragility/re-audit framing" - same-cluster (mirror problem — under-pinned vs over-claimed external surface; same declaration-file/loom-load-bearing-subset/re-validation discipline is the resolution template).
 - T05 "Host presuppositions lack version-bump-procedure re-audit hooks" - same-cluster (another host-surface assumption not in the pinned-surfaces / re-validation set).
-# T33 - Prompt-mode `errorMessage` probe is unreachable from the specified surface
-
-**Kind:** implementability
-**Importance:** blocker
-**Score:** 200
-**Must-fix:** true
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The *Error detection* clause under **Conversation drive — prompt mode** in `conversation-drive.md` designates the post-`waitForIdle()` `AgentSession.errorMessage` probe as the **primary** prompt-mode transport-failure detection surface, mapping a non-empty value to `Err(QueryError { kind: "transport", ... })`. No member of the pinned `ExtensionContext` / `ExtensionAPI` surface (see `host-interfaces-core.md`) returns the user-session `AgentSession` handle or anything carrying its `errorMessage`; the host owns the live session and exposes only the read-only `ReadonlySessionManager`. The mandated primary error-detection surface is therefore unreachable from the pinned member set: a second implementer cannot write the probe, or invents a non-spec handle acquisition that breaks the *captured-`pi`-reference* discipline.
-
-## Solution approach
-
-Rewrite the *Error detection* clause in `conversation-drive.md` to detect prompt-mode transport failure by reading the trailing `assistant` message from the already-pinned `ctx.sessionManager.getEntries()` surface (the access path cited for the `Ok(string)` extraction at anchor `untyped-query-ok-extraction`), inspecting `AssistantMessage.stopReason` and `AssistantMessage.errorMessage` (pinned in `@earendil-works/pi-ai` `dist/types.d.ts`) to derive the `kind: "transport"` mapping. Update `errors-and-results/queryerror-variants.md` for the new derivation source of `TransportError.message`. Add a checklist item to `version-bump-step2.md` for the `AssistantMessage.stopReason` / `errorMessage` presupposition.
-
-## Solution constraints
-
-- Out of scope: the `TransportError.provider` value space and source field — owned by T31.
-- Out of scope: the typed-query forced respond turn's transport-failure mapping — owned by T34.
-
-## Relationships
-
-- T32 "`AgentSession` consumed member surface not pinned" - must-precede (resolve the handle-acquisition question here first; then that finding's `errorMessage` row can cite a single concrete acquisition path).
-- T31 "`TransportError.provider` value space and source field unspecified" - decision-overlap (this finding fixes which surface supplies `message`; that one fixes which surface supplies `provider`; same `TransportError` site, independently derived fields).
-- T34 "Typed-query forced-respond tool choice has no specified delivery channel" - same-cluster (sibling implementability finding in the same prompt-mode driver; resolves independently; the rewrite landing here should also drop the bogus `agent_error` ban in the same edit).
