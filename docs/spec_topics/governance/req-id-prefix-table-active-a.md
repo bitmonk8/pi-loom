@@ -2,7 +2,7 @@
 
 ## REQ-ID prefix table
 
-**GOV-1 (anchor placement).** Each spec page that carries normative obligations is assigned a stable per-page REQ-ID prefix (table below). Each non-narrative page in that table MUST carry a `PREFIX-N` anchor at the defining site of every live REQ-ID under its prefix.
+<a id="gov-1"></a> **GOV-1 (anchor placement).** Each spec page that carries normative obligations is assigned a stable per-page REQ-ID prefix (table below). Each non-narrative page in that table MUST carry a `PREFIX-N` anchor at the defining site of every live REQ-ID under its prefix.
 
 - **Canonical form.** Each REQ-ID's defining anchor is the inline `**PREFIX-N.**` marker. The bold-with-period decoration is normative: it distinguishes anchor sites (`**BNDR-7.**`) from back-references (`per BNDR-7`) and is part of the anchor form. The bold-with-period bytes are the witness pattern for any third-party REQ-ID extractor; per [GOV-18 arm (b)](./corpus-direction-and-scope.md#gov-18-arm-b), this rule pins only the form of the anchor on the spec page, not the extractor's behaviour.
 - **Required HTML-anchor contexts.** The `<a id="prefix-n"></a>` HTML form MUST accompany the inline marker at every REQ-ID anchor site, in each of the four enumerated contexts below. These are the cases where the inline marker is not by itself a sufficient anchor (Markdown bold-with-period either does not render, breaks the surrounding construct, or — being rendered as bold text — does not by itself produce a stable URL fragment in any common Markdown renderer):
@@ -33,7 +33,7 @@
 
 <!-- GOV-2 retired per GOV-18 — see [Retired REQ-IDs](./anchor-scheme-and-retired.md#retired-req-ids). -->
 
-**GOV-3.** REQ-ID prefixes are byte-exact uppercase ASCII tokens of length 2–4 (`[A-Z]{2,4}`). Prefix matching is case-sensitive; `lex-1` does not match `LEX-1`. REQ-ID extraction operates on raw Markdown source bytes, not on rendered HTML. Before regex application, the following are stripped, in order: (i) fenced code blocks (` ```…``` ` and `~~~…~~~`, inclusive of fence lines), (ii) HTML comments (`<!--…-->`), (iii) inline code spans (`` `…` `` and the multi-backtick variants). Markdown link text is in scope; link targets are out of scope.
+<a id="gov-3"></a> **GOV-3.** REQ-ID prefixes are byte-exact uppercase ASCII tokens of length 2–4 (`[A-Z]{2,4}`). Prefix matching is case-sensitive; `lex-1` does not match `LEX-1`. REQ-ID extraction operates on raw Markdown source bytes, not on rendered HTML. Before regex application, the following are stripped, in order: (i) fenced code blocks (` ```…``` ` and `~~~…~~~`, inclusive of fence lines), (ii) HTML comments (`<!--…-->`), (iii) inline code spans (`` `…` `` and the multi-backtick variants). Markdown link text is in scope; link targets are out of scope.
 
 Two regexes define the in-corpus form of an extractable REQ-ID, against the exclusion-stripped corpus described above:
 

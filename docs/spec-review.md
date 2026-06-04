@@ -34,29 +34,3 @@ Move the **System notes**, **Delivery surface**, and **Runtime event channel** b
 ## Relationships
 
 None
-# T02 - GOV body-paragraph REQ-IDs (GOV-1, GOV-3, GOV-4..GOV-9) lack the dual-form HTML anchors GOV-1 mandates
-
-**Kind:** traceability
-**Importance:** medium
-**Score:** 15
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-GOV-1 *Required HTML-anchor contexts* names body-paragraph context as one of the four contexts where the `<a id="prefix-n"></a>` HTML form MUST accompany the inline `**PREFIX-N.**` marker, because the bold-with-period marker does not by itself produce a stable URL fragment in common Markdown renderers. Eight live body-paragraph REQ-IDs carry only the bare inline marker: GOV-1 and GOV-3 on `req-id-prefix-table-active-a.md`, and GOV-4, GOV-5, GOV-6, GOV-7, GOV-8, GOV-9 on `req-id-prefix-table-active-b.md`. The omission is self-referential and locally inconsistent: GOV-9 itself mandates that every REQ-ID anchor on a non-narrative page resolve as a `#prefix-n` fragment, yet its own site does not, while GOV-12, GOV-14, and GOV-22 on the same pages already carry the dual form. Any citer reaching for `#gov-1`..`#gov-9` produces a broken deep link.
-
-## Solution approach
-
-Add the dual-form HTML anchor — `<a id="prefix-n"></a>` immediately preceding the existing inline `**PREFIX-N.**` marker, with a lowercase `id`, in the order GOV-1 *Dual-form layout* pins — to each of the eight defining sites that lack it: `gov-1` and `gov-3` on `req-id-prefix-table-active-a.md`, and `gov-4`, `gov-5`, `gov-6`, `gov-7`, `gov-8`, `gov-9` on `req-id-prefix-table-active-b.md`. Match the dual form already in place at GOV-12 / GOV-14 / GOV-22 on the same pages.
-
-## Solution constraints
-
-- Do not mutate the inline `**GOV-N.**` marker bytes; GOV-1's witness regex pins the bold-with-period form.
-- Out of scope: GOV-3's extraction-glob wording (owned by T03) and the prefix-table row bindings (owned by T04); edit only the anchor tokens.
-
-## Relationships
-
-- T03 "GOV-3 extraction scope and GOV-6 closure invariant exclude subdirectory REQ-IDs" — same-cluster (touches the same GOV-3 / GOV-6 paragraphs; resolves independently — extraction-scope wording vs anchor coinage)
-- T04 "Prefix table binds prefixes to hub files that carry no REQ-ID anchors" — same-cluster (another GOV-1 enforcement gap on the same prefix-table pages; table-schema question vs per-paragraph anchor coinage)
