@@ -8,6 +8,51 @@
 
 The `loom/load/extension-bootstrap-failed` diagnostic routes through the same channel that step 0's `loom/load/host-incompatible` uses (the **System notes** fallback chain — `sendSystemNote` → `ctx.ui.notify` → `console.error`), because the renderer may itself have failed. The factory MUST NOT throw out of `default function (pi: ExtensionAPI)`; per-call `try`/`catch` around each step keeps the failure local to its granularity rule above. None of these three rules apply to the step-0 capability probe — a missing capability is `loom/load/host-incompatible` and stops the factory before it ever attempts a `pi.register*` call. `pi.registerTool` failures at factory time are governed by the prompt-mode registration cache rule under **Tool-registration lifetime and visibility** below; this paragraph does not duplicate that rule.
 
+<a id="renderer-registration"></a>
+
+**Renderer registration (`pi.registerMessageRenderer`).** The pinned signature, lifecycle, and ownership rules below are normative for the loom extension. The canonical Pi-side declarations live at `dist/core/extensions/types.d.ts` in `@earendil-works/pi-coding-agent` (the [loom 1.0 Pi-SDK pin](./host-prerequisites.md#pi-sdk-pin) from **Host prerequisites** above) and the `Component` interface lives at `@earendil-works/pi-tui`'s `dist/tui.d.ts`; the inline shapes below are the loom-load-bearing subset and MUST be re-validated against those files on each Pi minor bump (per the re-validating obligation in **Host prerequisites** above).
+
+*Signature.* The Pi-side surface, reproduced verbatim from `dist/core/extensions/types.d.ts`:
+
+```ts
+export interface MessageRenderOptions {
+  expanded: boolean;
+}
+
+export type MessageRenderer<T = unknown> = (
+  message: CustomMessage<T>,
+  options: MessageRenderOptions,
+  theme: Theme,
+) => Component | undefined;
+
+// On `pi: ExtensionAPI`:
+registerMessageRenderer<T = unknown>(
+  customType: string,
+  renderer: MessageRenderer<T>,
+): void;
+```
+
+The call returns `void` (synchronous); the loom extension factory MUST NOT `await` it and MUST NOT attach a `.then`/`.catch`. Failures propagate as synchronous throws and fault the extension factory body — there is no separate Promise rejection path.
+
+The `Component` return type is the `pi-tui` widget interface (`{ render(width: number): string[]; handleInput?(...): void; invalidate(): void; ... }`), **not** a string and **not** a React node. A renderer body of the form `(message) => message.content` is therefore a type error that silently leaves the channel unrendered — the loom renderer MUST construct a `pi-tui` `Component` instance (e.g. a text component composed from the `theme` parameter) and return it. Returning `undefined` is legal and tells Pi to skip rendering this message; the loom 1.0 loom renderer uses `undefined` only when `display === false` (see **Empty `content` is legal** in [Runtime event channel](./runtime-event-channel.md) below).
+
+The `theme: Theme` parameter is Pi's active TUI theme; the loom renderer MUST source any styling (dim text colour, etc.) from `theme` rather than hard-coding ANSI escapes, so re-themes propagate without renderer changes.
+
+The `options: MessageRenderOptions` carries `{ expanded: boolean }` from the Pi host; `expanded` is the Pi-host hint for whether the user has requested an expanded view of this message in the transcript. The loom 1.0 loom renderer MUST be defined for both `expanded === false` and `expanded === true`; loom 1.0 MAY render identically in both modes. Widening the renderer to use `expanded` to disclose the structured `details` payload (e.g. expanding the diagnostic batch or runtime-event fields) is reserved for a future revision and is not part of loom 1.0 conformance.
+
+*Lifecycle.*
+
+- **Registration timing.** The loom extension factory MUST call `pi.registerMessageRenderer("loom-system-note", renderer)` synchronously inside the factory body, before the factory returns. Registration after the factory returns (e.g. inside an event subscriber that fires asynchronously) is undefined behaviour at the Pi-SDK level and the loom runtime MUST NOT rely on it.
+- **Re-registration within an extension.** Pi's loader stores renderers in a `Map<string, MessageRenderer>` keyed by `customType` (`@earendil-works/pi-coding-agent`'s `dist/core/extensions/loader.js`), so a second call from the same factory with the same `customType` silently overwrites the first; Pi emits no warning. The loom factory MUST register exactly once per factory invocation.
+- **Teardown.** Pi exposes no `unregisterMessageRenderer` API. The renderer entry lives for the lifetime of the extension instance; on `ctx.reload()` or any other path that replaces the extension instance, Pi discards the prior `Map` along with the old extension, and the freshly loaded factory registers afresh against a Pi state that has no prior `loom-system-note` registration. The loom runtime MUST NOT attempt to clean up the registration in its `session_shutdown` handler.
+
+*`customType` ownership and collision rule.*
+
+- The literal `"loom-system-note"` is owned by the pi-loom extension. No other extension SHOULD register a renderer for this `customType`.
+- Pi does not enforce ownership: collision is a coordination failure between extensions, not a Pi-level error. Pi's runner resolves a `customType` by iterating `this.extensions` in load order and returning the first hit (`@earendil-works/pi-coding-agent`'s `dist/core/extensions/runner.js` `getMessageRenderer`), so when two installed extensions both register `"loom-system-note"` the **first-loaded** extension's renderer wins and the later registration is unreachable. Whether pi-loom or the other extension wins is non-deterministic from loom's point of view (Pi controls extension load order).
+- Loom emits no diagnostic for this case in loom 1.0 — ownership is by convention.
+- The `customType` naming convention for loom-internal channels is `loom-<purpose>` (kebab-case, `loom-` prefix). Future loom channels MUST follow this convention; other extensions SHOULD NOT use the `loom-` prefix. loom 1.0.0 ships exactly one channel under this prefix (`loom-system-note`).
+
 **Per-loom registration.** For each `.loom` file:
 
 - The slash-command `handler` runs the binder (when applicable) and then the loom interpreter against the appropriate conversation.
