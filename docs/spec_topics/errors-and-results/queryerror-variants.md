@@ -52,6 +52,9 @@ schema ValidationError {
 
 Authors who want to handle the two arms differently destructure `cause` (consistent with the established `CodeToolError.cause` / `InvokeInfraError.cause` patterns — every `QueryError` variant whose `kind` partitions into multiple sub-arms uses the field name `cause`, per [Glossary — `cause`](../glossary.md)); authors who match `ValidationError { ... }` without inspecting `cause` get arm-uniform handling — the same retry / report path runs for both.
 
+<a id="validation-issue-ordering"></a>
+<a id="err-14"></a> **ERR-14.** **`ValidationIssue` ordering.** The entries of `validation_errors` (and of the `<ajv-summary>` source in [Binder — Failure-mode templates](../binder/determinism-cancellation-failure.md#failure-mode-templates-normative)) are emitted in a canonical deterministic order: a stable ascending sort keyed on the tuple (`path`, `schema_keyword`, `message`), comparing each field by Unicode code point. The underlying validator emits its own errors in an implementation-defined order (see [Pi Integration Contract — `SchemaValidator` interface](../pi-integration-contract/host-interfaces-services.md#schemavalidator-interface)); the runtime applies this canonical order when mapping those errors into `ValidationIssue` entries, so the array is reproducible across conforming validators. `validation_errors[0]` is therefore well-defined (the canonically-first issue), and conformance tests compare the issue array under this order rather than under the validator's native emission sequence.
+
 Fires on provider transport / network failure for a query turn (see [Query — Failure modes](../query.md)). The `retryable` field is populated by transport-error class per [Pi Integration Contract — Provider error mapping](../pi-integration-contract/provider-error-mapping.md#transport-error-retryable).
 
 ```loom
@@ -161,8 +164,7 @@ Each variant carries only its meaningful fields; there are no null-padded sentin
 
 `validation_errors` is an `array<ValidationIssue>`, a Loom schema rather than raw AJV objects. This isolates Loom's surface from the AJV API: a future validator swap is not a breaking change.
 
-<a id="validation-issue-ordering"></a>
-<a id="err-14"></a> **ERR-14.** **`ValidationIssue` ordering.** The entries of `validation_errors` (and of the `<ajv-summary>` source in [Binder — Failure-mode templates](../binder/determinism-cancellation-failure.md#failure-mode-templates-normative)) are emitted in a canonical deterministic order: a stable ascending sort keyed on the tuple (`path`, `schema_keyword`, `message`), comparing each field by Unicode code point. The underlying validator emits its own errors in an implementation-defined order (see [Pi Integration Contract — `SchemaValidator` interface](../pi-integration-contract/host-interfaces-services.md#schemavalidator-interface)); the runtime applies this canonical order when mapping those errors into `ValidationIssue` entries, so the array is reproducible across conforming validators. `validation_errors[0]` is therefore well-defined (the canonically-first issue), and conformance tests compare the issue array under this order rather than under the validator's native emission sequence.
+<!-- ERR-14 (`ValidationIssue` ordering) relocated to ### Query-time variants, co-located with the ValidationError schema, for discoverability. Anchors carried verbatim. -->
 
 `raw_response` only appears on variants where the model produced (or attempted to produce) a final text response. `cancelled` and `context_overflow` rarely have one; `transport` failures by definition have no assistant response. `ToolLoopExhaustedError` carries `raw_response` only when the model emitted text alongside its terminating tool-use block; the field is `null` when exhaustion fired on a pure tool-use turn.
 

@@ -4,7 +4,7 @@ _Generated: 2026-06-04T03:10:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 4 high, 6 medium retained; 13 low discarded; 16 low findings merged into 6 medium findings (plus one co-resolve merge of two high findings); 4 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 4 high, 5 medium retained; 13 low discarded; 16 low findings merged into 6 medium findings (plus one co-resolve merge of two high findings); 4 nit dropped; 0 false dropped._
 
 ---
 
@@ -84,29 +84,3 @@ Rewrite `query.md` § *Schema inference rules* item 2 so the sink is the enclosi
 ## Relationships
 
 - T13 "Argument shape — Pi-tool code-side argument type-checking timing undefined" - same-cluster (both are about a parse-time type-checking predicate whose domain is under-specified for one callee kind; independent fixes).
-# T04 - ERR-14 (`ValidationIssue` ordering) is buried in a `### Notes` section
-
-**Kind:** placement
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-ERR-14 is a MUST-class normative obligation: it pins the canonical deterministic sort order of `validation_errors` (and the `<ajv-summary>` source consumed by the binder's failure-mode templates) and makes `validation_errors[0]` well-defined for conformance tests. It lives in the trailing `### Notes` subsection of `## QueryError variants` in `docs/spec_topics/errors-and-results.md`, roughly 120 lines below the `ValidationError` / `ValidationIssue` schema in `### Query-time variants`. The other paragraphs in `### Notes` are purely informational; ERR-14 is the lone normative obligation among them. An implementer reading the schema for ordering rules on `validation_errors` will not find ERR-14 there and is unlikely to scan a `### Notes` block for a MUST-class sort contract.
-
-## Solution approach
-
-Move the ERR-14 paragraph — with its `<a id="validation-issue-ordering"></a>` and `<a id="err-14"></a>` anchors — out of `### Notes` and into `### Query-time variants` in `docs/spec_topics/errors-and-results.md`, co-located with the `ValidationError` / `ValidationIssue` schema definitions. Carry both existing HTML anchors verbatim so inbound `#err-14` and `#validation-issue-ordering` cross-references continue to resolve.
-
-## Solution constraints
-
-- Out of scope: the `InvokeInfraError` Notes paragraph owned by T16.
-- Preserve the `err-14` ID; treat the relocation as GOV-8 pure rewording — no retire-and-re-add.
-
-## Relationships
-
-- T16 "`InvokeInfraError` wire discriminant `\"invoke_failure\"` is mis-scoped" - decision-overlap (both touch the `### Notes` subsection under `QueryError variants`; the rename deletes one Notes paragraph while this finding relocates another — coordinate the edit so the `### Notes` heading is not left stale if both edits empty the subsection).
-- T05 "Seam-blockquote MUSTs on `errors-and-results.md` and `invocation.md` lack co-located REQ-ID anchors" - same-cluster (adjacent ERR-N housekeeping on the same page; relocating ERR-14 does not collapse its number, so ERR-15 remains the next free integer regardless of resolution order).
