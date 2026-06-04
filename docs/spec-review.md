@@ -199,28 +199,3 @@ Add a normative test-vector block attached to the `replace(from, to)` row in the
 ## Relationships
 
 - T16 "Indexed access on `string` receiver is unspecified" — same-cluster (touches the same `string` stdlib table; independent fix)
-# T08 - Subagent-mode `agent_end` payload chronological-ordering presupposition unstated
-
-**Kind:** assumptions
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The subagent-mode untyped-query extractor in `subagent.md` reads its `Ok(string)` value from the event-delivered `messages: AgentMessage[]` array on the terminal `agent_end` variant of `AgentSessionEvent` (not from the `AgentSession.messages` getter), identifying the final turn by trailing position and concatenating the final turn's `assistant` text "in chronological order". Both steps presuppose the event-delivered array is ordered oldest-to-newest, and `AgentMessage[]` does not encode ordering. The chronological-ordering presupposition at `host-interfaces-core.md#messages-chronological-order-presupposition` is scoped to `SessionContext.messages` (returned by `buildSessionContext`) and names only three consumers; the subagent-mode extractor reads a distinct surface — the event payload — and is not among them, and bump-checklist item (h) at `version-bump-step2.md#bump-checklist-messages-chronological-order` inherits the same scoping. A Pi minor that reordered the `agent_end` payload would silently corrupt every subagent-mode untyped-query result with no type, SDK-inventory, or bump-checklist signal.
-
-## Solution approach
-
-Rewrite the presupposition at `host-interfaces-core.md#messages-chronological-order-presupposition` so it governs loom-consumed `AgentMessage[]` ordering across both delivering surfaces — `SessionContext.messages` via `buildSessionContext`, and the `agent_end` variant's `messages` field on `AgentSessionEvent` — and add the subagent-mode extractor in `subagent.md`'s "Conversation drive — subagent mode" section as a named consumer. Rewrite bump-checklist item (h) at `version-bump-step2.md#bump-checklist-messages-chronological-order` to confirm oldest-to-newest ordering on both surfaces.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T12 "`pi.getCommands()` completeness at first `session_start` is an unstated presupposition" — same-cluster (same "is this Pi-side surface ready/ordered at a load-time boundary?" presupposition family; same remedy shape — documented presupposition plus per-bump editorial-review item)
