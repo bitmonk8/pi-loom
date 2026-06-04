@@ -4,7 +4,7 @@ _Generated: 2026-06-04T17:12:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker + 4 high, 8 medium retained; 19 low discarded; 13 low findings merged into 3 medium findings; 3 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker + 4 high, 7 medium retained; 19 low discarded; 13 low findings merged into 3 medium findings; 3 nit dropped; 0 false dropped._
 
 ---
 
@@ -175,27 +175,3 @@ applies", and add a forward-link to the `## Truthiness` section in
 ## Relationships
 
 - T20 "Logical and ternary operators leave short-circuit semantics and operand evaluation order unspecified" — same-cluster (also concerns boolean-position operands in expressions.md; resolves independently)
-# T07 - Built-in methods — `string.replace` row missing conformance vectors
-
-**Kind:** testability
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `replace(from, to)` row in the "Built-in methods and properties" `string` table of `docs/spec_topics/expressions.md` declares a deliberate divergence from JS `String.prototype.replace`: `$`-sequences in `to` (`$&`, `$$`, `$n`) are inserted literally, not interpreted as JS replacement patterns. This is the only spec site where loom contradicts the host language's well-known behaviour for a method, yet the row carries no test vectors. Every other normative divergence from host semantics is paired with byte-exact examples (e.g. the `BNDR-6` reference-rendering table), so a conformance suite author must here re-derive expected outputs from prose alone — and an implementation that inherits JS replacement-pattern interpretation can pass any test extrapolated from the rule.
-
-## Solution approach
-
-Add a normative test-vector block attached to the `replace(from, to)` row in the `string` table, marked normative consistent with the `BNDR-6` reference-rendering precedent. Cover the three documented `$`-sequence classes (`$&`, `$$`, `$n`) and exercise the row's existing "Replaces all occurrences" and "Empty `from` returns the receiver unchanged" clauses, including a multiple-occurrence `$&` vector that distinguishes literal insertion from host `replaceAll` pattern expansion.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T16 "Indexed access on `string` receiver is unspecified" — same-cluster (touches the same `string` stdlib table; independent fix)
