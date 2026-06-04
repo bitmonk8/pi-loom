@@ -4,7 +4,7 @@ _Generated: 2026-06-04T21:31:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T34) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 15 high, 15 medium retained; 12 low discarded; 10 low findings merged into 4 medium findings; 3 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 14 high, 15 medium retained; 12 low discarded; 10 low findings merged into 4 medium findings; 3 nit dropped; 0 false dropped._
 
 ---
 
@@ -728,29 +728,3 @@ Rewrite the hot-reload `loom-system-note` sentence in `binder/binder-model-and-c
 ## Relationships
 
 - T28 "Session-context truncation — no `TokenEstimator` DI seam" - same-cluster (both sit in `binder-model-and-context.md` and surface testability gaps; resolve independently).
-# T28 - Session-context truncation — no `TokenEstimator` DI seam for `estimateTokens`
-
-**Kind:** testability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 3
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The session-context truncation algorithm in `binder-model-and-context.md` §"Session-context truncation (`bind_context: session`)" pins exact-valued bounds (running token total ≤ 8000, running turn count ≤ 20, whole-turn exclusion, inclusive cap-equality) whose per-message token counts come from `estimateTokens`, pinned in `host-interfaces-core.md` as a bare named import from `@earendil-works/pi-coding-agent` — Pi-owned, deliberately not re-specified, and allowed to drift on any Pi minor bump. Every other version-nondeterministic Pi surface the runtime depends on is constructor-injected through a DI seam in `host-interfaces-services.md` with a `Fake*` test double (PIC-10 `Checkpoint`, PIC-11 `SchemaValidator`, PIC-12 `Clock`, PIC-13 `FileSystem`, PIC-14 `FileWatcher`); `estimateTokens` is the only such surface lacking one. A conformance test for the cap-equality and turn-cap-equality worked examples cannot fix per-message token counts at chosen integers, so it must either couple to Pi's current character-quarter heuristic or compute expected sums tautologically by calling the function under test.
-
-## Solution approach
-
-Add a `TokenEstimator` DI-seam entry to `host-interfaces-services.md` alongside PIC-10..PIC-14, with a normative interface taking one `AgentMessage` and returning its token count, a production adapter delegating to the `estimateTokens` named import, and a `FakeTokenEstimator` test double returning configured per-message integers. Rewrite the `estimateTokens` paragraph in `host-interfaces-core.md` to cross-reference the new seam, keeping the Pi-owned-algorithm orientation note as the production wiring's contract. In `binder-model-and-context.md` §"Session-context truncation", route the per-message token computation through the injected seam and add a sentence pinning that conformance tests verify the 8000-token, 20-turn, and whole-turn-exclusion rules through a fake configured with chosen counts. Add the seam's underlying `estimateTokens` import to the SDK surface-inventory re-validation set in `version-bump-intro.md`.
-
-## Solution constraints
-
-- The new seam follows the one-instance-per-runtime architectural rule the other PIC seams carry: never module-scoped, never shared across parallel runtimes.
-
-## Relationships
-
-- T27 "Hot-reload `looms.binderModel` recovery note is under-specified" - same-cluster (same file, independent fix).
-
