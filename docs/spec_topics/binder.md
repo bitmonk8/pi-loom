@@ -261,7 +261,7 @@ All binder-emitted system notes — the success echo, the `needs_info` and `ambi
 
 Configured via `bind_echo:` (`true` | `false`; default `true`). When echo is on (and the bypass did not apply), the runtime appends a one-line system note to the user's session immediately before the loom starts. The example below is illustrative — the format rules that follow are normative; no single example string can be (the formatter is data-driven and the rendered text depends on the loom's `params:` and the bound values):
 
-> Running `/code-review`: language=TypeScript, focus_areas=[error handling, async], author={Ada Lovelace, …}
+> Running `/code-review`: language=TypeScript, focus_areas=["error handling", async], author={"Ada Lovelace", …}
 
 Format rules:
 
