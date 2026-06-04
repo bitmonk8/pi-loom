@@ -4,7 +4,7 @@ _Generated: 2026-06-04T17:12:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker + 9 high, 8 medium retained; 19 low discarded; 13 low findings merged into 3 medium findings; 3 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker + 8 high, 8 medium retained; 19 low discarded; 13 low findings merged into 3 medium findings; 3 nit dropped; 0 false dropped._
 
 ---
 
@@ -325,28 +325,3 @@ Add a named presupposition paragraph to `registration-steps.md` step 3, anchored
 
 - T13 "Registration step 1 — factory-time working-directory source unstated" — same-cluster (same `registration-steps.md`, same factory-vs-`session_start` boundary; resolves independently)
 - T08 "Subagent-mode `agent_end` payload chronological-ordering presupposition unstated" — same-cluster (same "is this Pi-side surface ready/ordered at a load-time boundary?" remedy pattern — documented presupposition plus per-bump editorial-review item)
-# T13 - Registration step 1 — factory-time working-directory source unstated
-
-**Kind:** assumptions
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-Step 1 of `registration-steps.md` runs the discovery walk "at factory time and again on every `resources_discover` event", preferring the event payload's `event.cwd` over "any factory-captured `cwd`" so a per-session cwd change is honoured on reload. This presupposes a factory-time `cwd` value exists from which the project-local discovery root (`.pi/looms/`) and project `.pi/settings.json` ("resolved relative to the working directory" in `package-and-settings.md`) resolve before the first `resources_discover` event fires, but no spec surface supplies it: the factory receives only `pi`, `cwd` lives on `ExtensionContext` / `ExtensionCommandContext` (not passed to the factory), and the PIC-13 `FileSystem` seam exposes `homedir()` but no `cwd()` while banning direct `process.env` reads. Two conforming implementations therefore diverge on the initial factory-time scan — one reading `process.cwd()` directly, another emitting nothing project-local until `event.cwd` arrives — registering different initial loom sets and different `loomPaths` contributions on first startup.
-
-## Solution approach
-
-Add a `cwd(): string` member to the PIC-13 `FileSystem` interface block alongside `homedir()`, and clarify in the explanatory bullet list under it that `cwd()` is the source of truth for the factory-time project-local discovery root and project `.pi/settings.json` resolution. Rewrite step 1's "factory-captured `cwd`" reference and `package-and-settings.md`'s "resolved relative to the working directory" clause to point at the seam member. Pin the production `PiFileSystem.cwd()` value as captured once at construction.
-
-## Solution constraints
-
-- The runtime MUST still prefer `event.cwd` on every `resources_discover` event; the seam `cwd()` value governs only the factory-time project-local read, not the reload path.
-
-## Relationships
-
-- T12 "`pi.getCommands()` completeness at first `session_start` is an unstated presupposition" — same-cluster (sibling factory-time-vs-`session_start` presupposition on the same page; resolves independently)
-- T14 "Binder model / `model:` resolution — registry-population timing" — same-cluster (parallel hidden-assumption pattern about host-side state being ready at a load-time boundary)

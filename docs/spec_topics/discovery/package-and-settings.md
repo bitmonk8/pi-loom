@@ -38,7 +38,7 @@ The loom extension owns its own keys in `settings.json` — Pi does not recognis
 
 **Files (in precedence order, project over global).** Both files are optional.
 
-1. **Project:** `.pi/settings.json` (resolved relative to the working directory).
+1. **Project:** `.pi/settings.json` (resolved relative to the factory-time working directory supplied by the [`FileSystem.cwd()` seam member](../pi-integration-contract/host-interfaces-services.md#pic-13); on a `resources_discover` event the project root is `event.cwd` instead, per [Registration steps](../pi-integration-contract/registration-steps.md) step 1).
 2. **Global:** `~/.pi/agent/settings.json` (the leading `~` is expanded per [Home-directory expansion](./discovery-sources.md#home-directory-expansion)).
 
 The extension reads both files directly through the injected `FileSystem` seam (the same seam used for `.loom` discovery; see [`FakeFileSystem` / `FileSystem` interface](../pi-integration-contract.md)). Pi itself is not consulted for these values.
