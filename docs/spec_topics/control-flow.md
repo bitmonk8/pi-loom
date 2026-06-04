@@ -25,7 +25,7 @@ for area in focus_areas {
 }
 ```
 
-**`while`** — repeats while the condition is `true` (truthiness rule applies — only `true`/`false` accepted):
+**`while`** — repeats while the condition is `true`. The condition must be `boolean`; loom performs no truthiness coercion, so a non-boolean condition is `loom/parse/non-boolean-condition` (see [Truthiness](./expressions.md#truthiness)):
 
 ```loom
 let mut round = 0

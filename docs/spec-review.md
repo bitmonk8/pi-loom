@@ -4,7 +4,7 @@ _Generated: 2026-06-04T17:12:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker + 4 high, 7 medium retained; 19 low discarded; 13 low findings merged into 3 medium findings; 3 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker + 4 high, 6 medium retained; 19 low discarded; 13 low findings merged into 3 medium findings; 3 nit dropped; 0 false dropped._
 
 ---
 
@@ -138,40 +138,4 @@ Demote each prescriptive `MUST` to non-normative guidance — `SHOULD` or an exp
 ## Relationships
 
 - T09 "Invoke variants violate the wire-`kind` naming pattern" — decision-overlap (demoting the INV-2 AST-shape MUST means the wire-`kind` resolution no longer needs to reserve a named-argument variant; pick a consistent answer)
-# T06 - `while` condition wording contradicts itself
 
-**Kind:** clarity
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `while` bullet in `docs/spec_topics/control-flow.md` glosses the loop
-condition as "repeats while the condition is `true` (truthiness rule applies
-— only `true`/`false` accepted)". The parenthetical contradicts itself:
-"truthiness rule applies" reads as a promise of JS-style coercion, while
-"only `true`/`false` accepted" forbids exactly that. This miscites the
-`## Truthiness` section in `expressions.md`, which defines loom's no-coercion
-stance — a non-boolean condition is `loom/parse/non-boolean-condition`. The
-`if` and ternary glosses on the same page do not use this shorthand, so the
-contradiction is local to `while`.
-
-## Solution approach
-
-Rewrite the `while` bullet's parenthetical in `control-flow.md` to state the
-no-coercion rule directly: the condition must be `boolean`, loom performs no
-truthiness coercion, and a non-boolean condition is
-`loom/parse/non-boolean-condition`. Delete the phrase "truthiness rule
-applies", and add a forward-link to the `## Truthiness` section in
-`expressions.md`.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T20 "Logical and ternary operators leave short-circuit semantics and operand evaluation order unspecified" — same-cluster (also concerns boolean-position operands in expressions.md; resolves independently)
