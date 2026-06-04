@@ -7,7 +7,7 @@ Loom expressions are a bounded subset of TypeScript. The same grammar applies wh
 - Literals: `string` (single- or double-quoted), `number`, `boolean` (`true` / `false`), `null`
 - Identifiers (variables, parameters, function names, schema constructors)
 - Member access: `a.b`
-- Indexed access: `a["b"]`, `a[0]`, `a[i]`
+- Indexed access: `a["b"]`, `a[0]`, `a[i]` — the receiver `a` must be an `array<T>` or an object value; indexing any other type (including a `string`) is `loom/parse/non-indexable-receiver` (use `s.split(...)` to decompose a string)
 - Function, method, and tool calls: `f(x)`, `obj.method(x, y)`, `<name>(args)` where `<name>` resolves to a Pi tool or `.loom` callable from the loom's `tools:` frontmatter (see [Tool Calls](./tool-calls.md))
 - Unary: `!`, `-`
 - Binary arithmetic: `+`, `-`, `*`, `/`, `%`
@@ -82,6 +82,8 @@ A small stdlib is exposed on the primitive composite types. No user-defined meth
 | `includes(s)` | `(s: string): boolean` | JS semantics |
 | `split(sep)` | `(sep: string): array<string>` | Literal-only (no regex). Empty separator splits into individual code-unit strings |
 | `replace(from, to)` | `(from: string, to: string): string` | Replaces all occurrences. Literal-only (no regex); `$`-sequences in `to` (e.g. `$&`, `$$`, `$n`) are inserted literally, not interpreted as JS replacement patterns. Empty `from` returns the receiver unchanged |
+
+`string` is not indexable: `s[i]` is `loom/parse/non-indexable-receiver` (loom 1.0 exposes no `charAt` / `codePointAt`; use `s.split(...)` to decompose a string into a code-unit `array<string>`, then index that).
 
 *`array<T>`*
 

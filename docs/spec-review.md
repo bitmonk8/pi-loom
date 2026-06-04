@@ -4,7 +4,7 @@ _Generated: 2026-06-04T17:12:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker + 11 high, 8 medium retained; 19 low discarded; 13 low findings merged into 3 medium findings; 3 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker + 10 high, 8 medium retained; 19 low discarded; 13 low findings merged into 3 medium findings; 3 nit dropped; 0 false dropped._
 
 ---
 
@@ -401,31 +401,3 @@ Restructure the "Schema inference rules" ordered list so it enumerates only the 
 ## Relationships
 
 None
-# T16 - Indexed access on `string` receiver is unspecified
-
-**Kind:** completeness
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 3
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`docs/spec_topics/expressions.md` *Supported forms* lists indexed access (`a["b"]`, `a[0]`, `a[i]`) without restricting the receiver type, but receiver-specific behaviour is pinned only for `array<T>`, object, and `null` receivers (the `loom/runtime/index-out-of-bounds`, `loom/runtime/missing-object-key`, and `loom/runtime/null-index-access` codes). Nothing addresses `s[i]` on a `string` receiver: whether it parses, whether the result is a one-UTF-16-code-unit or a code-point `string`, and what out-of-bounds does are all undefined, and the `string` stdlib row exposes no indexed-access or `charAt`/`codePointAt` entry. Two conforming implementations can therefore diverge on the same source — one rejecting `s[i]`, others returning differently-defined values — violating *Source-language stability*.
-
-## Solution approach
-
-Narrow the indexed-access bullet in *Supported forms* to restrict the receiver to `array<T>` or an object schema. Add a parse-time diagnostic row to `docs/spec_topics/diagnostics/code-registry-parse.md` rejecting indexed access on receivers that are neither `array<T>` nor an object, modelled on the existing `loom/parse/non-array-iterand` row (whose hint already points authors to `s.split(...)` for strings). Add a forward-reference from the `string` stdlib row in `## Built-in methods and properties` to the new diagnostic.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T18 "Ordering operators leave operand domain, string semantics, NaN, and the rejection diagnostic unspecified" — same-cluster (also asks the `string`-type surface to pin a missing semantic — orderability — but resolves independently of indexing)
-- T17 "`-` and `*` lack a result-type rule" — same-cluster (sibling completeness gap in the same *Supported forms* list; independent fix)
-- T20 "Logical and ternary operators leave short-circuit semantics and operand evaluation order unspecified" — same-cluster (sibling completeness gap in the same list; independent fix)
-- T07 "Built-in methods — `string.replace` row missing conformance vectors" — same-cluster (touches the same `string` stdlib table; independent fix)
