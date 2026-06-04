@@ -4,7 +4,7 @@ _Generated: 2026-06-04T21:31:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T34) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 17 high, 15 medium retained; 12 low discarded; 10 low findings merged into 4 medium findings; 3 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 16 high, 15 medium retained; 12 low discarded; 10 low findings merged into 4 medium findings; 3 nit dropped; 0 false dropped._
 
 ---
 
@@ -806,30 +806,3 @@ Pin `ResourceLoader` on the same footing as the other consumed Pi types: add a m
 - T32 "`AgentSession` consumed member surface not pinned" - same-cluster (same class of asymmetric pinning gap on subagent-mode SDK surface; both widen the pinned-type set in the same direction and can land in adjacent edits, but resolve independently because they touch different members).
 - T06 "PIC external-entity citations lack consistent fragility/re-audit framing" - same-cluster (PIC pinning posture for satellite Pi types; resolves independently).
 - T29 "Open-ended 'foreseeable shape failure' clause" - same-cluster (another boundary the spec treats as authoritative is left under-specified; independent fix).
-# T31 - `TransportError.provider` value space and source field unspecified
-
-**Kind:** prescription
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`TransportError.provider` is an observable, `match`-able, wire-stable field that is also interpolated verbatim into the binder's normative user-facing failure template and emitted on the always-log `RuntimeEvent` channel. Its value space and the SDK field it derives from are unpinned, and the three sites that mention it disagree: the `queryerror-variants.md` schema comment shows the short provider-id form (`"openai" | "anthropic"`), the `determinism-cancellation-failure.md` `<provider>` template prose back-references the Provider error mapping table (which has no provider-id column — its keys are `api` values such as `anthropic-messages`), and `conversation-drive.md`'s typed-query-unsupported-provider clause substitutes the `api`-shaped value into the same field. Two conforming implementations therefore render observably different system notes and emit different `provider` values, and authors cannot write portable `match` arms.
-
-## Solution approach
-
-Pin `TransportError.provider` to the resolved `Model<Api>.api` value — the same field that keys the Provider error mapping table and the form one of the three current sites already emits. In `queryerror-variants.md`, rewrite the `provider: string` schema comment to name `Model<Api>.api` as the source, enumerate the loom-1.0-reachable `Api` values, and forward-link to `host-interfaces-core.md#model-registry-pin`. In `determinism-cancellation-failure.md`, rewrite the `<provider>` template prose to derive from the classifier-produced `TransportError`'s `api`-shaped value and delete the broken value-space back-reference to the mapping table. In `conversation-drive.md`, replace the `<resolved-model-provider>` placeholder with the resolved `Model<Api>.api` value, citing the same anchor.
-
-## Solution constraints
-
-- Out of scope: the `message` field derivation in the same `kind: "transport"` template (owned by T32 / T33).
-- Do not modify `provider-error-mapping.md`; the table is already keyed on `api` and remains the authority for which provider responses overflow, not for the `provider` value space.
-
-## Relationships
-
-- T33 "Prompt-mode `errorMessage` probe is unreachable from the specified surface" - decision-overlap (that finding fixes which surface supplies `message`; this finding fixes which surface supplies `provider`; same `TransportError` site, independently derived fields).
-- T32 "`AgentSession` consumed member surface not pinned" - same-cluster (both touch the `kind: "transport"` template construction; pinning `errorMessage` there resolves one of the two unsourced fields, pinning `provider` here resolves the other).
-- T30 "Subagent-spawn satellite types not pinned to a declaration file" - same-cluster (both are "SDK member surface used in a normative path but not pinned"; resolve independently).

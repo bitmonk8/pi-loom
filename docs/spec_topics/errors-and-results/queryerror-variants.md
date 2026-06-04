@@ -62,12 +62,14 @@ schema TransportError {
   kind: "transport",
   message: string,
   http_status: number | null,                // null on network-level failure (no HTTP response)
-  provider: string,                          // "openai" | "anthropic" | ...
+  provider: string,                          // resolved Model<Api>.api value (api-shaped, e.g. "anthropic-messages"); see provider derivation below
   retryable: boolean                         // populated by transport-error class; see Provider error mapping
 }
 ```
 
 `message` derivation (prompt mode): a transport failure detected after `waitForIdle()` sources `message` from the `errorMessage` field of the driven turn's trailing `assistant` message — the `stopReason: "error"` probe pinned at [Pi Integration Contract — prompt-mode error detection](../pi-integration-contract/conversation-drive.md#prompt-mode-error-detection) — falling back to the fixed string `"provider transport failure"` when that field is absent.
+
+`provider` derivation: the `provider` field is the resolved [`Model<Api>.api`](../pi-integration-contract/host-interfaces-core.md#model-registry-pin) value of the model the failing query routed through — the same `api`-shaped field the [Provider error mapping](../pi-integration-contract/provider-error-mapping.md#provider-error-mapping) table is keyed on (e.g. `anthropic-messages`, `openai-completions`), not a short provider-id form such as `"openai"`. Its value space is the externally-owned `Api` union declared in `@earendil-works/pi-ai`; loom does not redefine that union here.
 
 Fires on a non-recoverable adapter-layer failure of the model's tool-call loop — the named tool is absent from the resolved callable set, or a Pi-adapter / transport failure occurs while feeding a tool-result back to the model (see [Query — Tool calls during a query](../query.md)). An in-loop tool failure the runtime can lower to a tool-result — `execute()` throwing or resolving `{ content, isError: true }` — does **not** fire this variant: it is fed back to the model as that `tool_use` block's result and the loop continues. A non-conforming `{ content, isError }` envelope is routed off this surface through `loom/runtime/internal-error`, symmetric to the code-side rule in [Tool Calls — Failures](../tool-calls.md).
 
