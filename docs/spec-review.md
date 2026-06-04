@@ -4,7 +4,7 @@ _Generated: 2026-06-04T17:12:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker + 14 high, 8 medium retained; 19 low discarded; 13 low findings merged into 3 medium findings; 3 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker + 13 high, 8 medium retained; 19 low discarded; 13 low findings merged into 3 medium findings; 3 nit dropped; 0 false dropped._
 
 ---
 
@@ -481,28 +481,3 @@ Add a normative ordering-operators rule to `expressions.md` near the `Other arit
 - T17 "`-` and `*` lack a result-type rule" — same-cluster (same expressions page, same completeness gap pattern; the diagnostic-registry addition here is a precedent the `-`/`*` fix can mirror but the two fixes do not overlap textually)
 - T20 "Logical and ternary operators leave short-circuit semantics and operand evaluation order unspecified" — same-cluster (same Supported-forms list and completeness lens; resolves separately)
 - T16 "Indexed access on `string` receiver is unspecified" — same-cluster (also pins an undefined `string`-receiver behaviour against the same UTF-16 substrate; resolves independently)
-# T19 - Equality rule contradicts its own signed-zero example
-
-**Kind:** clarity
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The Equality (`==`) primitive-comparison bullet in `runtime-value-model.md` defines structural deep equality via "`Object.is` semantics (so `NaN == NaN` is `true` and `+0 != -0` is `false`)", but the parenthetical contradicts the rule it illustrates: `Object.is(+0, -0)` is `false`, so under genuine `Object.is` semantics `+0 != -0` is `true`, the opposite of the stated example. The `JavaScript engine assumptions` section (`id="javascript-engine-assumptions"`) and `binder-inference.md`'s engine-assumption carve-out both lean on the same "`Object.is` semantics for primitive equality" phrase, so the contradiction is load-bearing rather than local. Two conforming implementations comparing values that can produce `-0` (e.g. `-1 * 0`, `1 / Infinity`) will take different `match` arms and emit divergent transcripts depending on which reading they follow.
-
-## Solution approach
-
-Rewrite the Equality (`==`) primitive-comparison bullet so the rule and its worked example agree: state the relation directly instead of via the `Object.is` shorthand, resolving `+0 == -0` as `true` to match the `-0`→`0` normalisation the rest of the page and the rendering pipeline already apply. Update the `JavaScript engine assumptions` section's `Object.is`-equality clause and `binder-inference.md`'s engine-assumption carve-out so the cited invariant matches the revised relation.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T18 "Ordering operators leave operand domain, string semantics, NaN, and the rejection diagnostic unspecified" — must-precede (the ordering finding's NaN-asymmetry framing cross-references this equality outcome; resolve this rule first so the ordering rule can be stated against the settled relation)
-
