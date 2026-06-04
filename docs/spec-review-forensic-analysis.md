@@ -125,3 +125,20 @@ it does not persist across worktree wipes)._
 - **Fixer notes:** none
 
 ---
+
+## 2026-06-04 — T14 - Transport-class binder retry: no inter-attempt timing contract
+
+- **Failure mode:** fast-loop-unresolved
+- **Category:** 1 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** n/a
+- **Score trajectory:** n/a
+- **Passes:** n/a
+- **Stage at exit:** n/a (n/a pass(es) in stage)
+- **Snapshot refs (retained for forensics):** n/a (loop did not run)
+- **Poisoned fixes:** n/a
+- **Forensic report:** none (fast loop — no forensic report)
+- **Parked findings (this run):** `T14 - Transport-class binder retry: no inter-attempt timing contract`
+- **Loop notes:** Shape: multiple; recommendation defers the A-vs-B choice to an unperformed audit of @earendil-works/pi-ai transport backoff and is gated on the T22 must-follow dependency, so no single option can be selected mechanically. Recommendation-applier returned requires-human; cannot collapse to Shape: single.
+- **Fixer notes:** none
+
+---
