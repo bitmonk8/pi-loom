@@ -4,7 +4,7 @@ _Generated: 2026-06-03T19:20:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T36) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 1 high, 7 medium retained; 13 low discarded; 4 low findings merged into 2 medium findings; 0 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 1 high, 6 medium retained; 13 low discarded; 4 low findings merged into 2 medium findings; 0 nit dropped; 0 false dropped._
 
 ---
 
@@ -128,32 +128,6 @@ Rename the four category headings on `docs/spec_topics/future-considerations.md`
 ## Solution constraints
 
 - Out of scope: retiring the `v1-*` alias arms. They are permanent back-compat aliases under [GOV-21 *Alias permanence*](./governance.md#gov-21-alias-permanence); alias-only retirement is gated on the separate *Retirement discharge* witness.
-
-## Relationships
-
-None
-# T06 - Glossary `GOV-N` entry under-describes the live GOV range and scope
-
-**Kind:** cross-spec-consistency-broad
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The **GOV-N (governance rule)** glossary entry in `docs/spec_topics/glossary.md` defines the `GOV` prefix as "(`GOV-1` through `GOV-8`)" rules that "govern how REQ-IDs are coined, anchored, retired, and gated". Both the range and the scope are narrower than what `governance.md` — the page that owns the rules — actually carries: live rules now run through GOV-23 (with GOV-2/10/11/13 retired), and GOV scope extends well beyond REQ-ID lifecycle to aggregator lock-step (GOV-12), stable inline labels (GOV-16), corpus direction and binding scope (GOV-17/18), release-version naming (GOV-19/20/21), and Session Model anchor stability (GOV-23). Sibling glossary entries already cite rules outside the `1–8` window (e.g. GOV-19, GOV-20). The spec's central definition of the `GOV-N` token thus silently contradicts the canonical page it cross-links to.
-
-## Solution approach
-
-Rewrite the `GOV-N (governance rule)` entry in `glossary.md` so the range is expressed by pointer to `governance.md` rather than a fixed upper bound — orienting on the live range (currently through `GOV-23`, with retirements per [Retired REQ-IDs](./governance.md#retired-req-ids)) so the entry stays stable across future GOV additions. Broaden the scope clause beyond REQ-ID coining/anchoring/retirement to describe the live GOV surface (inline labels, `spec.md` aggregator lock-step, corpus direction and binding scope, release-version naming and legacy-token aliases, the source-language equivalence release-process goal, and Session Model anchor stability). Keep the existing per-page-prefix-table sentence and the `See: [Governance](./governance.md)` cross-link.
-
-## Solution constraints
-
-- Out of scope: `governance.md` rule bodies, the REQ-ID prefix table, and the *Retired REQ-IDs* section — edit `glossary.md` only.
-- MAY NOT coin a new REQ-ID at this site: the glossary page is narrative (`(no IDs — narrative)` in its prefix-table row).
 
 ## Relationships
 
