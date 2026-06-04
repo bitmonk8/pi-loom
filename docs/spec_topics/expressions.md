@@ -73,7 +73,7 @@ A small stdlib is exposed on the primitive composite types. No user-defined meth
 | `endsWith(s)` | `(s: string): boolean` | JS semantics |
 | `includes(s)` | `(s: string): boolean` | JS semantics |
 | `split(sep)` | `(sep: string): array<string>` | Literal-only (no regex). Empty separator splits into individual code-unit strings |
-| `replace(from, to)` | `(from: string, to: string): string` | Replaces all occurrences. Literal-only (no regex) |
+| `replace(from, to)` | `(from: string, to: string): string` | Replaces all occurrences. Literal-only (no regex); `$`-sequences in `to` (e.g. `$&`, `$$`, `$n`) are inserted literally, not interpreted as JS replacement patterns. Empty `from` returns the receiver unchanged |
 
 *`array<T>`*
 

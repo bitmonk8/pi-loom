@@ -297,28 +297,3 @@ Rewrite the `concat(other)` row's semantics cell in expressions.md's Built-in me
 ## Relationships
 
 - T12 "`string.replace(from, to)` — literal-substitution and empty-`from` behaviour unspecified" - same-cluster (sibling built-in-method semantics gap in the same table; resolves independently).
-# T12 - `string.replace(from, to)` — literal-substitution and empty-`from` behaviour unspecified
-
-**Kind:** completeness
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `replace(from, to)` row in the `Built-in methods and properties` table of `expressions.md` reads "Replaces all occurrences. Literal-only (no regex)." Two behaviours are left unspecified. First, "Literal-only" scopes only the search argument `from`; it says nothing about whether `$`-sequences (`$$`, `$&`, `` $` ``, `$'`, `$n`) in the replacement argument `to` are inserted byte-for-byte or interpreted as JS replacement patterns (as `String.prototype.replaceAll` would). Second, the row does not pin empty-`from` behaviour, unlike the sibling `split(sep)` row which pins its empty-separator case; readings range from JS boundary-insertion to no-op to error, and a naive find-next loop over an empty needle infinite-loops.
-
-## Solution approach
-
-Rewrite the `replace(from, to)` Semantics cell to pin both unspecified behaviours: state that `$`-sequences in `to` are inserted literally rather than interpreted as replacement patterns, and that an empty `from` returns the receiver unchanged. Mirror the sibling `split(sep)` row's convention of pinning the empty-argument case within the same Semantics cell.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T11 "`array<T>.concat(other)` — admissibility and result element type not routed through `⊑`" - same-cluster (sibling built-in-method completeness gap in the same table; resolves independently).
