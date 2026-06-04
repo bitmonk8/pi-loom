@@ -2,7 +2,7 @@
 
 ## Options surface
 
-> **loom 1.0 seam — per-call timeout / per-query overrides.** The runtime-internal options record passed into the query primitive — the record carrying per-call configuration not surfaced to authors in loom 1.0 (cancellation hookup, provider routing, the typed-query schema slot) — is an **open struct**, not a closed positional record. loom 1.0 reserves the right to add fields in a minor revision without breaking call sites or test fixtures that construct or pattern-match on the struct; consumers MUST tolerate unknown fields rather than enforcing exhaustive shape equality. The seam is what allows the deferred per-call timeout and per-query `model` / `tools` / `system` override extensions in [Future Considerations](../future-considerations.md) to land additively.
+> **loom 1.0 seam — per-call timeout / per-query overrides.** The runtime-internal options record passed into the query primitive — the record carrying per-call configuration not surfaced to authors in loom 1.0 (cancellation hookup, provider routing, the typed-query schema slot) — is an **open struct**, not a closed positional record. loom 1.0 reserves the right to add fields in a minor revision without breaking call sites or test fixtures that construct or pattern-match on the struct. *Non-normative implementation note.* Consumers tolerate unknown fields rather than enforcing exhaustive shape equality; this is a maintainability convention enabling the additive extensions, not an observable conformance point. The seam is what allows the deferred per-call timeout and per-query `model` / `tools` / `system` override extensions in [Future Considerations](../future-considerations.md) to land additively.
 
 ## Failure modes
 
