@@ -4,7 +4,7 @@ _Generated: 2026-06-04T03:10:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 blocker, 12 high, 9 medium retained; 13 low discarded; 16 low findings merged into 6 medium findings (plus one co-resolve merge of two high findings); 4 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 12 high, 9 medium retained; 13 low discarded; 16 low findings merged into 6 medium findings (plus one co-resolve merge of two high findings); 4 nit dropped; 0 false dropped._
 
 ---
 
@@ -605,29 +605,3 @@ Choose one canonical byte-form for the loom-controlled `/<name>` prefix and reco
 ## Relationships
 
 - T06 "binder.md normative sections lack per-obligation BNDR-N anchors" - must-precede (pin the canonical byte-form first so the REQ-ID coinage pass anchors each system-note / echo-policy rule against the corrected prose).
-# T22 - Binder inference call — no pi-ai entry point pinned
-
-**Kind:** implementability
-**Importance:** blocker
-**Score:** 200
-**Must-fix:** true
-**Decision axes:** 4
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`binder.md` and `pi-integration-contract.md` jointly pin every surface around the binder's one-shot LLM call — model resolution via `#model-registry-pin`, the `strictCapable` probe, the per-loom seed under `#provider-seed-field-mapping`, the `#provider-error-mapping` classification, cancellation forwarding, the dynamically-constructed envelope schema, the `temperature: 0` determinism pin, and the four-class failure taxonomy with its "retry against the *same* envelope schema" rule. Every obligation references *the binder call* as if its shape were a known fixture, but no method on `Model<Api>` (and no `@earendil-works/pi-ai` free function) is named that takes the resolved model handle, system-prompt bytes, envelope schema, seed, `temperature: 0`, and `ctx.signal` and returns a structured-output completion. The binder cannot reuse the loom's session-driven query machinery because it runs before any loom code and never attaches turns, so the **Conversation drive — prompt mode** and **— subagent mode** drivers are both ineligible. The malformed-envelope classification (which depends on whether the assistant turn "called the binder's structured-output tool"), the `TransportError.provider` population, the seed-field placement, the per-invocation retry budget, and the cancellation semantics are all specified against a call shape the spec never declares, so conforming implementations diverge on observable behaviour.
-
-## Solution approach
-
-Add a normative sub-section to `docs/spec_topics/pi-integration-contract.md`, sibling to **Conversation drive — prompt mode** / **— subagent mode**, titled **Binder inference call**, pinning: the entry-point symbol that produces the one-shot structured-output completion (the `Model<Api>` member or `@earendil-works/pi-ai` export, cited with its `.d.ts` declaration path the way `#model-registry-pin` cites its symbols); the request payload field layout (system-prompt attachment, message list, `temperature: 0`, seed key per `#provider-seed-field-mapping`, `ctx.signal` placement); the envelope-schema attachment mode (provider-native structured-output schema vs single forced tool); response extraction; and cancellation wiring. Resolve the actual symbol, signature, and structured-output surface against the installed SDK `.d.ts` at `#pi-sdk-pin` before writing. Rewrite the malformed-envelope classification clause and the bare phrases "the binder call" / "the binder LLM call" / "the binder model's provider invocation" at their `binder.md` reference sites into anchored cross-references to the new sub-section.
-
-## Solution constraints
-
-- Out of scope: transport-retry inter-attempt timing, owned by T14 — pin the call shape only.
-
-## Relationships
-
-- T14 "Transport-class binder retry: no inter-attempt timing contract" - must-precede (whether transport-retry backoff is owned by pi-ai depends on which entry point this sub-section pins; if the chosen helper already owns backoff the delegation falls out, otherwise the binder spec must pin the timing itself — settle the call shape first).
-- T02 "Pi version-bump gate cannot detect three unstated host/provider behavioural presuppositions" - same-cluster (the binder call may not use the `agent_end` channel at all; the new sub-section either pins the analogous terminal-signal contract for the chosen entry point or states the binder bypasses the session-event channel).
