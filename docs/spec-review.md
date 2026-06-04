@@ -4,7 +4,7 @@ _Generated: 2026-06-04T03:10:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 8 high, 9 medium retained; 13 low discarded; 16 low findings merged into 6 medium findings (plus one co-resolve merge of two high findings); 4 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 7 high, 9 medium retained; 13 low discarded; 16 low findings merged into 6 medium findings (plus one co-resolve merge of two high findings); 4 nit dropped; 0 false dropped._
 
 ---
 
@@ -452,29 +452,3 @@ Add a normative, ERR-anchored clause to the *Provider error mapping* section of 
 
 - T14 "Transport-class binder retry: no inter-attempt timing contract" - same-cluster (both touch the transport-retry surface; that finding is about binder-internal retry timing while this one is about the user-facing `retryable` field; they resolve independently but a coherent edit would touch both).
 - T16 "`InvokeInfraError` wire discriminant `\"invoke_failure\"` is mis-scoped" - same-cluster (same `### QueryError variants` section; resolves independently).
-# T16 - `InvokeInfraError` wire discriminant `"invoke_failure"` is mis-scoped
-
-**Kind:** naming
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`InvokeInfraError` — the variant covering everything *around* the callee body (load failure, parse failure, return-validation failure, callee panic, unanticipated interpreter exception) — carries wire `kind: "invoke_failure"`, while its sibling `InvokeCalleeError` (which wraps an `Err` returned by the callee itself) carries the specific `kind: "invoke_callee_error"`. The umbrella-sounding token `"invoke_failure"` in fact denotes only the infra-side half, so a `match` arm reading it as "every invoke failure" silently misses callee-returned errors. The spec compensates for the mismatch rather than fixing it: the glossary `InvokeInfraError` entry carries a `**Scope warning.**` paragraph, and the closing paragraph under `## Notes` in `errors-and-results.md` asserts the wire `kind` is stable contract that is not renamed. This is the only V1 `QueryError` variant whose schema name and wire `kind` diverge through the infra/callee split.
-
-## Solution approach
-
-Rename the wire discriminant `"invoke_failure"` to `"invoke_infra_error"` at every occurrence under `docs/` — the `schema InvokeInfraError` block in `errors-and-results.md`, the `ERR-13` example and **Runtime panics** `invoke` parent bullet, the glossary `InvokeInfraError` entry, the `invocation.md` Failures naming, and the citing rows in `diagnostics.md`, `pi-integration-contract.md`, `query.md`, and `slash-invocation.md`. Delete the compensatory glossary `**Scope warning.**` paragraph and the closing `## Notes` wire-divergence paragraph in `errors-and-results.md`, which exist only to explain the mismatch, along with the anchoring divergence-precedent sentences in the glossary entry and the `query-terminating` parenthetical.
-
-## Solution constraints
-
-- Out of scope: the ERR-14 ordering paragraph in the `### Notes` subsection of `QueryError variants` (owned by T04).
-
-## Relationships
-
-- T04 "ERR-14 (`ValidationIssue` ordering) is buried in a `### Notes` section" - decision-overlap (both touch the `## Notes` subsection under `QueryError variants`; the rename deletes one Notes paragraph while ERR-14 relocates another — coordinate the edit so the `### Notes` heading is not left stale if both edits empty the subsection).
-- T05 "Seam-blockquote MUSTs on `errors-and-results.md` and `invocation.md` lack co-located REQ-ID anchors" - same-cluster (both touch the `QueryError variants` section; resolve independently — one is a wire-token rename, the other adds an ERR-N anchor to an adjacent blockquote).
-- T15 "`TransportError.retryable` lacks a population rule outside the unsupported-provider case" - same-cluster (same `### QueryError variants` section; resolves independently).

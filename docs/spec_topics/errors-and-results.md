@@ -96,7 +96,7 @@ An `invoke` parent whose callee fails to load observes a separate evaluation-tim
 
 <a id="no-rollback"></a>
 
-<a id="err-13"></a> **ERR-13.** **No rollback.** Neither `?` nor a panic nor cancellation unwinds prior side effects. Tool calls that have already returned, queries already appended to the conversation, and `invoke` children that have already run remain final on early return, abort, or cancellation. This applies uniformly to `?` early-return inside a function, `?` early-return at the top of a loom block, a panic in a slash-command loom (surfaced per the **Runtime panics** paragraph below), and a panic in an `invoke` child (surfaced to the parent as `kind: "invoke_failure", cause: "panic"` — wrapped in an `InvokeInfraError` per [Invocation](./invocation.md)) — in the last case, the child's already-committed tool calls remain committed even though the parent observes only the failure envelope.
+<a id="err-13"></a> **ERR-13.** **No rollback.** Neither `?` nor a panic nor cancellation unwinds prior side effects. Tool calls that have already returned, queries already appended to the conversation, and `invoke` children that have already run remain final on early return, abort, or cancellation. This applies uniformly to `?` early-return inside a function, `?` early-return at the top of a loom block, a panic in a slash-command loom (surfaced per the **Runtime panics** paragraph below), and a panic in an `invoke` child (surfaced to the parent as `kind: "invoke_infra_error", cause: "panic"` — wrapped in an `InvokeInfraError` per [Invocation](./invocation.md)) — in the last case, the child's already-committed tool calls remain committed even though the parent observes only the failure envelope.
 
 *Cancellation behaves the same way.* A tool call, query, or `invoke` child whose signal aborts mid-execution leaves any external side effect already produced (filesystem writes, network requests, calls into Pi-side services, sub-loom mutations) in place; the runtime does not roll back, compensate, or enumerate completed side effects to the caller or to the operator. Tool-call completion is not transcript-visible (see [Tool Calls — No conversation turn](./tool-calls.md)) and is not in the [always-log set](./pi-integration-contract.md#runtime-event-channel), so a panic-, cancellation-, or `?`-driven terminal event surfaces only the failure envelope — not a manifest of what completed before it. Idempotency and compensation are the loom author's responsibility.
 
@@ -133,7 +133,7 @@ There is exactly one message string per panic. The same string flows unchanged t
 Panics surface to the loom's caller as:
 
 - **Slash-command / prompt-mode invocation** — a Pi system note formatted as "loom `/<name>` aborted: `<message>`", where `<message>` is the panic message string defined above. The user's session is not torn down; the user can type a follow-up turn. The runtime emits this surface as **one** `loom-system-note` carrying `details: { diagnostics: [Diagnostic] }` with the `loom/runtime/*` diagnostic and the `"loom /<name> aborted: <message>"` string in `content` — not two notes. See [Pi Integration Contract — Runtime event channel](./pi-integration-contract.md) for the partition rule that routes panics through the `diagnostics` shape rather than `details: { event }`.
-- **`invoke` parent** — `Err(QueryError { kind: "invoke_failure", cause: "panic", message: <message>, ... })` (see [Invocation](./invocation.md)), where `<message>` is the same panic message string. Author code that pattern-matches on `InvokeInfraError.message` to discriminate panic causes can therefore rely on the registered template, though matching on the `loom/runtime/*` code (when surfaced through the diagnostics channel) is the more stable discriminator.
+- **`invoke` parent** — `Err(QueryError { kind: "invoke_infra_error", cause: "panic", message: <message>, ... })` (see [Invocation](./invocation.md)), where `<message>` is the same panic message string. Author code that pattern-matches on `InvokeInfraError.message` to discriminate panic causes can therefore rely on the registered template, though matching on the `loom/runtime/*` code (when surfaced through the diagnostics channel) is the more stable discriminator.
 
 Panics are not values — they do not flow through `?` and cannot be caught by `match`. Authors who need recoverable behaviour must write code that cannot panic (bounds-check before indexing, add a final `_ => ...` arm to `match`).
 
@@ -267,7 +267,7 @@ Fires when the loom infrastructure could not run an invoked callee to completion
 
 ```loom
 schema InvokeInfraError {
-  kind: "invoke_failure",
+  kind: "invoke_infra_error",
   message: string,
   callee_path: string,
   cause: "load_failure"      // callee file unreadable
@@ -303,4 +303,3 @@ Each variant carries only its meaningful fields; there are no null-padded sentin
 
 `ToolLoopExhaustedError` is distinct from `CancelledError`: the former is the runtime giving up on the model; the latter is the user or parent giving up on the runtime. `last_tool_name` names the tool the model invoked on the loop's terminal free-phase round. The typed-query forced respond turn does not reach this exhaustion path — it is the exempt-routed terminator dispatched by CIO-4's `max_rounds`-final branch per [Hard Runtime Ceilings — CIO-4](./hard-ceilings.md#ceiling-interaction-order), and forced-respond non-compliance routes through the `validation` / `schema_validation` path per [Query — Forced respond turn non-compliance](./query.md#forced-respond-turn-non-compliance); the `| null` branch is retained for forward compatibility but has no loom 1.0-reachable case.
 
-`InvokeInfraError`'s wire `kind` remains `"invoke_failure"` — snake_case discriminants are wire contract and are not renamed when the schema name changes. Code that pattern-matches on `kind: "invoke_failure"` is unaffected by the schema rename.
