@@ -4,7 +4,7 @@ _Generated: 2026-06-04T03:10:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 4 high, 8 medium retained; 13 low discarded; 16 low findings merged into 6 medium findings (plus one co-resolve merge of two high findings); 4 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 4 high, 7 medium retained; 13 low discarded; 16 low findings merged into 6 medium findings (plus one co-resolve merge of two high findings); 4 nit dropped; 0 false dropped._
 
 ---
 
@@ -165,30 +165,3 @@ Coin one `BNDR-N` per independently-testable obligation across the four sub-sect
 - T21 "System-note rendering — prefix backticks disagree across normative statements" - must-follow (the backtick byte-form must be pinned first so each newly-coined system-note / echo-policy rule anchor cites the corrected prose).
 - T09 "PIC sections beyond \"Probe-wide invariants\" — missing REQ-ID anchors" - same-cluster (same GOV-22 pattern on `pi-integration-contract.md` under the `PIC` prefix).
 - T05 "Seam-blockquote MUSTs on `errors-and-results.md` and `invocation.md` lack co-located REQ-ID anchors" - same-cluster (same GOV-22 pattern under the `ERR` / `INV` prefixes; resolves independently).
-# T07 - Several seam/contract blockquotes over-prescribe implementation shape beyond the observable contract
-
-**Kind:** prescription
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Decision axes:** 4
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-Four seam/contract blockquotes pin implementation shape with normative MUST force even though no caller, operator, or test can observe the difference; the observable contract at each site is already pinned separately, so the shape-prose adds un-testable conformance points and dilutes the genuinely-normative MUSTs beside it. The four sites are: (1) Step 1 of `pi-integration-contract.md` (line 118) pins the exact `pi.registerFlag('loom', …)` object literal including its human-readable `description` string, which only Pi's `--help` renders and keys no loom surface; (2) the `LoomRegistry` *Methods* contract (lines 149–156) pins "exactly four method-call surfaces / no fifth drain-state method / no property writes / no accessor beyond `readDrainState`", constraining the spelling of the implementation rather than behaviour; (3) the `system:` interpolation seam (`frontmatter.md` line 135) MUSTs that the `${…}` parser be the shared expression entry point with a parser-level filter and calls an inline regex "non-conformant"; (4) the symlink-resolution hardening seam (`invocation.md`) MUSTs that the realpath-then-containment check be "a single named function" and forbids inlining. In every case the stated rationale is a maintainability argument about loom's own future-edit cost, not a property of the loom 1.0 observable surface.
-
-## Solution approach
-
-At each site, keep the behavioural pins normative and demote the implementation-shape mandate to a non-normative implementation note. For `--loom`, narrow the normative pins to the flag name `'loom'`, `type: 'string'`, and the presence of *a* `description`, preserving the registration-before-`resources_discover` and split-on-`path.delimiter` pins, and demote the exact `description` wording to a non-normative example. For `LoomRegistry`, keep normative the per-method behavioural contracts, the closed `drainStateTag` value set, the three-arm `readDrainState` dispatch, the closed `details.call` label set, and the rename-sweep cross-reference obligation, and demote the four-method-cardinality / no-fifth-method / no-property-write prose to a non-normative editorial-convention note. For the `system:` seam, rewrite the blockquote MUST to bind only the accepted `Path` production and the four `loom/parse/system-interp-*` diagnostics, demote the shared-entry-point / parser-level-filter prescription to a non-normative note, and preserve anchors `loom-1-0-seam-system-expression-sublanguage` / `v1-seam-system-expression-sublanguage`. For the symlink seam, rewrite the MUST to bind identical realpath-then-containment semantics and the two-channel escape diagnostics (`loom/load/invoke-path-escape` on the drain; `Err(InvokeInfraError { … })` to the parent), demote the single-named-function prescription to a non-normative note, preserve anchors `loom-1-0-seam-symlink-resolution-hardening` / `v1-seam-symlink-resolution-hardening`, and soften the `future-considerations.md` *Surface extensions* entry's claim that the replacement relies on exactly one body to replace.
-
-## Solution constraints
-
-- The four seam blockquotes MUST remain present and inventoried in `spec.md`'s Scope seam tally — only prescriptive prose is demoted, not the seams removed.
-
-## Relationships
-
-- T05 "Seam-blockquote MUSTs on `errors-and-results.md` and `invocation.md` lack co-located REQ-ID anchors" - must-precede (the symlink rewrite here determines whether that blockquote still hosts a normative MUST needing an `INV-N`; resolve this finding first).
-- T17 "`realpath` is required by Resolution but absent from the `FileSystem` seam" - decision-overlap (the body of the symlink "single named function" is precisely where `FileSystem.realpath` would be called; the wording chosen here must survive whichever resolution that finding takes).
-- T09 "PIC sections beyond \"Probe-wide invariants\" — missing REQ-ID anchors" - decision-overlap (the `LoomRegistry` paragraph is also targeted for a `PIC-N` anchor; adding the anchor and demoting the cardinality prose are orthogonal edits to the same surface).
