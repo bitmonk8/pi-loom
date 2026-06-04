@@ -4,7 +4,7 @@ _Generated: 2026-06-04T03:10:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 7 high, 9 medium retained; 13 low discarded; 16 low findings merged into 6 medium findings (plus one co-resolve merge of two high findings); 4 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 6 high, 9 medium retained; 13 low discarded; 16 low findings merged into 6 medium findings (plus one co-resolve merge of two high findings); 4 nit dropped; 0 false dropped._
 
 ---
 
@@ -423,32 +423,3 @@ Choose **Option A** if an audit of `@earendil-works/pi-ai`'s pinned minor (the l
 - T22 "Binder inference call — no pi-ai entry point pinned" - must-follow (whether transport backoff is owned by pi-ai depends on which entry point that finding pins; if the chosen helper already owns backoff, Option A's delegation falls out, otherwise the binder spec must pin the timing itself — resolve the call-shape finding first).
 - T15 "`TransportError.retryable` lacks a population rule outside the unsupported-provider case" - same-cluster (both expose gaps in the transport-error contract; a coherent edit would touch both in the same pass).
 - T02 "Pi version-bump gate cannot detect three unstated host/provider behavioural presuppositions" - same-cluster (Option A delegates to the **Provider error mapping** surface that finding also touches).
-
----
-
-# T15 - `TransportError.retryable` lacks a population rule outside the unsupported-provider case
-
-**Kind:** error-model
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`TransportError` (in `docs/spec_topics/errors-and-results.md`, schema declaration under *QueryError variants → Query-time variants*) declares a caller-visible `retryable: boolean` field, but no normative clause defines how the value is populated for the general transport-error population. The only site that pins a value is the `loom/load/typed-query-unsupported-provider` row in `docs/spec_topics/diagnostics.md` (`retryable: false`). Every other path that produces a `TransportError` — non-overflow 4xx including HTTP 429, 5xx, network / TCP / TLS failures, provider-SDK timeouts, end-of-stream truncation, all routed via the *Provider error mapping* paragraph in `docs/spec_topics/pi-integration-contract.md` — leaves `retryable` undefined. Implementers diverge on the value for the same provider response and the conformance suite cannot pin the field beyond the one unsupported-provider case.
-
-## Solution approach
-
-Add a normative, ERR-anchored clause to the *Provider error mapping* section of `docs/spec_topics/pi-integration-contract.md` (anchor `id="provider-error-mapping"`) defining how `TransportError.retryable` is populated by transport-error class: `true` for network-level failures (no HTTP response, TCP/TLS errors, provider-SDK timeouts, end-of-stream truncation), HTTP 5xx, and HTTP 429; `false` for non-429 4xx. Rewrite the `TransportError` field comment in `errors-and-results.md` as a forward-link to the new rule.
-
-## Solution constraints
-
-- The existing `loom/load/typed-query-unsupported-provider` `retryable: false` value in `docs/spec_topics/diagnostics.md` is fixed; do not modify it.
-
-## Relationships
-
-- T14 "Transport-class binder retry: no inter-attempt timing contract" - same-cluster (both touch the transport-retry surface; that finding is about binder-internal retry timing while this one is about the user-facing `retryable` field; they resolve independently but a coherent edit would touch both).
-- T16 "`InvokeInfraError` wire discriminant `\"invoke_failure\"` is mis-scoped" - same-cluster (same `### QueryError variants` section; resolves independently).

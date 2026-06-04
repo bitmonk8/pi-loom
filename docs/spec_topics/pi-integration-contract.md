@@ -294,6 +294,10 @@ With `respond_repair.methodology: none`, the *first* forced respond turn that do
 
 **Provider error mapping.** The runtime maps recognised provider error responses to `QueryError` variants per the table below. Every other 4xx/5xx response and every network-level failure maps to `TransportError`. The matching rules are version-coupled to `@earendil-works/pi-ai` and MUST be re-validated on each upgrade. *Re-validation gate (loom 1.0.0).* loom 1.0.0 ships without a CI-wired bump-procedure step that re-runs the provider-error fixtures against a candidate `@earendil-works/pi-ai` minor; the fixtures exist in `npm test` and a contributor performing the bump is expected to run them, but [Pi version bump procedure](#pi-version-bump-procedure) below does not yet enumerate the step. Wiring this re-validation into the bump procedure as a mechanical gate is a recognised post-loom 1.0.0 maintenance follow-up. Reviews SHOULD NOT re-raise the absence of this acceptance criterion as a loom 1.0.0 correctness finding.
 
+<a id="transport-error-retryable"></a>
+
+**`TransportError.retryable` population.** The runtime populates `TransportError.retryable` by transport-error class at the point it constructs the variant: `true` for network-level failures (no HTTP response — TCP/TLS errors, provider-SDK timeouts, end-of-stream truncation), HTTP 5xx, and HTTP 429; `false` for every other (non-429) 4xx. The unsupported-provider typed-query case described under **Provider compatibility for typed queries** above is the one path that pins `retryable: false` independent of HTTP class (the failure is a load-time capability gap, not a provider response); that pinned value is unchanged by this rule.
+
 | Provider | Overflow signature → `ContextOverflowError` |
 |---|---|
 | `anthropic-messages` | HTTP 400 with `error.type: "invalid_request_error"` and `error.message` matching `/(prompt is too long\|exceeds .* context window\|maximum context length)/i`; `tokens_used` and `tokens_limit` populated from `error.message` digits when present. |

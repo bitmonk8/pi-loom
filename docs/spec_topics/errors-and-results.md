@@ -187,7 +187,7 @@ schema ValidationError {
 
 Authors who want to handle the two arms differently destructure `cause` (consistent with the established `CodeToolError.cause` / `InvokeInfraError.cause` patterns — every `QueryError` variant whose `kind` partitions into multiple sub-arms uses the field name `cause`, per [Glossary — `cause`](./glossary.md)); authors who match `ValidationError { ... }` without inspecting `cause` get arm-uniform handling — the same retry / report path runs for both.
 
-Fires on provider transport / network failure for a query turn (see [Query — Failure modes](./query.md)).
+Fires on provider transport / network failure for a query turn (see [Query — Failure modes](./query.md)). The `retryable` field is populated by transport-error class per [Pi Integration Contract — Provider error mapping](./pi-integration-contract.md#transport-error-retryable).
 
 ```loom
 schema TransportError {
@@ -195,7 +195,7 @@ schema TransportError {
   message: string,
   http_status: number | null,                // null on network-level failure (no HTTP response)
   provider: string,                          // "openai" | "anthropic" | ...
-  retryable: boolean                         // whether the runtime considers a retry worth attempting
+  retryable: boolean                         // populated by transport-error class; see Provider error mapping
 }
 ```
 
