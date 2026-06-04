@@ -54,7 +54,7 @@ Format rules:
 | `"with \"quote\" and \\slash"` (string) | `"with \"quote\" and \\slash"` |
 | `"café"` (string) | `"café"` |
 | `Cat { name: "Whiskers", color: "red" }` (schema declares `name` first) | `{Whiskers, …}` |
-| `Pet::Cat { kind: "cat", name: "Whiskers" }` (variant declares `kind` first) | `{cat, …}` |
+| `Cat { name: "Whiskers" }` (variant of `schema Animal = Cat \| Dog`; variant `schema Cat { kind: "cat", name: string }` declares `kind` before `name`, supplied implicitly) | `{cat, …}` |
 | `Cat { name: "Whiskers" }` (schema declares only `name`) | `{Whiskers, …}` |
 | `{ name: "Whiskers", color: "red" }` (inline `{ name: string, color: string }`) | `{Whiskers, …}` |
 | `[]` (array) | `[]` |
