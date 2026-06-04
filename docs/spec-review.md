@@ -4,7 +4,7 @@ _Generated: 2026-06-04T17:12:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker + 6 high, 8 medium retained; 19 low discarded; 13 low findings merged into 3 medium findings; 3 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker + 5 high, 8 medium retained; 19 low discarded; 13 low findings merged into 3 medium findings; 3 nit dropped; 0 false dropped._
 
 ---
 
@@ -249,28 +249,3 @@ Rename the two invoke variants' wire `kind` values in the `InvokeInfraError` and
 ## Relationships
 
 - T05 "Demote over-prescriptive and non-testable MUSTs on unobservable implementation structure" — decision-overlap (demoting the INV-2 AST-shape MUST means this resolution no longer needs to reserve a named-argument wire-`kind` variant; pick a consistent answer)
-# T10 - `loom/runtime/internal-error` — `tool-return-shape` discriminator field is unpinned
-
-**Kind:** testability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `loom/runtime/internal-error` row in `code-registry-runtime.md` describes its `tool-return-shape` arm as carrying three `details` elements. The first two are pinned by exact field name (`details.kind = "tool-return-shape"`, `details.tool_name`); the third is introduced only as "a discriminator describing the offending shape (e.g. `typeof resolved`, `Array.isArray(content)`)" — naming neither a field nor a value space. `diagnostic-shape.md`'s `details?` pinning convention makes each row's *Trigger* prose the normative source for that row's `details` payload shape, so this slot abdicates the contract every other row honours. Two conforming runtimes can emit different field names and value spaces for the discriminator, and operator tooling and conformance tests cannot key on it.
-
-## Solution approach
-
-In the `tool-return-shape` clause of the `loom/runtime/internal-error` row in `code-registry-runtime.md`, replace the illustrative discriminator phrase with a named `details` field whose value space is a closed token vocabulary, one token per envelope-rule check the same row already enumerates (resolved-not-object, content-not-iterable, entry-missing-`type` / -`text`, etc.). Specify which token the diagnostic emits when one envelope violates more than one rule (e.g. first-failing by check order).
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T11 "`pi.registerTool` failure during watcher-driven registry swap is undefined" — same-cluster (both touch the runtime-defect surface around tool registration / dispatch; resolve independently)
