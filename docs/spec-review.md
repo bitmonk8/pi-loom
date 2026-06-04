@@ -4,7 +4,7 @@ _Generated: 2026-06-04T17:12:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker + 5 high, 8 medium retained; 19 low discarded; 13 low findings merged into 3 medium findings; 3 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker + 4 high, 8 medium retained; 19 low discarded; 13 low findings merged into 3 medium findings; 3 nit dropped; 0 false dropped._
 
 ---
 
@@ -224,28 +224,3 @@ Rewrite the presupposition at `host-interfaces-core.md#messages-chronological-or
 ## Relationships
 
 - T12 "`pi.getCommands()` completeness at first `session_start` is an unstated presupposition" — same-cluster (same "is this Pi-side surface ready/ordered at a load-time boundary?" presupposition family; same remedy shape — documented presupposition plus per-bump editorial-review item)
-# T09 - Invoke variants violate the wire-`kind` naming pattern
-
-**Kind:** naming
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `kind` discriminator for `QueryError` is wire contract — snake_case, stable across minor revisions per the ERR-15 type-openness seam. Seven of the nine loom 1.0 variants form their wire value by snake-casing the schema identifier and dropping the trailing `Error` suffix (e.g. `ValidationError` → `"validation"`), but the two invoke variants in the "### Invoke variants" section of `queryerror-variants.md` retain the suffix: `InvokeInfraError` → `"invoke_infra_error"` and `InvokeCalleeError` → `"invoke_callee_error"`. A reader inferring the wire form from the majority pattern predicts `"invoke_infra"` / `"invoke_callee"` and writes mismatching matchers, cross-language decoders, and fixtures, and the page's own "snake_case noun" rule statement is false for two of nine variants. Because the wire surface has not shipped, whatever values ship in loom 1.0 are locked until a major-version bump.
-
-## Solution approach
-
-Rename the two invoke variants' wire `kind` values in the `InvokeInfraError` and `InvokeCalleeError` schema blocks of `queryerror-variants.md` to `"invoke_infra"` and `"invoke_callee"` so all nine variants drop the `Error` suffix uniformly. Clarify the opening discriminator paragraph's "(snake_case noun)" rule so it states the wire form as the snake_case schema identifier with the trailing `Error` dropped, uniform across all nine variants. Propagate the two renamed literals across the consuming pages: `invocation.md`, `pi-integration-contract/binder-inference.md`, `pi-integration-contract/conversation-drive.md`, `pi-integration-contract/subagent.md`, `pi-integration-contract/active-invocation-registry.md`, `pi-integration-contract/capability-probe.md`, `query/query-failure-and-repair.md`, and `slash-invocation.md`.
-
-## Solution constraints
-
-- Out of scope: the `loom/runtime/invoke-depth-exceeded` and `loom/runtime/invoke-path-escape` diagnostic codes — the rename applies to `QueryError.kind`, not the `loom/runtime/*` diagnostic namespace.
-
-## Relationships
-
-- T05 "Demote over-prescriptive and non-testable MUSTs on unobservable implementation structure" — decision-overlap (demoting the INV-2 AST-shape MUST means this resolution no longer needs to reserve a named-argument wire-`kind` variant; pick a consistent answer)

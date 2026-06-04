@@ -16,7 +16,7 @@ schema QueryError = ValidationError
                   | InvokeCalleeError
 ```
 
-The `kind` discriminator is the wire form (snake_case noun); the schema identifier is the loom-side form authors use in `match` arms. The two are deliberately distinct: discriminator strings are stable wire contract; schema names belong to the loom surface.
+The `kind` discriminator is the wire form — the snake_case rendering of the schema identifier with the trailing `Error` dropped, applied uniformly to all nine loom 1.0.0 variants (e.g. `ValidationError` → `"validation"`, `InvokeInfraError` → `"invoke_infra"`, `InvokeCalleeError` → `"invoke_callee"`); the schema identifier is the loom-side form authors use in `match` arms. The two are deliberately distinct: discriminator strings are stable wire contract; schema names belong to the loom surface.
 
 **Discriminator type-openness.** The `kind` field is typed as `string` at the type-system level, **not** as a closed enum of the nine loom 1.0.0 variant tags. Call sites still exhaustively `match` on the loom 1.0.0 variant set (the runtime never produces an unlisted `kind` value, and loom 1.0.0 conformance tests assert the closed set), but the *type* does not foreclose future variants — adding a tenth variant in a minor revision (e.g. `BinderError`, a user-defined error type) does not break the type-system shape of code that already destructures `QueryError`. The seam is what lets the deferred user-defined-error-type and `BinderError`-as-variant extensions in [Future Considerations](../future-considerations.md) land without rewriting the discriminator's type. Authors who want a finite-set guarantee at the call site should rely on the catch-all `_ => …` arm pattern (see the **Pattern grammar (loom 1.0)** table at the top of this file) rather than a closed-enum type.
 
@@ -135,7 +135,7 @@ Fires when the loom infrastructure could not run an invoked callee to completion
 
 ```loom
 schema InvokeInfraError {
-  kind: "invoke_infra_error",
+  kind: "invoke_infra",
   message: string,
   callee_path: string,
   cause: "load_failure"      // callee file unreadable
@@ -151,7 +151,7 @@ Fires when an invoked callee returned `Err`; the inner `QueryError` is the calle
 
 ```loom
 schema InvokeCalleeError {
-  kind: "invoke_callee_error",
+  kind: "invoke_callee",
   message: string,
   callee_path: string,
   inner: QueryError                          // the original Err the callee returned
