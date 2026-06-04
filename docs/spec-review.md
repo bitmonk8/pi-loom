@@ -4,7 +4,7 @@ _Generated: 2026-06-04T21:31:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T34) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 2 blocker, 17 high, 15 medium retained; 12 low discarded; 10 low findings merged into 4 medium findings; 3 nit dropped; 0 false dropped._
+_Triage tally: 1 blocker, 17 high, 15 medium retained; 12 low discarded; 10 low findings merged into 4 medium findings; 3 nit dropped; 0 false dropped._
 
 ---
 
@@ -892,29 +892,3 @@ Rewrite the *Error detection* clause in `conversation-drive.md` to detect prompt
 - T32 "`AgentSession` consumed member surface not pinned" - must-precede (resolve the handle-acquisition question here first; then that finding's `errorMessage` row can cite a single concrete acquisition path).
 - T31 "`TransportError.provider` value space and source field unspecified" - decision-overlap (this finding fixes which surface supplies `message`; that one fixes which surface supplies `provider`; same `TransportError` site, independently derived fields).
 - T34 "Typed-query forced-respond tool choice has no specified delivery channel" - same-cluster (sibling implementability finding in the same prompt-mode driver; resolves independently; the rewrite landing here should also drop the bogus `agent_error` ban in the same edit).
-# T34 - Typed-query forced-respond tool choice has no specified delivery channel
-
-**Kind:** implementability
-**Importance:** blocker
-**Score:** 200
-**Must-fix:** true
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The typed-query forced respond turn requires forcing the provider's tool choice to `__loom_respond_<slug>` via "pi-ai's `options.toolChoice` abstraction" (`implementation-notes.md` **Runtime**), while the same spec drives that turn through `pi.sendUserMessage` (prompt mode) or `AgentSession.sendUserMessage` (subagent mode) and explicitly rejects the `before_provider_request` payload-rewrite hook. Neither pinned session-driver overload exposes `options.toolChoice`, and there is no sibling overload that does. The only spec surface accepting `options.toolChoice` is the pi-ai `complete()` free function the binder pass uses (`binder-inference.md`), which the typed-query drivers do not use. No specified channel carries the forced tool choice into the provider call for typed queries, so an implementer cannot satisfy both the conversation-drive contract and the tool-choice-forcing rule.
-
-## Solution approach
-
-Route the single forced respond turn through pi-ai's `complete()` free function following `binder-inference.md`'s `#binder-inference-call` pattern, carrying the forced choice via the same `options.toolChoice` mechanism the binder uses, while the free phase continues to drive through `pi.sendUserMessage` / `session.sendUserMessage`. Split the typed-query bullet in `conversation-drive.md` accordingly and rewrite the `options.toolChoice`-carrier sentence in `implementation-notes.md` **Runtime** (`#runtime`) to name `complete()` as the carrier. Add `complete()` and the pi-ai types it consumes to the typed-query consumed surface in `host-prerequisites.md` and `capability-inventory-items.md`, add the matching probe entry in `capability-probe.md`, and reconcile `runtime-event-channel.md`'s forced-respond rendering and always-log assertions with a synthesised user-visible card.
-
-## Solution constraints
-
-- Out of scope: the `AgentSession` consumed member-surface pin in `host-prerequisites.md`, owned by T32; this finding adds only the `complete()` free function and the pi-ai types it consumes to the typed-query consumed surface.
-
-## Relationships
-
-- T32 "`AgentSession` consumed member surface not pinned" - same-cluster (also a `binder-inference.md`-style consumed-surface gap; the edits to `host-prerequisites.md` may co-touch the `AgentSession`/`complete()` member-surface subsection).
-- T33 "Prompt-mode `errorMessage` probe is unreachable from the specified surface" - same-cluster (sibling implementability gap in the same prompt-mode driver paragraph; resolves independently; coordinate the `agent_error`-ban removal).
-- T12 "`tools:` allowlist enforcement cross-reference violates GOV-9 `#prefix-n` form" - same-cluster (sibling concern on the same conversation-drive surface; resolves independently).
