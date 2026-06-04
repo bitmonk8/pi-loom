@@ -322,28 +322,3 @@ Rewrite the `replace(from, to)` Semantics cell to pin both unspecified behaviour
 ## Relationships
 
 - T11 "`array<T>.concat(other)` — admissibility and result element type not routed through `⊑`" - same-cluster (sibling built-in-method completeness gap in the same table; resolves independently).
-# T13 - Argument shape — Pi-tool code-side argument type-checking timing undefined
-
-**Kind:** implementability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `**Argument shape.**` section of `tool-calls.md` says a `<name>(args)` argument-type mismatch "surfaces as `loom/parse/tool-arg-type-mismatch` when the callee is statically resolvable" per `invocation.md#static-resolution`, but that predicate is defined exclusively over `.loom` callees ("a callee referenced by a literal `invoke(...)` or by a `.loom` entry in `tools:`"). A Pi tool is not a `.loom` file, so "statically resolvable" has no defined truth value for the Pi-tool callee kind, and the `loom/parse/tool-arg-type-mismatch` row in `diagnostics.md` inherits the same ambiguity through its "(when statically resolvable)" parenthetical. The two readings produce different observable surfaces for the same defect: under one, a Pi-tool argument type mismatch is a load-time parse error; under the other it passes parse and surfaces at runtime as `Err(CodeToolError { cause: "validation", ... })`. The spec must pick one so implementers, diagnostic golden files, and author-facing error guidance do not diverge.
-
-## Solution approach
-
-Clarify in `tool-calls.md`'s `**Argument shape.**` section that "statically resolvable" applies only to `.loom` callees, and that Pi-tool argument type mismatches against the tool's input schema are always the runtime AJV check, surfacing as `Err(CodeToolError { cause: "validation", ... })`. Narrow the `loom/parse/tool-arg-type-mismatch` row in `diagnostics.md` so it attributes the diagnostic to the `.loom`-callable arm only. State the Pi-tool/`.loom` asymmetry once in `tool-calls.md` so it is discoverable rather than inferred.
-
-## Solution constraints
-
-- Out of scope: the Static resolution predicate at `invocation.md#static-resolution` stays `.loom`-file-only — do not extend it to Pi-tool callees.
-- The `loom/parse/tool-arg-not-literal` and `loom/parse/tool-arg-arity` parse checks must remain live for Pi-tool calls; only the type-mismatch check is narrowed.
-
-## Relationships
-
-- T03 "Schema inference rule 2 names a loom return type that loom 1.0 cannot have" - same-cluster (both are about a parse-time type-checking predicate whose domain is under-specified for one callee kind; independent fixes).
