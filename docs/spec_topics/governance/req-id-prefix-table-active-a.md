@@ -40,7 +40,7 @@ Two regexes define the in-corpus form of an extractable REQ-ID, against the excl
 1. **Primary extractor.** `\b(<live-prefix-alternation>)-[1-9][0-9]*\b`, where `<live-prefix-alternation>` is built from the live REQ-ID prefix table below at evaluation time (never hard-coded). Leading zeros in the numeric tail are forbidden.
 2. **Unknown-prefix closure invariant.** Every token in the exclusion-stripped spec corpus that matches `\b[A-Z]{2,4}-[1-9][0-9]*\b` MUST have a prefix that appears in the union of (live REQ-ID prefix table, *Retired prefixes* sub-table). [GOV-16](./stable-inline-labels.md#gov-16) extends this closure invariant to the inline-label identifier class (widening the prefix character class to `\b[A-Z][A-Z0-9]{1,5}\b` and the tail to admit the single-lowercase-letter form, against the widened membership union that includes the per-page inline-label prefix table).
 
-Pages whose row in the prefix table below carries the literal cell `(no IDs — narrative)` are excluded from extraction; all other rows in `spec_topics/*.md` are in scope. The exclusion cell's canonical byte sequence is `(no IDs — narrative)` — open paren, `no IDs`, ASCII space, U+2014 EM DASH, ASCII space, `narrative`, close paren. Cosmetic variants (smart quotes, trailing whitespace, en-dash, ASCII double-hyphen) are not recognised as the narrative cell, and the cell-value comparison that classifies a row as narrative MUST be byte-exact.
+Pages whose row in the prefix table below carries the literal cell `(no IDs — narrative)` are excluded from extraction; all other rows in `spec_topics/**/*.md` are in scope (the `**/*.md` recursive glob matches files at every depth under `docs/spec_topics/`, including the subdirectory files that carry the live anchor sites, not only the first-level files directly under `docs/spec_topics/`). The exclusion cell's canonical byte sequence is `(no IDs — narrative)` — open paren, `no IDs`, ASCII space, U+2014 EM DASH, ASCII space, `narrative`, close paren. Cosmetic variants (smart quotes, trailing whitespace, en-dash, ASCII double-hyphen) are not recognised as the narrative cell, and the cell-value comparison that classifies a row as narrative MUST be byte-exact.
 
 IDs are immutable: when a rule is split, the original ID retires and two new IDs appear; numbering never collapses to fill holes.
 
@@ -51,21 +51,21 @@ IDs are immutable: when a rule is split, the original ID retires and two new IDs
 | `schemas.md` | `SCHM` |
 | `descriptions.md` | `DESC` |
 | `schema-subset.md` | `SUBS` |
-| `frontmatter.md` | `FRNT` |
-| `query.md` | `QRY` |
+| `frontmatter/` | `FRNT` |
+| `query/` | `QRY` |
 | `expressions.md` | `EXPR` |
 | `bindings.md` | `BNDS` |
 | `control-flow.md` | `CTRL` |
-| `errors-and-results.md` | `ERR` |
+| `errors-and-results/` | `ERR` |
 | `return.md` | `RET` |
 | `functions.md` | `FN` |
 | `tool-calls.md` | `TOOL` |
 | `invocation.md` | `INV` |
 | `imports.md` | `IMP` |
-| `discovery.md` | `DISC` |
+| `discovery/` | `DISC` |
 | `slash-invocation.md` | `SLSH` |
-| `binder.md` | `BNDR` |
+| `binder/` | `BNDR` |
 | `cancellation.md` | `CNCL` |
-| `diagnostics.md` | `DIAG` |
+| `diagnostics/` | `DIAG` |
 | `runtime-value-model.md` | `RVM` |
-| `pi-integration-contract.md` | `PIC` |
+| `pi-integration-contract/` | `PIC` |
