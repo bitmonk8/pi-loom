@@ -4,7 +4,7 @@ _Generated: 2026-06-04T03:10:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 4 high, 9 medium retained; 13 low discarded; 16 low findings merged into 6 medium findings (plus one co-resolve merge of two high findings); 4 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 4 high, 8 medium retained; 13 low discarded; 16 low findings merged into 6 medium findings (plus one co-resolve merge of two high findings); 4 nit dropped; 0 false dropped._
 
 ---
 
@@ -247,28 +247,3 @@ Walk `pi-integration-contract.md` top-to-bottom and add `<a id="pic-N"></a> **PI
 - T07 "Several seam/contract blockquotes over-prescribe implementation shape beyond the observable contract" - decision-overlap (the `LoomRegistry` paragraph is targeted by both; adding the PIC-N anchor and demoting the cardinality prose are orthogonal edits to the same surface).
 - T05 "Seam-blockquote MUSTs on `errors-and-results.md` and `invocation.md` lack co-located REQ-ID anchors" - same-cluster (same GOV-22 residue, different page/prefix).
 - T06 "binder.md normative sections lack per-obligation BNDR-N anchors" - same-cluster (same GOV-22 residue, different page/prefix).
-# T10 - DI-seam vs reference-implementation placement boundary between PIC and implementation-notes
-
-**Kind:** placement
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`pi-integration-contract.md` (PIC) is the spec's designated owner of Pi-side DI-seam contracts. Two placement defects straddle the PIC ↔ `implementation-notes.md` boundary in opposite directions. First, the `SchemaValidator` normative interface block sits in `implementation-notes.md` (anchor `#schemavalidator-interface`) while its peer DI seams — `Clock`, `FileSystem`, `FileWatcher`, `Checkpoint` — all live in PIC as bolded normative-shape blocks, so an implementer consulting PIC for DI-seam contracts never discovers it and may conclude it is not a normative seam. Second, the **Loom-package implementation dependencies (loom 1.0)** paragraph naming loom's own npm packages (`semver`, `chokidar`) sits in PIC, interrupting PIC's Pi-supplied-surface argument, while `implementation-notes.md` already hosts the analogous AJV non-normative hint.
-
-## Solution approach
-
-Move the `SchemaValidator` normative interface block from `implementation-notes.md` into PIC adjacent to the other DI-seam blocks near `#clock--fakeclock-interface`, leaving a forward-link stub at the old `implementation-notes.md` location and rewriting PIC's existing parenthetical `SchemaValidator` mention into a reference to the new block. Move the **Loom-package implementation dependencies (loom 1.0)** paragraph out of PIC into `implementation-notes.md`'s `## Runtime` section alongside the AJV hint, leaving a forward-link stub on PIC.
-
-## Solution constraints
-
-- Preserve the `#schemavalidator-interface` anchor and both `#loom-package-implementation-dependencies-loom-1-0` and `#loom-package-implementation-dependencies-v1` anchors at their new sites, so cross-links from `binder.md`, `schema-subset.md`, and `implementation-notes.md` continue to resolve.
-
-## Relationships
-
-- T09 "PIC sections beyond \"Probe-wide invariants\" — missing REQ-ID anchors" - must-precede (the migrated `SchemaValidator` MUSTs land in PIC and inherit the PIC-N anchoring obligation; do the move first so the anchoring sweep covers the block in one pass rather than re-touching it twice).
