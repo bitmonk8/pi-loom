@@ -4,7 +4,7 @@ _Generated: 2026-06-04T03:10:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 12 high, 9 medium retained; 13 low discarded; 16 low findings merged into 6 medium findings (plus one co-resolve merge of two high findings); 4 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 11 high, 9 medium retained; 13 low discarded; 16 low findings merged into 6 medium findings (plus one co-resolve merge of two high findings); 4 nit dropped; 0 false dropped._
 
 ---
 
@@ -579,29 +579,3 @@ Clarify both sites in `frontmatter.md` — the behaviour table `model` row's def
 ## Relationships
 
 - T19 "Subagent spawn has no contract when both `model:` and `ctx.model` are absent" - must-precede (the per-invocation re-inheritance recommended here makes `ctx.model === undefined` a per-invocation check, scoping that finding's missing diagnostic to invocation time rather than load time; settle this ambiguity first).
-
----
-# T21 - System-note rendering — prefix backticks disagree across normative statements
-
-**Kind:** consistency
-**Importance:** high
-**Score:** 100
-**Must-fix:** true
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-Multiple normative statements in `binder.md` render the loom-controlled slash-name prefix with disagreeing bytes. `System-note rendering` rule 3 gives bare grammar (`Running /<name>: <formatted-args>` and `loom /<name>: <fixed-phrase> — <sanitised-suffix>`), and the `Failure-mode templates (normative)` table rows and the `Turn-Boundary Algorithm` `loom-system-note` worked example also use the bare form; but the `Echo policy` worked example, its 120-code-point-cap bullet, and the `Echo policy` `needs_info` / `ambiguous` worked examples all wrap `/<name>` in literal backticks. Because the echo is byte-significant — the cap is measured over the whole rendered line and the spec pins byte-identical observables across implementations — the two readings differ by two code points and produce different cap budgets and different rendered strings, so conformance tests would diverge on which statement they trusted.
-
-## Solution approach
-
-Choose one canonical byte-form for the loom-controlled `/<name>` prefix and reconcile every normative statement of it to that form: `System-note rendering` rule 3's grammar examples and its reference-rendering paragraph, the `Echo policy` worked example and its 120-code-point-cap bullet, the `Echo policy` `needs_info` / `ambiguous` worked examples, every row of the `Failure-mode templates (normative)` table, and the `Turn-Boundary Algorithm` `loom-system-note` worked example. Apply the chosen form to both the success-echo prefix and the failure-arm prefix so neither arm is left contradictory. If the form retains the backticks, clarify in `System-note rendering` rule 2 whether the two backtick code points count toward the 120-code-point cap.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T06 "binder.md normative sections lack per-obligation BNDR-N anchors" - must-precede (pin the canonical byte-form first so the REQ-ID coinage pass anchors each system-note / echo-policy rule against the corrected prose).

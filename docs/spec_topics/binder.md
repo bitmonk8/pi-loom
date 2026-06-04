@@ -261,7 +261,7 @@ All binder-emitted system notes — the success echo, the `needs_info` and `ambi
 
 Configured via `bind_echo:` (`true` | `false`; default `true`). When echo is on (and the bypass did not apply), the runtime appends a one-line system note to the user's session immediately before the loom starts. The example below is illustrative — the format rules that follow are normative; no single example string can be (the formatter is data-driven and the rendered text depends on the loom's `params:` and the bound values):
 
-> Running `/code-review`: language=TypeScript, focus_areas=["error handling", async], author={"Ada Lovelace", …}
+> Running /code-review: language=TypeScript, focus_areas=["error handling", async], author={"Ada Lovelace", …}
 
 Format rules:
 
@@ -275,7 +275,7 @@ Format rules:
 - Array values: arrays of **3 or fewer** elements are shown in full as `[a, b, c]` in element order; arrays of **4 or more** elements are shown as `[a, b, c, …+N more]` where the rendered prefix is the first three elements in order and `N` is the count of dropped elements (i.e. `total − 3`). An empty array renders as `[]`. Per-element rendering follows the same rules recursively (a string element is quoted by the same predicate as a top-level string value; a nested object element renders as `{first-field-value, …}`).
 - Object values shown as `{first-field-value, …}` — just the first field's value as a hint. "First field" of an object value is the first field listed in the declaring `schema` block's source order (the same notion of order used by the top-level `params:` bullet above). For a value whose static type is a discriminated union, the variant's declared fields are used in the variant's own source order; the discriminator field is included in that order if it appears there. For a value whose static type is an [inline anonymous object](./type-system.md) `{ field: T, ... }` — which has no declaring `schema` block to consult — the first field is the leftmost field of the inline type expression as written in the loom source. This first-field definition applies recursively wherever the object rule reaches: a top-level `params:` field, an array element, or a nested object field whose static type is an inline anonymous object resolves its first field from its own inline type expression's leftmost field. The "field order is irrelevant" clause in [Type System](./type-system.md) compatibility row 8 governs type compatibility only and does not override this rendering rule. The trailing `, …` is part of the format and MUST be rendered for every object value, including objects whose declaring schema (or discriminated-union variant) declares exactly one field; the marker is fixed text, not an elided-field indicator (contrast with the array rule's count-bearing `…+N more`).
 - Defaulted fields tagged `(default)`: `focus_areas=[] (default)`. The tag fires only when the field took its declared default (default-supplied, not binder-supplied); per [Defaulting](#defaulting)'s fill-if-absent rule a binder-supplied value for a defaulted field is rendered untagged.
-- Total line subject to the shared 120-code-point cap defined in [System-note rendering](#system-note-rendering) above, measured over the whole line including the `Running \`/<name>\`: ` prefix; overflow truncated with `…`. The line-level cap wins over the array rule's own `…+N more` marker — if truncation falls inside an array, the inner `…+N more` may be cut. The 120-code-point cap is applied *after* per-value rendering, so a quoted string that fits its own predicate may still be truncated at the line level.
+- Total line subject to the shared 120-code-point cap defined in [System-note rendering](#system-note-rendering) above, measured over the whole line including the `Running /<name>: ` prefix; overflow truncated with `…`. The line-level cap wins over the array rule's own `…+N more` marker — if truncation falls inside an array, the inner `…+N more` may be cut. The 120-code-point cap is applied *after* per-value rendering, so a quoted string that fits its own predicate may still be truncated at the line level.
 
 Reference renderings (normative; conforming implementations MUST reproduce these exactly):
 
@@ -307,9 +307,9 @@ Setting `bind_echo: false` suppresses the echo. The bypass case (single-string p
 
 The echo channel is also used for the binder's `needs_info` and `ambiguous` outputs, which *replace* execution rather than precede it (both shaped by [System-note rendering](#system-note-rendering)):
 
-> loom `/code-review`: argument binding needs more info — missing required field `language`. Specify the language being reviewed.
+> loom /code-review: argument binding needs more info — missing required field `language`. Specify the language being reviewed.
 
-> loom `/code-review`: ambiguous arguments — "focusing on Ada" could mean focus_areas or author. Be more explicit.
+> loom /code-review: ambiguous arguments — "focusing on Ada" could mean focus_areas or author. Be more explicit.
 
 ## Determinism
 
