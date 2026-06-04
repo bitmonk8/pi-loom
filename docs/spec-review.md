@@ -703,28 +703,3 @@ Define a single canonical "slash-argument whitespace" set anchored in `binder-by
 ## Relationships
 
 - T25 "Empty-template short-circuit — `^\s*$` whitespace set unspecified" - co-resolve (same `\s`-vs-pinned-ASCII ambiguity in `query/query-forms.md`; resolves independently but should adopt the same canonical set for consistency).
-# T27 - Hot-reload `looms.binderModel` recovery note is an under-specified `loom-system-note` emission
-
-**Kind:** testability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 4
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The hot-reload paragraph in `binder/binder-model-and-context.md` (immediately after the binder-model parse rule) issues a MUST-level `loom-system-note` emission when a `looms.binderModel` change would let a previously-failed load succeed, but pins none of its observable shape: no exact `content` template, no `details` payload shape, no suppression rule, and no debounce-coalescing rule. A conformance test cannot assert presence or content against this MUST, and two implementations will diverge on the rendered string and on whether `details` carries loom names, slash names, or nothing. The sibling **Structural changes** paragraph in `pi-integration-contract/session-shutdown-semantics.md` faces the identical shape question — informational `/reload` prompt, no registered `loom/load/*` code — and pins every observable; this emission carries none of them.
-
-## Solution approach
-
-Rewrite the hot-reload `loom-system-note` sentence in `binder/binder-model-and-context.md` to pin the emission's observable shape to the depth the **Structural changes** paragraph in `pi-integration-contract/session-shutdown-semantics.md` pins for its note: a verbatim `content` template with a defined substitution for the affected slash names, a `details` payload under a fresh top-level key disjoint from `{ diagnostics }`, `{ event }`, and `{ structural }`, a suppression rule for the no-eligible-loom case, and a debounce-coalescing rule keyed to the 250 ms window defined in `discovery/package-and-settings.md` *Caching and reload*. Keep it a code-less informational `loom-system-note` with an explicit informational-not-a-diagnostic clause rather than registering a `loom/load/*` code. Add the new `details` top-level key to every enumeration of the renderer's payload-key discrimination set.
-
-## Solution constraints
-
-- Out of scope: the **Structural changes** paragraph in `pi-integration-contract/session-shutdown-semantics.md` is a read-only precedent — mirror its discipline without editing it.
-
-## Relationships
-
-- T28 "Session-context truncation — no `TokenEstimator` DI seam" - same-cluster (both sit in `binder-model-and-context.md` and surface testability gaps; resolve independently).
