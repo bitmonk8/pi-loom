@@ -2,9 +2,9 @@
 
 _Generated: 2026-06-04T17:12:00Z_
 _Spec: docs/spec.md_
-_Process: bottom-up - the last finding (T24) is addressed first; the first finding (T01) is addressed last._
+_Process: bottom-up - the last finding (T23) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 blocker + 15 high, 8 medium retained; 19 low discarded; 13 low findings merged into 3 medium findings; 3 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker + 15 high, 8 medium retained; 19 low discarded; 13 low findings merged into 3 medium findings; 3 nit dropped; 0 false dropped._
 
 ---
 
@@ -612,28 +612,3 @@ Add an inline-object-type alternative to the `Type` production in `docs/spec_top
 
 - T24 "Type grammar admits no generic application beyond `array<T>`" — same-cluster (both close gaps in the `Type` production in the same grammar block; resolve with independent edits but naturally addressed in one pass)
 - T22 "BNDR-6 reference table cell uses `Pet::Cat { ... }` notation" — same-cluster (the BNDR-6 row below the discriminated-union row uses an inline-object value whose type production this finding adds; both touch BNDR-6's table but resolve independently)
-# T24 - Type grammar admits no generic application beyond `array<T>`
-
-**Kind:** implementability
-**Importance:** blocker
-**Score:** 200
-**Must-fix:** true
-**Decision axes:** 3
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `Type` production in `docs/spec_topics/grammar.md` enumerates exactly one parameterised form, `"array" "<" Type ">"`. There is no production for general generic application and none that admits `Result<T, E>`, even though the Type System page describes generics in prose and the grammar appendix is declared normative for the productions it covers. `Result<T, E>` is pervasive spec surface — the return type of every `?`-using function, every query form's success/failure carrier, and the value `Ok`/`Err` produce — yet `Result` is also a reserved keyword in `docs/spec_topics/lexical.md`, so it cannot match `NamedType ::= Ident`. A parser written strictly to the appendix therefore rejects every function signature, query return type, and type annotation the rest of the spec uses, and the closed set of parameterisable constructors for loom 1.0 is left unstated.
-
-## Solution approach
-
-Add a generic-application alternative to the `Type` production in `docs/spec_topics/grammar.md` covering a closed set of generic constructors (at minimum `array` and `Result`), so that `Result<T, E>` and nested generics parse under the recursive `Type` reference. Reconcile the reserved-keyword list in `docs/spec_topics/lexical.md` so `Result` is reachable in type position without dropping it as a reserved identifier. State the admitted closed set and each constructor's arity, and allocate a generic-arity-mismatch parse diagnostic in `docs/spec_topics/diagnostics/code-registry-parse.md`.
-
-## Solution constraints
-
-- Out of scope: the inline anonymous object type production owned by T23.
-
-## Relationships
-
-- T23 "Type grammar omits inline anonymous object types" — same-cluster (both findings close gaps in the `Type` production in the same grammar block; they resolve with independent edits but are naturally addressed in one pass)
