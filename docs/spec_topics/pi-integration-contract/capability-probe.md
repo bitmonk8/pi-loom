@@ -69,7 +69,7 @@ For brevity the probe is described above as five sub-steps `(a)`–`(e)`; `(d)` 
 
 **On failure: refusal and diagnostic.**
 
-- (i) The factory skips **every** subsequent factory-time host-binding call — the four `pi.register*` calls **and** every `pi.on` call (and every `pi.subscribe` call, if the SDK exposes one). Steps 1–5 below MUST NOT execute. The refusal is enforced once at the `PiExtensionAPI` adapter layer, not by per-call defensive checks.
+- (i) The factory skips **every** subsequent factory-time host-binding call — the four `pi.register*` calls **and** every `pi.on` call (the pinned `ExtensionAPI` surface exposes no `pi.subscribe` member — `pi.on` is the sole event-subscription surface, per [Conversation drive — Prompt-mode turn-lifecycle event subscription (PIC-18)](./conversation-drive.md#pic-18)). Steps 1–5 below MUST NOT execute. The refusal is enforced once at the `PiExtensionAPI` adapter layer, not by per-call defensive checks.
 - (ii) The factory emits exactly one `loom/load/host-incompatible` diagnostic (per [Diagnostics — `loom/load/*`](../diagnostics.md)) with `details: { kind, observed, required, ...optional }` where `kind ∈ { "node-floor", "abortsignal-shape", "sdk-capability-missing", "peer-dep-out-of-range", "peer-dep-malformed-version", "typebox-shape", "probe-failed" }`. Routed through the **System notes** fallback chain below (`sendSystemNote` → `ctx.ui.notify` → `console.error`), since the renderer itself may be the missing capability.
 - (iii) The factory returns normally.
 

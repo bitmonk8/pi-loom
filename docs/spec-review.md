@@ -1516,31 +1516,4 @@ In step 0 (c)'s factory-probable member list (`capability-probe.md`), either rem
 ## Relationships
 
 - T63 "Turn-lifecycle subscription surface and `pi.on` are never pinned" — same-cluster (capability-probe / SDK surface).
-# T63 - Turn-lifecycle subscription surface and `pi.on` are never pinned
 
-**Kind:** implementability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 3
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The subscription surface loom depends on is unpinned in two related ways. The mechanism for subscribing to the five turn-lifecycle events (`tool_call`/`tool_result`/`message_update`/`turn_end`/`agent_end`) in completion mode is never pinned — global `pi.on` is banned for completion and `AgentSession.subscribe` (declared at `dist/core/agent-session.d.ts`) is subagent-only, leaving no named completion-mode surface. Separately, `pi.on`'s signature, its closed event-name union, and its declaration file are never pinned, and `pi.subscribe`'s existence is left conditional ("if the SDK exposes one").
-
-## Solution approach
-
-Clarify the completion-mode subscription surface for the five turn-lifecycle events — method, payload type, per-session scoping, and registration site — in `conversation-drive.md`, given that `pi.on` is banned for completion and `AgentSession.subscribe` is subagent-only. Clarify `pi.on`'s signature, its closed event-name union, and its declaration file. Resolve `pi.subscribe`'s conditional existence to present or absent.
-
-## Solution constraints
-
-- Any new or strengthened defining-obligation site this pinning adds must carry GOV-22 REQ-ID coinage in the same commit.
-
-## Relationships
-
-- T19 "Binder relies on three unpinned `complete()` behaviours" — same-cluster.
-- T21 "A throw from a `pi.on(...)` subscription call has no granularity rule" — must-precede (the `pi.on` surface must be pinned before its failure granularity can be specified).
-- T22 "`pi.registerFlag`/`pi.getFlag` are pinned to nothing" — same-cluster.
-- T62 "`waitForIdle` cannot be the factory-time probe" — same-cluster.
