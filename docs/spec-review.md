@@ -759,27 +759,3 @@ Extend the `id="provider-error-mapping"` catch-all so an HTTP-200 response carry
 ## Relationships
 
 - T74 "tokens_used/tokens_limit extraction is underspecified" — same-cluster (`provider-error-mapping.md`).
-# T32 - PIC-9 relies on `dispose()` being safe mid-`abort()` with no ordering guarantee
-
-**Kind:** assumptions
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-PIC-9 (`id="pic-9"` in `pi-integration-contract/subagent.md`) assumes `AgentSession.dispose()` is safe to call while a prior `AgentSession.abort()` is still unsettled, and that `abort()`'s underlying idle-wait completes through the subsequent `dispose()` within the `SHUTDOWN_AWAIT_CAP_MS` budget. The `AgentSession` type surface guarantees no ordering or lifetime relationship between an unsettled `abort()` and a later `dispose()`, so the consumption assumption is unstated.
-
-## Solution approach
-
-Clarify PIC-9 to state the relied-upon consumption assumption — `dispose()` safe mid-`abort()`, and release observed complete via `disposeBarrier` — or require the listener to await `abort()` before disposal.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T36 "PIC-9 says the runtime both discards and traps the `abort()` promise" — same-cluster (PIC-9 abort lifecycle).
