@@ -2,7 +2,7 @@
 
 <a id="pic-10"></a> **PIC-10. `Checkpoint` seam.** The runtime exposes a single internal hook the interpreter `await`s immediately before each cancellation checkpoint defined by the **Granularity** rule in [Cancellation](../cancellation.md). The hook exists so that the two race rules in [Cancellation — Race semantics](../cancellation.md) — no retroactive `Ok(v)` → `Err({kind:"cancelled"})` rewrite, and no top-level synthesis when no further checkpoint executes after the abort — are deterministically testable without depending on JS microtask scheduling. Production wiring resolves on the microtask queue (an already-resolved promise) for every checkpoint kind except `loop-iter`, which resolves on a macrotask turn so that a Pi-dispatched abort can land before a compute-bound loop's next signal-check (see the production-wiring rule below). Apart from that single per-iteration macrotask yield, the seam has no observable production effect beyond the cost of one resolved promise per checkpoint.
 
-The interface shape is:
+The interface shape below is a non-normative reference illustrating one conforming internal decomposition; per [GOV-18 arm (a)](../governance/corpus-direction-and-scope.md#gov-18-arm-a) this internal test-only seam's member set, `CheckpointKind` literal union, and `CheckpointSite` field shape are not themselves binding — the normative contract is the behavioural rules that follow. A conforming runtime MAY realise those behaviours through a differently-shaped seam:
 
 ```ts
 type CheckpointKind =
@@ -45,7 +45,7 @@ Rules:
 
 Architectural constraints carried by the DI seam itself: one `SchemaValidator` instance is constructed per runtime instance — never as a module-level global — and lives for the lifetime of that runtime. Two concurrent runtime instances (e.g. parallel tests) each get their own; sharing one across runtimes is disallowed. Cache invalidation on file change is a property of the validator service — the file watcher calls into the service's invalidate path; it does not reach into any module-scoped state.
 
-The interface shape is normative; `LoweredSchema` is the lowered JSON-Schema document produced by step 4 of [Schema Subset — Lowering Algorithm](../schema-subset.md#lowering-algorithm), `schemaSlug` is the schema slug produced by the recipe in [Schema Subset — Canonical schema hash](../schema-subset.md#canonical-schema-hash), and `ValidationError` mirrors AJV's `ErrorObject` shape (the reference implementation hands AJV's array through unchanged):
+The TypeScript declaration below is a non-normative reference illustrating one conforming decomposition; per [GOV-18 arm (a)](../governance/corpus-direction-and-scope.md#gov-18-arm-a) this internal DI seam's member set is not itself binding, and the normative contract is the behavioural list above. In the illustration, `LoweredSchema` is the lowered JSON-Schema document produced by step 4 of [Schema Subset — Lowering Algorithm](../schema-subset.md#lowering-algorithm), `schemaSlug` is the schema slug produced by the recipe in [Schema Subset — Canonical schema hash](../schema-subset.md#canonical-schema-hash), and `ValidationError` mirrors AJV's `ErrorObject` shape (the reference implementation hands AJV's array through unchanged):
 
 ```ts
 interface ValidationError {
@@ -70,7 +70,7 @@ interface SchemaValidator {
 
 <a id="clock--fakeclock-interface"></a>
 
-<a id="pic-12"></a> **PIC-12. `Clock` / `FakeClock` interface.** The runtime reads wall-clock time and schedules deferred work exclusively through a `Clock` seam injected at construction time, modelled on the `FileSystem` seam. The interface members called out as load-bearing by other spec sections are:
+<a id="pic-12"></a> **PIC-12. `Clock` / `FakeClock` interface.** The runtime reads wall-clock time and schedules deferred work exclusively through a `Clock` seam injected at construction time, modelled on the `FileSystem` seam. The interface members below are a non-normative reference; per [GOV-18 arm (a)](../governance/corpus-direction-and-scope.md#gov-18-arm-a) the exact member signatures of this internal DI seam are not themselves binding, while the usage constraints stated on each member and the timing-source ban below remain normative. The members called out as load-bearing by other spec sections are:
 
 - `now(): number` — monotonic milliseconds. Used for deadline math by the `SHUTDOWN_AWAIT_CAP_MS` shutdown-await (per the **Extension entry point** `session_shutdown` step above) and by [Discovery — Package walk bound](../discovery/package-and-settings.md#disc-6) to read elapsed time for the `looms.scanPackagesTimeoutMs` cap. These deadline-math callers MUST stay on the monotonic `now()` and MUST NOT migrate to `wallNow()`.
 - `wallNow(): number` — Unix epoch milliseconds (wall-clock time). Used by the **Runtime event channel** above to stamp `RuntimeEvent.occurred_at` at the originating emission site.
@@ -80,7 +80,7 @@ Production wiring uses a `WallClock` adapter that delegates `now()` to `performa
 
 <a id="fakefilesystem--filesystem-interface"></a>
 
-<a id="pic-13"></a> **PIC-13. `FakeFileSystem` / `FileSystem` interface.** The runtime reads the filesystem exclusively through a `FileSystem` seam injected at construction time; production wiring uses a `PiFileSystem` adapter that delegates to Node, and tests use an in-memory `FakeFileSystem` whose constructor takes the values it should report. The interface shape is normative:
+<a id="pic-13"></a> **PIC-13. `FakeFileSystem` / `FileSystem` interface.** The runtime reads the filesystem exclusively through a `FileSystem` seam injected at construction time; production wiring uses a `PiFileSystem` adapter that delegates to Node, and tests use an in-memory `FakeFileSystem` whose constructor takes the values it should report. The TypeScript declaration below is a non-normative reference illustrating one conforming decomposition; per [GOV-18 arm (a)](../governance/corpus-direction-and-scope.md#gov-18-arm-a) this internal DI seam's member set is not itself binding, and the normative contract is the per-member behaviour described in the bullets that follow:
 
 ```ts
 interface FileStat {
@@ -109,7 +109,7 @@ interface FileSystem {
 
 <a id="filewatcher-interface"></a>
 
-<a id="pic-14"></a> **PIC-14. `FakeFileWatcher` / `FileWatcher` interface.** Watcher attachment is a *separate* seam from `FileSystem` — production wires a chokidar adapter, and tests use an in-memory `FakeFileWatcher` whose `emit(event)` synchronously invokes every attached handler. The interface shape is normative:
+<a id="pic-14"></a> **PIC-14. `FakeFileWatcher` / `FileWatcher` interface.** Watcher attachment is a *separate* seam from `FileSystem` — production wires a chokidar adapter, and tests use an in-memory `FakeFileWatcher` whose `emit(event)` synchronously invokes every attached handler. The TypeScript declaration below is a non-normative reference illustrating one conforming decomposition; per [GOV-18 arm (a)](../governance/corpus-direction-and-scope.md#gov-18-arm-a) this internal DI seam's member set is not itself binding, and the normative contract is the per-member behaviour described in the bullets that follow:
 
 ```ts
 type FileWatchEventKind = "add" | "change" | "unlink";
@@ -132,7 +132,7 @@ interface FileWatcher {
 
 <a id="tokenestimator-interface"></a>
 
-<a id="pic-16"></a> **PIC-16. `TokenEstimator` seam.** Per-message token estimation is provided by a `TokenEstimator` service injected at construction time, modelled on the other DI seams in this section. The seam exists so that the [Session-context truncation](../binder/binder-model-and-context.md#session-context-truncation-bind_context-session) bounds — the 8000-token budget, the 20-turn cap, and the whole-turn-exclusion rule — are deterministically testable at chosen per-message integer counts, rather than coupling a conformance test to Pi's version-nondeterministic estimation heuristic or computing the expected sums by calling the estimator under test. The interface shape is normative; `AgentMessage` is the Pi-owned agent-state message type, referenced (not redefined) here and pinned at [`SessionContext` and the `.messages` element shape](./host-interfaces-core.md#sessioncontext-shape):
+<a id="pic-16"></a> **PIC-16. `TokenEstimator` seam.** Per-message token estimation is provided by a `TokenEstimator` service injected at construction time, modelled on the other DI seams in this section. The seam exists so that the [Session-context truncation](../binder/binder-model-and-context.md#session-context-truncation-bind_context-session) bounds — the 8000-token budget, the 20-turn cap, and the whole-turn-exclusion rule — are deterministically testable at chosen per-message integer counts, rather than coupling a conformance test to Pi's version-nondeterministic estimation heuristic or computing the expected sums by calling the estimator under test. The TypeScript declaration below is a non-normative reference illustrating one conforming decomposition; per [GOV-18 arm (a)](../governance/corpus-direction-and-scope.md#gov-18-arm-a) this internal DI seam's member set is not itself binding, and the normative contract is the behaviour described in the bullets that follow. In the illustration, `AgentMessage` is the Pi-owned agent-state message type, referenced (not redefined) here and pinned at [`SessionContext` and the `.messages` element shape](./host-interfaces-core.md#sessioncontext-shape):
 
 ```ts
 interface TokenEstimator {

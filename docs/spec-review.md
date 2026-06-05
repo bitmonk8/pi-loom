@@ -4,7 +4,7 @@ _Generated: 2026-06-05T00:00:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blockers, 0 high, 11 medium retained, 2 medium parked; 10 low discarded; 5 low findings merged into 2 medium findings; 12 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 0 high, 9 medium retained, 2 medium parked; 10 low discarded; 5 low findings merged into 2 medium findings; 12 nit dropped; 0 false dropped._
 
 ---
 
@@ -259,51 +259,3 @@ Rewrite each *Spec rule* cell's link target in the four `code-registry-*.md` tab
 - T14 "Un-anchored normative obligations across `cancellation.md`" - must-follow (the cancellation-routed diagnostic rows cannot be repointed to `#cncl-n` anchors until those anchors exist; T14 must land first).
 - T13 "Binder *System-prompt structure (normative)* items 1–8 carry no REQ-ID anchors" - must-follow (binder-routed diagnostic rows depending on those items become repointable once the per-item `BNDR-N` anchors land).
 - T12 "Compact-transcript reference renderings A–D — no per-rendering identifiers" - must-follow (any diagnostic citing a specific reference rendering becomes repointable once those anchors are coined).
-# T10 - PIC-11 / PIC-12 / PIC-13 / PIC-14 / PIC-16 internal DI interface shapes pinned normative beyond GOV-18 arm (a)
-
-**Kind:** prescription, scope
-**Importance:** medium
-**Score:** 35
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-PIC-11 (`SchemaValidator`), PIC-13 (`FileSystem`), PIC-14 (`FileWatcher`), and PIC-16 (`TokenEstimator`) each state "The interface shape is normative" and pin an exact TypeScript `interface` declaration — member names, arities, return types, and the closed member set. PIC-12 (`Clock`) is slightly softer but still binds member names and signatures normatively. All five are internal DI seams consumed only by the runtime and its test wiring; none is exposed through `ExtensionAPI` or observable on `.loom`/`.warp` inputs. GOV-18 arm (a) binds only externally-observable behaviour on `.loom`/`.warp` inputs, so pinning these member lists as normative MUSTs binds internal implementation architecture beyond arm (a)'s reach — a second-source implementer satisfying every behavioural contract through a different decomposition would be formally non-conforming despite byte-identical outputs.
-
-## Solution approach
-
-Demote the TypeScript `interface` shape blocks of PIC-11, PIC-13, PIC-14, and PIC-16 (anchors `pic-11`, `pic-13`, `pic-14`, `pic-16` in `host-interfaces-services.md`) from normative to non-normative reference, keeping each seam's behavioural obligations normative. For PIC-12 (`pic-12`), demote the member-shape listing the same way while keeping its behavioural rules normative. Apply one consistent normative/reference split across all five seams, co-resolving with T11 so the page reads consistently.
-
-## Solution constraints
-
-- The per-seam behavioural obligations (single-pass validation, monotonic `now()`, `ENOENT`-on-missing `readText`, the watcher event-kind filtering, per-message integer estimation, and PIC-12's `Date.now`/`performance.now`/`setTimeout` ban) MUST remain on the normative side of the demotion.
-
-## Relationships
-
-- T11 "PIC-10 `Checkpoint` seam — internal test-only hook pinned as normative behavioural contract" - co-resolve (same page, same GOV-18-arm-(a) conflict pattern; the spec-edit pattern is identical so the page stays internally consistent).
-# T11 - PIC-10 `Checkpoint` seam — internal test-only hook pinned as normative behavioural contract
-
-**Kind:** prescription, scope
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-PIC-10 in `host-interfaces-services.md` declares the `Checkpoint` seam with a concrete TypeScript interface — the `CheckpointKind` literal union, the `CheckpointSite` field set, and the `Checkpoint.before(kind, site)` member — and pins these type shapes as normative MUSTs alongside the genuinely-behavioural rules. The same paragraph states the seam is internal: not exposed through `ExtensionAPI`, not visible to loom authors / Pi extensions / tools, and with no observable production effect beyond one resolved promise per checkpoint apart from the `loop-iter` macrotask yield. Under the GOV-18 arm (a) operational test, only externally-observable behaviour on `.loom` / `.warp` inputs is in-scope; the concrete member list, type-literal union, and field shape of an internal test-only DI seam are not observable on those inputs. An alternative runtime that implements every behavioural obligation through a differently-shaped internal seam would violate the interface-shape MUSTs while satisfying every observable conformance property.
-
-## Solution approach
-
-In `host-interfaces-services.md`, demote PIC-10's `Checkpoint` / `CheckpointKind` / `CheckpointSite` TypeScript block to a non-normative reference shape, and rewrite the surrounding rules so the normative obligations name the behaviours rather than the declared type names. Keep PIC-10's REQ-ID anchor `id="pic-10"` and its behavioural obligations normative — the checkpoint kinds the hook fires at, the one-macrotask yield on `loop-iter`, the microtask resolution on the other kinds, the one-instance-per-`loomAbort` rule, the `ExtensionAPI`-invisibility rule, and the test-fake call-once / no-skip rules. Re-anchor the test-fake rules alongside the demoted interface or as constraints on the behavioural conformance test.
-
-## Solution constraints
-
-- Out of scope: the PIC-11 / PIC-12 / PIC-13 / PIC-14 / PIC-16 interface-shape demotions on the same page owned by T10.
-
-## Relationships
-
-- T10 "PIC-11 / PIC-12 / PIC-13 / PIC-14 / PIC-16 internal DI interface shapes pinned normative beyond GOV-18 arm (a)" - co-resolve (same page, same GOV-18-arm-(a) conflict pattern; the spec-edit pattern should be identical so the page stays internally consistent).
