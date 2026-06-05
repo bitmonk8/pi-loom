@@ -4,7 +4,7 @@ _Generated: 2026-06-04T21:31:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T34) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 7 high, 14 medium retained; 12 low discarded; 10 low findings merged into 4 medium findings; 3 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 7 high, 12 medium retained; 12 low discarded; 10 low findings merged into 4 medium findings; 3 nit dropped; 0 false dropped._
 
 ---
 
@@ -348,53 +348,3 @@ Add a new `PIC` REQ-ID anchor at the active-set gating obligation on `tool-regis
 
 - T11 "Type-compatibility rules cited by positional ordinal with no per-rule anchor" - same-cluster (separate GOV-9 / `#prefix-n` violation resolved by an analogous coin-then-link edit).
 - T15 "`.pi/project-config.md` Spec-rules understates the GOV set and omits GOV-22" - must-follow (project-config currently omits GOV-22; a fixer reading only project-config might skip the coinage half of this fix and leave GOV-9 still unsatisfied).
-- T34 "Typed-query forced-respond tool choice has no specified delivery channel" - same-cluster (sibling concern on the same conversation-drive surface; resolves independently).
-# T13 - NFR aggregator section delivers one of the three bullets it announces
-
-**Kind:** placement
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `### Non-functional requirements` aggregator section (`id="non-functional-requirements"`) in `docs/spec/overview-and-orientation.md` announces three cross-cutting loom 1.0 NFR dispositions — the trust/security posture, the source-language-equivalence release goal, and the operator-facing observability contract — but contains only the **Trust boundary** bullet. The other two dispositions live as top-of-file bullets in `docs/spec/language-and-architecture.md`: **Source-language stability** (anchor `id="source-language-stability"`) and **Runtime observability**. The section's intro paragraph further claims the "two no-seam loom 1.0 dispositions recorded here — Trust boundary and Source-language stability — are also indexed under [Future Considerations — loom 1.0 non-goals]", yet Source-language stability is not recorded in the section at all. This is a GOV-12 aggregator-vs-source lock-step violation: the section asserts content it does not contain.
-
-## Solution approach
-
-Move the **Source-language stability** and **Runtime observability** bullets from the top of `docs/spec/language-and-architecture.md` into the `id="non-functional-requirements"` section of `docs/spec/overview-and-orientation.md`. Preserve the `id="source-language-stability"` anchor so the `*Recorded at:*` cross-link from `model-changes-and-non-goals.md` continues to resolve. Rewrite the section's intro paragraph so its enumerated count and its Future-Considerations indexing claim agree with the bullets the section now contains.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T14 "Runtime observability NFR bullet placed outside the NFR aggregator" - co-resolve (same underlying placement defect; this edit fixes both — that finding moves the Runtime observability bullet from the same top-of-file region into the same target section).
-# T14 - Runtime observability NFR bullet placed outside the NFR aggregator
-
-**Kind:** placement
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `### Non-functional requirements` aggregator section (anchor `id="non-functional-requirements"` in `docs/spec/overview-and-orientation.md`) introduces three cross-cutting dispositions — the trust/security posture, the source-language-equivalence release goal, and the operator-facing observability contract — but its body carries only the **Trust boundary** bullet. The **Runtime observability** bullet instead sits at the top of `docs/spec/language-and-architecture.md`, above that page's `# Language and architecture` H1, as an orphan list item whose `loom-system-note`-channel content has no relationship to language-and-architecture material. A reader consulting the announced NFR section finds one of three promised bullets; a reader landing on `language-and-architecture.md` meets NFR orphans before any language content.
-
-## Solution approach
-
-Move the **Runtime observability** bullet out of the top-of-file region of `docs/spec/language-and-architecture.md` and into the `id="non-functional-requirements"` section of `docs/spec/overview-and-orientation.md`, aligning its position with the trust → source-language-stability → observability disposition order the section's intro paragraph announces. The bullet body is self-contained and carries no `<a id>`, so it relocates without rewording.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T13 "NFR aggregator section delivers one of the three bullets it announces" - co-resolve (same NFR aggregator section under-delivers; that finding moves the Source-language stability bullet from the same top-of-file region into the same target section; one edit pass resolves both).
