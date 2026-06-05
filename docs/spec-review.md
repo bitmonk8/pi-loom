@@ -1054,28 +1054,4 @@ Reconcile the Trigger against the Message template for that row: either delete t
 ## Relationships
 
 - T42 "Placeholder-rendering closure omits live placeholders" — same-cluster.
-# T44 - Serialised `content` related-site line format is undefined
 
-**Kind:** implementability, prescription, testability
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `**Serialised content format.**` block in `diagnostics/diagnostic-shape.md` pins the main line (`"<file>:<line>:<col>: <code>: <message>"`) and the optional hint line, but says only that "Related sites are appended as additional indented lines" — leaving the related-site line's indent, field order, and whether a code prefix appears undefined. It also does not state whether the related-site `<line>:<col>` come from `range.start` or `range.end`. The `content` string is observable and asserted in tests, so the unspecified format is implementable only by guessing.
-
-## Solution approach
-
-Extend the `**Serialised content format.**` block in `diagnostics/diagnostic-shape.md` to pin the related-site line template — its indent, field order, and whether a code prefix appears — and to state which `range` endpoint supplies the related-site `<line>:<col>`.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T42 "Placeholder-rendering closure omits live placeholders" — same-cluster.
