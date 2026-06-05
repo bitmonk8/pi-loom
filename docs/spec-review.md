@@ -4,7 +4,7 @@ _Generated: 2026-06-04T21:31:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T34) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 7 high, 5 medium retained; 12 low discarded; 10 low findings merged into 4 medium findings; 3 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 7 high, 4 medium retained; 12 low discarded; 10 low findings merged into 4 medium findings; 3 nit dropped; 0 false dropped._
 
 ---
 
@@ -54,43 +54,6 @@ Rewrite the `<invocation-id>` clause in the `loom/runtime/reload-teardown-timeou
 ## Solution constraints
 
 - None.
-
-## Relationships
-
-None
-# T03 - Convention references README status table and CHANGELOG/notes files that do not exist
-
-**Kind:** doc-alignment-broad
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The *Doc updates* bullet under "Cross-cutting rules (every leaf)" in
-`docs/plan_topics/conventions.md` directs every leaf to update `README.md`'s
-status table, append a dated entry to `CHANGELOG.md`, and record non-plan
-discoveries in `notes.md`. None of these artifacts exist: `README.md`'s
-`## Status` section is prose with no table, and `CHANGELOG.md` and `notes.md`
-are absent at the repo root. The bullet grants no permission to create them on
-first use and no leaf is scoped to bootstrap them, so the first leaf executed
-must either improvise all three artifact shapes or silently skip the obligation.
-
-## Solution approach
-
-Rewrite the *Doc updates* bullet in `docs/plan_topics/conventions.md` so the
-obligation self-bootstraps — granting create-if-absent semantics before each
-update/append — and pin the artifact schemas inline in the same bullet: the
-status-table column set, the changelog-entry line format, and the role of
-`notes.md` as a free-form running log.
-
-## Solution constraints
-
-- Out of scope: creating `CHANGELOG.md`, `notes.md`, or a README status table
-  as part of this fix — the reworded bullet authorises first-leaf creation on
-  first use; do not ship placeholder artifacts ahead of real content.
 
 ## Relationships
 
