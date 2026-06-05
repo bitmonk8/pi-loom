@@ -1,4 +1,4 @@
-# Provider error mapping
+# Provider error and seed-field mapping
 
 <a id="provider-error-mapping"></a>
 
@@ -37,39 +37,4 @@ The `null` fallback is the same value the `mistral` and `amazon-bedrock` rows fi
 | `anthropic-messages` | omitted |
 | `amazon-bedrock` | omitted |
 
-**Conversation drive — subagent mode.** The loom interpreter spawns a fresh in-process `AgentSession` via `createAgentSession`. The `createAgentSession(options: CreateAgentSessionOptions)` function and the `CreateAgentSessionOptions` interface are declared at `dist/core/sdk.d.ts` in `@earendil-works/pi-coding-agent` (the [loom 1.0 Pi-SDK pin](./host-prerequisites.md#pi-sdk-pin) from **Host prerequisites** above); the inline call shape and the no-`signal`-field claim below are pinned to that file and MUST be re-validated against it on each Pi minor bump per [Pi version bump procedure](./version-bump-intro.md#pi-version-bump-procedure) below. The two tool-related fields on `CreateAgentSessionOptions` carry distinct payloads and must both be populated from the same lowered set:
-
-```ts
-const customTools: ToolDefinition[] = lowerLoomToolsToPi(loom.tools); // built-in Pi tools resolved by name → their ToolDefinition; loom callees wrapped via defineTool
-const loomSystemPrompt: string = renderLoomSystemPrompt(loom.frontmatter.system, params); // resolved-and-interpolated `system:` per Parameters and Frontmatter
-const resourceLoader: ResourceLoader = {
-  // Loom-owned adapter: getSystemPrompt is the only loom-load-bearing member; the rest return empty/defaults.
-  getSystemPrompt: () => loomSystemPrompt,
-  getAppendSystemPrompt: () => [],
-  getExtensions: () => ({ extensions: [], errors: [] }),
-  getSkills: () => ({ skills: [], diagnostics: [] }),
-  getPrompts: () => ({ prompts: [], diagnostics: [] }),
-  getThemes: () => ({ themes: [], diagnostics: [] }),
-  getAgentsFiles: () => ({ agentsFiles: [] }),
-  extendResources: () => {},
-  reload: async () => {},
-};
-const { session } = await createAgentSession({
-  customTools,
-  tools: customTools.map((t) => t.name), // explicit allowlist suppresses Pi's default built-ins
-  model,
-  sessionManager: SessionManager.inMemory(cwd),
-  resourceLoader,
-  // ...
-});
-```
-
-Four rules govern the spawn call:
-
-1. `customTools` carries every `ToolDefinition` the subagent may use — both Pi built-ins (resolved by name from the model registry / extension API to their `ToolDefinition`) and `defineTool`-wrapped `.loom` callables. Each entry uses the same `name` / `label` / `description` / `parameters` / `execute` shape and the same `Type.Unsafe<unknown>(loweredJsonSchema)` `parameters` wrap defined in the **Per-loom registration** section above. `ToolDefinition.label` is required; the lowering step must supply it (basename-derived per the **Per-loom registration** rule).
-2. `tools` is **always** passed as an explicit allowlist of those same names, even when the loom's callable set is empty (in which case `tools: []` is passed, matching `tools: []` ≡ absent `tools:` from [Parameters and Frontmatter](../frontmatter.md)). The explicit allowlist is what enforces the "ambient Pi tools NOT inherited" invariant; omitting `tools` would re-enable Pi's default built-in `read` / `bash` / `edit` / `write` tools regardless of what the loom declared.
-3. The `tools` allowlist and the `customTools` array are derived from the same lowered set in a single step; the runtime does not let them drift. A `.loom` callable wrapped via `defineTool` has a `name` chosen by the loom runtime (post-`as` rename per the basename rules in [Parameters and Frontmatter](../frontmatter.md)); that same name must appear in the `tools` allowlist.
-4. The `resourceLoader` passed to `createAgentSession` is a loom-constructed `ResourceLoader` adapter whose `getSystemPrompt()` returns the resolved-and-interpolated frontmatter `system:` string verbatim and whose `getAppendSystemPrompt()` returns `[]` (the loom's `system:` is the *complete* system prompt, not an append on top of a host base). The remaining `ResourceLoader` members return empty values / defaults (`getExtensions`, `getSkills`, `getPrompts`, `getThemes`, `getAgentsFiles`) or are no-ops (`extendResources`, `reload`); the loom MUST NOT pass the parent session's `DefaultResourceLoader` (pinned at [*Spawn-block satellite type pins*](#subagent-spawn-satellite-types) below) through unchanged. `CreateAgentSessionOptions` exposes no `systemPrompt` / `system` field in the loom 1.0 Pi SDK pin, so the loader's `getSystemPrompt()` is the only available delivery channel for the loom's `system:` value into the spawned `AgentSession.systemPrompt`. The adapter MAY be expressed as the object literal above or as a `class implements ResourceLoader` declaration; both are conformant. `DefaultResourceLoader`'s `systemPromptOverride: (base) => string | undefined` constructor option is an alternative channel but is **not** the recommended construction: it still runs all of `DefaultResourceLoader`'s discovery side-effects against the parent `cwd` to compute `base`, only to ignore the result, so the custom-adapter form is preferred.
-
-<a id="subagent-spawn-satellite-types"></a>
-*Spawn-block satellite type pins.* The two Pi-owned satellite types the spawn call consumes by name are pinned to their declarations at the [loom 1.0 Pi-SDK pin](./host-prerequisites.md#pi-sdk-pin) on `@earendil-works/pi-coding-agent`, on the same footing as the other consumed Pi types on this page. The `ResourceLoader` interface the rule-4 adapter implements is declared at `dist/core/resource-loader.d.ts` (re-exported from the package root); its loom-load-bearing member surface is exactly the set rule 4 enumerates — `getSystemPrompt` as the sole `system:` delivery channel, the remaining members populated with the empty / default / no-op values rule 4 fixes — and loom redefines none of them and treats every other property of `ResourceLoader` as opaque. `SessionManager.inMemory` — the static factory whose return value populates the `sessionManager` field and enforces the capability-item-3 transcript-privacy guarantee — is declared as `static inMemory(cwd?: string): SessionManager` on the `SessionManager` class at `dist/core/session-manager.d.ts` (the same declaration the `ReadonlySessionManager` `Pick<>` cited under [`ExtensionContext` (member surface loom touches)](./host-interfaces-core.md#extensioncontext-interface) tracks). The `ResourceLoader` interface and `SessionManager.inMemory` (the two types the spawn call consumes by name) MUST be re-validated against the cited declarations on each Pi minor bump per item (o) of the *Editorial-review checklist for unpinned host presuppositions* under [Pi version bump procedure](./version-bump-intro.md#pi-version-bump-procedure) below; neither is factory-probed or enumerated by step 2(a)'s seven-capability literal-read assertion, so a silent rename or member reshape surfaces as a runtime error at the spawn site rather than at load time — the same posture pinned for the non-probed `AgentSession` members under item (n). The `DefaultResourceLoader` class and its `DefaultResourceLoaderOptions` constructor-options type are named in rule 4 above only to be rejected — the loom MUST NOT pass the parent session's `DefaultResourceLoader` through unchanged, and `DefaultResourceLoaderOptions.systemPromptOverride` is the not-recommended construction channel — and are pinned here on the same footing: both are declared at `dist/core/resource-loader.d.ts` on `@earendil-works/pi-coding-agent` at the [loom 1.0 Pi-SDK pin](./host-prerequisites.md#pi-sdk-pin), and loom redefines and consumes neither. The `DefaultResourceLoader` / `DefaultResourceLoaderOptions` pin is folded into the same item (o) re-validation obligation even though loom consumes neither, so a Pi-side reshape that invalidates rule 4's rejection rationale is caught at the bump rather than going silently stale.
+<!-- "Conversation drive — subagent mode" (the `createAgentSession` spawn block, its four governing rules, and the `subagent-spawn-satellite-types` pins) was relocated to its owning page, [Subagent](./subagent.md), so this page's H1 covers only the provider error mapping and provider seed-field mapping that remain. -->

@@ -4,7 +4,7 @@ _Generated: 2026-06-05T11:52:38Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T83) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 blocker, 18 high, 59 medium retained; ~139 low discarded; ~0 low merged into medium; ~122 nit dropped; 0 false dropped. Source: 344 deduplicated findings across 9 shards + global lenses; 78 retained after triage. Foundational governance/traceability findings (T75–T83) and the standalone blocker (T74) sit at the bottom for first addressing._
+_Triage tally: 1 blocker, 17 high, 59 medium retained; ~139 low discarded; ~0 low merged into medium; ~122 nit dropped; 0 false dropped. Source: 344 deduplicated findings across 9 shards + global lenses; 77 retained after triage. Foundational governance/traceability findings (T75–T83) and the standalone blocker (T74) sit at the bottom for first addressing._
 
 ---
 
@@ -1664,28 +1664,3 @@ Rename each file's H1 to match the anchor and subject it actually contains, swap
 ## Relationships
 
 - T69 "`provider-error-mapping.md` H1 names only the first third of its content" — same-cluster (audit/PIC heading-vs-content mismatches).
-# T69 - `provider-error-mapping.md` H1 names only the first third of its content
-
-**Kind:** naming, placement, scope
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`provider-error-mapping.md`'s H1 "Provider error mapping" names only the error-mapping table (anchor `provider-error-mapping`). The same file also owns the provider seed-field mapping (anchor `provider-seed-field-mapping`) and the full "Conversation drive — subagent mode" spawn protocol — the `createAgentSession` code block, its four governing rules, and the `subagent-spawn-satellite-types` pins. The heading therefore describes roughly the first third of the file's content.
-
-## Solution approach
-
-Move the "Conversation drive — subagent mode" spawn content — the `createAgentSession` code block, its four governing rules, and the `subagent-spawn-satellite-types` pins — from `provider-error-mapping.md` into `subagent.md`. Rename `provider-error-mapping.md`'s H1 to name both the provider error mapping and the provider seed-field mapping content that remains.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T68 "Two audit-cluster files have H1 headings inverted" — same-cluster.

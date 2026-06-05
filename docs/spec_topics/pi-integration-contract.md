@@ -17,7 +17,7 @@ The runtime depends on a small, named surface from `@earendil-works/pi-coding-ag
 - [Extension bootstrap and per loom](./pi-integration-contract/extension-bootstrap-and-per-loom.md)
 - [Tool registration lifetime](./pi-integration-contract/tool-registration-lifetime.md)
 - [Conversation drive](./pi-integration-contract/conversation-drive.md)
-- [Provider error mapping](./pi-integration-contract/provider-error-mapping.md)
+- [Provider error and seed-field mapping](./pi-integration-contract/provider-error-mapping.md)
 - [Subagent](./pi-integration-contract/subagent.md)
 - [Binder inference](./pi-integration-contract/binder-inference.md)
 - [Runtime event channel](./pi-integration-contract/runtime-event-channel.md)
