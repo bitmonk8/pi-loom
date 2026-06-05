@@ -929,28 +929,3 @@ None.
 ## Relationships
 
 None.
-# T39 - `E/W` severity gloss has two incompatible meanings
-
-**Kind:** clarity
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `## Code registry` intro in `code-registry-parse.md` glosses severity `E/W` as "decided per-source by the table in Discovery — Failure modes." But `loom/load/callee-has-errors` decides its `E/W` severity per surface (`tools:` `.loom` entries vs `invoke(...)` literals) per Invocation — Static resolution, not per-source via the Discovery failure-modes table. The single gloss therefore carries two incompatible meanings of `E/W`.
-
-## Solution approach
-
-Rewrite the `E/W` gloss in `code-registry-parse.md`'s `## Code registry` intro so it covers both severity-determination mechanisms — the per-source Discovery-failure-modes case and the per-surface `loom/load/callee-has-errors` case — rather than naming only the Discovery table, deferring the per-code determination to each row's own prose.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-None.
-
