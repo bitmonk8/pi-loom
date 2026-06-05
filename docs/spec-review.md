@@ -1738,27 +1738,3 @@ None.
 ## Relationships
 
 - T46 "`SessionShutdownEvent` rename matched against an open TS-code family" — same-cluster.
-# T72 - `version-bump-triggers.md` H1 names only step 5's sub-trigger concept
-
-**Kind:** naming
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`version-bump-triggers.md`'s H1 "Version bump triggers" names only step 5's sub-trigger concept, though the file holds steps 5, 6, and 7. The heading mis-scopes the page's contents.
-
-## Solution approach
-
-Rename the H1 so it names the file's full step span (steps 5, 6, and 7) rather than only step 5's sub-trigger concept — e.g. "Version bump procedure — steps 5, 6, and 7".
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-None.
