@@ -4,7 +4,7 @@ _Generated: 2026-06-05T00:00:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blockers, 0 high, 12 medium retained, 2 medium parked; 10 low discarded; 5 low findings merged into 2 medium findings; 12 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 0 high, 11 medium retained, 2 medium parked; 10 low discarded; 5 low findings merged into 2 medium findings; 12 nit dropped; 0 false dropped._
 
 ---
 
@@ -307,31 +307,3 @@ In `host-interfaces-services.md`, demote PIC-10's `Checkpoint` / `CheckpointKind
 ## Relationships
 
 - T10 "PIC-11 / PIC-12 / PIC-13 / PIC-14 / PIC-16 internal DI interface shapes pinned normative beyond GOV-18 arm (a)" - co-resolve (same page, same GOV-18-arm-(a) conflict pattern; the spec-edit pattern should be identical so the page stays internally consistent).
-# T12 - Compact-transcript reference renderings A–D — no per-rendering identifiers
-
-**Kind:** traceability
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Decision axes:** 3
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The *Compact-transcript format (normative)* sub-section of `binder-model-and-context.md` (anchor `compact-transcript-format-normative`) ends with four reference renderings — labelled **A**, **B**, **C**, **D** in bold-letter prose — that the spec pins as MUST-reproduce-exactly. Each rendering is an independent normative obligation fixing a distinct facet of the rendering contract, yet none carries a per-obligation identifier: no `BNDR-N` REQ-ID anchor and no page-local sub-letter anchor. A coverage-matrix leaf, conformance test, or failure report can cite a single rendering only by prose, and re-lettering on any insertion silently breaks every such citation. GOV-9's `#prefix-n` cross-link contract is unsatisfiable for the individual renderings until they are coined.
-
-## Solution approach
-
-Coin a new umbrella `BNDR` REQ-ID at the sub-section's normative lead-in (next free integer under the `BNDR` prefix per GOV-3, dual-form layout per GOV-1). Assign page-local sub-letter anchors to renderings A through D in order, each in the dual-form layout. Add a preamble before rendering A mirroring the BNDR-6 sub-letter boilerplate on `defaulting-system-note-echo.md`, naming the GOV-23 page-local sub-letter scheme and the umbrella REQ-ID as the load-bearing identifier for unit citations.
-
-## Solution constraints
-
-- The umbrella `BNDR-N` anchor MUST sit on a defining obligation site (the sub-section's normative lead-in), not on the `#### Compact-transcript format (normative)` heading line, per GOV-1.
-- The `BNDR` next-free integer MUST be computed from the live + retired union across the entire `binder/` subtree per GOV-3 / GOV-24, not from this page alone.
-
-## Relationships
-
-- T13 "Binder *System-prompt structure (normative)* items 1–8 carry no REQ-ID anchors" - same-cluster (same shape of un-anchored normative items on a sibling page under the same `BNDR` prefix; resolve independently with the parallel sub-letter scheme).
-- T14 "Un-anchored normative obligations across `cancellation.md`" - same-cluster (same GOV-22 progressive-coinage defect on a different prefix; independent surface).
-- T09 "Diagnostic code-registry *Spec rule* cells bypass GOV-9 `#prefix-n` cross-link form" - must-precede (any diagnostic citing a specific reference rendering becomes repointable once these anchors are coined).
