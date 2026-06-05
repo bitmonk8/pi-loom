@@ -1,6 +1,6 @@
 # pi-loom — Consolidated Spec Review (Parked)
 
-_Parked findings: 2._
+_Parked findings: 3._
 
 ---
 
@@ -74,5 +74,41 @@ Coin a dual-form `<a id="bndr-N"></a> **BNDR-N.**` REQ-ID anchor at each of item
 - T12 "Compact-transcript reference renderings A–D — no per-rendering identifiers" - same-cluster (same GOV-22 anchor-coinage gap on the sibling `binder-model-and-context.md` page; resolves independently with the same dual-form + sub-letter pattern).
 - T14 "Un-anchored normative obligations across `cancellation.md`" - same-cluster (same GOV-22 progressive-coinage residue on `cancellation.md`; resolves independently with the `CNCL-N` prefix).
 - T09 "Diagnostic code-registry *Spec rule* cells bypass GOV-9 `#prefix-n` cross-link form" - must-precede (binder-routed diagnostic rows depending on these items become repointable once the per-item `BNDR-N` anchors land).
+
+---
+
+## T09 - Diagnostic code-registry *Spec rule* cells bypass GOV-9 `#prefix-n` cross-link form
+
+> **PARKED** — 2026-06-05
+> **Reason:** Category 2 (fixer too-hard — capability gap; the fast `/spec-fix-findings-loop` fix repointed 8 *Spec rule* cells in `code-registry-load.md` / `code-registry-runtime.md` to live `#prefix-n` anchors (DISC-2/3/4, PIC-8/9) with zero floor regressions and no dangling targets, but left the host and parse `code-registry-*.md` tables entirely untouched and left many cells with available owner-page REQ-ID anchors un-repointed). The fast fix loop did not resolve the finding. Loop notes: finding not resolved by fast fix (partial — fast fix repointed 8 cells in code-registry-load.md / code-registry-runtime.md to live anchors (DISC-2/3/4, PIC-8/9) with zero floor regressions and no dangling targets, but the host and parse code-registry tables were left entirely untouched and many cells with available owner-page REQ-ID anchors remain un-repointed; reviewer marked partial)
+> **Forensic report:** none (fast loop — no forensic report)
+
+# T09 - Diagnostic code-registry *Spec rule* cells bypass GOV-9 `#prefix-n` cross-link form
+
+**Kind:** traceability
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The *Spec rule* column in the four diagnostic code-registry tables (`code-registry-load.md`, `code-registry-parse.md`, `code-registry-runtime.md`, `code-registry-host.md`) links to owner topic-page roots or section-level heading slugs rather than to `#prefix-n` REQ-ID anchors. The owning pages are non-narrative, so GOV-9 (`#gov-9`) requires each cross-page reference to a normative rule to resolve as a `#prefix-n` fragment to the depended-upon rule's anchor; section-level links are licensed only where the owning page is pure-narrative. The cells therefore stand as GOV-9 defects, and a reviewer cannot trace a diagnostic row to its specific obligation without reading the whole linked section. A minority of rows already conform (e.g. the `loom/load/discovery-slow` row targets `…/package-and-settings.md#disc-6`), so the target form is achievable per-row.
+
+## Solution approach
+
+Rewrite each *Spec rule* cell's link target in the four `code-registry-*.md` tables to the `#prefix-n` REQ-ID anchor of the rule the diagnostic implements, keeping the link text unchanged. Where the depended-upon obligation carries no REQ-ID anchor yet (a GOV-22 standing defect on the owner page, `#gov-22`), leave the section-level link in place and flag it as anchor-pending. Where a row cites several source rules, rewrite each per-source link to its own `#prefix-n` anchor.
+
+## Solution constraints
+
+- Out of scope: coining or editing REQ-ID anchors on the owning topic pages; un-anchored obligations are landed by T12, T13, and T14.
+- Edit only the *Spec rule* column of the four `code-registry-*.md` tables; do not modify diagnostic codes, messages, or other columns.
+
+## Relationships
+
+- T14 "Un-anchored normative obligations across `cancellation.md`" - must-follow (the cancellation-routed diagnostic rows cannot be repointed to `#cncl-n` anchors until those anchors exist; T14 must land first).
+- T13 "Binder *System-prompt structure (normative)* items 1–8 carry no REQ-ID anchors" - must-follow (binder-routed diagnostic rows depending on those items become repointable once the per-item `BNDR-N` anchors land).
+- T12 "Compact-transcript reference renderings A–D — no per-rendering identifiers" - must-follow (any diagnostic citing a specific reference rendering becomes repointable once those anchors are coined).
 
 ---

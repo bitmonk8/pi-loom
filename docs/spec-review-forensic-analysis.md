@@ -193,3 +193,20 @@ it does not persist across worktree wipes)._
 - **Fixer notes:** none
 
 ---
+
+## 2026-06-05 — T09 - Diagnostic code-registry *Spec rule* cells bypass GOV-9 `#prefix-n` cross-link form
+
+- **Failure mode:** fast-loop-unresolved
+- **Category:** 2 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** n/a (fast loop — no inner-loop trajectory)
+- **Score trajectory:** n/a
+- **Passes:** n/a
+- **Stage at exit:** n/a (fast loop — no staged dispatch)
+- **Snapshot refs (retained for forensics):** n/a
+- **Poisoned fixes:** n/a
+- **Forensic report:** none (fast loop — no forensic report)
+- **Parked findings (this run):** `T09 - Diagnostic code-registry *Spec rule* cells bypass GOV-9 #prefix-n cross-link form`
+- **Loop notes:** finding not resolved by fast fix (partial — fast fix repointed 8 cells in code-registry-load.md / code-registry-runtime.md to live anchors (DISC-2/3/4, PIC-8/9) with zero floor regressions and no dangling targets, but the host and parse code-registry tables were left entirely untouched and many cells with available owner-page REQ-ID anchors remain un-repointed; reviewer marked partial)
+- **Fixer notes:** none
+
+---

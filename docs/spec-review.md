@@ -4,7 +4,7 @@ _Generated: 2026-06-05T00:00:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blockers, 0 high, 9 medium retained, 2 medium parked; 10 low discarded; 5 low findings merged into 2 medium findings; 12 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 0 high, 8 medium retained, 3 medium parked; 10 low discarded; 5 low findings merged into 2 medium findings; 12 nit dropped; 0 false dropped._
 
 ---
 
@@ -232,30 +232,3 @@ Pin `BashExecutionMessage.excludeFromContext` to its declaration at `dist/core/m
 ## Relationships
 
 None
-# T09 - Diagnostic code-registry *Spec rule* cells bypass GOV-9 `#prefix-n` cross-link form
-
-**Kind:** traceability
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The *Spec rule* column in the four diagnostic code-registry tables (`code-registry-load.md`, `code-registry-parse.md`, `code-registry-runtime.md`, `code-registry-host.md`) links to owner topic-page roots or section-level heading slugs rather than to `#prefix-n` REQ-ID anchors. The owning pages are non-narrative, so GOV-9 (`#gov-9`) requires each cross-page reference to a normative rule to resolve as a `#prefix-n` fragment to the depended-upon rule's anchor; section-level links are licensed only where the owning page is pure-narrative. The cells therefore stand as GOV-9 defects, and a reviewer cannot trace a diagnostic row to its specific obligation without reading the whole linked section. A minority of rows already conform (e.g. the `loom/load/discovery-slow` row targets `…/package-and-settings.md#disc-6`), so the target form is achievable per-row.
-
-## Solution approach
-
-Rewrite each *Spec rule* cell's link target in the four `code-registry-*.md` tables to the `#prefix-n` REQ-ID anchor of the rule the diagnostic implements, keeping the link text unchanged. Where the depended-upon obligation carries no REQ-ID anchor yet (a GOV-22 standing defect on the owner page, `#gov-22`), leave the section-level link in place and flag it as anchor-pending. Where a row cites several source rules, rewrite each per-source link to its own `#prefix-n` anchor.
-
-## Solution constraints
-
-- Out of scope: coining or editing REQ-ID anchors on the owning topic pages; un-anchored obligations are landed by T12, T13, and T14.
-- Edit only the *Spec rule* column of the four `code-registry-*.md` tables; do not modify diagnostic codes, messages, or other columns.
-
-## Relationships
-
-- T14 "Un-anchored normative obligations across `cancellation.md`" - must-follow (the cancellation-routed diagnostic rows cannot be repointed to `#cncl-n` anchors until those anchors exist; T14 must land first).
-- T13 "Binder *System-prompt structure (normative)* items 1–8 carry no REQ-ID anchors" - must-follow (binder-routed diagnostic rows depending on those items become repointable once the per-item `BNDR-N` anchors land).
-- T12 "Compact-transcript reference renderings A–D — no per-rendering identifiers" - must-follow (any diagnostic citing a specific reference rendering becomes repointable once those anchors are coined).
