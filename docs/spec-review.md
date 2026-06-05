@@ -1713,28 +1713,3 @@ Rewrite the §5 "Source-derived placeholders" unknown-frontmatter-field test-vec
 ## Relationships
 
 - T41 "Diagnostic registry pointers cite the wrong file and overclaim completeness" — same-cluster.
-# T71 - Brand-string mechanism relies on unverified `tsc` verbatim output
-
-**Kind:** assumptions
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The build-time `SessionShutdownEvent['reason']` type-equality assertion gated by [Pi version bump procedure step 5](version-bump-triggers.md) relies on `tsc` surfacing the literal brand string `loom/typecheck/session-shutdown-reason-snapshot` verbatim and grep-ably in its type-mismatch diagnostic — the property step 1's brand-string carve-out, the step-5 trigger (ii) discriminator, and the patch-skew degradation gate all key on. No TypeScript version is named or pinned anywhere in the spec corpus, and the verbatim-brand surfacing behaviour is assumed rather than verified against any concrete `tsc` release. If a TypeScript version reshapes literal-type mismatch diagnostics so the brand no longer appears grep-ably, the gate silently fails to fire.
-
-## Solution approach
-
-Add a TypeScript toolchain version floor to the [host-prerequisites Pi SDK pin section](host-prerequisites.md#pi-sdk-pin), naming the `tsc` version against which the verbatim, grep-able brand-string surfacing was confirmed, and record that confirmation. Forward-link the brand-string-surfacing reliance in [version-bump step 5](version-bump-triggers.md) to that pin so the assumption is traceable to a verified `tsc` version.
-
-## Solution constraints
-
-None.
-
-## Relationships
-
-- T46 "`SessionShutdownEvent` rename matched against an open TS-code family" — same-cluster.
