@@ -1468,28 +1468,4 @@ Move the write-back preservation presupposition from `discovery/package-and-sett
 ## Relationships
 
 None.
-# T61 - `label` derivation rule and its own example disagree on capitalisation
-
-**Kind:** clarity
-**Importance:** high
-**Score:** 100
-**Must-fix:** true
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-In `extension-bootstrap-and-per-loom.md` (Per-loom registration → Field derivations), the `label` derivation rule says the basename is taken "with hyphens preserved and the leading character capitalised", but the accompanying example `code-review.loom → "Code-Review"` capitalises every hyphen-separated segment, not just the leading character. The two specify divergent observable `label` values for any multi-segment basename.
-
-## Solution approach
-
-Reconcile the `label` derivation rule and its examples in `extension-bootstrap-and-per-loom.md` so they yield one observable output — either rewrite the rule text to state per-segment capitalisation, or correct the example to match leading-character-only capitalisation.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-None.
 
