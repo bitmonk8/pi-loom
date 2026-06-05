@@ -1079,27 +1079,3 @@ Extend the `**Serialised content format.**` block in `diagnostics/diagnostic-sha
 ## Relationships
 
 - T42 "Placeholder-rendering closure omits live placeholders" — same-cluster.
-# T45 - No behaviour defined when `ctx.ui.notify` (transient-toast surface) itself throws
-
-**Kind:** error-model
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The **Transient toasts (auxiliary)** surface in `diagnostics/diagnostic-shape.md` is the only sink for the failures it enumerates (the chokidar watcher throwing, an uncovered settings I/O exception, an internal extension-invariant violation) and is invoked from watcher callbacks and invariant-check sites. No behaviour is defined for the case where `ctx.ui.notify` itself throws, even though `host-interfaces-core.md` documents `ui.notify` as synchronous and able to throw.
-
-## Solution approach
-
-Clarify the **Transient toasts (auxiliary)** paragraph in `diagnostics/diagnostic-shape.md` to state that a synchronous throw from `ctx.ui.notify` on this surface MUST be swallowed as a last resort, mirroring the `console.error`-throw swallow rule anchored at `#diagnostic-emission-isolation`.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-None.
