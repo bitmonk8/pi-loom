@@ -4,7 +4,7 @@ _Generated: 2026-06-05T11:52:38Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T83) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 blocker, 15 high, 59 medium retained; ~139 low discarded; ~0 low merged into medium; ~122 nit dropped; 0 false dropped. Source: 344 deduplicated findings across 9 shards + global lenses; 75 retained after triage. Foundational governance/traceability findings (T75–T83) and the standalone blocker (T74) sit at the bottom for first addressing._
+_Triage tally: 1 blocker, 15 high, 59 medium retained; ~139 low discarded; ~0 low merged into medium; ~122 nit dropped; 0 false dropped. Source: 344 deduplicated findings across 9 shards + global lenses; 74 retained after triage. Foundational governance/traceability findings (T75–T83) and the standalone blocker (T74) sit at the bottom for first addressing._
 
 ---
 
@@ -977,30 +977,3 @@ Clarify the `### loom/runtime/*` intro's `(the rows below tagged as panics)` par
 ## Relationships
 
 None.
-
----
-# T41 - Diagnostic registry pointers cite the wrong file and overclaim completeness
-
-**Kind:** consistency, naming
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The split diagnostic registry has inconsistent cross-references. In `diagnostic-shape.md` the `loom/runtime/*` namespace bullet links its `loom/runtime/* registry section` to `code-registry-load.md#loom-runtime-namespace`, an empty stub anchor, rather than to `code-registry-runtime.md` where the runtime table actually lives and where `error-model.md` correctly points. Separately, `code-registry-parse.md`'s intro claims its table "enumerates every diagnostic the V1 spec defines" while it holds only `loom/parse/*` rows; the registry is split across the parse, load, runtime, and host pages, and inbound links treat `#code-registry` as the whole registry.
-
-## Solution approach
-
-In `diagnostic-shape.md`'s `loom/runtime/*` namespace bullet, re-point the `loom/runtime/* registry section` link to `code-registry-runtime.md`, and reconcile the now-orphaned `#loom-runtime-namespace` stub anchor in `code-registry-load.md`. Correct the `code-registry-parse.md` intro's completeness claim so it describes the registry as spanning the parse, load, runtime, and host pages rather than enumerating every diagnostic.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T70 "§5 test vector contradicts the rule it illustrates" — same-cluster (diagnostics registry correctness).
