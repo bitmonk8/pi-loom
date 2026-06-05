@@ -4,7 +4,7 @@ _Generated: 2026-06-05T11:52:38Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T83) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 blocker, 15 high, 59 medium retained; ~139 low discarded; ~0 low merged into medium; ~122 nit dropped; 0 false dropped. Source: 344 deduplicated findings across 9 shards + global lenses; 74 retained after triage. Foundational governance/traceability findings (T75–T83) and the standalone blocker (T74) sit at the bottom for first addressing._
+_Triage tally: 1 blocker, 15 high, 58 medium retained; ~139 low discarded; ~0 low merged into medium; ~122 nit dropped; 0 false dropped. Source: 344 deduplicated findings across 9 shards + global lenses; 73 retained after triage. Foundational governance/traceability findings (T75–T83) and the standalone blocker (T74) sit at the bottom for first addressing._
 
 ---
 
@@ -881,27 +881,3 @@ Rewrite PIC-9's `AgentSession.abort()` paragraph at `id="pic-9"` so the discarde
 
 - T15 "Esc-cancellation correctness assumes the abort flips within a single macrotask" — same-cluster.
 - T32 "PIC-9 relies on `dispose()` being safe mid-`abort()`" — same-cluster.
-# T37 - `String(event.reason)` coercion-throw is not covered by the `<unreadable>` fallback
-
-**Kind:** assumptions
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-PIC's **Unknown-reason rule** (`#unknown-reason-rule`) asserts `String(event.reason)` "tolerates symbols, `undefined`, numbers, booleans, and objects without itself throwing" and scopes the `"<unreadable>"` sentinel only to a throwing property access (the `event.reason` read). Coercion of an object whose `toString`/`Symbol.toPrimitive` throws makes `String(...)` itself throw — an unmodelled escape from the handler. The sibling `String(error)` coercion in the same rule's `"throw:<String(error)>"` discriminator is explicitly wrapped in `try`/`catch` with a `"throw:<unreadable>"` fallback, so the coercion-throw case is defended there but not for `event.reason`.
-
-## Solution approach
-
-Clarify the Unknown-reason rule's `String(event.reason)` coercion clause (`#unknown-reason-rule`) to define behaviour when the coercion itself throws, extending the `"<unreadable>"` sentinel to that path on the model of the sibling `String(error)` `try`/`catch` defence in the same rule; or cite the clause that already owns the coercion-throw fallback.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-None.
