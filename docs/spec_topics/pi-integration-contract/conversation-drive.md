@@ -17,39 +17,6 @@
 
 > **loom 1.0 seam — typed-query supported provider set.** <a id="loom-1-0-seam-typed-query-supported-provider-set"></a><a id="v1-seam-typed-query-supported-provider-set"></a> The loom 1.0 typed-query-supported provider set (`anthropic-messages`, `openai-completions`, `mistral`, `amazon-bedrock`) is referenced by the load-time `loom/load/typed-query-unsupported-provider` warning emitter and the runtime guard that synthesises the unsupported-provider `TransportError`. The deferred *Typed-query support for providers without named-tool forcing* extension in [Future Considerations](../future-considerations.md) widens this set (and adds a JSON-mode / system-prompt fallback for the new entries) without touching the typed-query behavioural contract above; widening the set is the only behavioural surface the extension perturbs. *Non-normative implementation note.* loom 1.0 expects the provider set to be exposed as a single named runtime constant referenced by every consumer (rather than inlining the four-element list at each site) so there is one source of truth to widen; this single-constant factoring is a maintainability convention, not an observable conformance point.
 
-<a id="pic-typed-query-noncompliance"></a> **loom 1.0 diagnostic limitation.** When a typed query routes through a provider in the loom 1.0 supported set (`anthropic-messages`, `openai-completions`, `mistral`, `amazon-bedrock`) — most commonly an OpenAI-compatible local backend — but the specific model ignores forced-tool selection on the forced respond turn (by emitting plain text, or by invoking a tool whose name is not `__loom_respond_<slug>`), the runtime cannot distinguish this from any other case where the model fails to call the respond tool. The runtime classifies the case as a schema-validation failure and routes it through the respond-repair pipeline below; it does NOT surface as `tool_loop_exhausted`, which is unreachable on the forced respond turn because that turn is the exempt-routed terminator dispatched by CIO-4's `max_rounds`-final branch (see [Hard Runtime Ceilings — CIO-4](../hard-ceilings/ceilings-3-and-4.md#cio-4)). For each forced respond turn that does not invoke `__loom_respond_<slug>`, the runtime synthesises a single `ValidationIssue` (per [Errors and Results — `ValidationError`](../errors-and-results/queryerror-variants.md#queryerror-variants)). The non-compliance branch is observable in the synthesised issue's `message` literal; `path` and `schema_keyword` are uniform across both branches.
+<a id="pic-typed-query-noncompliance"></a> **loom 1.0 diagnostic limitation.** When a typed query routes through a provider in the loom 1.0 supported set (`anthropic-messages`, `openai-completions`, `mistral`, `amazon-bedrock`) — most commonly an OpenAI-compatible local backend — but the specific model ignores forced-tool selection on the forced respond turn (by emitting plain text, or by invoking a tool whose name is not `__loom_respond_<slug>`), the runtime cannot distinguish this from any other case where the model fails to call the respond tool. The runtime classifies the case as a schema-validation failure and routes it through the respond-repair pipeline; it does NOT surface as `tool_loop_exhausted`, which is unreachable on the forced respond turn because that turn is the exempt-routed terminator dispatched by CIO-4's `max_rounds`-final branch (see [Hard Runtime Ceilings — CIO-4](../hard-ceilings/ceilings-3-and-4.md#cio-4)). For each forced respond turn that does not invoke `__loom_respond_<slug>`, the runtime synthesises a single `ValidationIssue` and feeds it through that pipeline. The non-compliance branch is observable in the synthesised issue's `message` literal; `path` and `schema_keyword` are uniform across both branches. The normative synthesised shapes — the plain-text and wrong-tool `ValidationIssue` literals, the terminal `Err(QueryError { kind: "validation", cause: "schema_validation", ... })` shape, the per-attempt accounting, and the `raw_response` null-vs-body disambiguation — are defined at [Errors and Results — Forced-respond non-compliance synthesised shapes (ERR-17)](../errors-and-results/queryerror-variants.md#err-17). Separating provider-level from model-level non-compliance is out of scope for loom 1.0.
 
-*Plain-text branch* — the forced respond turn carried plain text and no `tool_use` block:
-
-```
-{ path: "",
-  schema_keyword: "required",
-  message: "model returned plain text instead of calling the forced respond tool" }
-```
-
-*Wrong-tool branch* — the forced respond turn carried only `tool_use` blocks whose `name` is not `__loom_respond_<slug>` (independent of whether plain text accompanies them):
-
-```
-{ path: "",
-  schema_keyword: "required",
-  message: "model invoked tool '<provider-emitted-tool-name>' instead of the forced respond tool '__loom_respond_<slug>'" }
-```
-
-The `<provider-emitted-tool-name>` placeholder is the `name` field of the provider's `tool_use` block, verbatim; when multiple wrong-tool calls appear in the same turn, the first block's `name` is used (consistent with the "single `ValidationIssue`" rule above).
-
-The synthesised issue feeds the same respond-repair pipeline as an AJV failure: it consumes one `respond_repair.attempts` slot, and the follow-up template is the methodology-appropriate one (the `validator_error` template's `<ajv-summary>` placeholder is rendered from this synthesised issue exactly as if AJV had produced it). Terminal exhaustion returns:
-
-```
-Err(QueryError {
-  kind: "validation",
-  cause: "schema_validation",
-  attempts: respond_repair.attempts,                  // the configured budget
-  validation_errors: [<synthesised issue from final attempt>],
-  raw_response: <plain-text body of the final forced respond turn, or null when that turn carried no plain-text body>,
-  message: "model did not call the forced respond tool"
-})
-```
-
-The `raw_response: null` case is the wrong-tool branch when the model emitted a `tool_use` block with no accompanying plain text; this matches the `ToolLoopExhaustedError` precedent under [Errors and Results — `raw_response`](../errors-and-results/queryerror-variants.md#queryerror-variants) ("`null` when exhaustion fired on a pure tool-use turn"). When the wrong-tool turn does carry plain text alongside the `tool_use` block, `raw_response` is that plain-text body.
-
-With `respond_repair.methodology: none`, the *first* forced respond turn that does not invoke `__loom_respond_<slug>` returns the same `Err` shape with `attempts: 0` (no follow-ups issued, consistent with the existing `none` contract). When a stub provider alternates plain-text and wrong-tool payloads across respond-repair attempts, only the *last attempt's* issue appears in `validation_errors` (consistent with the existing "final malformed assistant text" wording in `errors-and-results.md`); `raw_response` is the plain-text body of the *last* forced respond turn, or `null` when that turn carried no plain-text body — not a concatenation across attempts. The synthesised `ValidationIssue.path` is `""` (the JSON Pointer to the document root) on both branches, matching AJV's empty-path convention for root-level failures. Separating provider-level from model-level non-compliance is out of scope for loom 1.0.
+<!-- Normative ValidationIssue/Err synthesised shapes relocated to errors-and-results/queryerror-variants.md ERR-17 (co-located with the ValidationError schema and ERR-14 ordering rule); this site retains the behavioural description and forward-links the shapes. -->

@@ -47,13 +47,49 @@ schema ValidationError {
 
 `cause` is the wire-level subcause discriminator within `kind: "validation"`. Two arms:
 
-- `cause: "schema_validation"` — the runtime issued a user turn, the model produced a response, and AJV (or the depth walk in [Schema Subset](../schema-subset.md)) rejected it. Fires on initial AJV failure, on terminal exhaustion of the respond-repair loop ([Query — Schema-validation respond-repair](../query.md)), and on depth-5 violations (`ValidationIssue { schema_keyword: "maxDepth" }`). Also fires when a typed query's forced respond turn does not invoke the synthesised `__loom_respond_<slug>` tool — either by emitting plain text, or by invoking a `tool_use` block whose `name` is not the synthesised respond tool: per [Pi Integration Contract — loom 1.0 diagnostic limitation](../pi-integration-contract/conversation-drive.md#pic-typed-query-noncompliance), the runtime synthesises a single `ValidationIssue` (with `path: ""` and `schema_keyword: "required"`; the `message` literal varies by branch and is fixed by the PIC section's two-arm contract) for that turn and feeds it into the same respond-repair pipeline. The author's recovery path is to tighten the schema, raise `respond_repair.attempts`, or switch methodology. Untyped queries never produce this cause (no AJV step runs on an untyped response).
+- `cause: "schema_validation"` — the runtime issued a user turn, the model produced a response, and AJV (or the depth walk in [Schema Subset](../schema-subset.md)) rejected it. Fires on initial AJV failure, on terminal exhaustion of the respond-repair loop ([Query — Schema-validation respond-repair](../query.md)), and on depth-5 violations (`ValidationIssue { schema_keyword: "maxDepth" }`). Also fires when a typed query's forced respond turn does not invoke the synthesised `__loom_respond_<slug>` tool — either by emitting plain text, or by invoking a `tool_use` block whose `name` is not the synthesised respond tool: per [Forced-respond non-compliance synthesised shapes (ERR-17)](#err-17) below, the runtime synthesises a single `ValidationIssue` (with `path: ""` and `schema_keyword: "required"`; the `message` literal varies by branch and is fixed by the two-arm contract there) for that turn and feeds it into the same respond-repair pipeline. The author's recovery path is to tighten the schema, raise `respond_repair.attempts`, or switch methodology. Untyped queries never produce this cause (no AJV step runs on an untyped response).
 - `cause: "empty_template"` — the runtime refused to issue a fully-rendered user turn whose body is empty or contains only ASCII whitespace per [System-note rendering](../binder/defaulting-system-note-echo.md#system-note-rendering) rule 1 (the language-dependent `\s` class is not used) ([Query — Degenerate rendered templates](../query.md)). No provider round-trip occurred, no model output exists. The author's recovery path is to fix the template; this cause is a programming defect, not a model-quality signal. Fires on both typed and untyped queries. `validation_errors` is `[]` and `raw_response` is `null` on this arm.
 
 Authors who want to handle the two arms differently destructure `cause` (consistent with the established `CodeToolError.cause` / `InvokeInfraError.cause` patterns — every `QueryError` variant whose `kind` partitions into multiple sub-arms uses the field name `cause`, per [Glossary — `cause`](../glossary.md)); authors who match `ValidationError { ... }` without inspecting `cause` get arm-uniform handling — the same retry / report path runs for both.
 
 <a id="validation-issue-ordering"></a>
 <a id="err-14"></a> **ERR-14.** **`ValidationIssue` ordering.** The entries of `validation_errors` (and of the `<ajv-summary>` source in [Binder — Failure-mode templates](../binder/determinism-cancellation-failure.md#failure-mode-templates-normative)) are emitted in a canonical deterministic order: a stable ascending sort keyed on the tuple (`path`, `schema_keyword`, `message`), comparing each field by Unicode code point. The underlying validator emits its own errors in an implementation-defined order (see [Pi Integration Contract — `SchemaValidator` interface](../pi-integration-contract/host-interfaces-services.md#schemavalidator-interface)); the runtime applies this canonical order when mapping those errors into `ValidationIssue` entries, so the array is reproducible across conforming validators. `validation_errors[0]` is therefore well-defined (the canonically-first issue), and conformance tests compare the issue array under this order rather than under the validator's native emission sequence.
+
+<a id="forced-respond-noncompliance-shapes"></a>
+<a id="err-17"></a> **ERR-17.** **Forced-respond non-compliance synthesised shapes.** When a typed query's forced respond turn does not invoke the synthesised `__loom_respond_<slug>` tool — by emitting plain text, or by invoking a `tool_use` block whose `name` is not the synthesised respond tool — the runtime synthesises a single `ValidationIssue` and feeds it into the same `schema_validation` respond-repair pipeline as an AJV failure. The behavioural classification of this case (the loom 1.0 diagnostic limitation that the runtime cannot distinguish model non-compliance from any other respond-tool miss) is described at [Pi Integration Contract — loom 1.0 diagnostic limitation](../pi-integration-contract/conversation-drive.md#pic-typed-query-noncompliance). The synthesised issue's `path` is `""` (the JSON Pointer to the document root, matching AJV's empty-path convention for root-level failures) and its `schema_keyword` is `"required"` on both branches; only the `message` literal varies by branch.
+
+*Plain-text branch* — the forced respond turn carried plain text and no `tool_use` block:
+
+```
+{ path: "",
+  schema_keyword: "required",
+  message: "model returned plain text instead of calling the forced respond tool" }
+```
+
+*Wrong-tool branch* — the forced respond turn carried only `tool_use` blocks whose `name` is not `__loom_respond_<slug>` (independent of whether plain text accompanies them):
+
+```
+{ path: "",
+  schema_keyword: "required",
+  message: "model invoked tool '<provider-emitted-tool-name>' instead of the forced respond tool '__loom_respond_<slug>'" }
+```
+
+The `<provider-emitted-tool-name>` placeholder is the `name` field of the provider's `tool_use` block, verbatim; when multiple wrong-tool calls appear in the same turn, the first block's `name` is used (consistent with the single-`ValidationIssue` rule above).
+
+The synthesised issue feeds the same respond-repair pipeline as an AJV failure: it consumes one `respond_repair.attempts` slot, and the follow-up template is the methodology-appropriate one (the `validator_error` template's `<ajv-summary>` placeholder is rendered from this synthesised issue exactly as if AJV had produced it). Terminal exhaustion returns:
+
+```
+Err(QueryError {
+  kind: "validation",
+  cause: "schema_validation",
+  attempts: respond_repair.attempts,                  // the configured budget
+  validation_errors: [<synthesised issue from final attempt>],
+  raw_response: <plain-text body of the final forced respond turn, or null when that turn carried no plain-text body>,
+  message: "model did not call the forced respond tool"
+})
+```
+
+`raw_response` disambiguation: the `raw_response: null` case is the wrong-tool branch when the model emitted a `tool_use` block with no accompanying plain text; this matches the `ToolLoopExhaustedError` precedent under [`raw_response`](#queryerror-variants) ("`null` when exhaustion fired on a pure tool-use turn"). When the wrong-tool turn does carry plain text alongside the `tool_use` block, `raw_response` is that plain-text body. With `respond_repair.methodology: none`, the *first* forced respond turn that does not invoke `__loom_respond_<slug>` returns the same `Err` shape with `attempts: 0` (no follow-ups issued, consistent with the existing `none` contract). When a stub provider alternates plain-text and wrong-tool payloads across respond-repair attempts, only the *last attempt's* issue appears in `validation_errors`, and `raw_response` is the plain-text body of the *last* forced respond turn (or `null` when that turn carried no plain-text body) — not a concatenation across attempts.
 
 Fires on provider transport / network failure for a query turn (see [Query — Failure modes](../query.md)). The `retryable` field is populated by transport-error class per [Pi Integration Contract — Provider error mapping](../pi-integration-contract/provider-error-mapping.md#transport-error-retryable).
 

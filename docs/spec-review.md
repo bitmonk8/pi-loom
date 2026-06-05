@@ -1568,27 +1568,3 @@ Co-locate the `checkpoint-seam` anchor with the PIC-10 `Checkpoint` seam content
 ## Relationships
 
 None.
-# T65 - Normative ValidationIssue/Err shapes live on a protocol page, absent from the errors cluster
-
-**Kind:** placement, scope
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `pic-typed-query-noncompliance` section in `conversation-drive.md` defines normative error shapes: the synthesised `ValidationIssue` literals for the plain-text and wrong-tool branches, the terminal `Err(QueryError { kind: "validation", cause: "schema_validation", ... })` shape, and the `raw_response` null-vs-body disambiguation. These shapes have no representation in the errors cluster (`queryerror-variants.md`), where the `QueryError`/`ValidationError` schema and the `err-14` `ValidationIssue` ordering rule already live. The normative error-shape definitions are therefore split from the cluster that owns error shapes.
-
-## Solution approach
-
-Move the normative `ValidationIssue`/`Err` shape definitions from `conversation-drive.md`'s `pic-typed-query-noncompliance` section into `queryerror-variants.md` alongside the existing `err-14` ValidationError content. Rewrite the PIC site as a behavioural description of the loom 1.0 diagnostic limitation with a forward-link to the relocated shapes.
-
-## Solution constraints
-
-- Relocating the normative shapes adds a defining obligation site to `queryerror-variants.md`; that site must carry a co-located REQ-ID anchor per GOV-22, and the retained PIC behavioural description must reference it by a `#err-n` cross-link per GOV-9.
-
-## Relationships
-
-None.
