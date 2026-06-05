@@ -443,27 +443,3 @@ Clarify the `?` operator section in `errors-and-results/error-model.md` to state
 ## Relationships
 
 - T58 "`?` operator gate uses an undefined `convertible` relation" — same-cluster (`?`-operator semantics).
-# T19 - Binder relies on three unpinned `complete()` behaviours
-
-**Kind:** assumptions
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The binder/driven-turn path relies on three unpinned `complete()` / session behaviours: `complete()`'s internal retry/backoff for inter-attempt timing; `complete()` honouring `options.signal` for cancellation; and the driven turn's messages being committed before `waitForIdle()` resolves for prompt-mode error/Ok extraction. None is recorded as a loom-side presupposition or carries an editorial-review item; the existing `#complete-forced-tool-presupposition` enumerates only two other `complete()` properties, and the slash-handler lifecycle presupposition guarantees only eventual `agent_end`.
-
-## Solution approach
-
-Record each of the three reliances as a loom-side consumption-posture presupposition in the style of the existing `#complete-forced-tool-presupposition` and `#pi-slash-handler-promise-lifecycle-presupposition` paragraphs. Add a corresponding item to the *Editorial-review checklist for unpinned host presuppositions* in `version-bump-step2.md` for each.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T63 "Turn-lifecycle subscription surface and `pi.on` are never pinned" — same-cluster (pi-ai/pi-coding-agent consumption presuppositions).
