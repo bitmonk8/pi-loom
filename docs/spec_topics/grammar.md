@@ -94,15 +94,23 @@ A bare `Type` appears in `let` annotations, `fn` parameter types, schema field t
 
 <a id="block-expressions"></a>
 
-Loom distinguishes *expression-position blocks* (the right-hand side of `let`, `match`-arm bodies wrapped in `{ … }`, `if` / `while` arm bodies, and any other position where a value is required) from *body blocks* (a function body, the top level of a `.loom` file). Expression-position blocks require a trailing tail `Expr`; body blocks do not.
+Loom distinguishes *expression-position blocks* (the right-hand side of `let`, `match`-arm bodies wrapped in `{ … }`, and any other position where a value is required) from *body blocks* (a function body, the top level of a `.loom` file) and from *statement-form control-flow blocks* (the `{ … }` body of a statement-form `if` / `else` / `while` / `for`). Expression-position blocks require a trailing tail `Expr`; body blocks and statement-form control-flow blocks do not.
 
 ```
 BlockExpr    ::= "{" Stmt* Expr "}"           // expression-position; tail Expr required, value is the tail expression
 FnBody       ::= "{" Stmt* Expr? "}"          // function body; tail Expr optional, see Function Definitions — Empty-tail body
 LoomBody     ::= Stmt* Expr?                  // top level of a .loom file; tail Expr optional, same rule
+StmtBlock    ::= "{" Stmt* Expr? "}"          // statement-form control-flow body; tail Expr optional, value discarded
+
+IfStmt       ::= "if" Expr StmtBlock ElseClause?
+ElseClause   ::= "else" (IfStmt | StmtBlock)
+WhileStmt    ::= "while" Expr StmtBlock
+ForStmt      ::= "for" Ident "in" Expr StmtBlock
 ```
 
 When `FnBody` or `LoomBody` is parsed without a trailing `Expr`, the function or loom's inferred return type is `null` (the literal type) and its final value is the literal `null`, per [Function Definitions — Empty-tail body](./functions.md#empty-tail-body). Authors who want the function or loom to be syntactically required to produce a value should declare an explicit non-`void` / non-`null` return type; `void` is the explicit "intentionally produces no value" annotation and is governed by the same page.
+
+A statement-form `if` / `for` / `while` (the `IfStmt` / `WhileStmt` / `ForStmt` productions above, whose surface forms and diagnostics are owned by [Control Flow](./control-flow.md)) is a statement, not an expression: it produces no value and is not admissible in expression position — the ternary `cond ? a : b` is the expression form of conditional. Its `StmtBlock` body accepts zero or more statements with an optional tail `Expr`; an empty `{}` body is admitted. A present tail `Expr` is evaluated and its value is discarded (the block produces no value), except that a tail `Expr` of the `@…?` form still triggers `?` early-return on failure, because `?` desugars to `return Err(e)` per [Return Statement](./return.md).
 
 ## `match` arm body
 

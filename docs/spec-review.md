@@ -4,7 +4,7 @@ _Generated: 2026-06-05T00:00:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 2 blocker, 6 high, 14 medium retained; 10 low discarded; 5 low findings merged into 2 medium findings; 12 nit dropped; 0 false dropped._
+_Triage tally: 1 blocker, 6 high, 14 medium retained; 10 low discarded; 5 low findings merged into 2 medium findings; 12 nit dropped; 0 false dropped._
 
 ---
 
@@ -568,28 +568,3 @@ Rewrite the strict-capability gate sentence in the `bind_model` row of `frontmat
 ## Relationships
 
 - T12 "Compact-transcript reference renderings A–D — no per-rendering identifiers" - same-cluster (touches the same owner page `binder-model-and-context.md` but a different section/seam; resolve independently).
-# T22 - Block expressions — no grammar production for statement-form `if` / `for` / `while` bodies
-
-**Kind:** completeness
-**Importance:** blocker
-**Score:** 200
-**Must-fix:** true
-**Decision axes:** 3
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The Grammar Appendix's Block-expressions section (`#block-expressions` in `grammar.md`) defines `BlockExpr` with a required tail `Expr` and classifies `if` / `while` arm bodies as expression-position `BlockExpr`, while not classifying `for` bodies at all. Every canonical statement-form example in `control-flow.md` ends in a statement (assignment, `if`-statement form, `continue` / `break`), each of which is a parse error under `BlockExpr`'s tail-required rule, and `functions.md`'s `#empty-tail-body` paragraph treats `if`-statement form as a statement — directly contradicting the grammar. No production covers a statement-form `if` / `for` / `while` body, its tail-expression optionality or value, or an empty `{}` body. Two conformant parsers will therefore diverge, breaking the GOV-15 byte-stable equivalence contract.
-
-## Solution approach
-
-Add an optional-tail block production to `grammar.md`'s Block-expressions section (the same `{ Stmt* Expr? }` form already used by `FnBody` / `LoomBody`) and have explicit statement-form `if` / `else` / `while` / `for` productions reference it, retiring the claim under `#block-expressions` that `if` / `while` arm bodies are `BlockExpr`. State that a statement-form `if` / `for` / `while` is a statement with no value, is not admissible in expression position, and that a present tail expression is evaluated and its value discarded — while a final `@…?` form still preserves the `?` early-return. Cover the empty `{}` body under the same optional-tail production.
-
-## Solution constraints
-
-- Out of scope: the `control-flow.md` and `return.md` examples — the new production MUST leave them parsing unchanged.
-
-## Relationships
-
-- T15 "`for … in` — iterand evaluation cardinality unspecified" - same-cluster (also under-specifies `for`, but resolves independently — that finding pins semantics, this one pins grammar).
