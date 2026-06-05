@@ -4,7 +4,7 @@ _Generated: 2026-06-05T11:52:38Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T83) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 blocker, 15 high, 58 medium retained; ~139 low discarded; ~0 low merged into medium; ~122 nit dropped; 0 false dropped. Source: 344 deduplicated findings across 9 shards + global lenses; 73 retained after triage. Foundational governance/traceability findings (T75–T83) and the standalone blocker (T74) sit at the bottom for first addressing._
+_Triage tally: 1 blocker, 15 high, 57 medium retained; ~139 low discarded; ~0 low merged into medium; ~122 nit dropped; 0 false dropped. Source: 344 deduplicated findings across 9 shards + global lenses; 72 retained after triage. Foundational governance/traceability findings (T75–T83) and the standalone blocker (T74) sit at the bottom for first addressing._
 
 ---
 
@@ -803,30 +803,6 @@ Rewrite the Group B bullet in `runtime-event-channel.md`'s **Runtime event chann
 ## Solution constraints
 
 - The `console.error`-only routing of these five codes is authoritative as stated in Diagnostics' **Persistent diagnostics (default).** paragraph and `#diagnostic-emission-isolation`; resolve the contradiction by editing the Group B bullet, not those owners.
-
-## Relationships
-
-None.
-# T34 - PIC-17 active-set swap/snapshot throws have no failure-mode rule
-
-**Kind:** error-model
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-PIC-17 (`id="pic-17"` in `pi-integration-contract/tool-registration-lifetime.md`) step-1 snapshot (`pi.getActiveTools()`) and step-2 swap (`pi.setActiveTools(...)`) throws have no failure-mode rule, though PIC-8 (`id="pic-8"`) authors a full restore-failure protocol for the symmetric step-4 restore call. A throw from either step is undefined behaviour in the current contract.
-
-## Solution approach
-
-Add a failure-mode rule to the PIC-17 / PIC-8 region of `tool-registration-lifetime.md` covering throws from the step-1 `pi.getActiveTools()` snapshot and the step-2 `pi.setActiveTools(...)` swap, paralleling PIC-8's restore-failure protocol. State whether the query proceeds and how each failure surfaces (the `loom/runtime/internal-error` runtime-defect channel is the candidate).
-
-## Solution constraints
-
-- None.
 
 ## Relationships
 
