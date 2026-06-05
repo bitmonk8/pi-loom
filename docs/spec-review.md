@@ -4,7 +4,7 @@ _Generated: 2026-06-05T00:00:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blockers, 6 high, 14 medium retained; 10 low discarded; 5 low findings merged into 2 medium findings; 12 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 5 high, 14 medium retained; 10 low discarded; 5 low findings merged into 2 medium findings; 12 nit dropped; 0 false dropped._
 
 ---
 
@@ -517,30 +517,3 @@ In the `context.messages` bullet at `binder-inference.md` `#binder-inference-cal
 
 - T20 "Binder structured-output tool — `name` and `label` undefined" - same-cluster (sibling under-specification of the binder `complete()` call site on the same page; both tighten the binder-inference call's per-field obligations).
 - T06 "Per-provider `complete()` forced-tool behaviour has no re-validation gate" - same-cluster (same `complete()` call shape; resolved independently — defining `context.messages` content does not affect whether the per-provider `toolChoice` mapping is gated).
-# T20 - Binder structured-output tool — `name` and `label` undefined
-
-**Kind:** implementability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 3
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The binder inference call's `context.tools` bullet (in the `binder-inference-call` section of `binder-inference.md`) pins exactly one entry — the binder's structured-output tool — and the result-extraction sentence recovers the envelope from the first returned `ToolCall` whose `name` matches that tool. But the tool's `name`, `label`, and `description` are never pinned. The forced-tool mechanism (`options.toolChoice`) and the `AssistantMessage.content` walk both depend on a concrete `name`, so two implementations cannot agree on what to send the provider or what to match; and `ToolDefinition.label` and `description` are required SDK fields (per `provider-error-mapping.md` spawn rule 1 and the five-field enumeration in `extension-bootstrap-and-per-loom.md`), so omitting them is a construction-time failure. The parallel synthesised typed-query respond tool is pinned to the byte (`__loom_respond_<slug>` / `"Loom typed-query response"`) while this structural sibling is not.
-
-## Solution approach
-
-Rewrite the `context.tools` bullet in the `binder-inference-call` section to pin the synthesised tool's three remaining required `ToolDefinition` fields. Pin `name` as `__loom_bind_<slug>` (`<slug>` from the canonical-schema-hash recipe at `schema-subset.md#canonical-schema-hash`, the same recipe `__loom_respond_<slug>` uses), `label` as the literal `"Loom binder envelope"`, and `description` as a fixed literal, mirroring the typed-query respond-tool pin in `extension-bootstrap-and-per-loom.md`.
-
-## Solution constraints
-
-- Out of scope: the `context.messages` bullet of the binder inference call (owned by T19).
-
-## Relationships
-
-- T19 "Binder `complete()` `context.messages` content undefined" - same-cluster (same call site, sibling under-specification of the binder `complete()` call shape).
-- T07 "Initial forced respond turn — instruction wording status undeclared" - same-cluster (symmetric asymmetry — both flag silent spots in otherwise meticulously pinned forced-tool surfaces).
-- T06 "Per-provider `complete()` forced-tool behaviour has no re-validation gate" - must-precede (pinning a concrete `name` is the prerequisite that the per-provider `toolChoice` re-validation gate would actually assert against).
