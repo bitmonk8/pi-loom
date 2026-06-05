@@ -4,7 +4,7 @@ _Generated: 2026-06-05T11:52:38Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T83) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 blocker, 20 high, 62 medium retained; ~139 low discarded; ~0 low merged into medium; ~122 nit dropped; 0 false dropped. Source: 344 deduplicated findings across 9 shards + global lenses; 83 retained after triage. Foundational governance/traceability findings (T75–T83) and the standalone blocker (T74) sit at the bottom for first addressing._
+_Triage tally: 1 blocker, 19 high, 62 medium retained; ~139 low discarded; ~0 low merged into medium; ~122 nit dropped; 0 false dropped. Source: 344 deduplicated findings across 9 shards + global lenses; 82 retained after triage. Foundational governance/traceability findings (T75–T83) and the standalone blocker (T74) sit at the bottom for first addressing._
 
 ---
 
@@ -2003,28 +2003,3 @@ Coin one DIAG-N REQ-ID per normative rule in the "Code registry rules (normative
 ## Relationships
 
 - T83 "CIO-1..6 are declared REQ-IDs but have no anchors" — same-cluster (REQ-ID anchor coinage backfill).
-# T83 - CIO-1..6 are declared REQ-IDs but have no anchors; `#cio-n` does not resolve
-
-**Kind:** traceability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The six `**CIO-N.**` list items in the "Interaction between ceilings" section (`#ceiling-interaction-order` in `hard-ceilings/ceilings-3-and-4.md`) are full REQ-IDs under the `CIO` prefix governed by GOV-1 / GOV-3 / GOV-8 / GOV-9, but they carry no `<a id="cio-n"></a>` anchors at their defining sites. Consequently `#cio-1`..`#cio-6` do not resolve and GOV-9's `#prefix-n` cross-link contract is unsatisfiable for these REQ-IDs. Inbound references to a specific CIO rule land on the section anchor `#ceiling-interaction-order` rather than on the intended rule.
-
-## Solution approach
-
-Add a GOV-1 dual-form `<a id="cio-n"></a>` anchor co-located with each `**CIO-N.**` marker at its defining site in `#ceiling-interaction-order`. Repoint cross-references that target a specific CIO rule to the corresponding `#cio-n` anchor.
-
-## Solution constraints
-
-- `CIO` is an already-registered REQ-ID prefix; this is anchor backfill on existing IDs, not new-prefix or new-ID allocation (no GOV-7 row).
-
-## Relationships
-
-- T82 "`DIAG` prefix has no DIAG-N IDs" — same-cluster.
