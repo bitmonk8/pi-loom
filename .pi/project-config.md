@@ -25,7 +25,10 @@ commitAddPaths:
 pi-loom's spec carries **two governed identifier classes**, both defined and
 gated on `docs/spec_topics/governance.md`:
 
-- **REQ-IDs** (GOV-1 .. GOV-15). Prefix grammar `[A-Z]{2,4}`, numeric tail
+- **REQ-IDs** (currently GOV-1, GOV-3, GOV-5–GOV-9, GOV-12, GOV-14–GOV-24,
+  with GOV-2/4/10/11/13 retired; this snapshot is not authoritative —
+  `docs/spec_topics/governance.md` owns the live GOV set). Prefix grammar
+  `[A-Z]{2,4}`, numeric tail
   `[1-9][0-9]*`, canonical anchor `**PREFIX-N.**`. Live prefixes are
   registered in the *REQ-ID prefix table* on `governance.md` (`CEIL`,
   `CIO`, `GOV`, `PIC`, plus every topic-page prefix: `LEX`, `TYPE`, `SCHM`,
@@ -64,6 +67,15 @@ gated on `docs/spec_topics/governance.md`:
   (immutability of the original ID under split, anchor lifecycle,
   retirement of the parent if the split fully replaces it). This is
   normal-course REQ-ID governance, not "inventing" a new ID.
+- **MUST** coin a `PREFIX-N` REQ-ID anchor in the same commit when the
+  edit adds a *defining obligation site* — or strengthens the
+  normative-modal content of an existing one — on a non-narrative spec
+  page and that site carries no co-located REQ-ID anchor in the
+  post-edit text. Allocate the numeric tail per GOV-3 under the page's
+  already-registered prefix; this is GOV-22's progressive-coinage
+  obligation, without which GOV-9's `#prefix-n` cross-link contract is
+  unsatisfiable for the freshly added or strengthened site. See
+  `docs/spec_topics/governance/req-id-prefix-table-active-b.md#gov-22`.
 
 **Anchor governance.** GOV-1's *Required HTML-anchor contexts* and
 *Dual-form layout* obligations apply to all anchor sites — both classes

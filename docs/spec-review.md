@@ -4,7 +4,7 @@ _Generated: 2026-06-04T21:31:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T34) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 7 high, 15 medium retained; 12 low discarded; 10 low findings merged into 4 medium findings; 3 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 7 high, 14 medium retained; 12 low discarded; 10 low findings merged into 4 medium findings; 3 nit dropped; 0 false dropped._
 
 ---
 
@@ -398,30 +398,3 @@ Move the **Runtime observability** bullet out of the top-of-file region of `docs
 ## Relationships
 
 - T13 "NFR aggregator section delivers one of the three bullets it announces" - co-resolve (same NFR aggregator section under-delivers; that finding moves the Source-language stability bullet from the same top-of-file region into the same target section; one edit pass resolves both).
-# T15 - `.pi/project-config.md` Spec-rules understates the active GOV set and omits GOV-22's coinage MUST
-
-**Kind:** doc-alignment-broad
-**Importance:** medium
-**Score:** 35
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`project-config.md`'s `## Spec rules` summarises REQ-IDs as "**REQ-IDs** (GOV-1 .. GOV-15)". The live GOV set on `docs/spec_topics/governance.md` and its sub-pages is GOV-1, GOV-3, GOV-5–GOV-9, GOV-12, GOV-14–GOV-24 (GOV-2/4/10/11/13 retired), so the cited range both understates the active surface and implies a contiguous block that no longer exists. The summary also omits GOV-22's same-commit coinage obligation: a fixer reading `project-config.md` as the REQ-ID entry point learns allocation rules for already-anchored obligations but is never told that adding — or strengthening the normative-modal content of — a defining obligation site without a co-located REQ-ID anchor obliges coining a `PREFIX-N` anchor in the same commit. That gap leaves GOV-9's `#prefix-n` cross-link contract unsatisfiable for the new site.
-
-## Solution approach
-
-Rewrite the REQ-IDs range citation in `## Spec rules` so it names the live GOV set without implying contiguity and defers to `governance.md` as the authoritative source rather than freezing the enumeration. Add a fixer-facing allocation rule covering the GOV-22 case — coining a `PREFIX-N` anchor at a freshly added or strengthened defining obligation site under the page's already-registered prefix — with a forward-link to `governance/req-id-prefix-table-active-b.md#gov-22`.
-
-## Solution constraints
-
-- The live-GOV enumeration is owned by `governance.md`; `project-config.md` MUST NOT present a frozen GOV list as authoritative — cite `governance.md` as the source (a "currently …" snapshot pointing back to it is acceptable).
-
-## Relationships
-
-- T11 "Type-compatibility rules cited by positional ordinal with no per-rule anchor" - must-precede (a fixer working only from project-config would not know GOV-22 obliges coinage; landing this fix first reduces the chance the TYPE-N coinage is skipped on subsequent passes).
-- T12 "`tools:` allowlist enforcement cross-reference violates GOV-9 `#prefix-n` form" - must-precede (the PIC-N coinage half of that fix depends on a fixer knowing GOV-22's obligation).
-- T07 "GOV-21 bundles five independently testable sub-clauses" - same-cluster (if GOV-21 splits into GOV-25..GOV-29, the "currently GOV-1..GOV-24" snapshot must be updated in the same edit; otherwise independent).
