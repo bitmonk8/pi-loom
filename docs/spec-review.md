@@ -4,7 +4,7 @@ _Generated: 2026-06-05T00:00:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blockers, 0 high, 6 medium retained, 3 medium parked; 10 low discarded; 5 low findings merged into 2 medium findings; 12 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 0 high, 5 medium retained, 3 medium parked; 10 low discarded; 5 low findings merged into 2 medium findings; 12 nit dropped; 0 false dropped._
 
 ---
 
@@ -155,31 +155,3 @@ Record a loom-side presupposition naming the five turn-lifecycle events and thei
 - T06 "Per-provider `complete()` forced-tool behaviour has no re-validation gate" - same-cluster (sibling finding; both ask for a behavioural Pi-host obligation recorded against a re-validation surface; different consuming surfaces; resolved independently).
 - T04 "Factory-time `FileSystem.cwd() == project root` premise is unpinned" - same-cluster (sibling finding; same fix shape, different surface).
 - T18 "Per-invocation transport-class binder retry — inter-attempt timing unspecified" - same-cluster (both touch the binder's pi-ai call surface and the cancellation/`ctx.signal` interaction; resolve independently).
-# T06 - Per-provider `complete()` forced-tool behaviour has no re-validation gate
-
-**Kind:** assumptions
-**Importance:** medium
-**Score:** 35
-**Must-fix:** false
-**Decision axes:** 3
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The typed-query forced respond turn and the binder structured-output call both depend on two behavioural properties of `@earendil-works/pi-ai`'s `complete()` for each loom 1.0-supported provider (`anthropic-messages`, `openai-completions`, `mistral`, `amazon-bedrock`): that calling with `options.toolChoice = { type: "tool", name }` actually forces the named tool, and that it attaches no turn to a concurrently-driven `AgentSession`. Both properties are stated only in prose (`conversation-drive.md`, `binder-inference.md`, `implementation-notes.md`) with no fixture or bump-time gate, unlike the sibling pi-ai-coupled surfaces on the same pages — the seed-field `Api`-coverage assertion, the overflow-signature checklist item (i) (`#bump-checklist-provider-overflow-wording`), and the SDK capability inventory. A pi-ai minor that silently regresses either property breaks every typed query and binder inference against the affected provider, and the runtime surfaces the model-non-compliance diagnostic branch — which the spec says cannot be distinguished from provider-level non-compliance — so authors get no signal that the cause is a pi-ai adapter regression.
-
-## Solution approach
-
-Add a back-referenceable presupposition anchor in `conversation-drive.md` beside the **Provider compatibility for typed queries** paragraph, stating the two behavioural claims (named-tool forcing under `options.toolChoice`, and no turn attached to a concurrently-driven `AgentSession`). Add a SHOULD-level item to the *Editorial-review checklist for unpinned host presuppositions* in `version-bump-step2.md` that back-references that anchor and obliges a per-provider fixture re-run plus an off-session-turn inspection, with the outcome recorded as pass/fail/N/A. Add forward-links to the new anchor from `conversation-drive.md`'s forced respond turn site and `binder-inference.md`'s `options.toolChoice` bullet.
-
-## Solution constraints
-
-- The new checklist item and the presupposition paragraph it back-references MUST land in the same edit, per `version-bump-step2.md`'s "added to this checklist in the same edit" obligation.
-
-## Relationships
-
-- T20 "Binder structured-output tool — `name` and `label` undefined" - must-follow (this gate asserts against a concrete forced-tool target name; the binder tool's `name` must be pinned first for the gate to have something to assert against).
-- T19 "Binder `complete()` `context.messages` content undefined" - same-cluster (same `complete()` call shape; resolved independently).
-- T05 "Cancellation forwarding — turn-lifecycle event delivery not in SDK capability inventory" - same-cluster (sibling finding; different consuming surface; resolved independently).
-
