@@ -1419,27 +1419,3 @@ In `errors-and-results/error-model.md`, rewrite the `?`-operator gate's enclosin
 ## Relationships
 
 - T18 "`?` applied to a non-`Result` operand has no diagnostic" — same-cluster (`?`-operator semantics).
-# T59 - Two normative surfaces disagree on the trailing-continuation operator set
-
-**Kind:** clarity
-**Importance:** high
-**Score:** 100
-**Must-fix:** true
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`lexical.md`'s "Statement terminators." paragraph lists the trailing-continuation trigger as "binary or unary" operator, while the normative `grammar.md` newline-continuation table (and `expressions.md` "Newline continuation") say "binary or ternary". Two normative surfaces disagree on an observable parse behaviour.
-
-## Solution approach
-
-Reconcile `lexical.md`'s "Statement terminators." continuation-trigger list with the `grammar.md#newline-continuation` table by changing its trailing-operator phrase from "binary or unary" to "binary or ternary"; keep `grammar.md` as the single source.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-None.
