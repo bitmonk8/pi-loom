@@ -1103,27 +1103,3 @@ Clarify the **Transient toasts (auxiliary)** paragraph in `diagnostics/diagnosti
 ## Relationships
 
 None.
-# T46 - A Pi-side rename/drop of `SessionShutdownEvent` is matched against an open, unversioned TS-code family
-
-**Kind:** assumptions
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-Step 1 of `#pi-version-bump-procedure` (in `version-bump-intro.md`) assumes a Pi-side rename/drop of `SessionShutdownEvent` on the package-root re-export surface always surfaces as one of a "module-import-resolution family" of TS codes (`TS2305` / `TS2307` / `TS2614` / `TS2724` "and any other TS code in the same module-import-resolution family"). The family is enumerated open-endedly and is never closed or tied to the pinned TypeScript version, so the routing contract rests on an unbounded set.
-
-## Solution approach
-
-In `#pi-version-bump-procedure` step 1, narrow the open "and any other TS code in the same module-import-resolution family" phrasing to a closed enumeration grounded against the pinned TypeScript version, or clarify that the listed codes are the closed family at the loom 1.0 Pi-SDK pin.
-
-## Solution constraints
-
-None.
-
-## Relationships
-
-- T71 "Brand-string mechanism relies on unverified `tsc` verbatim output" — same-cluster (TS-version-dependent bump gates).
