@@ -613,27 +613,3 @@ Rewrite the post-startup-support claim in `session-shutdown-semantics.md` step 5
 ## Relationships
 
 None.
-# T26 - `systemPromptOverride` channel status is "not recommended" but never made normative
-
-**Kind:** clarity
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-Rule 4 of the subagent-spawn block in `provider-error-mapping.md` (and the `#subagent-spawn-satellite-types` pin paragraph) describes the `DefaultResourceLoaderOptions.systemPromptOverride` construction channel as "not the recommended construction" / "not-recommended construction channel" without a normative modal. A reader cannot tell whether the channel is conformant-but-discouraged (MAY) or effectively forbidden (MUST NOT).
-
-## Solution approach
-
-Clarify the normative status of `DefaultResourceLoaderOptions.systemPromptOverride` in rule 4 of the subagent-spawn block — state directly whether it is MAY-but-discouraged or MUST NOT — and reconcile the `#subagent-spawn-satellite-types` paragraph's "not-recommended construction channel" wording with that choice.
-
-## Solution constraints
-
-- If the chosen wording strengthens the site's normative-modal content (e.g. a MUST NOT obligation), the edit must satisfy GOV-22 progressive coinage of a co-located `PIC-N` anchor.
-
-## Relationships
-
-None.
