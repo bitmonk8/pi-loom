@@ -1492,28 +1492,4 @@ Reconcile the `label` derivation rule and its examples in `extension-bootstrap-a
 ## Relationships
 
 None.
-# T62 - `ExtensionCommandContext.waitForIdle` cannot be the factory-time `typeof` probe the loop mandates
-
-**Kind:** implementability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-Step 0 (c) of `capability-probe.md` mandates a factory-time `typeof <path> === "function"` check over ten named members, and lists `ExtensionCommandContext.waitForIdle` (capability 2) among them. But `waitForIdle` is an interface method with no runtime value at factory time and is deferred to slash-handler invocation, so a factory-time `typeof` probe of it is not well-defined. Its presence in the list contradicts the "ten" member count and the per-capability arithmetic the same paragraph asserts.
-
-## Solution approach
-
-In step 0 (c)'s factory-probable member list (`capability-probe.md`), either remove `ExtensionCommandContext.waitForIdle` from the `typeof`-probed loop and reconcile the member count and per-capability arithmetic, or name the concrete factory-time runtime path that makes the `typeof` check well-defined. Reconcile the resulting count against the surrounding arithmetic prose.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T63 "Turn-lifecycle subscription surface and `pi.on` are never pinned" — same-cluster (capability-probe / SDK surface).
 
