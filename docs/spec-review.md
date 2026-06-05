@@ -1786,27 +1786,3 @@ Move the second-stage-anchor-set extension MUST out of the `(non-normative recip
 ## Relationships
 
 None.
-# T74 - `tokens_used`/`tokens_limit` extraction from `error.message` is underspecified, diverging across conformant implementations
-
-**Kind:** clarity, prescription, testability
-**Importance:** blocker
-**Score:** 200
-**Must-fix:** true
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-In `provider-error-mapping.md`, the `anthropic-messages` and `openai-completions` overflow rows populate `ContextOverflowError.tokens_used`/`tokens_limit` "from `error.message` digits when present" without saying which numeric run maps to which field, and without a rule for the zero-, one-, or three-or-more-number cases. Two conformant implementations can therefore produce observably different values on the same user-facing error payload.
-
-## Solution approach
-
-Rewrite the `anthropic-messages` and `openai-completions` rows of the `#provider-error-mapping` table to pin a single deterministic extraction rule that maps specific numeric runs in `error.message` to `tokens_used` and `tokens_limit` and fixes the fallback to `null` for every count of numeric runs that does not satisfy the rule.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T31 "HTTP-200 provider error envelopes map to no `QueryError`" — same-cluster (`provider-error-mapping.md` overflow/error mapping).

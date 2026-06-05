@@ -12,10 +12,19 @@
 
 | Provider | Overflow signature → `ContextOverflowError` |
 |---|---|
-| `anthropic-messages` | HTTP 400 with `error.type: "invalid_request_error"` and `error.message` matching `/(prompt is too long\|exceeds .* context window\|maximum context length)/i`; `tokens_used` and `tokens_limit` populated from `error.message` digits when present. |
-| `openai-completions` | HTTP 400 with `error.code: "context_length_exceeded"` (or HTTP 200 with the same code in the body envelope); `tokens_used` and `tokens_limit` populated from `error.message` digits when present. |
+| `anthropic-messages` | HTTP 400 with `error.type: "invalid_request_error"` and `error.message` matching `/(prompt is too long\|exceeds .* context window\|maximum context length)/i`; `tokens_used` and `tokens_limit` extracted from `error.message` per *Overflow token-count extraction* below. |
+| `openai-completions` | HTTP 400 with `error.code: "context_length_exceeded"` (or HTTP 200 with the same code in the body envelope); `tokens_used` and `tokens_limit` extracted from `error.message` per *Overflow token-count extraction* below. |
 | `mistral` | HTTP 400 with body matching `/context.*length/i`; token counts not surfaced — both fields `null`. |
 | `amazon-bedrock` | `ValidationException` with body matching `/(input is too long\|context window)/i`; token counts not surfaced — both fields `null`. |
+
+<a id="overflow-token-extraction"></a>
+
+*Overflow token-count extraction.* For the `anthropic-messages` and `openai-completions` rows above, `tokens_used` and `tokens_limit` are derived from `error.message` by a single deterministic rule, so two conforming implementations produce identical values on the same payload. Scan the message for *numeric runs*, where a numeric run is a maximal substring of decimal digits that may contain `,` or `_` digit-group separators (the separators are stripped before the run is parsed as a base-10 integer):
+
+- When the scan yields **exactly two** numeric runs, the larger integer populates `tokens_used` and the smaller populates `tokens_limit` (a context-overflow response has `tokens_used ≥ tokens_limit` by construction; when the two runs are equal, both fields take that value).
+- For **any other count** — zero, one, or three or more numeric runs — both `tokens_used` and `tokens_limit` are `null`.
+
+The `null` fallback is the same value the `mistral` and `amazon-bedrock` rows fix unconditionally. This rule constrains loom's extraction only, not the provider's message text; a provider rewording that changes the numeric-run count silently moves the affected response into the `null` fallback, which the *Provider-owned-wording presupposition* above already routes to editorial review.
 
 <a id="provider-seed-field-mapping"></a>
 
