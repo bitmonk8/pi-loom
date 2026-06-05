@@ -783,27 +783,3 @@ Clarify PIC-9 to state the relied-upon consumption assumption — `dispose()` sa
 ## Relationships
 
 - T36 "PIC-9 says the runtime both discards and traps the `abort()` promise" — same-cluster (PIC-9 abort lifecycle).
-# T33 - Group B routing self-contradicts, risking double-emission
-
-**Kind:** clarity, implementability
-**Importance:** medium
-**Score:** 35
-**Must-fix:** true
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`runtime-event-channel.md`'s **Runtime event channel** Group B bullet says the four `loom/host/session-shutdown-*` codes route through the `details: { diagnostics: [...] }` shape while, in the same sentence, listing them — plus `loom/runtime/reload-teardown-timeout` — as `console.error`-routed teardown-handler exclusions. The authoritative emission rules (Diagnostics' **Persistent diagnostics (default).** paragraph and Pi Integration Contract's `#diagnostic-emission-isolation`) emit these five codes only via `console.error`, bypassing the `loom-system-note` channel. A conformant implementation reading the contradictory Group B prose could emit the same diagnostic twice — once through `{diagnostics}`, once through `console.error`.
-
-## Solution approach
-
-Rewrite the Group B bullet in `runtime-event-channel.md`'s **Runtime event channel** section so the five `console.error`-routed teardown-handler codes are stated as excluded from the `details: { diagnostics: [...] }` channel rather than routed through it, scoping the `{diagnostics}` shape to `loom/runtime/*` panics. Align the bullet with the authoritative `console.error` routing owned by Diagnostics' **Persistent diagnostics (default).** paragraph and `#diagnostic-emission-isolation`.
-
-## Solution constraints
-
-- The `console.error`-only routing of these five codes is authoritative as stated in Diagnostics' **Persistent diagnostics (default).** paragraph and `#diagnostic-emission-isolation`; resolve the contradiction by editing the Group B bullet, not those owners.
-
-## Relationships
-
-None.
