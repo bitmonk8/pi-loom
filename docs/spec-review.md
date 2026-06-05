@@ -1200,28 +1200,3 @@ Rewrite Step 7 so both the rename change-condition and the closing no-op conditi
 ## Relationships
 
 None.
-# T50 - Editorial-review preamble leaves the MUST-audited cardinality of (a)–(e) undetermined
-
-**Kind:** clarity
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The "Editorial-review checklist for unpinned host presuppositions" preamble in `version-bump-step2.md` reads "the contributor MUST audit … items (a)–(e) below whose detection routes to editorial review under this procedure". The restrictive "whose …" relative clause makes the MUST-audited cardinality undetermined: a reader cannot tell whether the MUST applies to all five items (the clause being descriptive of (a)–(e) as a set) or only to the subset of (a)–(e) that route to editorial review (the clause selecting a proper subset).
-
-## Solution approach
-
-Rewrite the preamble's `(a)–(e) … whose detection routes to editorial review` clause to state unambiguously whether all of (a)–(e) are MUST-audited; if so, use a non-restrictive form so the relative clause describes the set rather than selecting a subset.
-
-## Solution constraints
-
-None.
-
-## Relationships
-
-None.
-
