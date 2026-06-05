@@ -540,27 +540,3 @@ Clarify `pi.registerFlag`/`pi.getFlag`'s declaration-file pin against a cited SD
 ## Relationships
 
 - T63 "Turn-lifecycle subscription surface and `pi.on` are never pinned" — same-cluster (SDK surface pinning).
-# T23 - Step (d) `details.step` overloads `peer-dep-out-of-range`, making the failing arm undeterminable
-
-**Kind:** implementability, naming
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The **Self-failure** paragraph of `capability-probe.md` (`#entry-capability-probe`) enumerates `details.step` with the value `"peer-dep-out-of-range"` to name a step-(d) throw, but step (d) covers two kinds — `peer-dep-out-of-range` and `peer-dep-malformed-version`. A `probe-failed` throw during step (d) therefore cannot identify which arm failed, and the same string is overloaded as both a `kind` value and a `details.step` label.
-
-## Solution approach
-
-In the **Self-failure** paragraph's `details.step` enumeration, rename the step-(d) label to a neutral form (e.g. `"peer-dep-version"`), or extend the `details.step` value space with `"peer-dep-malformed-version"` so the failing arm is determinable. Sweep the dependent `details.package` sentence that keys on the old label.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-None.
