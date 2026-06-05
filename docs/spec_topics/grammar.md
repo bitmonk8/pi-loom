@@ -68,6 +68,7 @@ LetStmt      ::= "let" "mut"? Pattern (":" Type)? "=" Expr
 ## Type grammar
 
 ```
+ReturnType   ::= Type | "void"                  // function-/loom-return position only; "void" is admitted here and nowhere else
 Type         ::= PrimitiveType
               | NamedType
               | GenericType
@@ -75,7 +76,7 @@ Type         ::= PrimitiveType
               | Type "|" Type                 // type-union; right-associative
               | LiteralType
 
-PrimitiveType ::= "string" | "number" | "integer" | "boolean" | "null" | "void"
+PrimitiveType ::= "string" | "number" | "integer" | "boolean" | "null"
 NamedType     ::= Ident                       // schema or enum name (PascalCase)
 GenericType   ::= "array" "<" Type ">"           // arity 1
                | "Result" "<" Type "," Type ">"  // arity 2
@@ -83,7 +84,7 @@ ObjectType    ::= "{" Field ("," Field)* ","? "}"  // inline anonymous object ty
 LiteralType   ::= STRING | NUMBER | BOOLEAN | NULL
 ```
 
-`Type` annotations appear in `let`, `fn` parameter and return positions, schema field types, `params:` field types, and `invoke<Type>` / type-ascription contexts. The same grammar applies in every position; nullability is written `T | null`.
+A bare `Type` appears in `let` annotations, `fn` parameter types, schema field types, `params:` field types, generic type arguments, union arms, and `invoke<Type>` / type-ascription contexts. The function- and top-level-loom **return** position instead uses `ReturnType` — `Type` plus the return-only `void` annotation, whose semantics are owned by [Function Definitions — Empty-tail body](./functions.md#empty-tail-body) — and `void` is admitted nowhere else. A `void` keyword in any `Type` position (`let x: void`, a schema or `params:` field, a generic argument such as `array<void>` or `Result<void, E>`, an `invoke<void>` annotation, a type ascription, or a union arm) is `loom/parse/void-in-non-return-position`. The grammar is otherwise identical in every position; nullability is written `T | null`.
 
 **Generic-application constructors.** `GenericType` is a closed set in loom 1.0: `array` (arity 1) and `Result` (arity 2). No other identifier is parameterisable; a future release that introduces a new parameterised constructor extends this set. Both constructor heads are reserved keywords (see [Lexical Structure — Reserved keywords](./lexical.md)) and appear here as constructor keywords, not as `NamedType ::= Ident` — this is why `Result` (a reserved keyword) is nonetheless reachable in type position. The `Type` reference inside each `<…>` is recursive, so nested generics such as `Result<array<T>, E>` parse. Applying a constructor with a type-argument count other than its declared arity (e.g. `array<T, U>` or `Result<T>`) is `loom/parse/generic-arity-mismatch`.
 

@@ -10,7 +10,9 @@ The type system is JSON-native. Type expressions are built from:
 - **Inline anonymous objects**: `{ field: T, ... }` — legal in any type position, but named schemas are preferred for reuse and for getting a name in error messages
 - **Inline arrays**: not a separate form — use `array<T>` (no `T[]`, no `[T]`)
 
-The same type grammar applies in every type-annotation position: schema fields, frontmatter `params:`, `let x: T`, function parameters, function return types, and `@<T>`...`` explicit query schemas.
+`void` is **not** a primitive value type and is deliberately absent from the list above: it is admitted only as a function- or loom-**return** annotation meaning "intentionally produces no value", never in a value-bearing type position (see [Grammar Appendix — Type grammar](./grammar.md#type-grammar) and [Function Definitions — Empty-tail body](./functions.md#empty-tail-body)). A `void` in any other type position is `loom/parse/void-in-non-return-position`, and `void` does not participate in type compatibility ([below](#type-compatibility)).
+
+The same type grammar applies in every type-annotation position: schema fields, frontmatter `params:`, `let x: T`, function parameters, and `@<T>`...`` explicit query schemas; the function- and loom-return position additionally admits the return-only `void` annotation.
 
 Subsections of the type system are split into their own pages:
 
@@ -40,6 +42,8 @@ Wherever the spec asks whether a value of static type `T₁` may be used in a po
 | 8 | Field-wise on object schemas: an object type with declared fields `{ f₁: T₁, ... }` is `⊑` another object type with the same declared field set `{ f₁: U₁, ... }` iff `Tᵢ ⊑ Uᵢ` for every `i`. | Field sets must match exactly: every Loom-lowered object schema carries `additionalProperties: false` (see [Schema Subset](./schema-subset.md)), so excess properties never widen — there is no TS-style structural-subtyping admission of extra fields, and an object with even one extra declared field is not compatible. Field order is irrelevant. |
 
 Rules outside this list are deliberately **not** part of loom 1.0 compatibility: function-parameter contravariance, optional-field widening, excess-property tolerance on objects, and `number ⊑ integer` are all rejected. A future widening of the relation is non-breaking iff it only admits new pairs.
+
+**`void` does not participate in `⊑`.** `void` is a return-only annotation, not a value-bearing type (see [Grammar Appendix — Type grammar](./grammar.md#type-grammar)); no value is ever statically typed `void`, so `void` appears on neither side of a `T₁ ⊑ T₂` check. A `void` in any non-return type position is rejected at parse time as `loom/parse/void-in-non-return-position` before any compatibility question arises.
 
 **Unresolvable operands.** When either side of a compatibility check is past the parser's static view (e.g. an inferred binding whose RHS depends on a Pi-tool call whose registered schema is not visible at parse time, or an `invoke` against a callee that produced `loom/load/callee-has-errors`), the parse-time check is skipped and the runtime AJV check is the safety net. The skipping is the same posture documented for the unresolvable-callee case in [Invocation — Typed return](./invocation.md) and the unresolvable-tool case in [Tool Calls](./tool-calls.md); cite this paragraph rather than restating it.
 

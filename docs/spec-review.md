@@ -450,28 +450,3 @@ Rewrite the `always-log set` opening clause in `glossary.md` so the definition n
 ## Relationships
 
 - T05 "Host presuppositions lack version-bump-procedure re-audit hooks" - same-cluster (the `convertToLlm` half touches the same canonical page; independent defect on a different paragraph).
-# T17 - `void` is admitted by the grammar but absent from the Type System enumeration and undefined outside return position
-
-**Kind:** clarity, completeness
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 4
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `PrimitiveType` production in `docs/spec_topics/grammar.md` admits `void` as a full member of `Type`, so it parses in every type-annotation position (`let x: void`, schema fields, `params:`, `array<void>`, `Result<void, E>`, `invoke<void>`, union arms). The Type System primitive enumeration in `docs/spec_topics/type-system.md` omits `void`, and the spec only ascribes meaning to `void` in return position. Non-return-position occurrences are undefined: there is no Schema Subset lowering for a `void`-typed value, the closed `⊑` compatibility list says nothing about `void`, and no diagnostic names the rejection path. Two implementers diverge — one rejects every non-return `void` with no code to cite, the other admits `let x: void` with undefined runtime semantics.
-
-## Solution approach
-
-Restrict `void` to return position and reject it in every other type-annotation position. In `grammar.md`, split the grammar so `void` is admitted only by the function-/loom-return-type position and the `Type` production that `let`, schema fields, `params:`, generic arguments, and union arms reference excludes it. In `type-system.md`, clarify alongside the Primitive types bullet that `void` is a return-only annotation rather than a value-bearing type, and add a note in the `#type-compatibility` section that `void` does not participate in `⊑`. Add a parse-error row to `docs/spec_topics/diagnostics/code-registry-parse.md` for `void` in a non-return type position.
-
-## Solution constraints
-
-- Out of scope: do not add `void` to the Type Subset enumeration or the Lowering Algorithm in `docs/spec_topics/schema-subset.md`.
-
-## Relationships
-
-- T11 "Type-compatibility rules cited by positional ordinal with no per-rule anchor" - same-cluster (both touch `type-system.md`; the per-row `TYPE-N` anchors are the natural place to anchor the new "`void` does not participate in `⊑`" note, but neither finding's fix depends on the other).
