@@ -1979,27 +1979,3 @@ Move GOV-15 and its sub-sections out of `req-id-prefix-table-retired.md` into a 
 ## Relationships
 
 - T80 "GOV-15 *Attribution test* binds the release workflow" — same-cluster.
-# T82 - `DIAG` prefix is registered but no DIAG-N IDs exist; three independent MUSTs carry no anchors
-
-**Kind:** traceability
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `DIAG` prefix is registered for `diagnostics/` but no DIAG-N REQ-IDs exist. The independently-verifiable normative MUSTs in the "Code registry rules (normative)" section of `diagnostics/diagnostic-shape.md` carry no co-located REQ-ID anchors, so GOV-9's `#prefix-n` cross-link contract is unsatisfiable for them and references must paraphrase the rules rather than cite a stable ID.
-
-## Solution approach
-
-Coin one DIAG-N REQ-ID per normative rule in the "Code registry rules (normative)" section of `diagnostics/diagnostic-shape.md`, adding GOV-1 dual-form anchors in the same commit.
-
-## Solution constraints
-
-- `DIAG` is an already-registered REQ-ID prefix; this is numeric coinage under it, not a new-prefix allocation (no GOV-7 *Add* row).
-
-## Relationships
-
-- T83 "CIO-1..6 are declared REQ-IDs but have no anchors" — same-cluster (REQ-ID anchor coinage backfill).

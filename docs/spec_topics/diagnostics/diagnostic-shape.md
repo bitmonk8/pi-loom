@@ -58,12 +58,12 @@ The optional `details?` field carries a diagnostic's per-row structured wire pay
 
 ## Code registry rules (normative)
 
-Three rules govern the diagnostic-code surface:
+Four rules govern the diagnostic-code surface:
 
-1. **Every author-visible diagnostic emitted by the runtime MUST carry a code from the registry below.** Emitting an unregistered code is a defect; tests are entitled to assert on the specific code at every documented diagnostic site.
-2. **The registry is closed.** Adding a new code, removing a code, or changing a code's namespace, severity, or trigger are all spec changes — not implementation changes. New diagnostic sites added by future spec work MUST land their codes in this table at the same time.
-3. **Codes are stable identifiers.** Renaming a registered code is a breaking change to the public diagnostics contract (tests, LSP integrations, system-note formatters, doc cross-links). Treat each code as part of the language surface.
-4. **The Message column is normative.** Every row in the registry below carries a *Message* (the rendered author-facing string with `<…>`-style placeholders for interpolated content); renderers MUST emit it character-for-character with placeholders interpolated. Tests asserting a diagnostic's rendered message MUST source the string from this column rather than copy-pasting prose from the spec rule's home page. Wording changes are spec-versioned breaking changes.
+1. <a id="diag-1"></a> **DIAG-1.** **Every author-visible diagnostic emitted by the runtime MUST carry a code from the registry below.** Emitting an unregistered code is a defect; tests are entitled to assert on the specific code at every documented diagnostic site.
+2. <a id="diag-2"></a> **DIAG-2.** **The registry is closed.** Adding a new code, removing a code, or changing a code's namespace, severity, or trigger are all spec changes — not implementation changes. New diagnostic sites added by future spec work MUST land their codes in this table at the same time.
+3. <a id="diag-3"></a> **DIAG-3.** **Codes are stable identifiers.** Renaming a registered code is a breaking change to the public diagnostics contract (tests, LSP integrations, system-note formatters, doc cross-links). Treat each code as part of the language surface.
+4. <a id="diag-4"></a> **DIAG-4.** **The Message column is normative.** Every row in the registry below carries a *Message* (the rendered author-facing string with `<…>`-style placeholders for interpolated content); renderers MUST emit it character-for-character with placeholders interpolated. Tests asserting a diagnostic's rendered message MUST source the string from this column rather than copy-pasting prose from the spec rule's home page. Wording changes are spec-versioned breaking changes.
 
 Naming convention for codes is `<namespace>/<kebab-case-rule-name>`. The rule-name component derives from the spec rule's short name; it is not generated, so the registry below is the source of truth.
 
