@@ -4,7 +4,7 @@ _Generated: 2026-06-05T00:00:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blockers, 0 high, 13 medium retained, 1 medium parked; 10 low discarded; 5 low findings merged into 2 medium findings; 12 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 0 high, 12 medium retained, 2 medium parked; 10 low discarded; 5 low findings merged into 2 medium findings; 12 nit dropped; 0 false dropped._
 
 ---
 
@@ -335,30 +335,3 @@ Coin a new umbrella `BNDR` REQ-ID at the sub-section's normative lead-in (next f
 - T13 "Binder *System-prompt structure (normative)* items 1–8 carry no REQ-ID anchors" - same-cluster (same shape of un-anchored normative items on a sibling page under the same `BNDR` prefix; resolve independently with the parallel sub-letter scheme).
 - T14 "Un-anchored normative obligations across `cancellation.md`" - same-cluster (same GOV-22 progressive-coinage defect on a different prefix; independent surface).
 - T09 "Diagnostic code-registry *Spec rule* cells bypass GOV-9 `#prefix-n` cross-link form" - must-precede (any diagnostic citing a specific reference rendering becomes repointable once these anchors are coined).
-# T13 - Binder *System-prompt structure (normative)* items 1–8 carry no REQ-ID anchors
-
-**Kind:** traceability
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `#### System-prompt structure (normative)` subsection of `binder-bypass-and-envelope.md` is a numbered list of eight defining obligations, each carrying RFC-2119 normative-modal tokens and naming a distinct contractual surface (item 4's `Parameters:` block, item 7's envelope-kinds enumeration, item 8's no-invent-defaults line, and so on). None of items 1–8 carries an `<a id="bndr-N"></a> **BNDR-N.**` dual-form anchor, and the subsection heading carries no umbrella anchor either. Per GOV-22 these are standing un-coined obligation sites, and per GOV-9 every cross-page reference must resolve to a `#prefix-n` fragment — citing "item 4" by prose breaks silently under any reorder or insertion without producing a dangling-anchor signal.
-
-## Solution approach
-
-Coin a dual-form `<a id="bndr-N"></a> **BNDR-N.**` REQ-ID anchor at each of items 1–8 of the `#### System-prompt structure (normative)` subsection, allocating the next free integers under the already-registered `BNDR` prefix (per GOV-3 the prefix counter is global across the `binder/` subtree). Add an umbrella anchor on the subsection heading line so inbound links citing the structure list as a unit have a stable target distinct from the per-item anchors.
-
-## Solution constraints
-
-- Out of scope: the trailing *Type display*, *Default-literal rendering*, and *Parameter-line reference renderings* tables — their per-rendering anchoring is a separate contract surface (same anchor-pattern precedent as T12).
-
-## Relationships
-
-- T12 "Compact-transcript reference renderings A–D — no per-rendering identifiers" - same-cluster (same GOV-22 anchor-coinage gap on the sibling `binder-model-and-context.md` page; resolves independently with the same dual-form + sub-letter pattern).
-- T14 "Un-anchored normative obligations across `cancellation.md`" - same-cluster (same GOV-22 progressive-coinage residue on `cancellation.md`; resolves independently with the `CNCL-N` prefix).
-- T09 "Diagnostic code-registry *Spec rule* cells bypass GOV-9 `#prefix-n` cross-link form" - must-precede (binder-routed diagnostic rows depending on these items become repointable once the per-item `BNDR-N` anchors land).

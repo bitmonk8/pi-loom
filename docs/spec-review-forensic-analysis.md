@@ -176,3 +176,20 @@ it does not persist across worktree wipes)._
 - **Fixer notes:** none
 
 ---
+
+## 2026-06-05 — T13 - Binder *System-prompt structure (normative)* items 1–8 carry no REQ-ID anchors
+
+- **Failure mode:** fast-loop-unresolved
+- **Category:** 2 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** n/a (fast loop — no inner-loop trajectory)
+- **Score trajectory:** n/a
+- **Passes:** n/a
+- **Stage at exit:** n/a (fast loop — no staged dispatch)
+- **Snapshot refs (retained for forensics):** n/a
+- **Poisoned fixes:** n/a
+- **Forensic report:** none (fast loop — no forensic report)
+- **Parked findings (this run):** `T13 - Binder *System-prompt structure (normative)* items 1–8 carry no REQ-ID anchors`
+- **Loop notes:** finding not resolved by fast fix (partial — fast fix coined dual-form BNDR-7..14 anchors at items 1–8 with zero floor regressions, but the required umbrella anchor on the `#### System-prompt structure (normative)` heading line was not added; reviewer marked partial)
+- **Fixer notes:** none
+
+---
