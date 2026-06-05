@@ -1272,29 +1272,3 @@ Rewrite the "the four spec sentences cited above" phrase in the closing paragrap
 ## Relationships
 
 None.
-
----
-# T53 - Step 5 inbound-reference-sweep reconciliation has only two arms, contradicting step 1
-
-**Kind:** error-model
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The step 5 inbound-reference-sweep reconciliation in the Pi version bump procedure enumerates only two arms: a hit at the existing inline-triplet site is a no-op, and any other hit is "a new inbound runtime reference" requiring enumeration. The widened grep deliberately spans `docs/`, so it surfaces the benign `docs/spec.md` SM-2 illustrative-restatement hit that step 1's carve-out classifies as a transiently-stale illustrative restatement (no runtime-correctness impact). The two-arm reconciliation forces that hit into the "new runtime reference" arm, contradicting step 1's classification.
-
-## Solution approach
-
-Add a third reconciliation arm in step 5's inbound-reference sweep that classifies illustrative-restatement hits (such as the `docs/spec.md` SM-2 listing) as no-ops, cross-referencing step 1's `#sm-2-closed-shutdown-reason-set` carve-out.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T48 "Step 5 inbound-reference-sweep clause is ungrammatical" — same-cluster.
