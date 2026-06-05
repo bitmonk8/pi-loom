@@ -1,3 +1,595 @@
-# pi-loom — Consolidated Spec Review
+# Triaged Spec Review - spec
 
-_Findings: 0 open._
+_Generated: 2026-06-05T00:00:00Z_
+_Spec: docs/spec.md_
+_Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
+
+_Triage tally: 2 blocker, 6 high, 14 medium retained; 10 low discarded; 5 low findings merged into 2 medium findings; 12 nit dropped; 0 false dropped._
+
+---
+
+# T01 - Pre-evaluation failure list — stale count-pointer and non-contiguous REQ-ID numbering
+
+**Kind:** clarity, consistency, naming, traceability
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Decision axes:** 2
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The eight-item pre-evaluation failure list under **Terminal outcomes** in `error-model.md` carries two surface defects in the same paragraph block. First, the closing lock-step co-edit sentence names a backtick literal `the seven below` as the count phrase to keep in sync, but the actual count phrase in the preceding paragraph is "the eight below" — a stale self-reference left over from before `err-16` was added, so the closed-count invariant is no longer mechanically grep-verifiable by a future editor. Second, the list enumerates eight items but assigns non-contiguous anchors `err-1`–`err-7` then `err-16`; `err-8`–`err-15` are live elsewhere (on this page and in `queryerror-variants.md`), and neither the intro ("the eight below") nor the recap ("the eight list items above") explains the discontinuity, so an auditor reading `err-*` anchors as a contiguous range silently misidentifies the pre-evaluation set.
+
+## Solution approach
+
+Rewrite the lock-step co-edit sentence's backtick literal `the seven below` to `the eight below` so it names the count phrase that actually exists in the preceding paragraph. Clarify the intro sentence ("…is the eight below…") and the recap ("Each of the eight list items above…") so the non-contiguous anchor set — `err-1`–`err-7` plus `err-16`, with `err-8`–`err-15` allocated to sibling obligations elsewhere — is auditable from the prose alone.
+
+## Solution constraints
+
+- Do not renumber the existing `err-1`–`err-16` anchors to a contiguous range; they are cited from sibling pages and renumbering would break those cross-references.
+
+## Relationships
+
+- T14 "Un-anchored normative obligations across `cancellation.md`" - same-cluster (REQ-ID anchor coherence; resolves independently).
+# T02 - `.pi/project-config.md` live/retired GOV snapshot is stale post-GOV-21 split
+
+**Kind:** doc-alignment-broad
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The *Spec rules* opening paragraph of `.pi/project-config.md` carries a
+non-normative snapshot of the governed REQ-ID set reading "currently
+GOV-1, GOV-3, GOV-5–GOV-9, GOV-12, GOV-14–GOV-24, with GOV-2/4/10/11/13
+retired". That snapshot is stale: the *Retired REQ-IDs* sub-table in
+`docs/spec_topics/governance/anchor-scheme-and-retired.md` records GOV-21
+retired (split per GOV-8 into GOV-25 … GOV-29), and GOV-25 … GOV-29 are
+now live and normative in `docs/spec_topics/governance/release-version-naming.md`.
+The snapshot's `GOV-14–GOV-24` range still lists GOV-21 as live and omits
+the five replacement IDs entirely. A contributor or fixer agent using
+`project-config.md` as the entry point can cite a retired GOV-21 anchor,
+miss that GOV-25 … GOV-29 are the dual-anchor-convention citation targets,
+or under-allocate the next free GOV number.
+
+## Solution approach
+
+Rewrite the stale parenthetical in the `Spec rules` opening paragraph of
+`.pi/project-config.md` so the live set reads GOV-1, GOV-3, GOV-5–GOV-9,
+GOV-12, GOV-14–GOV-20, GOV-22–GOV-29 and the retired set reads
+GOV-2/4/10/11/13/21, matching the *Retired REQ-IDs* sub-table in
+`docs/spec_topics/governance/anchor-scheme-and-retired.md`.
+
+## Solution constraints
+
+- Out of scope: the parallel GOV summary in
+  `docs/spec_topics/governance.md` — it is the authoritative side the
+  snapshot defers to, and this finding does not touch it.
+- Do not edit the *REQ-ID prefix table* enumeration (`CEIL`, `CIO`, `GOV`,
+  `PIC`, …) later in the same paragraph — it is prefix-table membership,
+  not REQ-ID number-set membership, and is governed separately.
+
+## Relationships
+
+None
+# T03 - `InvokeInfraError.cause: "model_unresolved"` collides with the `loom/load/model-unresolved` namespace
+
+**Kind:** naming
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The `InvokeInfraError.cause` enum arm `"model_unresolved"` collides at the name level with the unrelated load-time diagnostic `loom/load/model-unresolved` (the `model:`-resolution failure that fires in any mode at load time). The arm is produced only by the subagent pre-spawn model guard, whose diagnostic code carries the disambiguated form `loom/runtime/subagent-model-unresolved`, but the bare cause literal drops the `subagent` qualifier. An author reading a `match` arm on `InvokeInfraError.cause` has no name-level signal distinguishing this from the load-time concept, and the corpus convention (`loom/load/binder-model-unresolved` vs `loom/runtime/subagent-model-unresolved`) is to keep the two namespaces distinct via a qualifier.
+
+## Solution approach
+
+Rename the `cause` enum literal from `"model_unresolved"` to `"subagent_model_unresolved"` on all three surfaces that carry it: the `InvokeInfraError` `cause` enum in `errors-and-results/queryerror-variants.md`, the `Err(InvokeInfraError { ... cause: "model_unresolved", ... })` sentence under `subagent.md`'s `id="subagent-pre-spawn-model-guard"` paragraph, and the `loom/runtime/subagent-model-unresolved` row in `diagnostics/code-registry-runtime.md`. The new literal mirrors the diagnostic code's `subagent-model-unresolved` form folded to snake_case, matching the existing discriminator convention.
+
+## Solution constraints
+
+- Out of scope: the `loom/runtime/subagent-model-unresolved` diagnostic code string itself and its anchor — only the `cause` enum literal value changes, not the registry code.
+
+## Relationships
+
+None
+# T04 - Factory-time `FileSystem.cwd() == project root` premise is unpinned
+
+**Kind:** assumptions
+**Importance:** medium
+**Score:** 15
+**Must-fix:** false
+**Decision axes:** 2
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The factory-time discovery scan resolves the project-local `.pi/looms/` directory and the project `.pi/settings.json` against the value `FileSystem.cwd()` returns at extension-factory construction. PIC-13 pins the production wiring as `process.cwd()` captured once at construction, and `Settings file reads` resolves project settings against the same seam, but none of the consuming sites pins what Pi guarantees about `process.cwd()` *at factory construction* — the load-bearing claim that the value Pi hands the factory equals the project root. The `resources_discover` path already prefers `event.cwd` so a per-session cwd change is honoured, but the factory-time scan feeding the first `session_start` registration pass has no such correction and no presupposition label. If Pi ever launches the factory with `cwd` set to something other than the project root, project-local looms and project settings resolve against the wrong directory until the first `resources_discover` arrives, with no build-time or load-time signal.
+
+## Solution approach
+
+Add a presupposition to PIC-13's `cwd()` bullet (anchor `pic-13` in `host-interfaces-services.md`), following the existing `<a id="...-presupposition"></a>` pattern used by sibling presupposition paragraphs on the page, naming the factory-time `cwd == project root` premise and citing the Pi-side launch contract loom relies on. Add a new lettered item to the *Editorial-review checklist for unpinned host presuppositions* in `version-bump-step2.md`, cross-linking the new anchor and stating a re-validation recipe against the candidate `@earendil-works/pi-coding-agent` minor.
+
+## Solution constraints
+
+- Both edits — the PIC-13 presupposition paragraph and the `version-bump-step2.md` checklist item — MUST land in the same commit, per the "MUST be added to this checklist in the same edit" rule on `version-bump-step2.md`.
+
+## Relationships
+
+- T05 "Cancellation forwarding — turn-lifecycle event delivery not in SDK capability inventory" - same-cluster (same host-behaviour assumptions section; same fix shape — add a named presupposition with bump-checklist coverage; resolves independently).
+- T06 "Per-provider `complete()` forced-tool behaviour has no re-validation gate" - same-cluster (same section; an unpinned behavioural premise on Pi that wants a re-validation obligation added; resolves independently).
+# T05 - Cancellation forwarding — turn-lifecycle event delivery not in SDK capability inventory
+
+**Kind:** assumptions
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Decision axes:** 2
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The slash-command cancellation-forwarding path wires `loomAbort.abort()` from inside the runtime's `pi.on` handlers for five turn-lifecycle events (`tool_call`, `tool_result`, `message_update`, `turn_end`, `agent_end`). This path presupposes two unpinned Pi behaviours: that Pi delivers each of those five events to a subscribed extension during the active user turn for which `ctx.signal` was minted, and that `ctx.signal.aborted` read from inside each handler reflects the latest abort state. Neither obligation appears in the cancellation-propagation capability inventory entry (`sdk-cap-cancellation-propagation`, which covers only `AbortSignal` supply at the two entry points) nor in the unpinned-host-presupposition checklist in `version-bump-step2.md` — item (j) covers only the terminal `agent_end` turn-liveness presupposition, not the intermediate-event delivery surface this path consumes. If a Pi minor renames, removes, gates, or changes the per-handler `ctx.signal` semantics of any of those events, Esc-during-`@`-query silently becomes a no-op with no build-time SDK-surface assertion or load-time `loom/load/host-incompatible` signal.
+
+## Solution approach
+
+Record a loom-side presupposition naming the five turn-lifecycle events and their two consumption sub-obligations — Pi delivers each event to a subscribed extension during the active user turn, and `ctx.signal.aborted`/`.reason` read inside each handler reflects the latest abort state — at the `id="pi-slash-handler-promise-lifecycle-presupposition"` block in `host-interfaces-core.md`. Add a checklist item (next free letter) to the unpinned-host-presupposition checklist in `version-bump-step2.md`, following the established `<a id="bump-checklist-…">` pattern, cross-linking the new presupposition anchor and carrying a per-bump re-validation recipe.
+
+## Solution constraints
+
+- Out of scope: the Step 0 (c) factory-probable capability list in `capability-probe.md` — do not add a `pi.on` / event-delivery probe entry.
+- The new checklist item MUST be added in the same edit as the presupposition it back-references, per the "added to this checklist in the same edit" obligation in `version-bump-step2.md`.
+
+## Relationships
+
+- T06 "Per-provider `complete()` forced-tool behaviour has no re-validation gate" - same-cluster (sibling finding; both ask for a behavioural Pi-host obligation recorded against a re-validation surface; different consuming surfaces; resolved independently).
+- T04 "Factory-time `FileSystem.cwd() == project root` premise is unpinned" - same-cluster (sibling finding; same fix shape, different surface).
+- T18 "Per-invocation transport-class binder retry — inter-attempt timing unspecified" - same-cluster (both touch the binder's pi-ai call surface and the cancellation/`ctx.signal` interaction; resolve independently).
+# T06 - Per-provider `complete()` forced-tool behaviour has no re-validation gate
+
+**Kind:** assumptions
+**Importance:** medium
+**Score:** 35
+**Must-fix:** false
+**Decision axes:** 3
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The typed-query forced respond turn and the binder structured-output call both depend on two behavioural properties of `@earendil-works/pi-ai`'s `complete()` for each loom 1.0-supported provider (`anthropic-messages`, `openai-completions`, `mistral`, `amazon-bedrock`): that calling with `options.toolChoice = { type: "tool", name }` actually forces the named tool, and that it attaches no turn to a concurrently-driven `AgentSession`. Both properties are stated only in prose (`conversation-drive.md`, `binder-inference.md`, `implementation-notes.md`) with no fixture or bump-time gate, unlike the sibling pi-ai-coupled surfaces on the same pages — the seed-field `Api`-coverage assertion, the overflow-signature checklist item (i) (`#bump-checklist-provider-overflow-wording`), and the SDK capability inventory. A pi-ai minor that silently regresses either property breaks every typed query and binder inference against the affected provider, and the runtime surfaces the model-non-compliance diagnostic branch — which the spec says cannot be distinguished from provider-level non-compliance — so authors get no signal that the cause is a pi-ai adapter regression.
+
+## Solution approach
+
+Add a back-referenceable presupposition anchor in `conversation-drive.md` beside the **Provider compatibility for typed queries** paragraph, stating the two behavioural claims (named-tool forcing under `options.toolChoice`, and no turn attached to a concurrently-driven `AgentSession`). Add a SHOULD-level item to the *Editorial-review checklist for unpinned host presuppositions* in `version-bump-step2.md` that back-references that anchor and obliges a per-provider fixture re-run plus an off-session-turn inspection, with the outcome recorded as pass/fail/N/A. Add forward-links to the new anchor from `conversation-drive.md`'s forced respond turn site and `binder-inference.md`'s `options.toolChoice` bullet.
+
+## Solution constraints
+
+- The new checklist item and the presupposition paragraph it back-references MUST land in the same edit, per `version-bump-step2.md`'s "added to this checklist in the same edit" obligation.
+
+## Relationships
+
+- T20 "Binder structured-output tool — `name` and `label` undefined" - must-follow (this gate asserts against a concrete forced-tool target name; the binder tool's `name` must be pinned first for the gate to have something to assert against).
+- T19 "Binder `complete()` `context.messages` content undefined" - same-cluster (same `complete()` call shape; resolved independently).
+- T05 "Cancellation forwarding — turn-lifecycle event delivery not in SDK capability inventory" - same-cluster (sibling finding; different consuming surface; resolved independently).
+# T07 - Initial forced respond turn — instruction wording status undeclared
+
+**Kind:** implementability
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+`query-tool-loop.md` step 2 ("Forced respond turn") describes the typed-query initial forced respond turn as issuing a user turn whose body is the italic prose *"Return your final answer using the `__loom_respond_<slug>` tool, conforming to this schema: …"* with a trailing ellipsis and no normative status declaration. The respond-*repair* follow-ups, by contrast, are pinned as byte-verbatim templates under "Follow-up turn templates (normative)" in `query-failure-and-repair.md`, governed by a renderer-MUST-emit-verbatim sentence. An implementer cannot tell whether the initial turn must reuse `schema_repeat` verbatim, copy the italic prose as a canonical literal, paraphrase it, or emit free-form text — yet the `max_rounds: 0` boundary-case paragraph already pins a single-U+000A separator "matching the single-LF separator the Follow-up turn templates (normative) section pins", assuming a byte-level structure the wording itself never commits to.
+
+## Solution approach
+
+Pin the initial forced respond turn's instruction wording as a normative template mirroring the `schema_repeat` follow-up, with a body byte-identical to `schema_repeat` minus its leading non-compliance sentence and governed by the same renderer-verbatim-MUST obligation. Add the template block either in `query-tool-loop.md` step 2's section or by extending "Follow-up turn templates (normative)" in `query-failure-and-repair.md`. Rewrite step 2's italic-prose-with-ellipsis description as a forward-link to that template, and update the `max_rounds: 0` boundary-case paragraph to cite it instead of repeating the wording. Point the `<slug>` and `<schema-json>` placeholders at their existing definitions in `query-failure-and-repair.md` rather than redefining them.
+
+## Solution constraints
+
+- The `max_rounds: 0` boundary-case paragraph MUST retain its existing single-U+000A prompt-to-instruction separator and trailing-newline-trim behaviour when updated to cite the template.
+
+## Relationships
+
+- T20 "Binder structured-output tool — `name` and `label` undefined" - same-cluster (symmetric asymmetry — the binder's structured-output tool is similarly under-pinned compared to its respond-tool sibling; both flag silent spots in otherwise meticulously pinned surfaces).
+# T08 - Missing owning-declaration pins for bare Pi SDK symbols (`BashExecutionMessage.excludeFromContext`, `DefaultResourceLoader`, `ExtensionRuntime`)
+
+**Kind:** external-entities
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Decision axes:** 3
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+Three load-bearing Pi SDK symbols are cited bare across the PIC corpus with no owning-declaration pointer, breaking the owning-declaration-pointer convention sibling symbols on the same pages follow; a Pi minor that renames any of them escapes both the build-time SDK surface inventory and the bump-time editorial review. `BashExecutionMessage.excludeFromContext` is named as an analogy referent in the `#custom-message-context-entry-presupposition` paragraph of `runtime-event-channel.md` with no declaration cited. `DefaultResourceLoader` (with the `DefaultResourceLoaderOptions.systemPromptOverride` constructor option) is named twice in `provider-error-mapping.md` rule 4 but is omitted from the `#subagent-spawn-satellite-types` pin paragraph and its re-validation gate, while the sibling `ResourceLoader` interface is pinned there. `ExtensionRuntime` / `ExtensionRuntime.invalidate(...)` is referenced bare at `registration-steps.md` step 4, the `active-invocation-registry.md` "Edge cases" bullet, and `diagnostics/diagnostic-shape.md`, with no pin and no bump-checklist item, while sibling extension types are pinned.
+
+## Solution approach
+
+Pin `BashExecutionMessage.excludeFromContext` to its declaration at `dist/core/messages.d.ts` inline at the `#custom-message-context-entry-presupposition` paragraph, and extend bump-checklist item (r) to cover it. Pin `DefaultResourceLoader` and `DefaultResourceLoaderOptions` (declared at `dist/core/resource-loader.d.ts`) in the `#subagent-spawn-satellite-types` paragraph on the same footing as `ResourceLoader`, fold them into the existing item (o) re-validation obligation, and forward-link rule 4's first `DefaultResourceLoader` occurrence to that pin. Pin `ExtensionRuntime` at `registration-steps.md` step 4 as the canonical owner, citing its declaration at the loom 1.0 Pi-SDK pin, cite-by-location from `active-invocation-registry.md` and `diagnostic-shape.md`, and add a new lettered bump-checklist item covering `ExtensionRuntime.invalidate(...)`.
+
+## Solution constraints
+
+- Out of scope: step 2(a)'s seven-capability literal-read probe — `DefaultResourceLoader` MUST NOT be added to it.
+- The pinned `ExtensionRuntime` declaration path MUST be confirmed against the candidate `@earendil-works/pi-coding-agent` package before merge.
+
+## Relationships
+
+None
+# T09 - Diagnostic code-registry *Spec rule* cells bypass GOV-9 `#prefix-n` cross-link form
+
+**Kind:** traceability
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The *Spec rule* column in the four diagnostic code-registry tables (`code-registry-load.md`, `code-registry-parse.md`, `code-registry-runtime.md`, `code-registry-host.md`) links to owner topic-page roots or section-level heading slugs rather than to `#prefix-n` REQ-ID anchors. The owning pages are non-narrative, so GOV-9 (`#gov-9`) requires each cross-page reference to a normative rule to resolve as a `#prefix-n` fragment to the depended-upon rule's anchor; section-level links are licensed only where the owning page is pure-narrative. The cells therefore stand as GOV-9 defects, and a reviewer cannot trace a diagnostic row to its specific obligation without reading the whole linked section. A minority of rows already conform (e.g. the `loom/load/discovery-slow` row targets `…/package-and-settings.md#disc-6`), so the target form is achievable per-row.
+
+## Solution approach
+
+Rewrite each *Spec rule* cell's link target in the four `code-registry-*.md` tables to the `#prefix-n` REQ-ID anchor of the rule the diagnostic implements, keeping the link text unchanged. Where the depended-upon obligation carries no REQ-ID anchor yet (a GOV-22 standing defect on the owner page, `#gov-22`), leave the section-level link in place and flag it as anchor-pending. Where a row cites several source rules, rewrite each per-source link to its own `#prefix-n` anchor.
+
+## Solution constraints
+
+- Out of scope: coining or editing REQ-ID anchors on the owning topic pages; un-anchored obligations are landed by T12, T13, and T14.
+- Edit only the *Spec rule* column of the four `code-registry-*.md` tables; do not modify diagnostic codes, messages, or other columns.
+
+## Relationships
+
+- T14 "Un-anchored normative obligations across `cancellation.md`" - must-follow (the cancellation-routed diagnostic rows cannot be repointed to `#cncl-n` anchors until those anchors exist; T14 must land first).
+- T13 "Binder *System-prompt structure (normative)* items 1–8 carry no REQ-ID anchors" - must-follow (binder-routed diagnostic rows depending on those items become repointable once the per-item `BNDR-N` anchors land).
+- T12 "Compact-transcript reference renderings A–D — no per-rendering identifiers" - must-follow (any diagnostic citing a specific reference rendering becomes repointable once those anchors are coined).
+# T10 - PIC-11 / PIC-12 / PIC-13 / PIC-14 / PIC-16 internal DI interface shapes pinned normative beyond GOV-18 arm (a)
+
+**Kind:** prescription, scope
+**Importance:** medium
+**Score:** 35
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+PIC-11 (`SchemaValidator`), PIC-13 (`FileSystem`), PIC-14 (`FileWatcher`), and PIC-16 (`TokenEstimator`) each state "The interface shape is normative" and pin an exact TypeScript `interface` declaration — member names, arities, return types, and the closed member set. PIC-12 (`Clock`) is slightly softer but still binds member names and signatures normatively. All five are internal DI seams consumed only by the runtime and its test wiring; none is exposed through `ExtensionAPI` or observable on `.loom`/`.warp` inputs. GOV-18 arm (a) binds only externally-observable behaviour on `.loom`/`.warp` inputs, so pinning these member lists as normative MUSTs binds internal implementation architecture beyond arm (a)'s reach — a second-source implementer satisfying every behavioural contract through a different decomposition would be formally non-conforming despite byte-identical outputs.
+
+## Solution approach
+
+Demote the TypeScript `interface` shape blocks of PIC-11, PIC-13, PIC-14, and PIC-16 (anchors `pic-11`, `pic-13`, `pic-14`, `pic-16` in `host-interfaces-services.md`) from normative to non-normative reference, keeping each seam's behavioural obligations normative. For PIC-12 (`pic-12`), demote the member-shape listing the same way while keeping its behavioural rules normative. Apply one consistent normative/reference split across all five seams, co-resolving with T11 so the page reads consistently.
+
+## Solution constraints
+
+- The per-seam behavioural obligations (single-pass validation, monotonic `now()`, `ENOENT`-on-missing `readText`, the watcher event-kind filtering, per-message integer estimation, and PIC-12's `Date.now`/`performance.now`/`setTimeout` ban) MUST remain on the normative side of the demotion.
+
+## Relationships
+
+- T11 "PIC-10 `Checkpoint` seam — internal test-only hook pinned as normative behavioural contract" - co-resolve (same page, same GOV-18-arm-(a) conflict pattern; the spec-edit pattern is identical so the page stays internally consistent).
+# T11 - PIC-10 `Checkpoint` seam — internal test-only hook pinned as normative behavioural contract
+
+**Kind:** prescription, scope
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+PIC-10 in `host-interfaces-services.md` declares the `Checkpoint` seam with a concrete TypeScript interface — the `CheckpointKind` literal union, the `CheckpointSite` field set, and the `Checkpoint.before(kind, site)` member — and pins these type shapes as normative MUSTs alongside the genuinely-behavioural rules. The same paragraph states the seam is internal: not exposed through `ExtensionAPI`, not visible to loom authors / Pi extensions / tools, and with no observable production effect beyond one resolved promise per checkpoint apart from the `loop-iter` macrotask yield. Under the GOV-18 arm (a) operational test, only externally-observable behaviour on `.loom` / `.warp` inputs is in-scope; the concrete member list, type-literal union, and field shape of an internal test-only DI seam are not observable on those inputs. An alternative runtime that implements every behavioural obligation through a differently-shaped internal seam would violate the interface-shape MUSTs while satisfying every observable conformance property.
+
+## Solution approach
+
+In `host-interfaces-services.md`, demote PIC-10's `Checkpoint` / `CheckpointKind` / `CheckpointSite` TypeScript block to a non-normative reference shape, and rewrite the surrounding rules so the normative obligations name the behaviours rather than the declared type names. Keep PIC-10's REQ-ID anchor `id="pic-10"` and its behavioural obligations normative — the checkpoint kinds the hook fires at, the one-macrotask yield on `loop-iter`, the microtask resolution on the other kinds, the one-instance-per-`loomAbort` rule, the `ExtensionAPI`-invisibility rule, and the test-fake call-once / no-skip rules. Re-anchor the test-fake rules alongside the demoted interface or as constraints on the behavioural conformance test.
+
+## Solution constraints
+
+- Out of scope: the PIC-11 / PIC-12 / PIC-13 / PIC-14 / PIC-16 interface-shape demotions on the same page owned by T10.
+
+## Relationships
+
+- T10 "PIC-11 / PIC-12 / PIC-13 / PIC-14 / PIC-16 internal DI interface shapes pinned normative beyond GOV-18 arm (a)" - co-resolve (same page, same GOV-18-arm-(a) conflict pattern; the spec-edit pattern should be identical so the page stays internally consistent).
+# T12 - Compact-transcript reference renderings A–D — no per-rendering identifiers
+
+**Kind:** traceability
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Decision axes:** 3
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The *Compact-transcript format (normative)* sub-section of `binder-model-and-context.md` (anchor `compact-transcript-format-normative`) ends with four reference renderings — labelled **A**, **B**, **C**, **D** in bold-letter prose — that the spec pins as MUST-reproduce-exactly. Each rendering is an independent normative obligation fixing a distinct facet of the rendering contract, yet none carries a per-obligation identifier: no `BNDR-N` REQ-ID anchor and no page-local sub-letter anchor. A coverage-matrix leaf, conformance test, or failure report can cite a single rendering only by prose, and re-lettering on any insertion silently breaks every such citation. GOV-9's `#prefix-n` cross-link contract is unsatisfiable for the individual renderings until they are coined.
+
+## Solution approach
+
+Coin a new umbrella `BNDR` REQ-ID at the sub-section's normative lead-in (next free integer under the `BNDR` prefix per GOV-3, dual-form layout per GOV-1). Assign page-local sub-letter anchors to renderings A through D in order, each in the dual-form layout. Add a preamble before rendering A mirroring the BNDR-6 sub-letter boilerplate on `defaulting-system-note-echo.md`, naming the GOV-23 page-local sub-letter scheme and the umbrella REQ-ID as the load-bearing identifier for unit citations.
+
+## Solution constraints
+
+- The umbrella `BNDR-N` anchor MUST sit on a defining obligation site (the sub-section's normative lead-in), not on the `#### Compact-transcript format (normative)` heading line, per GOV-1.
+- The `BNDR` next-free integer MUST be computed from the live + retired union across the entire `binder/` subtree per GOV-3 / GOV-24, not from this page alone.
+
+## Relationships
+
+- T13 "Binder *System-prompt structure (normative)* items 1–8 carry no REQ-ID anchors" - same-cluster (same shape of un-anchored normative items on a sibling page under the same `BNDR` prefix; resolve independently with the parallel sub-letter scheme).
+- T14 "Un-anchored normative obligations across `cancellation.md`" - same-cluster (same GOV-22 progressive-coinage defect on a different prefix; independent surface).
+- T09 "Diagnostic code-registry *Spec rule* cells bypass GOV-9 `#prefix-n` cross-link form" - must-precede (any diagnostic citing a specific reference rendering becomes repointable once these anchors are coined).
+# T13 - Binder *System-prompt structure (normative)* items 1–8 carry no REQ-ID anchors
+
+**Kind:** traceability
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
+**Decision axes:** 2
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The `#### System-prompt structure (normative)` subsection of `binder-bypass-and-envelope.md` is a numbered list of eight defining obligations, each carrying RFC-2119 normative-modal tokens and naming a distinct contractual surface (item 4's `Parameters:` block, item 7's envelope-kinds enumeration, item 8's no-invent-defaults line, and so on). None of items 1–8 carries an `<a id="bndr-N"></a> **BNDR-N.**` dual-form anchor, and the subsection heading carries no umbrella anchor either. Per GOV-22 these are standing un-coined obligation sites, and per GOV-9 every cross-page reference must resolve to a `#prefix-n` fragment — citing "item 4" by prose breaks silently under any reorder or insertion without producing a dangling-anchor signal.
+
+## Solution approach
+
+Coin a dual-form `<a id="bndr-N"></a> **BNDR-N.**` REQ-ID anchor at each of items 1–8 of the `#### System-prompt structure (normative)` subsection, allocating the next free integers under the already-registered `BNDR` prefix (per GOV-3 the prefix counter is global across the `binder/` subtree). Add an umbrella anchor on the subsection heading line so inbound links citing the structure list as a unit have a stable target distinct from the per-item anchors.
+
+## Solution constraints
+
+- Out of scope: the trailing *Type display*, *Default-literal rendering*, and *Parameter-line reference renderings* tables — their per-rendering anchoring is a separate contract surface (same anchor-pattern precedent as T12).
+
+## Relationships
+
+- T12 "Compact-transcript reference renderings A–D — no per-rendering identifiers" - same-cluster (same GOV-22 anchor-coinage gap on the sibling `binder-model-and-context.md` page; resolves independently with the same dual-form + sub-letter pattern).
+- T14 "Un-anchored normative obligations across `cancellation.md`" - same-cluster (same GOV-22 progressive-coinage residue on `cancellation.md`; resolves independently with the `CNCL-N` prefix).
+- T09 "Diagnostic code-registry *Spec rule* cells bypass GOV-9 `#prefix-n` cross-link form" - must-precede (binder-routed diagnostic rows depending on these items become repointable once the per-item `BNDR-N` anchors land).
+# T14 - Un-anchored normative obligations across `cancellation.md`
+
+**Kind:** traceability
+**Importance:** medium
+**Score:** 35
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+`cancellation.md` coins only three `CNCL-N` anchors (`CNCL-1`, `CNCL-2`, `CNCL-3`), all on the three sub-clauses of the late-settlement discard rule. The remaining sections from **Signal source** through **Surfacing** carry a substantial body of normative MUST / MUST NOT obligations that have never been coined as REQ-IDs and can therefore be cited only by section heading plus quoted prose. GOV-22 mandates progressive coinage of un-anchored obligations so that GOV-9's `#prefix-n` cross-link form is reachable from sibling pages; until these anchors exist, GOV-9 cross-references into the cancellation rules and per-obligation conformance citations are not mechanically possible.
+
+## Solution approach
+
+Coin `CNCL-N` anchors at each defining obligation site on `cancellation.md`, continuing the existing sequence from the next free ID `CNCL-4` in source order down the page. Apply the GOV-1 dual-form layout used for `CNCL-1`…`CNCL-3` (`<a id="cncl-n"></a> **CNCL-N.**`). Where a single sentence carries two distinct obligations (e.g. the `ctx.signal` undefined-tolerance MUST and the MUST-NOT-depend-on-truthiness clause), split into separate anchored IDs; the **Surfacing** section can take an umbrella anchor beside its existing `<a id="surfacing"></a>`.
+
+## Solution constraints
+
+- Do not renumber or re-anchor existing `CNCL-1`…`CNCL-3` (GOV-23 anchor-scheme stability); new IDs start at `CNCL-4`.
+- Allocate numeric tails under the already-registered `CNCL` prefix only; do not introduce a new prefix.
+
+## Relationships
+
+- T13 "Binder *System-prompt structure (normative)* items 1–8 carry no REQ-ID anchors" - same-cluster (same GOV-22 progressive-coinage defect on a different page; resolves independently).
+- T12 "Compact-transcript reference renderings A–D — no per-rendering identifiers" - same-cluster (same GOV-22 defect on `binder-model-and-context.md`).
+- T01 "Pre-evaluation failure list — stale count-pointer and non-contiguous REQ-ID numbering" - same-cluster (same traceability lens, different mechanism — non-contiguous numbering rather than missing anchors).
+- T09 "Diagnostic code-registry *Spec rule* cells bypass GOV-9 `#prefix-n` cross-link form" - must-precede (the cited `code-registry-*.md` rows that depend on cancellation rules cannot be repointed to `#cncl-n` anchors until those anchors exist; coining here unblocks the citation-side fix there).
+# T15 - `for … in` — iterand evaluation cardinality unspecified
+
+**Kind:** completeness
+**Importance:** high
+**Score:** 100
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The `**`for` ... `in`**` paragraph in `control-flow.md` says the iterand must have type `array<T>` and that the iteration variable is a fresh immutable local per iteration, but never states how many times the iterand expression is evaluated. Two readings are admissible: the iterand is evaluated once at loop entry and the loop iterates that snapshot, or it is re-evaluated at the head of every iteration. The cardinality is observable whenever the iterand carries effects (a function-call iterand, an `@`-query iterand, an `invoke` child iterand, or a `let mut` binding the body reassigns): iteration count and effect-commit count differ between the two readings. `for` is the only iteration construct in the language and inherits none of the per-position evaluation pinning that `expressions.md` §"Evaluation order and short-circuiting" gives operators, so the gap threatens the GOV-15 byte-stable source-language-equivalence contract.
+
+## Solution approach
+
+Clarify the `**`for` ... `in`**` paragraph in `control-flow.md` to pin that the iterand expression is evaluated exactly once, at loop entry, before the first iteration, after which the loop iterates the resulting `array<T>` snapshot. Ensure the clarification resolves the effectful-iterand case (the effect commits once at entry, including when the resulting array is empty) and the body-reassigned `let mut` case (re-binding does not change the iterated sequence).
+
+## Solution constraints
+
+- Out of scope: the statement-form `for` body grammar production owned by T22.
+- Adding the normative cardinality obligation to `control-flow.md`, which carries no co-located REQ-ID anchor, triggers GOV-22 progressive coinage of the next free `CTRL-N` ID in the same commit.
+
+## Relationships
+
+- T22 "Block expressions — no grammar production for statement-form `if` / `for` / `while` bodies" - same-cluster (both touch the under-specified surface of statement-form `for`; the body-production fix and the iterand-cardinality fix are independent edits to adjacent sentences).
+# T16 - `string.replace(from, to)` — overlapping-match and scan-direction unpinned
+
+**Kind:** completeness
+**Importance:** high
+**Score:** 100
+**Must-fix:** false
+**Decision axes:** 2
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The `replace(from, to)` semantics cell in expressions.md's Built-in methods (string) table pins three decisions — "replaces all occurrences", literal handling of `$`-sequences in `to`, and the empty-`from` carve-out — and its four reference vectors are normative (conforming implementations MUST reproduce them exactly). None of them constrain behaviour when occurrences of `from` overlap in the receiver. For a self-overlapping needle several "all occurrences" policies produce different byte outputs (`"aaaaa".replace("aa", "x")` yields `"xxa"` under left-to-right non-overlapping scan, `"axx"` under right-to-left, and other shapes under rewind-after-replacement). Because these outputs are part of the GOV-15(a) byte-stable source-language-equivalence contract, the gap lets two compliant loom 1.0.0 implementations diverge on the same input; the sibling `split(sep)` row anchors to JS semantics but `replace` does not, so the gap cannot be closed by appeal to a sibling.
+
+## Solution approach
+
+Clarify the `replace(from, to)` semantics cell in expressions.md's Built-in methods (string) table to pin a single left-to-right non-overlapping scan (matching host `String.prototype.replaceAll`): after a match the next match is sought past the consumed region, with no rewind into the consumed text or the inserted replacement. Add one row to the `replace(from, to)` reference-vector table whose result discriminates that policy from the right-to-left and rewind-after-replacement alternatives (e.g. `"aaaaa".replace("aa", "x")` → `"xxa"`).
+
+## Solution constraints
+
+- None.
+
+## Relationships
+
+- T17 "Other arithmetic — integer overflow beyond safe-integer range" - same-cluster (both are GOV-15(a) byte-output unpinning defects on the same page; same surface, resolve independently).
+# T17 - Other arithmetic — integer overflow beyond safe-integer range
+
+**Kind:** completeness
+**Importance:** high
+**Score:** 100
+**Must-fix:** false
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The "Other arithmetic" section of `expressions.md` pins the runtime dispositions for `-`, `*`, `/`, `%` (operand-type widening, `/` always `number`, division/modulo-by-zero producing `Infinity`/`-Infinity`/`NaN` without panicking) but says nothing about an `integer`-typed result whose computed magnitude exceeds the safe-integer bound `2^53 - 1`. `lexical.md`'s Number literals paragraph explicitly defers an out-of-range value reached through arithmetic to "the runtime `number` rules in Expressions" — but no such rule exists, leaving that cross-reference dangling. `error-model.md`'s closed panic list excludes integer overflow without pinning what the runtime does instead. Two reasonable implementers diverge (retain the static `integer` type with silent IEEE-754 precision loss versus widen the dynamic type to `number`), making GOV-15 byte-stable equivalence unenforceable for any program whose arithmetic crosses the boundary.
+
+## Solution approach
+
+Clarify the "Other arithmetic" section of `expressions.md` to pin the runtime disposition for `integer`-typed arithmetic (`-`, `*`, `%`, and unary `-`) whose computed value exceeds the safe-integer bound `2^53 - 1`: the result is computed in IEEE-754 double precision, retains the static `integer` type from the operator's widening rule rather than widening to `number`, and silently loses precision with no overflow panic. Add a forward-link to `error-model.md`'s closed-panic-list integer-overflow exclusion (`#runtime-panics`) to ground the non-panic disposition. `/` already produces `number` and is outside the gap.
+
+## Solution constraints
+
+- Out of scope: `lexical.md`'s parse-time `loom/parse/integer-literal-out-of-range` rule — this disposition is runtime-only and must not alter the parse-time literal boundary.
+
+## Relationships
+
+- T16 "`string.replace(from, to)` — overlapping-match and scan-direction unpinned" - same-cluster (both are GOV-15(a) byte-output unpinning defects on the same page; same surface, resolve independently).
+# T18 - Per-invocation transport-class binder retry — inter-attempt timing unspecified
+
+**Kind:** error-model
+**Importance:** high
+**Score:** 100
+**Must-fix:** false
+**Decision axes:** 3
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The binder's per-invocation retry budget (HC3-a / HC3-b / HC3-d) fixes the count of LLM calls — one initial attempt plus at most one transport-class retry plus at most one malformed-envelope retry — but specifies nothing about the time between an attempt and its retry. The transport-class arm admits HTTP 429 / rate-limit, so the gap is load-bearing: a retry issued with no delay on a 429 is a recognised rate-limit anti-pattern, and `binder-inference.md` defers the question with "inter-attempt timing is out of scope here" without forward-linking any page that owns the rule. No corpus site mentions backoff, jitter, or `Retry-After`. Two implementers diverge on observable behaviour — immediate re-issue vs arbitrary fixed delay vs honouring `Retry-After` — producing different diagnostic-code sequences and worst-case latencies on the same input, against GOV-15 observables (a) and (b).
+
+## Solution approach
+
+Add a sentence to the `#per-invocation-retry-budget` paragraph in `determinism-cancellation-failure.md` pinning that the transport-class retry is issued immediately and that pi-ai's `StreamOptions.maxRetries` / `maxRetryDelayMs` own all wait-for-retry semantics, including `Retry-After` honouring, on the underlying attempt. Rewrite the "inter-attempt timing is out of scope here" clause in `binder-inference.md` as a forward-link to that paragraph. Add `StreamOptions.maxRetries` / `maxRetryDelayMs` to the Pi version-bump procedure's satellite-type re-validation checklist (`#pi-version-bump-procedure`) so the timing-delegation contract is re-validated on each pi-ai minor.
+
+## Solution constraints
+
+- Out of scope: NOCEIL-1's no-wall-clock-timeout claim in `ceiling-invariants-and-audit.md`. The timing rule must leave NOCEIL-1 intact and must not introduce a loom-side delay layer that would require a NOCEIL-1 carve-out.
+
+## Relationships
+
+- T05 "Cancellation forwarding — turn-lifecycle event delivery not in SDK capability inventory" - same-cluster (both touch the binder's pi-ai call surface and the cancellation/`ctx.signal` interaction, but resolve independently).
+
+---
+# T19 - Binder `complete()` `context.messages` content undefined
+
+**Kind:** implementability
+**Importance:** high
+**Score:** 100
+**Must-fix:** false
+**Decision axes:** 2
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The binder inference call's `context.messages` bullet on `binder-inference.md` says only that it is "the rendered binder input transcript" — a phrase defined nowhere else in the corpus. The normative *System-prompt structure* on `binder-bypass-and-envelope.md` already places every load-bearing binder input (the raw slash-argument line, the truncated session-context block) inside `context.systemPrompt`, so no content remains for `context.messages` to carry without duplicating systemPrompt bytes. The two reasonable implementer readings diverge on the wire: an empty `context.messages` array is rejected by providers that require at least one non-system message, while a synthetic message echoing arguments or transcript duplicates systemPrompt bytes and perturbs the byte-identical binder input that GOV-15 and the determinism pinning depend on.
+
+## Solution approach
+
+In the `context.messages` bullet at `binder-inference.md` `#binder-inference-call`, pin `context.messages` to a fixed single-element array carrying one `user` message whose content is a fixed, non-empty canonical literal string, leaving the *System-prompt structure* and *Compact-transcript format* contracts untouched. Record the fixed string in the Determinism byte-reproducibility footprint at `determinism-cancellation-failure.md` `#determinism` as a fixed constant outside the variable inputs.
+
+## Solution constraints
+
+- Out of scope: the `context.tools` structured-output-tool pin on the same call-site bullet list, owned by T20.
+
+## Relationships
+
+- T20 "Binder structured-output tool — `name` and `label` undefined" - same-cluster (sibling under-specification of the binder `complete()` call site on the same page; both tighten the binder-inference call's per-field obligations).
+- T06 "Per-provider `complete()` forced-tool behaviour has no re-validation gate" - same-cluster (same `complete()` call shape; resolved independently — defining `context.messages` content does not affect whether the per-provider `toolChoice` mapping is gated).
+# T20 - Binder structured-output tool — `name` and `label` undefined
+
+**Kind:** implementability
+**Importance:** high
+**Score:** 100
+**Must-fix:** false
+**Decision axes:** 3
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The binder inference call's `context.tools` bullet (in the `binder-inference-call` section of `binder-inference.md`) pins exactly one entry — the binder's structured-output tool — and the result-extraction sentence recovers the envelope from the first returned `ToolCall` whose `name` matches that tool. But the tool's `name`, `label`, and `description` are never pinned. The forced-tool mechanism (`options.toolChoice`) and the `AssistantMessage.content` walk both depend on a concrete `name`, so two implementations cannot agree on what to send the provider or what to match; and `ToolDefinition.label` and `description` are required SDK fields (per `provider-error-mapping.md` spawn rule 1 and the five-field enumeration in `extension-bootstrap-and-per-loom.md`), so omitting them is a construction-time failure. The parallel synthesised typed-query respond tool is pinned to the byte (`__loom_respond_<slug>` / `"Loom typed-query response"`) while this structural sibling is not.
+
+## Solution approach
+
+Rewrite the `context.tools` bullet in the `binder-inference-call` section to pin the synthesised tool's three remaining required `ToolDefinition` fields. Pin `name` as `__loom_bind_<slug>` (`<slug>` from the canonical-schema-hash recipe at `schema-subset.md#canonical-schema-hash`, the same recipe `__loom_respond_<slug>` uses), `label` as the literal `"Loom binder envelope"`, and `description` as a fixed literal, mirroring the typed-query respond-tool pin in `extension-bootstrap-and-per-loom.md`.
+
+## Solution constraints
+
+- Out of scope: the `context.messages` bullet of the binder inference call (owned by T19).
+
+## Relationships
+
+- T19 "Binder `complete()` `context.messages` content undefined" - same-cluster (same call site, sibling under-specification of the binder `complete()` call shape).
+- T07 "Initial forced respond turn — instruction wording status undeclared" - same-cluster (symmetric asymmetry — both flag silent spots in otherwise meticulously pinned forced-tool surfaces).
+- T06 "Per-provider `complete()` forced-tool behaviour has no re-validation gate" - must-precede (pinning a concrete `name` is the prerequisite that the per-provider `toolChoice` re-validation gate would actually assert against).
+# T21 - `bind_model` field-contract row contradicts the owner page on the strict-capability gate
+
+**Kind:** cross-spec-consistency-broad
+**Importance:** blocker
+**Score:** 200
+**Must-fix:** true
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The `bind_model` row in the Field-contract table in `frontmatter/frontmatter-fields-a.md` ends with an unconditional load gate: the model must support strict structured-output / strict tool-input or load fails with `loom/load/binder-model-not-strict-capable`. The owner page `binder/binder-model-and-context.md` (`#strict-capability-requirement`) and the diagnostic registry rows in `diagnostics/code-registry-load.md` instead describe a three-valued probe: explicit `false` fails the load (E), an absent indicator degrades to `loom/load/binder-model-strict-capability-unknown` (W) and the loom still registers, and the absent case is universal under the loom 1.0 Pi-SDK pin. For the default binder model the two readings produce opposite observable outcomes — "loom not registered" per the frontmatter row versus "loom registered with a W diagnostic" per the owner page — so a conformance implementer following only the row builds a runtime that registers nothing.
+
+## Solution approach
+
+Rewrite the strict-capability gate sentence in the `bind_model` row of `frontmatter/frontmatter-fields-a.md` to forward-link the three-valued probe at `binder/binder-model-and-context.md#strict-capability-requirement` instead of asserting an unconditional hard load failure. The rewritten sentence names both diagnostic outcomes: the E-level `loom/load/binder-model-not-strict-capable` on explicit `false`, and the W-level `loom/load/binder-model-strict-capability-unknown` on an absent indicator (universal under the loom 1.0 Pi-SDK pin) with the loom still registering.
+
+## Solution constraints
+
+- Out of scope: `binder/binder-model-and-context.md` and `diagnostics/code-registry-load.md` — they already agree and remain the normative source.
+
+## Relationships
+
+- T12 "Compact-transcript reference renderings A–D — no per-rendering identifiers" - same-cluster (touches the same owner page `binder-model-and-context.md` but a different section/seam; resolve independently).
+# T22 - Block expressions — no grammar production for statement-form `if` / `for` / `while` bodies
+
+**Kind:** completeness
+**Importance:** blocker
+**Score:** 200
+**Must-fix:** true
+**Decision axes:** 3
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+The Grammar Appendix's Block-expressions section (`#block-expressions` in `grammar.md`) defines `BlockExpr` with a required tail `Expr` and classifies `if` / `while` arm bodies as expression-position `BlockExpr`, while not classifying `for` bodies at all. Every canonical statement-form example in `control-flow.md` ends in a statement (assignment, `if`-statement form, `continue` / `break`), each of which is a parse error under `BlockExpr`'s tail-required rule, and `functions.md`'s `#empty-tail-body` paragraph treats `if`-statement form as a statement — directly contradicting the grammar. No production covers a statement-form `if` / `for` / `while` body, its tail-expression optionality or value, or an empty `{}` body. Two conformant parsers will therefore diverge, breaking the GOV-15 byte-stable equivalence contract.
+
+## Solution approach
+
+Add an optional-tail block production to `grammar.md`'s Block-expressions section (the same `{ Stmt* Expr? }` form already used by `FnBody` / `LoomBody`) and have explicit statement-form `if` / `else` / `while` / `for` productions reference it, retiring the claim under `#block-expressions` that `if` / `while` arm bodies are `BlockExpr`. State that a statement-form `if` / `for` / `while` is a statement with no value, is not admissible in expression position, and that a present tail expression is evaluated and its value discarded — while a final `@…?` form still preserves the `?` early-return. Cover the empty `{}` body under the same optional-tail production.
+
+## Solution constraints
+
+- Out of scope: the `control-flow.md` and `return.md` examples — the new production MUST leave them parsing unchanged.
+
+## Relationships
+
+- T15 "`for … in` — iterand evaluation cardinality unspecified" - same-cluster (also under-specifies `for`, but resolves independently — that finding pins semantics, this one pins grammar).
