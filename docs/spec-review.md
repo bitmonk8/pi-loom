@@ -1762,27 +1762,3 @@ Rename the H1 so it names the file's full step span (steps 5, 6, and 7) rather t
 ## Relationships
 
 None.
-# T73 - A normative MUST is buried inside a non-normative parenthetical
-
-**Kind:** placement
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-In step 5 ("Update the capability-probe pinned constants.") of the Pi version bump procedure on `version-bump-triggers.md`, a normative obligation — that any future runtime-side reference shape reading or stamping a `SessionShutdownEvent['reason']` value MUST extend the sweep's second-stage anchor set in the same edit — is authored inside the parenthetical whose leading label declares its contents a `(non-normative recipe: …)`. A reader can take the MUST as advisory because its enclosing parenthetical is explicitly marked non-normative.
-
-## Solution approach
-
-Move the second-stage-anchor-set extension MUST out of the `(non-normative recipe: …)` parenthetical in step 5 into that step's normative body.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-None.
