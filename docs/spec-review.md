@@ -4,7 +4,7 @@ _Generated: 2026-06-04T21:31:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T34) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 7 high, 9 medium retained; 12 low discarded; 10 low findings merged into 4 medium findings; 3 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 7 high, 8 medium retained; 12 low discarded; 10 low findings merged into 4 medium findings; 3 nit dropped; 0 false dropped._
 
 ---
 
@@ -178,30 +178,3 @@ Apply `tool-registration-lifetime.md`'s known-fragile-evidence framing to `regis
 - T04 "Namespace-clearance subsection" - same-cluster (the new flag-collision rule must be phrased observationally rather than anchoring to the bundled loader symbol, per this finding's discipline).
 - T30 "Subagent-spawn satellite types not pinned to a declaration file" - same-cluster (PIC pinning posture for consumed Pi surfaces; resolves independently).
 - T32 "`AgentSession` consumed member surface not pinned" - same-cluster (mirror problem — under-pinned vs over-claimed external surface; same declaration-file/loom-load-bearing-subset/re-validation discipline is the resolution template).
-# T07 - GOV-21 bundles five independently testable sub-clauses under one REQ-ID
-
-**Kind:** traceability
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-GOV-21 on `docs/spec_topics/governance/release-version-naming.md` is a single REQ-ID whose body carries five independently normative sub-clauses — *Canonical arm* (`gov-21-canonical-arm`), *Alias permanence* (`gov-21-alias-permanence`), *Intensional definition* (`gov-21-intensional-definition`), *Retirement discharge* (`gov-21-retirement-discharge`), and *Cross-page canonical-arm uniqueness* (`gov-21-canonical-arm-uniqueness`) — each pinned by its own page-local anchor and each able to pass or fail independently. Because GOV-21 is the only REQ-ID in scope, the per-leaf coverage matrix can cite nothing narrower than the whole, so a test exercising one sub-clause is indistinguishable from one exercising all five. The `gov-21-*` sub-anchors are not formal REQ-IDs under GOV-1's *Canonical form* criterion (they lack the `**PREFIX-N.**` marker), and the spec is silent on their status.
-
-## Solution approach
-
-Split GOV-21 on `release-version-naming.md` into five peer REQ-IDs under the already-registered `GOV` prefix — one per currently-bundled sub-clause — authored in dual-form per GOV-1, and retire GOV-21 per GOV-8. Keep the two nested anchors (`gov-21-incidental-auto-id`, `gov-21-version-segment-position`) as page-local clarifying anchors under their owning new REQ-ID. Rewrite the single inbound `#gov-21-retirement-discharge` citation on `anchor-scheme-and-retired.md` to target the new Retirement-discharge REQ-ID anchor.
-
-## Solution constraints
-
-- Out of scope: the `.pi/project-config.md` Spec-rules GOV snapshot, owned by T15.
-
-## Relationships
-
-- T10 "BNDR-6 packs 19 independently testable rendering pairs under one REQ-ID" - same-cluster (same bundling shape, independent owning page).
-- T08 "ERR-5 conflates two distinct pre-evaluation failure surfaces" - same-cluster (same bundling shape).
-- T09 "SLSH-4 covers 11 independently normative template rows" - same-cluster (same bundling shape).
-- T15 "`.pi/project-config.md` Spec-rules understates the GOV set and omits GOV-22" - same-cluster (if GOV-21 splits into multiple GOV REQ-IDs, the project-config GOV-snapshot must be updated in the same edit; otherwise independent).

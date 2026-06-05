@@ -15,6 +15,7 @@
 | GOV-11 | `<retirement commit>` | — | Bound a downstream document's `**Spec**` field to a closure-under-cross-link obligation; per [GOV-18](./corpus-direction-and-scope.md#gov-18), the downstream document's data-structure shape is neither the implementation target (arm a) nor the spec corpus itself (arm b). |
 | GOV-13 | `c253233` | GOV-15 | Modal weakening (RFC-2119 SHOULD → non-binding "is expected to") per GOV-8 *Pure rewording* limit; original wording promised a property the spec deliberately leaves un-gated. |
 | GOV-4 | `<retirement commit>` | GOV-24 | Extending the per-row invariant's `Page` cell to admit a hub-subtree binding (in addition to a single file) alters which inputs the rule accepts and is substantive per GOV-8; retired and re-added as GOV-24. |
+| GOV-21 | `<retirement commit>` | GOV-25, GOV-26, GOV-27, GOV-28, GOV-29 | Split per GOV-8 *Split*: one REQ-ID bundled five independently-testable sub-clauses (canonical-arm citation, alias permanence, intensional definition, retirement discharge, cross-page canonical-arm uniqueness), so the per-leaf coverage matrix could cite nothing narrower than the whole. Each sub-clause is now its own peer REQ-ID. |
 
 The Retired REQ-IDs sub-table is append-only per GOV-8. The `Retired in` column carries either the 7-character abbreviated commit SHA or a release tag (the `<retirement commit>` placeholder is replaced with a concrete SHA at the moment of the retiring commit). A retired ID's prefix-position number MUST NOT be reused per GOV-8 *Deletion*.
 
@@ -22,7 +23,7 @@ The Retired REQ-IDs sub-table is append-only per GOV-8. The `Retired in` column 
 
 ## Retired anchor aliases
 
-Records the retirement of `<a id="v1-…">` back-compat aliases under [GOV-21 *Retirement discharge*](./release-version-naming.md#gov-21-retirement-discharge). Retirement is per-alias: each row retires one `v1-*` alias from one owner heading or paragraph, leaving the heading's surviving `loom-1-0-*` (or `loom-1-0-0-*`) arm intact. The sub-table is append-only on the same terms as the *Retired prefixes* sub-table earlier on this page and the *Retired REQ-IDs* sub-table above; retired alias slugs MUST NOT be re-coined.
+Records the retirement of `<a id="v1-…">` back-compat aliases under [GOV-28 *alias retirement discharge*](./release-version-naming.md#gov-28). Retirement is per-alias: each row retires one `v1-*` alias from one owner heading or paragraph, leaving the heading's surviving `loom-1-0-*` (or `loom-1-0-0-*`) arm intact. The sub-table is append-only on the same terms as the *Retired prefixes* sub-table earlier on this page and the *Retired REQ-IDs* sub-table above; retired alias slugs MUST NOT be re-coined.
 
 | Retired alias slug | Owner heading or paragraph | Retired in | Reason |
 |---|---|---|---|
