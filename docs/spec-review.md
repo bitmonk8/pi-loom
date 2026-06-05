@@ -734,28 +734,3 @@ Split the watcher/hot-reload content out of sub-step 5 in `session-shutdown-sema
 ## Relationships
 
 None.
-# T31 - HTTP-200 provider error envelopes that are not the overflow code map to no `QueryError`
-
-**Kind:** error-model
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-A provider HTTP-200 response carrying a body-envelope error that is not the recognised overflow code (`context_length_exceeded`) matches no row in the overflow table under `id="provider-error-mapping"` and falls outside that section's catch-all, which routes only "every other 4xx/5xx response and every network-level failure" to `TransportError`. The `QueryError` mapping for such a response is therefore undefined. The `id="transport-error-retryable"` population rule — keyed on network / 5xx / 429 / non-429-4xx classes — likewise has no class covering an HTTP-200 envelope error.
-
-## Solution approach
-
-Extend the `id="provider-error-mapping"` catch-all so an HTTP-200 response carrying a non-overflow body-envelope error maps to a defined `QueryError` variant, and add the corresponding class to the `id="transport-error-retryable"` population rule so its `retryable` disposition is pinned for that case.
-
-## Solution constraints
-
-- If extending the catch-all strengthens the normative-modal content of a defining-obligation site carrying no co-located REQ-ID anchor, coin a `PIC-N` anchor in the same commit per GOV-22.
-
-## Relationships
-
-- T74 "tokens_used/tokens_limit extraction is underspecified" — same-cluster (`provider-error-mapping.md`).
