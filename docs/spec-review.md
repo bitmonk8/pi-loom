@@ -4,7 +4,7 @@ _Generated: 2026-06-05T00:00:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 blocker, 6 high, 14 medium retained; 10 low discarded; 5 low findings merged into 2 medium findings; 12 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 6 high, 14 medium retained; 10 low discarded; 5 low findings merged into 2 medium findings; 12 nit dropped; 0 false dropped._
 
 ---
 
@@ -544,27 +544,3 @@ Rewrite the `context.tools` bullet in the `binder-inference-call` section to pin
 - T19 "Binder `complete()` `context.messages` content undefined" - same-cluster (same call site, sibling under-specification of the binder `complete()` call shape).
 - T07 "Initial forced respond turn — instruction wording status undeclared" - same-cluster (symmetric asymmetry — both flag silent spots in otherwise meticulously pinned forced-tool surfaces).
 - T06 "Per-provider `complete()` forced-tool behaviour has no re-validation gate" - must-precede (pinning a concrete `name` is the prerequisite that the per-provider `toolChoice` re-validation gate would actually assert against).
-# T21 - `bind_model` field-contract row contradicts the owner page on the strict-capability gate
-
-**Kind:** cross-spec-consistency-broad
-**Importance:** blocker
-**Score:** 200
-**Must-fix:** true
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `bind_model` row in the Field-contract table in `frontmatter/frontmatter-fields-a.md` ends with an unconditional load gate: the model must support strict structured-output / strict tool-input or load fails with `loom/load/binder-model-not-strict-capable`. The owner page `binder/binder-model-and-context.md` (`#strict-capability-requirement`) and the diagnostic registry rows in `diagnostics/code-registry-load.md` instead describe a three-valued probe: explicit `false` fails the load (E), an absent indicator degrades to `loom/load/binder-model-strict-capability-unknown` (W) and the loom still registers, and the absent case is universal under the loom 1.0 Pi-SDK pin. For the default binder model the two readings produce opposite observable outcomes — "loom not registered" per the frontmatter row versus "loom registered with a W diagnostic" per the owner page — so a conformance implementer following only the row builds a runtime that registers nothing.
-
-## Solution approach
-
-Rewrite the strict-capability gate sentence in the `bind_model` row of `frontmatter/frontmatter-fields-a.md` to forward-link the three-valued probe at `binder/binder-model-and-context.md#strict-capability-requirement` instead of asserting an unconditional hard load failure. The rewritten sentence names both diagnostic outcomes: the E-level `loom/load/binder-model-not-strict-capable` on explicit `false`, and the W-level `loom/load/binder-model-strict-capability-unknown` on an absent indicator (universal under the loom 1.0 Pi-SDK pin) with the loom still registering.
-
-## Solution constraints
-
-- Out of scope: `binder/binder-model-and-context.md` and `diagnostics/code-registry-load.md` — they already agree and remain the normative source.
-
-## Relationships
-
-- T12 "Compact-transcript reference renderings A–D — no per-rendering identifiers" - same-cluster (touches the same owner page `binder-model-and-context.md` but a different section/seam; resolve independently).
