@@ -10,6 +10,7 @@ This page owns the spec corpus's REQ-ID governance: the per-page prefix table, t
 - [Req id prefix table active a](./governance/req-id-prefix-table-active-a.md)
 - [Req id prefix table active b](./governance/req-id-prefix-table-active-b.md)
 - [Req id prefix table retired](./governance/req-id-prefix-table-retired.md)
+- [Source-language stability](./governance/source-language-stability.md)
 - [Stable inline labels](./governance/stable-inline-labels.md)
 - [Release version naming](./governance/release-version-naming.md)
 - [Anchor scheme and retired](./governance/anchor-scheme-and-retired.md)

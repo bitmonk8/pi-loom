@@ -4,7 +4,7 @@ _Generated: 2026-06-05T11:52:38Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T83) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 blocker, 19 high, 62 medium retained; ~139 low discarded; ~0 low merged into medium; ~122 nit dropped; 0 false dropped. Source: 344 deduplicated findings across 9 shards + global lenses; 82 retained after triage. Foundational governance/traceability findings (T75–T83) and the standalone blocker (T74) sit at the bottom for first addressing._
+_Triage tally: 1 blocker, 18 high, 62 medium retained; ~139 low discarded; ~0 low merged into medium; ~122 nit dropped; 0 false dropped. Source: 344 deduplicated findings across 9 shards + global lenses; 81 retained after triage. Foundational governance/traceability findings (T75–T83) and the standalone blocker (T74) sit at the bottom for first addressing._
 
 ---
 
@@ -1954,28 +1954,3 @@ Rewrite the `#attribution-test` release-blocking clause, and the parallel releas
 ## Relationships
 
 - T81 "GOV-15 is buried after a retired-prefix table in a graveyard-named file" — same-cluster (GOV-15 surface).
-# T81 - GOV-15 is buried after a retired-prefix table in a graveyard-named file
-
-**Kind:** placement, naming
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-GOV-15 (loom 1.x source-language equivalence — a consequential release-process governance policy) and its sub-sections (`#gov-15-loads-cleanly`, `#ceiling-set-carve-out`, `#attribution-test`, `#operational-definitions`) are defined in `req-id-prefix-table-retired.md`, after the "Retired prefixes" sub-table. The file name and its lead heading mark the page as a graveyard for retired identifiers, so a reader seeking the live source-language stability policy is unlikely to find GOV-15 there.
-
-## Solution approach
-
-Move GOV-15 and its sub-sections out of `req-id-prefix-table-retired.md` into a clearly-named governance home (e.g. a `source-language-stability` page, or a named section in an active governance file). Rename the residual file/heading so the name describes its remaining retired-prefix-table content.
-
-## Solution constraints
-
-- Inbound `#gov-15` cross-references (e.g. from GOV-14, `future-considerations/model-changes-and-non-goals.md`, and `glossary.md`) MUST keep resolving after the move — repoint them or leave a resolvable forward-link, per GOV-9's cross-link contract.
-
-## Relationships
-
-- T80 "GOV-15 *Attribution test* binds the release workflow" — same-cluster.
