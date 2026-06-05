@@ -661,28 +661,3 @@ In that rule, replace the `model registry / extension API` disjunction with the 
 ## Relationships
 
 None.
-# T28 - `createAgentSession` spawn options elide required fields and use an undeclared `model`
-
-**Kind:** implementability
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The "Conversation drive — subagent mode" spawn block in `provider-error-mapping.md` shows the `createAgentSession(...)` call eliding fields behind a `// ...` comment and passing a `model` binding whose source is not stated at the call site. The accompanying "Four rules govern the spawn call" enumeration constrains only three of the populated `CreateAgentSessionOptions` fields (`customTools`, `tools`, `resourceLoader`), leaving `model` and `sessionManager` ungoverned. An implementer cannot determine the complete required field set from the block, nor where the `model` value is resolved.
-
-## Solution approach
-
-Add a forward-link from the spawn block to `subagent.md#subagent-pre-spawn-model-guard` so the `model` binding's source is grounded at the call site. Clarify the spawn block so the full required `CreateAgentSessionOptions` field set is named — either enumerated or stated as defaulted / pass-through — rather than elided behind `// ...`, and so the governing rules account for `model` and `sessionManager`.
-
-## Solution constraints
-
-- Out of scope: re-authoring the `model` resolution rule, which is owned by `subagent.md#subagent-pre-spawn-model-guard`.
-
-## Relationships
-
-None.

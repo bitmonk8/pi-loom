@@ -37,4 +37,4 @@ The `null` fallback is the same value the `mistral` and `amazon-bedrock` rows fi
 | `anthropic-messages` | omitted |
 | `amazon-bedrock` | omitted |
 
-<!-- "Conversation drive — subagent mode" (the `createAgentSession` spawn block, its four governing rules, and the `subagent-spawn-satellite-types` pins) was relocated to its owning page, [Subagent](./subagent.md), so this page's H1 covers only the provider error mapping and provider seed-field mapping that remain. -->
+<!-- "Conversation drive — subagent mode" (the `createAgentSession` spawn block, its six governing rules, and the `subagent-spawn-satellite-types` pins) was relocated to its owning page, [Subagent](./subagent.md), so this page's H1 covers only the provider error mapping and provider seed-field mapping that remain. -->
