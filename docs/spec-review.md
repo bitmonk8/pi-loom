@@ -4,7 +4,7 @@ _Generated: 2026-06-04T21:31:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T34) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 11 high, 15 medium retained; 12 low discarded; 10 low findings merged into 4 medium findings; 3 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 10 high, 15 medium retained; 12 low discarded; 10 low findings merged into 4 medium findings; 3 nit dropped; 0 false dropped._
 
 ---
 
@@ -601,29 +601,3 @@ In the `Echo policy` Object rule bullet, add a recursion clause mirroring the Ar
 
 - T10 "BNDR-6 packs 19 independently testable rendering pairs under one REQ-ID" - same-cluster (this finding adds rows; that finding renumbers them; order so the renumbering lands after the new rows or the new rows take the next sub-IDs).
 - T24 "BNDR-5 scientific-notation prohibition does not cover the sub-1e-7 end" - same-cluster (also closed by adding a BNDR-6 row; the two row-additions can land in one edit but the underlying defects are separate).
-# T23 - Stringification of interpolated values — `number` row omits scientific-notation and `-0` pins
-
-**Kind:** clarity
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `number` row of the interpolation stringification table in `docs/spec_topics/query/query-escapes-stringification.md` says "shortest round-trip decimal (`3.14`, `-0.5`)" without forbidding scientific notation or pinning `-0` → `0`, unlike the adjacent `integer` row which states "never scientific notation". BNDR-5 in `defaulting-system-note-echo.md` already pins all of this for the binder echo formatter (no scientific notation, `-0` → `0`, no trailing `.0`, at least one fractional digit for non-integral values). Because "shortest round-trip decimal" is compatible with JS `String(n)` — which emits `1e+21` and `-0` — two implementers reading only the table render `${big_number}` and `${neg_zero}` differently, and disagree with the binder echo formatter on the same values. Number serialization is content-addressed by the canonical schema hash, so the divergence is observable downstream.
-
-## Solution approach
-
-Rewrite the `number` row of the table in `query/query-escapes-stringification.md` to delegate to BNDR-5 (`../binder/defaulting-system-note-echo.md#bndr-5`) as the single source of truth rather than restating fragments of its rule, while keeping the `NaN` / `Infinity` / `-Infinity` literals visible inline for table scanners. Rewrite the adjacent `integer` row the same way to cite BNDR-4 (`#bndr-4`), removing the asymmetry where one row inlines part of its rule and the other delegates.
-
-## Solution constraints
-
-- Out of scope: the BNDR-5 bullet text in `defaulting-system-note-echo.md` (owned by T24) — cross-reference it, do not edit it.
-- Do not mint a new REQ-ID under `query-escapes-stringification.md`; BNDR-4 / BNDR-5 remain the sole integer / number serialization authorities (no-invented-ids).
-
-## Relationships
-
-- T24 "BNDR-5 scientific-notation prohibition does not cover the sub-1e-7 end" - must-follow (the `number` row's clarification must match whatever scope BNDR-5 lands; the recommendation here is "cite BNDR-5", which only works once BNDR-5 is unambiguous, so settle BNDR-5 first).
-- T10 "BNDR-6 packs 19 independently testable rendering pairs under one REQ-ID" - same-cluster (touches binder-echo REQ-ID granularity but does not change the number row's contract).

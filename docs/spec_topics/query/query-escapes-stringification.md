@@ -18,8 +18,8 @@ A `${expr}` interpolation evaluates `expr` per the [Expression Sublanguage](../e
 | Loom static type | Rendered as |
 |---|---|
 | `string` | the value itself, no quoting, no escaping |
-| `integer` | shortest decimal (`42`, `-7`); never scientific notation |
-| `number` | shortest round-trip decimal (`3.14`, `-0.5`); `NaN` → `NaN`; `Infinity` → `Infinity`; `-Infinity` → `-Infinity` |
+| `integer` | per [BNDR-4](../binder/defaulting-system-note-echo.md#bndr-4) (canonical decimal `42`, `-7`; never scientific notation; `-0` → `0`) |
+| `number` | finite values per [BNDR-5](../binder/defaulting-system-note-echo.md#bndr-5) (shortest round-trip decimal `3.14`, `-0.5`; never scientific notation; `-0` → `0`); `NaN` → `NaN`; `Infinity` → `Infinity`; `-Infinity` → `-Infinity` |
 | `boolean` | `true` / `false` |
 | `null` | the literal text `null` |
 | Enum variant | the variant's **wire** value, unquoted (the enum brand from [Runtime Value Model](../runtime-value-model.md) is dropped — the model only ever sees wire forms) |
