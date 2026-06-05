@@ -467,27 +467,3 @@ Record each of the three reliances as a loom-side consumption-posture presupposi
 ## Relationships
 
 - T63 "Turn-lifecycle subscription surface and `pi.on` are never pinned" — same-cluster (pi-ai/pi-coding-agent consumption presuppositions).
-# T20 - registration-steps step 1 contradicts itself on whether `pi.looms` is read
-
-**Kind:** clarity
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`registration-steps.md` step 1 says the walk reads "every installed package's `pi.looms` entry" yet later states "the `pi` manifest namespace does not enumerate `pi.looms`" — read as a self-contradiction. The two clauses describe different actors (the loom extension's own package-root walk versus Pi's `resources_discover` manifest namespace) but the prose does not distinguish them.
-
-## Solution approach
-
-Clarify `registration-steps.md` step 1's `pi` manifest-namespace clause to separate Pi's resource-discovery namespace (which does not enumerate `pi.looms`) from the loom extension's own walk of package roots (which reads the loom-owned `pi.looms` key directly).
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-None.
