@@ -1152,27 +1152,3 @@ Clarify items (i) (`#bump-checklist-provider-overflow-wording`) and (u) (`#bump-
 ## Relationships
 
 None.
-# T48 - Step 5 inbound-reference-sweep clause is ungrammatical and ambiguous about when the MUST fires
-
-**Kind:** clarity
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-Step 5's *Inbound-reference sweep for session-only-reason subsets* paragraph in `version-bump-triggers.md` reconciles each grep hit with the clause "a hit that does not corresponds to a new inbound runtime reference whose enumeration MUST be added …". The clause is ungrammatical ("does not corresponds") and structurally ambiguous about whether the MUST fires on a does-not-match condition or unconditionally.
-
-## Solution approach
-
-Rewrite the reconciliation clause in step 5's inbound-reference-sweep paragraph so the does-not-match antecedent and the MUST consequent read unambiguously — e.g. "a hit that does not match the existing inline-triplet site corresponds to a new inbound runtime reference, whose enumeration MUST be added …".
-
-## Solution constraints
-
-None.
-
-## Relationships
-
-- T53 "Step 5 inbound-reference-sweep reconciliation has only two arms" — same-cluster (step 5 sweep).
