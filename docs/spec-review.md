@@ -394,27 +394,3 @@ Rename the `InvokeInfraError.cause` member `"validation"` to `"return_validation
 ## Relationships
 
 None.
-# T17 - `argument-hint` field contract is defined once and duplicated word-for-word, missing from the field TOC
-
-**Kind:** cruft, placement
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `argument-hint` field's contract — that it is binder grounding only and is not surfaced in Pi's slash-command autocomplete because `RegisteredCommand` has no `argumentHint` slot for extension-registered commands — is restated in near-duplicate prose across `slash-invocation.md`, `pi-integration.md`, and the `argument-hint` field-contract row and surrounding prose in `frontmatter/frontmatter-fields-a.md`. The duplicated copies can drift independently, and no single site is established as the owning definition.
-
-## Solution approach
-
-Establish the `argument-hint` field-contract row in `frontmatter/frontmatter-fields-a.md` as the single owning definition of the field's contract, and rewrite the duplicated explanatory prose in `slash-invocation.md` and `pi-integration.md` as forward-links to it.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-None.
