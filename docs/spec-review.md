@@ -4,7 +4,7 @@ _Generated: 2026-06-05T11:52:38Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T83) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 blocker, 17 high, 59 medium retained; ~139 low discarded; ~0 low merged into medium; ~122 nit dropped; 0 false dropped. Source: 344 deduplicated findings across 9 shards + global lenses; 77 retained after triage. Foundational governance/traceability findings (T75–T83) and the standalone blocker (T74) sit at the bottom for first addressing._
+_Triage tally: 1 blocker, 16 high, 59 medium retained; ~139 low discarded; ~0 low merged into medium; ~122 nit dropped; 0 false dropped. Source: 344 deduplicated findings across 9 shards + global lenses; 76 retained after triage. Foundational governance/traceability findings (T75–T83) and the standalone blocker (T74) sit at the bottom for first addressing._
 
 ---
 
@@ -1612,30 +1612,6 @@ At capability item 3 (`#sdk-cap-subagent-isolated-session`), clarify whether the
 ## Solution constraints
 
 - None.
-
-## Relationships
-
-None.
-# T67 - Per-`event.reason` session lifecycle is asserted as fact with no probe or cited contract
-
-**Kind:** assumptions
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The per-`event.reason` teardown-vs-session-swap partition — `{"quit","reload"}` tear down the extension runtime, `{"new","resume","fork"}` swap only the user session — is asserted as fact at `session-only-degraded-state.md`'s `#session-only-reason-degraded-state`, where the prose itself notes the distinction "no single SDK identifier pins." No Pi contract is cited and no verification step backs the partition. The `#partial-append-contract` (error-model.md) and the degraded-state branch both depend on the partition holding.
-
-## Solution approach
-
-Ground the teardown-vs-session-swap partition at `session-only-degraded-state.md`'s `#session-only-reason-degraded-state` — either by citing the Pi contract that defines it, or by routing it through the presupposition-plus-editorial-review model the degraded-state branch already uses at `host-prerequisites.md`'s `#degraded-state-host-prerequisites`, gated by the Pi version bump procedure at `#pi-version-bump-procedure`. Add a forward-link from `error-model.md`'s `#partial-append-contract` to whichever grounding lands so its dependence is traceable.
-
-## Solution constraints
-
-- The partition MUST NOT be pinned by a parallel `SessionShutdownEvent['reason']` snapshot entry — the inline triplet at `#session-only-reason-degraded-state` is the normative source of truth per its "Inline triplet is normative" clause.
 
 ## Relationships
 
