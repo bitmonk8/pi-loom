@@ -66,10 +66,10 @@ Per the [override rule](#explicit-ascription-override), when both a binding anno
 
 *Test vectors (normative).*
 
-- `let x: number = @<integer>\`Rate 1-5: ${q}\`?` — **no warning**. `integer ⊑ number` by Type-compatibility rule 2; the explicit form's value is acceptable to the binding.
+- `let x: number = @<integer>\`Rate 1-5: ${q}\`?` — **no warning**. `integer ⊑ number` by [TYPE-2](../type-system.md#type-2); the explicit form's value is acceptable to the binding.
 - `let x: integer = @<number>\`...\`?` — **fires `loom/parse/explicit-schema-mismatch`**. `number ⋢ integer` (the explicit `number` could yield `3.5`, which the `integer` binding cannot accept).
-- `let x: ReviewScore = @<ReviewScore>\`...\`?` — **no warning**. Reflexivity (rule 1).
-- `let x: Animal = @<Cat>\`...\`?` where `schema Animal = Cat | Dog` — **no warning**. Variant-to-union (rule 4): `Cat ⊑ Animal`.
+- `let x: ReviewScore = @<ReviewScore>\`...\`?` — **no warning**. Reflexivity ([TYPE-1](../type-system.md#type-1)).
+- `let x: Animal = @<Cat>\`...\`?` where `schema Animal = Cat | Dog` — **no warning**. Variant-to-union ([TYPE-4](../type-system.md#type-4)): `Cat ⊑ Animal`.
 
 ## Multi-line templates
 

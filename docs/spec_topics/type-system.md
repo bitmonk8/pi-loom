@@ -30,16 +30,16 @@ Wherever the spec asks whether a value of static type `T₁` may be used in a po
 
 **Structural cases the parser must recognise.** The following hold without invoking AJV. The list is closed for V1 — anything outside it that the parser cannot decide statically is reported as a type mismatch (`loom/parse/*-type-mismatch` at the call site, e.g. `loom/parse/invoke-return-type-mismatch`, `loom/parse/invoke-arg-type-mismatch`, `loom/parse/array-element-type-mismatch`, `loom/parse/match-arm-type-mismatch`), unless the position is one where a runtime AJV check is documented as the safety net (e.g. an `invoke` against a callee that is not statically resolvable).
 
-| # | Rule | Notes |
+| ID | Rule | Notes |
 |---|---|---|
-| 1 | Reflexivity: `T ⊑ T` for every type. | Identical primitives, identical named schemas, identical inline objects. |
-| 2 | `integer ⊑ number`. | One-way only; the reverse is `loom/parse/integer-narrowing` (see [Lexical — Number literals](./lexical.md)). |
-| 3 | Literal-to-primitive: `L ⊑ T` when `L` is a literal type and the value `L` would be statically typed `T` in expression position. | E.g. `"validation" ⊑ string`, `42 ⊑ integer`, `42 ⊑ number`, `true ⊑ boolean`, `null ⊑ null`. |
-| 4 | Variant-to-union: for any discriminated union `schema U = A \| B \| ...`, every variant satisfies `A ⊑ U`. | The "narrower callee under wider annotation" case (`Cat ⊑ Animal`). |
-| 5 | Union-widening: `T ⊑ T \| U` for any `U`. | Combined with rule 4, `A ⊑ A \| B` even when the union is anonymous. |
-| 6 | Union-distributive: `T₁ \| T₂ ⊑ T₃` iff `T₁ ⊑ T₃` and `T₂ ⊑ T₃`. | Each arm must individually satisfy the target. |
-| 7 | Element-wise on arrays: `array<T₁> ⊑ array<T₂>` iff `T₁ ⊑ T₂`. | Covariant — `array<Cat> ⊑ array<Animal>`. Already implied by the array-LUB rule in [Expressions — array construction](./expressions.md#object-construction-array-construction-and-operator-rules); restated here so it can be cited from non-array sites. |
-| 8 | Field-wise on object schemas: an object type with declared fields `{ f₁: T₁, ... }` is `⊑` another object type with the same declared field set `{ f₁: U₁, ... }` iff `Tᵢ ⊑ Uᵢ` for every `i`. | Field sets must match exactly: every Loom-lowered object schema carries `additionalProperties: false` (see [Schema Subset](./schema-subset.md)), so excess properties never widen — there is no TS-style structural-subtyping admission of extra fields, and an object with even one extra declared field is not compatible. Field order is irrelevant. |
+| <a id="type-1"></a> **TYPE-1.** | Reflexivity: `T ⊑ T` for every type. | Identical primitives, identical named schemas, identical inline objects. |
+| <a id="type-2"></a> **TYPE-2.** | `integer ⊑ number`. | One-way only; the reverse is `loom/parse/integer-narrowing` (see [Lexical — Number literals](./lexical.md)). |
+| <a id="type-3"></a> **TYPE-3.** | Literal-to-primitive: `L ⊑ T` when `L` is a literal type and the value `L` would be statically typed `T` in expression position. | E.g. `"validation" ⊑ string`, `42 ⊑ integer`, `42 ⊑ number`, `true ⊑ boolean`, `null ⊑ null`. |
+| <a id="type-4"></a> **TYPE-4.** | Variant-to-union: for any discriminated union `schema U = A \| B \| ...`, every variant satisfies `A ⊑ U`. | The "narrower callee under wider annotation" case (`Cat ⊑ Animal`). |
+| <a id="type-5"></a> **TYPE-5.** | Union-widening: `T ⊑ T \| U` for any `U`. | Combined with [TYPE-4](#type-4), `A ⊑ A \| B` even when the union is anonymous. |
+| <a id="type-6"></a> **TYPE-6.** | Union-distributive: `T₁ \| T₂ ⊑ T₃` iff `T₁ ⊑ T₃` and `T₂ ⊑ T₃`. | Each arm must individually satisfy the target. |
+| <a id="type-7"></a> **TYPE-7.** | Element-wise on arrays: `array<T₁> ⊑ array<T₂>` iff `T₁ ⊑ T₂`. | Covariant — `array<Cat> ⊑ array<Animal>`. Already implied by the array-LUB rule in [Expressions — array construction](./expressions.md#object-construction-array-construction-and-operator-rules); restated here so it can be cited from non-array sites. |
+| <a id="type-8"></a> **TYPE-8.** | Field-wise on object schemas: an object type with declared fields `{ f₁: T₁, ... }` is `⊑` another object type with the same declared field set `{ f₁: U₁, ... }` iff `Tᵢ ⊑ Uᵢ` for every `i`. | Field sets must match exactly: every Loom-lowered object schema carries `additionalProperties: false` (see [Schema Subset](./schema-subset.md)), so excess properties never widen — there is no TS-style structural-subtyping admission of extra fields, and an object with even one extra declared field is not compatible. Field order is irrelevant. |
 
 Rules outside this list are deliberately **not** part of loom 1.0 compatibility: function-parameter contravariance, optional-field widening, excess-property tolerance on objects, and `number ⊑ integer` are all rejected. A future widening of the relation is non-breaking iff it only admits new pairs.
 
