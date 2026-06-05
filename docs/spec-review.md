@@ -4,7 +4,7 @@ _Generated: 2026-06-04T21:31:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T34) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 8 high, 15 medium retained; 12 low discarded; 10 low findings merged into 4 medium findings; 3 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 7 high, 15 medium retained; 12 low discarded; 10 low findings merged into 4 medium findings; 3 nit dropped; 0 false dropped._
 
 ---
 
@@ -425,28 +425,3 @@ Rewrite the REQ-IDs range citation in `## Spec rules` so it names the live GOV s
 - T11 "Type-compatibility rules cited by positional ordinal with no per-rule anchor" - must-precede (a fixer working only from project-config would not know GOV-22 obliges coinage; landing this fix first reduces the chance the TYPE-N coinage is skipped on subsequent passes).
 - T12 "`tools:` allowlist enforcement cross-reference violates GOV-9 `#prefix-n` form" - must-precede (the PIC-N coinage half of that fix depends on a fixer knowing GOV-22's obligation).
 - T07 "GOV-21 bundles five independently testable sub-clauses" - same-cluster (if GOV-21 splits into GOV-25..GOV-29, the "currently GOV-1..GOV-24" snapshot must be updated in the same edit; otherwise independent).
-# T16 - `always-log set` definition is narrower than its actual membership
-
-**Kind:** naming
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The glossary entry for *always-log set* (`docs/spec_topics/glossary.md`) and the "Runtime event channel" preamble in `docs/spec_topics/pi-integration-contract/runtime-event-channel.md` both define the set as a subset of `QueryError` `kind` values. That framing contradicts the enumerated membership on the canonical page: group A includes binder failures, which are not `QueryError` variants (per `docs/spec_topics/binder/determinism-cancellation-failure.md`), and group B is `loom/runtime/*` panic codes, also not `QueryError.kind` values. The same narrow framing leaks into `docs/spec_topics/diagnostics/diagnostic-shape.md`'s system-note carrier paragraph. An implementer reading any of these surfaces in isolation would model the set as `QueryError.kind`-only and omit the binder-failure and panic emission obligations; the `RuntimeEvent.kind` field comment on the canonical page already states the correct three-arm union.
-
-## Solution approach
-
-Rewrite the `always-log set` opening clause in `glossary.md` so the definition names the three-arm union — `QueryError.kind` values, binder failure causes, and `loom/runtime/*` panic codes — matching the enumerated group-A/group-B membership. Apply the same broadening to the runtime-event-channel preamble's "subset of `QueryError` failures" framing. Rewrite `diagnostic-shape.md`'s system-note carrier sentence to key the carrier shape off group-A membership of the always-log set rather than off `QueryError` failure membership.
-
-## Solution constraints
-
-- Out of scope: renaming the *always-log set* token itself — only its definition changes; the token is consumed from other pages by name.
-- Out of scope: the success-side null-policy paragraph in `runtime-event-channel.md`, which omits binder failures by construction and is correct as written.
-
-## Relationships
-
-- T05 "Host presuppositions lack version-bump-procedure re-audit hooks" - same-cluster (the `convertToLlm` half touches the same canonical page; independent defect on a different paragraph).
