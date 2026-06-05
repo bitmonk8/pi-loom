@@ -1592,27 +1592,3 @@ Move the normative `ValidationIssue`/`Err` shape definitions from `conversation-
 ## Relationships
 
 None.
-# T66 - `SessionManager.inMemory(cwd)` transcript-privacy guarantee is unverified
-
-**Kind:** assumptions
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-Capability item 3 (`#sdk-cap-subagent-isolated-session`) attributes a transcript-privacy guarantee to `SessionManager.inMemory(cwd)` — the spawned subagent session's transcript being private and discarded when the loom returns. Only the factory's signature (`static inMemory(cwd?: string): SessionManager`) is re-validated by the build-time SDK surface-inventory assertion; no behavioural check confirms the in-memory session actually does not persist the transcript.
-
-## Solution approach
-
-At capability item 3 (`#sdk-cap-subagent-isolated-session`), clarify whether the no-persistence behaviour is verified or rests on the documented `SessionManager.inMemory` semantics with only the factory signature re-validated. If a behavioural check is intended, add it to the bump-procedure satellite re-validation step (`#bump-checklist-subagent-spawn-satellite-types`).
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-None.
