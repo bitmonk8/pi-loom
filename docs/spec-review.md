@@ -4,7 +4,7 @@ _Generated: 2026-06-04T21:31:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T34) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 12 high, 15 medium retained; 12 low discarded; 10 low findings merged into 4 medium findings; 3 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 11 high, 15 medium retained; 12 low discarded; 10 low findings merged into 4 medium findings; 3 nit dropped; 0 false dropped._
 
 ---
 
@@ -627,29 +627,3 @@ Rewrite the `number` row of the table in `query/query-escapes-stringification.md
 
 - T24 "BNDR-5 scientific-notation prohibition does not cover the sub-1e-7 end" - must-follow (the `number` row's clarification must match whatever scope BNDR-5 lands; the recommendation here is "cite BNDR-5", which only works once BNDR-5 is unambiguous, so settle BNDR-5 first).
 - T10 "BNDR-6 packs 19 independently testable rendering pairs under one REQ-ID" - same-cluster (touches binder-echo REQ-ID granularity but does not change the number row's contract).
-# T24 - BNDR-5 scientific-notation prohibition does not cover the sub-1e-7 end of the JS `String(n)` switch
-
-**Kind:** testability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-BNDR-5 (`id="bndr-5"` in `binder/defaulting-system-note-echo.md`) carries an unqualified MUST against scientific notation, but its parenthetical names and remedies only the large-magnitude end of JS's `String(n)` switch (±1e21, "render the integer part in full"). JS also switches to scientific notation for `|value| < 1e-7` (`String(1e-8) === "1e-8"`), which the rule leaves unaddressed. A literal reading forbids `"1e-8"` and forces a fixed-point rendering; a parenthetical-as-scope reading treats the small-magnitude switch as out of scope and permits `"1e-8"`, so two conforming implementers emit different echo bytes for any bound `number` with `|value| < 1e-7`. BNDR-6's reference-rendering table (`id="bndr-6"`) pins `1e21 → 1000000000000000000000` but carries no vector for the sub-1e-7 case, so the conformance suite cannot resolve the divergence.
-
-## Solution approach
-
-Clarify BNDR-5 (`id="bndr-5"`) so its scientific-notation prohibition covers both ends of the JS `String(n)` switch — the ≥1e21 large-magnitude form already named and the `<1e-7` small-magnitude form — landing on fixed-point decimal rendering at every IEEE-754 double magnitude (matching the BNDR-4 "no exponent" precedent). Add a BNDR-6 (`id="bndr-6"`) reference-table vector pinning a sub-1e-7 magnitude (e.g. `1e-8`) to its fixed-point rendering.
-
-## Solution constraints
-
-- Out of scope: the `number` row of `query/query-escapes-stringification.md`, owned by T23.
-
-## Relationships
-
-- T23 "Stringification of interpolated values — `number` row omits scientific-notation/`-0` pins" - must-precede (the `number` row's clarification must match whatever scope BNDR-5 lands here; its "cite BNDR-5" recommendation only works once BNDR-5 is unambiguous).
-- T10 "BNDR-6 packs 19 independently testable rendering pairs under one REQ-ID" - same-cluster (this finding adds a row to the BNDR-6 table; once the sub-ID split lands, the new row mints the next sub-ID).
