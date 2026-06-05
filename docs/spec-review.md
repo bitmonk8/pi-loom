@@ -4,7 +4,7 @@ _Generated: 2026-06-05T11:52:38Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T83) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 blocker, 15 high, 54 medium retained; ~139 low discarded; ~0 low merged into medium; ~122 nit dropped; 0 false dropped. Source: 344 deduplicated findings across 9 shards + global lenses; 69 retained after triage. Foundational governance/traceability findings (T75–T83) and the standalone blocker (T74) sit at the bottom for first addressing._
+_Triage tally: 1 blocker, 15 high, 53 medium retained; ~139 low discarded; ~0 low merged into medium; ~122 nit dropped; 0 false dropped. Source: 344 deduplicated findings across 9 shards + global lenses; 68 retained after triage. Foundational governance/traceability findings (T75–T83) and the standalone blocker (T74) sit at the bottom for first addressing._
 
 ---
 
@@ -346,27 +346,3 @@ Rewrite the `ok`-envelope bullet in the "Binder envelope" list of `binder-bypass
 ## Relationships
 
 None.
-# T15 - Esc-cancellation correctness assumes the abort flips within a single macrotask
-
-**Kind:** assumptions
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`cancellation.md`'s Granularity loop-iteration checkpoint yields exactly one macrotask turn before reading `loomAbort.signal.aborted`, which is correct only if Pi flips that signal within a single macrotask — i.e. the abort runs synchronously inside one Pi-dispatched event handler. That single-macrotask delivery assumption is never recorded as a loom-side presupposition alongside the five already enumerated in the `pi-slash-handler-promise-lifecycle-presupposition` consumption-posture list. If a future Pi deferred the flip across multiple macrotasks, an Esc during a compute-bound loop could be missed at the next iteration without surfacing against any named presupposition.
-
-## Solution approach
-
-Add the single-macrotask abort-flip as a further loom-side presupposition in the consumption-posture list at `pi-slash-handler-promise-lifecycle-presupposition`, and add a forward-link to it from `cancellation.md`'s Granularity loop-iteration checkpoint paragraph and the `loop-iter` description at the `checkpoint-seam`. Add a matching audit step to the Pi version bump procedure (`pi-version-bump-procedure`) so the presupposition is re-checked against each candidate Pi minor.
-
-## Solution constraints
-
-- Record as a loom-side consumption-posture presupposition only — MUST NOT author a normative MUST obligating Pi's macrotask scheduling or event-delivery timing (no Pi MUST in loom-side voice).
-
-## Relationships
-
-- T36 "PIC-9 says the runtime both discards and traps the `abort()` promise" — same-cluster (cancellation lifecycle).
