@@ -4,7 +4,7 @@ _Generated: 2026-06-05T00:00:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blockers, 0 high, 7 medium retained, 3 medium parked; 10 low discarded; 5 low findings merged into 2 medium findings; 12 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 0 high, 6 medium retained, 3 medium parked; 10 low discarded; 5 low findings merged into 2 medium findings; 12 nit dropped; 0 false dropped._
 
 ---
 
@@ -182,27 +182,4 @@ Add a back-referenceable presupposition anchor in `conversation-drive.md` beside
 - T20 "Binder structured-output tool — `name` and `label` undefined" - must-follow (this gate asserts against a concrete forced-tool target name; the binder tool's `name` must be pinned first for the gate to have something to assert against).
 - T19 "Binder `complete()` `context.messages` content undefined" - same-cluster (same `complete()` call shape; resolved independently).
 - T05 "Cancellation forwarding — turn-lifecycle event delivery not in SDK capability inventory" - same-cluster (sibling finding; different consuming surface; resolved independently).
-# T07 - Initial forced respond turn — instruction wording status undeclared
 
-**Kind:** implementability
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`query-tool-loop.md` step 2 ("Forced respond turn") describes the typed-query initial forced respond turn as issuing a user turn whose body is the italic prose *"Return your final answer using the `__loom_respond_<slug>` tool, conforming to this schema: …"* with a trailing ellipsis and no normative status declaration. The respond-*repair* follow-ups, by contrast, are pinned as byte-verbatim templates under "Follow-up turn templates (normative)" in `query-failure-and-repair.md`, governed by a renderer-MUST-emit-verbatim sentence. An implementer cannot tell whether the initial turn must reuse `schema_repeat` verbatim, copy the italic prose as a canonical literal, paraphrase it, or emit free-form text — yet the `max_rounds: 0` boundary-case paragraph already pins a single-U+000A separator "matching the single-LF separator the Follow-up turn templates (normative) section pins", assuming a byte-level structure the wording itself never commits to.
-
-## Solution approach
-
-Pin the initial forced respond turn's instruction wording as a normative template mirroring the `schema_repeat` follow-up, with a body byte-identical to `schema_repeat` minus its leading non-compliance sentence and governed by the same renderer-verbatim-MUST obligation. Add the template block either in `query-tool-loop.md` step 2's section or by extending "Follow-up turn templates (normative)" in `query-failure-and-repair.md`. Rewrite step 2's italic-prose-with-ellipsis description as a forward-link to that template, and update the `max_rounds: 0` boundary-case paragraph to cite it instead of repeating the wording. Point the `<slug>` and `<schema-json>` placeholders at their existing definitions in `query-failure-and-repair.md` rather than redefining them.
-
-## Solution constraints
-
-- The `max_rounds: 0` boundary-case paragraph MUST retain its existing single-U+000A prompt-to-instruction separator and trailing-newline-trim behaviour when updated to cite the template.
-
-## Relationships
-
-- T20 "Binder structured-output tool — `name` and `label` undefined" - same-cluster (symmetric asymmetry — the binder's structured-output tool is similarly under-pinned compared to its respond-tool sibling; both flag silent spots in otherwise meticulously pinned surfaces).
