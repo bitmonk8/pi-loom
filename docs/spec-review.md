@@ -1371,27 +1371,3 @@ Clarify the `depth ≤ 5` ceiling and the OpenAI/Anthropic-intersection and Draf
 ## Relationships
 
 - T19 "Binder relies on three unpinned `complete()` behaviours" — same-cluster (external-behaviour presuppositions).
-# T57 - Single-type alias grammar cannot parse the forms `schemas.md` relies on
-
-**Kind:** implementability
-**Importance:** high
-**Score:** 100
-**Must-fix:** true
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `UnionRhs ::= Type ("|" Type)+` production in grammar.md's `## schema X by <field>` section requires ≥2 types, so the alias/union `SchemaShape` `=` form cannot parse single-type aliases (`schema X = X`, `schema X = Y`). But schemas.md's `loom/parse/type-alias-cycle` prose relies on exactly those forms — both the direct `schema X = X` and transitive `schema X = Y; schema Y = X` cases. The grammar and the normative cycle-detection prose ship contradictory contracts.
-
-## Solution approach
-
-Either add a single-type alias alternative to grammar.md's `SchemaShape` `=` form (and pin its lowering), or declare single-type aliases illegal and rewrite schemas.md's `loom/parse/type-alias-cycle` examples to a parseable form.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-None.

@@ -140,9 +140,10 @@ match result {
 ```
 SchemaDecl   ::= "schema" Ident SchemaShape
 SchemaShape  ::= "{" Field ("," Field)* ","? "}"               // object form
-              | "=" UnionRhs                                   // alias / union form
+              | "=" AliasRhs                                    // alias / union form
               | "by" Ident "=" UnionRhs                        // explicit-discriminator union form
-UnionRhs     ::= Type ("|" Type)+
+AliasRhs     ::= Type ("|" Type)*                              // single-type alias (schema X = T) or multi-type union
+UnionRhs     ::= Type ("|" Type)+                              // discriminated union (≥2 variants)
 ```
 
 The `by <field>` clause is admitted **only** on the union form (the alternative beginning with `=`). A `schema X by f { ... }` declaration with an object body is `loom/parse/by-on-object-schema`; the diagnostic message is *`"the 'by' clause applies only to discriminated-union schemas (schema X by f = A | B | …)"`*. Object schemas have one variant by definition and the discriminator concept does not apply.
