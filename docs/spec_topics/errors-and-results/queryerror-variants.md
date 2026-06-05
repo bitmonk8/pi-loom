@@ -142,12 +142,12 @@ schema InvokeInfraError {
   kind: "invoke_infra",
   message: string,
   callee_path: string,
-  cause: "load_failure"      // callee file unreadable
-       | "parse_failure"     // callee file failed to parse
-       | "validation"        // typed invoke: child's return value failed AJV validation
-       | "panic"             // callee aborted via runtime panic (see Runtime panics above)
-       | "internal_error"    // callee threw an unexpected interpreter exception outside the closed loom 1.0.0 panic-source list
-       | "model_unresolved"  // subagent callee's model resolved to undefined before spawn (see Diagnostics: loom/runtime/subagent-model-unresolved)
+  cause: "load_failure"               // callee file unreadable
+       | "parse_failure"              // callee file failed to parse
+       | "validation"                 // typed invoke: child's return value failed AJV validation
+       | "panic"                      // callee aborted via runtime panic (see Runtime panics above)
+       | "internal_error"             // callee threw an unexpected interpreter exception outside the closed loom 1.0.0 panic-source list
+       | "subagent_model_unresolved"  // subagent callee's model resolved to undefined before spawn (see Diagnostics: loom/runtime/subagent-model-unresolved)
 }
 ```
 

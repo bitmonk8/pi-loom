@@ -4,7 +4,7 @@ _Generated: 2026-06-05T00:00:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blockers, 0 high, 3 medium retained, 3 medium parked; 10 low discarded; 5 low findings merged into 2 medium findings; 12 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 0 high, 2 medium retained, 3 medium parked; 10 low discarded; 5 low findings merged into 2 medium findings; 12 nit dropped; 0 false dropped._
 
 ---
 
@@ -73,30 +73,6 @@ GOV-2/4/10/11/13/21, matching the *Retired REQ-IDs* sub-table in
 - Do not edit the *REQ-ID prefix table* enumeration (`CEIL`, `CIO`, `GOV`,
   `PIC`, …) later in the same paragraph — it is prefix-table membership,
   not REQ-ID number-set membership, and is governed separately.
-
-## Relationships
-
-None
-# T03 - `InvokeInfraError.cause: "model_unresolved"` collides with the `loom/load/model-unresolved` namespace
-
-**Kind:** naming
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `InvokeInfraError.cause` enum arm `"model_unresolved"` collides at the name level with the unrelated load-time diagnostic `loom/load/model-unresolved` (the `model:`-resolution failure that fires in any mode at load time). The arm is produced only by the subagent pre-spawn model guard, whose diagnostic code carries the disambiguated form `loom/runtime/subagent-model-unresolved`, but the bare cause literal drops the `subagent` qualifier. An author reading a `match` arm on `InvokeInfraError.cause` has no name-level signal distinguishing this from the load-time concept, and the corpus convention (`loom/load/binder-model-unresolved` vs `loom/runtime/subagent-model-unresolved`) is to keep the two namespaces distinct via a qualifier.
-
-## Solution approach
-
-Rename the `cause` enum literal from `"model_unresolved"` to `"subagent_model_unresolved"` on all three surfaces that carry it: the `InvokeInfraError` `cause` enum in `errors-and-results/queryerror-variants.md`, the `Err(InvokeInfraError { ... cause: "model_unresolved", ... })` sentence under `subagent.md`'s `id="subagent-pre-spawn-model-guard"` paragraph, and the `loom/runtime/subagent-model-unresolved` row in `diagnostics/code-registry-runtime.md`. The new literal mirrors the diagnostic code's `subagent-model-unresolved` form folded to snake_case, matching the existing discriminator convention.
-
-## Solution constraints
-
-- Out of scope: the `loom/runtime/subagent-model-unresolved` diagnostic code string itself and its anchor — only the `cause` enum literal value changes, not the registry code.
 
 ## Relationships
 
