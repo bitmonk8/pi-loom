@@ -4,7 +4,7 @@ _Generated: 2026-06-05T11:52:38Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T83) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 blocker, 15 high, 55 medium retained; ~139 low discarded; ~0 low merged into medium; ~122 nit dropped; 0 false dropped. Source: 344 deduplicated findings across 9 shards + global lenses; 70 retained after triage. Foundational governance/traceability findings (T75–T83) and the standalone blocker (T74) sit at the bottom for first addressing._
+_Triage tally: 1 blocker, 15 high, 54 medium retained; ~139 low discarded; ~0 low merged into medium; ~122 nit dropped; 0 false dropped. Source: 344 deduplicated findings across 9 shards + global lenses; 69 retained after triage. Foundational governance/traceability findings (T75–T83) and the standalone blocker (T74) sit at the bottom for first addressing._
 
 ---
 
@@ -370,27 +370,3 @@ Add the single-macrotask abort-flip as a further loom-side presupposition in the
 ## Relationships
 
 - T36 "PIC-9 says the runtime both discards and traps the `abort()` promise" — same-cluster (cancellation lifecycle).
-# T16 - `cause: "validation"` means opposite directions on two error types
-
-**Kind:** naming
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-In `errors-and-results/queryerror-variants.md`, the `cause: "validation"` member names opposite failure directions across two `QueryError` variants: on `CodeToolError` it is an input-side (pre-execution) failure — arguments failed input-schema validation — while on `InvokeInfraError` it is an output-side (post-execution) failure — a typed invoke's return value failed AJV validation. The direction difference is not called out, so the same `cause` value reads as the same concept on both variants.
-
-## Solution approach
-
-Rename the `InvokeInfraError.cause` member `"validation"` to `"return_validation"` in `errors-and-results/queryerror-variants.md`'s `#invoke-variants` schema, and update its consumers — the ceiling tables in `hard-ceilings/ceilings-3-and-4.md` and `schema-subset.md`, and `invocation.md`'s Failures section.
-
-## Solution constraints
-
-- The rename targets only the `InvokeInfraError.cause` member; `CodeToolError.cause: "validation"` and the `ValidationError` wire `kind: "validation"` discriminator stay unchanged.
-
-## Relationships
-
-None.
