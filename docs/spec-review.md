@@ -4,7 +4,7 @@ _Generated: 2026-06-05T00:00:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blockers, 0 high, 8 medium retained, 3 medium parked; 10 low discarded; 5 low findings merged into 2 medium findings; 12 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 0 high, 7 medium retained, 3 medium parked; 10 low discarded; 5 low findings merged into 2 medium findings; 12 nit dropped; 0 false dropped._
 
 ---
 
@@ -206,29 +206,3 @@ Pin the initial forced respond turn's instruction wording as a normative templat
 ## Relationships
 
 - T20 "Binder structured-output tool — `name` and `label` undefined" - same-cluster (symmetric asymmetry — the binder's structured-output tool is similarly under-pinned compared to its respond-tool sibling; both flag silent spots in otherwise meticulously pinned surfaces).
-# T08 - Missing owning-declaration pins for bare Pi SDK symbols (`BashExecutionMessage.excludeFromContext`, `DefaultResourceLoader`, `ExtensionRuntime`)
-
-**Kind:** external-entities
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Decision axes:** 3
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-Three load-bearing Pi SDK symbols are cited bare across the PIC corpus with no owning-declaration pointer, breaking the owning-declaration-pointer convention sibling symbols on the same pages follow; a Pi minor that renames any of them escapes both the build-time SDK surface inventory and the bump-time editorial review. `BashExecutionMessage.excludeFromContext` is named as an analogy referent in the `#custom-message-context-entry-presupposition` paragraph of `runtime-event-channel.md` with no declaration cited. `DefaultResourceLoader` (with the `DefaultResourceLoaderOptions.systemPromptOverride` constructor option) is named twice in `provider-error-mapping.md` rule 4 but is omitted from the `#subagent-spawn-satellite-types` pin paragraph and its re-validation gate, while the sibling `ResourceLoader` interface is pinned there. `ExtensionRuntime` / `ExtensionRuntime.invalidate(...)` is referenced bare at `registration-steps.md` step 4, the `active-invocation-registry.md` "Edge cases" bullet, and `diagnostics/diagnostic-shape.md`, with no pin and no bump-checklist item, while sibling extension types are pinned.
-
-## Solution approach
-
-Pin `BashExecutionMessage.excludeFromContext` to its declaration at `dist/core/messages.d.ts` inline at the `#custom-message-context-entry-presupposition` paragraph, and extend bump-checklist item (r) to cover it. Pin `DefaultResourceLoader` and `DefaultResourceLoaderOptions` (declared at `dist/core/resource-loader.d.ts`) in the `#subagent-spawn-satellite-types` paragraph on the same footing as `ResourceLoader`, fold them into the existing item (o) re-validation obligation, and forward-link rule 4's first `DefaultResourceLoader` occurrence to that pin. Pin `ExtensionRuntime` at `registration-steps.md` step 4 as the canonical owner, citing its declaration at the loom 1.0 Pi-SDK pin, cite-by-location from `active-invocation-registry.md` and `diagnostic-shape.md`, and add a new lettered bump-checklist item covering `ExtensionRuntime.invalidate(...)`.
-
-## Solution constraints
-
-- Out of scope: step 2(a)'s seven-capability literal-read probe — `DefaultResourceLoader` MUST NOT be added to it.
-- The pinned `ExtensionRuntime` declaration path MUST be confirmed against the candidate `@earendil-works/pi-coding-agent` package before merge.
-
-## Relationships
-
-None
