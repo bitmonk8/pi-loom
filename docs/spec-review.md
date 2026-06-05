@@ -491,27 +491,3 @@ Clarify `registration-steps.md` step 1's `pi` manifest-namespace clause to separ
 ## Relationships
 
 None.
-# T21 - A throw from a `pi.on(...)` subscription call has no granularity rule
-
-**Kind:** error-model
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `**Extension-bootstrap SDK failures.**` paragraph in `extension-bootstrap-and-per-loom.md` declares a throw/rejection from any registration call in steps 1–5 fatal "at the granularity of the failing surface", but enumerates granularity bullets only for the three `pi.register*` surfaces (`pi.registerMessageRenderer`, `pi.registerCommand`, `pi.registerFlag`). A throw/rejection from a `pi.on(...)` subscription call (the `resources_discover`/`session_start`/`session_shutdown` subscriptions in steps 1/3/4) is therefore covered by the preamble but has no bullet, leaving a load-bearing failure with undefined disposition.
-
-## Solution approach
-
-Add a `pi.on(...)` subscription-failure bullet to the per-call-type granularity rule in the `**Extension-bootstrap SDK failures.**` paragraph of `extension-bootstrap-and-per-loom.md`, fixing the failure disposition (whole-extension fatal mirrors the step-1 `pi.registerFlag` rule, since the subscribed handlers are extension-scoped) and emitting `loom/load/extension-bootstrap-failed` with a `details.capability` value identifying the `pi.on` surface and the subscribed event name, consistent with the sibling bullets.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T63 "Turn-lifecycle subscription surface and `pi.on` are never pinned" — must-follow (the `pi.on` surface must be pinned before its failure granularity can be specified).
