@@ -1004,29 +1004,3 @@ In `diagnostic-shape.md`'s `loom/runtime/*` namespace bullet, re-point the `loom
 ## Relationships
 
 - T70 "§5 test vector contradicts the rule it illustrates" — same-cluster (diagnostics registry correctness).
-# T42 — Placeholder-rendering closure omits live placeholders it is asserted to enforce
-
-**Kind:** implementability
-**Importance:** medium
-**Score:** 35
-**Must-fix:** false
-**Decision axes:** 3
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The placeholder-rendering Closure on `placeholder-rendering-a.md` asserts a build-time-enforced closed surface, but its scope sentence enumerates only the `code-registry-parse.md` rows, and several live placeholders fall outside its eight categories. The `loom/host/session-shutdown-teardown-step-failed` Message template uses `<step>` (1|4|5) and `<call>` (a closed call-site-label set), neither of which appears in any category. Separately, §8 lists `<observed>` but defines its rendering only for `loom/load/host-incompatible`; the `loom/load/frontmatter-value-out-of-range` and `loom/load/settings-value-out-of-range` Messages also carry `<observed>`, where it is a parsed scalar (number/string/boolean/null) rather than a host-supplied error string. The "enforced at build time" claim and the actual placeholder set cannot both hold while these placeholders are unenumerated or unrendered.
-
-## Solution approach
-
-Admit `<step>` and `<call>` into the Closure's category enumeration on `placeholder-rendering-a.md`. Define `<observed>`'s rendering for the parsed-scalar out-of-range codes (`loom/load/frontmatter-value-out-of-range`, `loom/load/settings-value-out-of-range`) across the number/string/boolean/null kinds, distinct from §8's host-derived first-line-truncation rule. Reconcile the Closure's scope sentence so the `loom/host/*` and `loom/load/*` registry rows fall within the closed surface it asserts build-time enforcement over.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T43 "registration-cache-collision Trigger references a byte placeholder absent from the Message" — same-cluster (placeholder/Message closure).
-- T44 "Serialised `content` related-site line format is undefined" — same-cluster.
