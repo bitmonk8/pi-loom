@@ -1176,27 +1176,3 @@ None.
 ## Relationships
 
 - T53 "Step 5 inbound-reference-sweep reconciliation has only two arms" — same-cluster (step 5 sweep).
-# T49 - Step 7 attributes `strictCapable` to two different packages
-
-**Kind:** clarity
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-Step 7 (`**Update the binder strict-capability probe.**` in `version-bump-triggers.md`) keys its rename change-condition on a candidate `@earendil-works/pi-coding-agent` minor introducing the indicator under a different name, but keys its closing no-op condition on whether `@earendil-works/pi-ai` exposes the field under the probed name `strictCapable`. The `Model<Api>.strictCapable` indicator therefore reads as owned by two different packages within one step. The model-registry surface (`#model-registry-pin`) declares `Model` and its `Api` type parameter in `@earendil-works/pi-ai`, so the two sentences disagree on which package the probe actually re-pins against.
-
-## Solution approach
-
-Rewrite Step 7 so both the rename change-condition and the closing no-op condition name the same owning package for `Model<Api>.strictCapable`, consistent with the model-registry surface (`#model-registry-pin`), which declares `Model<Api>` in `@earendil-works/pi-ai`.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-None.
