@@ -4,7 +4,7 @@ _Generated: 2026-06-04T21:31:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T34) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 7 high, 10 medium retained; 12 low discarded; 10 low findings merged into 4 medium findings; 3 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 7 high, 9 medium retained; 12 low discarded; 10 low findings merged into 4 medium findings; 3 nit dropped; 0 false dropped._
 
 ---
 
@@ -205,31 +205,3 @@ Split GOV-21 on `release-version-naming.md` into five peer REQ-IDs under the alr
 - T08 "ERR-5 conflates two distinct pre-evaluation failure surfaces" - same-cluster (same bundling shape).
 - T09 "SLSH-4 covers 11 independently normative template rows" - same-cluster (same bundling shape).
 - T15 "`.pi/project-config.md` Spec-rules understates the GOV set and omits GOV-22" - same-cluster (if GOV-21 splits into multiple GOV REQ-IDs, the project-config GOV-snapshot must be updated in the same edit; otherwise independent).
-# T08 - ERR-5 conflates two distinct pre-evaluation failure surfaces under one anchor
-
-**Kind:** traceability
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-ERR-5 in `docs/spec_topics/errors-and-results/error-model.md` names two distinct pre-evaluation failure surfaces under one `#err-5` anchor: (a) binder argument-binding failure at ceiling #3, and (b) the slash-load `params` arm of ceiling #4 cross-routed through ceiling #3's no-retry classification per CIO-1. These sit at different enforcement points and are cited by different sibling pages, yet share one anchor — contradicting the list's own closing paragraph, which asserts each item is an independent normative obligation carrying a separate per-item `ERR-N` anchor. A conformance test for the ceiling-#4 `params` path can cite nothing narrower than ERR-5, and GOV-12 lock-step bookkeeping cannot track the two surfaces independently.
-
-## Solution approach
-
-Split the ceiling-#4 slash-load `params` arm out of ERR-5 into its own top-level list item under a newly-minted next-free `ERR-N`, leaving ERR-5 scoped to the ceiling-#3 binder argument-binding obligation only. Update the preceding paragraph's count assertion ("the seven below") and the closing paragraph's item cardinality to match the new list length, per the GOV-12 lock-step convention that paragraph already names. Audit inbound citations to `#err-5` in `docs/spec_topics/hard-ceilings/ceilings-3-and-4.md` and `docs/spec_topics/binder/defaulting-system-note-echo.md`, repointing any reference that meant the cross-routed `params` arm at the new anchor.
-
-## Solution constraints
-
-- The new `ERR-N` must be the next free integer under the registered `ERR` prefix per GOV-3 (`max(live ∪ retired) + 1`); do not reuse a retired or live ID.
-- Existing ERR-6 and ERR-7 anchors are stable identifiers, not positional ordinals — do not renumber or repoint them.
-
-## Relationships
-
-- T10 "BNDR-6 packs 19 independently testable rendering pairs under one REQ-ID" - same-cluster (same REQ-ID-granularity defect class; resolves independently).
-- T09 "SLSH-4 covers 11 independently normative template rows" - same-cluster (same defect class).
-- T07 "GOV-21 bundles five independently testable sub-clauses" - same-cluster (same defect class).
