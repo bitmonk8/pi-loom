@@ -905,27 +905,3 @@ Clarify the Unknown-reason rule's `String(event.reason)` coercion clause (`#unkn
 ## Relationships
 
 None.
-# T38 - `non-canonical-extension` dedup keys on `realpath` but claims same-inode siblings
-
-**Kind:** assumptions
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `loom/load/non-canonical-extension` dedup rule is described as keying on `realpath` while claiming it suppresses warnings for "same-inode" siblings, but `realpath` canonicalises paths, not inodes. Two hardlinks to one file resolve to distinct paths and would not dedup under `realpath`, so the stated mechanism and the same-inode claim disagree. The mismatch appears in both the `**Non-canonical extension case.**` paragraph of `discovery/discovery-sources.md` and the diagnostic's row in `diagnostics/code-registry-load.md`.
-
-## Solution approach
-
-Rewrite the dedup-key description so the mechanism and the framing agree: state the key the loader actually uses — canonical-path equality via `realpath`, or device+inode via `stat` — and drop the conflicting term. Apply the same correction to the `loom/load/non-canonical-extension` row in `diagnostics/code-registry-load.md`.
-
-## Solution constraints
-
-None.
-
-## Relationships
-
-None.
