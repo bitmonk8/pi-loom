@@ -4,7 +4,7 @@ _Generated: 2026-06-05T00:00:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blockers, 4 high, 14 medium retained; 10 low discarded; 5 low findings merged into 2 medium findings; 12 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 3 high, 14 medium retained; 10 low discarded; 5 low findings merged into 2 medium findings; 12 nit dropped; 0 false dropped._
 
 ---
 
@@ -464,28 +464,3 @@ Clarify the "Other arithmetic" section of `expressions.md` to pin the runtime di
 ## Relationships
 
 - T16 "`string.replace(from, to)` — overlapping-match and scan-direction unpinned" - same-cluster (both are GOV-15(a) byte-output unpinning defects on the same page; same surface, resolve independently).
-# T18 - Per-invocation transport-class binder retry — inter-attempt timing unspecified
-
-**Kind:** error-model
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 3
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The binder's per-invocation retry budget (HC3-a / HC3-b / HC3-d) fixes the count of LLM calls — one initial attempt plus at most one transport-class retry plus at most one malformed-envelope retry — but specifies nothing about the time between an attempt and its retry. The transport-class arm admits HTTP 429 / rate-limit, so the gap is load-bearing: a retry issued with no delay on a 429 is a recognised rate-limit anti-pattern, and `binder-inference.md` defers the question with "inter-attempt timing is out of scope here" without forward-linking any page that owns the rule. No corpus site mentions backoff, jitter, or `Retry-After`. Two implementers diverge on observable behaviour — immediate re-issue vs arbitrary fixed delay vs honouring `Retry-After` — producing different diagnostic-code sequences and worst-case latencies on the same input, against GOV-15 observables (a) and (b).
-
-## Solution approach
-
-Add a sentence to the `#per-invocation-retry-budget` paragraph in `determinism-cancellation-failure.md` pinning that the transport-class retry is issued immediately and that pi-ai's `StreamOptions.maxRetries` / `maxRetryDelayMs` own all wait-for-retry semantics, including `Retry-After` honouring, on the underlying attempt. Rewrite the "inter-attempt timing is out of scope here" clause in `binder-inference.md` as a forward-link to that paragraph. Add `StreamOptions.maxRetries` / `maxRetryDelayMs` to the Pi version-bump procedure's satellite-type re-validation checklist (`#pi-version-bump-procedure`) so the timing-delegation contract is re-validated on each pi-ai minor.
-
-## Solution constraints
-
-- Out of scope: NOCEIL-1's no-wall-clock-timeout claim in `ceiling-invariants-and-audit.md`. The timing rule must leave NOCEIL-1 intact and must not introduce a loom-side delay layer that would require a NOCEIL-1 carve-out.
-
-## Relationships
-
-- T05 "Cancellation forwarding — turn-lifecycle event delivery not in SDK capability inventory" - same-cluster (both touch the binder's pi-ai call surface and the cancellation/`ctx.signal` interaction, but resolve independently).
