@@ -1127,28 +1127,3 @@ None.
 ## Relationships
 
 - T71 "Brand-string mechanism relies on unverified `tsc` verbatim output" — same-cluster (TS-version-dependent bump gates).
-# T47 - Re-validating provider-owned behaviour has no enumerated data source or owner
-
-**Kind:** assumptions
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The bump-procedure editorial-checklist items (i) (`#bump-checklist-provider-overflow-wording`) and (u) (`#bump-checklist-complete-forced-tool`) both direct the contributor to re-run provider fixtures against each supported provider's "current" error-body / forced-tool behaviour, but neither names what supplies that current provider behaviour — live provider credentials versus a maintained fixture corpus — nor who keeps that source current. Item (i) additionally has no mechanical backstop: it is SHOULD-level only with no CI gate, so a silent provider rewording can downgrade a real overflow to `TransportError` undetected.
-
-## Solution approach
-
-Clarify items (i) (`#bump-checklist-provider-overflow-wording`) and (u) (`#bump-checklist-complete-forced-tool`) on `version-bump-step2.md` to name what supplies the "current" provider behaviour the re-validation runs against, and name the process or owner that keeps that source current.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-None.
