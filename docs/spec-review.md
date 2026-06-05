@@ -1224,27 +1224,4 @@ None.
 ## Relationships
 
 None.
-# T51 - Step 3 `engines.node` test describes mutually exclusive right-hand operands
 
-**Kind:** implementability
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-Step 3 "Re-confirm the `engines.node` floor" in `version-bump-step2b.md` describes its build-time literal-read test as asserting cross-package equality between loom's `package.json#engines.node` literal and `@earendil-works/pi-coding-agent`'s `engines.node` floor — yet the same sentence also says the test sources the upstream value from the in-repo `pi-engines-node` row of `SDK_SURFACE_INVENTORY`. These are mutually exclusive right-hand operands: a live installed-dependency read versus an in-repo maintained literal. If the operand is the in-repo inventory literal, the paragraph's "fails red when the upstream floor moves" / "no contributor-side manual compare is required" guarantee does not hold, because two in-repo literals cannot detect upstream drift on their own.
-
-## Solution approach
-
-Clarify Step 3's `engines.node` literal-read test description in `version-bump-step2b.md` so the cross-package equality names a single unambiguous source for each operand, and reconcile that description with the same paragraph's "fails red when the upstream floor moves" and "no manual compare required" guarantee.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-None.
