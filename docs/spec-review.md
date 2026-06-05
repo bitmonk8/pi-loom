@@ -831,28 +831,3 @@ Add a failure-mode rule to the PIC-17 / PIC-8 region of `tool-registration-lifet
 ## Relationships
 
 None.
-# T35 - Two throwing-`readDrainState` MUSTs have no acceptance criteria
-
-**Kind:** testability
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`pi-integration-contract/drain-state-contract.md`'s *Read-failure fallback* (anchor `read-failure-fallback`) pins two MUSTs on a throwing `readDrainState`: the slash-command call site MUST short-circuit on arm (c) returning the degraded-arm note, and the `session_shutdown` handler-entry step (I) call site MUST treat the read as the steady-state tuple `(drained: false, tag: undefined)` and run the full teardown. Neither MUST has a corresponding fixture in the shard's `## Acceptance criteria` enumeration (`session-only-degraded-state.md`), so the observable outcomes — system note returned, loom not dispatched, which diagnostics fire, post-handler tuple, and the accepted duplicate-emission on re-entry — are untested.
-
-## Solution approach
-
-Add acceptance-criteria fixtures for both throwing-`readDrainState` paths to the shard's `## Acceptance criteria` enumeration in `session-only-degraded-state.md`, asserting the observable outcomes the *Read-failure fallback* (anchor `read-failure-fallback`) already pins — the slash-command site's arm-(c) degraded note with no dispatch, and the handler-entry site's full-teardown traversal with its accepted re-entry duplicate emission.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-None.
