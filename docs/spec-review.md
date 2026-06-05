@@ -1395,27 +1395,3 @@ Either add a single-type alias alternative to grammar.md's `SchemaShape` `=` for
 ## Relationships
 
 None.
-# T58 - `?` operator gate uses an undefined "convertible" relation
-
-**Kind:** clarity
-**Importance:** high
-**Score:** 100
-**Must-fix:** true
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `?`-operator gate in `errors-and-results/error-model.md` says the enclosing scope's return type must be `Result<_, QueryError>` "(or convertible)", but the type model defines no "convertible" relation — `type-system.md` defines only compatibility (`⊑`). The `loom/parse/question-outside-result-fn` gate therefore rests on an undefined relation that implementers will resolve inconsistently.
-
-## Solution approach
-
-In `errors-and-results/error-model.md`, rewrite the `?`-operator gate's enclosing-return-type requirement to use a defined relation: reference type compatibility (`⊑`) per `type-system.md#type-compatibility`, or state the enclosing scope implicitly returns `Result<T, QueryError>` (the relation the same section's later implicit-return sentence already names). Reconcile the gate text with that implicit-return sentence so a single relation governs the `loom/parse/question-outside-result-fn` diagnostic.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T18 "`?` applied to a non-`Result` operand has no diagnostic" — same-cluster (`?`-operator semantics).
