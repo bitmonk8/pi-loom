@@ -159,3 +159,20 @@ it does not persist across worktree wipes)._
 - **Fixer notes:** none
 
 ---
+
+## 2026-06-05 — T14 - Un-anchored normative obligations across `cancellation.md`
+
+- **Failure mode:** fast-loop-unresolved
+- **Category:** 2 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** n/a (fast loop — no inner-loop trajectory)
+- **Score trajectory:** n/a
+- **Passes:** n/a
+- **Stage at exit:** n/a (fast loop — no staged dispatch)
+- **Snapshot refs (retained for forensics):** n/a
+- **Poisoned fixes:** n/a
+- **Forensic report:** none (fast loop — no forensic report)
+- **Parked findings (this run):** `T14 - Un-anchored normative obligations across cancellation.md`
+- **Loop notes:** finding not resolved by fast fix (partial — fast fix coined CNCL-4..8 over uppercase-MUST sites with zero floor regressions, but obligation sites "listener cleanup is mandatory", the "must not retroactively rewrite a completed Ok" race rule, and the Propagation/Granularity/no-top-level-synthesis/Surfacing sites remain un-anchored)
+- **Fixer notes:** none
+
+---

@@ -4,7 +4,7 @@ _Generated: 2026-06-05T00:00:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T22) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blockers, 0 high, 14 medium retained; 10 low discarded; 5 low findings merged into 2 medium findings; 12 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 0 high, 13 medium retained, 1 medium parked; 10 low discarded; 5 low findings merged into 2 medium findings; 12 nit dropped; 0 false dropped._
 
 ---
 
@@ -362,31 +362,3 @@ Coin a dual-form `<a id="bndr-N"></a> **BNDR-N.**` REQ-ID anchor at each of item
 - T12 "Compact-transcript reference renderings A–D — no per-rendering identifiers" - same-cluster (same GOV-22 anchor-coinage gap on the sibling `binder-model-and-context.md` page; resolves independently with the same dual-form + sub-letter pattern).
 - T14 "Un-anchored normative obligations across `cancellation.md`" - same-cluster (same GOV-22 progressive-coinage residue on `cancellation.md`; resolves independently with the `CNCL-N` prefix).
 - T09 "Diagnostic code-registry *Spec rule* cells bypass GOV-9 `#prefix-n` cross-link form" - must-precede (binder-routed diagnostic rows depending on these items become repointable once the per-item `BNDR-N` anchors land).
-# T14 - Un-anchored normative obligations across `cancellation.md`
-
-**Kind:** traceability
-**Importance:** medium
-**Score:** 35
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`cancellation.md` coins only three `CNCL-N` anchors (`CNCL-1`, `CNCL-2`, `CNCL-3`), all on the three sub-clauses of the late-settlement discard rule. The remaining sections from **Signal source** through **Surfacing** carry a substantial body of normative MUST / MUST NOT obligations that have never been coined as REQ-IDs and can therefore be cited only by section heading plus quoted prose. GOV-22 mandates progressive coinage of un-anchored obligations so that GOV-9's `#prefix-n` cross-link form is reachable from sibling pages; until these anchors exist, GOV-9 cross-references into the cancellation rules and per-obligation conformance citations are not mechanically possible.
-
-## Solution approach
-
-Coin `CNCL-N` anchors at each defining obligation site on `cancellation.md`, continuing the existing sequence from the next free ID `CNCL-4` in source order down the page. Apply the GOV-1 dual-form layout used for `CNCL-1`…`CNCL-3` (`<a id="cncl-n"></a> **CNCL-N.**`). Where a single sentence carries two distinct obligations (e.g. the `ctx.signal` undefined-tolerance MUST and the MUST-NOT-depend-on-truthiness clause), split into separate anchored IDs; the **Surfacing** section can take an umbrella anchor beside its existing `<a id="surfacing"></a>`.
-
-## Solution constraints
-
-- Do not renumber or re-anchor existing `CNCL-1`…`CNCL-3` (GOV-23 anchor-scheme stability); new IDs start at `CNCL-4`.
-- Allocate numeric tails under the already-registered `CNCL` prefix only; do not introduce a new prefix.
-
-## Relationships
-
-- T13 "Binder *System-prompt structure (normative)* items 1–8 carry no REQ-ID anchors" - same-cluster (same GOV-22 progressive-coinage defect on a different page; resolves independently).
-- T12 "Compact-transcript reference renderings A–D — no per-rendering identifiers" - same-cluster (same GOV-22 defect on `binder-model-and-context.md`).
-- T01 "Pre-evaluation failure list — stale count-pointer and non-contiguous REQ-ID numbering" - same-cluster (same traceability lens, different mechanism — non-contiguous numbering rather than missing anchors).
-- T09 "Diagnostic code-registry *Spec rule* cells bypass GOV-9 `#prefix-n` cross-link form" - must-precede (the cited `code-registry-*.md` rows that depend on cancellation rules cannot be repointed to `#cncl-n` anchors until those anchors exist; coining here unblocks the citation-side fix there).
