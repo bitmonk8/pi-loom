@@ -4,7 +4,7 @@ _Generated: 2026-06-05T11:52:38Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T83) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 blocker, 15 high, 56 medium retained; ~139 low discarded; ~0 low merged into medium; ~122 nit dropped; 0 false dropped. Source: 344 deduplicated findings across 9 shards + global lenses; 71 retained after triage. Foundational governance/traceability findings (T75–T83) and the standalone blocker (T74) sit at the bottom for first addressing._
+_Triage tally: 1 blocker, 15 high, 55 medium retained; ~139 low discarded; ~0 low merged into medium; ~122 nit dropped; 0 false dropped. Source: 344 deduplicated findings across 9 shards + global lenses; 70 retained after triage. Foundational governance/traceability findings (T75–T83) and the standalone blocker (T74) sit at the bottom for first addressing._
 
 ---
 
@@ -418,28 +418,3 @@ Establish the `argument-hint` field-contract row in `frontmatter/frontmatter-fie
 ## Relationships
 
 None.
-# T18 - `?` applied to a non-`Result` operand has no diagnostic or disposition
-
-**Kind:** completeness
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`?` applied to a non-`Result` operand (`let x = 5?`) inside a Result-returning scope has no diagnostic, no parse/runtime disposition, and no postfix-`?` grammar production. The `loom/parse/question-outside-result-fn` diagnostic covers only the enclosing scope's return type, not the operand type.
-
-## Solution approach
-
-Clarify the `?` operator section in `errors-and-results/error-model.md` to state the operand-type precondition and its disposition, and register the corresponding diagnostic in `diagnostics/code-registry-parse.md`. Add the postfix-`?` production to `grammar.md`.
-
-## Solution constraints
-
-- A new diagnostic introduces a defining obligation site, so coin its REQ-ID anchor in the same commit per GOV-22.
-
-## Relationships
-
-- T58 "`?` operator gate uses an undefined `convertible` relation" — same-cluster (`?`-operator semantics).

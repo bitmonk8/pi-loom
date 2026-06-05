@@ -45,6 +45,8 @@ let critique = match @`Critique this code:\n${code}` {
 
 A function or loom that uses `?` thus implicitly returns `Result<T, QueryError>` where `T` is the type of its last expression. A function that uses neither `?` nor an explicit `Result` return type is required to handle every query failure with `match` (or to discard explicitly per [Query — Discarded query results](../query.md), which defines the user-facing-vs-operator-facing observability contract for the discarded `Err`).
 
+<a id="err-18"></a> **ERR-18.** **`?` operand-type precondition.** The operand to which `?` is applied MUST itself have Loom static type `Result<_, QueryError>` — for instance a `@`-query, an `invoke(...)`, or an explicit `Ok(...)` / `Err(...)`. Applying `?` to an operand of any other type — e.g. `let x = 5?`, where `5` is `integer` — is `loom/parse/question-on-non-result`. The check is static (`type`-phase, per [Diagnostics](../diagnostics.md)); its disposition is the lex / parse / type batch pre-evaluation failure ([ERR-2](#err-2)), so no `Result` is produced and there is no runtime disposition — the loom fails to load. This operand precondition is distinct from the enclosing-scope precondition above: `loom/parse/question-on-non-result` constrains the operand `?` unwraps, whereas `loom/parse/question-outside-result-fn` constrains the scope `?` early-returns from. The postfix `?` operator's surface syntax and precedence live in [Expression Sublanguage — Operator precedence](../expressions.md#operator-precedence).
+
 <a id="terminal-outcomes"></a>
 
 **Terminal outcomes.** Loom evaluation produces one of three terminal outcomes; the set is closed:

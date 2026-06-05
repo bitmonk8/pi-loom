@@ -14,6 +14,7 @@ Loom expressions are a bounded subset of TypeScript. The same grammar applies wh
 - Comparison: `==`, `!=`, `<`, `<=`, `>`, `>=`
 - Logical: `&&`, `||`
 - Ternary: `cond ? a : b`
+- Postfix error-propagation: `expr?` — admitted only on a `Result<_, QueryError>`-typed operand; the operand-type and enclosing-scope preconditions and the unwrap / early-return semantics are owned by [Errors and Results — `?` operator](./errors-and-results/error-model.md)
 - Parenthesised: `(expr)`
 - Query templates (back-tick prefixed by `@`): the literal form of the [Query](./query.md) expression; `${...}` inside them takes any expression listed above
 - Array literals: `[]`, `[a, b, c]`
@@ -124,7 +125,7 @@ From highest to lowest. Within the same level, associativity is as noted.
 
 | Level | Operators | Associativity |
 |---|---|---|
-| 1 | `.` (member), `[]` (index), `()` (call) | left |
+| 1 | `.` (member), `[]` (index), `()` (call), postfix `?` | left |
 | 2 | unary `!`, unary `-` | right |
 | 3 | `*`, `/`, `%` | left |
 | 4 | `+`, `-` | left |
