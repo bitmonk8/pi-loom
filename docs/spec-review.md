@@ -4,7 +4,7 @@ _Generated: 2026-06-04T21:31:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T34) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 7 high, 11 medium retained; 12 low discarded; 10 low findings merged into 4 medium findings; 3 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 7 high, 10 medium retained; 12 low discarded; 10 low findings merged into 4 medium findings; 3 nit dropped; 0 false dropped._
 
 ---
 
@@ -233,31 +233,3 @@ Split the ceiling-#4 slash-load `params` arm out of ERR-5 into its own top-level
 - T10 "BNDR-6 packs 19 independently testable rendering pairs under one REQ-ID" - same-cluster (same REQ-ID-granularity defect class; resolves independently).
 - T09 "SLSH-4 covers 11 independently normative template rows" - same-cluster (same defect class).
 - T07 "GOV-21 bundles five independently testable sub-clauses" - same-cluster (same defect class).
-# T09 - SLSH-4 covers 11 independently normative template rows under one REQ-ID
-
-**Kind:** traceability
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-SLSH-4 (anchor `slsh-4` on `docs/spec_topics/slash-invocation.md`) states a single umbrella MUST and is immediately followed by a per-`kind` formatting table whose body holds eleven independently normative rendering rows — ten typed-`kind` rows plus the catch-all row — and its prose states that conformance tests MAY assert on each row's exact rendered string. Because every row sits under the single `slsh-4` anchor, a test or coverage-matrix leaf exercising only one row has nothing narrower than SLSH-4 to cite, and per-row pass/fail is indistinguishable in REQ-ID-keyed traceability. The same anti-pattern recurs at BNDR-6 (T10), ERR-5 (T08), and GOV-21 (T07).
-
-## Solution approach
-
-Give each of the eleven template rows (the ten typed rows plus the catch-all) its own stable, cross-citable identifier while keeping SLSH-4 as the parent REQ-ID owning the umbrella MUST. Both of the project's governed mechanisms fit — a sub-ID split of SLSH-4 (per the `CIO-4`→`CIO-4a/4b/4c` precedent in `.pi/project-config.md`) or a new inline-label prefix on `slash-invocation.md` (per GOV-16 and the `HC3-a`…`HC3-e` precedent on `governance/stable-inline-labels.md`); the choice is the implementer's. Register the chosen scheme in the governance prefix registry under `docs/spec_topics/governance/`, and add the new per-row identifiers to the GOV-12 lock-step coverage enumeration on the same terms as `HC3-a`…`HC3-e`.
-
-## Solution constraints
-
-- Out of scope: the BNDR-6 (T10), ERR-5 (T08), and GOV-21 (T07) tables — edit only SLSH-4's per-`kind` table.
-- Preserve the existing `slsh-4` anchor and the SLSH-4 parent REQ-ID; do not retire or renumber it (incoming cross-references resolve to it).
-
-## Relationships
-
-- T10 "BNDR-6 packs 19 independently testable rendering pairs under one REQ-ID" - same-cluster (identical shape: one parent REQ-ID over N normative table rows; apply the fix mechanism symmetrically).
-- T08 "ERR-5 conflates two distinct pre-evaluation failure surfaces" - same-cluster (same anti-pattern at smaller N).
-- T07 "GOV-21 bundles five independently testable sub-clauses" - same-cluster (same anti-pattern on the governance prefix).

@@ -32,21 +32,21 @@ Underlying SDK delivery mechanics live in [Pi Integration Contract — Conversat
 
 <a id="slsh-4"></a> **SLSH-4.** **The shapes below are normative templates.** Renderers MUST emit the surrounding template text verbatim; only the `<…>` placeholders are interpolated. Wording changes are spec-versioned breaking changes. Conformance tests MAY assert on the exact rendered string. Where a placeholder carries free-form content sourced from a model (e.g. `<message>` on rows whose underlying error message originated outside the runtime), only the surrounding template is normative — the interpolated content itself is non-deterministic.
 
-Per-`kind` formatting:
+Per-`kind` formatting. Each row below carries a stable inline label (`SNK-a` … `SNK-k`, in the `Label` column) so a conformance test or coverage leaf can cite a single row's rendering rule independently of the SLSH-4 parent. These labels are the second governed identifier class per [Governance — GOV-16](./governance/stable-inline-labels.md#gov-16) — they are *not* REQ-IDs; the `SNK` prefix is registered for this page in GOV-16's per-page inline-label prefix table. SLSH-4 remains the parent REQ-ID owning the umbrella MUST above.
 
-| `QueryError.kind` | System note shape |
-|---|---|
-| `validation` (`cause: "schema_validation"`) | "loom `/<name>` returned `Err`: model failed schema after `<n>` respond-repair attempts" |
-| `validation` (`cause: "empty_template"`) | "loom `/<name>` returned `Err`: rendered query template was empty — no provider turn was issued" |
-| `transport` | "loom `/<name>` returned `Err`: transport — `<message>`" |
-| `model_tool` | "loom `/<name>` returned `Err`: tool `<tool_name>` failed — `<message>`" |
-| `context_overflow` | "loom `/<name>` returned `Err`: context overflow" |
-| `cancelled` | "loom `/<name>` cancelled" |
-| `code_tool` | "loom `/<name>` returned `Err`: tool `<tool_name>` call failed (`<cause>`) — `<message>`" |
-| `tool_loop_exhausted` | "loom `/<name>` returned `Err`: tool-call loop exhausted after `<rounds>` rounds (last tool: `<last_tool_name>`)" |
-| `invoke_infra` | "loom `/<name>` returned `Err`: invoke of `<callee_path>` failed (`<cause>`)" |
-| `invoke_callee` | "loom `/<name>` returned `Err`: invoked `<callee_path>` returned `Err` — `<inner.kind>`" |
-| _any unlisted `kind`_ (catch-all) | "loom `/<name>` returned `Err`: `<kind>` — `<message>`" |
+| Label | `QueryError.kind` | System note shape |
+|---|---|---|
+| <a id="snk-a"></a> **SNK-a.** | `validation` (`cause: "schema_validation"`) | "loom `/<name>` returned `Err`: model failed schema after `<n>` respond-repair attempts" |
+| <a id="snk-b"></a> **SNK-b.** | `validation` (`cause: "empty_template"`) | "loom `/<name>` returned `Err`: rendered query template was empty — no provider turn was issued" |
+| <a id="snk-c"></a> **SNK-c.** | `transport` | "loom `/<name>` returned `Err`: transport — `<message>`" |
+| <a id="snk-d"></a> **SNK-d.** | `model_tool` | "loom `/<name>` returned `Err`: tool `<tool_name>` failed — `<message>`" |
+| <a id="snk-e"></a> **SNK-e.** | `context_overflow` | "loom `/<name>` returned `Err`: context overflow" |
+| <a id="snk-f"></a> **SNK-f.** | `cancelled` | "loom `/<name>` cancelled" |
+| <a id="snk-g"></a> **SNK-g.** | `code_tool` | "loom `/<name>` returned `Err`: tool `<tool_name>` call failed (`<cause>`) — `<message>`" |
+| <a id="snk-h"></a> **SNK-h.** | `tool_loop_exhausted` | "loom `/<name>` returned `Err`: tool-call loop exhausted after `<rounds>` rounds (last tool: `<last_tool_name>`)" |
+| <a id="snk-i"></a> **SNK-i.** | `invoke_infra` | "loom `/<name>` returned `Err`: invoke of `<callee_path>` failed (`<cause>`)" |
+| <a id="snk-j"></a> **SNK-j.** | `invoke_callee` | "loom `/<name>` returned `Err`: invoked `<callee_path>` returned `Err` — `<inner.kind>`" |
+| <a id="snk-k"></a> **SNK-k.** | _any unlisted `kind`_ (catch-all) | "loom `/<name>` returned `Err`: `<kind>` — `<message>`" |
 
 The table is exhaustive over the loom 1.0.0 `QueryError` union (nine variants, listed in [Query — Failure modes](./query.md)); the catch-all row makes the renderer's contract total against any future variant added to the union, so a renderer never has "no defined output" for a well-formed `QueryError`. The `validation` variant occupies two rows keyed on the `cause` field of [`ValidationError`](./errors-and-results/queryerror-variants.md#query-time-variants): `schema_validation` (a post-provider schema rejection) and `empty_template` (the pre-provider empty-rendered-template short-circuit per [Query — Degenerate rendered templates](./query.md), which fires with `attempts: 0` before any model turn). New variants SHOULD ship with a dedicated row in the same edit; the catch-all is a normative fallback, not an excuse to skip the per-kind row. For `tool_loop_exhausted`, `<last_tool_name>` is rendered as the literal string `respond` when `last_tool_name` is `null` (a defensive rendering retained for forward compatibility — `null` has no loom 1.0-reachable case since the typed-query forced respond turn is the exempt-routed terminator dispatched by CIO-4's `max_rounds`-final branch and does not reach this exhaustion path; see [Hard Runtime Ceilings — CIO-4](./hard-ceilings/ceilings-3-and-4.md#ceiling-interaction-order)). For `invoke_callee` the chain-attribution suffix described in the next paragraph handles the deeper `inner` recursion — the row above only formats the immediate failure, and the chain suffix recurses into `inner` so the leaf `kind` (not the wrapper) drives the descriptive text. The chain suffix applies to every row, including the catch-all, whenever the failure cascaded from an invoked child.
 
