@@ -4,7 +4,7 @@ _Generated: 2026-06-05T11:52:38Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T83) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 blocker, 15 high, 57 medium retained; ~139 low discarded; ~0 low merged into medium; ~122 nit dropped; 0 false dropped. Source: 344 deduplicated findings across 9 shards + global lenses; 72 retained after triage. Foundational governance/traceability findings (T75–T83) and the standalone blocker (T74) sit at the bottom for first addressing._
+_Triage tally: 1 blocker, 15 high, 56 medium retained; ~139 low discarded; ~0 low merged into medium; ~122 nit dropped; 0 false dropped. Source: 344 deduplicated findings across 9 shards + global lenses; 71 retained after triage. Foundational governance/traceability findings (T75–T83) and the standalone blocker (T74) sit at the bottom for first addressing._
 
 ---
 
@@ -706,30 +706,6 @@ Either add an injectable id-source seam on `host-interfaces-services.md` modelle
 ## Solution constraints
 
 - If the chosen direction adds a new defining-obligation site on `host-interfaces-services.md`, it must carry a co-located REQ-ID anchor per GOV-22.
-
-## Relationships
-
-None.
-# T30 - `session-shutdown-semantics.md` sub-step 5 expands into the full hot-reload lifecycle
-
-**Kind:** placement, scope
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-In `session-shutdown-semantics.md`, sub-step 5 (the *Factory-ordering pin*) begins as a session-shutdown ordering obligation but then expands — without a heading break — into the complete chokidar hot-reload lifecycle: the 250 ms debounce, build-aside-then-publish swap, `pi.registerTool` re-registration, rollback on a failed staged rebuild, the **Structural changes** note template, the **In-flight invocation rule**, and settings-file routing. None of that is session-shutdown behaviour, so the watcher/hot-reload contract is documented under a heading that does not name it.
-
-## Solution approach
-
-Split the watcher/hot-reload content out of sub-step 5 in `session-shutdown-semantics.md` into a dedicated topic page or into `registration-steps.md`; keep the factory-ordering pin sentence in `session-shutdown-semantics.md` with a forward-link to the relocated content.
-
-## Solution constraints
-
-- None.
 
 ## Relationships
 
