@@ -10,14 +10,14 @@
 
 | REQ-ID | Retired in | Replaced by | Reason |
 |---|---|---|---|
-| GOV-2 | `<retirement commit>` | — | Bound a downstream coverage-matrix tracker to map every REQ-ID to a closing leaf and exit non-zero on unmapped IDs; per [GOV-18](./corpus-direction-and-scope.md#gov-18), the tracker is neither the implementation target (arm a) nor the spec corpus itself (arm b). |
-| GOV-10 | `<retirement commit>` | — | Bound an implementer's reading-scope to a downstream document's per-leaf `**Spec**` field; per [GOV-18](./corpus-direction-and-scope.md#gov-18), the implementer's reading process is neither the implementation target (arm a) nor the spec corpus itself (arm b). |
-| GOV-11 | `<retirement commit>` | — | Bound a downstream document's `**Spec**` field to a closure-under-cross-link obligation; per [GOV-18](./corpus-direction-and-scope.md#gov-18), the downstream document's data-structure shape is neither the implementation target (arm a) nor the spec corpus itself (arm b). |
+| GOV-2 | `64cdc60` | — | Bound a downstream coverage-matrix tracker to map every REQ-ID to a closing leaf and exit non-zero on unmapped IDs; per [GOV-18](./corpus-direction-and-scope.md#gov-18), the tracker is neither the implementation target (arm a) nor the spec corpus itself (arm b). |
+| GOV-10 | `64cdc60` | — | Bound an implementer's reading-scope to a downstream document's per-leaf `**Spec**` field; per [GOV-18](./corpus-direction-and-scope.md#gov-18), the implementer's reading process is neither the implementation target (arm a) nor the spec corpus itself (arm b). |
+| GOV-11 | `64cdc60` | — | Bound a downstream document's `**Spec**` field to a closure-under-cross-link obligation; per [GOV-18](./corpus-direction-and-scope.md#gov-18), the downstream document's data-structure shape is neither the implementation target (arm a) nor the spec corpus itself (arm b). |
 | GOV-13 | `c253233` | GOV-15 | Modal weakening (RFC-2119 SHOULD → non-binding "is expected to") per GOV-8 *Pure rewording* limit; original wording promised a property the spec deliberately leaves un-gated. |
-| GOV-4 | `<retirement commit>` | GOV-24 | Extending the per-row invariant's `Page` cell to admit a hub-subtree binding (in addition to a single file) alters which inputs the rule accepts and is substantive per GOV-8; retired and re-added as GOV-24. |
-| GOV-21 | `<retirement commit>` | GOV-25, GOV-26, GOV-27, GOV-28, GOV-29 | Split per GOV-8 *Split*: one REQ-ID bundled five independently-testable sub-clauses (canonical-arm citation, alias permanence, intensional definition, retirement discharge, cross-page canonical-arm uniqueness), so the per-leaf coverage matrix could cite nothing narrower than the whole. Each sub-clause is now its own peer REQ-ID. |
+| GOV-4 | `1d773d6` | GOV-24 | Extending the per-row invariant's `Page` cell to admit a hub-subtree binding (in addition to a single file) alters which inputs the rule accepts and is substantive per GOV-8; retired and re-added as GOV-24. |
+| GOV-21 | `8e3ccb4` | GOV-25, GOV-26, GOV-27, GOV-28, GOV-29 | Split per GOV-8 *Split*: one REQ-ID bundled five independently-testable sub-clauses (canonical-arm citation, alias permanence, intensional definition, retirement discharge, cross-page canonical-arm uniqueness), so the per-leaf coverage matrix could cite nothing narrower than the whole. Each sub-clause is now its own peer REQ-ID. |
 
-The Retired REQ-IDs sub-table is append-only per GOV-8. The `Retired in` column carries either the 7-character abbreviated commit SHA or a release tag (the `<retirement commit>` placeholder is replaced with a concrete SHA at the moment of the retiring commit). A retired ID's prefix-position number MUST NOT be reused per GOV-8 *Deletion*.
+The Retired REQ-IDs sub-table is append-only per GOV-8. The `Retired in` column carries either the 7-character abbreviated commit SHA or a release tag. A retired ID's prefix-position number MUST NOT be reused per GOV-8 *Deletion*.
 
 <a id="retired-anchor-aliases"></a>
 
