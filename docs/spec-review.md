@@ -2,9 +2,9 @@
 
 _Generated: 2026-06-06T13:23:32Z_
 _Spec: docs/spec.md_
-_Process: bottom-up - the last finding (T120) is addressed first; the first finding (T001) is addressed last._
+_Process: bottom-up - the last finding (T119) is addressed first; the first finding (T001) is addressed last._
 
-_Triage tally: 1 blocker, 52 high, 66 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 52 high, 66 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
 
 _(Updated 2026-06-06: T066 "README links to a non-existent docs/spec-sweeps.md" resolved and removed — a README/tracking-doc finding outside the spec corpus; the README Status paragraph was rewritten to drop the dangling docs/spec-sweeps.md link.)_
 
@@ -5817,65 +5817,3 @@ Make PIC-9's no-mask rule bidirectional: on every disposal trigger including nor
 ## Relationships
 
 - T041 "Shard-10 hidden assumptions and editorial cruft on the host-prerequisites / host-interfaces-core / host-interfaces-services / registration-steps page set" - same-cluster (pins the upstream Pi-side `abort()`/`dispose()` behaviour this rule depends on; resolved independently in `host-interfaces-core.md`).
-
-# T120 - Trust-boundary "no per-extension privilege facet" claim cites a drift-detector that cannot detect the drift
-
-**Original heading:** Security-posture claim "Pi exposes no per-extension privilege facet" rests on a drift-detector that does not enumerate Pi's full surface
-**Original section:** docs/spec/overview-and-orientation.md, docs/spec/language-and-architecture.md, docs/spec/session-model-and-appendix.md, docs/spec_topics/overview.md, glossary.md (orientation / aggregators)
-**Kind:** assumptions
-**Importance:** blocker
-**Score:** 200
-**Must-fix:** true
-
-## Finding
-
-The Trust-boundary NFR bullet in `overview-and-orientation.md` makes two coupled claims: (1) Pi's `ExtensionAPI` / `ExtensionContext` surfaces "expose no per-extension privilege facet" and "Pi exposes no per-extension privilege scoping the runtime can rely on as a security boundary"; (2) "A future Pi minor that adds such a facet would surface at the build-time SDK surface-inventory assertion run by [Pi version bump procedure] before the spec contract drifts." The second claim names the loom 1.0 mechanical safety-net for the first.
-
-The cited safety-net does not exist. The build-time SDK surface inventory has two arms and neither catches a new privilege facet:
-
-- The *positive-direction* literal-read assertion (`inventory-audit-intro.md`, `version-bump-step2.md` step 2(a)) checks the constant `CAPABILITY_OBLIGATIONS.length === 7` and the presence of the seven named capabilities. It does not enumerate `ExtensionAPI`'s typed member surface, so a Pi minor adding a new `pi.setExtensionPrivileges(...)`-shaped member leaves the count unchanged and the assertion green.
-- The *negative-direction* inventory-closure audit (`inventory-audit-intro.md`, `audit-target-categories.md`, `audit-resolution.md`) is a closure check over the *audited source tree*: it walks `src/**/*.ts`, detects category-(1) `pi.<member>` accesses, category-(2) named imports, and category-(3) `ctx.<member>` accesses that the runtime makes, and asserts each resolves to an inventory entry or an `// allow-pi-surface:` exemption. By construction it cannot fire on a Pi-side member the runtime does not reference. `inventory-audit-intro.md` itself acknowledges the closure direction: "every Pi-side surface reference in the *audited source tree* … resolves to an `SDK_SURFACE_INVENTORY` entry."
-
-The parallel "No concurrent user sessions in the same host process" non-goal in `model-changes-and-non-goals.md` line 30 already states the honest shape of this kind of claim: "this is a presupposition rather than a claim that the runtime has audited Pi's full extension API surface and confirmed the absence of any concurrent-sessions facet, and concurrent-session detection is not part of the Step 0 capability probe," and routes detection to the editorial-review checklist in `version-bump-step2.md`. The Trust-boundary bullet is the structural twin of that paragraph but presents itself as audit-backed rather than presupposition-based, and the loom 1.0 security posture rests on the difference.
-
-## Spec Documents
-
-- `docs/spec/overview-and-orientation.md` — Non-functional requirements → Trust boundary bullet (edited)
-- `docs/spec_topics/future-considerations/model-changes-and-non-goals.md` — "No per-loom sandbox or capability model" bullet (edited; the recorded-at sibling needs the same reframe as the orientation bullet so the two stay in lock-step)
-- `docs/spec_topics/pi-integration-contract/version-bump-step2.md` — Editorial-review checklist items (a)–(ad) (edited)
-- `docs/spec_topics/pi-integration-contract/inventory-audit-intro.md` — Inventory-closure audit / positive-direction literal-read assertion (read-only)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None
-
-## Consequence
-
-**Severity:** correctness
-
-A reader of the Trust-boundary bullet — including an implementer choosing not to add a sandbox layer because Pi's surface is asserted clean and a future drift is asserted caught — concludes the loom 1.0 security posture has a mechanical safety-net it does not have. A Pi minor introducing a privilege-scoping member would land green through the version-bump procedure as currently written, the spec contract would silently drift, and the loom runtime would continue operating at full host-process privilege under the (now-false) premise that Pi has not exposed a finer-grained boundary the runtime could honour.
-
-## Solution Space
-
-**Shape:** single
-**State:** reduced
-
-Reframe the Trust-boundary "no per-extension privilege facet" claim as an honest presupposition about the pinned Pi minor, parallel to the concurrent-sessions non-goal, and route detection of any future privilege facet to the per-bump editorial-review checklist rather than to a mechanical gate. The claim is structurally a presupposition about Pi's current API; the spec already has a worked pattern for this shape, and 26 SHOULD-level checklist items consume the same contributor-discipline detection mechanism. The substantive claim ("Pi exposes no per-extension privilege scoping the runtime can rely on as a security boundary") is unchanged — only the *detection* claim is reframed.
-
-### Spec edits
-- `overview-and-orientation.md` Trust-boundary bullet: replace the "expose no per-extension privilege facet … would surface at the build-time SDK surface-inventory assertion" prose with a presupposition-shaped sentence (matching `model-changes-and-non-goals.md` line 30) that states the runtime has *not* audited Pi's full `ExtensionAPI` surface, that the absence of per-extension privilege scoping is a presupposition on the pinned Pi minor, and that detection of a future privilege facet is routed to the new checklist item. Add a forward link to that item. The "Pi exposes no per-extension privilege scoping the runtime can rely on as a security boundary" sentence carries through unchanged.
-- `model-changes-and-non-goals.md` "No per-loom sandbox or capability model" bullet: extend its `Recorded at:` block to point at the same checklist item, mirroring the concurrent-sessions bullet's recorded-at structure.
-- `version-bump-step2.md`: add a new SHOULD-level checklist item (next available letter, e.g. (ae)) — *Per-extension privilege-scoping facet*. Body parallels items (f) and (n): re-read the candidate `@earendil-works/pi-coding-agent` minor's `ExtensionAPI` and `ExtensionContext` declarations against the loom 1.0 pin and confirm no new privilege-scoping member has appeared. Use the same SHOULD→MUST escalation clause as item (f), verbatim.
-
-### Edge cases
-- The recorded-at block in `model-changes-and-non-goals.md` MUST be updated in the same edit so the cross-link to the new checklist item is bidirectional.
-- The new checklist item's SHOULD→MUST escalation clause should match item (f)'s wording verbatim, since both are gated on Pi exposing a typed contract that step 2(a)'s probe can mechanically verify.
-- Detection remains contributor-discipline on the same fragility footing as items (f)–(ad): a bump that skips the editorial audit ships drift silently. This is the same risk the existing 26 SHOULD-level items already accept.
-
-## Relationships
-
-- T068 "Operator-always-present invariant asserted without a Pi-side guarantee" - same-cluster (sibling NFR/orientation claim that asserts a Pi-side guarantee without a verified Pi-side citation; resolves independently but with the same prose pattern)
