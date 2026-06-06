@@ -20,6 +20,8 @@ _(Updated 2026-06-06: T095 "ERR-7 lacks a defining anchor on the discovery pages
 
 _(Updated 2026-06-06: T108 "Non-Error throws yield `undefined` (or a TypeError) when the runtime extracts `.message`" and T109 "`session_start` collision pass has no failure contract when `pi.getCommands()` throws" resolved together as a co-resolve cluster and removed — a canonical underlying-error coercion was pinned in placeholder-rendering-b.md §6 and a fifth `pi.getCommands()` read-failure bullet was added to the Extension-bootstrap SDK failures enumeration.)_
 
+_(Updated 2026-06-06: T089 "Opening free-phase turn body unstated for `max_rounds > 0`; `discard_site` value undefined for void-tail discards" resolved and removed — the *Free phase* bullet in query-tool-loop.md now states the runtime issues the opening free-phase user turn carrying the rendered query template body as its sole content, with the `max_rounds: 0` boundary the same dispatch (not a second code path); and the **Observability of discarded results** paragraph in query-escapes-stringification.md now pins `discard_site` to the `let _ =` binding for the expression-statement form and to the tail `@`...`` expression (its start, for multi-line spans) for the void-tail-function form. No new IDs, MUSTs, or runtime-event fields.)_
+
 _(Updated 2026-06-06: T066 "README links to a non-existent docs/spec-sweeps.md" resolved and removed — a README/tracking-doc finding outside the spec corpus; the README Status paragraph was rewritten to drop the dangling docs/spec-sweeps.md link.)_
 
 _(Updated 2026-06-06: T033 "Binder clarity nits: placeholder mismatches, undefined block delimiter, ambiguous dash-clause, missing "or" in no-params bullet" and T104 "BNDR-7's "next blank line of the surrounding system prompt" presupposes framing the eight system-prompt blocks neither pin" resolved together as a co-resolve cluster and removed — *System-prompt structure (normative)* item 6 in binder-bypass-and-envelope.md now pins the Session-context block's exact byte framing (opening line + `\n` + body + a terminating blank line, ending `\n\n`, emitted regardless of block position), the BNDR-7 umbrella in binder-model-and-context.md now bounds each rendering body at "the terminating blank line that closes the block per item 6" instead of "the next blank line of the surrounding system prompt", and the four sibling clarity nits were fixed: the failure-mode-templates intro and rule 5 now name `<model's message>` (dropping the non-existent `<candidates>`/`candidates:` references), BNDR-2/BNDR-3 cite `<model's message>` to match the table, the determinism variable-inputs sentence was split off from the fixed-footprint clause, and `or` was inserted in the no-params bypass bullet.)_
@@ -3821,71 +3823,3 @@ Two independent, small edits. Land the terminal-newline pin first (it pins the b
 ## Relationships
 
 - T090 "Frontmatter / query hidden assumptions: unbacked AJV NaN/±Infinity rejection and unbacked universal `strictCapable` absence" - decision-overlap (the LF/CRLF line-ending contract for source decides which byte sequence the dedent vectors operate on; the dedent vector row must be consistent with whatever that finding resolves)
-- T089 "Opening free-phase turn body unstated for `max_rounds > 0`; `discard_site` value undefined for void-tail discards" - same-cluster (sibling byte-exact / testability gap in the same query subtopic; resolves independently)
-
----
-
-# T089 - Opening free-phase turn body unstated for `max_rounds > 0`; `discard_site` value undefined for void-tail discards
-
-**Original heading:** query-tool-loop max_rounds>0 opening free-phase turn content is implicit; void-tail `discard_site` value undefined
-**Original section:** docs/spec_topics/ frontmatter + query
-**Kind:** implementability, testability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-
-## Finding
-
-Two adjacent gaps in `query/query-tool-loop.md` and `query/query-escapes-stringification.md` each leave a field value undefined where the spec otherwise nails the boundary case.
-
-First, `query-tool-loop.md` carefully pins the opening-turn content for the `max_rounds: 0` boundary of a typed query — "carrying the user-supplied prompt text of the `@<T>`...`` expression as the leading content of its user-message body, separated from the forced respond turn's instruction wording … by a single U+000A line feed". It never makes the analogous statement for the much commoner `max_rounds > 0` path. The Free-phase bullet only describes the *model's* turns ("Each turn, the model may call any frontmatter tool … or emit a plain text turn"); it does not say that the *opening* user turn issued by the runtime to start the free phase carries the rendered query template body. A reader implementing the loop has to infer this from the `max_rounds: 0` description, the `Ok` extraction reference in [PIC — untyped-query `Ok(string)` extraction](../pi-integration-contract/conversation-drive.md#untyped-query-ok-extraction), and the absence of any other plausible content. Two implementers could reasonably arrive at different turn bodies (rendered template alone; rendered template plus the forced-respond instruction; rendered template plus a system preamble) and no conformance test could distinguish them from spec.
-
-Second, `query-escapes-stringification.md` "Observability of discarded results" defines `RuntimeEvent.discard_site` as "the source location of the discarding `let _ =`". The immediately preceding paragraph in the same file extends the discard form: "A `void`-returning function whose **tail expression** is `@`...`` is also a discard with the same observability contract as the expression-statement form". A void-tail discard has no `let _ =` token to point at, so the field's population rule is undefined for that case. The natural answer — the source location of the tail `@`...`` expression itself — is never written down, leaving the event's `discard_site` value indeterminate on the void-tail path.
-
-The two halves are unrelated in mechanism (one is conversation-drive content, the other is a runtime-event field) and edit cleanly as independent one-line fixes.
-
-## Spec Documents
-
-- `docs/spec_topics/query/query-tool-loop.md` — "Typed queries are tool-loop-shaped" §1 *Free phase* (edited)
-- `docs/spec_topics/query/query-escapes-stringification.md` — "Observability of discarded results" (edited)
-- `docs/spec_topics/pi-integration-contract/runtime-event-channel.md` — `RuntimeEvent` shape / `discard_site` field (read-only — would be edited instead of `query-escapes-stringification.md` only if the related `discard_site` placement finding relocates the field there first)
-- `docs/spec_topics/pi-integration-contract/conversation-drive.md` — `untyped-query-ok-extraction` (read-only)
-
-## Plan Impact
-
-**Phases:** N/A
-
-**Leaves (implementation order):** N/A
-
-(No plan files in the repository.)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementations would diverge on what bytes the opening free-phase user turn carries (rendered template vs. rendered template + preamble vs. empty), and would diverge on the `discard_site` value of a void-tail discard event (null, the function declaration site, or the tail-expression site). Both are observable on the provider transcript / `RuntimeEvent` channel respectively, so the divergence shows up directly in conformance tests and operator logs.
-
-## Solution Space
-
-**Shape:** single
-**State:** reduced
-
-Two independent obligations on two files, resolved sequentially as separate edits.
-
-### Spec edits
-
-1. **Pin the opening free-phase turn body in `query-tool-loop.md` (land first; strictly local).** In the *Free phase* bullet, append a sentence: *"The runtime issues the opening free-phase user turn with the rendered query template body (post-interpolation, post-newline-trim, post-dedent — see [query-forms.md](./query-forms.md) and [query-escapes-stringification.md](./query-escapes-stringification.md)) as its sole content. The `max_rounds: 0` boundary case (step 2 below) is the same dispatch with the forced-respond template concatenated after a single U+000A separator."* This makes explicit that for `max_rounds > 0` the rendered query template is the entire turn body, and that this is symmetric with the `max_rounds: 0` boundary — same rendered text as leading content, the only difference being the trailing U+000A separator and forced-respond template at `max_rounds: 0`. No edits to other files.
-
-2. **Pin `discard_site` for the void-tail case.** State that for a void-tail-function discard, `discard_site` carries the source location of the tail `@`...`` expression; for an explicit `let _ = @`...`` discard, it carries the location of the `let _ =` binding (status quo). Pointing at the tail expression rather than the function declaration matches the rule's intent (point at the discard mechanism) and stays observable to the operator reading the event to find the offending site. In `query-escapes-stringification.md` "Observability of discarded results", replace *"the source location of the discarding `let _ =` carried in the `RuntimeEvent` `discard_site` field"* with *"the source location carried in the `RuntimeEvent` `discard_site` field — the location of the discarding `let _ =` binding for the expression-statement form, and the location of the tail `@`...`` expression for the void-tail-function form"*. Sequence this after the related placement finding (*"`discard_site` field and `display:false` policy defined in query-escapes-stringification.md, not the PIC runtime-event-channel"*) if that one is scheduled: write the void-tail clause at whichever file owns the field at edit time (`runtime-event-channel.md` if the field was moved, reducing the escapes-file mention to a forward reference). If the placement finding is not scheduled, write the clause in `query-escapes-stringification.md` directly.
-
-### Edge cases
-
-- The `max_rounds: 0` case must remain the *same* dispatch mechanism — edit 1 must not introduce a second code path.
-- A void-tail discard whose tail `@`...`` expression spans multiple source lines points at the start of the expression, matching the convention used for other multi-line spans in this corpus.
-- When both halves land, re-verify the *Free phase* bullet still reads as one paragraph and is not split by an unrelated insertion.
-- Sequence edit 2 with the placement finding so the void-tail clause is not written into prose that will be relocated.
-
-## Relationships
-
-None
-
