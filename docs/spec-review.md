@@ -10,6 +10,8 @@ _(Updated 2026-06-06: T099 "`loom/load/callee-has-errors` promises codes via `re
 
 _(Updated 2026-06-07: T081 "Filesystem case-sensitivity is unspecified for `.warp` import basenames and for the `invoke` / `tools:` discovery-root containment check" resolved and removed — `imports.md` IMP-1 now pins `.warp` import resolution to a byte-for-byte (UTF-8, case-sensitive) match of the path literal's final segment against `readdir` output on every host, composed with the byte-exact extension check, with `loom/load/unresolvable-warp-path` covering the case-variant-entry case (registry row tightened to match); `invocation.md` *Resolution* now pins the discovery-root containment comparison to byte-exact `FileSystem.realpath` output for both callee and roots with no independent case-folding, governed by the existing INV-1 MUST across the load-time and runtime-open checks. The case-folding clause attaches to the existing "lie within the union of discovery roots" language and composes with (does not define) the still-pending T080 segment-boundary predicate. No new diagnostic code or REQ-ID; `loom/load/invoke-path-escape` left unchanged.)_
 
+_(Updated 2026-06-07: T077 "Top-level loom return-type inference does not reconcile early-`return` operand types with the tail-expression type" resolved and removed — `functions.md` `#loom-return-type` now infers the return type as the least upper bound (under type-system.md `#type-compatibility` `⊑`) of the tail-expression type and every reachable early-`return` operand type, with the implicit `Result<T, QueryError>` wrapping triggered when any `?` appears or any contributing operand is `Result`-typed and `T` reconciled over the contributing operands' success payloads; the same rule governs annotation-less `fn` bodies. `return.md`'s `return expr` bullet now forwards to that rule for the no-declared-return-type case, and a sibling diagnostic `loom/parse/return-no-common-type` was added to `code-registry-parse.md` alongside `loom/parse/array-no-common-type`. The existing `⊑` rules for `match` arms, ternary branches, and array literals were not modified. No new REQ-ID coined: the edit adds no RFC-2119 normative-modal token, so GOV-22 progressive coinage does not trigger.)_
+
 _(Updated 2026-06-07: T078 "SLSH-5 `<parent_path>:<line>` is defined only for `invoke(...)` call sites, not for `.loom`-callable bare-identifier calls" resolved and removed — `slash-invocation.md` SLSH-5's `<line>` definition now sources the line from the call-site token that produced the `invoke_callee` hop for either syntactic form — the `invoke(` token of a literal `invoke(...)` expression, or the callee-name identifier of a `.loom`-callable bare-identifier call — with `<callee_path>` for the bare-identifier form taken from the parent's Resolution snapshot, and a new `.loom`-callable worked example added beside the existing Single-hop/Multi-hop bullets. The model-driven `@`-query tool-call surface is explicitly excluded (it feeds failure back as a tool-error result, not an `invoke_callee` cascade). No new REQ-ID; the SLSH-5 anchor and umbrella MUST were left as-is.)_
 
 _(Updated 2026-06-07: T079 "SLSH-4 template cells and SLSH-5 worked examples disagree on whether inline backticks are emitted" resolved and removed — `slash-invocation.md` SLSH-4 prose now states that the inline backticks in the `System note shape` cells are Markdown code-span formatting and are not part of the emitted string (renderers emit the cell text with the surrounding backticks removed), matching the backtick-free SLSH-5 worked examples; the stripping is scoped to the template text so backticks arriving inside an interpolated placeholder pass through unchanged. No new REQ-ID; the SLSH-4 table rows and SLSH-5 examples were left as-is.)_
@@ -3445,31 +3447,3 @@ Land three independent obligations in separate files, in the order below: the si
 ## Relationships
 
 None
-
----
-
-# T077 - Top-level loom return-type inference does not reconcile early-`return` operand types with the tail-expression type
-
-**Kind:** implementability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`functions.md` defines a `.loom` file's inferred return type as the type of its tail expression (wrapped in `Result<T, QueryError>` if any `?` appears in the body), and the same rule governs a `fn` body with no explicit return annotation ([Loom return type](./spec_topics/functions.md#loom-return-type)). `return.md` says `return expr` is type-checked against the enclosing scope's declared return type, but a top-level loom and an annotation-less `fn` have no declared return type, and the inference rule only mentions the tail expression. The language is therefore under-specified whenever such a body mixes a tail expression with one or more early `return expr` whose operand types differ: implementations diverge (tail-type-only, least-upper-bound, first-return-wins), and because the inferred type drives the `invoke<Schema>` static check and the runtime AJV net, the divergence is observable at cross-loom call sites. The `?`-implies-`Result<T, QueryError>` rule is likewise silent on what `T` is when early `return Ok(...)` operands disagree with the tail expression.
-
-## Solution approach
-
-Clarify the inferred-return-type rule at functions.md `#loom-return-type` so it reconciles the tail-expression type with every reachable early-`return expr` operand type, applying the same common-upper-bound discipline (`⊑`, type-system.md `#type-compatibility`) the spec already uses for `match` arms, ternary branches, and array literals; apply the same rule to `fn` bodies that omit a return annotation. Specify how the implicit `Result<T, QueryError>` wrapping interacts — what triggers it and over which payload types `T` is reconciled — when early `return` operands are themselves `Result`-typed rather than only when `?` appears. Update return.md's `return expr` type-checking bullet to forward to that inferred-return-type rule for the no-declared-return-type case. If the reconciliation can fail with no common upper bound, add a sibling parse diagnostic to diagnostics/code-registry-parse.md alongside `loom/parse/array-no-common-type`.
-
-## Solution constraints
-
-- Do not modify the existing common-upper-bound (`⊑`) rules for `match` arms, ternary branches, or array literals (type-system.md `#type-compatibility`, expressions.md, errors-and-results); this finding extends that precedent to loom / annotation-less-`fn` return inference, it does not redefine it.
-
-## Relationships
-
-- T016 "Snippets reference undeclared `ReviewScore`/unbound `code`; foot-gun mentions a linter the spec never scopes" - same-cluster (same file, illustrative-snippet concern, independent)

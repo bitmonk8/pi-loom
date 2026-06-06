@@ -18,7 +18,7 @@ let label    = triage(summary)?
 | Callee kind | Return type | Notes |
 |---|---|---|
 | Pi tool | `Result<string, QueryError>` | loom 1.0 returns the tool's final output as a single `string` (mirroring untyped queries). Pi tool definitions ship an input schema but no output schema; provider tool-use conventions treat outputs as freeform text the model interprets. |
-| Registered loom (subagent-mode) | `Result<T, QueryError>` where `T` is the callee's inferred return type | Same inference rule as `invoke<T>(...)`: when the callee `.loom` is statically resolvable per [Invocation — Static resolution](./invocation.md#static-resolution), its tail-expression type flows into the call site. Otherwise the runtime AJV check enforces it. |
+| Registered loom (subagent-mode) | `Result<T, QueryError>` where `T` is the callee's inferred return type | Same inference rule as `invoke<T>(...)`: when the callee `.loom` is statically resolvable per [Invocation — Static resolution](./invocation.md#static-resolution), its inferred return type (per [Function Definitions — Loom return type](./functions.md#loom-return-type)) flows into the call site. Otherwise the runtime AJV check enforces it. |
 
 As with queries and `invoke`, the call returns a `Result`; use `?` to propagate failure or `match` to handle.
 

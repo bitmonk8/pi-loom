@@ -29,7 +29,7 @@ An explicit `@<Schema>` ascription via the [explicit form](#explicit-form) alway
 Absent an explicit ascription, the response schema flows into the query expression from any of the following type contexts, checked in order:
 
 1. The annotated type of the binding being initialised (`let x: T = @`...`?`).
-2. The declared return type of the enclosing function, when the query is in tail-expression or `return`-argument position. A `.loom` file has no declared return type — its return type is itself inferred from its tail expression (see [Functions — Loom return type](../functions.md#loom-return-type)) — so a loom cannot serve as a sink for a query in its own tail or `return` position.
+2. The declared return type of the enclosing function, when the query is in tail-expression or `return`-argument position. A `.loom` file has no declared return type — its return type is itself inferred from its body (see [Functions — Loom return type](../functions.md#loom-return-type)) — so a loom cannot serve as a sink for a query in its own tail or `return` position.
 3. The declared parameter type of the enclosing call site (`f(@`...`?)` where `f`'s parameter has type `T`).
 
 If none of these contexts apply and no explicit ascription is present, the query is untyped (returns `string`).

@@ -23,7 +23,13 @@ A function call participates in the loom's *current* conversation; it does not o
 
 <a id="loom-return-type"></a>
 
-**Loom return type.** A `.loom` file's overall return type is inferred from its body using the same rule as a function: the type of its tail expression, wrapped in `Result<T, QueryError>` if any `?` appears in the body. There is no frontmatter `returns:` field. Cross-loom static type checking at `invoke<Schema>` sites uses the callee's inferred return type when the callee is statically resolvable per [Invocation — Static resolution](./invocation.md#static-resolution); otherwise the runtime AJV check is the safety net.
+**Loom return type.** A `.loom` file's overall return type is inferred from its body using the same rule as a function with no explicit return annotation: the inference reconciles the tail-expression type (or the implicit `null` of an empty-tail body, per **Empty-tail body** below) with the operand type of every reachable early `return expr` (per [Return Statement](./return.md)), applying the same common-upper-bound discipline — the least upper bound under [Type System — Type compatibility](./type-system.md#type-compatibility) (`⊑`), with every contributing type `⊑` the chosen common type, narrowed by any sink in scope — that the spec already applies to `match` arms, ternary branches, and array literals. There is no frontmatter `returns:` field.
+
+The inferred type is wrapped in `Result<T, QueryError>` when the body can short-circuit with an `Err`: when any `?` appears in the body (whose `Err` arm desugars to `return Err(e)`) or when any contributing operand is itself `Result`-typed. When wrapping applies, the contributing types are reconciled by their *success-payload*: a `Result<U, QueryError>` operand contributes `U`, a non-`Result` operand `X` contributes `X` (its path yields an implicit `Ok(X)`), `T` is the least upper bound of those payloads under `⊑`, and the error arm is `QueryError` throughout. When wrapping does not apply, the inferred type is the least upper bound of the tail-expression and `return`-operand types directly. In either case, contributing types that share no common upper bound and that no sink narrows make the body `loom/parse/return-no-common-type`.
+
+An annotation-less `fn` body infers its return type by this same rule; a `fn` with an explicit return annotation type-checks its tail and every `return` operand against that annotation instead (per [Return Statement](./return.md)) rather than inferring.
+
+Cross-loom static type checking at `invoke<Schema>` sites uses the callee's inferred return type when the callee is statically resolvable per [Invocation — Static resolution](./invocation.md#static-resolution); otherwise the runtime AJV check is the safety net.
 
 <a id="empty-tail-body"></a>
 
