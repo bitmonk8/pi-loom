@@ -8,6 +8,8 @@ _Triage tally: 0 blockers, 22 high, 60 medium retained; 91 low discarded; 0 low 
 
 _(Updated 2026-06-06: T099 "`loom/load/callee-has-errors` promises codes via `related`" resolved and removed — the `code-registry-load.md` row and the `invocation.md` Static resolution paragraph were walked back so neither promises the callee's diagnostic *codes* via `related`; both now state that `related` carries one entry per underlying error *site* (`{ file, range, message }` per `diagnostic-shape.md`), with the callee's own diagnostics emitted separately. No change to `diagnostic-shape.md` or the closed `related` element shape.)_
 
+_(Updated 2026-06-07: T081 "Filesystem case-sensitivity is unspecified for `.warp` import basenames and for the `invoke` / `tools:` discovery-root containment check" resolved and removed — `imports.md` IMP-1 now pins `.warp` import resolution to a byte-for-byte (UTF-8, case-sensitive) match of the path literal's final segment against `readdir` output on every host, composed with the byte-exact extension check, with `loom/load/unresolvable-warp-path` covering the case-variant-entry case (registry row tightened to match); `invocation.md` *Resolution* now pins the discovery-root containment comparison to byte-exact `FileSystem.realpath` output for both callee and roots with no independent case-folding, governed by the existing INV-1 MUST across the load-time and runtime-open checks. The case-folding clause attaches to the existing "lie within the union of discovery roots" language and composes with (does not define) the still-pending T080 segment-boundary predicate. No new diagnostic code or REQ-ID; `loom/load/invoke-path-escape` left unchanged.)_
+
 _(Updated 2026-06-06: T085 "Mid-loom Pi-extension hot-reload: held closure invocation has no contracted outcome" resolved and removed — the last Resolution-snapshot consequence bullet in frontmatter-fields-b-and-templates.md was rewritten to replace the "out of loom 1.0 scope" dismissal with a positive contract: the held `execute` closure is dispatched like any other captured Pi-tool callable, and its failures route through the existing surfaces — catchable throws to `CodeToolError { cause: "execution" }`, non-conforming returns to `loom/runtime/internal-error` (both in tool-calls.md), and host-fatal errors to error-model.md's runtime-panics surface. No new diagnostic code, `loom-system-note` shape, or timeout was introduced; the `/reload` author-guidance sentence was retained.)_
 
 _(Updated 2026-06-06: T102 "`bind_context` project-wide-inheritance parenthetical references a settings carrier that does not exist" resolved and removed — the no-params-bypass parenthetical in binder-bypass-and-envelope.md was corrected to state that `bind_model` may inherit from the project-wide `looms.binderModel` setting while `bind_context` has no project-wide carrier and defaults to `none`. No new settings key, diagnostic, or validation row was added.)_
@@ -3572,71 +3574,3 @@ Clarify the *Resolution* paragraph of `invocation.md` to define containment as s
 ## Relationships
 
 - T081 "Filesystem case-sensitivity is unspecified for `.warp` import basenames and for the `invoke` / `tools:` discovery-root containment check" - decision-overlap (defines whether the byte-equality predicate folds case before comparison; resolve after this one so the case-folding rule lands on a stable containment definition)
-
-# T081 - Filesystem case-sensitivity is unspecified for `.warp` import basenames and for the `invoke` / `tools:` discovery-root containment check
-
-**Original heading:** Filesystem case-sensitivity unspecified for `.warp` import resolution and `invoke`/`tools:` path containment
-**Original section:** docs/spec_topics/ functions, control-flow, return, bindings, imports, invocation, slash-invocation, implementation-notes
-**Kind:** assumptions
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-
-## Finding
-
-Two adjacent spec surfaces define byte-exact lowercase matching for *extensions* but leave the *basename* (and the containment-comparison normalisation) governed by whatever the host filesystem happens to do, producing platform-divergent behaviour for byte-identical source.
-
-1. **`.warp` import resolution.** `imports.md` IMP-1 says a spec is unresolvable "when relative resolution points at a `.warp` path that does not exist or is not readable." "Exists" is delegated to the OS. `lexical.md` *Extension matching* fixes the trailing `.warp` byte-exact lowercase, but nothing pins the basename. So `import { Author } from "./Personas.warp"` (file on disk: `personas.warp`) succeeds silently on Windows / macOS-default and emits `loom/load/unresolvable-warp-path` on case-sensitive Linux / typical CI — the same `.loom` source loads on one host and fails to register on another. The discovery-side `loom/load/case-collision` warning catches two `*.loom` files that collide on case-insensitive hosts, but it does not cover the import-string-vs-on-disk-basename mismatch, which is the dual problem on a single file.
-
-2. **`invoke` / `tools:` discovery-root containment.** `invocation.md` Resolution mandates `realpath` and then "must lie within … discovery roots," but never specifies whether the containment comparison is byte-exact or case-folded. On a case-insensitive host, `realpath` typically returns the on-disk casing of the resolved tail, which may differ from the casing of the discovery root captured at load time (or vice-versa for symlinks crossing case-variant directory entries). A byte-exact `startsWith` then rejects a callee that is, by the filesystem's own equivalence relation, inside the root. A case-folded comparison fixes that but, on a case-sensitive host, would conflate genuinely distinct paths and admit a callee that is *not* inside the declared root — a security regression at a security-load-bearing site (this is the check that exists to prevent `loom/load/invoke-path-escape`). The PIC-13 `realpath` contract is silent on this — it only specifies the canonical-absolute-path shape and the error codes.
-
-The two obligations sit on different rules in different files and resolve by different mechanisms (a new parse / load diagnostic for the import side; a containment-predicate clause for the invoke side). They should be addressed sequentially rather than bundled.
-
-## Spec Documents
-
-- `docs/spec_topics/imports.md` — *Path resolution* / IMP-1 (edited)
-- `docs/spec_topics/invocation.md` — *Resolution* / INV-1 (edited)
-- `docs/spec_topics/lexical.md` — *Extension matching* (read-only — establishes the byte-exact precedent the import-side fix extends to basenames)
-- `docs/spec_topics/discovery/discovery-sources.md` — DISC-3 *Case-insensitive filesystem collisions*, *Non-canonical extension case* (read-only — adjacent rules whose framing the new diagnostics must remain consistent with)
-- `docs/spec_topics/diagnostics/code-registry-load.md` — `loom/load/unresolvable-warp-path`, `loom/load/invoke-path-escape` rows (edited — registry entries reflect the tightened semantics)
-- `docs/spec_topics/diagnostics/placeholder-rendering-b.md` — `<path>` / category-5 path placeholder rule (read-only — any new diagnostic message inherits this)
-- `docs/spec_topics/pi-integration-contract/host-interfaces-services.md` — PIC-13 `FileSystem.realpath` (read-only — establishes the canonical-path contract the discovery-root containment edit builds on)
-
-## Plan Impact
-
-**Phases:** N/A
-
-**Leaves (implementation order):** N/A
-
-(`plan.md` and `plan_topics/` carry no authored leaves yet — only template / conventions / coverage-matrix scaffolding.)
-
-## Consequence
-
-**Severity:** correctness
-
-A `.loom` corpus that passes load on a developer's Windows / macOS workstation can fail load (or, on the containment side, can be rejected from invocation) on a case-sensitive CI runner or production Linux host, with no spec rule to attribute the divergence to. The invoke / `tools:` containment surface is additionally security-load-bearing — the spec's only stated purpose for the containment check is to prevent `loom/load/invoke-path-escape`, and an unspecified case-normalisation policy lets two conformant implementations disagree on whether a given path escapes, defeating the rule.
-
-## Solution Space
-
-**Shape:** single
-**State:** reduced
-
-Resolve two independent filesystem case-sensitivity obligations in two files, in the order below. The `.warp` import basename edit is the smaller, scope-bounding one (one rule, one file, no new diagnostic) and lands first; the discovery-root containment edit lands second and should be sequenced after the segment-boundary clause from the related "Discovery-root containment predicate undefined" finding, since both are MUSTs on the same predicate.
-
-### Spec edits (in landing order)
-
-1. **Pin `.warp` import basename to byte-exact host-filesystem match.** In `imports.md` IMP-1, replace "does not exist or is not readable" with: a `.warp` path is unresolvable when, after relative resolution against the importing file's directory, no directory entry exists whose name matches the path literal's final segment **byte-for-byte** (UTF-8, case-sensitive); and when a byte-for-byte match does exist it must be readable — `EACCES` / `EPERM` / a broken symlink on the matching entry still surface as `loom/load/unresolvable-warp-path`. State that the byte-for-byte rule applies on every host regardless of the host filesystem's case-equivalence model, mirroring `discovery/discovery-sources.md` *Non-canonical extension case*. Cross-reference `lexical.md` *Extension matching* and state that the basename rule composes with it: the byte-exact extension check is one component of the byte-exact basename check, not a separate stage. No new diagnostic code — `loom/load/unresolvable-warp-path` covers both "no entry exists" and "case-variant entry exists but is not byte-exact"; the message remains the path literal as written per the `<path>` rendering rule (`diagnostics/placeholder-rendering-b.md` §5). Add a non-normative implementation note: a conformant `Resolver` cannot rely on a single `fs.exists` / `fs.readText` on a case-insensitive host (it would succeed on `Personas.warp` when the literal said `personas.warp`); it enumerates the resolved parent directory once via `FileSystem.readdir` and compares the final segment byte-for-byte, paying one extra `readdir` only on the failure path.
-
-2. **Pin discovery-root containment to canonical-form comparison.** In `invocation.md` *Resolution*, after the `realpath` step and before the containment claim, insert: containment is decided on the byte-exact output of `FileSystem.realpath` applied to *both* the resolved callee path and each active discovery root. The comparison is byte-for-byte after forward-slash normalisation (per `lexical.md` *Path literals*) and does **not** apply any independent case-folding — the canonical form is whatever `realpath` returns on the host. This composes with (does not replace) the segment-boundary containment predicate from the sibling finding. State that the rule applies identically at the load-time check and the runtime re-check (INV-1 already pins identical semantics across both call sites; this is the case-sensitivity instantiation of that pin). Add a non-normative implementation note: on case-insensitive hosts Node's `fs.promises.realpath` returns the on-disk casing of the resolved tail, so filesystem-equivalent paths canonicalise to the same byte sequence and the byte-exact comparison is correct; on case-sensitive hosts byte-exactness already matches filesystem equivalence. The rule is stated as "byte-exact on `realpath` output" rather than implying any specific platform's behaviour. In `diagnostics/code-registry-load.md`, leave `loom/load/invoke-path-escape` unchanged but cross-reference the tightened containment predicate.
-
-### Edge cases
-
-- A `.warp` import whose path literal is non-canonical Unicode (NFC vs NFD): byte-exactness is against `readdir` output, not against any Unicode-normalised form. On Windows the NTFS layer can normalise entry names, so the byte-exactness rule is on the bytes `readdir` returns, not on the path literal post-normalisation. State this once and cite `lexical.md` *Encoding*.
-- Tightening load on case-insensitive hosts is intended: a `.loom` shipping `import "./Personas.warp"` against an on-disk `personas.warp` starts emitting `loom/load/unresolvable-warp-path` on Windows/macOS where it previously appeared to load. This is the correction, not a regression.
-- A symlink-farm callee whose `realpath` crosses a case-variant directory entry on macOS: the containment comparison is on `realpath`'s output for *both* sides, so it stays well-defined; the test matrix should cover this case.
-- The test `FakeFileSystem` must mimic per-host `realpath` casing — for case-insensitive-host tests, the fake `realpath` returns the on-disk casing, not the input casing. A future port to a host whose `realpath` does not preserve on-disk casing would change containment outcomes; the "byte-exact on `realpath` output" wording is the guard against that.
-
-## Relationships
-
-- T080 "Discovery-root containment predicate is undefined at the `invoke-path-escape` site" - decision-overlap (the discovery-root containment case clause sits on the same predicate; sequence it after that finding lands so the case clause attaches to a defined skeleton)
-- T006 "Orientation pages live outside GOV-17's corpus and are cited under two incompatible paths" - same-cluster (another platform-filesystem assumption surfaced separately; resolves independently)
