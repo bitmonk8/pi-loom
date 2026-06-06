@@ -12,6 +12,8 @@ _(Updated 2026-06-06: T085 "Mid-loom Pi-extension hot-reload: held closure invoc
 
 _(Updated 2026-06-06: T102 "`bind_context` project-wide-inheritance parenthetical references a settings carrier that does not exist" resolved and removed — the no-params-bypass parenthetical in binder-bypass-and-envelope.md was corrected to state that `bind_model` may inherit from the project-wide `looms.binderModel` setting while `bind_context` has no project-wide carrier and defaults to `none`. No new settings key, diagnostic, or validation row was added.)_
 
+_(Updated 2026-06-07: T082 "`params:` type-side: grammar reference and named-type resolution rule absent from the owning page" resolved and removed — the `params` prose bullet in frontmatter-fields-a.md gained a **Type side** sub-bullet reciprocating the type-grammar pointers to type-system.md and grammar.md#type-grammar, stating that a `params:` `NamedType` resolves whole-file against body-level `schema`/`enum` declarations and imported `.warp` symbols (so a frontmatter-to-body forward reference resolves), and naming the unresolved-name failure; the new parse-time diagnostic `loom/parse/unresolved-named-type` was registered in diagnostics/code-registry-parse.md. type-system.md and grammar.md were left unedited per the finding's out-of-scope constraint.)_
+
 _(Updated 2026-06-06: T100 "`Diagnostic` envelope contract is unsatisfiable for location-less codes" resolved and removed — `file` and `range` were marked optional on the internal `Diagnostic` shape, a **Location-less diagnostics** paragraph enumerated the closed set of eight location-less codes and pinned the omitted-fields wire form, and the **Serialised content format** rule gained a carve-out dropping the `<file>:<line>:<col>:` prefix for those codes. No change to the `related?` element shape or to the DIAG-4 *Message* rows.)_
 
 _(Updated 2026-06-06: T105 "BNDR-5 mandates shortest-round-tripping fixed-point digits without a derivation recipe" resolved and removed — a non-normative derivation recipe was appended to BNDR-5 in defaulting-system-note-echo.md, describing how to expand `String(n)`'s exponential output into shortest fixed-point form, with BNDR-6r and BNDR-6s as the worked oracle cases.)_
@@ -3638,33 +3640,3 @@ Resolve two independent filesystem case-sensitivity obligations in two files, in
 
 - T080 "Discovery-root containment predicate is undefined at the `invoke-path-escape` site" - decision-overlap (the discovery-root containment case clause sits on the same predicate; sequence it after that finding lands so the case clause attaches to a defined skeleton)
 - T006 "Orientation pages live outside GOV-17's corpus and are cited under two incompatible paths" - same-cluster (another platform-filesystem assumption surfaced separately; resolves independently)
-
----
-
-# T082 - `params:` type-side: grammar reference and named-type resolution rule absent from the owning page
-
-**Kind:** implementability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`frontmatter/frontmatter-fields-a.md` is the canonical owning page for `params:`, and its examples use loom type expressions on the right-hand side (`array<string>`, `Author`, `Severity`), but the page never states which grammar parses the type side nor how a bare named type resolves. The grammar is defined in `type-system.md` and `grammar.md` — both already list `params:` among the type-annotation positions — yet neither cross-reference is reciprocated from the owning page. Named-type resolution is unspecified everywhere: no page states that a `params:` named reference resolves against the file's body-level `schema`/`enum` declarations, whether a forward reference across the frontmatter/body boundary is admitted, or what an unresolved name produces. Because frontmatter is parsed before the body, two conforming implementers diverge — one rejects every `params:` named reference, the other admits them via a body-first two-pass resolver — and the spec's own `code-review.loom` example fails under the strict reading.
-
-## Solution approach
-
-In `frontmatter-fields-a.md`'s `params` prose bullet, add forward-cross-references to `type-system.md` and `grammar.md#type-grammar` establishing that the `params:` right-hand side is parsed by the loom type grammar. Clarify the named-type resolution rule: a `NamedType` in `params:` resolves against the file's body-level `schema`/`enum` declarations and imported `.warp` names, with whole-file hoisting so a forward reference from frontmatter to a later declaration resolves. State that an unresolved name is a parse-time diagnostic, registering `loom/parse/unresolved-named-type` in `diagnostics/code-registry-parse.md` if no existing code covers it.
-
-## Solution constraints
-
-- Out of scope: editing `type-system.md` or `grammar.md` — both already enumerate `params:` as a type-annotation position; this finding adds only the reciprocal pointer from `frontmatter-fields-a.md`.
-
-## Relationships
-
-- T074 "TYPE-8 field-wise compatibility scope (named schema vs inline object type) is ambiguous" - same-cluster (both concern under-specification of named-type semantics on the type-system surface; resolve independently).
-- T075 "Bare-source backslash: no diagnostic code is named" - same-cluster (touches the same `code-registry-parse.md` section if a new `loom/parse/unresolved-named-type` row is registered).
-- T069 "Object indexed-access static semantics are undefined" - same-cluster (another type-system-surface under-specification; independent fix).
