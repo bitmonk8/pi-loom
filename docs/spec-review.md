@@ -273,28 +273,3 @@ Clarify the `YAML-shape` rule on `frontmatter/frontmatter-fields-b-and-templates
 ## Relationships
 
 None.
-# T12 - `cross-format-collision` is a misnomer and DISC-4's heading understates its scope
-
-**Kind:** naming
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The diagnostic code `loom/load/cross-format-collision` names only the cross-format arm, but its registry trigger in `diagnostics/code-registry-load.md` fires the same code for two `.loom` files colliding at the same priority (the same-format arm). DISC-4's heading "Slash-name collisions at the same priority" likewise understates the rule's scope, since DISC-4 also covers the cross-priority `session_start` comparison against Pi-owned `.md` prompts, skills, and other extensions' commands. Both surfaces name a narrower scope than the collision rule actually has.
-
-## Solution approach
-
-Reconcile the `loom/load/cross-format-collision` code name with the rule's full scope (same-format and cross-format) — either rename to a scope-accurate name such as `loom/load/slash-name-collision`, or, given the breaking-change cost, clarify the registry trigger so the same-format arm is explicit in the code's name treatment. Rename DISC-4's heading in `discovery/discovery-sources.md` to a scope-accurate form such as "Slash-name collision rules".
-
-## Solution constraints
-
-- Renaming `loom/load/cross-format-collision` is a breaking change to the closed diagnostics contract per `diagnostics/diagnostic-shape.md` rules 2–3 (codes are stable identifiers); treat any rename as a spec-versioned breaking change, not an editorial wording fix.
-
-## Relationships
-
-None.
