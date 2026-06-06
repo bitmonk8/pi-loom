@@ -227,3 +227,22 @@ it does not persist across worktree wipes)._
 - **Fixer notes:** none
 
 ---
+
+## 2026-06-06T15:58:14Z — MULTI: T055 - Item (i) leaves the loom-side overflow-signature regex update unspecified, and the SHOULD-item fail disposition is asymmetric across items (f)–(ad); T115 - Provider-error-mapping table: row-selection key, Bedrock `ValidationException` discriminator, and HTTP-200 envelope discriminator unpinned
+
+- **Cluster mode (rec F):** yes
+- **Cluster members:** 2
+- **Failure mode:** fast-loop-unresolved
+- **Category:** 1 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** n/a
+- **Score trajectory:** n/a
+- **Passes:** n/a
+- **Stage at exit:** n/a (n/a pass(es) in stage)
+- **Snapshot refs (retained for forensics):** n/a (loop did not run)
+- **Poisoned fixes:** n/a
+- **Forensic report:** none (fast loop — no forensic report)
+- **Parked findings (this run):** `T055 - Item (i) leaves the loom-side overflow-signature regex update unspecified, and the SHOULD-item fail disposition is asymmetric across items (f)–(ad), T115 - Provider-error-mapping table: row-selection key, Bedrock `ValidationException` discriminator, and HTTP-200 envelope discriminator unpinned`
+- **Loop notes:** picker-cluster-violation — dispatched MULTI cluster {T055, T115} omits T115's live co-resolve sibling T084; fixer refused to land partial cluster (co-resolve is a hard bundle). Cluster discarded this cycle; fresh re-review will re-cluster.
+- **Fixer notes:** none
+
+---
