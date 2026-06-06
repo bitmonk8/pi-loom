@@ -1,6 +1,6 @@
 # Frontmatter fields b and templates
 
-    YAML-shape: `tools:` accepts the comma-separated short form for plain-name entries and the YAML list form for entries that need an `as` rename:
+    YAML-shape: `tools:` accepts two interchangeable spellings — a comma-separated short form and a YAML list form — and both are parsed by the same per-entry grammar defined in [Parameters and Frontmatter — `tools`](frontmatter-fields-a.md#tools). The comma form is the YAML plain scalar split on commas, each resulting entry trimmed of surrounding whitespace and then parsed by that grammar; the list form takes one entry per sequence item. A `.loom` path or an `as` rename is therefore legal in either form — entry boundaries stay unambiguous because neither a `.loom` path nor an `as` target contains a comma — and a malformed entry surfaces the same load diagnostic (`loom/load/invalid-tool-rename`, `loom/load/unresolvable-loom-path`, etc.) regardless of which spelling produced it. The short form reads best for plain Pi-tool names; the list form reads best once entries carry paths or `as` renames:
 
     ```yaml
     tools: read, grep, bash

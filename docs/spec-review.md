@@ -249,27 +249,3 @@ Rename the recovery command to a single canonical form across the three surfaces
 ## Relationships
 
 None.
-# T11 - `tools:` comma-form handling of `.loom` paths and `as` renames is undefined
-
-**Kind:** implementability
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `YAML-shape` rule on `frontmatter/frontmatter-fields-b-and-templates.md` states the comma-separated short form of `tools:` is for plain-name entries and the YAML list form for entries that need an `as` rename, but it does not define what happens when a `.loom` path or an `as` clause appears inside the comma scalar. Two readings are possible — parse the comma scalar with the full per-entry grammar, or restrict it to plain Pi-tool names — and they produce divergent diagnostics and registration outcomes.
-
-## Solution approach
-
-Clarify the `YAML-shape` rule on `frontmatter/frontmatter-fields-b-and-templates.md` to state whether the comma scalar is parsed by the full per-entry grammar or restricted to plain Pi-tool names; if restricted, name the `loom/load/*` (or `loom/parse/*`) diagnostic that fires for a `.loom` path or `as` clause in the comma form.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-None.
