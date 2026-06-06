@@ -4,7 +4,7 @@ _Generated: 2026-06-06T13:23:32Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T118) is addressed first; the first finding (T001) is addressed last._
 
-_Triage tally: 0 blockers, 51 high, 66 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 50 high, 66 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
 
 _(Updated 2026-06-06: T066 "README links to a non-existent docs/spec-sweeps.md" resolved and removed — a README/tracking-doc finding outside the spec corpus; the README Status paragraph was rewritten to drop the dangling docs/spec-sweeps.md link.)_
 
@@ -5764,30 +5764,3 @@ Spec edits: anchor-link audit on the five table rows in `runtime-event-channel.m
 
 - T023 ""CIO-N rules above" and the five-site co-edit "(in this page)" point to anchors on the sibling page" - same-cluster (both reflect the cross-page entanglement of the CIO sequence; the anchor-link tightening should be coordinated with that finding's fix)
 
----
-
-# T118 - Recovery-mutex acquisition semantics and teardown-budget interaction undefined
-
-**Kind:** implementability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 3
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The defensive per-extension-instance recovery mutex described in `tool-registration-lifetime.md`'s `#snapshot-restore-pi-behavioural-preconditions` paragraph — and forward-referenced from `version-bump-step2.md` item (e) (`#bump-checklist-slash-dispatch-serialisation`) — specifies what it protects and how it is keyed but not its runtime semantics. Three gaps remain load-bearing: the contention disposition when a second slash dispatch arrives while the mutex is held; whether the mutex imposes an acquisition timeout (the cooperative-`await` baseline it emulates has none); and whether a queued waiter is cancelled/released during `session_shutdown` teardown so it does not extend the `SHUTDOWN_AWAIT_CAP_MS` budget that `patch-skew-degradation.md` sub-step 3 places on `disposeBarrier` settlement. Two conformant implementations diverge on observable caller order, drop-vs-await behaviour, and whether the 2000 ms teardown budget can be exhausted by a queued waiter. The defect is latent at loom 1.0 (the mutex ships only on a Pi-minor fail outcome) but engages on the first such regression.
-
-## Solution approach
-
-Clarify the mutex's runtime contract in the `#snapshot-restore-pi-behavioural-preconditions` paragraph: acquisition is a strictly serialising FIFO await, with no acquisition timeout on the steady-state path. State that the teardown interaction is observed rather than newly bounded — sub-step 2's `loomAbort.abort()` cancels the holder, whose `finally` runs the step-4 restore and releases the mutex, and a queued waiter then acquires, observes the already-aborted `loomAbort.signal` at its first checkpoint, and falls through its own `finally`; sub-step 3's `SHUTDOWN_AWAIT_CAP_MS` await already bounds total teardown wall-time across all waiters, so the mutex adds no second budget. Have `version-bump-step2.md` item (e) forward-reference this contract rather than restate it.
-
-## Solution constraints
-
-- Out of scope: item (e)'s fail-predicate prose in `version-bump-step2.md` (owned by T057); this finding edits item (e) only to add the forward-reference to the mutex contract.
-
-## Relationships
-
-- T057 "Item (e) fail predicate: operator-precedence ambiguity, single-sentence packing, and sub-outcomes buried mid-prose" — same-cluster (touches the same item (e) prose but resolves independently).
