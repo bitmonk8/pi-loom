@@ -80,28 +80,4 @@ Reconcile the glossary "schema slug" entry and `schema-subset.md` step 5 so the 
 ## Relationships
 
 None.
-# T04 - Glossary "type sink" defined query-only but used for array element-type inference
-
-**Kind:** naming
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The glossary "type sink" entry defines the term as an enclosing AST position whose declared type supplies the schema for a *query expression* during the outward type-inference walk. But `grammar.md`'s "array<T> literal type-sink rule" and `expressions.md` array construction use "type sink" for array element-type inference. A reader following the glossary anchor from the array-literal usage finds a definition scoped only to queries.
-
-## Solution approach
-
-Broaden the glossary "type sink" entry so its definition covers any enclosing AST position supplying a type to its operand, including array element-type inference, rather than query schema alone.
-
-## Solution constraints
-
-None.
-
-## Relationships
-
-None.
 
