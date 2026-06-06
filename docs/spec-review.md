@@ -4,7 +4,9 @@ _Generated: 2026-06-06T13:23:32Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T118) is addressed first; the first finding (T001) is addressed last._
 
-_Triage tally: 0 blockers, 32 high, 62 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 31 high, 62 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+
+_(Updated 2026-06-06: T099 "`loom/load/callee-has-errors` promises codes via `related`" resolved and removed — the `code-registry-load.md` row and the `invocation.md` Static resolution paragraph were walked back so neither promises the callee's diagnostic *codes* via `related`; both now state that `related` carries one entry per underlying error *site* (`{ file, range, message }` per `diagnostic-shape.md`), with the callee's own diagnostics emitted separately. No change to `diagnostic-shape.md` or the closed `related` element shape.)_
 
 _(Updated 2026-06-06: T102 "`bind_context` project-wide-inheritance parenthetical references a settings carrier that does not exist" resolved and removed — the no-params-bypass parenthetical in binder-bypass-and-envelope.md was corrected to state that `bind_model` may inherit from the project-wide `looms.binderModel` setting while `bind_context` has no project-wide carrier and defaults to `none`. No new settings key, diagnostic, or validation row was added.)_
 
@@ -4579,66 +4581,3 @@ Three independent obligations across two pages, with no shared edit surface. Res
 
 - T025 "Shard-07 hidden-host assumptions and stale residue" - same-cluster (hidden-assumptions concern on the same pages)
 
----
-
-# T099 - `loom/load/callee-has-errors` promises codes via `related` that the `related` shape and renderer cannot carry
-
-**Original heading:** `callee-has-errors` "carries codes via `related`" contradicts the `related` shape and its rendering
-**Original section:** docs/spec_topics/diagnostics/
-**Kind:** implementability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-
-## Finding
-
-Two normative surfaces collide. `docs/spec_topics/diagnostics/code-registry-load.md`'s `loom/load/callee-has-errors` row states "The diagnostic carries the callee's own diagnostic codes via `related`," and `docs/spec_topics/invocation.md` (Static resolution paragraph) repeats the claim verbatim — "naming the callee and listing the underlying diagnostic codes via `related`." But the `Diagnostic.related` element shape in `docs/spec_topics/diagnostics/diagnostic-shape.md` is closed at `{ file, range, message }` with no `code` member, and the *Serialised content format* paragraph on the same page is emphatic: each related line is rendered as `"  <file>:<line>:<col>: <message>"`, "**no** `<code>` prefix, because related entries carry no code."
-
-A conforming implementation cannot satisfy both promises. Either the structured payload must carry the callee's codes (which the shape forbids and the renderer cannot surface), or the row's prose is overselling what `related` actually delivers. Because DIAG-4 makes the *Message* column byte-exact and the rendering rule is normative, this is not a wording nit — it is a genuine disagreement about what the load-time consumer of `callee-has-errors` is entitled to read out of the diagnostic.
-
-A test author writing against this row today will either (a) assert that `related[i].code` exists and fail because the shape has no such field, or (b) parse the rendered `related` lines for codes and find none. A consumer that needs the callee codes for routing or aggregation has no place to read them.
-
-## Spec Documents
-
-- `docs/spec_topics/diagnostics/code-registry-load.md` — `loom/load/callee-has-errors` row (edited)
-- `docs/spec_topics/invocation.md` — Static resolution paragraph (edited)
-- `docs/spec_topics/diagnostics/diagnostic-shape.md` — `Diagnostic.related` shape and *Serialised content format* paragraph (read-only)
-- `docs/spec_topics/frontmatter/frontmatter-fields-b-and-templates.md` — references the code (read-only)
-- `docs/spec_topics/type-system.md` — references the code in the unresolvable-callee posture (read-only)
-
-## Plan Impact
-
-**Phases:** N/A
-
-**Leaves (implementation order):** N/A
-
-(The plan currently lists no horizontal, MVP, or vertical leaves.)
-
-## Consequence
-
-**Severity:** correctness
-
-DIAG-4 makes both the rendered message and (per the row's *Trigger* pinning convention) the structured payload normative. Two implementers reading this row will diverge: one will follow the row prose and invent a code-bearing channel (extending `related` with a `code` field, embedding `[<code>]` in the message, or adding a `details.calleeCodes` array), breaking the rendering rule or the closed shape; the other will follow the shape and silently drop the codes the row promises. Both arms make tests written against `callee-has-errors` and `invocation.md` non-portable across implementations.
-
-## Solution Space
-
-**Shape:** single
-**State:** reduced
-
-Walk back the `loom/load/callee-has-errors` row so neither it nor `invocation.md` promises codes via `related`. The diagnostic enumerates the callee's *error sites* (`{ file, range, message }`), not its codes — preserving the closed `related` element shape that `type-alias-cycle`, the name-collision rows, and every other `related` consumer already rely on, and keeping the rendering rule's "no `<code>` prefix on related lines" intact.
-
-### Spec edits
-
-- `code-registry-load.md` row: replace "The diagnostic carries the callee's own diagnostic codes via `related`" with: "The diagnostic's `related` array carries one entry per underlying error site in the callee, with `{ file, range, message }` per `diagnostic-shape.md`; the callee's own diagnostics are emitted separately through the normal channel." The row's *Message* column (`callee '<path>' has errors; see related diagnostics`) is fine as-is.
-- `invocation.md` Static resolution paragraph (line 22): replace "listing the underlying diagnostic codes via `related`" with "listing the underlying error sites via `related`."
-- No change to `diagnostic-shape.md`.
-
-This is the smallest diff and avoids touching the central diagnostic envelope. A consumer that wants the callee's codes reads the callee's own separately-emitted diagnostics and correlates by file path. If a future LSP integration shows a real need for structured callee-code surfacing, extending `related` with an optional `code` field (and the matching renderer change) can be revisited as a separate spec change with its own audit of every `related`-emitting row.
-
-### Edge cases
-
-- Sweep both references to "codes via `related`" in the same commit — the `code-registry-load.md` row and `invocation.md` line 22 — or the contradiction simply relocates.
-
-## Relationships
-
-- T026 "`loom/parse/type-alias-cycle` cycle-chain rendering is unspecified" - same-cluster (sibling diagnostics-rendering ambiguity; both expose under-specification in the related-line / message-template rendering surface)
