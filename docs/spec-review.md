@@ -4,7 +4,7 @@ _Generated: 2026-06-06T13:23:32Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T118) is addressed first; the first finding (T001) is addressed last._
 
-_Triage tally: 0 blockers, 50 high, 66 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 49 high, 66 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
 
 _(Updated 2026-06-06: T066 "README links to a non-existent docs/spec-sweeps.md" resolved and removed — a README/tracking-doc finding outside the spec corpus; the README Status paragraph was rewritten to drop the dangling docs/spec-sweeps.md link.)_
 
@@ -5690,77 +5690,3 @@ Clarify in `runtime-event-channel.md`'s `RuntimeEvent` field-comment block (whic
 
 - T111 "Binder `complete()` call execution phase contradicts its own cancellation/argument wiring" - decision-overlap (resolving when the binder `complete()` call is issued determines whether the registry-entry-exists-at-binder-phase premise of this fix holds; this finding's approach relies on the slash-dispatch reading, which is also what the cancellation and argument wiring already require)
 - T113 "`ActiveInvocationRegistry` entry shape omits the `disposeBarrier` resolver, and several intra-page "below" references now resolve to other files" - same-cluster (both edits touch the registry-entry / RuntimeEvent sourcing surface; resolved independently)
-
-# T117 - Runtime-event channel: undefined "occurrence" vs "origin"; PIC-1 pure-read MUST has no observable projection; per-site mask-domain table split from CIO
-
-**Original heading:** "exactly once per occurrence" vs "at most twice per origin"; PIC-1 pure-read MUST unobservable; per-site mask domain split from CIO
-**Original section:** docs/spec_topics/pi-integration-contract/ (audit-resolution, conversation-drive, runtime-event-channel, session-shutdown-semantics, session-only-degraded-state, drain-state-contract)
-**Kind:** clarity, testability, placement
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-
-## Finding
-
-`runtime-event-channel.md` opens with a normative "exactly once per occurrence" emission guarantee for the always-log set, then later — in the *Deduplication and lifetime rules* — adds that "the runtime emits the same `RuntimeEvent` payload at most twice per origin: once at the originating site (always), and once again at the boundary as the `details: { event }` payload of the user-facing top-level note when a cascade applies." Neither "occurrence" nor "origin" is defined on the page or in the glossary. A reader trying to reconcile the two statements must infer from context that an *occurrence* is the originating failure event (single always-log emission) and that a cascade-twin re-emission is *not* a second occurrence because it is byte-identical (same `occurred_at`) and collapsed by the `(kind, query_site, message, occurred_at)` dedup tuple. That reconciliation is left to the reader; two implementers can easily disagree on whether the boundary re-emission counts toward "exactly once per occurrence" or whether it is a separate emission that happens to share a key.
-
-PIC-1's *pure-read MUST* (clause (e)) is written entirely in internal-state vocabulary: detection at the surfaced site "MUST NOT advance the `tool_loop` counter, mutate round bookkeeping, re-invoke ceiling #4's depth-walk, or trip a second emission." Three of the four prohibitions are unobservable from outside the runtime — they constrain *how* the implementation evaluates the V1 reachable predicate (clause (d)), not *what* a conformance test can witness. Only "no second emission" projects onto the observable channel. The MUST is therefore unfalsifiable as written: two implementations that produce the same `RuntimeEvent` stream (including identical `masked` values) cannot be distinguished even if one of them re-runs ceiling-#4's depth-walk on every predicate evaluation, in direct violation of clause (e).
-
-The PIC-1 *per-site reachable mask domain* table (clause (c), five rows keyed by surfacing site) sits in `runtime-event-channel.md` and references CIO-1, CIO-2, CIO-3, CIO-4, and CIO-5 by anchor; the CIO interaction order itself lives in `ceilings-3-and-4.md`. The split is intentional and cross-referenced — CIO-6 explicitly delegates ownership of the mask domain and the pure-read MUST to PIC-1, and PIC-1 conversely delegates the four-ceiling list and CIO ordering to ceilings-3-and-4 — but every row of the table is reasoned in CIO terms, so a reader of either page must keep the other open to follow the argument. The table is the only place in PIC-1 where the routing logic is reasoned site-by-site against the CIO sequence; the rest of PIC-1 is shape/wire/copy-policy material that does not depend on the CIO ordering.
-
-## Spec Documents
-
-- `docs/spec_topics/pi-integration-contract/runtime-event-channel.md` — *Runtime event channel* opening paragraph (occurrence terminology) (edited)
-- `docs/spec_topics/pi-integration-contract/runtime-event-channel.md` — *Deduplication and lifetime rules*, first bullet (origin / cascade-twin) (edited)
-- `docs/spec_topics/pi-integration-contract/runtime-event-channel.md` — PIC-1 clause (c) per-site reachable mask domain table (edited)
-- `docs/spec_topics/pi-integration-contract/runtime-event-channel.md` — PIC-1 clause (e) pure-read MUST (edited)
-- `docs/spec_topics/hard-ceilings/ceilings-3-and-4.md` — *Interaction between ceilings* (CIO-1…CIO-6) and CIO-6 ownership-delegation sentence (edited)
-- `docs/spec_topics/hard-ceilings/ceilings-3-and-4.md` — *Per-boundary destination/surface table (ceiling #4)* (read-only)
-- `docs/spec_topics/query/query-tool-loop.md` — *Worked example: depth-6 forced respond at `max_rounds`* (read-only; cited by PIC-1)
-- `docs/spec_topics/glossary.md` — home for `occurrence` / `origin` definitions (edited)
-
-## Plan Impact
-
-**Phases:** N/A
-
-**Leaves (implementation order):** N/A
-
-(The project has a plan skeleton but no leaves yet — `docs/plan.md` carries empty horizontal/MVP/vertical sections.)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers diverge on at least two of the three sub-issues. (1) The "occurrence vs origin" terminology gap lets one team count cascade-twin re-emissions toward the always-log emission budget and another not, producing different log volumes on the same failure. (2) The pure-read MUST as written cannot be falsified by any conformance fixture, so a non-compliant implementation that re-runs ceiling-#4's depth-walk on every PIC-1 predicate read will pass the suite — wasting work and (worse) potentially producing a `loom/runtime/invoke-depth-exceeded` panic re-emission that the originating site already surfaced. (3) The mask-domain placement is least severe — it works but slows comprehension and raises the risk that a future edit to the CIO sequence drifts away from the table.
-
-## Solution Space
-
-**Shape:** single
-**State:** reduced
-
-Resolve three independent obligations in order, so the smaller scoping fixes land before the placement decision and each diff stays small.
-
-### Step 1 — Define "occurrence" and "origin"; pin the counting relationship
-Add an explicit two-sentence definition pair to the opening *Runtime event channel* paragraph (cross-referenced from the glossary): an **occurrence** is a single failure event in the always-log set, identified by the dedup tuple `(kind, query_site, message, occurred_at)`; an **origin** is the originating emission site of an occurrence (where the `RuntimeEvent` instance is first constructed and `occurred_at` is stamped). Rewrite the *Deduplication and lifetime rules* first bullet to state the counting rule once: an occurrence produces exactly one always-log emission at its origin; when a top-level cascade applies in prompt mode, the same `RuntimeEvent` instance is re-emitted verbatim once more at the boundary as the `details: { event }` payload of the user-facing top-level note, sharing `occurred_at` and collapsing under the dedup tuple. The "at most twice per origin" wording becomes a derived consequence ("origin emission + at most one boundary re-emission"), not an independent rule.
-
-Spec edits: two paragraphs in `runtime-event-channel.md`; a one-line addition to `glossary.md` (a new `occurrence (runtime event)` entry, or a parenthetical on the `RuntimeEvent` entry).
-
-### Step 2 — Demote the unobservable PIC-1 (e) clauses to an observable MUST
-Rewrite PIC-1 clause (e) so the MUST states only the observable property: evaluating the V1 reachable predicate MUST NOT cause a second emission on the `loom-system-note` channel and MUST NOT alter any subsequent `RuntimeEvent` payload (`masked` value, `occurred_at`, dedup-tuple membership) relative to the same failure under an implementation that does not evaluate the predicate. Move the internal-state prohibitions (no counter advance, no bookkeeping mutation, no depth-walk re-invocation) to a sibling *Implementation note (non-normative)* paragraph as a recommended mechanism that satisfies the MUST cheaply. The "MAY cache the two scalars" sentence stays as-is. This makes the MUST falsifiable: a fixture driving the same failure under two implementations and comparing the emitted `RuntimeEvent` stream (count, payload, `masked`) is sufficient.
-
-Spec edits: a single paragraph in `runtime-event-channel.md` PIC-1 (e), plus a short non-normative follow-up paragraph. No cross-page edits.
-
-### Step 3 — Keep the per-site mask-domain table in PIC-1; tighten cross-references
-Keep clause (c)'s five-row table in `runtime-event-channel.md` (PIC-1 is the normative owner per CIO-6, and the table makes that ownership concrete). At each row's CIO reference, replace bare `CIO-N` mentions with anchor links (e.g. `[CIO-3](../hard-ceilings/ceilings-3-and-4.md#cio-3)`) where not already linked. In `ceilings-3-and-4.md`, immediately under the *Interaction between ceilings* heading, add a single-sentence forward pointer naming the PIC-1 mask-domain table by section anchor, so a reader arriving via CIO reaches the table in one hop. Do not duplicate or move the table.
-
-Spec edits: anchor-link audit on the five table rows in `runtime-event-channel.md`; one forward-pointer sentence in `ceilings-3-and-4.md`.
-
-### Edge cases
-- After Step 1, re-read the *Engine-assumption carve-out* paragraph following the opening "exactly once per occurrence" sentence; its "the exactly-once emission guarantee assumes …" phrasing remains correct under the new definition, but verify it does not need a parallel mention of "at most twice per origin."
-- Step 2's observable-only MUST must survive the *Verbatim-copy obligation* in clause (f): the boundary re-emission already MUSTs verbatim-copy `masked` and `occurred_at`, so the predicate is never re-evaluated at the boundary. The Step-2 rewrite should reference clause (f) so a reader sees why the observable property holds. (A non-compliant implementation that wastes work on internal re-derivation but produces a correct event stream becomes formally conforming — the standard trade for observable-only normativity.)
-- Step 3 is not a license to inline CIO-1…CIO-6 into `runtime-event-channel.md`; that would duplicate normative material the ceilings page owns.
-
-## Relationships
-
-- T023 ""CIO-N rules above" and the five-site co-edit "(in this page)" point to anchors on the sibling page" - same-cluster (both reflect the cross-page entanglement of the CIO sequence; the anchor-link tightening should be coordinated with that finding's fix)
-

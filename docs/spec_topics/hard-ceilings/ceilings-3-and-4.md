@@ -32,6 +32,8 @@ Ceiling #4 is the JSON-document depth-5 ceiling against the five enforcement poi
 
 <a id="ceiling-interaction-order"></a>
 
+The per-site reachable mask domain that reasons each surfacing site against the CIO ordering below lives in the [PIC-1 *Hard-ceiling co-fire* mask-domain table](../pi-integration-contract/runtime-event-channel.md#pic-1) (PIC-1 is its normative owner per CIO-6); a reader following the CIO sequence to see how `masked` is populated per site reaches it in one hop there.
+
 Each ceiling is checked at a distinct point in single-threaded interpreter execution. The first ceiling reached along an event's control-flow path that finds its precondition satisfied fires and ends the event; ceilings situated at later points on the same path are not evaluated for that event. The fixed evaluation order — each item below is a REQ-ID citable from tests and downstream revisions — is:
 
 - <a id="cio-1"></a> **CIO-1.** Ceiling #3 (binder per-class retry budget) is evaluated at slash-load time, before any *runtime-class* ceiling fires; the slash-load `params` arm of ceiling #4 also occurs at slash-load time and is routed by ceiling #3's failure-mode templates per the per-boundary table at [Per-boundary destination/surface table (ceiling #4)](#ceiling-4-table).
