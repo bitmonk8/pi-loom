@@ -4,7 +4,9 @@ _Generated: 2026-06-06T13:23:32Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T118) is addressed first; the first finding (T001) is addressed last._
 
-_Triage tally: 0 blockers, 42 high, 64 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 40 high, 64 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+
+_(Updated 2026-06-06: T108 "Non-Error throws yield `undefined` (or a TypeError) when the runtime extracts `.message`" and T109 "`session_start` collision pass has no failure contract when `pi.getCommands()` throws" resolved together as a co-resolve cluster and removed — a canonical underlying-error coercion was pinned in placeholder-rendering-b.md §6 and a fifth `pi.getCommands()` read-failure bullet was added to the Extension-bootstrap SDK failures enumeration.)_
 
 _(Updated 2026-06-06: T066 "README links to a non-existent docs/spec-sweeps.md" resolved and removed — a README/tracking-doc finding outside the spec corpus; the README Status paragraph was rewritten to drop the dangling docs/spec-sweeps.md link.)_
 
@@ -5048,55 +5050,3 @@ Clarify the `recovery.looms` membership predicate on the `binder-model-hot-reloa
 ## Relationships
 
 None
-
-# T108 - Non-Error throws yield `undefined` (or a TypeError) when the runtime extracts `.message`
-
-**Kind:** assumptions, error-model, prescription
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-Several spec surfaces extract a thrown value's `.message` without specifying behaviour when the throw is not Error-shaped. JavaScript permits `throw <any value>`, and only `Error`-derived values carry a string-valued `.message`. The affected producer sites are: the four `loom/load/extension-bootstrap-failed` bullets in `extension-bootstrap-and-per-loom.md` (`error: <error.message>`); the `CodeToolError.message` source on the `execute()`-throw branch in `host-interfaces-core.md` (§**Tool execution from loom code** and the *Outcome routing summary*); the diagnostics-registry rows in `code-registry-load.md`, `code-registry-runtime.md`, and `code-registry-host.md` that carry an underlying error message; and the §6 / §8 placeholder bindings in `placeholder-rendering-b.md`. For a non-Error throw, naive `.message` access yields `undefined`, a non-string value that defeats the first-line-truncation rule, or a synchronous `TypeError` on a `null`/`undefined` throw that escapes the bootstrap catch and violates the page's "factory MUST NOT throw out of `default function (pi: ExtensionAPI)`" rule — so two conforming implementations produce divergent payloads and divergent control flow.
-
-## Solution approach
-
-Define a single normative error-coercion rule in `placeholder-rendering-b.md` §6 (Underlying-error placeholders), the existing home of the underlying-error rendering rule: a `null`/`undefined` value yields the fixed string `"<no message>"`; an object whose `.message` is a string yields that `.message`; otherwise the value yields `String(value)`. The §6 first-line-truncation rule and the existing empty-string `<no message>` fallback then operate on the guaranteed string. Rewrite each producer site named in Problem to consume the coercion output rather than a raw `.message` access.
-
-## Solution constraints
-
-- Out of scope: the `CodeToolError` schema in `errors-and-results/queryerror-variants.md` and the `tool-calls.md` failures section — the fix is producer-side and requires no schema or consumer change.
-
-## Relationships
-
-- T109 "`session_start` collision pass has no failure contract when `pi.getCommands()` throws" - same-cluster (another bootstrap-path throw whose payload construction needs the same coercion once a contract is defined)
-
-# T109 - `session_start` collision pass has no failure contract when `pi.getCommands()` throws
-
-**Kind:** error-model
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`registration-steps.md` step 3 subscribes a `session_start` handler whose first action is a `pi.getCommands()` read for the cross-format collision pass, before the per-loom `pi.registerCommand` loop runs. The *Extension-bootstrap SDK failures* enumeration in `extension-bootstrap-and-per-loom.md` covers only write calls (`pi.registerMessageRenderer`, `pi.registerCommand`, `pi.registerFlag`, `pi.on`); the read `pi.getCommands()` has no entry. The factory's `MUST NOT throw out of default function (pi: ExtensionAPI)` rule scopes to the factory body, not to event handlers Pi invokes at `session_start`, so a `pi.getCommands()` throw escapes into Pi's `session_start` dispatch with no `loom/load/extension-bootstrap-failed` diagnostic and no pinned disposition for the pending-registration list. Implementers diverge: one lets the throw propagate (every pending loom silently lost), another swallows it and registers every loom without the collision filter — and neither path emits the operator-facing diagnostic the rest of the page promises.
-
-## Solution approach
-
-Add a fifth bullet to the *Extension-bootstrap SDK failures* enumeration in `extension-bootstrap-and-per-loom.md` covering a `session_start`-time `pi.getCommands()` read throw, and forward-link it from `registration-steps.md` step 3's collision pass. Pin the disposition: the pending-registration list is dropped for this `session_start` (no `pi.registerCommand` calls issue), the runtime emits one `loom/load/extension-bootstrap-failed` (E, load) through the **System notes** fallback chain naming the `pi.getCommands` capability in `details`, and the handler swallows the throw rather than propagating it into Pi's `session_start` dispatch — mirroring the per-call `try`/`catch` pattern the four sibling write-side bullets use. The `details.error` field uses the same coercion the sibling bullets adopt.
-
-## Solution constraints
-
-- The failure is scoped to the failing `session_start` pass, not the extension lifetime — the fix MUST NOT set drain state (drain state is owned by `drain-state-contract.md`'s `LoomRegistry` contract).
-
-## Relationships
-
-- T108 "Non-Error throws yield `undefined` (or a TypeError) when the runtime extracts `.message`" - co-resolve (the new bullet's `error: <error.message>` field needs the same `String(value)` coercion the sibling bullets adopt; both fixes should land in one editorial pass)
-- T035 "`pi.getFlag` is touched pre-bind but is absent from both the safe-before-bind list and the `notInitialized`-throwing list" - same-cluster (a sibling Pi-read whose failure mode is also unspecified at its call site; resolves independently in step 1 rather than step 3)
-- T067 "Pi behavioural presuppositions lack authoritative behavioural pointers" - same-cluster (cites the `getCommands-completeness` presupposition as one of its examples; concerns completeness of the snapshot, not the throw path)
