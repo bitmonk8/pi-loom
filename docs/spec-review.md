@@ -20,6 +20,8 @@ _(Updated 2026-06-06: T095 "ERR-7 lacks a defining anchor on the discovery pages
 
 _(Updated 2026-06-06: T108 "Non-Error throws yield `undefined` (or a TypeError) when the runtime extracts `.message`" and T109 "`session_start` collision pass has no failure contract when `pi.getCommands()` throws" resolved together as a co-resolve cluster and removed — a canonical underlying-error coercion was pinned in placeholder-rendering-b.md §6 and a fifth `pi.getCommands()` read-failure bullet was added to the Extension-bootstrap SDK failures enumeration.)_
 
+_(Updated 2026-06-06: T087 "`respond_repair: { methodology: none, attempts: N>0 }` combination behaviour and `ValidationError.attempts` under `methodology: none` are unspecified" resolved and removed — the `none` bullet in frontmatter-fields-b-and-templates.md was made self-contained: a declared non-zero `respond_repair.attempts` is silently ignored under `methodology: none` (loads with no diagnostic, behaves as `attempts: 0`), and the returned `ValidationError.attempts` is `0` on every path that surfaces a `ValidationError` under `methodology: none` (initial AJV failure, depth-walk failure, and the ERR-17 forced-respond branch). The `#err-17` anchor and its sentence in queryerror-variants.md were left in place per GOV-28; no new REQ-ID was coined.)_
+
 _(Updated 2026-06-06: T089 "Opening free-phase turn body unstated for `max_rounds > 0`; `discard_site` value undefined for void-tail discards" resolved and removed — the *Free phase* bullet in query-tool-loop.md now states the runtime issues the opening free-phase user turn carrying the rendered query template body as its sole content, with the `max_rounds: 0` boundary the same dispatch (not a second code path); and the **Observability of discarded results** paragraph in query-escapes-stringification.md now pins `discard_site` to the `let _ =` binding for the expression-statement form and to the tail `@`...`` expression (its start, for multi-line spans) for the void-tail-function form. No new IDs, MUSTs, or runtime-event fields.)_
 
 _(Updated 2026-06-06: T066 "README links to a non-existent docs/spec-sweeps.md" resolved and removed — a README/tracking-doc finding outside the spec corpus; the README Status paragraph was rewritten to drop the dangling docs/spec-sweeps.md link.)_
@@ -3740,28 +3742,3 @@ Narrow `loom/load/bind-echo-without-params` in `diagnostics/code-registry-load.m
 
 None
 
-# T087 - `respond_repair: { methodology: none, attempts: N>0 }` combination behaviour and `ValidationError.attempts` under `methodology: none` are unspecified
-
-**Kind:** testability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `methodology: none` bullet in `frontmatter-fields-b-and-templates.md` says only "Equivalent to `attempts: 0`. No template applies", and does not say what a well-formed `{ methodology: none, attempts: N>0 }` loom does: `loom/load/unknown-methodology-value` fires only on values outside the recognised set, so the combination loads silently, and the spec does not distinguish "warn at load" from "silently treat as `attempts: 0`". On the return side, `ValidationError.attempts` (`queryerror-variants.md` schema, "respond-repair follow-ups made before giving up") is pinned to `0` under `methodology: none` only for the ERR-17 forced-respond branch; for the ordinary AJV-failure path an implementer must infer the value two pages away. Two conforming runtimes can therefore disagree on both the load-time diagnostic and the integer surfaced in `ValidationError.attempts`, and both differences are observable from loom `match` arms and diagnostics consumers.
-
-## Solution approach
-
-Clarify the `none` bullet in `frontmatter-fields-b-and-templates.md` so the contract is self-contained: a declared non-zero `respond_repair.attempts` is silently ignored under `methodology: none` (no new diagnostic), the runtime behaves as `attempts: 0`, and `ValidationError.attempts` is `0` on every path that surfaces `ValidationError` under `methodology: none` — AJV failure, depth-walk failure, and the ERR-17 forced-respond branch.
-
-## Solution constraints
-
-- Preserve the `#err-17` anchor and its sentence in place (GOV-28 anchor stability); generalise the rule in the `none` bullet rather than relocating the ERR-17 statement.
-
-## Relationships
-
-- T088 "Follow-up template terminal-newline and dedent trailing-whitespace-line rendering are unpinned" - same-cluster (sibling testability gap on the same respond-repair template machinery; resolved independently)
