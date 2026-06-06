@@ -128,29 +128,4 @@ None.
 ## Relationships
 
 None.
-# T06 - `.warp` import resolution failure has no diagnostic code and no resolver failure contract
-
-**Kind:** error-model, implementability
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`.warp` import resolution failure (unresolvable / non-existent / non-relative) has no named diagnostic code and no row in the `loom/load/*` registry, while `imports.md`'s `Resolver` seam `resolve(spec, fromFile): string` has no failure-signaling contract despite the same paragraph requiring non-relative specs to "fail this resolver" and surface "through the same load-time diagnostic channel". The two gaps are one defect: there is no defined path from a resolver failure to a surfaced diagnostic.
-
-## Solution approach
-
-Specify `resolve`'s failure path (throw / sentinel / Result) and name a concrete diagnostic (e.g. `loom/load/unresolvable-warp-path`) with severity and message covering all three sub-cases; add the corresponding row to the `loom/load/*` registry and state that the importing file is not registered.
-
-## Solution constraints
-
-- Coining the diagnostic code adds a defining-obligation site: under GOV-22 mint a co-located REQ-ID anchor under the page's registered prefix in the same commit (no new prefix required).
-
-## Relationships
-
-None.
 
