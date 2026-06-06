@@ -4,13 +4,15 @@ _Generated: 2026-06-06T13:23:32Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T118) is addressed first; the first finding (T001) is addressed last._
 
-_Triage tally: 0 blockers, 37 high, 63 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 36 high, 62 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
 
 _(Updated 2026-06-06: T105 "BNDR-5 mandates shortest-round-tripping fixed-point digits without a derivation recipe" resolved and removed — a non-normative derivation recipe was appended to BNDR-5 in defaulting-system-note-echo.md, describing how to expand `String(n)`'s exponential output into shortest fixed-point form, with BNDR-6r and BNDR-6s as the worked oracle cases.)_
 
 _(Updated 2026-06-06: T108 "Non-Error throws yield `undefined` (or a TypeError) when the runtime extracts `.message`" and T109 "`session_start` collision pass has no failure contract when `pi.getCommands()` throws" resolved together as a co-resolve cluster and removed — a canonical underlying-error coercion was pinned in placeholder-rendering-b.md §6 and a fifth `pi.getCommands()` read-failure bullet was added to the Extension-bootstrap SDK failures enumeration.)_
 
 _(Updated 2026-06-06: T066 "README links to a non-existent docs/spec-sweeps.md" resolved and removed — a README/tracking-doc finding outside the spec corpus; the README Status paragraph was rewritten to drop the dangling docs/spec-sweeps.md link.)_
+
+_(Updated 2026-06-06: T033 "Binder clarity nits: placeholder mismatches, undefined block delimiter, ambiguous dash-clause, missing "or" in no-params bullet" and T104 "BNDR-7's "next blank line of the surrounding system prompt" presupposes framing the eight system-prompt blocks neither pin" resolved together as a co-resolve cluster and removed — *System-prompt structure (normative)* item 6 in binder-bypass-and-envelope.md now pins the Session-context block's exact byte framing (opening line + `\n` + body + a terminating blank line, ending `\n\n`, emitted regardless of block position), the BNDR-7 umbrella in binder-model-and-context.md now bounds each rendering body at "the terminating blank line that closes the block per item 6" instead of "the next blank line of the surrounding system prompt", and the four sibling clarity nits were fixed: the failure-mode-templates intro and rule 5 now name `<model's message>` (dropping the non-existent `<candidates>`/`candidates:` references), BNDR-2/BNDR-3 cite `<model's message>` to match the table, the determinism variable-inputs sentence was split off from the fixed-footprint clause, and `or` was inserted in the no-params bypass bullet.)_
 
 _(Updated 2026-06-06: T107 "Hot-reload recovery note over-promises `/reload` success without a failed-re-reload contract" resolved and removed — the `recovery.looms` membership predicate on the binder-model hot-reload paragraph was pinned to prior `loom/load/binder-model-unresolved` failure plus binder-model re-resolution alone, the `<names>` template framing was narrowed from "can now load" to "now resolve a binder model", and the still-fails disposition was stated as surfacing through the loom's own `loom/load/*` diagnostic.)_
 
@@ -1500,39 +1502,6 @@ Rewrite the single-string-bypass bullet in `binder-bypass-and-envelope.md`'s `##
 
 - T086 "`bind_echo` no-params diagnostic: trigger condition unpinned and overlaps the single-string-bypass code" - decision-overlap (this finding pulls the `bind_echo` rule out to the echo-policy page; that finding refines the `bind_echo` codes' boundaries)
 - T102 "`bind_context` project-wide-inheritance parenthetical references a settings carrier that does not exist" - decision-overlap (constrains what "silently ignored (may be inherited from project-wide settings)" can claim for `bind_context:` on single-string bypass)
-
-# T033 - Binder clarity nits: placeholder mismatches, undefined block delimiter, ambiguous dash-clause, missing "or" in no-params bullet
-
-**Kind:** clarity
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Decision axes:** 5
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-Five wording defects sit across the two binder pages:
-
-1. The failure-mode-templates intro on `determinism-cancellation-failure.md` (`#failure-mode-templates-normative`) flags `<message>` and `<candidates>` as the model-supplied non-deterministic placeholders and references a trailing `candidates:` clause, but the table beneath it uses `<model's message>` in the `needs_info`/`ambiguous` rows, uses `<message>` only for the deterministic transport-failure provider text, renders no `<candidates>` token, and renders no `candidates:` clause (loom 1.0 does not render `candidates`, per BNDR-2).
-2. BNDR-2 and BNDR-3 on `binder-bypass-and-envelope.md` cite `<message>` against that same table, which actually uses `<model's message>`.
-3. System-prompt structure item 6 in `binder-bypass-and-envelope.md` mandates a "delimited block" opening with `Recent session context` but defines no closing delimiter; because BNDR-7 separates turn blocks with a single blank line, two implementations satisfying item 6 and BNDR-7 can disagree on the block boundary — a divergence observable in the binder input bytes BNDR-7 exists to pin.
-4. The determinism-opening dash-clause ("…not among its variable inputs — the loom-dependent seed below and the rendered system prompt.") parses ambiguously between enumerating the variable inputs and narrowing the fixed footprint.
-5. The no-params bypass bullet joins two trigger forms ("`params:` is absent, `params: {}`") with a bare comma and no coordinating conjunction.
-
-## Solution approach
-
-In `determinism-cancellation-failure.md`, rewrite the failure-mode-templates intro placeholder caveat to name the tokens the table actually carries (`<model's message>` as the model-supplied non-deterministic token; the transport-failure-row `<message>` and `<provider>` as deterministic provider/classifier text) and drop the `candidates:`-clause reference. Replace `<message>` with `<model's message>` in BNDR-2 and BNDR-3 on `binder-bypass-and-envelope.md` to match the table they cite. Clarify item 6's `Recent session context` block in `binder-bypass-and-envelope.md` to define what terminates the block, keeping the illustrative fenced rendering and the BNDR-7 reference renderings on `binder-model-and-context.md` consistent with whatever boundary rule is chosen. Rewrite the determinism-opening dash-clause to separate the fixed-footprint statement from the variable-inputs enumeration, and insert `or` between the two no-params trigger forms in the bypass bullet.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T104 "BNDR-7's "next blank line of the surrounding system prompt" presupposes framing the eight system-prompt blocks neither pin" - co-resolve (same item-6 / BNDR-7 boundary surface; both findings can be closed by the same explicit-delimiter edit)
-- T106 "Compact-transcript assistant interleaving and `<args-json>` key order not pinned for byte-exact reproduction" - same-cluster (BNDR-7 byte-exact reproducibility; resolved independently)
 
 # T035 - `pi.getFlag` is touched pre-bind but is absent from both the safe-before-bind list and the `notInitialized`-throwing list
 
@@ -4842,62 +4811,3 @@ Pin a Pi-side behavioural guarantee that `SessionContext.messages` (and `agent_e
 - T106 "Compact-transcript assistant interleaving and `<args-json>` key order not pinned for byte-exact reproduction" - same-cluster (both attack BNDR-7 byte-exactness gaps; resolve independently)
 - T034 "Compact-transcript: BNDR-7 reference set omits oracles for several normative Rule-4 cases" - same-cluster (both extend BNDR-7's reference-rendering coverage; this finding leaves the existing BNDR-7a–BNDR-7d renderings authoritative and adds no new rendering, so the two resolve independently)
 - T104 "BNDR-7's "next blank line of the surrounding system prompt" presupposes framing the eight system-prompt blocks neither pin" - same-cluster (both expose unpinned structural preconditions on which BNDR-7's byte-exactness rests; resolve independently)
-
----
-
-# T104 - BNDR-7's "next blank line of the surrounding system prompt" presupposes framing the eight system-prompt blocks neither pin
-
-**Original heading:** Eight system-prompt block order not pinned, yet BNDR-7's transcript-end boundary depends on a trailing blank line
-**Original section:** docs/spec_topics/binder/ + future-considerations/ + pi-integration index
-**Kind:** implementability, clarity
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-
-## Finding
-
-`binder-bypass-and-envelope.md`'s *System-prompt structure (normative)* enumerates eight obligations (Loom identity, Description, Argument hint, Parameters block, User arguments, Session-context block, Envelope-kinds enumeration, No-invent-defaults instruction) but says nothing about the order in which they appear, the inter-block separators, or whether the Session-context block is followed by any further content. Item 6 itself only requires "a delimited block whose opening line begins with the literal token `Recent session context`" — the delimiter is never named.
-
-`binder-model-and-context.md`'s BNDR-7 umbrella (the four reference renderings) then defines the body each rendering reproduces as "the bytes that follow the `Recent session context …:` opening line of the *Session-context block* up to (but not including) the next blank line of the surrounding system prompt." That boundary is the only definition of where each BNDR-7 rendering ends. It assumes (a) the body is single-blank-line-terminated, and (b) at least one further block follows in the surrounding prompt so that "the next blank line" exists. Neither assumption is established by item 6 or by an item-ordering rule: a conforming renderer that places the Session-context block last in the prompt — or that uses a non-blank-line delimiter for it — leaves the BNDR-7 reference renderings without an end-of-body boundary and the byte-exact reproducibility contract underdetermined.
-
-Two reasonable implementers will therefore diverge on the exact trailing bytes of the Session-context block (one `\n`? two? same as turn delimiter? prompt-end? a separator the implementer chose for item 6?), each citing the spec for their answer.
-
-## Spec Documents
-
-- `docs/spec_topics/binder/binder-bypass-and-envelope.md` — *System-prompt structure (normative)*, item 6 (edited)
-- `docs/spec_topics/binder/binder-model-and-context.md` — BNDR-7 umbrella sentence preceding BNDR-7a..d (edited)
-
-## Plan Impact
-
-**Phases:** N/A
-
-**Leaves (implementation order):** N/A
-
-(`plan.md` and `plan_topics/` carry no authored leaves yet; the coverage matrix is empty.)
-
-## Consequence
-
-**Severity:** correctness
-
-The Session-context block participates in a byte-exact reproduction contract (BNDR-7 reference renderings are MUST-reproduce-exactly, and the binder prompt feeds a deterministic-seed pipeline). Without a pinned block order or a self-contained boundary for BNDR-7, two conforming implementations can render the same session into different trailing bytes — breaking input reproducibility for any prompt where the Session-context block is last, and silently divergent for prompts where it is not.
-
-## Solution Space
-
-**Shape:** single
-**State:** reduced
-
-Pin the Session-context block's exact byte framing in *System-prompt structure (normative)* item 6, so the block is self-contained regardless of its position among the eight system-prompt blocks. This fixes both the BNDR-7 body-boundary ambiguity and the sibling "delimited block delimiter undefined" clarity finding in one edit, since the underlying defect is that item 6 promised a "delimited block" without naming the delimiter.
-
-### Spec edits
-- `binder-bypass-and-envelope.md` item 6: replace "a delimited block whose opening line begins with the literal token `Recent session context`" with an explicit byte specification — the opening line `Recent session context …:` followed by a single `\n`, then the BNDR-7-defined body, then a terminating `\n` followed by a blank line (`\n\n` framing). State that this framing is mandatory and holds regardless of the block's position in the surrounding prompt: the terminating blank line is part of the block, not borrowed from a sibling, whether the block is first, middle, or last.
-- `binder-model-and-context.md` BNDR-7 umbrella: optionally tighten "the next blank line of the surrounding system prompt" to "the blank line that terminates the *Session-context block* per *System-prompt structure (normative)* item 6" so the cross-page dependence is named. BNDR-7's umbrella wording otherwise stands — the framing now exists by construction.
-
-### Edge cases
-- The trailing `\n\n` framing is the block's own bytes, not a separator shared with the next block; this applies equally when the Session-context block is first, middle, or last in the prompt.
-- The opening-line `:` followed by ` ` (or `\n`) wording in BNDR-7 ("`Recent session context …:` opening line") must agree with whatever opening-line shape item 6 pins.
-- This framing is distinct from the inter-turn blank line inside the body (Compact-transcript rule 2's "one blank line between turns"); the edit must not conflate the two — they are different bytes serving different purposes.
-
-## Relationships
-
-- T034 "Compact-transcript: BNDR-7 reference set omits oracles for several normative Rule-4 cases" - same-cluster (also concerns BNDR-7 byte-exact conformance; resolves independently of block-order/boundary)
-- T106 "Compact-transcript assistant interleaving and `<args-json>` key order not pinned for byte-exact reproduction" - same-cluster (another BNDR-7 byte-exactness gap inside the body; orthogonal to the body's end-boundary)
