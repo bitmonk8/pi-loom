@@ -4,9 +4,11 @@ _Generated: 2026-06-06T13:23:32Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T118) is addressed first; the first finding (T001) is addressed last._
 
-_Triage tally: 0 blockers, 23 high, 60 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 22 high, 60 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
 
 _(Updated 2026-06-06: T099 "`loom/load/callee-has-errors` promises codes via `related`" resolved and removed — the `code-registry-load.md` row and the `invocation.md` Static resolution paragraph were walked back so neither promises the callee's diagnostic *codes* via `related`; both now state that `related` carries one entry per underlying error *site* (`{ file, range, message }` per `diagnostic-shape.md`), with the callee's own diagnostics emitted separately. No change to `diagnostic-shape.md` or the closed `related` element shape.)_
+
+_(Updated 2026-06-06: T085 "Mid-loom Pi-extension hot-reload: held closure invocation has no contracted outcome" resolved and removed — the last Resolution-snapshot consequence bullet in frontmatter-fields-b-and-templates.md was rewritten to replace the "out of loom 1.0 scope" dismissal with a positive contract: the held `execute` closure is dispatched like any other captured Pi-tool callable, and its failures route through the existing surfaces — catchable throws to `CodeToolError { cause: "execution" }`, non-conforming returns to `loom/runtime/internal-error` (both in tool-calls.md), and host-fatal errors to error-model.md's runtime-panics surface. No new diagnostic code, `loom-system-note` shape, or timeout was introduced; the `/reload` author-guidance sentence was retained.)_
 
 _(Updated 2026-06-06: T102 "`bind_context` project-wide-inheritance parenthetical references a settings carrier that does not exist" resolved and removed — the no-params-bypass parenthetical in binder-bypass-and-envelope.md was corrected to state that `bind_model` may inherit from the project-wide `looms.binderModel` setting while `bind_context` has no project-wide carrier and defaults to `none`. No new settings key, diagnostic, or validation row was added.)_
 
@@ -3689,30 +3691,3 @@ Define the stop-reason → variant mapping authoritatively in `provider-error-ma
 ## Relationships
 
 - T084 "`TransportError` catch-all in `query-failure-and-repair.md` is narrower than the PIC contract" - same-cluster (both findings extend the variant-classification surface in `query-failure-and-repair.md` / `provider-error-mapping.md`; co-resolving in one edit pass to that mapping table is natural but the substantive rules are independent)
-
-# T085 - Mid-loom Pi-extension hot-reload: held closure invocation has no contracted outcome
-
-**Kind:** error-model
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The Resolution-snapshot hot-reload bullet in `frontmatter-fields-b-and-templates.md` (last consequence bullet) acknowledges a 1.0-reachable failure path — a Pi tool resolved into a loom's frozen `tools:` table whose source extension is hot-reloaded via `ctx.reload()` leaves the captured `execute` closure referencing disposed module state — then declares the case "out of loom 1.0 scope" without stating what the runtime is contracted to produce when that held closure is next dispatched. The runtime has no mechanism to detect an orphaned `execute` reference, so it dispatches through it like any other captured callable, yet the spec names no observable surface for the result. The other four bullets in the same enumeration each pin an observable consequence; this one substitutes "out of scope" for a contract on a case that is in scope. Two implementers diverge: one treats the case as fully undefined, the other routes the held-closure throw through the standard tool-call failure surfaces.
-
-## Solution approach
-
-Rewrite the hot-reload bullet in `frontmatter-fields-b-and-templates.md`'s Resolution-snapshot to replace the "out of loom 1.0 scope" dismissal with a positive contract: the held `execute` reference is dispatched like any other captured Pi-tool callable and any failure routes through the standard `execute()` surfaces. Point to `tool-calls.md`'s Failures and Outcome enumeration for catchable throws (`CodeToolError { cause: "execution" }`) and non-conforming return shapes (`loom/runtime/internal-error`), and to `error-model.md`'s `runtime-panics` surface for the uncatchable host-fatal case. Retain the "use full `/reload`" sentence as non-normative author guidance alongside the contract.
-
-## Solution constraints
-
-- Do not introduce a new diagnostic code, `loom-system-note` shape, or timeout contract for hot-reload-induced failures; the fix reuses the existing tool-call failure and cancellation surfaces only.
-
-## Relationships
-
-- T107 "Hot-reload recovery note over-promises `/reload` success without a failed-re-reload contract" - same-cluster (also hot-reload contract precision; independent fix)
-- T095 "ERR-7 lacks a defining anchor on the discovery pages, and the payload field carrying shadow/collision paths is unstated" - same-cluster (watcher-time reload failures on a different surface)
-
