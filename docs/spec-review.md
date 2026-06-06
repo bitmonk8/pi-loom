@@ -4,7 +4,7 @@ _Generated: 2026-06-06T13:23:32Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T118) is addressed first; the first finding (T001) is addressed last._
 
-_Triage tally: 0 blockers, 43 high, 64 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 42 high, 64 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
 
 _(Updated 2026-06-06: T066 "README links to a non-existent docs/spec-sweeps.md" resolved and removed — a README/tracking-doc finding outside the spec corpus; the README Status paragraph was rewritten to drop the dangling docs/spec-sweeps.md link.)_
 
@@ -5167,34 +5167,3 @@ Coordinate Step 2 with #672 (defines the toolCallId form) and #677 (settles the 
 
 - T097 "`loom-direct:` toolCallId has no PIC-20-compliant minting path" - decision-overlap (the minting-path sub-choice — extend `IdSource` vs. reuse `newInvocationId()` — is owned by that finding)
 - T108 "Non-Error throws yield `undefined` (or a TypeError) when the runtime extracts `.message`" - same-cluster (touches the same `CodeToolError.message` field on the same page; resolves independently)
-
----
-
-# T111 - Binder `complete()` call execution phase contradicts its own cancellation/argument wiring
-
-**Kind:** implementability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`binder-inference.md`'s *Binder inference call* second paragraph states the binder `complete(model, context, options)` call "runs at loom-load time before any conversation exists." Three wires in the same section, plus one in `binder.md`, contradict that phasing: `options.signal = loomAbort.signal` is tagged "always defined," but `loomAbort` is created only at the dispatch-site setup wrap in `active-invocation-registry.md`; the user-supplied slash argument string and the `context.systemPrompt` session-context block do not exist at load time; and the per-invocation retry budget in `determinism-cancellation-failure.md` caps the runtime per slash invocation, a budget a load-time call cannot draw against. What actually runs at loom-load time is binder-*model* resolution (`binder-model-and-context.md#binder-model`); the `complete()` call itself runs per slash dispatch, where all three wires are live.
-
-## Solution approach
-
-Rewrite the "runs at loom-load time before any conversation exists" clause in `binder-inference.md`'s *Binder inference call* second paragraph to distinguish the two events: binder-model resolution runs at loom-load time (`binder-model-and-context.md#binder-model`), while each `complete(...)` call is issued per slash dispatch at the dispatch-site setup wrap that creates `loomAbort` (`active-invocation-registry.md`) and that consumes the user argument string and the per-invocation retry budget (`determinism-cancellation-failure.md#per-invocation-retry-budget`).
-
-## Solution constraints
-
-- Out of scope: the `complete(...)` options-population bullet list — its `maxRetries` / `maxRetryDelayMs` disposition is owned by T112.
-- Preserve the surrounding correct claims in the same paragraph: the call uses neither the user nor a spawned `AgentSession`, attaches no turns, and resolves directly from the returned `Promise<AssistantMessage>`.
-
-## Relationships
-
-- T112 "Binder `complete()` per-attempt retry / backoff delegated to `StreamOptions` fields loom never populates" - same-cluster (also targets the binder-inference options-population list; co-edit window)
-- T043 "Binder extraction narrative covers only the missing-ToolCall malformed-envelope sub-case" - same-cluster (same section, downstream of the call)
-- T116 "Binder-failure RuntimeEvents have no pinned source for the required `invocation_id` / `loom` fields" - decision-overlap (resolving this finding by pinning the call to dispatch-site phasing also fixes the registry-entry-existence question for binder-failure events: the entry is inserted before the binder call by the dispatch-site setup wrap)
-- T038 "`loomAbort` construction, forwarding, and teardown rules duplicated in `host-interfaces-core.md`'s "Cancellation source" paragraph" - same-cluster (touches the same `loomAbort` wiring this finding's fix cross-references)
