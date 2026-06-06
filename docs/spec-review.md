@@ -4,7 +4,9 @@ _Generated: 2026-06-06T13:23:32Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T118) is addressed first; the first finding (T001) is addressed last._
 
-_Triage tally: 0 blockers, 35 high, 62 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 34 high, 62 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+
+_(Updated 2026-06-06: T102 "`bind_context` project-wide-inheritance parenthetical references a settings carrier that does not exist" resolved and removed — the no-params-bypass parenthetical in binder-bypass-and-envelope.md was corrected to state that `bind_model` may inherit from the project-wide `looms.binderModel` setting while `bind_context` has no project-wide carrier and defaults to `none`. No new settings key, diagnostic, or validation row was added.)_
 
 _(Updated 2026-06-06: T105 "BNDR-5 mandates shortest-round-tripping fixed-point digits without a derivation recipe" resolved and removed — a non-normative derivation recipe was appended to BNDR-5 in defaulting-system-note-echo.md, describing how to expand `String(n)`'s exponential output into shortest fixed-point form, with BNDR-6r and BNDR-6s as the worked oracle cases.)_
 
@@ -4694,64 +4696,3 @@ Add an *Exception safety* clause to the *Renderer registration* block (`id="rend
 ## Relationships
 
 - T036 "`registerMessageRenderer` is unordered in the registration sequence; `registerFlag` options parameter is unpinned" - same-cluster (both touch the *Renderer registration* block in `extension-bootstrap-and-per-loom.md` but resolve independently).
-
-# T102 - `bind_context` project-wide-inheritance parenthetical references a settings carrier that does not exist
-
-**Original heading:** Project-wide `bind_context` inheritance is presupposed but no settings key is enumerated
-**Original section:** docs/spec_topics/binder/ + future-considerations/ + pi-integration index
-**Kind:** assumptions
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-
-## Finding
-
-`docs/spec_topics/binder/binder-bypass-and-envelope.md` §"Binder bypass" item 1 (no-params bypass) says of a no-params loom: "`bind_context` and `bind_model` are silently ignored (they may be inherited from project-wide settings)." The parenthetical asserts a project-wide-inheritance escape hatch for both fields jointly.
-
-Only `bind_model` actually has one. `docs/spec_topics/discovery/package-and-settings.md` §"Settings file reads" enumerates the complete recognised `looms.*` scalar set as exactly four keys — `binderModel`, `scanPackages`, `scanPackagesMaxFiles`, `scanPackagesTimeoutMs` — and explicitly states "No other `looms.*` keys are recognised in loom 1.0; unknown keys under the `looms` namespace are ignored without diagnostic." There is no `looms.bindContext` key, no read path, no validation row, no `settings-value-out-of-range` enumeration entry, and no `binder-context-unresolved` diagnostic mirroring the `binder-model-unresolved` chain. The `bind_context` row in `frontmatter/frontmatter-fields-a.md` confirms this independently: its "Default if omitted" cell is the literal value `none`, not a settings fallback.
-
-The parenthetical therefore mis-states the resolution chain for `bind_context`. A reader of the bypass page may look for the missing settings key, or — worse — an implementer may invent `looms.bindContext` to satisfy the parenthetical, manufacturing a settings surface the rest of the spec rejects.
-
-## Spec Documents
-
-- `docs/spec_topics/binder/binder-bypass-and-envelope.md` — Binder bypass item 1 (edited)
-- `docs/spec_topics/discovery/package-and-settings.md` — Settings file reads / Keys read / Scalar-key validation (read-only)
-- `docs/spec_topics/frontmatter/frontmatter-fields-a.md` — `bind_context` default row, Binder-model root-word convention (read-only)
-- `docs/spec_topics/binder/binder-model-and-context.md` — Binder context (read-only)
-
-## Plan Impact
-
-**Phases:** N/A
-
-**Leaves (implementation order):** N/A
-
-(The plan contains no leaves yet — `plan.md` lists "_(No leaves yet — author per the template.)_" under every phase, and `plan_topics/` contains only `conventions.md`, `coverage-matrix.md`, `leaf-template.md`.)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers diverge: one implements `bind_context` as frontmatter-only with default `none` (consistent with `frontmatter-fields-a.md` and the closed `looms.*` enumeration); the other reads `binder-bypass-and-envelope.md` literally and adds a `looms.bindContext` settings key, a validation row, and an inheritance chain — manufacturing a settings surface the closed-enumeration rule forbids. The wrong implementation also corrupts the `Scalar-key validation` table and the unknown-`looms.*`-keys-ignored guarantee.
-
-## Solution Space
-
-**Shape:** single
-**State:** reduced
-
-Treat the project-wide-inheritance parenthetical as a documentation defect: `bind_context` has no project-wide-settings carrier in loom 1.0 (its default is the literal `none`, applied at frontmatter parse time), so the parenthetical should mention only `bind_model`.
-
-### Spec edits
-
-- `binder-bypass-and-envelope.md` §"Binder bypass" item 1: change "`bind_context` and `bind_model` are silently ignored (they may be inherited from project-wide settings)" to "`bind_context` and `bind_model` are silently ignored (`bind_model` may be inherited from the project-wide `looms.binderModel` setting; `bind_context` has no project-wide carrier and defaults to `none`)."
-- Optionally cross-link the `bind_model` clause to `discovery/package-and-settings.md#settings-file-reads` and the `bind_context` clause to the `bind_context` row in `frontmatter/frontmatter-fields-a.md`.
-
-This is a one-paragraph edit consistent with the existing closed `looms.*` enumeration, the `bind_context` default row, and the "unknown `looms.*` keys are ignored" rule. It adds no new diagnostic code, no validation row, and no widening of the settings surface, with zero downstream impact on the diagnostics registry, the hot-reload note, or the `settings-value-out-of-range` enumeration. The parenthetical is the only place in the corpus claiming `bind_context` inherits from settings; every other surface is already consistent with frontmatter-only resolution. The asymmetry with `bind_model` is justified: `bind_context` is a behaviour-shape choice belonging to the loom author, not a deployment knob, and operator-level overrides are a deferred surface per `future-considerations/surface-extensions.md`.
-
-### Edge cases
-
-- The rewritten parenthetical should explicitly state "no project-wide carrier" for `bind_context` (not just omit it) so a future reader does not re-introduce the same gap by re-adding `bind_context` to a generic "inherited from settings" clause.
-
-## Relationships
-
-- T032 "Single-string-bypass disposition of `bind_model:` and `bind_context:` is unspecified" - same-cluster (both findings touch the bypass-page treatment of `bind_context` / `bind_model` but resolve independently; this finding fixes the no-params parenthetical, the other fixes the single-string-bypass silence.)
-- T027 "`<key>` rendering for `loom/load/settings-value-out-of-range` is undetermined" - decision-overlap (this finding adds no `looms.bindContext` carrier, so it does not enlarge the key-form question's scope; the two resolve independently.)
