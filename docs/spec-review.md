@@ -153,27 +153,4 @@ Specify `resolve`'s failure path (throw / sentinel / Result) and name a concrete
 ## Relationships
 
 None.
-# T07 - Three subtype check sites name no diagnostic codes
 
-**Kind:** testability
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`type-system.md`'s `id="type-compatibility"` section declares the RHS of a typed `let`, a plain (non-`invoke`) function-argument slot, and ternary branches as `T₁ ⊑ T₂` check sites, but names no diagnostic code for any of the three. The codes that section enumerates (`loom/parse/invoke-arg-type-mismatch`, `loom/parse/array-element-type-mismatch`, `loom/parse/match-arm-type-mismatch`) are specific to the invoke / array / match sites, so an author hitting a compatibility failure at one of the three unnamed sites cannot determine which code fires.
-
-## Solution approach
-
-In `type-system.md`'s `id="type-compatibility"` section, name the exact `loom/parse/*` diagnostic code emitted at the let-RHS, plain function-argument, and ternary-branch sites. Cite the existing registry code in `diagnostics/code-registry-parse.md` where one already covers a site, and coin a new registry row there where none does.
-
-## Solution constraints
-
-- If the edit adds a new defining-obligation site on `type-system.md` that carries no co-located REQ-ID anchor, coin a `TYPE-N` anchor in the same commit per GOV-22.
-
-## Relationships
-
-None.
