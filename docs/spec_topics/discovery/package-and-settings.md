@@ -9,7 +9,7 @@
 1. `.pi/npm/` — project-scope npm packages installed via `pi install` (see `packages.md` §npm).
 2. `.pi/git/<host>/<path>/` — project-scope git packages cloned via `pi install` (see `packages.md` §git).
 3. `node_modules/` — project-local npm dependencies brought in via the project's own `package.json` rather than `pi install`.
-4. `~/.pi/agent/npm/` — global npm packages installed via `pi install -g`. If `npmCommand` is configured (per `packages.md` §npm), the extension uses the resolved global root reported by that command instead of the literal path.
+4. `~/.pi/agent/npm/` — global npm packages installed via `pi install -g`. When `npmCommand` is configured (per `packages.md` §npm), Pi resolves the global root and the extension reads that already-resolved root instead of the literal path; the extension does not itself invoke `npmCommand`.
 5. `~/.pi/agent/git/<host>/<path>/` — global git packages cloned via `pi install`.
 
 Within each root, every immediate child whose `package.json` parses successfully is treated as a candidate package. The `pi-package` keyword in `package.json` is informational (used by the gallery, per `packages.md` §"Gallery Metadata") and is **not** required for loom discovery — packages installed before the convention existed, and packages that ship looms incidentally, are still scanned.

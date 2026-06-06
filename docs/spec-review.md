@@ -177,27 +177,3 @@ In `type-system.md`'s `id="type-compatibility"` section, name the exact `loom/pa
 ## Relationships
 
 None.
-# T08 - npmCommand-resolved npm root presupposes a subprocess seam absent from the PIC inventory
-
-**Kind:** assumptions
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`discovery/package-and-settings.md` §"Package discovery" root #4 says that when `npmCommand` is configured the extension uses the global root reported by that command instead of the literal `~/.pi/agent/npm/` path. Reporting a command's resolved root presupposes a subprocess-execution capability, but the injected-seam inventory in `pi-integration-contract/host-interfaces-services.md` (`FileSystem`, `Clock`, `TokenEstimator`, `SchemaValidator`, `Checkpoint`) has no such seam and no test fake for it, so the resolution path is neither owned nor conformance-testable.
-
-## Solution approach
-
-Either add the injected seam the extension uses to run `npmCommand` to the PIC DI-seam inventory in `host-interfaces-services.md` alongside the existing seams, with its test fake, or clarify root #4 in `package-and-settings.md` that Pi resolves `npmCommand` and the extension reads the already-resolved root, removing the subprocess presupposition.
-
-## Solution constraints
-
-- If the seam direction is taken, the new PIC seam is a defining-obligation site and MUST coin a `PIC-N` REQ-ID anchor per GOV-22 under the page's registered `PIC` prefix.
-
-## Relationships
-
-None.
