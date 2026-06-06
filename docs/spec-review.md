@@ -40,6 +40,8 @@ _(Updated 2026-06-06: T092 "Glob `!`/`+`/`-` precedence and matcher engine unspe
 
 _(Updated 2026-06-06: T098 "Three testability gaps in tool-calls / cancellation: pre-eval-throw `<name>` token, missing non-resolvable `.loom` arg-mismatch surface, and unspecified cancelled `message`" resolved and removed — cancellation.md's Surfacing block dropped the literal `message: "..."` for the sibling field-elision `...` form and noted `message` carries no byte-exact constraint; tool-calls.md's pre-evaluation setup-throw bullet pinned `<name>` as the post-`as`/post-hyphen-rewrite callable-set entry (deliberately not the slash-prefixed `/<name>` framing); and the non-statically-resolvable `.loom`-callable input-validation safety net was routed to `Err(InvokeInfraError { cause: "validation", ... })` in both the Argument shape and Failures paragraphs, with the dual-`match`-arm consequence stated. No schema change in queryerror-variants.md.)_
 
+_(Updated 2026-06-07: T083 "Stop-reason → `QueryError` variant mapping is undefined" resolved and removed — provider-error-mapping.md gained a **Stop-reason classification** subsection (anchor `stop-reason-classification`) mapping a successful HTTP-200 response's non-terminal stop reason by `AssistantMessage.stopReason`: an output-boundary terminator (`stopReason: "length"`) → `ContextOverflowError` with both token fields `null`, and any other non-terminal stop reason (incl. content-filter) → `TransportError` with `retryable: false`. The ambiguous "surface as `transport` or `context_overflow` per the existing classification rules" clause in query-tool-loop.md's "Typed queries are tool-loop-shaped" section was replaced with a forward-reference to that subsection, and query-failure-and-repair.md's "Detection of `ContextOverflowError`" co-located the clean-`length` terminator beside the mid-stream output-boundary rule. The T084 4xx/5xx `TransportError` catch-all rewrite was left out of scope.)_
+
 ---
 
 # T001 - `tag-transition predicate` and `diagnostic-emission predicate` are coined, multi-page terms missing from the glossary
@@ -3666,28 +3668,3 @@ In `frontmatter-fields-a.md`'s `params` prose bullet, add forward-cross-referenc
 - T074 "TYPE-8 field-wise compatibility scope (named schema vs inline object type) is ambiguous" - same-cluster (both concern under-specification of named-type semantics on the type-system surface; resolve independently).
 - T075 "Bare-source backslash: no diagnostic code is named" - same-cluster (touches the same `code-registry-parse.md` section if a new `loom/parse/unresolved-named-type` row is registered).
 - T069 "Object indexed-access static semantics are undefined" - same-cluster (another type-system-surface under-specification; independent fix).
-
-# T083 - Stop-reason → `QueryError` variant mapping is undefined
-
-**Kind:** clarity
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The "Typed queries are tool-loop-shaped" section of `query/query-tool-loop.md` states that provider stop reasons other than `end_turn` / `stop` / `tool_use` (e.g. `length`, content filter) "surface as `transport` or `context_overflow` per the existing classification rules." The cross-referenced rules in `pi-integration-contract/provider-error-mapping.md` and `query/query-failure-and-repair.md` § "Detection of `ContextOverflowError`" classify HTTP error payloads (status code, body envelope, message regex), not stop reasons on a successful HTTP-200 response. A `length` or content-filter terminator rides a normal 200 with no error body and matches none of those signatures, so its `QueryError` variant is observer-visible but unspecified — one conforming implementation can return `TransportError` and another `ContextOverflowError` for the same terminator, and `match`-shaped handlers, repair logic, and conformance fixtures diverge accordingly.
-
-## Solution approach
-
-Define the stop-reason → variant mapping authoritatively in `provider-error-mapping.md` (the existing owner of provider-payload → variant mapping), covering `length` (output-boundary) → `ContextOverflowError`, content-filter terminators → `TransportError`, and any other unrecognised non-terminal stop reason → `TransportError`. Replace the ambiguous clause in `query-tool-loop.md`'s "Typed queries are tool-loop-shaped" section with a forward-reference to that mapping. Add a clarifying sentence in `query-failure-and-repair.md` § "Detection of `ContextOverflowError`" co-locating the clean-`length` terminator with the existing mid-stream output-boundary rule.
-
-## Solution constraints
-
-- Out of scope: the network-level / non-overflow 4xx-5xx `TransportError` catch-all rewrite in `query-failure-and-repair.md` and `provider-error-mapping.md`, owned by T084.
-
-## Relationships
-
-- T084 "`TransportError` catch-all in `query-failure-and-repair.md` is narrower than the PIC contract" - same-cluster (both findings extend the variant-classification surface in `query-failure-and-repair.md` / `provider-error-mapping.md`; co-resolving in one edit pass to that mapping table is natural but the substantive rules are independent)
