@@ -4,7 +4,7 @@ _Generated: 2026-06-06T13:23:32Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T118) is addressed first; the first finding (T001) is addressed last._
 
-_Triage tally: 0 blockers, 39 high, 64 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 38 high, 63 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
 
 _(Updated 2026-06-06: T108 "Non-Error throws yield `undefined` (or a TypeError) when the runtime extracts `.message`" and T109 "`session_start` collision pass has no failure contract when `pi.getCommands()` throws" resolved together as a co-resolve cluster and removed — a canonical underlying-error coercion was pinned in placeholder-rendering-b.md §6 and a fifth `pi.getCommands()` read-failure bullet was added to the Extension-bootstrap SDK failures enumeration.)_
 
@@ -1531,33 +1531,6 @@ In `determinism-cancellation-failure.md`, rewrite the failure-mode-templates int
 
 - T104 "BNDR-7's "next blank line of the surrounding system prompt" presupposes framing the eight system-prompt blocks neither pin" - co-resolve (same item-6 / BNDR-7 boundary surface; both findings can be closed by the same explicit-delimiter edit)
 - T106 "Compact-transcript assistant interleaving and `<args-json>` key order not pinned for byte-exact reproduction" - same-cluster (BNDR-7 byte-exact reproducibility; resolved independently)
-
-# T034 - Compact-transcript: BNDR-7 reference set omits oracles for several normative Rule-4 cases
-
-**Kind:** testability
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-BNDR-7's reference renderings (BNDR-7a–BNDR-7d) on `binder-model-and-context.md` (`#bndr-7`) pin the Compact-transcript bytes as MUST-reproduce-exactly, but they cover only a subset of the variants Rule 4 of *Compact-transcript format (normative)* (`#compact-transcript-format-normative`) distinguishes. Four Rule-4 branches that introduce new byte-level decisions have no oracle: an assistant message with `ToolCall` blocks but no `TextContent` (the empty `[assistant]: ` prefix line and its trailing U+0020), a `toolResult` with mixed text/non-text content blocks (concatenation order and `JSON.stringify` form), a `custom` message with a `(TextContent | ImageContent)[]` array body (the silent `ImageContent` skip), and a void truncation result (zero included turns). Because Rule 4's branches are the only thing that makes these scenarios testable input-reproducibility claims, the gap leaves conforming implementations unable to mechanically demonstrate the MUST-reproduce obligation for the missing variants.
-
-## Solution approach
-
-Add reference renderings to the BNDR-7 block on `binder-model-and-context.md` for each uncovered Rule-4 branch: assistant-with-`ToolCall`-no-`TextContent`, `toolResult` with mixed text/non-text content blocks, `custom` with a `(TextContent | ImageContent)[]` body, and the void truncation result. Take the next free sub-letters in block order per the existing `#bndr-7` anchor-scheme note without renumbering BNDR-7a–d. The void-truncation rendering is the absence of the entire Session-context block per `binder-bypass-and-envelope.md` item 6 rather than a transcript fragment; amend the BNDR-7 preamble so this empty oracle is not read as a vacuous cell.
-
-## Solution constraints
-
-- Out of scope: the assistant-interleaving and `<args-json>` key-order pins owned by T106.
-
-## Relationships
-
-- T106 "Compact-transcript assistant interleaving and `<args-json>` key order not pinned for byte-exact reproduction" - same-cluster (the interleaving/key-order pins land in the same Rule 4 + BNDR-7 surface; the fixes should be authored together so BNDR-7e's `[tool-call …]` line uses a multi-key `arguments` object to exercise both pins at once)
-- T104 "BNDR-7's "next blank line of the surrounding system prompt" presupposes framing the eight system-prompt blocks neither pin" - decision-overlap (BNDR-7h's "absent block" oracle relies on the surrounding-prompt framing; resolving the blank-line/block-order obligation first gives BNDR-7h a stable boundary to describe)
-- T103 "Turn-grouping undefined when `SessionContext.messages` begins with non-`user` messages" - same-cluster (a separate Rule-4 coverage gap on the turn-boundary side; resolving it may add yet another BNDR-7 sub-letter, but the two findings address disjoint omissions and resolve independently)
 
 # T035 - `pi.getFlag` is touched pre-bind but is absent from both the safe-before-bind list and the `notInitialized`-throwing list
 
@@ -4955,72 +4928,3 @@ Add a non-normative derivation note — either appended to BNDR-5 in `defaulting
 - T104 "BNDR-7's "next blank line of the surrounding system prompt" presupposes framing the eight system-prompt blocks neither pin" - same-cluster (separate BNDR rule, independent fix)
 - T034 "Compact-transcript: BNDR-7 reference set omits oracles for several normative Rule-4 cases" - same-cluster (parallel testability gap in the BNDR rendering surface)
 
-# T106 - Compact-transcript assistant interleaving and `<args-json>` key order not pinned for byte-exact reproduction
-
-**Original heading:** Compact-transcript assistant interleaving and `<args-json>` key ordering not pinned for byte-exact reproduction
-**Original section:** docs/spec_topics/binder/ + future-considerations/ + pi-integration index
-**Kind:** implementability, prescription
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-
-## Finding
-
-`binder-model-and-context.md` *Compact-transcript format (normative)* rule 4 pins the BNDR-7 reference renderings as MUST-reproduce-exactly because the binder's input-reproducibility contract depends on byte-stable transcript bytes. Two independent byte-determining aspects of rule 4's `assistant` body are nevertheless left unstated, so two conforming implementations can produce different bytes for the same input.
-
-**Aspect 1 — assistant body interleaving.** Rule 4's `assistant` clause says the merged text is "the concatenation of every `TextContent.text` in `AssistantMessage.content` array order" and that each `ToolCall` renders as a sibling line "in `content` array order," but never states whether the merged `[assistant]: …` text line is emitted *before* the tool-call sibling lines or interleaved at each block's position in the array. The companion sentence for the all-tool-call case ("…still emit the `[assistant]: ` prefix line … followed by the `[tool-call …]` lines") and BNDR-7b's example (which has only one `TextContent` followed by one `ToolCall`) imply text-first, tool-calls-after, but neither is a normative pin for the mixed case where tool-call blocks appear at non-final positions in `content`.
-
-**Aspect 2 — `<args-json>` key ordering.** Rule 4 defines `<args-json>` as `JSON.stringify(arguments)`. `JSON.stringify` walks own enumerable string-keyed properties in property-insertion order, so for any `ToolCall.arguments` with more than one key the emitted bytes depend on the SDK's property-insertion order in the value it hands back — an implementation detail with no contract. Two SDK versions, two transports, or two re-buildings of an `arguments` object via spread/`Object.assign` can yield different key orders for identical logical inputs, and the transcript bytes change accordingly. BNDR-7b dodges this by using a single-key example (`{"city":"Paris"}`), so the reference renderings do not pin a multi-key ordering either.
-
-Both aspects are observable through the MUST-reproduce-exactly contract, and either left as-is yields divergent bytes between conforming implementations on inputs that the BNDR-7 reference renderings happen not to cover.
-
-## Spec Documents
-
-- `docs/spec_topics/binder/binder-model-and-context.md` — *Compact-transcript format (normative)* rule 4 (`assistant` body) (edited)
-- `docs/spec_topics/binder/binder-model-and-context.md` — BNDR-7 reference renderings (edited; a new BNDR-7e covering multi-key `args-json` and mixed text/tool-call interleaving is the natural oracle site)
-- `docs/spec_topics/pi-integration-contract/host-interfaces-core.md` — `SessionContext` `AssistantMessage.content` / `ToolCall` shape (read-only; consulted to confirm `content` can interleave `TextContent`/`ToolCall`/`ThinkingContent` in any order and that `arguments` is typed as a plain JSON object with no key-order contract)
-
-## Plan Impact
-
-**Phases:** N/A
-
-**Leaves (implementation order):** N/A
-
-(The plan is scaffolded but carries no leaves yet — `docs/plan.md` lists "_(No leaves yet — author per the template.)_" for every phase section, and no plan-topic page references binder or BNDR-7.)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers will diverge on the rendered bytes for any assistant message that mixes text and tool-calls at non-trivial array positions, and for any tool-call whose `arguments` object has more than one key. Because the surrounding section explicitly grounds binder input-reproducibility (and any prompt-cache keyed on it) on byte-stable transcript output, divergence here breaks the contract the section was written to enforce and silently shifts the bytes the upstream model sees.
-
-## Solution Space
-
-**Shape:** single
-**State:** reduced
-
-Resolve two independent edits to the rule-4 clause in sequence. Land the `<args-json>` key-ordering pin first (smaller, scope-bounding, no dependency on the rendering pin), then the assistant text-then-tool-calls interleaving pin, whose new reference rendering can cite the now-pinned multi-key ordering in its example bytes.
-
-### Step 1 — Pin `<args-json>` key ordering
-State that `<args-json>` is the JSON serialisation of `ToolCall.arguments` produced with no whitespace and with object keys emitted in ascending Unicode code-point (lexicographic) order at every nesting level; array order is preserved verbatim. Name the canonicalisation requirement explicitly so it does not read as a property of `JSON.stringify`.
-
-Spec edit: replace "`<args-json>` is `JSON.stringify(arguments)` (the SDK field is `arguments`, not `args`) with no whitespace" with a sentence pinning lexicographic key order at every object nesting level, e.g. "`<args-json>` is the JSON serialisation of `ToolCall.arguments` produced with no whitespace and with object keys emitted in ascending Unicode code-point order at every nesting level; array order is preserved verbatim. `JSON.stringify` is not key-order-stable across SDK property-insertion orders, so a key-sorting canonicalisation step is required." Cross-link to the cruft-pass precondition that `ToolCall.arguments` is JSON-domain.
-
-### Step 2 — Pin assistant text-then-tool-calls interleaving
-State that the merged `[assistant]: <text>` line is emitted first (with the rule-4 text-concatenation rule unchanged), followed by every `[tool-call …]` sibling line in `content` array order, regardless of where `TextContent` and `ToolCall` blocks appear relative to each other in `content`. This aligns the mixed case with the already-pinned tool-call-only case and with BNDR-7b's implicit ordering.
-
-Spec edits:
-- In rule 4's `assistant` clause, add: "The merged `[assistant]: <text>` line MUST be emitted first, followed by `[tool-call …]` sibling lines in `content` array order; the position of `ToolCall` blocks relative to `TextContent` blocks within `content` does not affect line order."
-- Add a new BNDR-7e reference rendering covering an assistant message with `content` `[ToolCall A, TextContent t, ToolCall B]` so the text-first, tool-calls-in-array-order pin is exercised on a non-trivial layout; give the tool calls multi-key arguments so the rendering also exercises the lexicographic-key pin from Step 1.
-
-### Edge cases
-- The key canonicalisation is recursive — nested objects inside `arguments` must also be sorted, and arrays preserve order.
-- The canonicalisation presupposes `ToolCall.arguments` is JSON-domain (no `BigInt`, no circular references); this is the same precondition the cruft-pass finding "transcript `JSON.stringify(arguments)` totality" flags, and the canonicalisation step inherits its throw behaviour.
-- The "text-first" rule applies only to the assistant variant; the `custom` array variant in rule 4 retains its own array-order concatenation contract.
-- BNDR-7e becomes a new page-local sub-letter anchor per the GOV-23 sub-obligation scheme already used for BNDR-7a–BNDR-7d; do not renumber the existing sub-letters.
-
-## Relationships
-
-- T103 "Turn-grouping undefined when `SessionContext.messages` begins with non-`user` messages" - same-cluster (another byte-exact gap in the same compact-transcript walk, resolved independently)
-- T104 "BNDR-7's "next blank line of the surrounding system prompt" presupposes framing the eight system-prompt blocks neither pin" - same-cluster (another BNDR-7 reproducibility precondition, resolved independently on a different page)
-- T034 "Compact-transcript: BNDR-7 reference set omits oracles for several normative Rule-4 cases" - co-resolve (the new BNDR-7e proposed here is one of the missing renderings this finding requests; landing it narrows that finding's scope)
