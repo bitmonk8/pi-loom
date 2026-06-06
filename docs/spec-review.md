@@ -4,7 +4,7 @@ _Generated: 2026-06-06T13:23:32Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T118) is addressed first; the first finding (T001) is addressed last._
 
-_Triage tally: 0 blockers, 27 high, 62 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 26 high, 62 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
 
 _(Updated 2026-06-06: T099 "`loom/load/callee-has-errors` promises codes via `related`" resolved and removed — the `code-registry-load.md` row and the `invocation.md` Static resolution paragraph were walked back so neither promises the callee's diagnostic *codes* via `related`; both now state that `related` carries one entry per underlying error *site* (`{ file, range, message }` per `diagnostic-shape.md`), with the callee's own diagnostics emitted separately. No change to `diagnostic-shape.md` or the closed `related` element shape.)_
 
@@ -4142,33 +4142,3 @@ Two independent obligations on disjoint surfaces, reviewed independently. Pin th
 ## Relationships
 
 - T030 "Three unsourced Pi-SDK behavioural assertions in the diagnostics cluster" - co-resolve (the second sub-claim of that finding is the same universal-`strictCapable`-absence claim covered by this finding's selected solution; the single audit-entry citation fixes both findings' strict-capability arms simultaneously)
-
----
-
-# T091 - DISC-4 "de-registers a previously-registered loom" has no Pi-side mechanism
-
-**Kind:** implementability, assumptions
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-DISC-4's final paragraph (`docs/spec_topics/discovery/discovery-sources.md`, anchor `#disc-4`) and registration step 3 (`docs/spec_topics/pi-integration-contract/registration-steps.md`) both say the `session_start` collision pass "de-registers" a previously-registered loom whose name now collides with a Pi-owned prompt, skill, or sibling-extension command. The same PIC subtree records the opposite premise: registration step 13's *Structural changes* paragraph states Pi exposes no symmetric `pi.unregisterCommand`, and `pi.registerCommand` in `capability-inventory-items.md` item 1 has no unregister counterpart — so the "de-registers" verb names an operation the spec elsewhere says is unavailable. Neither site specifies the user-facing slash-dispatch behaviour after the diagnostic fires, so one implementer leaves `/<name>` routing to a registry-orphaned handler while another lets the collision persist until `/reload`.
-
-## Solution approach
-
-Rewrite DISC-4's final paragraph and registration step 3 to redefine "de-registers" as a `LoomRegistry`-side drop that leaves the Pi-side `pi.registerCommand` registration in place, cross-linking step 13's absent-`pi.unregisterCommand` acknowledgement. Restate DISC-4's asymmetric-loss rule ("the loom never preempts a non-loom registration") at the registry level rather than the Pi command-router level. Specify the slash-dispatch behaviour for a superseded loom — a `/<name>` whose registry entry was dropped — routing it to a fixed superseded-note system message modelled on the existing `readDrainState` arm (c) note `"loom /<name>: extension degraded; /reload to recover"` in `drain-state-contract.md`. Emit the existing `loom/load/cross-format-collision` diagnostic unchanged at the same site.
-
-## Solution constraints
-
-- The three-arm `LoomRegistry.readDrainState()` tuple space is closed per `drain-state-contract.md` (the slash handler MUST NOT introduce a fourth arm); the superseded-dispatch surface must not add a fourth drain-state arm.
-- Out of scope: registration step 13's file-watcher `.loom` add/remove path (the `loom watcher: <N> file(s) added or removed; run /reload to refresh` note), which is unrelated to the `session_start` late-collision branch.
-
-## Relationships
-
-- T018 "DISC-4 does not cross-reference the `pi.getCommands()` enumeration API or its `session_start` ordering presupposition" - same-cluster (both touch DISC-4 / step 3 cross-format collision; that finding asks for the read API, this finding asks for the write API; both resolve independently against `registration-steps.md` step 3)
-- T037 "Loom-side `/reload` rules buried inside Pi-host presuppositions" - decision-overlap (the new "superseded" slash-handler dispatch this finding adds should be defined on `drain-state-contract.md` alongside the existing dispatch arms; that placement decision should be reconciled with T037 before either lands)
