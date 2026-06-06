@@ -16,6 +16,8 @@ _(Updated 2026-06-06: T105 "BNDR-5 mandates shortest-round-tripping fixed-point 
 
 _(Updated 2026-06-06: T103 "Turn-grouping undefined when `SessionContext.messages` begins with non-`user` messages" resolved and removed — a second Pi behavioural precondition (each `AgentMessage[]` delivering surface is non-empty iff its first element is a `UserMessage`) was pinned alongside the existing chronological-ordering presupposition in host-interfaces-core.md, the binder turn-definition gained a forward reference to it, and version-bump checklist item (ag) was added to re-audit it per Pi minor bump. The turn-grouping rule, truncation walk, and BNDR-7 renderings are unchanged.)_
 
+_(Updated 2026-06-06: T095 "ERR-7 lacks a defining anchor on the discovery pages, and the payload field carrying shadow/collision paths is unstated" resolved and removed — a **Watcher-time reload failures** definition (page-local anchor `#watcher-time-reload-failures`) was added at the end of "Caching and reload" in package-and-settings.md, pinning ERR-7's trigger set (registry-swap failure + re-emitted load/parse diagnostics, settings re-merge included) and **watcher-event-time** emission, and explicitly excluding the informational structural-change note and the `session_shutdown` teardown-timeout; error-model.md's ERR-7 list item was re-pointed from the `discovery.md` aggregator to that section. discovery-sources.md gained one-sentence `message`-field statements for `loom/load/cross-source-shadow` and `loom/load/cross-format-collision` (no structured `details` payload). The ERR-7 REQ-ID anchor stays in error-model.md; no new REQ-ID was coined.)_
+
 _(Updated 2026-06-06: T108 "Non-Error throws yield `undefined` (or a TypeError) when the runtime extracts `.message`" and T109 "`session_start` collision pass has no failure contract when `pi.getCommands()` throws" resolved together as a co-resolve cluster and removed — a canonical underlying-error coercion was pinned in placeholder-rendering-b.md §6 and a fifth `pi.getCommands()` read-failure bullet was added to the Extension-bootstrap SDK failures enumeration.)_
 
 _(Updated 2026-06-06: T066 "README links to a non-existent docs/spec-sweeps.md" resolved and removed — a README/tracking-doc finding outside the spec corpus; the README Status paragraph was rewritten to drop the dangling docs/spec-sweeps.md link.)_
@@ -4353,71 +4355,3 @@ Delete the undefined hyphen-normalisation transform from the discovery prose. In
 ## Relationships
 
 - T095 "ERR-7 lacks a defining anchor on the discovery pages, and the payload field carrying shadow/collision paths is unstated" - same-cluster (other DISC-4-adjacent gap on the same page)
-
-# T095 - ERR-7 lacks a defining anchor on the discovery pages, and the payload field carrying shadow/collision paths is unstated
-
-**Original heading:** ERR-7 has no defining section/anchor on the discovery pages; cross-source-shadow/collision payload field unspecified
-**Original section:** docs/spec_topics/ errors-and-results + discovery
-**Kind:** testability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-
-## Finding
-
-`error-model.md` line 66 lists ERR-7 — *"watcher-time reload failures (per [Discovery](../discovery.md))"* — alongside ERR-1..ERR-6 and ERR-16 as a pre-evaluation failure surface, inheriting the bullet-list contract (`loom-system-note` channel, `triggerTurn: false`, no final value, not subject to cancellation). The cross-reference points at `discovery.md`, but neither that aggregator nor either of its two sub-pages (`discovery/discovery-sources.md`, `discovery/package-and-settings.md`) carries an `#err-7` anchor, names ERR-7, or enumerates which watcher-reload outcomes elevate to it. A grep across `docs/` returns the single error-model.md mention. The reader is therefore left to infer ERR-7's trigger set from prose scattered across `registration-steps.md` step 5 (the chokidar discovery watcher and atomic registry swap), `package-and-settings.md` "Caching and reload" (the 250 ms-debounced settings watcher), and `diagnostic-shape.md` "Re-scan deduplication" — and to guess which `loom/load/*` and `loom/runtime/*` codes route through ERR-7's pre-evaluation surface versus the ordinary load/runtime channels. The emission-timing question is also open: does ERR-7 fire at watcher-event time (during the re-parse / swap), or at the *next invocation* of the rebuilt entry (the pattern `frontmatter-fields-b-and-templates.md:25` already uses for `unknown_tool`)?
-
-Separately, the discovery prose for the two related diagnostics under-specifies which Diagnostic field carries the path list. `discovery-sources.md:39` says `loom/load/cross-source-shadow` is "emitted naming both paths" and DISC-4 says `loom/load/cross-format-collision` is emitted "naming **every** colliding path", but neither sentence states whether those paths live in `message`, in a structured `details` field, or in `related[]`. The information is recoverable — `code-registry-load.md:35-36` shows the paths interpolated into the *Message template* via `<higher>` / `<lower>` placeholders, and `placeholder-rendering-b.md:70` renders the byte-exact example — but `diagnostic-shape.md` declares `details?` is per-row pinned by *Trigger* prose, and the cross-source-shadow / cross-format-collision rows neither declare a `details` payload nor explicitly state that one is absent. A consumer building structured log-pipeline tooling against the discovery diagnostics cannot tell from the discovery pages alone whether to parse `message` or read a structured field.
-
-## Spec Documents
-
-- `docs/spec_topics/errors-and-results/error-model.md` — ERR-7 pre-evaluation list entry (read-only; anchor stays here, definition is added on the discovery page it points at)
-- `docs/spec_topics/discovery/package-and-settings.md` — "Caching and reload" section (edited; natural home for ERR-7's trigger / code / timing definition since both watchers are specified or co-specified here)
-- `docs/spec_topics/discovery/discovery-sources.md` — "Source priority" paragraph and DISC-4 (edited; add the payload-field statement for `cross-source-shadow` and `cross-format-collision`)
-- `docs/spec_topics/pi-integration-contract/registration-steps.md` — step 5 watcher / hot-reload registration (read-only; canonical source for watcher mechanics and the structural-change `loom-system-note`)
-- `docs/spec_topics/diagnostics/code-registry-load.md` — `cross-source-shadow` / `cross-format-collision` rows (read-only; message templates already encode the paths; the discovery-page edit must stay in lock-step with these rows)
-- `docs/spec_topics/diagnostics/diagnostic-shape.md` — `Diagnostic` shape, `details` conventions, "Re-scan deduplication" paragraph (read-only)
-- `docs/spec_topics/errors-and-results/queryerror-variants.md` — `unknown_tool` cause comment at line 166 (read-only; precedent for "lost across a file-watcher reload")
-
-## Plan Impact
-
-**Phases:** N/A
-
-**Leaves (implementation order):** N/A
-
-(The project has `plan.md` and `plan_topics/`, but `plan_topics/` currently contains only `conventions.md`, `coverage-matrix.md`, and `leaf-template.md` — no executable leaves authored yet. Grep for `ERR-7`, `watcher`, `reload`, `cross-source-shadow`, `discovery` across `plan_topics/` and `plan.md` returns no hits.)
-
-## Consequence
-
-**Severity:** correctness
-
-Two conformant implementers will disagree on (a) the closed set of `loom/load/*` and `loom/runtime/*` codes that route through ERR-7's pre-evaluation contract (`triggerTurn: false`, no final value, on `loom-system-note`) versus the ordinary persistent-diagnostic channels, and (b) whether ERR-7 fires synchronously at watcher-event time or at next-invocation of the rebuilt entry. Conformance tests citing the ERR-7 anchor have nothing to assert against. Independently, log-pipeline / operator-tooling consumers cannot tell from the discovery prose whether the shadowed-path list is structured (`details`) or freeform (`message`); the byte-exact `Message` example pins one answer for testing, but the spec never closes the door on a structured `details` field appearing alongside.
-
-## Solution Space
-
-**Shape:** single
-**State:** reduced
-
-Two independent obligations on overlapping pages. Land the payload-field clarification first (two pinned one-sentence edits, no normative branching), then the ERR-7 definition section (a larger surface that enumerates a closed code set and pins emission timing). The two changes touch disjoint prose, so sequencing them avoids a bundled-diff blow-up.
-
-### Spec edits
-
-1. **State the payload field for the two collision diagnostics.**
-   - `discovery-sources.md:39` — append to the shadow sentence: *"… naming both paths in the diagnostic's `message` field per the [`loom/load/cross-source-shadow`](../diagnostics/code-registry-load.md) row; no structured `details` payload is emitted for this code."*
-   - DISC-4 (same file) — append the parallel clause for `loom/load/cross-format-collision`, noting the message lists every colliding path via the same template-driven rendering (byte-exact per `placeholder-rendering-b.md`).
-   - This locks in the current contract: the paths are carried in the rendered `message`, and neither row declares a `details` payload; consumers parse the rendered message. (GOV-30 lock-step keeps both sites swept if a future `details` field is ever added.)
-
-2. **Define ERR-7 on the discovery pages.** Add an `<a id="err-7"></a>` anchor at the end of the "Caching and reload" section of `package-and-settings.md` (the natural home — the settings-file watcher is specified inline there, and the discovery watcher is cross-referenced from PIC `registration-steps.md` step 5). Under the anchor, enumerate the closed set of watcher-reload outcomes that elevate to ERR-7's pre-evaluation contract (`triggerTurn: false`, no final value, on `loom-system-note`, not subject to cancellation, per `error-model.md`), pin emission timing, and cross-reference the underlying codes:
-   > <a id="err-7"></a> **ERR-7.** **Watcher-time reload failures.** The watcher / hot-reload registry swap (per [Pi Integration Contract — watcher / hot-reload registration](../pi-integration-contract/registration-steps.md#watcher-hot-reload-registration) for the discovery watcher and the "Caching and reload" paragraph above for the settings watcher) elevates the following codes to ERR-7's pre-evaluation contract per [Errors and Results — ERR-7](../errors-and-results/error-model.md#err-7): every `loom/load/*` and `loom/parse/*` code re-emitted on the watcher's re-parse path (per the **Re-scan deduplication** rule in [Diagnostics — Diagnostic shape](../diagnostics/diagnostic-shape.md)); the structural-change `loom-system-note` from [Pi Integration Contract — Structural changes](../pi-integration-contract/registration-steps.md); and `loom/runtime/reload-teardown-timeout` per [`code-registry-runtime.md`](../diagnostics/code-registry-runtime.md). Emission timing is **watcher-event time** for re-parse codes (the swap publishes after the debounced re-parse completes; failed-to-parse files re-emit their persistent diagnostic at that instant) and **next-invocation time** for the `unknown_tool` cause specifically described at [Frontmatter — `tools:`](../frontmatter/frontmatter-fields-b-and-templates.md), which routes through `CodeToolError` rather than ERR-7.
-
-   Also change `error-model.md` line 66's parenthetical to `(per [Discovery — ERR-7](../discovery/package-and-settings.md#err-7))` so the cross-reference resolves to the new anchor; the `discovery.md` aggregator stays a pure index. This honours the GOV-30 / GOV-1 anchor-per-obligation convention already used for ERR-1..ERR-6 / ERR-16 and closes the conformance-test gap on both the trigger set and the timing question.
-
-### Edge cases
-
-- Edit 2 requires walking `code-registry-load.md` / `code-registry-runtime.md` to confirm the closed code set; confirm none of the enumerated codes belong to a separate pre-evaluation surface.
-- Confirm against PIC `registration-steps.md` step 5 whether the structural-change `loom-system-note` is part of ERR-7's surface — it carries `display: true` and may belong to a separate operator-prompt channel rather than the pre-evaluation failure surface; trim the closed set if so.
-- Confirm whether settings-reload re-merge diagnostics (`loom/load/settings-*`) route through ERR-7 or stay on the ordinary persistent-diagnostic channel.
-
-## Relationships
-
-None
