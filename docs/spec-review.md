@@ -4,7 +4,7 @@ _Generated: 2026-06-06T13:23:32Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T118) is addressed first; the first finding (T001) is addressed last._
 
-_Triage tally: 0 blockers, 47 high, 65 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 45 high, 65 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
 
 _(Updated 2026-06-06: T066 "README links to a non-existent docs/spec-sweeps.md" resolved and removed — a README/tracking-doc finding outside the spec corpus; the README Status paragraph was rewritten to drop the dangling docs/spec-sweeps.md link.)_
 
@@ -3919,32 +3919,6 @@ Define the stop-reason → variant mapping authoritatively in `provider-error-ma
 
 - T084 "`TransportError` catch-all in `query-failure-and-repair.md` is narrower than the PIC contract" - same-cluster (both findings extend the variant-classification surface in `query-failure-and-repair.md` / `provider-error-mapping.md`; co-resolving in one edit pass to that mapping table is natural but the substantive rules are independent)
 
-# T084 - `TransportError` catch-all in `query-failure-and-repair.md` is narrower than the PIC contract
-
-**Kind:** error-model
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`query-failure-and-repair.md` § "Detection of `ContextOverflowError`" classifies the non-overflow catch-all as "All other 4xx and 5xx responses map to `TransportError`." That phrasing is keyed off an HTTP status, so it is silent about failures that produce no HTTP response — connection-refused, DNS failure, TLS handshake error, read/SDK timeout, mid-stream drop — and about the HTTP-200 non-overflow body-envelope case. The authoritative rule at `pi-integration-contract/provider-error-mapping.md` already maps all three arms (non-overflow 4xx/5xx, HTTP-200 body-envelope, and every network-level failure) to `TransportError`; the query-shard restatement is a partial paraphrase that drops the network-level and HTTP-200 arms. The omission is sharpened by the section's own "mid-stream errors are still classified at end-of-stream" sentence, which presupposes a classification rule for a mid-stream drop that the catch-all does not supply.
-
-## Solution approach
-
-Rewrite the catch-all sentence in `query-failure-and-repair.md` § "Detection of `ContextOverflowError`" so it delegates to the PIC owner instead of restating part of the rule, forward-linking to `pi-integration-contract/provider-error-mapping.md#provider-error-mapping` as the authority for the non-overflow 4xx/5xx, HTTP-200 body-envelope, and network-level arms all mapping to `TransportError`.
-
-## Solution constraints
-
-- Preserve the query-shard-owned commitments co-located in this section — the "mid-stream errors are still classified at end-of-stream" sentence, the output-side `context_overflow` truncation carve-out, the `tokens_used` / `tokens_limit` `null` paragraph, and the loom 1.0 seam blockquote — none of which are owned by PIC; do not relocate or delete them.
-
-## Relationships
-
-- T083 "Stop-reason → `QueryError` variant mapping is undefined" - same-cluster (also a `transport` vs `context_overflow` classification gap in the same `query-tool-loop.md` / `query-failure-and-repair.md` cluster; resolves independently, but a coherent editorial pass should land both at once).
-- T046 "`RuntimeEvent` justifies a field it does not carry" - same-cluster (also touches the `transport` emission contract, but at the RuntimeEvent shape layer rather than the `QueryError` classification layer; resolves independently).
-
 # T085 - Mid-loom Pi-extension hot-reload: held closure invocation has no contracted outcome
 
 **Kind:** error-model
@@ -5451,76 +5425,3 @@ Spec edit: `active-invocation-registry.md` *Registry contract* block — one new
 ## Relationships
 
 None
-
----
-
-# T114 - pi-ai provider-error surface (status, body, network-failure delivery) is undefined
-
-**Original heading:** pi-ai provider-error surface (status / body / network-failure delivery) is undefined
-**Original section:** docs/spec_topics/pi-integration-contract/ (audit-resolution, conversation-drive, runtime-event-channel, session-shutdown-semantics, session-only-degraded-state, drain-state-contract)
-**Kind:** implementability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-
-## Finding
-
-`provider-error-mapping.md` specifies its entire classifier — overflow-signature matching against `error.message` / `error.type` / `error.code` / `ValidationException` body, an HTTP-200-with-body-envelope-error case, "every other 4xx/5xx response," and "every network-level failure (no HTTP response — TCP/TLS errors, provider-SDK timeouts, end-of-stream truncation)" — in terms of HTTP status, a parsed JSON error body, and a separate no-response class. It never says how loom obtains any of those from `@earendil-works/pi-ai`, and the actual pi-ai surface does not deliver them in the shape the rules assume.
-
-`complete<TApi>(model, context, options?): Promise<AssistantMessage>` (declared at `@earendil-works/pi-ai`'s `dist/stream.d.ts`, already cited in `binder-inference.md`) does **not** reject on provider HTTP errors. Its implementation is `stream(...).result()`, and the `AssistantMessageEventStream.result()` promise resolves with the `AssistantMessage` carried on either the terminal `done` event or the terminal `error` event of the stream. The only failure-shaped fields on `AssistantMessage` (declared at `dist/types.d.ts`) are `stopReason: "stop" | "length" | "toolUse" | "error" | "aborted"` and `errorMessage?: string`; there is **no `httpStatus` field, no parsed body, no structured `error.code` / `error.type`**. Per-provider stream implementations populate `errorMessage` by passing the caught provider exception through a per-provider formatter (e.g. `formatAzureOpenAIError` produces `"Azure OpenAI API error (429): <provider message>"`), so the only HTTP-status signal that ever reaches loom from this surface is whatever digits the formatter happens to interpolate into a free-form string.
-
-The one place pi-ai does expose typed HTTP metadata is `StreamOptions.onResponse?: (response: ProviderResponse, model) => void | Promise<void>` where `ProviderResponse = { status: number; headers: Record<string, string> }` (`dist/types.d.ts`). It fires "after an HTTP response is received and before its body stream is consumed," carries no body, and is not wired in the binder-inference call options enumerated in `binder-inference.md`. There is no pi-ai surface that delivers the raw provider error body to loom; the network-failure-vs-HTTP-response distinction is likewise not encoded in `AssistantMessage` — both collapse to `stopReason: "error"` with whatever `errorMessage` the per-provider formatter produced. Two reasonable implementers will diverge on whether to regex the wrapped `errorMessage`, to wire `onResponse` + a payload sniffer, or to assume some other pi-ai surface that does not exist.
-
-## Spec Documents
-
-- `docs/spec_topics/pi-integration-contract/provider-error-mapping.md` — *Provider error mapping*, *Provider-owned-wording presupposition*, *`TransportError.retryable` population*, overflow-signature table (edited)
-- `docs/spec_topics/pi-integration-contract/binder-inference.md` — *Binder inference call* options list, classification cross-reference paragraph (edited)
-- `docs/spec_topics/pi-integration-contract/conversation-drive.md` — *prompt-mode error detection* (`stopReason` / `errorMessage` probe), typed-query forced-respond classification cross-reference (edited)
-- `docs/spec_topics/pi-integration-contract/host-interfaces-core.md` — `AssistantMessage` member surface, `ProviderResponse` if cited (read-only)
-- `docs/spec_topics/pi-integration-contract/version-bump-step2.md` — bump-checklist items `(i)`, `(m)`, `(u)`, `(aa)`, `(ab)` and possibly a new item gating the chosen surface (edited)
-- `docs/spec_topics/binder/determinism-cancellation-failure.md` — *Transport-class* classifier cross-reference (read-only)
-- `docs/spec_topics/errors-and-results/queryerror-variants.md` — `TransportError.http_status` / `TransportError.message` derivation (read-only)
-- `docs/spec_topics/query/query-failure-and-repair.md` — catch-all "all other 4xx and 5xx → `TransportError`" wording that presupposes status visibility (read-only)
-
-## Plan Impact
-
-**Phases:** N/A
-
-**Leaves (implementation order):** N/A
-
-(`docs/plan.md` exists but `plan_topics/` contains only `conventions.md`, `coverage-matrix.md`, and `leaf-template.md`; no leaves have been authored yet.)
-
-## Consequence
-
-**Severity:** correctness
-
-Without pinning the pi-ai surface that delivers status, body, and the no-response case, the classifier table is not mechanizable: two conforming implementers will diverge on what `error.code: "context_length_exceeded"` even *means* (a substring inside the wrapped `errorMessage` string vs. a JSON field that pi-ai does not surface), on whether HTTP 400 vs HTTP 200 can be distinguished at all from `AssistantMessage` alone, and on what observable distinguishes "no HTTP response" from "HTTP 4xx with empty/unknown body" — all three currently collapse to the same `stopReason: "error"` + opaque `errorMessage` on the typed surface. `TransportError.retryable` and `ContextOverflowError` classification thus become implementation-defined exactly where the spec claims they are pinned.
-
-## Solution Space
-
-**Shape:** single
-**State:** reduced
-
-Drive the provider-error classifier from two inputs: `ProviderResponse.status` (captured via `StreamOptions.onResponse`) as the authoritative HTTP-class input, and `AssistantMessage.errorMessage` (regex) for the overflow-signature / body-envelope-error wording; absence of an `onResponse` invocation before a `stopReason: "error"` resolution is the no-HTTP-response (network-level) case. This preserves the existing table's status-class structure (so the `TransportError.retryable` rule and the HTTP-200-body-envelope carve-out keep their shape) while honestly admitting that pi-ai delivers body wording only through `AssistantMessage.errorMessage`. Loom already accepts the *Provider-owned-wording presupposition* for overflow signatures; this extends that acceptance the minimum amount needed to mechanize the rest of the table.
-
-### Spec edits
-- Pin both `StreamOptions.onResponse` / `ProviderResponse` and `AssistantMessage.stopReason` / `errorMessage` as the classifier inputs, citing the declaration site at `@earendil-works/pi-ai`'s `dist/types.d.ts` exactly as `binder-inference.md` does for `complete()`.
-- Specify that the runtime registers an `onResponse` callback on every `complete()` call (including the binder call in `binder-inference.md`), records `{ status, headers }` keyed to that call's invocation, and joins it with the resolved `AssistantMessage` to drive the classifier. Update `binder-inference.md`'s options enumeration to require `onResponse`.
-- Restate each table row as a `(status, errorMessage-regex)` pair — e.g. the existing "HTTP 400 with `error.code: …`" rows reinterpret to "captured `status === 400` AND `errorMessage` matches `<regex>`."
-- Pin the no-`onResponse` ⇒ network-level rule: "`onResponse` did not fire before `complete()` resolved with `stopReason: "error"`" routes through `TransportError { retryable: true, http_status: null }`.
-- Extend the *Provider-owned-wording presupposition* to cover the `errorMessage` formatter output used for signature matching.
-- Add `version-bump-step2.md` checklist items for `onResponse` / `ProviderResponse` signature drift and for `errorMessage` formatter-wording drift.
-
-### Edge cases
-- SDK-only providers (`amazon-bedrock` in particular) may not invoke `onResponse` even when an HTTP response did occur — collapsing real HTTP errors into the "network-level" branch and over-flagging `retryable: true`. The spec must pin, per row, whether `onResponse` is expected to fire and how absence is interpreted; the existing per-provider rows are the natural site for that pin, alongside the row-selection-key fix in the adjacent finding.
-- A pi-ai version that stops invoking `onResponse` for some provider silently breaks status capture; this is what the bump-checklist item guards.
-- The two-input classifier carries a join obligation between the captured `{ status, headers }` and the resolved `AssistantMessage`; pin the join keying (per invocation) so it is unambiguous across the binder, prompt-mode forced-respond, and future call sites.
-
-## Relationships
-
-- T115 "Provider-error-mapping table: row-selection key, Bedrock `ValidationException` discriminator, and HTTP-200 envelope discriminator unpinned" - decision-overlap (the chosen pi-ai surface determines what a "Bedrock `ValidationException`" or an "HTTP-200 body-envelope error" even looks like at the classifier input; both findings should be resolved in a single edit pass on `provider-error-mapping.md`)
-- T084 "`TransportError` catch-all in `query-failure-and-repair.md` is narrower than the PIC contract" - co-resolve (the no-HTTP-response branch is exactly what the surface decision must define; the "no `onResponse` before `stopReason: "error"`" rule resolves both)
-- T083 "Stop-reason → `QueryError` variant mapping is undefined" - same-cluster (touches the same provider-classification table from the `stopReason` side; resolution interacts but can be specified independently)
-- T112 "Binder `complete()` per-attempt retry / backoff delegated to `StreamOptions` fields loom never populates" - same-cluster (also about the `StreamOptions` surface and the binder's `complete()` options enumeration; the selected solution extends that enumeration with `onResponse`)
-- T046 "`RuntimeEvent` justifies a field it does not carry" - same-cluster (separate field, but both touch the transport-error emission path)
-
