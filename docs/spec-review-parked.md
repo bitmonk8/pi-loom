@@ -298,3 +298,107 @@ Keep the `complete()` options-population list as is, but pin explicitly that loo
 - T111 "Binder `complete()` call execution phase contradicts its own cancellation/argument wiring" - same-cluster (also targets the binder-inference options-population list; co-edit window)
 - T045 "Audit-cluster testability/assumptions: four independent gaps bundled in one finding" - co-resolve (its "unpinned `complete()` retry/cancellation behaviour" item is the same gap viewed from the audit cluster's perspective; pinning the options here discharges that sub-item)
 
+---
+
+## T096 - `loom-direct:` `toolCallId` shape, uniqueness, and minting source are unspecified
+
+> **PARKED** — 2026-06-06T18:58:46Z
+> **Reason:** Category 1 (malformed finding — default attribution for top-level fixer refusals; the fixer's pre-flight typically catches stale preconditions, missing destination subsections, or do-not-touch conflicts — may also be category 2 if the refusal reason is capacity-shaped, see FixerNotes). Parked as part of MULTI cluster T096 - `loom-direct:` `toolCallId` shape, uniqueness, and minting source are unspecified; T097 - `loom-direct:` toolCallId has no PIC-20-compliant minting path (rec F). The fast loop (/spec-fix-findings-loop) could not resolve the cluster. Refusal reason: spec-review-fixer refused the co-resolve cluster: member T097 lacks top-level **State:** reduced and retains the un-reduced triage shape (## Finding / ## Spec Documents / ## Plan Impact / ## Consequence / ## Solution Space). Co-resolve binding blocks landing T096 alone. state-mismatch: finding requires reduction before fix-loop can accept it.
+> **Forensic report:** none (fast loop — no forensic report)
+
+# T096 - `loom-direct:` `toolCallId` shape, uniqueness, and minting source are unspecified
+
+**Kind:** implementability
+**Importance:** high
+**Score:** 100
+**Must-fix:** false
+**Decision axes:** 3
+**Shape:** single
+**State:** reduced
+
+## Problem
+
+`host-interfaces-core.md`'s **Tool execution from loom code** bullet and `tool-calls.md`'s *loom 1.0 seam — per-call timeout* paragraph both describe the `toolCallId` passed to a Pi tool's `execute(...)` for code-side `<name>(args)` calls as "a synthesised UUID prefixed `loom-direct:`", but neither pins the separator and post-prefix form (literal `loom-direct:` plus which UUID form), the uniqueness guarantee and its scope, or the minting source. PIC-20 makes the `IdSource` seam the sole sanctioned UUID minter and forbids the runtime from calling `crypto.randomUUID()` outside the production adapter, yet `toolCallId` has no enumerated minting path — a literal reading leaves an implementer unable to mint one admissibly. Concurrent re-entrant `.loom`-callable adapter calls (parallel tool-call mode entering the same adapter) make the uniqueness question observable. Conformance fixtures asserting on the rendered id cannot be written, and two implementers diverge on the id surface and on whether `crypto.randomUUID()` is in scope at this site.
+
+## Solution approach
+
+Pin the full `toolCallId` contract at `host-interfaces-core.md`'s **Tool execution from loom code** bullet (the one introducing `toolCallId`) and reduce the `tool-calls.md` *loom 1.0 seam — per-call timeout* reference to a forward-link. State that the value is the string `loom-direct:` concatenated with a canonical lowercase 8-4-4-4-12 hex UUID, citing the §7 `<invocation-id>` placeholder convention in `placeholder-rendering-b.md` as the source of the UUID-form contract. State that a fresh id is minted per code-side `<name>(args)` call — including each re-entrant entry in a parallel `.loom`-callable batch — and name the uniqueness scope. Route the UUID minting through the PIC-20 `IdSource` seam (`#pic-20` in `host-interfaces-services.md`) so the ambient-UUID prohibition is satisfied.
+
+## Solution constraints
+
+- Do not weaken PIC-20's ambient-UUID prohibition: the runtime MUST NOT call `crypto.randomUUID()` (or any other ambient UUID source) outside the production adapter, and the minting path stays routed through the `IdSource` seam.
+- The canonical 8-4-4-4-12 hex UUID form is owned by §7 of `placeholder-rendering-b.md`; reference it rather than authoring an independent form definition.
+
+## Relationships
+
+- T097 "`loom-direct:` toolCallId has no PIC-20-compliant minting path" - co-resolve (the two findings cite the same underlying gap from the form-side and the minting-side respectively).
+
+---
+
+## T097 - `loom-direct:` toolCallId has no PIC-20-compliant minting path
+
+> **PARKED** — 2026-06-06T18:58:46Z
+> **Reason:** Category 1 (malformed finding — default attribution for top-level fixer refusals; the fixer's pre-flight typically catches stale preconditions, missing destination subsections, or do-not-touch conflicts — may also be category 2 if the refusal reason is capacity-shaped, see FixerNotes). Parked as part of MULTI cluster T096 - `loom-direct:` `toolCallId` shape, uniqueness, and minting source are unspecified; T097 - `loom-direct:` toolCallId has no PIC-20-compliant minting path (rec F). The fast loop (/spec-fix-findings-loop) could not resolve the cluster. Refusal reason: spec-review-fixer refused the co-resolve cluster: member T097 lacks top-level **State:** reduced and retains the un-reduced triage shape (## Finding / ## Spec Documents / ## Plan Impact / ## Consequence / ## Solution Space). Co-resolve binding blocks landing T096 alone. state-mismatch: finding requires reduction before fix-loop can accept it.
+> **Forensic report:** none (fast loop — no forensic report)
+
+# T097 - `loom-direct:` toolCallId has no PIC-20-compliant minting path
+
+**Original heading:** `loom-direct:` toolCallId minting path collides with the PIC-20 ambient-UUID ban
+**Original section:** docs/spec_topics/ tool-calls, cancellation, hard-ceilings
+**Kind:** implementability
+**Importance:** high
+**Score:** 100
+**Must-fix:** false
+
+## Finding
+
+PIC-20 (`docs/spec_topics/pi-integration-contract/host-interfaces-services.md:152`) makes the `IdSource` seam the sole sanctioned source of UUID-shaped identifiers minted at runtime: the runtime "MUST mint each `invocationId` through this seam and MUST NOT call `crypto.randomUUID()` (or any other ambient UUID source) outside the production adapter." The seam's normative member surface — pinned to `newInvocationId(): string` — exposes exactly one minter, named for the `invocationId` use case.
+
+`docs/spec_topics/pi-integration-contract/host-interfaces-core.md:82` and the open-struct seam at `docs/spec_topics/tool-calls.md:40` then mandate a second runtime-minted identifier: the `toolCallId` passed to `tool.execute(toolCallId, params, signal, onUpdate, ctx)` for every code-side `<name>(args)` call, "a synthesised UUID prefixed `loom-direct:`." A `toolCallId` is not an `invocationId` (different lifetime, different cardinality — one per tool call vs one per loom invocation), and the PIC-20 seam offers no member that returns one. An implementer reading the spec literally has three contradictory options: reuse `newInvocationId()` (semantically wrong — the `invocationId` is already in the `ActiveInvocationRegistry` entry, and tests fakes seeding the id sequence will collide with the registry's expected values), call `crypto.randomUUID()` directly (forbidden by PIC-20's MUST NOT), or invent an undocumented seam member. None of these is admissible without a spec edit.
+
+The same gap leaves `FakeIdSource` (used to drive deterministic conformance tests for the `loom/runtime/reload-teardown-timeout` `<list>` and the `RuntimeEvent.invocation_id` wire field) unable to produce deterministic `toolCallId`s, breaking the test-injectability rationale PIC-20 explicitly invokes.
+
+## Spec Documents
+
+- `docs/spec_topics/pi-integration-contract/host-interfaces-services.md` — PIC-20 `IdSource` seam (edited)
+- `docs/spec_topics/pi-integration-contract/host-interfaces-core.md` — "Tool execution from loom code" (edited)
+- `docs/spec_topics/implementation-notes.md` — `crypto.randomUUID()` carve-out wording (read-only)
+
+## Plan Impact
+
+**Phases:** N/A
+
+**Leaves (implementation order):** N/A
+
+(The project's `plan.md` has no leaves authored yet — Horizontal, MVP, and Vertical sections are all empty placeholders.)
+
+## Consequence
+
+**Severity:** correctness
+
+Two reasonable implementers will diverge: one reuses `newInvocationId()` and silently corrupts the deterministic `invocationId` sequence the registry's `<list>` rendering and `RuntimeEvent.invocation_id` fixtures depend on; another calls `crypto.randomUUID()` and violates PIC-20's normative MUST NOT (also defeating test injectability). Either path produces a tool that ships but fails conformance against a test suite that probes either surface.
+
+## Solution Space
+
+**Shape:** single
+**State:** reduced
+
+Give the `loom-direct:` `toolCallId` a PIC-20-compliant minting path by widening the `IdSource` seam, preserving PIC-20's no-ambient-UUID stance and deterministic test injectability for both identifier populations.
+
+### Spec edits
+
+- `host-interfaces-services.md` PIC-20 — add a second member `newToolCallId(): string` to the inline `interface IdSource` block, returning the canonical lowercase 8-4-4-4-12 hex UUID (the same shape `newInvocationId` returns; the `loom-direct:` prefix is applied by the caller, not by the seam). Extend the `CryptoIdSource` and `FakeIdSource` adapter paragraphs to describe its production wiring (`crypto.randomUUID()`) and test wiring (next-from-configured-sequence). Extend the normative sentence *"MUST mint each `invocationId` through this seam and MUST NOT call `crypto.randomUUID()` ..."* to *"MUST mint each `invocationId` and each `toolCallId`'s UUID portion through this seam."*
+- `host-interfaces-core.md` "Tool execution from loom code" — replace the bare "synthesised UUID prefixed `loom-direct:`" with "synthesised as the string `loom-direct:` concatenated with `IdSource.newToolCallId()`'s return value (canonical lowercase 8-4-4-4-12 hex UUID)."
+
+The added member is internal DI covered by GOV-18 arm (a)'s non-normative-signature carve-out, so the seam-surface growth is negligible and additive; existing call sites are not perturbed.
+
+### Edge cases
+
+- The `loom-direct:` prefix is applied at the call site, not inside `newToolCallId()`, so the seam member's contract remains "returns a canonical lowercase 8-4-4-4-12 hex UUID," identical in shape to `newInvocationId()`.
+- `FakeIdSource` must seed two independent sequences (or one sequence consulted by call order, documented explicitly) so a test asserting on `RuntimeEvent.invocation_id` is not perturbed by interleaved tool-call-id minting.
+- The `crypto.randomUUID()` carve-out wording in `implementation-notes.md:30` continues to refer to "the production adapter" and needs no change.
+
+## Relationships
+
+- T096 "`loom-direct:` `toolCallId` shape, uniqueness, and minting source are unspecified" - co-resolve (the same `host-interfaces-core.md` "Tool execution from loom code" bullet edit naming the seam member also pins suffix shape, uniqueness, and canonical UUID form.)
+

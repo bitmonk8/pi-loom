@@ -265,3 +265,22 @@ it does not persist across worktree wipes)._
 - **Fixer notes:** none
 
 ---
+
+## 2026-06-06T18:58:46Z — MULTI: T096 - `loom-direct:` `toolCallId` shape, uniqueness, and minting source are unspecified; T097 - `loom-direct:` toolCallId has no PIC-20-compliant minting path
+
+- **Cluster mode (rec F):** yes
+- **Cluster members:** 2
+- **Failure mode:** fast-loop-unresolved
+- **Category:** 1 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** n/a
+- **Score trajectory:** n/a
+- **Passes:** n/a
+- **Stage at exit:** n/a (n/a pass(es) in stage)
+- **Snapshot refs (retained for forensics):** n/a (loop did not run)
+- **Poisoned fixes:** n/a
+- **Forensic report:** none (fast loop — no forensic report)
+- **Parked findings (this run):** `T096 - `loom-direct:` `toolCallId` shape, uniqueness, and minting source are unspecified, T097 - `loom-direct:` toolCallId has no PIC-20-compliant minting path`
+- **Loop notes:** spec-review-fixer refused the co-resolve cluster: member T097 lacks top-level **State:** reduced and retains the un-reduced triage shape (## Finding / ## Spec Documents / ## Plan Impact / ## Consequence / ## Solution Space). Co-resolve binding blocks landing T096 alone. state-mismatch: finding requires reduction before fix-loop can accept it.
+- **Fixer notes:** none
+
+---
