@@ -4,7 +4,9 @@ _Generated: 2026-06-06T13:23:32Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T118) is addressed first; the first finding (T001) is addressed last._
 
-_Triage tally: 0 blockers, 38 high, 63 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 37 high, 63 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+
+_(Updated 2026-06-06: T105 "BNDR-5 mandates shortest-round-tripping fixed-point digits without a derivation recipe" resolved and removed — a non-normative derivation recipe was appended to BNDR-5 in defaulting-system-note-echo.md, describing how to expand `String(n)`'s exponential output into shortest fixed-point form, with BNDR-6r and BNDR-6s as the worked oracle cases.)_
 
 _(Updated 2026-06-06: T108 "Non-Error throws yield `undefined` (or a TypeError) when the runtime extracts `.message`" and T109 "`session_start` collision pass has no failure contract when `pi.getCommands()` throws" resolved together as a co-resolve cluster and removed — a canonical underlying-error coercion was pinned in placeholder-rendering-b.md §6 and a fifth `pi.getCommands()` read-failure bullet was added to the Extension-bootstrap SDK failures enumeration.)_
 
@@ -4899,32 +4901,3 @@ Pin the Session-context block's exact byte framing in *System-prompt structure (
 
 - T034 "Compact-transcript: BNDR-7 reference set omits oracles for several normative Rule-4 cases" - same-cluster (also concerns BNDR-7 byte-exact conformance; resolves independently of block-order/boundary)
 - T106 "Compact-transcript assistant interleaving and `<args-json>` key order not pinned for byte-exact reproduction" - same-cluster (another BNDR-7 byte-exactness gap inside the body; orthogonal to the body's end-boundary)
-
----
-
-# T105 - BNDR-5 mandates shortest-round-tripping fixed-point digits without a derivation recipe
-
-**Kind:** implementability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-BNDR-5 (`#bndr-5` in `defaulting-system-note-echo.md`) requires a `number` to render as the shortest round-tripping decimal that reparses to the same IEEE-754 double, while forbidding scientific notation at every magnitude — closing both ends of the JS `String(n)` switch (±1e21 and `|value| < 1e-7`). The two off-the-shelf host primitives each satisfy only one half of that composite obligation: `String(n)` produces the shortest digit string but emits exponential form at exactly the magnitudes BNDR-5 outlaws, and `toFixed` produces fixed-point but not shortest. No spec text names an algorithm, primitive, or step-wise recipe yielding both properties at once, so the BNDR-6r / BNDR-6s reference renderings (`#bndr-6r`, `#bndr-6s`) are the only oracle. Two conforming implementers can diverge — one shipping `1e+21`, another a non-shortest `toFixed` form — until each independently rediscovers the same expand-the-exponent derivation.
-
-## Solution approach
-
-Add a non-normative derivation note — either appended to BNDR-5 in `defaulting-system-note-echo.md` or in a new `Number rendering` subsection of `implementation-notes.md` cross-linked from `#bndr-5` — describing how to obtain a shortest fixed-point string: start from `String(n)`'s shortest round-tripping digits, detect any exponential form, and re-expand the mantissa around the decimal point by the signed exponent into pure fixed-point, then apply the BNDR-5 fractional-digit and `-0 → 0` rules. Keep the note non-normative so the observable byte output remains the contract, and reference BNDR-6r and BNDR-6s as the worked oracle cases.
-
-## Solution constraints
-
-- None.
-
-## Relationships
-
-- T104 "BNDR-7's "next blank line of the surrounding system prompt" presupposes framing the eight system-prompt blocks neither pin" - same-cluster (separate BNDR rule, independent fix)
-- T034 "Compact-transcript: BNDR-7 reference set omits oracles for several normative Rule-4 cases" - same-cluster (parallel testability gap in the BNDR rendering surface)
-
