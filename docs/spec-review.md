@@ -4,11 +4,13 @@ _Generated: 2026-06-06T13:23:32Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T118) is addressed first; the first finding (T001) is addressed last._
 
-_Triage tally: 0 blockers, 40 high, 64 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 39 high, 64 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
 
 _(Updated 2026-06-06: T108 "Non-Error throws yield `undefined` (or a TypeError) when the runtime extracts `.message`" and T109 "`session_start` collision pass has no failure contract when `pi.getCommands()` throws" resolved together as a co-resolve cluster and removed — a canonical underlying-error coercion was pinned in placeholder-rendering-b.md §6 and a fifth `pi.getCommands()` read-failure bullet was added to the Extension-bootstrap SDK failures enumeration.)_
 
 _(Updated 2026-06-06: T066 "README links to a non-existent docs/spec-sweeps.md" resolved and removed — a README/tracking-doc finding outside the spec corpus; the README Status paragraph was rewritten to drop the dangling docs/spec-sweeps.md link.)_
+
+_(Updated 2026-06-06: T107 "Hot-reload recovery note over-promises `/reload` success without a failed-re-reload contract" resolved and removed — the `recovery.looms` membership predicate on the binder-model hot-reload paragraph was pinned to prior `loom/load/binder-model-unresolved` failure plus binder-model re-resolution alone, the `<names>` template framing was narrowed from "can now load" to "now resolve a binder model", and the still-fails disposition was stated as surfacing through the loom's own `loom/load/*` diagnostic.)_
 
 _(Updated 2026-06-06: T113 "`ActiveInvocationRegistry` entry shape omits the `disposeBarrier` resolver" resolved and removed — `active-invocation-registry.md` repointed five stale "below" cross-references to their owning pages and pinned the `disposeBarrier` resolver as closure-held with the five-field entry shape unchanged.)_
 
@@ -5022,31 +5024,3 @@ Spec edits:
 - T103 "Turn-grouping undefined when `SessionContext.messages` begins with non-`user` messages" - same-cluster (another byte-exact gap in the same compact-transcript walk, resolved independently)
 - T104 "BNDR-7's "next blank line of the surrounding system prompt" presupposes framing the eight system-prompt blocks neither pin" - same-cluster (another BNDR-7 reproducibility precondition, resolved independently on a different page)
 - T034 "Compact-transcript: BNDR-7 reference set omits oracles for several normative Rule-4 cases" - co-resolve (the new BNDR-7e proposed here is one of the missing renderings this finding requests; landing it narrows that finding's scope)
-
----
-
-# T107 - Hot-reload recovery note over-promises `/reload` success without a failed-re-reload contract
-
-**Kind:** error-model
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 3
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `binder-model-hot-reload` paragraph in `binder/binder-model-and-context.md` emits a `loom-system-note` whose `content` template tells the operator that `<N>` previously-failed loom(s) "can now load," but `recovery.looms` membership is defined only as "the looms whose re-resolution under the changed setting would now succeed" — i.e. by re-running binder-model resolution alone. A loom whose original failure was `loom/load/binder-model-unresolved` can still fail its next `/reload` for an independent reason (a stale `.loom` parse error, a broken `.warp` import, a schema-lowering failure, or any other `loom/load/*` surface), and the spec pins neither the precise membership predicate nor a disposition for the "listed but still fails" path. Two implementers diverge: one computes membership from a cheap binder-model probe, another re-runs the full per-loom load pass to keep the promise honest, and the operator sees a different `<names>` list under each.
-
-## Solution approach
-
-Clarify the `recovery.looms` membership predicate on the `binder-model-hot-reload` paragraph to key membership on the prior `loom/load/binder-model-unresolved` failure plus binder-model re-resolution alone, with no other load-pass step re-run to compute it. Rewrite the user-facing `<names>` framing so its literal text matches the narrower binder-model-resolution predicate rather than promising full load success ("can now load"). State the disposition for a listed loom whose `/reload` still fails: it surfaces through its own `loom/load/*` diagnostic on the normal Diagnostics channel, and the recovery note carries no further obligation.
-
-## Solution constraints
-
-- The reworded `<names>` framing MUST preserve the template's fixed-substitution rule — only `<N>` and `<names>` substitute; every other character ships verbatim.
-
-## Relationships
-
-None
