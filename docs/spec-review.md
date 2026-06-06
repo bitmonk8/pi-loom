@@ -4,11 +4,13 @@ _Generated: 2026-06-06T13:23:32Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T118) is addressed first; the first finding (T001) is addressed last._
 
-_Triage tally: 0 blockers, 21 high, 60 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 20 high, 60 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
 
 _(Updated 2026-06-06: T099 "`loom/load/callee-has-errors` promises codes via `related`" resolved and removed — the `code-registry-load.md` row and the `invocation.md` Static resolution paragraph were walked back so neither promises the callee's diagnostic *codes* via `related`; both now state that `related` carries one entry per underlying error *site* (`{ file, range, message }` per `diagnostic-shape.md`), with the callee's own diagnostics emitted separately. No change to `diagnostic-shape.md` or the closed `related` element shape.)_
 
 _(Updated 2026-06-07: T081 "Filesystem case-sensitivity is unspecified for `.warp` import basenames and for the `invoke` / `tools:` discovery-root containment check" resolved and removed — `imports.md` IMP-1 now pins `.warp` import resolution to a byte-for-byte (UTF-8, case-sensitive) match of the path literal's final segment against `readdir` output on every host, composed with the byte-exact extension check, with `loom/load/unresolvable-warp-path` covering the case-variant-entry case (registry row tightened to match); `invocation.md` *Resolution* now pins the discovery-root containment comparison to byte-exact `FileSystem.realpath` output for both callee and roots with no independent case-folding, governed by the existing INV-1 MUST across the load-time and runtime-open checks. The case-folding clause attaches to the existing "lie within the union of discovery roots" language and composes with (does not define) the still-pending T080 segment-boundary predicate. No new diagnostic code or REQ-ID; `loom/load/invoke-path-escape` left unchanged.)_
+
+_(Updated 2026-06-07: T078 "SLSH-5 `<parent_path>:<line>` is defined only for `invoke(...)` call sites, not for `.loom`-callable bare-identifier calls" resolved and removed — `slash-invocation.md` SLSH-5's `<line>` definition now sources the line from the call-site token that produced the `invoke_callee` hop for either syntactic form — the `invoke(` token of a literal `invoke(...)` expression, or the callee-name identifier of a `.loom`-callable bare-identifier call — with `<callee_path>` for the bare-identifier form taken from the parent's Resolution snapshot, and a new `.loom`-callable worked example added beside the existing Single-hop/Multi-hop bullets. The model-driven `@`-query tool-call surface is explicitly excluded (it feeds failure back as a tool-error result, not an `invoke_callee` cascade). No new REQ-ID; the SLSH-5 anchor and umbrella MUST were left as-is.)_
 
 _(Updated 2026-06-07: T079 "SLSH-4 template cells and SLSH-5 worked examples disagree on whether inline backticks are emitted" resolved and removed — `slash-invocation.md` SLSH-4 prose now states that the inline backticks in the `System note shape` cells are Markdown code-span formatting and are not part of the emitted string (renderers emit the cell text with the surrounding backticks removed), matching the backtick-free SLSH-5 worked examples; the stripping is scoped to the template text so backticks arriving inside an interpolated placeholder pass through unchanged. No new REQ-ID; the SLSH-4 table rows and SLSH-5 examples were left as-is.)_
 
@@ -3471,31 +3473,3 @@ Clarify the inferred-return-type rule at functions.md `#loom-return-type` so it 
 ## Relationships
 
 - T016 "Snippets reference undeclared `ReviewScore`/unbound `code`; foot-gun mentions a linter the spec never scopes" - same-cluster (same file, illustrative-snippet concern, independent)
-
-# T078 - SLSH-5 `<parent_path>:<line>` is defined only for `invoke(...)` call sites, not for `.loom`-callable bare-identifier calls
-
-**Kind:** implementability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-SLSH-5 (`docs/spec_topics/slash-invocation.md`, anchor `id="slsh-5"`) defines the chain-suffix `<parent_path>:<line>` as the source line of the textual `invoke(` token in the parent. But a `.loom` callable registered in `tools:` and called by the bare-identifier form `my_summariser(args)` is operationally equivalent to `invoke(...)` per tool-calls.md "Relationship with `invoke`" — it surfaces failure through the same `invoke_callee` `QueryError`, so SLSH-5's chain-suffix obligation fires on a parent line that carries no `invoke(` token. SLSH-4 makes the rendered string conformance-testable, so two conforming renderers diverge observably (line of the bare-identifier call, `:0`, or hop dropped).
-
-## Solution approach
-
-Rewrite SLSH-5's `<parent_path>:<line>` definition so the line is sourced from the parent's call-site span for whichever syntactic form produced the `invoke_callee` hop — the `invoke(` token of a literal `invoke(...)` expression, or the callee-name identifier of a `.loom`-callable bare-identifier call. Add a worked example beside the existing Single-hop and Multi-hop bullets covering a `.loom`-callable bare-identifier parent frame. Add a forward-link to the Resolution snapshot (`id="resolution-snapshot"` in `frontmatter/frontmatter-fields-b-and-templates.md`), the load-time table that already records `.loom`-callable call-site identity.
-
-## Solution constraints
-
-- Out of scope: the model-driven tool-call surface — a `.loom` callable invoked by the model during a `@`-query loop feeds failure back as a tool-error result, not an `invoke_callee` cascade, so SLSH-5 emits no chain suffix for it.
-
-## Relationships
-
-- T079 "SLSH-4 template cells and SLSH-5 worked examples disagree on whether inline backticks are emitted" - same-cluster (touches the same SLSH-4/SLSH-5 conformance surface; resolve independently — the backticks question is about Markdown rendering, this one is about `<line>` sourcing)
-- T014 "SLSH-3 slash-boundary scoping is asserted only through an indirect parenthetical" - same-cluster (both findings argue SLSH-5's surface is wider than its current framing admits; the scope-move fix would not by itself fix the `<line>` definition, and vice versa)
-
-
