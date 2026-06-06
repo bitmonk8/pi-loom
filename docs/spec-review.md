@@ -10,6 +10,8 @@ _(Updated 2026-06-06: T099 "`loom/load/callee-has-errors` promises codes via `re
 
 _(Updated 2026-06-07: T081 "Filesystem case-sensitivity is unspecified for `.warp` import basenames and for the `invoke` / `tools:` discovery-root containment check" resolved and removed — `imports.md` IMP-1 now pins `.warp` import resolution to a byte-for-byte (UTF-8, case-sensitive) match of the path literal's final segment against `readdir` output on every host, composed with the byte-exact extension check, with `loom/load/unresolvable-warp-path` covering the case-variant-entry case (registry row tightened to match); `invocation.md` *Resolution* now pins the discovery-root containment comparison to byte-exact `FileSystem.realpath` output for both callee and roots with no independent case-folding, governed by the existing INV-1 MUST across the load-time and runtime-open checks. The case-folding clause attaches to the existing "lie within the union of discovery roots" language and composes with (does not define) the still-pending T080 segment-boundary predicate. No new diagnostic code or REQ-ID; `loom/load/invoke-path-escape` left unchanged.)_
 
+_(Updated 2026-06-07: T079 "SLSH-4 template cells and SLSH-5 worked examples disagree on whether inline backticks are emitted" resolved and removed — `slash-invocation.md` SLSH-4 prose now states that the inline backticks in the `System note shape` cells are Markdown code-span formatting and are not part of the emitted string (renderers emit the cell text with the surrounding backticks removed), matching the backtick-free SLSH-5 worked examples; the stripping is scoped to the template text so backticks arriving inside an interpolated placeholder pass through unchanged. No new REQ-ID; the SLSH-4 table rows and SLSH-5 examples were left as-is.)_
+
 _(Updated 2026-06-06: T085 "Mid-loom Pi-extension hot-reload: held closure invocation has no contracted outcome" resolved and removed — the last Resolution-snapshot consequence bullet in frontmatter-fields-b-and-templates.md was rewritten to replace the "out of loom 1.0 scope" dismissal with a positive contract: the held `execute` closure is dispatched like any other captured Pi-tool callable, and its failures route through the existing surfaces — catchable throws to `CodeToolError { cause: "execution" }`, non-conforming returns to `loom/runtime/internal-error` (both in tool-calls.md), and host-fatal errors to error-model.md's runtime-panics surface. No new diagnostic code, `loom-system-note` shape, or timeout was introduced; the `/reload` author-guidance sentence was retained.)_
 
 _(Updated 2026-06-06: T102 "`bind_context` project-wide-inheritance parenthetical references a settings carrier that does not exist" resolved and removed — the no-params-bypass parenthetical in binder-bypass-and-envelope.md was corrected to state that `bind_model` may inherit from the project-wide `looms.binderModel` setting while `bind_context` has no project-wide carrier and defaults to `none`. No new settings key, diagnostic, or validation row was added.)_
@@ -3496,55 +3498,4 @@ Rewrite SLSH-5's `<parent_path>:<line>` definition so the line is sourced from t
 - T079 "SLSH-4 template cells and SLSH-5 worked examples disagree on whether inline backticks are emitted" - same-cluster (touches the same SLSH-4/SLSH-5 conformance surface; resolve independently — the backticks question is about Markdown rendering, this one is about `<line>` sourcing)
 - T014 "SLSH-3 slash-boundary scoping is asserted only through an indirect parenthetical" - same-cluster (both findings argue SLSH-5's surface is wider than its current framing admits; the scope-move fix would not by itself fix the `<line>` definition, and vice versa)
 
-# T079 - SLSH-4 template cells and SLSH-5 worked examples disagree on whether inline backticks are emitted
-
-**Original heading:** SLSH-4 normative templates contradict SLSH-5 worked examples on literal backticks
-**Original section:** docs/spec_topics/ functions, control-flow, return, bindings, imports, invocation, slash-invocation, implementation-notes
-**Kind:** implementability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-
-## Finding
-
-SLSH-4 declares the per-`kind` table rows "normative templates" and requires renderers to "emit the surrounding template text verbatim; only the `<…>` placeholders are interpolated." The `System note shape` cells, however, are written in Markdown and carry inline backticks around tokens such as `` `/<name>` ``, `` `Err` ``, `` `transport` ``, `` `<message>` ``, `` `<tool_name>` ``, etc. A literal reading of "emit … verbatim" yields a system note that contains the U+0060 backtick characters; a Markdown-formatting reading drops them. The SLSH-5 worked examples (`loom /entry returned Err: transport — connection reset …`) render with no backticks, silently endorsing the formatting reading — but they never say so. Two conforming implementations can therefore produce different bytes for the same `QueryError`, and the conformance-test invitation in SLSH-4 ("MAY assert on the exact rendered string") has no single answer to assert against.
-
-## Spec Documents
-
-- `docs/spec_topics/slash-invocation.md` — SLSH-4 table and SLSH-5 worked examples (edited)
-
-## Plan Impact
-
-**Phases:** N/A
-
-**Leaves (implementation order):** N/A
-
-(No plan leaves yet cite SLSH-4/SLSH-5; the plan currently has no authored leaves.)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers diverge on every system note: one emits literal backticks (e.g. `` loom `/entry` returned `Err`: `transport` — connection reset ``), the other emits clean prose. Either output passes the SLSH-4 MUST under one reading and fails it under the other, and any conformance test asserting on the rendered string locks in one side arbitrarily.
-
-## Solution Space
-
-**Shape:** single
-**State:** reduced
-
-Declare the inline backticks in the SLSH-4 `System note shape` cells to be Markdown formatting, not part of the emitted string. The SLSH-5 worked examples already encode the intended output without backticks, and Pi system notes are plain text per PIC — emitting literal U+0060 characters would degrade UX in the TUI (which would not render them as code spans) with no offsetting benefit, and would diverge from how every other plain-text diagnostic renders identifiers.
-
-### Spec edits
-
-- `slash-invocation.md` SLSH-4 prose: append a clarifier — "Inline backticks in the `System note shape` cells below are Markdown code-span formatting for readability and are not emitted; renderers emit the cell text with backticks removed. All inline backticks in this table are formatting, with no exceptions." The "no exceptions" wording keeps the rule total against future rows that might otherwise intend a literal backtick.
-- (Optional) re-render each row's third column as a code block or plain-text cell with no inline backticks, so the literal target string is read directly and the verbatim claim needs no side rule.
-
-### Edge cases
-
-- Literal backticks **inside** an interpolated placeholder (e.g. a `<message>` containing backticks) are part of the model-sourced free-form content and pass through unchanged — the strip-backticks rule applies only to the surrounding template, not to placeholder substitutions.
-
-## Relationships
-
-- T078 "SLSH-5 `<parent_path>:<line>` is defined only for `invoke(...)` call sites, not for `.loom`-callable bare-identifier calls" - same-cluster (both pin down the conformance-testable rendered string; resolve independently)
-- T014 "SLSH-3 slash-boundary scoping is asserted only through an indirect parenthetical" - same-cluster (scoping question, orthogonal to the literal-text question here)
 
