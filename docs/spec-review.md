@@ -4,7 +4,7 @@ _Generated: 2026-06-05T11:52:38Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T83) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 blocker, 15 high, 52 medium retained; ~139 low discarded; ~0 low merged into medium; ~122 nit dropped; 0 false dropped. Source: 344 deduplicated findings across 9 shards + global lenses; 66 retained after triage. Foundational governance/traceability findings (T75–T83) and the standalone blocker (T74) sit at the bottom for first addressing._
+_Triage tally: 1 blocker, 15 high, 51 medium retained; ~139 low discarded; ~0 low merged into medium; ~122 nit dropped; 0 false dropped. Source: 344 deduplicated findings across 9 shards + global lenses; 65 retained after triage. Foundational governance/traceability findings (T75–T83) and the standalone blocker (T74) sit at the bottom for first addressing._
 
 ---
 
@@ -96,30 +96,6 @@ The glossary "type sink" entry defines the term as an enclosing AST position who
 ## Solution approach
 
 Broaden the glossary "type sink" entry so its definition covers any enclosing AST position supplying a type to its operand, including array element-type inference, rather than query schema alone.
-
-## Solution constraints
-
-None.
-
-## Relationships
-
-None.
-# T05 - Glossary "query-terminating" parks always-log membership owned elsewhere
-
-**Kind:** placement
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The glossary `query-terminating` entry (anchor `id="query-terminating"`) states normative always-log membership — enumerating which `Err`-class carriers do and do not emit a `loom-system-note` at a discard site — but that enumeration is owned by `runtime-event-channel.md`. The glossary's own `always-log set` entry already delegates membership to that page, and the glossary preamble fixes each entry as a descriptive reminder where the canonical page wins on disagreement. Restating the normative membership in `query-terminating` duplicates it against its canonical home and invites drift.
-
-## Solution approach
-
-Demote the per-carrier discard-emission enumeration in the glossary `query-terminating` entry to a descriptive reminder, delegating to `runtime-event-channel.md` for the normative membership, matching the delegation the `always-log set` glossary entry already uses.
 
 ## Solution constraints
 
