@@ -4,7 +4,7 @@ _Generated: 2026-06-06T13:23:32Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T118) is addressed first; the first finding (T001) is addressed last._
 
-_Triage tally: 0 blockers, 22 high, 60 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 21 high, 60 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
 
 _(Updated 2026-06-06: T099 "`loom/load/callee-has-errors` promises codes via `related`" resolved and removed — the `code-registry-load.md` row and the `invocation.md` Static resolution paragraph were walked back so neither promises the callee's diagnostic *codes* via `related`; both now state that `related` carries one entry per underlying error *site* (`{ file, range, message }` per `diagnostic-shape.md`), with the callee's own diagnostics emitted separately. No change to `diagnostic-shape.md` or the closed `related` element shape.)_
 
@@ -3548,29 +3548,3 @@ Declare the inline backticks in the SLSH-4 `System note shape` cells to be Markd
 - T078 "SLSH-5 `<parent_path>:<line>` is defined only for `invoke(...)` call sites, not for `.loom`-callable bare-identifier calls" - same-cluster (both pin down the conformance-testable rendered string; resolve independently)
 - T014 "SLSH-3 slash-boundary scoping is asserted only through an indirect parenthetical" - same-cluster (scoping question, orthogonal to the literal-text question here)
 
----
-
-# T080 - Discovery-root containment predicate is undefined at the `invoke-path-escape` site
-
-**Kind:** implementability, assumptions
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`invocation.md` *Resolution* gates every `invoke(...)` literal and every `tools:` `.loom` entry by requiring the `realpath`-resolved callee to "lie within the union of discovery roots" active for the session, and INV-1 raises the identical containment semantics to a MUST on both the load-time check and the runtime-open re-check. Neither *Resolution* nor the cross-linked *Discovery roots* section defines what "within" means as a predicate over two paths. A naive prefix test admits sibling-prefix escape — resolved `/proj/foo-bar/evil.loom` passes `startsWith("/proj/foo")` while sitting outside root `/proj/foo` — so two conformant implementations can disagree on this security-load-bearing check and one silently reintroduces the escape the realpath step exists to defeat.
-
-## Solution approach
-
-Clarify the *Resolution* paragraph of `invocation.md` to define containment as segment-boundary containment over the canonical absolute paths `realpath` returns: a resolved path is within a discovery root when, after normalisation strips any trailing separator from the root, it either equals the root byte-for-byte or begins with the root followed by a single host path separator. Narrow INV-1's MUST language to name this segment-boundary predicate so the load-time and runtime-open call sites visibly share the same tightened check.
-
-## Solution constraints
-
-- Out of scope: the case-sensitivity / case-folding of the comparison is owned by T081 — state the predicate in byte-equality terms only.
-
-## Relationships
-
-- T081 "Filesystem case-sensitivity is unspecified for `.warp` import basenames and for the `invoke` / `tools:` discovery-root containment check" - decision-overlap (defines whether the byte-equality predicate folds case before comparison; resolve after this one so the case-folding rule lands on a stable containment definition)
