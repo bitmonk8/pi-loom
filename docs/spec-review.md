@@ -30,6 +30,8 @@ _(Updated 2026-06-06: T113 "`ActiveInvocationRegistry` entry shape omits the `di
 
 _(Updated 2026-06-06: T110 "`CodeToolError` ≡ `QueryError{kind:"code_tool"}` equivalence and `loom-direct:` toolCallId UUID form are both under-specified" resolved and removed — `host-interfaces-core.md` §**Tool execution from loom code** now states the `CodeToolError` ≡ `QueryError{kind:"code_tool"}` equivalence inline at the `isError` lowering paragraph. The `loom-direct:` toolCallId form/uniqueness/minting-path obligation (Step 2) was deferred to the live T096↔T097 co-resolve cluster, which owns that toolCallId-bullet edit surface.)_
 
+_(Updated 2026-06-06: T092 "Glob `!`/`+`/`-` precedence and matcher engine unspecified for `pi.looms` / `loomPaths`" resolved and removed — DISC-5 in discovery/package-and-settings.md now pins loom's own matching contract on the discovery surface: the `minimatch` glob engine (referenced to Pi's `applyPatterns` in `@earendil-works/pi-coding-agent`, pinning loom's *use* not minimatch's dialect), `nocase` off, the empty-include "everything under root" start, the four-step override order (plain includes → `!` → `+` → `-`, with `-` final over `+`), and the exact-path treatment of `+`/`-` operands (referencing `matchesAnyExactPattern`). The `loomPaths` "Glob patterns and exclusions" bullet's "not a special snowflake" sentence was replaced with a cross-reference to DISC-5. No new REQ-ID coined (folded under the existing `disc-5` anchor); no edits elsewhere.)_
+
 _(Updated 2026-06-06: T098 "Three testability gaps in tool-calls / cancellation: pre-eval-throw `<name>` token, missing non-resolvable `.loom` arg-mismatch surface, and unspecified cancelled `message`" resolved and removed — cancellation.md's Surfacing block dropped the literal `message: "..."` for the sibling field-elision `...` form and noted `message` carries no byte-exact constraint; tool-calls.md's pre-evaluation setup-throw bullet pinned `<name>` as the post-`as`/post-hyphen-rewrite callable-set entry (deliberately not the slash-prefixed `/<name>` framing); and the non-statically-resolvable `.loom`-callable input-validation safety net was routed to `Err(InvokeInfraError { cause: "validation", ... })` in both the Argument shape and Failures paragraphs, with the dual-`match`-arm consequence stated. No schema change in queryerror-variants.md.)_
 
 ---
@@ -4170,69 +4172,3 @@ Rewrite DISC-4's final paragraph and registration step 3 to redefine "de-registe
 
 - T018 "DISC-4 does not cross-reference the `pi.getCommands()` enumeration API or its `session_start` ordering presupposition" - same-cluster (both touch DISC-4 / step 3 cross-format collision; that finding asks for the read API, this finding asks for the write API; both resolve independently against `registration-steps.md` step 3)
 - T037 "Loom-side `/reload` rules buried inside Pi-host presuppositions" - decision-overlap (the new "superseded" slash-handler dispatch this finding adds should be defined on `drain-state-contract.md` alongside the existing dispatch arms; that placement decision should be reconciled with T037 before either lands)
-
-# T092 - Glob `!`/`+`/`-` precedence and matcher engine unspecified for `pi.looms` / `loomPaths`
-
-**Original heading:** Glob `!`/`+`/`-` precedence deferred wholesale to "Pi's behaviour" with no resolution order or named engine
-**Original section:** docs/spec_topics/ errors-and-results + discovery
-**Kind:** implementability, assumptions
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-
-## Finding
-
-DISC-5 (`pi.looms`, in `docs/spec_topics/discovery/package-and-settings.md` line 20) and the `loomPaths` entry schema (same file, line 86) both state that glob patterns and the `!` / `+` / `-` prefixes "mirror Pi's `extensions`/`skills`/`prompts`/`themes` arrays exactly," citing `@earendil-works/pi-coding-agent/docs/packages.md` and `settings.md`. Those Pi docs only enumerate the four prefix kinds — they describe none of the resolution behaviour the loom extension must reproduce. The omitted behaviour is observable and material:
-
-- **Glob engine and dialect.** Pi's implementation (`dist/core/package-manager.js` lines 24, 26, 463–472) uses the `minimatch` npm package with specific match attempts (relative path, basename, POSIX-normalised absolute path). The brace-expansion, `**`, dotfile, and `nocase` defaults of `minimatch` differ materially from `picomatch`, `micromatch`, Node's built-in `glob`, or shell `fnmatch`; "mirror Pi" cannot be implemented without picking one.
-- **Override ordering.** Pi (`package-manager.js` `applyPatterns`, lines 527–571) defines a four-step pipeline whose order is observable when patterns overlap: (1) plain includes (or everything when none); (2) `!` excludes filter the include set; (3) `+` exact-paths re-admit anything dropped by step 2; (4) `-` exact-paths remove anything from the working set, **overriding `+` force-includes from step 3**. The spec gives no ordering at all, and the order is not deducible from the Pi-side prose. An implementer who guesses any of the other 23 orderings (e.g. `-` then `+`, or `!`/`+`/`-` applied as a single union) will produce a different file-set on inputs as simple as `["**/*.loom", "!drafts/**", "+drafts/keep.loom", "-keep-no-more.loom"]`.
-
-Because the spec explicitly assigns the discovery walk end-to-end to the loom extension ("the extension walks installed package roots itself; it does not delegate to Pi"), the matching algorithm must be locally specifiable; the current "see Pi" pointer is a citation to behaviour that itself is unspecified at the cited target. The same gap applies to `loomPaths` since its prose carries the identical "not a special snowflake" disclaimer.
-
-## Spec Documents
-
-- `docs/spec_topics/discovery/package-and-settings.md` — DISC-5 (line 20) and the `loomPaths` entry schema "Glob patterns and exclusions" bullet (line 86) (edited)
-- `docs/spec_topics/discovery.md` — failure-modes table cross-references for `pi.looms` and `loomPaths` entries (read-only)
-- `@earendil-works/pi-coding-agent/docs/packages.md` and `docs/settings.md` — cited Pi docs that themselves do not pin engine or ordering (read-only)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers will produce different discovery file-sets on overlapping `pi.looms` / `loomPaths` entries: one may apply `-` before `+`, one may use `minimatch` with `nocase` off and another with `nocase` on, one may treat `+` as a glob and another as an exact path. The divergence is silent — there is no diagnostic that fires when an author's intended exclusion is honoured by one implementation and ignored by another — and it surfaces only as "this loom registered for me but not for them," which is exactly the class of bug the discovery rules are written to prevent.
-
-## Solution Space
-
-**Shape:** single
-**State:** reduced
-
-Pin the matcher engine and the four-step override ordering inline on the discovery surface, where it sits adjacent to the other concrete behavioural pins already in `package-and-settings.md` (the `realpath` dedup rule, the `*.loom` byte-exact case rule, the `looms/` non-recursion rule).
-
-### Spec edits
-
-- Add a short normative paragraph in `package-and-settings.md` immediately after DISC-5 that names `minimatch` as the matcher (with the same options Pi uses: relative-path / basename / absolute-path match attempts, `nocase` off, default dotfile and brace-expansion behaviour) and specifies the four-step ordering `apply(includes) → exclude(!) → force-include(+) → force-exclude(-)`, with `-` taking final precedence over `+`. State that `+` and `-` operands are exact paths post-tilde-expansion, not glob patterns, matching Pi's `matchesAnyExactPattern`.
-- Add a back-reference from the `loomPaths` entry schema's "Glob patterns and exclusions" bullet, replacing the current "not a special snowflake" sentence with a one-line cross-reference to the new DISC-5 paragraph. No edits elsewhere.
-
-This mirrors the corpus's pattern of pinning concrete behaviour rather than seam-injecting it, keeps the algorithm diagnostically self-contained at DISC-5, and matches the corpus's existing direct dependency on npm packages (`chokidar`, `AJV`, `minimatch`) pinned through the SDK pin range. A future Pi minor that changes the matcher engine or ordering becomes a spec-edit governed by the SDK-pin bump procedure, which already requires editorial review of pinned behaviour.
-
-### Edge cases
-
-- **Exact-path classification of `+` / `-` operands.** The post-tilde-expansion comparison must be stated: Pi compares against the relative path, the basename, and the POSIX-normalised absolute path — all three must match-or-not for the entry to be re-admitted/removed.
-- **Case-sensitivity.** State explicitly that Pi runs `minimatch` with `nocase` off, aligning with the existing "byte-exact lowercase" rule for the `*.loom` discovery glob.
-- **Empty-include case.** No plain pattern present ⇒ start from "everything under root," not "nothing."
-- **Ordering stability.** When the same path is matched by multiple patterns of the same class, preserve insertion order, matching Pi's `Array.prototype.filter` semantics.
-- If the corpus-wide AJV/chokidar-naming findings are later resolved by introducing matching seams, this inline pin folds into that refactor.
-
-## Relationships
-
-- T018 "DISC-4 does not cross-reference the `pi.getCommands()` enumeration API or its `session_start` ordering presupposition" - same-cluster (Pi-side capability dependency in discovery, resolved separately)
-- T091 "DISC-4 "de-registers a previously-registered loom" has no Pi-side mechanism" - same-cluster (Pi-side capability dependency in discovery, resolved separately)
-- T093 "Top-level `loomPaths` and `looms` shape failures have no surfacing rule" - same-cluster (adjacent edits to the same `loomPaths` schema section; independent fix)
