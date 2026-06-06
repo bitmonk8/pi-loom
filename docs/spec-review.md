@@ -4,7 +4,7 @@ _Generated: 2026-06-05T11:52:38Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T83) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 1 blocker, 15 high, 52 medium retained; ~139 low discarded; ~0 low merged into medium; ~122 nit dropped; 0 false dropped. Source: 344 deduplicated findings across 9 shards + global lenses; 67 retained after triage. Foundational governance/traceability findings (T75–T83) and the standalone blocker (T74) sit at the bottom for first addressing._
+_Triage tally: 1 blocker, 15 high, 52 medium retained; ~139 low discarded; ~0 low merged into medium; ~122 nit dropped; 0 false dropped. Source: 344 deduplicated findings across 9 shards + global lenses; 66 retained after triage. Foundational governance/traceability findings (T75–T83) and the standalone blocker (T74) sit at the bottom for first addressing._
 
 ---
 
@@ -221,30 +221,6 @@ State the `.messages` ordering the truncation walk relies on, or cross-reference
 ## Solution constraints
 
 - None.
-
-## Relationships
-
-None.
-# T10 - Hot-reload system note ships a `/reload` command the shard never establishes
-
-**Kind:** assumptions
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The hot-reload `loom-system-note` template (binder-model-and-context.md `#binder-model-hot-reload`) ships the literal `/reload` command and assumes it exists and re-runs discovery to retry previously-failed loads. Other spec pages instead name the loom recovery path `_loom-reload` (frontmatter-fields-b-and-templates.md and tool-registration-lifetime.md, both citing "Extension entry point step 5"), and the Extension-entry-point watcher step registers a chokidar watcher and a closed-over dispatch handler but establishes no `/reload` or `_loom-reload` command. The two names are never reconciled, so an operator following the note cannot rely on the command the shard actually provides.
-
-## Solution approach
-
-Rename the recovery command to a single canonical form across the three surfaces — the hot-reload note template at `#binder-model-hot-reload`, the `_loom-reload` references in frontmatter-fields-b-and-templates.md and tool-registration-lifetime.md, and the Extension-entry-point watcher step — and clarify whether that command is the Pi-owned `/reload` (`ctx.reload()`, per host-prerequisites.md (c)) or a loom-established command, so the note's "run /reload to retry" semantics match what the named command actually does.
-
-## Solution constraints
-
-- Out of scope: the Pi-owned `/reload` / `ctx.reload()` references in the teardown, degraded-state, and capability-probe contexts (host-prerequisites.md (c), session-only-degraded-state.md, capability-probe.md), which name Pi's command in its own right and are not the recovery-note inconsistency.
 
 ## Relationships
 
