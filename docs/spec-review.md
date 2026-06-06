@@ -4,7 +4,7 @@ _Generated: 2026-06-06T13:23:32Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T118) is addressed first; the first finding (T001) is addressed last._
 
-_Triage tally: 0 blockers, 28 high, 62 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 27 high, 62 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
 
 _(Updated 2026-06-06: T099 "`loom/load/callee-has-errors` promises codes via `related`" resolved and removed — the `code-registry-load.md` row and the `invocation.md` Static resolution paragraph were walked back so neither promises the callee's diagnostic *codes* via `related`; both now state that `related` carries one entry per underlying error *site* (`{ file, range, message }` per `diagnostic-shape.md`), with the callee's own diagnostics emitted separately. No change to `diagnostic-shape.md` or the closed `related` element shape.)_
 
@@ -4328,30 +4328,3 @@ This is a one-paragraph spec edit plus one row-description edit, with no new cod
 ## Relationships
 
 - T027 "`<key>` rendering for `loom/load/settings-value-out-of-range` is undetermined" - decision-overlap (the `<key>` serialisation rule must cover bare `loomPaths` and bare `looms` in addition to the existing nested-dotted form)
-
----
-
-# T094 - DISC-4 invokes a `--loom` "hyphen-normalise to the same wire name" transform that contradicts the Filename-validity "taken verbatim" rule and is nowhere defined
-
-**Kind:** testability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`discovery-sources.md` **Filename validity** defines a slash name as the loom file's stem taken verbatim — no character substitution — and the accepted regex `^[a-z0-9][a-z0-9_-]*$` admits `-` and `_` as distinct stem characters, so `code-review` and `code_review` are two valid, lexically distinct slash names. DISC-4 on the same page contradicts that rule twice: its collision example names "`--loom` components that resolve to files whose stems hyphen-normalise to the same wire name," and the paragraph below says detection runs on the final derived name "after `pi.looms` mapping, `as` rename, and basename hyphen-normalisation." Neither the hyphen-normalisation transform nor its direction is defined anywhere in the discovery subtree, and "wire name" is a chartered schema-field term (`schemas.md`, `glossary.md`) with no slash-discovery meaning. `pi-integration-contract/active-invocation-registry.md` propagates the same undefined transform into the `ActiveInvocationRegistry.loom` canonical-key definition, so the operator-visibility key inherits the ambiguity and the same-format `loom/load/cross-format-collision` conformance tests have no single expected outcome.
-
-## Solution approach
-
-Delete the undefined hyphen-normalisation transform from the discovery prose. In `discovery-sources.md` DISC-4, rewrite the `--loom` collision example so it describes components resolving to files with the same stem, dropping the "wire name" phrasing; and change the final-derived-name derivation list so it names only `pi.looms` mapping and the `as` rename. In `active-invocation-registry.md`, rewrite the `ActiveInvocationRegistry.loom` field's canonical-key derivation to take the stem verbatim per **Filename validity**, striking the `basename-hyphen-normalised` clauses. Leave `frontmatter/frontmatter-fields-a.md` and `tool-calls.md` unchanged — the hyphen→underscore rewrite legitimately produces the `tools:` callable identifier there and has no role in slash-name derivation.
-
-## Solution constraints
-
-- Out of scope: the ERR-7 definition and the `cross-source-shadow` / `cross-format-collision` payload-field statements on the discovery pages owned by T095.
-
-## Relationships
-
-- T095 "ERR-7 lacks a defining anchor on the discovery pages, and the payload field carrying shadow/collision paths is unstated" - same-cluster (other DISC-4-adjacent gap on the same page)
