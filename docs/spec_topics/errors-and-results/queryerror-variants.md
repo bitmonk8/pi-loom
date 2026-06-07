@@ -139,7 +139,7 @@ schema CancelledError {
 }
 ```
 
-Fires when the per-query tool-call round cap is reached without the model producing a terminating turn (see [Query — Tool-call loop bound](../query.md)).
+<a id="err-19"></a> **ERR-19.** Fires when the per-query tool-call round cap is reached without the model producing a terminating turn (see [Query — Tool-call loop bound](../query.md)).
 
 ```loom
 schema ToolLoopExhaustedError {

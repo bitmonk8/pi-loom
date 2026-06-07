@@ -4,7 +4,9 @@ _Generated: 2026-06-06T13:23:32Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T118) is addressed first; the first finding (T001) is addressed last._
 
-_Triage tally: 0 blockers, 15 high, 58 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 15 high, 57 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+
+_(Updated 2026-06-07: T064 "Ceiling #1 and ceiling #2 positive enforcement obligations carry no REQ-IDs" resolved and removed — GOV-1 dual-form REQ-ID anchors were coined at the three unanchored enforcement sites: `INV-4` on the `**Invocation depth bound.**` paragraph in `invocation.md` (covering ceiling #1 bound + surface), `FRNT-1` on the `tool_loop` field bullet in `frontmatter/frontmatter-fields-b-and-templates.md` (ceiling #2 bound), and `ERR-19` on the `ToolLoopExhaustedError` prose line in `errors-and-results/queryerror-variants.md` (ceiling #2 surface). The ceiling #1 / #2 aggregator entries in `spec/overview-and-orientation.md` were repointed from page-level / heading-slug auto-id links to the new `#inv-4` / `#frnt-1` / `#err-19` anchors, and the first-enforcement-point listing in `hard-ceilings.md` was repointed to `#inv-4` / `#err-19`. The ceiling-set-invariants citation in `hard-ceilings/ceilings-3-and-4.md` was left unchanged — it names the ceilings by routing-class description, not by obligation anchor, and carries no GOV-25-prohibited auto-id, so it is out of the Problem's scope. New IDs allocated under already-registered prefixes per GOV-3 (`INV-4`, `FRNT-1`, `ERR-19`); no new prefix coined.)_
 
 _(Updated 2026-06-07: T065 "`HC3-a` / `HC3-c` cross-links target the orientation aggregator anchor instead of the inline-label anchor site, violating GOV-16 *Cross-link form*" resolved and removed — dual-form HTML anchors `<a id="hc3-a"></a>`…`<a id="hc3-e"></a>` were added to the `**HC3-a.**`–`**HC3-e.**` bullets in `hard-ceilings/ceilings-3-and-4.md` per GOV-16's *GOV-1 dual-form layout applies* clause, and the three `HC3-a` / `HC3-b` / `HC3-c` cross-links in `binder/determinism-cancellation-failure.md` were repointed from `overview-and-orientation.md#hard-ceiling-3` to `ceilings-3-and-4.md#hc3-a` / `#hc3-b` / `#hc3-c`. The `<a id="hard-ceiling-3"></a>` aggregator anchor on `overview-and-orientation.md` was left unchanged per the out-of-scope constraint. No REQ-ID or inline-label prefix coined.)_
 
@@ -2897,31 +2899,3 @@ Resolve five independent clarity/cruft obligations as separate edits, in the ord
 ## Relationships
 
 None
-
----
-
-# T064 - Ceiling #1 and ceiling #2 positive enforcement obligations carry no REQ-IDs
-
-**Kind:** traceability
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Decision axes:** 3
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The hard-ceiling aggregator at `overview-and-orientation.md#hard-runtime-ceilings` forward-links each ceiling's *bound owner* / *surface owner* labels to the owning topic-page paragraph. Ceilings #3 and #4 carry governed identifiers (HC3-a..HC3-e inline labels, CIO-1..CIO-6 REQ-IDs), but the enforcement obligations for ceilings #1 and #2 carry none: the `**Invocation depth bound.**` paragraph on `invocation.md` (ceiling #1 bound + surface), the `tool_loop` field rule on `frontmatter/frontmatter-fields-b-and-templates.md` (ceiling #2 bound), and the `ToolLoopExhaustedError` schema on `errors-and-results/queryerror-variants.md` (ceiling #2 surface) have no co-located REQ-ID anchor. The aggregator therefore forward-links into paragraphs that cannot be cited as IDs, leaving the two most operationally significant ceilings without coverage-matrix closure entries and forcing cross-links onto GOV-25-prohibited heading-slug auto-IDs.
-
-## Solution approach
-
-Add a GOV-1 dual-form REQ-ID anchor at each unanchored enforcement site: the `**Invocation depth bound.**` paragraph on `invocation.md` under the `INV` prefix (one ID covering both bound and surface, since that paragraph normatively states both), the `tool_loop` field rule on `frontmatter/frontmatter-fields-b-and-templates.md` under the `FRNT` prefix, and the prose line preceding the `ToolLoopExhaustedError` schema block on `errors-and-results/queryerror-variants.md` under the `ERR` prefix, allocating each numeric tail per GOV-3. Then update the ceiling #1 / #2 aggregator entries on `overview-and-orientation.md`, the first-enforcement-point listing on `hard-ceilings.md`, and the ceiling-set-invariants citation on `hard-ceilings/ceilings-3-and-4.md#ceiling-set-invariants` to cite the new IDs, per the GOV-30 lock-step co-edit.
-
-## Solution constraints
-
-- ERR-N allocation MUST NOT reuse the retired ERR-16 tail (GOV-3 non-collapsing numbering; confirm against the page's `## Retired REQ-IDs` section).
-
-## Relationships
-
-- T065 "`HC3-a` / `HC3-c` cross-links target the orientation aggregator anchor instead of the inline-label anchor site, violating GOV-16 *Cross-link form*" - decision-overlap (once ceilings #1 / #2 carry governed IDs per this finding, any cross-link that currently targets a `#hard-ceiling-1` / `#hard-ceiling-2` auto-anchor must be repointed to the new INV / FRNT / ERR IDs; the same GOV-25-prohibited auto-anchor pattern recurs at every ceiling whose obligation lacks a governed ID)
