@@ -154,7 +154,7 @@ The `by <field>` clause is admitted **only** on the union form (the alternative 
 DocComment   ::= ("///" RestOfLine "\n")+
 ```
 
-A `DocComment` is a maximal run of consecutive `///` lines (joined per [Descriptions](./descriptions.md)). It is admitted immediately above any of the following productions; it MUST NOT appear inline with the production it describes:
+A `DocComment` is a maximal run of consecutive `///` lines (joined per [Descriptions](./descriptions.md)); `RestOfLine` is defined in [Lexical Structure — `RestOfLine` terminal](./lexical.md#rest-of-line). It is admitted immediately above any of the following productions; it MUST NOT appear inline with the production it describes:
 
 - `SchemaDecl` (object form, alias form, and explicit-discriminator union form alike — every `schema X …` declaration accepts a leading `DocComment`).
 - `EnumDecl` (the entire enum declaration).

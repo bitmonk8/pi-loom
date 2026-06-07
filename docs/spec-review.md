@@ -4,7 +4,7 @@ _Generated: 2026-06-06T13:23:32Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T118) is addressed first; the first finding (T001) is addressed last._
 
-_Triage tally: 0 blockers, 19 high, 60 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 18 high, 60 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
 
 _(Updated 2026-06-06: T099 "`loom/load/callee-has-errors` promises codes via `related`" resolved and removed — the `code-registry-load.md` row and the `invocation.md` Static resolution paragraph were walked back so neither promises the callee's diagnostic *codes* via `related`; both now state that `related` carries one entry per underlying error *site* (`{ file, range, message }` per `diagnostic-shape.md`), with the callee's own diagnostics emitted separately. No change to `diagnostic-shape.md` or the closed `related` element shape.)_
 
@@ -3107,28 +3107,3 @@ Rewrite the numeric-literal serialisation sub-bullet of step 2's "Canonical form
 ## Relationships
 
 - T070 "Schema-slug collision posture is pinned only for the `pi.registerTool` cache, leaving the `$defs` hoist and the validator cache silent" - same-cluster (immediately adjacent paragraphs in the same *Canonical schema hash* section; resolve independently)
-
-# T072 - `RestOfLine` terminal in `DocComment` production is undefined
-
-**Kind:** implementability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `DocComment ::= ("///" RestOfLine "\n")+` production in `grammar.md`'s `///` placement section references a `RestOfLine` terminal that is defined nowhere in the spec corpus. The production's other tokens are unambiguous (`///` is a literal sigil; `\n` is the normalised newline from `lexical.md`), but as normative grammar it cannot be implemented or conformance-tested against an undefined terminal. Two implementers will each invent a denotation, with edge-case divergence over whether `RestOfLine` admits an embedded `\r`, `\0`, characters outside the admitted Unicode set, or an empty body.
-
-## Solution approach
-
-Add a definition of the `RestOfLine` terminal to `lexical.md` adjacent to the **Newline normalisation** bullet it depends on, denoting a possibly-empty maximal run of source characters containing no normalised `\n` (and therefore no `\r`), with no escape processing applied. Add a cross-reference to that definition beneath the `DocComment` production in `grammar.md`'s `///` placement section, matching the existing "(joined per [Descriptions])" link style used two lines below the grammar block.
-
-## Solution constraints
-
-- The definition MUST admit an empty `RestOfLine` (a bare `///` line), because `descriptions.md` §Multi-line requires empty `///` lines to become blank lines.
-
-## Relationships
-
-None
