@@ -4,7 +4,7 @@ _Generated: 2026-06-06T13:23:32Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T118) is addressed first; the first finding (T001) is addressed last._
 
-_Triage tally: 0 blockers, 15 high, 53 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 15 high, 52 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
 
 _(Updated 2026-06-07: T064 "Ceiling #1 and ceiling #2 positive enforcement obligations carry no REQ-IDs" resolved and removed — GOV-1 dual-form REQ-ID anchors were coined at the three unanchored enforcement sites: `INV-4` on the `**Invocation depth bound.**` paragraph in `invocation.md` (covering ceiling #1 bound + surface), `FRNT-1` on the `tool_loop` field bullet in `frontmatter/frontmatter-fields-b-and-templates.md` (ceiling #2 bound), and `ERR-19` on the `ToolLoopExhaustedError` prose line in `errors-and-results/queryerror-variants.md` (ceiling #2 surface). The ceiling #1 / #2 aggregator entries in `spec/overview-and-orientation.md` were repointed from page-level / heading-slug auto-id links to the new `#inv-4` / `#frnt-1` / `#err-19` anchors, and the first-enforcement-point listing in `hard-ceilings.md` was repointed to `#inv-4` / `#err-19`. The ceiling-set-invariants citation in `hard-ceilings/ceilings-3-and-4.md` was left unchanged — it names the ceilings by routing-class description, not by obligation anchor, and carries no GOV-25-prohibited auto-id, so it is out of the Problem's scope. New IDs allocated under already-registered prefixes per GOV-3 (`INV-4`, `FRNT-1`, `ERR-19`); no new prefix coined.)_
 
@@ -2372,32 +2372,3 @@ Branch (2)'s co-edit obligation thereby reduces to a typed list of locations, an
 - T054 "`peerDependencies` literal-read test assertion shape and `CAPABILITY_OBLIGATIONS` member-anchor list are unstated at the sites that introduce them" - same-cluster (same step-2(a)/step-4 assertion family; the unstated member-anchor list is the same omission this finding addresses for prose sites)
 - T060 "Version-bump procedure: four MUST/SHOULD obligations have no verifiable acceptance criterion" - same-cluster (same testability vector across version-bump procedure; the new assertion is the same shape this finding asks for elsewhere on the page)
 - T006 "Orientation pages live outside GOV-17's corpus and are cited under two incompatible paths" - decision-overlap (the new assertion must run over the orientation subtree where one of the cited `"seven"` sites lives; GOV-17's corpus glob must include `docs/spec/**/*.md` for the gate to fire there)
-
----
-
-# T057 - Item (e) fail predicate: operator-precedence ambiguity, single-sentence packing, and sub-outcomes buried mid-prose
-
-**Kind:** clarity, placement
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-Item (e) in `version-bump-step2.md` packs the entire per-session slash-dispatch-serialisation audit — fail predicate, conservative-posture rule, recovery prescription, `N/A` definition, and both sub-outcomes — into a single sentence. The fail predicate is a chain of four `or`-joined disjuncts terminating in a bolded `AND` whose scope is ambiguous: it is intended to bind only the final textual-locatability disjunct, but nothing structural forces that reading, and the looser reading exempts any of the four triggers whenever an equivalent awaiting site is found, flipping audit verdicts on real candidate-minor shapes (fire-and-forget dispatch, `Promise.all` batches, microtask-deferred handlers). The two anchored sub-outcomes (`bump-checklist-slash-dispatch-serialisation-i` / `-ii`) sit deep inside that sentence rather than as visible sub-bullets, so a contributor scanning (e) for required verdicts sees one slot and collapses the two atomic sub-checks the spec requires to be filed independently.
-
-## Solution approach
-
-Restructure item (e)'s body so the fail predicate, conservative-posture rule, `N/A` definition, and recovery prescription are no longer one sentence, and render the textual-locatability disjunct together with its `and`-joined equivalent-site exemption as a single self-contained unit so the conjunction cannot bind the other three disjuncts. Promote the two sub-outcomes to sub-items directly under (e), each carrying its own scope statement and pass / fail / `N/A` verdict slot, and move the anchors `bump-checklist-slash-dispatch-serialisation-i` and `bump-checklist-slash-dispatch-serialisation-ii` onto them so inbound cross-references continue to resolve.
-
-## Solution constraints
-
-- Out of scope: the recovery-mutex acquisition semantics and teardown-budget interaction in item (e)'s recovery paragraph, owned by T118.
-- Editorial restructure only — preserve unchanged the keying-granularity revisitation obligation, the `N/A — superseded by <named Pi mechanism>` rationale-slot format, and the rule that an `N/A` verdict propagates identically to both sub-outcomes.
-
-## Relationships
-
-- T118 "Recovery-mutex acquisition semantics and teardown-budget interaction undefined" - same-cluster (touches item (e)'s recovery paragraph, but resolves a separate semantic gap independent of the structural restructure)
