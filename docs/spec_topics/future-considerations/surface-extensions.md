@@ -1,5 +1,6 @@
 # Surface extensions
 
+<a id="tooling-deferrals-no-loom-1-0-impact"></a>
 ## Tooling deferrals (no loom 1.0 impact)
 
 - **LSP support** for `.loom` and `.warp` files (syntax highlighting, type checking, autocomplete).

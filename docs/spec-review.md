@@ -4,7 +4,7 @@ _Generated: 2026-06-06T13:23:32Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T118) is addressed first; the first finding (T001) is addressed last._
 
-_Triage tally: 0 blockers, 16 high, 59 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 15 high, 59 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
 
 _(Updated 2026-06-06: T099 "`loom/load/callee-has-errors` promises codes via `related`" resolved and removed — the `code-registry-load.md` row and the `invocation.md` Static resolution paragraph were walked back so neither promises the callee's diagnostic *codes* via `related`; both now state that `related` carries one entry per underlying error *site* (`{ file, range, message }` per `diagnostic-shape.md`), with the callee's own diagnostics emitted separately. No change to `diagnostic-shape.md` or the closed `related` element shape.)_
 
@@ -2976,29 +2976,3 @@ Add an *Authoritative source* pointer to each behavioural-presupposition paragra
 ## Relationships
 
 None
-
-# T068 - Operator-always-present invariant asserted without a Pi-side guarantee
-
-**Kind:** assumptions, scope, placement
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 3
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `operator-v1-invariant` — every loom invocation runs inside an active Pi TUI session, so an operator is always present — is asserted only inside the `operator` glossary entry (anchor `#operator-v1-invariant`), a page whose header disclaims authority over canonical content ("if a glossary entry and its canonical page disagree, the canonical page wins"). No PIC page or Pi-host citation pins the precondition that Pi dispatches a registered slash-command handler only inside an interactive TUI session: `host-prerequisites.md` enumerates four Pi-side prerequisites and four host-behaviour presuppositions, none of which covers it, and `capability-probe.md` does not probe for an attached TUI. The invariant is load-bearing for the Runtime observability NFR in `overview-and-orientation.md`, the `display: true` error rendering in `slash-invocation.md` SLSH-3, and the `/reload`-only degraded-state recovery branch, so an implementer cannot tell whether to trust it unconditionally, capability-probe for TUI presence, or fail-load when no surface exists. A future Pi minor adding a headless or batch dispatch mode would silently violate it with no editorial-review gate to catch it.
-
-## Solution approach
-
-Promote the operator-always-present invariant to a normative host-behaviour presupposition on `host-prerequisites.md`, co-located with the existing presuppositions block (`#degraded-state-host-prerequisites`), carrying a new stable anchor and stating that Pi dispatches a registered slash-command handler only inside an interactive TUI session for the pinned Pi-SDK range and that the operator-facing channel's behaviour outside such a session is undefined. Add a forward-link from the new anchor to the deferred non-interactive surfaces in `future-considerations/surface-extensions.md` (`loom test`, the non-loom programmatic harness) as the out-of-scope paths it excludes. Add a re-audit checklist item to the Pi version bump procedure (`version-bump-intro.md#pi-version-bump-procedure`) so each Pi minor re-checks the dispatch-mode contract by editorial review. Rewrite the inline invariant prose in the `operator` glossary entry as a descriptive forward-link to the new anchor, and add a forward-link from the Runtime observability NFR bullet in `overview-and-orientation.md` to the new anchor as the source of the always-present-operator precondition.
-
-## Solution constraints
-
-- The new presupposition states a host-behaviour assumption loom presupposes, not a binding obligation on Pi; phrase it as presupposed Pi behaviour like sibling presuppositions (a)–(d), not as a `Pi MUST` directive.
-
-## Relationships
-
-- T005 "Orientation NFR refers to `loom-system-note` as a pre-existing Pi channel without flagging the registration step" — same-cluster (PIC-channel claims in orientation prose that need a clean pointer at the normative PIC owner).
