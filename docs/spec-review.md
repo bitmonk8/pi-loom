@@ -22,6 +22,8 @@ _(Updated 2026-06-06: T085 "Mid-loom Pi-extension hot-reload: held closure invoc
 
 _(Updated 2026-06-06: T102 "`bind_context` project-wide-inheritance parenthetical references a settings carrier that does not exist" resolved and removed — the no-params-bypass parenthetical in binder-bypass-and-envelope.md was corrected to state that `bind_model` may inherit from the project-wide `looms.binderModel` setting while `bind_context` has no project-wide carrier and defaults to `none`. No new settings key, diagnostic, or validation row was added.)_
 
+_(Updated 2026-06-07: T075 "Bare-source backslash: no diagnostic code is named" resolved and removed — a new lex-phase diagnostic `loom/parse/stray-backslash` was registered in diagnostics/code-registry-parse.md for a backslash byte at a source position outside any string literal, path literal, or `@`...`` query-template body; lexical.md's Source-files list gained a **Stray backslash** bullet (carrying the stable `#stray-backslash` anchor) stating the rule and noting loom has no line-continuation marker; grammar.md's Newline-continuation note now names `loom/parse/stray-backslash` and links to that anchor instead of the bare "a parse error" phrasing. `illegal-escape` semantics unchanged. No new REQ-ID coined: code-registry rows and lexical.md carry no co-located REQ-ID anchors (pre-backfill) and the `loom/parse/*` code is itself the stable identifier per DIAG-3; the added row satisfies DIAG-2's same-time landing obligation.)_
+
 _(Updated 2026-06-07: T082 "`params:` type-side: grammar reference and named-type resolution rule absent from the owning page" resolved and removed — the `params` prose bullet in frontmatter-fields-a.md gained a **Type side** sub-bullet reciprocating the type-grammar pointers to type-system.md and grammar.md#type-grammar, stating that a `params:` `NamedType` resolves whole-file against body-level `schema`/`enum` declarations and imported `.warp` symbols (so a frontmatter-to-body forward reference resolves), and naming the unresolved-name failure; the new parse-time diagnostic `loom/parse/unresolved-named-type` was registered in diagnostics/code-registry-parse.md. type-system.md and grammar.md were left unedited per the finding's out-of-scope constraint.)_
 
 _(Updated 2026-06-06: T100 "`Diagnostic` envelope contract is unsatisfiable for location-less codes" resolved and removed — `file` and `range` were marked optional on the internal `Diagnostic` shape, a **Location-less diagnostics** paragraph enumerated the closed set of eight location-less codes and pinned the omitted-fields wire form, and the **Serialised content format** rule gained a carve-out dropping the `<file>:<line>:<col>:` prefix for those codes. No change to the `related?` element shape or to the DIAG-4 *Message* rows.)_
@@ -3312,67 +3314,3 @@ Make named schemas nominal and scope TYPE-8 field-wise compatibility to inline o
 ## Relationships
 
 - T070 "Schema-slug collision posture is pinned only for the `pi.registerTool` cache, leaving the `$defs` hoist and the validator cache silent" - same-cluster (both findings touch the named-vs-structural identity question, but resolve independently — slug-collision is about runtime fragment identity, TYPE-8 is about parse-time type identity)
-
----
-
-# T075 - Bare-source backslash: no diagnostic code is named
-
-**Original heading:** `type-alias-cycle`/backslash-outside-string diagnostics: missing or unspecified codes
-**Original section:** docs/spec_topics/ language core (lexical, grammar, type-system, expressions, runtime-value-model, descriptions, schemas, schema-subset)
-**Kind:** testability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-
-## Finding
-
-`grammar.md` Newline continuation states "no `\` at end of line; backslash inside source is a parse error per [Lexical Structure]." `lexical.md` enumerates four backslash-adjacent codes — `loom/parse/illegal-escape` (a backslash inside a string literal followed by an unrecognised character), `loom/parse/invalid-unicode-escape`, `loom/parse/invalid-path-separator` (backslash inside a path literal), and the query-template analogues `loom/parse/illegal-template-escape` / `loom/parse/unterminated-template` — but names no code for a backslash that appears in source outside any string, path, or template-body context (e.g. a stray `\` between statements, or a `\` used as a line-continuation marker). `code-registry-parse.md` has no matching row either.
-
-The corpus-wide convention (per `plan_topics/conventions.md` "Diagnostic message anchors") is that every parse error a test can assert is anchored by a code in the registry. The grammar.md sentence promises a parse error but no anchor exists, so a conformance test for "stray backslash in source" cannot be written against the registry and an implementer is free to surface the failure under any code (or as an opaque lexer error).
-
-(The heading's `type-alias-cycle` half is stale: `loom/parse/type-alias-cycle` is already registered with full trigger semantics in `code-registry-parse.md` and cross-referenced from `schemas.md`. The real gap is the bare-source backslash.)
-
-## Spec Documents
-
-- `docs/spec_topics/lexical.md` — String literals / Path literals paragraphs (edited)
-- `docs/spec_topics/diagnostics/code-registry-parse.md` — lex/parse table (edited)
-- `docs/spec_topics/grammar.md` — Newline continuation note that forward-references Lexical (edited — the forward reference now names `loom/parse/stray-backslash` and the cross-link target gains a stable anchor)
-
-## Plan Impact
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None
-
-(`plan.md` and `plan_topics/coverage-matrix.md` carry no leaves yet; no existing leaf is modified or blocked.)
-
-## Consequence
-
-**Severity:** correctness
-
-Two conforming implementations may surface the same stray-backslash source under different codes (or under no code at all), and the registry-anchored conformance regime defined by `plan_topics/conventions.md` cannot assert the resulting message. The defect is narrow but real: it leaves one lexer-level failure mode outside the per-code test surface that every other parse error sits on.
-
-## Solution Space
-
-**Shape:** single
-**State:** reduced
-
-Coin a new lex-phase diagnostic code `loom/parse/stray-backslash` for a backslash byte at a source position that is not inside a string literal, path literal, or query-template body. Leave `illegal-escape` semantics unchanged. The corpus already separates `invalid-path-separator`, `illegal-escape`, and `illegal-template-escape` by surrounding lexical context, so a per-context code matches the established pattern; conflating bare-source backslash into `illegal-escape` cuts against it and would force tests to re-derive context from span info and mildly misname the failure.
-
-### Spec edits
-
-- `code-registry-parse.md`: add a row `loom/parse/stray-backslash | E | lex | Backslash byte in source outside any string literal, path literal, or query-template body. | [Lexical Structure](../lexical.md) | — | "stray backslash in source"`.
-- `lexical.md` Source files: add a one-line bullet "A backslash byte outside any string literal, path literal, or query-template body is `loom/parse/stray-backslash`." If `lexical.md` does not already carry one, add a stable anchor `<a id="stray-backslash"></a>` adjacent to the new bullet for the grammar.md cross-link.
-- `grammar.md` line 180: replace "a parse error per [Lexical Structure]" with "`loom/parse/stray-backslash` per [Lexical Structure]."
-- Land the new diagnostic site's REQ-ID in the same edit per `plan_topics/conventions.md` REQ-ID discipline; respect the append-only/word-boundary-disjoint rules for the `loom/parse/…` prefix.
-
-### Edge cases
-
-- A backslash immediately preceding a literal newline at top level must still trigger `stray-backslash` and not be re-interpreted as a line-continuation marker — Loom has no line-continuation marker (grammar.md is explicit), so the lexer emits the code rather than joining lines.
-
-## Relationships
-
-- T072 "`RestOfLine` terminal in `DocComment` production is undefined" - same-cluster (another grammar.md → lexical.md forward-reference where the referent is not actually defined; resolves independently)
-- T009 "Integer-overflow arithmetic has no normative reference vector" - same-cluster (sibling testability gap on the same shard; independent fix)
