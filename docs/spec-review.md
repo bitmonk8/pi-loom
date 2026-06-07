@@ -20,6 +20,8 @@ _(Updated 2026-06-07: T074 "TYPE-8 field-wise compatibility scope (named schema 
 
 _(Updated 2026-06-07: T010 "`==` semantics are authoritative on `runtime-value-model.md` but `expressions.md` Equality neither restates nor links them" and T073 "Cross-type `==` / `!=` disposition is unspecified" resolved together (co-resolve cluster) and removed — `expressions.md` § Equality is upgraded from a one-sentence body to a stub-with-link that names `==` as structural, teases the `NaN == NaN` / `+0 == -0` refinements with an on-page contrast to the `NaN` ordering rule, states the cross-type disposition, and forward-links the full rule to `runtime-value-model.md#equality`; `runtime-value-model.md`'s `**Equality (`==`).**` block gains a general cross-type rule before the per-shape bullets (`==` / `!=` admit any two static types and evaluate to `false` / `true` when the types share no common structural ground; loads and runs, never parse-rejects or panics) plus a back-reference from the primitives bullet to `expressions.md` § Ordering comparisons for the asymmetric `NaN` ordering. No diagnostic code added (the registry is closed under GOV-7/GOV-8); the `loom/parse/non-orderable-operands` suggestion to "use `==` / `!=` for other types" stays correct but is no longer load-bearing on parse-rejection semantics. No new REQ-ID coined — both pages are pre-REQ-ID-backfill (zero EXPR/RVM anchors), so GOV-22 progressive coinage defers to those pages' one-shot backfill pass per the transitional rule.)_
 
+_(Updated 2026-06-07: T071 "Canonical hash recipe cites keywords the lowered subset never emits (`default`, `minLength`, `maxItems`)" resolved and removed — `schema-subset.md` *Canonical schema hash* step 2 ("Canonical form") numeric-literal sub-bullet now names only `const` and `enum` as numeric-literal positions (dropping the runtime-filled `default` surface-syntax feature the binder never lowers), and the trailing sentence claiming `minLength`/`maxItems` are the subset's integer-valued structural keywords was deleted (the top-of-file enumeration rejects all such keywords at parse time, so the lowered fragment contains none). The BNDR-4 / BNDR-5 / BNDR-6 cross-reference and the echo-formatter borrow carve-out — whose `(default)` mention names the binder echo-side tag, not a JSON Schema `default` keyword — were preserved. No new REQ-ID; no diagnostic change.)_
+
 _(Updated 2026-06-07: T076 "Language-core hidden assumptions: enum-tag sidecar, AJV-config silence, Markdown-by-providers claim" resolved and removed — three independent edits landed. (1) `descriptions.md`'s `///`-rule "Markdown" bullet was demoted: the normative claim about provider rendering became a `No transformation.` bullet pinning loom's byte-for-byte emission, with the provider-Markdown observation moved to a `*(Non-normative provenance.)*` tail. (2) `schema-subset.md`'s Draft bullet gained a clarifying sentence binding "validates" / "is accepted by the validator" prose to JSON Schema 2020-12 semantics (lowered schemas evaluated under that draft by loom and any conforming validator); phrased without a new RFC-2119 modal to avoid a GOV-22 progressive-coinage trigger on a page that carries no REQ-ID anchors (pre-backfill). (3) A per-position *Named-enum positions* sidecar was added to `schema-subset.md` Lowering Algorithm step 5 (now "Per-schema sidecar" with two maps) and consumed by `runtime-value-model.md`'s inbound Wire-name translation bullet, giving enum-tag reattachment a machine-readable input that distinguishes named-`enum` positions from anonymous string-literal unions. The originating finding's third proposed edit-half — reframing `type-system.md`'s `⊑` operational definition against the PIC-11 `SchemaValidator` seam — was deferred per the finding's own coordination clause: the corpus is uniformly AJV-phrased and the seam reframing must land with the corpus-wide AJV→seam rewrite, which is not queued in this dispatch. No new REQ-ID coined; no RFC-2119 modal was added, so GOV-22 progressive coinage does not trigger.)_
 
 _(Updated 2026-06-06: T085 "Mid-loom Pi-extension hot-reload: held closure invocation has no contracted outcome" resolved and removed — the last Resolution-snapshot consequence bullet in frontmatter-fields-b-and-templates.md was rewritten to replace the "out of loom 1.0 scope" dismissal with a positive contract: the held `execute` closure is dispatched like any other captured Pi-tool callable, and its failures route through the existing surfaces — catchable throws to `CodeToolError { cause: "execution" }`, non-conforming returns to `loom/runtime/internal-error` (both in tool-calls.md), and host-fatal errors to error-model.md's runtime-panics surface. No new diagnostic code, `loom-system-note` shape, or timeout was introduced; the `/reload` author-guidance sentence was retained.)_
@@ -3082,28 +3084,3 @@ Add a normative invariant to `schema-subset.md`'s *Canonical schema hash* sectio
 
 None
 
-# T071 - Canonical hash recipe cites keywords the lowered subset never emits (`default`, `minLength`, `maxItems`)
-
-**Kind:** implementability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The *Canonical schema hash* step 2 ("Canonical form") in `schema-subset.md` names JSON Schema keywords that the lowered subset never emits. The numeric-literal serialisation sub-bullet lists `default` alongside `const` and `enum` as positions where numeric literals appear, but `default` is a runtime-filled surface-syntax feature that the binder never lowers into the schema. The trailing sentence names `minLength`/`maxItems` as the subset's integer-valued structural keywords, yet the top-of-file enumeration rejects all such keywords at parse time, so the lowered fragment contains none. An implementer wiring the canonical-hash recipe is left to guess whether the subset secretly emits these keywords and must render them, and divergent guesses change the SHA-256 digest and therefore every synthesised name and validator-cache key.
-
-## Solution approach
-
-Rewrite the numeric-literal serialisation sub-bullet of step 2's "Canonical form" in `docs/spec_topics/schema-subset.md` so the numeric-literal positions read `const` and `enum`, dropping `default` — these are the only lowered-subset sites where numeric literals can appear. Delete the trailing sentence naming `minLength`/`maxItems` as the subset's integer-valued structural keywords, since the lowered subset has no such keywords.
-
-## Solution constraints
-
-- Preserve the cross-reference into the binder's `integer`/`number` rendering algorithm (BNDR-4 / BNDR-5 / BNDR-6) and the echo-formatter borrow carve-out (its `(default)` mention names the binder echo-side tag, not a JSON Schema `default` keyword).
-- Out of scope: the schema-slug collision posture and the `$defs`-hoist / validator-cache content owned by T070.
-
-## Relationships
-
-- T070 "Schema-slug collision posture is pinned only for the `pi.registerTool` cache, leaving the `$defs` hoist and the validator cache silent" - same-cluster (immediately adjacent paragraphs in the same *Canonical schema hash* section; resolve independently)
