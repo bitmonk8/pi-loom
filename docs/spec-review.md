@@ -8,6 +8,8 @@ _Triage tally: 0 blockers, 15 high, 49 medium retained; 91 low discarded; 0 low 
 
 _(Updated 2026-06-07: T064 "Ceiling #1 and ceiling #2 positive enforcement obligations carry no REQ-IDs" resolved and removed — GOV-1 dual-form REQ-ID anchors were coined at the three unanchored enforcement sites: `INV-4` on the `**Invocation depth bound.**` paragraph in `invocation.md` (covering ceiling #1 bound + surface), `FRNT-1` on the `tool_loop` field bullet in `frontmatter/frontmatter-fields-b-and-templates.md` (ceiling #2 bound), and `ERR-19` on the `ToolLoopExhaustedError` prose line in `errors-and-results/queryerror-variants.md` (ceiling #2 surface). The ceiling #1 / #2 aggregator entries in `spec/overview-and-orientation.md` were repointed from page-level / heading-slug auto-id links to the new `#inv-4` / `#frnt-1` / `#err-19` anchors, and the first-enforcement-point listing in `hard-ceilings.md` was repointed to `#inv-4` / `#err-19`. The ceiling-set-invariants citation in `hard-ceilings/ceilings-3-and-4.md` was left unchanged — it names the ceilings by routing-class description, not by obligation anchor, and carries no GOV-25-prohibited auto-id, so it is out of the Problem's scope. New IDs allocated under already-registered prefixes per GOV-3 (`INV-4`, `FRNT-1`, `ERR-19`); no new prefix coined.)_
 
+_(Updated 2026-06-07: T052 "Item (e)/(r) `dist/*.js` baseline source unspecified — diff is unperformable after the candidate install" resolved and removed — a *Baseline acquisition* paragraph (anchor `#bump-baseline-acquisition`) was inserted into item (e) of `pi-integration-contract/version-bump-step2.md`, specifying that the contributor materialises the loom 1.0 Pi-SDK pin's `dist/*.js` tree via `npm pack @earendil-works/pi-coding-agent@<pinned-version>` into an ephemeral scratch directory (the canonical "from" side), with the post-step-1 `node_modules` candidate tree as the "to" side, and the ordering constraint that acquisition run before step 1's candidate install (or carry the explicit `@<pinned-version>` specifier if ordered after). Items (e) and (r) now cite the paragraph by anchor instead of restating the baseline source. No REQ-ID coined — the step-2 audit checklist carries no per-item REQ-IDs.)_
+
 _(Updated 2026-06-07: T065 "`HC3-a` / `HC3-c` cross-links target the orientation aggregator anchor instead of the inline-label anchor site, violating GOV-16 *Cross-link form*" resolved and removed — dual-form HTML anchors `<a id="hc3-a"></a>`…`<a id="hc3-e"></a>` were added to the `**HC3-a.**`–`**HC3-e.**` bullets in `hard-ceilings/ceilings-3-and-4.md` per GOV-16's *GOV-1 dual-form layout applies* clause, and the three `HC3-a` / `HC3-b` / `HC3-c` cross-links in `binder/determinism-cancellation-failure.md` were repointed from `overview-and-orientation.md#hard-ceiling-3` to `ceilings-3-and-4.md#hc3-a` / `#hc3-b` / `#hc3-c`. The `<a id="hard-ceiling-3"></a>` aggregator anchor on `overview-and-orientation.md` was left unchanged per the out-of-scope constraint. No REQ-ID or inline-label prefix coined.)_
 
 _(Updated 2026-06-06: T099 "`loom/load/callee-has-errors` promises codes via `related`" resolved and removed — the `code-registry-load.md` row and the `invocation.md` Static resolution paragraph were walked back so neither promises the callee's diagnostic *codes* via `related`; both now state that `related` carries one entry per underlying error *site* (`{ file, range, message }` per `diagnostic-shape.md`), with the callee's own diagnostics emitted separately. No change to `diagnostic-shape.md` or the closed `related` element shape.)_
@@ -2147,69 +2149,3 @@ Resolve the seven sub-issues as seven ordered edits, smallest scope-bounding fir
 - T044 "Family-(5) malformed-marker per-clause `<symptom>` token requirement is asserted derivatively but never normatively pinned" - same-cluster (both touch family-(5) discriminator semantics; resolve independently)
 - T058 "Step-2(b) family→branch correspondence inverts at the family-distinctive arms" - decision-overlap (any family-numbering change here cascades into the branch numbering in step-2b; resolve the family numbering first)
 - T117 "Runtime-event channel: undefined "occurrence" vs "origin"; PIC-1 pure-read MUST has no observable projection; per-site mask-domain table split from CIO" - same-cluster (sibling `runtime-event-channel.md` clarity issue; resolve independently)
-
----
-
-# T052 - Item (e)/(r) `dist/*.js` baseline source unspecified — diff is unperformable after the candidate install
-
-**Original heading:** loom-1.0-pinned `dist/*.js` baseline ("from" side of item (e)/(r) diffs) not shown to be obtainable alongside the candidate tree
-**Original section:** docs/spec_topics/pi-integration-contract/ (diagnostic-emission, patch-skew, provider-error, unknown-reason, subagent, version-bump-intro/triggers/step2/step2b)
-**Kind:** assumptions
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-
-## Finding
-
-`version-bump-step2.md` items (e) and (r) instruct the contributor to diff specific `dist/*.js` files (`dist/core/agent-session.js`, `dist/core/messages.js`, plus the `dist/modes/*/*.js` glob) between the loom-1.0 Pi-SDK pin and the candidate minor. Item (e) names the "from" side explicitly as "[the loom 1.0 Pi-SDK pin](./host-prerequisites.md#pi-sdk-pin)'s `dist/*.js` snapshot on `@earendil-works/pi-coding-agent`" and adds the disclaimer "regardless of what the contributor happens to have installed locally" — i.e. the local `node_modules` is deliberately *not* declared to be the baseline source.
-
-No step on this page or on `version-bump-intro.md` / `host-prerequisites.md` says where that pinned baseline snapshot is obtained or retained. The single operation the procedure does describe — `version-bump-intro.md` step 1's "Install the candidate `@earendil-works/pi-coding-agent` minor (and its lock-step siblings)" — overwrites the only on-disk copy the contributor has (`node_modules/@earendil-works/pi-coding-agent/`). Once step 1 runs, the only `dist/*.js` tree on the contributor's machine is the candidate's; the "from" side of every (e)/(r) diff has been destroyed. No retained snapshot directory, package cache, `npm pack` / tarball recipe, install-both procedure, or VCS-tracked baseline copy is named anywhere in the bump procedure, and the loom repo does not commit a `dist/*.js` baseline either.
-
-The audit is therefore literally unperformable as written: a contributor following the steps in order has no "from" tree to diff against by the time items (e)/(r) execute. The conservative-posture rule in item (e) compounds the consequence — without a baseline, the auditor cannot positively demonstrate the non-overlap property holds, so every bump records `fail` and triggers the defensive runtime mutex remediation regardless of whether the candidate minor actually broke the cooperative-`await` chain.
-
-## Spec Documents
-
-- `docs/spec_topics/pi-integration-contract/version-bump-step2.md` — items (e) and (r) (edited)
-- `docs/spec_topics/pi-integration-contract/version-bump-intro.md` — step 1 install step (read-only)
-- `docs/spec_topics/pi-integration-contract/host-prerequisites.md` — Pi SDK pin paragraph (read-only)
-
-## Plan Impact
-
-**Phases:** N/A
-
-**Leaves (implementation order):** N/A
-
-(No `plan.md` is present in the repository.)
-
-## Consequence
-
-**Severity:** correctness
-
-Two contributors performing the bump audit reach divergent results: one who happens to have the pinned tree retained in a side directory from a prior install can perform the diff; one following the documented procedure in order cannot, defaults to the conservative-posture `fail`, and ships an unnecessary recovery mutex on every bump. The supposed mechanical gate (a `dist/*.js` text diff) silently degrades to "always fails," and the (e)/(r) audits lose their discriminatory power — every candidate looks broken regardless of whether it actually is.
-
-## Solution Space
-
-**Shape:** single
-**State:** reduced
-
-Specify an on-demand registry baseline so the `dist/*.js` diffs in items (e)/(r) are performable after the candidate install. The pinned tree is materialised into a scratch directory from the published tarball; this carries no repo-size cost, needs no rotating in-repo snapshot, and reuses the registry channel the candidate install already depends on, so no new precondition is introduced.
-
-### Spec edits
-
-- In `version-bump-step2.md`, just above item (e)'s opening sentence, insert a short *Baseline acquisition* paragraph: "Before running items (e) and (r), the contributor MUST materialise the [loom 1.0 Pi-SDK pin](./host-prerequisites.md#pi-sdk-pin)'s `dist/*.js` tree into a scratch directory by running `npm pack @earendil-works/pi-coding-agent@<pinned-version>` and extracting the resulting tarball; the extracted `package/dist/` tree is the canonical 'from' side every `dist/*.js` diff on this page reads against, and the locally-installed `node_modules` tree (which holds the candidate minor after step 1) is the 'to' side. The acquisition is per-bump and ephemeral; no in-repo snapshot is retained." Use the `npm pack` form rather than `npm install --prefix`, so the lock-step siblings' transitive dependency tree is not pulled pointlessly.
-- Update items (e) and (r)'s "snapshot" wording to cite this *Baseline acquisition* paragraph by anchor rather than restating where the baseline comes from.
-
-The recipe must additionally state:
-
-1. The scratch directory and any extracted tarball are ephemeral and MUST NOT be committed.
-2. The baseline acquisition MUST run *before* the candidate install in `version-bump-intro.md` step 1; or — if ordered after — MUST use an explicit `@<pinned-version>` specifier in `npm pack` rather than relying on registry resolution from the loom `package.json` (which step 1 will have moved by the time items (e)/(r) run).
-3. The `<pinned-version>` token is sourced from the pre-bump value at the [loom 1.0 Pi-SDK pin](./host-prerequisites.md#pi-sdk-pin) anchor, captured before the bump's step 4 rewrites it.
-
-### Edge cases
-
-- Network access is required at bump time, but the candidate install already requires it, so this is not a new precondition.
-- Re-auditing a prior bump depends on the pinned version remaining published on the registry; a deliberate unpublish/yank, or a future switch to a private registry, makes the baseline unreachable. The pinned tarball MUST be fetched *before* the candidate install overwrites the lockfile or changes the resolved registry, in case the registry source is per-version-resolved.
-
-## Relationships
-
-- T057 "Item (e) fail predicate: operator-precedence ambiguity, single-sentence packing, and sub-outcomes buried mid-prose" - same-cluster (both touch item (e); independent resolutions)
