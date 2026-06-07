@@ -4,7 +4,7 @@ _Generated: 2026-06-06T13:23:32Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T118) is addressed first; the first finding (T001) is addressed last._
 
-_Triage tally: 0 blockers, 20 high, 60 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 19 high, 60 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
 
 _(Updated 2026-06-06: T099 "`loom/load/callee-has-errors` promises codes via `related`" resolved and removed — the `code-registry-load.md` row and the `invocation.md` Static resolution paragraph were walked back so neither promises the callee's diagnostic *codes* via `related`; both now state that `related` carries one entry per underlying error *site* (`{ file, range, message }` per `diagnostic-shape.md`), with the callee's own diagnostics emitted separately. No change to `diagnostic-shape.md` or the closed `related` element shape.)_
 
@@ -15,6 +15,8 @@ _(Updated 2026-06-07: T077 "Top-level loom return-type inference does not reconc
 _(Updated 2026-06-07: T078 "SLSH-5 `<parent_path>:<line>` is defined only for `invoke(...)` call sites, not for `.loom`-callable bare-identifier calls" resolved and removed — `slash-invocation.md` SLSH-5's `<line>` definition now sources the line from the call-site token that produced the `invoke_callee` hop for either syntactic form — the `invoke(` token of a literal `invoke(...)` expression, or the callee-name identifier of a `.loom`-callable bare-identifier call — with `<callee_path>` for the bare-identifier form taken from the parent's Resolution snapshot, and a new `.loom`-callable worked example added beside the existing Single-hop/Multi-hop bullets. The model-driven `@`-query tool-call surface is explicitly excluded (it feeds failure back as a tool-error result, not an `invoke_callee` cascade). No new REQ-ID; the SLSH-5 anchor and umbrella MUST were left as-is.)_
 
 _(Updated 2026-06-07: T079 "SLSH-4 template cells and SLSH-5 worked examples disagree on whether inline backticks are emitted" resolved and removed — `slash-invocation.md` SLSH-4 prose now states that the inline backticks in the `System note shape` cells are Markdown code-span formatting and are not part of the emitted string (renderers emit the cell text with the surrounding backticks removed), matching the backtick-free SLSH-5 worked examples; the stripping is scoped to the template text so backticks arriving inside an interpolated placeholder pass through unchanged. No new REQ-ID; the SLSH-4 table rows and SLSH-5 examples were left as-is.)_
+
+_(Updated 2026-06-07: T074 "TYPE-8 field-wise compatibility scope (named schema vs inline object type) is ambiguous" resolved and removed — `type-system.md` TYPE-8 is now scoped to inline object types (`ObjectType`) only; a new TYPE-10 (REQ-ID coined per GOV-22 under the registered `TYPE` prefix) pins named schemas as nominal — a `NamedType` resolving to an object schema participates in `⊑` only via TYPE-1 (same named schema), TYPE-4 (variant-to-union), and TYPE-5/TYPE-6 (union membership); cross-form (named-vs-inline) and cross-named-schema pairs are `⋢` regardless of field shape and surface as the offending site's existing `loom/parse/*-type-mismatch` diagnostic. The *Operational definition* paragraph was qualified so AJV-validation is a necessary, not sufficient, condition: the parser's nominal rejection is authoritative even when the lowered fragments are AJV-interchangeable. The optional new `loom/parse/named-schema-inline-object-mismatch` code was not added (folded under the existing mismatch family per optional-action discipline); no diagnostics-registry edit was needed since the parse rows already cite `#type-compatibility`.)_
 
 _(Updated 2026-06-07: T076 "Language-core hidden assumptions: enum-tag sidecar, AJV-config silence, Markdown-by-providers claim" resolved and removed — three independent edits landed. (1) `descriptions.md`'s `///`-rule "Markdown" bullet was demoted: the normative claim about provider rendering became a `No transformation.` bullet pinning loom's byte-for-byte emission, with the provider-Markdown observation moved to a `*(Non-normative provenance.)*` tail. (2) `schema-subset.md`'s Draft bullet gained a clarifying sentence binding "validates" / "is accepted by the validator" prose to JSON Schema 2020-12 semantics (lowered schemas evaluated under that draft by loom and any conforming validator); phrased without a new RFC-2119 modal to avoid a GOV-22 progressive-coinage trigger on a page that carries no REQ-ID anchors (pre-backfill). (3) A per-position *Named-enum positions* sidecar was added to `schema-subset.md` Lowering Algorithm step 5 (now "Per-schema sidecar" with two maps) and consumed by `runtime-value-model.md`'s inbound Wire-name translation bullet, giving enum-tag reattachment a machine-readable input that distinguishes named-`enum` positions from anonymous string-literal unions. The originating finding's third proposed edit-half — reframing `type-system.md`'s `⊑` operational definition against the PIC-11 `SchemaValidator` seam — was deferred per the finding's own coordination clause: the corpus is uniformly AJV-phrased and the seam reframing must land with the corpus-wide AJV→seam rewrite, which is not queued in this dispatch. No new REQ-ID coined; no RFC-2119 modal was added, so GOV-22 progressive coinage does not trigger.)_
 
@@ -3246,71 +3248,3 @@ Make `==` / `!=` admit any pair of operand types and evaluate to a well-defined 
 ## Relationships
 
 - T010 "`==` semantics are authoritative on `runtime-value-model.md` but `expressions.md` Equality neither restates nor links them" - co-resolve (the selected edit naturally adds the back-reference; the consolidation fix and the cross-type-disposition fix land in the same paragraph on `expressions.md`)
-
----
-
-# T074 - TYPE-8 field-wise compatibility scope (named schema vs inline object type) is ambiguous
-
-**Original heading:** TYPE-8 field-wise compatibility scope (named schema vs inline object type) is ambiguous
-**Original section:** docs/spec_topics/ language core (lexical, grammar, type-system, expressions, runtime-value-model, descriptions, schemas, schema-subset)
-**Kind:** testability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-
-## Finding
-
-`type-system.md` TYPE-8 says "an object type with declared fields `{ f₁: T₁, ... }` is `⊑` another object type with the same declared field set `{ f₁: U₁, ... }` iff `Tᵢ ⊑ Uᵢ` for every `i`," but the spec never pins which `Type` surface forms count as an "object type" for this rule. Two production-level candidates fit the phrase: the `ObjectType` non-terminal in `grammar.md` (inline anonymous `{ field: T, ... }` only), and `NamedType` whose resolved declaration is `schema X { ... }` (a named object schema). The Notes column reasons about `additionalProperties: false` in a way that applies to both, the Operational Definition routes through AJV (which sees both as the same lowered shape after `$ref` deref), and TYPE-1 already covers the identical-named-schema and identical-inline-object cases — leaving the cross-form case (one side a named schema, the other an inline-object type with the same field shape) and the cross-named-schema case (two distinct named schemas with identical field shapes) governed by no parser-visible structural rule.
-
-A conformance tester cannot derive a deterministic verdict for any of these mixed cases:
-
-- `let x: { name: string, age: integer } = author_value` where `author_value: Author` and `schema Author { name: string, age: integer }`.
-- `let y: Author = inline_value` where `inline_value: { name: string, age: integer }`.
-- `let z: Author = other_value` where `other_value: Author2` and `Author` and `Author2` declare the same fields.
-
-Under TYPE-8 read structurally each is admissible; read nominally each is `loom/parse/let-rhs-type-mismatch`; under "fall through to AJV" each is admitted but at runtime rather than parse time. The Operational Definition's AJV reading would admit all three (the lowered fragments are byte-identical or `$ref`-equivalent after dereferencing), but the explicit list of "structural cases the parser must recognise" is declared closed, so the parser cannot lean on AJV here — TYPE-8 must decide on its own surface, and its wording does not.
-
-## Spec Documents
-
-- `docs/spec_topics/type-system.md` — TYPE-8 row and surrounding "Structural cases the parser must recognise" prose (edited)
-- `docs/spec_topics/grammar.md` — `ObjectType` / `NamedType` productions (read-only)
-- `docs/spec_topics/schemas.md` — object-schema declaration form (read-only)
-- `docs/spec_topics/schema-subset.md` — lowering algorithm, `__inline_<slug>` hoisting, named-schema `$defs` entries (read-only; informs the AJV equivalence behind the structural question)
-- `docs/spec_topics/diagnostics/code-registry-parse.md` — `loom/parse/let-rhs-type-mismatch`, `loom/parse/invoke-arg-type-mismatch`, `loom/parse/fn-arg-type-mismatch` rows (edited — the registered messages may need a one-line scope note now that the verdict is nominal)
-
-## Plan Impact
-
-**Phases:** N/A
-
-**Leaves (implementation order):** N/A
-
-(The project's `plan.md` has no leaves yet — the Horizontal, MVP, and Vertical sections are placeholder.)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers will diverge on parse-time admissibility for any mixed named-schema / inline-object assignment. A nominal implementer rejects code a structural implementer accepts; a "fall through to AJV" implementer admits all three cases at parse time but defers the failure to a runtime validation surface at an unrelated call site. The divergence is observable to authors as inconsistent diagnostic positioning (parse error vs runtime AJV failure vs no failure at all), and propagates into the `loom/parse/*-type-mismatch` test corpus.
-
-## Solution Space
-
-**Shape:** single
-**State:** reduced
-
-Make named schemas nominal and scope TYPE-8 field-wise compatibility to inline object types only. A `NamedType` resolving to an object schema participates in `⊑` exclusively through TYPE-1 (identical named schema), TYPE-4 (variant-to-union), and TYPE-5/TYPE-6 (union membership); a named schema on one side and an inline object on the other are incompatible regardless of field shape. This preserves the protection an author gets from naming a schema — the spec already treats named schemas as identity-bearing (`loom/parse/wire-name-collision` is per-named-schema, `$defs` is keyed by name, error messages cite the schema name, `descriptions.md` motivates named schemas for reuse and for getting a name in error messages). A structural reading would silently eliminate the only protection naming provides; the AJV-divergence cost of going nominal is a single qualifying sentence, whereas designing a "named schema with identical fields" subtyping graph is open-ended.
-
-### Spec edits
-
-- Rewrite the TYPE-8 row to scope it to inline `ObjectType` only. Add: "A `NamedType` whose declaration is `schema X { ... }` is compatible only with another `NamedType` reference to the same schema (TYPE-1), with a union membership (TYPE-4/5/6), or with itself. A named-schema value is *not* `⊑` an inline object type with the same field shape, and vice versa — assign through an explicit construction or a typed `let` that names the target schema." Optionally add `loom/parse/named-schema-inline-object-mismatch`, or fold the rejection under the existing `let-rhs-type-mismatch` family.
-- Qualify the Operational Definition paragraph at the top of *Type compatibility* so readers do not infer from "AJV-validates against the lowering of T₂" that any pair admitted by AJV is admitted by `⊑`: the safety net admits more pairs than the parser, but the parser's rejection is authoritative.
-
-### Edge cases
-
-- A value of an inline object type passed where a named schema is expected: parse error, not runtime AJV failure.
-- A named-schema value passed where an inline object type is expected: parse error, even when the fields line up.
-- Two distinct named schemas with byte-identical lowered fragments: incompatible. Name identity, not lowered identity, drives `⊑`; any canonical-hash slug coincidence is irrelevant.
-- Inline-object-type usage is sparse in the corpus — provide a clear migration note for any examples currently relying on cross-form admission, since authors may not expect a structural-vs-nominal split inside a single relation.
-
-## Relationships
-
-- T070 "Schema-slug collision posture is pinned only for the `pi.registerTool` cache, leaving the `$defs` hoist and the validator cache silent" - same-cluster (both findings touch the named-vs-structural identity question, but resolve independently — slug-collision is about runtime fragment identity, TYPE-8 is about parse-time type identity)
