@@ -12,6 +12,8 @@ _(Updated 2026-06-07: T081 "Filesystem case-sensitivity is unspecified for `.war
 
 _(Updated 2026-06-07: T077 "Top-level loom return-type inference does not reconcile early-`return` operand types with the tail-expression type" resolved and removed — `functions.md` `#loom-return-type` now infers the return type as the least upper bound (under type-system.md `#type-compatibility` `⊑`) of the tail-expression type and every reachable early-`return` operand type, with the implicit `Result<T, QueryError>` wrapping triggered when any `?` appears or any contributing operand is `Result`-typed and `T` reconciled over the contributing operands' success payloads; the same rule governs annotation-less `fn` bodies. `return.md`'s `return expr` bullet now forwards to that rule for the no-declared-return-type case, and a sibling diagnostic `loom/parse/return-no-common-type` was added to `code-registry-parse.md` alongside `loom/parse/array-no-common-type`. The existing `⊑` rules for `match` arms, ternary branches, and array literals were not modified. No new REQ-ID coined: the edit adds no RFC-2119 normative-modal token, so GOV-22 progressive coinage does not trigger.)_
 
+_(Updated 2026-06-07: T067 "Pi behavioural presuppositions lack authoritative behavioural pointers" resolved and removed — an *Authoritative source* pointer was added to each enumerated unpinned-presupposition paragraph that previously cited only the type surface: `host-interfaces-core.md` (`#messages-chronological-order-presupposition`), `registration-steps.md` (`#getcommands-completeness-presupposition`, `#register-tool-post-startup-presupposition`), `provider-error-mapping.md` (`#provider-overflow-wording-presupposition`), `host-prerequisites.md` (`#model-registry-population-presupposition`, `#settings-write-back-preservation-presupposition`), `host-interfaces-services.md` (`#cwd-project-root-presupposition`), `subagent.md` (`#dispose-mid-abort-presupposition`), and `conversation-drive.md` (`#complete-forced-tool-presupposition`, `#complete-retry-and-cancellation-presupposition`). Each pointer names the observed implementation file/symbol at the loom 1.0 Pi-SDK pin (`@earendil-works/*` `dist/**`) or, for provider-owned overflow wording, the per-provider API error-format docs plus the captured-error-body fixture corpus; every `dist/**` citation carries the established **known-fragile evidence** flag routing textual-diffability failure to the version-bump recovery path. Following the snapshot/restore and `#custom-message-context-entry-presupposition` precedents, which were left untouched per the finding's out-of-scope constraint. The Solution approach's checklist-mirroring and head-of-checklist-rule additions were not taken (existing `version-bump-step2.md` checklist items already forward-link to each paragraph; no new MUST authored). No REQ-ID or diagnostic code coined.)_
+
 _(Updated 2026-06-07: T078 "SLSH-5 `<parent_path>:<line>` is defined only for `invoke(...)` call sites, not for `.loom`-callable bare-identifier calls" resolved and removed — `slash-invocation.md` SLSH-5's `<line>` definition now sources the line from the call-site token that produced the `invoke_callee` hop for either syntactic form — the `invoke(` token of a literal `invoke(...)` expression, or the callee-name identifier of a `.loom`-callable bare-identifier call — with `<callee_path>` for the bare-identifier form taken from the parent's Resolution snapshot, and a new `.loom`-callable worked example added beside the existing Single-hop/Multi-hop bullets. The model-driven `@`-query tool-call surface is explicitly excluded (it feeds failure back as a tool-error result, not an `invoke_callee` cascade). No new REQ-ID; the SLSH-5 anchor and umbrella MUST were left as-is.)_
 
 _(Updated 2026-06-07: T079 "SLSH-4 template cells and SLSH-5 worked examples disagree on whether inline backticks are emitted" resolved and removed — `slash-invocation.md` SLSH-4 prose now states that the inline backticks in the `System note shape` cells are Markdown code-span formatting and are not part of the emitted string (renderers emit the cell text with the surrounding backticks removed), matching the backtick-free SLSH-5 worked examples; the stripping is scoped to the template text so backticks arriving inside an interpolated placeholder pass through unchanged. No new REQ-ID; the SLSH-4 table rows and SLSH-5 examples were left as-is.)_
@@ -2949,30 +2951,3 @@ Add dual-form HTML anchors (`<a id="hc3-a"></a>` through `hc3-e`) to the `**HC3-
 ## Relationships
 
 - T023 ""CIO-N rules above" and the five-site co-edit "(in this page)" point to anchors on the sibling page" - same-cluster (same misdirection pattern — text implies an in-page target but the actual governed site is on a sibling page).
-
-# T067 - Pi behavioural presuppositions lack authoritative behavioural pointers
-
-**Kind:** external-entities
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Decision axes:** 3
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The `pi-integration-contract/` behavioural-presupposition paragraphs split into two regimes. One regime pins an authoritative in-tree evidence source at the loom 1.0 Pi-SDK pin — e.g. the snapshot/restore preconditions in `tool-registration-lifetime.md` and `#custom-message-context-entry-presupposition` in `runtime-event-channel.md` (citing `convertToLlm` in `dist/core/messages.js`). The other regime cites only the type-surface site the property is *not* encoded in and defers to the version-bump editorial checklist with no pointer to where the property authoritatively holds — including `#messages-chronological-order-presupposition`, `#getcommands-completeness-presupposition`, `#register-tool-post-startup-presupposition`, `#provider-overflow-wording-presupposition`, and the model-registry, settings-write-back, `cwd == project root`, `dispose()`-mid-`abort()`, and `complete()` presuppositions. An auditor reading the corresponding item of the *Editorial-review checklist for unpinned host presuppositions* in `version-bump-step2.md` is told what property to verify but not where in the candidate Pi minor (or provider error format) the answer lives, so the diff-target must be re-discovered on every bump and a presupposition can silently weaken across a minor.
-
-## Solution approach
-
-Add an *Authoritative source* pointer to each behavioural-presupposition paragraph that lacks one, alongside its existing surface-inventory citation, following the precedent set by `tool-registration-lifetime.md`'s snapshot/restore precondition and `runtime-event-channel.md`'s `#custom-message-context-entry-presupposition`. For Pi-/`@earendil-works/*`-owned behaviour cite the source path at the loom 1.0 Pi-SDK pin; for provider-owned behaviour (`#provider-overflow-wording-presupposition`) cite the per-provider error-format reference that defines the canonical wording; where Pi publishes no documentation for the property, state that and pin the observed implementation file. Mirror the pointer on the corresponding item of the *Editorial-review checklist for unpinned host presuppositions* in `version-bump-step2.md` so each checklist entry is self-contained, and add a head-of-checklist rule requiring every newly-added presupposition to carry a behavioural pointer at landing.
-
-## Solution constraints
-
-- Out of scope: the snapshot/restore precondition in `tool-registration-lifetime.md` and `#custom-message-context-entry-presupposition` in `runtime-event-channel.md` are already compliant — do not modify or re-pin their evidence trails.
-- Pointers to bundler-output (`dist/**`) paths must carry the existing "known-fragile evidence" flag so textual-diffability failure routes to the established version-bump recovery path.
-
-## Relationships
-
-None
