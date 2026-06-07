@@ -284,3 +284,20 @@ it does not persist across worktree wipes)._
 - **Fixer notes:** none
 
 ---
+
+## 2026-06-07T10:10:13Z — T058 - Step-2(b) family→branch correspondence inverts at the family-distinctive arms
+
+- **Failure mode:** fast-loop-unresolved
+- **Category:** 1 _(Rec W: 1 = malformed finding — reshape `spec-review.md`; 2 = fixer too-hard — file pi-config issue)_
+- **Trajectory:** n/a
+- **Score trajectory:** n/a
+- **Passes:** n/a
+- **Stage at exit:** n/a (n/a pass(es) in stage)
+- **Snapshot refs (retained for forensics):** n/a (loop did not run)
+- **Poisoned fixes:** n/a
+- **Forensic report:** none (fast loop — no forensic report)
+- **Parked findings (this run):** `T058 - Step-2(b) family→branch correspondence inverts at the family-distinctive arms`
+- **Loop notes:** Picker emitted CONTRADICTS — the reduced finding's Solution edits instruct updating branch references in audit-target-categories.md and audit-recognised-shapes.md, which the finding's own Spec Documents scope marks read-only (Class II site-scope inversion). Not directly fixable in the fast loop.
+- **Fixer notes:** none
+
+---
