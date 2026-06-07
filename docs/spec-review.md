@@ -4,7 +4,7 @@ _Generated: 2026-06-06T13:23:32Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T118) is addressed first; the first finding (T001) is addressed last._
 
-_Triage tally: 0 blockers, 17 high, 60 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 16 high, 59 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
 
 _(Updated 2026-06-06: T099 "`loom/load/callee-has-errors` promises codes via `related`" resolved and removed — the `code-registry-load.md` row and the `invocation.md` Static resolution paragraph were walked back so neither promises the callee's diagnostic *codes* via `related`; both now state that `related` carries one entry per underlying error *site* (`{ file, range, message }` per `diagnostic-shape.md`), with the callee's own diagnostics emitted separately. No change to `diagnostic-shape.md` or the closed `related` element shape.)_
 
@@ -328,32 +328,6 @@ Widen the glob in each of the three clauses from `docs/spec_topics/*.md` to the 
 ## Relationships
 
 - T006 "Orientation pages live outside GOV-17's corpus and are cited under two incompatible paths" - same-cluster (both are governance-scope-glob mismatches against the actual on-disk corpus; resolved independently — that finding extends the corpus, this one widens existing globs to match GOV-17)
-
-# T008 - Indexed-access runtime disposition not cross-referenced from `expressions.md`
-
-**Kind:** error-model, implementability
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The indexed-access bullet under `## Supported forms` in `expressions.md` names only the static `loom/parse/non-indexable-receiver` diagnostic and says nothing about what happens at runtime when the receiver is correctly typed but the index is dynamically absent — an array index outside `0..arr.length`, or an object indexed access on a missing key. The disposition is in fact specified on `errors-and-results/error-model.md` (`#runtime-panics`: `loom/runtime/index-out-of-bounds` and `loom/runtime/missing-object-key`), but `expressions.md` neither names those codes nor links to that list. Because Loom has no `undefined`, the silence invites divergent implementations (JS-style `undefined`, an opaque exception, or the correct panic) that fail conformance silently from the operator-page reader's vantage.
-
-## Solution approach
-
-Add a runtime-disposition statement to the indexed-access bullet under `## Supported forms` in `expressions.md`, after the existing static-error clause, naming the out-of-bounds array panic and the missing-object-key panic and forward-linking to `errors-and-results/error-model.md#runtime-panics` as the canonical closed list.
-
-## Solution constraints
-
-- Out of scope: the panic-message templates, owned by the diagnostics registry that `error-model.md` already cites as authoritative.
-- Out of scope: the `null`-receiver panic variants (`loom/runtime/null-member-access`, `loom/runtime/null-index-access`), which remain owned by `error-model.md`.
-
-## Relationships
-
-- T069 "Object indexed-access static semantics are undefined" - same-cluster (touches the same indexed-access bullet; resolves independently — T069 covers static result type and key-type constraints, this finding covers runtime disposition).
 
 # T009 - Integer-overflow arithmetic has no normative reference vector
 
@@ -3028,31 +3002,3 @@ Promote the operator-always-present invariant to a normative host-behaviour pres
 ## Relationships
 
 - T005 "Orientation NFR refers to `loom-system-note` as a pre-existing Pi channel without flagging the registration step" — same-cluster (PIC-channel claims in orientation prose that need a clean pointer at the normative PIC owner).
-
-# T069 - Object indexed-access static semantics are undefined
-
-**Kind:** implementability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Decision axes:** 3
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`expressions.md`'s *Supported forms* indexed-access bullet admits `a["b"]` / `a[0]` / `a[i]` against an object-value receiver but never pins the static-typing rules for that case. Three questions are unanswered: the required type of the index expression for an object receiver (must it be `string`; is `integer` rejected), whether the index must be a string literal or whether arbitrary dynamic string expressions are admitted, and the static result type of `obj[k]` (the field's declared type TS-style, or the union of all declared field types `values()`-style). Two reasonable implementers diverge on what `let v = obj["b"]` types as, whether `obj[0]` parses, and whether the parser must distinguish literal-key from dynamic-key bracket access — silently mistyping downstream `let`-bindings and `match` scrutinees and making conformance tests on `obj[k]` unwritable.
-
-## Solution approach
-
-Clarify the indexed-access bullet in `expressions.md`'s *Supported forms* to pin the static semantics of `obj[k]` on an object-typed receiver: the index expression must be of type `string`, with non-string indices rejected at parse time (registering the corresponding parse-time diagnostic in `code-registry-parse.md`), and the result type is the union of the receiver's declared field types — the same element type `values()` produces — applied uniformly with no literal-key/dynamic-key distinction, so authors wanting the per-field declared type use member access (`obj.fieldName`). State that the index expression names a loom-side name per `runtime-value-model.md`, not a wire name. Add a forward-link from the bullet to `loom/runtime/missing-object-key` so the read order is parse-time key-type check then runtime missing-key panic.
-
-## Solution constraints
-
-- Out of scope: TYPE-8's field-wise object-type compatibility scope, owned by T074 — do not redefine structural object-type compatibility here.
-
-## Relationships
-
-- T008 "Indexed-access runtime disposition not cross-referenced from `expressions.md`" - co-resolve (the runtime side is in fact already specified in `error-model.md` / `code-registry-runtime.md`; once this finding's edit cross-references those, the sibling finding largely closes)
-- T074 "TYPE-8 field-wise compatibility scope (named schema vs inline object type) is ambiguous" - same-cluster (both touch how object types behave under static rules; resolve independently)
-- T073 "Cross-type `==` / `!=` disposition is unspecified" - same-cluster (same pattern: an operator silent on a corner of its type domain)
