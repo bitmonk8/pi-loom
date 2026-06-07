@@ -17,9 +17,13 @@ Loom values are represented in the interpreter as native JavaScript values, tagg
 
 <a id="equality"></a>
 
-**Equality (`==`).** Structural deep equality:
+**Equality (`==`).** Structural deep equality.
 
-- Primitives compare by value, with two points fixed explicitly: `NaN == NaN` is `true`, and `+0` and `-0` compare equal (`+0 == -0` is `true`), consistent with the `-0`→`0` normalisation the rendering pipeline applies (e.g. [`integer` rendering](./binder/defaulting-system-note-echo.md#bndr-4)).
+`==` and `!=` accept operands of *any* two static types; unlike the ordering operators (`<`, `<=`, `>`, `>=`), a cross-type pair never raises a parse diagnostic. When the two operand static types share no common structural ground — for instance `42 == true`, `Severity.High == 3`, `[1] == 1`, or `null == "x"` — `==` evaluates to `false` and `!=` to `true`; the comparison loads and runs, it neither fails to parse nor panics at runtime. This generalises the cross-enum outcome in the enum-variant bullet below: `Severity.High == OtherEnum.High` is `false` precisely because the two values carry different declaring-enum static types. The cross-type rule applies only when the static types differ. When both operands share one static type — including an enum variant compared against an anonymous-union string with the same wire value, e.g. `Severity.Low == "low"` — equality is governed by the per-shape rules below, not by this paragraph.
+
+Per shape:
+
+- Primitives compare by value, with two points fixed explicitly: `NaN == NaN` is `true`, and `+0` and `-0` compare equal (`+0 == -0` is `true`), consistent with the `-0`→`0` normalisation the rendering pipeline applies (e.g. [`integer` rendering](./binder/defaulting-system-note-echo.md#bndr-4)). Ordering on `NaN`, by contrast, produces `false` on all four ordering operators and is defined in [Expressions — Ordering comparisons](./expressions.md#ordering-comparisons); the equality/ordering asymmetry is deliberate.
 - Arrays compare element-wise at the same indices; same length required.
 - Objects compare key set (loom-side names) and per-key value equality; key declaration order is irrelevant.
 - Enum variants compare the declaring-enum tag and the wire value: `Severity.High == OtherEnum.High` is `false` even when wire values match.

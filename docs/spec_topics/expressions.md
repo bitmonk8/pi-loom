@@ -52,7 +52,7 @@ No match is `loom/parse/unknown-identifier`. Collisions across (2)–(4) are rej
 
 ## Equality
 
-`==` is structural: deep value equality for objects and arrays, value equality for primitives. There is no `===`.
+`==` is structural: deep value equality for objects and arrays, value equality for primitives. There is no `===`. As primitive refinements, `NaN == NaN` is `true` and `+0 == -0` is `true` — deliberately asymmetric with the `NaN` ordering rule in [§ Ordering comparisons](#ordering-comparisons), under which all four ordering operators on `NaN` produce `false`. `==` / `!=` also accept operands of *different* static types: unlike the ordering operators, a cross-type pair never raises `loom/parse/non-orderable-operands` — it loads and evaluates to `false` (`==`) or `true` (`!=`) when the operand types share no common structural ground. The full rule — arrays, objects, enums, `Result`, and the cross-type disposition — is defined in [Runtime Value Model — Equality](./runtime-value-model.md#equality).
 
 ## Truthiness
 

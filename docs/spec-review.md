@@ -18,6 +18,8 @@ _(Updated 2026-06-07: T079 "SLSH-4 template cells and SLSH-5 worked examples dis
 
 _(Updated 2026-06-07: T074 "TYPE-8 field-wise compatibility scope (named schema vs inline object type) is ambiguous" resolved and removed — `type-system.md` TYPE-8 is now scoped to inline object types (`ObjectType`) only; a new TYPE-10 (REQ-ID coined per GOV-22 under the registered `TYPE` prefix) pins named schemas as nominal — a `NamedType` resolving to an object schema participates in `⊑` only via TYPE-1 (same named schema), TYPE-4 (variant-to-union), and TYPE-5/TYPE-6 (union membership); cross-form (named-vs-inline) and cross-named-schema pairs are `⋢` regardless of field shape and surface as the offending site's existing `loom/parse/*-type-mismatch` diagnostic. The *Operational definition* paragraph was qualified so AJV-validation is a necessary, not sufficient, condition: the parser's nominal rejection is authoritative even when the lowered fragments are AJV-interchangeable. The optional new `loom/parse/named-schema-inline-object-mismatch` code was not added (folded under the existing mismatch family per optional-action discipline); no diagnostics-registry edit was needed since the parse rows already cite `#type-compatibility`.)_
 
+_(Updated 2026-06-07: T010 "`==` semantics are authoritative on `runtime-value-model.md` but `expressions.md` Equality neither restates nor links them" and T073 "Cross-type `==` / `!=` disposition is unspecified" resolved together (co-resolve cluster) and removed — `expressions.md` § Equality is upgraded from a one-sentence body to a stub-with-link that names `==` as structural, teases the `NaN == NaN` / `+0 == -0` refinements with an on-page contrast to the `NaN` ordering rule, states the cross-type disposition, and forward-links the full rule to `runtime-value-model.md#equality`; `runtime-value-model.md`'s `**Equality (`==`).**` block gains a general cross-type rule before the per-shape bullets (`==` / `!=` admit any two static types and evaluate to `false` / `true` when the types share no common structural ground; loads and runs, never parse-rejects or panics) plus a back-reference from the primitives bullet to `expressions.md` § Ordering comparisons for the asymmetric `NaN` ordering. No diagnostic code added (the registry is closed under GOV-7/GOV-8); the `loom/parse/non-orderable-operands` suggestion to "use `==` / `!=` for other types" stays correct but is no longer load-bearing on parse-rejection semantics. No new REQ-ID coined — both pages are pre-REQ-ID-backfill (zero EXPR/RVM anchors), so GOV-22 progressive coinage defers to those pages' one-shot backfill pass per the transitional rule.)_
+
 _(Updated 2026-06-07: T076 "Language-core hidden assumptions: enum-tag sidecar, AJV-config silence, Markdown-by-providers claim" resolved and removed — three independent edits landed. (1) `descriptions.md`'s `///`-rule "Markdown" bullet was demoted: the normative claim about provider rendering became a `No transformation.` bullet pinning loom's byte-for-byte emission, with the provider-Markdown observation moved to a `*(Non-normative provenance.)*` tail. (2) `schema-subset.md`'s Draft bullet gained a clarifying sentence binding "validates" / "is accepted by the validator" prose to JSON Schema 2020-12 semantics (lowered schemas evaluated under that draft by loom and any conforming validator); phrased without a new RFC-2119 modal to avoid a GOV-22 progressive-coinage trigger on a page that carries no REQ-ID anchors (pre-backfill). (3) A per-position *Named-enum positions* sidecar was added to `schema-subset.md` Lowering Algorithm step 5 (now "Per-schema sidecar" with two maps) and consumed by `runtime-value-model.md`'s inbound Wire-name translation bullet, giving enum-tag reattachment a machine-readable input that distinguishes named-`enum` positions from anonymous string-literal unions. The originating finding's third proposed edit-half — reframing `type-system.md`'s `⊑` operational definition against the PIC-11 `SchemaValidator` seam — was deferred per the finding's own coordination clause: the corpus is uniformly AJV-phrased and the seam reframing must land with the corpus-wide AJV→seam rewrite, which is not queued in this dispatch. No new REQ-ID coined; no RFC-2119 modal was added, so GOV-22 progressive coinage does not trigger.)_
 
 _(Updated 2026-06-06: T085 "Mid-loom Pi-extension hot-reload: held closure invocation has no contracted outcome" resolved and removed — the last Resolution-snapshot consequence bullet in frontmatter-fields-b-and-templates.md was rewritten to replace the "out of loom 1.0 scope" dismissal with a positive contract: the held `execute` closure is dispatched like any other captured Pi-tool callable, and its failures route through the existing surfaces — catchable throws to `CodeToolError { cause: "execution" }`, non-conforming returns to `loom/runtime/internal-error` (both in tool-calls.md), and host-fatal errors to error-model.md's runtime-panics surface. No new diagnostic code, `loom-system-note` shape, or timeout was introduced; the `/reload` author-guidance sentence was retained.)_
@@ -375,66 +377,6 @@ Add a normative reference-vectors table to § "Other arithmetic", following the 
 ## Relationships
 
 - T075 "Bare-source backslash: no diagnostic code is named" — same-cluster (both are testability findings on the same review cluster, but the diagnostics issue resolves independently of the overflow vectors)
-
-# T010 - `==` semantics are authoritative on `runtime-value-model.md` but `expressions.md` Equality neither restates nor links them
-
-**Original heading:** `==` full semantics defined only in runtime-value-model.md with no back-reference from expressions.md Equality
-**Original section:** docs/spec_topics/ language core (lexical, grammar, type-system, expressions, runtime-value-model, descriptions, schemas, schema-subset)
-**Kind:** placement (shard-03), scope (shard-03)
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-
-## Finding
-
-`runtime-value-model.md` carries the full normative definition of `==`: structural deep equality, with `NaN == NaN` true, `+0 == -0` true, element-wise array comparison at equal length, key-set + per-key object comparison (loom-side names), enum compares by `(declaring-enum tag, wire value)`, and `Result` compares by `Ok`/`Err` discriminator and recurses on the payload. The anchor is `#equality`.
-
-`expressions.md` § Equality is the operator page a reader arrives at from the precedence table and the `==`/`!=` row, but its entire body is one sentence: *"`==` is structural: deep value equality for objects and arrays, value equality for primitives. There is no `===`."* No link to `runtime-value-model.md#equality`, no mention of the NaN or `±0` refinements, no mention of enum-tag or `Result` recursion. A reader who consults the operator page in isolation will not discover that `NaN == NaN` is `true`, that `Severity.High == OtherEnum.High` is `false`, or that key declaration order does not affect object equality.
-
-The split is also asymmetric for NaN. NaN ordering (`NaN < 1`, `NaN <= NaN`, etc., all `false`) lives in `expressions.md` § Comparison, and that section *does* forward-reference `runtime-value-model.md#equality` to contrast against `NaN == NaN`. The reverse link does not exist: `runtime-value-model.md`'s `**Equality (==).**` block names neither `expressions.md` § Comparison nor the ordering rule, so a reader on the value-model page sees NaN equality but is not told that NaN ordering exists on another page or that the two rules are deliberately asymmetric.
-
-## Spec Documents
-
-- `docs/spec_topics/expressions.md` — § Equality (edited); § Comparison (read-only — the NaN-ordering site the new back-reference targets)
-- `docs/spec_topics/runtime-value-model.md` — `**Equality (==).**` block at `#equality` (edited)
-
-## Plan Impact
-
-**Phases:** N/A
-
-**Leaves:** N/A
-
-(The plan currently has no leaves; `docs/plan.md` lists "_(No leaves yet — author per the template.)_" under each phase.)
-
-## Consequence
-
-**Severity:** correctness
-
-A reader reaching the operator page from the precedence table sees only "structural" and could plausibly implement (or write a test asserting) `NaN == NaN` is `false`, mismatching the runtime-value-model rule. The current text is not internally contradictory, but it is structurally incomplete: the only path to the full rule is to know in advance that runtime-value-model.md owns it. The same applies to readers building intuition about enum or `Result` equality from the operator page.
-
-## Solution Space
-
-**Shape:** single
-**State:** reduced
-
-Keep `runtime-value-model.md` authoritative for `==` and upgrade `expressions.md` § Equality to a stub-with-link, adding a reverse cross-reference so the asymmetric NaN treatment is discoverable from either page. `runtime-value-model.md` is the correct owner because the equality rule references the enum-tag and `Result` representations defined on the same page, and the `**Engine value model**` self-reference would otherwise reach across pages; this is a cross-reference defect, not a placement defect.
-
-Replace `expressions.md` § Equality's single sentence with a short paragraph that (i) names `==` as structural, (ii) states explicitly that `NaN == NaN` is `true` and `±0` compare equal — as a teaser so the contrast with NaN ordering on the same page is visible without a click — and (iii) forward-links to `runtime-value-model.md#equality` for the full rule (arrays, objects, enums, `Result`). Add a back-reference inside the `**Equality (==).**` block in `runtime-value-model.md` pointing to `expressions.md` § Comparison for NaN ordering.
-
-### Spec edits
-- `expressions.md` § Equality: replace the one-sentence body with the stub described above.
-- `runtime-value-model.md` `**Equality (==).**` block: append a sentence noting that ordering on `NaN` produces `false` on all four ordering operators and is defined in `expressions.md` § Comparison.
-
-### Edge cases
-- The `expressions.md` § Equality stub MUST mention `NaN == NaN` explicitly, not merely link out: § Comparison on the same page already names NaN ordering, and a reader comparing the two operator families on one page needs to see the asymmetry without leaving the page.
-- Two pages must stay in sync on the NaN/`±0` mention (the teaser on `expressions.md` and the authoritative rule on `runtime-value-model.md`); keep the teaser narrow (NaN/`±0` only) and pointed at the `#equality` anchor to limit drift.
-- Preserve the existing `runtime-value-model.md#equality` anchor and every inbound link that targets it (e.g. the `expressions.md` § Comparison forward-link and the `**Engine value model**` block's "primitive-equality relation defined under **Equality (`==`)** above").
-
-## Relationships
-
-- T073 "Cross-type `==` / `!=` disposition is unspecified" - same-cluster (also concerns `expressions.md` § Equality; the disposition rule belongs on the authoritative page, `runtime-value-model.md`, so resolution order matters but the edits are independent)
-
----
 
 # T011 - Three independent over-prescriptions across `type-system.md` and `schema-subset.md`
 
@@ -3190,61 +3132,3 @@ Add a definition of the `RestOfLine` terminal to `lexical.md` adjacent to the **
 ## Relationships
 
 None
-
-# T073 - Cross-type `==` / `!=` disposition is unspecified
-
-**Original heading:** `==` cross-type comparison disposition is unspecified (parse error vs always-false vs undefined)
-**Original section:** docs/spec_topics/ language core (lexical, grammar, type-system, expressions, runtime-value-model, descriptions, schemas, schema-subset)
-**Kind:** testability, error-model, implementability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-
-## Finding
-
-`expressions.md` Equality says, in one sentence, that "`==` is structural: deep value equality for objects and arrays, value equality for primitives. There is no `===`." It states no parse-time admissibility rule on the operand pair. Ordering has the explicit `loom/parse/non-orderable-operands` diagnostic for any cross-type pair, with the spec actively directing implementers to "use `==` / `!=` for other types" — strongly implying `==` admits pairs that ordering rejects — but it never says what such an `==` evaluates to, and the parse registry has no `loom/parse/equality-type-mismatch` companion code.
-
-`runtime-value-model.md` Equality recurses through arrays, objects, enums, and `Result`, but its bullets all presuppose comparable structure on both sides. The page mentions exactly two cross-shape outcomes in passing — cross-enum `Severity.High == OtherEnum.High` is `false`, and anonymous-union fallback `Severity.Low == "low"` is `false` — but never generalises to arbitrary cross-type pairs (`42 == true`, `Severity.High == 3`, `[1] == 1`, `null == "x"`, `Author { ... } == 7`, etc.).
-
-The result is three live readings that two reasonable implementers will diverge on: (a) cross-type `==` is `loom/parse/equality-type-mismatch` at parse time, (b) cross-type `==` admits any pair and evaluates to `false` (extrapolating from the two cross-enum / anonymous-union asides), or (c) cross-type `==` is a runtime panic. No conformance test for `42 == true` can be written today.
-
-## Spec Documents
-
-- `docs/spec_topics/expressions.md` — `Equality` section (edited)
-- `docs/spec_topics/runtime-value-model.md` — `Equality (==)` block (edited — lift the two cross-shape asides into a general cross-type rule)
-
-## Plan Impact
-
-**Phases:** N/A
-
-**Leaves (implementation order):** N/A
-
-(Plan currently has no authored leaves.)
-
-## Consequence
-
-**Severity:** correctness
-
-A loom author writing `if (x == "high")` where `x` is a `Severity` enum, or `if (n == null)` where `n: integer`, has no way to know whether the source loads, loads and always evaluates `false`, or loads and panics at runtime. Two conformant implementations of "loom 1.0" can disagree on whether such programs load at all, and the diagnostic-registry surface — which downstream tooling treats as closed — silently lacks a code one of the candidate readings requires.
-
-## Solution Space
-
-**Shape:** single
-**State:** reduced
-
-Make `==` / `!=` admit any pair of operand types and evaluate to a well-defined result rather than rejecting cross-type comparisons at parse time. This keeps the diagnostic-registry surface unchanged (it is closed and versioned under GOV-7/GOV-8, so adding a parse code is a heavier change than a one-sentence edit), and it matches the two cross-shape asides already in the spec, which are precedent that the intended direction is admit-and-`false`.
-
-### Spec edits
-
-- `runtime-value-model.md` Equality: add one paragraph **before** the per-shape bullets stating the general cross-type rule: `==` / `!=` accept any two operand types and, when the static types share no common ground under structural equality, evaluate to `false` and `true` respectively. Lift the two existing cross-shape asides (`Severity.High == OtherEnum.High` is `false`; `Severity.Low == "low"` is `false`) so they read as worked examples of this general rule, tagged as such, rather than standalone asides.
-- `expressions.md` Equality: add a single sentence stating the cross-type rule and back-referencing the `runtime-value-model.md` rule. The existing "use `==` / `!=` for other types" suggestion under `non-orderable-operands` stays correct under this rule (the comparison loads and produces a well-defined `false`), but it must no longer be load-bearing on parse-rejection semantics.
-
-### Edge cases
-
-- `NaN == NaN` (`true`) and `+0 == -0` (`true`) are same-type comparisons governed by the existing primitive-equality bullet; the new cross-type rule does not touch them.
-- `==` between two values that share static type but whose runtime tags differ (enum variant vs anonymous-union string with the same wire value) is *not* a cross-type comparison here — it falls under the existing enum-row rule. The general cross-type rule applies only when the static types differ.
-- This rule silently swallows mistakes like `severity == 3` where the author meant `severity == Severity.High` — the program loads and the branch is dead. The spec gives no early authoring feedback for this shape; any dead-branch detection must come from tooling outside the diagnostic registry.
-
-## Relationships
-
-- T010 "`==` semantics are authoritative on `runtime-value-model.md` but `expressions.md` Equality neither restates nor links them" - co-resolve (the selected edit naturally adds the back-reference; the consolidation fix and the cross-type-disposition fix land in the same paragraph on `expressions.md`)
