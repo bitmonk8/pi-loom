@@ -4,7 +4,7 @@ _Generated: 2026-06-06T13:23:32Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T118) is addressed first; the first finding (T001) is addressed last._
 
-_Triage tally: 0 blockers, 15 high, 57 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 15 high, 56 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
 
 _(Updated 2026-06-07: T064 "Ceiling #1 and ceiling #2 positive enforcement obligations carry no REQ-IDs" resolved and removed — GOV-1 dual-form REQ-ID anchors were coined at the three unanchored enforcement sites: `INV-4` on the `**Invocation depth bound.**` paragraph in `invocation.md` (covering ceiling #1 bound + surface), `FRNT-1` on the `tool_loop` field bullet in `frontmatter/frontmatter-fields-b-and-templates.md` (ceiling #2 bound), and `ERR-19` on the `ToolLoopExhaustedError` prose line in `errors-and-results/queryerror-variants.md` (ceiling #2 surface). The ceiling #1 / #2 aggregator entries in `spec/overview-and-orientation.md` were repointed from page-level / heading-slug auto-id links to the new `#inv-4` / `#frnt-1` / `#err-19` anchors, and the first-enforcement-point listing in `hard-ceilings.md` was repointed to `#inv-4` / `#err-19`. The ceiling-set-invariants citation in `hard-ceilings/ceilings-3-and-4.md` was left unchanged — it names the ceilings by routing-class description, not by obligation anchor, and carries no GOV-25-prohibited auto-id, so it is out of the Problem's scope. New IDs allocated under already-registered prefixes per GOV-3 (`INV-4`, `FRNT-1`, `ERR-19`); no new prefix coined.)_
 
@@ -2811,90 +2811,6 @@ Resolve two independent fixture-enumeration obligations in two files, in the ord
 - (P-c-1)'s `"fork"`-narrowing case must still witness that sub-step 1's `LoomRegistry.drain` ran even though the registry may have been drained by an earlier shutdown in a longer-running harness — fixtures must use a fresh registry per case.
 - Implementers may need seam-level spies they were not otherwise wiring; the cost is one-time scaffold work in the fixture harness, not production code.
 - Sub-case (4) (per-element empty-string detection) is the one most likely to reveal an existing implementation gap, which is why the obligation is worth pinning.
-
-## Relationships
-
-None
-
----
-
-# T063 - Shard-13 clarity / cruft cluster on the provider-error and session-shutdown pages
-
-**Original heading:** Shard-13 clarity/cruft: numeric-run boundary grammar; "is expected to run"; "(W, runtime)" and "foreseeable" qualifiers; provider-error decision-log comments and deferral restatements
-**Original section:** docs/spec_topics/pi-integration-contract/ (diagnostic-emission, patch-skew, provider-error, unknown-reason, subagent, version-bump-intro/triggers/step2/step2b)
-**Kind:** clarity, cruft
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-
-## Finding
-
-Five independent editorial defects sit on the provider-error-mapping and session-shutdown pages. They share no underlying problem; they have only been grouped because they were noticed in the same review pass. Each is independently resolvable and each has a distinct fix surface, but one of them — the numeric-run grammar — is materially more than cosmetic, since the page explicitly promises cross-implementation determinism on token-count extraction and the grammar's boundary cases are silently underdetermined.
-
-The five defects are:
-
-1. **Numeric-run grammar boundary cases.** `provider-error-mapping.md` defines a *numeric run* as "a maximal substring of decimal digits that may contain `,` or `_` digit-group separators (the separators are stripped before the run is parsed as a base-10 integer)" and then guarantees that "two conforming implementations produce identical values on the same payload." The maximal-substring rule does not pin behaviour on three boundary classes: (i) a separator that abuts a non-digit boundary, e.g. `"1,234,"` or `",234"` — does the run include the trailing/leading separator before the strip? (ii) adjacent separators, e.g. `"1,,234"` — one run or two? (iii) a separator-only group between digits, e.g. `"1_,234"` or `"1,_234"` — does mixed `,`/`_` within a single run remain one run? On contrived but plausible provider rewordings ("limit 1,234, requested 5,678") two implementations of the same prose could legitimately count two runs vs four and surface different `tokens_used` / `tokens_limit` pairs, violating the determinism guarantee.
-
-2. **"is expected to run" modal drift.** The *Re-validation gate (loom 1.0.0)* paragraph on the same page reads "a contributor performing the bump is expected to run them, but [Pi version bump procedure] does not yet enumerate the step." "Is expected to" is neither MUST nor SHOULD; later in the same paragraph cluster the spec uses "Reviews SHOULD NOT re-raise" for a sibling obligation. An implementer cannot tell whether running the fixtures is a required step in the manual bump procedure or merely an aspiration.
-
-3. **Unintroduced `(W, runtime)` severity/phase tags.** Four diagnostic-code mentions across `patch-skew-degradation.md`, `session-only-degraded-state.md`, `unknown-reason-rule.md`, and the SM-2 / SM-6 rules in `docs/spec/session-model-and-appendix.md` carry a parenthetical `(W, runtime)` tag immediately after the code string. The two-letter / phase-name shorthand is introduced only in `docs/spec_topics/diagnostics/code-registry-parse.md`'s column legend (Severity is `error (E)` or `warning (W)`; Phase is `lex / parse / type / load / runtime`). A reader following a forward-link into any of these PIC paragraphs sees the tag with no in-page or near-by gloss.
-
-4. **"foreseeable" weasel qualifier.** `diagnostic-emission-isolation.md` says "a circular `cause`, a `BigInt` field, a host-shimmed `JSON.stringify` getter, or any other foreseeable serialiser failure" and, in a sibling clause, "a frozen target object, a throwing setter on a host-shimmed `Object` prototype, an out-of-memory failure during property assignment, or any other foreseeable construction-site failure". The exemplar lists are already non-exhaustive; "foreseeable" adds nothing testable and invites disputes over which unforeseen failures are still in scope for the catch.
-
-5. **Decision-log HTML comments and deferral restatements.** Several pages embed editorial-history `<!-- ... -->` comments aimed at future spec editors rather than at implementers — `provider-error-mapping.md` line 40 ("`Conversation drive — subagent mode` ... was relocated to its owning page"), `binder-inference.md` line 21, `host-interfaces-core.md` line 117, `runtime-event-channel.md` line 129, the bracketed comment mid-paragraph inside `conversation-drive.md`'s `pi.sendUserMessage` block, and the `conversation-drive.md` line 28 ValidationIssue relocation. On `provider-error-mapping.md` specifically the *Re-validation gate* and the *Provider-owned-wording presupposition* paragraphs each separately restate "Wiring this … into the bump procedure as a mechanical [CI] gate … remains the post-loom 1.0.0 maintenance follow-up", with the second paragraph explicitly noting it duplicates the first ("already noted under the *Re-validation gate* above"). The same paragraph also embeds a reviewer-meta directive ("Reviews SHOULD NOT re-raise the absence of this acceptance criterion as a loom 1.0.0 correctness finding") in normative body.
-
-## Spec Documents
-
-- `docs/spec_topics/pi-integration-contract/provider-error-mapping.md` — *Overflow token-count extraction* paragraph; *Re-validation gate (loom 1.0.0)* paragraph; *Provider-owned-wording presupposition* paragraph; trailing relocation HTML comment (edited)
-- `docs/spec_topics/pi-integration-contract/patch-skew-degradation.md` — *Per-step isolation* paragraph, `(W, runtime)` tag site (edited)
-- `docs/spec_topics/pi-integration-contract/session-only-degraded-state.md` — runtime-degraded emission paragraph, `(W, runtime)` tag site (edited)
-- `docs/spec_topics/pi-integration-contract/unknown-reason-rule.md` — `reason-unknown` and `pinned-constant-unreadable` emission paragraphs, `(W, runtime)` tag sites (edited)
-- `docs/spec_topics/pi-integration-contract/diagnostic-emission-isolation.md` — serialiser-failure and construction-site-failure clauses ("foreseeable" qualifier) (edited)
-- `docs/spec_topics/pi-integration-contract/binder-inference.md` — line 21 decision-log comment (edited)
-- `docs/spec_topics/pi-integration-contract/host-interfaces-core.md` — line 117 decision-log comment (edited)
-- `docs/spec_topics/pi-integration-contract/runtime-event-channel.md` — line 129 decision-log comment (edited)
-- `docs/spec_topics/pi-integration-contract/conversation-drive.md` — mid-paragraph relocation comment in `pi.sendUserMessage` block; line 28 ValidationIssue relocation comment (edited)
-- `docs/spec/session-model-and-appendix.md` — SM-2 and SM-6 `(W, runtime)` tag sites (edited)
-- `docs/spec_topics/diagnostics/code-registry-parse.md` — column legend that introduces `E`/`W` and the phase taxonomy (read-only — anchor target for the severity/phase fix)
-
-## Plan Impact
-
-**Phases:** N/A
-
-**Leaves (implementation order):** N/A
-
-(`docs/plan.md` and `docs/plan_topics/` exist but currently contain no leaves under the horizontal or MVP sections; nothing to grep against.)
-
-## Consequence
-
-**Severity:** correctness
-
-The numeric-run grammar gap alone defeats the page's own cross-implementation determinism guarantee on adversarial-but-plausible provider rewordings; the remaining four sub-issues are advisory-to-cosmetic individually but compound a perception that PIC's normative prose is loose. The "is expected to" modal gap concretely lets a contributor skip the fixture re-run during a Pi minor bump without violating any pinned obligation.
-
-## Solution Space
-
-**Shape:** single
-**State:** reduced
-
-Resolve five independent clarity/cruft obligations as separate edits, in the order below: the pure modal/word-level edits first to shrink the diff surface, the deletion pass next, the localised gloss after, and the only semantic shift (the numeric-run grammar) last so debate over it does not block the cheaper fixes.
-
-### Spec edits (in landing order)
-
-1. **Replace "is expected to run" with a definite modal — `provider-error-mapping.md`.** In the *Re-validation gate (loom 1.0.0)* paragraph, replace "a contributor performing the bump is expected to run them, but [Pi version bump procedure] below does not yet enumerate the step" with "a contributor performing the bump SHOULD run `npm test`'s provider-error fixtures against the candidate `@earendil-works/pi-ai` minor before completing step 4 of [Pi version bump procedure] below; loom 1.0.0 does not yet enumerate the run as a mechanical step of that procedure."
-
-2. **Drop the "foreseeable" qualifier — `diagnostic-emission-isolation.md`.** Delete the word "foreseeable" from both occurrences: "any other foreseeable serialiser failure" → "any other serialiser failure"; "any other foreseeable construction-site failure" → "any other construction-site failure". The exemplar lists are already explicitly non-exhaustive and the `try`/`catch` wrap is unconditional; no behavioural change.
-
-3. **Delete decision-log HTML comments, consolidate the duplicated deferral, relocate the reviewer-meta directive.** Delete the editorial-history HTML comments at `provider-error-mapping.md` line 40, `binder-inference.md` line 21, `host-interfaces-core.md` line 117, `runtime-event-channel.md` line 129, `conversation-drive.md` line 28, and the mid-paragraph relocation comment inside `conversation-drive.md`'s `pi.sendUserMessage` block. In `provider-error-mapping.md`, replace the second "Wiring this fixture re-run … already noted under the *Re-validation gate* above" with "See *Re-validation gate (loom 1.0.0)* above for the corresponding post-loom 1.0.0 maintenance follow-up." Move the "Reviews SHOULD NOT re-raise the absence of this acceptance criterion as a loom 1.0.0 correctness finding" directive out of normative body into `docs/spec_topics/future-considerations/` as a recognised loom 1.0 non-goal (or into a co-located "Review carve-outs" note).
-
-4. **Gloss the `(W, runtime)` shorthand at its first PIC use.** At the first `(W, runtime)` occurrence inside PIC (the **Per-step isolation** paragraph in `patch-skew-degradation.md`), expand inline once: "emit exactly one `loom/host/session-shutdown-teardown-step-failed` (severity `warning`, phase `runtime` — abbreviated `(W, runtime)` throughout this section per the column legend in [Diagnostics — code registry](../diagnostics/code-registry-parse.md)) diagnostic". Subsequent `(W, runtime)` uses on the same page and on `session-only-degraded-state.md` / `unknown-reason-rule.md` / `session-model-and-appendix.md` carry an unobtrusive forward link the first time per page (≤6 sites total). This preserves the compact notation the high-density PIC prose benefits from while letting a cold reader resolve it without leaving the section.
-
-5. **Pin the numeric-run grammar — `provider-error-mapping.md`.** In the *Overflow token-count extraction* paragraph, replace "where a numeric run is a maximal substring …" with a regex-anchored grammar: "A *numeric run* is a maximal match of the regular expression `[0-9]([0-9,_]*[0-9])?` against the message string. Equivalently: a numeric run begins and ends with a decimal digit and may contain `,` or `_` separators between digits; a separator that is not flanked by digits on both sides (a leading separator, a trailing separator, or an adjacent-separator pair) does not extend the run and is not consumed by it. After extraction, every `,` and `_` in the run is stripped and the remainder is parsed as a base-10 integer." Add a one-sentence worked example: `"requested 1,234,567 tokens, limit 200,000"` → two runs (`1234567`, `200000`); `"1,,234"` → two runs (`1`, `234`).
-
-### Edge cases
-
-- For the numeric-run grammar: confirm the regex `[0-9]([0-9,_]*[0-9])?` does not greedy-match across whitespace (it cannot — `,` and `_` are the only intra-run characters); confirm the existing "when the two runs are equal, both fields take that value" clause survives the rewrite verbatim; grep the corpus before commit to confirm no other PIC paragraph imports the old prose definition by reference.
-- A provider rewording that intentionally splits a count across abutting separators silently moves to the `null` fallback — that risk pre-exists and is already routed to editorial review by the *Provider-owned-wording presupposition*.
-- A future severity addition (`info`) or phase addition (`bind`) would require the `(W, runtime)` gloss to follow.
 
 ## Relationships
 

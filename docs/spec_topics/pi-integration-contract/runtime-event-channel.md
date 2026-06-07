@@ -130,4 +130,3 @@ The `pi.sendMessage` call for `loom-system-note` is treated as best-effort. `pi.
 
 The fallback path is taken on any thrown value from `sendMessage`; it does not retry the original call. The fallback never aborts the slash-command handler or the spawned subagent session. Implementers must guard against re-entry: if a future `loom/runtime/*` handler ever routes diagnostics back through `loom-system-note`, the diagnostic step in this fallback MUST NOT re-invoke `pi.sendMessage`. `ctx.ui.notify` itself can throw (e.g. in print mode where Pi's UI is not attached); wrap it in the same try/catch and proceed to the diagnostic step. For panic-routed notes, the original panic message MUST be included in the final-resort `console.error` log so post-mortem debugging retains the stack.
 
-<!-- estimateTokens and buildSessionContext named-export contracts moved to host-interfaces-core.md so its "above" back-references resolve in-file. -->
