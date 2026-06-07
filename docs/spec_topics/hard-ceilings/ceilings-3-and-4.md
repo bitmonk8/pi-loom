@@ -6,11 +6,11 @@
 
 The binder per-class retry budget is ceiling #3 in the four-item list at [`spec.md` — Hard ceilings](../../spec/overview-and-orientation.md#hard-runtime-ceilings). Routing class: **load-time system note**. The loom does not start; the operator-facing note is rendered from the failure-mode template matching the *most recent* failure's class — see [Slash-Command Argument Binding — Failure-mode templates](../binder/determinism-cancellation-failure.md#failure-mode-templates-normative). Not an evaluation outcome — nothing reaches loom code, no `Result` value is observable. Governed by the load-time-failure carve-out under [Errors and Results — Terminal outcomes](../errors-and-results/error-model.md#terminal-outcomes). The classification rule that maps an observed binder-call outcome onto a retry class is the provider-error classifier in [Slash-Command Argument Binding — Failure-class taxonomy](../binder/determinism-cancellation-failure.md#failure-class-taxonomy). The five sub-obligations — each a stable inline label citable from tests and downstream revisions — are:
 
-- **HC3-a.** At most one transport-class retry per slash invocation.
-- **HC3-b.** At most one malformed-envelope-class retry per slash invocation.
-- **HC3-c.** AJV-on-`args` failures are not retried (no per-class retry budget).
-- **HC3-d.** Worst-case sum: 3 binder LLM calls per slash invocation (1 initial attempt + 1 transport-class retry + 1 malformed-envelope-class retry).
-- **HC3-e.** When the chain ends with both budgets exhausted, the surfaced system note is the row matching the *most recent* failure observed.
+- <a id="hc3-a"></a> **HC3-a.** At most one transport-class retry per slash invocation.
+- <a id="hc3-b"></a> **HC3-b.** At most one malformed-envelope-class retry per slash invocation.
+- <a id="hc3-c"></a> **HC3-c.** AJV-on-`args` failures are not retried (no per-class retry budget).
+- <a id="hc3-d"></a> **HC3-d.** Worst-case sum: 3 binder LLM calls per slash invocation (1 initial attempt + 1 transport-class retry + 1 malformed-envelope-class retry).
+- <a id="hc3-e"></a> **HC3-e.** When the chain ends with both budgets exhausted, the surfaced system note is the row matching the *most recent* failure observed.
 
 ## Per-boundary destination/surface table (ceiling #4)
 

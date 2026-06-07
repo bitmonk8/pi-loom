@@ -4,7 +4,9 @@ _Generated: 2026-06-06T13:23:32Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T118) is addressed first; the first finding (T001) is addressed last._
 
-_Triage tally: 0 blockers, 15 high, 59 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+_Triage tally: 0 blockers, 15 high, 58 medium retained; 91 low discarded; 0 low findings merged into 0 medium findings; 17 nit dropped; 0 false dropped._
+
+_(Updated 2026-06-07: T065 "`HC3-a` / `HC3-c` cross-links target the orientation aggregator anchor instead of the inline-label anchor site, violating GOV-16 *Cross-link form*" resolved and removed — dual-form HTML anchors `<a id="hc3-a"></a>`…`<a id="hc3-e"></a>` were added to the `**HC3-a.**`–`**HC3-e.**` bullets in `hard-ceilings/ceilings-3-and-4.md` per GOV-16's *GOV-1 dual-form layout applies* clause, and the three `HC3-a` / `HC3-b` / `HC3-c` cross-links in `binder/determinism-cancellation-failure.md` were repointed from `overview-and-orientation.md#hard-ceiling-3` to `ceilings-3-and-4.md#hc3-a` / `#hc3-b` / `#hc3-c`. The `<a id="hard-ceiling-3"></a>` aggregator anchor on `overview-and-orientation.md` was left unchanged per the out-of-scope constraint. No REQ-ID or inline-label prefix coined.)_
 
 _(Updated 2026-06-06: T099 "`loom/load/callee-has-errors` promises codes via `related`" resolved and removed — the `code-registry-load.md` row and the `invocation.md` Static resolution paragraph were walked back so neither promises the callee's diagnostic *codes* via `related`; both now state that `related` carries one entry per underlying error *site* (`{ file, range, message }` per `diagnostic-shape.md`), with the callee's own diagnostics emitted separately. No change to `diagnostic-shape.md` or the closed `related` element shape.)_
 
@@ -2923,31 +2925,3 @@ Add a GOV-1 dual-form REQ-ID anchor at each unanchored enforcement site: the `**
 ## Relationships
 
 - T065 "`HC3-a` / `HC3-c` cross-links target the orientation aggregator anchor instead of the inline-label anchor site, violating GOV-16 *Cross-link form*" - decision-overlap (once ceilings #1 / #2 carry governed IDs per this finding, any cross-link that currently targets a `#hard-ceiling-1` / `#hard-ceiling-2` auto-anchor must be repointed to the new INV / FRNT / ERR IDs; the same GOV-25-prohibited auto-anchor pattern recurs at every ceiling whose obligation lacks a governed ID)
-
----
-
-# T065 - `HC3-a` / `HC3-c` cross-links target the orientation aggregator anchor instead of the inline-label anchor site, violating GOV-16 *Cross-link form*
-
-**Kind:** traceability
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-Three cross-references in `binder/determinism-cancellation-failure.md` carry visible link text `HC3-a`, `HC3-b`, and `HC3-c` but resolve to `overview-and-orientation.md#hard-ceiling-3` — the orientation aggregator anchor that introduces ceiling #3 as a whole, not the bullet defining each label. GOV-16's *Cross-link form* clause (`governance/stable-inline-labels.md`) requires every cross-page reference to an inline label to resolve as a `#prefix-tail` fragment at the label's own anchor site. The `**HC3-a.**`–`**HC3-e.**` bullets in `hard-ceilings/ceilings-3-and-4.md` currently carry only the inline marker form with no co-located `<a id="hc3-a"></a>` anchor, so a naive repoint would dangle until the dual-form HTML anchors are added under GOV-16's *GOV-1 dual-form layout applies* clause.
-
-## Solution approach
-
-Add dual-form HTML anchors (`<a id="hc3-a"></a>` through `hc3-e`) to the `**HC3-a.**`–`**HC3-e.**` bullets in `hard-ceilings/ceilings-3-and-4.md`, satisfying GOV-16's *GOV-1 dual-form layout applies* clause. Repoint the three `HC3-a` / `HC3-b` / `HC3-c` cross-links in `binder/determinism-cancellation-failure.md` (the *Transport-class*, *Malformed-envelope class*, and *AJV-on-`args` class* bullets) from `overview-and-orientation.md#hard-ceiling-3` to the corresponding `ceilings-3-and-4.md#hc3-a` / `#hc3-b` / `#hc3-c` label anchor sites. Sweep the corpus for any other `HC3-<letter>` link still targeting the aggregator anchor and repoint it the same way.
-
-## Solution constraints
-
-- Out of scope: do not remove or repoint the `<a id="hard-ceiling-3"></a>` aggregator anchor on `overview-and-orientation.md`; it remains the legitimate target for orientation-level inbound links to the whole ceiling.
-
-## Relationships
-
-- T023 ""CIO-N rules above" and the five-site co-edit "(in this page)" point to anchors on the sibling page" - same-cluster (same misdirection pattern — text implies an in-page target but the actual governed site is on a sibling page).
