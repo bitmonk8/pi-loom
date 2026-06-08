@@ -23,9 +23,9 @@ The package-discovery walk's "immediate child directory" enumeration rule (the f
 
 ## Issue introduction
 
-**Verdict:** indeterminate
-**Introducing commits:** none identified
-**History:** Issue-introduction analysis was not available for this finding.
+**Verdict:** multi-commit-interaction
+**Introducing commits:** d6cbb37 — pi-loom spec: resolve "pi.looms is an extension-owned convention" (2026-05-04, Thomas Andersen); 475155c — pi-loom plan: resolve "V14m discovery walk omits scoped packages and has no upper bound" (2026-05-05, Thomas Andersen)
+**History:** The package-discovery walk was assembled across two commits. d6cbb37 introduced the "Roots scanned" block listing `node_modules/` as root #3, bringing pnpm's on-disk layout into scope. 475155c then added the immediate-child-directory enumeration bullet, which classifies entries without following symlinks. The pnpm-isolated-symlink case has been silently unhandled since that second commit completed the walk, and no later edit on `package-and-settings.md` addressed it.
 
 ## Solution approach
 
@@ -54,9 +54,9 @@ Clarify the `node_modules/` root (#3) enumeration in `package-and-settings.md` t
 
 ## Issue introduction
 
-**Verdict:** indeterminate
-**Introducing commits:** none identified
-**History:** Issue-introduction analysis was not available for this finding.
+**Verdict:** multi-commit-interaction
+**Introducing commits:** d6cbb37 — pi-loom spec: resolve "pi.looms is an extension-owned convention" (2026-05-04, Thomas Andersen); 475155c — pi-loom plan: resolve "V14m discovery walk omits scoped packages and has no upper bound" (2026-05-05, Thomas Andersen)
+**History:** d6cbb37 introduced the "Roots scanned" intro sentence treating every immediate child whose `package.json` parses as a candidate package. 475155c then added the `@`-scope-aware "Per-package resolution" bullet that unwraps scope directories, without reconciling or removing the intro sentence. The two contradictory candidate-enumeration definitions have coexisted since that second commit.
 
 ## Solution approach
 
@@ -85,9 +85,9 @@ The detection rule in `query-failure-and-repair.md` § *Detection of `ContextOve
 
 ## Issue introduction
 
-**Verdict:** indeterminate
-**Introducing commits:** none identified
-**History:** Issue-introduction analysis was not available for this finding.
+**Verdict:** multi-commit-interaction
+**Introducing commits:** 82be125 — spec: adopt P1 typed-query two-phase loop (Option A) (2026-05-04, Thomas Andersen); 6750c81 — spec: consolidate QueryError variants; rename to InvokeInfraError / CodeToolError / ModelToolError (2026-05-05, Thomas Andersen)
+**History:** The `context_overflow` detection prose asserting `raw_response` is set to the partial text was authored in 82be125. 6750c81 then consolidated the QueryError variants, fixing the `ContextOverflowError` field set to `kind`/`message`/`tokens_used`/`tokens_limit` with no `raw_response`. The prose and the canonical schema have diverged since, the prose promising a field the schema never declared.
 
 ## Solution approach
 
@@ -116,9 +116,9 @@ The subagent-mode privacy guarantee — that the in-memory session's transcript 
 
 ## Issue introduction
 
-**Verdict:** indeterminate
-**Introducing commits:** none identified
-**History:** Issue-introduction analysis was not available for this finding.
+**Verdict:** single-commit
+**Introducing commits:** 252acda — pi-loom spec: resolve "SessionManager.inMemory transcript-privacy guarantee is unverified" (2026-06-05, Thomas Andersen)
+**History:** 252acda authored capability item 3's transcript-privacy paragraph, recording the no-persistence presupposition as an "accepted risk … on the same footing as the others audited under item (o)" and routing its detection to editorial review. The same commit added no dedicated `(a)`–`(ai)` checklist row to `version-bump-step2.md` for the no-persistence behaviour, so the page's routing-to-checklist meta-rule was left violated from the moment the paragraph landed.
 
 ## Solution approach
 
@@ -146,9 +146,9 @@ GOV-15 (`#gov-15` on `governance/source-language-stability.md`) pins three obser
 
 ## Issue introduction
 
-**Verdict:** indeterminate
-**Introducing commits:** none identified
-**History:** Issue-introduction analysis was not available for this finding.
+**Verdict:** multi-commit-interaction
+**Introducing commits:** 5e5f2f1 — pi-loom spec: resolve "Frozen-baseline reclassification at closure callsites" (2026-05-29, Thomas Andersen); 6bde0df — pi-loom spec: resolve "DIAG prefix registered but no DIAG-N IDs exist" (2026-06-05, Thomas Andersen)
+**History:** 5e5f2f1 established GOV-15's closed (a)–(c) observable list and the closed-carve-out framing enumerating only the ceiling-set carve-out. 6bde0df later introduced DIAG-2/3/4, classifying diagnostic-registry add/remove/rename/reword edits as spec or breaking changes without naming an absorbing spec version or registering a GOV-15 carve-out for the registry. The unreconciled disposition dates from that second commit, which added the DIAG rules against GOV-15's already-closed list.
 
 ## Solution approach
 
@@ -176,9 +176,9 @@ None
 
 ## Issue introduction
 
-**Verdict:** indeterminate
-**Introducing commits:** none identified
-**History:** Issue-introduction analysis was not available for this finding.
+**Verdict:** present-since-inception
+**Introducing commits:** e21449b — pi-loom spec: resolve "__inline_<hash> hash function is not pinned" (2026-05-04, Thomas Andersen)
+**History:** e21449b introduced the `Canonical schema hash` section, whose step 2 (Canonical form) pins object-key sort order but says nothing about the element order of arrays in the lowered fragment. The array-valued emission positions (`{"type":[…]}`, `enum`, `required`, `anyOf`) have been unpinned since that section was authored; the companion Lowering-Algorithm property-order rule covers only object properties and was never extended to arrays.
 
 ## Solution approach
 
@@ -207,9 +207,9 @@ The grammar's `**Generic-application constructors.**` paragraph admits `Result<T
 
 ## Issue introduction
 
-**Verdict:** indeterminate
-**Introducing commits:** none identified
-**History:** Issue-introduction analysis was not available for this finding.
+**Verdict:** single-commit
+**Introducing commits:** 1c552ff — pi-loom spec: resolve "Type grammar admits no generic application beyond array<T>" (2026-06-04, Thomas Andersen)
+**History:** 1c552ff widened grammar.md's closed `GenericType` constructor set from `array` alone to `{array, Result}`, making `Result<T, E>` admissible in every `Type` position, including schema-feeding ones. The same commit added only the `loom/parse/generic-arity-mismatch` diagnostic, registering no rejection of `Result` in a schema position and adding no `schema-subset.md` Lowering-Algorithm case, so the unresolved disposition entered with that single edit.
 
 ## Solution approach
 
@@ -238,9 +238,9 @@ Register a new parse diagnostic `loom/parse/result-in-schema-position` in `code-
 
 ## Issue introduction
 
-**Verdict:** indeterminate
-**Introducing commits:** none identified
-**History:** Issue-introduction analysis was not available for this finding.
+**Verdict:** single-commit
+**Introducing commits:** 1c552ff — pi-loom spec: resolve "Type grammar admits no generic application beyond array<T>" (2026-06-04, Thomas Andersen)
+**History:** 1c552ff added `Result` to grammar.md's closed `{array, Result}` generic-application set, admitting `Result<T, E>` in lowered-schema positions including schema field and `params:` types. It registered no parse-time rejection and added no `schema-subset.md` Lowering-Algorithm emission case for `Result`, so a `Result` in a lowered-schema position has had neither a lowering nor a rejection since that commit.
 
 ## Solution approach
 
@@ -270,9 +270,9 @@ The closed placeholder-rendering surface defined by the **Closure** clause in `d
 
 ## Issue introduction
 
-**Verdict:** indeterminate
-**Introducing commits:** none identified
-**History:** Issue-introduction analysis was not available for this finding.
+**Verdict:** single-commit
+**Introducing commits:** 1c552ff — pi-loom spec: resolve "Type grammar admits no generic application beyond array<T>" (2026-06-04, Thomas Andersen)
+**History:** The closed placeholder-rendering surface, enforced at build time, predates this finding (it was established by the 2026-05-26 closure-clause work on the placeholder-rendering pages). 1c552ff then added the `loom/parse/generic-arity-mismatch` registry row carrying the `<ctor>` placeholder, which is enumerated in none of the closure categories and is not a carve-out. The unenumerated placeholder entered the registry with that single commit.
 
 ## Solution approach
 
