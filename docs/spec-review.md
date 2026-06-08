@@ -4,7 +4,7 @@ _Generated: 2026-06-07T00:00:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T18) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 5 medium, 0 low retained; 197 low discarded; 0 low findings merged into 0 medium findings; 91 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 4 medium, 0 low retained; 197 low discarded; 0 low findings merged into 0 medium findings; 91 nit dropped; 0 false dropped._
 
 ---
 
@@ -127,36 +127,6 @@ Add a new editorial-review checklist item to `version-bump-step2.md` covering th
 ## Solution constraints
 
 - The detection routing is editorial review at bump time only — do not add a runtime behavioural probe or any loom-side independent check of in-memory transcript persistence.
-
-## Relationships
-
-None
-# T08 - GOV-15 source-language equivalence and DIAG-2/3/4 closed-registry rules do not reconcile whether diagnostic-registry edits are admissible within loom 1.x
-
-**Kind:** completeness
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-GOV-15 (`#gov-15` on `governance/source-language-stability.md`) pins three observables that loom 1.x releases MUST preserve for every input that loads cleanly under loom 1.0.0 — return values, ordered diagnostic-code sequences (b), and equivalent `loom-system-note` content (c) — and its carve-out list is explicitly closed at loom 1.0.0 with only the ceiling-set carve-out enumerated. DIAG-2/3/4 (`#diag-2`, `#diag-3`, `#diag-4` on `diagnostics/diagnostic-shape.md`) classify code add/remove/namespace-severity-trigger changes, renames, and *Message*-wording edits as "spec changes" / "breaking changes" but never name which spec version absorbs them. Because the diagnostics registry is not named in GOV-15's closed carve-out list, the consistent reading is that any DIAG-2/3/4-class edit is a GOV-15(b)/(c) violation on the inputs it touches — freezing the registry for the lifetime of loom 1.x, which contradicts DIAG-2's own contemplation of future code additions. Conformance reviewers running the GOV-15 release-inspection step have no rule to apply when a diff adds, renames, or rewords a registry entry.
-
-## Issue introduction
-
-**Verdict:** multi-commit-interaction
-**Introducing commits:** 5e5f2f1 — pi-loom spec: resolve "Frozen-baseline reclassification at closure callsites" (2026-05-29, Thomas Andersen); 6bde0df — pi-loom spec: resolve "DIAG prefix registered but no DIAG-N IDs exist" (2026-06-05, Thomas Andersen)
-**History:** 5e5f2f1 established GOV-15's closed (a)–(c) observable list and the closed-carve-out framing enumerating only the ceiling-set carve-out. 6bde0df later introduced DIAG-2/3/4, classifying diagnostic-registry add/remove/rename/reword edits as spec or breaking changes without naming an absorbing spec version or registering a GOV-15 carve-out for the registry. The unreconciled disposition dates from that second commit, which added the DIAG rules against GOV-15's already-closed list.
-
-## Solution approach
-
-Reconcile the two rule sets so DIAG-2/3/4-class registry edits have a defined GOV-15 disposition. The directional fit mirrors the existing ceiling-set carve-out: add a diagnostic-registry carve-out to GOV-15 on `source-language-stability.md` with its own anchor and an attribution test whose in-scope input set distinguishes per operation (a code addition is in-scope for inputs that did not previously emit the code; a removal is in-scope for inputs that did), and add a back-pointer cross-reference from each of DIAG-2/3/4 naming when the classification resolves to a loom 1.x minor versus loom 2.0. Update GOV-15's closing "closed at loom 1.0.0" sentence to enumerate two carve-outs.
-
-## Solution constraints
-
-- GOV-30 lock-step: growing GOV-15's carve-out list requires updating the `spec/overview-and-orientation.md#source-language-stability` aggregator bullet in the same change.
 
 ## Relationships
 
