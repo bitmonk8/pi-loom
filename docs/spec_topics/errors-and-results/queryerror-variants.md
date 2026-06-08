@@ -126,7 +126,8 @@ schema ContextOverflowError {
   kind: "context_overflow",
   message: string,
   tokens_used: number | null,
-  tokens_limit: number | null
+  tokens_limit: number | null,
+  raw_response: string | null                // partial assistant text captured when an output-boundary overflow truncated a response mid-emission; null when the overflow fired before any output text was emitted
 }
 ```
 
@@ -207,6 +208,6 @@ Each variant carries only its meaningful fields; there are no null-padded sentin
 
 <!-- ERR-14 (`ValidationIssue` ordering) relocated to ### Query-time variants, co-located with the ValidationError schema, for discoverability. Anchors carried verbatim. -->
 
-`raw_response` only appears on variants where the model produced (or attempted to produce) a final text response. `cancelled` and `context_overflow` rarely have one; `transport` failures by definition have no assistant response. `ToolLoopExhaustedError` carries `raw_response` only when the model emitted text alongside its terminating tool-use block; the field is `null` when exhaustion fired on a pure tool-use turn.
+`raw_response` only appears on variants where the model produced (or attempted to produce) a final text response. `context_overflow` carries `raw_response` only when an output-boundary overflow truncated a streamed (or clean output-boundary) response mid-emission, in which case it is the partial text; the field is `null` when the overflow fired before any output text was emitted. `cancelled` has no `raw_response` field — its firing path holds no partial assistant text the runtime is positioned to surface. `transport` failures by definition have no assistant response. `ToolLoopExhaustedError` carries `raw_response` only when the model emitted text alongside its terminating tool-use block; the field is `null` when exhaustion fired on a pure tool-use turn.
 
 `ToolLoopExhaustedError` is distinct from `CancelledError`: the former is the runtime giving up on the model; the latter is the user or parent giving up on the runtime. `last_tool_name` names the tool the model invoked on the loop's terminal free-phase round. The typed-query forced respond turn does not reach this exhaustion path — it is the exempt-routed terminator dispatched by CIO-4's `max_rounds`-final branch per [Hard Runtime Ceilings — CIO-4](../hard-ceilings/ceilings-3-and-4.md#cio-4), and forced-respond non-compliance routes through the `validation` / `schema_validation` path per [Query — Forced respond turn non-compliance](../query/query-failure-and-repair.md#forced-respond-turn-non-compliance); the `| null` branch is retained for forward compatibility but has no loom 1.0-reachable case.

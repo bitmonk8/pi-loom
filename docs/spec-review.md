@@ -4,7 +4,7 @@ _Generated: 2026-06-07T00:00:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T18) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 3 medium, 0 low retained; 197 low discarded; 0 low findings merged into 0 medium findings; 91 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 2 medium, 0 low retained; 197 low discarded; 0 low findings merged into 0 medium findings; 91 nit dropped; 0 false dropped._
 
 ---
 
@@ -69,35 +69,4 @@ Rewrite the intro candidate-enumeration sentence under **Roots scanned** so it s
 ## Relationships
 
 - T01 "`node_modules/` walk silently skips pnpm-isolated package entries" — same-cluster (same enumeration walk, but concerns symlink classification rather than `@scope` unwrapping; resolve independently)
-# T05 - `ContextOverflowError` carries `raw_response` in prose but not in its schema
-
-**Kind:** error-model
-**Importance:** medium
-**Score:** 25
-**Must-fix:** false
-**Decision axes:** 2
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The detection rule in `query-failure-and-repair.md` § *Detection of `ContextOverflowError`* specifies that a streamed response truncated at the output boundary is classified as `context_overflow` "with `raw_response` set to the partial text", and the § *Notes* cross-variant paragraph in `queryerror-variants.md` positively claims both `cancelled` and `context_overflow` admit a (rarely-populated) `raw_response`. But the canonical `ContextOverflowError` schema declares only `kind`, `message`, `tokens_used`, and `tokens_limit` — no `raw_response` — and `CancelledError` declares only `kind` and `message`. A conforming implementation cannot set a field its schema does not declare, and an exhaustive consumer destructuring `ContextOverflowError` would never see the partial-text payload the detection prose promises. Two implementers diverge: one honours the prose and fails the variant's own schema-shape assertion, the other honours the schema and discards the partial stream the detection rule captured.
-
-## Issue introduction
-
-**Verdict:** multi-commit-interaction
-**Introducing commits:** 82be125 — spec: adopt P1 typed-query two-phase loop (Option A) (2026-05-04, Thomas Andersen); 6750c81 — spec: consolidate QueryError variants; rename to InvokeInfraError / CodeToolError / ModelToolError (2026-05-05, Thomas Andersen)
-**History:** The `context_overflow` detection prose asserting `raw_response` is set to the partial text was authored in 82be125. 6750c81 then consolidated the QueryError variants, fixing the `ContextOverflowError` field set to `kind`/`message`/`tokens_used`/`tokens_limit` with no `raw_response`. The prose and the canonical schema have diverged since, the prose promising a field the schema never declared.
-
-## Solution approach
-
-Reconcile the schema to the detection prose. Add a `raw_response: string | null` field to the `ContextOverflowError` schema in `queryerror-variants.md`, following the `ToolLoopExhaustedError` precedent for the field's shape and null semantics. Rewrite the § *Notes* cross-variant `raw_response` paragraph so it states `context_overflow`'s populated-vs-null condition and drops the `cancelled` claim. The detection-rule clause in `query-failure-and-repair.md` already matches this shape and needs no change.
-
-## Solution constraints
-
-- `CancelledError`'s schema must not gain a `raw_response` field — its firing path holds no partial assistant text the runtime is positioned to surface.
-
-## Relationships
-
-None
 
