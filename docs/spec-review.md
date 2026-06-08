@@ -4,7 +4,7 @@ _Generated: 2026-06-07T00:00:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T18) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 2 blocker, 15 high, 1 medium retained; 188 low discarded; 0 low findings merged into 0 medium findings; 91 nit dropped; 0 false dropped._
+_Triage tally: 1 blocker, 0 high, 8 medium, 9 low retained; 188 low discarded; 0 low findings merged into 0 medium findings; 91 nit dropped; 0 false dropped._
 
 ---
 
@@ -12,7 +12,7 @@ _Triage tally: 2 blocker, 15 high, 1 medium retained; 188 low discarded; 0 low f
 
 **Kind:** assumptions
 **Importance:** medium
-**Score:** 25
+**Score:** 15
 **Must-fix:** false
 **Shape:** single
 **State:** reduced
@@ -42,8 +42,8 @@ Clarify the `node_modules/` root (#3) enumeration in `package-and-settings.md` t
 # T02 - Package-discovery candidate-enumeration rule stated two contradictory ways
 
 **Kind:** clarity
-**Importance:** high
-**Score:** 100
+**Importance:** medium
+**Score:** 15
 **Must-fix:** false
 **Shape:** single
 **State:** reduced
@@ -72,8 +72,8 @@ Rewrite the intro candidate-enumeration sentence under **Roots scanned** so it s
 # T03 - SNK-j and SLSH-5 give contradictory rendering rules for `invoke_callee`
 
 **Kind:** testability
-**Importance:** high
-**Score:** 100
+**Importance:** low
+**Score:** 5
 **Must-fix:** false
 **Shape:** single
 **State:** reduced
@@ -102,8 +102,8 @@ None
 # T04 - Empty-template warning's `\n`-escape suppression clause is self-contradictory and the "intentionally-blank prompt" path is unreachable
 
 **Kind:** clarity
-**Importance:** high
-**Score:** 100
+**Importance:** low
+**Score:** 5
 **Must-fix:** false
 **Shape:** single
 **State:** reduced
@@ -132,8 +132,8 @@ None
 # T05 - `ContextOverflowError` carries `raw_response` in prose but not in its schema
 
 **Kind:** error-model
-**Importance:** high
-**Score:** 100
+**Importance:** medium
+**Score:** 25
 **Must-fix:** false
 **Decision axes:** 2
 **Shape:** single
@@ -163,8 +163,8 @@ None
 # T06 - `SHUTDOWN_AWAIT_CAP_MS` window: captured `deadline` is dead, and the "absolute, not a refreshing slide" guarantee contradicts the relative `Clock.setTimeout` schedule
 
 **Kind:** implementability
-**Importance:** high
-**Score:** 100
+**Importance:** low
+**Score:** 5
 **Must-fix:** false
 **Shape:** single
 **State:** reduced
@@ -193,9 +193,9 @@ None
 # T07 - Subagent transcript-discard presupposition is stated but not routed to the bump checklist
 
 **Kind:** assumptions
-**Importance:** high
-**Score:** 100
-**Must-fix:** true
+**Importance:** medium
+**Score:** 35
+**Must-fix:** false
 **Decision axes:** 2
 **Shape:** single
 **State:** reduced
@@ -224,9 +224,9 @@ None
 # T08 - GOV-15 source-language equivalence and DIAG-2/3/4 closed-registry rules do not reconcile whether diagnostic-registry edits are admissible within loom 1.x
 
 **Kind:** completeness
-**Importance:** high
-**Score:** 100
-**Must-fix:** true
+**Importance:** medium
+**Score:** 25
+**Must-fix:** false
 **Shape:** single
 **State:** reduced
 
@@ -254,8 +254,8 @@ None
 # T09 - `SM-N` orientation tokens trip the GOV-3 / GOV-16 unknown-prefix closure invariant
 
 **Kind:** traceability
-**Importance:** high
-**Score:** 100
+**Importance:** low
+**Score:** 5
 **Must-fix:** false
 **Decision axes:** 3
 **Shape:** single
@@ -285,8 +285,8 @@ None
 # T10 - Array-construction sink set restated in `expressions.md` as an open-ended list, contradicting `grammar.md`'s exhaustive four-member declaration
 
 **Kind:** clarity
-**Importance:** high
-**Score:** 100
+**Importance:** low
+**Score:** 5
 **Must-fix:** false
 **Shape:** single
 **State:** reduced
@@ -315,8 +315,8 @@ None
 # T11 - "type-like binding" is an undefined catch-all in the PascalCase casing rule
 
 **Kind:** clarity
-**Importance:** high
-**Score:** 100
+**Importance:** low
+**Score:** 5
 **Must-fix:** false
 **Decision axes:** 2
 **Shape:** single
@@ -346,8 +346,8 @@ Rewrite the PascalCase bullet in lexical.md's `**Identifiers.**` list to replace
 # T12 - `NamedObjectLit` field rules contradict the implicit-discriminator rule and leave explicit-discriminator writes undiagnosed
 
 **Kind:** testability
-**Importance:** high
-**Score:** 100
+**Importance:** low
+**Score:** 5
 **Must-fix:** false
 **Decision axes:** 2
 **Shape:** single
@@ -377,8 +377,8 @@ Clarify the field-presence bullet in `grammar.md` § "Object literals" "Field ru
 # T13 - Equality classification puts `Severity.Low == "low"` in the wrong branch and contradicts the wire-translation paragraph
 
 **Kind:** clarity
-**Importance:** high
-**Score:** 100
+**Importance:** low
+**Score:** 5
 **Must-fix:** false
 **Shape:** single
 **State:** reduced
@@ -407,8 +407,8 @@ Rewrite the first paragraph of the **Equality (`==`)** section (`#equality`) so 
 # T14 - Lowered JSON array element order is unpinned and breaks schema-slug determinism
 
 **Kind:** prescription
-**Importance:** high
-**Score:** 100
+**Importance:** medium
+**Score:** 25
 **Must-fix:** false
 **Shape:** single
 **State:** reduced
@@ -437,8 +437,8 @@ In § *Lowering Algorithm* step 3, extend the loom-source-declaration-order rule
 # T15 - `Result` in wire-positions has neither a lowering nor a rejection
 
 **Kind:** assumptions, implementability
-**Importance:** high
-**Score:** 100
+**Importance:** medium
+**Score:** 25
 **Must-fix:** false
 **Decision axes:** 3
 **Shape:** single
@@ -469,8 +469,8 @@ Register a new parse diagnostic `loom/parse/result-in-schema-position` in `code-
 # T16 - `Result<T, E>` admissible in lowered-schema positions with no lowering rule and no rejection
 
 **Kind:** implementability
-**Importance:** high
-**Score:** 100
+**Importance:** medium
+**Score:** 25
 **Must-fix:** false
 **Decision axes:** 3
 **Shape:** single
@@ -532,9 +532,9 @@ Enumerate `<ctor>` in category 7 (*Identifier-, descriptor-, and closed-enum pla
 # T18 - Step 0(d) peer-dep version read collides with the audit's non-exemptible CJS-reach prohibition
 
 **Kind:** implementability
-**Importance:** blocker
-**Score:** 200
-**Must-fix:** true
+**Importance:** low
+**Score:** 5
+**Must-fix:** false
 **Shape:** single
 **State:** reduced
 
