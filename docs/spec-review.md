@@ -4,7 +4,7 @@ _Generated: 2026-06-07T00:00:00Z_
 _Spec: docs/spec.md_
 _Process: bottom-up - the last finding (T18) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 2 medium, 0 low retained; 197 low discarded; 0 low findings merged into 0 medium findings; 91 nit dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 1 medium, 0 low retained; 197 low discarded; 0 low findings merged into 0 medium findings; 91 nit dropped; 0 false dropped._
 
 ---
 
@@ -39,34 +39,4 @@ Clarify the `node_modules/` root (#3) enumeration in `package-and-settings.md` t
 ## Relationships
 
 - T02 "Package-discovery candidate-enumeration rule stated two contradictory ways" — same-cluster (both touch the `node_modules/` root's candidate-enumeration walk; symlink classification vs scoped-package unwrapping; resolve independently)
-# T02 - Package-discovery candidate-enumeration rule stated two contradictory ways
-
-**Kind:** clarity
-**Importance:** medium
-**Score:** 15
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`docs/spec_topics/discovery/package-and-settings.md` § "Package discovery" defines what counts as a "candidate package" twice, with conflicting answers. The intro sentence under **Roots scanned** treats every immediate child whose `package.json` parses as a candidate — which silently drops `@scope` directories (they carry no `package.json`), making every loom under any `@scope/pkg` invisible. The first bullet under **Per-package resolution** instead unwraps `@`-prefixed children one level as scope directories and reads `@scope/pkg/package.json`. The two rules diverge for npm's standard scoped-package layout, which routinely appears in `node_modules/` and `~/.pi/agent/npm/`; the enumeration rule is also structurally misplaced inside the body of the loop that opens "For each candidate package:".
-
-## Issue introduction
-
-**Verdict:** multi-commit-interaction
-**Introducing commits:** d6cbb37 — pi-loom spec: resolve "pi.looms is an extension-owned convention" (2026-05-04, Thomas Andersen); 475155c — pi-loom plan: resolve "V14m discovery walk omits scoped packages and has no upper bound" (2026-05-05, Thomas Andersen)
-**History:** d6cbb37 introduced the "Roots scanned" intro sentence treating every immediate child whose `package.json` parses as a candidate package. 475155c then added the `@`-scope-aware "Per-package resolution" bullet that unwraps scope directories, without reconciling or removing the intro sentence. The two contradictory candidate-enumeration definitions have coexisted since that second commit.
-
-## Solution approach
-
-Rewrite the intro candidate-enumeration sentence under **Roots scanned** so it states the scope-aware rule (`@`-prefixed children are scope directories whose own immediate children are the candidates) as the single definition of what counts as a candidate package. Delete the contradicting first bullet of **Per-package resolution** (the "For each root in the priority list above…" bullet) so the loop body describes only per-package behaviour, leaving the `disc-5` bullet and the remaining `pi.looms`-resolution bullets intact.
-
-## Solution constraints
-
-- Out of scope: symlink / pnpm-isolated entry classification in the same discovery walk (owned by T01).
-
-## Relationships
-
-- T01 "`node_modules/` walk silently skips pnpm-isolated package entries" — same-cluster (same enumeration walk, but concerns symlink classification rather than `@scope` unwrapping; resolve independently)
 
