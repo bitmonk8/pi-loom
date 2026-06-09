@@ -4,7 +4,7 @@ _Generated: 2026-06-09T12:30:00Z_
 _Spec: docs/spec.md_
 _Ordered by importance (least→most important, top→bottom); processed bottom-up. IDs preserved from the prior triage (so they are not monotonic top-to-bottom)._
 
-_Triage tally: 5 high retained in-document (5 findings); all medium and lower findings removed in a post-recalibration prune._
+_Triage tally: 4 high retained in-document (4 findings); all medium and lower findings removed in a post-recalibration prune._
 
 ---
 
@@ -160,62 +160,6 @@ is the sink and the outer binding annotation is not consulted.
 - Out of scope: the explicit-ascription override clause
   (`#explicit-ascription-override`), which already delegates to the
   walk — leave it unchanged.
-
-## Relationships
-
-None
-
----
-
-# T30 - Overflow table predicates key on structured JSON fields the `AssistantMessage.errorMessage` string does not expose
-
-**Kind:** implementability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`docs/spec_topics/pi-integration-contract/provider-error-mapping.md` contains two clauses that contradict each other and leave the overflow classifier unimplementable as written.
-
-The *Classifier input surface* note declares that the provider error-body wording reaches loom **only** as the flat `AssistantMessage.errorMessage` string produced by pi-ai's per-provider error formatter, that "pi-ai surfaces no parsed JSON error body", and that "every body-wording match in the table is a match against that string."
-
-The overflow-signature table immediately below, however, expresses two of its four predicates against structured JSON fields the SDK does not surface:
-
-- `anthropic-messages` requires `error.type: "invalid_request_error"` **and** `error.message` matching a regex.
-- `openai-completions` requires `error.code: "context_length_exceeded"` (in the HTTP-400 case **and** in the HTTP-200 body envelope) — with no regex over any string field at all.
-
-These two rows are not implementable from a single flat `errorMessage` string: there is no defined projection from that string back to `error.type`, `error.code`, or the HTTP-200 body envelope, and the openai row has no string predicate to fall back on. The `mistral` and `amazon-bedrock` rows, by contrast, are already phrased as a single regex over the body text and are consistent with the *Classifier input surface* claim.
-
-The HTTP-200-overflow side-channel widens the gap: the *Provider error mapping* opening paragraph and the openai row both rely on detecting "the recognised overflow code in the openai-completions row" inside an HTTP-200 body envelope, but pi-ai's `onResponse` callback only yields `{ status, headers }` and the resolved `AssistantMessage` carries no parsed body — there is no surface that distinguishes the HTTP-200 overflow envelope from any other 200 response that resolves with `stopReason: "error"`.
-
-## Issue introduction
-
-**Verdict:** single-commit
-**Introducing commits:** `44782e9` (2026-06-06) — *pi-loom spec: resolve "TransportError catch-all / pi-ai provider-error surface"*
-**History:** `provider-error-mapping.md` was created in commit `f5e89f4` (2026-06-04, the spec-set split). The overflow-signature table at that point already keyed `anthropic-messages` on `error.type` + `error.message` and `openai-completions` on `error.code` (with the HTTP-200 body-envelope variant), but the file made no claim about which pi-ai surface delivered those fields, so there was no internal contradiction yet — just a latent grounding gap. Commit `44782e9` then added the *Classifier input surface* note (`git show 44782e9 -- docs/spec_topics/pi-integration-contract/provider-error-mapping.md` shows the +1 paragraph insertion) declaring that "the provider error-body wording … reaches loom only as the `AssistantMessage.errorMessage` string produced by pi-ai's per-provider error formatter — pi-ai surfaces no parsed JSON error body — so every body-wording match in the table is a match against that string." That sentence is the moment the table's structured-field predicates became unimplementable against the spec's own stated input surface. `git log -G "errorMessage" -- …/provider-error-mapping.md` confirms `44782e9` is the only commit to introduce `errorMessage` into the file.
-
-## Solution approach
-
-Adopt the single resolution the pinned host surface permits. Verification against `@earendil-works/pi-ai@0.75.5` (the `~0.75.5` pin in `package.json`) settles the scope-bounding question the prior triage deferred: a parsed-body classifier surface does not exist to pin, so the resolution collapses to one implementable shape — keep the *Classifier input surface* note authoritative and rephrase every predicate as a regex over the flat `errorMessage` string.
-
-Evidence at the pin:
-- `ProviderResponse` is `{ status: number; headers: Record<string, string> }` (`dist/types.d.ts`), carrying no body; `onResponse` delivers only this.
-- `AssistantMessage` additionally exposes `diagnostics?: AssistantMessageDiagnostic[]` with a structured `error.code?: string | number` / `error.name?` channel (`dist/utils/diagnostics.d.ts`), so the typed surface is not literally "only `errorMessage`".
-- But the error paths of all four overflow-table providers (`dist/providers/openai-completions.js`, `anthropic.js`, `mistral.js`, `amazon-bedrock.js`) populate only `output.errorMessage = error instanceof Error ? error.message : JSON.stringify(error)` and never write `diagnostics`. No parsed JSON body — and no structured `error.type` / `error.code` — reaches loom for these providers. Option B (pin a parsed-body surface) therefore has nothing to bind to at the pin and would require extending pi-ai, which is out of scope for loom 1.0.0.
-
-Spec edits:
-- `provider-error-mapping.md` — rewrite the `anthropic-messages` and `openai-completions` table rows so their predicates are regexes over `errorMessage`, the shape `mistral` and `amazon-bedrock` already use. Drop the `error.type: "invalid_request_error"` requirement from the anthropic row and the `error.code: "context_length_exceeded"` exact-match from the openai row; the structured fields may survive only as prose ("the pi-ai formatter is known to surface the code as substring X"), not as predicate columns. The anthropic regex MUST be strict enough — and gated on HTTP 400 — to keep an HTTP-400 overflow distinguishable from an HTTP-400 schema-validation error, the disambiguation the dropped `error.type` field previously provided.
-- `provider-error-mapping.md` — delete the HTTP-200 body-envelope side-channel from the opening *Provider error mapping* paragraph and the openai row. It is unrecoverable from `errorMessage` alone: there is no parsed 200 body, and the only 200-error signal is finish-reason mapping, which emits fixed strings such as `"Provider finish_reason: content_filter"`. Any residual `errorMessage`-wording match on a 200 response MUST be gated on `AssistantMessage.stopReason: "error"` so a successful 200 carrying the wording in tool output is not misclassified.
-- `version-bump-step2.md` — extend the *Editorial-review checklist* item (i) note to state that the canonical fixture corpus captures post-formatter pi-ai `errorMessage` bodies (not raw provider HTTP bodies), since the regexes now match the formatter output.
-
-## Solution constraints
-
-- Do not edit the `mistral` and `amazon-bedrock` rows: they are already single regexes over body text and consistent with the note.
-- This is an `errorMessage`-regex commitment, not a pi-ai surface extension. Do not introduce a parsed-body callback or otherwise presuppose a structured error surface `@earendil-works/pi-ai@0.75.5` does not expose.
-- The regexes couple loom to pi-ai's per-provider formatter output; that dependency MUST remain routed to editorial review via the existing *Provider-owned-wording presupposition* and the item (i) fixture-rerun gate rather than a new mechanical CI gate (the latter is the already-noted post-loom 1.0.0 follow-up).
 
 ## Relationships
 
