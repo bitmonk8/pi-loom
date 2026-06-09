@@ -4,7 +4,7 @@ _Generated: 2026-06-09T12:30:00Z_
 _Spec: docs/spec.md_
 _Ordered by importance (least→most important, top→bottom); processed bottom-up. IDs preserved from the prior triage (so they are not monotonic top-to-bottom)._
 
-_Triage tally: 2 high retained in-document (2 findings); all medium and lower findings removed in a post-recalibration prune._
+_Triage tally: 1 high retained in-document (1 finding); all medium and lower findings removed in a post-recalibration prune._
 
 ---
 
@@ -40,35 +40,3 @@ Narrow the `<type>` slot at rule 3 of *Compact-transcript format (normative)* (`
 
 None
 
----
-
-# T21 - Cross-type `==` trigger predicate is internally inconsistent on `integer` vs `number`
-
-**Kind:** implementability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-The cross-type-equality paragraph in `runtime-value-model.md` §Equality (anchor `id="equality"`) states the trigger for the `false` (`==`) / `true` (`!=`) cross-type disposition twice using two non-equivalent predicates in adjacent sentences: a structural predicate ("when the operand static types share no common structural ground") and a static-identity predicate ("the cross-type rule applies only when the static types differ"). The two diverge on every pair where one operand's static type is `⊑` the other — e.g. `42 == 42.0`, since `integer ⊑ number` holds per TYPE-2: the structural predicate does not fire the cross-type rule (falls through to per-shape *Primitives compare by value* → `true`), while the static-identity predicate fires it → `false`. The implementer has no principled tie-breaker, and the same ambiguity recurs for any subtype or union-arm pair not covered by the paragraph's four genuinely-disjoint worked examples. The mismatch is observable in user code and silently changes downstream control flow, schema dispatch, and `match`-arm selection.
-
-## Issue introduction
-
-**Verdict:** single-commit
-**Introducing commits:** 43a24f3 — pi-loom spec: resolve "== cross-type disposition + expressions/runtime-value-model equality link" (2026-06-07, Thomas Andersen)
-**History:** Both contradictory trigger sentences — the structural "share no common structural ground" predicate and the static-identity "applies only when the static types differ" predicate — were introduced into `runtime-value-model.md` §Equality by the single commit `43a24f3`; a pickaxe (`-S`) over each phrase localises both to that one commit. The cross-type-equality paragraph arrived internally inconsistent in that one diff. No earlier or later commit touched the contradiction.
-
-## Solution approach
-
-Rewrite the cross-type trigger in `runtime-value-model.md` `id="equality"` to a single decidable predicate phrased against the `⊑` relation — the cross-type rule fires only when neither operand's static type is `⊑` the other — and delete the contradicting "applies only when the static types differ" sentence. Clarify the surviving "share no common structural ground" wording to name the `⊑`-based predicate and forward-link to `type-system.md#type-compatibility`. Add one worked example exercising the now-disambiguated subtype case (`integer`/`number` operands comparing `true`) to discriminate the chosen rule. Rewrite the `expressions.md` §Equality "share no common structural ground" link prose in lockstep so the link target and linker do not drift back into the contradiction.
-
-## Solution constraints
-
-- Out of scope: the per-shape equality bullets (`NaN`/`±0` primitives, arrays, objects, enums, `Result`) — do not weaken their language while editing the cross-type trigger.
-
-## Relationships
-
-None
