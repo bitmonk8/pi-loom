@@ -26,13 +26,13 @@ Return type: `Result<Schema, QueryError>`, where `Schema` is the inferred respon
 
 An explicit `@<Schema>` ascription via the [explicit form](#explicit-form) always supplies the response schema and overrides the inference contexts below, regardless of where the query appears.
 
-Absent an explicit ascription, the response schema flows into the query expression from any of the following type contexts, checked in order:
+Absent an explicit ascription, the response schema flows into the query expression from a *type sink* — a position whose declared type can supply the schema. The positions that can serve as a sink are:
 
-1. The annotated type of the binding being initialised (`let x: T = @`...`?`).
-2. The declared return type of the enclosing function, when the query is in tail-expression or `return`-argument position. A `.loom` file has no declared return type — its return type is itself inferred from its body (see [Functions — Loom return type](../functions.md#loom-return-type)) — so a loom cannot serve as a sink for a query in its own tail or `return` position.
-3. The declared parameter type of the enclosing call site (`f(@`...`?)` where `f`'s parameter has type `T`).
+- The annotated type of the binding being initialised (`let x: T = @`...`?`).
+- The declared return type of the enclosing function, when the query is in tail-expression or `return`-argument position. A `.loom` file has no declared return type — its return type is itself inferred from its body (see [Functions — Loom return type](../functions.md#loom-return-type)) — so a loom cannot serve as a sink for a query in its own tail or `return` position.
+- The declared parameter type of the enclosing call site (`f(@`...`?)` where `f`'s parameter has type `T`).
 
-If none of these contexts apply and no explicit ascription is present, the query is untyped (returns `string`).
+These are sink *positions*, not a precedence ladder: when a query is enclosed by more than one of them, which sink supplies the schema is determined by the [schema inference algorithm](#schema-inference-algorithm) below, which walks outward and stops at the *nearest* enclosing sink — the innermost sink wins, not the outermost. If no sink encloses the query and no explicit ascription is present, the query is untyped (returns `string`).
 
 ### Schema inference algorithm
 
@@ -50,6 +50,7 @@ If the walk reaches a sink, that schema is the query's response type. If the wal
 - `let x = @\`...\`? + 1` — the `+` operator is opaque; the query has no sink and is untyped (returns `string`), then `+ 1` is a type error against `string`. Add `@<integer>` or annotate the binding to fix.
 - `match @\`...\` { ... }` — `match` scrutinee is opaque; the query is untyped unless an explicit `@<Schema>` ascription is added. The grammar requires the explicit form here.
 - `let xs: array<Score> = [@\`...\`?, @\`...\`?]` — the array literal has a sink (`array<Score>`), so each element inherits `Score` as its sink. ✅
+- `let x: Out = process(@\`...\`?)` where `process(p: In)` — the walk reaches the call-site parameter type `In` first; `In` is the nearest enclosing sink and supplies the schema. The outer binding annotation `Out` is **not** consulted, because the walk stops at the first (innermost) sink it reaches rather than continuing to the outer binding. ✅
 
 ### Explicit form
 

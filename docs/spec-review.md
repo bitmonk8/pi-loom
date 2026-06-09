@@ -4,7 +4,7 @@ _Generated: 2026-06-09T12:30:00Z_
 _Spec: docs/spec.md_
 _Ordered by importance (least→most important, top→bottom); processed bottom-up. IDs preserved from the prior triage (so they are not monotonic top-to-bottom)._
 
-_Triage tally: 4 high retained in-document (4 findings); all medium and lower findings removed in a post-recalibration prune._
+_Triage tally: 3 high retained in-document (3 findings); all medium and lower findings removed in a post-recalibration prune._
 
 ---
 
@@ -112,55 +112,4 @@ Rewrite SLSH-3 in `slash-invocation.md` so its trigger fires for any loom at the
 
 None
 
----
 
-# T28 - Schema inference precedence — two models, two different answers
-
-**Kind:** clarity, implementability
-**Importance:** high
-**Score:** 100
-**Must-fix:** false
-**Shape:** single
-**State:** reduced
-
-## Problem
-
-`docs/spec_topics/query/query-forms.md` describes typed-query schema
-inference twice with incompatible precedence models. §"Schema inference
-rules" enumerates three type contexts (binding annotation, enclosing
-return type, call-site parameter type) "checked in order", which reads
-as a priority ladder in which the outer binding annotation outranks the
-inner call-site parameter type. §"Schema inference algorithm" instead
-defines an outward AST walk that terminates at the first enclosing sink,
-under which the innermost sink wins. For a query at a call-site inside a
-typed binding (`let x: Out = process(@`...`?)` where `process(p: In)`),
-the two models yield different schemas — `Out` under the ladder, `In`
-under the walk — so the validator input and the bytes sent to the
-provider diverge across conformant implementations.
-
-## Issue introduction
-
-**Verdict:** multi-commit-interaction
-**Introducing commits:** 53f5831 — spec: rewrite query primitive, system prompts, and schema syntax (2026-05-03, Thomas Andersen); fae85d3 — Tighten spec for implementation-plan readiness (2026-05-04, Thomas Andersen)
-**History:** The "checked in order" §"Schema inference rules" ladder framing first entered the corpus in `53f5831`; the next day `fae85d3` added the §"Schema inference algorithm" outward-walk model alongside it. Each model reads coherently in isolation, but the two now describe schema-inference precedence with incompatible answers for a call-site-inside-a-typed-binding query. The defect is the interaction between the ladder framing (`53f5831`) and the later-added outward walk (`fae85d3`); both predate the `f5e89f4` (2026-06-04) split into `query-forms.md`.
-
-## Solution approach
-
-Adopt the outward walk as the sole authoritative precedence model.
-Rewrite §"Schema inference rules" so the three contexts read as the set
-of sink positions the walk recognises rather than an ordered ladder,
-removing the "checked in order" framing and deferring precedence to
-§"Schema inference algorithm". Add a worked example to §"Schema
-inference algorithm" pinning the nearest-enclosing semantics for the
-call-site-with-outer-binding case, where the call-site parameter type
-is the sink and the outer binding annotation is not consulted.
-
-## Solution constraints
-
-- Out of scope: the explicit-ascription override clause
-  (`#explicit-ascription-override`), which already delegates to the
-  walk — leave it unchanged.
-
-## Relationships
-
-None
