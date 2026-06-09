@@ -55,7 +55,7 @@ The `options: MessageRenderOptions` carries `{ expanded: boolean }` from the Pi 
 - The literal `"loom-system-note"` is owned by the pi-loom extension. No other extension SHOULD register a renderer for this `customType`.
 - Pi does not enforce ownership: collision is a coordination failure between extensions, not a Pi-level error. Pi's runner resolves a `customType` by iterating `this.extensions` in load order and returning the first hit (`@earendil-works/pi-coding-agent`'s `dist/core/extensions/runner.js` `getMessageRenderer`), so when two installed extensions both register `"loom-system-note"` the **first-loaded** extension's renderer wins and the later registration is unreachable. Whether pi-loom or the other extension wins is non-deterministic from loom's point of view (Pi controls extension load order).
 - Loom emits no diagnostic for this case in loom 1.0 — ownership is by convention.
-- The `customType` naming convention for loom-internal channels is `loom-<purpose>` (kebab-case, `loom-` prefix). Future loom channels MUST follow this convention; other extensions SHOULD NOT use the `loom-` prefix. loom 1.0.0 ships exactly one channel under this prefix (`loom-system-note`).
+- The `customType` naming convention for loom-internal channels is `loom-<purpose>` (kebab-case, `loom-` prefix). Future loom channels MUST follow this convention; other extensions SHOULD NOT use the `loom-` prefix. loom 1.0.0 ships exactly one channel under this prefix (`loom-system-note`). The `loom-<purpose>` kebab-case form nests inside the binder's [transcript-safe `customType` class](../binder/binder-model-and-context.md#bndr-9), so loom-internal channels never trip the binder's transcript-safety rejection.
 
 **Per-loom registration.** For each `.loom` file:
 
