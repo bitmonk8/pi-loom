@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T32) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blockers, 7 high, 19 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
+_Triage tally: 0 blockers, 6 high, 19 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
 
 ---
 
@@ -1698,79 +1698,3 @@ Edge cases for the implementer: keep the existing `CIO-4` "counts as one slot" b
 ## Relationships
 
 - T28 "Subagent parallel-initiation MUST has no closing leaf and cannot be lawfully authored" — same-cluster (both are concurrency-coverage gaps in the same source neighbourhood, but pin different mandates in different leaves and resolve independently).
-
----
-
-# T25 — `V5d` lowering-pass outputs are named only in descriptive `Adds.`, bound by no `Tests.` bullet
-
-**Original heading:** Lowering obligations live in descriptive Adds., not binding Tests.
-**Original section:** V5d — Schema-subset gate, lowering, and canonical hash
-**Kind:** placement, implementability
-**Importance:** high
-**Score:** 90
-**MustFix:** false
-
-## Finding
-
-`V5d` `Adds.` names four normative outputs of `schema-subset.md` *Lowering Algorithm* steps 2–5: the `__inline_<slug>` hoist (step 2), the auto-generated `$defs`/`$ref` reuse (step 3), the per-schema sidecar of two maps (step 5), and the per-query `$defs` pruning (step 4). The `V5d`/`V5d-T` `Tests.` bullets cover only the subset reject gate, `loom/load/schema-slug-collision`, the canonical-hash recipe, and `Result`-in-schema-position with array-element-order preservation. None of the four lowering outputs is asserted by a `Tests.` bullet.
-
-Because `schema-subset.md` (`SUBS`) is a code-keyed area that owns its obligations through diagnostic codes rather than numbered `PREFIX-N` REQ-IDs, and `conventions.md` *Leaf format* makes `Adds.` descriptive-by-default, an obligation named only in `Adds.` binds the implementer only when it carries a cited REQ-ID or is a seam a consumer's `Deps.` relies on. The lowering outputs satisfy neither cleanly, so they can ship unimplemented with every `V5d` test green and the `H5a` closing gate silent (the gate reconciles asserted diagnostic codes, of which these obligations have none).
-
-Two outputs are concretely unprotected. (a) **Per-query `$defs` pruning** (step 4): the leaves that build per-query request schemas — `V13b` (`Deps. V13b-T, V13a, V2b`) and `V13c` (`Deps. V13c-T, V13b, V9c, V16a, V5e`) — do not list `V5d` in `Deps.` at all, so unpruned `$defs` can ship on every typed-query request with no test exercising the prune. (b) **The sidecar** (step 5): it is a genuine cross-leaf seam consumed by `V2c` (`Deps.` lists `V5d`; its `Tests.` exercise enum-tag reattach via the sidecar), but the producer contract — two maps, the named-enum-position map keyed by JSON Pointer and present iff the source was a named `enum`, anonymous unions absent — is asserted by neither the producer (`V5d`) nor the consumer (`V2c`), so producer and consumer can silently diverge.
-
-## Plan Documents
-
-- `docs/plan_topics/V5d-subset-lowering.md` — Adds. / Tests. (edited)
-- `docs/plan_topics/V5d-T-subset-lowering.md` — Tests. (edited)
-- `docs/plan_topics/V13b-query-schema-inference.md` — Deps. / Tests. (edited)
-- `docs/plan_topics/V13c-query-tool-loop.md` — Deps. (edited — only if it constructs request schemas independently)
-- `docs/plan_topics/V2c-value-model.md` — Tests. (read-only)
-- `docs/plan_topics/conventions.md` — Leaf format (`Adds.` descriptive-by-default rule) (read-only)
-- `docs/plan_topics/coverage-matrix.md` — Code-keyed obligation areas (`SUBS → V5d, V5e`) (read-only)
-
-## Spec Documents
-
-None — `schema-subset.md` *Lowering Algorithm* steps 2–5 already define the obligations; the fix is internal to the plan (new `Tests.` bullets and `Deps.` edges that cite the existing spec steps).
-
-## Affected Leaves
-
-**Phases:** V5 (Schemas, descriptions, schema-subset), V13 (Query)
-
-**Leaves (implementation order):**
-
-- `V5d` — Schema-subset gate, lowering, and canonical hash — (modified) — and its paired `V5d-T`
-- `V13b` — Query schema inference — (modified) — home for the per-query `$defs` pruning assertion; gains `V5d` in `Deps.`
-- `V13c` — Query tool loop and typed two-phase — (modified) — builds per-query request schemas without `V5d` in `Deps.`; gains the `V5d` `Deps.` edge only if it constructs request schemas independently
-
-## Consequence
-
-**Severity:** correctness
-
-The lowering pass can ship with the per-query `$defs` prune and the sidecar's two-map shape unimplemented or divergent while every `V5d`/`V5d-T` test passes and the `H5a` closing gate stays green, because `SUBS` carries no REQ-ID and these outputs carry no asserting bullet. Two reasonable implementers would produce different sidecar shapes (e.g. including anonymous string-literal-union positions, or keying by name instead of JSON Pointer), breaking `V2c`'s inbound enum-tag reattach; and unpruned `$defs` would inflate every typed-query request payload.
-
-## Issue introduction
-
-**Verdict:** indeterminate
-**Introducing commits:** none identified
-**History:** The cited plan leaves (`docs/plan_topics/V5d-subset-lowering.md` and its paired `V5d-T-subset-lowering.md`) are untracked working-tree files: `git ls-files` does not list them and `git log --follow` returns no commits, so the defect cannot be localised to any commit. The repository is a git work tree, but these files have never been committed.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Bind both unprotected lowering outputs with new `Tests.` bullets that cite the existing `schema-subset.md` *Lowering Algorithm* steps, and close the missing `Deps.` edge that lets unpruned `$defs` ship.
-
-Bind the sidecar producer contract in the `V5d`/`V5d-T` pair: add a code-keyed `Tests.` bullet to `V5d-T` (mirrored in `V5d`) asserting the step-5 sidecar shape — the lowering pass captures, per `$defs` entry, a two-map sidecar (a wire-name translation map and a named-enum-position map keyed by JSON Pointer into the lowered fragment), with a position present iff its source type was a named `enum` declaration and anonymous string-literal-union positions absent. The bullet cites the *Lowering Algorithm* step-5 section/anchor (the sidecar is a code-keyed `SUBS` obligation; no REQ-ID exists). No `Deps.` change is needed here — `V2c` already lists `V5d`. This closes the producer/consumer divergence the seam route leaves open against `V2c`.
-
-Bind per-query `$defs` pruning and close its `Deps.` gap: assert that a typed query's request schema contains only the `$defs` transitively reachable from its response-schema root (step 4). Home this assertion in `V13b-T` (the leaf that first constructs per-query request schemas), with the bullet citing *Lowering Algorithm* step 4, and add `V5d` to `V13b` `Deps.`. Check whether `V13c` constructs request schemas independently — if so, add the `V5d` `Deps.` edge there too, or the gap reopens.
-
-The `__inline_<slug>` hoist (step 2) and auto `$defs`/`$ref` (step 3) are already exercised transitively by the existing slug-collision and canonical-hash bullets; no separate bullet is required for them unless a reviewer finds an uncovered branch.
-
-## Relationships
-
-- T30 "Un-anchored normative MUSTs are invisible to the closing gate by construction" — must-follow (a general rule enumerating code-keyed obligations with closing leaves would govern how this case is closed).
-- T31 "Adds. clause (ii) seam-binding test is undecidable from the `Deps.` field" — must-follow (decides whether the sidecar binds via the `Deps.`-consumer route or needs an explicit test).
-- T24 "Parallel-batch settle-and-independent-lowering rule has no asserting leaf" — same-cluster (same class: a code-keyed lowering/settlement obligation bound to no `Tests.` bullet).
-- T28 "Subagent parallel-initiation MUST has no closing leaf and cannot be lawfully authored" — same-cluster (same class: a code-keyed Class-1 obligation that binds to no leaf under the descriptive-`Adds.` discipline).
