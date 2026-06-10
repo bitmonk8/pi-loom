@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T32) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blockers, 0 high, 18 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
+_Triage tally: 0 blockers, 0 high, 17 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
 
 ---
 
@@ -1134,75 +1134,3 @@ Edge case for the implementer: the swallowing-handler obligation spans four Prom
 - T27 "V17a leaves three normative cancellation MUSTs with no asserting test" — same-cluster (same `V17a-T` `Tests.` block; adds missing assertions while this one re-keys existing ones; resolve independently).
 - T26 "Cancellation checkpoint granularity set unverified" — same-cluster (same `V17a-T` `Tests.` block; adds checkpoint-granularity assertions; resolve independently).
 
----
-
-# T17 — Version-bump acceptance is build-time surface checks only — no runtime-evidence gate or revert path
-
-**Original heading:** Version-bump has no runtime recovery or revert path
-**Original section:** V18c — Pi version-bump procedure
-**Kind:** risk
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V18c`'s acceptance is entirely build-time and surface-shaped. Its `Tests.` and `Ships when` gate only on the step-2(a)/2(b) SDK surface-inventory assertions, the `engines.node` literal-read, the `peerDependencies` tilde-pin assertion, and the `loom/typecheck/session-shutdown-reason-snapshot` brand-string gate. Every one of these proves that the *typed surface* and the pinned literals are consistent at the new pin; none of them exercises the loom against the bumped SDK at runtime. A Pi minor bump can therefore pass all four gates while regressing behaviour behind an unchanged surface — a `prompt`-body sequencing change, an `AgentSession` streaming-order shift, a forced-tool semantic change, and similar — and `V18c` reports the bump green on `main`.
-
-The spec already delegates two adjacent concerns elsewhere, and this finding does not re-litigate them: loom-side *recovery behaviour* for a falsified host presupposition is an explicit non-goal of the procedure ([`version-bump-intro.md` §Non-goals (a)](../../docs/spec_topics/pi-integration-contract/version-bump-intro.md)), and runtime tolerance for `SessionShutdownEvent['reason']` union skew is owned by the [Patch-skew degradation contract](../../docs/spec_topics/pi-integration-contract/patch-skew-degradation.md). Neither closes the gap here. The patch-skew contract covers only the reason-union facet; the editorial-review checklist (`version-bump-step2.md` items (a)–(aj)) audits enumerated presuppositions but is manual and ungated at the leaf, and none of it runs a representative integrated `.loom` end-to-end against the new pin. The procedure's own stated outputs ([`version-bump-triggers.md`](../../docs/spec_topics/pi-integration-contract/version-bump-triggers.md), closing paragraph) are "(a) a green build-time test run … and (b) a single bump commit" — there is no runtime-evidence acceptance step and no stated rollback when a bump is later found bad.
-
-Two distinct obligations are missing: an acceptance gate that requires runtime evidence (the end-to-end harness passing against the new pin) before a bump is considered landed, and a defined revert path (restore the prior Pi-SDK pin literal and the four `peerDependencies` entries) for a bump that fails that evidence.
-
-## Plan Documents
-
-- `docs/plan_topics/V18c-version-bump-checklist.md` — `Adds.` / `Tests.` / `Ships when` (edited)
-- `docs/plan_topics/V18c-T-version-bump-checklist.md` — `Tests.` / `Ships when` (edited)
-- `docs/plan_topics/H4a-factory-shell-and-harness.md` — end-to-end harness the runtime-evidence gate would invoke (read-only)
-- `docs/plan.md` — V18 slice listing (read-only)
-
-## Spec Documents
-
-- `docs/spec_topics/pi-integration-contract/version-bump-triggers.md` — procedure outputs / acceptance contract (edited)
-- `docs/spec_topics/pi-integration-contract/version-bump-intro.md` — §Non-goals (read-only context: recovery is delegated, acceptance gating is not)
-- `docs/spec_topics/pi-integration-contract/patch-skew-degradation.md` — runtime tolerance for reason-union skew (read-only context)
-- `docs/spec_topics/pi-integration-contract/host-prerequisites.md` — `#pi-sdk-pin` single-source-of-truth pin literal the revert path restores (read-only)
-
-## Affected Leaves
-
-**Phases:** V18 — Build-time SDK gates
-
-**Leaves (implementation order):**
-
-- `V18c` — Pi version-bump procedure and gates — (modified)
-- `V18c-T` — Pi version-bump procedure and gates (tests) — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-A Pi SDK minor bump that regresses runtime behaviour behind an unchanged typed surface passes every `V18c` gate and lands green on `main`, so the regression ships undetected; the acceptance criterion verifies surface consistency, not that the loom still works at the new pin. With no stated revert path, a bump later found to regress also has no defined rollback to the prior pin.
-
-## Issue introduction
-
-**Verdict:** indeterminate
-**Introducing commits:** none identified
-**History:** The defect lives in the `V18c` plan leaf (`docs/plan_topics/V18c-version-bump-checklist.md`) and its `-T` partner, both of which are untracked working-tree files that have never been committed. Under the plan corpus only `docs/plan.md`, `conventions.md`, `coverage-matrix.md`, and `leaf-template.md` are git-tracked; the per-leaf files are not, so the leaf's history cannot be walked and the defect cannot be localised to a commit.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Close both missing obligations together: add a runtime-evidence acceptance gate that defines what "landed safely" means, and a plan-only revert path that defines the rollback when that evidence is red.
-
-**Spec edits (first, per the `conventions.md` *Spec drift* rule).** Strengthening the acceptance contract is a spec change because the procedure's stated outputs are currently scoped to build-time in `version-bump-triggers.md` and recovery/runtime behaviour is a declared non-goal in `version-bump-intro.md`. Amend `version-bump-triggers.md`'s outputs paragraph to require end-to-end runtime evidence at the new pin — a representative integrated `.loom` running through the `H4a` harness against the new pin (typed query + tool loop + invoke + schema validation + binder + cancellation), not surface-inventory alone — and reconcile `version-bump-intro.md` §Non-goals so this runtime-evidence acceptance step is not mistaken for the delegated loom-side recovery non-goal.
-
-**Plan edits.** Mirror the runtime-evidence gate into `V18c` (and `V18c-T`): a `Tests.`/`Ships when` clause requiring the `H4a` end-to-end harness to pass against the bumped pin before the bump is considered complete. Add a `Ships when` clause (mirrored in `V18c-T`) stating that when the bump's acceptance evidence is red, the prior pin is restored before merge — reverting step 4's edit in one commit: the single-source-of-truth Pi-SDK pin literal at `host-prerequisites.md#pi-sdk-pin` and the four `@earendil-works/*` `peerDependencies` entries (`pi-coding-agent`, `pi-agent-core`, `pi-ai`, `pi-tui`). Reference the pin anchor rather than restating the literal, and phrase the revert trigger generically ("if the bump's acceptance evidence is red") so it does not hard-couple to the gate's exact wording.
-
-Edge case the implementer must watch: the runtime-evidence gate runs through the `H4a` double, so its value is bounded by the double's fidelity to the bumped SDK — do not let a green double-backed harness be read as real-host coverage (see the related `H4a` fidelity-contract finding).
-
-## Relationships
-
-- T19 "Plan has no terminal end-to-end integration-acceptance leaf" — must-follow (a release-gate leaf running a representative `.loom` through the `H4a` harness end-to-end would supply the same mechanism this fix's runtime-evidence gate needs; build that first so this fix references it).
-- T20 "H4a in-process Pi session double has no stated fidelity contract against the pinned SDK" — must-follow (this fix's runtime-evidence gate runs against the `H4a` double; without the double's fidelity to the new pin asserted, "harness passing against the new pin" is false-green).

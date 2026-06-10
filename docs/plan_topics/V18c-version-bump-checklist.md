@@ -2,13 +2,14 @@
 
 **Spec.** [`../spec_topics/pi-integration-contract/version-bump-intro.md`](../spec_topics/pi-integration-contract/version-bump-intro.md), [`../spec_topics/pi-integration-contract/version-bump-step2.md`](../spec_topics/pi-integration-contract/version-bump-step2.md), [`../spec_topics/pi-integration-contract/version-bump-step2b.md`](../spec_topics/pi-integration-contract/version-bump-step2b.md), [`../spec_topics/pi-integration-contract/version-bump-triggers.md`](../spec_topics/pi-integration-contract/version-bump-triggers.md), [`../spec_topics/pi-integration-contract/host-prerequisites.md`](../spec_topics/pi-integration-contract/host-prerequisites.md).
 
-**Adds.** The contributor version-bump checklist and its build-time gates: the SDK surface-inventory tests (step 2(a)/2(b)), the `engines.node` floor literal-read, the `peerDependencies` pin assertion, the capability-probe constants + `SessionShutdownEvent['reason']` snapshot, the provider seed-field table, and the strict-capability probe — plus the editorial-review checklist items.
+**Adds.** The contributor version-bump checklist and its build-time gates: the SDK surface-inventory tests (step 2(a)/2(b)), the `engines.node` floor literal-read, the `peerDependencies` pin assertion, the capability-probe constants + `SessionShutdownEvent['reason']` snapshot, the provider seed-field table, and the strict-capability probe — plus the editorial-review checklist items, the runtime-evidence acceptance gate (output (c) of the procedure), and the revert path that restores the prior pin when that evidence is red.
 
 **Tests.**
 - Step 2(a): the positive surface-inventory test asserts each `SDK_SURFACE_INVENTORY` member is present on the pinned SDK.
 - Step 2(b): the promote/co-edit obligation fires when a capability is added/removed.
 - The `engines.node` literal-read test equals the SDK floor; the `peerDependencies` tilde line is asserted; the `loom/typecheck/session-shutdown-reason-snapshot` brand-string gate detects a reason-set skew.
+- Runtime-evidence acceptance gate (output (c) of [`version-bump-triggers.md`](../spec_topics/pi-integration-contract/version-bump-triggers.md)): the [`H4a`](./H4a-factory-shell-and-harness.md) end-to-end harness runs a representative integrated `.loom` (typed query + tool loop + invoke + schema validation + binder + cancellation) against the bumped Pi-SDK pin and passes; a green surface-inventory run alone does not satisfy this gate. The gate's coverage is bounded by the `H4a` session double's fidelity to the bumped pin (see [`H4a`](./H4a-factory-shell-and-harness.md)) — a green double-backed run is not real-host coverage.
 
-**Deps.** `V18c-T`, `V18a`, `V18b`
+**Deps.** `V18c-T`, `V18a`, `V18b`, `H4a`
 
-**Ships when.** `npm test` runs the step-2(a)/2(b), `engines.node`, peer-dep, and reason-snapshot gates green on `main`.
+**Ships when.** `npm test` runs the step-2(a)/2(b), `engines.node`, peer-dep, and reason-snapshot gates green on `main`, **and** the `H4a` end-to-end harness passes against the bumped pin (the runtime-evidence acceptance gate). If the bump's acceptance evidence is red, the prior pin is restored before merge — reverting step 4's edit in one commit: the single-source-of-truth Pi-SDK pin literal at [`host-prerequisites.md#pi-sdk-pin`](../spec_topics/pi-integration-contract/host-prerequisites.md#pi-sdk-pin) and the four `@earendil-works/*` `peerDependencies` entries (`pi-coding-agent`, `pi-agent-core`, `pi-ai`, `pi-tui`).
