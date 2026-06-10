@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 17 medium retained; 20 low discarded; 5 low findings merged into 2 medium findings; 27 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 16 medium retained; 20 low discarded; 5 low findings merged into 2 medium findings; 27 NIT dropped; 0 false dropped._
 
 ---
 
@@ -1158,65 +1158,3 @@ The impl leaf is the source of truth; align the `-T` bullet to it. Edge case: if
 
 - T25 "V16a posits an isolated cross-ceiling unit whose interface is undefined and whose authority over the live breach sites is never established" — same-cluster (broader V16a synthesised-unit-vs-live-site concern; resolves independently).
 - T15 "CIO-5 cross-ceiling arbitration verified only in isolation — no live-site integration assertion" — same-cluster (same synthesised-vs-live gap in the V16a pair; resolves independently — it adds a live-site integration assertion rather than re-scoping a -T bullet).
-
----
-
-# T17 — V17a's `Ships when` gate observes only a subset of the cancellation obligations its Tests enumerate
-
-**Original heading:** V17a bundles 6+ distinct cancellation concerns; Ships-when covers only a subset
-**Original section:** V17a — cancellation core
-**Kind:** step-atomicity
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V17a` — Cancellation core enumerates a large cancellation contract in its **Tests**: the `loomAbort` controller plus the three forwarding paths and the one-shot reason guard, abort-reason *identity* propagation including the byte-exact synthesised `"loom cancelled by agent_end"` message (CNCL-4), downward-only propagation, late-settlement discard (CNCL-1/2/3), no-retroactive-`Ok`-rewrite (CNCL-5), no-tail-abort top-level synthesis (CNCL-6), the five-site checkpoint-granularity assertion with its *absence*/exhaustivity arm, the loop-iteration macrotask-yield assertion, and the three-channel swallowing-handler suppression assertion across the four abandonable-Promise sites.
-
-Its **Ships when** field, by contrast, reads only: "`npm test` forwards a cancel into `loomAbort`, proves downward-only propagation, and asserts CNCL-1/2/3." The phase-exit gate therefore says nothing about CNCL-4 reason-identity propagation, CNCL-5/6, checkpoint presence-and-absence, loop-iteration macrotask yield, or swallowing-handler suppression — the bulk of the leaf's obligations and the most intricate cancellation invariants in the corpus.
-
-The leaf also bundles several independently-verifiable concern clusters, but the load-bearing defect is the gating gap: an implementer can satisfy the literal `Ships when` while the leaf's heaviest obligations go unobserved at completion time.
-
-## Plan Documents
-
-- `docs/plan_topics/V17a-cancellation-core.md` — `Ships when` field (edited)
-- `docs/plan_topics/conventions.md` — §Leaf format "Ships when" + §Per-phase TDD ritual phase-exit gate (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical slices (V17)
-
-**Leaves (implementation order):**
-
-- V17a — Cancellation core — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers can tag `V17a-complete` with the most intricate cancellation invariants — checkpoint exhaustivity (presence-at-five-sites *and* absence elsewhere), loop-iteration macrotask yield, three-channel swallowing-handler suppression, and CNCL-4/5/6 — unverified, because the declared phase-exit gate does not observe them. The paired-`-T` TDD ritual is a partial backstop, but the leaf's own completion criterion under-specifies its obligation set, so the gate is satisfiable while real cancellation behaviour is unproven.
-
-## Issue introduction
-
-**Verdict:** multi-commit-interaction
-**Introducing commits:** c6a664e — pi-loom plan: build/update plan for spec.md + review (2026-06-10, Thomas Andersen); 319b277 — pi-loom plan: resolve "Cancellation checkpoint granularity set unverified" (2026-06-10, Thomas Andersen); 52a6819 — pi-loom plan: resolve "cancellation test bullet conflates four obligations" (2026-06-10, Thomas Andersen)
-**History:** c6a664e created `V17a` with the present `Ships when` line, already narrower than the leaf's Tests. 319b277 added the checkpoint-granularity/exhaustivity, loop-iteration macrotask-yield, and CNCL-4/5/6 Tests bullets without extending `Ships when`. 52a6819 split the conflated forwarding/propagation/suppression bullet into discrete obligations, further widening the gap. The undercoverage is the interaction of the inception gate with the two later Test-expanding commits, neither of which touched `Ships when`.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Extend `V17a`'s `Ships when` field so the phase-exit gate observes the obligations its Tests already enumerate but the gate currently omits: CNCL-4 reason-identity propagation (including the byte-exact `"loom cancelled by agent_end"` synthesised message), CNCL-5 (no retroactive `Ok` rewrite), CNCL-6 (no tail-abort top-level synthesis), the checkpoint-granularity presence-at-the-five-sites assertion together with its absence/exhaustivity arm, the loop-iteration macrotask-yield assertion, and the three-channel swallowing-handler suppression assertion. This is a small, contained diff (the `Ships when` field only) with no downstream `Deps` churn and no new leaf IDs; it closes the gating gap directly. The spec is read-only — every gated obligation already traces to an existing CNCL REQ-ID or `cancellation.md` *Granularity* clause. The leaf's size (the softer step-atomicity concern) can be pursued as a separate follow-up after the `Ships when` fix has landed; do not combine the two in one edit.
-
-## Relationships
-
-- T02 "Architectural- and test-bullet completeness overclaims over partial-coverage mechanisms" — same-cluster (same V17a leaf; the checkpoint-exhaustivity overclaim is one of the obligations this gate must observe).
-- T13 "Cancel-forwarding couples V9c to the `loomAbort` controller (V17a) without a declared dependency" — decision-dependency (a V17a split changes which sub-leaf owns `loomAbort` / the forwarding target V9c must depend on).
-- T12 "CNCL-4 session-shutdown reason facet is asserted in V9g but never authored red in V9g-T or gated by Ships-when" — same-cluster (CNCL-4 is split between V17a and V9g; both are gating gaps in the same cancellation contract).

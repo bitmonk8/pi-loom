@@ -19,4 +19,4 @@
 
 **Deps.** `V17a-T`, `V8a`
 
-**Ships when.** `npm test` forwards a cancel into `loomAbort`, proves downward-only propagation, and asserts CNCL-1/2/3.
+**Ships when.** `npm test` forwards a cancel into `loomAbort`, proves downward-only propagation, asserts CNCL-1/2/3, asserts CNCL-4 reason-identity propagation through all three forwarding paths (including the byte-exact `"loom cancelled by agent_end"` synthesised message), asserts CNCL-5 (a completed `Ok` is not retroactively rewritten to `Err({kind:"cancelled"})`) and CNCL-6 (a tail abort produces no synthesised top-level `cancelled`), asserts the checkpoint-granularity presence arm (a checkpoint fires immediately before each of the five sites) together with its absence/exhaustivity arm (no checkpoint at primitive operations or straight-line statement boundaries), asserts the loop-iteration macrotask-yield (a signal flipped during a synchronous loop body is observed before the next iteration), and asserts three-channel swallowing-handler suppression at the `Checkpoint` seam (no `unhandledRejection`, no second `RuntimeEvent`, no diagnostic) across the four abandonable-Promise sites.
