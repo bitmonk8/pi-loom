@@ -71,6 +71,7 @@ The same table also enumerates the third closing-gate surface defined in [`conve
 | `tool-calls.md` (TOOL) | `V14a`, `V13c` |
 | `pi-integration-contract/conversation-drive.md` — *No additional access channels* denial-surface MUST (un-anchored; GOV-22 residue) | `V14a` |
 | `pi-integration-contract/version-bump-triggers.md` — runtime-evidence acceptance-gate MUST (output (c); a red runtime-evidence run MUST NOT be merged at the candidate pin) (un-anchored; GOV-22 residue) | `V18c` |
+| `pi-integration-contract/host-prerequisites.md` §`pi-sdk-pin` — `typebox` `"*"` MUST NOT be collapsed into the four-entry tilde-pinned `peerDependencies` group (un-anchored; GOV-22 residue) | `H1a` |
 
 ## Governance REQ-IDs (GOV-*) — corpus governance, not runtime obligations
 

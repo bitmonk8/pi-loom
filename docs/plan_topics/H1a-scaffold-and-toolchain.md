@@ -7,6 +7,7 @@
 **Tests.**
 - `Convention:` (*Doc updates*) `npm run build` and `npm test` both run green on an empty `src/**` tree.
 - `Convention:` (*Doc updates*) the dependency manifest pins the Pi SDK packages at one tilde-pinned minor line; an architectural test reads `package.json` and asserts the four peer deps share that line.
+- [`host-prerequisites.md` §`pi-sdk-pin`](../spec_topics/pi-integration-contract/host-prerequisites.md#pi-sdk-pin) (`typebox` sub-paragraph): `typebox`'s own one-line build-time literal-read assertion reads `package.json#peerDependencies` and asserts `typebox` is declared `"*"` as its own entry, not folded into the four-entry `@earendil-works/pi-*` tilde-pinned line. The assertion fails both when `typebox` is given the tilde range and when it is dropped from `peerDependencies` entirely; it is independent of the four-peer shared-line assertion above (both run against `package.json#peerDependencies`).
 
 **Deps.** `-`
 

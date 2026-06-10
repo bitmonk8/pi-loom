@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T32) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blockers, 0 high, 9 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
+_Triage tally: 0 blockers, 0 high, 8 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
 
 ---
 
@@ -478,67 +478,3 @@ Resolve the `V16a` `Adds.` edit first, then reconcile the `coverage-matrix.md` s
 
 - T23 "PIC-21 (renderer exception safety) has a coverage-matrix row but no asserting test in V7a" — same-cluster (same defect class: coverage attributed to a leaf whose Tests don't bear it out; resolves on its own row/leaf).
 - T22 "`PIC-2` mapped to `V9c` in the coverage matrix but never asserted; `subagent.md` missing from `V9c` `Spec.`" — same-cluster (same matrix-vs-leaf attribution defect class; independent resolution).
-
----
-
-# T08 — Unbindable "typebox MUST NOT be collapsed" obligation in `H1a` `Adds.`
-
-**Original heading:** typebox "MUST NOT be collapsed" in descriptive-by-default Adds.
-**Original section:** H1a — Project scaffold and toolchain
-**Kind:** clarity
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`H1a` `Adds.` states a normative requirement — `typebox` is pinned `"*"` separately from the four `@earendil-works/pi-*` peers, and "the two ranges MUST NOT be collapsed". But `H1a` is a horizontal single-task leaf: per `conventions.md` *Leaf format* its `Adds.` prose is **descriptive by default** and binds the implementer only through (i) an observable behaviour carrying a cited REQ-ID or (ii) a named cross-leaf seam a `Deps.` consumer relies on. The collapse prohibition is neither — it carries no REQ-ID and is not a seam — so as written it authorises nothing.
-
-The leaf's two `Tests.` bullets confirm the gap: the architectural test "reads `package.json` and asserts the four peer deps share that line." Nothing asserts that `typebox`'s `"*"` is held distinct from the four-entry tilde-pinned line. An implementer could fold `typebox` into the tilde group (or pin it elsewhere) and every `H1a` test still passes green.
-
-The requirement is real and spec-grounded, not editorial: `host-prerequisites.md §pi-sdk-pin` states "The `typebox` `"*"` declaration MUST NOT be collapsed into the four-entry tilde-pinned group" and that the `"*"` literal "is asserted by its own one-line build-time literal-read assertion." The plan names the obligation but routes it to a non-binding surface and omits the separate assertion the spec mandates.
-
-## Plan Documents
-
-- `docs/plan_topics/H1a-scaffold-and-toolchain.md` — `Adds.` / `Tests.` (edited)
-- `docs/plan_topics/conventions.md` — *Leaf format* §`Adds.` binding rule (read-only)
-
-## Spec Documents
-
-- `docs/spec_topics/pi-integration-contract/host-prerequisites.md` — §`pi-sdk-pin` (manifest lock-step / `typebox` sub-paragraphs) (read-only)
-
-## Affected Leaves
-
-**Phases:** Horizontal
-
-**Leaves (implementation order):**
-
-- `H1a` — Project scaffold and toolchain — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-The spec mandates a build-time literal-read assertion that keeps `typebox`'s `"*"` distinct from the four-peer tilde line; the plan omits it and parks the obligation in non-binding `Adds.` prose. Two reasonable implementers diverge — one adds the separate assertion, one collapses `typebox` into the tilde group — and the leaf ships green either way, silently violating the spec's MUST-NOT.
-
-## Issue introduction
-
-**Verdict:** indeterminate
-**Introducing commits:** none identified
-**History:** The plan leaf carrying the defect, `docs/plan_topics/H1a-scaffold-and-toolchain.md`, is untracked in the git work tree (`git status` reports it `??`), so the introduction of the `Adds.`-vs-`Tests.` mismatch cannot be localised to any commit. The sibling `conventions.md` rule it conflicts with is tracked, but the unbound clause itself has no version history to walk.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add a `Tests.` bullet to `H1a` asserting the separation the spec requires: the architectural test reads `package.json` and asserts `typebox` is declared `"*"` as its own `peerDependencies` entry, not folded into the four `@earendil-works/pi-*` tilde-pinned line. Cite the spec obligation — `[host-prerequisites.md §pi-sdk-pin]` — the `typebox` sub-paragraph names "its own one-line build-time literal-read assertion" as the mechanism. With the assertion in place the `Adds.` prose "the two ranges MUST NOT be collapsed" becomes descriptive shadow of a binding `Tests.` surface and needs no further change.
-
-Edge cases for the implementer: the assertion must fail both when `typebox` is given the tilde range and when it is dropped from `peerDependencies` entirely; it is independent of the existing four-peer shared-line assertion (both run against `package.json#peerDependencies`).
-
-## Relationships
-
-- T32 "Adds. binding clause (i) cannot bind code-keyed obligations" — same-cluster (this is a concrete instance of the undefined `Adds.` binding-class rule; the general fix governs how clauses like this one are classified).
-- T30 "Un-anchored normative MUSTs are invisible to the closing gate by construction" — same-cluster (the collapse prohibition is exactly an un-anchored normative MUST invisible to the closing gate; a general rule fix would catch it categorically).
-
