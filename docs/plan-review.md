@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T37) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 18 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 17 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -1264,73 +1264,3 @@ If a rule is asserted by a sibling leaf, the leaf's text must name that leaf so 
 
 - T16 "system: interpolation per-type stringification not witnessed through the system: surface" — same-cluster (same partial-coverage pattern — `Adds` names a set, Tests assert generically; resolves independently in `V6d`)
 - T14 "Stdlib members beyond replace/concat have no named assertion" — same-cluster (same partial-coverage pattern in `V3a`; resolves independently)
-
----
-
-# T18 — V11b session-context truncation boundary (8000-token / 20-turn) has no asserting test
-
-**Original heading:** 8000-token / 20-turn truncation boundary not explicitly asserted
-**Original section:** docs/plan_topics/V11b-bind-context-transcript.md
-**Kind:** validation
-**Importance:** medium
-**Score:** 30
-**MustFix:** false
-
-## Finding
-
-`V11b` / `V11b-T` own the `bind_context: session` truncation walk: the runtime walks turns newest-to-oldest and includes a candidate turn iff, after inclusion, the running token total is ≤ 8000 **and** the running turn count is ≤ 20; the first candidate that would violate either inequality is excluded entirely (whole-turn truncation), and the walk terminates. The spec pins this contract precisely, including inclusive cap-equality boundaries, and explicitly states that "Conformance tests verify the 8000-token budget, the 20-turn cap, and the whole-turn-exclusion rule by injecting a `FakeTokenEstimator`" (`binder-model-and-context.md` §Session-context truncation; PIC-16 exists for exactly this deterministic testability).
-
-The leaf's Tests bullets, however, only assert the *rendering* of included turns: `BNDR-7` (compact-transcript renderings byte-exact), `BNDR-8` (assistant-body line order), `BNDR-9` (`custom-type-unsafe`), and the subagent diagnostic. No bullet drives the truncation walk across its caps. `BNDR-7i` is the rendering of a zero-included-turns result, not an assertion that the walk *cut* at the right boundary.
-
-Because the walk's boundary semantics are untested, an implementation could ship an exclusive `< 8000` / `< 20` boundary (instead of the spec's inclusive `≤`), an off-by-one turn count, or a partial-turn split, and still pass `npm test`. The `TokenEstimator` seam (PIC-16) is injectable and deterministic, so the spec's own worked-example vectors are directly expressible as a stubbed-estimator test.
-
-## Plan Documents
-
-- `docs/plan_topics/V11b-T-bind-context-transcript.md` — Tests (edited)
-- `docs/plan_topics/V11b-bind-context-transcript.md` — Tests / Ships when (edited)
-- `docs/plan_topics/coverage-matrix.md` — `BNDR-7, BNDR-8, BNDR-9 → V11b` row (read-only)
-
-## Spec Documents
-
-- `docs/spec_topics/binder/binder-model-and-context.md` — §Session-context truncation (read-only)
-- `docs/spec_topics/pi-integration-contract/host-interfaces-services.md` — PIC-16 `TokenEstimator` seam + `FakeTokenEstimator` (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical slice V11 (Binder)
-
-**Leaves (implementation order):**
-
-- `V11b-T` — Bind context, truncation, and transcript renderer (tests) — (modified)
-- `V11b` — Bind context, truncation, and transcript renderer — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-The truncation walk could ship with an off-by-one or inverted boundary (exclusive instead of inclusive at 8000 tokens / 20 turns), a wrong turn count, or a partial-message split, and still pass `npm test` — nothing exercises the cut. Two reasonable implementers reading only the leaf would diverge on the boundary semantics, and the divergence is exactly the conformance behaviour the spec mandates a test for.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e — pi-loom plan: build/update plan for spec.md + review (2026-06-10, Thomas Andersen)
-**History:** Both `V11b` and `V11b-T` were created in `c6a664e`; the `8000`-token figure entered there and the `V11b-T` Tests bullets at that commit already listed only `BNDR-7`/`BNDR-8`/`BNDR-9` plus the subagent diagnostic, with no truncation-boundary assertion. The only later commit (`fe694dd`) reworded the `BNDR-9` enumeration. The omission has been present since the first commit.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add a truncation-boundary test to `V11b-T`'s Tests (the tests task landing first per the TDD ritual), driven by a `FakeTokenEstimator` stub so the walk crosses each cap at a known boundary, and reflect the boundary in `V11b`'s Tests / Ships when. Cover, using the spec's own worked-example vectors:
-
-- **Token cap, inclusive boundary + over-budget whole-turn drop.** Per-turn counts `[3000, 2500, 2500, 100, …]`: first three included (total 8000), fourth excluded entirely (`8100 > 8000`), cut is whole-turn.
-- **Token cap, over-budget mid-walk.** `[1200, 900, 1500, 2000, 2800, …]`: four included (5600), fifth excluded.
-- **Turn cap, inclusive boundary.** 21 turns whose token total never exceeds 8000: exactly the 20 newest included, 21st excluded.
-- **Single oversized newest turn.** A newest turn alone exceeding 8000: zero included turns (distinct from the `BNDR-7i` rendering assertion).
-
-Express the expected included-turn set / count per vector; do not couple to Pi's real estimation heuristic.
-
-## Relationships
-
-- T19 "V11b diagnostic-code citation is truncated and carries an undefined (W) severity suffix" — same-cluster (same `V11b`/`V11b-T` leaf; resolves independently)
