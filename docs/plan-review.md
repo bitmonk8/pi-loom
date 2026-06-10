@@ -101,7 +101,7 @@ The leaf's actual binding obligations — `TYPE-1` through `TYPE-10` — are all
 
 - `docs/plan.md` — Vertical slices / V2 (read-only)
 - `docs/plan_topics/V2b-type-compat-engine.md` — V2b leaf, `Adds.` / `Deps.` / `Ships when` (edited)
-- `docs/plan_topics/V2b-T-type-compat-engine.md` — paired tests leaf, mirror prose (option-dependent)
+- `docs/plan_topics/V2b-T-type-compat-engine.md` — paired tests leaf, mirror prose (edited only if it carries the same `Adds.` prose to mirror)
 - `docs/plan_topics/V8a-checkpoint-validator-seams.md` — `SchemaValidator` seam owner (read-only)
 
 ## Spec Documents
@@ -570,7 +570,7 @@ This collides with two `conventions.md` cross-cutting rules: the *Tests.* leaf-f
 
 ## Spec Documents
 
-- `docs/spec_topics/lexical.md` — String literals section (option-dependent — a stable anchor for the decode happy-path may need to be added here)
+- `docs/spec_topics/lexical.md` — String literals section (edited only if the decode happy-path cites a new anchor added here rather than reusing an existing stable identifier)
 - `docs/spec_topics/diagnostics/code-registry-parse.md` — `loom/parse/illegal-escape`, `loom/parse/invalid-unicode-escape` rows (read-only — codes already registered)
 
 ## Affected Leaves
@@ -728,11 +728,11 @@ The identical merged bullet appears in the paired tests leaf `V4a-T`.
 
 ## Spec Documents
 
-- `docs/spec_topics/errors-and-results/error-model.md` — Pattern grammar / Exhaustiveness / Arm syntax / Runtime panics (option-dependent)
+- `docs/spec_topics/errors-and-results/error-model.md` — Pattern grammar / Exhaustiveness / Arm syntax / Runtime panics (edited only if the positive-destructuring facet gets its own bullet and no existing stable anchor is reused)
 - `docs/spec_topics/type-system.md` — Type compatibility / `match-arm-type-mismatch` (read-only)
 - `docs/spec_topics/diagnostics/code-registry-parse.md`, `code-registry-runtime.md` — registry rows for the cited codes (read-only)
 
-The only possible spec touch is option-dependent: if the positive-destructuring facet is given its own bullet and no existing stable anchor is reused, the *Pattern grammar* section of `error-model.md` may need an `<a id>` anchor (or a GOV-16 inline label) to cite. The behaviours with registered codes (`loom/runtime/match-error`, `loom/parse/match-arm-type-mismatch`) need no spec edit.
+The only possible spec touch is conditional: if the positive-destructuring facet is given its own bullet and no existing stable anchor is reused, the *Pattern grammar* section of `error-model.md` may need an `<a id>` anchor (or a GOV-16 inline label) to cite. The behaviours with registered codes (`loom/runtime/match-error`, `loom/parse/match-arm-type-mismatch`) need no spec edit.
 
 ## Affected Leaves
 
@@ -1162,7 +1162,7 @@ Two distinct obligations are missing: an acceptance gate that requires runtime e
 
 ## Spec Documents
 
-- `docs/spec_topics/pi-integration-contract/version-bump-triggers.md` — procedure outputs / acceptance contract (option-dependent)
+- `docs/spec_topics/pi-integration-contract/version-bump-triggers.md` — procedure outputs / acceptance contract (edited)
 - `docs/spec_topics/pi-integration-contract/version-bump-intro.md` — §Non-goals (read-only context: recovery is delegated, acceptance gating is not)
 - `docs/spec_topics/pi-integration-contract/patch-skew-degradation.md` — runtime tolerance for reason-union skew (read-only context)
 - `docs/spec_topics/pi-integration-contract/host-prerequisites.md` — `#pi-sdk-pin` single-source-of-truth pin literal the revert path restores (read-only)
@@ -1190,46 +1190,22 @@ A Pi SDK minor bump that regresses runtime behaviour behind an unchanged typed s
 
 ## Solution Space
 
-**Shape:** multiple
-
-This finding carries two independent obligations on different ownership vectors — a plan-only revert path and a spec-first runtime-evidence acceptance gate. They are split into one option each; both are required.
-
-### Option A — Revert path (plan-only)
-
-**Approach.** State in `V18c` that a bump whose runtime-evidence step is red is *not* landed, and that recovery is to restore the prior pin. Reverting the bump is reverting step 4's edit: the single-source-of-truth Pi-SDK pin literal at `host-prerequisites.md#pi-sdk-pin` and the four `@earendil-works/*` `peerDependencies` entries (`pi-coding-agent`, `pi-agent-core`, `pi-ai`, `pi-tui`) in one commit.
-
-**Plan edits.** Add a `Ships when` clause (mirrored in `V18c-T`) stating that when the bump's acceptance evidence is red the prior pin literal and the four `peerDependencies` entries are restored in one commit before merge. Reference the pin anchor `host-prerequisites.md#pi-sdk-pin` rather than restating the literal.
-
-**Spec edits.** None.
-
-**Pros.** No spec dependency; bounds the leaf's rollback contract immediately.
-
-**Cons.** Moot on its own — without Option B's gate there is no signal that triggers the revert.
-
-**Risks.** If phrased to hard-depend on Option B's exact gate wording, it couples the two edits; phrase the revert trigger generically ("if the bump's acceptance evidence is red").
-
-### Option B — Runtime-evidence acceptance gate (spec-first, then plan)
-
-**Approach.** Extend the version-bump procedure's acceptance contract so a bump is landed only after a representative integrated `.loom` runs end-to-end through the `H4a` harness against the new pin (typed query + tool loop + invoke + schema validation + binder + cancellation), not on surface-inventory alone. Because the procedure's stated outputs are currently scoped to build-time in `version-bump-triggers.md` and recovery/runtime behaviour is a declared non-goal in `version-bump-intro.md`, strengthening the acceptance contract is a spec change — fix the spec first per the `conventions.md` *Spec drift* rule, then mirror into the leaf.
-
-**Plan edits.** Add a `Tests.`/`Ships when` clause to `V18c` (mirrored in `V18c-T`) requiring the `H4a` end-to-end harness to pass against the bumped pin before the bump is considered complete.
-
-**Spec edits.** Amend `version-bump-triggers.md`'s outputs paragraph (and reconcile `version-bump-intro.md` §Non-goals so the runtime-evidence acceptance step is not mistaken for the delegated loom-side recovery non-goal) to require the end-to-end runtime evidence at the new pin.
-
-**Pros.** Closes the actual gap — catches behavioural regression behind an unchanged surface.
-
-**Cons.** Larger, two-vector (spec + plan); depends on the `H4a` harness's fidelity to the real SDK at the new pin.
-
-**Risks.** The `H4a` harness drives an in-process session double, not the real SDK; "harness passing against the new pin" gives false confidence unless the double's fidelity to the bumped SDK is asserted (see the related `H4a` fidelity-contract finding).
+**Shape:** single
 
 ### Recommendation
 
-Land Option A first — it is plan-only, scope-bounding, and has no spec dependency, so it establishes the leaf's rollback contract on a stable baseline. Then land Option B (spec-first edit to `version-bump-triggers.md`, then the `V18c`/`V18c-T` mirror), phrasing Option A's revert trigger generically so it does not hard-couple to Option B's gate wording. Both are required: Option B defines what "landed safely" means and Option A defines the rollback when it is not. Edge case the implementer must watch: the runtime-evidence gate runs through the `H4a` double, so its value is bounded by the double's fidelity to the bumped SDK — do not let a green double-backed harness be read as real-host coverage.
+Close both missing obligations together: add a runtime-evidence acceptance gate that defines what "landed safely" means, and a plan-only revert path that defines the rollback when that evidence is red.
+
+**Spec edits (first, per the `conventions.md` *Spec drift* rule).** Strengthening the acceptance contract is a spec change because the procedure's stated outputs are currently scoped to build-time in `version-bump-triggers.md` and recovery/runtime behaviour is a declared non-goal in `version-bump-intro.md`. Amend `version-bump-triggers.md`'s outputs paragraph to require end-to-end runtime evidence at the new pin — a representative integrated `.loom` running through the `H4a` harness against the new pin (typed query + tool loop + invoke + schema validation + binder + cancellation), not surface-inventory alone — and reconcile `version-bump-intro.md` §Non-goals so this runtime-evidence acceptance step is not mistaken for the delegated loom-side recovery non-goal.
+
+**Plan edits.** Mirror the runtime-evidence gate into `V18c` (and `V18c-T`): a `Tests.`/`Ships when` clause requiring the `H4a` end-to-end harness to pass against the bumped pin before the bump is considered complete. Add a `Ships when` clause (mirrored in `V18c-T`) stating that when the bump's acceptance evidence is red, the prior pin is restored before merge — reverting step 4's edit in one commit: the single-source-of-truth Pi-SDK pin literal at `host-prerequisites.md#pi-sdk-pin` and the four `@earendil-works/*` `peerDependencies` entries (`pi-coding-agent`, `pi-agent-core`, `pi-ai`, `pi-tui`). Reference the pin anchor rather than restating the literal, and phrase the revert trigger generically ("if the bump's acceptance evidence is red") so it does not hard-couple to the gate's exact wording.
+
+Edge case the implementer must watch: the runtime-evidence gate runs through the `H4a` double, so its value is bounded by the double's fidelity to the bumped SDK — do not let a green double-backed harness be read as real-host coverage (see the related `H4a` fidelity-contract finding).
 
 ## Relationships
 
-- T19 "Plan has no terminal end-to-end integration-acceptance leaf" — must-follow (a release-gate leaf running a representative `.loom` through the `H4a` harness end-to-end would supply the same mechanism Option B needs; build that first so this fix references it).
-- T20 "H4a in-process Pi session double has no stated fidelity contract against the pinned SDK" — must-follow (Option B's gate runs against the `H4a` double; without the double's fidelity to the new pin asserted, "harness passing against the new pin" is false-green).
+- T19 "Plan has no terminal end-to-end integration-acceptance leaf" — must-follow (a release-gate leaf running a representative `.loom` through the `H4a` harness end-to-end would supply the same mechanism this fix's runtime-evidence gate needs; build that first so this fix references it).
+- T20 "H4a in-process Pi session double has no stated fidelity contract against the pinned SDK" — must-follow (this fix's runtime-evidence gate runs against the `H4a` double; without the double's fidelity to the new pin asserted, "harness passing against the new pin" is false-green).
 
 ---
 
@@ -1391,8 +1367,8 @@ The plan's only SDK-conformance machinery — `V18a` (surface inventory) and `V1
 ## Plan Documents
 
 - `docs/plan_topics/H4a-factory-shell-and-harness.md` — Adds. / Tests. / Ships when (edited)
-- `docs/plan_topics/V12a-slash-dispatch.md` — `SLSH-2` Tests bullets (option-dependent)
-- `docs/plan_topics/V12a-T-slash-dispatch.md` — `SLSH-2` Tests bullets (option-dependent)
+- `docs/plan_topics/V12a-slash-dispatch.md` — `SLSH-2` Tests bullets (edited — reference the named H4a contract)
+- `docs/plan_topics/V12a-T-slash-dispatch.md` — `SLSH-2` Tests bullets (edited — reference the named H4a contract)
 - `docs/plan_topics/conventions.md` — phase categories (end-to-end harness) (read-only)
 - `docs/plan_topics/M-minimal-slash-command.md` — `SLSH-2` / Ships when (read-only)
 - `docs/plan_topics/V9c-conversation-drive.md` — Adds. (`waitForIdle`, `pi.on` cancel-forward) (read-only)
@@ -1433,29 +1409,15 @@ A double whose `waitForIdle`-vs-streaming ordering (or turn-append / cancel-forw
 
 ## Solution Space
 
-**Shape:** multiple
-
-### Option A — State the fidelity contract at H4a and name where it is asserted
-
-**Approach:** Add to `H4a` a behavioural contract enumerating the specific Pi behaviours the in-process double must reproduce relative to the pinned SDK — streamed-token order relative to `ctx.waitForIdle()` resolution, single-turn append semantics, the `pi.on` cancel-forward subscription, and cancellation propagation — and name the mechanism/owner that validates the double against the pinned SDK (e.g. a harness self-check, listed as an `H4a` inline test, plus `V18c`'s version-bump runtime-evidence gate as the real-host backstop).
-**Plan edits:** `H4a` `Adds.`/`Tests.`/`Ships when`: name the modelled behaviours and the fidelity-assertion mechanism. Optionally introduce a `<new>` harness-conformance leaf if the assertion is too large for `H4a`.
-**Spec edits:** None.
-**Pros:** Double-dependent gates keep their real-host meaning; the contract has one named home; fidelity drift becomes detectable rather than silent.
-**Cons:** Requires enumerating the SDK behaviours and a conformance mechanism; a true conformance check against the real SDK may need a live Pi session the in-process harness deliberately avoids.
-**Risks:** If the conformance check can only run against a real Pi session, it may not fit the in-process harness and must defer to `V18c`/a terminal real-host gate.
-
-### Option B — Scope the double-dependent ship-gates to "as modelled by the double"
-
-**Approach:** Reword the gates that rest on the double (`V12a` `SLSH-2` ordering, `M`, `V9c`, `V17a`, `V11f`) so their `Tests.`/`Ships when` state they assert behaviour *as modelled by the in-process double*, not real-host behaviour, and rely on surface inventory (`V18a`/`V18b`) plus a real-host runtime-evidence gate for actual integration coverage.
-**Plan edits:** `V12a`/`V12a-T` `SLSH-2` bullets (and the sibling double-only gates) gain the "as modelled by the double" scoping.
-**Spec edits:** None.
-**Pros:** Honest about what the unit harness verifies; minimal text edits; no conformance machinery.
-**Cons:** Leaves the real-host gap open — nothing re-runs an integrated `.loom` against a real Pi session except `M`'s single untyped query; cross-slice integration regressions stay unverified (overlaps the terminal-integration finding).
-**Risks:** Scoping down without a compensating real-host gate merely documents the gap instead of closing it.
+**Shape:** single
 
 ### Recommendation
 
-Take Option A: state the double's fidelity contract at `H4a` (naming the streaming-vs-`waitForIdle` ordering, turn-append, `pi.on` cancel-forward, and cancellation-propagation behaviours) and name where/by whom that fidelity is asserted, with a real-host runtime-evidence gate as the backstop. Establish the contract at `H4a` first, before any per-gate scoping, so downstream gates reference one named contract rather than each scoping its claim independently. If a full real-SDK conformance check cannot run in-process, fall back to scoping the affected gates (Option B) **and** pairing that with a real-host end-to-end gate (see the related terminal-integration finding) so the coverage is not merely deleted.
+State the double's fidelity contract at `H4a` and name where and by whom that fidelity is asserted, so the double-dependent ship-gates reference one named contract rather than each scoping its claim independently.
+
+Add to `H4a` a behavioural contract enumerating the specific Pi behaviours the in-process double must reproduce relative to the pinned SDK — streamed-token order relative to `ctx.waitForIdle()` resolution, single-turn append semantics, the `pi.on` cancel-forward subscription, and cancellation propagation — via its `Adds.`/`Tests.`/`Ships when`, and name the mechanism/owner that validates the double against the pinned SDK (a harness self-check listed as an `H4a` inline test, plus `V18c`'s version-bump runtime-evidence gate as the real-host backstop). Introduce a `<new>` harness-conformance leaf if the assertion is too large for `H4a`. Establish this contract at `H4a` before any per-gate scoping; the double-dependent gates (most acutely `V12a`/`V12a-T` `SLSH-2`) then cite the named contract.
+
+Edge case the implementer must watch: a true conformance check against the real SDK may need a live Pi session the in-process harness deliberately avoids. If a full real-SDK conformance check cannot run in-process, scope the affected double-dependent gates (`V12a` `SLSH-2` ordering, `M`, `V9c`, `V17a`, `V11f`) to state they assert behaviour *as modelled by the in-process double* **and** pair that scoping with a real-host end-to-end gate (see the related terminal-integration finding), so the coverage is not merely deleted.
 
 ## Relationships
 
@@ -1692,7 +1654,7 @@ The result: the await-all-settle-before-next-turn rule and the per-sibling-indep
 - `docs/plan_topics/V13c-T-query-tool-loop.md` — Tests (edited)
 - `docs/plan_topics/V13c-query-tool-loop.md` — Tests (edited)
 - `docs/plan_topics/coverage-matrix.md` — code-keyed obligation areas / mapping table (edited)
-- `docs/plan_topics/V14a-tool-calls.md` — Tests (option-dependent)
+- `docs/plan_topics/V14a-tool-calls.md` — Tests (read-only — rejected alternative home; the assertion homes in `V13c`)
 
 ## Spec Documents
 
@@ -1706,7 +1668,7 @@ The result: the await-all-settle-before-next-turn rule and the per-sibling-indep
 **Leaves (implementation order):**
 
 - `V13c` — Query tool loop and typed two-phase — (modified)
-- `V14a` — Tool calls (code-side) and `CodeToolError` — (option-dependent)
+- `V14a` — Tool calls (code-side) and `CodeToolError` — (not modified — rejected alternative home; assertion homes in `V13c`)
 
 ## Consequence
 
@@ -1760,8 +1722,8 @@ Two outputs are concretely unprotected. (a) **Per-query `$defs` pruning** (step 
 
 - `docs/plan_topics/V5d-subset-lowering.md` — Adds. / Tests. (edited)
 - `docs/plan_topics/V5d-T-subset-lowering.md` — Tests. (edited)
-- `docs/plan_topics/V13b-query-schema-inference.md` — Deps. / Tests. (option-dependent)
-- `docs/plan_topics/V13c-query-tool-loop.md` — Deps. (option-dependent)
+- `docs/plan_topics/V13b-query-schema-inference.md` — Deps. / Tests. (edited)
+- `docs/plan_topics/V13c-query-tool-loop.md` — Deps. (edited — only if it constructs request schemas independently)
 - `docs/plan_topics/V2c-value-model.md` — Tests. (read-only)
 - `docs/plan_topics/conventions.md` — Leaf format (`Adds.` descriptive-by-default rule) (read-only)
 - `docs/plan_topics/coverage-matrix.md` — Code-keyed obligation areas (`SUBS → V5d, V5e`) (read-only)
@@ -1777,8 +1739,8 @@ None — `schema-subset.md` *Lowering Algorithm* steps 2–5 already define the 
 **Leaves (implementation order):**
 
 - `V5d` — Schema-subset gate, lowering, and canonical hash — (modified) — and its paired `V5d-T`
-- `V13b` — Query schema inference — (modified) — option-dependent home for the per-query `$defs` pruning assertion; gains `V5d` in `Deps.` if homed here
-- `V13c` — Query tool loop and typed two-phase — (modified) — builds per-query request schemas without `V5d` in `Deps.`
+- `V13b` — Query schema inference — (modified) — home for the per-query `$defs` pruning assertion; gains `V5d` in `Deps.`
+- `V13c` — Query tool loop and typed two-phase — (modified) — builds per-query request schemas without `V5d` in `Deps.`; gains the `V5d` `Deps.` edge only if it constructs request schemas independently
 
 ## Consequence
 
@@ -1794,41 +1756,17 @@ The lowering pass can ship with the per-query `$defs` prune and the sidecar's tw
 
 ## Solution Space
 
-**Shape:** multiple
-
-The finding carries two independent obligations that touch different vectors; resolving them in one diff over-couples the change. Address the smaller, scope-bounded obligation (the sidecar, confined to `V5d`/`V5d-T`) first, so the second obligation (per-query pruning, which adds a `Deps.` edge in a query leaf) lands on a stable baseline.
-
-### Option A — Bind the sidecar producer contract in `V5d`
-
-**Approach.** Add a code-keyed `Tests.` bullet to `V5d-T` (mirrored in `V5d`) asserting the *Lowering Algorithm* step-5 sidecar shape: the lowering pass captures, per `$defs` entry, a two-map sidecar — a wire-name translation map and a named-enum-position map keyed by JSON Pointer into the lowered fragment, with a position present iff its source type was a named `enum` declaration and anonymous string-literal-union positions absent.
-
-**Plan edits.** New `V5d-T` / `V5d` `Tests.` bullet citing `schema-subset.md` *Lowering Algorithm* step 5 (the sidecar is a code-keyed `SUBS` obligation; cite the section/anchor, no REQ-ID exists). No `Deps.` change — `V2c` already lists `V5d`.
-
-**Spec edits.** None.
-
-**Pros.** Closes the producer/consumer divergence the seam route leaves open; bounded entirely to the `V5d` pair.
-
-**Cons.** Adds one more bullet to a leaf the sibling atomicity finding already flags as oversized.
-
-**Risks.** Low.
-
-### Option B — Bind per-query `$defs` pruning and close its `Deps.` gap
-
-**Approach.** Assert that a typed query's request schema contains only the `$defs` transitively reachable from its response-schema root (step 4). Home the assertion either in `V5d-T` (keeping all lowering obligations in one place) or in `V13b-T` (where per-query request schemas are first built); declare the chosen home in the leaf. Whichever leaf owns the per-query request construction must list `V5d` in its `Deps.`.
-
-**Plan edits.** A `Tests.` bullet citing `schema-subset.md` *Lowering Algorithm* step 4 in the chosen home leaf and its `-T` partner; add `V5d` to the `Deps.` of `V13b` (and `V13c` if it constructs request schemas independently).
-
-**Spec edits.** None.
-
-**Pros.** Closes both the missing test and the missing dependency that currently lets unpruned `$defs` ship.
-
-**Cons.** Touches a second slice (`V13`); the home choice is a real fork the implementer must record.
-
-**Risks.** If homed in `V13b` but `V13c` also builds requests, the `Deps.` edge must be added there too or the gap reopens.
+**Shape:** single
 
 ### Recommendation
 
-Apply Option A first — it is confined to the `V5d`/`V5d-T` pair and closes the seam-divergence risk against `V2c` with no cross-slice edit. Then apply Option B on that baseline; home the per-query `$defs` pruning assertion in `V13b-T` (the leaf that first constructs per-query request schemas) and add `V5d` to `V13b` `Deps.`, checking whether `V13c` constructs request schemas independently — if so, add the `Deps.` edge there too. The `__inline_<slug>` hoist (step 2) and auto `$defs`/`$ref` (step 3) are already exercised transitively by the existing slug-collision and canonical-hash bullets; no separate bullet is required for them unless a reviewer finds an uncovered branch.
+Bind both unprotected lowering outputs with new `Tests.` bullets that cite the existing `schema-subset.md` *Lowering Algorithm* steps, and close the missing `Deps.` edge that lets unpruned `$defs` ship.
+
+Bind the sidecar producer contract in the `V5d`/`V5d-T` pair: add a code-keyed `Tests.` bullet to `V5d-T` (mirrored in `V5d`) asserting the step-5 sidecar shape — the lowering pass captures, per `$defs` entry, a two-map sidecar (a wire-name translation map and a named-enum-position map keyed by JSON Pointer into the lowered fragment), with a position present iff its source type was a named `enum` declaration and anonymous string-literal-union positions absent. The bullet cites the *Lowering Algorithm* step-5 section/anchor (the sidecar is a code-keyed `SUBS` obligation; no REQ-ID exists). No `Deps.` change is needed here — `V2c` already lists `V5d`. This closes the producer/consumer divergence the seam route leaves open against `V2c`.
+
+Bind per-query `$defs` pruning and close its `Deps.` gap: assert that a typed query's request schema contains only the `$defs` transitively reachable from its response-schema root (step 4). Home this assertion in `V13b-T` (the leaf that first constructs per-query request schemas), with the bullet citing *Lowering Algorithm* step 4, and add `V5d` to `V13b` `Deps.`. Check whether `V13c` constructs request schemas independently — if so, add the `V5d` `Deps.` edge there too, or the gap reopens.
+
+The `__inline_<slug>` hoist (step 2) and auto `$defs`/`$ref` (step 3) are already exercised transitively by the existing slug-collision and canonical-hash bullets; no separate bullet is required for them unless a reviewer finds an uncovered branch.
 
 ## Relationships
 
@@ -1860,11 +1798,11 @@ The Granularity rule is observable Class-1 behaviour, but it carries no numbered
 
 - `docs/plan_topics/V17a-T-cancellation-core.md` — Tests (edited)
 - `docs/plan_topics/V17a-cancellation-core.md` — Tests, Adds. (edited)
-- `docs/plan_topics/coverage-matrix.md` — CNCL row / Granularity mapping (option-dependent)
+- `docs/plan_topics/coverage-matrix.md` — CNCL row / Granularity mapping (edited only if the Granularity rule is given a citable identifier so it becomes coverage-mappable)
 
 ## Spec Documents
 
-- `docs/spec_topics/cancellation.md` — Granularity (option-dependent — read-only for the minimal plan-internal fix; edited only if the Granularity rule is given a REQ-ID / GOV-16 inline label so it becomes coverage-mappable)
+- `docs/spec_topics/cancellation.md` — Granularity (read-only for the minimal plan-internal fix; edited only if the Granularity rule is given a REQ-ID / GOV-16 inline label so it becomes coverage-mappable)
 
 ## Affected Leaves
 
@@ -1935,13 +1873,13 @@ Because these MUSTs are neither REQ-ID-anchored nor diagnostic-code-keyed, the `
 
 - `docs/plan_topics/V17a-cancellation-core.md` — Tests / Adds (edited)
 - `docs/plan_topics/V17a-T-cancellation-core.md` — Tests (edited)
-- `docs/plan_topics/coverage-matrix.md` — CNCL mapping rows (option-dependent)
-- `docs/plan_topics/V9g-session-shutdown.md` — Tests (option-dependent — owns the synthesised `"loom cancelled by session shutdown"` reason emission)
+- `docs/plan_topics/coverage-matrix.md` — CNCL mapping rows (edited)
+- `docs/plan_topics/V9g-session-shutdown.md` — Tests (edited — owns the synthesised `"loom cancelled by session shutdown"` reason emission)
 - `docs/plan_topics/conventions.md` — REQ-ID discipline / code-keyed obligation areas (read-only — the un-anchored-MUST policy this fix interacts with)
 
 ## Spec Documents
 
-- `docs/spec_topics/cancellation.md` — *Abort-reason propagation* paragraph and the two *Race semantics* paragraphs (no-retroactive-rewrite, no-top-level-synthesis) (edited under Option B; read-only under Option A)
+- `docs/spec_topics/cancellation.md` — *Abort-reason propagation* paragraph and the two *Race semantics* paragraphs (no-retroactive-rewrite, no-top-level-synthesis) (edited)
 
 ## Affected Leaves
 
@@ -1949,7 +1887,7 @@ Because these MUSTs are neither REQ-ID-anchored nor diagnostic-code-keyed, the `
 
 **Leaves (implementation order):**
 
-- V9g — Session-shutdown teardown and emission isolation — (modified) — option-dependent; the `"loom cancelled by session shutdown"` synthesised-reason assertion may home here
+- V9g — Session-shutdown teardown and emission isolation — (modified) — the `"loom cancelled by session shutdown"` synthesised-reason assertion homes here
 - V17a — Cancellation core — (modified)
 - V17a-T — Cancellation core (tests) — (modified)
 
@@ -1967,44 +1905,44 @@ Each of the three MUSTs can ship broken with every `V17a` test green: a forwarde
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-### Option A — Plan-only assertion bullets
+### Recommendation
 
-**Approach.** Add three Tests bullets to `V17a-T` (mirrored verbatim in `V17a`) that assert the three MUSTs by driving the `Checkpoint` seam, citing the relevant `cancellation.md` section anchors as behavioural references. Leaves the MUSTs un-anchored (no REQ-ID).
+Anchor the three MUSTs in `cancellation.md`, map them in `coverage-matrix.md`, and
+add the citing Tests bullets to `V17a-T` (mirrored in `V17a`), so the `H5a` gate
+can confirm each MUST has a closing test and the gap is closed by rule rather than
+case-by-case.
 
-**Plan edits.** In `V17a-T` (mirror in `V17a`), add:
+**Spec edits.** Add stable anchors / REQ-IDs to the *Abort-reason propagation*
+paragraph and the two *Race semantics* paragraphs of `cancellation.md` (candidate
+identifiers continuing the CNCL series, e.g. `CNCL-4` abort-reason propagation,
+`CNCL-5` no-retroactive-rewrite, `CNCL-6` no-top-level-synthesis).
+
+**Plan edits.** Add three Tests bullets to `V17a-T` (mirrored verbatim in `V17a`),
+each citing its new identifier and driving the `Checkpoint` seam:
 - abort-reason propagation: after each forwarding path fires, assert `loomAbort.signal.reason === source.reason`; assert the two synthesised `Error.message` strings byte-exact — `"loom cancelled by agent_end"` and `"loom cancelled by session shutdown"`.
 - no-retroactive-rewrite: land an abort (via the `Checkpoint` seam) after an operation returns `Ok(v)` but before the next checkpoint; assert the value is retained and is not rewritten to `Err({kind:"cancelled"})`.
 - no-top-level-synthesis: land an abort in a pure tail after the final cancellable operation; assert the top-level result is the produced value and no synthesised top-level `cancelled` appears.
 
-**Spec edits.** None.
+Add `coverage-matrix.md` rows mapping the new IDs → `V17a` (and the `"loom
+cancelled by session shutdown"` synthesised-reason facet → `V9g`, since `V9g`'s
+handler produces that reason).
 
-**Pros.** Plan-internal; no spec edit; closes the behavioural gap immediately.
-**Cons.** The three MUSTs remain invisible to the `H5a` REQ-ID/code-keyed reconciliation; future coverage tracking still relies on the named tests existing, not on a gate.
-**Risks.** A later re-anchoring of these MUSTs would force a re-edit of the same bullets.
-
-### Option B — Anchor in spec, map, then assert
-
-**Approach.** Anchor the three MUSTs in `cancellation.md` (REQ-ID or GOV-16 inline label), map them in `coverage-matrix.md`, then add the Tests bullets citing those identifiers, so the closing gate tracks them mechanically.
-
-**Plan edits.** The same three Tests bullets as Option A, but each citing its new identifier; add `coverage-matrix.md` rows mapping the new IDs → `V17a` (and the `"loom cancelled by session shutdown"` synthesised-reason facet → `V9g`, since `V9g`'s handler produces that reason).
-
-**Spec edits.** Add stable anchors / REQ-IDs to the *Abort-reason propagation* paragraph and the two *Race semantics* paragraphs of `cancellation.md` (candidate identifiers continuing the CNCL series, e.g. `CNCL-4` abort-reason propagation, `CNCL-5` no-retroactive-rewrite, `CNCL-6` no-top-level-synthesis).
-
-**Pros.** Mechanically gate-trackable; closes the gap by rule rather than case-by-case; consistent with the corpus's fix-spec-first pattern for un-anchored Class-1 MUSTs.
-**Cons.** Touches the spec; overlaps the unresolved un-anchored-MUST policy in `conventions.md`.
-**Risks.** Choosing concrete REQ-IDs before the `conventions.md` un-anchored-MUST policy is settled could collide with the code-keyed-obligation-table mechanism that finding proposes.
-
-### Recommendation
-
-Take Option B: anchor the three MUSTs in `cancellation.md`, map them in `coverage-matrix.md`, and add the citing Tests bullets to `V17a-T` (mirrored in `V17a`), so the `H5a` gate can confirm each MUST has a closing test. Edge cases the implementer must watch: the abort-reason bullet must assert reason *identity* (`===`) at a downstream checkpoint, not merely that `aborted` is true; the two synthesised-reason strings are byte-exact and the first source's reason wins under the one-shot guard; and the session-shutdown synthesised-reason facet is produced by `V9g`'s handler, so its assertion (and matrix row) should target `V9g` while the propagation contract itself stays in `V17a`. If the `conventions.md` un-anchored-MUST policy lands first, prefer its chosen anchoring mechanism for the identifiers.
+Edge cases the implementer must watch: the abort-reason bullet must assert reason
+*identity* (`===`) at a downstream checkpoint, not merely that `aborted` is true;
+the two synthesised-reason strings are byte-exact and the first source's reason
+wins under the one-shot guard; and the session-shutdown synthesised-reason facet
+is produced by `V9g`'s handler, so its assertion (and matrix row) should target
+`V9g` while the propagation contract itself stays in `V17a`. If the
+`conventions.md` un-anchored-MUST policy lands first, prefer its chosen anchoring
+mechanism for the identifiers.
 
 ## Relationships
 
 - T26 "Cancellation checkpoint granularity set unverified" — same-cluster (same leaf `V17a`; another un-anchored Class-1 cancellation behaviour; resolved by the same `V17a-T` assertion pass but independently).
 - T16 "Cancellation test bullet keyed by one diagnostic conflates four independent obligations" — same-cluster (same `V17a-T` Tests block; the loomAbort-forwarding bullet split).
-- T30 "Un-anchored normative MUSTs are invisible to the closing gate by construction" — must-follow (the chosen policy for un-anchored MUSTs determines whether these three get REQ-IDs or code-keyed-table entries; Option B depends on it).
+- T30 "Un-anchored normative MUSTs are invisible to the closing gate by construction" — must-follow (the chosen policy for un-anchored MUSTs determines whether these three get REQ-IDs or code-keyed-table entries; this fix's anchoring depends on it).
 - T28 "Subagent parallel-initiation MUST has no closing leaf and cannot be lawfully authored" — same-cluster (same class: un-anchored Class-1 MUST with no closing leaf).
 - T24 "Parallel-batch settle-and-independent-lowering rule has no asserting leaf" — same-cluster (same class of un-anchored MUST coverage gap).
 
@@ -2031,7 +1969,7 @@ The gap compounds with `conventions.md` *Sequential by default*: `Promise.all` /
 
 - `docs/plan_topics/V9i-subagent-isolation.md` — Tests / Spec (edited)
 - `docs/plan_topics/coverage-matrix.md` — Code-keyed obligation areas / Numbered REQ-IDs (edited)
-- `docs/plan_topics/conventions.md` — Sequential by default (option-dependent)
+- `docs/plan_topics/conventions.md` — Sequential by default (edited — allow-list entry citing the new `PIC-N`)
 - `docs/plan_topics/V14a-tool-calls.md` — Spec / Tests (read-only; alternative dispatch-surface home)
 - `docs/plan.md` — V9 / V14 slice listing (read-only)
 
@@ -2106,7 +2044,6 @@ No leaf owns the step that activates that flip. The vertical phases end at `V18`
 - `docs/plan_topics/coverage-matrix.md` — header paragraph (release-gate CI clause) (edited)
 - `docs/plan.md` — "How to use this plan" item 5 (edited)
 - `docs/plan_topics/conventions.md` — *REQ-ID discipline* (read-only)
-- `docs/plan_topics/V18c-version-bump-checklist.md` — `Adds.` / `Ships when.` (option-dependent)
 
 ## Spec Documents
 
@@ -2119,8 +2056,7 @@ None
 **Leaves (implementation order):**
 
 - `H5a` — REQ-ID / diagnostic-code closing-gate automation — (modified)
-- `V18c` — Pi version-bump procedure and gates — (option-dependent)
-- `<new>` — terminal live-corpus-activation leaf — (added; option-dependent)
+- `<new>` — terminal live-corpus-activation leaf — (added)
 
 ## Consequence
 
@@ -2136,29 +2072,29 @@ The live-corpus full-coverage gate never fires in its binding form: with no leaf
 
 ## Solution Space
 
-**Shape:** multiple
-
-### Option A — Fold the activation into `H5a` (no phantom release gate)
-
-**Approach.** Strike the deferral-to-a-separate-"release gate" framing; make `H5a` own the live-corpus reconciliation mode itself, gated behind an explicit trigger the same leaf wires (so it does not redden `main` before all coverage-producing leaves land). The "loom 1.0 release gate" stops being a distinct, unowned thing and becomes the live-corpus mode of the gate `H5a` already builds.
-**Plan edits.** `H5a` `Adds.` / `Ships when.`: state that the live-corpus reconciliation runs as a mode of the same gate, owned by `H5a`, with the named trigger/condition under which it becomes binding; retarget `plan.md` item 5 and `coverage-matrix.md`'s clause to name `H5a`'s live-corpus mode instead of an abstract "release gate."
-**Spec edits.** None.
-**Pros.** No new leaf; single owner; eliminates the phantom "release gate" referenced in three places.
-**Cons.** `H5a` lands early (Horizontal), so the binding trigger must be unambiguous to avoid either reddening `main` prematurely or never firing; the activation condition becomes `H5a`'s responsibility to define precisely.
-**Risks.** If the trigger is under-specified, the same "never actually fires" gap re-appears inside `H5a`.
-
-### Option B — Dedicated terminal activation owner
-
-**Approach.** Add a terminal leaf (`<new>`) sequenced after the last coverage-producing leaf whose `Ships when` flips `H5a`'s live-corpus reconciliation to binding and asserts green full coverage of the live spec REQ-ID set. Alternatively, assign that step to the existing release-adjacent leaf `V18c` (version-bump procedure and gates) by extending its `Adds.` / `Ships when` to include the live-corpus activation.
-**Plan edits.** Either author `<new>` and link it as the tail leaf, or extend `V18c`; in both cases retarget `plan.md` item 5, `coverage-matrix.md`'s clause, and `H5a`'s deferral text to name that owner.
-**Spec edits.** None.
-**Cons.** Adds a leaf (or stretches `V18c`, which is otherwise scoped to SDK version-bump); the owner must be sequenced after every coverage-producing leaf.
-**Pros.** Matches the deferred-to-release semantics exactly: the flip lands precisely when all leaves are done, so `main` is never red on incomplete coverage.
-**Risks.** A mis-sequenced owner (deps not covering every coverage-producing leaf) would let the gate activate against incomplete coverage.
+**Shape:** single
 
 ### Recommendation
 
-Resolve the smaller, scope-bounding question first — pick the owner — then retarget the references. Prefer **Option B with a dedicated terminal leaf** (or `V18c` if a new leaf is unwanted): the live-corpus mode genuinely must not bind until all coverage-producing leaves land, so the activation belongs to a leaf sequenced last, not to early-Horizontal `H5a`. Whichever owner is chosen, the three release-gate references — `H5a`'s deferral sentence, `coverage-matrix.md`'s CI clause, and `plan.md` item 5 — must name that owner so the activation is traceable to a single leaf. Edge case the implementer must watch: the activating leaf's `Deps` must transitively include every leaf that can introduce an executable REQ-ID, or the gate can activate against incomplete coverage.
+Give the live-corpus reconciliation a dedicated terminal owner: author a `<new>`
+leaf sequenced after the last coverage-producing leaf whose `Ships when` flips
+`H5a`'s live-corpus reconciliation from non-gating to binding and asserts green
+full coverage of the live spec REQ-ID set. The live-corpus mode genuinely must
+not bind until every coverage-producing leaf has landed, so the activation
+belongs to a leaf sequenced last rather than to early-Horizontal `H5a`; this also
+matches the deferred-to-release semantics exactly, so `main` is never red on
+incomplete coverage.
+
+**Plan edits.** Author the `<new>` terminal leaf and link it as the tail leaf,
+then retarget the three release-gate references so each names that owner: `H5a`'s
+deferral sentence, `coverage-matrix.md`'s release-gate CI clause, and `plan.md`
+item 5. The activation then traces to a single named leaf.
+
+**Spec edits.** None.
+
+Edge case the implementer must watch: the terminal leaf's `Deps` must transitively
+include every leaf that can introduce an executable REQ-ID, or the gate can
+activate against incomplete coverage.
 
 ## Relationships
 
@@ -2250,79 +2186,42 @@ parallel-initiation MUST reach no leaf, and the gate would pass green regardless
 
 ## Solution Space
 
-**Shape:** multiple
-
-This finding carries two independent obligations: (1) state the rule and enumerate
-the obligation class, and (2) mechanically enforce closure of that class at the
-gate. They touch different artefacts and cannot land as one paragraph edit, so
-each is given its own option below; both are required.
-
-### Option A — Rule + enumeration of the un-anchored-MUST class
-
-**Approach.** Add a clause to `conventions.md` *REQ-ID discipline* requiring that
-every normative MUST/MUST-NOT lacking a numbered REQ-ID and a registry diagnostic
-code be enumerated in `coverage-matrix.md`'s *Code-keyed obligation areas* table
-with a named closing leaf. Perform the enumeration sweep over `spec_topics/**`,
-adding one row per such MUST (the existing *No additional access channels* → `V14a`
-row becomes one rule-driven row among many rather than a one-off patch).
-
-**Plan edits.** `conventions.md` *REQ-ID discipline*: insert the enumeration
-obligation, cross-referencing GOV-22. `coverage-matrix.md` *Code-keyed obligation
-areas*: add a row for each un-anchored normative MUST found in the sweep, each with
-an existing or `<new>` closing leaf.
-
-**Spec edits.** None — the MUSTs already exist in the spec; the sweep references
-them.
-
-**Pros.** Makes the obligation class explicit and auditable; converts the existing
-ad-hoc patch into a uniform rule; surfaces currently-uncovered MUSTs (e.g. the
-subagent parallel-initiation MUST) during the sweep.
-
-**Cons.** The enumeration is a manual sweep; without Option B it is not
-mechanically guarded against future drift.
-
-**Risks.** A MUST missed by the sweep stays invisible until Option B's gate (or a
-later reviewer) catches it.
-
-### Option B — Closing-gate enforcement of the enumerated class
-
-**Approach.** Add a closing-gate arm in `H5a` that fails CI when a normative
-MUST/MUST-NOT lacking a REQ-ID and a registry code is not present in the
-*Code-keyed obligation areas* table with a closing leaf, with a seeded fixture
-exercising the new arm (green on the no-violation fixture, red on a seeded
-un-enumerated-MUST fixture).
-
-**Plan edits.** `H5a-closing-gate-automation.md`: add a `Convention:` Tests bullet
-for the new arm and extend the *Adds.* description of the gate's failure modes;
-add the seeded violation/no-violation fixtures to the *Ships when* gate.
-`conventions.md` *REQ-ID discipline*: cross-reference the new `H5a` arm from the
-rule added in Option A.
-
-**Spec edits.** None.
-
-**Pros.** Turns the rule into a mechanical guarantee; drift after the sweep fails
-CI rather than silently accumulating.
-
-**Cons.** Detecting "a normative MUST not in the table" mechanically requires a
-discriminator for un-anchored normative MUSTs in `spec_topics/**`; the gate's
-recogniser must define what counts (a precise recogniser is itself a small design
-task).
-
-**Risks.** An over-broad recogniser produces false-positive gate failures; an
-over-narrow one re-opens the same blind spot.
+**Shape:** single
 
 ### Recommendation
 
-Resolve **Option A first**, then **Option B**. Option A bounds the scope — it
-defines the obligation class and produces the enumerated set the gate checks —
-so Option B's recogniser and fixtures land against a stable enumeration rather
-than a moving target. The implementer must watch that the recogniser in Option B
-matches the obligation class defined in Option A exactly (REQ-ID-less,
-registry-code-less, non-seam normative MUST/MUST-NOT), so the gate neither
-over-fires nor lets the residue class slip. The spec is read-only for this fix:
-the un-anchored MUSTs are referenced, not re-anchored — re-anchoring any
-individual MUST as a REQ-ID is a fix-spec-first decision owned by the relevant
-spec-coverage finding (e.g. the subagent MUST), not by this systemic rule.
+Close the construction gap with a single coordinated edit that both states the
+rule enumerating the un-anchored-MUST class and mechanically enforces that
+class's closure at the gate — the two halves land together so the enumerated set
+and the gate that checks it never diverge.
+
+In `conventions.md` *REQ-ID discipline*, add a clause (cross-referencing GOV-22)
+requiring that every normative MUST/MUST-NOT lacking a numbered `PREFIX-N` REQ-ID
+and a `loom/...` registry diagnostic code be enumerated in `coverage-matrix.md`'s
+*Code-keyed obligation areas* table with a named closing leaf, and cross-reference
+the new `H5a` gate arm from that clause. Perform the enumeration sweep over
+`spec_topics/**`, adding one *Code-keyed obligation areas* row per such MUST with
+an existing or `<new>` closing leaf; the existing *No additional access channels*
+→ `V14a` row becomes one rule-driven row among many rather than a one-off patch,
+and currently-uncovered MUSTs (e.g. the subagent parallel-initiation MUST) surface
+during the sweep.
+
+In `H5a-closing-gate-automation.md`, add a closing-gate arm that fails CI when a
+normative MUST/MUST-NOT lacking a REQ-ID and a registry code is not present in the
+*Code-keyed obligation areas* table with a closing leaf: add a `Convention:` Tests
+bullet for the new arm, extend the *Adds.* description of the gate's failure modes,
+and add a seeded violation/no-violation fixture pair to the *Ships when* gate
+(green on the no-violation fixture, red on a seeded un-enumerated-MUST fixture).
+
+Land the rule-and-enumeration edit and the gate-and-fixture edit as one change so
+the enumeration defines the obligation class and produces the stable enumerated
+set the gate checks. The gate's recogniser must match the enumerated class exactly
+— REQ-ID-less, registry-code-less, non-seam normative MUST/MUST-NOT — so it
+neither over-fires (false-positive gate failures) nor lets the residue class slip
+(re-opening the blind spot). The spec is read-only for this fix: the un-anchored
+MUSTs are referenced, not re-anchored — re-anchoring any individual MUST as a
+REQ-ID is a fix-spec-first decision owned by the relevant spec-coverage finding
+(e.g. the subagent MUST), not by this systemic rule.
 
 ## Relationships
 
@@ -2353,7 +2252,7 @@ The corpus already depends on this test resolving correctly: `V2c` lists `V5d` i
 ## Plan Documents
 
 - `docs/plan_topics/conventions.md` — *Leaf format*, `Adds.` rule clause (ii) (edited)
-- `docs/plan_topics/leaf-template.md` — `Adds.` field gloss, which paraphrases the same clause (option-dependent)
+- `docs/plan_topics/leaf-template.md` — `Adds.` field gloss, which paraphrases the same clause (edited — apply the matching clause-(ii) wording so the template gloss does not drift)
 
 ## Spec Documents
 
