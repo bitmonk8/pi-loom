@@ -50,7 +50,10 @@ Use the REQ-ID prefix table in [`../spec_topics/governance.md`](../spec_topics/g
 
 ## Code-keyed obligation areas (no numbered REQ-IDs)
 
-Several non-narrative pages own their obligations through `loom/parse/*`, `loom/load/*`, and `loom/runtime/*` diagnostic codes rather than numbered `PREFIX-N` REQ-IDs (a standing spec residue under [`governance.md` GOV-22](../spec_topics/governance.md)). Their coverage is closed by the leaf whose green tests assert the listed codes against the diagnostics registry per [`conventions.md`](./conventions.md) *Diagnostic message anchors*:
+Several non-narrative pages own their obligations through `loom/parse/*`, `loom/load/*`, and `loom/runtime/*` diagnostic codes rather than numbered `PREFIX-N` REQ-IDs (a standing spec residue under [`governance.md` GOV-22](../spec_topics/governance/req-id-prefix-table-active-b.md#gov-22)). Their coverage is closed by the leaf whose green tests assert the listed codes against the diagnostics registry per [`conventions.md`](./conventions.md) *Diagnostic message anchors*.
+
+The same table also enumerates the third closing-gate surface defined in [`conventions.md`](./conventions.md) *REQ-ID discipline*: every normative MUST/MUST-NOT on a non-narrative `spec_topics/**` page that carries no numbered `PREFIX-N` REQ-ID and no `loom/...` registry code and is not a named cross-leaf seam — the un-anchored-obligation residue under [`governance.md` GOV-22](../spec_topics/governance/req-id-prefix-table-active-b.md#gov-22). Each such MUST is one rule-driven row here with a named closing leaf (a `<new>` placeholder where the obligation is currently uncovered and its closing leaf is owned by the relevant spec-coverage finding), not a one-off patch; the [`H5a`](./H5a-closing-gate-automation.md) closing gate fails on any such MUST absent from this table with a closing leaf, on the live-corpus footing that binds at the loom 1.0 release gate.
+
 
 | Spec area (prefix) | Closing leaf(s) |
 |---|---|
