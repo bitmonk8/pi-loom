@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T37) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 24 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 23 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -1672,85 +1672,5 @@ Then add a completed-callee finality assertion: add a Tests bullet to `V4c-T` (w
 ## Relationships
 
 - T24 "V4c-T/V4c assert no-rollback over subagent, query, tool-call, and invoke surfaces built in later slices" — decision-dependency (its seam-vs-live-surface scoping decision constrains how Option B's completed-callee assertion is written; resolve T24 first)
-
----
-
-# T24 — V4c-T/V4c assert no-rollback over subagent, query, tool-call, and invoke surfaces built in later slices
-
-**Original heading:** `V4c-T` asserts no-rollback over subagent/query/tool-call/invoke surfaces built in later slices
-**Original section:** docs/plan_topics/V4c-terminal-outcomes.md / V4c-T
-**Kind:** ordering
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V4c-T` (and the paired `V4c`) carry two terminal-outcome test bullets that name concrete features from much later slices:
-
-- `ERR-12`: "ERR-8 holds inside a subagent loom" — the subagent-mode session is built by `V9i`.
-- `ERR-13`: "`?`/panic/cancel never unwind side effects; completed tool calls, queries, and invoke children are final" — tool calls are built by `V14a`, queries by `V13c`, and invoke children by `V15a`.
-
-`V4c-T`'s declared `Deps` are `V4a, V17a` only. Under the dep-driven build order, this places `V4c-T`/`V4c` early in the errors-and-results work, long before any of `V9i`/`V13c`/`V14a`/`V15a` exist. The plan never states how the `ERR-12`/`ERR-13` assertions are actually exercised. Two readings are possible:
-
-1. The vectors drive the **live** subagent/query/tool-call/invoke surfaces. Then `V4c-T` cannot run as ordered — it would need those producers as prerequisites, forcing a re-sequence of a foundational V4 leaf behind the entire query/tool/invoke/subagent stack.
-2. The vectors drive the **cancellation and invocation-harness seam generically** — `V17a`'s `loomAbort`/checkpoint/late-settlement contract plus the `H4a` in-process session double standing in for a completed tool-call/query/invoke-child/subagent outcome. Then the current `Deps` are correct.
-
-Nothing in `V4c-T`, `V4c`, or the harness contract pins which reading holds.
-
-## Plan Documents
-
-- `docs/plan_topics/V4c-T-terminal-outcomes.md` — Tests (edited)
-- `docs/plan_topics/V4c-terminal-outcomes.md` — Tests, Adds (edited)
-- `docs/plan_topics/H4a-factory-shell-and-harness.md` — session-double fidelity contract (read-only; the seam the tests route through)
-- `docs/plan_topics/V17a-cancellation-core.md` — cancellation contract / `loomAbort` (read-only; already a declared dep)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical (V4 slice)
-
-**Leaves (implementation order):**
-
-- `V4c-T` — Terminal outcomes, partial-append, and no-rollback (tests) — (modified)
-- `V4c` — Terminal outcomes, partial-append, and no-rollback — (modified)
-
-(`V9i`, `V13c`, `V14a`, `V15a` are named by the finding but are read-only context.)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers diverge: one exercises `ERR-12`/`ERR-13` against the `V17a`/`H4a` seam and ships `V4c-T` at its declared position; the other reads the bullets as requiring the live `V9i`/`V13c`/`V14a`/`V15a` surfaces and is blocked. The no-rollback gate then either ships green at V4c without ever touching the surfaces it names, or stalls the whole V4 error model behind the invocation stack.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e — pi-loom plan: build/update plan for spec.md + review (2026-06-10, Thomas Andersen)
-**History:** `git log --follow` on both `V4c-T-terminal-outcomes.md` and `V4c-terminal-outcomes.md` returns only `c6a664e`; `git blame` attributes the `ERR-12`/`ERR-13` bullets, the `Deps. V4a, V17a` line, and the Ships-when to `c6a664e`. The leaf was authored in a single commit with the later-slice references and the narrow dep set already in tension.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In both `docs/plan_topics/V4c-T-terminal-outcomes.md` and `docs/plan_topics/V4c-terminal-outcomes.md`, state that `ERR-12` and `ERR-13` are exercised through the `V17a` cancellation contract (`loomAbort`, checkpoint set, late-settlement discard) and the `H4a` in-process session-double harness standing in for a completed tool-call / query / invoke-child / subagent outcome — **not** the live `V9i`/`V13c`/`V14a`/`V15a` surfaces. Keep `Deps` as `V4a, V17a`.
-
-Concretely:
-- Append to the `ERR-12` bullet a clause naming the seam (e.g. "exercised via the `H4a` harness modelling a subagent-mode callee, not the live `V9i` surface").
-- Append to the `ERR-13` bullet a clause (e.g. "completed tool-call / query / invoke-child outcomes are modelled through the `H4a` session double and the `V17a` side-effect seam, not the live `V14a`/`V13c`/`V15a` surfaces").
-- In `V4c`'s **Adds**, add one behavioural sentence recording that the no-rollback guarantee is architectural — the runtime contains no compensating path.
-
-This depends on the `H4a` fidelity contract exposing a way to model a completed callee distinct from an appended turn; if not yet defined, this fix is gated on the `H4a` harness-scripting finding. The implementer must ensure the seam-level assertion still witnesses a *completed* callee whose side effect survives a downstream `?`/panic/cancel.
-
-## Relationships
-
-- T23 "ERR-13 no-rollback / completed-callee finality is over-claimed and unasserted in V4c" — decision-dependency (same `ERR-13` bullet in the same leaf; the seam-vs-live decision here constrains how that finding's added completed-callee assertion is written — this one must precede it)
-- T36 "Session double's model / tool / binder-response scripting surface is undefined" — decision-dependency (the seam-based exercise recommended here relies on the `H4a` harness defining a model/tool-call/completed-callee programming surface — this one must follow it)
-- T22 "V3d-T over-asserts final-value propagation against invoke/subagent caller surfaces built in later slices" — same-cluster (same class of defect — a `-T` leaf asserting over a surface built in a later slice; resolves independently)
 
 ---
