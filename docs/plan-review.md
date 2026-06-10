@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T37) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 3 high, 31 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 2 high, 31 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -2359,73 +2359,4 @@ Edge case for the implementer: a tests task legitimately may not compile if it r
 ## Relationships
 
 - T06 "Class-1/2/3 taxonomy referenced by the Adds binding rule but never defined" — same-cluster (parallel "term used as a gate but never defined" clarity gap in `conventions.md`; resolves independently)
-
----
-
-# T34 — Test runner and assertion API are never named; the panic fail-loudly token is non-JS
-
-**Original heading:** Test runner / assertion framework never named; `panic` token non-JS
-**Original section:** docs/plan_topics/H1a-scaffold-and-toolchain.md
-**Kind:** assumptions, implementability
-**Importance:** high
-**Score:** 95
-**MustFix:** false
-
-## Finding
-
-`H1a` is the sole dependency-enumerating scaffold leaf, yet its `Adds.` field names only "the test runner" (singular, definite) without identifying a concrete runner or assertion library, and the checked-in `package.json` declares no test framework (`devDependencies` is `{@types/semver}` only). Every `-T` tests-task leaf, the horizontal leaves' inline architectural/lint tests, the `H4a` harness self-check, and the pervasive "`npm test` asserts …" Ships-when phrasing all depend on a concrete runner + assertion API that no leaf pins. Two independent implementers could pick incompatible frameworks (e.g. Vitest vs `node:test` + `node:assert`), making the shared `npm test` gate and cross-leaf assertions structurally incompatible.
-
-Separately, the cross-cutting *No silent test skipping* rule in `conventions.md` mandates "`assert.fail` / `panic` when prerequisites are missing." `panic` has no JS/TS meaning — it is a fail-loudly primitive inherited from a Rust house style. `assert.fail` is a valid `node:assert` call, but `panic` gives an implementer no usable TypeScript construct, and the correct fail-loudly primitive depends on which runner/assertion library `H1a` settles on. (Note: `panic` is a legitimate loom-language runtime term elsewhere in the plan and is not in scope here; only the test-discipline token in *No silent test skipping* is the defect.)
-
-## Plan Documents
-
-- `docs/plan_topics/H1a-scaffold-and-toolchain.md` — `Adds.` (and optionally `Tests.`) (edited)
-- `docs/plan_topics/conventions.md` — *No silent test skipping* cross-cutting rule (edited)
-- `docs/plan_topics/leaf-template.md` — Ships-when phrasing for `-T` leaves (read-only)
-
-## Spec Documents
-
-None — the test runner choice and the fail-loudly token are project/plan conventions; the spec does not request a test framework.
-
-## Affected Leaves
-
-**Phases:** Horizontal (the edited leaf `H1a`). The *No silent test skipping* rule in `conventions.md` is cross-cutting and applies across all phases.
-
-**Leaves (implementation order):**
-
-- `H1a` — Project scaffold and toolchain — (modified)
-
-Every `-T` tests-task leaf (65) and every horizontal leaf carrying inline tests is transitively blocked on the runner choice, but none of their acceptance criteria change — they reference `npm test` abstractly. Only `H1a` (the dependency owner) and the cross-cutting `conventions.md` rule require edits.
-
-## Consequence
-
-**Severity:** blocking
-
-Without a named runner + assertion API at the one dependency-owning leaf, independent implementers pick incompatible frameworks, so the shared `npm test` gate and cross-leaf assertions cannot be relied on to compose. The non-JS `panic` token additionally leaves an implementer applying *No silent test skipping* literally with no TypeScript construct to invoke (the `assert.fail` half is a usable fallback, so this half alone is correctness-class; the unnamed runner governs the overall severity).
-
-## Issue introduction
-
-**Verdict:** multi-commit-interaction
-**Introducing commits:** 288f191 — Add implementation plan (2026-05-04); c6a664e — pi-loom plan: build/update plan for spec.md + review (2026-06-10)
-**History:** The two halves entered the corpus independently. The non-JS `panic` token in *No silent test skipping* is present since the plan's first commit (288f191) and was carried verbatim through the per-topic split and the move into `docs/`. The unnamed test runner is a regression introduced by the c6a664e rebuild: the original H1 leaf in 288f191 explicitly named **Vitest** as the runner and declared it, but the rewritten `H1a-scaffold-and-toolchain.md` reduced it to the abstract "the test runner" and dropped the dependency.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Name the test runner and assertion API at the single dependency-owning leaf, then align the fail-loudly token in `conventions.md` to that choice:
-
-- **Name the runner + assertion library in `H1a`.** In `docs/plan_topics/H1a-scaffold-and-toolchain.md` `Adds.`, replace the abstract "the test runner" with a concrete runner + assertion library (e.g. Vitest, or `node:test` + `node:assert/strict`), declared in `package.json#devDependencies` and added to the manifest enumeration, so every `npm test` reference resolves to one concrete framework. Optionally add an `H1a` Tests bullet asserting the runner/assertion dependency is declared. The framework decision is made here at scaffold time, which bounds the fail-loudly primitive the next bullet must reference.
-- **Replace the non-JS `panic` token in *No silent test skipping*.** In `conventions.md` *No silent test skipping*, replace `panic` with the chosen framework's JS/TS fail-loudly primitive, scoping the edit to this bullet only.
-
-Edge case: the loom-language `panic` (runtime `match-error`, `invoke-depth-exceeded`, V4b runtime-panic set) is a correct domain term and must remain untouched — guard against an over-broad find/replace that would clobber legitimate loom-language `panic` references; only the test-discipline token in *No silent test skipping* is the defect.
-
-## Relationships
-
-- T11 "Lint engine and custom-rule mechanism are consumed but never provisioned" — same-cluster (same `H1a` tooling-provisioning gap; resolves independently via the dependency enumeration)
-- T13 "Checked-in package.json omits the yaml runtime dependency H1a mandates" — same-cluster (same manifest-provisioning theme; resolves independently)
-- T12 "engines.node is populated but its value is never asserted in H1a" — same-cluster (another `H1a` manifest-completeness gap; independent fix)
-- T33 "'fail red for the intended reason' is the tests-task gate but is never defined" — same-cluster (also sharpens a test-discipline convention; resolves independently of the runner/`panic` fix)
 
