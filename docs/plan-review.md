@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T37) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 21 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 20 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -1469,67 +1469,4 @@ In `V10c` Adds, reword the trailing clause so it stops claiming closure of `ERR-
 
 - T21 "Reload-debounce test does not bind to the injected Clock seam" — same-cluster (same `V10c` reload-debounce mechanism; resolves independently of the `ERR-7` assertion question)
 - T04 "Coverage-matrix `…` range notation is never defined" — decision-dependency (the `ERR-1 … ERR-7` coverage-matrix row this finding relies on is the one whose range notation that finding flags as ambiguous)
-
----
-
-# T21 — Reload-debounce test does not bind to the injected Clock seam
-
-**Original heading:** Reload-debounce test reproducibility — no named Clock seam
-**Original section:** docs/plan_topics/V10c-settings-merge.md
-**Kind:** validation
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V10c-T`'s third Tests bullet — "The reload debounce coalesces a burst of rapid watcher events into a single reload via the 250 ms drop-and-reschedule window" — asserts a time-window behaviour but names no deterministic time seam. The spec it cites (`package-and-settings.md#caching-and-reload`) is explicit that the debounce "is measured against the injected `Clock` seam via `Clock.setTimeout` / `Clock.clearTimeout`": each fresh watcher event clears the pending handle and reschedules, so a burst coalesces into a single reload firing 250 ms after the last event. A test that does not advance time through that seam must instead wait against a real timer, which is non-reproducible.
-
-The sibling bounded-walk leaf `V10b` already models the correct shape: its `Adds.` field pins the per-read deadline timer to `Clock.setTimeout` precisely so the `FakeClock` seam can drive it. `V10c-T` should bind the debounce test the same way. The seam is already available — both `V10c-T` and `V10c` list `V8b` (which defines `Clock` and the `FakeClock` test seam) in their `Deps.`, so no dependency change is required; only the test bullet needs to name the seam and the observable boundary it asserts.
-
-## Plan Documents
-
-- `docs/plan_topics/V10c-T-settings-merge.md` — Tests (edited)
-- `docs/plan_topics/V10c-settings-merge.md` — Tests (edited; mirrors the same debounce bullet)
-- `docs/plan_topics/V10b-package-discovery.md` — Adds (read-only; reference shape for `Clock.setTimeout`-driven timing tests)
-- `docs/plan_topics/V8b-clock-fs-id-watch-token-seams.md` — Adds (read-only; defines the `Clock` / `FakeClock` seam consumed here)
-
-## Spec Documents
-
-- `docs/spec_topics/discovery/package-and-settings.md` — Caching and reload (read-only; already mandates `Clock.setTimeout` / `Clock.clearTimeout`)
-
-## Affected Leaves
-
-**Phases:** Vertical V10 (Discovery and settings)
-
-**Leaves (implementation order):**
-
-- `V10c-T` — Settings reads and merge (tests) — (modified)
-- `V10c` — Settings reads and merge — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two implementers would write materially different debounce tests: one drives virtual time through `Clock`/`FakeClock` and asserts the coalescing boundary deterministically; the other waits on a real 250 ms timer and produces a flaky test that passes or fails by scheduling luck. The latter can ship green while never actually exercising the drop-and-reschedule boundary the spec requires, so a regression in the debounce (e.g. firing per-event instead of coalescing) could pass undetected.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e — pi-loom plan: build/update plan for spec.md + review (2026-06-10, Thomas Andersen)
-**History:** The reload-debounce test bullet has existed in `V10c-T` since the file's first commit (`c6a664e`), originally with no time seam named. A later edit (`3a02fc7`) split the conflated bullet and added the spec anchor but still did not name the `Clock` seam. `git log -S "Clock"` over both leaf files returns no commits — neither has ever named the seam — so the defect dates to inception.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `docs/plan_topics/V10c-T-settings-merge.md`, revise the reload-debounce Tests bullet so it binds the test to the injected `Clock` seam and states the observable coalescing boundary. The bullet should specify that the debounce is exercised through the `FakeClock` test seam (`Clock.setTimeout` / `Clock.clearTimeout`, per `package-and-settings.md#caching-and-reload`) with virtual time advanced deterministically, asserting that a burst of N watcher events within one 250 ms window produces exactly one reload, and that a subsequent event after the window closes produces a second reload. Apply the same revision to the mirrored bullet in `docs/plan_topics/V10c-settings-merge.md`.
-
-`V8b` is already present in both leaves' `Deps.`, so no `Deps.` edit is needed. Edge case: the assertion must distinguish coalescing (N events → 1 reload) from per-event firing (N events → N reloads), and must observe the second reload only after virtual time crosses the window boundary following the last event.
-
-## Relationships
-
-- T20 "ERR-7 watcher-reload assertion has no in-leaf test and no declared producer→owner dependency" — same-cluster (same `V10c`/`V10c-T` reload-debounce mechanism; that finding adds a failure-path assertion, this one makes the coalescing test deterministic)
 
