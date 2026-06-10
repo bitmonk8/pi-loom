@@ -45,6 +45,8 @@ Use the REQ-ID prefix table in [`../spec_topics/governance.md`](../spec_topics/g
 | DIAG-2, DIAG-3 | `V7b` |
 | DIAG-4 | `V7b`, `V7c` |
 | CNCL-1, CNCL-2, CNCL-3 | `V17a` |
+| CNCL-4 | `V17a`, `V9g` |
+| CNCL-5, CNCL-6 | `V17a` |
 | FRNT-1 | `V6e` |
 | IMP-1 | `V15c` |
 
