@@ -64,37 +64,22 @@ The *Doc updates* rule is the only cross-cutting convention with no verification
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-This finding carries two independent obligations; each is addressed by its own option. Both are required.
-
-### Option A — Relabel the mislabeled Tests bullets
-
-**Approach:** Re-cite the three Tests bullets to the obligation each actually verifies, leaving the assertion text unchanged.
-
-**Plan edits:**
-- `H1a` line 8 (`npm run build`/`npm test` green on empty `src/**`) and line 9 (manifest tilde-pin assertion): replace `Convention: (*Doc updates*)` with the convention these actually operationalise — the horizontal phase-categories / scaffold-toolchain obligation (the `typebox` pin bullet on line 10 already cites `host-prerequisites.md §pi-sdk-pin` for comparison).
-- `M-T` line 9 (fixture loom produces one appended turn, no diagnostic): replace `Convention: (*Doc updates*)` with the `SLSH-2` REQ-ID it asserts (the same REQ-ID the first bullet cites — `M` is the MVP phase, not a horizontal leaf, so a `Convention.`-style citation is not the right home).
-
-**Spec edits:** None.
-
-**Pros:** Small, scope-bounded; removes the false impression that doc updates are being asserted; independently verifiable.
-
-**Cons:** Does not add any doc-update enforcement (Option B's concern remains).
-
-### Option B — Establish the *Doc updates* rule's enforcement posture
-
-**Approach:** Make the rule's verification posture explicit — either add a lightweight mechanical check or declare it review-only — so no reader expects enforcement that does not exist.
-
-**Plan edits:** One of:
-- Add a closing-gate surface (in `H5a`, on the same seeded→live footing as the other gates) asserting each completed leaf added a `CHANGELOG.md` line and a `README.md` status row; or
-- Annotate the *Doc updates* rule in `conventions.md` that it is contributor-discipline / review-only with no mechanical gate, and (optionally) add it to a named release/PR checklist item, mirroring how the architectural-scan blind spots are recorded as documented manual gates elsewhere in the plan.
-
-**Spec edits:** None.
+This finding carries two independent, both-required obligations: relabel the mislabeled Tests bullets, and make the *Doc updates* rule's enforcement posture explicit. Relabeling does not add enforcement and the enforcement edit does not correct the mislabels, so both are applied.
 
 ### Recommendation
 
-Apply Option A first — it is the smaller, scope-bounded edit and removes the mislabels independently of any enforcement decision, so Option B lands on a stable baseline. Then resolve Option B by stating the rule's enforcement posture explicitly; the review-only / named-checklist sub-path is the lower-risk resolution unless a mechanical CHANGELOG/README check is independently wanted.
+Do the relabeling first (it is the smaller, scope-bounded edit that lands the posture edit on a stable baseline), then declare the rule's enforcement posture.
+
+**Relabel the mislabeled Tests bullets.** Re-cite each of the three bullets to the obligation it actually verifies, leaving the assertion text unchanged:
+
+- `H1a` line 8 (`npm run build`/`npm test` green on empty `src/**`) and line 9 (manifest tilde-pin assertion): replace `Convention: (*Doc updates*)` with the convention these actually operationalise — the horizontal phase-categories / scaffold-toolchain obligation (the `typebox` pin bullet on line 10 already cites `host-prerequisites.md §pi-sdk-pin` for comparison).
+- `M-T` line 9 (fixture loom produces one appended turn, no diagnostic): replace `Convention: (*Doc updates*)` with the `SLSH-2` REQ-ID it asserts — the same REQ-ID the first bullet cites. `M` is the MVP phase, not a horizontal leaf, so a `Convention.`-style citation is not the right home.
+
+**Declare the *Doc updates* rule's enforcement posture.** Annotate the *Doc updates* cross-cutting rule in `conventions.md` that it is contributor-discipline / review-only with no mechanical gate, and add it to a named release/PR checklist item, mirroring how the architectural-scan blind spots are recorded as documented manual gates elsewhere in the plan. This makes the rule's verification posture explicit so no reader expects enforcement that does not exist. (A mechanical closing-gate `CHANGELOG.md`/`README.md` check in `H5a` is the heavier alternative; adopt it only if such a check is independently wanted.)
+
+**Spec edits:** None.
 
 ## Relationships
 
@@ -218,29 +203,18 @@ If `H6a` ships unfixed, a bad flip — whether from an incomplete `Deps.` set or
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
 This finding carries two independent obligations: documenting the rollback path, and adding a guard for the prose-only Deps-completeness reliance. They land on different surfaces and neither resolves the other.
 
-### Option A — Document the rollback path
-
-- **Approach:** Record in `H6a` that reverting the activation commit returns the closing gate to the `H5a` seeded-fixture footing, so `main` stops reddening on incomplete live coverage.
-- **Plan edits:** Add a revert note to `H6a`'s `Adds.` (or as an explicit recovery clause): reverting the `H6a` activation commit restores the seeded-fixture footing established at `H5a`.
-- **Spec edits:** None.
-- **Pros:** Scope-bounded; lands entirely on the existing leaf; no new mechanism or sequencing.
-- **Cons:** Documents recovery only; does not lower the probability of a bad flip.
-
-### Option B — Warn-only live-corpus canary ahead of the hard flip
-
-- **Approach:** Run the live-corpus reconciliation in report-only mode one commit before `H6a`'s hard flip, so an incomplete-coverage activation is observed without reddening `main`; `H6a` then performs the hard-fail flip.
-- **Plan edits:** Introduce a `<new>` canary leaf (or a warn-only mode on the existing gate) that reconciles the same live spec REQ-ID / `spec_topics/**` MUST / live-test sets `H6a` hard-fails on, emitting findings without failing CI; sequence it immediately before `H6a`. `H5a`'s gate may need a warn-only mode to support this.
-- **Spec edits:** None.
-- **Pros:** Surfaces coverage gaps before they can redden `main`, directly mitigating the prose-only Deps-completeness reliance.
-- **Cons:** Adds a leaf/mode and an extra sequencing step.
-
 ### Recommendation
 
-Address Option A first — it is the smaller, scope-bounding edit and lands on the existing `H6a` leaf without new sequencing — then add Option B on that stable baseline. The canary's reconciliation set must stay in lockstep with the sets `H6a` hard-fails on; keep the Deps-completeness obligation stated in one place so the warn-only and hard-fail footings cannot drift apart.
+Document the rollback path on the existing `H6a` leaf first, then add a warn-only live-corpus canary ahead of the hard flip on that stable baseline:
+
+- **Rollback documentation (do first).** Add a revert/recovery clause to `H6a`'s `Adds.` recording that reverting the `H6a` activation commit returns the closing gate to the `H5a` seeded-fixture footing, so `main` stops reddening on incomplete live coverage. This is the smaller, scope-bounding edit and lands entirely on the existing leaf with no new mechanism or sequencing; it documents recovery only and does not by itself lower the probability of a bad flip.
+- **Warn-only live-corpus canary (do second).** Introduce a `<new>` canary leaf (or a warn-only mode on the existing gate) that reconciles the same live spec REQ-ID / `spec_topics/**` MUST / live-test sets `H6a` hard-fails on, emitting findings without failing CI, and sequence it immediately before `H6a`'s hard-fail flip. `H5a`'s gate may need a warn-only mode to support this. This surfaces coverage gaps before they can redden `main`, directly mitigating the prose-only Deps-completeness reliance.
+
+The canary's reconciliation set MUST stay in lockstep with the sets `H6a` hard-fails on; keep the Deps-completeness obligation stated in one place so the warn-only and hard-fail footings cannot drift apart.
 
 ## Relationships
 
@@ -651,25 +625,13 @@ The mechanical gates catch the common forms, so implementers can still produce w
 
 ## Solution Space
 
-**Shape:** multiple
-
-### Option A — Pin the residue to the per-leaf self-review step
-
-**Approach:** Extend `conventions.md`'s *Per-phase TDD ritual* self-review step so its checklist line covers the indirect ambient-access forms alongside the singleton prompt, then make `H2a`/`H3a` (and `V8b`'s `PIC-12`/`PIC-20` bullets) name that step where they say "enforced by contributor discipline / review."
-
-**Pros:** The step already exists and partially covers the singleton residue; fires on every leaf at the point drift is introduced; lowest-friction edit.
-**Cons:** Self-review is performed by the implementing agent on its own diff; not a single tracked release artefact.
-
-### Option B — Add a named release/PR review-gate item
-
-**Approach:** Mirror the GOV-22 → GOV-15 routing: add a named release-time (or PR) reviewer-inspection checklist item that the indirect-form architectural/ambient residue was reviewed, and reference it from `H2a`/`H3a`/`V8b`. The item must name the concrete forms to inspect (alias, destructure, computed access, helper wrapper, re-export) so the manual step is reproducible.
-
-**Pros:** A single tracked gate consistent with how the plan already handles its other documented mechanical-scan residue; independent of per-leaf discipline.
-**Cons:** Release-time review is coarse-grained; adds a manual gate to the release path.
+**Shape:** single
 
 ### Recommendation
 
-Adopt **Option A** as the primary fix and layer the **Option B** routing sentence onto it for consistency with the GOV-22 precedent: expand the self-review step to cover the indirect ambient-access forms, add a one-line routing sentence to the *No globals, statics, singletons* rule that names the self-review step (and any release-time reviewer-inspection step), and change `H2a`/`H3a`/`V8b` PIC-12/PIC-20 from "enforced by contributor discipline / review" to a reference to that named step. Keep the residue list in lockstep with what the scans actually concede so the manual gate and the mechanical scans partition the space with no third gap between them. Land the `H2a`/`H3a`/`V8b` edits in one pass so the single named checklist item covers the ambient-access scan, the lint scan, the singleton architectural test, and the PIC-12/PIC-20 timing/UUID seams.
+Expand `conventions.md`'s *Per-phase TDD ritual* self-review step so its checklist line covers the indirect ambient-access forms — alias (`const env = process.env`), destructured reads, computed access (`process["env"]`), helper wrapper, and re-export indirection — alongside the existing singleton prompt. Add a one-line routing sentence to the *No globals, statics, singletons* rule that names the self-review step (and any release-time reviewer-inspection step) as the owner of the conceded manual residue, mirroring the GOV-22 → GOV-15 routing precedent. Change `H2a`/`H3a` and `V8b`'s `PIC-12`/`PIC-20` bullets from "enforced by contributor discipline / review" to a reference to that named step.
+
+Keep the residue list in lockstep with what the scans actually concede so the manual gate and the mechanical scans partition the space with no third gap between them. Land the `H2a`/`H3a`/`V8b` edits in one pass so the single named checklist item covers the ambient-access scan, the lint scan, the singleton architectural test, and the PIC-12/PIC-20 timing/UUID seams.
 
 ## Relationships
 
@@ -894,27 +856,13 @@ Two reasonable implementers would diverge on which ESLint engine version, TS-awa
 
 ## Solution Space
 
-**Shape:** multiple
-
-### Option A — Provision the lint toolchain in `H1a`'s manifest enumeration
-
-**Approach:** Add the lint engine, a TS-aware ESLint parser, and the custom-rule mechanism to `H1a`'s `package.json#devDependencies`, treating them like every other tool `H1a` already enumerates.
-
-**Plan edits:** In `docs/plan_topics/H1a-scaffold-and-toolchain.md` `Adds.`, extend the manifest enumeration to declare the ESLint engine, the TypeScript-aware ESLint parser, and the custom-rule plugin mechanism as `devDependencies`. Optionally add an `H1a` Tests bullet asserting these are present.
-
-**Pros:** Keeps all dependency provisioning in the leaf the plan already designates as the sole dependency-enumerating leaf; `H2a` arrives with the engine already installed.
-**Cons:** `H1a` ships lint tooling it does not itself exercise.
-
-### Option B — Provision the lint toolchain in `H2a`'s `Adds.`
-
-**Approach:** Make `H2a` the owner of the lint engine + parser + custom-rule mechanism, installed alongside the rules it builds, with a note in `H1a` that lint tooling provisioning is owned by `H2a`.
-
-**Pros:** Co-locates the engine with the rules that consume it.
-**Cons:** Breaks the plan's stated invariant that `H1a` is the sole dependency-enumerating leaf; splits dependency ownership across two leaves.
+**Shape:** single
 
 ### Recommendation
 
-Take Option A. `H1a` is the plan's declared sole dependency-enumerating leaf and `package.json` owner, so the lint engine, TS-aware parser, and custom-rule mechanism belong in its `Adds.` manifest enumeration. Edge cases: the custom-rule mechanism for the bespoke `no-broad-catch` rule is a distinct provisioning concern from the engine (a local rule module or plugin package must be installable/loadable), and the parser must be TS-aware so the rules can lint `src/**` `.ts` sources. Do not, on this fix, also re-attribute the "wired in the scaffold leaf" prose in `conventions.md` (that is a separate finding) — this fix only provisions the toolchain.
+Provision the lint toolchain in `H1a`'s `package.json#devDependencies`, treating the lint engine like every other tool `H1a` already enumerates — `H1a` is the plan's declared sole dependency-enumerating leaf and `package.json` owner, so the engine, its parser, and the custom-rule mechanism belong in its `Adds.` manifest enumeration. In `docs/plan_topics/H1a-scaffold-and-toolchain.md` `Adds.`, extend the manifest enumeration to declare, as `devDependencies`: the ESLint engine; a TypeScript-aware ESLint parser (the parser must be TS-aware so the rules can lint `src/**` `.ts` sources); and the custom-rule plugin mechanism. The custom-rule mechanism for the bespoke `no-broad-catch` rule is a distinct provisioning concern from the engine — a local rule module or plugin package must be installable and loadable — so enumerate it explicitly rather than folding it into the engine entry. Optionally add an `H1a` Tests bullet asserting these `devDependencies` are present.
+
+This fix only provisions the toolchain; do not, on this fix, also re-attribute the "wired in the scaffold leaf" prose in `conventions.md` (that is a separate finding).
 
 ## Relationships
 
@@ -1105,25 +1053,11 @@ Two reasonable implementers can diverge on the untested members (ordering of `ke
 
 ## Solution Space
 
-**Shape:** multiple
-
-### Option A — Enumerate per-member assertions in `V3a-T`
-
-**Approach:** In `V3a-T`'s Tests, add an assertion for each loom-1.0 stdlib member not already covered, each pinned to a reference vector exercising its normative behaviour/return type against `expressions.md` §*Built-in methods and properties*. Mirror the assertions into `V3a`'s Tests and extend its Ships-when to name stdlib-member coverage.
-
-**Pros:** Directly closes the gap; vectors are content the implementer needs anyway; the member set is small and closed.
-**Cons:** Manual list must be kept in step with `expressions.md` if the spec's loom-1.0 set ever changes (low risk).
-
-### Option B — Add a mechanical member-coverage check
-
-**Approach:** Add a closing-gate check (owned by `H5a`, recorded against the EXPR row) that every member named in `expressions.md` has at least one asserting test.
-
-**Pros:** Self-maintaining.
-**Cons:** Requires parsing member names out of spec prose; proves a test exists per member, not that it asserts correct behaviour.
+**Shape:** single
 
 ### Recommendation
 
-Take Option A. The loom-1.0 stdlib set is closed and small (18 members, 16 currently unasserted), so per-member reference-vector assertions in `V3a-T` (landed first per the TDD ritual), then mirrored into `V3a` with the Ships-when extended, is the proportionate fix. Edge cases the implementer must pin: `split("")` code-unit decomposition, `join` on a non-string element firing `loom/parse/non-string-array-join`, `slice` negative-index-from-end, `keys()`/`values()` ordering, and `has(k)` returning `false` on an unknown key. Do not re-add the `replace`/`concat` assertions that already exist.
+Enumerate per-member assertions in `V3a-T`. The loom-1.0 stdlib set is closed and small (18 members, 16 currently unasserted), so in `V3a-T`'s Tests (landed first per the TDD ritual) add an assertion for each loom-1.0 stdlib member not already covered, each pinned to a reference vector exercising its normative behaviour/return type against `expressions.md` §*Built-in methods and properties*. Then mirror the assertions into `V3a`'s Tests and extend its **Ships when** to name stdlib-member coverage. Edge cases the implementer must pin: `split("")` code-unit decomposition, `join` on a non-string element firing `loom/parse/non-string-array-join`, `slice` negative-index-from-end, `keys()`/`values()` ordering, and `has(k)` returning `false` on an unknown key. Do not re-add the `replace`/`concat` assertions that already exist.
 
 ## Relationships
 
@@ -1523,30 +1457,13 @@ Two reasonable implementers diverge: one writes `V4e`'s `ERR-7` test with a synt
 
 ## Solution Space
 
-**Shape:** multiple
-
-### Option A — Synthetic-failure assertion in `V4e`, `V10c` forward-points
-
-**Approach:** `V4e`'s `ERR-7` test injects a synthetic watcher-rebuild failure at the `ERR-7` channel seam (the re-parse/re-merge arm and the registry-swap arm), asserting the `loom-system-note` / `triggerTurn:false` routing without standing up a live `V10c`/`V9b` watcher.
-
-**Plan edits:** In `V10c` Adds, reword the trailing clause so it stops claiming closure of `ERR-7` (e.g. "…and the reload debounce; the `ERR-7` watcher-reload failure surface this debounce feeds is asserted by `V4e`"). Leave `V4e` Deps unchanged.
-
-**Pros:** Keeps `V4e` dep-light; no ordering inversion; consistent with the coverage matrix.
-**Cons:** Runs against a seam stand-in rather than the integrated path.
-**Risks:** The synthetic injection must cover both arms (`loom/runtime/registry-swap-failed` and the re-merge codes).
-
-### Option B — `V4e` drives a real watcher reload through its producers
-
-**Approach:** `V4e`'s `ERR-7` test drives an actual `V10c` settings-watcher re-merge failure (and/or `V9b` registry-swap failure).
-
-**Plan edits:** Add `V10c` to `V4e`'s Deps (and `V9b` if the registry-swap arm is exercised); add a `V10c` Tests bullet or keep `V10c` as pure producer.
-
-**Cons:** Couples `V4e` to two later producers, pulling its scheduling after `V10c`/`V9b`.
-**Risks:** Adding `V9b`/`V10c` to `V4e` Deps must not create a cycle.
+**Shape:** single
 
 ### Recommendation
 
-Take **Option A**. `coverage-matrix.md` already pins `ERR-7` to `V4e` and a synthetic-failure assertion keeps `V4e` aligned with the other pre-eval routing tests while avoiding the ordering inversion. Reword `V10c`'s Adds clause to forward-point to `V4e`. Edge case: the synthetic seam must drive both `ERR-7` arms (the re-parse/re-merge diagnostic arm and the `loom/runtime/registry-swap-failed` arm).
+`V4e`'s `ERR-7` test injects a synthetic watcher-rebuild failure at the `ERR-7` channel seam, asserting the `loom-system-note` / `triggerTurn:false` routing without standing up a live `V10c`/`V9b` watcher. The synthetic injection must drive both `ERR-7` arms — the re-parse/re-merge diagnostic arm and the `loom/runtime/registry-swap-failed` registry-swap arm. `V4e`'s Deps stay unchanged: `coverage-matrix.md` already pins `ERR-7` to `V4e`, so this keeps `V4e` aligned with the matrix and with the other pre-eval routing tests while avoiding any ordering inversion.
+
+In `V10c` Adds, reword the trailing clause so it stops claiming closure of `ERR-7` and instead forward-points to `V4e` (e.g. "…and the reload debounce; the `ERR-7` watcher-reload failure surface this debounce feeds is asserted by `V4e`").
 
 ## Relationships
 
@@ -1673,23 +1590,15 @@ Two reasonable implementers diverge at `V3d-T`: one blocks because the `invoke`/
 
 ## Solution Space
 
-**Shape:** multiple
-
-This finding carries two coupled obligations on separate leaves: narrowing the over-reaching assertion in the `V3d` pair, and re-homing the caller-side coverage it currently (incorrectly) supplies. Resolve the scope-bounding obligation first.
-
-### Obligation 1 — Rescope the `V3d`/`V3d-T` final-value bullet to the function-result seam (do first)
-
-In both `docs/plan_topics/V3d-T-functions-and-return.md` and `docs/plan_topics/V3d-functions-and-return.md`, rewrite the final-value-contract Tests bullet so it asserts only what `V3d` owns — the function body's produced/final value on success and its absence on fail/cancel, observed at the function-result seam — with no reference to an `invoke`/subagent caller. Align the `V3d` **Ships when** phrasing to the produced-value seam wording.
-
-**Constraint:** Do **not** add `V15a` to `V3d`'s Deps — `V15a` already depends on `V3d`, so the edge would cycle.
-
-### Obligation 2 — Assert caller-side final-value propagation at the leaves that build the callers
-
-Add a caller-side final-value-propagation assertion to the leaves that own the caller surfaces, against the function-result seam `V3d` defines: in the `invoke` path (`V15a` / `V15a-T`) assert the callee's final value propagates to the `invoke` caller on success and is absent on fail/cancel; in the subagent path (`V9i` / `V9i-T`) assert the same. These leaves already declare the needed prerequisites transitively, so no new dependency edges into `V3d` are required.
+**Shape:** single
 
 ### Recommendation
 
-Apply Obligation 1 first (it bounds scope and unblocks `V3d-T`), then Obligation 2. Watch that the `V15a`/`V9i` caller-side assertions name the same function-result seam `V3d` owns. Do not add `V15a` to `V3d`'s Deps under either obligation.
+Rescope the `V3d`/`V3d-T` final-value bullet to the function-result seam first (this bounds scope and unblocks `V3d-T`), then re-home the caller-side coverage to the leaves that build the callers.
+
+Rescope (do first): in both `docs/plan_topics/V3d-T-functions-and-return.md` and `docs/plan_topics/V3d-functions-and-return.md`, rewrite the final-value-contract Tests bullet so it asserts only what `V3d` owns — the function body's produced/final value on success and its absence on fail/cancel, observed at the function-result seam — with no reference to an `invoke`/subagent caller. Align the `V3d` **Ships when** phrasing to the produced-value seam wording. Do **not** add `V15a` to `V3d`'s Deps — `V15a` already depends on `V3d`, so the edge would cycle.
+
+Re-home caller-side coverage: add a caller-side final-value-propagation assertion to the leaves that own the caller surfaces, against the function-result seam `V3d` defines. In the `invoke` path (`V15a` / `V15a-T`) assert the callee's final value propagates to the `invoke` caller on success and is absent on fail/cancel; in the subagent path (`V9i` / `V9i-T`) assert the same. These leaves already declare the needed prerequisites transitively, so no new dependency edges into `V3d` are required. Ensure the `V15a`/`V9i` caller-side assertions name the same function-result seam `V3d` owns.
 
 ## Relationships
 
@@ -1748,26 +1657,17 @@ If shipped unfixed, `V4c` passes its closing gate while the stated "completed to
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
 This finding is bimodal: it asks for (1) a wording de-scope of the universal-negative claim and (2) a new test assertion. Both are required.
 
-### Option A — De-scope the no-rollback / finality over-claim
-
-- **Approach:** Reword the universal-negative phrasing so it claims only what the enumerated cases demonstrate, and attribute the no-rollback property to the runtime's absence of a compensating path.
-- **Plan edits:** In `V4c` **Ships when**, replace "proves committed turns survive cancellation and `?`-propagation unmodified, with no rollback" with wording scoped to the enumerated `ERR-8`…`ERR-13` cases and state the no-rollback guarantee rests on the runtime having no rollback path. Mirror the scoping in the `ERR-13` bullet of both `V4c` and `V4c-T`.
-- **Pros:** Removes the overclaim with no new test surface; small, localized diff.
-- **Cons:** Does not by itself close the missing finality assertion.
-
-### Option B — Add a completed-callee finality assertion
-
-- **Approach:** Add a test that drives a tool call / invoke child to completion, then fires a downstream `?`/panic/cancel, and asserts the completed callee's side effect persists and that no compensating turn is injected.
-- **Plan edits:** Add a Tests bullet to `V4c-T` (with paired impl behaviour in `V4c`) exercising a completed callee distinct from an appended turn. Scope it against the cancellation (`V17a`) / invocation-harness seam rather than the live later-slice surfaces (see the sibling ordering finding).
-- **Cons:** Depends on the seam-vs-live-surface scoping decision from the sibling finding being settled first.
-
 ### Recommendation
 
-Apply both, **Option A first**: the wording de-scope lands a stable, accurately-scoped gate; then add Option B's completed-callee assertion against the `V17a` / invocation-harness seam (per the sibling ordering finding). Watch that the new assertion drives a callee to *completion* before the terminal event (not merely an appended turn).
+Apply both fixes, landing the wording de-scope first so the gate is accurately scoped before the new assertion is added.
+
+De-scope the over-claim: in `V4c` **Ships when**, replace "proves committed turns survive cancellation and `?`-propagation unmodified, with no rollback" with wording scoped to the enumerated `ERR-8`…`ERR-13` cases, and state that the no-rollback guarantee rests on the runtime having no compensating/rollback path. Mirror the same scoping in the `ERR-13` bullet of both `V4c` and `V4c-T`.
+
+Then add a completed-callee finality assertion: add a Tests bullet to `V4c-T` (with paired implementation behaviour in `V4c`) that drives a tool call / invoke child to *completion*, fires a downstream `?`/panic/cancel, and asserts the completed callee's side effect persists and that no compensating turn is injected. The assertion exercises a completed callee distinct from an appended turn, scoped against the cancellation (`V17a`) / invocation-harness seam rather than the live later-slice surfaces, per the sibling ordering finding (T24). The new assertion must drive a callee to *completion* before the terminal event, not merely an appended turn. This step depends on the seam-vs-live-surface scoping decision from T24 being settled first.
 
 ## Relationships
 
@@ -1980,25 +1880,11 @@ The plan asserts that suppression is covered at all four sites, but only the sub
 
 ## Solution Space
 
-**Shape:** multiple
-
-### Option A — Scope the claim to the substrate
-
-**Approach.** Reword the `V17a` (and `V17a-T`) suppression bullet and Ships-when so the assertion claims only what it observes: suppression is verified at the `Checkpoint`-seam substrate, and per-site coverage holds only insofar as each site routes its abandonable Promise through that substrate — a property the downstream leaves are responsible for.
-
-**Pros:** Minimal diff; removes the overclaim.
-**Cons:** Leaves the routing assumption unverified.
-
-### Option B — Add a per-site routing obligation downstream
-
-**Approach.** Keep the substrate-level suppression test in `V17a`, reword its coverage claim per Option A, and add to each of the four owning leaves an acceptance criterion that the site's abandonable Promise attaches its swallowing handler at the `Checkpoint` substrate.
-
-**Pros:** Closes the coverage gap; a site that bypasses the substrate reddens its own leaf's tests.
-**Cons:** Larger diff; touches four downstream leaves.
+**Shape:** single
 
 ### Recommendation
 
-Take Option B. The correctness exposure is a downstream site silently bypassing the substrate; only a per-site routing obligation closes it. Resolve in order: first apply Option A's reword to `V17a`/`V17a-T`, then add the routing criterion to the four downstream leaves so each owns its per-site verification. Edge case: `V9i`, `V13c`, `V14a`, `V15a` each declare the `Checkpoint` seam (`V8a`) as the routing target — the new criterion asserts attachment at that seam, not a fresh per-leaf handler convention.
+Keep the substrate-level suppression test in `V17a`, but reword the `V17a` (and `V17a-T`) suppression Tests bullet and Ships-when so the assertion claims only what it observes: suppression is verified at the `Checkpoint`-seam substrate, and per-site coverage holds only insofar as each site routes its abandonable Promise through that substrate. Then close the routing gap by adding to each of the four owning leaves (`V9i`, `V13c`, `V14a`, `V15a`) an acceptance criterion that the site's abandonable Promise attaches its swallowing handler at the `Checkpoint` substrate, so a site that bypasses the substrate reddens its own leaf's tests. The four leaves each already declare the `Checkpoint` seam (`V8a`) as the routing target — the new criterion asserts attachment at that seam, not a fresh per-leaf handler convention.
 
 ## Relationships
 
@@ -2054,25 +1940,13 @@ Two reasonable implementers diverge: one writes only the cardinality assertion (
 
 ## Solution Space
 
-**Shape:** multiple
-
-### Option A — Narrow the claim to cardinality
-
-**Approach:** Drop the partition clause from `V18a`'s **Ships when** so the stated gate matches the single named mechanism; the partition prose stays in PIC-15 as descriptive context only.
-
-**Pros:** Minimal edit; the **Ships when** becomes honest.
-**Cons:** The partition remains mechanically unverified; a mis-classified item ships green.
-
-### Option B — Assert per-item probe membership
-
-**Approach:** Add a mechanical assertion that each obligation's factory-probed classification matches the Step-0 probe set owned by `V9a`, with the probed set cross-checked against `V9a`'s Step-0 SDK named-member check rather than a duplicated literal.
-
-**Pros:** Makes the **Ships when** true; a mis-partitioned constant is caught at build time.
-**Cons:** Requires partition metadata on the constant and introduces a `V18a`↔`V9a` reference.
+**Shape:** single
 
 ### Recommendation
 
-Take **Option B**. The partition is spec-anchored and a mis-classified constant shipping green is the precise failure this finding warns about. Derive the expected factory-probed set from `V9a`'s Step-0 SDK named-member check, not from a literal re-listed in `V18a`, so the two cannot drift. If carrying partition metadata would require restructuring beyond the leaf's scope, fall back to Option A so the **Ships when** is at least accurate.
+In `V18a`, add a mechanical assertion that each `CAPABILITY_OBLIGATIONS` entry's factory-probed classification matches the Step-0 probe set owned by `V9a`, so a mis-classified constant is caught at build time and the **Ships when** partition claim becomes mechanically true rather than vacuously satisfied by the `.length === 7` cardinality check alone. Derive the expected factory-probed set from `V9a`'s Step-0 SDK named-member check rather than a literal re-listed in `V18a`, so the two cannot drift. This requires carrying partition metadata on the constant and introduces a `V18a`↔`V9a` reference. Keep the existing `CAPABILITY_OBLIGATIONS.length === 7` cardinality assertion and apply the partition assertion in both `V18a` and `V18a-T` (the PIC-15 Tests bullet is identical in both leaves).
+
+Edge case: if carrying partition metadata would require restructuring beyond the leaf's scope, instead narrow `V18a`'s **Ships when** to the cardinality assertion alone so the stated gate matches its single named mechanism, leaving the partition prose in PIC-15 as descriptive context only.
 
 ## Relationships
 
@@ -2193,23 +2067,13 @@ If shipped unfixed, `V18c-T` can be picked up after `V18a`/`V18b`/`H4a` yet befo
 
 ## Solution Space
 
-**Shape:** multiple
-
-### Option A — Mirror the impl partner's feature deps onto `V18c-T`
-
-**Approach.** Add the integrated-feature leaves to `V18c-T`'s `Deps` so the tests-task is only buildable once those features exist.
-
-**Cons.** Couples a build-time-gate tests-task to nearly the entire vertical corpus, pushing `V18c-T` very late and re-exercising features covered by their own `-T` leaves. Surfaces that "invoke" (`V15a`) is in neither leaf's `Deps`, so a faithful mirror needs `V15a` added to both.
-
-### Option B — Restate `V18c-T` as a feature-free gate-composition check
-
-**Approach.** Scope the `-T` runtime-evidence test to assert only that the gate is composed correctly (the `H4a` harness must be driven against the bumped pin and a green surface-inventory run alone does not satisfy acceptance) using a feature-free `H4a` harness double, not an integrated `.loom`. The impl `V18c` retains the integrated `.loom` for the real acceptance run. `Deps` stay `V18a, V18b, H4a`.
-
-**Pros.** Keeps `V18c-T` early and decoupled; the `-T` fails red precisely because the gate is unwired.
+**Shape:** single
 
 ### Recommendation
 
-Adopt **Option B**: restate `V18c-T`'s runtime-evidence Tests bullet to assert gate composition (harness-driven-against-pin + inventory-green-insufficient) against a feature-free `H4a` harness double, leaving its `Deps` at `V18a, V18b, H4a`. The integrated `.loom` belongs to the impl-time acceptance run. Edge cases: (1) the reworded `-T` assertion must still fail red on the gate's absence, not pass vacuously; (2) confirm whether the impl's integrated `.loom` truly exercises `invoke` — if so, `V15a` is a missing dep on `V18c` (impl) and should be added there.
+Restate `V18c-T`'s runtime-evidence Tests bullet as a feature-free gate-composition check: scope the `-T` runtime-evidence test to assert only that the gate is composed correctly — the `H4a` harness must be driven against the bumped pin and a green surface-inventory run alone does not satisfy acceptance — using a feature-free `H4a` harness double rather than an integrated `.loom`. Leave `V18c-T`'s `Deps` at `V18a, V18b, H4a`, which keeps the tests-task early and decoupled so it fails red precisely because the gate is unwired. The integrated `.loom` belongs to the impl-time acceptance run on `V18c`, which retains it.
+
+Edge cases: (1) the reworded `-T` assertion must still fail red on the gate's absence, not pass vacuously; (2) confirm whether the impl's integrated `.loom` truly exercises `invoke` — if so, `V15a` is a missing dep on `V18c` (impl) and should be added there.
 
 ## Relationships
 
@@ -2273,26 +2137,15 @@ Two reasonable implementers diverge on how `M`'s single-source discovery obtains
 
 ## Solution Space
 
-**Shape:** multiple
-
-### Option A — Harness-supplied in-memory fixture
-
-**Approach.** State that the fixture `.loom` is supplied in memory to the in-process `H4a` harness, so `M`'s single-source discovery reads from the harness-provided source rather than the real filesystem; no `FileSystem` seam dependency and no `V8b` dep are required.
-
-**Plan edits.** Add a clause to `M`'s `Adds.` that the fixture is supplied in-memory by the `H4a` harness. Add a matching statement to `H4a`'s harness description so the mechanism is defined where the harness is owned. Mirror the wording in `M-T`'s `Adds.`.
-
-**Pros.** Keeps `M`'s `Deps.` intact; introduces no throwaway adapter; needs no forward dependency on `V8b`; sidesteps the ambient-access ban.
-**Cons.** `M`'s discovery path diverges from the production `V10a` filesystem-backed discovery.
-
-### Option B — Minimal FileSystem adapter in `M`'s scope
-
-**Approach.** Add a stated minimal `FileSystem` read to `M`'s happy-path scope, declaring the dependency.
-
-**Cons.** Introduces a throwaway adapter superseded by `V8b`; requires either a forward dependency on `V8b` (an ordering inversion) or a bespoke minimal adapter duplicating `V8b`.
+**Shape:** single
 
 ### Recommendation
 
-Take **Option A**. Add a clause to `M`'s `Adds.` stating the fixture `.loom` is supplied in memory to the in-process `H4a` harness, and add the in-memory fixture-supply statement to `H4a`'s harness description so the source is defined where the harness is owned; mirror the wording in `M-T`'s `Adds.`. Edge case: ensure the harness-supplied source is the only source `M`'s discovery reads — no ambient filesystem fallback — so the `H3a` ambient-access scan stays clean.
+Supply the fixture `.loom` in memory to the in-process `H4a` harness, so `M`'s single-source discovery reads from the harness-provided source rather than the real filesystem. This requires no `FileSystem` seam dependency and no `V8b` dependency, keeps `M`'s `Deps.` intact, introduces no throwaway adapter, and sidesteps the ambient-access ban.
+
+Add a clause to `M`'s `Adds.` stating the fixture `.loom` is supplied in-memory by the `H4a` harness. Add a matching in-memory fixture-supply statement to `H4a`'s harness description so the mechanism is defined where the harness is owned. Mirror the wording in `M-T`'s `Adds.`.
+
+Ensure the harness-supplied source is the only source `M`'s discovery reads — no ambient filesystem fallback — so the `H3a` ambient-access scan stays clean. Note that `M`'s harness-supplied discovery path diverges from the production `V10a` filesystem-backed discovery.
 
 ## Relationships
 
@@ -2354,28 +2207,21 @@ A real-host divergence introduced by a loom change ships undetected because no m
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-This finding bundles three independent obligations; each is authored as its own option and all three should land, in the stated order.
-
-### Option A — Pin the smoke to a named fixture with enumerated outcomes and explicit pass/fail
-
-**Approach:** Replace the feature-list description with a reference to a named fixture `.loom` and an enumerated expected-outcome set (expected appended turns and the `loom-system-note` / `loom/...` codes the integrated path emits) plus an explicit pass/fail criterion. The fixture + outcome enumeration may be stated in `H4a` or owned by `V18c` and cross-linked.
-
-**Pros:** Makes the manual acceptance step reproducible.
-**Cons:** Overlaps with `H7a`'s golden-transcript concept.
-
-### Option B — Decouple the smoke trigger from Pi version bumps
-
-**Approach:** State that any change touching the double's four fidelity axes is an acceptance trigger for the manual real-host smoke, not only a Pi version bump, with an observable definition of "touches the four axes".
-
-### Option C — Record the smoke at the `H6a` release gate
-
-**Approach:** Add an acceptance/checklist item to `H6a` confirming the manual real-host smoke was executed and passed against the shipping Pi-SDK pin.
+This finding bundles three independent obligations; all three land, in the stated order.
 
 ### Recommendation
 
-Land all three. Order: **Option A first** (defines the concrete reproducible artefact); **then Option C** (whose release-gate item references that artefact); **then Option B** (broadens the trigger to loom-side changes). A is scope-bounding. Edge cases: cross-link the smoke fixture to `H7a`'s golden transcript to avoid two divergent fixtures; keep the smoke manual (loom 1.0 has no mechanical real-host gate) and leave `V18c` as the sole owner of the pin-revert path.
+Make the manual real-host smoke reproducible, correctly triggered, and recorded at the release gate by applying three corrections in order.
+
+First, pin the smoke to a named fixture `.loom` with an enumerated expected-outcome set — expected appended turns and the `loom-system-note` / `loom/...` codes the integrated path emits — plus an explicit pass/fail criterion, replacing the feature-list-only description. The fixture and outcome enumeration may be stated in `H4a` or owned by `V18c` and cross-linked. Cross-link the smoke fixture to `H7a`'s golden transcript so the two do not diverge into separate fixtures.
+
+Then add an acceptance/checklist item to `H6a` confirming the manual real-host smoke was executed and passed against the shipping Pi-SDK pin, referencing that named fixture artefact.
+
+Finally, state that any change touching the double's four fidelity axes is an acceptance trigger for the manual real-host smoke — not only a Pi version bump — with an observable definition of "touches the four axes".
+
+Keep the smoke manual (loom 1.0 has no mechanical real-host gate) and leave `V18c` as the sole owner of the pin-revert path.
 
 ## Relationships
 
@@ -2565,24 +2411,16 @@ Without a named runner + assertion API at the one dependency-owning leaf, indepe
 
 ## Solution Space
 
-**Shape:** multiple
-
-### Option A — Name the test runner and assertion API in `H1a`
-
-- **Approach.** Replace the abstract "the test runner" in `H1a`'s `Adds.` with a named runner + assertion library, declared in `package.json#devDependencies`, so every `npm test` reference resolves to one concrete framework.
-- **Plan edits.** In `docs/plan_topics/H1a-scaffold-and-toolchain.md` `Adds.`, replace "the test runner" with the chosen runner + assertion library (e.g. Vitest, or `node:test` + `node:assert/strict`) and add it to the manifest enumeration. Optionally add an `H1a` Tests bullet asserting the runner/assertion dependency is declared.
-- **Pros.** Closes the provisioning gap at the single dependency-owning leaf; makes `npm test` and every `-T` assertion concrete and composable.
-- **Cons.** Forces the framework decision at scaffold time.
-
-### Option B — Replace the non-JS `panic` token in *No silent test skipping*
-
-- **Approach.** In `conventions.md` *No silent test skipping*, replace `panic` with the chosen framework's JS/TS fail-loudly primitive. Scope the edit to this bullet only; do not touch the loom-language `panic` references elsewhere.
-- **Cons.** The correct wording depends on Option A's framework choice.
-- **Risks.** An over-broad find/replace clobbering legitimate loom-language `panic` references.
+**Shape:** single
 
 ### Recommendation
 
-Resolve Option A first: naming the runner + assertion library bounds the fail-loudly primitive Option B must reference, so the second fix lands on a stable framework baseline. Then resolve Option B against the chosen framework. Edge case: the loom-language `panic` (runtime `match-error`, `invoke-depth-exceeded`, V4b runtime-panic set) is a correct domain term and must remain untouched; only the test-discipline token in *No silent test skipping* is the defect.
+Name the test runner and assertion API at the single dependency-owning leaf, then align the fail-loudly token in `conventions.md` to that choice:
+
+- **Name the runner + assertion library in `H1a`.** In `docs/plan_topics/H1a-scaffold-and-toolchain.md` `Adds.`, replace the abstract "the test runner" with a concrete runner + assertion library (e.g. Vitest, or `node:test` + `node:assert/strict`), declared in `package.json#devDependencies` and added to the manifest enumeration, so every `npm test` reference resolves to one concrete framework. Optionally add an `H1a` Tests bullet asserting the runner/assertion dependency is declared. The framework decision is made here at scaffold time, which bounds the fail-loudly primitive the next bullet must reference.
+- **Replace the non-JS `panic` token in *No silent test skipping*.** In `conventions.md` *No silent test skipping*, replace `panic` with the chosen framework's JS/TS fail-loudly primitive, scoping the edit to this bullet only.
+
+Edge case: the loom-language `panic` (runtime `match-error`, `invoke-depth-exceeded`, V4b runtime-panic set) is a correct domain term and must remain untouched — guard against an over-broad find/replace that would clobber legitimate loom-language `panic` references; only the test-discipline token in *No silent test skipping* is the defect.
 
 ## Relationships
 
