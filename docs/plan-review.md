@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T37) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 4 high, 31 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 3 high, 31 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -2429,75 +2429,3 @@ Edge case: the loom-language `panic` (runtime `match-error`, `invoke-depth-excee
 - T12 "engines.node is populated but its value is never asserted in H1a" — same-cluster (another `H1a` manifest-completeness gap; independent fix)
 - T33 "'fail red for the intended reason' is the tests-task gate but is never defined" — same-cluster (also sharpens a test-discipline convention; resolves independently of the runner/`panic` fix)
 
----
-
-# T35 — model/bind_* resolution hooks named in V6a Adds with no closing assertion
-
-**Original heading:** `model`/`bind_*` resolution hooks added but not asserted in-leaf
-**Original section:** docs/plan_topics/V6a-frontmatter-contract.md
-**Kind:** validation
-**Importance:** high
-**Score:** 90
-**MustFix:** true
-
-## Finding
-
-`V6a`'s **Adds** field declares that the frontmatter parser carries "model/`bind_*` resolution hooks." None of `V6a`'s three Tests bullets exercises that behaviour: they assert `loom/load/missing-mode`, `loom/load/unknown-frontmatter-field`, and `loom/parse/timeout-field-rejected` only. There is also no forward-pointer naming the downstream leaf that closes the hook behaviour.
-
-The `bind_*` family is in fact asserted downstream — `loom/load/binder-model-unresolved` by `V11a`, the `bind_context` path by `V11b`, and the `bind_echo`/echo path by `V11d` — but `V6a` does not point at any of them, and none of those leaves lists `V6a` in its `Deps`. Under the `Adds.` binding rule in `conventions.md`, a seam named in `Adds.` with no declared consumer remains illustrative (non-binding), so the parser's hook surface is unpinned.
-
-The `model:` field's resolution is worse. The frontmatter contract specifies that a present `model:` resolving to no available model is the load-time error `loom/load/model-unresolved` and the loom is not registered. That code is asserted by **no leaf in the corpus** (`V9i` owns the distinct runtime `loom/runtime/subagent-model-unresolved`; `V11a` owns `loom/load/binder-model-unresolved`), and it has no row in `coverage-matrix.md`. The spec-mandated load-time error therefore has no closing leaf.
-
-## Plan Documents
-
-- `docs/plan_topics/V6a-frontmatter-contract.md` — Adds / Tests (edited)
-- `docs/plan_topics/V6a-T-frontmatter-contract.md` — Tests (edited)
-- `docs/plan_topics/V11a-binder-model-resolution.md` — `loom/load/binder-model-unresolved` owner (read-only)
-- `docs/plan_topics/V11b-bind-context-transcript.md` — `bind_context` owner (read-only)
-- `docs/plan_topics/V11d-defaulting-echo.md` — echo / `bind_echo` owner (read-only)
-- `docs/plan_topics/coverage-matrix.md` — `loom/load/model-unresolved` mapping (option-dependent)
-
-## Spec Documents
-
-- `docs/spec_topics/frontmatter/frontmatter-fields-a.md` — `model` / `bind_*` field contract and `loom/load/model-unresolved` definition (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical slices (V6, V11)
-
-**Leaves (implementation order):**
-
-- V6a-T — Frontmatter field contract (tests) — (modified)
-- V6a — Frontmatter field contract — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-`loom/load/model-unresolved` is a spec-mandated load-time error with no closing leaf, so it can ship unimplemented and is caught only late and coarsely when the `H6a` live-corpus closing gate flips. Because the `bind_*` hooks named in Adds are non-binding seams with no declared consumer, two implementers can shape `V6a`'s parser hook surface differently and both pass the in-leaf gate.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e ("pi-loom plan: build/update plan for spec.md + review", 2026-06-10)
-**History:** `git log --follow` over `docs/plan_topics/V6a-frontmatter-contract.md` shows the leaf was first authored in c6a664e with the Adds clause already naming "model/`bind_*` resolution hooks" while the Tests bullets carried no model/`bind_*` assertion and no forward-pointer. The two later edits (1064946, 7678da2) touched `V6a` but never added the hook assertion or a forward-pointer. `coverage-matrix.md` has never carried a `loom/load/model-unresolved` row.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Close the assertion gap for the two distinct hooks named in `V6a`'s Adds:
-
-- **`bind_*` hooks (already owned downstream).** Add a forward-pointer to `V6a`'s Adds (or a trailing clause on the relevant Tests bullet) naming the leaves that close them, mirroring the `V4d` ERR-19 → `V13c` pattern: `bind_model` resolution → `loom/load/binder-model-unresolved` in `V11a`; `bind_context` → `V11b`; `bind_echo`/echo → `V11d`.
-
-- **`model:` hook (currently unowned).** Add a `V6a` Tests bullet — with the failing test landing first in `V6a-T` per the TDD ritual — citing `loom/load/model-unresolved`: a present `model:` value resolving to no available model fires `loom/load/model-unresolved` and the loom is not registered (anchor `frontmatter-fields-a.md` `model` row). Add the matching `loom/load/model-unresolved` → `V6a` row to `coverage-matrix.md`. If instead the `model:` field resolution is intended to live in `V11a`, name `V11a` as the closing leaf via the same forward-pointer mechanism and add the `V11a` row to `coverage-matrix.md` — but it must be assigned to a concrete leaf, not left unasserted.
-
-The spec is read-only for this fix; the `frontmatter-fields-a.md` `model` row already defines the behaviour and code.
-
-## Relationships
-
-- T15 "Forward-reference params type RHS claimed in V6b Adds but never asserted" — same-cluster (same Adds-names-an-unasserted-behaviour pattern in the sibling `V6b` frontmatter leaf; resolves independently)
-- T14 "Stdlib members beyond replace/concat have no named assertion" — same-cluster (Adds names a set with no companion assertion; resolves independently)
-- T25 "V4d Tests bullets carry non-assertion notes (NOCEIL-2 scope, ERR-19 delegation) that belong in Adds" — same-cluster (the ERR-19 forward-pointer pattern this fix mirrors)
