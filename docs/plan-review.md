@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 9 medium retained; 20 low discarded; 5 low findings merged into 2 medium findings; 27 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 8 medium retained; 20 low discarded; 5 low findings merged into 2 medium findings; 27 NIT dropped; 0 false dropped._
 
 ---
 
@@ -605,72 +605,3 @@ The registry remains read-only; cite the codes exactly as they appear there and 
 ## Relationships
 
 - T27 "V9b asserts `loom/host/loom-registry-read-failed`, a diagnostic the spec defers out of loom 1.0 and never registers" — same-cluster (same diagnostic-code-citation discipline; that finding cites a non-existent code, this one under-cites — resolve independently).
-
----
-
-# T09 — ERR-19 firing-at-the-cap assertion is out of scope for V4d's dependency closure
-
-**Original heading:** ERR-19 asserts firing-at-the-cap, which requires the tool-loop machinery (V13c) absent from scope
-**Original section:** V4d — QueryError variants
-**Kind:** implementability
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V4d` owns the `QueryError` variant **schema** — its Spec set is `queryerror-variants.md` + `error-model.md` and its Deps are `V4d-T, V5d`. The ERR-19 Tests bullet ("`ToolLoopExhaustedError` fires when the per-query tool-call round cap is reached with no terminating turn") and the matching Ships-when clause ("`ERR-19` at the cap") assert a *runtime firing* behaviour, not a schema shape. Firing-at-the-cap is produced by the per-query tool-call loop built by `V13c` — whose own Tests already assert "an untyped exhaustion produces `ToolLoopExhaustedError`." `V13c` is far outside `V4d`'s dependency closure (`V4d` Deps `V4d-T, V5d` never reach `V13c`), and `V4d` is DAG-eligible long before the loop machinery exists.
-
-The coverage matrix already encodes the intended split: `ERR-19 → V4d, V13c`. The spec is consistent with a shape/firing split — `queryerror-variants.md#err-19` defines the `ToolLoopExhaustedError` schema (including the `rounds: number // == tool_loop.max_rounds on exhaustion` field constraint), while the *when-it-fires* prose cross-links to Query. The defect is purely that `V4d`'s Tests/Ships-when over-reach into the firing behaviour the matrix assigns to `V13c`.
-
-With no loop available at `V4d` build time, an implementer cannot author the ERR-19 firing test honestly red/green and is pushed to invent a stand-in tool-loop to drive the cap condition — divergent, throwaway machinery no production path uses, and forbidden by the per-phase TDD ritual.
-
-## Plan Documents
-
-- `docs/plan_topics/V4d-queryerror-variants.md` — V4d leaf, ERR-19 Tests bullet + Ships-when (edited)
-- `docs/plan_topics/V4d-T-queryerror-variants.md` — V4d-T leaf, ERR-19 Tests bullet (edited)
-- `docs/plan_topics/V13c-query-tool-loop.md` — V13c leaf, exhaustion Tests bullet (read-only)
-- `docs/plan_topics/coverage-matrix.md` — ERR-19 row (read-only; already maps `V4d, V13c`)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical slice V4 (Errors and results)
-
-**Leaves (implementation order):**
-
-- V4d-T — `QueryError` variant schema (tests) — (modified)
-- V4d — `QueryError` variant schema — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers diverge: one fabricates a stand-in tool-loop at `V4d` to satisfy the firing assertion (throwaway code with no production consumer), the other leaves the assertion unsatisfiable and ships a red/skipped test. ERR-19's genuine firing closure already lives in `V13c`; `V4d`'s over-reach forces wasted or unsound work for no added coverage.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e (`pi-loom plan: build/update plan for spec.md + review`)
-**History:** `docs/plan_topics/V4d-queryerror-variants.md` was added to the corpus in c6a664e — the only commit touching the file per `git log --follow`. The ERR-19 Tests bullet has carried the "fires when the per-query tool-call round cap is reached" firing phrasing since that introducing commit; no prior revision scoped ERR-19 to the variant shape. The defect is present since the leaf's inception.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Scope `V4d`'s ERR-19 to the **variant shape** and leave the firing assertion to `V13c` (which already closes it):
-
-- In `docs/plan_topics/V4d-queryerror-variants.md`, rewrite the ERR-19 Tests bullet so it asserts the `ToolLoopExhaustedError` schema only — the `kind: "tool_loop_exhausted"` discriminator, the `rounds: number` field with the `rounds == tool_loop.max_rounds` value constraint, the `last_tool_name: string | null` and `raw_response: string | null` fields — and drop the "fires when the per-query tool-call round cap is reached" firing clause. Suggested replacement: `` `ERR-19`: the `ToolLoopExhaustedError` shape (`kind: "tool_loop_exhausted"`, `rounds` with `rounds == tool_loop.max_rounds`, `last_tool_name`, `raw_response`); the at-the-cap firing path is asserted by V13c. ``
-- In the same file, change the Ships-when clause from "and `ERR-19` at the cap" to assert the `ToolLoopExhaustedError` variant shape (drop "at the cap").
-- Mirror the Tests-bullet edit in `docs/plan_topics/V4d-T-queryerror-variants.md`.
-- Leave `V13c-query-tool-loop.md` and the `coverage-matrix.md` ERR-19 row (`V4d, V13c`) unchanged.
-
-## Relationships
-
-- T10 "V4d's ERR-17 test asserts respond-repair consumption it cannot observe" — same-cluster (identical shape-vs-behaviour split defect in the same `V4d` leaf; resolved by the same scope-down-and-relocate technique, independently).
-
