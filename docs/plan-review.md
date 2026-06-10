@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T32) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blockers, 0 high, 17 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
+_Triage tally: 0 blockers, 0 high, 16 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
 
 ---
 
@@ -1058,79 +1058,4 @@ Keep `V11d` and `V11d-T` mirror-consistent (the TDD pairing requires the tests-t
 - T11 "`V4a` third Tests bullet conflates three match behaviours with no cited identifier" — same-cluster (same convention).
 - T14 "V10c second Tests bullet conflates a malformed-settings diagnostic with debounce coalescence and cites a wildcard code" — same-cluster (same convention).
 - T27 "V17a leaves three normative cancellation MUSTs with no asserting test" — same-cluster (same convention in `V17a`).
-
----
-
-# T16 — Cancellation test bullet keyed by one diagnostic conflates four independent obligations
-
-**Original heading:** Last Tests bullet merges four independent behaviors
-**Original section:** V17a — Cancellation core
-**Kind:** traceability
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-The final `Tests.` bullet in `V17a-T` (and the mirrored bullet in `V17a`) is labelled with the diagnostic code `loom/parse/timeout-field-rejected` but bundles four unrelated obligations under that one key: (1) cancellation forwards via `loomAbort`, never `ctx.signal` directly; (2) cancellation propagates downward only; (3) a swallowing handler suppresses the late side-channel; and (4) `loom/parse/timeout-field-rejected` fires on a `timeout:` field. Each maps to a distinct spec obligation in `cancellation.md` — behaviours 1–3 are runtime cancellation rules (the *Signal source* / *Forwarding into `loomAbort`* section, the *Propagation* section, and the *Race semantics — swallowing-handler attachment* section, respectively), while behaviour 4 is a parse-phase diagnostic stated in the closing paragraph of `cancellation.md`.
-
-Keying four obligations under a single bullet means a red result does not localise which obligation regressed, and the closing gate cannot detect that any subset of the four was left unasserted while the bullet still "exists". The mis-keying is compounded by behaviour 4 being a parse-phase concern that is already owned and asserted elsewhere: `V6a` / `V6a-T` (*frontmatter contract*) already carry `loom/parse/timeout-field-rejected` as the NOCEIL-1 seam ("a per-call timeout field is rejected"). The parse diagnostic therefore has no business gating a runtime-cancellation leaf, and its presence in this bullet is a double-coverage / cross-phase attribution error rather than a missing assertion.
-
-## Plan Documents
-
-- `docs/plan_topics/V17a-T-cancellation-core.md` — `Tests.` bullet (edited)
-- `docs/plan_topics/V17a-cancellation-core.md` — `Tests.` bullet (edited)
-- `docs/plan_topics/V6a-T-frontmatter-contract.md` — `Tests.` bullet (read-only)
-- `docs/plan_topics/V6a-frontmatter-contract.md` — `Tests.` bullet (read-only)
-- `docs/plan_topics/coverage-matrix.md` — `CNCL-1, CNCL-2, CNCL-3 → V17a` row (read-only)
-
-## Spec Documents
-
-- `docs/spec_topics/cancellation.md` — *Signal source* / *Forwarding into `loomAbort`*, *Propagation*, *Race semantics — swallowing-handler attachment*, and the closing `timeout:`-field paragraph (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical (V17, V6)
-
-**Leaves (implementation order):**
-
-- `V6a` — Frontmatter contract — (read-only context; already owns `loom/parse/timeout-field-rejected` / NOCEIL-1)
-- `V6a-T` — Frontmatter contract (tests) — (read-only context; already asserts the parse diagnostic)
-- `V17a` — Cancellation core — (modified)
-- `V17a-T` — Cancellation core (tests) — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-A single bullet covering four obligations gives the closing gate one done-condition where there should be four; an implementer can satisfy "the bullet" by asserting any subset, and a red result cannot point to the specific obligation that broke. Bundling the parse-phase `loom/parse/timeout-field-rejected` diagnostic — already owned by `V6a`/`V6a-T` — into a runtime-cancellation test leaf also misattributes a parse concern across phases and creates redundant double-coverage that two reasonable implementers would resolve differently.
-
-## Issue introduction
-
-**Verdict:** indeterminate
-**Introducing commits:** none identified
-**History:** The cited plan-topic files `docs/plan_topics/V17a-cancellation-core.md` and `docs/plan_topics/V17a-T-cancellation-core.md` are untracked in the working tree (`git ls-files --error-unmatch` reports "did not match any file(s) known to git"); they have never been committed, so no introducing commit exists in history to attribute the merged bullet to. The repository itself is git-tracked, but the defect lives entirely in uncommitted working-tree content.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `docs/plan_topics/V17a-T-cancellation-core.md`, replace the single `loom/parse/timeout-field-rejected (...)` `Tests.` bullet with three separate runtime-cancellation bullets, each citing its own `cancellation.md` section:
-
-- a bullet asserting cancellation forwards through `loomAbort` and never through `ctx.signal` directly — citing `cancellation.md` *Signal source* / *Forwarding into `loomAbort`*;
-- a bullet asserting downward-only propagation (parent → child / in-flight, never child → parent) — citing `cancellation.md` *Propagation*;
-- a bullet asserting the swallowing handler suppresses the late side-channel on an abandonable Promise (no Node `unhandledRejection`, no second `RuntimeEvent`, no diagnostic) — citing `cancellation.md` *Race semantics — swallowing-handler attachment on every abandonable Promise*.
-
-Strike the `loom/parse/timeout-field-rejected` / `timeout:`-field clause from this leaf entirely: that parse-phase obligation is already owned and gated by `V6a` / `V6a-T` (NOCEIL-1 seam), so it does not belong in a runtime-cancellation test leaf. If traceability from `cancellation.md`'s closing `timeout:` paragraph is wanted, record it as a `Spec.` cross-reference to `V6a` rather than as a duplicate gating bullet here.
-
-Apply the identical split-and-strike to the mirrored `Tests.` bullet in `docs/plan_topics/V17a-cancellation-core.md` so the implementation leaf and its test leaf stay in lockstep, and adjust that leaf's `Ships when.` only if it references the removed parse-diagnostic behaviour (it currently does not).
-
-Edge case for the implementer: the swallowing-handler obligation spans four Promise sites (code-side `execute()`, `@`-query provider, `invoke` child top-level, subagent `AgentSession.abort()`), and the no-side-channel guarantee is total along three channels — keep that assertion at the `Checkpoint`-seam test substrate (`V8a` dep) rather than splitting it per-site, since the spec states the rule uniformly.
-
-## Relationships
-
-- T27 "V17a leaves three normative cancellation MUSTs with no asserting test" — same-cluster (same `V17a-T` `Tests.` block; adds missing assertions while this one re-keys existing ones; resolve independently).
-- T26 "Cancellation checkpoint granularity set unverified" — same-cluster (same `V17a-T` `Tests.` block; adds checkpoint-granularity assertions; resolve independently).
 
