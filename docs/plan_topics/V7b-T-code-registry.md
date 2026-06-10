@@ -5,7 +5,7 @@
 **Adds.** Failing tests for the paired `V7b` implementation leaf.
 
 **Tests.**
-- `DIAG-2`: the registry is closed — a code emitted by `src/**` with no registry row fails the gate.
+- `DIAG-2`: the registry is closed — a code asserted by a test with no registry row fails the gate (and, per the `H5a` gate's `Adds.`, a registry code with no asserting test also fails the gate).
 - `DIAG-3`: codes are stable identifiers — a renamed code fails the gate (renames deferred to loom 2.0).
 - `DIAG-4`: the Message column is normative — every asserting test sources its expected string from the registry, not prose.
 

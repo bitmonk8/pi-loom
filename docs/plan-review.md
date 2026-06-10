@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T32) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blockers, 0 high, 4 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
+_Triage tally: 0 blockers, 0 high, 3 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
 
 ---
 
@@ -142,75 +142,3 @@ This keeps `V2b`'s dependency closure aligned with its actual (static `⊑`) Tes
 ## Relationships
 
 - T12 "`V6b` defers `params` validation to the `SchemaValidator` seam without depending on its owning leaf" — same-cluster (the same `V8a`-not-in-`Deps.` pattern on `V6b`; resolves independently per-leaf).
-
----
-
-# T03 — `DIAG-2` describes a `src/**` emission scan the closing gate does not perform
-
-**Original heading:** DIAG-2 over-claims "a code emitted by `src/**`" vs the asserting-test reconciliation gate
-**Original section:** V7b — Code registry
-**Kind:** overclaim
-**Importance:** medium
-**Score:** 22
-**MustFix:** false
-
-## Finding
-
-The `V7b` / `V7b-T` leaves both phrase their `DIAG-2` test as: *"the registry is closed — a code emitted by `src/**` with no registry row fails the gate."* The gate that actually enforces closure is the `H5a` closing gate, whose `Adds.` defines its registry-reconciliation behaviour as failing on *"a registry code with no asserting test, an asserted code absent from the registry"* — and the `conventions.md` *Diagnostic message anchors* rule frames the same obligation in terms of tests that assert a diagnostic code. The gate reconciles **test-asserted** codes against the registry; it performs no scan of `src/**` emission sites, and `Diagnostic.code` is typed `string` (per the diagnostics primitive), not a closed union the toolchain could enumerate statically.
-
-The consequence is a coverage gap the `DIAG-2` wording papers over: a code emitted somewhere in `src/**` but asserted by no test passes the gate silently, because nothing in the `H5a` reconciliation looks at emission sites. A faithful implementer who writes the `DIAG-2` fixture exactly as worded — emit a code with no registry row, do not assert it — gets a green gate where the leaf's `Ships when.` ("fail red for the intended reason" for `V7b-T`) demands red. The fixture cannot demonstrate the stated closure property because that property is not the one the gate enforces.
-
-The fix is to align the `DIAG-2` wording (and `V7b`'s `Ships when.`) with the asserting-test reconciliation the gate actually performs, in both the implementation leaf and its paired test leaf.
-
-## Plan Documents
-
-- `docs/plan_topics/V7b-code-registry.md` — `Tests.` (`DIAG-2`) and `Ships when.` (edited)
-- `docs/plan_topics/V7b-T-code-registry.md` — `Tests.` (`DIAG-2`) (edited)
-- `docs/plan_topics/H5a-closing-gate-automation.md` — `Adds.` gate-reconciliation definition (read-only)
-- `docs/plan_topics/conventions.md` — *Diagnostic message anchors* cross-cutting rule (read-only)
-
-## Spec Documents
-
-None — the fix is internal to the plan leaf wording. The diagnostics registry already states closure over *codes* (rule 2, `code-registry-runtime.md`) and `Diagnostic.code` is already typed `string`; neither needs editing.
-
-## Affected Leaves
-
-**Phases:** Vertical V7 (Diagnostics)
-
-**Leaves (implementation order):**
-
-- `V7b-T` — Diagnostic code registry and closing gate (tests) — (modified)
-- `V7b` — Diagnostic code registry and closing gate — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-A diagnostic code that is emitted in `src/**` but asserted by no test escapes the closing gate, so the registry's "closed" guarantee is weaker than `DIAG-2` claims. An implementer building the `DIAG-2` fixture from the literal wording (emit-but-don't-assert) produces a green gate, which contradicts `V7b-T`'s red-for-the-intended-reason ship condition and lets the leaf certify a closure property the gate never checks.
-
-## Issue introduction
-
-**Verdict:** indeterminate
-**Introducing commits:** none identified
-**History:** The cited plan leaf files `docs/plan_topics/V7b-code-registry.md` and `docs/plan_topics/V7b-T-code-registry.md` are untracked in the git work tree (never committed), so no commit history records when the over-claiming `DIAG-2` wording entered the corpus. The repository is a git work tree and `docs/plan.md` is tracked, but the defect lives entirely in these uncommitted leaf files.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `docs/plan_topics/V7b-code-registry.md`:
-
-- In the `Tests.` `DIAG-2` bullet, replace `a code emitted by \`src/**\` with no registry row fails the gate` with wording that names the reconciliation the `H5a` gate actually performs — `a code asserted by a test with no registry row fails the gate` (the inverse direction, "a registry code with no asserting test fails the gate", is already covered by the gate's `Adds.` and may be stated alongside).
-- In the `Ships when.` field, replace `reconciles emitted codes against the registry` with `reconciles test-asserted codes against the registry`.
-
-In `docs/plan_topics/V7b-T-code-registry.md`, apply the identical `DIAG-2` bullet replacement so the paired test leaf matches.
-
-Edge case for the implementer: because the gate has no `src/**` emission scan and `Diagnostic.code` is typed `string`, true emission-site closure (catching an emitted-but-never-asserted code) is out of scope for this leaf and is not what `DIAG-2` should claim. If emission-site closure is later wanted, it requires a distinct mechanism (a closed-union `code` type or an emission-site AST scan with a dynamic-string caveat) introduced under its own leaf — do not smuggle it into the `DIAG-2` reword.
-
-## Relationships
-
-- T23 "PIC-21 (renderer exception safety) has a coverage-matrix row but no asserting test in V7a" — same-cluster (both concern closure evidence reconciled through the `H5a` gate; resolve independently).
-- T21 "Asserted diagnostic code `loom/parse/empty-enum-body` is absent from the parse registry" — same-cluster (exercises the same `H5a` asserting-test reconciliation this finding clarifies; independent leaf `V5a`).
-- T04 "Truncated diagnostic code: `V5b` cites `loom/parse/duplicate-discriminator`, registry has `loom/parse/duplicate-discriminator-value`" — same-cluster (a test-asserted code that must reconcile against the registry under the same gate; independent leaf).
