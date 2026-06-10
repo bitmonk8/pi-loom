@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T32) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blockers, 0 high, 6 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
+_Triage tally: 0 blockers, 0 high, 5 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
 
 ---
 
@@ -274,73 +274,3 @@ In both `docs/plan_topics/V5b-disc-unions-recursion.md` and `docs/plan_topics/V5
 
 - T21 "Asserted diagnostic code `loom/parse/empty-enum-body` is absent from the parse registry" — same-cluster (same class of asserted-parse-code-vs-registry mismatch that fails the `H5a` closing gate; resolves independently).
 - T13 "`V6e`/`V6e-T` assert a non-existent `loom/parse/...` diagnostic code instead of the registered `loom/load/frontmatter-value-out-of-range`" — same-cluster (registry-citation defect failing the closing gate; resolves independently).
-- T05 "Bare diagnostic code `binder-model-strict-capability-unknown` missing `loom/load/` prefix" — same-cluster (bare/malformed code citation absent from registry; resolves independently).
-
----
-
-# T05 — Bare diagnostic code `binder-model-strict-capability-unknown` missing `loom/load/` prefix
-
-**Original heading:** Diagnostic code cited without namespace prefix
-**Original section:** V11a — Binder-model resolution and strict-capability probe
-**Kind:** naming
-**Importance:** medium
-**Score:** 22
-**MustFix:** false
-
-## Finding
-
-The second `Tests.` bullet of `V11a` (and its `V11a-T` mirror) reads:
-
-> The `strictCapable` probe: `false` → `loom/load/binder-model-not-strict-capable` (E); `undefined` → `binder-model-strict-capability-unknown` (W); `true` → resolves.
-
-The first asserted code carries its full `loom/load/` namespace, but the second is written bare as `binder-model-strict-capability-unknown`. The diagnostics registry (`spec_topics/diagnostics/code-registry-load.md`) registers this warning only under its full name, `loom/load/binder-model-strict-capability-unknown`; the bare form appears nowhere in the corpus.
-
-Diagnostic codes must be reproduced verbatim. Per `conventions.md` *REQ-ID discipline*, "any asserted code not in the registry is a CI failure" at the loom 1.0 closing gate (`H5a`). A test asserting the bare string therefore fails the gate on two arms simultaneously: the asserted code is not in the registry, and the registered `loom/load/binder-model-strict-capability-unknown` warning is left with no asserting test. Both `V11a` and `V11a-T` carry the identical bare form, so the paired leaves stay mirror-consistent but both wrong.
-
-## Plan Documents
-
-- `docs/plan_topics/V11a-binder-model-resolution.md` — Tests (edited)
-- `docs/plan_topics/V11a-T-binder-model-resolution.md` — Tests (edited)
-
-## Spec Documents
-
-None — `loom/load/binder-model-strict-capability-unknown` is already registered in `code-registry-load.md`; the fix is internal to the two plan leaves.
-
-## Affected Leaves
-
-**Phases:** Vertical slice V11 (Binder)
-
-**Leaves (implementation order):**
-
-- `V11a-T` — Binder-model resolution and strict-capability probe (tests) — (modified)
-- `V11a` — Binder-model resolution and strict-capability probe — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-A faithful implementer transcribing the bullet asserts a code that is absent from the registry, which the `H5a` closing gate flags as a CI failure, while the genuine registered warning ships with no asserting test. The leaf cannot reach green as written.
-
-## Issue introduction
-
-**Verdict:** indeterminate
-**Introducing commits:** none identified
-**History:** The cited leaf files `docs/plan_topics/V11a-binder-model-resolution.md` and `docs/plan_topics/V11a-T-binder-model-resolution.md` are untracked in the git work tree (never committed); `git log --follow` over both files and `git log -S` over the bare-code defect token return no history, so the introducing change cannot be localised to a commit.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In the second `Tests.` bullet of both `docs/plan_topics/V11a-binder-model-resolution.md` and `docs/plan_topics/V11a-T-binder-model-resolution.md`, replace the bare `binder-model-strict-capability-unknown` with the registry-exact `loom/load/binder-model-strict-capability-unknown`. The corrected bullet reads:
-
-> The `strictCapable` probe: `false` → `loom/load/binder-model-not-strict-capable` (E); `undefined` → `loom/load/binder-model-strict-capability-unknown` (W); `true` → resolves.
-
-Apply the identical edit to both leaves so the implementation/tests pair stays mirror-consistent.
-
-## Relationships
-
-- T21 "Asserted diagnostic code `loom/parse/empty-enum-body` is absent from the parse registry" — same-cluster (asserted code absent from registry → H5a gate failure; resolves independently).
-- T04 "Truncated diagnostic code: `V5b` cites `loom/parse/duplicate-discriminator`, registry has `loom/parse/duplicate-discriminator-value`" — same-cluster (truncated code form → registry miss; resolves independently).
-- T13 "`V6e`/`V6e-T` assert a non-existent `loom/parse/...` diagnostic code instead of the registered `loom/load/frontmatter-value-out-of-range`" — same-cluster (wrong namespace → registry miss → H5a gate failure; resolves independently).
