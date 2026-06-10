@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 7 medium retained; 20 low discarded; 5 low findings merged into 2 medium findings; 27 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 6 medium retained; 20 low discarded; 5 low findings merged into 2 medium findings; 27 NIT dropped; 0 false dropped._
 
 ---
 
@@ -458,68 +458,3 @@ The `V9c` commit-ordering reliance needs no new routing — it is already covere
 ## Relationships
 
 - T05 "Real-host verification gap — every end-to-end and release gate runs only against the H4a session double" — decision-overlap (how the broad double-vs-real-Pi fidelity gap is resolved determines whether the streaming-visibility axis is closed by a new checklist item or by a real-host gate; settle a consistent answer).
-
----
-
-# T07 — H1a omits the `engines.node` field that downstream gates presuppose
-
-**Original heading:** package.json silently omits `engines.node`, presupposed downstream
-**Original section:** H1a — scaffold and toolchain
-**Kind:** assumptions
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`H1a` authors `package.json` and enumerates its contents explicitly — the four `@earendil-works/pi-*` peers plus `typebox` in `peerDependencies`, `ajv`/`semver`/`chokidar` in `dependencies`, and the `npm test` / `npm run build` scripts — but never names an `engines.node` field. No leaf establishes that field or its value.
-
-Downstream gates presuppose the literal already exists. `V18c`'s version-bump procedure runs an `engines.node` literal-read test that asserts a three-way equality whose operand (i) is the loom `package.json#engines.node` literal (`version-bump-step2b.md` step 3). The orientation rule in `overview-and-orientation.md` §"Node version floor" likewise requires a build-time `package.json` `engines.node` literal-read test equal to `@earendil-works/pi-coding-agent`'s floor. The pinned floor value (`>=22.19.0`) is owned by the capability-probe spec (`capability-probe.md` §(a); `host-prerequisites.md`).
-
-Because no leaf is named as the initial-population owner, an implementer following `H1a` produces a `package.json` with no `engines.node`, and the downstream literal-read gate has no operand (i) to read against. Either the field is invented ad hoc with an unowned value, or the `V18c` equality gate cannot evaluate.
-
-## Plan Documents
-
-- `docs/plan_topics/H1a-scaffold-and-toolchain.md` — Adds (edited)
-- `docs/plan_topics/V18c-version-bump-checklist.md` — Tests/Ships-when `engines.node` literal-read gate (read-only)
-- `docs/plan_topics/V18a-capability-inventory.md` — `SDK_SURFACE_INVENTORY` `pi-engines-node` row (read-only)
-
-## Spec Documents
-
-- `docs/spec_topics/pi-integration-contract/capability-probe.md` — §(a) Node floor (`>=22.19.0`); value source (read-only)
-- `docs/spec_topics/pi-integration-contract/host-prerequisites.md` — host-prerequisites item 1 (read-only)
-- `docs/spec/overview-and-orientation.md` — §"Node version floor"; build-time literal-read test (read-only)
-
-## Affected Leaves
-
-**Phases:** Horizontal, Vertical slice V18
-
-**Leaves (implementation order):**
-
-- H1a — Project scaffold and toolchain — (modified)
-- V18c — Pi version-bump procedure and gates — (blocked)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers of `H1a` diverge: one omits `engines.node` entirely (matching the current leaf text), another invents the field with a guessed value and location. The first case leaves `V18c`'s `engines.node` three-way equality gate and the orientation-mandated build-time literal-read test with no operand to read; the second risks a value that does not match the pinned floor owned by the capability-probe spec.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e ("pi-loom plan: build/update plan for spec.md + review", 2026-06-10)
-**History:** `docs/plan_topics/H1a-scaffold-and-toolchain.md` was first added in c6a664e and has never contained an `engines.node` reference. The downstream presupposers `V18c-version-bump-checklist.md` and `V18a-capability-inventory.md` were added in the same commit. The omission and the presupposition that depends on it entered together at the leaf-authoring commit; the only later H1a edit (83c25b9) addressed the typebox-range obligation and did not touch `engines.node`.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `docs/plan_topics/H1a-scaffold-and-toolchain.md`, extend the `Adds.` enumeration of `package.json` contents so it establishes the `engines.node` field as part of the scaffold, naming `H1a` as the field's initial-population owner. Source the value from the pinned Node floor owned by the capability-probe spec — `capability-probe.md` §(a) / `host-prerequisites.md` (`>=22.19.0`) — rather than restating a literal in the plan. The added Adds text should make explicit that this is the `package.json#engines.node` literal consumed by the build-time literal-read test (`overview-and-orientation.md` §"Node version floor") and by `V18c`'s three-way `engines.node` equality gate (operand (i), `version-bump-step2b.md` step 3), so the downstream gates have a declared source. The fix is plan-side only; no spec edit is required, and `V18c`/`V18a` are not edited (they already consume the literal).
-
-## Relationships
-
-None
-
