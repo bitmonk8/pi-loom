@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 16 medium retained; 20 low discarded; 5 low findings merged into 2 medium findings; 27 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 15 medium retained; 20 low discarded; 5 low findings merged into 2 medium findings; 27 NIT dropped; 0 false dropped._
 
 ---
 
@@ -1095,66 +1095,3 @@ and reflect the new obligation in `H7a`'s `Ships when`. Two notes: the exact ass
 - T25 "V16a posits an isolated cross-ceiling unit whose interface is undefined and whose authority over the live breach sites is never established" — decision-dependency (settling the arbitration unit's interface and the consult-vs-re-derive relationship fixes the exact shape of this integration assertion).
 - T16 "V16a-T CIO-3 asserts ceiling ordering at live AJV boundaries the leaf cannot reach, contradicting its paired impl leaf" — same-cluster (same synthesised-event-vs-live-site gap in the V16a pair; resolves independently).
 - T05 "Real-host verification gap — every end-to-end and release gate runs only against the H4a session double" — same-cluster (the recommended H7a host inherits the session-double fidelity bound; independent concern).
-
----
-
-# T16 — V16a-T CIO-3 asserts ceiling ordering at live AJV boundaries the leaf cannot reach, contradicting its paired impl leaf
-
-**Original heading:** V16a-T CIO-3 echoes "at every AJV boundary (the five sites)" without the impl leaf's synthesised-event disclaimer
-**Original section:** V16a — cross-ceiling order and `masked`
-**Kind:** overclaim
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V16a` is an isolated cross-ceiling-order unit, picked up before any live breach site exists. Its impl leaf scopes every CIO bullet to synthesised candidate events: the `V16a` Adds paragraph states the bullets are exercised "by driving synthesised ceiling-candidate events through the unit … not against the live `invoke` entry / AJV boundary / round-boundary sites, which are built by downstream leaves (`V5e`, `V11f`, `V13c`, `V15b`) and do not exist when `V16a` is picked up," and the impl CIO-3 bullet accordingly reads "a synthesised candidate tagged as an AJV-boundary event resolves ceiling #4 (JSON depth) as the first sub-check."
-
-The paired `V16a-T` CIO-3 bullet drops that scoping and asserts ceiling #4 "is the first sub-check **at every AJV boundary (the five sites)**." Synthesised candidate events cannot demonstrate behaviour at the five live AJV boundaries — those validation sites are built by downstream leaves that do not exist at `V16a`'s DAG position. The `-T` card is the red-test definition for the `V16a` impl; the two cards describe the same CIO-3 assertion but at different scopes, with only the `-T` side claiming live-site coverage. The asymmetry is confined to CIO-3.
-
-## Plan Documents
-
-- `docs/plan_topics/V16a-T-ceiling-order-masked.md` — CIO-3 Tests bullet (edited)
-- `docs/plan_topics/V16a-ceiling-order-masked.md` — Adds paragraph + CIO-3 Tests bullet (read-only; the authoritative synthesised-event framing to mirror)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical slice (V16 — Hard ceilings)
-
-**Leaves (implementation order):**
-
-- V16a-T — Hard-ceiling interaction order and `masked` co-fire (tests) — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-An implementer authoring the `V16a-T` red test reads CIO-3 as an obligation to assert ceiling-#4 ordering at five live AJV boundaries that do not exist when `V16a` is picked up; they either write a test referencing absent live sites (unbuildable at this DAG position) or fall back to the impl leaf's synthesised-event approach, leaving the `-T` card's literal text contradicting the test that actually lands. Two reasonable implementers diverge on what CIO-3's red test must observe.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e
-**History:** Both the impl-leaf synthesised-event disclaimer (the `V16a` Adds paragraph) and the `V16a-T` CIO-3 bullet that omits it were authored together in the single plan-build commit `c6a664e`. `git log -L` over the `V16a-T` CIO-3 line and over the `V16a` Adds disclaimer shows each was introduced at `c6a664e` and never subsequently edited; the only later commit touching the pair (`2565ddd`) resolved an unrelated NOCEIL Adds claim.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `docs/plan_topics/V16a-T-ceiling-order-masked.md`, rewrite the CIO-3 Tests bullet so it mirrors the impl leaf's synthesised-event framing instead of claiming live multi-site coverage. Strike the phrase `at every AJV boundary (the five sites)` and replace the bullet body with the impl leaf's wording, e.g.:
-
-`- `CIO-3`: a synthesised candidate tagged as an AJV-boundary event resolves ceiling #4 (JSON depth) as the first sub-check; the depth walk is ordered before AJV.`
-
-The impl leaf is the source of truth; align the `-T` bullet to it. Edge case: if the related V16a `Adds.` relocation/rewrite findings reword the impl-leaf disclaimer, copy whatever synthesised-event phrasing those edits settle on so the pair stays in lockstep.
-
-## Relationships
-
-- T25 "V16a posits an isolated cross-ceiling unit whose interface is undefined and whose authority over the live breach sites is never established" — same-cluster (broader V16a synthesised-unit-vs-live-site concern; resolves independently).
-- T15 "CIO-5 cross-ceiling arbitration verified only in isolation — no live-site integration assertion" — same-cluster (same synthesised-vs-live gap in the V16a pair; resolves independently — it adds a live-site integration assertion rather than re-scoping a -T bullet).
