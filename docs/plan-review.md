@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T32) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blockers, 0 high, 13 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
+_Triage tally: 0 blockers, 0 high, 12 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
 
 ---
 
@@ -778,69 +778,3 @@ Edge cases for the implementer: (a) the spec explicitly forbids a parse-phase ex
 - T10 "V3b — first three `Tests.` bullets cite no registry code" — same-cluster (same defect class).
 - T14 "V10c second Tests bullet conflates a malformed-settings diagnostic with debounce coalescence and cites a wildcard code" — same-cluster (same defect class).
 - T15 "V11d second `Tests.` bullet conflates AJV revalidation and `(default)` annotation with no spec identifier" — same-cluster (same defect class).
-
----
-
-# T12 — `V6b` defers `params` validation to the `SchemaValidator` seam without depending on its owning leaf
-
-**Original heading:** Assumes the SchemaValidator seam (V8a) without listing it
-**Original section:** V6b — Params and defaults
-**Kind:** assumptions
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V6b` (`params` and defaults) carries the binding `Tests.` bullet "`params` are validated through AJV against their lowered schema," and its `Ships when` gate asserts the same. AJV validation is the `SchemaValidator` seam — defined as a one-pass multi-error AJV wrapper (no coercion/defaulting, deterministic, slug-cache byte-verify) — and that seam is owned by `V8a`'s `Adds.`/`Tests.` (`PIC-11`). `V6b`'s ship-gate therefore exercises behaviour `V8a` provides.
-
-`V6b` `Deps.` are `V6b-T, V6a, V5d`. None of these reaches `V8a`: `V6a` resolves to `{V6a-T, V1a, V5a}` and `V5d` to `{V5d-T, V5a, V5b, V2d}`, and `V8a`'s only prerequisites are `{V8a-T, H3a}`. The dependency on the validation behaviour the leaf's gate relies on is unstated. The paired tests leaf `V6b-T` carries the identical AJV-validation bullet and the identical gap (`Deps. V6a, V5d`).
-
-Sibling leaves that consume the same seam already declare it: `V11c`/`V11c-T` and `V9c`/`V9c-T` both list `V8a` in `Deps.` (`V17a`/`V17a-T` likewise). The omission on the `V6b` pair is an outlier against that established pattern, not a deliberate decoupling.
-
-## Plan Documents
-
-- `docs/plan_topics/V6b-params-defaults.md` — `Deps.` field (edited)
-- `docs/plan_topics/V6b-T-params-defaults.md` — `Deps.` field (edited)
-- `docs/plan_topics/V8a-checkpoint-validator-seams.md` — `SchemaValidator` seam owner (read-only)
-- `docs/plan_topics/conventions.md` — leaf-format `Deps.` rule (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** V6
-
-**Leaves (implementation order):**
-
-- `V6b-T` — `params` and defaults (tests) — (modified)
-- `V6b` — `params` and defaults — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Under dep-driven selection (How-to-use step 3), `V6b`/`V6b-T` are scheduled "ready" once `V6a`/`V5d`/`V6b-T` are complete, with no edge forcing `V8a` first. An implementer reaching the AJV-validation gate before `V8a` exists either blocks, or inlines a local validator that diverges from `V8a`'s one-pass / no-coercion / slug-cache `SchemaValidator` contract — and the ship-gate ("validates `params` through AJV") goes green either way, masking the divergence.
-
-## Issue introduction
-
-**Verdict:** indeterminate
-**Introducing commits:** none identified
-**History:** The cited plan leaf `docs/plan_topics/V6b-params-defaults.md` (and the `V8a` seam leaf whose dependency it omits) are untracked working-tree files; under `docs/plan_topics/` only `conventions.md`, `coverage-matrix.md`, and `leaf-template.md` are committed. The `Deps.` omission therefore cannot be localised to any commit.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add `V8a` to the `Deps.` field of `V6b` and of `V6b-T`, keeping the implementation/tests pair mirror-consistent. `V6b` `Deps.` becomes `V6b-T, V6a, V5d, V8a`; `V6b-T` `Deps.` becomes `V6a, V5d, V8a`. This matches the existing seam-consumer leaves `V11c`/`V11c-T` and `V9c`/`V9c-T`, which list `V8a` because their gates exercise the `SchemaValidator` seam.
-
-The `SchemaValidator` contract already exists in the spec (`host-interfaces-core.md`, closed by `V8a`/`PIC-11`); this fix is internal to the two plan leaves and must not touch the spec.
-
-## Relationships
-
-- T02 "V2b ship-gate references the runtime AJV validator seam (V8a) outside its declared dependency closure" — same-cluster (the same `V8a`-not-in-`Deps.` omission on `V2b`, where an alternative deferral-marker framing is also in play; resolves independently).
-

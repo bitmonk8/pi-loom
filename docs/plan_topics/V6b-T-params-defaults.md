@@ -9,6 +9,6 @@
 - A default that is not a loom literal fires `default-not-literal`.
 - `params` are validated through AJV against their lowered schema.
 
-**Deps.** `V6a`, `V5d`
+**Deps.** `V6a`, `V5d`, `V8a`
 
 **Ships when.** The tests above exist, compile, and fail red for the intended reason.

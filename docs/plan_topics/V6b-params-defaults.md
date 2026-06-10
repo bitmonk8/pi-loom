@@ -9,6 +9,6 @@
 - A default that is not a loom literal fires `default-not-literal`.
 - `params` are validated through AJV against their lowered schema.
 
-**Deps.** `V6b-T`, `V6a`, `V5d`
+**Deps.** `V6b-T`, `V6a`, `V5d`, `V8a`
 
 **Ships when.** `npm test` validates `params`, enforces default ordering, and rejects non-literal defaults.
