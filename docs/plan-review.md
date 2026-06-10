@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 6 medium retained; 20 low discarded; 5 low findings merged into 2 medium findings; 27 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 5 medium retained; 20 low discarded; 5 low findings merged into 2 medium findings; 27 NIT dropped; 0 false dropped._
 
 ---
 
@@ -384,77 +384,3 @@ Keep the double-only gates but make the accepted residual risk concrete: name a 
 - T06 "Streamed-token-before-`waitForIdle()` ordering is routed to editorial review by H4a but has no version-bump checklist item" — decision-overlap (same double-vs-real root; whichever real-host confirmation mechanism this finding chooses also governs where that finding's streaming-before-`waitForIdle` presupposition is confirmed — settle a consistent answer).
 - T26 "Session-only degraded-state presupposition (a) contradicts Pi's documented teardown-and-rebind extension lifecycle" — decision-overlap (a real-host smoke or accepted post-merge detection surface is the mechanism that would catch that presupposition being false; resolve the detection footing consistently).
 
----
-
-# T06 — Streamed-token-before-`waitForIdle()` ordering is routed to editorial review by H4a but has no version-bump checklist item
-
-**Original heading:** V12a/V9c assume real Pi streams assistant tokens before `waitForIdle()` resolves — verified only against the double
-**Original section:** V9c — prompt-mode conversation drive and active-set gating
-**Kind:** risk, assumptions
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V12a`'s SLSH-2 test asserts that streamed assistant tokens are observable in the user transcript *before* the interpreter resumes — i.e. before `ctx.waitForIdle()` resolves — "so a buffer-then-append-after-resume implementation fails." This guarantee is not purely loom-side: even though loom performs no buffering, the user only sees tokens before the loom resumes if Pi's TUI streams them into the transcript before it fires `agent_end` (the event that settles `waitForIdle()`). A Pi minor that buffered the assistant response until `agent_end` would make SLSH-2's user-visible-streaming property false against real Pi while every loom test stayed green. This is therefore an unpinned Pi *behavioural* presupposition, identical in kind to the ones enumerated under the version-bump procedure.
-
-`H4a` names exactly this behaviour as axis (i) of its session-double fidelity contract and states that "the Pi behaviours the four contract axes model are audited by editorial review under the Pi version bump procedure … via that checklist's existing presupposition items." But no checklist item in `version-bump-step2.md` (items (a)–(aj)) covers the streaming-visibility ordering. The neighbouring presuppositions are all routed: the driven-turn session-commit ordering that `V9c` relies on is routed to item (ac); turn-liveness to (j); `AgentMessage[]` ordering to (h)/(ag); the cancel-forwarding axes to (v)/(ah)/(ad). Only the user-visible streaming axis has no backing item. The checklist's own closing rule requires that any such presupposition "MUST be added to this checklist in the same edit", so H4a's claim that axis (i) is editorially audited "via existing presupposition items" is unsupported.
-
-The actionable gap is the streaming-visibility half (`V12a` / `H4a` axis (i)). The commit-ordering half that `V9c` depends on is already routed to item (ac).
-
-## Plan Documents
-
-- `docs/plan_topics/H4a-factory-shell-and-harness.md` — Tests, session-double fidelity-contract self-check note (edited)
-- `docs/plan_topics/V12a-slash-dispatch.md` — SLSH-2 streaming bullet / Adds (edited)
-- `docs/plan_topics/V12a-T-slash-dispatch.md` — SLSH-2 streaming bullet (edited)
-- `docs/plan_topics/V9c-conversation-drive.md` — trailing-turn extraction; commit-ordering reliance already routed to item (ac) (read-only)
-- `docs/plan_topics/V18c-version-bump-checklist.md` — editorial-review checklist items (read-only)
-
-## Spec Documents
-
-- `docs/spec_topics/pi-integration-contract/version-bump-step2.md` — editorial-review checklist for unpinned host presuppositions, items (a)–(aj) (edited — add the streaming-visibility item)
-- `docs/spec_topics/slash-invocation.md` — SLSH-2 user-visible streaming (edited — add a presupposition anchor the new checklist item links to)
-- `docs/spec_topics/pi-integration-contract/conversation-drive.md` — alternative anchor home next to `#driven-turn-commit-ordering-presupposition` (option-dependent)
-
-## Affected Leaves
-
-**Phases:** Horizontal phases, Vertical slices (V9, V12, V18)
-
-**Leaves (implementation order):**
-
-- H4a — Extension factory shell and end-to-end harness — (modified)
-- V9c — Prompt-mode conversation drive and active-set gating — (modified)
-- V12a-T — Slash dispatch, overflow, and streaming (tests) — (modified)
-- V12a — Slash dispatch, overflow, and streaming — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-On a future Pi minor bump the contributor has no checklist prompt to re-confirm that Pi still streams assistant tokens into the transcript before `waitForIdle()` resolves. A Pi change that buffered streaming until `agent_end` would silently falsify SLSH-2's user-visible-streaming guarantee with no build-time SDK-surface signal and no editorial-review prompt — the same class of behavioural regression every other contract axis is protected against. The checklist's completeness gate (its MUST-add rule) passes vacuously for this presupposition.
-
-## Issue introduction
-
-**Verdict:** single-commit
-**Introducing commits:** `07403da2bf2419b8dea952848184dd169b3bbd52` — "pi-loom plan: resolve T20 (Branch A) — H4a double fidelity is an editorial-review presupposition, not a real-host backstop; unpark" (2026-06-10)
-**History:** `git log -S` on the H4a session-double fidelity-contract note shows commit `07403da` rewrote it. The prior text (`eeb0014`, `c6a664e`) framed `V18c`'s version-bump runtime-evidence gate as the real-host backstop for the four contract axes. `07403da` replaced that with "audited by editorial review under the Pi version bump procedure … via that checklist's existing presupposition items," naming only the `ctx.waitForIdle()`-settling / turn-liveness and `AgentMessage[]`-ordering axes. That commit touched only `H4a-factory-shell-and-harness.md` and `plan-review-parked.md`; it added no checklist item for the streamed-token-before-`waitForIdle()` axis. `git log` on `version-bump-step2.md` confirms no streaming-visibility item (a)–(aj) was ever present. The defect entered with `07403da`'s reframing of the backstop into an editorial-review presupposition.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Close the unrouted presupposition and align the leaf that over-claims it is routed:
-
-1. **Spec — add the missing checklist item.** In `version-bump-step2.md`, add a new editorial-review checklist item (next free letter) covering the user-visible streaming ordering: that on a driven prompt-mode turn the candidate `@earendil-works/pi-coding-agent` minor's TUI streams assistant tokens into the user transcript before `ctx.waitForIdle()` resolves (rather than buffering until `agent_end`), so SLSH-2's guarantee holds against real Pi. Use the same SHOULD-level audit + per-item-recording framing as the neighbouring behavioural items, and link it to a presupposition anchor.
-2. **Spec — give it an anchor.** Add a consumption-posture / presupposition paragraph with a stable anchor that the new item references — naturally in `slash-invocation.md` SLSH-2 (e.g. `#user-visible-streaming-ordering-presupposition`), or adjacent to the existing `#driven-turn-commit-ordering-presupposition` in `conversation-drive.md`.
-3. **Plan — fix H4a's over-claim.** In `H4a`, point axis (i) at the new item rather than vaguely at "existing presupposition items".
-4. **Plan — optional consumer cross-reference.** In `V12a` / `V12a-T`, the SLSH-2 streaming bullet may add a cross-reference to the new checklist item.
-
-The `V9c` commit-ordering reliance needs no new routing — it is already covered by item (ac).
-
-## Relationships
-
-- T05 "Real-host verification gap — every end-to-end and release gate runs only against the H4a session double" — decision-overlap (how the broad double-vs-real-Pi fidelity gap is resolved determines whether the streaming-visibility axis is closed by a new checklist item or by a real-host gate; settle a consistent answer).
