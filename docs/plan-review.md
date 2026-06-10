@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T37) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 23 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 22 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -1605,72 +1605,3 @@ Re-home caller-side coverage: add a caller-side final-value-propagation assertio
 - T24 "V4c-T/V4c assert no-rollback over subagent, query, tool-call, and invoke surfaces built in later slices" — same-cluster (same pattern: a `-T` leaf asserting over `invoke`/subagent surfaces built in later slices; resolves independently via the same seam-scoping approach)
 - T29 "V18c-T runtime-evidence test exercises integrated features its Deps do not satisfy" — same-cluster (same ordering pattern: a `-T` leaf's failing test references features not yet built; resolves independently)
 
----
-
-# T23 — ERR-13 no-rollback / completed-callee finality is over-claimed and unasserted in V4c
-
-**Original heading:** ERR-13 "completed tool calls/queries/invoke children are final / no rollback" over-claimed and asserted generically
-**Original section:** docs/plan_topics/V4c-terminal-outcomes.md / V4c-T
-**Kind:** overclaim, validation
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-The `V4c` leaf's **Ships when** ("`npm test` proves committed turns survive cancellation and `?`-propagation unmodified, with no rollback") and its `ERR-13` test bullet ("`?`/panic/cancel never unwind side effects; completed tool calls, queries, and invoke children are final") are stated as universal guarantees, but the leaf's enumerated `ERR-8`…`ERR-13` cases sample only specific constructed scenarios. The no-rollback property is architectural — it holds because the runtime contains no compensating/rollback path, not because a finite test set witnesses every side-effecting surface. "Proves … no rollback" therefore claims coverage the enumerated cases cannot deliver.
-
-Separately, `ERR-13`'s "completed tool calls, queries, and invoke children are final" clause is not broken out into any assertion that exercises a completed callee distinct from an appended turn. The other bullets (`ERR-8`…`ERR-11`) concern committed turns / Pi-committed surfaces; nothing drives a tool call, query, or invoke child to completion and then fires a downstream `?`/panic/cancel to observe that the completed side effect persists. The finality of completed callees is asserted in prose but has no closing test in either `V4c` or `V4c-T`.
-
-`ERR-13` names surfaces — subagent, query, tool-call, invoke — produced by later slices; the seam the new assertion must run against is the subject of the sibling ordering finding, on which this one depends.
-
-## Plan Documents
-
-- `docs/plan_topics/V4c-terminal-outcomes.md` — Tests (`ERR-13`) + Ships when (edited)
-- `docs/plan_topics/V4c-T-terminal-outcomes.md` — Tests (`ERR-13`) + Ships when (edited)
-- `docs/plan_topics/coverage-matrix.md` — `ERR-8 … ERR-13 → V4c` row (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical slice V4 — Errors and results
-
-**Leaves (implementation order):**
-
-- `V4c-T` — Terminal outcomes, partial-append, and no-rollback (tests) — (modified)
-- `V4c` — Terminal outcomes, partial-append, and no-rollback — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-If shipped unfixed, `V4c` passes its closing gate while the stated "completed tool calls/queries/invoke children are final" guarantee has no closing assertion — the gate passes vacuously for that claim. The over-broad "proves … no rollback" wording invites a reviewer to treat the architectural property as test-witnessed when it is not, so a regression in completed-callee finality (e.g. a future compensating path) could ship without reddening `V4c`.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e — pi-loom plan: build/update plan for spec.md + review (2026-06-10, Thomas Andersen)
-**History:** The `V4c` / `V4c-T` leaf pages were created in their only commit, c6a664e. The `ERR-13` bullet and the "no rollback" Ships-when wording are present verbatim in that first commit, so the over-claim and the missing completed-callee assertion have existed since the leaf's inception.
-
-## Solution Space
-
-**Shape:** single
-
-This finding is bimodal: it asks for (1) a wording de-scope of the universal-negative claim and (2) a new test assertion. Both are required.
-
-### Recommendation
-
-Apply both fixes, landing the wording de-scope first so the gate is accurately scoped before the new assertion is added.
-
-De-scope the over-claim: in `V4c` **Ships when**, replace "proves committed turns survive cancellation and `?`-propagation unmodified, with no rollback" with wording scoped to the enumerated `ERR-8`…`ERR-13` cases, and state that the no-rollback guarantee rests on the runtime having no compensating/rollback path. Mirror the same scoping in the `ERR-13` bullet of both `V4c` and `V4c-T`.
-
-Then add a completed-callee finality assertion: add a Tests bullet to `V4c-T` (with paired implementation behaviour in `V4c`) that drives a tool call / invoke child to *completion*, fires a downstream `?`/panic/cancel, and asserts the completed callee's side effect persists and that no compensating turn is injected. The assertion exercises a completed callee distinct from an appended turn, scoped against the cancellation (`V17a`) / invocation-harness seam rather than the live later-slice surfaces, per the sibling ordering finding (T24). The new assertion must drive a callee to *completion* before the terminal event, not merely an appended turn. This step depends on the seam-vs-live-surface scoping decision from T24 being settled first.
-
-## Relationships
-
-- T24 "V4c-T/V4c assert no-rollback over subagent, query, tool-call, and invoke surfaces built in later slices" — decision-dependency (its seam-vs-live-surface scoping decision constrains how Option B's completed-callee assertion is written; resolve T24 first)
-
----
