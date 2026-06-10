@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T32) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blockers, 5 high, 19 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
+_Triage tally: 0 blockers, 4 high, 19 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
 
 ---
 
@@ -1562,70 +1562,3 @@ Edge cases for the implementer:
 
 - T23 "PIC-21 (renderer exception safety) has a coverage-matrix row but no asserting test in V7a" — same-cluster (identical defect shape — a coverage-matrix PIC row mapping a leaf that carries no asserting bullet; resolves independently).
 
----
-
-# T23 — PIC-21 (renderer exception safety) has a coverage-matrix row but no asserting test in V7a
-
-**Original heading:** PIC-21 claimed in coverage matrix but absent from V7a Tests
-**Original section:** V7a — Diagnostics primitive
-**Kind:** traceability
-**Importance:** high
-**Score:** 100
-**MustFix:** true
-
-## Finding
-
-`coverage-matrix.md` (Numbered REQ-IDs table) maps `PIC-21 → V7a`, declaring `V7a` the leaf whose green tests close the PIC-21 obligation. PIC-21 is a normative spec MUST — *Renderer exception safety* in [`../spec_topics/pi-integration-contract/extension-bootstrap-and-per-loom.md#pic-21`](../spec_topics/pi-integration-contract/extension-bootstrap-and-per-loom.md): the `loom-system-note` renderer body MUST NOT throw out of the `MessageRenderer` invocation; on any internal failure it MUST catch within its own body and return a minimal `Component` that renders the raw `message.content` when `display === true`, or `undefined` when `display === false`, with no `loom/runtime/*` diagnostic emitted.
-
-`V7a`'s Tests bullets cite only `DIAG-1` (registry-code content-line rendering), multi-error batching, and re-scan re-emission. There is no PIC-21 bullet. The paired `V7a-T` tests leaf mirrors the same three bullets and likewise omits PIC-21.
-
-The result is a coverage claim with no closure evidence: the matrix asserts `V7a` closes PIC-21, but nothing in `V7a`/`V7a-T` exercises the renderer's no-throw / catch-and-degrade contract. A reviewer auditing PIC-21 through the matrix lands on a leaf that never tests it.
-
-## Plan Documents
-
-- `docs/plan_topics/V7a-diagnostics-primitive.md` — Tests (edited)
-- `docs/plan_topics/V7a-T-diagnostics-primitive.md` — Tests (edited)
-- `docs/plan_topics/coverage-matrix.md` — Numbered REQ-IDs table, `PIC-21` row (read-only — the mapping is correct; the gap is the missing test, not the row)
-
-## Spec Documents
-
-- `docs/spec_topics/pi-integration-contract/extension-bootstrap-and-per-loom.md` — PIC-21 (read-only — source of the invariant the new test asserts)
-
-## Affected Leaves
-
-**Phases:** Vertical / V7 — Diagnostics
-
-**Leaves (implementation order):**
-
-- `V7a-T` — Diagnostics primitive and `loom-system-note` channel (tests) — (modified)
-- `V7a` — Diagnostics primitive and `loom-system-note` channel — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-PIC-21 ships with a coverage-matrix row claiming `V7a` closes it while `V7a`'s tests never assert the renderer no-throw contract, so two reasonable implementers diverge — one adds the exception-safety test, one treats the three listed bullets as the complete acceptance set and ships a renderer that can propagate a throw out of `MessageRenderer`, corrupting the session transcript and the rendering of subsequent `loom-system-note` deliveries. The `H5a` closing gate passes vacuously on PIC-21's mapping arm because the row exists, masking the absent closure evidence.
-
-## Issue introduction
-
-**Verdict:** indeterminate
-**Introducing commits:** none identified
-**History:** The corpus is a git work tree, but the defect-bearing content is not committed: `docs/plan_topics/V7a-diagnostics-primitive.md` and `docs/plan_topics/V7a-T-diagnostics-primitive.md` are untracked (`git status` → `??`), and the `PIC-21 → V7a` row lives only in the uncommitted working-tree edit to `docs/plan_topics/coverage-matrix.md` (`HEAD` has no numbered-REQ-ID table). With both sides of the mismatch outside version control, the defect cannot be attributed to any commit.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add a PIC-21 Tests bullet to `docs/plan_topics/V7a-diagnostics-primitive.md` and the mirror bullet to `docs/plan_topics/V7a-T-diagnostics-primitive.md`, asserting the renderer exception-safety contract. The bullet must verify that when the registered `loom-system-note` `MessageRenderer` body hits an internal failure, the throw does not propagate out of the invocation, and the renderer returns the degraded fallback `Component` (raw `message.content` when `display === true`, `undefined` when `display === false`), with no `loom/runtime/*` diagnostic emitted. Suggested literal text for the implementation leaf:
-
-> - `PIC-21`: when the `loom-system-note` renderer body throws internally, the throw does not escape the `MessageRenderer` invocation; the renderer returns a minimal `Component` rendering raw `message.content` for `display === true` and `undefined` for `display === false`, and emits no `loom/runtime/*` diagnostic.
-
-Keep `V7a` and `V7a-T` mirror-consistent — add the identical bullet to both per the project's paired-TDD convention. The `coverage-matrix.md` `PIC-21 → V7a` row is already correct and needs no edit.
-
-## Relationships
-
-- T22 "`PIC-2` mapped to `V9c` in the coverage matrix but never asserted; `subagent.md` missing from `V9c` `Spec.`" — same-cluster (identical defect pattern — a coverage-matrix PIC mapping with no asserting test in the named leaf; resolves independently).
-- T03 "`DIAG-2` describes a `src/**` emission scan the closing gate does not perform" — same-cluster (both concern closure evidence reconciled through the `H5a` gate; resolve independently).
-- T13 "`V6e`/`V6e-T` assert a non-existent `loom/parse/...` diagnostic code instead of the registered `loom/load/frontmatter-value-out-of-range`" — same-cluster (both produce a coverage/closure mismatch the `H5a` gate must catch; different leaf and fix).
