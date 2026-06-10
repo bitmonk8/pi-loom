@@ -12,4 +12,4 @@
 
 **Deps.** `V12a-T`, `V9c`, `V11f`, `V4a`, `V13c`
 
-**Ships when.** `npm test` dispatches a slash command, streams output, and asserts the overflow note.
+**Ships when.** `npm test` dispatches a slash command, streams output, and asserts the overflow note; and asserts both SLSH-2 failure paths individually — for an `Err` propagated by `?` after partial assistant text, the streamed prefix is retained and the failure `loom-system-note` is appended *after* the prefix (not interleaved); and for mid-stream cancellation, the partial prefix is retained and the cancellation note is appended *after* the prefix (not interleaved).

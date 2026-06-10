@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T37) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 28 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 27 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -1952,64 +1952,3 @@ Edge case: if carrying partition metadata would require restructuring beyond the
 
 None
 
----
-
-# T28 — V12a Ships-when gate omits the SLSH-2 failure-path assertions
-
-**Original heading:** SLSH-2 failure-path interleaving omitted from the Ships-when gate
-**Original section:** docs/plan_topics/V12a-slash-dispatch.md / V12a-T
-**Kind:** validation
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V12a` enumerates four Tests bullets: the `SLSH-1` overflow/trim rule, the `SLSH-2` happy-path streaming-ordering assertion, and two `SLSH-2` failure-path assertions — one for an `Err` propagated by `?` after partial assistant text (streamed prefix retained, failure `loom-system-note` appended *after* the prefix, not interleaved), and one for mid-stream cancellation (partial prefix retained, cancellation note appended after the prefix, not interleaved).
-
-The leaf's **Ships when** reads: "`npm test` dispatches a slash command, streams output, and asserts the overflow note." This names only the happy-path streaming behaviour and the `SLSH-1` overflow note. The two failure-path prefix-retention / append-ordering assertions are not referenced by the gate. A reviewer reading **Ships when** alone would treat the leaf as shippable with those two assertions missing or broken.
-
-The companion `V12a-T` gate does cover all four bullets, so the tests-task side is sound; the defect is confined to the implementation leaf's narrower closing condition.
-
-## Plan Documents
-
-- `docs/plan_topics/V12a-slash-dispatch.md` — **Ships when** field (edited)
-- `docs/plan_topics/V12a-T-slash-dispatch.md` — Tests / Ships when (read-only; already covers all four bullets)
-
-## Spec Documents
-
-None — the fix is internal to the plan leaf's gate wording; the spec's `slash-invocation.md` SLSH-2 behaviour is unchanged.
-
-## Affected Leaves
-
-**Phases:** Vertical slice V12 — Slash invocation
-
-**Leaves (implementation order):**
-
-- `V12a` — Slash dispatch, overflow, and streaming — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-The closing gate passes vacuously for the two SLSH-2 failure-path cases: an implementation that streams happy-path tokens and emits the overflow note satisfies **Ships when** even if the err-after-partial-text and mid-stream-cancellation prefix-retention / append-ordering behaviours are unimplemented or interleave incorrectly. Two reviewers reading the gate vs. the Tests list would disagree on whether those assertions block ship, and a regression in either failure-path ordering would not redden the stated gate.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e (2026-06-10, "pi-loom plan: build/update plan for spec.md + review")
-**History:** `docs/plan_topics/V12a-slash-dispatch.md` was added in c6a664e. `git show c6a664e:` confirms the **Ships when** line read "`npm test` dispatches a slash command, streams output, and asserts the overflow note." at file creation, while `git log -S` shows both failure-path SLSH-2 Tests bullets were introduced in the same commit. Later edits (eeb0014, 85fc906) did not touch the **Ships when** wording.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `docs/plan_topics/V12a-slash-dispatch.md`, extend the **Ships when** field so the gate names the two failure-path SLSH-2 assertions in addition to the happy-path streaming and overflow checks it already cites. The gate must require that `npm test` assert, for the `Err`-after-partial-text case and the mid-stream-cancellation case, that the streamed prefix is retained and the failure / cancellation `loom-system-note` is appended after the prefix (not interleaved). Keep the existing happy-path streaming and `SLSH-1` overflow-note clauses; this is an addition to the gate, not a replacement.
-
-Edge case: the wording should make both failure paths (`?`-propagated `Err` and mid-stream cancellation) individually observable in the gate, since they exercise distinct append-ordering code paths.
-
-## Relationships
-
-None
