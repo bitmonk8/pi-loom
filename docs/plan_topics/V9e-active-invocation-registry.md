@@ -2,7 +2,7 @@
 
 **Spec.** [`../spec_topics/pi-integration-contract/active-invocation-registry.md`](../spec_topics/pi-integration-contract/active-invocation-registry.md).
 
-**Adds.** The extension-scoped registry of in-flight invocations: the five-field entry, the canonical-name resolver (three insertion sites), the setup wrap, the `disposeBarrier`, insertion-order iteration, and `invocationId` allocation via `IdSource`.
+**Adds.** The extension-scoped registry of in-flight invocations: the five-field entry, the canonical-name resolver (three insertion sites), the setup wrap, the `disposeBarrier` (which awaits every in-flight entry's disposal to settle via `Promise.allSettled` — [active-invocation-registry.md](../spec_topics/pi-integration-contract/active-invocation-registry.md), PIC code-keyed area), insertion-order iteration, and `invocationId` allocation via `IdSource`.
 
 **Tests.**
 - [active-invocation-registry.md — insertion-order iteration](../spec_topics/pi-integration-contract/active-invocation-registry.md) (PIC area): a registered invocation is iterated in insertion order; teardown reaches every in-flight entry.

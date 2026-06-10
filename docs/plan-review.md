@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 2 high, 18 medium retained; 20 low discarded; 5 low findings merged into 2 medium findings; 27 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 1 high, 18 medium retained; 20 low discarded; 5 low findings merged into 2 medium findings; 27 NIT dropped; 0 false dropped._
 
 ---
 
@@ -1352,71 +1352,3 @@ The fix is confined to `coverage-matrix.md`; `V11e` and the spec pages are read-
 
 - T20 "`Sequential by default` carve-out admits only a numbered REQ-ID, but spec-mandated concurrency sites are anchored as code-keyed obligations" — same-cluster (sibling code-keyed-table / un-anchored-machinery concern; resolves with its own independent edit).
 - T01 "Un-anchored-MUST closing-gate recogniser claims exact precision and recall over free-form prose" — same-cluster (both concern the un-anchored-MUST closing surface; that finding bounds what the recogniser can detect, this one fills a row it would have to enumerate).
-
----
-
-# T20 — `Sequential by default` carve-out admits only a numbered REQ-ID, but spec-mandated concurrency sites are anchored as code-keyed obligations
-
-**Original heading:** Promise-construct carve-out keyed to a REQ-ID the spec's parallel-tool-batch behaviour does not carry
-**Original section:** docs/plan_topics/conventions.md
-**Kind:** spec-fidelity
-**Importance:** high
-**Score:** 100
-**MustFix:** true
-
-## Finding
-
-The `## Cross-cutting rules (every leaf)` *Sequential by default* rule in `conventions.md` forbids `Promise.all` / `Promise.race` / `Promise.allSettled` / `Promise.any` in production code **unless** the calling leaf's `Spec.` field cites a spec REQ-ID whose normative text mandates concurrency at the site, and the leaf's `Adds.` field names the construct and that REQ-ID together. The exemption is realised by a per-site lint allow-list whose entries each carry a `// allow: <REQ-ID> — <spec-page>` comment, and the loom 1.0 closing gate asserts every allow-list entry has a matching REQ-ID present in `coverage-matrix.md`. Every link in that chain is keyed to a **numbered** `PREFIX-N` REQ-ID.
-
-Several concurrency obligations the spec actually mandates are anchored only as **code-keyed obligation areas** with no numbered REQ-ID. The model-driven parallel-tool-batch await in `tool-calls.md` §Concurrency is cited by `V13c`/`V13c-T` as "(TOOL code-keyed area)". The `disposeBarrier` teardown in `active-invocation-registry.md` (realised by the `Promise.allSettled`-over-`disposeBarrier` sub-step) is cited by `V9e`/`V9e-T` as "(PIC area)". A leaf that implements either site with a Promise combinator cannot form the `// allow: <REQ-ID>` comment — there is no REQ-ID to write — and the closing gate rejects any allow-list entry with no matching `coverage-matrix.md` REQ-ID. The exemption path is therefore unsatisfiable for these spec-mandated concurrency sites.
-
-The convention contradicts itself. The `## Leaf format` *Adds.* rule already admits, as a binding obligation under clause (i), "a named normative step on a code-keyed obligation page", and its own parenthetical names "the concurrency construct the *Sequential by default* rule requires `Adds.` to name alongside its mandating REQ-ID." So the leaf-format rule contemplates a concurrency construct bound by a code-keyed obligation, while the carve-out gate that authorises it admits only a numbered REQ-ID. (Contrast `V9i`, whose `Promise.all` parallel-spawn is keyed to the numbered `PIC-22` and satisfies the carve-out cleanly.)
-
-## Plan Documents
-
-- `docs/plan_topics/conventions.md` — `## Cross-cutting rules (every leaf)` *Sequential by default* rule and the `## Leaf format` *Adds.* clause-(i) parenthetical (edited)
-- `docs/plan_topics/coverage-matrix.md` — *Code-keyed obligation areas (no numbered REQ-IDs)* (read-only)
-- `docs/plan_topics/V13c-query-tool-loop.md` — `Adds.` / `Tests.` (modified)
-- `docs/plan_topics/V9e-active-invocation-registry.md` — `Adds.` / `Tests.` (modified)
-
-## Spec Documents
-
-- `docs/spec_topics/tool-calls.md` — §Concurrency (read-only)
-- `docs/spec_topics/pi-integration-contract/active-invocation-registry.md` — *Registry contract* (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical slices (V9, V13)
-
-**Leaves (implementation order):**
-
-- V9e — `ActiveInvocationRegistry` — (both)
-- V13c — Query tool loop and typed two-phase — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-An implementer of `V13c` or `V9e` who reaches for a Promise combinator — the natural realisation of "await every call in the batch to settle" and of "`disposeBarrier` blocks until all entries are disposed" — cannot produce a lint-clean implementation: the `// allow:` exemption comment requires a numbered REQ-ID the cited code-keyed obligation does not carry, and the closing gate rejects an allow-list entry with no matching `coverage-matrix.md` REQ-ID. Two reasonable implementers diverge (one forces a sequential approximation, one wedges on the lint/gate), and the convention contradicts its own *Adds.* clause (i). The `V9e` `disposeBarrier`-with-teardown-cap is the sharpest case, where a faithful realisation is genuinely concurrent.
-
-## Issue introduction
-
-**Verdict:** multi-commit-interaction
-**Introducing commits:** 15f69aa — pi-loom plan: finish scaffold/template re-pivot from commit 657ee76 (2026-05-26, Thomas Andersen); b737beb — pi-loom plan: resolve "Adds. binding clause (i) cannot bind code-keyed obligations" (2026-06-10, Thomas Andersen)
-**History:** The *Sequential by default* carve-out has keyed its exemption to a numbered spec REQ-ID since the carve-out was introduced (present in 15f69aa, 2026-05-26), at a time when no code-keyed-obligation binding class existed. Commit b737beb (2026-06-10) broadened the *Adds.* binding clause (i) to admit "a cited `loom/...` diagnostic-registry code, or a named normative step on a code-keyed obligation page" and kept the parenthetical naming the concurrency construct, but left the carve-out condition, its `// allow: <REQ-ID>` comment form, and the closing-gate REQ-ID match untouched. The defect is the interaction: after b737beb a leaf may name a concurrency construct against a code-keyed obligation in `Adds.`, yet the gate that authorises the construct still demands a numbered REQ-ID the obligation does not carry.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `conventions.md`, broaden the *Sequential by default* exemption so that — in addition to a `Spec.`-cited numbered REQ-ID whose normative text mandates concurrency — a `Spec.`-cited **code-keyed obligation area** (a named normative step on a page listed under `coverage-matrix.md` *Code-keyed obligation areas (no numbered REQ-IDs)* whose normative text mandates concurrency at the site) also satisfies the carve-out. Extend the allow-list comment form so it accepts that code-keyed-obligation-area token in the position currently requiring `<REQ-ID>`, and extend the closing-gate assertion so an allow-list entry that names a matching enumerated code-keyed obligation area also passes. Update the *Adds.* clause-(i) parenthetical text "alongside its mandating REQ-ID" to also admit a code-keyed obligation area, so the two rules stay in lock-step.
-
-Edge cases: once the carve-out admits code-keyed obligations, `V9e` and `V13c` must name their construct together with the cited code-keyed area in `Adds.` to claim the exemption, and the corresponding `coverage-matrix.md` *Code-keyed obligation areas* entries must exist for the gate to match against. Re-anchoring any of these obligations as a numbered REQ-ID in the spec instead is a spec-side GOV-22 decision owned by the relevant spec-coverage finding — not by this plan rule — so it stays out of scope here.
-
-## Relationships
-
-- T19 "Binder system-note and determinism un-anchored MUSTs have no code-keyed coverage-matrix row" — same-cluster (another un-anchored code-keyed obligation enumerated under the same matrix section; resolves independently — the `disposeBarrier` row is the named area the broadened carve-out keys against).
-- T01 "Un-anchored-MUST closing-gate recogniser claims exact precision and recall over free-form prose" — same-cluster (same `conventions.md` REQ-ID-discipline / un-anchored-obligation machinery; resolves independently).
-
