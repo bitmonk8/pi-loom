@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T32) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blockers, 0 high, 16 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
+_Triage tally: 0 blockers, 0 high, 15 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
 
 ---
 
@@ -986,76 +986,4 @@ The spec is read-only for this fix — the codes and the `#caching-and-reload` a
 - T11 "`V4a` third Tests bullet conflates three match behaviours with no cited identifier" — same-cluster (same pattern).
 - T15 "V11d second `Tests.` bullet conflates AJV revalidation and `(default)` annotation with no spec identifier" — same-cluster (same pattern).
 - T27 "V17a leaves three normative cancellation MUSTs with no asserting test" — same-cluster (the `V17a` Tests block shares the one-bullet-per-obligation discipline gap).
-
----
-
-# T15 — V11d second `Tests.` bullet conflates AJV revalidation and `(default)` annotation with no spec identifier
-
-**Original heading:** Second Tests bullet merges two behaviors with no spec identifier
-**Original section:** V11d — Defaulting echo
-**Kind:** traceability
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V11d`'s second `Tests.` bullet reads "Defaulting fills absent args then re-validates through AJV; `(default)` annotates only default-supplied args." It bundles two independent obligations from `defaulting-system-note-echo.md`: (1) the **fill-if-absent + post-default-merge AJV** path — the runtime fills declared defaults for absent wire names, then `SchemaValidator.validate()` re-validates the merged `args` (the section's named hook at `#post-default-merge-ajv-validation`); and (2) the **echo annotation rule** — only a field that took its declared default is tagged `(default)`, while a binder-supplied value for a defaulted field is rendered untagged (the "Defaulted fields tagged `(default)`" format rule under `#echo-policy`, within the BNDR-6 echo area).
-
-The two behaviors fail independently and live in different parts of the spec topic, yet the bullet cites no REQ-ID, diagnostic code, or section anchor for either. A reader cannot tell which obligation a red test closes, and a single conflated assertion can pass while one of the two sub-behaviors is silently broken. The same merged bullet appears verbatim in the paired `V11d-T`.
-
-This violates the `conventions.md` *Leaf format* rule that each `Tests.` bullet cite the identifier of the obligation it claims to close, and leaves the fill-if-absent/AJV and `(default)`-tagging behaviours untraceable to the spec.
-
-## Plan Documents
-
-- `docs/plan_topics/V11d-defaulting-echo.md` — Tests (edited)
-- `docs/plan_topics/V11d-T-defaulting-echo.md` — Tests (edited)
-- `docs/plan_topics/coverage-matrix.md` — BNDR-6 → `V11d` mapping (read-only)
-
-## Spec Documents
-
-- `docs/spec_topics/binder/defaulting-system-note-echo.md` — `#post-default-merge-ajv-validation`, `#echo-policy` (read-only)
-
-## Affected Leaves
-
-**Phases:** V11 (Binder)
-
-**Leaves (implementation order):**
-
-- `V11d` — System-prompt builder, defaulting, and echo — (modified)
-- `V11d-T` — System-prompt builder, defaulting, and echo (tests) — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-A failing "second bullet" is ambiguous across two independent obligations, and neither is checkable against the spec or registry. Two reasonable implementers could write a single conflated test that stays green while one sub-behaviour (e.g. the `(default)`-only-when-default-supplied tagging, or the post-merge AJV revalidation) ships broken, and the closing gate cannot attribute the coverage.
-
-## Issue introduction
-
-**Verdict:** indeterminate
-**Introducing commits:** none identified
-**History:** The cited leaf files `docs/plan_topics/V11d-defaulting-echo.md` and `docs/plan_topics/V11d-T-defaulting-echo.md` are untracked in the git work tree (status `??`; only `conventions.md`, `coverage-matrix.md`, and `leaf-template.md` are committed under `docs/plan_topics/`). No commit has ever recorded these files, so the defect cannot be localised to an introducing commit.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Decompose the merged second `Tests.` bullet in `V11d` (and identically in `V11d-T`) so each behaviour is independently referenceable against a cited spec anchor:
-
-- One bullet for the fill-then-revalidate path, citing `[defaulting-system-note-echo.md#post-default-merge-ajv-validation]` — fill-if-absent on absent wire names, then `SchemaValidator.validate()` re-validation of the merged `args`.
-- One bullet for the annotation rule, citing `[defaulting-system-note-echo.md#echo-policy]` (the "Defaulted fields tagged `(default)`" format rule in the BNDR-6 echo area) — `(default)` is rendered only for a field that took its declared default, and a binder-supplied value for a defaulted field is untagged.
-
-Keep `V11d` and `V11d-T` mirror-consistent (the TDD pairing requires the tests-task and implementation-task bullet lists to match). Both anchors already exist in `defaulting-system-note-echo.md`; the spec is read-only for this fix.
-
-(Note: `V11d`'s post-merge AJV re-validation also exercises the `V8a` `SchemaValidator` seam; whether `V11d`/`V11d-T` `Deps.` should list `V8a` is the same omission pattern tracked at T12/T02 and resolves independently.)
-
-## Relationships
-
-- T09 "V1b escape-sequence Tests bullet merges error-detection and decoding without citing any code or anchor" — same-cluster (same one-bullet-per-obligation + traceability rule).
-- T11 "`V4a` third Tests bullet conflates three match behaviours with no cited identifier" — same-cluster (same convention).
-- T14 "V10c second Tests bullet conflates a malformed-settings diagnostic with debounce coalescence and cites a wildcard code" — same-cluster (same convention).
-- T27 "V17a leaves three normative cancellation MUSTs with no asserting test" — same-cluster (same convention in `V17a`).
 
