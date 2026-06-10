@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T32) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blockers, 0 high, 7 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
+_Triage tally: 0 blockers, 0 high, 6 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
 
 ---
 
@@ -344,67 +344,3 @@ Apply the identical edit to both leaves so the implementation/tests pair stays m
 - T21 "Asserted diagnostic code `loom/parse/empty-enum-body` is absent from the parse registry" — same-cluster (asserted code absent from registry → H5a gate failure; resolves independently).
 - T04 "Truncated diagnostic code: `V5b` cites `loom/parse/duplicate-discriminator`, registry has `loom/parse/duplicate-discriminator-value`" — same-cluster (truncated code form → registry miss; resolves independently).
 - T13 "`V6e`/`V6e-T` assert a non-existent `loom/parse/...` diagnostic code instead of the registered `loom/load/frontmatter-value-out-of-range`" — same-cluster (wrong namespace → registry miss → H5a gate failure; resolves independently).
-
----
-
-# T06 — Ambient-access ban asserts soundness it cannot deliver
-
-**Original heading:** "no module reads X" over-claim vs identifier-keyed scan
-**Original section:** H3a — Ambient-access ban architectural test
-**Kind:** overclaim
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`H3a`'s second `Tests.` bullet asserts an architectural test where "no `src/**` module reads `process.env`, `process.cwd`, `crypto.randomUUID`, `Date.now`, or `setTimeout` outside its declared seam adapter," and its `Ships when` gates on "the ambient-access ban." The verb *reads* states a soundness claim: that the test detects every ambient read. An identifier-keyed AST scan cannot honour that. It catches direct member references but misses aliased reads (`const env = process.env`), destructured reads (`const { cwd } = process`), computed access (`process["env"]`), and re-export indirection — each of which still reads the ambient value while presenting no matched identifier at the read site.
-
-The plan already recognises this evasion class elsewhere. `V18b`'s inventory-closure audit handles exactly these shapes for Pi surfaces via a non-exemptible **family-(4)** discriminator that fires fail-closed on aliased rebindings, `import * as`, dynamic `import()`, and off-canonical parameter shapes. `V8b`'s `PIC-13` even states its parallel ambient-access ban with the narrower, defensible verb — "no `src/**` module reads `process.env`/`process.cwd` **directly**." `H3a` names no equivalent fail-closed arm and no "directly" scoping, so its gate promises detection it does not perform.
-
-## Plan Documents
-
-- `docs/plan_topics/H3a-di-seam-skeleton.md` — Tests (bullet 2), Adds, Ships when (edited)
-- `docs/plan_topics/V18b-inventory-audit.md` — family-(4) non-exemptible discriminator (read-only)
-- `docs/plan_topics/V8b-clock-fs-id-watch-token-seams.md` — PIC-12 / PIC-13 parallel ambient-access ban, "directly" phrasing (read-only)
-- `docs/plan_topics/conventions.md` — *No globals, statics, singletons* (read-only)
-
-## Spec Documents
-
-None — `H3a` is a horizontal leaf citing a `Convention.` field; the fix is internal to plan files.
-
-## Affected Leaves
-
-**Phases:** Horizontal
-
-**Leaves (implementation order):**
-
-- `H3a` — Dependency-injection seam skeleton — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-The gate reports green while a contributor who reaches the ambient value through any indirect form (alias, destructure, computed key, re-export) silently bypasses the no-ambient-access invariant the entire DI-seam architecture rests on. The test's wording tells a reviewer the ban is mechanically enforced when it is only partially enforced, so two reasonable implementers will disagree on what `H3a` actually guarantees.
-
-## Issue introduction
-
-**Verdict:** indeterminate
-**Introducing commits:** none identified
-**History:** The cited leaf file `docs/plan_topics/H3a-di-seam-skeleton.md` is not under version control (untracked in the work tree), so the defect cannot be localised to any commit.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Narrow the verb in `H3a`'s second `Tests.` bullet and `Ships when` from "reads" to "directly references" (matching `V8b` `PIC-13`'s "directly"), and add an inline note that indirect, aliased, destructured, computed, and re-export ambient access is contributor-discipline, not mechanically detected by this identifier scan.
-
-Concretely: in `H3a` Tests bullet 2, replace "reads `process.env` … outside its declared seam adapter" with "directly references `process.env`, `process.cwd`, `crypto.randomUUID`, `Date.now`, or `setTimeout` outside its declared seam adapter"; in `Ships when`, keep "the ambient-access ban" but scope it to the direct-reference form; append a sentence stating indirect / aliased / computed / re-export forms are not caught by this scan and are enforced by contributor discipline / review.
-
-The proportionate fix for a horizontal seam-skeleton leaf is to make the claim honest — scope it to "directly references" and name the indirect residue as contributor-discipline — rather than to grow a fail-closed AST discriminator for five identifiers; `V18b` shows the project pays that cost deliberately only for the Pi-surface audit. Keep `H3a` consistent with `V8b` `PIC-13`, which already uses "directly." Edge case the implementer must watch: the residue note must enumerate the indirect forms (alias, destructure, computed, re-export) so the gap is explicit rather than implied.
-
-## Relationships
-
-- T03 "`DIAG-2` describes a `src/**` emission scan the closing gate does not perform" — same-cluster (the same over-claim pattern — a gate whose prose asserts broader source-scan coverage than its mechanism actually performs; resolves independently).
