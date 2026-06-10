@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 2 blocker, 8 high, 18 medium retained; 20 low discarded; 5 low findings merged into 2 medium findings; 27 NIT dropped; 0 false dropped._
+_Triage tally: 1 blocker, 8 high, 18 medium retained; 20 low discarded; 5 low findings merged into 2 medium findings; 27 NIT dropped; 0 false dropped._
 
 ---
 
@@ -1908,75 +1908,3 @@ This is a plan-side-only edit; the spec is read-only for this fix (it already co
 - T26 "Session-only degraded-state presupposition (a) contradicts Pi's documented teardown-and-rebind extension lifecycle" — same-cluster (both touch the V9b drain-state `degraded-needs-reload` arm; resolve independently).
 - T08 "Diagnostic-behaviour Tests bullets omit the registry code in V6a / V6b / V5d" — same-cluster (same diagnostic-code-citation discipline; that finding under-cites, this one cites a non-existent code — resolve independently).
 
----
-
-# T28 — V1a presupposes a pre-decode byte source that no seam supplies
-
-**Original heading:** Assumes raw pre-decode bytes, but the only file-read seam yields decoded text
-**Original section:** V1a — lexer core
-**Kind:** assumptions
-**Importance:** blocker
-**Score:** 200
-**MustFix:** true
-
-## Finding
-
-`V1a` (Lexer core) owns the UTF-8/BOM decode step and its first Tests bullet asserts `loom/load/invalid-encoding` fires "at the byte offset". The spec pins this precisely: `lexical.md` (Encoding) and `diagnostics/code-registry-load.md` require the diagnostic to report "the zero-based byte offset of the first invalid byte in the original (pre-normalisation) file content, populated by the loom-side UTF-8 decode step." Detecting invalid UTF-8 (including lone surrogates) and reporting the offending byte offset both require the raw, pre-decode byte sequence.
-
-The only file-read seam the plan defines is `FileSystem.readText(path: string): Promise<string>`, authored in `V8b`. It returns already-decoded text — invalid bytes are either lost or replaced before the lexer ever sees them, so neither the invalid-byte detection nor the byte offset is recoverable from its result. No leaf defines a byte-level read member or a load-pipeline byte source that feeds `V1a`.
-
-The wiring compounds the gap: `V1a`'s Deps are `V1a-T, V7a` — they do not reach `V8b` at all, let alone a byte source. The `H3a` ambient-access ban routes every filesystem read through the `FileSystem` seam, so an implementer cannot legitimately bypass the seam with a direct Node byte read. As authored, the `loom/load/invalid-encoding` byte-offset assertion is unsatisfiable: there is no declared seam from which `V1a`'s decode step can obtain pre-decode bytes.
-
-## Plan Documents
-
-- `docs/plan_topics/V1a-lexer-core.md` — V1a leaf (Adds / Deps) (edited)
-- `docs/plan_topics/V1a-T-lexer-core.md` — V1a-T leaf (Deps mirror) (edited)
-- `docs/plan_topics/V8b-clock-fs-id-watch-token-seams.md` — V8b FileSystem seam (edited)
-- `docs/plan_topics/V8b-T-clock-fs-id-watch-token-seams.md` — V8b-T tests (edited)
-- `docs/plan_topics/conventions.md` — H3a ambient-access ban context (read-only)
-
-## Spec Documents
-
-- `docs/spec_topics/lexical.md` — Encoding (read-only)
-- `docs/spec_topics/diagnostics/code-registry-load.md` — `loom/load/invalid-encoding` row (read-only)
-- `docs/spec_topics/pi-integration-contract/host-interfaces-services.md` — PIC-13 `FileSystem` interface (option-dependent; per GOV-18 arm (a) the member set is non-binding, so adding a byte-read member does not require a spec change)
-
-## Affected Leaves
-
-**Phases:** Vertical slices
-
-**Leaves (implementation order):**
-
-- V1a — Lexer core — (modified)
-- V1a-T — Lexer core (tests) — (modified)
-- V8b — `Clock`/`FileSystem`/`IdSource`/`FileWatcher`/`TokenEstimator` seams — (modified)
-- V8b-T — host-seam tests — (modified)
-
-## Consequence
-
-**Severity:** blocking
-
-The `loom/load/invalid-encoding` byte-offset assertion in `V1a`/`V1a-T` cannot be authored red-for-the-right-reason or satisfied: no seam yields pre-decode bytes, and the H3a ban closes the ad-hoc-Node-read escape. Two reasonable implementers would also diverge on where bytes originate (a new `FileSystem` member vs. a separate decode stage), producing incompatible factorings.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e (2026-06-10, "pi-loom plan: build/update plan for spec.md + review")
-**History:** `git log --follow` over both `docs/plan_topics/V1a-lexer-core.md` and `docs/plan_topics/V8b-clock-fs-id-watch-token-seams.md` returns only c6a664e — the commit that first authored the plan corpus. `git log -S "byte offset"` (V1a) and `git log -S "readText"` (V8b) likewise resolve to c6a664e alone. The defect entered when the two leaves were authored together in that single commit: `V1a` was given a byte-offset decode obligation while `V8b`'s `FileSystem` exposed only the decoded-text `readText`, and `V1a`'s Deps never named any byte source. No later commit narrowed or widened the gap.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add a byte-level read member to the `FileSystem` seam: extend the `V8b` `FileSystem` seam with a byte-returning read member (e.g. `readBytes(path: string): Promise<Uint8Array>`) and have `V1a`'s decode step consume it; add `V8b` to `V1a`/`V1a-T` Deps so the seam is in closure and ordered before the lexer. The plan already places the UTF-8/BOM decode in `V1a`, so this is the smaller, lower-risk fix and resolves the unsatisfiable assertion directly.
-
-- In `V8b-clock-fs-id-watch-token-seams.md`, add the byte-read member to the `FileSystem` enumeration in `Adds.` and a Tests bullet asserting its contract (Node `.code` mapping mirrors `readText`).
-- In `V1a-lexer-core.md` Adds, state that the UTF-8/BOM decode consumes the byte-read seam's `Uint8Array`; add `V8b` to `V1a` Deps and to `V1a-T` Deps.
-
-PIC-13's `FileSystem` member set is non-binding per GOV-18 arm (a), so a byte-read member can be added plan-side only; the spec may be updated for clarity but is not required to. Watch that the byte-read member's `.code` rejection mapping (`ENOENT`/`EACCES`/`EPERM`) matches `readText`'s, and that the BOM-handling offset rule (non-UTF-8 BOM reports offset `0`) is exercised against the raw bytes the new member returns. Slice order is editorial — the new Deps edge makes the DAG order explicit, so there is no real ordering hazard.
-
-## Relationships
-
-- T22 "YAML frontmatter parsing mechanism is never declared as a dependency" — same-cluster (same pattern: a mechanism a leaf presupposes with no declared owner/dependency; resolves independently).

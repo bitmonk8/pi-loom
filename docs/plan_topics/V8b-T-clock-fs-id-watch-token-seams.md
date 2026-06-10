@@ -6,7 +6,7 @@
 
 **Tests.**
 - `PIC-12`: `Clock` is per-runtime; an architectural test asserts no ambient timing call outside the `WallClock` adapter.
-- `PIC-13`: `FileSystem` maps Node `.code` values; no `src/**` module reads `process.env`/`process.cwd` directly.
+- `PIC-13`: `FileSystem` maps Node `.code` values; `readBytes` returns raw pre-decode bytes (`Uint8Array`) with the same `.code` rejection mapping (`ENOENT`/`EACCES`/`EPERM`) as `readText`; no `src/**` module reads `process.env`/`process.cwd` directly.
 - `PIC-20`: `IdSource.newInvocationId()` is the only `crypto.randomUUID` site.
 - `PIC-14`: `FileWatcher.watch` returns an `Unsubscribe` and reports the three change kinds.
 - `PIC-16`: `TokenEstimator.estimate` delegates to `estimateTokens` and is per-runtime.

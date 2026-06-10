@@ -2,7 +2,7 @@
 
 **Spec.** [`../spec_topics/lexical.md`](../spec_topics/lexical.md), [`../spec_topics/grammar.md`](../spec_topics/grammar.md).
 
-**Adds.** The tokeniser: UTF-8/BOM decode, CRLF→LF normalisation, identifier first-letter case rules, reserved-keyword recognition, `//` line comments, `///` doc-comment rest-of-line capture, block-comment rejection, and the closed statement-termination / newline-continuation trigger set.
+**Adds.** The tokeniser: UTF-8/BOM decode consuming the raw `Uint8Array` from the `V8b` `FileSystem` byte-read seam (so invalid bytes and their byte offsets are recoverable pre-normalisation), CRLF→LF normalisation, identifier first-letter case rules, reserved-keyword recognition, `//` line comments, `///` doc-comment rest-of-line capture, block-comment rejection, and the closed statement-termination / newline-continuation trigger set.
 
 **Tests.**
 - `loom/load/invalid-encoding`: a non-UTF-8 byte sequence fails load with this code at the byte offset.
@@ -12,6 +12,6 @@
 - `loom/parse/block-comment`: `/* … */` is rejected.
 - `loom/parse/single-line-if`, `loom/parse/stray-backslash`: termination/continuation violations fire per the closed trigger table.
 
-**Deps.** `V1a-T`, `V7a`
+**Deps.** `V1a-T`, `V7a`, `V8b`
 
 **Ships when.** `npm test` tokenises LF/CRLF fixtures identically and fires each listed code at the offending span.

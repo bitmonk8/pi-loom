@@ -12,6 +12,6 @@
 - `loom/parse/block-comment`: `/* … */` is rejected.
 - `loom/parse/single-line-if`, `loom/parse/stray-backslash`: termination/continuation violations fire per the closed trigger table.
 
-**Deps.** `V7a`
+**Deps.** `V7a`, `V8b`
 
 **Ships when.** The tests above exist, compile, and fail red for the intended reason.
