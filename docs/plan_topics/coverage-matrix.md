@@ -68,7 +68,7 @@ The same table also enumerates the third closing-gate surface defined in [`conve
 | `descriptions.md` (DESC) | `V5c` |
 | `schema-subset.md` (SUBS) | `V5d`, `V5e` |
 | `query/` (QRY) | `V13a`, `V13b`, `V13c`, `V13d` |
-| `tool-calls.md` (TOOL) | `V14a` |
+| `tool-calls.md` (TOOL) | `V14a`, `V13c` |
 | `pi-integration-contract/conversation-drive.md` — *No additional access channels* denial-surface MUST (un-anchored; GOV-22 residue) | `V14a` |
 
 ## Governance REQ-IDs (GOV-*) — corpus governance, not runtime obligations
