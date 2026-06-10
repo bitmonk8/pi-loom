@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 15 medium retained; 20 low discarded; 5 low findings merged into 2 medium findings; 27 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 14 medium retained; 20 low discarded; 5 low findings merged into 2 medium findings; 27 NIT dropped; 0 false dropped._
 
 ---
 
@@ -1020,78 +1020,3 @@ This keeps INV-4 / NOCEIL-4 closure in one leaf (no coverage-matrix surgery) and
 ## Relationships
 
 - T04 "NOCEIL-2 and NOCEIL-4 closing leaves carry no trace annotation their siblings (NOCEIL-1/NOCEIL-3) have" — same-cluster (both concern INV-4 / NOCEIL-4 closure being fully observable in V15b; neither edit depends on the other).
-
----
-
-# T15 — CIO-5 cross-ceiling arbitration verified only in isolation — no live-site integration assertion
-
-**Original heading:** CIO-5 cross-ceiling arbitration asserted only against synthesised events; no live-site integration assertion
-**Original section:** V16a — cross-ceiling order and `masked`
-**Kind:** validation
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V16a` is the sole closing leaf for the cross-ceiling evaluation order (`coverage-matrix.md` maps `CIO-1 … CIO-6 → V16a`). Every CIO bullet — including `CIO-5` ("ceiling #3 never interleaves with #1/#2/#4") and `CIO-6` (at-most-one-ceiling-per-event with `masked` co-fire) — is exercised exclusively by "driving synthesised ceiling-candidate events through the unit that computes the cross-ceiling order in isolation." `V16a` Adds states explicitly that these tests do **not** run against the live `invoke`-entry / AJV-boundary / round-boundary sites, which are built by downstream leaves (`V5e`, `V11f`, `V13c`, `V15b`) that do not exist when `V16a` is picked up.
-
-The downstream live-site leaves each enforce their own ceiling and list `V16a` in Deps, but none asserts that the live pipeline actually consults the cross-ceiling order in the documented sequence. The only live co-fire assertion anywhere is `V13c`'s depth-6 vector setting `masked:["ceiling#2"]` (a runtime-class #4-over-#2 co-fire). The `CIO-5` property specifically — ceiling #3 (binder retry, `V11f`) not interleaving with the runtime-class ceilings #1/#2/#4 — is never exercised end-to-end at a live site by any leaf.
-
-Consequently the isolated `V16a` tests can stay green while the live wiring diverges: a downstream site could independently re-derive (or mis-order) the ceiling arbitration without contradicting `V16a`'s synthesised-event suite, and the `H5a` closing gate — which only checks that `CIO-5` has a citing test — would pass vacuously with respect to live arbitration behaviour.
-
-## Plan Documents
-
-- `docs/plan_topics/V16a-ceiling-order-masked.md` — Adds / Tests / Ships when (read-only)
-- `docs/plan_topics/H7a-integration-acceptance.md` — Tests / Deps (edited)
-- `docs/plan_topics/V11f-binder-retry-taxonomy.md` — ceiling #3 enforcement site (option-dependent)
-- `docs/plan_topics/V13c-query-tool-loop.md` — ceiling #2 enforcement site / existing live co-fire vector (option-dependent)
-- `docs/plan_topics/coverage-matrix.md` — `CIO-1 … CIO-6` row (option-dependent)
-- `docs/plan.md` — §V16 Hard ceilings (read-only)
-
-## Spec Documents
-
-None — the fix is internal to the plan's test/gate wiring. `hard-ceilings.md` already pins the distributed enforcement model and the fixed `CIO-1 … CIO-6` order.
-
-## Affected Leaves
-
-**Phases:** Vertical slices; Horizontal phases (the integration host `H7a`)
-
-**Leaves (implementation order):**
-
-- `V5e` — JSON document depth enforcement (hard ceiling #4) — (modified)
-- `V11f` — Binder cancellation, per-class retry budget, and failure taxonomy (hard ceiling #3) — (modified)
-- `V13c` — Query tool loop and typed two-phase (hard ceiling #2) — (modified)
-- `V15b` — Invoke depth bound and cycle detection (hard ceiling #1) — (modified)
-- `V16a` — Hard-ceiling interaction order and `masked` co-fire — (modified)
-- `H7a` — Terminal integration-acceptance run (cross-slice end-to-end gate) — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-`CIO-5`/`CIO-6` are certified only against a synthesised in-isolation unit; nothing proves the live enforcement sites consult that ordering. Two reasonable implementers — one wiring the live sites to consult `V16a`'s unit, another having each site re-derive its own arbitration — would both pass the green `V16a` suite and the `H5a` gate, yet only one matches the spec's single cross-ceiling order. A live #3-vs-runtime mis-interleave would ship undetected.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e — pi-loom plan: build/update plan for spec.md + review (2026-06-10, Thomas Andersen)
-**History:** The `V16a` leaf was authored in its first commit (c6a664e) carrying the synthesised-ceiling-candidate isolation approach and the `CIO-5`/`CIO-6` bullets, with no live-site integration assertion in any downstream leaf. The only later edit (2565ddd) removed the `NOCEIL-1 … NOCEIL-4` clause from Adds and left the isolation-only testing posture and the live-site gap untouched.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add a live-site integration assertion that drives a co-occurring ceiling #3 (binder retry) and a runtime-class ceiling through the real pipeline and asserts exactly one ceiling surfaces in `CIO` order (#3 before the runtime-class ceiling) with `masked` enumerating the suppressed sibling. `H7a` is the home: it already declares `V11f` (ceiling #3) and `V13c` (ceiling #2) in Deps and runs the integrated binder → tool-loop pipeline end-to-end through the `H4a` harness. Add a third `Tests` bullet to `docs/plan_topics/H7a-integration-acceptance.md` along the lines of:
-
-> `Convention:` (phase categories — end-to-end harness) the integrated run drives a binder-retry-class breach (ceiling #3) co-occurring with a runtime-class ceiling (e.g. the `tool_loop.max_rounds` round boundary, ceiling #2) through the live pipeline and asserts exactly one ceiling surfaces in `CIO-5` order (#3 ahead of the runtime-class ceiling, no interleave) with `masked` enumerating the suppressed sibling.
-
-and reflect the new obligation in `H7a`'s `Ships when`. Two notes: the exact assertion text depends on whether the live sites *consult* `V16a`'s arbitration unit or *re-derive* the order (settle the related interface-shape finding first); and `H7a`'s run executes against the `H4a` in-process session double, so this verifies cross-slice composition, not host-level realism.
-
-## Relationships
-
-- T25 "V16a posits an isolated cross-ceiling unit whose interface is undefined and whose authority over the live breach sites is never established" — decision-dependency (settling the arbitration unit's interface and the consult-vs-re-derive relationship fixes the exact shape of this integration assertion).
-- T16 "V16a-T CIO-3 asserts ceiling ordering at live AJV boundaries the leaf cannot reach, contradicting its paired impl leaf" — same-cluster (same synthesised-event-vs-live-site gap in the V16a pair; resolves independently).
-- T05 "Real-host verification gap — every end-to-end and release gate runs only against the H4a session double" — same-cluster (the recommended H7a host inherits the session-double fidelity bound; independent concern).
