@@ -2,7 +2,7 @@
 
 **Convention.** [`conventions.md`](./conventions.md) — *No globals, statics, singletons*.
 
-**Adds.** The constructor-injection runtime root: a per-runtime object graph that threads the host seams (`Checkpoint`, `SchemaValidator`, `Clock`, `FileSystem`, `FileWatcher`, `TokenEstimator`, `IdSource`) as injected interfaces, with one instance per runtime and no ambient access. Seam *interfaces* only; their normative behaviour is implemented by the `V8*` leaves.
+**Adds.** The constructor-injection runtime root: a per-runtime object graph that threads the host seams (`Checkpoint`, `SchemaValidator`, `Clock`, `FileSystem`, `FileWatcher`, `TokenEstimator`, `IdSource`) as injected interfaces, with one instance per runtime and no ambient access. `H3a` declares each seam interface's full member signatures, sourced from the seam-contract pages the `V8a`/`V8b` leaves also cite — [`host-interfaces-core.md`](../spec_topics/pi-integration-contract/host-interfaces-core.md) and [`host-interfaces-services.md`](../spec_topics/pi-integration-contract/host-interfaces-services.md) (the `Checkpoint` contract is anchored at [`host-interfaces-services.md#checkpoint-seam`](../spec_topics/pi-integration-contract/host-interfaces-services.md#checkpoint-seam), even though `V8a` lists `Checkpoint` under `host-interfaces-core.md`). These `H3a`-declared signatures are the single source of each interface's shape; the `V8*` leaves implement against them rather than redeclaring members. Seam *interfaces* only here — what the `V8*` leaves add is the seams' normative *behaviour*, not their shape.
 
 **Tests.**
 - `Convention:` (*No globals, statics, singletons*) constructing two runtime roots yields two isolated seam graphs sharing no mutable state.
