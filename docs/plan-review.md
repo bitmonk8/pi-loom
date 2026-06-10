@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 14 medium retained; 20 low discarded; 5 low findings merged into 2 medium findings; 27 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 13 medium retained; 20 low discarded; 5 low findings merged into 2 medium findings; 27 NIT dropped; 0 false dropped._
 
 ---
 
@@ -946,77 +946,3 @@ Declare the dependency: treat `loomAbort` as a Class-2 consumer-bound seam owned
 
 - T17 "V17a's `Ships when` gate observes only a subset of the cancellation obligations its Tests enumerate" — decision-dependency (a V17a split changes which sub-leaf owns `loomAbort` / the forwarding target V9c must depend on).
 - T11 "`SHUTDOWN_AWAIT_CAP_MS` has no declaring owner leaf" — same-cluster (sibling undeclared shared-artefact ownership across the DAG; resolves independently).
-
----
-
-# T14 — V15b counts `.warp fn` frames introduced by V15c but declares no dependency on it
-
-**Original heading:** V15b owns `.warp fn` frame-depth counting but does not depend on V15c
-**Original section:** V15b — invoke depth bound and cycle detection
-**Kind:** ordering
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V15b`'s **Adds** field commits it to counting "direct `invoke`, `.loom`-via-`tools:`, and cross-file `.warp fn` frames" toward the hard-ceiling #1 invoke-depth bound (INV-4, cap 32). The cross-file `.warp fn` frame class only exists once the `.warp` import/library system is built — and that system is introduced by `V15c` (Imports). Yet `V15b`'s **Deps** are `V15b-T`, `V15a`, `V16a`, and `V15c`'s **Deps** are `V15c-T`, `V1a`, `V15a`. Neither leaf declares an ordering relationship with the other; the dep DAG permits `V15b` to be picked up and shipped before `V15c` exists.
-
-If `V15b` lands first, the implementer is asked to wire a `.warp fn` frame hook into the depth counter against a `.warp fn` call mechanism that has not been built. The counter's `.warp fn` arm is therefore either stubbed or omitted. The leaf still ships green: `V15b`'s binding INV-4 test ("incremented before the child, crossing the subagent boundary, siblings independent", fires at 33 > 32) is fully satisfiable with direct-`invoke` frames alone, so the missing `.warp fn` frame class is never exercised.
-
-The spec is internally consistent and not at fault: `invocation.md` §INV-4 correctly defines a cross-file `.warp fn` call as a countable frame. The defect is purely in the plan's leaf factoring and dependency declarations.
-
-## Plan Documents
-
-- `docs/plan_topics/V15b-invoke-depth-cycle.md` — V15b leaf (Adds, Tests, Deps) (edited)
-- `docs/plan_topics/V15b-T-invoke-depth-cycle.md` — V15b-T leaf (Tests, Deps) (edited)
-- `docs/plan_topics/V15c-imports.md` — V15c leaf (Adds, Deps) (read-only)
-- `docs/plan_topics/V15c-T-imports.md` — V15c-T leaf (Tests) (read-only)
-- `docs/plan_topics/coverage-matrix.md` — INV-4 / NOCEIL-4 rows (read-only)
-- `docs/plan.md` — §V15 (Invocation and imports) (read-only)
-
-## Spec Documents
-
-- `docs/spec_topics/invocation.md` — §INV-4 and the countable-frame paragraph (read-only)
-- `docs/spec_topics/imports.md` — `.warp` library / `fn` rules (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical slice V15 — Invocation and imports
-
-**Leaves (implementation order):**
-
-- `V15b-T` — Invoke depth bound and cycle detection (tests) — (modified)
-- `V15b` — Invoke depth bound and cycle detection — (modified)
-- `V15c-T` — Imports (tests) — (modified)
-- `V15c` — Imports (`.warp` library files) — (both)
-
-## Consequence
-
-**Severity:** correctness
-
-An implementer who picks up `V15b` before `V15c` wires the depth counter against a `.warp fn` call mechanism that does not yet exist, so the counter's cross-file `.warp fn` arm is stubbed or dropped. `V15b` still ships green because its INV-4 test is satisfiable with direct-`invoke` frames alone, so hard ceiling #1 (INV-4 / NOCEIL-4) silently ships with the `.warp fn` frame class uncounted and unverified — a runaway cross-file `.warp fn` recursion would not be capped at 32.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e — pi-loom plan: build/update plan for spec.md + review (2026-06-10, Thomas Andersen)
-**History:** Both `V15b-invoke-depth-cycle.md` and `V15c-imports.md` were created in the single commit c6a664e. The `.warp fn` clause in V15b's Adds and the V15c-omitting Deps list were both present in that first commit, so the ordering gap is present at inception.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Make `V15b` depend on `V15c` and keep the counter whole: `V15b` retains ownership of the entire INV-4 counter including the `.warp fn` arm, and declares a dependency on `V15c` so the `.warp fn` call mechanism exists when the counter is built and tested.
-
-- In `V15b-invoke-depth-cycle.md` **Deps**, add `V15c`.
-- In `V15b-T-invoke-depth-cycle.md` **Deps**, add `V15c` (the tests leaf needs the `.warp fn` mechanism to author the cross-file chain test).
-- In the `INV-4` **Tests** bullet of both `V15b` and `V15b-T`, extend the test to exercise a cross-file `.warp fn` chain reaching the 32-frame boundary so the `.warp fn` frame class is actually verified.
-
-This keeps INV-4 / NOCEIL-4 closure in one leaf (no coverage-matrix surgery) and is the smaller, self-contained change; the plan already sanctions backward cross-slice dependencies. Edge case: the new INV-4 cross-file test must place caller and callee in *different* source files — an intra-file `fn` call is not a countable frame per `invocation.md` §INV-4.
-
-## Relationships
-
-- T04 "NOCEIL-2 and NOCEIL-4 closing leaves carry no trace annotation their siblings (NOCEIL-1/NOCEIL-3) have" — same-cluster (both concern INV-4 / NOCEIL-4 closure being fully observable in V15b; neither edit depends on the other).
