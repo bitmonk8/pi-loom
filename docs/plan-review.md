@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T37) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 12 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 11 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -870,66 +870,3 @@ This fix only provisions the toolchain; do not, on this fix, also re-attribute t
 - T05 "conventions.md No-globals rule mis-attributes the gates' owning leaf and overstates the architectural test's reach" — same-cluster (the same `no-broad-catch` / architectural gates whose owning leaf this finding provisions)
 - T13 "Checked-in package.json omits the yaml runtime dependency H1a mandates" — same-cluster (sibling checked-in-`package.json` provisioning gap; resolves independently)
 - T12 "engines.node is populated but its value is never asserted in H1a" — same-cluster (same `H1a` manifest, distinct field; resolves independently)
-
----
-
-# T12 — engines.node is populated but its value is never asserted in H1a
-
-**Original heading:** `engines.node` populated but value not asserted in-leaf
-**Original section:** docs/plan_topics/H1a-scaffold-and-toolchain.md
-**Kind:** validation
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`H1a` is the declared initial-population owner of `package.json#engines.node`: its **Adds** field states the value is the pinned Node floor owned by `capability-probe.md` §(a), and that this literal is consumed by the build-time `engines.node` literal-read test (`overview-and-orientation.md` §"Node version floor") and by `V18c`'s three-way `engines.node` equality gate.
-
-`H1a`'s three Tests bullets, however, assert only (1) build/test-green on an empty `src/**` tree, (2) the four `@earendil-works/pi-*` peers sharing one tilde-pinned line, and (3) `typebox` declared `"*"`. No bullet reads `package.json#engines.node` and asserts it equals the spec-anchored floor. The only mechanical check of the populated value is `V18c`'s three-way equality gate, and `V18c` is a terminal-ish leaf (its **Deps** include `H4a`, `V5d`, `V11f`, `V13c`, `V14a`, `V17a`). For the entire span between `H1a` landing and `V18c` landing, the population owner can write a wrong floor — a typo, a stale value, or a value that disagrees with `capability-probe.md` §(a) — and `npm test` stays green, because no gate that runs in that window reads the field.
-
-## Plan Documents
-
-- `docs/plan_topics/H1a-scaffold-and-toolchain.md` — Tests (edited)
-- `docs/plan_topics/V18c-version-bump-checklist.md` — Adds / Tests (`engines.node` three-way gate) (read-only)
-- `docs/plan_topics/coverage-matrix.md` — REQ-ID → leaf mapping (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Horizontal
-
-**Leaves (implementation order):**
-
-- `H1a` — Project scaffold and toolchain — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-The leaf that populates `engines.node` does not verify its own output, so a floor that disagrees with `capability-probe.md` §(a) ships green through `H1a` and every later leaf until the terminal `V18c` gate finally reads it. Because the wrong value is load-bearing — it drives the `node-floor` `host-incompatible` emission and is operand (i) of the version-bump equality gate — a stale or mistyped floor degrades runtime host-compatibility behaviour with no detection at the point it is introduced.
-
-## Issue introduction
-
-**Verdict:** single-commit
-**Introducing commits:** f9cf76f — pi-loom plan: resolve "H1a omits engines.node field" (2026-06-10, Thomas Andersen)
-**History:** `H1a` had no `engines.node` field at all until commit f9cf76f, which resolved an earlier finding by adding the field, its initial-population ownership prose, and the cross-references to the overview literal-read test and `V18c`'s three-way gate. That same commit added no corresponding in-leaf Tests bullet asserting the populated value, so the populated-but-unasserted gap entered the corpus exactly with f9cf76f.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add a Tests bullet to `docs/plan_topics/H1a-scaffold-and-toolchain.md` that reads `package.json#engines.node` at build time and asserts it equals the pinned Node floor owned by `capability-probe.md` §(a) — the same floor `H1a`'s Adds already cites. Cite that anchor (and/or `overview-and-orientation.md` §"Node version floor") on the bullet, mirroring how the existing `typebox` bullet cites `host-prerequisites.md`.
-
-Scope the bullet to the population-time check `H1a` owns: a comparison of the manifest literal against the spec-anchored floor. It must not duplicate `V18c`'s three-way version-bump gate — the live read of the installed `@earendil-works/pi-coding-agent` floor (operand (iii)) and the `SDK_SURFACE_INVENTORY` operand stay owned by `V18c`. The intent is only to close the window in which `H1a` populates the field without any gate confirming the value during `H1a`'s own `npm test`.
-
-## Relationships
-
-- T11 "Lint engine and custom-rule mechanism are consumed but never provisioned" — same-cluster (touches `H1a`'s manifest; resolves independently)
-- T34 "Test runner and assertion API are never named; the panic fail-loudly token is non-JS" — same-cluster (touches `H1a`'s manifest; resolves independently)
-- T13 "Checked-in package.json omits the yaml runtime dependency H1a mandates" — same-cluster (same `H1a` manifest, distinct field; resolves independently)
