@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T37) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 14 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 13 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -998,69 +998,3 @@ The fix is confined to the checked-in manifest. No plan or spec edit is required
 - T11 "Lint engine and custom-rule mechanism are consumed but never provisioned" — same-cluster (checked-in `package.json` missing tooling the plan assumes; resolves independently)
 - T34 "Test runner and assertion API are never named; the panic fail-loudly token is non-JS" — same-cluster (same manifest-provisioning theme; resolves independently)
 - T12 "engines.node is populated but its value is never asserted in H1a" — same-cluster (same `H1a` manifest, distinct field; resolves independently)
-
----
-
-# T14 — Stdlib members beyond replace/concat have no named assertion
-
-**Original heading:** stdlib members beyond `replace`/`concat` have no named assertion
-**Original section:** docs/plan_topics/V3a-expression-evaluator.md
-**Kind:** validation
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V3a`'s **Adds** field promises "the string/array/object stdlib members," and the spec's `expressions.md` §*Built-in methods and properties* fixes a closed loom-1.0 set of those members: `string` exposes `length`, `toLowerCase()`, `toUpperCase()`, `trim()`, `startsWith(s)`, `endsWith(s)`, `includes(s)`, `split(sep)`, `replace(from, to)`; `array<T>` exposes `length`, `join(sep)`, `includes(x)`, `indexOf(x)`, `slice(start, end?)`, `concat(other)`; `object` exposes `keys()`, `values()`, `has(k)`. Several carry non-trivial normative behaviour — `split` empty-separator code-unit decomposition, `join`'s `loom/parse/non-string-array-join`, `slice` negative-index semantics, `keys()`/`values()` declaration-vs-insertion ordering, `has(k)` returning `false` for unknown keys.
-
-The paired `V3a-T` tests task asserts only the five normative `replace` reference vectors and `concat`'s LUB element type. Every other member in the set has no per-member assertion. Coverage of the `expressions.md` (EXPR) area is closed as a code-keyed obligation area, whose gate reconciles `loom/...` diagnostic-code citations against the registry — it does not assert per-member behaviour or return type.
-
-Consequently a member could be implemented incorrectly (wrong return type, wrong ordering, wrong edge-case behaviour) or omitted entirely and `npm test` would still pass green, with no closing gate firing.
-
-## Plan Documents
-
-- `docs/plan_topics/V3a-T-expression-evaluator.md` — Tests (edited)
-- `docs/plan_topics/V3a-expression-evaluator.md` — Adds / Tests / Ships when (edited)
-- `docs/plan_topics/H5a-closing-gate-automation.md` — closing-gate scans (option-dependent)
-- `docs/plan_topics/coverage-matrix.md` — Code-keyed obligation areas table (option-dependent)
-
-## Spec Documents
-
-- `docs/spec_topics/expressions.md` — Built-in methods and properties (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical (slice V3); Horizontal (`H5a`, under the coverage-check option only)
-
-**Leaves (implementation order):**
-
-- `H5a` — REQ-ID / diagnostic-code closing-gate automation — (modified) — only under the mechanical-coverage-check option
-- `V3a-T` — Expression evaluator and stdlib (tests) — (modified)
-- `V3a` — Expression evaluator and stdlib — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers can diverge on the untested members (ordering of `keys()`/`values()`, `split` empty-separator behaviour, `slice` negative indices, `join`'s non-string-element diagnostic), or omit a member outright, and still ship the leaf green. The closed EXPR area passes vacuously for the non-code member behaviour, so the implemented stdlib can silently diverge from `expressions.md`.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e
-**History:** `git log --follow` on both `docs/plan_topics/V3a-expression-evaluator.md` and `docs/plan_topics/V3a-T-expression-evaluator.md` returns the single plan-authoring commit `c6a664e`. Both leaves were created there with the tests task already naming only the five `replace` vectors and `concat`'s LUB; no later commit touched the stdlib-member coverage.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Enumerate per-member assertions in `V3a-T`. The loom-1.0 stdlib set is closed and small (18 members, 16 currently unasserted), so in `V3a-T`'s Tests (landed first per the TDD ritual) add an assertion for each loom-1.0 stdlib member not already covered, each pinned to a reference vector exercising its normative behaviour/return type against `expressions.md` §*Built-in methods and properties*. Then mirror the assertions into `V3a`'s Tests and extend its **Ships when** to name stdlib-member coverage. Edge cases the implementer must pin: `split("")` code-unit decomposition, `join` on a non-string element firing `loom/parse/non-string-array-join`, `slice` negative-index-from-end, `keys()`/`values()` ordering, and `has(k)` returning `false` on an unknown key. Do not re-add the `replace`/`concat` assertions that already exist.
-
-## Relationships
-
-- T16 "system: interpolation per-type stringification not witnessed through the system: surface" — same-cluster (same under-assertion pattern: Adds names a set, Tests assert it only generically; resolves independently in `V6d`)
-- T17 "V11e names five system-note rules but asserts only two" — same-cluster (Adds names rules; Tests assert a subset; resolves independently)
-- T15 "Forward-reference params type RHS claimed in V6b Adds but never asserted" — same-cluster (Adds names a behaviour with no companion assertion; resolves independently)
