@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T32) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blockers, 0 high, 8 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
+_Triage tally: 0 blockers, 0 high, 7 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
 
 ---
 
@@ -408,73 +408,3 @@ The proportionate fix for a horizontal seam-skeleton leaf is to make the claim h
 ## Relationships
 
 - T03 "`DIAG-2` describes a `src/**` emission scan the closing gate does not perform" — same-cluster (the same over-claim pattern — a gate whose prose asserts broader source-scan coverage than its mechanism actually performs; resolves independently).
-
----
-
-# T07 — `V16a` claims NOCEIL-1…NOCEIL-4 in `Adds.` with no backing `Tests.`
-
-**Original heading:** NOCEIL-1…4 claimed in Adds. with no backing Tests bullets
-**Original section:** V16a — Ceiling order / masked
-**Kind:** placement
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V16a` is the cross-ceiling leaf: it owns the fixed CIO-1 … CIO-6 evaluation order, the at-most-one-ceiling-per-event rule, and the optional `masked` enumeration. Its six `Tests.` bullets (CIO-1 … CIO-6) and its paired test leaf `V16a-T` cover exactly those obligations and nothing else. Yet the first sentence of its `Adds.` also asserts the leaf implements "the NOCEIL-1 … NOCEIL-4 non-existence behaviours." No `Tests.` bullet in either `V16a` or `V16a-T` exercises any NOCEIL behaviour, and the leaf's own second `Adds.` sentence already re-scopes it to CIO order + `masked` only — so the NOCEIL clause is a stray, unbacked claim.
-
-The NOCEIL claims are GOV-16 stable inline labels in the spec, not numbered REQ-IDs, and their observable seams are distributed across the feature leaves that own each ceiling's axis: NOCEIL-1 (no per-call timeout) is enforced at parse time by `V6a`'s `loom/parse/timeout-field-rejected`; NOCEIL-2 (no token cap) surfaces only as `ContextOverflowError` via `V4d` (ERR-14/15/17); NOCEIL-3 (no memory ceiling) routes through `V4b`'s `loom/runtime/internal-error` catchable/uncatchable carve-out; NOCEIL-4 (no extra frame-depth ceiling) is the 32-level invoke bound `INV-4` owned by `V15b`. The cross-cutting closure of the NOCEIL-1 … NOCEIL-4 set is the spec's four-axis Audit methodology (`hard-ceilings.md`), a GOV-15 release-time corpus-review obligation, not a runtime test in any leaf.
-
-The same misattribution is duplicated in `coverage-matrix.md`: its Governance section closes with "…its cross-ceiling content is carried by the `CIO` IDs and the `HC3`/`NOCEIL` inline labels, all closed by `V16a` and `V11f`." That is wrong twice — `V11f` closes the `HC3-a … HC3-e` binder-retry labels, not NOCEIL, and the NOCEIL behaviours have no single closing leaf at all.
-
-## Plan Documents
-
-- `docs/plan_topics/V16a-ceiling-order-masked.md` — `Adds.` field (edited)
-- `docs/plan_topics/coverage-matrix.md` — Governance REQ-IDs section, closing `CEIL`/`CIO`/`HC3`/`NOCEIL` attribution sentence (edited)
-- `docs/plan_topics/V6a-frontmatter-contract.md` — `Tests.` (`loom/parse/timeout-field-rejected`, NOCEIL-1 seam) (read-only)
-- `docs/plan_topics/V4d-queryerror-variants.md` — `Tests.` (ERR-14/15/17, `ContextOverflowError` = NOCEIL-2 surface) (read-only)
-- `docs/plan_topics/V4b-runtime-panics.md` — `Tests.` (`loom/runtime/internal-error`, NOCEIL-3 carve-out) (read-only)
-- `docs/plan_topics/V15b-invoke-depth-cycle.md` — `Tests.` (INV-4, NOCEIL-4's only loom-level frame-depth ceiling) (read-only)
-
-## Spec Documents
-
-- `docs/spec_topics/hard-ceilings.md` — NOCEIL-1 … NOCEIL-4 ownership + four-axis Audit methodology (read-only)
-- `docs/spec_topics/hard-ceilings/ceiling-invariants-and-audit.md` — NOCEIL-1 … NOCEIL-4 definitions and Audit methodology closure (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical
-
-**Leaves (implementation order):**
-
-- `V16a` — Hard-ceiling interaction order and `masked` co-fire — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-An implementer reading `V16a`'s `Adds.` is told the leaf implements NOCEIL-1 … NOCEIL-4, yet none of its Tests do; a literal-minded implementer adds NOCEIL tests to `V16a` and duplicates coverage that the distributed-seam model pins to `V6a`/`V4d`/`V4b`/`V15b`. The parallel `coverage-matrix.md` claim that NOCEIL is "closed by `V16a` and `V11f`" makes the matrix lie about where NOCEIL evidence lives — an auditor following the matrix looks at `V16a`/`V11f` for NOCEIL closure and finds none, undermining the matrix as the coverage source of truth.
-
-## Issue introduction
-
-**Verdict:** indeterminate
-**Introducing commits:** none identified
-**History:** The leaf file carrying the misattributed claim, `docs/plan_topics/V16a-ceiling-order-masked.md`, is untracked (`git ls-files` returns nothing; `git status` shows `??`), and the matching `coverage-matrix.md` NOCEIL/`V16a`/`V11f` sentence exists only in the uncommitted working-tree modification (the committed `HEAD:docs/plan_topics/coverage-matrix.md` contains no `NOCEIL` token). The defect therefore cannot be localised to any commit in the corpus history.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `docs/plan_topics/V16a-ceiling-order-masked.md`, strike "and the NOCEIL-1 … NOCEIL-4 non-existence behaviours" from the first sentence of `Adds.`, leaving `V16a`'s `Adds.` scoped to the CIO-1 … CIO-6 evaluation order, the at-most-one-ceiling-per-event rule, and the `masked` enumeration (the leaf's second `Adds.` sentence, its CIO `Tests.`, and its `Ships when.` already carry that scope). Do not add NOCEIL `Tests.` bullets to `V16a` — those behaviours are closed by their feature leaves, not here.
-
-In `docs/plan_topics/coverage-matrix.md`, correct the Governance section's closing sentence so it no longer attributes NOCEIL closure to `V16a`/`V11f`. The corrected statement must convey that CIO-1 … CIO-6 close in `V16a` and `HC3-a … HC3-e` close in `V11f`, while the NOCEIL-1 … NOCEIL-4 non-existence claims have no single closing leaf: their observable seams are distributed (NOCEIL-1 → `V6a`'s `loom/parse/timeout-field-rejected`; NOCEIL-2 → `V4d`'s `ContextOverflowError` / ERR-14/15/17; NOCEIL-3 → `V4b`'s `loom/runtime/internal-error` carve-out; NOCEIL-4 → `V15b`'s `INV-4` invoke-depth bound), and their cross-cutting closure is the spec's four-axis Audit methodology in `hard-ceilings.md` (a GOV-15 release-time corpus-review obligation, not a runtime leaf).
-
-Resolve the `V16a` `Adds.` edit first, then reconcile the `coverage-matrix.md` sentence against the corrected attribution. Edge case: do not coin a NOCEIL row in the coverage-matrix REQ-ID table — NOCEIL is an inline label, not a numbered REQ-ID, and that table maps numbered REQ-IDs and diagnostic-code areas only.
-
-## Relationships
-
-- T23 "PIC-21 (renderer exception safety) has a coverage-matrix row but no asserting test in V7a" — same-cluster (same defect class: coverage attributed to a leaf whose Tests don't bear it out; resolves on its own row/leaf).
-- T22 "`PIC-2` mapped to `V9c` in the coverage matrix but never asserted; `subagent.md` missing from `V9c` `Spec.`" — same-cluster (same matrix-vs-leaf attribution defect class; independent resolution).

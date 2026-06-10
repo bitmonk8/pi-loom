@@ -2,7 +2,7 @@
 
 **Spec.** [`../spec_topics/hard-ceilings.md`](../spec_topics/hard-ceilings.md), [`../spec_topics/hard-ceilings/ceilings-3-and-4.md`](../spec_topics/hard-ceilings/ceilings-3-and-4.md), [`../spec_topics/hard-ceilings/ceiling-invariants-and-audit.md`](../spec_topics/hard-ceilings/ceiling-invariants-and-audit.md).
 
-**Adds.** The fixed cross-ceiling evaluation order (CIO-1 … CIO-6), the at-most-one-ceiling-per-event rule with the optional `masked` enumeration, and the NOCEIL-1 … NOCEIL-4 non-existence behaviours. This leaf owns the cross-ceiling behaviour the spec pins — the fixed CIO-1 … CIO-6 evaluation order, the at-most-one-ceiling-per-event rule, and the `masked` enumeration. Each ceiling's bound/breach surface is implemented by its feature leaf (`V5e`, `V6e`/`V13c`, `V11f`, `V15b`) at that ceiling's own first-enforcement point, per `hard-ceilings.md`'s distributed model.
+**Adds.** The fixed cross-ceiling evaluation order (CIO-1 … CIO-6), the at-most-one-ceiling-per-event rule with the optional `masked` enumeration. This leaf owns the cross-ceiling behaviour the spec pins — the fixed CIO-1 … CIO-6 evaluation order, the at-most-one-ceiling-per-event rule, and the `masked` enumeration. Each ceiling's bound/breach surface is implemented by its feature leaf (`V5e`, `V6e`/`V13c`, `V11f`, `V15b`) at that ceiling's own first-enforcement point, per `hard-ceilings.md`'s distributed model.
 
 All CIO bullets are exercised by driving synthesised ceiling-candidate events through the unit that computes the cross-ceiling order in isolation — not against the live `invoke` entry / AJV boundary / round-boundary sites, which are built by downstream leaves (`V5e`, `V11f`, `V13c`, `V15b`) and do not exist when `V16a` is picked up.
 
