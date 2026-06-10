@@ -73,7 +73,7 @@ The same table also enumerates the third closing-gate surface defined in [`conve
 | `pi-integration-contract/version-bump-triggers.md` — runtime-evidence acceptance-gate MUST (output (c); a red runtime-evidence run MUST NOT be merged at the candidate pin) (un-anchored; GOV-22 residue) | `V18c` |
 | `pi-integration-contract/host-prerequisites.md` §`pi-sdk-pin` — `typebox` `"*"` MUST NOT be collapsed into the four-entry tilde-pinned `peerDependencies` group (un-anchored; GOV-22 residue) | `H1a` |
 | `frontmatter/frontmatter-fields-a.md` §`model` — a present-but-unresolvable `model:` value fires the `loom/load/model-unresolved` load-time error and the loom is not registered (code-keyed; no numbered REQ-ID) | `V6a` |
-| `binder/defaulting-system-note-echo.md` §System-note rendering — single-line collapse + 120-codepoint truncation-with-`…` MUSTs (un-anchored; GOV-22 residue) | `V11e` |
+| `binder/defaulting-system-note-echo.md` §System-note rendering — the five line-discipline MUSTs (rule 1 single-line collapse/trim against the reference rendering, rule 2 120-code-point truncation-with-`…`, rule 3 prefix/suffix demarcation grammar, rule 4 empty-model-content→malformed-envelope classification, rule 5 `ambiguous.candidates` non-surfacing) (un-anchored; GOV-22 residue) | `V11e` |
 | `binder/determinism-cancellation-failure.md` §Determinism — `temperature: 0` + FNV-1a seed-derivation MUSTs (un-anchored; GOV-22 residue) | `V11e` |
 
 ## Governance REQ-IDs (GOV-*) — corpus governance, not runtime obligations
