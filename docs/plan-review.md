@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 12 medium retained; 20 low discarded; 5 low findings merged into 2 medium findings; 27 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 11 medium retained; 20 low discarded; 5 low findings merged into 2 medium findings; 27 NIT dropped; 0 false dropped._
 
 ---
 
@@ -810,75 +810,4 @@ Declare `SHUTDOWN_AWAIT_CAP_MS = 2000` (value sourced from `patch-skew-degradati
 
 - T12 "CNCL-4 session-shutdown reason facet is asserted in V9g but never authored red in V9g-T or gated by Ships-when" — same-cluster (also touches V9g; resolves independently).
 - T13 "Cancel-forwarding couples V9c to the `loomAbort` controller (V17a) without a declared dependency" — same-cluster (sibling undeclared-dependency / shared-artefact-ownership defect against V17a; resolves independently).
-
----
-
-# T12 — CNCL-4 session-shutdown reason facet is asserted in V9g but never authored red in V9g-T or gated by Ships-when
-
-**Original heading:** CNCL-4 session-shutdown synthesised-reason facet listed in V9g but not authored by V9g-T or pinned by any gate
-**Original section:** V9g — session-shutdown teardown
-**Kind:** validation
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V9g` carries a `CNCL-4` Tests bullet asserting that the `session_shutdown` handler aborts each in-flight `loomAbort` with a synthesised `Error` whose `message` is byte-exact `"loom cancelled by session shutdown"`, observed as `loomAbort.signal.reason` at a downstream checkpoint. The paired tests leaf `V9g-T` does **not** carry this bullet — its Tests list stops at `PIC-7`, the `DIAG-1` host rows, and the `loom/runtime/*` shutdown codes — and `V9g-T`'s `Spec.` set omits `cancellation.md`, the page that anchors `CNCL-4`.
-
-Per the per-phase TDD ritual, the `<id>-T` tests task must author a failing test for *every* spec REQ-ID the feature introduces, and the implementation leaf's binding obligations are its Tests bullets plus its `Ships when` gate. Here the facet exists only as prose in the impl leaf: no red test forces it in `V9g-T`, and `V9g`'s `Ships when` clause names only per-step isolation, the await cap, and the wrapped host emissions — not the reason facet.
-
-There is no alternative home. `V17a-T` asserts the sibling `CNCL-4` reason-propagation facets but explicitly defers the session-shutdown variant: "(The `"loom cancelled by session shutdown"` synthesised-reason facet is asserted in `V9g`, whose handler produces it.)" So the one assertion the corpus delegates to `V9g` is neither authored red in any tests task nor pinned by any Ships-when gate.
-
-## Plan Documents
-
-- `docs/plan_topics/V9g-T-session-shutdown.md` — Tests, Spec (edited)
-- `docs/plan_topics/V9g-session-shutdown.md` — Ships when (edited)
-- `docs/plan_topics/V17a-T-cancellation-core.md` — CNCL-4 deferral note (read-only)
-- `docs/plan_topics/coverage-matrix.md` — CNCL-4 row (read-only)
-- `docs/plan_topics/conventions.md` — TDD ritual / Leaf format (read-only)
-
-## Spec Documents
-
-- `docs/spec_topics/cancellation.md` — `#cncl-4` anchor (read-only)
-
-## Affected Leaves
-
-**Phases:** V9 — Extension host integration (vertical slice)
-
-**Leaves (implementation order):**
-
-- V9g-T — Session-shutdown teardown and emission isolation (tests) — (modified)
-- V9g — Session-shutdown teardown and emission isolation — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers diverge: one authors the byte-exact session-shutdown reason facet, the other omits it because no red test in `V9g-T` forces it and `V9g`'s Ships-when does not require it. Because `CNCL-4` is a numbered REQ-ID (not a `loom/*` diagnostic code), the closing gate only checks that a coverage-matrix row exists, so the facet can ship unimplemented or with a wrong reason string while CI stays green.
-
-## Issue introduction
-
-**Verdict:** single-commit
-**Introducing commits:** 4dde482 — pi-loom plan-review: park T27 (fast-loop: finding not resolved by fast fix) (2026-06-10, Thomas Andersen)
-**History:** `git log -S "loom cancelled by session shutdown" -- docs/plan_topics/` localises the facet's sole introduction to 4dde482; it did not exist beforehand. That commit added the `CNCL-4` session-shutdown facet to `V9g`'s Tests block and `cancellation.md` to `V9g`'s `Spec.` set, and added `CNCL-4/5/6` to `V17a-T` deferring the session-shutdown variant to `V9g`, but did not touch `V9g-T` — so the facet's failing test was never authored in the paired tests leaf and `cancellation.md` is still absent from `V9g-T`'s `Spec.` set.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Close the `V9g`/`V9g-T` pairing for this facet:
-
-- In `docs/plan_topics/V9g-T-session-shutdown.md`, add a `CNCL-4` session-shutdown facet bullet to the `Tests.` list that mirrors `V9g`'s assertion: the `session_shutdown` handler aborts each in-flight `loomAbort` with a synthesised `Error` whose `message` is byte-exact `"loom cancelled by session shutdown"`, asserted as the observed `loomAbort.signal.reason` at a downstream checkpoint — authored as a failing (red) test. Add `../spec_topics/cancellation.md` to `V9g-T`'s `Spec.` set.
-- In `docs/plan_topics/V9g-session-shutdown.md`, extend the `Ships when.` clause so the `CNCL-4` session-shutdown reason facet is among the observable ship conditions, alongside the existing per-step isolation, await cap, and wrapped host emissions.
-
-Edge case: the reason literal must be the exact `"loom cancelled by session shutdown"` — distinct from `V17a-T`'s `"loom cancelled by agent_end"`; both leaves must use the identical byte-exact string so the red `V9g-T` test pins what `V9g` ships.
-
-## Relationships
-
-- T11 "`SHUTDOWN_AWAIT_CAP_MS` has no declaring owner leaf" — same-cluster (also touches V9g; resolves independently).
-- T17 "V17a's `Ships when` gate observes only a subset of the cancellation obligations its Tests enumerate" — same-cluster (CNCL-4 is split between V17a and V9g; both are gating gaps in the same cancellation contract).
-- T03 "Closing gate checks numbered-REQ-ID matrix mapping exists, but not that any test asserts the REQ-ID" — same-cluster (concrete instance of the mapped-but-unasserted REQ-ID class; T03's gate-extension would catch it mechanically, but it still needs its own authored test).
 

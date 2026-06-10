@@ -12,4 +12,4 @@
 
 **Deps.** `V9g-T`, `V9e`, `V9h`, `V17a`
 
-**Ships when.** `npm test` drives a shutdown, asserting per-step isolation, the await cap, and the wrapped host emissions.
+**Ships when.** `npm test` drives a shutdown, asserting per-step isolation, the await cap, the wrapped host emissions, and the `CNCL-4` session-shutdown reason facet — each in-flight `loomAbort` carries a synthesised `Error` whose `message` is byte-exact `"loom cancelled by session shutdown"`, observed as `loomAbort.signal.reason` at a downstream checkpoint.
