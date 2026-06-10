@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 5 medium retained; 20 low discarded; 5 low findings merged into 2 medium findings; 27 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 4 medium retained; 20 low discarded; 5 low findings merged into 2 medium findings; 27 NIT dropped; 0 false dropped._
 
 ---
 
@@ -307,80 +307,3 @@ The matrix paragraph already names both leaves and needs no change.
 ## Relationships
 
 None
-
----
-
-# T05 — Real-host verification gap — every end-to-end and release gate runs only against the H4a session double
-
-**Original heading:** Real-host verification gap — end-to-end gates run only against the H4a session double (H4a, H7a, M, V18c, H6a)
-**Original section:** Cross-cutting / multiple leaves
-**Kind:** risk, validation
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-Every end-to-end and release gate in the plan executes against the in-process Pi session double established by `H4a`, never a live Pi host. `H4a`'s harness loads the extension against the double and asserts a four-axis **session-double fidelity contract** (streamed-token order relative to `ctx.waitForIdle()`, single-turn prompt-mode append, the `pi.on` cancel-forward subscription, cancellation propagation) via a self-check; `H4a` states plainly that "loom 1.0 has no mechanical real-host fidelity gate" and that the double's fidelity to real Pi is a host-behaviour presupposition audited only by editorial review. `M`'s SLSH-2 dispatch runs "through the harness", `H7a`'s terminal integration-acceptance run executes against the same double, `V18c`'s version-bump runtime-evidence gate is explicitly "bounded by the `H4a` session double's fidelity to the bumped pin … not real-host coverage", and `H6a`'s release gate reconciles coverage by running `npm test` (the same double-backed suite).
-
-The consequence is a verification blind spot shared by all of them: a divergence between the double and real Pi — turn-append semantics, streaming order relative to `waitForIdle()`, cancel-forwarding, or a behavioural SDK skew introduced at a bumped pin — leaves every gate green while the shipped extension is broken against the real host. `V9a`'s capability probe does not close the gap: it is a structural check (PIC-4 restricts it to `typeof`/`in`, no arity/return-shape sniffing), so it refuses on a missing member but not on a member whose runtime *behaviour* has skewed.
-
-The plan's T20 resolution made this an explicit accepted presupposition, but the acknowledgement stops at "audited by editorial review" — it names no concrete post-merge detection mechanism and no behavioural-divergence revert trigger. The residual risk is real and uncovered by any mechanical gate.
-
-## Plan Documents
-
-- `docs/plan_topics/H4a-factory-shell-and-harness.md` — Adds / Tests (session-double fidelity contract) (edited)
-- `docs/plan_topics/V18c-version-bump-checklist.md` — runtime-evidence gate + revert path (edited)
-- `docs/plan_topics/H7a-integration-acceptance.md` — Adds / Tests / Ships when (read-only)
-- `docs/plan_topics/M-minimal-slash-command.md` — Tests / Ships when (read-only)
-- `docs/plan_topics/H6a-live-corpus-activation.md` — release-gate Tests / Ships when (read-only)
-- `docs/plan.md` — `## Release gate` section (read-only)
-- `docs/plan_topics/conventions.md` — end-to-end harness convention (read-only)
-
-## Spec Documents
-
-- `docs/spec_topics/pi-integration-contract/host-prerequisites.md` — unpinned-presupposition list (edited)
-- `docs/spec_topics/pi-integration-contract/version-bump-triggers.md` — bump-procedure output (c) (read-only)
-- `docs/spec_topics/pi-integration-contract/version-bump-intro.md` — Pi version-bump procedure (read-only)
-
-## Affected Leaves
-
-**Phases:** Horizontal phases, MVP phase, Vertical slices (V18), Release gate
-
-**Leaves (implementation order):**
-
-- H4a — Extension factory shell and end-to-end harness — (modified)
-- H7a — Terminal integration-acceptance run — (modified)
-- M — Minimal end-to-end `.loom` slash command — (modified)
-- V18c — Pi version-bump procedure and gates — (modified)
-- H6a — Live-corpus closing-gate activation — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Every gate the plan relies on to certify real behaviour — `M` (SLSH-2), `H7a` (cross-slice integration), `V18c` (version-bump runtime evidence), and `H6a` (release gate) — can pass green while the extension is broken against a real Pi host, because all of them observe only the in-process double. A double-vs-real divergence (turn-append, streaming-before-`waitForIdle` ordering, cancel-forward, or an SDK behavioural skew at a bumped pin) ships undetected; the sole fallback is editorial review of an unpinned presupposition.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e — pi-loom plan: build/update plan for spec.md + review (2026-06-10, Thomas Andersen)
-**History:** The session-double-only harness design was present in the first plan commit (c6a664e), where `H4a`'s harness loads the extension "against an in-process Pi session double" and `M` dispatches "through the harness" — no leaf provided a real-host gate. Later commits extended the same pattern to every end-to-end/release gate (e7e51cc added `H7a`; 5353dd7 added `H6a`; 81ab342 refined `V18c`'s runtime-evidence gate) and reframed the acknowledgement: eeb0014 added the four-axis fidelity contract while still labelling `V18c` the "real-host backstop", and 07403da (T20 Branch A) corrected that to "no mechanical real-host fidelity gate … audited by editorial review". None of these introduced the gap — they surfaced and re-described a verification blind spot inherent in the inaugural double-only harness.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Keep the double-only gates but make the accepted residual risk concrete: name a specific post-merge real-host detection mechanism and a revert trigger fired on observed behavioural divergence, beyond the current "audited by editorial review" wording. This matches the plan's deliberate design choice to keep the harness host-free and self-contained, and the gap is already framed as an accepted presupposition — the remaining work is to make that acceptance concrete rather than to add a real-host CI dependency.
-
-- In `H4a`'s fidelity-contract Tests note, state the named detection mechanism (e.g. a scheduled/manual real-host smoke checked at each version bump).
-- In `V18c`, widen the revert-path trigger — currently keyed only to red surface-inventory / runtime-evidence acceptance evidence (both double-backed) — so a confirmed real-host behavioural-divergence finding also forces restoration of the prior pin; otherwise the annotation has no enforcement hook.
-- Optionally extend the unpinned-presupposition entry in `host-prerequisites.md` to name the detection mechanism and revert trigger.
-
-## Relationships
-
-- T06 "Streamed-token-before-`waitForIdle()` ordering is routed to editorial review by H4a but has no version-bump checklist item" — decision-overlap (same double-vs-real root; whichever real-host confirmation mechanism this finding chooses also governs where that finding's streaming-before-`waitForIdle` presupposition is confirmed — settle a consistent answer).
-- T26 "Session-only degraded-state presupposition (a) contradicts Pi's documented teardown-and-rebind extension lifecycle" — decision-overlap (a real-host smoke or accepted post-merge detection surface is the mechanism that would catch that presupposition being false; resolve the detection footing consistently).
-
