@@ -44,7 +44,7 @@ The smallest end-to-end `.loom` that runs as a Pi slash command. One narrow vert
 
 ## Vertical slices
 
-Each slice is a coherent feature area (e.g. lexer, expressions, schemas, queries). Each leaf inside a slice is the smallest feature that can ship and be tested independently; slice grouping is editorial only. Leaves carry IDs like `V4b`. Order slices by their dependency DAG; non-linear deps are stated in each leaf's **Deps** field. Each feature below is a paired `<id>-T` tests task and `<id>` implementation task; only the implementation leaf is linked, and its page lists its `-T` partner in **Deps**.
+Each slice is a coherent feature area (e.g. lexer, expressions, schemas, queries). Each leaf inside a slice is the smallest feature that can ship and be tested independently; slice grouping is editorial only. Leaves carry IDs like `V4b`. Slice numbering is an editorial grouping that only roughly tracks the dependency DAG (see `conventions.md` §3) — it is not a topological order. The canonical build order is dep-driven: pick the next leaf whose **Deps** are satisfied (How-to-use step 3), not the next slice number. Backward and non-linear cross-slice dependencies are expected; each is declared in the relevant leaf's **Deps** field. Each feature below is a paired `<id>-T` tests task and `<id>` implementation task; only the implementation leaf is linked, and its page lists its `-T` partner in **Deps**.
 
 ### V1 — Lexer and literals
 
@@ -102,6 +102,8 @@ Each slice is a coherent feature area (e.g. lexer, expressions, schemas, queries
 
 ### V9 — Extension host integration
 
+> **Interleave note.** V9 and V11 are not built as contiguous blocks. `V11a` (Binder-model resolution) depends on `V9b` and is itself a prerequisite of `V9c`/`V9i`/`V9j`, so the seam runs `V9b → V11a → V9c`/`V9i`/`V9j` — `V11a` lands mid-V9, not after all of V9. Separately, `V9h` (and therefore `V9g`) depend on `V18c` from the `V18` SDK-gate slice and cannot be picked up until that cluster lands. Sequence by **Deps**, not slice number.
+
 - [`V9a` — Capability probe (Step 0)](./plan_topics/V9a-capability-probe.md)
 - [`V9b` — Registration steps and drain-state contract](./plan_topics/V9b-registration-drain-state.md)
 - [`V9c` — Prompt-mode conversation drive and active-set gating](./plan_topics/V9c-conversation-drive.md)
@@ -120,6 +122,8 @@ Each slice is a coherent feature area (e.g. lexer, expressions, schemas, queries
 - [`V10c` — Settings reads and merge](./plan_topics/V10c-settings-merge.md)
 
 ### V11 — Binder
+
+> **Interleave note.** `V11a` depends on `V9b` and is a prerequisite of `V9c`/`V9i`/`V9j`, so it lands mid-V9 (seam `V9b → V11a → V9c`/`V9i`/`V9j`) rather than after the whole V9 slice. Sequence by **Deps**, not slice number.
 
 - [`V11a` — Binder-model resolution and strict-capability probe](./plan_topics/V11a-binder-model-resolution.md)
 - [`V11b` — Bind context, truncation, and transcript renderer](./plan_topics/V11b-bind-context-transcript.md)
