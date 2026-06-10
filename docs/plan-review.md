@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T32) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blockers, 0 high, 5 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
+_Triage tally: 0 blockers, 0 high, 4 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
 
 ---
 
@@ -214,63 +214,3 @@ Edge case for the implementer: because the gate has no `src/**` emission scan an
 - T23 "PIC-21 (renderer exception safety) has a coverage-matrix row but no asserting test in V7a" — same-cluster (both concern closure evidence reconciled through the `H5a` gate; resolve independently).
 - T21 "Asserted diagnostic code `loom/parse/empty-enum-body` is absent from the parse registry" — same-cluster (exercises the same `H5a` asserting-test reconciliation this finding clarifies; independent leaf `V5a`).
 - T04 "Truncated diagnostic code: `V5b` cites `loom/parse/duplicate-discriminator`, registry has `loom/parse/duplicate-discriminator-value`" — same-cluster (a test-asserted code that must reconcile against the registry under the same gate; independent leaf).
-
----
-
-# T04 — Truncated diagnostic code: `V5b` cites `loom/parse/duplicate-discriminator`, registry has `loom/parse/duplicate-discriminator-value`
-
-**Original heading:** Diagnostic code truncated: `duplicate-discriminator` vs registry `duplicate-discriminator-value`
-**Original section:** V5b — Discriminated unions and recursion
-**Kind:** consistency
-**Importance:** medium
-**Score:** 22
-**MustFix:** false
-
-## Finding
-
-The paired leaves `V5b` and `V5b-T` each list a `Tests.` bullet asserting the discriminator-violation codes `loom/parse/non-string-discriminator`, `loom/parse/ambiguous-discriminator`, `loom/parse/missing-discriminator`, `loom/parse/duplicate-discriminator`, and `loom/parse/nested-discriminator`. Four of these are registered verbatim in `code-registry-parse.md`. The fifth, `loom/parse/duplicate-discriminator`, is not: the parse registry (`code-registry-parse.md`, the "two variants share the same discriminator value" row) and `schemas.md` register the code as `loom/parse/duplicate-discriminator-value`. The plan citation has dropped the `-value` suffix.
-
-Diagnostic codes must be reproduced verbatim against the registry. As written, the asserted code `loom/parse/duplicate-discriminator` has no registry row, while the registered code `loom/parse/duplicate-discriminator-value` has no asserting test. The duplicate-discriminator-value behaviour therefore ships with no closing test, and the leaf asserts a phantom code that the spec never defines.
-
-## Plan Documents
-
-- `docs/plan_topics/V5b-disc-unions-recursion.md` — Tests (edited)
-- `docs/plan_topics/V5b-T-disc-unions-recursion.md` — Tests (edited)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical slice V5 (Schemas, descriptions, schema-subset)
-
-**Leaves (implementation order):**
-
-- `V5b-T` — Discriminated unions, recursion, and cycle detection (tests) — (modified)
-- `V5b` — Discriminated unions, recursion, and cycle detection — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-An implementer faithfully writing the test asserts `loom/parse/duplicate-discriminator`, a code that is never emitted, while the real `loom/parse/duplicate-discriminator-value` behaviour goes untested. The `H5a` closing gate, which reconciles test-asserted codes against the registry, fails on the phantom code; a reviewer reconciling by hand could diverge on whether to register the truncated code or correct the citation.
-
-## Issue introduction
-
-**Verdict:** indeterminate
-**Introducing commits:** none identified
-**History:** the plan leaf files carrying the defect (`docs/plan_topics/V5b-disc-unions-recursion.md` and `docs/plan_topics/V5b-T-disc-unions-recursion.md`) are untracked in the git working tree — `git ls-files` returns nothing for either and `git status` reports both as `??`. The truncated token `loom/parse/duplicate-discriminator` appears in no committed revision (`git log -S`/`-G` over tracked history surfaces only the correct `loom/parse/duplicate-discriminator-value` in the spec). The defect therefore exists only in the uncommitted working tree; no commit introduced it.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In both `docs/plan_topics/V5b-disc-unions-recursion.md` and `docs/plan_topics/V5b-T-disc-unions-recursion.md`, change the citation `loom/parse/duplicate-discriminator` to `loom/parse/duplicate-discriminator-value` in the discriminator-violations `Tests.` bullet. Edit the two leaves together so the paired tests/implementation bullets stay mirror-consistent. The corrected spelling is the registry-exact code from `code-registry-parse.md`; the other four codes in the same bullet are already correct and must be left unchanged.
-
-## Relationships
-
-- T21 "Asserted diagnostic code `loom/parse/empty-enum-body` is absent from the parse registry" — same-cluster (same class of asserted-parse-code-vs-registry mismatch that fails the `H5a` closing gate; resolves independently).
-- T13 "`V6e`/`V6e-T` assert a non-existent `loom/parse/...` diagnostic code instead of the registered `loom/load/frontmatter-value-out-of-range`" — same-cluster (registry-citation defect failing the closing gate; resolves independently).
