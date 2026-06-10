@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T37) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 15 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 14 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -1064,65 +1064,3 @@ Enumerate per-member assertions in `V3a-T`. The loom-1.0 stdlib set is closed an
 - T16 "system: interpolation per-type stringification not witnessed through the system: surface" — same-cluster (same under-assertion pattern: Adds names a set, Tests assert it only generically; resolves independently in `V6d`)
 - T17 "V11e names five system-note rules but asserts only two" — same-cluster (Adds names rules; Tests assert a subset; resolves independently)
 - T15 "Forward-reference params type RHS claimed in V6b Adds but never asserted" — same-cluster (Adds names a behaviour with no companion assertion; resolves independently)
-
----
-
-# T15 — Forward-reference params type RHS claimed in V6b Adds but never asserted
-
-**Original heading:** Forward-reference param type RHS not explicitly asserted
-**Original section:** docs/plan_topics/V6b-params-defaults.md
-**Kind:** validation
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V6b`'s **Adds** field enumerates "type-expression RHS (forward references)" as part of the `params:` contract it delivers. The spec backs this as normative behaviour: in `frontmatter-fields-a.md` (the *Type side* bullet), a `params:` field whose right-hand side is a `NamedType` "resolves against the file's body-level `schema` / `enum` declarations," and "a forward reference from frontmatter to a `schema` or `enum` declared later in the body resolves, because … name resolution runs once the file's top-level declarations are all known." The unresolved case is the parse-time diagnostic `loom/parse/unresolved-named-type`.
-
-`V6b`'s (and `V6b-T`'s) **Tests** bullets cover only three behaviours: `loom/parse/non-trailing-default` ordering, `loom/parse/default-not-literal`, and AJV validation against the lowered schema. None of these exercises forward-reference name resolution. All three named tests pass against an implementation that resolves named types only when they are declared *before* the `params:` block (or that does no whole-file resolution at all). The whole-file forward-resolution behaviour — the load-bearing part of the Adds claim — has no positive assertion, and the closing-gate path for this leaf is code-keyed, so `loom/parse/unresolved-named-type` is not pinned to an asserting test anywhere in the corpus.
-
-## Plan Documents
-
-- `docs/plan_topics/V6b-T-params-defaults.md` — Tests (edited)
-- `docs/plan_topics/V6b-params-defaults.md` — Tests / Adds (edited)
-
-## Spec Documents
-
-- `docs/spec_topics/frontmatter/frontmatter-fields-a.md` — *Type side* / `params` contract (read-only)
-
-## Affected Leaves
-
-**Phases:** V6 — Frontmatter
-
-**Leaves (implementation order):**
-
-- `V6b-T` — `params` and defaults (tests) — (modified)
-- `V6b` — `params` and defaults — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers diverge while both shipping `V6b` green: one implements whole-file forward resolution (per spec), one resolves named types only in declaration order, and the existing tests distinguish neither. A `params` entry whose type RHS forward-references a later body `schema`/`enum` could fail to resolve in production with no test catching it, and the associated `loom/parse/unresolved-named-type` diagnostic can ship unimplemented.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e — pi-loom plan: build/update plan for spec.md + review (2026-06-10, Thomas Andersen)
-**History:** The `V6b` Adds claim "type-expression RHS (forward references)" and the three-bullet Tests set both entered in the plan's first commit c6a664e; the Tests never covered forward-reference resolution. The two later commits touching `V6b`/`V6b-T` (450ec77, 7678da2) addressed unrelated concerns. The gap is original.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add a Tests bullet to `docs/plan_topics/V6b-T-params-defaults.md` (the paired tests-task leaf, where the failing test lands first per the per-phase TDD ritual) asserting that a `params:` entry whose type RHS forward-references a `schema`/`enum` declared *later* in the loom body resolves and validates correctly — e.g. a `params:` field typed `Author` (or `Severity`) where the declaration appears below the frontmatter. Mirror the same bullet into `docs/plan_topics/V6b-params-defaults.md`'s Tests.
-
-Edge cases the implementer must watch: the negative path — a `params:` named type that resolves to no body declaration — is the spec diagnostic `loom/parse/unresolved-named-type`, likewise unasserted in the corpus; asserting it alongside the positive case closes the code-keyed coverage. The forward-referenced `schema`/`enum` machinery is owned by `V5a` and reaches `V6b` transitively through its existing `V5d` dep, so no `Deps` change is required.
-
-## Relationships
-
-- T35 "model/bind_* resolution hooks named in V6a Adds with no closing assertion" — same-cluster (sibling `V6a` frontmatter leaf with the identical Adds-claims-behaviour / no-asserting-test gap; resolves independently)
-- T14 "Stdlib members beyond replace/concat have no named assertion" — same-cluster (same Adds-names-a-set / Tests-assert-a-subset pattern; resolves independently)
