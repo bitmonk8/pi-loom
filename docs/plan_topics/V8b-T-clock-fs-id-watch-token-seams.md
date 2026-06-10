@@ -5,9 +5,9 @@
 **Adds.** Failing tests for the paired `V8b` implementation leaf.
 
 **Tests.**
-- `PIC-12`: `Clock` is per-runtime; an architectural test asserts no ambient timing call outside the `WallClock` adapter.
+- `PIC-12`: `Clock` is per-runtime; an architectural test asserts no *direct* ambient timing reference outside the `WallClock` adapter (the `H3a` identifier-keyed scan; indirect forms are not mechanically detected and are enforced by review).
 - `PIC-13`: `FileSystem` maps Node `.code` values; `readBytes` returns raw pre-decode bytes (`Uint8Array`) with the same `.code` rejection mapping (`ENOENT`/`EACCES`/`EPERM`) as `readText`; no `src/**` module reads `process.env`/`process.cwd` directly.
-- `PIC-20`: `IdSource.newInvocationId()` is the only `crypto.randomUUID` site.
+- `PIC-20`: `IdSource.newInvocationId()` is the only *direct* `crypto.randomUUID` reference (the `H3a` identifier-keyed scan); indirect forms are enforced by review.
 - `PIC-14`: `FileWatcher.watch` returns an `Unsubscribe` and reports the three change kinds.
 - `PIC-16`: `TokenEstimator.estimate` delegates to `estimateTokens` and is per-runtime.
 

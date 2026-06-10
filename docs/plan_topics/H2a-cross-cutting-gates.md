@@ -2,7 +2,7 @@
 
 **Convention.** [`conventions.md`](./conventions.md) — *No globals, statics, singletons*; *Specific exception types only*; *Sequential by default*; *No silent test skipping*.
 
-**Adds.** The ESLint rules (`no-broad-catch`, the `no-restricted-syntax` sequential-by-default allow-list) and the `src/**` architectural test that fails on any global / static / singleton, wired into `npm test`.
+**Adds.** The ESLint rules (`no-broad-catch`, the `no-restricted-syntax` sequential-by-default allow-list) and the `src/**` architectural test that fails on a module-level global / static / mutable singleton binding (closure-captured, lazy module-cache, and DI-container singletons are not mechanically detected and are enforced by contributor discipline / review), wired into `npm test`.
 
 **Tests.**
 - `Convention:` (*Specific exception types only*) a fixture file containing `catch (e: unknown)` with no `// allow-broad-catch:` comment fails lint; an allow-listed exempt site passes.
@@ -11,4 +11,4 @@
 
 **Deps.** `H1a`
 
-**Ships when.** `npm test` includes passing lint + architectural assertions that reject a broad catch, an unguarded `Promise.all`, and a singleton in `src/**`.
+**Ships when.** `npm test` includes passing lint + architectural assertions that reject a broad catch, an unguarded `Promise.all`, and a module-level mutable singleton in `src/**`.
