@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T32) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blockers, 0 high, 19 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
+_Triage tally: 0 blockers, 0 high, 18 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
 
 ---
 
@@ -1206,71 +1206,3 @@ Edge case the implementer must watch: the runtime-evidence gate runs through the
 
 - T19 "Plan has no terminal end-to-end integration-acceptance leaf" — must-follow (a release-gate leaf running a representative `.loom` through the `H4a` harness end-to-end would supply the same mechanism this fix's runtime-evidence gate needs; build that first so this fix references it).
 - T20 "H4a in-process Pi session double has no stated fidelity contract against the pinned SDK" — must-follow (this fix's runtime-evidence gate runs against the `H4a` double; without the double's fidelity to the new pin asserted, "harness passing against the new pin" is false-green).
-
----
-
-# T18 — Binder-call cancellation forwarding named in `V11f` `Adds.` but never asserted
-
-**Original heading:** "cancellation forwarding into the binder call" named but not asserted
-**Original section:** V11f — Hard-ceiling binder retry / templates
-**Kind:** validation
-**Importance:** medium
-**Score:** 28
-**MustFix:** false
-
-## Finding
-
-`V11f` `Adds.` lists "the cancellation forwarding into the binder call" as one of the leaf's obligations. The spec makes this a normative MUST in two places: `cancellation.md` *Granularity* states the runtime checks the signal "immediately before issuing the slash-command argument binder's LLM call (and the signal is forwarded to the binder model's provider invocation, so an abort observed *during* the binder call also surfaces)," and `determinism-cancellation-failure.md` *Cancellation* states the runtime "forwards the signal into the binder inference call as its `options.signal`; the initial attempt and every retry permitted by the per-invocation budget below honour the signal," with a cancelled binder producing the cancelled-binder system note and the loom not running.
-
-None of `V11f`/`V11f-T`'s test bullets assert this behaviour. The bullets cover only the per-class retry budget (`HC3-a`…`HC3-e`) and that the six failure templates render verbatim; `Ships when` asserts only "the per-class retry caps (≤3 calls) and the six verbatim templates." The six-template bullet does include the cancelled-binder row (`loom /<name>: argument binding cancelled`), but rendering that note verbatim only exercises the note's *text* once the cancelled state is reached — it does not assert the *forwarding wiring* that routes a mid-call abort into the provider invocation and surfaces it as the cancelled-binder outcome. A pre-call abort (the pre-binder checkpoint, owned by `V17a`) would satisfy the verbatim-rendering test without ever forwarding the signal into the in-flight binder call.
-
-`V17a` (cancellation core) names "the fixed checkpoint set (including pre-binder)" and a generic `loomAbort` forwarding bullet, but asserts neither the binder-specific `options.signal` forwarding into the provider call nor the abort-during-binder-call → cancelled-binder path. The obligation therefore binds to no asserting test in any leaf.
-
-## Plan Documents
-
-- `docs/plan_topics/V11f-binder-retry-taxonomy.md` — Tests / Ships when (edited)
-- `docs/plan_topics/V11f-T-binder-retry-taxonomy.md` — Tests / Ships when (edited)
-- `docs/plan_topics/V17a-cancellation-core.md` — Adds. / Tests (read-only)
-
-## Spec Documents
-
-- `docs/spec_topics/cancellation.md` — Granularity (binder-call clause) / Surfacing (cancelled-binder arm) (read-only)
-- `docs/spec_topics/binder/determinism-cancellation-failure.md` — Cancellation / Failure modes (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical slice V11 (Binder)
-
-**Leaves (implementation order):**
-
-- `V11f` — Binder cancellation, per-class retry budget, and failure taxonomy — (modified)
-- `V11f-T` — Binder cancellation, per-class retry budget, and failure taxonomy (tests) — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-The mid-call binder cancellation forwarding (`options.signal` into the provider invocation) can ship unimplemented or broken with every `V11f` test green: the verbatim-template test passes via a pre-call abort, so the abort-during-binder-call path is never exercised. Two reasonable implementers would diverge — one wiring `options.signal` into the provider call, one relying solely on the pre-binder checkpoint — and the gap would not surface as a test failure or at the closing gate (the MUST carries no REQ-ID, so it is invisible to coverage reconciliation).
-
-## Issue introduction
-
-**Verdict:** indeterminate
-**Introducing commits:** none identified
-**History:** The plan leaf files that carry this defect — `docs/plan_topics/V11f-binder-retry-taxonomy.md`, `docs/plan_topics/V11f-T-binder-retry-taxonomy.md`, and `docs/plan_topics/V17a-cancellation-core.md` — are untracked in the repository (`git status` reports `??`; only `conventions.md`, `coverage-matrix.md`, and `leaf-template.md` are tracked under `docs/plan_topics/`). The defect's introduction cannot be walked through git history because the file that contains it was never committed.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add a binder-cancellation test bullet to `V11f-T` (the authoritative test leaf) and mirror it in `V11f` `Tests.`, asserting the behavioural forwarding contract rather than only the note text: an abort landed *during* the binder's in-flight provider call surfaces the cancelled-binder system note (`loom /<name>: argument binding cancelled`) and the loom does not run — no `Result` reaches loom code. Cite the binder-call clause of `cancellation.md` *Granularity* together with the cancelled-binder arm of `cancellation.md` *Surfacing* and the *Cancellation* section of `determinism-cancellation-failure.md`. Land the abort at the in-flight binder call through the `Checkpoint` seam test substrate (already available to `V11f` via its `Deps. V17a`) so the during-call path is exercised deterministically without depending on JS microtask scheduling, distinct from a pre-call abort that the pre-binder checkpoint already covers in `V17a`.
-
-Edge case the implementer must keep observable: an abort observed during a budgeted *retry* of the binder call must also surface the cancelled-binder note immediately (per `determinism-cancellation-failure.md`, "An abort observed during any retry permitted by the budget above suppresses that retry and surfaces the cancelled-binder note immediately"); the new bullet should not be satisfied solely by the initial-attempt path.
-
-## Relationships
-
-- T30 "Un-anchored normative MUSTs are invisible to the closing gate by construction" — must-follow (the binder-forwarding MUST carries no REQ-ID and no diagnostic code, so it is invisible to the closing gate; how this finding's test is anchored depends on the systemic rule that finding proposes).
-- T26 "Cancellation checkpoint granularity set unverified" — same-cluster (the pre-binder checkpoint named there is the sibling of this binder-call site; resolves independently in `V17a`).
-- T27 "V17a leaves three normative cancellation MUSTs with no asserting test" — same-cluster (sibling un-asserted cancellation MUSTs in `V17a`; resolves independently).
-- T16 "Cancellation test bullet keyed by one diagnostic conflates four independent obligations" — same-cluster (the `V17a` generic `loomAbort` forwarding bullet; resolves independently).
