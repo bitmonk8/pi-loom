@@ -1749,41 +1749,19 @@ Two reasonable implementers diverge: one builds a central arbiter the live sites
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-This finding carries two independent obligations — defining the interface/data shape, and establishing the unit's runtime authority over the live sites — that cannot be discharged by the same one-paragraph leaf edit. The Recommendation fixes their order.
-
-### Option A — Fix the interface/data shape of the cross-ceiling unit
-
-**Approach.** Make `V16a` Adds define the cross-ceiling arbitration as a consumer-bound seam: name the input event vocabulary (the "ceiling-candidate" shape with the field that tags which check site / ceiling-class it carries) and the `{surfaced ceiling, masked}` return contract, with the closed `masked` identifier set (`"ceiling#1"`…`"ceiling#4"`) and the omit-when-empty rule already pinned in `ceilings-3-and-4.md#masked-field`. Alternatively, point `V16a` at a fixed spec contract that already supplies the shape; if no such anchor exists, that sub-path adds one to `ceilings-3-and-4.md` "Interaction between ceilings."
-
-**Plan edits.** In `V16a` Adds, add the seam's input event type and return contract; align the Tests/Ships-when wording to the named seam. Mirror any vocabulary change into `V16a-T` Tests.
-
-**Spec edits.** None if the seam is fully described plan-side against existing `masked` anchors; one new stable anchor in `ceilings-3-and-4.md` if the leaf is pointed at a spec-owned contract instead.
-
-**Pros.** Removes the "implementer invents the event shape" gap; gives downstream consumers a fixed interface to bind to.
-
-**Cons.** Introduces a named arbitration component the spec's distributed model does not itself require; risks over-specifying a structure the live sites might legitimately not call into.
-
-**Risks.** If chosen without resolving Option B, a fixed interface can still be dead code (defined but never consulted).
-
-### Option B — Establish the unit's runtime authority over the live breach sites
-
-**Approach.** State explicitly, in `V16a` Adds and in each consuming leaf's card, whether `V5e`/`V11f`/`V13c`/`V15b` (and the load-time `V4e` cross-route) **consult** `V16a`'s seam at their first-enforcement point or **re-derive** the CIO order locally. If consult: the consumers' `Deps` on `V16a` become seam-binding. If re-derive: reframe `V16a` so its synthesised-event tests are scoped as ordering-spec fixtures, and route live-arbitration verification to an integration assertion in the owning downstream leaf.
-
-**Plan edits.** Add a consult-or-re-derive statement to `V16a` Adds; reconcile each of `V4e`/`V5e`/`V11f`/`V13c`/`V15b` so their `Deps` on `V16a` either name the bound seam (consult) or are re-justified (re-derive). If re-derive, add a live-site integration assertion in the owning downstream leaf.
-
-**Spec edits.** None expected; the distributed model in `hard-ceilings.md` is read-only context the statement must agree with.
-
-**Pros.** Closes the vacuous-closure risk; makes CIO-1 … CIO-6 verifiable against live behaviour.
-
-**Cons.** Touches five consumer leaves; the re-derive path needs a new integration-assertion home.
-
-**Risks.** Landing this before Option A means binding consumers to an interface that is still undefined.
+This finding carries two independent obligations that must be discharged in order: first define the cross-ceiling unit's interface/data shape, then establish its runtime authority over the live breach sites against that fixed baseline.
 
 ### Recommendation
 
-Resolve **Option A first** — it is the scope-bounding obligation: fix the interface/data shape in `V16a` (and `V16a-T`) so a stable seam exists. Then resolve **Option B** against that fixed baseline — state the consult-vs-re-derive relationship in `V16a` Adds and reconcile the `Deps` of `V4e`/`V5e`/`V11f`/`V13c`/`V15b` to it, adding a live-site integration assertion in the owning downstream leaf if the relationship is re-derive. Edge case: the slash-load `params` arm of ceiling #4 cross-routes through ceiling #3 (CIO-1) at load time rather than runtime, so `V4e`'s binding to the seam differs in kind from the four runtime sites.
+Fix the interface/data shape first — it is the scope-bounding obligation — then establish runtime authority against the fixed seam.
+
+**Interface/data shape.** Make `V16a` Adds define the cross-ceiling arbitration as a consumer-bound seam: name the input event vocabulary (the "ceiling-candidate" shape with the field that tags which check site / ceiling-class it carries) and the `{surfaced ceiling, masked}` return contract, with the closed `masked` identifier set (`"ceiling#1"`…`"ceiling#4"`) and the omit-when-empty rule already pinned in `ceilings-3-and-4.md#masked-field`. Describe the seam fully plan-side against the existing `masked` anchors; if the leaf is instead pointed at a spec-owned contract and no such anchor exists, add one new stable anchor to `ceilings-3-and-4.md` "Interaction between ceilings." Align the leaf's Tests/Ships-when wording to the named seam, and mirror any vocabulary change into `V16a-T` Tests. A fixed interface that is defined but never consulted is still dead code, which is why runtime authority must be established below.
+
+**Runtime authority.** State explicitly, in `V16a` Adds and in each consuming leaf's card, whether `V5e`/`V11f`/`V13c`/`V15b` (and the load-time `V4e` cross-route) **consult** `V16a`'s seam at their first-enforcement point or **re-derive** the CIO order locally. If consult: the consumers' `Deps` on `V16a` become seam-binding and name the bound seam. If re-derive: reframe `V16a` so its synthesised-event tests are scoped as ordering-spec fixtures, re-justify each consumer's `Deps`, and route live-arbitration verification to an integration assertion in the owning downstream leaf. Reconcile the `Deps` of `V4e`/`V5e`/`V11f`/`V13c`/`V15b` to the chosen relationship. The distributed model in `hard-ceilings.md` is read-only context the statement must agree with; no spec edit is expected for this obligation.
+
+Edge case: the slash-load `params` arm of ceiling #4 cross-routes through ceiling #3 (CIO-1) at load time rather than runtime, so `V4e`'s binding to the seam differs in kind from the four runtime sites.
 
 ## Relationships
 
@@ -1848,41 +1826,15 @@ If the plan ships with presupposition (a) unresolved, an implementer builds the 
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
 The fix must make `host-prerequisites.md` stop asserting (a) as a behaviour confirmable only by a future-minor editorial check, and instead record that Pi's published lifecycle documents teardown-and-rebind on the session-only reasons at the pin, then resolve the contradiction.
 
-### Option A — Document the conflict in clause (a) and gate SM-4/5/6 implementation on its resolution
-
-**Approach.** Rewrite presupposition (a) in `host-prerequisites.md` to state that Pi's `extensions.md` documents the opposite of instance survival on `{"new","resume","fork"}` — old runtime torn down, extensions reloaded and rebound, new instance receives `session_start`, captured old `pi`/`ctx` go stale and throw — and that this is the documented behaviour at the loom 1.0 pin, not a hypothetical future minor. Require that the conflict be resolved (an authoritative determination of whether loom's package-loaded `extensions/index.ts` is governed by that documented lifecycle, or differs) before SM-4/5/6 are implemented, and surface the open question on the version-bump editorial-review checklist item that already tracks (a).
-
-**Plan edits.** None (the leaves remain blocked on the spec resolution).
-
-**Spec edits.** `host-prerequisites.md` clause (a) text; the version-bump checklist item in `version-bump-intro.md`.
-
-**Pros.** Bounded, spec-only; preserves the SM-4/5/6 design if loom's extension is later confirmed exempt; keeps the V9 leaf cards untouched.
-
-**Cons.** Defers the substantive question; if the determination confirms the documented lifecycle applies, a second pass (Option B) is still required.
-
-**Risks.** If the gate is not honoured, the V9 leaves land against the false premise anyway.
-
-### Option B — Redesign the session-only degraded state to align with documented teardown-and-rebind
-
-**Approach.** Accept the documented lifecycle and rework the SM-4/5/6 mechanism so it does not depend on a surviving closed-over `LoomRegistry`. Because the rebind already yields a fresh, non-drained registry that dispatches normally, the session-only degraded state and its `/reload` recovery note may be unnecessary for `{"new","resume","fork"}`, reducing the contract to the genuine teardown reasons. Update `session-only-degraded-state.md` and the SM-4/5/6 entries in `session-model-and-appendix.md`, then propagate to V9h, V9b, and V9g.
-
-**Plan edits.** `V9h-degraded-unknown-reason.md` (and `V9h-T`), `V9b-registration-drain-state.md` (and `V9b-T`), `V9g-session-shutdown.md` (and `V9g-T`).
-
-**Spec edits.** `session-only-degraded-state.md`, `session-model-and-appendix.md` (SM-4/5/6), `host-prerequisites.md` clause (a).
-
-**Pros.** Removes the contradiction at its root; the implemented behaviour matches the documented host.
-
-**Cons.** Large cross-leaf and cross-spec change; premature if loom's package-loaded extension turns out to be exempt.
-
-**Risks.** Touches multiple closed V9 contracts and their diagnostic codes; high critique surface.
-
 ### Recommendation
 
-Apply Option A first: it is the smaller, scope-bounding edit and leaves the V9 leaf cards stable. Resolve presupposition (a) so it records the documented teardown-and-rebind contradiction as current behaviour at the pin and gates SM-4/5/6 implementation on an authoritative determination of whether loom's package-loaded `extensions/index.ts` is subject to that documented lifecycle. Escalate to Option B only if that determination confirms the documented teardown-and-rebind governs loom's extension. Edge case to watch: a determination that distinguishes auto-discovered/hot-reloadable placement from `pi install`-distributed package placement, since loom ships as a package — confirm the swap behaviour for the package-loaded path specifically.
+Rewrite presupposition (a) in `host-prerequisites.md` to state that Pi's `extensions.md` documents the opposite of instance survival on `{"new","resume","fork"}` — the old runtime is torn down, extensions are reloaded and rebound, the new instance receives `session_start`, and captured old `pi`/`ctx` go stale and throw — and that this is the documented behaviour at the loom 1.0 pin, not a hypothetical future minor. Require that the conflict be resolved (an authoritative determination of whether loom's package-loaded `extensions/index.ts` is governed by that documented lifecycle, or differs) before SM-4/5/6 are implemented, and surface the open question on the version-bump editorial-review checklist item in `version-bump-intro.md` that already tracks (a).
+
+The V9 leaves remain blocked on the spec resolution; no plan edits are required. Spec edits are confined to `host-prerequisites.md` clause (a) text and the version-bump checklist item in `version-bump-intro.md`. Edge case to watch: a determination that distinguishes auto-discovered/hot-reloadable placement from `pi install`-distributed package placement, since loom ships as a package — confirm the swap behaviour for the package-loaded path specifically.
 
 ## Relationships
 
