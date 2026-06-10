@@ -197,3 +197,88 @@ Edge case: if a reviewer instead determines the code is not real (no `enum X {}`
 
 ---
 
+## T20 — H4a in-process Pi session double has no stated fidelity contract against the pinned SDK
+
+> **PARKED** — 2026-06-10
+> **Reason:** The fast `/plan-fix-findings-loop` fix-then-floor-review pass did not resolve this finding: the fast reviewer reported `FindingResolved: partial` with a high/90 floor regression (autofix=no). Loop notes: finding not resolved by fast fix — fast reviewer reported FindingResolved: partial with a high/90 floor regression (autofix=no). The H4a fidelity-contract enumeration and the "as modelled by the in-process double" gate-scoping landed, but the named real-host backstop is hollow: V18c (per its leaf and spec host-prerequisites.md) is static surface-inventory + type-equality + editorial-review only — no runtime/real-SDK behaviour check — and the H4a self-check only asserts the double models the contract (circular, cannot detect double-vs-real-Pi divergence). The fix falsely characterizes V18c as a "runtime-evidence gate" / "real-host backstop", contradicting the sibling leaf and spec. Closing the gap requires human judgment / new normative content (a real-host end-to-end conformance gate or an explicitly recorded residual gap). Floor high/90.
+> **Forensic report:** none (fast loop — no forensic report)
+
+# T20 — H4a in-process Pi session double has no stated fidelity contract against the pinned SDK
+
+**Original heading:** In-process Pi session double fidelity contract unstated
+**Original section:** H4a — Factory shell and harness
+**Kind:** assumptions
+**Importance:** high
+**Score:** 90
+**MustFix:** false
+
+## Finding
+
+`H4a` introduces the reusable end-to-end harness that "loads the extension against an in-process Pi session double and drives a slash dispatch," but the leaf never states the behavioural fidelity contract that double must hold against the pinned `@earendil-works/pi-coding-agent` SDK, nor names who validates that the double matches real Pi. The behaviours that matter to downstream gates — streamed-token ordering relative to `ctx.waitForIdle()` resolution, turn-append semantics, the prompt-mode `pi.on` subscription used for cancel-forwarding, and cancellation propagation — are exactly the surface a test double can silently get wrong.
+
+Several ship-gates are defined purely in terms of the double's observable behaviour. The clearest is `V12a` / `V12a-T` `SLSH-2`, whose ordering assertion ("streamed assistant tokens are observable in the user transcript *before* the interpreter resumes — before `ctx.waitForIdle()` resolves … Driven through the in-process Pi session double with an ordering-observable transcript sink") is meaningful only if the double reproduces real Pi's streaming-vs-resume ordering. The same dependence runs through `M`/`M-T` (one streamed assistant response appended as a single prompt-mode turn), `V9c` (`waitForIdle`, trailing-turn extraction, `pi.on` cancel-forward), and the cancellation-forwarding paths in `V17a` and `V11f`.
+
+The plan's only SDK-conformance machinery — `V18a` (surface inventory) and `V18b` (surface-set-closure audit) — pins the *static surface* loom references against the SDK, not the *runtime behaviour* the double imitates. So nothing in the plan ties the double's behaviour to the pinned SDK. If the double diverges (e.g. it resolves `waitForIdle` after flushing streamed tokens when real Pi would not), the double-only gates report green while the real integration is wrong — a silent false-green that the closing gate cannot catch.
+
+## Plan Documents
+
+- `docs/plan_topics/H4a-factory-shell-and-harness.md` — Adds. / Tests. / Ships when (edited)
+- `docs/plan_topics/V12a-slash-dispatch.md` — `SLSH-2` Tests bullets (edited — reference the named H4a contract)
+- `docs/plan_topics/V12a-T-slash-dispatch.md` — `SLSH-2` Tests bullets (edited — reference the named H4a contract)
+- `docs/plan_topics/conventions.md` — phase categories (end-to-end harness) (read-only)
+- `docs/plan_topics/M-minimal-slash-command.md` — `SLSH-2` / Ships when (read-only)
+- `docs/plan_topics/V9c-conversation-drive.md` — Adds. (`waitForIdle`, `pi.on` cancel-forward) (read-only)
+- `docs/plan_topics/V17a-cancellation-core.md` — cancellation-forwarding bullet (read-only)
+- `docs/plan_topics/V18a-capability-inventory.md` — surface inventory (read-only)
+- `docs/plan_topics/V18b-inventory-audit.md` — surface-set-closure audit (read-only)
+
+## Spec Documents
+
+- `docs/spec_topics/pi-integration-contract/conversation-drive.md` — prompt-mode drive / `waitForIdle` (read-only)
+- `docs/spec_topics/pi-integration-contract/host-interfaces-core.md` — session/host interface behaviour (read-only)
+- `docs/spec_topics/cancellation.md` — cancel-forwarding semantics (read-only)
+
+(The fix is internal to plan files; the spec topics are read to enumerate the behaviours the double must model, not edited.)
+
+## Affected Leaves
+
+**Phases:** Horizontal (H4a), Vertical V12
+
+**Leaves (implementation order):**
+
+- `H4a` — Extension factory shell and end-to-end harness — (modified)
+- `V12a` — Slash dispatch, overflow, and streaming — (modified)
+
+(`M`, `V9c`, `V17a`, `V11f` consume the double's behavioural fidelity but are not edited under the recommended fix; they are read-only context above.)
+
+## Consequence
+
+**Severity:** correctness
+
+A double whose `waitForIdle`-vs-streaming ordering (or turn-append / cancel-forward behaviour) diverges from the pinned SDK makes the double-only ship-gates — `V12a` `SLSH-2` most acutely — pass on a real integration bug (e.g. a buffer-then-append-after-resume implementation), and the closing gate has no way to detect it. Two implementers building the double could model the timing differently and both see green, so a leaf can ship not matching real-host behaviour.
+
+## Issue introduction
+
+**Verdict:** indeterminate
+**Introducing commits:** none identified
+**History:** The cited plan leaf files (`docs/plan_topics/H4a-factory-shell-and-harness.md`, `docs/plan_topics/V12a-slash-dispatch.md`, `docs/plan_topics/V12a-T-slash-dispatch.md`) are untracked working-tree files — `git ls-files` does not list them and `git status` reports them `??` — so no commit history exists to localise when the defect entered the corpus.
+
+## Solution Space
+
+**Shape:** single
+
+### Recommendation
+
+State the double's fidelity contract at `H4a` and name where and by whom that fidelity is asserted, so the double-dependent ship-gates reference one named contract rather than each scoping its claim independently.
+
+Add to `H4a` a behavioural contract enumerating the specific Pi behaviours the in-process double must reproduce relative to the pinned SDK — streamed-token order relative to `ctx.waitForIdle()` resolution, single-turn append semantics, the `pi.on` cancel-forward subscription, and cancellation propagation — via its `Adds.`/`Tests.`/`Ships when`, and name the mechanism/owner that validates the double against the pinned SDK (a harness self-check listed as an `H4a` inline test, plus `V18c`'s version-bump runtime-evidence gate as the real-host backstop). Introduce a `<new>` harness-conformance leaf if the assertion is too large for `H4a`. Establish this contract at `H4a` before any per-gate scoping; the double-dependent gates (most acutely `V12a`/`V12a-T` `SLSH-2`) then cite the named contract.
+
+Edge case the implementer must watch: a true conformance check against the real SDK may need a live Pi session the in-process harness deliberately avoids. If a full real-SDK conformance check cannot run in-process, scope the affected double-dependent gates (`V12a` `SLSH-2` ordering, `M`, `V9c`, `V17a`, `V11f`) to state they assert behaviour *as modelled by the in-process double* **and** pair that scoping with a real-host end-to-end gate (see the related terminal-integration finding), so the coverage is not merely deleted.
+
+## Relationships
+
+- T19 "Plan has no terminal end-to-end integration-acceptance leaf" — decision-overlap (a release-gate real-host end-to-end leaf would double as the fidelity backstop this finding needs).
+- T17 "Version-bump acceptance is build-time surface checks only — no runtime-evidence gate or revert path" — same-cluster (both want runtime evidence against the pinned/real SDK rather than static/surface gates).
+
+---
+

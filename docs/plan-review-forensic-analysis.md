@@ -44,3 +44,22 @@ why the listed findings ended up in
 `plan-review-parked.md`.
 
 ---
+
+## 2026-06-10 — T20 — H4a in-process Pi session double has no stated fidelity contract against the pinned SDK
+
+- **Failure mode:** fast-loop-unresolved
+- **Trajectory:** n/a
+- **Passes:** n/a
+- **Forensic report:** none (fast loop — no forensic report)
+- **Parked findings (this run):** `T20 — H4a in-process Pi session double has no stated fidelity contract against the pinned SDK`
+- **Loop notes:** finding not resolved by fast fix — fast reviewer reported FindingResolved: partial with a high/90 floor regression (autofix=no). The H4a fidelity-contract enumeration and the "as modelled by the in-process double" gate-scoping landed, but the named real-host backstop is hollow: V18c (per its leaf and spec host-prerequisites.md) is static surface-inventory + type-equality + editorial-review only — no runtime/real-SDK behaviour check — and the H4a self-check only asserts the double models the contract (circular, cannot detect double-vs-real-Pi divergence). The fix falsely characterizes V18c as a "runtime-evidence gate" / "real-host backstop", contradicting the sibling leaf and spec. Closing the gap requires human judgment / new normative content (a real-host end-to-end conformance gate or an explicitly recorded residual gap). Floor high/90.
+- **Fixer notes:** none
+
+The detailed root-cause analysis and ranked Immediate / Pipeline
+recommendations live in the gitignored forensic report cited above.
+This file records only the durable TL;DR pointer so future
+`/plan-review` regeneration runs (or future human triage) can trace
+why the listed findings ended up in
+`plan-review-parked.md`.
+
+---
