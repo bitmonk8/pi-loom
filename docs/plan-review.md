@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T28) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 13 medium retained; 20 low discarded; 5 low findings merged into 2 medium findings; 27 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 12 medium retained; 20 low discarded; 5 low findings merged into 2 medium findings; 27 NIT dropped; 0 false dropped._
 
 ---
 
@@ -882,67 +882,3 @@ Edge case: the reason literal must be the exact `"loom cancelled by session shut
 - T17 "V17a's `Ships when` gate observes only a subset of the cancellation obligations its Tests enumerate" — same-cluster (CNCL-4 is split between V17a and V9g; both are gating gaps in the same cancellation contract).
 - T03 "Closing gate checks numbered-REQ-ID matrix mapping exists, but not that any test asserts the REQ-ID" — same-cluster (concrete instance of the mapped-but-unasserted REQ-ID class; T03's gate-extension would catch it mechanically, but it still needs its own authored test).
 
----
-
-# T13 — Cancel-forwarding couples V9c to the `loomAbort` controller (V17a) without a declared dependency
-
-**Original heading:** Cancel-forwarding couples to `loomAbort` (V17a) without declaring the dependency
-**Original section:** V9c — prompt-mode conversation drive and active-set gating
-**Kind:** ordering
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-V9c's prompt-mode `pi.on` subscription exists for one purpose only — cancel-forwarding. Its `Adds.` field names the subscription "(cancel-forward only)" and its `PIC-18` Tests bullet asserts the subscription "is used only for cancel-forwarding, never for completion." The target of that forwarding is the `loomAbort` controller, which is created and owned by V17a (`V17a` `Adds.`: "The `loomAbort` controller … forwarding Pi's per-handler `ctx.signal`, the tool-exposed `signal`, and parent-`invoke` signals into `loomAbort`").
-
-V9c's declared `Deps.` are `V9c-T, V9a, V9j, V8a`. The transitive closure of those leaves never reaches V17a. The dependency DAG therefore lets V9c be picked up before V17a exists, at which point the cancel-forwarding target the subscription wires into is undefined.
-
-Under the `conventions.md` *Leaf format* rule, a cross-leaf seam binds only when a consumer lists the seam-owning leaf in its `Deps.` and names the seam in its own `Adds.`/`Tests.`. As written, V9c neither lists V17a nor names `loomAbort`, so the cancel-forward coupling is currently illustrative rather than a binding consumer→producer edge — yet V9c's behaviour materially depends on it.
-
-## Plan Documents
-
-- `docs/plan_topics/V9c-conversation-drive.md` — `Deps.` / `Adds.` (edited)
-- `docs/plan_topics/V17a-cancellation-core.md` — `Adds.` (read-only)
-- `docs/plan_topics/conventions.md` — *Leaf format* (consumer-bound seam rule) (read-only)
-- `docs/plan.md` — V9 Interleave note / Deps DAG (read-only)
-- `docs/plan_topics/coverage-matrix.md` — PIC-17 / PIC-18 row (read-only)
-
-## Spec Documents
-
-None — `loomAbort`, the forwarding contract, and the signal-source rules are already specified in `cancellation.md`; the fix is a plan-internal dependency-declaration correction.
-
-## Affected Leaves
-
-**Phases:** Vertical slices (V9, V17)
-
-**Leaves (implementation order):**
-
-- `V9c` — Prompt-mode conversation drive and active-set gating — (modified)
-- `V17a` — Cancellation core — (read-only)
-
-## Consequence
-
-**Severity:** correctness
-
-In DAG order V9c is eligible before V17a, so an implementer building V9c first has no defined `loomAbort` target to forward into and would either invent a stand-in controller or guess the seam owner. Two reasonable implementers diverge on where the cancel-forwarding wiring lives. The mitigant is that PIC-18's shape assertions can run against an injected forwarder seam, so the gate need not break — but the ordering edge is still absent and the coupling is non-binding under the *Leaf format* seam rule.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** `c6a664e` — "pi-loom plan: build/update plan for spec.md + review" (2026-06-10)
-**History:** `V9c-conversation-drive.md` and `V17a-cancellation-core.md` were both created in `c6a664e`. The cancel-forwarding subscription and V9c's `Deps.` line `V9c-T, V9a, V9j, V8a` have been present verbatim since that commit; `loomAbort` has been owned by V17a since the same commit. The only later edit to V9c, `2ce483b`, touched the `Spec.` line and added the PIC-2 bullet, leaving the `Deps.` closure unchanged. The missing V9c→V17a edge dates to plan inception.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Declare the dependency: treat `loomAbort` as a Class-2 consumer-bound seam owned by V17a and consumed by V9c. In `docs/plan_topics/V9c-conversation-drive.md`, add `V17a` to the `Deps.` line (`V9c-T, V9a, V9j, V8a, V17a`) and name the `loomAbort` seam in the `Adds.` cancel-forward clause and/or the PIC-18 Tests bullet so the consumer→producer edge is binding (e.g. the PIC-18 subscription forwards Pi's `ctx.signal` into the `loomAbort` controller owned by V17a). This is the minimal diff, aligns with the *Leaf format* consumer-bound-seam rule, and introduces no DAG cycle (V17a's `Deps.` are `V17a-T, V8a`; no path back to V9c). It pushes V9c later in build order, behind cancellation-core, which is correct. Edge case: confirm V17a's CNCL-4 forwarding test continues to exercise the slash-command path at the `Checkpoint`-seam substrate rather than against V9c's concrete subscription.
-
-## Relationships
-
-- T17 "V17a's `Ships when` gate observes only a subset of the cancellation obligations its Tests enumerate" — decision-dependency (a V17a split changes which sub-leaf owns `loomAbort` / the forwarding target V9c must depend on).
-- T11 "`SHUTDOWN_AWAIT_CAP_MS` has no declaring owner leaf" — same-cluster (sibling undeclared shared-artefact ownership across the DAG; resolves independently).
