@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T37) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 11 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 10 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -803,70 +803,3 @@ than redeclaring members.
 ## Relationships
 
 - T09 "Ambient-access scan exempts the seam adapter but never defines how a module is recognised as one" — same-cluster (a parallel H3a seam under-specification that resolves independently)
-
----
-
-# T11 — Lint engine and custom-rule mechanism are consumed but never provisioned
-
-**Original heading:** Lint engine (ESLint + custom-rule plugin) assumed but never provisioned
-**Original section:** docs/plan_topics/H1a-scaffold-and-toolchain.md
-**Kind:** assumptions
-**Importance:** medium
-**Score:** 30
-**MustFix:** false
-
-## Finding
-
-`H1a` is the plan's declared sole dependency-enumerating leaf and the initial-population owner of `package.json`. Its `Adds.` field enumerates the manifest's `peerDependencies`, its runtime `dependencies`, and `engines.node`, plus a `tsconfig.json` and an (unnamed) test runner. It names no lint engine: neither ESLint, a TypeScript-aware ESLint parser, nor any custom-rule plugin mechanism.
-
-`H2a` (Deps: `H1a`) consumes exactly that missing toolchain. Its `Adds.` builds "the ESLint rules (`no-broad-catch`, the `no-restricted-syntax` sequential-by-default allow-list)" and wires them into `npm test`; `conventions.md` likewise mandates the bespoke `no-broad-catch` rule and the `no-restricted-syntax` allow-list "wired in the scaffold leaf." The bespoke `no-broad-catch` rule additionally requires a custom-rule authoring mechanism (a local ESLint plugin / rule module), which no leaf provisions.
-
-The checked-in `package.json#devDependencies` is `{ "@types/semver": "^7.5.0" }` — no `eslint`, no `@typescript-eslint/parser` (or equivalent), no plugin scaffolding. An implementer who treats the manifest as authoritative reaches `H2a` with no lint engine installed and must invent the entire lint toolchain (engine version, TS parser, custom-rule packaging) with no plan guidance, and outside the leaf the plan designates as the owner of dependency provisioning.
-
-## Plan Documents
-
-- `docs/plan_topics/H1a-scaffold-and-toolchain.md` — `Adds.` dependency enumeration (edited)
-- `docs/plan_topics/H2a-cross-cutting-gates.md` — `Adds.` ESLint-rule construction (option-dependent)
-- `docs/plan_topics/conventions.md` — *Specific exception types only* / *Sequential by default* (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Horizontal
-
-**Leaves (implementation order):**
-
-- `H1a` — Project scaffold and toolchain — (modified)
-- `H2a` — Cross-cutting lint and architectural gates — (both)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers would diverge on which ESLint engine version, TS-aware parser, and custom-rule packaging to install, because the leaf that owns dependency provisioning never names them; nothing in `H1a`'s manifest-shape tests would catch the omission. `H2a` cannot wire its `no-broad-catch` / `no-restricted-syntax` gates (and therefore its `Ships when`) without a lint engine and a custom-rule mechanism that no prior leaf installs.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** `c6a664e` (2026-06-10, "pi-loom plan: build/update plan for spec.md + review")
-**History:** `git log --follow` shows `H1a-scaffold-and-toolchain.md` and `H2a-cross-cutting-gates.md` were both created in `c6a664e`; that single commit authored `H1a`'s lint-tooling-omitting dependency enumeration and `H2a`'s ESLint-rule consumption simultaneously. `git log -S "eslint"` against `package.json` and `H1a` returns nothing — the engine was never declared on either side. No later commit narrowed or introduced the gap; it is inherent to the plan's inception.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Provision the lint toolchain in `H1a`'s `package.json#devDependencies`, treating the lint engine like every other tool `H1a` already enumerates — `H1a` is the plan's declared sole dependency-enumerating leaf and `package.json` owner, so the engine, its parser, and the custom-rule mechanism belong in its `Adds.` manifest enumeration. In `docs/plan_topics/H1a-scaffold-and-toolchain.md` `Adds.`, extend the manifest enumeration to declare, as `devDependencies`: the ESLint engine; a TypeScript-aware ESLint parser (the parser must be TS-aware so the rules can lint `src/**` `.ts` sources); and the custom-rule plugin mechanism. The custom-rule mechanism for the bespoke `no-broad-catch` rule is a distinct provisioning concern from the engine — a local rule module or plugin package must be installable and loadable — so enumerate it explicitly rather than folding it into the engine entry. Optionally add an `H1a` Tests bullet asserting these `devDependencies` are present.
-
-This fix only provisions the toolchain; do not, on this fix, also re-attribute the "wired in the scaffold leaf" prose in `conventions.md` (that is a separate finding).
-
-## Relationships
-
-- T34 "Test runner and assertion API are never named; the panic fail-loudly token is non-JS" — same-cluster (sibling `H1a` toolchain-provisioning gap; the test runner is likewise consumed plan-wide but never declared — independent tooling decisions)
-- T05 "conventions.md No-globals rule mis-attributes the gates' owning leaf and overstates the architectural test's reach" — same-cluster (the same `no-broad-catch` / architectural gates whose owning leaf this finding provisions)
-- T13 "Checked-in package.json omits the yaml runtime dependency H1a mandates" — same-cluster (sibling checked-in-`package.json` provisioning gap; resolves independently)
-- T12 "engines.node is populated but its value is never asserted in H1a" — same-cluster (same `H1a` manifest, distinct field; resolves independently)
