@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T32) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blockers, 0 high, 15 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
+_Triage tally: 0 blockers, 0 high, 14 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
 
 ---
 
@@ -915,75 +915,4 @@ Apply the identical edit to both leaves so the implementation/test pair stays mi
 - T04 "Truncated diagnostic code: `V5b` cites `loom/parse/duplicate-discriminator`, registry has `loom/parse/duplicate-discriminator-value`" — same-cluster (asserted code mismatches its registry row; resolves independently).
 - T05 "Bare diagnostic code `binder-model-strict-capability-unknown` missing `loom/load/` prefix" — same-cluster (asserted-code/registry mismatch in `V11a`; resolves independently).
 - T03 "`DIAG-2` describes a `src/**` emission scan the closing gate does not perform" — decision-overlap (the asserting-test↔registry reconciliation scope of the `H5a` gate that surfaces this finding is the subject of that finding).
-
----
-
-# T14 — V10c second Tests bullet conflates a malformed-settings diagnostic with debounce coalescence and cites a wildcard code
-
-**Original heading:** Second Tests bullet merges two behaviors and uses a wildcard code
-**Original section:** V10c — Settings merge
-**Kind:** traceability
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V10c`'s second `Tests.` bullet reads: "A malformed settings file fires its `loom/load/*` code; the reload debounce coalesces rapid edits." It packs two unrelated obligations into one bullet — a load-phase malformed-settings diagnostic and the watcher debounce coalescing rapid edits — that fail independently. A single red bullet does not localise which obligation broke, and a reviewer cannot tell which spec rule the bullet closes.
-
-The diagnostic half cites `loom/load/*`, a wildcard. The settings load path registers several distinct codes (`loom/load/settings-unreadable`, `loom/load/settings-invalid-json`, `loom/load/settings-invalid-entry`, `loom/load/settings-value-out-of-range`), so `loom/load/*` is not a registry-exact identifier and cannot be reconciled against the diagnostic-code registry by the `H5a` closing gate. Two reasonable implementers would pick different concrete codes for "a malformed settings file."
-
-The debounce half ("the reload debounce coalesces rapid edits") names no anchor at all, though the behaviour is normatively pinned at `package-and-settings.md` `#caching-and-reload` (the 250 ms drop-and-reschedule window). The same defect is present verbatim in the paired `V10c-T` leaf.
-
-## Plan Documents
-
-- `docs/plan_topics/V10c-settings-merge.md` — `Tests.` (edited)
-- `docs/plan_topics/V10c-T-settings-merge.md` — `Tests.` (edited)
-
-## Spec Documents
-
-- `docs/spec_topics/discovery/package-and-settings.md` — "Settings file reads → Failure modes" and `#caching-and-reload` (read-only)
-- `docs/spec_topics/diagnostics/code-registry-load.md` — settings-code rows (read-only)
-
-## Affected Leaves
-
-**Phases:** V10 — Discovery and settings
-
-**Leaves (implementation order):**
-
-- `V10c-T` — Settings reads and merge (tests) — (modified)
-- `V10c` — Settings reads and merge — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-A `loom/load/*` wildcard is not a registry-exact code, so the `H5a` closing gate cannot reconcile it and two implementers would assert different concrete settings codes for the same bullet. Merging the malformed-settings diagnostic with debounce coalescence means a single failing assertion does not point at a specific obligation, and the unanchored debounce half is unverifiable against the spec.
-
-## Issue introduction
-
-**Verdict:** indeterminate
-**Introducing commits:** none identified
-**History:** The cited plan leaf files `docs/plan_topics/V10c-settings-merge.md` and `docs/plan_topics/V10c-T-settings-merge.md` are untracked in the git work tree (never committed), so the defect cannot be localised to any commit.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In both `V10c` and `V10c-T`, replace the single second `Tests.` bullet with two separate bullets, keeping the two leaves mirror-consistent:
-
-1. A registry-exact malformed-settings code. For an invalid-JSON settings file, the bullet's code is `loom/load/settings-invalid-json` (a settings file present but not valid UTF-8 JSON, per `package-and-settings.md` "Settings file reads → Failure modes" and the row in `code-registry-load.md`). If the intended test malformation is an out-of-range recognised key rather than invalid JSON, cite `loom/load/settings-value-out-of-range` instead; pick the one code that matches the test's malformation. Do not retain a `loom/load/*` wildcard.
-2. The debounce-coalescence behaviour, citing the stable anchor `[package-and-settings.md#caching-and-reload]`: a burst of rapid watcher events coalesces into a single reload via the 250 ms drop-and-reschedule window.
-
-The spec is read-only for this fix — the codes and the `#caching-and-reload` anchor already exist; no spec edit is required.
-
-## Relationships
-
-- T09 "V1b escape-sequence Tests bullet merges error-detection and decoding without citing any code or anchor" — same-cluster (same merged-bullet + missing-identifier pattern; resolves independently).
-- T10 "V3b — first three `Tests.` bullets cite no registry code" — same-cluster (same pattern).
-- T11 "`V4a` third Tests bullet conflates three match behaviours with no cited identifier" — same-cluster (same pattern).
-- T15 "V11d second `Tests.` bullet conflates AJV revalidation and `(default)` annotation with no spec identifier" — same-cluster (same pattern).
-- T27 "V17a leaves three normative cancellation MUSTs with no asserting test" — same-cluster (the `V17a` Tests block shares the one-bullet-per-obligation discipline gap).
 
