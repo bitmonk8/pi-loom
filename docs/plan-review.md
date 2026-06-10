@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T37) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 8 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 7 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -564,77 +564,3 @@ Then align the third **Tests** bullet so its fixture instantiates that named con
 
 - T05 "conventions.md No-globals rule mis-attributes the gates' owning leaf and overstates the architectural test's reach" — same-cluster (both concern the singleton architectural test's mechanical reach; that one softens the convention prose, this one defines the positive detection set; resolve independently)
 - T08 "Architectural / ambient-access scan blind spots have no named compensating review gate" — same-cluster (same architectural test; that finding tracks the review-only blind spots via a named checklist, this one pins the mechanically-detected set)
-
----
-
-# T08 — Architectural / ambient-access scan blind spots have no named compensating review gate
-
-**Original headings:**
-- Architectural & lint scans have documented blind spots with no compensating gate
-- PIC-12 / PIC-20 indirect ambient-access ban verified by review only
-
-**Original section:** docs/plan_topics/H2a-cross-cutting-gates.md
-**Kind:** validation
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-The *No globals, statics, singletons* enforcement machinery is only partially mechanical. `H2a`'s `src/**` architectural test fails on a **module-level** mutable singleton but explicitly does **not** detect closure-captured, lazy module-cache, or DI-container singletons. `H3a`'s identifier-keyed ambient-access scan catches only **direct** references to `process.env`/`process.cwd`/`crypto.randomUUID`/`Date.now`/`setTimeout`, and explicitly does **not** detect aliased reads (`const env = process.env`), destructured reads, computed access (`process["env"]`), or re-export indirection. `V8b`'s `PIC-12`/`PIC-20` bullets repeat the same "enforced by review" disposition for the timing/UUID seams (an indirect `Date.now`/`setTimeout`/`crypto.randomUUID` reference through an alias, helper wrapper, or re-export defeats the per-runtime seam-isolation promise yet passes the direct scan).
-
-No named step in the plan owns that review obligation. The per-phase TDD ritual's self-review step partially covers the singleton residue but says nothing about the indirect ambient-access forms, and it is a per-leaf self-review, not a tracked release/PR gate. So an indirect ambient reference can pass `npm test` (the direct scan does not see it) and ship without any tracked verification point having fired.
-
-The plan already establishes the pattern this gap should follow: the parallel GOV-22 closing-gate residue is explicitly routed in `conventions.md`'s *REQ-ID discipline* rule to "the release-time editorial corpus review (`governance.md` GOV-15 reviewer-inspection step)." The architectural/ambient blind spots — both the `H2a`/`H3a` machinery and its `V8b` PIC-12/PIC-20 consumer — have no equivalent named anchor, leaving their manual portion untracked. The single named-checklist edit closes both surfaces together.
-
-## Plan Documents
-
-- `docs/plan_topics/conventions.md` — *No globals, statics, singletons* rule + *Per-phase TDD ritual* self-review step (edited)
-- `docs/plan_topics/H2a-cross-cutting-gates.md` — Adds (module-level-singleton blind-spot disclosure) (edited)
-- `docs/plan_topics/H3a-di-seam-skeleton.md` — Tests (indirect ambient-access blind-spot disclosure) (edited)
-- `docs/plan_topics/V8b-clock-fs-id-watch-token-seams.md` — `PIC-12`/`PIC-20` "enforced by review" references (edited)
-- `docs/plan_topics/V8b-T-clock-fs-id-watch-token-seams.md` — `PIC-12`/`PIC-20` Tests bullets (edited)
-- `docs/plan_topics/H6a-live-corpus-activation.md` — release-gate step (option-dependent)
-
-## Spec Documents
-
-None — the blind spots concern plan-originated code-quality conventions (operationalising `CLAUDE.md` *No globals, statics, singletons*), not spec obligations. The fix is internal to the plan corpus.
-
-## Affected Leaves
-
-**Phases:** Horizontal; Vertical V8
-
-**Leaves (implementation order):**
-
-- `H2a` — Cross-cutting lint and architectural gates — (modified)
-- `H3a` — Dependency-injection seam skeleton — (modified)
-- `V8b` — Clock/FileSystem/IdSource/FileWatcher/TokenEstimator seams — (modified)
-- `H6a` — Live-corpus closing-gate activation (release gate) — (option-dependent)
-
-## Consequence
-
-**Severity:** advisory
-
-The mechanical gates catch the common forms, so implementers can still produce working leaves; the gap is that the conceded manual residue (a closure-captured/DI-container singleton, or an aliased/destructured/computed/re-exported ambient access) has no tracked review step and can ship undetected. Because the disposition is stated as an enforcement guarantee ("enforced by contributor discipline / review") with nothing operationalising it, the manual portion is effectively unowned, risking a silent isolation regression rather than an implementer divergence.
-
-## Issue introduction
-
-**Verdict:** multi-commit-interaction (introduced-by-resolution)
-**Introducing commits:** `20e5812` (2026-06-10) "resolve 'Ambient-access ban asserts soundness it cannot deliver'"; `07555ea` (2026-06-10) "resolve 'completeness overclaims over partial-coverage mechanisms'"
-**History:** Before these commits, `H2a`/`H3a` asserted unqualified soundness. `20e5812` narrowed the `H3a` scan to the direct-reference form and added the indirect-form blind-spot disclosure with the "enforced by review" disposition; `07555ea` did the same for `H2a`'s architectural test and propagated the split into `V8b`/`V8b-T` PIC-12/PIC-20. Both correctly softened the overclaim but neither pinned the newly-disclosed manual residue to a named checklist step. The parallel GOV-22 recogniser resolution (`1035d0b`) *did* route its residue to a named step (GOV-15), which is why the inconsistency is visible.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Expand `conventions.md`'s *Per-phase TDD ritual* self-review step so its checklist line covers the indirect ambient-access forms — alias (`const env = process.env`), destructured reads, computed access (`process["env"]`), helper wrapper, and re-export indirection — alongside the existing singleton prompt. Add a one-line routing sentence to the *No globals, statics, singletons* rule that names the self-review step (and any release-time reviewer-inspection step) as the owner of the conceded manual residue, mirroring the GOV-22 → GOV-15 routing precedent. Change `H2a`/`H3a` and `V8b`'s `PIC-12`/`PIC-20` bullets from "enforced by contributor discipline / review" to a reference to that named step.
-
-Keep the residue list in lockstep with what the scans actually concede so the manual gate and the mechanical scans partition the space with no third gap between them. Land the `H2a`/`H3a`/`V8b` edits in one pass so the single named checklist item covers the ambient-access scan, the lint scan, the singleton architectural test, and the PIC-12/PIC-20 timing/UUID seams.
-
-## Relationships
-
-- T07 "Singleton architectural test defines its non-detection set but never its positive detection set" — same-cluster (same `H2a` architectural-test blind spot; resolves independently by defining the positive detection set)
-- T09 "Ambient-access scan exempts the seam adapter but never defines how a module is recognised as one" — same-cluster (touches the same `H3a` scan and seam-adapter boundary, but resolves independently — about how an adapter is declared, not about closing the indirect path)
-- T05 "conventions.md No-globals rule mis-attributes the gates' owning leaf and overstates the architectural test's reach" — same-cluster (same disclosed blind spots; that finding corrects the convention sentence)
