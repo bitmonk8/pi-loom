@@ -5,10 +5,11 @@
 **Adds.** Failing tests for the paired `V3b` implementation leaf.
 
 **Tests.**
-- A reassignment of a `let` binding fires the parse-phase rebind diagnostic.
-- Member/index assignment and reassignment in an immutable context fire their parse codes.
-- `++`/`--` are rejected.
-- A `let` without an initialiser fires `let-without-initialiser`.
+- `loom/parse/immutable-rebinding`: reassignment of a `let` (non-`mut`) binding fires.
+- `loom/parse/assignment-to-member-or-index`: `obj.field = …` / `arr[i] = …` member or index assignment fires.
+- `loom/parse/mut-on-immutable-context`: a `mut` modifier on a function parameter, `for` iteration variable, or `match` binding fires.
+- `loom/parse/increment-decrement`: `++`/`--` are rejected.
+- `loom/parse/let-without-initialiser`: a `let` without an initialiser fires.
 
 **Deps.** `V2b`, `V3a`
 
