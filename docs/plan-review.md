@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T37) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 25 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 24 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -1752,75 +1752,5 @@ This depends on the `H4a` fidelity contract exposing a way to model a completed 
 - T23 "ERR-13 no-rollback / completed-callee finality is over-claimed and unasserted in V4c" — decision-dependency (same `ERR-13` bullet in the same leaf; the seam-vs-live decision here constrains how that finding's added completed-callee assertion is written — this one must precede it)
 - T36 "Session double's model / tool / binder-response scripting surface is undefined" — decision-dependency (the seam-based exercise recommended here relies on the `H4a` harness defining a model/tool-call/completed-callee programming surface — this one must follow it)
 - T22 "V3d-T over-asserts final-value propagation against invoke/subagent caller surfaces built in later slices" — same-cluster (same class of defect — a `-T` leaf asserting over a surface built in a later slice; resolves independently)
-
----
-
-# T25 — V4d Tests bullets carry non-assertion notes (NOCEIL-2 scope, ERR-19 delegation) that belong in Adds
-
-**Original headings:**
-- ERR-15 NOCEIL-2 normative constraint lives only in a Tests bullet
-- ERR-19 cross-leaf delegation note in a Tests bullet
-
-**Original section:** docs/plan_topics/V4d-queryerror-variants.md / V4d-T
-**Kind:** placement, cruft
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-Two of `V4d`'s Tests bullets carry content that is not a test expectation and belongs in the `Adds` field, and both are duplicated verbatim into the paired `V4d-T`.
-
-First, the `ERR-15` Tests bullet carries a parenthetical stating normative scope: "(NOCEIL-2 seam: `ContextOverflowError` is the sole token-domain failure surface, with no per-query or cumulative token cap)." This is a MUST-NOT constraint on the runtime's token-domain failure surface — loom 1.0 imposes no per-query response-token cap and no cumulative token budget — and `V4d` is the closing leaf that traces NOCEIL-2. The constraint sits only in the test bullet; `V4d`'s `Adds` field (which enumerates the nine-variant `QueryError` union) does not carry it, so a reader scoping the leaf from `Adds` sees the variant union but no statement that `ContextOverflowError` is the sole token-domain failure surface.
-
-Second, the `ERR-19` Tests bullet ends with "the at-the-cap firing path is asserted by V13c." This is coverage-division metadata — a statement about *where* a sibling concern is tested — not a test expectation the `V4d` suite asserts. The body correctly describes what `V4d` verifies (the `ToolLoopExhaustedError` shape); the trailing delegation clause belongs to the leaf's narrative. The ownership split itself is correct (`V13c` owns the at-the-cap firing path); the defect is purely that the note sits inside a Tests bullet.
-
-## Plan Documents
-
-- `docs/plan_topics/V4d-queryerror-variants.md` — `Adds` (target) / `Tests` (`ERR-15`, `ERR-19` bullets) (edited)
-- `docs/plan_topics/V4d-T-queryerror-variants.md` — `Tests` (`ERR-15`, `ERR-19` bullets carry the identical text) (edited)
-- `docs/plan_topics/V13c-query-tool-loop.md` — Tests (read-only; owns the at-the-cap firing-path assertion)
-
-## Spec Documents
-
-None — NOCEIL-2 is already fully defined at `docs/spec_topics/hard-ceilings/ceiling-invariants-and-audit.md`; this is a plan-internal placement fix.
-
-## Affected Leaves
-
-**Phases:** Vertical slice V4 (Errors and results)
-
-**Leaves (implementation order):**
-
-- `V4d-T` — `QueryError` variant schema (tests) — (modified)
-- `V4d` — `QueryError` variant schema — (modified)
-
-## Consequence
-
-**Severity:** advisory
-
-An implementer reading `V4d`'s `Adds` to scope the leaf's behavioural surface sees the nine-variant union but no statement of the NOCEIL-2 no-token-cap constraint, so the behavioural description understates what the leaf must hold; a reader who skips the Tests bullet could believe a per-query or cumulative token cap is in scope. The `ERR-19` delegation clause may be misread as relieving `V4d` of any cap obligation or as an extra assertion. The constraints are still present in the leaf's test bullets and in the spec, so a working leaf is still producible — the defect is an incomplete behavioural-surface field plus non-assertion notes in the assertion list.
-
-## Issue introduction
-
-**Verdict:** single-commit (each)
-**Introducing commits:** e8c1d65 — pi-loom plan: resolve "NOCEIL-2/NOCEIL-4 closing-leaf trace annotations" (2026-06-10) [ERR-15 NOCEIL-2 parenthetical]; eaa2893 — pi-loom plan: resolve "ERR-19 firing-at-the-cap out of scope for V4d" (2026-06-10) [ERR-19 delegation clause]
-**History:** `V4d` was created in c6a664e with an `ERR-15` bullet that carried no NOCEIL-2 text and no NOCEIL-2 clause in `Adds`. Commit e8c1d65 added the NOCEIL-2 trace annotation but appended it as a parenthetical to the ERR-15 Tests bullet. Separately, the `ERR-19` bullet originally asserted firing; commit eaa2893 rewrote it to assert only the error shape and appended the cross-leaf delegation clause into the Tests bullet of both `V4d` and `V4d-T`. Both notes entered parked in test bullets rather than in `Adds`.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Relocate both notes from the Tests bullets into `V4d`'s `Adds` field, applying the same edit to the paired `V4d-T`:
-
-- **NOCEIL-2.** Add the scope to `V4d`'s `Adds` as a behavioural clause alongside the `QueryError` union description — e.g. "`ContextOverflowError` is the sole token-domain failure surface (NOCEIL-2): loom 1.0 imposes no per-query response-token cap and no cumulative token budget." Once `Adds` carries it, the ERR-15 Tests bullet parenthetical may remain a test annotation or be trimmed to the discriminator-type-openness assertion the bullet actually exercises.
-- **ERR-19.** Strike the trailing clause `; the at-the-cap firing path is asserted by V13c` from the `ERR-19` Tests bullet, leaving it to assert only the `ToolLoopExhaustedError` shape, and relocate the ownership note to `Adds` (e.g. noting the at-the-cap firing path is owned and asserted by `V13c`).
-
-The spec is read-only — NOCEIL-2 is already defined; reference it, do not restate. Keep `V4d` and `V4d-T` consistent. `V13c` is read-only for this fix.
-
-## Relationships
-
-None
 
 ---
