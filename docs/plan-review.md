@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T37) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 22 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 21 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -1532,76 +1532,4 @@ In `docs/plan_topics/V10c-T-settings-merge.md`, revise the reload-debounce Tests
 ## Relationships
 
 - T20 "ERR-7 watcher-reload assertion has no in-leaf test and no declared producer→owner dependency" — same-cluster (same `V10c`/`V10c-T` reload-debounce mechanism; that finding adds a failure-path assertion, this one makes the coalescing test deterministic)
-
----
-
-# T22 — V3d-T over-asserts final-value propagation against invoke/subagent caller surfaces built in later slices
-
-**Original heading:** `V3d-T` tests final-value propagation into an `invoke`/subagent caller no prior leaf builds
-**Original section:** docs/plan_topics/V3d-functions-and-return.md / V3d-T
-**Kind:** ordering
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V3d-T` and `V3d` both carry a final-value-contract Tests bullet that asserts "the final value propagates to an `invoke`/subagent caller on success and is absent on fail/cancel." The `invoke(...)` caller surface is built by `V15a` (Invocation core) and the subagent caller by `V9i` (Subagent-mode session isolation). `V3d`/`V3d-T` declare `Deps. V3a, V4a` only, so neither caller surface exists at the point `V3d-T` is picked up.
-
-The dependency cannot be repaired by pulling the callers earlier: `V15a` already declares `Deps. … V3d`, so adding `V15a` to `V3d`'s Deps would introduce a cycle. The caller-side propagation assertion therefore cannot live in `V3d-T` as currently written.
-
-What `V3d` legitimately owns is the function-result seam: what a function body yields as its final/produced value on success, and that this value is absent on fail/cancel. Caller-side propagation belongs to the leaves that build those callers (`V15a`, `V9i`). As written, the spec's final-value contract is asserted only against a caller surface that does not yet exist, and no later leaf asserts the caller-side half independently, so a faithful narrowing of `V3d-T` would leave that half asserted nowhere.
-
-## Plan Documents
-
-- `docs/plan_topics/V3d-T-functions-and-return.md` — Tests (final-value-contract bullet) (edited)
-- `docs/plan_topics/V3d-functions-and-return.md` — Tests (final-value-contract bullet) + Ships when (edited)
-- `docs/plan_topics/V15a-T-invocation-core.md` — Tests (option-dependent)
-- `docs/plan_topics/V15a-invocation-core.md` — Tests (option-dependent)
-- `docs/plan_topics/V9i-T-subagent-isolation.md` — Tests (option-dependent)
-- `docs/plan_topics/V9i-subagent-isolation.md` — Tests (option-dependent)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical slices — V3, V9, V15 (in order)
-
-**Leaves (implementation order):**
-
-- `V3d-T` — Functions and return (tests) — (modified)
-- `V3d` — Functions and return — (modified)
-- `V9i` — Subagent-mode session isolation and lifecycle — (modified)
-- `V15a` — Invocation core — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers diverge at `V3d-T`: one blocks because the `invoke`/subagent caller does not exist, the other writes the assertion against an invented stub caller whose shape need not match how `V15a`/`V9i` are later built. Either way, the spec's final-value contract on the caller side is never asserted against the real caller surface, so a defect in caller-side propagation can ship green.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commit:** c6a664e — "pi-loom plan: build/update plan for spec.md + review" (2026-06-10)
-**History:** The plan corpus under `docs/plan_topics/` entered the repository in the single plan-build commit `c6a664e`; `git log --follow` reports exactly one commit for each file. `git log -S` on the defect token ("final value propagates to an `invoke`/subagent caller") returns only `c6a664e`. The mis-scoped final-value bullet has therefore been present since the plan corpus was first authored.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Rescope the `V3d`/`V3d-T` final-value bullet to the function-result seam first (this bounds scope and unblocks `V3d-T`), then re-home the caller-side coverage to the leaves that build the callers.
-
-Rescope (do first): in both `docs/plan_topics/V3d-T-functions-and-return.md` and `docs/plan_topics/V3d-functions-and-return.md`, rewrite the final-value-contract Tests bullet so it asserts only what `V3d` owns — the function body's produced/final value on success and its absence on fail/cancel, observed at the function-result seam — with no reference to an `invoke`/subagent caller. Align the `V3d` **Ships when** phrasing to the produced-value seam wording. Do **not** add `V15a` to `V3d`'s Deps — `V15a` already depends on `V3d`, so the edge would cycle.
-
-Re-home caller-side coverage: add a caller-side final-value-propagation assertion to the leaves that own the caller surfaces, against the function-result seam `V3d` defines. In the `invoke` path (`V15a` / `V15a-T`) assert the callee's final value propagates to the `invoke` caller on success and is absent on fail/cancel; in the subagent path (`V9i` / `V9i-T`) assert the same. These leaves already declare the needed prerequisites transitively, so no new dependency edges into `V3d` are required. Ensure the `V15a`/`V9i` caller-side assertions name the same function-result seam `V3d` owns.
-
-## Relationships
-
-- T24 "V4c-T/V4c assert no-rollback over subagent, query, tool-call, and invoke surfaces built in later slices" — same-cluster (same pattern: a `-T` leaf asserting over `invoke`/subagent surfaces built in later slices; resolves independently via the same seam-scoping approach)
-- T29 "V18c-T runtime-evidence test exercises integrated features its Deps do not satisfy" — same-cluster (same ordering pattern: a `-T` leaf's failing test references features not yet built; resolves independently)
 
