@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T32) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blockers, 0 high, 14 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
+_Triage tally: 0 blockers, 0 high, 13 medium retained; 18 low discarded; 3 low findings merged into 1 medium finding; 5 NIT dropped; 0 false dropped. One verbatim duplicate (a re-pasted V6b finding under the V11d section) was de-duplicated into T12._
 
 ---
 
@@ -843,76 +843,4 @@ The `SchemaValidator` contract already exists in the spec (`host-interfaces-core
 ## Relationships
 
 - T02 "V2b ship-gate references the runtime AJV validator seam (V8a) outside its declared dependency closure" — same-cluster (the same `V8a`-not-in-`Deps.` omission on `V2b`, where an alternative deferral-marker framing is also in play; resolves independently).
-
----
-
-# T13 — `V6e`/`V6e-T` assert a non-existent `loom/parse/...` diagnostic code instead of the registered `loom/load/frontmatter-value-out-of-range`
-
-**Original heading:** Wrong diagnostic namespace: `loom/parse/frontmatter-value-out-of-range`
-**Original section:** V6e — Respond-repair / tool-loop
-**Kind:** codebase-grounding-broad, consistency, naming
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V6e` and its paired test leaf `V6e-T` both carry a Tests bullet asserting the diagnostic code `loom/parse/frontmatter-value-out-of-range` for out-of-range `tool_loop.max_rounds` / `respond_repair.attempts`. No such code exists anywhere in the corpus. The diagnostics registry registers this diagnostic under the **load** phase as `loom/load/frontmatter-value-out-of-range` (`docs/spec_topics/diagnostics/code-registry-load.md`), and FRNT-1 in `frontmatter-fields-b-and-templates.md` likewise names the load-phase form ("rejected at frontmatter-parse time as `loom/load/frontmatter-value-out-of-range`"). The `parse` vs `load` boundary is a real phase distinction in the registry's namespace scheme, so `loom/parse/...` is not an alias — it is a phantom code.
-
-The two leaves are a mirrored implementation/test pair, and both repeat the same wrong namespace verbatim, so the error is consistent between them but wrong in both.
-
-The `H5a` closing-gate reconciles test-asserted diagnostic codes against the registry in both directions. A faithful implementer who writes the test exactly as the plan states produces two reconciliation failures at once: (a) an asserted code (`loom/parse/...`) with no registry row, and (b) a registry code (`loom/load/frontmatter-value-out-of-range`) with no asserting test — leaving the real diagnostic uncovered.
-
-## Plan Documents
-
-- `docs/plan_topics/V6e-respond-repair-tool-loop.md` — Tests (edited)
-- `docs/plan_topics/V6e-T-respond-repair-tool-loop.md` — Tests (edited)
-- `docs/plan_topics/H5a-closing-gate-automation.md` — closing-gate reconciliation (read-only)
-
-## Spec Documents
-
-- `docs/spec_topics/diagnostics/code-registry-load.md` — `loom/load/frontmatter-value-out-of-range` row (read-only)
-- `docs/spec_topics/frontmatter/frontmatter-fields-b-and-templates.md` — FRNT-1 (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical (V6 — Frontmatter)
-
-**Leaves (implementation order):**
-
-- `V6e-T` — `respond_repair` and `tool_loop` (tests) — (modified)
-- `V6e` — `respond_repair` and `tool_loop` — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-An implementer following the plan literally writes a test asserting a diagnostic code that does not exist, while the registered `loom/load/frontmatter-value-out-of-range` ships with no asserting test. The `H5a` reconciliation gate then red-fails on both arms (asserted-code-without-row and registry-code-without-test), and the real range-check diagnostic is left effectively uncovered.
-
-## Issue introduction
-
-**Verdict:** indeterminate
-**Introducing commits:** none identified
-**History:** The cited plan leaf files (`docs/plan_topics/V6e-respond-repair-tool-loop.md` and its paired test leaf `V6e-T-respond-repair-tool-loop.md`) are untracked working-tree additions — `git status` reports both as `??`, and `git log -S 'loom/parse/frontmatter-value-out-of-range' -- docs/` returns no commits — so the defect's introduction cannot be localised to any commit. The repository is a git work tree, but these two files have never been committed.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In both `docs/plan_topics/V6e-respond-repair-tool-loop.md` and `docs/plan_topics/V6e-T-respond-repair-tool-loop.md`, in the second Tests bullet, replace the asserted code `loom/parse/frontmatter-value-out-of-range` with `loom/load/frontmatter-value-out-of-range`. The bullet text becomes:
-
-```
-- `loom/load/frontmatter-value-out-of-range`: out-of-range `max_rounds` or `respond_repair.attempts` fires.
-```
-
-Apply the identical edit to both leaves so the implementation/test pair stays mirror-consistent. The corrected code matches the registry row in `code-registry-load.md` and the FRNT-1 wording in `frontmatter-fields-b-and-templates.md`; no spec edit is required (the registry already carries the correct load-phase code).
-
-## Relationships
-
-- T21 "Asserted diagnostic code `loom/parse/empty-enum-body` is absent from the parse registry" — same-cluster (same defect class — a `loom/parse/...` code asserted by a leaf but absent from the registry; resolves independently in `V5a`).
-- T04 "Truncated diagnostic code: `V5b` cites `loom/parse/duplicate-discriminator`, registry has `loom/parse/duplicate-discriminator-value`" — same-cluster (asserted code mismatches its registry row; resolves independently).
-- T05 "Bare diagnostic code `binder-model-strict-capability-unknown` missing `loom/load/` prefix" — same-cluster (asserted-code/registry mismatch in `V11a`; resolves independently).
-- T03 "`DIAG-2` describes a `src/**` emission scan the closing gate does not perform" — decision-overlap (the asserting-test↔registry reconciliation scope of the `H5a` gate that surfaces this finding is the subject of that finding).
 

@@ -6,7 +6,7 @@
 
 **Tests.**
 - `FRNT-1`: `tool_loop.max_rounds` is a non-negative integer bounding free-phase rounds only (forced respond exempt), per-query and per-callee; `0` disables model tool calls; exhaustion produces `QueryError{tool_loop_exhausted}`.
-- `loom/parse/frontmatter-value-out-of-range`: out-of-range `max_rounds` or `respond_repair.attempts` fires.
+- `loom/load/frontmatter-value-out-of-range`: out-of-range `max_rounds` or `respond_repair.attempts` fires.
 
 **Deps.** `V6e-T`, `V6a`, `V13c`, `V13d`
 
