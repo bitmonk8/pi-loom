@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T37) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 27 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 26 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -1891,64 +1891,3 @@ Keep the substrate-level suppression test in `V17a`, but reword the `V17a` (and 
 None
 
 ---
-
-# T27 — V18a Ships-when claims partition verification with no backing mechanism
-
-**Original heading:** Cardinality assertion does not verify the probe partition
-**Original section:** docs/plan_topics/V18a-capability-inventory.md
-**Kind:** overclaim
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V18a`'s **Ships when** reads "`npm test` asserts `CAPABILITY_OBLIGATIONS.length === 7` and the factory-probable/non-probable partition." The only mechanism the leaf names is the `CAPABILITY_OBLIGATIONS.length === 7` build-time cardinality assertion. A length check proves there are seven entries; it says nothing about *which* entries are factory-probed at Step 0 versus verified otherwise. The PIC-15 Tests bullet (identical in `V18a` and `V18a-T`) describes the intended partition — items 1/2/3/4/6 factory-probed at Step 0, items 5/7 verified otherwise — but couples it to the same cardinality assertion as its only stated mechanism.
-
-The partition is a spec-anchored property: each item in `capability-inventory-items.md` declares whether it is reached by the Step-0 factory probe or verified by another path. An implementer who writes only the `.length === 7` assertion satisfies the **Ships when** literally while leaving the partition entirely unverified — a constant that mis-classifies which items are factory-probed would ship green.
-
-## Plan Documents
-
-- `docs/plan_topics/V18a-capability-inventory.md` — Ships when, Tests (PIC-15) (edited)
-- `docs/plan_topics/V18a-T-capability-inventory.md` — Tests (PIC-15) (edited)
-- `docs/plan_topics/V9a-capability-probe.md` — Step-0 factory probe / SDK named-member check (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** V18 — Build-time SDK gates
-
-**Leaves (implementation order):**
-
-- `V18a-T` — SDK capability inventory (tests) — (modified)
-- `V18a` — SDK capability inventory — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers diverge: one writes only the cardinality assertion (satisfying **Ships when** verbatim) and the partition goes unchecked; another adds per-item verification. A `CAPABILITY_OBLIGATIONS` constant that mis-classifies an item's probe membership passes `npm test` despite the **Ships when** claiming the partition is asserted.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e — pi-loom plan: build/update plan for spec.md + review (2026-06-10)
-**History:** `docs/plan_topics/V18a-capability-inventory.md` was added in a single commit (`c6a664e`). That first and only revision already carries both the `CAPABILITY_OBLIGATIONS.length === 7` cardinality assertion and the **Ships when** "factory-probable/non-probable partition" clause. The overclaim has been present since the leaf's inception.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `V18a`, add a mechanical assertion that each `CAPABILITY_OBLIGATIONS` entry's factory-probed classification matches the Step-0 probe set owned by `V9a`, so a mis-classified constant is caught at build time and the **Ships when** partition claim becomes mechanically true rather than vacuously satisfied by the `.length === 7` cardinality check alone. Derive the expected factory-probed set from `V9a`'s Step-0 SDK named-member check rather than a literal re-listed in `V18a`, so the two cannot drift. This requires carrying partition metadata on the constant and introduces a `V18a`↔`V9a` reference. Keep the existing `CAPABILITY_OBLIGATIONS.length === 7` cardinality assertion and apply the partition assertion in both `V18a` and `V18a-T` (the PIC-15 Tests bullet is identical in both leaves).
-
-Edge case: if carrying partition metadata would require restructuring beyond the leaf's scope, instead narrow `V18a`'s **Ships when** to the cardinality assertion alone so the stated gate matches its single named mechanism, leaving the partition prose in PIC-15 as descriptive context only.
-
-## Relationships
-
-None
-
