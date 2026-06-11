@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T44) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 21 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 20 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -1334,75 +1334,6 @@ Express the depth-6 vector as `surfaced:"ceiling#4", masked:["ceiling#2"]` so bo
 
 - T20 "V13c/V13c-T exhaustion bullet leaves the depth-6 co-fire vector's surfaced ceiling unstated" — co-resolve (the V13c twin of this exact bullet; the same disambiguation fixes both).
 - T21 "V13c `Spec` field omits `tool-calls.md`..." — same-cluster (same V13c/V13c-T leaf pair; resolves independently).
-
----
-
-# T20 — V13c/V13c-T exhaustion bullet leaves the depth-6 co-fire vector's surfaced ceiling unstated
-
-**Original heading:** Exhaustion bullet — surfaced ceiling unstated in the depth-6 co-fire vector
-**Original section:** Consolidated Plan Review — plan
-**Kind:** clarity
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-V13c's third Tests bullet reads: "an untyped exhaustion produces `ToolLoopExhaustedError`; the depth-6 co-fire vector sets `masked:["ceiling#2"]` (ceiling #2, `CIO-4`) on the typed-query response." The single bullet stacks two distinct scenarios separated by a semicolon, and in doing so makes ceiling #2 appear in two opposite roles without saying so: first as the *surfaced* outcome of an untyped exhaustion (`ToolLoopExhaustedError` is the ceiling-#2 surface), then as the *masked* entry of the typed depth-6 vector. The bullet never names what ceiling the depth-6 vector actually surfaces.
-
-Per the normative worked example ([`query-tool-loop.md` — Worked example: depth-6 forced respond at `max_rounds`](../../../docs/spec_topics/query/query-tool-loop.md)), the depth-6 co-fire vector surfaces **ceiling #4** — the typed-query response returns `Err(QueryError { kind: "validation", cause: "schema_validation", … schema_keyword: "maxDepth" … })` and the corresponding `RuntimeEvent` carries `kind: "validation"` with `masked: ["ceiling#2"]`. Ceiling #2 is the *co-satisfied-but-masked* sibling, not the surface. (Note the spec wire shape has no `surfaced` field; the surfaced ceiling is conveyed by the event `kind` / `Err` variant, so the surfaced ceiling must be named as the `validation`/`maxDepth` outcome, not as a literal `surfaced:` key.)
-
-Because this worked-example vector is explicitly cited by the `RuntimeEvent`-shape conformance test and the typed-query test suite, a test author drafting the depth-6 case from V13c's bullet alone could mis-target the assertion — asserting a `ToolLoopExhaustedError`/ceiling-#2 surface (the wrong outcome, named in the same breath) rather than the `validation`/`maxDepth` `Err` that the vector actually produces. The paired V13c-T leaf carries the identical bullet and the identical ambiguity.
-
-## Plan Documents
-
-- `docs/plan_topics/V13c-query-tool-loop.md` — Tests (exhaustion bullet) (edited)
-- `docs/plan_topics/V13c-T-query-tool-loop.md` — Tests (exhaustion bullet, paired mirror) (edited)
-- `docs/plan_topics/V9d-runtime-event-channel.md` — Tests / `PIC-1` `masked` field (read-only)
-- `docs/plan_topics/V16a-ceiling-order-masked.md` — cross-ceiling arbitration seam `{ surfaced, masked }` (read-only)
-- `docs/plan_topics/V5e-depth-enforcement.md` — ceiling-#4 (`maxDepth`) surface owner (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical slice V13
-
-**Leaves (implementation order):**
-
-- V13c-T — Query tool loop and typed two-phase (tests) — modified
-- V13c — Query tool loop and typed two-phase — modified
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable test authors drafting the depth-6 co-fire case from V13c's bullet alone can diverge: one asserts the `validation`/`maxDepth` `Err(QueryError)` surface with `masked:["ceiling#2"]` (correct, matching the normative worked example), the other asserts a `ToolLoopExhaustedError`/ceiling-#2 surface (wrong) because the bullet names that surface immediately before the `masked` clause. Since the worked-example vector is the cited basis for the conformance and typed-query suites, the ambiguity can produce a test that gates the wrong outcome.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e — pi-loom plan: build/update plan for spec.md + review (2026-06-10, Thomas Andersen)
-**History:** The exhaustion bullet entered `docs/plan_topics/V13c-query-tool-loop.md` in that file's first commit (c6a664e), verbatim as it reads today; the paired `V13c-T` leaf carries the identical bullet from the same commit. A pickaxe (`git log -S 'depth-6 co-fire vector sets'`) over both leaves returns only c6a664e, and no later commit touched the clause — the under-specification is present since the leaves' inception.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In the third Tests bullet of `docs/plan_topics/V13c-query-tool-loop.md` (the `query-tool-loop.md — exhaustion` bullet), split the two scenarios so each names its surfaced ceiling:
-
-- **Untyped exhaustion:** ceiling #2 surfaces as `Err(QueryError { kind: "tool_loop_exhausted" })` (`ToolLoopExhaustedError`); no `masked` (the field is omitted, never `[]`).
-- **Typed depth-6 co-fire vector:** ceiling #4 surfaces on the typed-query response as `Err(QueryError { kind: "validation", cause: "schema_validation" })` (`schema_keyword: "maxDepth"`), and the surface's `masked` enumerates the co-satisfied ceiling #2 — i.e. `masked:["ceiling#2"]` (`CIO-4`/`CIO-6`).
-
-State the surfaced ceiling for the depth-6 vector by its observable outcome (the `validation`/`maxDepth` `Err`), not as a literal `surfaced:` wire key — the spec's `RuntimeEvent`/diagnostic shape carries only `kind` plus the optional `masked` field, with no `surfaced` field. The authoritative vector is [`query-tool-loop.md` — Worked example: depth-6 forced respond at `max_rounds`](../../../docs/spec_topics/query/query-tool-loop.md); keep the bullet consistent with `V9d`'s `PIC-1` phrasing. Apply the same disambiguation verbatim to the mirrored bullet in `docs/plan_topics/V13c-T-query-tool-loop.md`.
-
-## Relationships
-
-- T19 "V13c-T exhaustion test bullet omits the surfaced ceiling for the depth-6 co-fire vector" — co-resolve (the identical bullet in the paired tests leaf takes the same disambiguation).
 
 ---
 
