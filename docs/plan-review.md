@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T18) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 9 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 13 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 8 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 13 NIT dropped; 0 false dropped._
 
 ---
 
@@ -556,70 +556,3 @@ Edge case for the implementer: the `invoke`-child-panic and completed-`invoke`-c
 
 - T10 "V4c ERR-13 routes a completed invoke-child through H4a, which scripts no invoke-child outcome" — must-follow (the completed-`invoke`-child vector this fix would add has no `H4a` scripting point until that finding is resolved)
 - T09 "V4c's ERR-12 consumes an H4a subagent-mode-callee modelling H4a does not enumerate" — same-cluster (same `V4c`/`H4a` seam, `ERR-12` side; resolves independently)
-
----
-
-# T09 — V4c's ERR-12 consumes an H4a subagent-mode-callee modelling H4a does not enumerate
-
-**Original heading:** V4c consumes an H4a subagent-mode-callee capability H4a does not enumerate
-**Original section:** docs/plan_topics/V4c-terminal-outcomes.md (+ V4c-T)
-**Kind:** implementability
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V4c` and `V4c-T` close `ERR-12` ("ERR-8 holds inside a subagent loom") and pin it to "the `H4a` harness modelling a subagent-mode callee — not the live `V9i` surface." The test therefore depends on `H4a` providing an observable way to script a subagent-mode callee.
-
-`H4a`'s response-programming surface enumerates exactly five scripting categories: (a) scripted assistant turns + streamed fragments; (b) `tool_use` results incl. `isError: true` and a mixed-success parallel batch; (c) binder/provider-call responses and failures; (d) `tool_loop.max_rounds` round-exhaustion; (e) abort/cancellation injection. None of the five scripts or observes a subagent-mode callee. Subagent dispatch is a distinct invocation mode in this plan — `V9i` owns the subagent-mode private `AgentSession`, spawn sequence, and lifecycle (`PIC-22`) — and `H4a`'s "the named injection points above are the content the contract must define" closes the enumeration to those five points by omission.
-
-The consumer/producer mismatch means an implementer building `ERR-12` finds no `H4a` scripting point for a subagent-mode callee. They would either invent an ad-hoc harness extension (diverging from the single shared scripting contract `H4a` is meant to be) or shoehorn the test into category (a)'s plain scripted-turn surface, in which case `ERR-12` passes against a harness fiction that does not model subagent dispatch at all and need not match the live `V9i` surface it is meant to stand in for.
-
-## Plan Documents
-
-- `docs/plan_topics/H4a-factory-shell-and-harness.md` — Adds (response-programming surface enumeration) + consumer list (edited)
-- `docs/plan_topics/V4c-terminal-outcomes.md` — Tests (ERR-12 bullet) (read-only)
-- `docs/plan_topics/V4c-T-terminal-outcomes.md` — Tests (ERR-12 bullet) (read-only)
-
-## Spec Documents
-
-- `docs/spec_topics/pi-integration-contract/subagent.md` — subagent-mode session contract `V9i`/`H4a` would model (read-only)
-
-## Affected Leaves
-
-**Phases:** Horizontal; Vertical V4
-
-**Leaves (implementation order):**
-
-- `H4a` — Extension factory shell and end-to-end harness — (modified)
-- `V4c` — Terminal outcomes, partial-append, and no-rollback — (modified)
-- `V4c-T` — Terminal outcomes, partial-append, and no-rollback (tests) — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers diverge: one extends `H4a`'s harness with an unstated subagent-scripting point, the other maps `ERR-12` onto category (a)'s plain turn-scripting. The second produces a green `ERR-12` that never exercises subagent-mode dispatch, so the subagent-loom no-rollback guarantee `ERR-12` claims to witness is unproven while the suite reports it covered.
-
-## Issue introduction
-
-**Verdict:** multi-commit-interaction
-**Introducing commits:** 27e12be — pi-loom plan: resolve "Session double's model / tool / binder-response scripting surface is undefined" (2026-06-10, Thomas Andersen); e8f0236 — pi-loom plan: resolve "V4c-T/V4c assert no-rollback over later-slice surfaces" (2026-06-11, Thomas Andersen); 35c0237 — pi-loom plan: resolve "V4c/V4c-T omit H4a from Deps" (2026-06-11, Thomas Andersen)
-**History:** `27e12be` introduced `H4a`'s response-programming surface with its five categories (a)–(e), none scripting a subagent-mode callee, and listed `V4c` as not yet a consumer. `e8f0236` rewrote `V4c`/`V4c-T`'s `ERR-12` to be "exercised via the `H4a` harness modelling a subagent-mode callee", creating a consumer dependence on a capability `H4a` never enumerated. `35c0237` then added `H4a` to `V4c`/`V4c-T` Deps and added `V4c` to `H4a`'s consumer list without adding a subagent-mode category, cementing the consumer↔producer mismatch.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Extend `H4a`'s response-programming-surface enumeration in Adds with an injection point that scripts/observes a subagent-mode callee, and name `V4c` against it as a consumer (already listed). Add a matching `Convention:` functional-effect assertion in `H4a`'s self-check Tests bullet for the new category so the seam is verified at the owning leaf. `V4c`/`V4c-T`'s `ERR-12` is then unchanged (it resolves against a real producer).
-
-The subagent-mode harness category should model the `V9i` subagent-mode session contract (`subagent.md`), not a harness fiction — a category that diverges from `V9i`'s real spawn/lifecycle contract would reintroduce the same fiction at the producer instead of the consumer. The spec is read-only; the subagent contract the category models is already owned by `V9i` / `subagent.md`. Watch that the related completed-invoke-child gap may be closed by the same enumeration pass.
-
-## Relationships
-
-- T10 "V4c ERR-13 routes a completed invoke-child through H4a, which scripts no invoke-child outcome" — co-resolve (same defect class: ERR-12's subagent-mode callee and ERR-13's invoke-child callee both lack an H4a category; one H4a-enumeration expansion can close both)
-- T08 "ERR-13 no-rollback vectors do not span the spec's enumerated authoring sites" — same-cluster (same `V4c`/`H4a` seam; resolves independently)
-
