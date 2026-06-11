@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T18) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 8 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 13 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 7 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 13 NIT dropped; 0 false dropped._
 
 ---
 
@@ -489,70 +489,3 @@ This aligns `V5e` with the established corpus convention (`V9j`, `V12b`, `V13a`,
 
 - T14 "V4a omits a Deps edge on V4d despite consuming the V4d-owned `QueryError` type" — same-cluster (same missing-`V4d`-edge ordering pattern on a different leaf; resolves independently)
 
----
-
-# T08 — ERR-13 no-rollback vectors do not span the spec's enumerated authoring sites
-
-**Original heading:** No-rollback / no-compensating-path guarantee (ERR-13) asserted only on sampled cases
-**Original section:** docs/plan_topics/V4c-terminal-outcomes.md (+ V4c-T)
-**Kind:** validation
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`ERR-13` ("No rollback") in [`error-model.md`](../../../docs/spec_topics/errors-and-results/error-model.md#err-13) enumerates five distinct authoring sites at which a prior side effect must survive a terminal event: `?`-early-return inside a function, `?`-early-return at the top of a loom block, a panic in a slash-command loom, a panic in an `invoke` child (surfaced to the parent as `InvokeInfraError { cause: "panic" }`), and mid-execution cancellation. The cancellation paragraph independently lists the side-effect kinds that must persist (filesystem writes, network requests, Pi-side service calls, sub-loom mutations) for a completed tool call, query, or `invoke` child.
-
-`V4c` / `V4c-T` collapse this into two `ERR-13` test bullets phrased generically — "a `?`/panic/cancel does not unwind side effects" and a completed-callee-finality bullet that drives "a tool call / invoke child to completion … then fire a downstream `?`/panic/cancel". Neither bullet pins which of the five enumerated causes the test vectors actually drive. The plan states the guarantee is architectural and that the tests witness it "on the enumerated cases rather than exhaustively" — that framing correctly disclaims any attempt to prove the *absolute* absence of a compensating path anywhere in the runtime (an inherent testability limit, not a defect). What it leaves open is the breadth of the sampled set itself: an implementer reading only `V4c` could satisfy "the enumerated cases" with a single representative `?`-and-cancel pair, never exercising the slash-command-panic, `invoke`-child-panic, or top-of-loom-`?` sites that the spec enumerates separately.
-
-The negative-direction assertion the validation concern asks for — "assert the effect persists and no compensating turn is injected" — is already present in the completed-callee-finality bullet. The remaining gap is that the vector set is not anchored to the spec's enumerated causes, so the closure evidence for `ERR-13` can pass while leaving several enumerated authoring sites unwitnessed.
-
-## Plan Documents
-
-- `docs/plan_topics/V4c-terminal-outcomes.md` — Tests / Ships when (edited)
-- `docs/plan_topics/V4c-T-terminal-outcomes.md` — Tests (edited)
-- `docs/plan_topics/H4a-factory-shell-and-harness.md` — session-double / response-programming categories (read-only)
-- `docs/plan_topics/coverage-matrix.md` — `ERR-8 … ERR-13` → `V4c` row (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical slices → V4 — Errors and results
-
-**Leaves (implementation order):**
-
-- V4c-T — Terminal outcomes, partial-append, and no-rollback (tests) — (modified)
-- V4c — Terminal outcomes, partial-append, and no-rollback — (modified)
-
-## Consequence
-
-**Severity:** advisory
-
-Two reasonable implementers can read "the enumerated cases" at different breadths; one drives all five `ERR-13` authoring sites, the other a single `?`/cancel pair. The `ERR-13` green tests are the coverage-matrix closure evidence for the no-rollback obligation, so a narrow sampling lets the closure gate pass while the slash-command-panic, `invoke`-child-panic, and top-of-loom-`?` sites ship unwitnessed.
-
-## Issue introduction
-
-**Verdict:** multi-commit-interaction
-**Introducing commits:** e8f0236 — pi-loom plan: resolve "V4c-T/V4c assert no-rollback over later-slice surfaces" (2026-06-11, Thomas Andersen); db918a2 — pi-loom plan: resolve "ERR-13 no-rollback / completed-callee finality over-claimed in V4c" (2026-06-11, Thomas Andersen)
-**History:** `V4c`/`V4c-T` carried `ERR-13` from the first plan build (c6a664e, 2026-06-10) as a single universal bullet ("`?`/panic/cancel never unwind side effects; … are final"). e8f0236 added the "no-rollback guarantee is architectural: the runtime contains no compensating path" framing to the **Adds** paragraph; db918a2 then softened the test bullet to "on the enumerated cases … the tests witness it on the sampled cases rather than exhaustively" and split out the completed-callee-finality bullet. The two resolutions together replaced an over-claimed universal assertion with a sampled posture but never enumerated which causes the sample must span, which is the surface this finding flags.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `V4c-T-terminal-outcomes.md` (and mirror the same vector list into `V4c-terminal-outcomes.md`'s `ERR-13` test bullet), replace the generic "a `?`/panic/cancel" phrasing with a vector list that names each `ERR-13` authoring site from [`error-model.md` §No rollback](../../../docs/spec_topics/errors-and-results/error-model.md#err-13): `?`-early-return inside a function, `?`-early-return at the top of a loom block, a panic in a slash-command loom, a panic in an `invoke` child (parent observes `InvokeInfraError { cause: "panic" }`), and mid-execution cancellation. Each vector drives a completed callee — modelled through the existing `H4a` session double and the `V17a` side-effect seam (`loomAbort`, checkpoint set, late-settlement discard) the bullet already cites — and asserts both that the prior side effect persists and that no compensating turn is appended.
-
-Leave the **Adds** and **Ships when** "architectural / witnessed on the enumerated cases rather than exhaustively" framing intact — the un-assertable absolute-absence property is an inherent limit, not part of this fix. The fix is purely to anchor "the enumerated cases" to the spec's enumerated causes; the `coverage-matrix.md` `ERR-8 … ERR-13` → `V4c` row is unchanged.
-
-Edge case for the implementer: the `invoke`-child-panic and completed-`invoke`-child vectors depend on `H4a` exposing a scripting/observation point for a completed nested-invoke outcome; resolve that seam ownership before authoring those two vectors.
-
-## Relationships
-
-- T10 "V4c ERR-13 routes a completed invoke-child through H4a, which scripts no invoke-child outcome" — must-follow (the completed-`invoke`-child vector this fix would add has no `H4a` scripting point until that finding is resolved)
-- T09 "V4c's ERR-12 consumes an H4a subagent-mode-callee modelling H4a does not enumerate" — same-cluster (same `V4c`/`H4a` seam, `ERR-12` side; resolves independently)
