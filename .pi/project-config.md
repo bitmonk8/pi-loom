@@ -92,8 +92,9 @@ fragment identifiers and do not interact with `idAllocationPolicy`.
 
 ## Plan rules
 
-Plan-leaf IDs follow `H1`–`H4` (horizontal phases), `M` (MVP), and
-`V<N><letter>` (vertical-slice leaves, e.g. `V4b`, `V18o`). When picking a
+Plan-leaf IDs follow `H<n><letter>` (horizontal phases, e.g. `H1a`, `H5b`,
+`H7a`), `M` (MVP), and `V<N><letter>` (vertical-slice leaves, e.g. `V4b`,
+`V18o`). When picking a
 new leaf ID, use the next free letter in the target phase; never reuse a
 retired ID. MVP and vertical features are authored as two paired leaves
 (TDD as two separate tasks): a tests task with a `-T` suffix (`V4b-T`,
