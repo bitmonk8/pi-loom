@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T37) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 5 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 4 medium retained; 34 low discarded; 4 low/duplicate findings merged into 4 cluster findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -327,76 +327,3 @@ Edge cases for the implementer:
 ## Relationships
 
 None
-
----
-
-# T05 — conventions.md No-globals rule mis-attributes the gates' owning leaf and overstates the architectural test's reach
-
-**Original headings:**
-- "the scaffold leaf" attribution of lint/architectural gates
-- "An architectural test … enforces this" (no-globals/statics/singletons)
-
-**Original section:** docs/plan_topics/conventions.md
-**Kind:** ordering, overclaim
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-The *Cross-cutting rules* → *No globals, statics, singletons* bullet in `conventions.md` is wrong on two coupled counts that share the same sentence, so a single aligned rewrite fixes both.
-
-First, **mis-attribution.** The bullet attributes enforcement to "the scaffold leaf" — both "An architectural test **in the scaffold leaf** enforces this against `src/**`" and the sibling *Specific exception types only* bullet's "An ESLint rule (`no-broad-catch`) **wired in the scaffold leaf** enforces this." The natural referent of "the scaffold leaf" is `H1a`. But neither gate lands there: `H1a`'s `Adds`/`Tests` cover only the TypeScript skeleton, manifest, test runner, and dependency-pin assertions. The gates live in two later horizontal leaves — `H2a` (the `no-broad-catch` ESLint rule, the `no-restricted-syntax` sequential allow-list, and the `src/**` module-level-mutable-singleton architectural test) and `H3a` (the identifier-keyed ambient-access scan). A reader applying the rule literally is pointed at `H1a` for enforcement that lives in `H2a`/`H3a`.
-
-Second, **reach overclaim.** "enforces this" reads as full mechanical enforcement of the rule's whole subject. The actual mechanism is narrower: the `H2a` architectural test fails only on **module-level** global / static / mutable-singleton bindings, and `H2a` itself states that closure-captured, lazy module-cache, and DI-container singletons "are not mechanically detected and are enforced by contributor discipline / review." `H3a`'s ambient-access scan likewise catches only **direct** references. So the umbrella convention sentence claims more reach than its implementing leaves deliver, and a leaf author trusting "enforces this" could lean on the gate instead of the contributor-discipline obligation the leaves disclose.
-
-The leaf-level documents (`H2a`/`H3a`) carry the correct `Convention.` citations and accurate detection-reach caveats; the defect is confined to the cross-cutting prose.
-
-## Plan Documents
-
-- `docs/plan_topics/conventions.md` — *Cross-cutting rules* (*No globals, statics, singletons*; *Specific exception types only*) (edited)
-- `docs/plan_topics/H1a-scaffold-and-toolchain.md` — full leaf (read-only)
-- `docs/plan_topics/H2a-cross-cutting-gates.md` — full leaf (read-only; already carries the detection-reach caveat)
-- `docs/plan_topics/H3a-di-seam-skeleton.md` — full leaf (read-only; ambient-access scan already discloses its direct-reference-only reach)
-
-## Spec Documents
-
-None. The rule is a project-convention operationalisation of `CLAUDE.md`'s dependency-injection mandate; no spec text is involved and the fix is confined to plan-convention wording.
-
-## Affected Leaves
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None. The fix is confined to the `conventions.md` cross-cutting prose; the gate-owning leaves `H2a` and `H3a` already disclose the accurate reach and carry correct attributions, so no leaf's *Adds* / *Tests* / *Ships when* changes and no leaf is blocked.
-
-## Consequence
-
-**Severity:** advisory
-
-A contributor reading the cross-cutting rule in isolation is pointed at `H1a` for enforcement that lives in `H2a`/`H3a` (wasting a lookup and possibly believing the gate is missing), and may treat the architectural test as a complete guard against singletons — skipping the contributor-discipline / review obligation for the closure-captured, lazy-module-cache, and DI-container forms the test cannot see. The gates ship correctly regardless because the `H2a`/`H3a` leaf documents pin them precisely, so no implementer diverges on where to build them; the convention and its leaves merely contradict each other on the gate's location and guarantee.
-
-## Issue introduction
-
-**Verdict:** multi-commit-interaction
-**Introducing commits:** 288f191 — Add implementation plan (2026-05-04); 15f69aa — finish scaffold/template re-pivot (2026-05-26); c6a664e — build/update plan for spec.md + review (2026-06-10); 07555ea — resolve "completeness overclaims over partial-coverage mechanisms" (2026-06-10)
-**History:** The unqualified enforcement claim has been present since the plan's first commit (288f191, "Architectural test in H1 enforces."), reworded to "the scaffold leaf" by 15f69aa without changing its reach. `H1a`/`H2a`/`H3a` were first created at c6a664e, which decomposed the scaffold phase and landed the gates in `H2a`/`H3a` without updating the `conventions.md` singular "scaffold leaf" referent. The reach contradiction sharpened at 07555ea, which added the "closure-captured, lazy module-cache, and DI-container singletons are not mechanically detected" caveat to `H2a` but left the `conventions.md` umbrella sentence untouched. Both facets are the interaction of benign convention prose with the unaccompanied leaf split / caveat addition.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `docs/plan_topics/conventions.md`, *Cross-cutting rules*, retarget both attributions from "the scaffold leaf" to the leaves that actually carry the gates **and** scope the enforcement claim to the binding forms the test mechanically detects, in one aligned rewrite of the *No globals* sentence. Suggested literal replacement:
-
-> An architectural test in `H2a` enforces this against `src/**` for the module-level binding forms it can detect (with `H3a`'s direct ambient-access scan as a companion); closure-captured, lazy-module-cache, and DI-container singletons are not mechanically detected and are enforced by contributor discipline / review.
-
-Apply the same leaf-retargeting to the *Specific exception types only* bullet — replace "An ESLint rule (`no-broad-catch`) wired in the scaffold leaf enforces this." with "An ESLint rule (`no-broad-catch`) wired in `H2a` enforces this." Cite leaf IDs exactly as they appear (`H1a`/`H2a`/`H3a`); "the scaffold phase (`H1a`–`H3a`)" is acceptable if a phase-level pointer is preferred. The spec/spec-topics are read-only for this fix; the edit stays inside `conventions.md`.
-
-## Relationships
-
-- T07 "Singleton architectural test defines its non-detection set but never its positive detection set" — same-cluster (same `H2a` architectural test; that finding defines the positive detection set in `H2a`, this one aligns the convention prose; resolve independently)
-- T08 "Architectural / ambient-access scan blind spots have no named compensating review gate" — same-cluster (same disclosed blind spots; that finding tracks the manual-review obligation on a named checklist, this one corrects the convention sentence)
-- T11 "Lint engine and custom-rule mechanism are consumed but never provisioned" — same-cluster (also concerns where scaffold-phase lint tooling is owned across `H1a`/`H2a`; resolves independently)
