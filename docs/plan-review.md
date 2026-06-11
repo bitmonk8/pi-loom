@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T18) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 6 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 13 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 5 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 13 NIT dropped; 0 false dropped._
 
 ---
 
@@ -354,70 +354,3 @@ Tie the list's maintenance to the same provenance obligation that keeps `H7a`'s 
 
 - T06 "Release-gate evidence artifact has no defined committed home or format" — same-cluster (both are committed-artefact gaps in the H4a smoke / H6a release-evidence chain; resolve independently)
 
----
-
-# T06 — Release-gate evidence artifact has no defined committed home or format
-
-**Original heading:** Release-gate evidence artifact has fields but no defined location/format
-**Original section:** docs/plan_topics/H6a-live-corpus-activation.md
-**Kind:** implementability
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`H6a`'s **Release-gate acceptance (manual real-host smoke)** item obligates a *committed evidence artifact* capturing four fields — the shipping Pi-SDK pin literal (the single-source-of-truth pin at `host-prerequisites.md#pi-sdk-pin`), the named owner who ran the `H4a` pre-merge real-host smoke, the run date, and the observed result against `H4a`'s narrowed model-output-invariant criterion. `H6a`'s **Ships when** then makes release-gate passage conditional on that artifact existing — "The release does not pass until that committed evidence record exists — not merely when the box is ticked — so a skipped, mis-recorded, or stale-pin run is detectable after the fact." Neither `H6a` nor `conventions.md` states *where* that artifact is committed or *in what form*.
-
-`conventions.md` §Doc updates enumerates only three committed documentation homes — the `README.md` status table, `CHANGELOG.md`, and `notes.md` — and none is designated to carry this evidence; `H6a` does not point at any of them nor at a dedicated file. With the home unstated, two implementers can record the run in different places (or in the commit message), and the "detectable after the fact" property that `H6a`'s Ships when gate rests on has no fixed location to inspect — a later check cannot be told where to look.
-
-The spec has already settled the analogous question for the version-bump smoke/audit evidence: `pi-integration-contract/version-bump-triggers.md` states "The procedure produces no separate artefact file," and `pi-integration-contract/version-bump-step2.md` records the per-item audit outcomes "in the bump commit message." `H6a`'s "committed evidence artifact" framing sits in unstated tension with that precedent — the plan should say whether the release-gate evidence follows the same commit-message convention or lives in a named committed file, so the same kind of manual-run evidence is not recorded two incompatible ways across the plan.
-
-## Plan Documents
-
-- `docs/plan_topics/H6a-live-corpus-activation.md` — Release-gate acceptance bullet + Ships when (edited)
-- `docs/plan_topics/H4a-factory-shell-and-harness.md` — manual real-host smoke gate (owner / record-the-result clause) (option-dependent)
-- `docs/plan_topics/conventions.md` — §Doc updates committed-artifact homes (option-dependent)
-- `docs/plan.md` — release-gate item 5 (read-only)
-
-## Spec Documents
-
-- `docs/spec_topics/pi-integration-contract/version-bump-triggers.md` — "produces no separate artefact file" outputs (read-only)
-- `docs/spec_topics/pi-integration-contract/version-bump-step2.md` — per-item outcomes recorded "in the bump commit message" (read-only)
-
-## Affected Leaves
-
-**Phases:** Horizontal
-
-**Leaves (implementation order):**
-
-- `H4a` — Extension factory shell and end-to-end harness — (modified)
-- `H6a` — Live-corpus closing-gate activation (loom 1.0 release gate) — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers place and format the evidence record differently (commit message, `notes.md`, or some new file), so the "detectable after the fact" guarantee `H6a`'s Ships when depends on has no fixed location to read. A downstream attempt to mechanically observe that the record exists cannot even be specified until the home is named.
-
-## Issue introduction
-
-**Verdict:** single-commit
-**Introducing commits:** eca63cf — pi-loom plan: resolve "Manual real-host fidelity gate leaves no falsifiable record" (2026-06-11, Thomas Andersen)
-**History:** `H6a`'s release-gate item originally recorded only a checklist tick ("the release does not pass until this item is checked"). Commit eca63cf rewrote it into the four-field "committed evidence artifact" obligation to give the manual smoke a falsifiable record, but specified neither the artifact's committed location nor its format. The location/format gap entered the corpus with that same rewrite — the obligation has carried fields-without-a-home since it was first authored.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Record the four fields in the gate-activation commit message, so the release-gate evidence follows the same manual-run-evidence convention the spec already fixes for the version-bump path (`version-bump-triggers.md`'s "no separate artefact file"; `version-bump-step2.md`'s "in the bump commit message"), and the plan carries one recording convention rather than two.
-
-State the home explicitly in both `H6a`'s Release-gate acceptance bullet and its Ships when clause, and in `H4a`'s record-the-result clause for the two pre-merge triggers, so the same artifact is located the same way wherever the smoke is run. The spec stays read-only for this fix.
-
-Watch the cross-reference with the mechanical-observer concern: if a closing-gate check is later added on the record's existence, the home named here is the path that check reads — keep the two choices consistent.
-
-## Relationships
-
-- T05 "Real-host smoke pass criterion (e) names a permitted code set with no committed source" — same-cluster (a sibling undefined-committed-artifact gap in the same `H6a`/`H4a` smoke gate; resolves independently)
