@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T44) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 11 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 10 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -640,74 +640,6 @@ In both `docs/plan_topics/V6d-system-interpolation.md` and `docs/plan_topics/V6d
 ## Relationships
 
 - T08 "`V6c` / `V6c-T` Tests bullets assert diagnostics without naming their codes" — same-cluster (same *Diagnostic message anchors* convention gap; resolves independently with its own codes).
-
----
-
-# T10 — V9i binds the V3d function-result seam without declaring V3d as a dependency
-
-**Original heading:** Binds the V3d function-result seam but omits V3d from Deps
-**Original section:** Consolidated Plan Review — plan
-**Kind:** implementability
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V9i`'s final-value Tests bullet asserts subagent-result propagation "against the function-result seam `V3d` defines" — the callee's produced final value propagates to the subagent caller on success and is absent on fail/cancel. The paired tests leaf `V9i-T` carries the identical bullet. Neither leaf lists `V3d` in its `Deps`: `V9i` declares `V9i-T, V9a, V17a, V11a, V8a` and `V9i-T` declares `V9a, V17a, V11a, V8a`. `V3d` is also not transitively reachable through any of those dependencies (the transitive closure of `V9i`'s deps — `V9a`, `V17a`, `V11a`, `V8a`, `V9b`, `V10c`, `H4a`, `V7a`, `H3a`, `V8b`, `V10a`, `V1a`, `H2a` — never reaches `V3d`).
-
-The sibling leaf `V15a` binds the same seam with verbatim wording (the final-value contract "against the function-result seam `V3d` defines") and correctly lists `V3d` in its `Deps`; its tests partner `V15a-T` does likewise. The `V9i`/`V9i-T` pair is the outlier: it consumes the `V3d`-owned seam shape without declaring the dependency that makes that shape available.
-
-An implementer sequencing by the dependency DAG can pick up `V9i-T`/`V9i` before `V3d` exists, then reach the final-value test with no defined function-result seam to bind against and invent an ad-hoc "final value of a subagent run" shape that need not match what `V3d` actually produces.
-
-## Plan Documents
-
-- `docs/plan_topics/V9i-subagent-isolation.md` — Deps field (edited)
-- `docs/plan_topics/V9i-T-subagent-isolation.md` — Deps field (edited)
-- `docs/plan_topics/V3d-functions-and-return.md` — function-result seam owner (read-only)
-- `docs/plan_topics/V15a-invocation-core.md` — sibling that binds the same seam with V3d declared (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical slice V9 — Extension host integration
-
-**Leaves (implementation order):**
-
-- `V9i-T` — Subagent-mode session isolation and lifecycle (tests) — (modified)
-- `V9i` — Subagent-mode session isolation and lifecycle — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-The final-value test binds a seam (`V3d`) that is neither a declared nor a transitive dependency, so an implementer can land `V9i-T`/`V9i` before `V3d` and will invent an ad-hoc subagent-result shape. Two reasonable implementers diverge on the final-value contract, and the subagent leaf can ship a shape that does not match what `V3d` produces.
-
-## Issue introduction
-
-**Verdict:** single-commit
-**Introducing commits:** 7a8565a — pi-loom plan: resolve "V3d-T over-asserts final-value propagation" (2026-06-11, Thomas Andersen)
-**History:** `V9i` and `V9i-T` were created in c6a664e (2026-06-10) with no reference to `V3d` at all; at that point `V9i`'s Deps were `V9i-T, V9a, V17a, V11a`. Commit 7a8565a (2026-06-11) added the final-value Tests bullet binding "the function-result seam `V3d` defines" to both leaves but did not add `V3d` to either leaf's Deps, introducing the seam-binding-without-dependency mismatch.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add `V3d` to the `Deps` field of both `V9i` and `V9i-T`, mirroring the sibling `V15a`/`V15a-T` pair that binds the same seam.
-
-- In `docs/plan_topics/V9i-subagent-isolation.md`, change the `Deps` line to `V9i-T`, `V9a`, `V17a`, `V11a`, `V8a`, `V3d`.
-- In `docs/plan_topics/V9i-T-subagent-isolation.md`, change the `Deps` line to `V9a`, `V17a`, `V11a`, `V8a`, `V3d`.
-
-No spec edit is required: the `V3d` function-result seam already exists (owned by `V3d` per `return.md`); this fix only declares the dependency that the existing Tests bullet relies on.
-
-## Relationships
-
-- T12 "V4c/V4c-T name the H4a harness and session double but omit H4a from Deps" — same-cluster (same defect class: a leaf binds a seam it does not declare in Deps; resolves independently).
 
 ---
 
