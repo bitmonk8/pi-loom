@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T44) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 34 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 33 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -2308,66 +2308,3 @@ The plan already declares Class-2 seams ad hoc in leaf prose with no registry, a
 - T34 "Un-anchored-MUST recogniser: narrative/non-narrative page classification source unstated" — same-cluster (parallel undefined mechanical input to the same MUST-token scan; resolves independently).
 - T32 "H6a release-gate green criterion over-claims un-anchored-MUST scan completeness" — decision-dependency (how the un-anchored-MUST arm is scoped here constrains how that over-claim is softened).
 
----
-
-# T34 — Un-anchored-MUST recogniser: narrative/non-narrative page classification source unstated
-
-**Original heading:** "non-narrative `spec_topics/**` pages" classification source not stated in the leaf
-**Original section:** Consolidated Plan Review — plan
-**Kind:** implementability
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-The closing-gate's third reconciliation surface — the un-anchored-MUST/MUST-NOT recogniser — is defined in `conventions.md` *REQ-ID discipline* as a "best-effort `MUST`/`MUST NOT`-token text scan over **non-narrative** `spec_topics/**` pages". The scan's page-scope (which pages it iterates) therefore turns on the narrative-vs-non-narrative classification, but at the point of use the rule never states the mechanical source of that classification. It cites GOV-22 for the obligation *class* and the coverage-matrix for the enumeration target, but not the rule that decides whether a given `spec_topics/**` page is in scope.
-
-The corpus does define a byte-exact classification: GOV-3 (`req-id-prefix-table-active-a.md#gov-3`) excludes pages whose prefix-table row carries the literal cell `(no IDs — narrative)` from extraction, and mandates a byte-exact cell comparison. `conventions.md` itself uses this definition elsewhere — the *Leaf format* *Spec*/*Tests* bullets cite "`(no IDs — narrative)` cell per `governance.md` GOV-3". But the un-anchored-MUST recogniser arm does not link to it, and `H5a` (whose **Convention** pin scopes the implementer to *REQ-ID discipline*, *Diagnostic message anchors*, and the coverage-matrix closure obligation — not *Leaf format*) never restates "non-narrative" at all; its **Adds**/**Tests** speak only of "the live `spec_topics/**` normative MUST/MUST-NOT set".
-
-An implementer building the gate from the cited sections is left to infer the page filter. Two reasonable inferences diverge: connect to GOV-3's byte-exact narrative cell, hard-code a page list, or scan every `spec_topics/**` page (which reddens the gate on MUST tokens inside the pure-narrative pages — `pi-integration.md`, `glossary.md`, `overview.md`, `influences.md`, `comparison.md`, `related-work.md`, `future-considerations.md`).
-
-## Plan Documents
-
-- `docs/plan_topics/conventions.md` — *REQ-ID discipline* (un-anchored-MUST recogniser arm) (edited)
-- `docs/plan_topics/H5a-closing-gate-automation.md` — Adds / Tests (option-dependent)
-
-## Spec Documents
-
-- `docs/spec_topics/governance/req-id-prefix-table-active-a.md` — GOV-3 (byte-exact `(no IDs — narrative)` classification) (read-only)
-- `docs/spec_topics/governance.md` — GOV-3 hub (read-only)
-
-## Affected Leaves
-
-**Phases:** Horizontal
-
-**Leaves (implementation order):**
-
-- `H5a` — REQ-ID / diagnostic-code closing-gate automation — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two implementers building the un-anchored-MUST recogniser from `H5a` and its cited convention sections would diverge on which `spec_topics/**` pages the MUST-scan iterates. One who scans all pages reddens the gate on illustrative/narrative MUST tokens on the seven pure-narrative pages; one who hard-codes a page list ships a filter that silently rots as the prefix table evolves. The gate's pass/fail set is thus implementation-dependent rather than mechanically pinned to GOV-3.
-
-## Issue introduction
-
-**Verdict:** single-commit
-**Introducing commits:** 0603eb4 — pi-loom plan: resolve "un-anchored normative MUSTs invisible to closing gate" (2026-06-10, Thomas Andersen)
-**History:** The un-anchored-MUST recogniser arm was added to `conventions.md` *REQ-ID discipline* in 0603eb4, which introduced the phrase "non-narrative `spec_topics/**` page" and cited GOV-22 for the obligation class but never cited GOV-3 (or the byte-exact `(no IDs — narrative)` prefix-table cell) as the source of the narrative classification the scan-scope depends on. The follow-up 1035d0b refined the recogniser's precision/recall language but did not add the missing classification-source citation, so the gap has been present at this arm since its introduction.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `docs/plan_topics/conventions.md` *REQ-ID discipline*, at the sentence defining the recogniser as a "best-effort `MUST`/`MUST NOT`-token text scan over non-narrative `spec_topics/**` pages", cite GOV-3 (`../spec_topics/governance/req-id-prefix-table-active-a.md#gov-3`, surfaced through `../spec_topics/governance.md`) as the mechanical source for "non-narrative", stating the in-scope test: a `spec_topics/**` page is in scope iff its [REQ-ID prefix table](../spec_topics/governance/req-id-prefix-table-active-a.md) row's cell is not the byte-exact `(no IDs — narrative)` literal (`H5a`'s *Spec*-closure rule already cites this exclusion for the leaf-citation context — reuse the same anchor). This is the same byte-exact comparison GOV-3 mandates for REQ-ID extraction, so the recogniser's page-scope and the REQ-ID extractor's page-scope share one definition.
-
-Optionally surface the same citation from `H5a`'s **Adds** where it names "the live `spec_topics/**` normative MUST/MUST-NOT set", since `H5a`'s **Convention** pin does not otherwise route the implementer to the GOV-3 narrative cell. The spec is read-only for this fix — GOV-3 already supplies the classification; the fix only cross-references it.
-
-## Relationships
-
-- T33 "Un-anchored-MUST recogniser — the seam-name exclusion arm has no defined mechanical input" — same-cluster (the adjacent finding names a different missing mechanical input — the seam-exclusion set — for the same recogniser arm; both resolve by pinning the arm's inputs but address distinct inputs).
-- T32 "H6a release-gate green criterion over-claims un-anchored-MUST scan completeness" — same-cluster (concerns the live-corpus completeness claim for the same recogniser; resolves independently).
