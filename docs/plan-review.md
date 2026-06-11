@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T56) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 1 high, 41 medium retained (42 findings); ~88 low discarded; 4 low findings merged into 2 medium findings; ~35 NIT dropped; 14 false dropped (upstream)._
+_Triage tally: 0 blocker, 1 high, 40 medium retained (41 findings); ~88 low discarded; 4 low findings merged into 2 medium findings; ~35 NIT dropped; 14 false dropped (upstream)._
 
 ---
 
@@ -2757,72 +2757,6 @@ The gate consumes the existing `strict-capability-probe` entry's `probedName` pa
 
 - T41 "Provider seed-field table shipped without its `Api`-coverage assertion in V18c's Tests/Ships-when" — same-cluster (sibling V18c gate with the identical Tests/Ships-when validation gap; resolves independently with the same kind of edit)
 - T44 "V18c bundles mechanically-gated build-time tests with non-testable editorial obligations under one Ships-when" — must-follow (its recommendation extends V18c Ships-when to include the strict-capability gate; whichever leaf retains the gate is where this test must land)
-
----
-
-# T41 — Provider seed-field table shipped without its `Api`-coverage assertion in V18c's Tests/Ships-when
-
-**Original heading:** Provider seed-field table added with no asserting test
-**Original section:** V18c — Version-bump static gates
-**Kind:** validation
-**Importance:** medium
-**Score:** 30
-**MustFix:** false
-
-## Finding
-
-V18c's **Adds** field lists "the provider seed-field table" among the build-time gates the leaf operationalises, but its **Tests** and **Ships when** fields name no assertion for it. The spec makes a specific build-time check the mechanical gate for this obligation: `provider-error-mapping.md` §Provider seed-field mapping pins the `Api`-coverage assertion as one that "enumerates pi-ai's exposed `Api` literal-union values and asserts every value appears as a row key in the seed-field table constant," and version-bump step 6 (`version-bump-triggers.md`) states "The build-time `Api`-coverage assertion is the mechanical gate that fails until this step has been completed." A new pi-ai `Api` value is meant to light the assertion red at the bump commit, parallel to a new SDK capability.
-
-V18c's Tests cover only step 2(a)/2(b) surface-inventory, the `engines.node` floor literal-read, the `peerDependencies` pin, and the `SessionShutdownEvent['reason']` brand-string snapshot; Ships-when names the same set. Neither references the seed-field `Api`-coverage gate. Because the leaf is the home for the seed-field table and its gate, a reviewer can satisfy V18c's Ships-when condition with the table constant authored but the gate that protects it never built.
-
-## Plan Documents
-
-- `docs/plan_topics/V18c-version-bump-checklist.md` — Adds / Tests / Ships when (edited)
-- `docs/plan_topics/coverage-matrix.md` — §Code-keyed obligation areas (option-dependent)
-
-## Spec Documents
-
-- `docs/spec_topics/pi-integration-contract/provider-error-mapping.md` — §Provider seed-field mapping (read-only)
-- `docs/spec_topics/pi-integration-contract/version-bump-triggers.md` — step 6 (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical slice V18 (Build-time SDK gates)
-
-**Leaves (implementation order):**
-
-- `V18c-T` — Version-bump static gates (tests) — (modified)
-- `V18c` — Pi version-bump static gates — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-If V18c ships as written, an implementer satisfies Ships-when by authoring the seed-field table and the named gates without ever building the spec-mandated build-time `Api`-coverage assertion. A later `@earendil-works/pi-ai` minor that adds an `Api` value then silently regresses seed support for that provider: the gate the spec relies on to redden at the bump commit does not exist, so `npm test` stays green and the omission goes undetected.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e — pi-loom plan: build/update plan for spec.md + review (2026-06-10, Thomas Andersen)
-**History:** The V18c leaf has listed "the provider seed-field table" in its Adds field since the plan's first commit (c6a664e); no Tests or Ships-when bullet for the `Api`-coverage assertion has existed in any revision (the `Api-coverage` token appears in no commit touching any plan file). The gap is original to the leaf, not introduced by a later edit.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `docs/plan_topics/V18c-version-bump-checklist.md`, add a Tests bullet for the provider seed-field `Api`-coverage gate and extend Ships-when to include it.
-
-- **Tests.** Add a bullet asserting the build-time `Api`-coverage assertion reddens when a pi-ai `Api` value is absent from the seed-field table constant's row keys (the spec's named trigger: a new/unlisted `Api`), backed by a per-provider seed-field fixture that also reddens when a supported provider's seed field is renamed, retyped, or moved between the supporting and non-supporting sets (step 6's fixture-rerun trigger). Cite the gate's contract at `provider-error-mapping.md#provider-seed-field-mapping` and step 6 at `version-bump-triggers.md`.
-- **Ships when.** Add the `Api`-coverage gate to the green-on-`main` list alongside the step-2(a)/2(b), `engines.node`, peer-dep, and reason-snapshot gates.
-
-The asserting test's structural shape (fixture layout, number of bullets) is the implementer's choice; the binding content is that the gate reddens on an unlisted `Api` value and on a renamed/retyped/moved seed field for a supported provider, and that Ships-when names it.
-
-## Relationships
-
-- T40 "V18c strict-capability probe gate is named in Adds but has no asserting test" — same-cluster (parallel untested-gate gap in the same leaf; resolved by the same kind of edit but an independent assertion)
-- T44 "V18c bundles mechanically-gated build-time tests with non-testable editorial obligations under one Ships-when" — must-follow (its Ships-when entry for the `Api`-coverage gate depends on this finding authoring the test)
 
 ---
 
