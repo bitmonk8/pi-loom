@@ -2,7 +2,7 @@
 
 **Spec.** [`../spec_topics/errors-and-results.md`](../spec_topics/errors-and-results.md), [`../spec_topics/errors-and-results/error-model.md`](../spec_topics/errors-and-results/error-model.md).
 
-**Adds.** The `match` statement (exhaustive destructuring over the six pattern forms, per-arm LUB, `MatchError`), the `Result`/`Ok`/`Err` type, and the `?` operator (Ok-unwrap / Err early-return desugaring to `return Err(e)`) with its static preconditions.
+**Adds.** The `match` expression (exhaustive destructuring over the six pattern forms, per-arm LUB, `MatchError`), the `Result`/`Ok`/`Err` type, and the `?` operator (Ok-unwrap / Err early-return desugaring to `return Err(e)`) with its static preconditions.
 
 **Tests.**
 - `ERR-18`: a `?` whose operand is not statically `Result<_, QueryError>` fires `question-on-non-result` (type phase).

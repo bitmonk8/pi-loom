@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T56) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 3 high, 47 medium retained (50 findings); ~88 low discarded; 4 low findings merged into 2 medium findings; ~35 NIT dropped; 14 false dropped (upstream)._
+_Triage tally: 0 blocker, 2 high, 47 medium retained (49 findings); ~88 low discarded; 4 low findings merged into 2 medium findings; ~35 NIT dropped; 14 false dropped (upstream)._
 
 ---
 
@@ -3373,63 +3373,3 @@ conventions.md remains the authoritative home for the leaf-ID scheme; the projec
 ## Relationships
 
 None
-
----
-
-# T50 — V4a Adds miscategorises `match` as a statement; the spec defines it as an expression
-
-**Original heading:** Adds calls `match` a "statement" though the spec names it an expression
-**Original section:** V4a — Match / Result
-**Kind:** naming
-**Importance:** high
-**Score:** 90
-**MustFix:** false
-
-## Finding
-
-`V4a` — `match`, `?`, and `Result` opens its **Adds** field with "The `match` statement (exhaustive destructuring over the six pattern forms, per-arm LUB, `MatchError`)". The spec is explicit that `match` is an expression: `error-model.md` line 3 reads "**`match` expression** — exhaustive destructuring; arms evaluate to a value, so `match` is itself an expression", and the worked example binds its result (`let score = match … { … }`).
-
-The expression categorisation is load-bearing for the very obligations V4a's own Tests bullets cite. The per-arm LUB rule ("All arms must produce values of the same type, or values whose types share a common upper bound … narrowed by any sink in scope on the `match` expression itself"), the `loom/parse/match-arm-type-mismatch` code, and the `loom/parse/statement-in-arm-body` rule (an arm body "is a single expression — statements … are not expressions in Loom and are not admissible as arm bodies on their own") all presuppose `match` yields a value. Naming it a "statement" in the artifact-of-record field invites an implementer to build it as a non-value-producing statement node, which contradicts the spec's `let … = match …` usage and the arm-body grammar.
-
-The term appears exactly once in the plan corpus (`V4a` Adds, line 5); no other leaf uses "match statement".
-
-## Plan Documents
-
-- `docs/plan_topics/V4a-match-result.md` — Adds (edited)
-
-## Spec Documents
-
-- `docs/spec_topics/errors-and-results/error-model.md` — `match` expression / Arm syntax (read-only; establishes the correct term, not edited)
-
-## Affected Leaves
-
-**Phases:** Vertical slices (V4 — Errors and results)
-
-**Leaves (implementation order):**
-
-- `V4a` — `match`, `?`, and `Result` — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers could diverge on the grammar category: one reading the spec builds `match` as a value-producing expression, another following V4a Adds builds it as a statement that does not yield a value — which then cannot satisfy the per-arm LUB typing, the `match-arm-type-mismatch` check, or the `statement-in-arm-body` rule the same leaf's Tests demand.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e — "pi-loom plan: build/update plan for spec.md + review" (2026-06-10)
-**History:** `docs/plan_topics/V4a-match-result.md` was added in c6a664e with the "The `match` statement" wording already present (confirmed via `git log --diff-filter=A` and `git show c6a664e:…`). `git log -G 'match` statement'` reports only that commit; no later edit ever touched the token. The defect entered with the leaf file's creation and has carried through unchanged.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `docs/plan_topics/V4a-match-result.md`, **Adds** field, replace the opening phrase `The `match` statement` with `The `match` expression`. This is the sole occurrence in the plan corpus, so no cross-leaf propagation is needed. The Tests and Ships-when bullets already reference `match` without the statement/expression qualifier and need no change.
-
-## Relationships
-
-None
-
