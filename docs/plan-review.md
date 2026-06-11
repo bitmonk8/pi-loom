@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T56) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 4 high, 47 medium retained (51 findings); ~88 low discarded; 4 low findings merged into 2 medium findings; ~35 NIT dropped; 14 false dropped (upstream)._
+_Triage tally: 0 blocker, 3 high, 47 medium retained (50 findings); ~88 low discarded; 4 low findings merged into 2 medium findings; ~35 NIT dropped; 14 false dropped (upstream)._
 
 ---
 
@@ -3433,63 +3433,3 @@ In `docs/plan_topics/V4a-match-result.md`, **Adds** field, replace the opening p
 
 None
 
----
-
-# T51 — `V8a-T` tests the Clock-backed Checkpoint yield kind but omits `V8b` from its Deps
-
-**Original heading:** `V8a-T` omits `V8b` while asserting the Clock-backed yield kind
-**Original section:** V8a — Checkpoint and SchemaValidator seams
-**Kind:** ordering
-**Importance:** high
-**Score:** 90
-**MustFix:** false
-
-## Finding
-
-`V8a-T`'s `PIC-10` bullet asserts that a checkpoint "awaits at each defined cancel site with the correct yield kind" — the macrotask-vs-microtask distinction the paired `V8a` `Checkpoint` seam defines (`macrotask yield for loop-iter, microtask otherwise`). That distinction is realised through the injected `Clock` seam (`now`/`wallNow`/`setTimeout`/`clearTimeout`), which is introduced by `V8b`: the macrotask yield is a `Clock.setTimeout` site, observed in a test by injecting a fake `Clock` and asserting the scheduling call fires for `loop-iter` and not otherwise. The `V8a` implementation leaf already declares `Deps. V8a-T, H3a, V8b`, confirming the Checkpoint construction binds the `Clock` seam.
-
-`V8a-T`, however, declares `Deps. H3a` only. An implementer who picks up `V8a-T` at the point its declared Deps are satisfied (after `H3a`, before `V8b`) cannot author a red test that references the `Clock` interface — the type does not yet exist. The tests-task's `Ships when` ("the tests above exist, compile, and fail red for the intended reason") is therefore unobservable until `V8b` lands. The tests-task and its implementation partner disagree about when the `Clock` seam is available.
-
-## Plan Documents
-
-- `docs/plan_topics/V8a-T-checkpoint-validator-seams.md` — `Deps.` field (edited)
-- `docs/plan_topics/V8a-checkpoint-validator-seams.md` — `Adds.` / `Deps.` (read-only; impl leaf already lists `V8b`)
-- `docs/plan_topics/V8b-clock-fs-id-watch-token-seams.md` — `Clock` seam `Adds.` (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical slices — V8 (Pi host seams)
-
-**Leaves (implementation order):**
-
-- `V8a-T` — `Checkpoint` and `SchemaValidator` seams (tests) — (both)
-
-## Consequence
-
-**Severity:** blocking
-
-Following the canonical "pick the next leaf whose Deps are satisfied" rule, `V8a-T` becomes pickable after `H3a` alone, but its `PIC-10` red test cannot compile without the `Clock` interface from `V8b`, so the tests-task's `Ships when` (exist, compile, fail red) cannot be met. The leaf cannot be completed at its declared dependency point, and an implementer who does not independently notice the impl leaf's `V8b` edge is stranded.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commit:** c6a664e (2026-06-10) — "pi-loom plan: build/update plan for spec.md + review"
-**History:** `docs/plan_topics/V8a-T-checkpoint-validator-seams.md` was created in c6a664e (`git log --follow --diff-filter=A`) and its `Deps.` line has read `H3a` only ever since — `git log -G 'V8b'` over the file returns no commits. The paired implementation leaf `V8a` carried `V8b` in its `Deps.` from the same commit, so the tests/impl dependency asymmetry was present from inception rather than introduced by a later edit.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `docs/plan_topics/V8a-T-checkpoint-validator-seams.md`, extend the `Deps.` bullet from `` **Deps.** `H3a` `` to `` **Deps.** `H3a`, `V8b` ``, mirroring the paired implementation leaf `V8a` (which already declares `V8a-T, H3a, V8b`). This makes the `Clock` seam available before `V8a-T` is picked up, so the `PIC-10` red test can reference the `Clock` interface and compile.
-
-Implementer note: if `V8b` is split into per-seam sub-leaves, the new dependency must name the sub-leaf that owns the `Clock` seam, not the umbrella `V8b` id.
-
-## Relationships
-
-- T20 "`Clock` seam's functional behaviour is unverified — `V8b-T`'s `PIC-12` asserts only the ambient-access ban" — same-cluster (both touch the `Clock` seam; resolve independently)
