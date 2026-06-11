@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T56) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 1 high, 44 medium retained (45 findings); ~88 low discarded; 4 low findings merged into 2 medium findings; ~35 NIT dropped; 14 false dropped (upstream)._
+_Triage tally: 0 blocker, 1 high, 43 medium retained (44 findings); ~88 low discarded; 4 low findings merged into 2 medium findings; ~35 NIT dropped; 14 false dropped (upstream)._
 
 ---
 
@@ -3040,69 +3040,3 @@ Extend `V18c`'s **Ships when** so the provider seed-field / `Api`-coverage gate 
 - T43 "V18c mislabels the manual editorial-review checklist as a static build-time gate, leaving it with no done condition" — co-resolve (Obligation A's split moves the (a)–(aj) checklist to a human-review leaf, simultaneously resolving its no-done-condition / mislabel defect)
 - T41 "Provider seed-field table shipped without its `Api`-coverage assertion in V18c's Tests/Ships-when" — must-precede (Obligation B's Ships-when entry for the `Api`-coverage gate depends on that finding authoring the test)
 - T40 "V18c strict-capability probe gate is named in Adds but has no asserting test" — must-precede (Obligation B's Ships-when entry for the strict-capability gate depends on that finding authoring the test)
-
----
-
-# T45 — Reason-snapshot type-equality gate named under `npm test` but exercised only under `npm run typecheck`
-
-**Original heading:** Reason-snapshot gate named under the wrong runner in Ships-when
-**Original section:** V18c — Version-bump static gates
-**Kind:** validation
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V18c`'s ship gate reads: "`npm test` runs the step-2(a)/2(b), `engines.node`, peer-dep, and reason-snapshot gates green on `main`." The "reason-snapshot gate" is the bidirectional `SessionShutdownEvent['reason']` type-equality assertion that surfaces the brand string `loom/typecheck/session-shutdown-reason-snapshot`, which `V18c`'s Adds and Tests both name as a gate the leaf delivers.
-
-Per the version-bump procedure, that assertion is a build-time `tsc` assertion exercised by `npm run typecheck`, not by `npm test`. `version-bump-intro.md` step 1 runs `npm run typecheck` and routes the brand-string failure there; `version-bump-triggers.md` step 5 is explicit that the snapshot entry has two distinct gates with different runners: "the bidirectional `SessionShutdownEvent['reason']` type-equality assertion … runs under `npm run typecheck` per step 1, not under step 2(a)'s `npm test` literal-read; the two assertions live in the same surface-inventory test file but have different gates and different failure-routing." `conventions.md` §REQ-ID discipline reinforces the same split, carving `loom/typecheck/*` out of the diagnostics registry as a build-time `tsc` brand string rather than a `npm test` surface.
-
-Because `V18c`'s ship condition invokes only `npm test`, only the `npm test`-side arm of the snapshot pair (step 2(a)'s literal-array consistency check) is observable at the ship gate. The brand-string type-equality arm — the bidirectional assertion that is the actual widen/narrow detector — is never exercised by the leaf's externally-observable ship condition, even though the leaf claims it.
-
-## Plan Documents
-
-- `docs/plan_topics/V18c-version-bump-checklist.md` — Ships when (edited)
-- `docs/plan_topics/H1a-scaffold-and-toolchain.md` — Adds (npm-script inventory) (option-dependent)
-- `docs/plan_topics/V18c-T-version-bump-checklist.md` — Tests (read-only)
-
-## Spec Documents
-
-- `docs/spec_topics/pi-integration-contract/version-bump-intro.md` — step 1 (re-typecheck against the new package) (read-only)
-- `docs/spec_topics/pi-integration-contract/version-bump-triggers.md` — step 5 (pinned-constants / brand-string assertion) (read-only)
-
-## Affected Leaves
-
-**Phases:** Horizontal; Vertical slice V18 — Build-time SDK gates
-
-**Leaves (implementation order):**
-
-- H1a — Project scaffold and toolchain — (modified) — only if the chosen runner is the spec's `npm run typecheck`; H1a currently declares only `npm test` and `npm run build` scripts, so adding `npm run typecheck` would land here.
-- V18c — Pi version-bump static gates — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-`V18c` can ship "green" against a ship condition that never compiles the brand-string assertion, so the type-equality arm the leaf claims to deliver is not actually exercised at its gate; a Pi `SessionShutdownEvent['reason']` union widen/narrow — exactly what the bidirectional assertion exists to catch — would not redden the ship gate as written. Two implementers also diverge on whether `npm test` already covers the `tsc` arm, producing leaves with materially different gate coverage.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e — pi-loom plan: build/update plan for spec.md + review (2026-06-10, Thomas Andersen)
-**History:** `V18c-version-bump-checklist.md` was created in c6a664e (its first and only file-creating commit) with the `Ships when` line already naming the reason-snapshot gate under `npm test`, while the same commit's Adds/Tests describe it as the `loom/typecheck/...` brand-string assertion. The runner mismatch has therefore existed since the leaf's first commit; the later V18c edits (81ab342…b9de3ee, which reworked deps and split off the runtime-evidence gate) left the Ships-when runner untouched.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Rewrite `V18c`'s `Ships when.` bullet so the brand-string type-equality arm is gated by the runner that actually compiles the assertion module, while the literal-read arms stay under `npm test`. Concretely, the gate must state that `npm run typecheck` runs the `loom/typecheck/session-shutdown-reason-snapshot` brand-string type-equality assertion green on `main` (matching `version-bump-intro.md` step 1 and `version-bump-triggers.md` step 5), and `npm test` runs the step-2(a)/2(b) surface-inventory, `engines.node`, peer-dep literal-read, and the snapshot's step-2(a) literal-array consistency checks green on `main`.
-
-Edge case the implementer must reconcile: the named `tsc` runner has to resolve to a script that actually exists. `H1a` currently provisions only `npm test` and `npm run build`, not the spec's `npm run typecheck`. Either extend `H1a`'s script inventory to declare the `npm run typecheck` script the spec names, or name the existing `tsc`-running `npm run build` script in `V18c`'s Ships-when — but the runner named in the ship gate must be one that compiles the assertion file so the brand-string red is observable at the gate.
-
-## Relationships
-
-- T42 "`engines.node` floor gate described two-way in V18c, three-way in the spec and V18d" — same-cluster (same V18c leaf, resolves independently)
-- T44 "V18c bundles mechanically-gated build-time tests with non-testable editorial obligations under one Ships-when" — same-cluster (same V18c static-gates list / Ships-when, resolves independently)

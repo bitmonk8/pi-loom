@@ -11,4 +11,4 @@
 
 **Deps.** `V18c-T`, `V18a`, `V18b`
 
-**Ships when.** `npm test` runs the step-2(a)/2(b), `engines.node`, peer-dep, and reason-snapshot gates green on `main`.
+**Ships when.** `npm run typecheck` runs the `loom/typecheck/session-shutdown-reason-snapshot` brand-string type-equality assertion green on `main` (the build-time `tsc` arm per [`version-bump-intro.md` step 1](../spec_topics/pi-integration-contract/version-bump-intro.md) and [`version-bump-triggers.md` step 5](../spec_topics/pi-integration-contract/version-bump-triggers.md)), and `npm test` runs the step-2(a)/2(b) surface-inventory, `engines.node`, peer-dep literal-read, and the snapshot's step-2(a) literal-array consistency gates green on `main`.
