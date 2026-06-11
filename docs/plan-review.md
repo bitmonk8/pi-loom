@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T44) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 4 high, 35 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 3 high, 35 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -2647,68 +2647,3 @@ Watch the edge case that the narrowed "fail" remains observable enough to drive 
 - T39 "H6a consumes H7a's golden artifacts but no dependency edge orders H7a before H6a" — same-cluster (H6a/H7a fixture-artifact dependency; resolves independently).
 - T28 "Real-host divergence detectable only by a manual, post-merge smoke" — same-cluster (same smoke detection window; resolves independently).
 
----
-
-# T39 — H6a consumes H7a's golden artifacts but no dependency edge orders H7a before H6a
-
-**Original heading:** Consumes H7a artifacts but no dependency edge orders H7a before H6a
-**Original section:** Consolidated Plan Review — plan
-**Kind:** ordering
-**Importance:** high
-**Score:** 100
-**MustFix:** false
-
-## Finding
-
-H6a's fourth Tests bullet — the **Release-gate acceptance (manual real-host smoke)** item — and its `Ships when` field both require H7a's *committed multi-feature fixture `.loom`*, its *committed golden transcript*, and its *committed golden `loom-system-note` diagnostics list*. These artifacts are produced only by H7a (the terminal integration-acceptance leaf). H6a's `Deps.` names only `H5b`; `H5b`'s `Deps.` are `H5a, M, V1a`–`V18c`, which does not include H7a; and H7a appears in no leaf's `Deps.` field anywhere in the plan — it is referenced only by H6a's prose and by its own page.
-
-The plan's canonical build order is dep-driven: "pick the next leaf whose **Deps** are satisfied" (`plan.md` §How to use, step 3). Under that rule an implementer can satisfy H6a's declared dependency (`H5b`) and complete H6a without H7a ever having been built, because nothing forces H7a to land first. H6a's release-gate manual-smoke item then references golden artifacts (`.loom` fixture, golden transcript, golden diagnostics list) that need not exist at that point.
-
-The fix is freely orderable: H7a's own dependencies (`H4a, V5d, V8a, V11f, V13c, V14a, V16a, V17a`) are all transitively satisfied by the `H4a` + `V1a`–`V18c` coverage-producing set that `H5b` (and therefore H6a) already requires, so adding the missing edge introduces no cycle and no new prerequisite subtree.
-
-## Plan Documents
-
-- `docs/plan_topics/H6a-live-corpus-activation.md` — `Deps.` field (edited)
-- `docs/plan_topics/H7a-integration-acceptance.md` — `Deps.` field / artifacts (read-only)
-- `docs/plan_topics/H5b-warn-only-canary.md` — `Deps.` field (read-only)
-- `docs/plan.md` — §Release gate (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Horizontal (Release gate)
-
-**Leaves (implementation order):**
-
-- H7a — Terminal integration-acceptance run (cross-slice end-to-end gate) — (resequenced)
-- H6a — Live-corpus closing-gate activation (loom 1.0 release gate) — (modified)
-
-## Consequence
-
-**Severity:** blocking
-
-The release-gate manual-smoke item cannot be executed as written: following the dep-driven build order, an implementer can reach and complete H6a while H7a's committed fixture `.loom`, golden transcript, and golden diagnostics list do not yet exist, so the gate references artifacts that may be absent. The loom 1.0 release gate either stalls (no artifacts to smoke against) or is checked off vacuously.
-
-## Issue introduction
-
-**Verdict:** single-commit introduction
-**Introducing commit:** `e7f14dd` (2026-06-11) — pi-loom plan: resolve "Real-host fidelity of the session double has no reproducible detection point"
-**History:** H6a was created at `5353dd7` (2026-06-10) with `Deps. H5a, M, V1a`–`V18c` and no reference to H7a. H7a was created shortly after at `e7e51cc` (2026-06-10) as a terminal leaf that no other leaf depends on. The defect entered at `e7f14dd`, which added the **Release-gate acceptance (manual real-host smoke)** Tests bullet and the matching `Ships when` clause — making H6a consume H7a's golden `.loom` / transcript / diagnostics artifacts — without adding H7a to any leaf's `Deps.`. The consuming reference and the dependency edge were not wired together, so the ordering obligation was missing from the moment the consumption was introduced.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add `H7a` to H6a's `Deps.` field, changing it from `` `H5b` `` to `` `H5a, H7a` `` — pin the edge to H6a directly rather than threading it through H5b, because H7a closes no new spec REQ-ID and is therefore not a member of H5b's coverage-producing set (`H5a, M, V1a`–`V18c`). Update the parenthetical `Deps.` annotation in H6a that currently states the leaf depends only on the warn-only canary, so it also names H7a as the producer of the golden artifacts the release-gate manual-smoke item consumes.
-
-H7a's transitive prerequisites are already covered by the set H6a inherits, so no further reordering of H7a or its dependencies is required. Leave H5b's `Deps.` unchanged.
-
-## Relationships
-
-- T04 "Transitive-completeness rule's trigger is broader than H5b's coverage-producing dependency set" — decision-dependency (that finding decides whether a non-closing citing-test-bearing horizontal leaf like H7a belongs in H5b's coverage-producing set; this fix wires H7a directly into H6a precisely because H7a is not coverage-producing, so the two resolutions must agree on H7a's set membership).
-- T38 "Live-host smoke pass criterion assumes a non-deterministic LLM reproduces a transcript recorded against the in-process double" — same-cluster (same H6a manual-smoke item and the same H7a golden transcript/diagnostics it consumes).
