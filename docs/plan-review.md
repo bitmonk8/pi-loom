@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T44) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 10 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 9 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -577,69 +577,6 @@ leaf agree on which codes gate which step.
 ## Relationships
 
 - T09 "Prompt-mode `system:` rejection bullet cites no diagnostic code" — same-cluster (the V6d leaf has the same Diagnostic-message-anchors omission on a different bullet; resolves independently with its own code).
-
----
-
-# T09 — Prompt-mode `system:` rejection bullet cites no diagnostic code
-
-**Original heading:** Prompt-mode rejection names no code
-**Original section:** Consolidated Plan Review — plan
-**Kind:** validation
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-The `V6d` / `V6d-T` `Tests.` bullet "`system:` on a prompt-mode loom is rejected" asserts an observable rejection without naming the diagnostic code that gates it. The spec is unambiguous about the code: `system:` on a `mode: prompt` loom is `loom/parse/system-on-prompt-mode`, defined in the parse code registry (`docs/spec_topics/diagnostics/code-registry-parse.md`, with message `'system:' is not permitted on a mode: prompt loom`) and cross-referenced from the frontmatter spec (`frontmatter-fields-a.md`, `frontmatter-fields-b-and-templates.md`).
-
-The `conventions.md` *Diagnostic message anchors* rule requires tests that assert a diagnostic's rendered message to cite the diagnostic code and source the expected string from the registry's *Message* column. The omission is isolated within the same leaf: the interpolation bullet correctly cites the `loom/parse/system-interp-*` family, so only the prompt-mode-rejection bullet is non-conformant. Sibling leaves (e.g. `V6c`, flagged separately) exhibit the same pattern.
-
-Because the code is never named in the plan, the assertion target is ambiguous: `V6d-T` could red/green against an arbitrary parse error rather than `loom/parse/system-on-prompt-mode`. The closing-gate parity check that pairs every registry code with an asserting test (`conventions.md` *REQ-ID discipline*, registry-code↔asserting-test arm) relies on the citing test naming the code; an uncited assertion risks the code shipping without a witnessing test that the gate can find.
-
-## Plan Documents
-
-- `docs/plan_topics/V6d-system-interpolation.md` — `Tests.` field, `system:`-rejection bullet (edited)
-- `docs/plan_topics/V6d-T-system-interpolation.md` — `Tests.` field, `system:`-rejection bullet (edited)
-- `docs/plan_topics/conventions.md` — *Diagnostic message anchors* rule (read-only)
-
-## Spec Documents
-
-- `docs/spec_topics/diagnostics/code-registry-parse.md` — `loom/parse/system-on-prompt-mode` row (read-only)
-- `docs/spec_topics/frontmatter/frontmatter-fields-b-and-templates.md` — `system` subagent-only rule (read-only)
-
-## Affected Leaves
-
-**Phases:** V6 — Frontmatter
-
-**Leaves (implementation order):**
-
-- `V6d` — `system` template interpolation — (modified)
-- `V6d-T` — `system` template interpolation (tests) — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Without the code anchor, `V6d-T` may assert against the wrong parse error and pass vacuously, and a reviewer cannot tell which diagnostic gates the step; two reasonable implementers could witness different errors. The registry-code↔asserting-test closing gate also depends on the citing test naming `loom/parse/system-on-prompt-mode`, so an uncited assertion risks the code reaching release without a discoverable witness.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e — pi-loom plan: build/update plan for spec.md + review (2026-06-10, Thomas Andersen)
-**History:** The `system:` rejection bullet entered both `V6d-system-interpolation.md` and `V6d-T-system-interpolation.md` in commit c6a664e, the plan-build commit that created these leaf files; pickaxe (`git log -S 'prompt-mode loom is rejected'`) localises the string to that single commit. The later edit 3625ee0 reworked the per-type stringification bullet and left the code-less rejection bullet untouched, so the defect has been present since the leaf's first commit.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In both `docs/plan_topics/V6d-system-interpolation.md` and `docs/plan_topics/V6d-T-system-interpolation.md`, revise the `Tests.` bullet currently reading "`system:` on a prompt-mode loom is rejected." so it cites the diagnostic code `loom/parse/system-on-prompt-mode` and asserts the rendered message against the diagnostics registry's *Message* column, per the *Diagnostic message anchors* convention. Concretely, the bullet should name the code (e.g. "`system:` on a `mode: prompt` loom fires `loom/parse/system-on-prompt-mode`") so the assertion target is unambiguous and the registry-code↔asserting-test closing gate finds a citing test. The code, severity (`E`), phase (`parse`), and expected message (`'system:' is not permitted on a mode: prompt loom`) are already fixed in `docs/spec_topics/diagnostics/code-registry-parse.md`; this is a plan-text edit only — no spec change.
-
-## Relationships
-
-- T08 "`V6c` / `V6c-T` Tests bullets assert diagnostics without naming their codes" — same-cluster (same *Diagnostic message anchors* convention gap; resolves independently with its own codes).
 
 ---
 

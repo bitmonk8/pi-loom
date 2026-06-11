@@ -9,7 +9,7 @@
 - `\${` escapes interpolation; a Path-only `${…}` resolves against the validated `params` object.
 - Driving a reference param through the `system:` surface, each distinct param-resolvable Loom static type stringifies per the canonical table in [`../spec_topics/query/query-escapes-stringification.md`](../spec_topics/query/query-escapes-stringification.md): `string`; `integer`; `number` (finite, plus the non-finite `NaN` / `Infinity` / `-Infinity` cases, reachable only through the non-slash `invoke(...)` / `.loom`-callable arms); `boolean`; `null` (literal text `null`, not the empty string); an enum variant (its wire value); an `array<T>`; and a schema-typed object (compact `JSON.stringify` with wire-name translation). Row-level correctness stays owned by `V13a`; this leaf only routes the resolved value through the shared renderer.
 - The `Result<T, E>` row does not arise from this surface (`params:` types never include `Result`).
-- `system:` on a prompt-mode loom is rejected.
+- `system:` on a `mode: prompt` loom is rejected, firing `loom/parse/system-on-prompt-mode` with its rendered message asserted against the diagnostics registry's *Message* column (`'system:' is not permitted on a mode: prompt loom`).
 
 **Deps.** `V6d-T`, `V6a`, `V3a`, `V13a`
 
