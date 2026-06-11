@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T44) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 19 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 18 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -1199,73 +1199,6 @@ Apply the identical disambiguation chosen for the paired `V10a` `DISC-4` bullet 
 ## Relationships
 
 - T18 "DISC-4 acceptance bullet mis-states what happens to a superseded loom" — decision-dependency (the disambiguation chosen for the V10a impl-leaf bullet constrains this V10a-T mirror; both edits must land identical wording).
-
----
-
-# T18 — DISC-4 acceptance bullet mis-states what happens to a superseded loom
-
-**Original heading:** DISC-4 — "loom loses" contradicts "the superseded entry is dispatched"
-**Original section:** Consolidated Plan Review — plan
-**Kind:** clarity
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-The `DISC-4` acceptance bullet in the discovery-walk leaf ends with `loom loses; the superseded entry is dispatched`. Read against the rest of the same clause, this is self-contradictory: `loom loses` establishes the loom as the losing / superseded entry, and `the superseded entry is dispatched` then reads as "the loser is dispatched (runs)". A test author has two equally-defensible readings — that the superseded loom runs, or that `superseded` is a slip for `superseding` and the *winner* runs — and would write opposite assertions.
-
-The spec admits neither reading. Per [Discovery — DISC-4](../spec_topics/discovery/discovery-sources.md#disc-4), when a same-name collision is detected at `session_start`, **none of the colliding entries register** and a loom loses asymmetrically against a Pi-owned `.md` prompt / skill / sibling-extension command (the loom never preempts the non-loom registration). Separately, the [superseded-entry dispatch](../spec_topics/pi-integration-contract/drain-state-contract.md#superseded-entry-dispatch) sub-case governs a loom that *was* registered and is then dropped from `LoomRegistry` by a later-appearing Pi template: because Pi exposes no `pi.unregisterCommand`, the loom's earlier `pi.registerCommand` survives, so `/<name>` still reaches the slash handler, the entry-table lookup misses, and the handler returns the fixed system note `"loom /<name>: superseded; /reload to refresh"` **instead of running the dropped loom**. In other words the superseded loom is precisely the thing that is *not* dispatched — the orphaned command name dispatches to a handler that emits a note. The leaf's terse phrasing inverts this.
-
-## Plan Documents
-
-- `docs/plan_topics/V10a-discovery-walk.md` — `Tests.` `DISC-4` bullet (edited)
-- `docs/plan_topics/V10a-T-discovery-walk.md` — `Tests.` `DISC-4` bullet (edited; co-resolved via the mirror finding)
-
-## Spec Documents
-
-- `docs/spec_topics/discovery/discovery-sources.md` — DISC-4 slash-name collision rules (read-only)
-- `docs/spec_topics/pi-integration-contract/drain-state-contract.md` — superseded-entry dispatch (read-only)
-
-(The spec already states the correct behaviour; the fix is internal to the plan leaves.)
-
-## Affected Leaves
-
-**Phases:** Vertical — V10 (Discovery and settings)
-
-**Leaves (implementation order):**
-
-- `V10a-T` — Discovery walk, sources, and collisions (tests) — (modified)
-- `V10a` — Discovery walk, sources, and collisions — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-The `DISC-4` bullet is the acceptance criterion the `V10a-T` test author works from. Taken literally it directs a test that asserts the superseded loom runs on dispatch, which contradicts the spec (a superseded `/<name>` returns the `superseded; /reload to refresh` system note and the loom does not run). Two implementers would write divergent tests, and one of them would pin behaviour the spec forbids.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e — pi-loom plan: build/update plan for spec.md + review (2026-06-10, Thomas Andersen)
-**History:** The `V10a-discovery-walk.md` leaf and its `V10a-T-discovery-walk.md` tests mirror entered the corpus in their single, first commit c6a664e — the plan-build pass for spec.md. The `DISC-4` bullet's `loom loses; the superseded entry is dispatched` phrasing was present verbatim in that initial commit; `git log -S` over the defect token in `docs/plan_topics/` returns only that one commit, so the ambiguity has been present since the leaves were created and was never introduced by a later edit.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In both `docs/plan_topics/V10a-discovery-walk.md` and `docs/plan_topics/V10a-T-discovery-walk.md`, rewrite the trailing portion of the `DISC-4` `Tests.` bullet so it stops asserting that the superseded loom is dispatched. Replace the clause `; loom loses; the superseded entry is dispatched.` with text that states the two spec outcomes explicitly:
-
-- On the immediate same-name collision, none of the colliding entries register; against a Pi-owned `.md` prompt / skill / sibling-extension command the loom loses asymmetrically (the Pi-owned entry survives, the loom does not register).
-- For the supersession sub-case, a dispatch of the orphaned `/<name>` (whose `LoomRegistry` entry was dropped but whose `pi.registerCommand` registration survives) returns the fixed superseded system note `"loom /<name>: superseded; /reload to refresh"` rather than running the dropped loom.
-
-Suggested replacement clause text (adjust prose to match the leaf's bullet style): ``; the loom loses asymmetrically — it does not register, the Pi-owned entry survives; and a later dispatch of the orphaned `/<name>` returns the fixed `"loom /<name>: superseded; /reload to refresh"` system note rather than running the dropped loom (per spec superseded-entry dispatch).`` Keep both leaves' `DISC-4` bullets textually identical so the implementation and tests tasks agree.
-
-## Relationships
-
-- T17 "DISC-4 tests bullet: "the superseded entry is dispatched" contradicts "loom loses" (V10a-T mirror)" — co-resolve (the identical bullet in the `V10a-T` tests leaf; the same disambiguation must land in both).
 
 ---
 

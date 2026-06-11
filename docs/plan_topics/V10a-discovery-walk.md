@@ -8,7 +8,7 @@
 - `DISC-1`: `~/` expands only via `FileSystem.homedir()` — no `~user`/env/platform branch.
 - `DISC-2`: per-source missing/unreadable/wrong-type modes (silent-on-missing for conventional sources, explicit error otherwise); clean-leaf-ENOENT ancestor walk.
 - `DISC-3`: case collisions fire `loom/load/case-collision` (W); non-canonical extension fires `non-canonical-extension` (W); a name failing `^[a-z0-9][a-z0-9_-]*$` fires `invalid-slash-name` (E).
-- `DISC-4`: a slash-name collision (loom-vs-loom same priority, loom-vs-Pi) fires `cross-format-collision` on the final derived name; loom loses; the superseded entry is dispatched.
+- `DISC-4`: a slash-name collision (loom-vs-loom same priority, loom-vs-Pi) fires `cross-format-collision` on the final derived name; the loom loses asymmetrically — it does not register, the Pi-owned entry survives; and a later dispatch of the orphaned `/<name>` returns the fixed `"loom /<name>: superseded; /reload to refresh"` system note rather than running the dropped loom (per spec superseded-entry dispatch).
 
 **Deps.** `V10a-T`, `V8b`, `V1a`
 
