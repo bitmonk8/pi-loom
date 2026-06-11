@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T44) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 28 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 27 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -1792,77 +1792,6 @@ Place this obligation alongside the revert procedure wherever that procedure res
 
 - T27 "V18c Ships-when conflates a pre-merge gate and a post-merge smoke under one "restored before merge" consequent" — decision-dependency (the revert timing fixes whether the green re-run gates a pre-merge restore or a post-merge revert commit).
 - T28 "Real-host divergence detectable only by a manual, post-merge smoke" — same-cluster (same revert path; bounds the detection window rather than the post-revert verification).
-
----
-
-# T27 — V18c Ships-when conflates a pre-merge gate and a post-merge smoke under one "restored before merge" consequent
-
-**Original heading:** "post-merge detection mechanism" vs "restored before merge" timing contradiction
-**Original section:** Consolidated Plan Review — plan
-**Kind:** clarity
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V18c`'s **Ships when** field makes the contingent pin-revert fire on either of two triggers, then states a single consequent for both:
-
-> If the bump's acceptance evidence is red — or if the bump's **manual real-host smoke** (the post-merge detection mechanism named in [`H4a`], driving a representative `.loom` against a live Pi host) surfaces a confirmed behavioural-divergence finding — the prior pin is restored **before merge** …
-
-The two triggers have incompatible timing. The first — acceptance-evidence-red — is a build-time `npm test` / `H4a`-harness gate; `version-bump-triggers.md` makes it explicitly pre-merge ("a bump whose runtime-evidence run is red MUST NOT be merged at the candidate pin"), so "restored before merge" is correct for it. The second trigger is the manual real-host smoke, which the leaf's own parenthetical labels "the post-merge detection mechanism," and which `H4a` defines as "the concrete **post-merge** detection mechanism for a double-vs-real divergence." A divergence that is only discovered *after* merge cannot gate a restore that happens *before* merge; the shared "before merge" consequent is unsatisfiable for the smoke trigger.
-
-`H4a` already pins the correct post-merge handling: "a Pi-bump-triggered finding forces restoration of the prior Pi-SDK pin (see `V18c`'s revert path, which owns the pin-revert)." Because the smoke runs post-merge, that restoration is necessarily a post-merge revert commit, not a pre-merge gate. `V18c`'s Ships-when contradicts `H4a`'s own timing by folding the post-merge smoke under the pre-merge consequent, leaving a contributor with no reliable answer to "when, relative to merge, does each trigger revert the pin?"
-
-## Plan Documents
-
-- `docs/plan_topics/V18c-version-bump-checklist.md` — Ships when (and the matching revert clause in Adds) (edited)
-- `docs/plan_topics/H4a-factory-shell-and-harness.md` — session-double fidelity contract / manual-real-host-smoke acceptance- and revert-trigger semantics (read-only)
-- `docs/plan_topics/V18c-T-version-bump-checklist.md` — mirrored revert-path clause in Ships when (read-only; its mirror covers only the pre-merge acceptance-evidence-red branch and is internally consistent)
-
-## Spec Documents
-
-None — the fix is internal to plan files. (`version-bump-triggers.md` already states the acceptance-gate pre-merge semantics the fix should match; it is read to confirm timing, not edited.)
-
-## Affected Leaves
-
-**Phases:** Vertical slices — V18 (Build-time SDK gates)
-
-**Leaves (implementation order):**
-
-- V18c — Pi version-bump procedure and gates — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers diverge on revert timing for a post-merge smoke divergence: one reads the literal "before merge" and concludes the smoke must somehow gate pre-merge (impossible, since the smoke runs post-merge), the other ignores it and never wires a revert for that branch. The leaf also contradicts `H4a`, which correctly routes a Pi-bump-triggered smoke divergence to `V18c`'s revert path as a post-merge action — so the plan disagrees with itself about the recovery procedure for the one shared dependency every runtime leaf binds against.
-
-## Issue introduction
-
-**Verdict:** single-commit
-**Introducing commits:** 328ba4d — pi-loom plan: resolve "real-host verification gap" (2026-06-10, Thomas Andersen)
-**History:** Commit 81ab342 (2026-06-10) introduced the revert clause with a single, internally-consistent pre-merge trigger ("If the bump's acceptance evidence is red, the prior pin is restored before merge"). Commit 328ba4d then grafted the post-merge manual-real-host-smoke disjunct ("the post-merge detection mechanism named in H4a … surfaces a confirmed behavioural-divergence finding") onto that same "restored before merge" consequent without adjusting the shared timing, creating the contradiction. The same commit added the "post-merge detection mechanism" phrasing to `H4a`. The defect did not exist before 328ba4d.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `V18c`'s **Ships when**, give each trigger its own revert timing instead of sharing the single "restored before merge" consequent across both:
-
-- Acceptance-evidence-red branch (the build-time runtime-evidence / `H4a`-harness gate) keeps a pre-merge consequent — the prior pin is restored before merge, and the bump MUST NOT merge at the candidate pin. This matches `version-bump-triggers.md`'s "a bump whose runtime-evidence run is red MUST NOT be merged at the candidate pin."
-- Manual-real-host-smoke branch carries a post-merge consequent — because the smoke is the post-merge detection mechanism (per `H4a`), a confirmed behavioural-divergence finding forces a post-merge revert commit that restores the prior pin (step 4's edit reverted in one commit: the Pi-SDK pin literal at `host-prerequisites.md#pi-sdk-pin` and the four `@earendil-works/*` `peerDependencies` entries). Align the wording with `H4a`'s revert-trigger semantics, which already delegate the pin-revert for a Pi-bump-triggered smoke finding to `V18c`.
-
-Mirror the same split in `V18c`'s **Adds** sentence so Adds and Ships-when describe the same two-timing revert path.
-
-Edge case for the implementer: `H4a` also names a *second* smoke trigger — a merge whose diff touches the four fidelity-contract axes — whose finding "blocks the merge until the divergence is resolved" (i.e. pre-merge). That trigger is not a Pi-version-bump event and is out of `V18c`'s scope (V18c's smoke disjunct is scoped to "the bump's manual real-host smoke"), so do not fold it into V18c's revert clause; keep V18c's smoke disjunct to the Pi-bump-triggered, post-merge case.
-
-## Relationships
-
-- T26 "Revert path restores the prior pin but never re-asserts the gates return green" — same-cluster (same revert path, distinct gap: post-revert green verification).
-- T28 "Real-host divergence detectable only by a manual, post-merge smoke" — same-cluster (the post-merge timing of the smoke is the shared subject).
 
 ---
 
