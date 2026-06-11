@@ -9,6 +9,6 @@
 - Per-boundary routing *decision* — which of the five site-classes maps to which destination surface class: typed-query response → `ValidationError`, model-driven tool args → model feedback, code-driven tool args → `CodeToolError`, `params` and `invoke<T>` return → `InvokeInfraError`, slash-load `params` → ceiling-#3 cross-route — asserted in isolation against the harness. The actual wrapping of a depth-6 breach into each carrier is asserted at the site owner: `ValidationError` at `V13c`, `CodeToolError` at `V14a`, `InvokeInfraError` at `V15a`, the slash-load cross-route at `V4e`. The model-driven and slash-load `params` rows produce no loom-code `Err` (model feedback / load-time respectively) and are decision-only here.
 - The walk runs before AJV; respond-repair applies only at site #1.
 
-**Deps.** `V5d`, `V16a`
+**Deps.** `V5d`, `V16a`, `V4d`
 
 **Ships when.** The tests above exist, compile, and fail red for the intended reason.

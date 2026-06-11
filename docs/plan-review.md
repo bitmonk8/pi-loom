@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T18) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 7 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 13 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 6 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 13 NIT dropped; 0 false dropped._
 
 ---
 
@@ -421,71 +421,3 @@ Watch the cross-reference with the mechanical-observer concern: if a closing-gat
 ## Relationships
 
 - T05 "Real-host smoke pass criterion (e) names a permitted code set with no committed source" — same-cluster (a sibling undefined-committed-artifact gap in the same `H6a`/`H4a` smoke gate; resolves independently)
-
----
-
-# T07 — V5e references V4d-owned `ValidationIssue` / `ValidationError` without declaring a `V4d` dependency
-
-**Original heading:** V5e emits a `maxDepth` ValidationIssue / routes to ValidationError without a V4d dep (low confidence, ordering)
-**Original section:** docs/plan_topics/V5e-json-depth.md (+ V5e-T)
-**Kind:** ordering
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V5e` (JSON document depth enforcement) emits the `maxDepth` depth-violation issue and asserts its per-boundary routing. Its first Tests bullet fires `schema_keyword:"maxDepth"` / `cause:"schema_validation"` and its Ships-when states it "proves the `maxDepth` `ValidationIssue` fires"; the routing-decision bullet names `ValidationError` as the typed-query-response destination class. Both `ValidationIssue` and `ValidationError` are owned by `V4d` — its Adds declares "the nine-variant `QueryError` union (its `kind`/`cause` wire forms), the `ValidationIssue` canonical ordering" and `ValidationError` is one of the nine variants — yet `V5e`'s `Deps` are `V5e-T`, `V5d`, `V16a` and `V5e-T`'s are `V5d`, `V16a`. Neither declares `V4d`, and `V5d` (their only shared upstream) does not transitively pull in `V4d` (the edge runs the other way: `V4d` deps on `V5d`).
-
-Every other leaf that consumes a V4d-owned error type declares the `V4d` edge — `V9j`, `V12b`, `V13a`, `V13d`, `V14a`, and `V17a` all list `V4d` in `Deps`. `V5e`/`V5e-T` are the lone consumers that reference V4d-owned types without it. `V5e` is deliberately scoped to assert the routing *decision* in isolation and defers the actual wrapping into each carrier to the site owners (`V13c`, `V14a`, `V15a`, `V4e`), so it may legitimately emit a leaf-local shape rather than constructing the canonical `V4d` schema — but the plan never pins which of these two readings is intended, leaving the ownership boundary undefined.
-
-## Plan Documents
-
-- `docs/plan_topics/V5e-depth-enforcement.md` — `V5e` leaf, Deps / Ships-when (edited)
-- `docs/plan_topics/V5e-T-depth-enforcement.md` — `V5e-T` leaf, Deps / Tests (edited)
-- `docs/plan_topics/V4d-queryerror-variants.md` — `V4d` leaf, `ValidationIssue` / `ValidationError` ownership (read-only)
-- `docs/plan.md` — §Vertical slices, V4 / V5 build order (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** V5 — Schemas, descriptions, schema-subset
-
-**Leaves (implementation order):**
-
-- `V4d` — `QueryError` variant schema — (read-only producer; gains a new inbound Deps edge but is not itself edited)
-- `V5e` — JSON document depth enforcement (hard ceiling #4) — (modified)
-- `V5e-T` — JSON document depth enforcement (hard ceiling #4) (tests) — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-With the ownership boundary unpinned, two reasonable implementers diverge: one references the V4d-owned `ValidationIssue` / `ValidationError` schemas directly — risking a wrong-reason red ("unknown type") because the dep-DAG does not guarantee `V4d` is built before `V5e`/`V5e-T` (both become eligible once `V5d` and `V16a` land, with no `V4d` edge forcing the order) — while the other invents a leaf-local shape that may drift from the canonical `V4d` schema. `V5e` is the only V4d-owned-type consumer in the corpus that omits the edge, so the inconsistency is also a maintenance trap.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e — pi-loom plan: build/update plan for spec.md + review (2026-06-10, Thomas Andersen)
-**History:** `V5e` and `V5e-T` were created in the initial plan build (c6a664e) already referencing the V4d-owned `ValidationError` destination surface in their routing-decision tests while declaring `Deps` of `V5e-T, V5d, V16a` and `V5d, V16a` respectively — no `V4d` edge. A later commit (3fa39a9, 2026-06-11), resolving the sibling finding "V5e per-boundary routing test asserts destination error surfaces its Deps cannot reach", reworded the tests into the in-isolation framing and introduced the explicit `ValidationIssue` term in `V5e`'s Ships-when, sharpening the coupling to V4d-owned types but leaving the missing `V4d` dependency in place.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add `V4d` to both `V5e` and `V5e-T` `Deps`, treating the `maxDepth` `ValidationIssue` and the `ValidationError` destination class as the canonical V4d-owned schemas that `V5e` constructs and asserts against, matching every other V4d-type consumer:
-
-- `docs/plan_topics/V5e-depth-enforcement.md`: change `**Deps.** `V5e-T`, `V5d`, `V16a`` to `**Deps.** `V5e-T`, `V5d`, `V16a`, `V4d``.
-- `docs/plan_topics/V5e-T-depth-enforcement.md`: change `**Deps.** `V5d`, `V16a`` to `**Deps.** `V5d`, `V16a`, `V4d``.
-
-This aligns `V5e` with the established corpus convention (`V9j`, `V12b`, `V13a`, `V13d`, `V14a`, `V17a` all carry the `V4d` edge); the dep-DAG then enforces the build order and eliminates the wrong-reason-red hazard, and the emitted issue remains the canonical `ValidationIssue`. The edge is acyclic (`V4d` deps on `V5d` only, with no path back to `V5e`). Edge case: declaring `V4d` does not pull the carrier wrapping into `V5e` — `V5e` still asserts only the routing *decision* in isolation, with `ValidationError` / `CodeToolError` / `InvokeInfraError` wrapping asserted at `V13c` / `V14a` / `V15a` and the slash-load cross-route at `V4e`.
-
-## Relationships
-
-- T14 "V4a omits a Deps edge on V4d despite consuming the V4d-owned `QueryError` type" — same-cluster (same missing-`V4d`-edge ordering pattern on a different leaf; resolves independently)
-
