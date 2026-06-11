@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T56) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 6 high, 47 medium retained (53 findings); ~88 low discarded; 4 low findings merged into 2 medium findings; ~35 NIT dropped; 14 false dropped (upstream)._
+_Triage tally: 0 blocker, 5 high, 47 medium retained (52 findings); ~88 low discarded; 4 low findings merged into 2 medium findings; ~35 NIT dropped; 14 false dropped (upstream)._
 
 ---
 
@@ -3565,79 +3565,3 @@ No new leaf is required; `V9b` and `V10a` both already exist and `V9b` already d
 ## Relationships
 
 None
-
----
-
-# T53 — V18b audit-methodology obligations have no coverage-matrix closing-leaf row
-
-**Original heading:** No coverage-matrix entry (untraceable leaf) — V18b
-**Original section:** V18b — Inventory-closure audit
-**Kind:** traceability
-**Importance:** high
-**Score:** 100
-**MustFix:** true
-
-## Finding
-
-`PIC-15` is the only numbered REQ-ID V18 owns, and `coverage-matrix.md` maps it to `V18a` (the capability-inventory leaf), not to `V18b`. `V18b` closes the build-time surface-set-closure audit, whose entire obligation set lives on the `pi-integration-contract/audit-*.md` methodology pages (`audit-resolution.md`, `audit-recognised-shapes.md`, `audit-target-categories.md`, `audit-failures.md`, `audit-wire-and-canary.md`) plus `inventory-audit-intro.md`. Those obligations — the non-exemptible family-(4) out-of-scope-import/access rule, the fail-closed non-empty canary, the `audit/<class>/<family>/<symptom>` record grammar, and the `// allow-pi-surface:` marker scope — are expressed as normative MUST/MUST-NOT prose carrying no numbered `PREFIX-N` REQ-ID and no `loom/...` diagnostics-registry code (the audit emits `audit/...` records, not `loom/...` codes). They are therefore un-anchored-obligation residue in the `governance.md` GOV-22 class.
-
-The `pi-integration-contract/` row of the REQ-ID prefix table carries the `PIC` prefix, not the byte-exact `(no IDs — narrative)` cell, so these pages are **non-narrative** and in scope for the third closing-gate surface defined in `conventions.md` §REQ-ID discipline. That rule requires every such un-anchored MUST to be enumerated under *Code-keyed obligation areas (no numbered REQ-IDs)* in `coverage-matrix.md` with a named closing leaf. No such row exists for any of the V18b audit pages, so V18b's closure is untraceable from the matrix and the un-anchored-MUST scan has no closing leaf to satisfy.
-
-## Plan Documents
-
-- `docs/plan_topics/coverage-matrix.md` — Code-keyed obligation areas (no numbered REQ-IDs) (edited)
-- `docs/plan_topics/V18b-inventory-audit.md` — Spec / Adds (read-only)
-- `docs/plan_topics/V18a-capability-inventory.md` — Spec / Tests (read-only)
-- `docs/plan_topics/conventions.md` — §REQ-ID discipline (third closing-gate surface) (read-only)
-- `docs/plan_topics/H5b-warn-only-canary.md` — Deps / Tests (read-only)
-- `docs/plan_topics/H6a-live-corpus-activation.md` — gate-activation footing (read-only)
-
-## Spec Documents
-
-- `docs/spec_topics/pi-integration-contract/audit-resolution.md` — audit obligations (read-only)
-- `docs/spec_topics/pi-integration-contract/audit-recognised-shapes.md` — target surface categories / family-(4) shape rule (read-only)
-- `docs/spec_topics/pi-integration-contract/audit-target-categories.md` — audit obligations (read-only)
-- `docs/spec_topics/pi-integration-contract/audit-failures.md` — failure-surface contract / record grammar (read-only)
-- `docs/spec_topics/pi-integration-contract/audit-wire-and-canary.md` — fail-closed canary / wire format (read-only)
-- `docs/spec_topics/pi-integration-contract/inventory-audit-intro.md` — audit intro obligations (shared with V18a's PIC-15) (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical slices (slice V18); Release gate
-
-**Leaves (implementation order):**
-
-- `V18b` — Inventory-closure audit gate — (blocked)
-- `H6a` — Live-corpus closing-gate activation — (blocked)
-
-## Consequence
-
-**Severity:** blocking
-
-When `H6a` flips the `H5a` closing gate to its live-corpus footing, the un-anchored-MUST scan walks every normative MUST/MUST-NOT on the non-narrative `audit-*.md` pages; each is GOV-22 residue with no enumerated closing leaf, so the gate fails CI on every one of them. `H6a` cannot activate green and the loom 1.0 release gate cannot pass, while V18b's closure stays unverifiable from the matrix (the warn-only `H5b` canary emits the same gaps as findings beforehand, but does not redden).
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e (2026-06-10, "pi-loom plan: build/update plan for spec.md + review")
-**History:** The populated *Code-keyed obligation areas (no numbered REQ-IDs)* table in `coverage-matrix.md` was authored at `c6a664e`; its parent `c6a664e~1` carried no such table and no `audit`/`V18b` reference (the matrix had been reset to its empty form at `657ee76`). `git log -S 'V18b'` and `git log -S 'audit-'` over `coverage-matrix.md` return no commits — no revision of the matrix has ever enumerated the V18b audit-methodology obligations. The underlying audit obligations entered the spec earlier (`e5cd514`, 2026-05-09) and the `V18b` leaf has existed in the plan since at least `31ff060` (2026-05-08), so the obligations predate the table; the row was simply omitted when the table was populated. The gap has been present since the table's inception and is not the product of a later edit.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add one *Code-keyed obligation areas (no numbered REQ-IDs)* row to `docs/plan_topics/coverage-matrix.md` naming `V18b` as the closing leaf for the audit-methodology obligations. The row's Spec-area cell enumerates the five V18b-owned audit pages — `pi-integration-contract/audit-resolution.md`, `audit-recognised-shapes.md`, `audit-target-categories.md`, `audit-failures.md`, `audit-wire-and-canary.md` — and the audit-specific obligations on `inventory-audit-intro.md` that V18a's PIC-15 does not already close; mark it `(un-anchored; GOV-22 residue)` in the same form the sibling rows use (e.g. the `drain-state-contract.md → V9b` and `session-only-degraded-state.md → V9h` rows), with closing leaf `V18b`.
-
-Edge cases the fixer must watch:
-- `inventory-audit-intro.md` is listed in both V18a's and V18b's **Spec** fields. V18a closes `PIC-15` (sourced from `capability-inventory-items.md`); route only the intro page's audit-procedure MUSTs to V18b and leave the capability-inventory obligation on V18a — split by anchor if a single page carries both.
-- The audit family-(4) record-grammar and canary obligations on `audit-failures.md` / `audit-wire-and-canary.md` are V18b's own closure obligations, not Class-2 cross-leaf seams, so they belong on the V18b row rather than being dispositioned as seam residue.
-- Key the new row's Spec-area cell in the same prefix/path form the existing code-keyed rows already use; do not invent a new keying scheme.
-
-## Relationships
-
-- T55 "V9j has no coverage-matrix row — its un-anchored binder/provider MUSTs are untraceable" — same-cluster (identical GOV-22 untraceable-leaf gap; distinct independent row, resolves independently)
-- T54 "V11a binder-model obligations have no coverage-matrix closing row" — same-cluster (identical pattern; distinct independent row)
-- T02 "Code-keyed obligation rows have no machine-matchable key, yet three closing-gate arms match cited tokens against them" — decision-overlap (how the new V18b row is keyed depends on whether that finding introduces a stable per-row match key)
-- T47 "V18b's Adds omits the broader-inventory population, entry-kind taxonomy, and land-green `src/` sweep" — same-cluster (both touch V18b but resolve independently — this is coverage-matrix traceability, that is Adds scope)
