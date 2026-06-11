@@ -9,4 +9,4 @@
 
 **Deps.** `H4a`
 
-**Ships when.** The tests above exist, compile, and fail red for the intended reason. The revert-path obligation is mirrored here: when the bump's acceptance evidence is red, the prior pin is restored before merge — reverting step 4's edit in one commit (the Pi-SDK pin literal at [`host-prerequisites.md#pi-sdk-pin`](../spec_topics/pi-integration-contract/host-prerequisites.md#pi-sdk-pin) and the four `@earendil-works/*` `peerDependencies` entries).
+**Ships when.** The tests above exist, compile, and fail red for the intended reason. The revert-path obligation is mirrored here: when the bump's double-backed acceptance evidence is red the prior pin is restored before merge, and when the bump's [`H4a`](./H4a-factory-shell-and-harness.md) manual real-host smoke surfaces a confirmed behavioural-divergence finding at its pre-merge gate the prior pin is likewise restored before merge — in each case reverting step 4's edit in one commit (the Pi-SDK pin literal at [`host-prerequisites.md#pi-sdk-pin`](../spec_topics/pi-integration-contract/host-prerequisites.md#pi-sdk-pin) and the four `@earendil-works/*` `peerDependencies` entries).
