@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T44) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 8 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 7 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -407,73 +407,6 @@ In `docs/plan_topics/V2d-number-rendering.md`, revise the BNDR-5 `Tests` bullet 
 `V2d-T` already states the threshold correctly and is the reference — do not edit it. The spec is read-only for this fix; the threshold text it already carries is the authority both plan leaves must match.
 
 Implementer edge case to watch: a renderer that special-cases only the literal `1e-8` magnitude passes the named reference vector but is wrong for other values in `(1e-8, 1e-7)`. The closing test should exercise at least one in-range value (e.g. `5e-8`) so the threshold is enforced by the suite rather than only the single illustrative magnitude.
-
-## Relationships
-
-None
-
----
-
-# T07 — V4a `Ships when` gate names "match exhaustiveness" while the leaf disclaims any static exhaustiveness check
-
-**Original heading:** "match exhaustiveness" in `Ships when` contradicts the leaf's own no-static-check disclaimer
-**Original section:** Consolidated Plan Review — plan
-**Kind:** clarity
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V4a`'s `Ships when` field reads: "`npm test` proves `?` desugaring, `question-on-non-result`, and `match` exhaustiveness." The bare phrase "proves … `match` exhaustiveness" reads as a static exhaustiveness check — the gate asserts the type/parse phase rejects a non-exhaustive `match`.
-
-The same leaf's `loom/runtime/match-error` Tests bullet states the opposite: "loom 1.0 does not statically check exhaustiveness," with non-coverage surfacing only as the runtime `loom/runtime/match-error` panic. The spec confirms the runtime semantics — `errors-and-results/error-model.md` §Exhaustiveness: "Not statically checked in loom 1.0 … A `match` whose arms collectively fail to cover the scrutinee at runtime raises a `MatchError`."
-
-An implementer reading the `Ships when` gate in isolation sees a static-check obligation the spec disclaims as unsound and the leaf's own Tests bullet contradicts. The gate clause commits to neither the (disclaimed) static analysis nor the actual runtime `MatchError` behaviour, so the acceptance criterion is ambiguous at the exact point — the externally-observable gate — where it must be precise.
-
-## Plan Documents
-
-- `docs/plan_topics/V4a-match-result.md` — `Ships when` field (edited)
-
-## Spec Documents
-
-- `docs/spec_topics/errors-and-results/error-model.md` — §Exhaustiveness (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical slice V4 (Errors and results)
-
-**Leaves (implementation order):**
-
-- V4a — `match`, `?`, and `Result` — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers diverge on the gate: one attempts a static exhaustiveness check (which the spec calls unsound and declines to require), the other gates on the runtime `loom/runtime/match-error` panic. The first produces a leaf that does not match the spec; the second is correct. The contradiction between the gate clause and the leaf's own disclaiming bullet leaves the acceptance criterion underdetermined.
-
-## Issue introduction
-
-**Verdict:** multi-commit-interaction
-**Introducing commits:** c6a664e — pi-loom plan: build/update plan for spec.md + review (2026-06-10, Thomas Andersen); 22f762c — pi-loom plan: resolve "V4a third Tests bullet conflates three match behaviours" (2026-06-10, Thomas Andersen)
-**History:** The `Ships when` clause "proves … `match` exhaustiveness" has been present unchanged since the plan's inception commit c6a664e, where the corresponding Tests bullet used "exhaustiveness" loosely with no explicit static-check disclaimer. Commit 22f762c later split that Tests bullet into the parse-phase and runtime-phase forms and added the explicit "loom 1.0 does not statically check exhaustiveness" disclaimer to the `loom/runtime/match-error` bullet, but left the inception-era `Ships when` line untouched — so the contradiction the finding flags arises from the interaction of the two commits rather than either alone.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `docs/plan_topics/V4a-match-result.md`, rewrite the `Ships when` field so its third clause names the observable runtime behaviour instead of the bare word "exhaustiveness", aligning it with the leaf's `loom/runtime/match-error` Tests bullet and `error-model.md` §Exhaustiveness. Replace:
-
-> **Ships when.** `npm test` proves `?` desugaring, `question-on-non-result`, and `match` exhaustiveness.
-
-with a clause that asserts the runtime panic and explicitly states no static check, e.g.:
-
-> **Ships when.** `npm test` proves `?` desugaring, `question-on-non-result`, and that a `match` whose arms cover none of the six pattern forms raises the runtime `loom/runtime/match-error` panic (loom 1.0 performs no static exhaustiveness check).
-
-The binding requirement is that the gate clause reference the runtime `loom/runtime/match-error` behaviour and not assert or imply a static exhaustiveness check. `V4a-T`'s `Ships when` (the standard fail-red gate) and `V4b` (which co-closes `loom/runtime/match-error`) need no change.
 
 ## Relationships
 
