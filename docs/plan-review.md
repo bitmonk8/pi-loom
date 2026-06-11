@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T56) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 1 high, 34 medium retained (35 findings); ~88 low discarded; 4 low findings merged into 2 medium findings; ~35 NIT dropped; 14 false dropped (upstream)._
+_Triage tally: 0 blocker, 1 high, 33 medium retained (34 findings); ~88 low discarded; 4 low findings merged into 2 medium findings; ~35 NIT dropped; 14 false dropped (upstream)._
 
 ---
 
@@ -2265,76 +2265,6 @@ Edge case: if the companion "Leaf too large" finding splits `V15a`, both the Spe
 
 - T45 "V15a bundles seven independently-shippable units across five spec topics" — must-follow (if V15a is split, this Spec-citation + Deps edge attaches to the dispatch+suspend sub-leaf that carries the parent-suspend; settle the split shape first)
 - T24 "PIC-17 active-set snapshot/restore window owned by both V9c and V9f" — decision-overlap (resolving which leaf canonically owns the snapshot/restore protocol determines the correct Deps target for V15a's companion edge)
-
----
-
-# T34 — `loom/parse/import-non-warp-extension` has no asserting test
-
-**Original heading:** `loom/parse/import-non-warp-extension` has no asserting test
-**Original section:** V15c — Imports and re-exports
-**Kind:** validation
-**Importance:** medium
-**Score:** 30
-**MustFix:** false
-
-## Finding
-
-`imports.md` defines six diagnostic codes that the imports leaf must close: `loom/parse/warp-top-level-statement`, `loom/parse/import-non-warp-extension`, `loom/load/unresolvable-warp-path` (IMP-1), `loom/parse/import-unknown-symbol`, `loom/parse/import-name-collision`, and `loom/load/import-cycle`. `V15c-T` and its paired `V15c` implementation leaf assert five of these (unresolvable-warp-path, warp-top-level-statement, import-cycle, import-unknown-symbol, import-name-collision) but never assert `loom/parse/import-non-warp-extension`. A corpus search confirms the code appears in no plan leaf at all.
-
-Per `imports.md` §Path resolution, `import-non-warp-extension` is the parse error for an `import` path literal whose value does not end in `.warp` — including a `.loom` path or any non-lowercase variant such as `.WARP` (the extension match is byte-exact lowercase). This is an import-specific obligation distinct from the lexical path-literal codes owned by `V1b` (`invalid-path-separator`, the byte-exact `.LOOM` rejection); `V1b-T` asserts those but does not name `import-non-warp-extension`, so ownership of this code is unambiguously the imports leaf `V15c`, not `V1b` or `V2a`.
-
-Because the code is a registered `loom/parse/*` diagnostic with no asserting test, `H5a`'s registry-code↔asserting-test reconciliation arm has nothing to match it against. On the live-corpus footing that binds once `H6a` activates, that arm reddens CI. Independently, the non-`.warp` import rejection behaviour ships unverified: two implementers following `V15c-T` as written would both omit it, producing a leaf that does not satisfy the spec's six-code obligation.
-
-## Plan Documents
-
-- `docs/plan_topics/V15c-T-imports.md` — Tests (edited)
-- `docs/plan_topics/V15c-imports.md` — Tests / Ships when (edited)
-- `docs/plan_topics/coverage-matrix.md` — Code-keyed obligation areas (option-dependent)
-- `docs/plan_topics/H5a-closing-gate-automation.md` — registry-code↔asserting-test reconciliation arm (read-only)
-- `docs/plan_topics/V1b-T-literals-and-paths.md` — path-literal lexical codes (read-only; confirms non-ownership)
-
-## Spec Documents
-
-None — the fix is internal to plan files; `imports.md` already defines `import-non-warp-extension` and is read first-hand only as the authority.
-
-## Affected Leaves
-
-**Phases:** Vertical slices (V15)
-
-**Leaves (implementation order):**
-
-- `V15c-T` — Imports (`.warp` library files) (tests) — (modified)
-- `V15c` — Imports (`.warp` library files) — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-A reasonable implementer following `V15c-T` produces an imports leaf that asserts five of the spec's six import diagnostic codes and silently omits the non-`.warp` import-path rejection, so that behaviour ships unverified. The registered `loom/parse/import-non-warp-extension` code then has no asserting test, and `H5a`'s registry-code↔asserting-test reconciliation arm reddens CI on the live-corpus footing once `H6a` activates the release gate.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e
-**History:** `docs/plan_topics/V15c-imports.md` and `docs/plan_topics/V15c-T-imports.md` were both added (status A) in `c6a664e` ("pi-loom plan: build/update plan for spec.md + review"), the single commit that built the current plan corpus after the prior reset-to-scaffold (`657ee76`). Both leaves enumerated five of `imports.md`'s six diagnostic codes from the outset and never asserted `loom/parse/import-non-warp-extension`; `git log -S 'import-non-warp-extension' -- docs/` returns only spec-side commits, confirming the token never appeared in any plan leaf. The omission is original to the leaf, not introduced by a later edit.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add the missing assertion to the imports leaf pair, keyed on the `import-non-warp-extension` code:
-
-- In `docs/plan_topics/V15c-T-imports.md` **Tests**, add a bullet asserting that an `import` whose path literal does not end in byte-exact lowercase `.warp` fires `loom/parse/import-non-warp-extension`. Cover at least a `.loom`-suffixed path and a non-lowercase `.WARP` variant, since the spec calls both out explicitly. This bullet must exist, compile, and fail red per the tests-task contract.
-- Mirror the same assertion in `docs/plan_topics/V15c-imports.md` **Tests**, and extend its **Ships when** (currently "resolves a `.warp` import, rejects a non-permitted top-level form, and fires `import-cycle`") to also name the non-`.warp`-extension rejection so the gate condition covers it.
-
-Ownership is `V15c`, not `V1b`/`V2a` — do not retarget the assertion there. Edge cases for the implementer: the rejection is a parse error keyed on the literal as written (the diagnostic renders the offending path per the `<path>` placeholder rule), and the byte-exact lowercase rule means `.WARP`/`.Warp` must reject on every host regardless of filesystem case-equivalence. The implementer may also add a parallel `imports.md` row mapping the import `loom/parse/*` / `loom/load/*` codes to `V15c` in `coverage-matrix.md`, but the gate-closing fix is the asserting test, not the matrix row.
-
-## Relationships
-
-- T35 "V15c asserts only import failure paths; auto-export and re-export success behaviour is unverified" — same-cluster (same `V15c` leaf; both add missing Tests bullets, resolve independently)
-- T02 "Code-keyed obligation rows have no machine-matchable key, yet three closing-gate arms match cited tokens against them" — same-cluster (both concern coverage-matrix code-keyed-row representation of import/code-keyed obligations; resolve independently)
 
 ---
 
