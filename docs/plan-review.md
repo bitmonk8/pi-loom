@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T44) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 8 high, 35 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 7 high, 35 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -2948,70 +2948,3 @@ The named closing leaf only validly closes the row once `V11d` carries closure e
 - T43 "V11d ships the binder system-prompt builder with no test binding its structure" — decision-dependency (the matrix row names `V11d` as closing leaf; that closure is real only once `V11d`'s Tests assert the §System-prompt structure obligations).
 - T44 "V11d / V11d-T `Spec` field omits the normatively cross-linked `binder-bypass-and-envelope.md`" — same-cluster (`V11d`'s `Spec.` must cite `binder-bypass-and-envelope.md` for an implementer to reach these obligations; resolves independently of the matrix row).
 
----
-
-# T43 — V11d ships the binder system-prompt builder with no test binding its structure
-
-**Original heading:** Tests do not exercise the binder system-prompt builder it claims to add
-**Original section:** Consolidated Plan Review — plan
-**Kind:** implementability
-**Importance:** high
-**Score:** 100
-**MustFix:** true
-
-## Finding
-
-`V11d`'s `Adds.` field promises "the binder system-prompt builder (the eight structured items with type/default renderings)" as its lead deliverable. All three of `V11d`'s `Tests.` bullets, however, cover only the defaulting and echo concerns: `BNDR-6` echo reference renderings, the fill-then-revalidate AJV path, and the `(default)` echo annotation. None asserts the system-prompt builder at all. The paired `V11d-T` carries the identical three bullets, so the tests-task that is supposed to land first also omits the builder.
-
-The spec surface the builder must satisfy is large and byte-exact: `binder-bypass-and-envelope.md` §"System-prompt structure (normative)" pins eight structured items (with positive **and** negative assertions required for the conditional items 2, 3, 4, and 6), a Type-display reference-rendering table, the Default-literal rendering forms, and four Parameter-line reference renderings (including the description-omitted form) — all flagged MUST-reproduce-exactly. Because `Adds.` carries no binding force on its own (only `Tests.`/`Ships when.` gate a leaf), the builder is entirely unbound: `V11d` can ship green with a non-conforming or absent system-prompt builder, and no per-leaf gate would notice.
-
-## Plan Documents
-
-- `docs/plan_topics/V11d-defaulting-echo.md` — Tests / Ships when (edited)
-- `docs/plan_topics/V11d-T-defaulting-echo.md` — Tests / Ships when (edited)
-- `docs/plan_topics/coverage-matrix.md` — Code-keyed obligation areas table (option-dependent)
-
-## Spec Documents
-
-- `docs/spec_topics/binder/binder-bypass-and-envelope.md` — §"System-prompt structure (normative)", Type display, Default-literal rendering, Parameter-line reference renderings (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical slices (slice V11)
-
-**Leaves (implementation order):**
-
-- `V11d-T` — System-prompt builder, defaulting, and echo (tests) — (modified)
-- `V11d` — System-prompt builder, defaulting, and echo — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-`V11d` operationalises the binder system-prompt structure but verifies none of it, so a non-conforming prompt builder (wrong line prefixes, missing conditional-presence handling, mis-rendered type or default literals) ships green. The byte-exact obligations in the spec are then silently unimplemented at the per-leaf gate and first surface — if at all — only at the H6a un-anchored-MUST closing scan.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e — pi-loom plan: build/update plan for spec.md + review (2026-06-10, Thomas Andersen)
-**History:** `V11d`'s first committed form (c6a664e, the initial plan build) already paired the `Adds.` claim "binder system-prompt builder (the eight structured items…)" with `Tests.` bullets covering only `BNDR-6` echo and the defaulting path — the system-prompt structure was never bound. The two later edits to the leaf (b7e0181, 5684d84) reworked the defaulting/echo Tests bullet and the `Deps.` closure but left the system-prompt-builder coverage gap untouched.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add a `Tests.` bullet to both `V11d` and `V11d-T` that exercises the binder system-prompt builder against `binder-bypass-and-envelope.md` §"System-prompt structure (normative)". The bullet must assert:
-
-- the eight structured items (1–8), with both the positive (trigger-present) and negative (trigger-absent) assertions for the conditional items 2 (Description line), 3 (Argument-hint line), 4 (Parameters block / per-field line), and 6 (Session-context block);
-- the *Type display* reference renderings (the declared-Loom-type → rendered-string table);
-- the *Default-literal rendering* forms (e.g. `default=Severity.High`, `default="hello"`, `default=[1, 2, 3]`, `default=[]`);
-- the four *Parameter-line reference renderings*, including the description-omitted form (`  language (string) required`, no trailing space / em-dash).
-
-Cite the area as the code-keyed `binder-bypass-and-envelope.md` §"System-prompt structure (normative)" so the closing gate can trace it. Extend `V11d`'s `Ships when.` and `V11d-T`'s `Ships when.` to name the system-prompt-structure assertions alongside the existing BNDR-6 / fill-if-absent criteria. The `Spec.` field of both leaves must already list `binder/binder-bypass-and-envelope.md` for this bullet to be readable.
-
-## Relationships
-
-- T42 "Binder system-prompt structure obligations have no coverage-matrix closing-leaf row" — co-resolve (that finding adds the `coverage-matrix.md` code-keyed row naming `V11d` as the closing leaf, this one makes `V11d` actually bind the obligation).
-- T44 "V11d / V11d-T `Spec` field omits the normatively cross-linked `binder-bypass-and-envelope.md`" — decision-dependency (the new Tests bullet can only cite `binder-bypass-and-envelope.md` once that page is added to `V11d`/`V11d-T`'s `Spec.` field; that fix must land first).
