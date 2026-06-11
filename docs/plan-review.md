@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T56) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 1 high, 37 medium retained (38 findings); ~88 low discarded; 4 low findings merged into 2 medium findings; ~35 NIT dropped; 14 false dropped (upstream)._
+_Triage tally: 0 blocker, 1 high, 36 medium retained (37 findings); ~88 low discarded; 4 low findings merged into 2 medium findings; ~35 NIT dropped; 14 false dropped (upstream)._
 
 ---
 
@@ -2480,71 +2480,6 @@ Align the `V16a-T` and `V16a` `CIO-1` and `CIO-5` Tests bullets so they describe
 ## Relationships
 
 None
-
----
-
-# T37 — `V17a` / `V17a-T` omit `H4a` from Deps despite requiring its harness and response-programming surface
-
-**Original heading:** `V17a`/`V17a-T` omit the H4a harness from Deps though their tests require it
-**Original section:** V17a — Cancellation core
-**Kind:** implementability
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V17a-T`'s tests drive cancellation through the three entry points — slash-command, tool-exposed, and `invoke`-parent — to assert forwarding into `loomAbort`, and they inject aborts at chosen points (pre-call, in-flight provider call, budgeted retry) to exercise the checkpoint-granularity and reason-propagation vectors. Driving those entry points end-to-end and scripting abort injection is exactly what `H4a`'s end-to-end harness and shared **response-programming surface** provide; `H4a`'s injection-point category (e) explicitly names "the `V11f` / `V17a` vectors", and `H4a`'s Adds lists `V17a` in the closed set of harness-driven leaves that "consume … one API rather than inventing a per-leaf surface".
-
-Despite that contract, `V17a` declares `Deps. V17a-T, V8a, V4d` and `V17a-T` declares `Deps. V8a, V4d` — neither names `H4a`. An implementer picking up `V17a-T` by its declared Deps has no edge to the harness and would build an ad-hoc cancellation drive, diverging from the single shared scripting contract `H4a` is designed to centralise. The `V8a` Checkpoint-seam edge alone covers abort-landing at a checkpoint but not the end-to-end forwarding-path drive the three-entry-point tests require.
-
-## Plan Documents
-
-- `docs/plan_topics/V17a-cancellation-core.md` — Deps field (edited)
-- `docs/plan_topics/V17a-T-cancellation-core.md` — Deps field (edited)
-- `docs/plan_topics/H4a-factory-shell-and-harness.md` — Adds (response-programming surface consumer list) (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical (V17 — Cancellation)
-
-**Leaves (implementation order):**
-
-- `V17a-T` — Cancellation core (tests) — (modified)
-- `V17a` — Cancellation core — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-The `V17a-T` red tests cannot drive the three forwarding entry points or script abort injection without the `H4a` harness, but no Deps edge declares it; two reasonable implementers would diverge — one waits for `H4a`, another builds an ad-hoc harness that drifts from the shared response-programming-surface contract `H4a` centralises, defeating the single-scripting-API guarantee `H4a` exists to enforce.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e — pi-loom plan: build/update plan for spec.md + review (2026-06-10, Thomas Andersen)
-**History:** `V17a`'s first commit (c6a664e) already declared `Deps. V17a-T, V8a`, omitting `H4a`; the omission was never introduced by a later change. A later edit (a12e8b2, 2026-06-11) added `V4d` to the Deps but still did not add `H4a`, and 27e12be (2026-06-10) added `H4a`'s response-programming-surface consumer list naming `V17a` — making the missing dependency edge explicit — yet the `V17a` / `V17a-T` side has lacked the `H4a` edge since inception.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add `H4a` to the Deps of both leaves so the harness edge the cancellation tests require is declared:
-
-- In `docs/plan_topics/V17a-T-cancellation-core.md`, change the Deps field from `` `V8a`, `V4d` `` to add `` `H4a` `` (e.g. `` `V8a`, `V4d`, `H4a` ``).
-- In `docs/plan_topics/V17a-cancellation-core.md`, change the Deps field from `` `V17a-T`, `V8a`, `V4d` `` to add `` `H4a` `` (e.g. `` `V17a-T`, `V8a`, `V4d`, `H4a` ``).
-
-The three-entry-point forwarding tests and the abort-injection vectors are driven through `H4a`'s shared response-programming surface (injection-point category (e)), not through a per-leaf harness. Edge case the implementer must watch: if a future `H4a` split moves the response-programming surface into a new leaf, the Deps edge added here must target whichever leaf then owns that surface, not `H4a`'s residual factory-shell leaf.
-
-## Relationships
-
-- T38 "Forwarding-listener throw-trap contract has no asserting test in V17a" — must-precede (the throw-injection test must be driven through H4a's response-programming surface across the three entry points; resolving this Deps gap supplies the wiring that test needs)
 
 ---
 
