@@ -6,7 +6,7 @@
 
 **Tests.**
 - `SLSH-2`: a dispatched prompt-mode loom issues one untyped `@`-query and streams its **assistant response** into the user session as one appended turn.
-- `Convention:` (*Doc updates*) running the fixture loom through the harness produces exactly one appended turn and no diagnostic.
+- `SLSH-2`: running the fixture loom through the harness produces exactly one appended turn and no diagnostic.
 
 **Deps.** `H4a`
 
