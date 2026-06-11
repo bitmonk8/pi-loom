@@ -9,7 +9,8 @@
 - `DISC-2`: per-source missing/unreadable/wrong-type modes (silent-on-missing for conventional sources, explicit error otherwise); clean-leaf-ENOENT ancestor walk.
 - `DISC-3`: case collisions fire `loom/load/case-collision` (W); non-canonical extension fires `non-canonical-extension` (W); a name failing `^[a-z0-9][a-z0-9_-]*$` fires `invalid-slash-name` (E).
 - `DISC-4`: a slash-name collision (loom-vs-loom same priority, loom-vs-Pi) fires `cross-format-collision` on the final derived name; the loom loses asymmetrically — it does not register, the Pi-owned entry survives.
+- `DISC-2` (Settings source applies the merged value): a `loomPaths` entry supplied through `V10c`'s merged settings contributes its `.loom` file(s) through the Settings discovery source — asserting the merged settings value reaches the discovery walk, so an implementation that never plumbed `loomPaths` into the Settings source fails.
 
-**Deps.** `V10a-T`, `V8b`, `V1a`
+**Deps.** `V10a-T`, `V10c`, `V8b`, `V1a`
 
 **Ships when.** `npm test` discovers across the five sources and resolves each collision/validity case.

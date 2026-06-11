@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T56) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 1 high, 28 medium retained (29 findings); ~88 low discarded; 4 low findings merged into 2 medium findings; ~35 NIT dropped; 14 false dropped (upstream)._
+_Triage tally: 0 blocker, 1 high, 27 medium retained (28 findings); ~88 low discarded; 4 low findings merged into 2 medium findings; ~35 NIT dropped; 14 false dropped (upstream)._
 
 ---
 
@@ -1853,85 +1853,6 @@ Both bullets should assert the per-file scope (a malformed value in one file doe
 
 - T28 "V10c reads five settings keys but no test asserts the read values change behaviour" — same-cluster (same `V10c` leaf, both add missing `V10c-T` assertions; resolve independently)
 - T25 "`loomPaths` entry-schema diagnostics are asserted by no leaf and mapped by no coverage row" — same-cluster (another `loom/load/*` settings code on `V10c`; resolves independently)
-
----
-
-# T28 — V10c reads five settings keys but no test asserts the read values change behaviour
-
-**Original heading:** Five settings keys "read" but key application not asserted
-**Original section:** V10c — Settings reads and merge
-**Kind:** validation
-**Importance:** medium
-**Score:** 30
-**MustFix:** false
-
-## Finding
-
-`V10c` reads the five loom-extension settings keys defined in `package-and-settings.md` §"Keys read" — `loomPaths`, `looms.binderModel`, `looms.scanPackages`, `looms.scanPackagesMaxFiles`, and `looms.scanPackagesTimeoutMs` — and its Tests block asserts only that the values are *parsed and merged* correctly: `DISC-7` covers deep-merge precedence, `loom/load/settings-invalid-json` covers a malformed file, and the reload-debounce bullet covers coalescing. No bullet asserts that a read value subsequently *changes observable behaviour*.
-
-The behavioural effect of each key is owned by a different consumer leaf, and none of those consumers asserts that the value it acts on is the one `V10c` merged from settings:
-
-- `looms.scanPackages: false` must skip the package-discovery walk wholesale (zero candidate `package.json` reads), but `V10b`'s `DISC-6` bullet exercises only the bounded-walk trip points, never the disable path.
-- Operator-tuned `looms.scanPackagesMaxFiles` / `looms.scanPackagesTimeoutMs` must move the `loom/load/discovery-slow` trip point; `V10b`'s `DISC-6` test fires at "the `maxFiles`/`timeoutMs` bound" with the hardcoded `2000` defaults from `V10b` Adds, so an implementation that ignores the settings value and uses constants would still pass.
-- `loomPaths` must contribute additional looms through the Settings discovery source (`V10a`), and `looms.binderModel` must serve as the binder-model fallback when frontmatter `bind_model:` is omitted (`V11a`); neither application is asserted against a settings-sourced value.
-
-The keys are therefore validated as data but never as behaviour. There is no test edge that fails if the value `V10c` reads never reaches the code that consumes it.
-
-## Plan Documents
-
-- `docs/plan_topics/V10c-settings-merge.md` — Adds / Tests (read-only)
-- `docs/plan_topics/V10b-package-discovery.md` — Adds / Tests / Deps (edited)
-- `docs/plan_topics/V10b-T-package-discovery.md` — Tests (edited)
-- `docs/plan_topics/V10a-discovery-walk.md` — Tests (option-dependent)
-- `docs/plan_topics/V10a-T-discovery-walk.md` — Tests (option-dependent)
-- `docs/plan_topics/V11a-binder-model-resolution.md` — Tests (option-dependent)
-- `docs/plan_topics/coverage-matrix.md` — DISC rows (read-only)
-
-## Spec Documents
-
-- `docs/spec_topics/discovery/package-and-settings.md` — §DISC-6, §DISC-7, "Keys read" (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical slices (V10, V11)
-
-**Leaves (implementation order):**
-
-- `V10a` — Discovery walk, sources, and collisions — (modified)
-- `V10b` — Package discovery (bounded walk) — (modified)
-- `V10c` — Settings reads and merge — (modified)
-- `V11a` — Binder-model resolution and strict-capability probe — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-An implementer can satisfy every `V10b`/`V10c` gate while wiring none of the settings keys to behaviour — hardcoding `V10b`'s `2000` bounds, ignoring `scanPackages: false`, and never plumbing `loomPaths`/`binderModel` into their consumers — and ship a build where operator-tuned settings are silently inert. Two reasonable implementers diverge on whether the read value is even consumed, and the divergent build matches the parse/merge tests but not the spec's behavioural contract.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e (2026-06-10) — "pi-loom plan: build/update plan for spec.md + review"
-**History:** `V10c`'s Tests block has, since the leaf was first authored in c6a664e, covered only `DISC-7` deep-merge, the malformed-settings diagnostic, and the reload debounce; no bullet ever asserted that a read settings value changes downstream behaviour. `git log -S 'scanPackages' -- docs/plan_topics/V10c-settings-merge.md` returns empty — the token has never appeared in the leaf. The five later commits that touched the file (3a02fc7, 2dc65d0, 49e3837, 66acde6, b2d5a1f) refined only the debounce / `ERR-7` watcher-reload bullets and never added an application assertion. The gap is original to the plan authoring, not introduced by a later edit.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add a behavioural-application assertion for each settings key at the consumer leaf that owns the observed behaviour, so each assertion exercises a value flowing from `V10c`'s merged settings into the consumer rather than a hardcoded constant. Land each failing bullet in the consumer's `-T` tests leaf and mirror it in the implementation leaf, per the tests-task pairing convention.
-
-- `V10b-T` / `V10b` (`DISC-6` surface): assert that with merged settings `looms.scanPackages: false` the package walk performs zero candidate `package.json` reads (walk skipped wholesale); assert that a merged `looms.scanPackagesMaxFiles` value distinct from the `2000` default trips `loom/load/discovery-slow` at that operator value, not at `2000`; assert the same for `looms.scanPackagesTimeoutMs` against its trip point.
-- `V10a-T` / `V10a`: assert that a `loomPaths` entry supplied through merged settings contributes its `.loom` file(s) through the Settings discovery source.
-- `V11a` (and its paired `-T`): assert that `looms.binderModel` is used as the binder-model fallback when a non-bypass loom's frontmatter `bind_model:` is omitted (per `package-and-settings.md` §"Keys read" → `looms.binderModel`).
-
-Wiring the implementer must watch: `V10b` currently lists `Deps. V10b-T, V10a, V8b` and does not name `V10c`, yet asserting that an operator-tuned bound moves the trip point requires the merged-settings value `V10c` produces. Either declare `V10b`'s dependency on the `V10c` settings read or route the value through an injected config the test can populate. The same producer→consumer reachability applies to `V10a` (for `loomPaths`) and `V11a` (for `binderModel`).
-
-## Relationships
-
-- T27 "V10c claims settings validation in Adds but no test asserts `loom/load/settings-value-out-of-range`" — same-cluster (same `V10c` leaf; both add validation bullets but resolve independently)
-- T26 "V10b presents the operator-tunable package-walk bounds as hardcoded constants" — decision-overlap (the `V10b` tuning-escape decision constrains how the operator-value assertion is framed)
 
 ---
 

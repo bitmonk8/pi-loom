@@ -7,6 +7,7 @@
 **Tests.**
 - `loom/load/binder-model-unresolved` fires when no exact model reference matches.
 - The `strictCapable` probe: `false` → `loom/load/binder-model-not-strict-capable` (E); `undefined` → `loom/load/binder-model-strict-capability-unknown` (W); `true` → resolves.
+- The binder-model two-step chain ([binder-model](../spec_topics/binder/binder-model-and-context.md#binder-model)) falls back to `looms.binderModel`: with merged settings `looms.binderModel` set and a non-bypass loom whose frontmatter `bind_model:` is omitted, the merged `binderModel` value resolves the binder model (no `loom/load/binder-model-unresolved`) — asserting the value reaches the binder from `V10c`'s merged settings, not a hardcoded model.
 - [binder-model-and-context.md — hot-reload recovery note](../spec_topics/binder/binder-model-and-context.md#binder-model-hot-reload) (BNDR area; informational `loom-system-note`, no `loom/load/*` code): a hot reload that recovers a previously-unresolved model emits the recovery note.
 
 **Deps.** `V9b`, `V10c`
