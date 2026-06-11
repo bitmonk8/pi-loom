@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T44) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 13 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 12 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -775,76 +775,6 @@ Edge case for the implementer: the TDD ritual permits a tests task to stub "the 
 - T40 "V4d `QueryError` family consumed by V13a / V14a / V17a without a declared or transitive dependency" — same-cluster (touches V17a Deps; separate edit).
 - T12 "V4c/V4c-T name the H4a harness and session double but omit H4a from Deps" — same-cluster (seam-dep omission; independent edit).
 - T16 "V5e per-boundary routing test asserts destination error surfaces its `Deps` cannot reach" — same-cluster (destination-surface dep omission).
-
----
-
-# T12 — V4c/V4c-T name the H4a harness and session double but omit H4a from Deps
-
-**Original heading:** Uses the H4a harness / session double but omits H4a from Deps
-**Original section:** Consolidated Plan Review — plan
-**Kind:** assumptions, implementability
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-Three of `V4c`'s Tests bullets are written to run against the `H4a` test harness. `ERR-12` holds "exercised via the `H4a` harness modelling a subagent-mode callee — not the live `V9i` surface"; the first `ERR-13` bullet models completed tool-call / query / invoke-child outcomes "through the `H4a` session double and the `V17a` side-effect seam … not the live `V14a`/`V13c`/`V15a` surfaces"; the `ERR-13` (completed-callee finality) bullet drives a callee to completion "via the `H4a` session double … scoped against the `V17a` cancellation seam / `H4a` invocation harness." The paired `V4c-T` leaf carries the same harness-dependent assertions.
-
-`V4c`'s declared `Deps` are `V4c-T, V4a, V17a` and `V4c-T`'s are `V4a, V17a`; `H4a` appears in neither. It is also not reachable transitively: `V4a` depends on `V4a-T, V2b, V3a`, and `V17a` depends on `V17a-T, V8a` (`V8a → H3a`) — no path reaches `H4a`. The relationship is also unrecorded in the reverse direction: `H4a`'s Adds enumerates its harness consumers as `M`, `M-T`, `H7a`, `V9c`, `V11f`, `V12a`, `V13c`, `V13d`, and `V17a`, and does not list `V4c`.
-
-Following the plan's "pick the next leaf whose `Deps` are satisfied" rule, an implementer can begin `V4c` before `H4a` exists. The `ERR-12`/`ERR-13` tests cannot be written faithfully without the `H4a` session double / subagent-mode-callee harness they explicitly name, so the implementer would hand-roll a one-off session stub with no guarantee it matches the `H4a` fidelity contract — which is precisely the divergence the harness was introduced to prevent.
-
-## Plan Documents
-
-- `docs/plan_topics/V4c-terminal-outcomes.md` — Deps field (edited)
-- `docs/plan_topics/V4c-T-terminal-outcomes.md` — Deps field (edited)
-- `docs/plan_topics/H4a-factory-shell-and-harness.md` — Adds consumer enumeration (edited)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Horizontal, Vertical slice V4
-
-**Leaves (implementation order):**
-
-- `H4a` — Extension factory shell and end-to-end harness — (modified)
-- `V4c` — Terminal outcomes, partial-append, and no-rollback — (modified)
-- `V4c-T` — Terminal outcomes (tests-task) — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers diverge: one stalls until `H4a` lands; the other picks `V4c` (whose `Deps` are satisfiable) and hand-rolls a session stub that need not match the `H4a` fidelity contract, so the `ERR-12`/`ERR-13` assertions are exercised against a surface the plan never specified. The harness-vs-stub split silently undermines the no-rollback / terminal-outcome coverage `V4c` is meant to establish.
-
-## Issue introduction
-
-**Verdict:** single-commit
-**Introducing commits:** e8f0236 — pi-loom plan: resolve "V4c-T/V4c assert no-rollback over later-slice surfaces" (2026-06-11, Thomas Andersen); db918a2 — pi-loom plan: resolve "ERR-13 no-rollback / completed-callee finality over-claimed in V4c" (2026-06-11, Thomas Andersen)
-**History:** `V4c` was created in c6a664e with `Deps. V4c-T, V4a, V17a` and `ERR-12`/`ERR-13` bullets that named no harness, so the Deps were correct as authored. A later review-remediation, e8f0236, rewrote those bullets to route through the `H4a` harness and `H4a` session double (to avoid asserting over the live `V9i`/`V14a`/`V13c`/`V15a` surfaces) but did not add `H4a` to the Deps of `V4c` or `V4c-T`, introducing the gap. db918a2 deepened the `H4a` session-double usage with the completed-callee-finality bullet, again leaving the Deps line untouched; the Deps line has not changed since inception.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add `H4a` to the `Deps.` field of both `docs/plan_topics/V4c-terminal-outcomes.md` and `docs/plan_topics/V4c-T-terminal-outcomes.md`, so each reads `... V4a, V17a, H4a` (V4c additionally retains its `V4c-T` entry). This is the durable fix: the e8f0236 remediation deliberately re-pointed `ERR-12`/`ERR-13` at the `H4a` harness precisely to keep these assertions off the later-slice `V9i`/`V14a`/`V13c`/`V15a` surfaces, so dropping the `H4a` references instead would re-open the defect that remediation closed.
-
-Edge cases for the implementer:
-
-- For symmetry, add `V4c` to the harness-consumer enumeration in `H4a`'s `Adds.` (currently `M`, `M-T`, `H7a`, `V9c`, `V11f`, `V12a`, `V13c`, `V13d`, `V17a`), so the producer/consumer record is bidirectional. This is a consistency follow-on, not a separate obligation.
-- If `H4a` is later split, the new `H4a` Deps entry must target whichever resulting sub-leaf carries the session-double / subagent-mode-callee modelling, not necessarily the renamed `H4a`.
-
-## Relationships
-
-- T35 "Response-programming surface: determinism is gated at H4a, functional effect is not" — same-cluster (both concern correct wiring/verification of the H4a harness contract; independent).
-- T11 "V9c-T omits V17a though its PIC-18 cancel-forwarding test targets the V17a-owned `loomAbort`" — same-cluster (same Deps-omission defect class).
-- T40 "V4d `QueryError` family consumed by V13a / V14a / V17a without a declared or transitive dependency" — same-cluster (same Deps-omission defect class).
 
 ---
 

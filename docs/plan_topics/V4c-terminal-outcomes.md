@@ -13,6 +13,6 @@
 - `ERR-13`: on the enumerated cases, a `?`/panic/cancel does not unwind side effects, and a completed tool call, query, or invoke child stays final; this rests on the runtime having no compensating/rollback path, so the tests witness it on the sampled cases rather than exhaustively. Completed tool-call / query / invoke-child outcomes are modelled through the `H4a` session double and the `V17a` side-effect seam (`loomAbort`, checkpoint set, late-settlement discard), not the live `V14a`/`V13c`/`V15a` surfaces.
 - `ERR-13` (completed-callee finality): drive a tool call / invoke child to *completion* (via the `H4a` session double), then fire a downstream `?`/panic/cancel, and assert the completed callee's side effect persists and no compensating turn is injected — exercising a completed callee distinct from an appended turn, scoped against the `V17a` cancellation seam / `H4a` invocation harness, not the live `V14a`/`V15a` surfaces.
 
-**Deps.** `V4c-T`, `V4a`, `V17a`
+**Deps.** `V4c-T`, `V4a`, `V17a`, `H4a`
 
 **Ships when.** `npm test` proves the enumerated `ERR-8`…`ERR-13` cases hold — committed turns survive cancellation and `?`-propagation unmodified across the sampled surfaces, and a completed callee stays final after a downstream terminal event. The no-rollback guarantee is architectural: it rests on the runtime containing no compensating/rollback path, and the tests witness it on the enumerated cases rather than exhaustively.
