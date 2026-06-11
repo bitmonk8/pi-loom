@@ -1037,46 +1037,22 @@ Two reasonable implementers diverge on where the aggregate `Promise.allSettled(a
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-This finding carries two independent obligations across different leaves and files: removing the false aggregate claim from V9e, and installing ownership on V9g (Adds + coverage-matrix re-key + tests). Both are required; resolve Option A first so the construct is removed from the wrong leaf and the baseline is stable, then land Option B onto that clean baseline so ownership is installed on V9g without a double-ownership window.
-
-### Option A — De-conflate V9e (scope-bounding obligation)
-
-**Approach.** Strip the aggregate-await claim from V9e so it describes only the per-entry barrier the registry actually owns.
-
-**Plan edits.**
-- `docs/plan_topics/V9e-active-invocation-registry.md`, `Adds.`: strike the parenthetical `(which awaits every in-flight entry's disposal to settle via `Promise.allSettled` — [active-invocation-registry.md](...), PIC code-keyed area)` so `disposeBarrier` reads as the per-entry `Promise<void>` the per-invocation `finally` settles (per `active-invocation-registry.md` *`disposeBarrier` resolver storage*).
-- `docs/plan_topics/V9e-T-active-invocation-registry.md`, `Tests.`: revise the `disposeBarrier` bullet so it asserts the per-entry barrier settles after that entry's `AgentSession.dispose()` returns (subagent mode) / immediately (prompt mode) — a single entry's `Promise<void>`, not the aggregate "until all entries are disposed".
-
-**Spec edits.** None.
-
-**Pros.** Removes the false aggregate claim from the leaf that holds only the per-entry barrier; aligns V9e with `active-invocation-registry.md`'s per-entry framing.
-
-**Cons.** On its own, leaves the aggregate construct unowned until Option B lands.
-
-**Risks.** Applied alone, the production `Promise.allSettled` site has no leaf whose Adds names it, so the Sequential-by-default carve-out is unsatisfied.
-
-### Option B — Assign aggregate-await ownership to V9g
-
-**Approach.** Make V9g the owning leaf for the aggregate `Promise.allSettled` and re-key the coverage matrix accordingly.
-
-**Plan edits.**
-- `docs/plan_topics/V9g-session-shutdown.md`, `Adds.`: name `Promise.allSettled` for the sub-step-3 aggregate await over every entry's `disposeBarrier`, citing the matrix-enumerated code-keyed obligation area (the `session_shutdown` sub-step-3 settle-all obligation in `patch-skew-degradation.md` / `host-interfaces-core.md`), so the leaf that houses the call satisfies the carve-out and supplies a resolvable `// allow:` token.
-- `docs/plan_topics/coverage-matrix.md`, *Code-keyed obligation areas*: key the "`disposeBarrier` `Promise.allSettled` settle-all" MUST to V9g (the leaf whose code performs it), leaving the insertion-order-iteration and `invocationId`-from-`IdSource.newInvocationId()` MUSTs keyed to V9e.
-- `docs/plan_topics/V9g-T-session-shutdown.md`, `Tests.`: assert sub-step 3 awaits every in-flight entry's `disposeBarrier` to settle, bounded by `SHUTDOWN_AWAIT_CAP_MS`, citing the re-keyed matrix row.
-
-**Spec edits.** None.
-
-**Pros.** The leaf holding the production call site owns and tests the construct; the allow-list token resolves to the matrix row keyed to that leaf; the V9e coverage credit is no longer vacuous.
-
-**Cons.** Edits the coverage-matrix row other findings also touch — coordinate with the row-identifier-citation concern.
-
-**Risks.** Re-keying the matrix row changes the row identifier the V9e/V9g tests cite.
+This finding carries two complementary, both-required obligations across different leaves and files: removing the false aggregate claim from V9e, and installing ownership on V9g (Adds + coverage-matrix re-key + tests). Apply the de-conflation first so the construct is removed from the wrong leaf and the baseline is stable, then install ownership on V9g onto that clean baseline so ownership lands without a double-ownership window.
 
 ### Recommendation
 
-Both obligations are required; this is not an either/or choice. Resolve Option A first, then land Option B onto the clean baseline. The spec is authoritative and read-only here — it already places the aggregate await in the `session_shutdown` handler and defines `disposeBarrier` as a per-entry `Promise<void>`; do not edit the spec to match the plan. No new leaf is needed; honour the existing `V9*` leaf-ID scheme and the no-invented-IDs rule.
+The spec is authoritative and read-only here — it already places the aggregate await in the `session_shutdown` handler and defines `disposeBarrier` as a per-entry `Promise<void>`; do not edit the spec to match the plan. No new leaf is needed; honour the existing `V9*` leaf-ID scheme and the no-invented-IDs rule. Apply both edits below in order — first de-conflate V9e, then install ownership on V9g — so ownership never overlaps. No spec edits.
+
+**De-conflate V9e — describe only the per-entry barrier the registry owns.**
+- `docs/plan_topics/V9e-active-invocation-registry.md`, `Adds.`: strike the parenthetical `(which awaits every in-flight entry's disposal to settle via `Promise.allSettled` — [active-invocation-registry.md](...), PIC code-keyed area)` so `disposeBarrier` reads as the per-entry `Promise<void>` the per-invocation `finally` settles (per `active-invocation-registry.md` *`disposeBarrier` resolver storage*).
+- `docs/plan_topics/V9e-T-active-invocation-registry.md`, `Tests.`: revise the `disposeBarrier` bullet so it asserts the per-entry barrier settles after that entry's `AgentSession.dispose()` returns (subagent mode) / immediately (prompt mode) — a single entry's `Promise<void>`, not the aggregate "until all entries are disposed".
+
+**Assign aggregate-await ownership to V9g — the leaf whose production code performs the call.**
+- `docs/plan_topics/V9g-session-shutdown.md`, `Adds.`: name `Promise.allSettled` for the sub-step-3 aggregate await over every entry's `disposeBarrier`, citing the matrix-enumerated code-keyed obligation area (the `session_shutdown` sub-step-3 settle-all obligation in `patch-skew-degradation.md` / `host-interfaces-core.md`), so the leaf that houses the call satisfies the Sequential-by-default carve-out and supplies a resolvable `// allow:` token.
+- `docs/plan_topics/coverage-matrix.md`, *Code-keyed obligation areas*: key the "`disposeBarrier` `Promise.allSettled` settle-all" MUST to V9g (the leaf whose code performs it), leaving the insertion-order-iteration and `invocationId`-from-`IdSource.newInvocationId()` MUSTs keyed to V9e. Re-keying changes the row identifier the V9e/V9g tests cite, so coordinate with the row-identifier-citation concern.
+- `docs/plan_topics/V9g-T-session-shutdown.md`, `Tests.`: assert sub-step 3 awaits every in-flight entry's `disposeBarrier` to settle, bounded by `SHUTDOWN_AWAIT_CAP_MS`, citing the re-keyed matrix row.
 
 ## Relationships
 
@@ -1146,41 +1122,19 @@ Six core `invoke` parse/load diagnostics have no asserting test, so an implement
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-This finding carries two independent obligations — make a leaf assert the six codes, and register a code-keyed coverage-matrix row so the closing gate observes them. They land in different files and are decomposed below; resolve Option A first, then Option B.
-
-### Option A — Assert the six codes in an invocation leaf
-
-**Approach.** Add Tests bullets asserting each of the six codes to an invocation-core leaf and gate its Ships-when on them. The home is either `V15a` (folded into the existing invoke-core leaf and its `-T`) or a dedicated new `V15*` leaf (`<new>`) plus its `-T`.
-
-**Plan edits.** In the chosen leaf's `-T` (failing tests first) and impl `Tests` field, assert that each of `loom/parse/invoke-arg-type-mismatch`, `loom/parse/invoke-return-type-mismatch`, `loom/parse/invoke-arity-too-few`, `loom/parse/invoke-arity-too-many`, `loom/parse/invoke-non-loom-extension`, and `loom/load/callee-has-errors` fires on its triggering condition, and extend Ships-when to gate on them. Cite `invocation.md` anchors per the existing bullet style.
-
-**Spec edits.** None.
-
-**Pros.** Closes the actual coverage gap; the codes acquire green-test closure evidence.
-
-**Cons.** Folding into `V15a` enlarges an already broad leaf; a dedicated leaf adds a slice node.
-
-**Risks.** The six codes carry behavioural edge cases the assertions must pin: arity is checked **before** per-argument type (`invocation.md` §Argument arity); `invoke-arity-too-many` fires even when the callee is **not** statically resolvable, while `too-few` falls back to a runtime AJV `InvokeInfraError{validation}` when not statically resolvable; `invoke-return-type-mismatch` accepts compatibility not equality (`T_calleeReturn ⊑ Schema`, narrower-under-wider); `callee-has-errors` has the error-for-`tools:` / warning-for-`invoke()` severity split; and `invoke-non-loom-extension` also covers `tools:` `.loom` entries. Missing any of these reproduces the gap partially.
-
-### Option B — Register a code-keyed coverage-matrix row
-
-**Approach.** Add one row to `coverage-matrix.md` §"Code-keyed obligation areas (no numbered REQ-IDs)" naming the Option-A closing leaf for the `invocation.md` parse/load codes, mirroring the existing `drain-state-contract.md` / `active-invocation-registry.md` rows.
-
-**Plan edits.** In `coverage-matrix.md`, add a `| invocation.md ... (un-anchored; GOV-22 residue) | <closing leaf> |` row enumerating the six codes (or the §-scope that owns them), with the closing leaf set to whatever Option A produced (`V15a` or `<new>`).
-
-**Spec edits.** None.
-
-**Pros.** Makes the codes visible to the H5a closing gate so the residue is enforced at the loom 1.0 footing.
-
-**Cons.** A bare row without Option A's asserting bullets points the gate at a leaf that does not yet close the codes.
-
-**Risks.** The row's closing-leaf citation must match the leaf actually carrying the assertions; a stale citation reds the gate for the wrong reason.
+This finding carries two independent obligations that are both required: make an invocation leaf assert the six codes, then register a code-keyed coverage-matrix row so the H5a closing gate observes them. Resolve the assertion obligation first, because it fixes the closing-leaf identity the matrix row must cite.
 
 ### Recommendation
 
-Resolve **Option A first**, then **Option B**. Option A fixes the substantive gap and fixes the closing-leaf identity that Option B's row must cite, so the matrix row lands on a stable baseline rather than referencing a `<new>` placeholder. The spec is read-only for this fix — the six codes already exist in `invocation.md`; do not add or restate them in the spec. If a dedicated assertion leaf is created rather than folding into `V15a`, use the literal `<new>` placeholder for its ID until the implementer allocates a real one per the plan's leaf-ID scheme. Watch the arity-before-type ordering, the statically-resolvable-vs-runtime-fallback split, the `⊑` compatibility rule, and the `callee-has-errors` severity asymmetry when authoring the assertions.
+Add Tests bullets asserting each of the six `invoke` parse/load diagnostic codes to an invocation-core leaf and gate its Ships-when on them, then add the corresponding code-keyed coverage-matrix row that names that leaf. The spec is read-only for this fix — the six codes already exist in `invocation.md`; do not add or restate them in the spec.
+
+**Assertion leaf.** In the chosen invocation leaf's `-T` (failing tests first) and impl `Tests` field, assert that each of `loom/parse/invoke-arg-type-mismatch`, `loom/parse/invoke-return-type-mismatch`, `loom/parse/invoke-arity-too-few`, `loom/parse/invoke-arity-too-many`, `loom/parse/invoke-non-loom-extension`, and `loom/load/callee-has-errors` fires on its triggering condition, and extend Ships-when to gate on them. Cite `invocation.md` anchors per the existing bullet style. The home is either `V15a` (folded into the existing invoke-core leaf and its `-T`) or a dedicated new `V15*` leaf plus its `-T`; if a dedicated leaf is created rather than folding into `V15a`, use the literal `<new>` placeholder for its ID until the implementer allocates a real one per the plan's leaf-ID scheme.
+
+The assertions must pin the codes' behavioural edge cases: arity is checked **before** per-argument type (`invocation.md` §Argument arity); `invoke-arity-too-many` fires even when the callee is **not** statically resolvable, while `too-few` falls back to a runtime AJV `InvokeInfraError{validation}` when not statically resolvable; `invoke-return-type-mismatch` accepts compatibility not equality (`T_calleeReturn ⊑ Schema`, narrower-under-wider); `callee-has-errors` has the error-for-`tools:` / warning-for-`invoke()` severity split; and `invoke-non-loom-extension` also covers `tools:` `.loom` entries.
+
+**Coverage-matrix row.** In `coverage-matrix.md` §"Code-keyed obligation areas (no numbered REQ-IDs)", add a `| invocation.md ... (un-anchored; GOV-22 residue) | <closing leaf> |` row enumerating the six codes (or the §-scope that owns them), mirroring the existing `drain-state-contract.md` / `active-invocation-registry.md` rows. Set the closing leaf to whatever the assertion step produced (`V15a` or the new leaf); the citation must match the leaf actually carrying the assertions, since a stale citation reds the gate for the wrong reason.
 
 ## Relationships
 
@@ -1315,41 +1269,23 @@ The transitive static-resolution parse-cache walk, the hot-reload re-parse drop 
 
 ## Solution Space
 
-**Shape:** multiple
+**Shape:** single
 
-This finding carries two distinct obligations — pinning the uncovered runtime behaviours with tests, and recording the IMPL page in the matrix. They span the matrix file plus three leaf files; resolve Option A first (establish the asserting tests), then Option B (author the matrix row naming those leaves) on that stable baseline so every closing-leaf citation resolves to a real green test.
-
-### Option A — Pin the three uncovered behaviours with asserting tests
-
-**Approach.** Add Test bullets to the existing closing leaves (and their `-T` pairs) so the static-resolution walk, the hot-reload re-walk, and the cross-file ordering each have a green test.
-
-**Plan edits.**
-- `V15a`: add a Test asserting the static-resolution pass walks transitively from the entry loom across literal `invoke` paths and `.loom` `tools:` entries, parsing/lowering each visited file once into the shared per-pass cache.
-- `V9b`: add a Test asserting the in-process re-parse path drops the per-pass cache entry for the changed file and every transitive `.warp` importer as part of the `LoomRegistry` swap.
-- `V7a`: extend the Multi-error Test to assert the `Diagnostic[]` is ordered by `(file, line, col)` across an entry `.loom` and ≥2 transitively-imported `.warp` modules.
-
-**Spec edits.** None (obligations already exist on `implementation-notes.md` §Runtime, `invocation.md` §Static resolution, `diagnostics.md`).
-
-**Pros.** Closes the actual behavioural gap; the assertions are concrete and observable.
-**Cons.** Touches three leaf pairs.
-**Risks.** The `V7a` cross-file ordering assertion overlaps the related "Cross-file (file, line, col) diagnostic ordering" concern — coordinate so the assertion is authored once.
-
-### Option B — Record `implementation-notes.md` (IMPL) in the matrix
-
-**Approach.** Add a code-keyed `implementation-notes.md (IMPL)` row to the code-keyed obligation-area table naming the closing leaves, and classify the back-reference MUSTs explicitly.
-
-**Plan edits.**
-- `coverage-matrix.md`: add a code-keyed `implementation-notes.md (IMPL)` row naming the closing leaves for the three behaviours (static-resolution walk + hot-reload re-walk → `V15a`, `V9b`; cross-file `(file, line, col)` aggregation order → `V7a`). For each IMPL MUST that is a pure back-reference to an owning leaf (multi-error → `V7a`, ambient ban → `H3a`, runtime deps → `H1a`), record that classification in the row note so the `H5a` un-anchored-MUST arm resolves rather than reddening.
-
-**Spec edits.** None.
-
-**Pros.** Makes the page visible to the closing gate; mirrors the existing `drain-state-contract.md` / `active-invocation-registry.md` row format.
-**Cons.** The row's closing-leaf citations are only meaningful once the Option A assertions exist.
-**Risks.** Recording a leaf as a closer without the underlying test produces a vacuous matrix row.
+This finding carries two coupled obligations — pinning the uncovered runtime behaviours with asserting tests, and recording the IMPL page in the coverage matrix. They span the matrix file plus three leaf files; the test obligations are established first so that every closing-leaf citation in the matrix row resolves to a real green test.
 
 ### Recommendation
 
-Both obligations are required. Resolve Option A first (establish the asserting tests in `V15a`/`V9b`/`V7a`), then Option B (author the matrix row naming those leaves) on that stable baseline, so every closing-leaf citation in the new row resolves to a real green test. Watch the `V7a` overlap with the related cross-file-ordering concern so the `(file, line, col)` assertion is not authored twice.
+Pin the three uncovered `implementation-notes.md` §Runtime behaviours with asserting tests, then record the IMPL page in the coverage matrix on that baseline.
+
+Add the asserting Test bullets to the existing closing leaves (mirrored into their paired `-T` leaves per the plan's `<id>-T` / `<id>` pairing):
+
+- `V15a`: add a Test asserting the static-resolution pass walks transitively from the entry loom across literal `invoke` paths and `.loom` `tools:` entries, parsing/lowering each visited file exactly once into the shared per-pass cache.
+- `V9b`: add a Test asserting the in-process re-parse path drops the per-pass cache entry for the changed file and every transitive `.warp` importer as part of the `LoomRegistry` swap.
+- `V7a`: extend the Multi-error Test to assert the `Diagnostic[]` is ordered by `(file, line, col)` across an entry `.loom` and ≥2 transitively-imported `.warp` modules. Author this `(file, line, col)` assertion once, coordinating with the related cross-file-ordering concern (T17) so it is not duplicated.
+
+Then add a code-keyed `implementation-notes.md (IMPL)` row to the code-keyed obligation-area table in `coverage-matrix.md`, naming the closing leaves for the three behaviours (static-resolution walk + hot-reload re-walk → `V15a`, `V9b`; cross-file `(file, line, col)` aggregation order → `V7a`). For each IMPL MUST that is a pure back-reference to an owning leaf (multi-error → `V7a`, ambient ban → `H3a`, runtime deps → `H1a`), record that classification in the row note so the `H5a` un-anchored-MUST arm resolves rather than reddening. Author the matrix row after the tests exist so its closing-leaf citations are not vacuous.
+
+No spec edits are required; the obligations already exist on `implementation-notes.md` §Runtime, `invocation.md` §Static resolution, and `diagnostics.md`.
 
 ## Relationships
 
