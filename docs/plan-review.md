@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T18) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 5 high, 10 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 13 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 4 high, 10 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 13 NIT dropped; 0 false dropped._
 
 ---
 
@@ -980,80 +980,3 @@ Edge cases for the implementer:
 
 - T07 "V5e references V4d-owned `ValidationIssue` / `ValidationError` without declaring a `V4d` dependency" — same-cluster (same missing-`V4d`-Deps-edge pattern; resolves independently)
 
----
-
-# T15 — `Promise.allSettled` aggregate-await ownership is credited to V9e but the call site lives in V9g's `session_shutdown` handler
-
-**Original heading:** `Promise.allSettled` aggregate-await call-site ownership split between V9e and V9g
-**Original section:** docs/plan_topics/V9e + V9g — Promise.allSettled ownership
-**Kind:** implementability
-**Importance:** high
-**Score:** 100
-**MustFix:** true
-
-## Finding
-
-The spec splits two distinct constructs cleanly. The per-entry `disposeBarrier` is a `Promise<void>` that the per-invocation `finally` settles after `AgentSession.dispose()` returns (subagent mode) or immediately (prompt mode) — `active-invocation-registry.md` (*`disposeBarrier` resolver storage*) is explicit that this is a per-entry promise, never the aggregate. The aggregate await `await Promise.allSettled(activeInvocations.map(inv => inv.disposeBarrier))` is sub-step 3 of the `session_shutdown` handler, pinned in `patch-skew-degradation.md` and `host-interfaces-core.md`. The registry leaf owns the former; the session-shutdown handler leaf owns the latter.
-
-The plan crosses these wires. V9e's Adds describes its `disposeBarrier` as "which awaits every in-flight entry's disposal to settle via `Promise.allSettled`", and V9e-T's Tests bullet asserts "the `disposeBarrier` blocks until all entries are disposed" — both attribute the *aggregate* settle-all to the *per-entry* barrier the registry leaf owns. The coverage-matrix code-keyed obligation-area row (row 80) likewise keys the "`disposeBarrier` `Promise.allSettled` settle-all" MUST to V9e. Meanwhile V9g — whose `session_shutdown` handler is where the spec actually performs the aggregate await — describes the teardown only as "abort-and-await within `SHUTDOWN_AWAIT_CAP_MS`" and never names `Promise.allSettled`.
-
-Under the `conventions.md` *Sequential by default* carve-out, the leaf whose production code contains the `Promise.allSettled(...)` call must (i) cite the obligation in `Spec.`, (ii) name the construct in `Adds.` together with the REQ-ID or code-keyed obligation area, and carry an ESLint allow-list entry `// allow: <token> — <spec-page>` whose token resolves to a matrix-enumerated code-keyed area. The aggregate call site is V9g's handler, but the construct is named in V9e's Adds and the matrix row that enumerates it is keyed to V9e. Neither leaf unambiguously owns the production call site: the leaf that names and is credited with the construct (V9e) is not the leaf that contains the call, and the leaf that contains the call (V9g) neither names the construct nor is keyed to it in the matrix.
-
-## Plan Documents
-
-- `docs/plan_topics/V9e-active-invocation-registry.md` — Adds, Tests (edited)
-- `docs/plan_topics/V9e-T-active-invocation-registry.md` — Tests (edited)
-- `docs/plan_topics/V9g-session-shutdown.md` — Adds (edited)
-- `docs/plan_topics/V9g-T-session-shutdown.md` — Tests (edited)
-- `docs/plan_topics/coverage-matrix.md` — Code-keyed obligation areas (row keying the `disposeBarrier` `Promise.allSettled` settle-all MUST) (edited)
-- `docs/plan_topics/conventions.md` — Sequential by default (read-only)
-
-## Spec Documents
-
-None — the spec already places the aggregate await in the `session_shutdown` handler (`patch-skew-degradation.md` sub-step 3, `host-interfaces-core.md`) and defines `disposeBarrier` as a per-entry `Promise<void>` (`active-invocation-registry.md`). The fix is internal to plan files.
-
-## Affected Leaves
-
-**Phases:** V9 — Extension host integration
-
-**Leaves (implementation order):**
-
-- `V9e-T` — `ActiveInvocationRegistry` (tests) — (modified)
-- `V9e` — `ActiveInvocationRegistry` — (modified)
-- `V9g-T` — Session-shutdown teardown and emission isolation (tests) — (modified)
-- `V9g` — Session-shutdown teardown and emission isolation — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers diverge on where the aggregate `Promise.allSettled(activeInvocations.map(inv => inv.disposeBarrier))` lives: V9e's Adds and the coverage matrix credit V9e, so a V9e implementer may place the aggregate await in the registry module to make V9e-T's "blocks until all entries are disposed" bullet green — contradicting the spec, which performs it in the V9g `session_shutdown` handler. The result is either a spec-violating registry implementation, or V9g holding the real call site while V9e's matrix-credited coverage is vacuous and the Sequential-by-default allow-list token is keyed to a leaf that does not contain the call.
-
-## Issue introduction
-
-**Verdict:** multi-commit-interaction
-**Introducing commits:** c6a664e — pi-loom plan: build/update plan for spec.md + review (2026-06-10, Thomas Andersen); 75b6a9b — pi-loom plan: resolve "Sequential by default carve-out admits only a numbered REQ-ID" (2026-06-10, Thomas Andersen); adb521f — pi-loom plan: resolve "V9b/V9c/V9e PIC-area MUSTs missing from code-keyed obligation-area table" (2026-06-11, Thomas Andersen)
-**History:** `c6a664e` created both leaves; at that point V9g's Adds already described teardown as "abort-and-await within `SHUTDOWN_AWAIT_CAP_MS`" without naming the construct, and V9e's `disposeBarrier` carried no aggregate claim. `75b6a9b` added the parenthetical "(which awaits every in-flight entry's disposal to settle via `Promise.allSettled` …)" to V9e's Adds to satisfy the Sequential-by-default carve-out, attaching the construct to the per-entry-barrier leaf rather than the handler that performs the aggregate await. `adb521f` then added the coverage-matrix code-keyed row crediting the "`disposeBarrier` `Promise.allSettled` settle-all" MUST to V9e, cementing the mis-ownership. The split — construct named and keyed to V9e, call site in V9g — is the product of these three commits.
-
-## Solution Space
-
-**Shape:** single
-
-This finding carries two complementary, both-required obligations across different leaves and files: removing the false aggregate claim from V9e, and installing ownership on V9g (Adds + coverage-matrix re-key + tests). Apply the de-conflation first so the construct is removed from the wrong leaf and the baseline is stable, then install ownership on V9g onto that clean baseline so ownership lands without a double-ownership window.
-
-### Recommendation
-
-The spec is authoritative and read-only here — it already places the aggregate await in the `session_shutdown` handler and defines `disposeBarrier` as a per-entry `Promise<void>`; do not edit the spec to match the plan. No new leaf is needed; honour the existing `V9*` leaf-ID scheme and the no-invented-IDs rule. Apply both edits below in order — first de-conflate V9e, then install ownership on V9g — so ownership never overlaps. No spec edits.
-
-**De-conflate V9e — describe only the per-entry barrier the registry owns.**
-- `docs/plan_topics/V9e-active-invocation-registry.md`, `Adds.`: strike the parenthetical `(which awaits every in-flight entry's disposal to settle via `Promise.allSettled` — [active-invocation-registry.md](...), PIC code-keyed area)` so `disposeBarrier` reads as the per-entry `Promise<void>` the per-invocation `finally` settles (per `active-invocation-registry.md` *`disposeBarrier` resolver storage*).
-- `docs/plan_topics/V9e-T-active-invocation-registry.md`, `Tests.`: revise the `disposeBarrier` bullet so it asserts the per-entry barrier settles after that entry's `AgentSession.dispose()` returns (subagent mode) / immediately (prompt mode) — a single entry's `Promise<void>`, not the aggregate "until all entries are disposed".
-
-**Assign aggregate-await ownership to V9g — the leaf whose production code performs the call.**
-- `docs/plan_topics/V9g-session-shutdown.md`, `Adds.`: name `Promise.allSettled` for the sub-step-3 aggregate await over every entry's `disposeBarrier`, citing the matrix-enumerated code-keyed obligation area (the `session_shutdown` sub-step-3 settle-all obligation in `patch-skew-degradation.md` / `host-interfaces-core.md`), so the leaf that houses the call satisfies the Sequential-by-default carve-out and supplies a resolvable `// allow:` token.
-- `docs/plan_topics/coverage-matrix.md`, *Code-keyed obligation areas*: key the "`disposeBarrier` `Promise.allSettled` settle-all" MUST to V9g (the leaf whose code performs it), leaving the insertion-order-iteration and `invocationId`-from-`IdSource.newInvocationId()` MUSTs keyed to V9e. Re-keying changes the row identifier the V9e/V9g tests cite, so coordinate with the row-identifier-citation concern.
-- `docs/plan_topics/V9g-T-session-shutdown.md`, `Tests.`: assert sub-step 3 awaits every in-flight entry's `disposeBarrier` to settle, bounded by `SHUTDOWN_AWAIT_CAP_MS`, citing the re-keyed matrix row.
-
-## Relationships
-
-None
