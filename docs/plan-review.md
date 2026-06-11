@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T56) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 1 high, 30 medium retained (31 findings); ~88 low discarded; 4 low findings merged into 2 medium findings; ~35 NIT dropped; 14 false dropped (upstream)._
+_Triage tally: 0 blocker, 1 high, 29 medium retained (30 findings); ~88 low discarded; 4 low findings merged into 2 medium findings; ~35 NIT dropped; 14 false dropped (upstream)._
 
 ---
 
@@ -1995,71 +1995,6 @@ In `V10c`'s Adds, replace the garbled "named test interface" clause with a concr
 Use the *same* concrete identifier in `V9b`'s Adds for its registry-swap and `.loom`/`.warp` re-parse arms, so the jointly-owned seam has one canonical name across both owning leaves. Update the `ERR-7` Tests bullet (and `Deps` parenthetical) in `V4e` and `V4e-T` to reference that identifier rather than the bare prose name.
 
 Edge cases for the implementer: keep the seam a test-only injection interface (it must not require a live file watcher); preserve the existing `Deps` edges (`V4e` → `V9b`, `V10c`); and ensure the chosen identifier honours the leaf-ID and seam-naming conventions in `conventions.md` §Leaf format (Class-2 seam named in `Adds.` and bound by a `Deps.`-listing consumer).
-
-## Relationships
-
-None
-
----
-
-# T30 — AJV-on-`args` depth-walk fast-fail `<ajv-summary>` rendering has no asserting test
-
-**Original heading:** AJV-on-`args` depth-walk fast-fail rendering not asserted
-**Original section:** V11f — Binder cancellation, per-class retry budget, and failure-class taxonomy
-**Kind:** validation
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-The binder failure-mode templates pin two distinct renderings for the `<ajv-summary>` placeholder of the *AJV validation of the binder's `args` failed* row (`binder/determinism-cancellation-failure.md`, §Failure-mode templates):
-
-1. **Ordinary AJV-on-`args` failure** — AJV ran over the lowered `params` schema, and `<ajv-summary>` is the in-order concatenation of the `ValidationIssue` entries, each rendered `<path> <message>` and joined by the two-character separator `; ` (the `errorsText(errors, { separator: '; ' })` form).
-2. **Depth-walk fast-fail sub-case** — the cross-ceiling sub-case where the depth walk fast-fails at the `params` boundary (ceiling #4 routed to ceiling #3 via CIO-1). Here AJV never runs and its `errors` array is empty; `<ajv-summary>` is instead synthesised from the depth-walk's single canonical `ValidationIssue` and rendered as `<JSON-Pointer> JSON document depth exceeds 5` — a single-issue form with **no `; ` separator** and a fixed canonical message, explicitly distinct from form 1.
-
-The V11f / V11f-T Tests bullet covers only form 1: "the six failure templates render verbatim (`<provider>` = `Model.api`, `<ajv-summary>` = `<path> <message>` joined with `; `)". Form 2 — a separate, normatively-pinned code path with a different separator discipline and a different summary source (synthesised issue vs `errorsText`) — has no asserting bullet. A TDD author working the listed Tests would implement and verify only the joined form; an implementation that routed the depth-walk fast-fail through `errorsText` over the empty `errors` array (yielding empty or malformed summary text) would ship green against the leaf's gate.
-
-## Plan Documents
-
-- `docs/plan_topics/V11f-T-binder-retry-taxonomy.md` — Tests (edited)
-- `docs/plan_topics/V11f-binder-retry-taxonomy.md` — Tests (edited)
-- `docs/plan_topics/V5e-depth-enforcement.md` — Adds / Tests, depth-walk owner (read-only)
-
-## Spec Documents
-
-- `docs/spec_topics/binder/determinism-cancellation-failure.md` — §Failure-class taxonomy (AJV-on-`args` class) and §Failure-mode templates (Depth-walk fast-fail clause) (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical slices — V11 (Binder)
-
-**Leaves (implementation order):**
-
-- V11f-T — Binder cancellation, per-class retry budget, and failure taxonomy (tests) — (modified)
-- V11f — Binder cancellation, per-class retry budget, and failure taxonomy — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-A spec-pinned, operator-visible rendering (the single-issue `<JSON-Pointer> JSON document depth exceeds 5` form, no `; ` separator) for the depth-walk fast-fail sub-case has no test, so two reasonable implementers diverge: one synthesises the canonical issue, one feeds the empty AJV `errors` array through `errorsText` and emits a degraded or empty summary. The defect ships with `npm test` green because the leaf's gate only proves the joined multi-issue form.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e ("pi-loom plan: build/update plan for spec.md + review", 2026-06-10)
-**History:** The V11f leaf was authored at c6a664e, the plan-build commit, with the `<ajv-summary>` Tests bullet covering only the `; `-joined multi-issue form (`git log -S 'ajv-summary'` and `git log -G 'joined with .; .'` over `docs/plan_topics/V11f-binder-retry-taxonomy.md` both first hit c6a664e). The spec's depth-walk fast-fail single-issue clause (`no '; ' separator`) already existed in `docs/spec_topics/binder/determinism-cancellation-failure.md` before the plan was built — its history traces back through f2a948b and the f5e89f4 size-cap split (2026-06-04), predating c6a664e (2026-06-10). The two later edits touching the leaf (d5dd4de cancellation-forwarding, e2b7e81 cross-ceiling interface) addressed other concerns and did not add the depth-walk rendering bullet. The omission has therefore been present since the leaf's inception against an already-pinned spec obligation.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add one Tests bullet to `docs/plan_topics/V11f-T-binder-retry-taxonomy.md` and mirror it verbatim in `docs/plan_topics/V11f-binder-retry-taxonomy.md` (the paired tests/impl bullet lists are kept identical), asserting the depth-walk fast-fail rendering distinctly from the joined form. The bullet must assert: a binder `kind:"ok"` envelope whose `args` trip the depth-walk fast-fail at the `params` boundary renders the AJV-on-`args` failure-mode row with `<ajv-summary>` equal to the single canonical issue `<JSON-Pointer> JSON document depth exceeds 5` (single-issue form, no `; ` separator, `<JSON-Pointer>` the path to the first too-deep node), and that this is distinct from the multi-issue `errorsText`-joined form already covered. Cite the spec anchor `../spec_topics/binder/determinism-cancellation-failure.md` §Failure-mode templates (Depth-walk fast-fail clause) and the AJV-on-`args` class in §Failure-class taxonomy.
-
-Edge cases the implementer must watch: AJV does not run at this site (the `errors` array is empty), so the summary is synthesised from the depth-walk `ValidationIssue` (`schema_keyword:"maxDepth"`, message `"JSON document depth exceeds 5"`), not from any AJV call; the assertion must confirm the synthesised path, not an `errorsText` traversal.
 
 ## Relationships
 
