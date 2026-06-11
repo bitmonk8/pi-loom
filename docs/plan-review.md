@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T44) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 27 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 26 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -1727,71 +1727,6 @@ Edge case the implementer must watch: the ceiling-arbitration bullet (Tests bull
 
 - T38 "Live-host smoke pass criterion assumes a non-deterministic LLM reproduces a transcript recorded against the in-process double" — decision-dependency (how the H7a goldens are derived constrains what the H6a live-host smoke can validly compare against).
 - T39 "H6a consumes H7a's golden artifacts but no dependency edge orders H7a before H6a" — same-cluster (H7a golden artifacts/ordering; resolves independently).
-
----
-
-# T26 — Revert path restores the prior pin but never re-asserts the gates return green
-
-**Original heading:** Revert/rollback path — no verification it restores green
-**Original section:** Consolidated Plan Review — plan
-**Kind:** validation
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V18c`'s revert path (in **Ships when**, with a mirror in `V18c-T`) directs the contributor to "restore the prior pin before merge — reverting step 4's edit in one commit: the single-source-of-truth Pi-SDK pin literal at `host-prerequisites.md#pi-sdk-pin` and the four `@earendil-works/*` `peerDependencies` entries." It names the action but never names a closing check: no step asserts that the restored state is green — that after the revert the build-time gates (step 2(a)/2(b) surface-inventory, the `engines.node` three-way equality, the `peerDependencies` literal-read, and the `loom/typecheck/session-shutdown-reason-snapshot` brand-string gate) actually pass again.
-
-The gap matters because a bump commit edits more than step 4. Per `version-bump-triggers.md` and `version-bump-step2b.md`, a bump co-edits the capability-probe constants, the `SessionShutdownEvent['reason']` snapshot, the `engines.node` literal (operands (i)/(ii)), the typebox allow-lists, the provider seed-field table, and the strict-capability probe — all shaped to the *candidate* pin. Reverting "step 4's edit" alone restores the prior pin range while leaving those co-edited constants at candidate values. The `engines.node` three-way equality gate, for example, then compares candidate-shaped operands (i)/(ii) against the prior-pin floor read live from `node_modules` (iii) and fails red. A post-revert green re-run is exactly the observable that would surface this incomplete-revert state; without it the procedure's recovery path has no defined success criterion and can land `main` in a red state.
-
-## Plan Documents
-
-- `docs/plan_topics/V18c-version-bump-checklist.md` — `Ships when` / `Adds` (edited)
-- `docs/plan_topics/V18c-T-version-bump-checklist.md` — `Ships when` (option-dependent)
-- `docs/plan.md` — `### V18 — Build-time SDK gates` (read-only)
-
-## Spec Documents
-
-- `docs/spec_topics/pi-integration-contract/version-bump-triggers.md` — outputs (a)–(c) / acceptance gate (option-dependent)
-- `docs/spec_topics/pi-integration-contract/version-bump-step2b.md` — step 4 (the pin revert) (read-only)
-- `docs/spec_topics/pi-integration-contract/version-bump-intro.md` — Non-goal (a) (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical V18 — Build-time SDK gates
-
-**Leaves (implementation order):**
-
-- `V18c-T` — Pi version-bump procedure and gates (tests) — (modified)
-- `V18c` — Pi version-bump procedure and gates — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-A "revert step 4's edit" reading restores the prior pin while leaving the co-edited capability constants, `engines.node` literal, and snapshot at candidate values, so the build-time gates are red against the reverted state; nothing in the procedure asserts the post-revert gates return green, so the recovery path can land `main` red and two contributors diverge on whether the revert is complete.
-
-## Issue introduction
-
-**Verdict:** single-commit
-**Introducing commits:** 81ab342 — pi-loom plan: resolve "version-bump runtime-evidence acceptance gate and revert path" (2026-06-10, Thomas Andersen)
-**History:** The revert/rollback path was added to `V18c` in 81ab342, in the same commit that introduced the runtime-evidence acceptance gate; the `Ships when` and `Adds` text named the pin-restore action but paired it with no post-revert green re-run, so the verification gap has been present since the revert path's first appearance. No earlier commit carried the revert path.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add a post-revert verification obligation to the revert path: after the prior pin is restored, the contributor MUST re-run the build-time gates — the step-2(a)/2(b) surface-inventory tests, the `engines.node` three-way equality gate, the `peerDependencies` literal-read, and the `loom/typecheck/session-shutdown-reason-snapshot` brand-string gate — and confirm they pass green against the restored prior pin before the revert is merged. State that this re-run is what establishes the revert is complete: if any gate is red, the revert did not restore consistency (e.g. a co-edited constant, the `engines.node` literal, or the snapshot entry was left at its candidate value) and the revert MUST be widened to restore those operands in the same commit.
-
-Place this obligation alongside the revert procedure wherever that procedure resolves to live. If the procedure stays on `V18c`, add the re-run sentence to `V18c`'s `Ships when` revert clause; if it relocates to `version-bump-triggers.md`, add the re-run obligation there and have `V18c` cite it. Do not duplicate the obligation into both `V18c` and `V18c-T` — the green re-run exercises the same gates `V18c-T` already authors as tests, so it is a procedure step, not a new `-T` test assertion.
-
-## Relationships
-
-- T27 "V18c Ships-when conflates a pre-merge gate and a post-merge smoke under one "restored before merge" consequent" — decision-dependency (the revert timing fixes whether the green re-run gates a pre-merge restore or a post-merge revert commit).
-- T28 "Real-host divergence detectable only by a manual, post-merge smoke" — same-cluster (same revert path; bounds the detection window rather than the post-revert verification).
 
 ---
 
