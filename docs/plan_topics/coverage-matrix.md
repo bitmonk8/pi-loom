@@ -72,7 +72,7 @@ The same table also enumerates the third closing-gate surface defined in [`conve
 | `query/` (QRY) | `V13a`, `V13b`, `V13c`, `V13d` |
 | `tool-calls.md` (TOOL) | `V14a`, `V13c` |
 | `pi-integration-contract/conversation-drive.md` — *No additional access channels* denial-surface MUST (un-anchored; GOV-22 residue) | `V14a` |
-| `pi-integration-contract/version-bump-triggers.md` — runtime-evidence acceptance-gate MUST (output (c); a red runtime-evidence run MUST NOT be merged at the candidate pin) (un-anchored; GOV-22 residue) | `V18c` |
+| `pi-integration-contract/version-bump-triggers.md` — runtime-evidence acceptance-gate MUST (output (c); a red runtime-evidence run MUST NOT be merged at the candidate pin) (un-anchored; GOV-22 residue) | `V18d` |
 | `pi-integration-contract/host-prerequisites.md` §`pi-sdk-pin` — `typebox` `"*"` MUST NOT be collapsed into the four-entry tilde-pinned `peerDependencies` group (un-anchored; GOV-22 residue) | `H1a` |
 | `pi-integration-contract/drain-state-contract.md` — `LoomRegistry.readDrainState` closed three-arm dispatch (dispatch / shutting-down note / degraded-needs-reload note), the no-fourth-arm / no-alternative-gating-field prohibition, and the `readDrainState` read-failure fail-safe MUSTs (un-anchored; GOV-22 residue) | `V9b` |
 | `pi-integration-contract/conversation-drive.md` §`untyped-query-ok-extraction` — untyped-query trailing-turn `Ok(string)` extraction MUSTs (final-turn boundary, assistant-text concatenation, downstream of the cancel and `stopReason: "error"` short-circuits) (un-anchored; GOV-22 residue) | `V9c` |

@@ -102,7 +102,7 @@ Each slice is a coherent feature area (e.g. lexer, expressions, schemas, queries
 
 ### V9 — Extension host integration
 
-> **Interleave note.** V9 and V11 are not built as contiguous blocks. `V11a` (Binder-model resolution) depends on `V9b` and is itself a prerequisite of `V9c`/`V9i`/`V9j`, so the seam runs `V9b → V11a → V9c`/`V9i`/`V9j` — `V11a` lands mid-V9, not after all of V9. Separately, `V9h` (and therefore `V9g`) depend on `V18c` from the `V18` SDK-gate slice and cannot be picked up until that cluster lands. Sequence by **Deps**, not slice number.
+> **Interleave note.** V9 and V11 are not built as contiguous blocks. `V11a` (Binder-model resolution) depends on `V9b` and is itself a prerequisite of `V9c`/`V9i`/`V9j`, so the seam runs `V9b → V11a → V9c`/`V9i`/`V9j` — `V11a` lands mid-V9, not after all of V9. Separately, `V9h` (and therefore `V9g`) depend on `V18c` — the lightweight static-gates leaf from the `V18` SDK-gate slice (itself needing only `V18a`/`V18b`) — solely for its `session-shutdown-reason-snapshot` brand-string constant; they do **not** wait on the high-dependency runtime-evidence acceptance leaf `V18d`. Sequence by **Deps**, not slice number.
 
 - [`V9a` — Capability probe (Step 0)](./plan_topics/V9a-capability-probe.md)
 - [`V9b` — Registration steps and drain-state contract](./plan_topics/V9b-registration-drain-state.md)
@@ -166,7 +166,8 @@ Each slice is a coherent feature area (e.g. lexer, expressions, schemas, queries
 
 - [`V18a` — SDK capability inventory](./plan_topics/V18a-capability-inventory.md)
 - [`V18b` — Inventory-closure audit gate](./plan_topics/V18b-inventory-audit.md)
-- [`V18c` — Pi version-bump procedure and gates](./plan_topics/V18c-version-bump-checklist.md)
+- [`V18c` — Pi version-bump static gates](./plan_topics/V18c-version-bump-checklist.md)
+- [`V18d` — Pi version-bump runtime-evidence acceptance gate and revert path](./plan_topics/V18d-version-bump-acceptance.md)
 
 ---
 
