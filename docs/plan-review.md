@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T44) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 16 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 15 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -988,75 +988,6 @@ Watch: the term chosen here should agree with the resolution of the sibling ERR-
 ## Relationships
 
 - T15 "ERR-7 test injects at an undefined "channel seam" and omits the two-arm owners from `Deps`" — decision-dependency (touches the same V4e `ERR-7` Tests bullet; the canonical term and two-arm naming chosen there should match this fix).
-
----
-
-# T15 — ERR-7 test injects at an undefined "channel seam" and omits the two-arm owners from `Deps`
-
-**Original heading:** ERR-7 injection at an undefined "channel seam"; two-arm owners not in Deps
-**Original section:** Consolidated Plan Review — plan
-**Kind:** implementability
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-V4e's `ERR-7` Tests bullet reads: "a synthetic watcher-rebuild failure injected at the `ERR-7` channel seam — exercising both arms, the re-parse/re-merge diagnostic arm and the `loom/runtime/registry-swap-failed` registry-swap arm — routes pre-eval to `loom-system-note` with `triggerTurn:false`, without standing up a live `V10c`/`V9b` watcher." The phrase "`ERR-7` channel seam" occurs only in this bullet — no leaf or convention declares it as a named injection seam, and no spec page defines a seam by that name. An implementer therefore has no contract telling them what interface to inject against or which leaf owns it.
-
-The two failure outcomes the bullet requires the test to exercise are both produced by other leaves. The registry-swap arm (`loom/runtime/registry-swap-failed`) is owned by `V9b` (registration step 5 build-aside-then-publish swap and the drain-state contract). The re-parse / re-merge diagnostic arm is produced by the watcher-rebuild path: re-parsing changed `.loom` / `.warp` files is the discovery-root watcher registered in `V9b`'s registration step 5, and re-merging changed settings is `V10c`'s reload-debounce path (V10c's own `Adds` states "the `ERR-7` watcher-reload failure surface this debounce feeds is asserted by `V4e`"). V4e's `Deps` are `V4e-T, V9a, V6a, V11f, V10a, V16a` — neither `V9b` nor `V10c` appears, and neither is reachable transitively. The bullet's "without standing up a live `V10c`/`V9b` watcher" qualifier acknowledges the synthetic intent but does not supply the seam interface against which the synthetic producer is built, nor the `loom/runtime/registry-swap-failed` code's owning leaf.
-
-Two reasonable implementers will diverge: one hand-rolls a bespoke synthetic producer and an ad-hoc injection point; another waits for or re-derives the real watcher-rebuild contract. The synthetic seam an implementer invents is not guaranteed to match the real watcher path V9b/V10c build, so the ERR-7 test may green against a fabricated interface that never exercises the genuine surfacing contract.
-
-## Plan Documents
-
-- `docs/plan_topics/V4e-pre-evaluation-failures.md` — Tests (`ERR-7` bullet) and `Deps` (edited)
-- `docs/plan_topics/V4e-T-pre-evaluation-failures.md` — Tests (`ERR-7` bullet) and `Deps` (edited)
-- `docs/plan_topics/V9b-registration-drain-state.md` — registry-swap-failed arm owner; `.loom`/`.warp` re-parse watcher owner (edited)
-- `docs/plan_topics/V10c-settings-merge.md` — settings re-merge arm owner (edited)
-
-## Spec Documents
-
-None. The spec fully defines `ERR-7` and its two arms (`docs/spec_topics/errors-and-results/error-model.md` §ERR-7 and `docs/spec_topics/discovery/package-and-settings.md` §"Watcher-time reload failures"); the gap is internal to the plan leaves.
-
-## Affected Leaves
-
-**Phases:** Vertical slices (V4, V9, V10)
-
-**Leaves (implementation order):**
-
-- `V4e-T` — Pre-evaluation failures (tests) — (modified)
-- `V4e` — Pre-evaluation failures — (modified)
-- `V9b` — Registration steps and drain-state contract — (modified)
-- `V10c` — Settings reads and merge — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers diverge on what the "`ERR-7` channel seam" is and how each arm is synthesised, and the omission of `V9b`/`V10c` from `Deps` means V4e can be picked up before the leaves that own the `loom/runtime/registry-swap-failed` code and the re-parse/re-merge diagnostic path. The resulting ERR-7 test can green against an invented synthetic interface that does not match the real watcher-rebuild surfacing contract.
-
-## Issue introduction
-
-**Verdict:** single-commit
-**Introducing commits:** 49e3837 — pi-loom plan: resolve "ERR-7 watcher-reload assertion has no in-leaf test" (2026-06-11, Thomas Andersen)
-**History:** Before 49e3837 the bullet read simply "`ERR-7`: watcher-reload failure routes pre-eval." That commit (resolving an earlier "ERR-7 watcher-reload assertion has no in-leaf test" finding) expanded the bullet to inject "at the `ERR-7` channel seam" and to require exercising both arms, but it neither defined that seam in any leaf nor added the two arms' owning leaves (`V9b`/`V10c`) to V4e's `Deps`, which were left unchanged. `git log -S` over the `ERR-7 channel seam` token confirms 49e3837 as the sole introducing commit.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Declare the synthetic injection seam in the leaf that owns the watcher-rebuild path (registry-swap and `.loom`/`.warp` re-parse in `V9b`; settings re-merge in `V10c`) and add the owning leaf(s) to V4e's `Deps`, mirroring how V4e already binds the `V16a` arbitration seam via its `Deps` annotation.
-
-In `V9b` (and `V10c` for the settings-re-merge sub-arm), state the named test-injection seam through which a synthetic watcher-rebuild failure is fed to the `loom-system-note` surfacing path. In `V4e.Deps`, add `V9b` (and `V10c` if the settings-re-merge sub-arm is exercised), with an inline annotation naming the seam, and update V4e's `ERR-7` Tests bullet to cite that named seam instead of the undefined "`ERR-7` channel seam". Mirror the bullet change in `V4e-T`.
-
-This keeps the seam contract co-located with the code that produces both arms and guarantees the `registry-swap-failed` and re-parse/re-merge diagnostic codes exist before V4e's ERR-7 test runs, removing the divergence risk. Resolve the smaller scope-bounding edit first: pin the named seam in `V9b`/`V10c`, then update V4e's bullet and `Deps` (and mirror the bullet in `V4e-T`) against that stable name. Watch the edge case that the re-parse/re-merge arm spans both leaves (`.loom`/`.warp` re-parse in V9b, settings re-merge in V10c) — if the test exercises the settings sub-arm, `V10c` must be in `Deps`, not only `V9b`.
-
-## Relationships
-
-- T14 "ERR-7 test bullet states different normative content in the paired V4e leaves" — decision-dependency (the canonical-term and two-arm decision made here for V4e's `ERR-7` bullet constrains how V4e-T's mirrored bullet must be aligned).
 
 ---
 
