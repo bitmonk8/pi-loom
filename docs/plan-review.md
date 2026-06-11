@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T56) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 1 high, 46 medium retained (47 findings); ~88 low discarded; 4 low findings merged into 2 medium findings; ~35 NIT dropped; 14 false dropped (upstream)._
+_Triage tally: 0 blocker, 1 high, 45 medium retained (46 findings); ~88 low discarded; 4 low findings merged into 2 medium findings; ~35 NIT dropped; 14 false dropped (upstream)._
 
 ---
 
@@ -3170,70 +3170,3 @@ The re-run obligation is load-bearing — it is the only stated check that the r
 ## Relationships
 
 - T44 "V18c bundles mechanically-gated build-time tests with non-testable editorial obligations under one Ships-when" — decision-overlap (if the revert path is split into a separate leaf, the V18c dependency relocates with it)
-
----
-
-# T47 — V18b's Adds omits the broader-inventory population, entry-kind taxonomy, and land-green `src/` sweep the audit-introducing leaf must own
-
-**Original heading:** Land-green precondition (new category entry kinds + `src/` sweep) absent from Adds; ownership ambiguous vs V18a
-**Original section:** V18b — Inventory-closure audit
-**Kind:** implementability
-**Importance:** medium
-**Score:** 30
-**MustFix:** false
-
-## Finding
-
-The spec's *Inventory-closure audit* paragraph (`inventory-audit-intro.md`) pins three obligations onto the leaf that introduces the build-time audit: (1) `SDK_SURFACE_INVENTORY` is "strictly broader than the seven capabilities" and must carry the non-capability surface entries — the category-(1) `pi.registerFlag` / `pi.getFlag` members, the typebox `{ Type }` / `{ Unsafe }` allow-lists, and (per V18c's literal-reads) the `pi-engines-node` / `peer-dep-range` / `strict-capability-probe` / `api-coverage` rows; (2) the entry-kind taxonomy (the `namespace-function` kind plus the category-(1)/(2)/(3) kinds the recogniser branches on) is implementation-owned and must be coined somewhere; and (3) "the commit that introduces this audit MUST also include whatever source-tree sweep is needed to keep `main` green" — every existing `src/` Pi-side reference deleted, promoted to an inventory entry, exempted, or rewritten into a recognised shape, in the same commit, because the audit "is intended to land green … not introduced as a 'land red, fix incrementally' gate."
-
-None of these three is assigned in the plan. V18a's Adds creates the `CAPABILITY_OBLIGATIONS` and `SDK_SURFACE_INVENTORY` constants but scopes them to "the seven named SDK capabilities." V18b's Adds describes only the audit recogniser (resolution against entries, family-(4) discriminator routing, fail-closed canary). Neither leaf coins the entry-kind taxonomy, populates the non-capability inventory entries, or names the land-green `src/` sweep as a deliverable. V18b's Ships-when ("runs the closure audit green on `main`") implicitly presumes the sweep was done, but no Adds field makes it an owned obligation.
-
-The result is an ownership gap between V18a (the inventory-constant leaf) and V18b (the audit leaf): an implementer picking up V18b must guess where the broader entries and the entry-kind taxonomy live, and whether the green-on-`main` sweep is their responsibility.
-
-## Plan Documents
-
-- `docs/plan_topics/V18b-inventory-audit.md` — Adds (edited)
-- `docs/plan_topics/V18a-capability-inventory.md` — Adds, plus `V18a-T` Tests (option-dependent)
-- `docs/plan_topics/V18c-version-bump-checklist.md` — Tests, step 2(a) (read-only)
-
-## Spec Documents
-
-- `docs/spec_topics/pi-integration-contract/inventory-audit-intro.md` — "SDK capability inventory" / "Inventory-closure audit" (read-only; the governing authority the plan must align to)
-
-## Affected Leaves
-
-**Phases:** Vertical slices (V18 — Build-time SDK gates)
-
-**Leaves (implementation order):**
-
-- `V18a` — SDK capability inventory — (modified)
-- `V18b` — Inventory-closure audit gate — (modified)
-- `V18c` — Pi version-bump static gates — (blocked)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers diverge on where the broader `SDK_SURFACE_INVENTORY` entries and the category-(1)/(2)/(3) entry-kind taxonomy live, and on whether the land-green `src/` sweep is V18b's responsibility. An implementer who builds V18b from its Adds alone ships a recogniser with no inventory entries to resolve against and no sweep, so the audit reddens on its first `main` run — directly violating the spec's "intended to land green" obligation and failing V18b's Ships-when.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e — pi-loom plan: build/update plan for spec.md + review (2026-06-10, Thomas Andersen)
-**History:** `V18b-inventory-audit.md` has a single commit (c6a664e), the initial plan build, and its Adds has described only the audit recogniser — never the broader-inventory population, the entry-kind taxonomy, or the land-green `src/` sweep — since that first authoring. The two later edits to `V18a-capability-inventory.md` (235fdfe, b9de3ee, both 2026-06-11) reworked the partition assertion and Ships-when and did not touch the seven-capability scoping of `SDK_SURFACE_INVENTORY`, so they neither introduced nor closed this gap.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Split ownership so V18a owns inventory population + the entry-kind taxonomy, and V18b owns the audit + the land-green sweep. Widen V18a's Adds to populate the full `SDK_SURFACE_INVENTORY` (the non-capability category-(1) `pi.registerFlag`/`pi.getFlag` members, the typebox `{ Type }`/`{ Unsafe }` allow-lists, and the V18c-consumed `pi-engines-node`/`peer-dep-range`/`strict-capability-probe`/`api-coverage` rows) and to coin the entry-kind taxonomy; add a `V18a-T` bullet asserting the non-capability entries resolve so they do not ship unasserted. V18b's Adds states it coins only the category-(1)/(2)/(3) recogniser detection and performs the land-green `src/` sweep.
-
-V18a already owns the `SDK_SURFACE_INVENTORY` constant, and the spec treats that constant as the single source of truth shared by the positive literal-read (V18c step 2(a)) and the negative audit (V18b); populating the full entry set in V18a keeps the constant single-owner and leaves V18b a focused audit leaf. The land-green `src/` sweep stays in V18b — the spec assigns it to the audit-introducing commit — and V18b's Ships-when already carries its green-on-`main` observable. Watch two edge cases: V18a's `CAPABILITY_OBLIGATIONS.length === 7` cardinality assertion is over the capability subset, not the broadened inventory, so broadening the inventory must not redefine that operand; and the sweep's target scope depends on the `src/**` production-layout precondition being established (see Related Findings).
-
-## Relationships
-
-- T48 "Non-capability `SDK_SURFACE_INVENTORY` rows have no owning leaf" — co-resolve (the same inventory-population ownership assignment resolves both this and that finding)
-- T53 "V18b audit-methodology obligations have no coverage-matrix closing-leaf row" — same-cluster (both touch V18b but resolve independently — that one is coverage-matrix traceability, this one is Adds scope)
-- T04 "Gate globs (`src/**` / `**/*.test.ts`) assume a project layout the scaffold never establishes" — decision-overlap (the land-green `src/` sweep presupposes the `src/**` layout that finding reports as unestablished, which constrains the sweep's scope)
