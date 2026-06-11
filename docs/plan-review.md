@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T44) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 9 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 8 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -478,105 +478,6 @@ The binding requirement is that the gate clause reference the runtime `loom/runt
 ## Relationships
 
 None
-
----
-
-# T08 — `V6c` / `V6c-T` Tests bullets assert diagnostics without naming their codes
-
-**Original heading:** Diagnostic assertions name no code
-**Original section:** Consolidated Plan Review — plan
-**Kind:** validation
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-The `tools` leaf `V6c` and its paired test leaf `V6c-T` each carry three
-`Tests.` bullets that assert observable diagnostic outcomes — "rejected at
-load time", a name collision that "fires its code", and a "frozen"
-resolution snapshot — but none of these bullets cites the diagnostic code
-or REQ-ID being asserted. The cross-cutting *Diagnostic message anchors*
-rule in `conventions.md` requires that any test asserting a diagnostic's
-rendered message cite the diagnostic code and source the expected string
-from the *Message* column of the diagnostics registry; the registry is the
-single source of truth for every author-visible message string. Sibling
-leaves in the same family (`V1b`, `V2a`, `V5a`, `V5b`) enumerate every
-`loom/parse/*` code their Tests bullets fire, so `V6c`/`V6c-T` are out of
-step with the established convention.
-
-The two firing bullets map to concrete registry codes that already exist:
-the prompt-mode `.loom` callee rejection is `loom/load/prompt-mode-callable`
-and the `tools:` name collision is `loom/load/tool-name-collision` (both in
-`code-registry-load.md`). Because neither bullet names its code, a reviewer
-cannot tell which diagnostic gates each step, and the `V6c-T` test could go
-red/green against the wrong code while still appearing to satisfy the
-bullet.
-
-## Plan Documents
-
-- `docs/plan_topics/V6c-tools-set.md` — Tests (edited)
-- `docs/plan_topics/V6c-T-tools-set.md` — Tests (edited)
-- `docs/plan_topics/conventions.md` — *Diagnostic message anchors* rule (read-only)
-
-## Spec Documents
-
-- `docs/spec_topics/diagnostics/code-registry-load.md` — `loom/load/prompt-mode-callable`, `loom/load/tool-name-collision` rows (read-only)
-
-## Affected Leaves
-
-**Phases:** V6 — Frontmatter
-
-**Leaves (implementation order):**
-
-- `V6c-T` — `tools` callable set and resolution snapshot (tests) — (modified)
-- `V6c` — `tools` callable set and resolution snapshot — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers would diverge on which diagnostic each Tests
-bullet gates, and the `V6c-T` red-phase test can pass against the wrong code
-(or assert no code at all), so the resulting tests would not faithfully gate
-the prompt-mode-callee rejection or the name-collision behaviour the leaf
-ships. The leaf is still pickable, so this is not blocking, but it
-contradicts the project's *Diagnostic message anchors* rule and the
-code-citation discipline its sibling leaves follow.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e — pi-loom plan: build/update plan for spec.md + review (2026-06-10, Thomas Andersen)
-**History:** `docs/plan_topics/V6c-tools-set.md` and its paired test leaf `docs/plan_topics/V6c-T-tools-set.md` were both added in the single commit c6a664e, which is the only commit touching either file. The three Tests bullets have cited no diagnostic code since that first revision; the defect was present at the leaf's inception and was never introduced by a later edit.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In the `Tests.` bullets of both `docs/plan_topics/V6c-tools-set.md` and
-`docs/plan_topics/V6c-T-tools-set.md`, cite the diagnostic code each firing
-bullet asserts, sourcing the expected rendered message from the *Message*
-column of `code-registry-load.md` as the *Diagnostic message anchors* rule
-requires:
-
-- The "prompt-mode `.loom` callee in `tools:` is rejected at load time"
-  bullet cites `loom/load/prompt-mode-callable`.
-- The "`tools:` name collision fires its code" bullet cites
-  `loom/load/tool-name-collision`.
-
-The third bullet ("resolved callable set is frozen … both YAML spellings
-parse") asserts observable behaviour rather than a diagnostic firing, so it
-needs no diagnostic-code citation; leave it as observable-behaviour prose
-unless a registry code actually gates it. Keep the two added citations
-identical between `V6c` and `V6c-T` so the test leaf and its implementation
-leaf agree on which codes gate which step.
-
-## Relationships
-
-- T09 "Prompt-mode `system:` rejection bullet cites no diagnostic code" — same-cluster (the V6d leaf has the same Diagnostic-message-anchors omission on a different bullet; resolves independently with its own code).
 
 ---
 

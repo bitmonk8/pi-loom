@@ -5,8 +5,8 @@
 **Adds.** Failing tests for the paired `V6c` implementation leaf.
 
 **Tests.**
-- A prompt-mode `.loom` callee in `tools:` is rejected at load time.
-- A `tools:` name collision fires its code; `as` rename resolves.
+- `loom/load/prompt-mode-callable`: a prompt-mode `.loom` callee in `tools:` is rejected at load time.
+- `loom/load/tool-name-collision`: a `tools:` name collision fires; `as` rename resolves.
 - The resolved callable set is frozen (no ambient inheritance); both YAML spellings parse.
 
 **Deps.** `V6a`, `V15a`, `V9f`
