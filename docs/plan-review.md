@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T44) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 33 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 32 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -2239,72 +2239,3 @@ Match the wording already used in `conventions.md` *REQ-ID discipline* rather th
 ## Relationships
 
 - T33 "Un-anchored-MUST recogniser — the seam-name exclusion arm has no defined mechanical input" — same-cluster (both about limits of the same best-effort MUST-token scan; independent edits to H5a vs H6a).
-
----
-
-# T33 — Un-anchored-MUST recogniser — the seam-name exclusion arm has no defined mechanical input
-
-**Original heading:** Un-anchored-MUST recogniser — seam-name exclusion set has no defined source
-**Original section:** Consolidated Plan Review — plan
-**Kind:** implementability
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`H5a`'s closing gate includes a best-effort `MUST`/`MUST NOT`-token scan over non-narrative `spec_topics/**` pages. Both the `H5a` leaf (`Adds.`) and the `conventions.md` *REQ-ID discipline* rule define the recogniser to exclude obligations that are "a named cross-leaf seam" — alongside obligations carrying a `PREFIX-N` REQ-ID or a `loom/{parse,load,runtime}/*` registry code. The REQ-ID and registry-code exclusions have concrete mechanical sources (the governance prefix tables; the diagnostics registry). The seam exclusion does not: neither the leaf nor the convention names any registry, manifest, or token pattern from which the gate obtains the set of cross-leaf seam names to exclude.
-
-Cross-leaf (Class-2) seams are declared ad hoc inside individual leaves' prose — e.g. the `Checkpoint` seam in `V8a`, the cross-ceiling arbitration seam in `V16a`, the function-result seam `V3d` defines, the `Resolver` seam in `V15c`, the `FileSystem` byte-read seam in `V1a`/`V8b`. There is no enumerated artifact the gate can read. `conventions.md` concedes the recogniser "only approximates the evolving cross-leaf seam-name set its non-seam arm depends on" and routes "seam-name-dependent obligations" to the GOV-15 release-time reviewer inspection, but "approximates" still presupposes some mechanical basis the gate operates on, and none is defined.
-
-An implementer building the gate must therefore invent the seam-exclusion input — hard-code an immediately-stale list of seam names, or invent a heuristic, or exclude nothing. Each choice directly changes which un-anchored MUSTs the gate reports as un-enumerated, so the gate's pass/fail behaviour is not determined by the plan.
-
-## Plan Documents
-
-- `docs/plan_topics/conventions.md` — *REQ-ID discipline* (recogniser definition) (edited)
-- `docs/plan_topics/H5a-closing-gate-automation.md` — `Adds.` / `Tests.` / `Ships when` (edited)
-- `docs/plan_topics/coverage-matrix.md` — *Code-keyed obligation areas (no numbered REQ-IDs)* table (option-dependent)
-- `docs/plan_topics/H5b-warn-only-canary.md` — warn-only canary (read-only)
-- `docs/plan_topics/H6a-live-corpus-activation.md` — live-corpus activation (read-only)
-
-## Spec Documents
-
-None — the fix is internal to the plan's gate-definition surfaces; the spec's un-anchored MUSTs are inputs to the scan, not edited by the fix.
-
-## Affected Leaves
-
-**Phases:** Horizontal
-
-**Leaves (implementation order):**
-
-- H5a — REQ-ID / diagnostic-code closing-gate automation — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers building the `H5a` gate would diverge on the seam-exclusion arm — one hard-codes a seam-name list, another excludes nothing — producing different sets of un-anchored MUSTs reported as un-enumerated, i.e. different CI pass/fail behaviour for the same corpus. The GOV-15 manual review is a backstop so no obligation is wholly lost, which keeps this short of blocking, but the mechanical gate's verdict is non-deterministic as specified.
-
-## Issue introduction
-
-**Verdict:** introduced-by-commit
-**Introducing commits:** 0603eb4 ("pi-loom plan: resolve \"un-anchored normative MUSTs invisible to closing gate\"", 2026-06-10)
-**History:** The plan corpus is git-tracked. The "not a named cross-leaf seam" exclusion entered the *REQ-ID discipline* recogniser definition in `conventions.md` at commit `0603eb4`, which added the third closing-gate surface; the clause named the seam exclusion but specified no mechanical source for the seam-name set (`git log -S "not a named cross-leaf seam"` and `git log -G "named cross-leaf seam"` both bottom out at `0603eb4` for this file). A later commit `1035d0b` ("pi-loom plan: resolve \"un-anchored-MUST closing-gate recogniser overclaims precision/recall\"", 2026-06-10) touched the same arm, softening it to "only approximates the evolving cross-leaf seam-name set" and routing seam-name-dependent residue to the GOV-15 reviewer inspection, but did not supply a mechanical input for the seam arm. The defect therefore persists from its `0603eb4` introduction.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Collapse the seam arm into the manual residue. State that the seam-exclusion arm is non-mechanical: the gate reports every candidate MUST unless it carries a `PREFIX-N` REQ-ID or a `loom/{parse,load,runtime}/*` registry code, and seam-name-dependent obligations fall into the GOV-15 reviewer-inspection residue `conventions.md` already routes residue to.
-
-In `conventions.md` *REQ-ID discipline*, strike the mechanical "named cross-leaf seam" exclusion from the recogniser definition and the "only approximates the evolving cross-leaf seam-name set" clause; restate the recogniser as excluding only `PREFIX-N`- and `loom/...`-token-carrying obligations, with seam-name-dependent MUSTs explicitly dispositioned in the GOV-15 residue review. In `H5a` `Adds.`, strike "and not a named cross-leaf seam" from the un-anchored-MUST predicate and note the gate does not mechanically exclude named-seam obligations.
-
-The plan already declares Class-2 seams ad hoc in leaf prose with no registry, and `conventions.md` already concedes the seam set is only "approximated" with residue routed to GOV-15; collapsing the seam arm into that manual residue matches the existing posture and avoids introducing a new append-on-each-leaf maintenance obligation. Apply the smaller, scope-bounding `conventions.md` recogniser-definition edit first, then bring the `H5a` `Adds.` predicate into line with it. Edge case the implementer must watch: a MUST that is genuinely a Class-2 seam contract will now surface as a gate candidate and must be either enumerated in `coverage-matrix.md` or recorded in the GOV-15 residue — confirm none of those are silently dropped.
-
-## Relationships
-
-- T34 "Un-anchored-MUST recogniser: narrative/non-narrative page classification source unstated" — same-cluster (parallel undefined mechanical input to the same MUST-token scan; resolves independently).
-- T32 "H6a release-gate green criterion over-claims un-anchored-MUST scan completeness" — decision-dependency (how the un-anchored-MUST arm is scoped here constrains how that over-claim is softened).
-
