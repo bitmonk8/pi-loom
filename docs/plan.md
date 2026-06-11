@@ -172,8 +172,9 @@ Each slice is a coherent feature area (e.g. lexer, expressions, schemas, queries
 
 ## Release gate
 
-The terminal step that flips the [`H5a`](./plan_topics/H5a-closing-gate-automation.md) closing gate from its seeded-fixture footing to its live-corpus footing. Sequenced after every coverage-producing leaf (its **Deps** name the complete set), it activates the loom 1.0 release gate referenced in item 5 above and in [`coverage-matrix.md`](./plan_topics/coverage-matrix.md).
+A warn-only live-corpus canary ([`H5b`](./plan_topics/H5b-warn-only-canary.md)) runs the [`H5a`](./plan_topics/H5a-closing-gate-automation.md) closing gate over the live corpus without reddening CI, immediately before the terminal step ([`H6a`](./plan_topics/H6a-live-corpus-activation.md)) flips that gate from its seeded-fixture footing to its live-corpus footing. The canary's **Deps** name the complete coverage-producing set and carry the single statement of the transitive-completeness obligation; `H6a` sequences immediately after the canary (its **Deps** name `H5b`) and activates the loom 1.0 release gate referenced in item 5 above and in [`coverage-matrix.md`](./plan_topics/coverage-matrix.md). Reverting the `H6a` activation commit returns the gate to its `H5a` seeded-fixture footing.
 
+- [`H5b` — Warn-only live-corpus canary (pre-activation pre-flight)](./plan_topics/H5b-warn-only-canary.md)
 - [`H6a` — Live-corpus closing-gate activation (loom 1.0 release gate)](./plan_topics/H6a-live-corpus-activation.md)
 
 ---
