@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T44) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 17 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 16 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -1057,84 +1057,6 @@ This keeps the seam contract co-located with the code that produces both arms an
 ## Relationships
 
 - T14 "ERR-7 test bullet states different normative content in the paired V4e leaves" — decision-dependency (the canonical-term and two-arm decision made here for V4e's `ERR-7` bullet constrains how V4e-T's mirrored bullet must be aligned).
-
----
-
-# T16 — V5e per-boundary routing test asserts destination error surfaces its `Deps` cannot reach
-
-**Original heading:** Per-boundary routing assertions presuppose destination error-variant surfaces not in Deps
-**Original section:** Consolidated Plan Review — plan
-**Kind:** assumptions
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V5e` owns the JSON-document depth-5 walk (ceiling #4) and, in its second Tests bullet, asserts the spec's per-boundary destination/surface table: a depth-6 breach at each of the five enforcement sites wraps into a specific surface — typed-query response → `ValidationError`, code-driven tool args → `CodeToolError`, `params` (invoke arm) and `invoke<T>` return → `InvokeInfraError`, model-driven tool args → model feedback, and slash-load `params` → ceiling-#3 cross-route (per `spec_topics/hard-ceilings/ceilings-3-and-4.md` §Per-boundary destination/surface table).
-
-The `ValidationError`, `CodeToolError`, and `InvokeInfraError` carrier schemas are defined elsewhere: the nine-variant `QueryError` union (including `ValidationError` and `InvokeInfraError`) is owned by `V4d`, and the closed `CodeToolError` enum plus its code-driven firing path are owned by `V14a`. `V5e`'s `Deps` are only `V5e-T, V5d, V16a`; neither `V4d` nor `V14a` is named, and neither is reachable transitively (`V5d → V5a, V5b, V2d`; `V16a → V16a-T, V9d`). The mirror tests-task leaf `V5e-T` carries the identical bullet with the identical `Deps` gap.
-
-`V5e` therefore asserts routing of a breach into surface types it does not declare a dependency on. An implementer picking `V5e` once its declared `Deps` are satisfied (the plan's "pick the next leaf whose `Deps` are satisfied" rule) can reach it before `V4d`/`V14a` exist, at which point the routing assertion cannot reference the destination variant schemas — the implementer either cannot compile the test or hand-rolls ad-hoc surfaces that need not match the canonical variant shapes those leaves own.
-
-## Plan Documents
-
-- `docs/plan_topics/V5e-depth-enforcement.md` — Tests bullet 2 / Deps (edited)
-- `docs/plan_topics/V5e-T-depth-enforcement.md` — Tests bullet 2 / Deps (edited)
-- `docs/plan_topics/V4d-queryerror-variants.md` — `ValidationError` / `InvokeInfraError` / `CodeToolError` variant-schema owner (read-only)
-- `docs/plan_topics/V14a-tool-calls.md` — closed `CodeToolError` enum + code-driven firing owner (read-only)
-- `docs/plan_topics/V13c-query-tool-loop.md` — typed-query response / model-driven tool-args site owner (read-only)
-- `docs/plan_topics/V15a-invocation-core.md` — invoke `params` / `invoke<T>` return site owner (read-only)
-- `docs/plan_topics/V16a-ceiling-order-masked.md` — distributed-enforcement / in-isolation precedent (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical slices (V4, V5, V13, V14, V15, V16)
-
-**Leaves (implementation order):**
-
-- V5e — JSON document depth enforcement (hard ceiling #4) — (modified)
-- V5e-T — JSON document depth enforcement (tests) — (modified)
-- V13c — Query tool loop and typed two-phase — (read-only context)
-- V14a — Tool calls (code-side) and `CodeToolError` — (read-only context)
-- V15a — Invocation core — (read-only context)
-- V16a — Hard-ceiling interaction order and `masked` co-fire — (read-only)
-
-## Consequence
-
-**Severity:** correctness
-
-Two implementers diverge: one adds the missing surface-owning leaves to `V5e`'s `Deps`; the other, finding the destination types absent when `V5e`'s declared `Deps` are met, hand-rolls one-off `ValidationError`/`CodeToolError`/`InvokeInfraError` stubs that need not match the canonical variant schemas owned by `V4d`/`V14a`. `V5e`'s `Ships when` ("correct routing at all five sites") is unobservable until the destination surfaces exist, so the leaf can ship asserting routing into surfaces that drift from their owners' definitions.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e ("pi-loom plan: build/update plan for spec.md + review")
-**History:** `V5e-depth-enforcement.md` was created in c6a664e with both the per-boundary routing Tests bullet (asserting `ValidationError` / `CodeToolError` / `InvokeInfraError` wrapping) and the `Deps. V5e-T, V5d, V16a` line already in their current form — the gap is original to the leaf. The only later edit, e2b7e81 ("resolve isolated cross-ceiling unit interface/authority undefined"), added the V16a `masked`-consult sentence to `Adds.` and did not touch the `Deps` line or the routing bullet, so it neither introduced nor closed the gap. The paired `V5e-T` carries the same originally-introduced bullet and `Deps`.
-
-## Solution Space
-
-**Shape:** single
-
-The spec topic `spec_topics/hard-ceilings/ceilings-3-and-4.md` §Per-boundary destination/surface table is the normative source for the five-row routing and is read-only for this fix; the fix is internal to the plan leaves.
-
-### Recommendation
-
-Narrow `V5e` to the behaviour it owns and defer surface-wrapping to the site owners. `V5e` asserts the depth walk, the `maxDepth` `ValidationIssue` (`schema_keyword`/`message`/`cause`), and the routing *decision* (which site maps to which surface class) — exercised in isolation against the harness, mirroring `V16a`'s pattern (the arbitration decision is driven through the seam in isolation; the live AJV/round/invoke sites are built downstream). The actual wrapping of a depth-6 breach into `ValidationError` / `CodeToolError` / `InvokeInfraError` is asserted at each site's owning leaf.
-
-Restate `V5e`/`V5e-T` Tests bullet 2 as the routing decision `V5e` owns; locate the per-site surface-wrapping assertions at `V13c` (typed-query `ValidationError`, model-driven feedback), `V14a` (code-driven `CodeToolError`), `V15a` (invoke `params` `InvokeInfraError`, `invoke<T>` return), and `V4e` (slash-load cross-route to ceiling #3). No `Deps` additions to `V5e` are required. This matches the distributed-enforcement model the plan already uses for ceiling #4 and keeps `V5e` pickupable once `V5d`/`V16a` land.
-
-Edge cases the implementer must watch: confirm each of the five per-boundary rows is asserted at its site owner so no row silently goes unverified; the model-driven row produces no loom-code `Err` (tool-result fed back to the model) and the slash-load `params` row is load-time (no `Result`), so those two are decision-only at `V5e` by nature and have no `Err`-wrapping assertion to relocate.
-
-## Relationships
-
-- T15 "ERR-7 test injects at an undefined "channel seam" and omits the two-arm owners from `Deps`" — same-cluster (same defect class — Tests reference a surface/owner absent from `Deps`; resolves independently).
-- T12 "V4c/V4c-T name the H4a harness and session double but omit H4a from Deps" — same-cluster (same defect class; resolves independently).
-- T13 "V8a's `Checkpoint` `loop-iter` macrotask yield has no substrate seam in its Deps" — same-cluster (same defect class — leaf assumes an owner not in `Deps`).
 
 ---
 
