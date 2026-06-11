@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T44) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 29 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 28 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -1958,76 +1958,3 @@ Resolve Option A first: the blast-radius annotation is the scope-bounding, singl
 
 - T27 "V18c Ships-when conflates a pre-merge gate and a post-merge smoke..." — decision-dependency (Option B's merge-gating choice fixes that finding's timing contradiction).
 - T31 "Manual real-host fidelity gate leaves no falsifiable record" — same-cluster (record-keeping/owner trace at H6a; shares the named-owner aspect of Option B).
-
----
-
-# T29 — V9h over-sequenced behind V18c's full runtime-evidence subtree for a constants-only consumption
-
-**Original heading:** Depends on all of V18c, dragging the full runtime subtree in for only a constants snapshot
-**Original section:** Consolidated Plan Review — plan
-**Kind:** implementability
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V9h` consumes only two static artefacts from the `V18` slice: the `SessionShutdownEvent['reason']` closed-set snapshot and the pinned-constants block (read by its `loom/host/session-shutdown-pinned-constant-unreadable` snapshot-read-failure path). Both live in `V18c`'s `Adds.` ("the capability-probe constants + `SessionShutdownEvent['reason']` snapshot"), and the matching `loom/typecheck/session-shutdown-reason-snapshot` brand-string gate is owned by `V18c`/`V18c-T`. To obtain them, `V9h` lists `V18c` wholesale in its `Deps. V9h-T, V9b, V18c` (and `V9h-T` likewise lists `V18c`).
-
-`V18c` is the contributor version-bump checklist. Its `Deps. V18c-T, V18a, V18b, H4a, V5d, V11f, V13c, V14a, V15a, V17a` bundle the `H4a`-backed runtime-evidence acceptance gate, which drives a representative integrated `.loom` (typed query + tool loop + invoke + schema validation + binder + cancellation) through the end-to-end harness. A host-registration/lifecycle leaf is thereby forced to wait on essentially the entire runtime plus the end-to-end harness before it can be picked up.
-
-An implementer sequencing by the DAG (How-to-use step 3) cannot land `V9h` until that late-stage audit leaf and its whole subtree exist. The dependency is structural, not behavioural: `V9h` neither runs nor needs the runtime-evidence gate — it reads two constant blocks. `V9g`, whose `Deps.` name `V9h`, transitively inherits the same over-sequencing, which `plan.md`'s V9 interleave note already acknowledges ("`V9h` (and therefore `V9g`) depend on `V18c` … cannot be picked up until that cluster lands").
-
-## Plan Documents
-
-- `docs/plan_topics/V9h-degraded-unknown-reason.md` — `Deps.` field (edited)
-- `docs/plan_topics/V9h-T-degraded-unknown-reason.md` — `Deps.` field (edited)
-- `docs/plan_topics/V18c-version-bump-checklist.md` — `Adds.` / `Deps.` (edited)
-- `docs/plan_topics/V18c-T-version-bump-checklist.md` — `Adds.` / `Tests.` (edited)
-- `docs/plan.md` — V9 slice interleave note (edited)
-- `docs/plan_topics/H5b-warn-only-canary.md` — `Deps. V1a–V18c` (option-dependent — a new coverage-producing leaf must be appended per the transitive-completeness rule)
-- `docs/plan_topics/conventions.md` — §Leaf format, REQ-ID discipline transitive-completeness rule (read-only)
-
-## Spec Documents
-
-None — the `reason`-set / pinned-constant obligations already exist in the spec (`pi-integration-contract/session-only-degraded-state.md`, `unknown-reason-rule.md`, `version-bump-step2b.md`); the fix is internal to plan-file `Deps`/ownership.
-
-## Affected Leaves
-
-**Phases:** Vertical V9, Vertical V18
-
-**Leaves (implementation order):**
-
-- `V9g` — Session-shutdown teardown and emission isolation — (blocked)
-- `V9h` — Session-only degraded state and unknown-reason rule — (modified)
-- `V9h-T` — Session-only degraded state and unknown-reason rule (tests) — (modified)
-- `V18c` — Pi version-bump procedure and gates — (modified; split)
-- `V18c-T` — Pi version-bump procedure and gates (tests) — (modified; split)
-- `<new>` — extracted constants/reason-snapshot leaf — (added)
-
-## Consequence
-
-**Severity:** correctness
-
-An implementer building by the dependency DAG cannot pick up `V9h` (and therefore `V9g`) until `V18c` and its entire runtime-evidence subtree have landed, even though `V9h` consumes only two constant blocks. Faced with that ordering, an implementer would likely hand-extract a partial `reason`-set/constants block early, producing a copy that can silently skew from the `V18c`-owned snapshot the brand-string gate guards. The phase ordering the plan presents as dep-driven is misleading for these two leaves.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commit:** c6a664e (2026-06-10, Thomas Andersen — "pi-loom plan: build/update plan for spec.md + review")
-**History:** `V9h` has carried `Deps. V9h-T, V9b, V18c` since the initial plan build (c6a664e); the `V9h→V18c` edge has never changed (`git log -G "V18c"` on the leaf returns only c6a664e). At inception `V18c` already bundled the `H4a`-backed runtime-evidence gate (its `Deps.` were `V18c-T, V18a, V18b, H4a`), so `V9h` was over-sequenced behind the end-to-end harness from the start. Two later commits widened the subtree without introducing the defect: c42f13d (2026-06-10, "V18c version-bump gate under-declares feature deps") appended `V5d, V11f, V13c, V14a`, and ce32225 (2026-06-11, "V18c-T runtime-evidence test exercises integrated features its Deps do not satisfy") added `V15a`. Those edits aggravated the magnitude of the dragged-in subtree but the structural over-sequencing dates to inception.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Split `V18c` into a constants leaf and an acceptance leaf, then retarget `V9h`/`V9h-T` onto the constants leaf (lightening `V9g` transitively). Separate the static constant artefacts from the `H4a`-backed runtime-evidence gate: carve `V18c` into `V18c-constants` (the SDK surface-inventory tests, `engines.node` floor read, `peerDependencies` pin assertion, capability-probe constants + `SessionShutdownEvent['reason']` snapshot, provider seed-field table, strict-capability probe, revert-path doc) and `V18c-acceptance` (the runtime-evidence acceptance gate and its runtime deps). Retarget `V9h` / `V9h-T` `Deps.` from `V18c` to `V18c-constants`.
-
-This is the same edit the related `V18c` step-atomicity finding (T30) requires, so resolving both together avoids a second pass over the `V18` cluster. Resolve the `V18c` split first so `V9h`/`V9h-T`'s `Deps.` retargeting lands on a stable constants-leaf ID. Edge cases the implementer must watch: keep the `SessionShutdownEvent['reason']` snapshot and its `loom/typecheck/session-shutdown-reason-snapshot` brand-string gate in the *same* (constants) leaf so the guarded value and its guard do not separate; and append any newly-created coverage-producing leaf to `H5b`'s `Deps.` per the transitive-completeness rule.
-
-## Relationships
-
-- T30 "`V18c` bundles low-dependency static gates with the high-dependency H4a-backed runtime-evidence acceptance gate" — co-resolve (its proposed split of `V18c` into `V18c-constants` / `V18c-acceptance` directly yields the lightweight constants leaf `V9h` can depend on).
-- T11 "V9c-T omits V17a..." — same-cluster (another `-T` leaf whose `Deps.` under-declare relative to the consumed seam; resolves independently).
