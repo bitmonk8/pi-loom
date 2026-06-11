@@ -4,6 +4,6 @@
 
 ## Contents
 
-- [Overview and orientation](./spec/overview-and-orientation.md)
-- [Language and architecture](./spec/language-and-architecture.md)
-- [Session model and appendix](./spec/session-model-and-appendix.md)
+- [Overview and orientation](./spec_topics/overview-and-orientation.md)
+- [Language and architecture](./spec_topics/language-and-architecture.md)
+- [Session model and appendix](./spec_topics/session-model-and-appendix.md)
