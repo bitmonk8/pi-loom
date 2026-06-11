@@ -6,6 +6,8 @@ Use the REQ-ID prefix table in [`../spec_topics/governance.md`](../spec_topics/g
 
 ## Numbered REQ-IDs (runtime obligations)
 
+`X-n … X-m` denotes the inclusive contiguous range — every REQ-ID from `X-n` through `X-m`, both endpoints included (e.g. `TYPE-1 … TYPE-10` covers `TYPE-1, TYPE-2, …, TYPE-10`). The reading presumes the prefix's spec numbering has no holes between the endpoints; a hole inside a `…` range surfaces as an [`H5a`](./H5a-closing-gate-automation.md) per-prefix-numbering-hole gate failure, not a silent skip.
+
 | REQ-ID | Closing leaf(s) |
 |---|---|
 | TYPE-1 … TYPE-10 | `V2b` |
