@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T44) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 25 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 24 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -1598,70 +1598,6 @@ The paired `M-T` leaf carries the identical qualifier; its correction is tracked
 ## Relationships
 
 - T22 "M-T `Spec` field — "happy-path subset only" qualifier contradicts the closure rule" — co-resolve (same edit pattern applied to the paired tests-task file `M-T-minimal-slash-command.md`).
-
----
-
-# T24 — Lint-toolchain package identities unspecified
-
-**Original heading:** Lint-toolchain package identities unspecified
-**Original section:** Consolidated Plan Review — plan
-**Kind:** implementability
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`H1a` mandates declaring the lint toolchain — "the ESLint engine, a TypeScript-aware ESLint parser, and a local custom-rule plugin mechanism" — in loom's own `devDependencies`, and adds an architectural Tests bullet that "reads `package.json#devDependencies` and asserts the lint toolchain is declared." Every component is described by role; no concrete package name (manifest key) is given for any of the three.
-
-The architectural test cannot be written deterministically against role descriptions: a manifest read needs concrete keys to assert (`eslint`, a parser package, a local plugin entry), and "asserts the ESLint engine is declared" supplies none. This is in direct contrast to the sibling `vitest` Tests bullet on the same leaf, which names the concrete package and so resolves to "one concrete runner + assertion library." Two reasonable implementers would assert different manifest keys, or invent divergent role-presence heuristics.
-
-`H2a` (`Deps: H1a`) "consumes exactly this toolchain" to build the `no-broad-catch` rule and the `no-restricted-syntax` allow-list and wire them into `npm test`. The downstream rule-loading and the upstream manifest assertion must agree on the same package identities; with neither leaf naming them, that agreement is left to coincidence.
-
-## Plan Documents
-
-- `docs/plan_topics/H1a-scaffold-and-toolchain.md` — Adds (lint-toolchain clause) and the lint-toolchain Tests bullet (edited)
-- `docs/plan_topics/H2a-cross-cutting-gates.md` — downstream consumer of the toolchain (read-only)
-
-## Spec Documents
-
-None — the lint toolchain is horizontal infrastructure operationalising `conventions.md`; it traces to no spec REQ-ID, so the fix is internal to the plan files.
-
-## Affected Leaves
-
-**Phases:** Horizontal
-
-**Leaves (implementation order):**
-
-- H1a — Project scaffold and toolchain — (modified)
-
-(H2a consumes the toolchain but its acceptance criteria do not change and it is not blocked; listed under Plan Documents as a read-only consumer rather than an affected leaf.)
-
-## Consequence
-
-**Severity:** correctness
-
-The H1a architectural test that "asserts the lint toolchain is declared" has no defined predicate without concrete manifest keys, so two implementers would assert different `devDependencies` entries — and H2a, which consumes "exactly this toolchain," may load rules from a package set that the H1a assertion never gated. The leaf can still be picked up (an implementer invents names) and `Ships when` stays observable, so this degrades correctness/consistency rather than blocking the leaf.
-
-## Issue introduction
-
-**Verdict:** single-commit
-**Introducing commit:** 8df334c — "pi-loom plan: resolve \"Lint engine and custom-rule mechanism are consumed but never provisioned\"" (2026-06-11)
-**History:** Before 8df334c the lint toolchain was absent from H1a's Adds — the then-open finding was that the lint engine and custom-rule mechanism were consumed by H2a but never provisioned. The 8df334c fix added the provisioning clause to Adds and a matching architectural Tests bullet, but described all three components by role ("the ESLint engine, a TypeScript-aware ESLint parser, and a local custom-rule plugin mechanism") and never named concrete packages. The package-identity gap entered the corpus with that corrective edit. The only later touch (c06749d) re-labelled the Tests bullet's `Convention:` tag and left the role-only wording intact.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Name the concrete packages: state the concrete `devDependencies` manifest keys in H1a's Adds and have the Tests bullet assert those exact keys — `eslint` (engine), `@typescript-eslint/parser` (TS-aware parser), and a named local custom-rule plugin entry for the bespoke `no-broad-catch` rule. The test predicate is then fully determined; H1a and H2a agree on identical keys; this mirrors the concrete `vitest` assertion already on the leaf, and the lint toolchain has no spec anchor to defer to, so the plan is the natural home for the choice.
-
-In H1a's Adds, name the three packages — `eslint`, `@typescript-eslint/parser`, and a named local custom-rule plugin entry for `no-broad-catch` — and rewrite the lint-toolchain Tests bullet to assert those exact `package.json#devDependencies` keys (replacing "asserts the lint toolchain is declared"). H2a optionally references the same names where it builds the rules. Edge case: the local custom-rule plugin may be a workspace-local module rather than a published registry package, so the assertion should accept a relative/workspace specifier and not demand a registry name.
-
-## Relationships
-
-None
 
 ---
 
