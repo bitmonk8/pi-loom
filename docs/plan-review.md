@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T44) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 23 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 22 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -1469,70 +1469,6 @@ Edge case: `tool-calls.md` (TOOL) is already enumerated under `coverage-matrix.m
 
 - T44 "V11d / V11d-T `Spec` field omits the normatively cross-linked `binder-bypass-and-envelope.md`" — same-cluster (same closure-rule defect class, different leaf and page; resolves independently).
 - T23 "`M` Spec-field "happy-path subset only" qualifier conflicts with the closure-under-cross-link rule" — same-cluster (same `Spec`-field closure rule; resolves independently).
-
----
-
-# T22 — M-T `Spec` field — "happy-path subset only" qualifier contradicts the closure rule
-
-**Original heading:** M-T `Spec` field — identical "happy-path subset only" ambiguity (mirror)
-**Original section:** Consolidated Plan Review — plan
-**Kind:** clarity
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`M-T`'s `Spec.` field lists four spec-topic pages and closes with the trailing qualifier `— the happy-path subset only.` `conventions.md` §Leaf format defines the `Spec.` field as the set of pages the leaf implements and states that it **MUST be closed under normative cross-link**: closure runs outbound from each listed topic, applies transitively to a fixed point, and excludes only narrative cross-links per `governance.md` GOV-3. The field therefore governs *reading / closure*, not implementation scope.
-
-Attaching "the happy-path subset only" to that field admits two incompatible readings: (a) the implementer reads only the happy-path *portions* of the listed pages — which contradicts closure-under-cross-link and silently shrinks the mandated reading set; or (b) the implementer reads the pages normally (closed under cross-link) but *implements* only the happy path. The leaf's intent is (b) — the narrowing is a scope-of-implementation statement that belongs in `Adds.`, not a reading restriction on `Spec.`
-
-This is the paired tests-task mirror of the `M` leaf defect; the qualifier is byte-identical in both files. It is filed and fixed separately because the edit lands in a different file, but the chosen wording must match `M` so the paired leaves stay identical.
-
-## Plan Documents
-
-- `docs/plan_topics/M-T-minimal-slash-command.md` — `Spec.` field (edited)
-- `docs/plan_topics/M-minimal-slash-command.md` — `Spec.` field (read-only; the mirror leaf whose chosen wording this fix must match)
-- `docs/plan_topics/conventions.md` — §Leaf format, `Spec.` field definition (read-only; defines the closure rule the qualifier contradicts)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** MVP
-
-**Leaves (implementation order):**
-
-- M — Minimal end-to-end `.loom` slash command — (modified)
-- M-T — Minimal end-to-end `.loom` slash command (tests) — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers diverge: one restricts spec reading to "happy-path portions" and may miss a cross-linked normative obligation that closure would have pulled in, while another reads the full closed set. Because the qualifier sits on the field that defines mandatory reading closure, the under-reading interpretation is defensible, so the MVP leaf can ship having consulted an incomplete spec set.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e — pi-loom plan: build/update plan for spec.md + review (2026-06-10, Thomas Andersen)
-**History:** `M-T-minimal-slash-command.md` was created in c6a664e, the commit that built the plan corpus, and the `Spec.` field has carried the `— the happy-path subset only.` qualifier since that first commit (`git log -S` for the phrase and `git log --follow` for the file both bottom out at c6a664e). The same commit introduced the identical qualifier on the paired `M` leaf. No later commit altered it.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `docs/plan_topics/M-T-minimal-slash-command.md`, strike the trailing `— the happy-path subset only.` from the `Spec.` field, leaving the four cited spec-topic pages as the closure-complete reading set. Carry the happy-path scope restriction in `Adds.` instead: `M-T`'s `Adds.` describes the narrowest pipeline but does not currently state the implementation-scope boundary the way `M`'s `Adds.` does ("this leaf implements only the happy path"), so add the equivalent scope sentence to `M-T`'s `Adds.` if `M`'s resolution relocates it there.
-
-Apply the same wording chosen for the `M` finding so the paired leaves remain identical; resolve `M` first and mirror its exact phrasing here.
-
-## Relationships
-
-- T23 "`M` Spec-field "happy-path subset only" qualifier conflicts with the closure-under-cross-link rule" — decision-dependency (same defect on the paired implementation leaf; the wording chosen there must be applied verbatim here).
 
 ---
 
