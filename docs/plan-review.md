@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T18) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 1 high, 10 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 13 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 10 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 13 NIT dropped; 0 false dropped._
 
 ---
 
@@ -695,67 +695,3 @@ The spec is read-only. Edge case for the implementer: if `H4a` is split per the 
 - T09 "V4c's ERR-12 consumes an H4a subagent-mode-callee modelling H4a does not enumerate" — co-resolve (same defect class: ERR-12's subagent-mode callee also has no H4a category; one H4a-enumeration expansion can close both)
 - T08 "ERR-13 no-rollback vectors do not span the spec's enumerated authoring sites" — must-precede (the widened ERR-13 vector set's completed-`invoke`-child vector has no H4a scripting point until this finding is resolved)
 
----
-
-# T11 — Closing-gate clause omits the "executable" qualifier and reddens on deliberately-unmapped `GOV-*`
-
-**Original heading:** §REQ-ID discipline (closing-gate clause) — omits "executable" qualifier, conflicts with unmapped GOV-*
-**Original section:** docs/plan_topics/conventions.md
-**Kind:** clarity
-**Importance:** high
-**Score:** 100
-**MustFix:** false
-
-## Finding
-
-The `REQ-ID discipline` convention in `conventions.md` states the loom 1.0 closing gate's first failure surface as: "The loom 1.0 closing gate treats **a spec REQ-ID** without a coverage-matrix mapping, a retired-ID clashing with a live-ID, or a per-prefix numbering hole as a CI failure." This sentence carries no `executable` qualifier, so it reads as: *every* spec REQ-ID without a coverage-matrix row reds CI.
-
-The rest of the corpus contradicts that literal reading. `coverage-matrix.md`'s "Governance REQ-IDs (`GOV-*`)" section deliberately leaves every `GOV-1, GOV-3, GOV-5 … GOV-31` unmapped — they "govern the spec corpus itself … not behaviours the loom runtime implements, so they map to no runtime leaf." The matrix intro, `H5a`'s `Adds`, and `H6a`'s `Tests`/`Ships when` all scope the gate to an **executable** spec REQ-ID ("any executable REQ-ID without a mapping fails CI"; "an unmapped executable REQ-ID"; "every executable spec REQ-ID maps to a closing leaf"). The same `conventions.md` bullet even uses the qualified form further down ("on the same live-corpus footing as an unmapped executable REQ-ID"). Only the first sentence drops it.
-
-The authoritative governance statement therefore disagrees with the matrix it governs: read literally, the gate must red on every deliberately-unmapped `GOV-*`, which is exactly the set `coverage-matrix.md` declares out of scope.
-
-## Plan Documents
-
-- `docs/plan_topics/conventions.md` — `REQ-ID discipline` convention, closing-gate sentence (edited)
-- `docs/plan_topics/coverage-matrix.md` — intro + "Governance REQ-IDs (`GOV-*`)" section (read-only)
-- `docs/plan_topics/H5a-closing-gate-automation.md` — `Adds` (read-only)
-- `docs/plan_topics/H6a-live-corpus-activation.md` — `Tests` / `Ships when` (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** None
-
-**Leaves (implementation order):**
-
-None — the fix is confined to the cross-cutting `conventions.md` wording. `H5a`, `H5b`, and `H6a` (the leaves that build, canary, and activate the gate) already phrase the surface with the `executable` qualifier, so they need no change; the defect does not propagate to any leaf's acceptance criteria.
-
-## Consequence
-
-**Severity:** correctness
-
-`conventions.md` is the authoritative definition of the closing gate. An implementer building the `H5a`/`H6a` gate from its first sentence verbatim would flag every deliberately-unmapped `GOV-*` and the loom 1.0 release gate could never go green; an implementer cross-referencing `coverage-matrix.md`, `H5a`, and `H6a` would exclude them. Two reasonable implementers diverge on whether `GOV-*` reds CI.
-
-## Issue introduction
-
-**Verdict:** multi-commit-interaction
-**Introducing commits:** c1e5d64 — spec: REQ-ID infrastructure + Phase 12a heading promotion on five named pages (Decision #12, partial) (2026-05-05, Thomas Andersen); c6a664e — pi-loom plan: build/update plan for spec.md + review (2026-06-10, Thomas Andersen)
-**History:** c1e5d64 introduced the `REQ-ID discipline` closing-gate clause in `conventions.md` as "treats a spec REQ-ID without a coverage-matrix mapping … as a CI failure"; `git log -G 'treats an executable spec REQ-ID'` finds no commit, so the `executable` qualifier was never present in this sentence. The omission was latent until c6a664e rebuilt `coverage-matrix.md` to deliberately leave every `GOV-*` unmapped (the "map to no runtime leaf" section) and standardised the matrix intro, `H5a`, and `H6a` on the "executable spec REQ-ID" wording the `conventions.md` clause never adopted. The two commits together make the un-qualified clause read as reddening CI on the deliberately-unmapped `GOV-*` set.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `docs/plan_topics/conventions.md`, within the `REQ-ID discipline` convention, insert the `executable` qualifier into the closing-gate sentence so it reads: "The loom 1.0 closing gate treats an **executable** spec REQ-ID without a coverage-matrix mapping, a retired-ID clashing with a live-ID, or a per-prefix numbering hole as a CI failure." This aligns the authoritative governance statement with `coverage-matrix.md`'s intro ("any executable REQ-ID without a mapping fails CI"), `H5a`'s `Adds` ("an unmapped executable REQ-ID"), `H6a`'s `Tests` ("every executable spec REQ-ID maps to a closing leaf"), and the same bullet's own later phrasing ("an unmapped executable REQ-ID").
-
-Implementer note: the term `executable` is itself not yet defined as a mechanical predicate (it is the subject of a separate finding); inserting the qualifier here makes that definition gap load-bearing for this clause, but defining the predicate is out of scope for this edit.
-
-## Relationships
-
-- T19 "\"executable spec REQ-ID\" is the closing-gate selector but is never defined as a predicate" — must-follow (this fix makes `conventions.md` rely on the `executable` predicate, so the term's definition must be pinned first to cover this clause)
-- T12 "Un-anchored-MUST recogniser names two different diagnostics-registry scopes across `conventions.md` and `coverage-matrix.md`" — same-cluster (same `REQ-ID discipline` bullet; resolves independently)
