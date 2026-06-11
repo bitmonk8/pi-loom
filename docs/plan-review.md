@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T44) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 1 high, 35 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 35 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -2440,69 +2440,3 @@ Edge case: if the full response-programming surface a–e is split into a new le
 ## Relationships
 
 - T12 "V4c/V4c-T name the H4a harness and session double but omit H4a from Deps" — same-cluster (both concern correct wiring/verification of the H4a harness contract; independent).
-
----
-
-# T36 — `H2a` architectural-test predicate hinges on the undecidable phrase "reused across calls"
-
-**Original heading:** "reused across calls" is not a statically observable/decidable test predicate
-**Original section:** Consolidated Plan Review — plan
-**Kind:** clarity, implementability
-**Importance:** high
-**Score:** 100
-**MustFix:** false
-
-## Finding
-
-`H2a` defines the `src/**` architectural test (in both the **Adds** field and the third **Tests** bullet) as failing on "a top-level `const` bound to a mutable object/array **reused across calls**, declared outside any class or function." "Reused across calls" is a runtime/dataflow property — it describes how a binding is consumed at execution time, not a shape an AST scan can observe. "Mutable" is likewise a value property a syntactic scan does not decide; the best a static check can do is inspect the initializer's *literal* form.
-
-Because the predicate names a property no pure scan can witness, two incompatible implementations both satisfy the wording: (a) flag every top-level `const` whose initializer is a mutable object/array literal, regardless of how it is later used; or (b) flag only bindings that are provably referenced from more than one call — which a static scan cannot establish, so reading (b) collapses to flagging nothing. The mandated test fixture is constructed differently under each reading, so the gate's coverage diverges depending on which an implementer picks. An implementer is pushed either toward an over-broad rule (rejecting legitimate module-level lookup tables) or toward an unsound escape-analysis attempt.
-
-The fix is to state the static predicate the test actually applies and demote "reused across calls" to non-normative rationale, so the gate is mechanically reproducible from the plan text alone.
-
-## Plan Documents
-
-- `docs/plan_topics/H2a-cross-cutting-gates.md` — **Adds** field (edited)
-- `docs/plan_topics/H2a-cross-cutting-gates.md` — third **Tests** bullet, `Convention:` (*No globals, statics, singletons*) (edited)
-- `docs/plan_topics/conventions.md` — *No globals, statics, singletons* cross-cutting rule (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Horizontal
-
-**Leaves (implementation order):**
-
-- `H2a` — Cross-cutting lint and architectural gates — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers would build the `H2a` architectural test — and its mandated fixture — to different specifications, because the gate predicate names a property a static scan cannot decide. The result is either a gate that rejects legitimate module-level immutable lookup tables or one that detects nothing for the `const` case, and in both cases the cross-cutting "no globals/statics/singletons" coverage that every leaf's self-review relies on is silently inconsistent.
-
-## Issue introduction
-
-**Verdict:** single-commit
-**Introducing commits:** 3d64f7f — pi-loom plan: resolve "singleton architectural test positive detection set" (2026-06-11, Thomas Andersen)
-**History:** The `H2a` architectural-test wording originally read "a module-level global / static / mutable singleton binding". Commit 3d64f7f rewrote it to enumerate a positive detection set — "a top-level `let`/`var`, or a top-level `const` bound to a mutable object/array reused across calls" — in both the **Adds** field and the third **Tests** bullet, introducing the "reused across calls" qualifier this finding flags. The undecidable predicate thus entered the corpus in that single commit, while resolving an earlier under-specification of the same test.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `docs/plan_topics/H2a-cross-cutting-gates.md`, replace the static predicate in both places the phrase appears so the architectural test is defined purely on observable AST shape:
-
-- **Adds** field: strike "a top-level `const` bound to a mutable object/array **reused across calls**, declared outside any class or function" and replace with "a top-level `const` whose initializer is a mutable object or array literal, declared outside any class or function".
-- Third **Tests** bullet (`Convention:` *No globals, statics, singletons*): apply the identical replacement so the fixture description matches the Adds predicate verbatim.
-
-Relocate the "reused across calls" intent to non-normative rationale (a parenthetical or a `conventions.md` rationale note) explaining *why* module-level mutable literals are banned, without making it part of the detection predicate. The convention rule in `conventions.md` already defers to `H2a` "for the module-level binding forms it can detect" and needs no change. Keep both occurrences in lockstep — the Adds predicate and the Tests-bullet predicate must read identically, since they describe the same gate.
-
-## Relationships
-
-None
