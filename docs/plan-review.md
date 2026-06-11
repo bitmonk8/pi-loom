@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T56) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 5 high, 47 medium retained (52 findings); ~88 low discarded; 4 low findings merged into 2 medium findings; ~35 NIT dropped; 14 false dropped (upstream)._
+_Triage tally: 0 blocker, 4 high, 47 medium retained (51 findings); ~88 low discarded; 4 low findings merged into 2 medium findings; ~35 NIT dropped; 14 false dropped (upstream)._
 
 ---
 
@@ -3493,75 +3493,3 @@ Implementer note: if `V8b` is split into per-seam sub-leaves, the new dependency
 ## Relationships
 
 - T20 "`Clock` seam's functional behaviour is unverified — `V8b-T`'s `PIC-12` asserts only the ambient-access ban" — same-cluster (both touch the `Clock` seam; resolve independently)
-
----
-
-# T52 — DISC-4's superseded-dispatch assertion is on V10a but is owned/implemented by V9b
-
-**Original heading:** Orphaned-`/<name>` superseded-dispatch assertion (DISC-4) belongs on V9b, not V10a
-**Original section:** V10a — Discovery union and collision resolution
-**Kind:** assumptions
-**Importance:** high
-**Score:** 90
-**MustFix:** false
-
-## Finding
-
-`V10a` and `V10a-T` close `DISC-4`, whose final clause asserts a runtime slash-dispatch outcome: a later dispatch of an orphaned `/<name>` (a loom whose entry was dropped by a supersession pass) returns the fixed `"loom /<name>: superseded; /reload to refresh"` system note rather than running the dropped loom. The clause itself defers "per spec superseded-entry dispatch".
-
-That behaviour is not a discovery-walk observable. The spec locates it in `spec_topics/pi-integration-contract/drain-state-contract.md#superseded-entry-dispatch`, where it is a sub-case of the slash `handler`'s steady-state dispatch arm (a): the handler looks the dispatched slash name up in the `LoomRegistry` entry table, finds nothing (the supersession pass having removed it), and returns the fixed note. The slash `handler` and the `LoomRegistry` entry table are built by `V9b` — whose Adds already lists "superseded-entry dispatch" as part of the `LoomRegistry` drain-state contract it owns. `V10a` builds the discovery union and collision resolution; it does not build the dispatch handler.
-
-`V9b`'s Deps include `V10a`, so `V9b` is sequenced strictly after `V10a`. For `V10a`/`V10a-T` to exercise the superseded-dispatch outcome it would have to consume `V9b`'s handler and `LoomRegistry`, which do not exist yet at `V10a` time, and the required dependency `V10a → V9b` is undeclarable without forming a cycle (`V9b → V10a → V9b`). The assertion therefore cannot be honestly closed on `V10a`: it is either left to a stub that does not exercise the real `V9b` handler, or it blocks. The coverage matrix compounds this by mapping `DISC-4` wholly to `V10a`, so the closing gate treats `V10a` as the closer of an obligation `V10a` cannot deliver.
-
-## Plan Documents
-
-- `docs/plan_topics/V10a-discovery-walk.md` — `DISC-4` Tests bullet (edited)
-- `docs/plan_topics/V10a-T-discovery-walk.md` — `DISC-4` Tests bullet (edited)
-- `docs/plan_topics/V9b-registration-drain-state.md` — Adds / Tests (edited)
-- `docs/plan_topics/V9b-T-registration-drain-state.md` — Tests (edited)
-- `docs/plan_topics/coverage-matrix.md` — `DISC-4` row (edited)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** V9 — Extension host integration; V10 — Discovery and settings
-
-**Leaves (implementation order):**
-
-- V9b — Registration steps and drain-state contract — (modified)
-- V9b-T — Registration steps and drain-state contract (tests) — (modified)
-- V10a — Discovery walk, sources, and collisions — (modified)
-- V10a-T — Discovery walk, sources, and collisions (tests) — (modified)
-
-## Consequence
-
-**Severity:** blocking
-
-The `DISC-4` superseded-dispatch assertion is mapped to and authored on `V10a`/`V10a-T`, but the only mechanism that produces the behaviour — `V9b`'s slash handler plus `LoomRegistry` entry-table miss — does not exist until `V9b`, which itself depends on `V10a`. The dependency `V10a` would need is undeclarable without a cycle, so the closing-gate-recognised closer for `DISC-4` cannot legitimately exercise the assertion; it either ships against a stub (vacuous closure) or stalls.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e — pi-loom plan: build/update plan for spec.md + review (2026-06-11, Thomas Andersen); 438430c — pi-loom plan: resolve "DISC-4 acceptance bullet mis-states what happens to a superseded loom" (2026-06-11, Thomas Andersen)
-**History:** The superseded-dispatch outcome was asserted on `V10a`'s `DISC-4` bullet from the plan's first commit (c6a664e, "loom loses; the superseded entry is dispatched"), while the same commit placed "superseded-entry dispatch" in `V9b`'s Adds — so the cross-leaf ownership mismatch is present since inception. A later plan-fix (438430c) rewrote the `V10a`/`V10a-T` clause into its current detailed form ("a later dispatch of the orphaned `/<name>` returns the fixed … system note … per spec superseded-entry dispatch"), hardening the misplacement by spelling out the V9b-owned runtime behaviour in V10a's test bullet without relocating it.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Relocate the superseded-dispatch assertion from the discovery leaves to the leaf that owns the mechanism, and reconcile the coverage record:
-
-- In `docs/plan_topics/V10a-discovery-walk.md` and `docs/plan_topics/V10a-T-discovery-walk.md`, narrow the `DISC-4` Tests bullet to the discovery/collision observables these leaves can deliver: a same-derived-name collision (loom-vs-loom at equal priority, loom-vs-Pi) fires `cross-format-collision` on the final derived name, and the loom loses asymmetrically — it does not register and the Pi-owned entry survives. Strike the trailing "and a later dispatch of the orphaned `/<name>` returns the fixed `"loom /<name>: superseded; /reload to refresh"` system note … per spec superseded-entry dispatch" clause from both bullets.
-- In `docs/plan_topics/V9b-registration-drain-state.md`, add a Tests bullet (and the paired bullet in `docs/plan_topics/V9b-T-registration-drain-state.md`) asserting the superseded-entry-dispatch behaviour against the leaf's `LoomRegistry` + slash handler: after a `session_start` supersession pass drops a loom's entry table entry, a later dispatch of `/<name>` reaches the steady-state arm (a), the entry-table lookup misses, and the handler returns the fixed `"loom /<name>: superseded; /reload to refresh"` system note rather than dispatching. Cite `spec_topics/pi-integration-contract/drain-state-contract.md#superseded-entry-dispatch`. `V9b` already lists "superseded-entry dispatch" in its Adds, so no Adds change is required beyond the new assertion.
-- In `docs/plan_topics/coverage-matrix.md`, reconcile the `DISC-4` row so the superseded-entry-dispatch obligation is recorded as closing on `V9b` while the discovery/collision-detection portion of `DISC-4` stays on `V10a` (e.g. split the row, or record `V9b` as the closer for the dispatch sub-obligation), so the closing gate matches the relocated assertion.
-
-No new leaf is required; `V9b` and `V10a` both already exist and `V9b` already depends on `V10a`, so the relocation needs no new dependency edge.
-
-## Relationships
-
-None
