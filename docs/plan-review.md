@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T56) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 1 high, 36 medium retained (37 findings); ~88 low discarded; 4 low findings merged into 2 medium findings; ~35 NIT dropped; 14 false dropped (upstream)._
+_Triage tally: 0 blocker, 1 high, 35 medium retained (36 findings); ~88 low discarded; 4 low findings merged into 2 medium findings; ~35 NIT dropped; 14 false dropped (upstream)._
 
 ---
 
@@ -2406,80 +2406,6 @@ Tighten `V15c`'s `Ships when` so it names a positive observable — an auto-expo
 
 - T34 "`loom/parse/import-non-warp-extension` has no asserting test" — same-cluster (sibling V15c validation gap; may land in the same Tests-field edit pass)
 - T12 "V5a positive declaration-form parse has no asserting test" — same-cluster (identical "only error codes asserted, accepted forms untested" pattern; independent leaf)
-
----
-
-# T36 — V16a over-claims that all CIO bullets are provable at the stateless arbitration seam in isolation
-
-**Original heading:** Fixed cross-ceiling order not fully provable at the stateless seam in isolation
-**Original section:** V16a — Hard-ceiling interaction order and `masked` co-fire
-**Kind:** assumptions, placement
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V16a` models the cross-ceiling arbitration as a stateless single-candidate function `arbitrate(candidate) → { surfaced, masked? }`, and its Adds asserts that *all* CIO bullets "are exercised by driving synthesised ceiling-candidates through this seam in isolation"; the Ships-when repeats that the seam "proves … the CIO-1 … CIO-6 order … observable at `V16a`'s position without the downstream breach-site leaves." Two of the six CIO bullets are temporal cross-site relations that a stateless single-candidate function cannot witness:
-
-- **CIO-1** (`ceilings-3-and-4.md#cio-1`) asserts ceiling #3 is *evaluated at slash-load time, before any runtime-class ceiling fires*. The seam can only decide precedence given a set of co-satisfied candidates (given #3 and a runtime-class candidate together, surface #3). It cannot observe that the #3 check actually occurs at load time and the runtime checks occur later — that temporal placement lives at the distinct check sites, not in the arbitration function.
-- **CIO-5** (`ceilings-3-and-4.md#cio-5`) asserts ceiling #3 *never interleaves* with #1/#2/#4 — a property that derives from the binder running only at slash-load time and `invoke(...)` never invoking the binder (binder-bypass). A stateless function fed synthesised candidates has no execution timeline against which "never interleaves" could be observed; the V16a-T `CIO-5` bullet ("across synthesised candidate sequences, ceiling #3 never interleaves") reduces to a precedence assertion that does not witness the cross-site temporal claim.
-
-The remaining bullets are genuinely seam-local: CIO-2/CIO-3/CIO-4 are within-site sub-check orderings the arbitration decision encodes, and CIO-6 (at-most-one-surfaced + `masked` enumeration) is a single-event property. The leaf does not state which CIO sub-properties the seam actually verifies versus which temporal cross-site relations are deferred to the downstream enforcement-site leaves (`V4e`/`V11f` at load time, `V5e`/`V13c`/`V15b` at their runtime first-enforcement points) and to the `H7a` integration run (which drives a live #3-vs-#2 co-occurrence and asserts CIO-5 order end-to-end). The blanket "all CIO bullets … in isolation" claim therefore mis-states coverage for CIO-1 and CIO-5.
-
-## Plan Documents
-
-- `docs/plan_topics/V16a-ceiling-order-masked.md` — Adds, Tests, Ships when (edited)
-- `docs/plan_topics/V16a-T-ceiling-order-masked.md` — Tests (edited)
-- `docs/plan_topics/H7a-integration-acceptance.md` — Convention (live CIO-5 co-occurrence assertion) (read-only)
-- `docs/plan_topics/V4e-pre-evaluation-failures.md` — Adds / `ERR-16` (read-only)
-- `docs/plan_topics/V11f-binder-retry-taxonomy.md` — Adds (read-only)
-- `docs/plan_topics/V13c-query-tool-loop.md` — Adds (read-only)
-- `docs/plan_topics/V15b-invoke-depth-cycle.md` — Adds (read-only)
-- `docs/plan_topics/V5e-depth-enforcement.md` — Adds (read-only)
-
-## Spec Documents
-
-- `docs/spec_topics/hard-ceilings/ceilings-3-and-4.md` — CIO-1 … CIO-6 definitions (`#cio-1`, `#cio-5`) (read-only)
-- `docs/spec_topics/hard-ceilings/ceiling-invariants-and-audit.md` — worked consequences / cross-ceiling invariants (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical slices
-
-**Leaves (implementation order):**
-
-- `V16a` — Hard-ceiling interaction order and `masked` co-fire — (modified)
-- `V16a-T` — Hard-ceiling interaction order and `masked` co-fire (tests) — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-A test author reading the leaf treats CIO-1 and CIO-5 as fully closed at the seam and writes precedence-only assertions, so the temporal cross-site relations (CIO-1's slash-load-before-runtime placement, CIO-5's never-interleaves) are claimed-closed but witnessed only incidentally — CIO-5 by `H7a`'s integration run, CIO-1's placement by the load-time-vs-runtime consult split — with no statement tying them to those witnesses. Two reasonable implementers diverge on whether the seam test discharges the full CIO-1/CIO-5 obligation, and the seam-level CIO-5 assertion is vacuous against the spec's cross-site claim.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e — pi-loom plan: build/update plan for spec.md + review (2026-06-10, Thomas Andersen)
-**History:** The blanket coverage claim that all CIO bullets are exercised "through the unit that computes the cross-ceiling order in isolation" was present in `V16a`'s first commit (c6a664e), alongside the temporal CIO-5 "never interleaves" bullet; the leaf never carved the temporal cross-site CIO-1/CIO-5 relations out of the in-isolation claim. A later edit (e2b7e81, "resolve 'isolated cross-ceiling unit interface/authority undefined'", 2026-06-10) sharpened the unit into a stateless single-candidate `arbitrate(candidate)` seam — making the gap more acute — but did not originate it. The over-claim has been continuously present since the file's creation.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `V16a` Adds, replace the blanket "All CIO bullets are exercised by driving synthesised ceiling-candidates through this seam in isolation" claim with a statement that splits the CIO bullets by what the stateless single-candidate seam can actually witness:
-
-- **Verified at the seam in isolation:** the cross-ceiling surfacing precedence given co-satisfied candidates (CIO-1's #3-over-runtime-class precedence *decision*, CIO-2/CIO-3/CIO-4 within-site sub-check ordering as encoded by the arbitration), the at-most-one-ceiling-per-event rule, and the `masked` co-fire enumeration (CIO-6).
-- **Not witnessable at the stateless seam — owned by downstream sites:** CIO-1's *temporal* "ceiling #3 evaluated at slash-load before any runtime-class ceiling fires" (realised by the load-time consult in `V4e`/`V11f` versus the runtime first-enforcement consults in `V5e`/`V13c`/`V15b`), and CIO-5's "ceiling #3 never interleaves with #1/#2/#4" (a binder-bypass / load-time-only property whose end-to-end witness is `H7a`'s co-occurring-breach integration assertion).
-
-Align the `V16a-T` and `V16a` `CIO-1` and `CIO-5` Tests bullets so they describe what the seam asserts — the precedence/arbitration decision over co-present candidates — rather than restating the temporal "evaluated at slash-load before runtime fires" / "never interleaves" wording as if the seam observes the live execution timeline. Cite `ceilings-3-and-4.md#cio-1` / `#cio-5` for the temporal relations and name the downstream/integration leaves (`V4e`, `V11f`, `V5e`, `V13c`, `V15b`, `H7a`) as their witnesses. The same edit resolves the placement angle (the synthesised-candidate test-execution-strategy paragraph currently in Adds is exactly the one carrying the over-broad claim).
-
-## Relationships
-
-None
 
 ---
 
