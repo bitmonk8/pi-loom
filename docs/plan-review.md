@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T56) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 1 high, 29 medium retained (30 findings); ~88 low discarded; 4 low findings merged into 2 medium findings; ~35 NIT dropped; 14 false dropped (upstream)._
+_Triage tally: 0 blocker, 1 high, 28 medium retained (29 findings); ~88 low discarded; 4 low findings merged into 2 medium findings; ~35 NIT dropped; 14 false dropped (upstream)._
 
 ---
 
@@ -1932,73 +1932,6 @@ Wiring the implementer must watch: `V10b` currently lists `Deps. V10b-T, V10a, V
 
 - T27 "V10c claims settings validation in Adds but no test asserts `loom/load/settings-value-out-of-range`" — same-cluster (same `V10c` leaf; both add validation bullets but resolve independently)
 - T26 "V10b presents the operator-tunable package-walk bounds as hardcoded constants" — decision-overlap (the `V10b` tuning-escape decision constrains how the operator-value assertion is framed)
-
----
-
-# T29 — Watcher-time reload failure-injection seam under-specified and ungated
-
-**Original heading:** Watcher-time reload failure-injection seam under-specified and ungated
-**Original section:** V10c — Settings reads and merge
-**Kind:** clarity, implementability
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V10c`'s Adds declares ownership of the *settings-re-merge sub-arm* of the **watcher-time reload failure-injection seam** and calls it "the named test interface through which a synthetic settings-re-merge failure this debounce feeds is fed to the `loom-system-note` surfacing path." The seam is described by prose only: no concrete interface name, method name, or injection mechanism is given, so the phrase "the named test interface" names nothing. The describing sentence is also grammatically broken — "a synthetic settings-re-merge failure this debounce feeds is fed to …" collapses two clauses and leaves the input/output direction of the seam ambiguous (does the caller hand a failure to the seam, or does the seam produce one?).
-
-The same seam is jointly owned by `V9b` (the `loom/runtime/registry-swap-failed` registry-swap arm and the `.loom`/`.warp` re-parse arm) and consumed by `V4e`, whose `ERR-7` Tests bullet injects "at the **watcher-time reload failure-injection seam**" without standing up a live watcher. `V4e` lists `V9b` and `V10c` in `Deps`, so the dependency edge exists — but because neither owning leaf pins a concrete identifier/method for the seam, the `V4e` author must independently invent the injection interface and hope it matches whatever the `V10c`/`V9b` implementers built. `V9b`'s parallel prose is direction-explicit ("a synthetic registry-swap failure … is fed to the `loom-system-note` surfacing path without standing up a live watcher"), so the cross-leaf contract is asymmetrically specified.
-
-## Plan Documents
-
-- `docs/plan_topics/V10c-settings-merge.md` — Adds (edited)
-- `docs/plan_topics/V9b-registration-drain-state.md` — Adds (edited)
-- `docs/plan_topics/V4e-pre-evaluation-failures.md` — Tests `ERR-7`, Deps (edited)
-- `docs/plan_topics/V4e-T-pre-evaluation-failures.md` — Tests `ERR-7`, Deps (edited)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical slices
-
-**Leaves (implementation order):**
-
-- V4e — Pre-evaluation failures — (modified)
-- V4e-T — Pre-evaluation failures (tests) — (modified)
-- V9b — Registration steps and drain-state contract — (modified)
-- V10c — Settings reads and merge — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-The `ERR-7` test author (`V4e`) and the seam owners (`V10c`/`V9b`) have no shared concrete contract to bind against, so two reasonable implementers will diverge on the seam's interface and method, and the garbled sentence leaves the injection direction itself ambiguous. The resulting `V4e` test may inject against an interface the owning leaves never exposed, or assert the wrong direction of data flow.
-
-## Issue introduction
-
-**Verdict:** single-commit
-**Introducing commits:** 66acde6 — pi-loom plan: resolve "ERR-7 test injects at an undefined channel seam" (2026-06-11, Thomas Andersen)
-**History:** `V10c`'s Adds originally read only "the `ERR-7` watcher-reload failure surface this debounce feeds is asserted by `V4e`." Commit 66acde6, resolving a prior finding that `ERR-7` injected at an undefined channel seam, rewrote that clause into the "settings-re-merge sub-arm of the … failure-injection seam … the named test interface through which a synthetic settings-re-merge failure this debounce feeds is fed to the `loom-system-note` surfacing path" prose — introducing in one stroke both the "named test interface" claim with no concrete identifier and the garbled "a synthetic … failure this debounce feeds is fed to" sentence. A later commit (b2d5a1f, 2026-06-11) renamed the seam from "watcher-rebuild" to "watcher-time reload" but left the under-specification and the broken grammar intact.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `V10c`'s Adds, replace the garbled "named test interface" clause with a concrete, direction-explicit seam contract: pick one identifier for the seam (an interface plus the method a caller invokes to inject a synthetic settings-re-merge failure), and state that a caller supplies the synthetic failure to that method and the seam routes it onto the `loom-system-note` surfacing path with `triggerTurn:false`, without standing up a live watcher. Repair the broken sentence so the subject/verb agree and the data-flow direction is unambiguous (caller → seam → `loom-system-note`), mirroring the already-clean phrasing in `V9b`'s Adds.
-
-Use the *same* concrete identifier in `V9b`'s Adds for its registry-swap and `.loom`/`.warp` re-parse arms, so the jointly-owned seam has one canonical name across both owning leaves. Update the `ERR-7` Tests bullet (and `Deps` parenthetical) in `V4e` and `V4e-T` to reference that identifier rather than the bare prose name.
-
-Edge cases for the implementer: keep the seam a test-only injection interface (it must not require a live file watcher); preserve the existing `Deps` edges (`V4e` → `V9b`, `V10c`); and ensure the chosen identifier honours the leaf-ID and seam-naming conventions in `conventions.md` §Leaf format (Class-2 seam named in `Adds.` and bound by a `Deps.`-listing consumer).
-
-## Relationships
-
-None
 
 ---
 
