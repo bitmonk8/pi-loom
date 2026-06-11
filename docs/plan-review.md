@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T44) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 12 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 11 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -708,73 +708,6 @@ No spec edit is required: the `V3d` function-result seam already exists (owned b
 ## Relationships
 
 - T12 "V4c/V4c-T name the H4a harness and session double but omit H4a from Deps" — same-cluster (same defect class: a leaf binds a seam it does not declare in Deps; resolves independently).
-
----
-
-# T11 — V9c-T omits V17a though its PIC-18 cancel-forwarding test targets the V17a-owned `loomAbort`
-
-**Original heading:** V9c-T omits V17a while its cancel-forwarding test targets the V17a-owned `loomAbort`
-**Original section:** Consolidated Plan Review — plan
-**Kind:** ordering
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-The implementation leaf `V9c` declares the prompt-mode `pi.on` subscription as "cancel-forward only, forwarding Pi's `ctx.signal` into the `loomAbort` controller owned by V17a," and its `PIC-18` Tests bullet asserts that the subscription "is used only for cancel-forwarding — forwarding into the `loomAbort` controller owned by V17a — never for completion." `V9c` correctly lists `V17a` in its `Deps` (`V9c-T, V9a, V9j, V8a, V17a`).
-
-The paired tests leaf `V9c-T` carries the same `PIC-18` cancel-forwarding obligation but its `Deps` are only `V9a, V9j, V8a` — `V17a` is absent and not reachable transitively. `loomAbort` is the cross-leaf cancellation controller (a Class-2 seam) owned exclusively by `V17a`; no other leaf declares it. Writing the `PIC-18` cancel-forwarding test therefore requires the `loomAbort` symbol that only `V17a` provides.
-
-This makes `V9c-T` the lone exception among every cancellation-touching tests leaf: `V4c-T`, `V9g-T`, `V9i-T`, and `V11f-T` each reference `loomAbort`/`V17a` and each list `V17a` in their `Deps`. An executor picking `V9c-T` once its declared deps (`V9a, V9j, V8a`) are satisfied — but before `V17a` lands — either references `loomAbort` as an undeclared symbol (a compile-time red, which the `-T` "compile and fail red for the intended reason" gate disqualifies) or stubs an ad-hoc `loomAbort` that is not guaranteed to match the contract `V17a` and the impl leaf `V9c` later build against.
-
-## Plan Documents
-
-- `docs/plan_topics/V9c-T-conversation-drive.md` — Deps field (edited)
-- `docs/plan_topics/V9c-conversation-drive.md` — Adds / PIC-18 / Deps (read-only; the correctly-wired impl partner)
-- `docs/plan_topics/V17a-cancellation-core.md` — `loomAbort` seam owner (read-only)
-- `docs/plan_topics/conventions.md` — Per-phase TDD ritual ("compile and fail red"), Leaf format Deps rules (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical slices — V9
-
-**Leaves (implementation order):**
-
-- V9c-T — Prompt-mode conversation drive and active-set gating (tests) — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-`V9c-T`'s `PIC-18` test references the `V17a`-owned `loomAbort` controller, but with `V17a` absent from its `Deps` an executor sequencing strictly by the DAG can pick `V9c-T` before `V17a` exists. Two reasonable implementers then diverge: one blocks on the compile-time red that the `-T` gate rejects; the other stubs an ad-hoc `loomAbort` that may not match the real controller contract `V9c` and `V17a` build against, seeding a fixture/seam mismatch that the impl pass must later reconcile.
-
-## Issue introduction
-
-**Verdict:** single-commit
-**Introducing commits:** ecedd5f — pi-loom plan: resolve "Cancel-forwarding couples V9c to loomAbort (V17a) without a declared dependency" (2026-06-10, Thomas Andersen)
-**History:** Both `V9c` and its paired `V9c-T` were created without `V17a` in `Deps` at the plan's first commit (c6a664e, 2026-06-10), when the `loomAbort`/`V17a` coupling was undeclared on both sides. Commit ecedd5f resolved a sibling review finding by adding `V17a` to the impl leaf `V9c`'s `Deps` and naming `loomAbort`/`V17a` in its `Adds` and `PIC-18` bullet, but did not propagate the same `Deps` edit to the paired `V9c-T` tests leaf — creating the impl-vs-test asymmetry this finding names. (`git log -S 'loomAbort'` and `git log -G 'V17a'` over `V9c-T` show the token never entered that file.)
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add `V17a` to the `Deps` field of `docs/plan_topics/V9c-T-conversation-drive.md`, so it reads `**Deps.** `V9a`, `V9j`, `V8a`, `V17a``, mirroring the impl leaf `V9c` and matching every other cancellation-touching tests leaf (`V4c-T`, `V9g-T`, `V9i-T`, `V11f-T`). `V17a`'s own deps are only `V17a-T, V8a` (and `V8a` is already a `V9c-T` dep), so `V17a` is freely orderable ahead of `V9c-T` and no reordering of `V17a` is needed.
-
-Edge case for the implementer: the TDD ritual permits a tests task to stub "the minimum production code needed for the tests to compile," but `loomAbort` is the `V17a`-owned cross-leaf seam — declaring the `V17a` dep lets `V9c-T`'s `PIC-18` test compile against the real controller rather than a divergent ad-hoc stub.
-
-## Relationships
-
-- T10 "V9i binds the V3d function-result seam without declaring V3d as a dependency" — same-cluster (sibling leaf omitting a seam-owning dep; resolves independently).
-- T40 "V4d `QueryError` family consumed by V13a / V14a / V17a without a declared or transitive dependency" — same-cluster (touches V17a Deps; separate edit).
-- T12 "V4c/V4c-T name the H4a harness and session double but omit H4a from Deps" — same-cluster (seam-dep omission; independent edit).
-- T16 "V5e per-boundary routing test asserts destination error surfaces its `Deps` cannot reach" — same-cluster (destination-surface dep omission).
 
 ---
 
