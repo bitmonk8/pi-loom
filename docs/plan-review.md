@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T44) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 0 high, 14 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 0 high, 13 medium retained; 39 low discarded; 0 low findings merged into 0 medium findings; 16 NIT dropped; 0 false dropped._
 
 ---
 
@@ -845,83 +845,6 @@ Edge cases for the implementer:
 - T35 "Response-programming surface: determinism is gated at H4a, functional effect is not" — same-cluster (both concern correct wiring/verification of the H4a harness contract; independent).
 - T11 "V9c-T omits V17a though its PIC-18 cancel-forwarding test targets the V17a-owned `loomAbort`" — same-cluster (same Deps-omission defect class).
 - T40 "V4d `QueryError` family consumed by V13a / V14a / V17a without a declared or transitive dependency" — same-cluster (same Deps-omission defect class).
-
----
-
-# T13 — V8a's `Checkpoint` `loop-iter` macrotask yield has no substrate seam in its Deps
-
-**Original heading:** `Checkpoint` `loop-iter` macrotask yield assumes a macrotask primitive with no declared owner
-**Original section:** Consolidated Plan Review — plan
-**Kind:** assumptions
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-V8a's `Adds.` requires the `Checkpoint` seam to produce a "macrotask yield for `loop-iter`, microtask otherwise." This is a production behaviour, not a test-only one: PIC-10 (`docs/spec_topics/pi-integration-contract/host-interfaces-services.md`) states that for the `loop-iter` checkpoint kind, `before(...)` "releases the event loop for one macrotask turn before resolving," so a Pi-dispatched abort can land before a compute-bound loop's next signal-check.
-
-The only sanctioned way to schedule deferred work in the runtime is the `Clock` seam. PIC-12 declares the runtime "reads wall-clock time and **schedules deferred work exclusively** through a `Clock` seam," whose `setTimeout`/`clearTimeout` members are "the only timer surface the runtime uses." Reinforcing this, `conventions.md` §Cross-cutting rules → *No globals, statics, singletons* bans any direct `setTimeout` reference outside the `WallClock` adapter, and the H3a identifier-keyed ambient-access scan reds a `src/**` `setTimeout` that is not at an allow-listed adapter site.
-
-The `Clock` seam is owned by V8b, but V8a's `Deps.` are only `V8a-T, H3a`. V8b is not named and is not transitively reachable — V8a and V8b are V8-slice siblings whose sole deps are their paired `-T` task and H3a. An implementer picking up V8a therefore has no declared substrate for the mandated macrotask yield: they would either hand-roll an undeclared scheduling primitive (violating PIC-12's exclusive-Clock rule) or emit a direct `setTimeout` (failing the H3a ambient scan), or independently rediscover the missing dependency edge. The macrotask-yield substrate must be sourced through the `Clock` seam, and V8a's dependency declaration does not reflect that.
-
-## Plan Documents
-
-- `docs/plan_topics/V8a-checkpoint-validator-seams.md` — `Deps.` field (edited)
-- `docs/plan_topics/V8b-clock-fs-id-watch-token-seams.md` — `Clock` seam owner (read-only)
-- `docs/plan_topics/conventions.md` — Cross-cutting rules → *No globals, statics, singletons* ambient-`setTimeout` ban (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Vertical slices (V8)
-
-**Leaves (implementation order):**
-
-- V8a — `Checkpoint` and `SchemaValidator` seams — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-An implementer building V8a's production `loop-iter` macrotask yield has no seam in scope that can schedule a macrotask: the `Clock` seam (PIC-12) lives in the unreferenced V8b. Two reasonable implementers diverge — one adds the missing dependency edge, another hand-rolls an undeclared primitive or a direct `setTimeout` that the H3a ambient scan then reds — and the latter cannot satisfy the spec's exclusive-`Clock` deferred-work rule.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e (`pi-loom plan: build/update plan for spec.md + review`, 2026-06-10)
-**History:** `docs/plan_topics/V8a-checkpoint-validator-seams.md` has exactly one commit in its history (`git log --follow`): c6a664e, the initial plan build. That commit's diff introduced both the macrotask-yield `Adds.` requirement (`+**Adds.** The \`Checkpoint\` seam (… macrotask yield for \`loop-iter\` …)`) and the `Deps.` line (`+**Deps.** \`V8a-T\`, \`H3a\`) in the same change. The leaf has never been edited since, so the macrotask-yield obligation has coexisted with a Deps set that omits the substrate-owning V8b since the leaf's inception; the defect is original to the leaf, not introduced by a later edit.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add `V8b` to V8a's `Deps.` field in `docs/plan_topics/V8a-checkpoint-validator-seams.md`, changing the line from:
-
-```
-**Deps.** `V8a-T`, `H3a`
-```
-
-to:
-
-```
-**Deps.** `V8a-T`, `H3a`, `V8b`
-```
-
-This binds the `Clock` seam (PIC-12) as the macrotask-yield substrate for the `loop-iter` checkpoint, so the production `Checkpoint` schedules its one-macrotask-turn yield through `Clock.setTimeout` rather than an undeclared or ambient primitive. V8b's own deps (`V8b-T`, `H3a`) introduce no cycle.
-
-Edge cases for the implementer:
-- The `Checkpoint`'s `loop-iter` yield must be realised through the `Clock` seam's `setTimeout`/`clearTimeout`, not a bespoke scheduler — PIC-12 fixes `Clock` as the exclusive deferred-work surface and `conventions.md` bans direct `setTimeout` outside the `WallClock` adapter (enforced by the H3a scan).
-- If V8a or V8b is later split, the new edge must name the specific sub-leaf that owns the `Clock` seam rather than bare `V8b`.
-
-## Relationships
-
-None
 
 ---
 
