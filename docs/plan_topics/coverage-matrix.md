@@ -72,6 +72,7 @@ The same table also enumerates the third closing-gate surface defined in [`conve
 | `frontmatter/frontmatter-fields-a.md`, `frontmatter-fields-b-and-templates.md` (FRNT) | `V6a`, `V6b`, `V6c`, `V6d`, `V6e` |
 | `query/` (QRY) | `V13a`, `V13b`, `V13c`, `V13d` |
 | `tool-calls.md` (TOOL) | `V14a`, `V13c` |
+| `invocation.md` (INV) — the six un-anchored `invoke` parse/load diagnostic codes (`loom/parse/invoke-arg-type-mismatch`, `loom/parse/invoke-return-type-mismatch`, `loom/parse/invoke-arity-too-few`, `loom/parse/invoke-arity-too-many`, `loom/parse/invoke-non-loom-extension`, `loom/load/callee-has-errors`) (un-anchored; GOV-22 residue) | `V15a` |
 | `pi-integration-contract/conversation-drive.md` — *No additional access channels* denial-surface MUST (un-anchored; GOV-22 residue) | `V14a` |
 | `pi-integration-contract/version-bump-triggers.md` — runtime-evidence acceptance-gate MUST (output (c); a red runtime-evidence run MUST NOT be merged at the candidate pin) (un-anchored; GOV-22 residue) | `V18d` |
 | `pi-integration-contract/host-prerequisites.md` §`pi-sdk-pin` — `typebox` `"*"` MUST NOT be collapsed into the four-entry tilde-pinned `peerDependencies` group (un-anchored; GOV-22 residue) | `H1a` |

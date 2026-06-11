@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T18) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 6 high, 10 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 13 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 5 high, 10 medium retained; 38 low discarded; 0 low findings merged into 0 medium findings; 13 NIT dropped; 0 false dropped._
 
 ---
 
@@ -1057,86 +1057,3 @@ The spec is authoritative and read-only here — it already places the aggregate
 ## Relationships
 
 None
-
----
-
-# T16 — Six `invoke` parse/load diagnostic codes have no asserting leaf and no coverage-matrix row
-
-**Original heading:** Invoke arg/arity/return-type/static-resolution diagnostic codes have no asserting plan step
-**Original section:** docs/plan_topics/coverage-matrix.md
-**Kind:** spec-coverage
-**Importance:** high
-**Score:** 100
-**MustFix:** true
-
-## Finding
-
-`spec_topics/invocation.md` defines six normative parse/load diagnostic codes as MUST-equivalents in narrative prose, each outside any `INV-N` anchor:
-
-- `loom/parse/invoke-arg-type-mismatch` (§Argument binding — type mismatch when the callee is statically resolvable),
-- `loom/parse/invoke-return-type-mismatch` (§Typed return — `T_calleeReturn ⊑ Schema` compatibility failure),
-- `loom/parse/invoke-arity-too-few` and `loom/parse/invoke-arity-too-many` (§Argument arity — arity checked before per-argument type, `too-many` fires even when the callee is not statically resolvable),
-- `loom/parse/invoke-non-loom-extension` (§Resolution — a non-`.loom` literal path, also applied to `tools:` `.loom` entries),
-- `loom/load/callee-has-errors` (§Static resolution — emitted at the referencing site with a deliberate severity split: **error** for an unparseable `tools:` `.loom` entry, **warning** for a literal `invoke(...)` callee).
-
-No plan leaf asserts any of these six codes. A grep across `docs/plan_topics/` and `docs/plan.md` for each code returns zero hits. The invocation slice splits its coverage as: `V15a` closes the numbered `INV-1/2/3`, `V15b` closes `INV-4` plus `loom/load/invocation-cycle`, and `V14a` closes the tool-side codes (`loom/parse/tool-arg-not-literal`, `tool-arg-arity`, `tool-arg-type-mismatch`) — none of these closes the six invoke parse/load codes above.
-
-`coverage-matrix.md` compounds the gap: its numbered table maps `INV-1, INV-2, INV-3 → V15a` and `INV-4 → V15b`, but the §"Code-keyed obligation areas" table carries no `invocation.md` row for the un-anchored parse/load codes (unlike the rows it already carries for `drain-state-contract.md`, `active-invocation-registry.md`, etc.). The codes are therefore un-anchored normative MUST-equivalents with neither a numbered `PREFIX-N` REQ-ID nor a code-keyed matrix row — exactly the GOV-22 residue the un-anchored-MUST discipline (`conventions.md` §REQ-ID discipline) and the diagnostic-code closing gate are meant to catch, yet the closing gate enumerates its enforced set from the coverage matrix, so a code absent from the matrix is invisible to the gate.
-
-## Plan Documents
-
-- `docs/plan_topics/V15a-invocation-core.md` — Tests / Ships when (edited)
-- `docs/plan_topics/V15a-T-invocation-core.md` — Tests / Ships when (edited)
-- `docs/plan_topics/coverage-matrix.md` — §Code-keyed obligation areas (no numbered REQ-IDs) (edited)
-- `docs/plan_topics/V15b-invoke-depth-cycle.md` — Tests (read-only; scoping boundary for `INV-4` / `invocation-cycle`)
-- `docs/plan_topics/V14a-tool-calls.md` — Tests (read-only; scoping boundary for the tool-side codes)
-- `docs/plan_topics/conventions.md` — §REQ-ID discipline / §Diagnostic message anchors (read-only; defines the closing-gate disciplines)
-
-## Spec Documents
-
-None (the six codes already exist in `spec_topics/invocation.md`; the fix is internal to plan files).
-
-## Affected Leaves
-
-**Phases:** Vertical slice V15 — Invocation and imports
-
-**Leaves (implementation order):**
-
-- `V14a` — Tool calls (code-side) and `CodeToolError` — (blocked) — scoping reference: confirms the six codes are not the tool-side codes it closes
-- `V15a` — Invocation core — (modified) — candidate home for the six asserting Tests bullets
-- `V15a-T` — Invocation core (tests task) — (modified) — paired failing tests for the six codes
-- `V15b` — Invoke depth bound and cycle detection — (blocked) — scoping reference: confirms the six codes are not `INV-4` / `invocation-cycle`
-- `<new>` — dedicated `V15*` assertion leaf (and its `-T`) — (added) — option-dependent; only if the codes are not folded into `V15a`
-
-## Consequence
-
-**Severity:** correctness
-
-Six core `invoke` parse/load diagnostics have no asserting test, so an implementer can ship `invoke` without the argument-type, return-type, arity, non-`.loom`-extension, and `callee-has-errors` checks and no leaf's green tests will red. Because the codes are absent from the coverage matrix, the H5a closing gate enumerates its enforced set without them and passes vacuously rather than flagging the gap, so the under-implementation ships silently rather than being caught at the loom 1.0 release footing.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e ("pi-loom plan: build/update plan for spec.md + review", 2026-06-10)
-**History:** The plan corpus is git-tracked. `git log --follow` shows `V15a-invocation-core.md`, `V15b-invoke-depth-cycle.md`, and `V14a-tool-calls.md` were all created in `c6a664e`, the build commit of the current plan generation; no later commit adds the six codes (`git log -S` for `invoke-arity-too-many`, `invoke-return-type-mismatch`, and `callee-has-errors` over `docs/plan_topics/` and `docs/plan.md` returns only the pre-reset commits `657ee76` and `31ff060`, both predating `c6a664e`). `coverage-matrix.md`'s code-keyed table was repopulated in `c6a664e` and extended by later "resolve" commits, but never gained an `invocation.md` row. A prior plan generation (`v15-invoke.md`) did reference these codes but was deleted in the `657ee76` reset-to-scaffold and is not part of the live corpus. Within the current plan generation the gap has existed since `c6a664e`.
-
-## Solution Space
-
-**Shape:** single
-
-This finding carries two independent obligations that are both required: make an invocation leaf assert the six codes, then register a code-keyed coverage-matrix row so the H5a closing gate observes them. Resolve the assertion obligation first, because it fixes the closing-leaf identity the matrix row must cite.
-
-### Recommendation
-
-Add Tests bullets asserting each of the six `invoke` parse/load diagnostic codes to an invocation-core leaf and gate its Ships-when on them, then add the corresponding code-keyed coverage-matrix row that names that leaf. The spec is read-only for this fix — the six codes already exist in `invocation.md`; do not add or restate them in the spec.
-
-**Assertion leaf.** In the chosen invocation leaf's `-T` (failing tests first) and impl `Tests` field, assert that each of `loom/parse/invoke-arg-type-mismatch`, `loom/parse/invoke-return-type-mismatch`, `loom/parse/invoke-arity-too-few`, `loom/parse/invoke-arity-too-many`, `loom/parse/invoke-non-loom-extension`, and `loom/load/callee-has-errors` fires on its triggering condition, and extend Ships-when to gate on them. Cite `invocation.md` anchors per the existing bullet style. The home is either `V15a` (folded into the existing invoke-core leaf and its `-T`) or a dedicated new `V15*` leaf plus its `-T`; if a dedicated leaf is created rather than folding into `V15a`, use the literal `<new>` placeholder for its ID until the implementer allocates a real one per the plan's leaf-ID scheme.
-
-The assertions must pin the codes' behavioural edge cases: arity is checked **before** per-argument type (`invocation.md` §Argument arity); `invoke-arity-too-many` fires even when the callee is **not** statically resolvable, while `too-few` falls back to a runtime AJV `InvokeInfraError{validation}` when not statically resolvable; `invoke-return-type-mismatch` accepts compatibility not equality (`T_calleeReturn ⊑ Schema`, narrower-under-wider); `callee-has-errors` has the error-for-`tools:` / warning-for-`invoke()` severity split; and `invoke-non-loom-extension` also covers `tools:` `.loom` entries.
-
-**Coverage-matrix row.** In `coverage-matrix.md` §"Code-keyed obligation areas (no numbered REQ-IDs)", add a `| invocation.md ... (un-anchored; GOV-22 residue) | <closing leaf> |` row enumerating the six codes (or the §-scope that owns them), mirroring the existing `drain-state-contract.md` / `active-invocation-registry.md` rows. Set the closing leaf to whatever the assertion step produced (`V15a` or the new leaf); the citation must match the leaf actually carrying the assertions, since a stale citation reds the gate for the wrong reason.
-
-## Relationships
-
-- T18 "`implementation-notes.md` (IMPL) is unmapped in the coverage matrix, leaving its static-resolution obligations unverified" — decision-overlap (both add code-keyed rows that name `V15a` and bind static-resolution / `loom/load/callee-has-errors` coverage; the closing-leaf assignment chosen here constrains that finding's `V15a` citation)
-- T13 "V9h's two `pi-integration-contract` pages have no coverage-matrix closing rows" — same-cluster (independent spec pages, same code-keyed-row mechanism and H5a closing-gate footing)
