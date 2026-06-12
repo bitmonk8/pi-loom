@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T31) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 1 high, 8 medium retained; 9 low discarded; 9 low findings merged into 1 medium finding; 25 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 1 high, 7 medium retained; 9 low discarded; 9 low findings merged into 1 medium finding; 25 NIT dropped; 0 false dropped._
 
 ---
 
@@ -503,63 +503,3 @@ Edge case for the implementer: V10b's existing `DISC-6` settings-sourced Tests b
 
 None
 
----
-
-# T08 — V11d system-prompt-structure test bullet's leading "reproduces … exactly" over-asserts wording the spec leaves free
-
-**Original heading:** "all eight structured items (1–8) exactly" risks over-asserting wording the spec leaves free
-**Original section:** docs/plan_topics/V11d-defaulting-echo.md
-**Kind:** implementability
-**Importance:** medium
-**Score:** 20
-**MustFix:** false
-
-## Finding
-
-The spec's *Binder system prompt* contract (`binder-bypass-and-envelope.md`, §*Binder system prompt* / §*System-prompt structure (normative)*) is explicit that the prompt's prose wording is **not** part of the contract: "The exact wording is not part of the contract; the structural obligations enumerated under *System-prompt structure (normative)* below are," and "an alternative renderer that satisfies every obligation in the structure list is equally conformant." Only three surfaces are byte-exact — the *Type display* reference renderings, the *Default-literal rendering* forms, and the four *Parameter-line reference renderings*. Everything else about the eight structured items is a structural / conditional-presence obligation (tokens, line-prefixes, presence-when-trigger / absent-when-no-trigger), not a fixed byte sequence.
-
-V11d's and V11d-T's first Tests bullet opens with "the builder reproduces all eight structured items (1–8) **exactly**". Read literally, the leading "exactly" attaches to all eight items and reads as a byte-exact whole-prompt wording mandate, even though the bullet then correctly narrows to the genuinely-pinned surfaces (Type display, Default-literal, Parameter-line renderings). The leading phrase is at odds with the spec it cites in the same bullet.
-
-A test author following the bullet's opening clause could assert byte-exact equality of the entire rendered prompt, locking in incidental wording the spec deliberately leaves free; such a test would red a conformant alternative renderer, directly contradicting the spec's "equally conformant" guarantee. The fix is to scope "exactly" to the pinned surfaces only — assert presence / conditional-presence of the eight items, and byte-exactness only for the Type-display, Default-literal, and Parameter-line renderings.
-
-## Plan Documents
-
-- `docs/plan_topics/V11d-defaulting-echo.md` — Tests bullet 1 (system-prompt structure) (edited)
-- `docs/plan_topics/V11d-T-defaulting-echo.md` — Tests bullet 1 (system-prompt structure) (edited)
-
-## Spec Documents
-
-- `docs/spec_topics/binder/binder-bypass-and-envelope.md` — §Binder system prompt / §System-prompt structure (normative) (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical — V11 (Binder)
-
-**Leaves (implementation order):**
-
-- `V11d` — System-prompt builder, defaulting, and echo — (modified)
-- `V11d-T` — System-prompt builder, defaulting, and echo (tests) — (modified)
-
-## Consequence
-
-**Severity:** advisory
-
-A test author reading the bullet's leading "reproduces all eight structured items (1–8) exactly" could write a byte-exact whole-prompt assertion, pinning incidental wording the spec explicitly leaves free; that test would falsely red a conformant alternative renderer. The cited spec anchor is authoritative and the bullet self-corrects in its tail, so a careful implementer can still build the leaf — but the leading phrase invites a brittle, over-strict test.
-
-## Issue introduction
-
-**Verdict:** single-commit
-**Introducing commits:** 0ef467d — pi-loom plan: resolve "V11d binder system-prompt builder has no binding test" (2026-06-11, Thomas Andersen)
-**History:** The system-prompt-structure Tests bullet did not exist before 0ef467d; `git log -S 'all eight structured items'` localises the phrase to that single commit, and `git show 0ef467d` confirms the bullet (with the leading "reproduces all eight structured items (1–8) exactly") was added to both `V11d-defaulting-echo.md` and `V11d-T-defaulting-echo.md` to close a prior review finding that V11d's binder system-prompt builder had no binding test. The fix that added the missing test simultaneously introduced the over-assertive "exactly" framing.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In both `docs/plan_topics/V11d-defaulting-echo.md` and `docs/plan_topics/V11d-T-defaulting-echo.md`, reword the leading clause of the first Tests bullet so "exactly" / byte-exactness attaches only to the spec-pinned surfaces, not to the eight items as a whole. Concretely, replace the opening "the builder reproduces all eight structured items (1–8) exactly, including …" with a form that asserts presence / conditional-presence (not byte-exact wording) for the eight items and reserves byte-exactness for the pinned renderings — e.g. "the builder satisfies all eight structured items (1–8), asserting the trigger-present **and** trigger-absent conditions for items 2/3/4/6, and reproduces byte-exact the *Type display*, *Default-literal rendering*, and *Parameter-line reference renderings*". Keep the existing tail (the Type-display table, the Default-literal forms, and the four Parameter-line renderings including the description-omitted form) — those are the correct byte-exact targets. Apply the identical edit to both files so the implementation leaf and its test pair stay in lockstep. The spec file is read-only for this fix; do not weaken or restate the spec's normative obligations.
-
-## Relationships
-
-- T20 "Systemic leaf over-bundling across the leaf corpus" — decision-dependency (the V11d split relocates the system-prompt builder; this wording fix applies to whichever leaf owns the system-prompt-builder bullet after the split)
