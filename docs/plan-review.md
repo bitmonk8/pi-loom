@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T31) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 1 high, 14 medium retained; 9 low discarded; 9 low findings merged into 1 medium finding; 25 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 1 high, 13 medium retained; 9 low discarded; 9 low findings merged into 1 medium finding; 25 NIT dropped; 0 false dropped._
 
 ---
 
@@ -899,63 +899,3 @@ Edge case for the implementer: confirm no closing-leaf cell in `coverage-matrix.
 
 - T12 "Transitive-completeness arm's named-singleton example `(H5a, M)` omits H1a" — same-cluster (corrects the named-singleton example in the same transitive-completeness-arm sentence; resolves independently of the range example)
 - T20 "Systemic leaf over-bundling across the leaf corpus" — decision-dependency (a split would relocate the transitive-completeness arm; the expansion-order fix applies wherever the arm lives)
-
----
-
-# T14 — `ajv-formats` missing from H1a's enumerated runtime-dependency set
-
-**Original heading:** `ajv-formats` relied on but absent from H1a's enumerated dependency set
-**Original section:** docs/plan_topics/H1a-scaffold-and-toolchain.md
-**Kind:** assumptions
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-H1a's **Adds** field enumerates loom's own runtime `dependencies` as `ajv`/`semver`/`chokidar`/`yaml`/`minimatch`. `ajv-formats` is never part of that enumerated set; it appears only inside a later parenthetical — "`ajv` (with `ajv-formats`) is the non-normative reference validator behind the validator-neutral `SchemaValidator` seam".
-
-`ajv-formats` is a real, required runtime dependency, not an optional aside. The spec's reference `SchemaValidator` registers it as an instance-level side effect and relies on it for silent format-keyword acceptance: `implementation-notes.md` §"Implementation hint (non-normative)" states the reference implementation "uses AJV v8 (`ajv ^8`, `ajv-formats ^3`), declared in loom's own `dependencies`". The checked-in `package.json` already carries `ajv-formats ^3.0.1` in its `dependencies` block.
-
-H1a is the establishing leaf that owns initial population of `package.json`. Its authoritative enumeration therefore diverges from both the artifact it produces and the spec contract it implements: an implementer scaffolding the runtime `dependencies` block from the enumerated list alone would omit `ajv-formats`. None of H1a's architectural Tests read the runtime `dependencies` set, so the omission is not caught mechanically at this leaf.
-
-## Plan Documents
-
-- `docs/plan_topics/H1a-scaffold-and-toolchain.md` — Adds (edited)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Horizontal
-
-**Leaves (implementation order):**
-
-- H1a — Project scaffold and toolchain — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-An implementer scaffolding `package.json#dependencies` from H1a's enumerated set would leave out `ajv-formats`, so the reference `SchemaValidator` (which registers `ajv-formats` on its own `Ajv` instance and depends on it for format-keyword acceptance) would fail to resolve the package at runtime. The plan's authoritative enumeration also contradicts the artifact it produces, inviting two reasonable implementers to disagree on whether `ajv-formats` is a declared dependency.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e
-**History:** The H1a leaf was first authored in `c6a664e` ("pi-loom plan: build/update plan for spec.md + review") with the runtime-dependency enumeration `ajv`/`semver`/`chokidar`, while `ajv-formats` appeared only in the parenthetical "`ajv` (with `ajv-formats`)" in the same commit. Later commits extended the enumeration — `1064946` added `yaml`, `8279cb1` added `minimatch` — but none added `ajv-formats`. The divergence between the enumerated runtime-dependency set and the relied-upon `ajv-formats` dependency has therefore existed unchanged since the leaf was created.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `H1a-scaffold-and-toolchain.md`'s **Adds** field, add `ajv-formats` to the enumerated runtime `dependencies` list so the enumeration reads `ajv`/`ajv-formats`/`semver`/`chokidar`/`yaml`/`minimatch` (place `ajv-formats` adjacent to `ajv`). The existing parenthetical "`ajv` (with `ajv-formats`) is the non-normative reference validator…" and its citation to `implementation-notes.md` may remain as the rationale for the entry. This aligns the enumerated set with both the checked-in `package.json` (`ajv-formats ^3.0.1`) and the spec contract in `implementation-notes.md` (`ajv ^8`, `ajv-formats ^3`). Do not edit the spec — `implementation-notes.md` already states the dependency correctly; the fix is internal to the plan leaf.
-
-## Relationships
-
-- T29 "Pi SDK is never provisioned into loom's own build-test environment" — same-cluster (both are H1a manifest-enumeration completeness gaps; resolve independently)
-- T30 "`eslint-plugin-loom-local` in-tree plugin package has no creating leaf" — same-cluster (both concern H1a dependency provisioning; resolve independently)
