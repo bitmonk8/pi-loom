@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T31) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 1 high, 12 medium retained; 9 low discarded; 9 low findings merged into 1 medium finding; 25 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 1 high, 11 medium retained; 9 low discarded; 9 low findings merged into 1 medium finding; 25 NIT dropped; 0 false dropped._
 
 ---
 
@@ -772,63 +772,3 @@ Keep the authoritative tracking of clause (a) at the version-bump editorial-revi
 
 - T25 "Degraded-state obligations are required green at loom 1.0 over an open spec contradiction" — co-resolve (same `V9h` leaf; its split-into-a-blocked-leaf decision constrains where this finding's blocked-leaf signal and plan-level risk note land, and the same restructuring can co-resolve both — apply that decision first, then land this placement correction on the resulting structure)
 - T10 "V9h cites 'four discriminators' without enumerating them" — same-cluster (same `V9h` leaf; resolves independently)
-
----
-
-# T12 — Transitive-completeness arm's named-singleton example `(H5a, M)` omits H1a
-
-**Original heading:** Singleton-enumeration example `(H5a, M)` omits H1a, contradicting the data it illustrates
-**Original section:** docs/plan_topics/H5a-closing-gate-automation.md
-**Kind:** clarity
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`H5a`'s `Adds.` defines the standing transitive-completeness arm, which requires at least one leaf ID from each closing-leaf cell of `coverage-matrix.md` to be a member of `H5b`'s `Deps.` after "expanding both sides' contiguous ranges (e.g. `V1a–V18d`) and `H5b`'s named singletons (`H5a`, `M`)". The parenthetical names two singletons, but `H5b`'s actual `Deps.` carries three non-range entries: `H1a`, `H5a`, `M`. `H1a` is the closing leaf for the un-anchored `typebox "*"` MUST-NOT cell, as `H5b`'s own `Deps.` rationale note and `H6a`'s prose both state (`H6a` correctly enumerates the set as `(H1a, H5a, M)`).
-
-The example therefore contradicts the data it purports to illustrate, and `H5a`'s `(H5a, M)` is the lone place in the plan that drops `H1a` from the singleton set. An implementer building the arm who treats the parenthetical as the literal singleton enumeration would expand `H5b`'s named singletons to `{H5a, M}`, omitting `H1a`. The `typebox "*"` MUST-NOT cell — whose only listed leaf is `H1a`, and which is not covered by any `V`-range — would then have no listed leaf in the expanded set, and the arm would report a CI failure against a coverage cell that is in fact correctly closed.
-
-## Plan Documents
-
-- `docs/plan_topics/H5a-closing-gate-automation.md` — `Adds.` (transitive-completeness arm sentence) (edited)
-- `docs/plan_topics/H5b-warn-only-canary.md` — `Deps.` (read-only; the source of truth for the singleton set)
-- `docs/plan_topics/H6a-live-corpus-activation.md` — Deps rationale note (read-only; already enumerates `(H1a, H5a, M)` correctly)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** Horizontal
-
-**Leaves (implementation order):**
-
-- `H5a` — REQ-ID / diagnostic-code closing-gate automation — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers diverge: one reads `H5b`'s actual `Deps.` and includes `H1a`; one hardcodes the `(H5a, M)` example and omits it. The latter builds a transitive-completeness arm that falsely reddens CI on the correctly-closed `typebox "*"` MUST-NOT cell (whose sole closing leaf `H1a` appears only as a named singleton, not inside any `V`-range).
-
-## Issue introduction
-
-**Verdict:** single-commit
-**Introducing commits:** 08bd641 — pi-loom plan: resolve "H5b coverage Deps completeness has no mechanical backstop" (2026-06-11, Thomas Andersen)
-**History:** Commit 08bd641 introduced the transitive-completeness arm in `H5a`'s `Adds.`, authoring the named-singleton example as `(H5a, M)`. `H1a` had already been added to `H5b`'s `Deps.` by the earlier ancestor commit 25b911f ("resolve 'H1a missing from H5b's Deps'"), so when 08bd641 wrote the parenthetical `H5b`'s singleton set was already `H1a, H5a, M`; the new prose simply omitted the pre-existing `H1a`. The inconsistency is wholly contained in 08bd641.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `H5a`'s `Adds.`, in the transitive-completeness arm sentence, change the singleton-expansion clause from `H5b`'s named singletons (`H5a`, `M`) to enumerate all three non-range `Deps.` entries: `H5b`'s named singletons (`H1a`, `H5a`, `M`). Equivalently, the parenthetical may be dropped in favour of referring to "every non-range entry in `H5b`'s `Deps.`", which stays correct if the singleton set later changes. Either form removes the contradiction with `H5b`'s `Deps.`; the enumerated form matches the phrasing already used in `H6a`'s Deps rationale note.
-
-## Relationships
-
-- T13 "H5a transitive-completeness arm illustrates range expansion with an unexpandable cross-group range" — same-cluster (same transitive-completeness-arm sentence in `H5a`'s `Adds.`; resolves independently)
-- T20 "Systemic leaf over-bundling across the leaf corpus" — decision-dependency (a split of `H5a` would relocate the transitive-completeness arm carrying this example)
