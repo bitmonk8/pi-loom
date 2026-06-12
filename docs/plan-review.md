@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T31) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 1 high, 5 medium retained; 9 low discarded; 9 low findings merged into 1 medium finding; 25 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 1 high, 4 medium retained; 9 low discarded; 9 low findings merged into 1 medium finding; 25 NIT dropped; 0 false dropped._
 
 ---
 
@@ -287,76 +287,3 @@ Edge case for the implementer: confirm each newly listed slice's emittable-code 
 
 - T05 "Depth-6 (ceiling #4) wrapping that V5e delegates to V14a and V15a is asserted at neither carrier" — same-cluster (both concern whether downstream live-surface coverage of the integrated path is complete; resolve independently)
 
----
-
-# T05 — Depth-6 (ceiling #4) wrapping that V5e delegates to V14a and V15a is asserted at neither carrier
-
-**Original heading:** Routing decisions asserted in isolation; live-surface integration gate is external (informational)
-**Original section:** docs/plan_topics/V4c-terminal-outcomes.md
-**Kind:** validation
-**Importance:** medium
-**Score:** 30
-**MustFix:** true
-
-## Finding
-
-`V5e` enforces hard ceiling #4 (JSON document depth) and, by design, asserts only the per-boundary *routing decision* in isolation against the `H4a` harness. It explicitly disclaims wrapping the breach into a live carrier and delegates that to the site owners: its Tests bullet states "the actual wrapping of a depth-6 breach into each carrier is asserted at the site owner: `ValidationError` at `V13c`, `CodeToolError` at `V14a`, `InvokeInfraError` at `V15a`, the slash-load cross-route at `V4e`." The same seam-decomposition pattern appears in `V4c` (terminal-outcome / no-rollback witnessed through the harness, live surfaces delegated downstream).
-
-Two of the four delegation targets do not carry the assertion. `V13c` carries the depth-6 → `ValidationError` (`schema_keyword:"maxDepth"`) co-fire vector, and `V4e` carries the slash-load `params` ceiling-#4 cross-route (`ERR-16`). But neither `V14a` nor `V15a` mentions depth, `maxDepth`, or ceiling #4 anywhere in its Tests or Ships-when (`git log -S 'maxDepth'` confirms the token was never present in either file). For the code-driven-tool-args site (#3 → `CodeToolError`) and the `params`/`invoke<T>`-return site (#4 → `InvokeInfraError`), the routing decision is asserted only in isolation at `V5e` and is never witnessed end-to-end at the carrier that owns the surface.
-
-`ceilings-3-and-4.md` lists all five enforcement sites as normative, so sites #3 and #4 require a live witness. As written, `V5e`'s delegation dangles: the wrapping of a depth-overflow breach into `CodeToolError` and into `InvokeInfraError` is the responsibility of no leaf.
-
-## Plan Documents
-
-- `docs/plan_topics/V14a-tool-calls.md` — Tests / Ships when (edited)
-- `docs/plan_topics/V14a-T-tool-calls.md` — Tests (edited)
-- `docs/plan_topics/V15a-invocation-core.md` — Tests / Ships when (edited)
-- `docs/plan_topics/V15a-T-invocation-core.md` — Tests (edited)
-- `docs/plan_topics/V5e-depth-enforcement.md` — Tests / routing-decision delegation (read-only)
-- `docs/plan_topics/V13c-query-tool-loop.md` — Tests / depth-6 co-fire vector (read-only)
-- `docs/plan_topics/V4e-pre-evaluation-failures.md` — `ERR-16` slash-load cross-route (read-only)
-- `docs/plan_topics/V4c-terminal-outcomes.md` — Tests / `ERR-13` delegation (read-only)
-
-## Spec Documents
-
-- `docs/spec_topics/hard-ceilings/ceilings-3-and-4.md` — the five ceiling-#4 enforcement sites (read-only)
-
-## Affected Leaves
-
-**Phases:** Vertical slices — V14, V15
-
-**Leaves (implementation order):**
-
-- `V14a-T` — Tool calls (code-side) and `CodeToolError` (tests) — (modified)
-- `V14a` — Tool calls (code-side) and `CodeToolError` — (modified)
-- `V15a-T` — Invocation core (tests) — (modified)
-- `V15a` — Invocation core — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-The depth-overflow breach at code-driven tool args and at `invoke` `params`/`invoke<T>` return is a normative ceiling-#4 enforcement site, but no leaf asserts that the breach is wrapped into `CodeToolError` (V14a) or `InvokeInfraError` (V15a). A V14a/V15a implementation that fails to run the depth walk before AJV, or that surfaces the breach as a bare AJV error rather than the ceiling-#4 `maxDepth` surface, reds no test; the per-boundary routing V5e asserts in isolation is never confirmed at the live carrier, so two reasonable implementers could wire those two sites differently and both pass.
-
-## Issue introduction
-
-**Verdict:** single-commit
-**Introducing commits:** 3fa39a9 — pi-loom plan: resolve "V5e per-boundary routing test asserts destination error surfaces its Deps cannot reach" (2026-06-11, Thomas Andersen)
-**History:** The depth walk and per-boundary routing were present in the first plan commit (c6a664e, 2026-06-10), where `V5e` itself claimed to fire `maxDepth` "at each of the five sites" — overreaching beyond its Deps. Commit 3fa39a9 corrected that overreach by recasting `V5e` to assert the routing decision in isolation and delegating the actual depth-6 wrapping to the four carrier leaves (`V13c`/`V14a`/`V15a`/`V4e`). `V13c` and `V4e` already carried matching assertions, but `V14a` and `V15a` were never updated to receive the delegated obligation (`git log -S 'maxDepth'` shows the token was never present in either file), so the dangling delegation entered with 3fa39a9.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Add the delegated live-carrier assertions to the two leaves V5e points at:
-
-- In `V15a` (and its `V15a-T` partner) Tests: a depth-6 value supplied as an `invoke` `params` argument and a depth-6 `invoke<T>` return value each trip the loom-owned depth walk before AJV and surface wrapped as `InvokeInfraError` with `cause:"validation"` and `schema_keyword:"maxDepth"` (message `"JSON document depth exceeds 5"`), and add the corresponding clause to V15a's Ships-when.
-- In `V14a` (and its `V14a-T` partner) Tests: a depth-6 code-driven tool-call argument trips the depth walk before AJV and surfaces wrapped as `CodeToolError` with `cause:"validation"` and `schema_keyword:"maxDepth"`, and add the corresponding clause to V14a's Ships-when.
-
-These close V5e's "asserted at the site owner: … `CodeToolError` at `V14a`, `InvokeInfraError` at `V15a`" delegation so each enforcement site has a live witness. `V5e` itself needs no edit once the carriers assert their rows; its decision-only Tests bullet is then accurate. `V13c` (`ValidationError`) and `V4e` (`ERR-16` slash-load cross-route) already satisfy their delegated rows and need no change. Watch the cross-ceiling case at the `params` boundary: per CIO-1 a ceiling-#4 breach at the binder `params` boundary is routed to ceiling #3 (already exercised by `V11f`), so the V15a `invoke`-`params` vector must target the runtime `invoke` boundary, not the binder slash-load `params` boundary, to avoid colliding with that cross-route.
-
-## Relationships
-
-- T04 "H7a permitted-code-list provenance is bound to a Deps set narrower than the pipeline it gates" — same-cluster (both concern whether downstream live-surface coverage of the integrated path is complete)
