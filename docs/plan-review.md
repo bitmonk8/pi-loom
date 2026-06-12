@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T31) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 1 high, 6 medium retained; 9 low discarded; 9 low findings merged into 1 medium finding; 25 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 1 high, 5 medium retained; 9 low discarded; 9 low findings merged into 1 medium finding; 25 NIT dropped; 0 false dropped._
 
 ---
 
@@ -360,78 +360,3 @@ These close V5e's "asserted at the site owner: … `CodeToolError` at `V14a`, `I
 ## Relationships
 
 - T04 "H7a permitted-code-list provenance is bound to a Deps set narrower than the pipeline it gates" — same-cluster (both concern whether downstream live-surface coverage of the integrated path is complete)
-
----
-
-# T06 — SLSH-5 chain attribution presupposes per-hop call-site source-line provenance that no leaf records
-
-**Original heading:** Chain attribution presupposes per-hop call-site source-line provenance without declaring its source
-**Original section:** docs/plan_topics/V12b-top-level-err-chain.md
-**Kind:** assumptions
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V12b`'s `SLSH-5` test renders the recursive invoke-chain suffix ` from <callee> invoked at <parent>:<line>` for every `invoke_callee` hop, leaf-first. The `<line>` component is the 1-indexed source line of the call-site token in the parent loom (the `invoke(` token of a literal call, or the callee-name identifier of a `.loom`-callable bare-identifier call), and `<parent_path>` is the post-`realpath` parent loom path — per [`slash-invocation.md` SLSH-5](../spec_topics/slash-invocation.md), both drawn from "the immediate parent's invocation record". That per-hop `(parent_path, call-site line)` pair is therefore a provenance the renderer must read out of an invocation record at SLSH-5 render time.
-
-No leaf in the plan declares where that provenance is produced. `V12b`'s `Deps` list `V12b-T, V12a, V4d, V15a`, but none of them threads it: the `InvokeCalleeError` schema `V4d` adds carries only `kind`, `message`, `callee_path`, and `inner` — it has no `parent_path` and no call-site `<line>` field, so the QueryError chain alone cannot supply the suffix. `V15a` (the invoke core, already a `Dep` of `V12b`) is the natural producer, but its `Adds` enumerate the invoke-core mechanisms (containment, parse cache, return-type check, cross-mode matrix, prompt→prompt suspend) without recording, per hop, the parent loom path and the call-site token's source line into a per-frame invocation record.
-
-The result is a presupposed-but-unowned provenance: an implementer building `V15a` strictly from its `Adds` would not capture the call-site source line, and an implementer picking up `V12b` from its `Deps` is not told which leaf supplies it — leaving the SLSH-5 suffix unrenderable as specified.
-
-## Plan Documents
-
-- `docs/plan_topics/V15a-invocation-core.md` — Adds / invoke core (edited)
-- `docs/plan_topics/V15a-T-invocation-core.md` — Tests (edited)
-- `docs/plan_topics/V12b-top-level-err-chain.md` — SLSH-5 chain attribution (edited)
-- `docs/plan_topics/V12b-T-top-level-err-chain.md` — SLSH-5 test (edited)
-- `docs/plan_topics/V4d-queryerror-variants.md` — `InvokeCalleeError` variant shape (read-only)
-
-## Spec Documents
-
-None
-
-## Affected Leaves
-
-**Phases:** V4 — Errors and results; V12 — Slash invocation; V15 — Invocation and imports
-
-**Leaves (implementation order):**
-
-- `V4d` — `QueryError` variant schema — (blocked)
-- `V12b` — Top-level `Err` formatting and chain attribution — (modified)
-- `V12b-T` — Top-level `Err` formatting and chain attribution (tests) — (modified)
-- `V15a` — Invocation core — (modified)
-- `V15a-T` — Invocation core (tests) — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers diverge: the `V15a` author, following its `Adds`, omits source-line capture, while the `V12b` author assumes the provenance arrives through the declared `Dep` on `V15a`. The SLSH-5 suffix then cannot render `<parent>:<line>` as specified, or the `V12b` implementer invents an ad-hoc capture mechanism off-script.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e — pi-loom plan: build/update plan for spec.md + review (2026-06-10, Thomas Andersen)
-**History:** `V12b` (with its SLSH-5 chain-attribution test) and `V15a` (the invoke core) were both authored in the plan's initial build commit c6a664e; `git log -S "invoked at"` shows SLSH-5 has no earlier occurrence. The provenance gap — SLSH-5 rendering `<parent>:<line>` while no leaf records per-hop call-site source-line provenance — has been present since that first commit. The four later edits to `V15a` (e2d385b, cddd2b4, 249cec5, 75a9bcd) addressed unrelated findings and never added source-line recording.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Make `V15a` the declared producer of the per-hop call-site provenance SLSH-5 consumes, and tell `V12b` it reads that provenance from `V15a`'s invocation record.
-
-- In `docs/plan_topics/V15a-invocation-core.md`, extend the **Adds.** invoke-core enumeration to state that the invoke core records, per `invoke` hop, the invocation provenance the SLSH-5 chain suffix consumes: the post-`realpath` parent loom path and the 1-indexed source line of the call-site token (the `invoke(` token of a literal `invoke(...)` call, or the callee-name identifier of a `.loom`-callable bare-identifier call) into the per-frame invocation record. This is the same `realpath`-normalised parent path already recorded for discovery-root containment, augmented with the call-site line.
-- In `docs/plan_topics/V15a-invocation-core.md` and `docs/plan_topics/V15a-T-invocation-core.md`, add an `INV` test asserting that, for an executed `invoke` hop, the invocation record exposes the parent loom's post-`realpath` path and the call-site token's 1-indexed source line (with a multi-line call confirming the line is the call-site token's, not a receiving binding's).
-- In `docs/plan_topics/V12b-top-level-err-chain.md` and `docs/plan_topics/V12b-T-top-level-err-chain.md`, add a note to the SLSH-5 bullet that the per-hop `<parent_path>:<line>` provenance is consumed from `V15a`'s invocation record (`V15a` is already in `V12b`'s `Deps`), so this leaf renders from that record rather than deriving source positions itself.
-
-Edge case: the `.loom`-callable bare-identifier surface (e.g. `summarise(doc)` resolving to `./summariser.loom`) must record the line of the callee-name identifier token, matching the literal-`invoke(...)` surface — the recording mechanism must cover both call forms because SLSH-5 treats them identically.
-
-`V4d`'s `InvokeCalleeError` schema needs no new field: the spec already places `<parent_path>`/`<line>` in the invocation record, not on the wire variant, so the provenance stays out-of-band.
-
-## Relationships
-
-None
