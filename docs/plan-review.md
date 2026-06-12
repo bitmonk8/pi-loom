@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T31) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 1 high, 9 medium retained; 9 low discarded; 9 low findings merged into 1 medium finding; 25 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 1 high, 8 medium retained; 9 low discarded; 9 low findings merged into 1 medium finding; 25 NIT dropped; 0 false dropped._
 
 ---
 
@@ -563,77 +563,3 @@ In both `docs/plan_topics/V11d-defaulting-echo.md` and `docs/plan_topics/V11d-T-
 ## Relationships
 
 - T20 "Systemic leaf over-bundling across the leaf corpus" — decision-dependency (the V11d split relocates the system-prompt builder; this wording fix applies to whichever leaf owns the system-prompt-builder bullet after the split)
-
----
-
-# T09 — `ReloadFailureInjector` seam has two owners (V9b and V10c) with no canonical declaration site and no connecting Deps edge
-
-**Original heading:** `ReloadFailureInjector` seam claimed "owned here" by both V9b and V10c with no canonical home and no Deps edge
-**Original section:** docs/plan_topics/V9b-registration-drain-state.md
-**Kind:** implementability
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-The test-only `ReloadFailureInjector` interface (whose `injectReloadFailure` method routes a synthetic watcher-time reload failure onto the `loom-system-note` surfacing path) is the injection seam that `V4e`'s `ERR-7` test exercises. Both `V9b` and `V10c` claim it: `V9b`'s `Adds` says "the test-only `ReloadFailureInjector` interface … is owned here", and `V10c`'s `Adds` says "the settings-re-merge sub-arm of the watcher-time reload failure-injection seam — the test-only `ReloadFailureInjector` interface … is owned here". Two leaves thus declare the same named interface as owned locally.
-
-Neither leaf lists the other in its `Deps` — `V9b`'s `Deps` are `V9b-T, V9a, V10a, V8b, V6a` and `V10c`'s are `V10c-T, V8b` — so there is no declared edge establishing which leaf depends on the other's declaration. `V4e`'s `ERR-7` test injects "via `ReloadFailureInjector.injectReloadFailure` … owned by `V9b` … and `V10c` … exercising both arms", binding the single method name across both arms with no statement of which module declares the interface a `V4e` implementer must import.
-
-The spec frames `ERR-7` as one surface with two failure outcomes (`package-and-settings.md#watcher-time-reload-failures`: registry-swap failure plus re-parse/re-merge diagnostic), and `V4e` calls a single `injectReloadFailure` method — implying one interface — yet the plan stamps "owned here" on two leaves. An implementer of `V9b` declares `ReloadFailureInjector`; an implementer of `V10c`, reading the same "owned here" phrasing, declares it again, producing a duplicated and potentially divergent interface, or an undeclared cross-leaf import.
-
-## Plan Documents
-
-- `docs/plan_topics/V9b-registration-drain-state.md` — `Adds` (edited)
-- `docs/plan_topics/V10c-settings-merge.md` — `Adds` / `Deps` (edited)
-- `docs/plan_topics/V4e-pre-evaluation-failures.md` — `ERR-7` Tests / `Deps` (edited)
-- `docs/plan_topics/V4e-T-pre-evaluation-failures.md` — `ERR-7` Tests / `Deps` (edited)
-- `docs/plan_topics/conventions.md` — Leaf format (`Deps`) discipline (read-only)
-
-## Spec Documents
-
-- `docs/spec_topics/discovery/package-and-settings.md` — `#watcher-time-reload-failures` (read-only)
-- `docs/spec_topics/errors-and-results/error-model.md` — `#err-7` (read-only)
-
-## Affected Leaves
-
-**Phases:** V4 — Errors and results; V9 — Extension host integration; V10 — Discovery and settings
-
-**Leaves (implementation order):**
-
-- `V4e` — Pre-evaluation failures — (modified)
-- `V4e-T` — Pre-evaluation failures (tests) — (modified)
-- `V9b` — Registration steps and drain-state contract — (modified)
-- `V10c` — Settings reads and merge — (both)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers diverge: one declares `ReloadFailureInjector` in `V9b`, the other re-declares it in `V10c` under the same "owned here" licence, yielding two interfaces that can drift apart. `V4e`'s `ERR-7` test binds a single `injectReloadFailure` name across both arms with no stated import source, so it cannot reliably resolve against a single seam type — the test either fails to compile against a duplicated type or silently exercises only one arm.
-
-## Issue introduction
-
-**Verdict:** single-commit
-**Introducing commits:** d64dce5 — pi-loom plan: resolve "Watcher-time reload failure-injection seam under-specified and ungated" (2026-06-11, Thomas Andersen)
-**History:** The `ReloadFailureInjector` interface and the "is owned here" phrasing entered `V9b`, `V10c`, `V4e`, and `V4e-T` together in d64dce5, the commit that resolved the earlier "Watcher-time reload failure-injection seam under-specified and ungated" finding. That fix elaborated the seam across both producer leaves but stamped each with "owned here" for the same named interface without naming a single declaration site or adding a `V9b`↔`V10c` `Deps` edge, so the under-specification fix introduced the dual-ownership defect.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Treat `ReloadFailureInjector` as one interface for the whole watcher-time reload failure-injection seam, declared once in `V9b`; `V10c` contributes only the settings-re-merge arm against that interface. The spec exercises `ERR-7` through a single `injectReloadFailure` call across both arms, so a single interface is the lower-risk match for the spec's one-seam / one-method framing.
-
-- `V9b` `Adds`: state that `V9b` is the single declaration site of the `ReloadFailureInjector` interface for all three arms (registry-swap, `.loom`/`.warp` re-parse, settings re-merge).
-- `V10c` `Adds`: replace "the test-only `ReloadFailureInjector` interface … is owned here" with a statement that `V10c` contributes the settings-re-merge arm against the `ReloadFailureInjector` interface declared by `V9b`.
-- `V10c` and `V10c-T` `Deps`: add `V9b`.
-- `V4e` / `V4e-T` `ERR-7` prose: name `V9b` as the import source for the `ReloadFailureInjector` interface, while still attributing the settings-re-merge arm to `V10c`.
-
-Edge case: the new edge must land on the leaf that does *not* declare (`V10c`→`V9b`), and `V4e`'s `ERR-7` prose must point its import at `V9b` while still naming `V10c` as the settings-re-merge arm owner. If `V9b` is later split, the declaration site must travel with the registration sub-leaf.
-
-## Relationships
-
-- T20 "Systemic leaf over-bundling across the leaf corpus" — decision-dependency (the V9b split folds the failure-injection seam into a registration sub-leaf; the canonical-home choice must land on whichever sub-leaf declares the interface)
