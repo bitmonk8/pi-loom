@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T31) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 1 high, 7 medium retained; 9 low discarded; 9 low findings merged into 1 medium finding; 25 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 1 high, 6 medium retained; 9 low discarded; 9 low findings merged into 1 medium finding; 25 NIT dropped; 0 false dropped._
 
 ---
 
@@ -435,71 +435,3 @@ Edge case: the `.loom`-callable bare-identifier surface (e.g. `summarise(doc)` r
 ## Relationships
 
 None
-
----
-
-# T07 — V10b per-read-deadline formula variable `t` is undefined
-
-**Original heading:** Per-read-deadline formula variable `t` is undefined
-**Original section:** docs/plan_topics/V10b-package-discovery.md
-**Kind:** clarity
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`V10b`'s **Adds.** field declares the per-package-read deadline as `max(200, floor(t/10))` but never binds `t`. The same clause names two distinct millisecond quantities the reader could plausibly substitute: the literal `timeoutMs` 2000 stated immediately before it (which makes the per-read deadline a constant 200 ms regardless of operator settings), or the operator-tunable, settings-merged `looms.scanPackagesTimeoutMs` (which makes the per-read deadline scale with the operator override). These are observably different timings.
-
-The spec is unambiguous on the intended binding: `package-and-settings.md` §DISC-6 defines `deadline = max(200, floor(looms.scanPackagesTimeoutMs / 10))` and states "raising the global cap automatically raises the per-read budget" — i.e. `t` is the merged `looms.scanPackagesTimeoutMs`, and the per-read deadline tracks the operator override (default `2000 ms` cap → `200 ms` per-read). V10b's abbreviated `t` drops this binding, so the leaf alone does not determine whether the per-read deadline is fixed or scaling.
-
-V10b's Tests do not close the gap: the `DISC-6` settings-sourced vector asserts the *global* `scanPackagesTimeoutMs` trip point but never the per-read deadline's scaling, so the test gate passes for either reading.
-
-## Plan Documents
-
-- `docs/plan_topics/V10b-package-discovery.md` — Adds (edited)
-- `docs/plan_topics/V10b-T-package-discovery.md` — Tests (edited)
-
-## Spec Documents
-
-- `docs/spec_topics/discovery/package-and-settings.md` — §DISC-6 (read-only; canonical source of the deadline formula)
-
-## Affected Leaves
-
-**Phases:** Vertical slices (V10 — Discovery and settings)
-
-**Leaves (implementation order):**
-
-- `V10b-T` — Package discovery (bounded walk) (tests) — (modified)
-- `V10b` — Package discovery (bounded walk) — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-Two reasonable implementers diverge on observable timing: one reads `t` as the fixed `2000` default and hardcodes a `200 ms` per-read deadline; the other reads it as the merged `looms.scanPackagesTimeoutMs` and scales the deadline with the operator override. The spec mandates the scaling form, so the constant-200 reading silently ships behaviour that contradicts DISC-6, and the existing V10b tests do not catch it.
-
-## Issue introduction
-
-**Verdict:** present-since-inception
-**Introducing commits:** c6a664e1194227df0702609667f3ee8be2e8c6b2 ("pi-loom plan: build/update plan for spec.md + review", 2026-06-10)
-**History:** The plan corpus is git-tracked. `docs/plan_topics/V10b-package-discovery.md` was created in `c6a664e` carrying the `max(200, floor(t/10))` clause verbatim (`git log -S 'floor(t/10)'` returns only that commit; `git show c6a664e:docs/plan_topics/V10b-package-discovery.md` shows the unbound `t` in the Adds line at creation). The only later commit touching the file, `e965634` ("resolve 'V10c settings keys read but application not asserted'"), did not modify the formula. The defect has been present since the leaf was first authored.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `V10b`'s **Adds.** field, replace the abbreviated `max(200, floor(t/10))` with the spec's fully-bound form and make the scaling explicit. Concretely, change the per-read-deadline clause to read:
-
-> the per-read deadline `max(200, floor(looms.scanPackagesTimeoutMs / 10))` via `Clock.setTimeout` (default `2000 ms` global cap → `200 ms` per-read; a raised `looms.scanPackagesTimeoutMs` raises the per-read budget proportionally)
-
-This binds `t` to the merged `looms.scanPackagesTimeoutMs` (matching `package-and-settings.md` §DISC-6) and states that the per-read deadline tracks the operator override rather than the literal `2000` default.
-
-Edge case for the implementer: V10b's existing `DISC-6` settings-sourced Tests bullet pins the *global* cap's trip point but not the per-read deadline's scaling. Add a vector to `V10b`/`V10b-T` that drives a merged `looms.scanPackagesTimeoutMs` distinct from `2000` through the `FakeClock` seam and asserts the per-read `package-read-timeout` fires at `max(200, floor(override/10))`, so the constant-200 misreading reds a test rather than passing vacuously.
-
-## Relationships
-
-None
-
