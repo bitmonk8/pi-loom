@@ -25,8 +25,7 @@ Use the REQ-ID prefix table in [`../spec_topics/governance.md`](../spec_topics/g
 | BNDR-6 | `V11h` |
 | BNDR-7, BNDR-8, BNDR-9 | `V11b` |
 | DISC-1, DISC-2, DISC-3 | `V10a` |
-| DISC-4 (discovery/collision detection) | `V10a` |
-| DISC-4 (superseded-entry dispatch) | `V9m` |
+| DISC-4 | `V10a` (collision-detection closure), `V9m` (superseded-entry-dispatch closure) |
 | DISC-5, DISC-6 | `V10b` |
 | DISC-7 | `V10c` |
 | CIO-1 | `V16a`, `V4e`, `V11f` |
