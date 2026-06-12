@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T31) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 1 high, 16 medium retained; 9 low discarded; 9 low findings merged into 1 medium finding; 25 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 1 high, 15 medium retained; 9 low discarded; 9 low findings merged into 1 medium finding; 25 NIT dropped; 0 false dropped._
 
 ---
 
@@ -1055,68 +1055,3 @@ The (f)/(g) categories still forward-model the `V4c` ERR-13 and `V9i` subagent c
 - T20 "Systemic leaf over-bundling across the leaf corpus" — same-cluster (the same step-atomicity pattern across other leaves; resolves independently)
 - T16 "Manual real-host smoke does not enumerate its live-host / binder-model / credential prerequisites" — same-cluster (same leaf, smoke-gate concern; resolves independently)
 - T19 "H4a's 'closed at source' / 'cannot merge' smoke guarantee overstates a manual mechanism" — same-cluster (same leaf; resolves independently)
-
----
-
-# T16 — Manual real-host smoke does not enumerate its live-host / binder-model / credential prerequisites
-
-**Original heading:** Manual real-host smoke assumes a configured live Pi host + provider the plan never enumerates
-**Original section:** docs/plan_topics/H4a-factory-shell-and-harness.md
-**Kind:** assumptions
-**Importance:** medium
-**Score:** 25
-**MustFix:** false
-
-## Finding
-
-`H4a`'s **manual real-host smoke run** — driving `H7a`'s committed multi-feature fixture `.loom` against a live Pi host — is a **required pre-merge gate** with named owners (the contributor performing a Pi version bump; the contributor of any merge touching the four fidelity-contract axes), and `H6a`'s release-gate acceptance makes a recorded pass of that smoke a loom 1.0 release precondition. Both leaves describe *what the run scores* (pass criteria (a)–(e)) but neither describes *the environment the owner must stand up to run it at all*. Criteria (a)–(e) silently presuppose a working live, non-deterministic LLM host: a Pi install at the pinned SDK, a reachable structured-output-capable binder model resolvable through `ctx.modelRegistry`, and resolved credentials for that model. None of that is enumerated or cross-referenced at the smoke's owning leaf.
-
-The prerequisites in fact already exist in the spec — `host-prerequisites.md` item 1 pins the Pi-SDK range (`#pi-sdk-pin`, which `H6a` already cites for the pin literal only), item 2 names the structured-output-capable binder model resolved via `ctx.modelRegistry`, and item 3 records that credentials are whatever Pi already resolves for the model (loom stores none). But the smoke bullets in `H4a`/`H6a` never connect the run to those prerequisites, so an owner reading the gate has no enumerated environment to provision against.
-
-This is sharper than a cosmetic gap because criterion (b) — "the binder pass produces structurally-valid output" — is unsatisfiable without a resolvable, credentialed binder model. An owner who runs the smoke against a Pi install with no structured-output-capable binder model registered gets a `loom/load/binder-model-unresolved` load failure, which scores as a criterion (a) failure (thrown/aborted run) — a spurious "confirmed behavioural-divergence finding" that blocks the merge. Two owners with different model/provider configurations can likewise diverge on a run that is supposed to be model-output-invariant.
-
-## Plan Documents
-
-- `docs/plan_topics/H4a-factory-shell-and-harness.md` — Tests bullet 3 (manual real-host smoke pass criteria) (edited)
-- `docs/plan_topics/H6a-live-corpus-activation.md` — Release-gate acceptance (manual real-host smoke) (option-dependent)
-
-## Spec Documents
-
-- `docs/spec_topics/pi-integration-contract/host-prerequisites.md` — items 1–3 (Pi-SDK pin, binder model, binder credentials) (read-only)
-
-## Affected Leaves
-
-**Phases:** Horizontal (including the release-gate sub-grouping)
-
-**Leaves (implementation order):**
-
-- `H4a` — Extension factory shell and end-to-end harness — (modified)
-- `H6a` — Live-corpus closing-gate activation (loom 1.0 release gate) — (modified)
-
-## Consequence
-
-**Severity:** correctness
-
-A named smoke owner cannot provision the live-host environment from the gate text alone, and the most likely under-provisioning (no resolvable binder model) makes criterion (b) unsatisfiable and surfaces as a criterion (a) failure — a spurious behavioural-divergence finding that blocks a merge or a Pi bump. Two owners with different live host/model configurations can score the same model-output-invariant run differently.
-
-## Issue introduction
-
-**Verdict:** single-commit
-**Introducing commits:** 328ba4d — pi-loom plan: resolve "real-host verification gap" (2026-06-10, Thomas Andersen)
-**History:** `328ba4d` introduced the manual real-host smoke into `H4a` as a run "driving a representative `.loom` ... against a live Pi host", with no enumeration of the live host, binder model/provider, or credential precondition; the gap has been present in every revision since. A later commit (`3911733`, 2026-06-11) added the model-output-invariant pass criteria (a)–(e) that sharpen the dependency on a live LLM host, but it refined the scoring without enumerating the environment, so the originating gap remains the `328ba4d` introduction.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-In `H4a`'s third Tests bullet (the manual real-host smoke), state the live-host precondition the run requires and bind it to the spec page that already names it: a live Pi host at the [`host-prerequisites.md#pi-sdk-pin`](../../docs/spec_topics/pi-integration-contract/host-prerequisites.md#pi-sdk-pin) range, with a structured-output-capable binder model resolvable via `ctx.modelRegistry` (`host-prerequisites.md` item 2) and credentials resolved by Pi for that model (`host-prerequisites.md` item 3, loom stores none). Make explicit that the smoke's named owners (the bump contributor for trigger (1); the merging contributor for trigger (2)) run the gate against their own Pi install configured to satisfy that precondition, and that an unsatisfied binder-model/credential precondition is an un-runnable-gate condition, not a behavioural-divergence finding — so a missing binder model does not score as a criterion (a) failure that blocks the merge.
-
-`H6a`'s Release-gate acceptance item already defers to "the model-output-invariant criterion `H4a` defines", so pinning the precondition at `H4a` propagates to `H6a` by reference. If the reviewer prefers the release-gate shard to be self-contained, add the same `host-prerequisites.md` cross-reference to `H6a`'s acceptance item rather than restating the prerequisite text.
-
-## Relationships
-
-- T18 "Smoke pass criterion (b) leaves 'structurally-valid binder output' undefined" — decision-dependency (criterion (b) is the criterion that depends on a resolvable, credentialed binder model; anchoring (b) and enumerating the binder-model precondition are coordinated edits to the same bullet)
-- T15 "H4a bundles three independent units into one leaf" — same-cluster (same leaf; resolves independently)
-- T19 "H4a's 'closed at source' / 'cannot merge' smoke guarantee overstates a manual mechanism" — same-cluster (same H4a smoke bullet; concerns the merge-block mechanism rather than the live-host precondition)
