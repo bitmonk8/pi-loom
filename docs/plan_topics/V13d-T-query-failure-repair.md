@@ -13,6 +13,6 @@
 - [query-failure-and-repair.md — follow-up turn templates (normative)](../spec_topics/query/query-failure-and-repair.md) (QRY code-keyed area): on a 2-attempt sequence the second follow-up's `<ajv-summary>` reflects only the most-recent failed attempt's `ValidationIssue` entries, in the canonical `validation_errors` order (`ERR-14`), never a cumulative concatenation across attempts.
 - `ERR-17`: forced-respond non-compliance injects the synthesised `ValidationIssue` (path `""`, keyword `"required"`, branch-specific message) into the respond-repair loop.
 
-**Deps.** `V13c`, `V4d`, `V9j`
+**Deps.** `V13c`, `V4d`, `V9j`, `H4b`
 
 **Ships when.** The tests above exist, compile, and fail red for the intended reason.

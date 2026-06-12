@@ -12,6 +12,6 @@
 - `loom/runtime/subagent-model-unresolved` fires when the pre-spawn model guard fails; `loom/runtime/subagent-dispose-failure` is advisory on a `dispose()` throw.
 - Swallowing-handler attachment at this site ([cancellation.md — *Race semantics — swallowing-handler attachment on every abandonable Promise*](../spec_topics/cancellation.md)): assert the subagent-mode `AgentSession.abort()` Promise attaches its swallowing handler at the Promise-construction site (before the first microtask boundary), and that a late settlement landed via the `Checkpoint` seam (`V8a`) after the checkpoint has surfaced `cause: "cancelled"` is suppressed along all three side channels — no Node `unhandledRejection`, no second `RuntimeEvent`, and no diagnostic of any severity — so a build that bypasses the substrate reddens this leaf's tests.
 
-**Deps.** `V9i-T`, `V9a`, `V17a`, `V11a`, `V8a`, `V3d`
+**Deps.** `V9i-T`, `V9a`, `V17a`, `V11a`, `V8a`, `V3d`, `H4b`
 
 **Ships when.** `npm test` spawns an isolated subagent session, asserts `dispose()`-in-`finally` idempotency, and asserts the subagent `AgentSession.abort()` Promise's three-channel swallowing-handler suppression (no `unhandledRejection`, no second `RuntimeEvent`, no diagnostic) at the `Checkpoint` seam (`V8a`).

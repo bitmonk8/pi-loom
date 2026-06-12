@@ -19,6 +19,6 @@
 
 _(The forwarding-listener throw-trap — a distinctly complex, independently-verifiable sub-mechanism — is owned by [`V17b`](./V17b-forwarding-listener-throw-trap.md).)_
 
-**Deps.** `V17a-T`, `V8a`, `V4d`, `V9a`, `H4a`
+**Deps.** `V17a-T`, `V8a`, `V4d`, `V9a`, `H4a`, `H4b`
 
 **Ships when.** `npm test` forwards a cancel into `loomAbort`, proves downward-only propagation, asserts CNCL-1/2/3, asserts CNCL-4 reason-identity propagation through all three forwarding paths (including the byte-exact `"loom cancelled by agent_end"` synthesised message), asserts CNCL-5 (a completed `Ok` is not retroactively rewritten to `Err({kind:"cancelled"})`) and CNCL-6 (a tail abort produces no synthesised top-level `cancelled`), asserts the checkpoint-granularity presence arm (a checkpoint fires immediately before each of the five sites) together with its best-effort negative arm (no checkpoint at the primitive operations or straight-line statement boundaries the test drives), asserts the loop-iteration macrotask-yield (a signal flipped during a synchronous loop body is observed before the next iteration), and asserts three-channel swallowing-handler suppression at the `Checkpoint`-seam substrate (no `unhandledRejection`, no second `RuntimeEvent`, no diagnostic); per-site routing of the four abandonable-Promise sites through that substrate is asserted by their owning leaves (`V14a`, `V13c`, `V15a`, `V9i`).
