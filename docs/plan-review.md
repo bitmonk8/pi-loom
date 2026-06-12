@@ -5,7 +5,7 @@ _Plan: docs/plan.md_
 _Spec: docs/spec.md_
 _Process: bottom-up — the last finding (T31) is addressed first; the first finding (T01) is addressed last._
 
-_Triage tally: 0 blocker, 3 high, 20 medium retained; 9 low discarded; 9 low findings merged into 1 medium finding; 25 NIT dropped; 0 false dropped._
+_Triage tally: 0 blocker, 2 high, 20 medium retained; 9 low discarded; 9 low findings merged into 1 medium finding; 25 NIT dropped; 0 false dropped._
 
 ---
 
@@ -1489,72 +1489,3 @@ No new leaf or ID is needed, and no `H5b` Deps edit is owed — `V9f` is already
 
 - T31 "Extension-bootstrap SDK-failure rule + code have no closing leaf" — same-cluster (same spec page `extension-bootstrap-and-per-loom.md`, different obligation family; resolves independently)
 - T03 "Two PIC teardown pages absent from coverage-matrix code-keyed table" — same-cluster (same coverage-matrix un-anchored-MUST arm; resolves independently)
-
----
-
-# T22 — Ambient-primitive scan's five-name list omits spec-banned clock primitives (`performance.now`, `clearTimeout`)
-
-**Original heading:** Ambient-primitive ban assumes five-name list is the complete ambient surface
-**Original section:** docs/plan_topics/conventions.md
-**Kind:** assumptions
-**Importance:** high
-**Score:** 100
-**MustFix:** true
-
-## Finding
-
-The *No globals, statics, singletons* rule in `conventions.md` bans direct `src/**` reference to exactly five ambient primitives — `process.env`, `process.cwd`, `crypto.randomUUID`, `Date.now`, `setTimeout` — and declares that the H3a identifier-keyed scan plus the *Per-phase TDD ritual* self-review "partition the space with no third gap between them." The manual-residue list the rule concedes covers only *indirect forms* of those five names (aliased, destructured, computed, helper-wrapper, re-export reads); it does not cover any primitive outside the five.
-
-The spec's own seam contract enumerates a larger ambient surface for the timing area alone. `host-interfaces-services.md` (the `Clock` / `WallClock` contract) states the runtime "MUST NOT call `Date.now`, `performance.now`, `Date.prototype.getTime`, or the global `setTimeout` / `clearTimeout` outside the `WallClock` adapter," and the production `WallClock` adapter delegates `now()` to `performance.now()`, `wallNow()` to `Date.now()`, and its timer methods to the global `setTimeout` / `clearTimeout`; `implementation-notes.md` §Clock restates the same ban. So `performance.now`, `clearTimeout`, and `Date.prototype.getTime` are seam-wrappable primitives the WallClock adapter actually uses and the spec explicitly bans elsewhere — yet none is in the H3a scan's five-name list, and none is an indirect form of a listed name, so none is in the manual-residue list either.
-
-A direct `performance.now()` or `clearTimeout(...)` call in a `src/**` module outside the WallClock adapter therefore falls into a genuine third gap: the identifier-keyed scan does not flag it (the identifier is not enumerated), and the self-review residue paragraph does not name it. This contradicts both the "no third gap" partition claim and the spec's hard MUST-NOT. The five-name list was treated as the complete ambient surface without being reconciled against the spec's enumerated ban or the V8* adapter primitive set.
-
-## Plan Documents
-
-- `docs/plan_topics/conventions.md` — Cross-cutting rules, *No globals, statics, singletons* (edited)
-- `docs/plan_topics/H3a-di-seam-skeleton.md` — ambient-access scan Tests bullet + Adds (edited)
-- `docs/plan_topics/V8b-clock-fs-id-watch-token-seams.md` — `Clock` seam Adds + PIC-12 exempt-site registration (edited)
-- `docs/plan_topics/coverage-matrix.md` — IMPL row "ambient-access ban → `H3a`" back-reference (read-only)
-
-## Spec Documents
-
-- `docs/spec_topics/pi-integration-contract/host-interfaces-services.md` — `Clock` / `FakeClock` interface and WallClock ambient ban (read-only)
-- `docs/spec_topics/implementation-notes.md` — §Clock (read-only)
-
-(The spec already enumerates the complete ban; the fix is internal to the plan files, bringing them into line with the spec.)
-
-## Affected Leaves
-
-**Phases:** Horizontal, Vertical (V8)
-
-**Leaves (implementation order):**
-
-- `H3a` — Dependency-injection seam skeleton — (modified) — closing leaf for the ambient-access ban; owns the identifier-keyed scan whose enumerated set must reconcile with the spec ban
-- `V8b` — `Clock`, `FileSystem`, `IdSource`, `FileWatcher`, `TokenEstimator` seams — (modified) — PIC-12 WallClock adapter uses `performance.now`/`clearTimeout`; the exempt-site registration must cover them
-
-## Consequence
-
-**Severity:** correctness
-
-The H3a scan as enumerated does not enforce the spec's full WallClock ambient ban: a direct `performance.now()`, `clearTimeout(...)`, or `Date.prototype.getTime()` call outside the adapter would pass the gate unflagged while violating an explicit spec MUST-NOT, and the "no third gap" completeness claim is false. Two reasonable implementers — one extending the scan to the spec's full surface, one transcribing only the five names — would produce divergent gates, and a non-conformant ambient timing read could ship undetected.
-
-## Issue introduction
-
-**Verdict:** multi-commit-interaction
-**Introducing commits:** `49379da` (2026-06-11) — *pi-loom plan: resolve "ambient-access scan seam-adapter recognition rule"*; `f005760` (2026-06-11) — *pi-loom plan: resolve "Architectural / ambient-access scan blind spots have no named compensating review gate"*
-**History:** `git log -S "crypto.randomUUID" -- docs/plan_topics/conventions.md` and `git show 49379da` show the *No globals, statics, singletons* ambient-primitive ban entered the corpus in `49379da` already carrying its five-name enumeration (`process.env`, `process.cwd`, `crypto.randomUUID`, `Date.now`, `setTimeout`); that enumeration has never matched the spec's WallClock ban surface (`Date.now`, `performance.now`, `Date.prototype.getTime`, `setTimeout`, `clearTimeout`) at `host-interfaces-services.md`. `git log -G "no third gap" -- docs/plan_topics/conventions.md` shows the completeness overclaim was layered on later in `f005760`, which added the manual-residue paragraph and the assertion that "the mechanical scans and that named review step partition the space with no third gap between them" over the still-incomplete five-name list. The defect is the interaction: an under-enumerated scan list (`49379da`) was made total by a partition claim (`f005760`) that the manual-residue list — enumerating only indirect forms of the five named primitives, not entirely-unlisted ones — does not actually back. The plan corpus is git-tracked, so the history is determinate.
-
-## Solution Space
-
-**Shape:** single
-
-### Recommendation
-
-Extend the scan's enumerated set to the spec's full ambient ban surface. In `conventions.md` *No globals, statics, singletons* and the H3a ambient-scan Tests bullet, replace the five-name list with the complete set the spec's WallClock ban enumerates: keep `process.env`, `process.cwd`, `crypto.randomUUID`, and add the timing primitives the spec bans outside the WallClock adapter — `performance.now`, `clearTimeout`, and `Date.prototype.getTime` — alongside the existing `Date.now` and `setTimeout`. Source the enumerated set directly from the spec's WallClock ban (`host-interfaces-services.md`) so the two stay in lockstep. Register the WallClock adapter's `performance.now()` (`now()`) and `clearTimeout` sites in V8b as exempt ambient sites via the existing `// allow-ambient: <primitive> — Clock` comment + allow-list mechanism, the same way the adapter's `Date.now`/`setTimeout` sites are already registered.
-
-The spec imposes a hard MUST-NOT on `performance.now`/`clearTimeout`/`Date.prototype.getTime` outside the WallClock adapter, and the WallClock adapter is the only legitimate reference site for each — so those sites are registerable as exempt ambient sites and the mechanical scan should enforce exactly the spec's surface. Edge cases the implementer must watch: `now()` resolves to `performance.now()` and `wallNow()` to `Date.now()`, both inside WallClock — each needs its own exempt-site registration; and the scan is scoped to `src/**` excluding `**/*.test.ts`, so the `FakeClock` test double and test-side timer use stay out of scope. Deriving the enumerated identifier set from the spec's WallClock ban keeps the conventions list and the spec ban in lockstep; omitting a further spec-banned primitive would re-open the gap.
-
-## Relationships
-
-- T24 "Ambient-access allow-list lacks a defined representation or location" — must-follow (Option A registers new `performance.now`/`clearTimeout` exempt sites, which presupposes the allow-list's representation and location being pinned first)
-- T20 "Systemic leaf over-bundling across the leaf corpus" — same-cluster (a V8b split redistributes the PIC-12 exempt-site registration this fix touches; resolves independently)
