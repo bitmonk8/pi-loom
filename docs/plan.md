@@ -138,13 +138,14 @@ Each slice is a coherent feature area (e.g. lexer, expressions, schemas, queries
 > **Interleave note.** `V11a` depends on `V9b` and is a prerequisite of `V9c`/`V9i`/`V9j`, so it lands mid-V9 (seam `V9b → V11a → V9c`/`V9i`/`V9j`) rather than after the whole V9 slice. Sequence by **Deps**, not slice number.
 
 - [`V11a` — Binder-model resolution and strict-capability probe](./plan_topics/V11a-binder-model-resolution.md)
-- [`V11b` — Bind context, truncation, and transcript renderer](./plan_topics/V11b-bind-context-transcript.md)
+- [`V11b` — Bind context and transcript renderer](./plan_topics/V11b-bind-context-transcript.md)
 - [`V11c` — Binder bypass and envelope schema](./plan_topics/V11c-bypass-envelope.md)
 - [`V11d` — Binder system-prompt builder](./plan_topics/V11d-binder-system-prompt.md)
 - [`V11e` — Binder system-note rendering and determinism](./plan_topics/V11e-system-note-determinism.md)
 - [`V11f` — Binder cancellation, per-class retry budget, and failure taxonomy](./plan_topics/V11f-binder-retry-taxonomy.md)
 - [`V11g` — Fill-if-absent defaulting and post-merge AJV validation](./plan_topics/V11g-defaulting-revalidation.md)
 - [`V11h` — Argument echo](./plan_topics/V11h-argument-echo.md)
+- [`V11i` — Session-context truncation walk](./plan_topics/V11i-session-context-truncation.md)
 
 ### V12 — Slash invocation
 
