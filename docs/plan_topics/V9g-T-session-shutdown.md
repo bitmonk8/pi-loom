@@ -9,7 +9,7 @@
 - `DIAG-1` (host rows): `loom/host/session-shutdown-teardown-step-failed` fires with its closed `details.call` set; each `console.error` emission is wrapped and a serialiser throw degrades to the bare-`code` form.
 - `loom/runtime/cancelled-by-session-shutdown` is emitted per in-flight invocation; `loom/runtime/reload-teardown-timeout` fires at the cap.
 - `patch-skew-degradation.md` §`session_shutdown` sub-step 3 (PIC code-keyed area): sub-step 3 awaits every in-flight entry's `disposeBarrier` to settle via `Promise.allSettled`, bounded by `SHUTDOWN_AWAIT_CAP_MS`.
-- `CNCL-4` (session-shutdown synthesised-reason facet): the `session_shutdown` handler aborts each in-flight `loomAbort` with a synthesised `Error` whose `message` is byte-exact `"loom cancelled by session shutdown"`; assert this is the observed `loomAbort.signal.reason` at a downstream checkpoint.
+- `CNCL-4` (session-shutdown synthesised-reason facet): the `session_shutdown` handler aborts each in-flight `loomAbort` with a synthesised `Error` whose `message` is byte-exact `"loom cancelled by session shutdown"`; assert the observed `loomAbort.signal.reason` is that synthesised `Error` object itself — `signal.reason instanceof Error` with `signal.reason.message` byte-exact `"loom cancelled by session shutdown"` — per `cancellation.md` CNCL-4's `signal.reason === source.reason` contract, at a downstream checkpoint.
 
 **Deps.** `V9e`, `V9h`, `V17a`
 
