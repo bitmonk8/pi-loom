@@ -113,7 +113,7 @@ Each slice is a coherent feature area (e.g. lexer, expressions, schemas, queries
 > **Interleave note.** V9 and V11 are not built as contiguous blocks. `V11a` (Binder-model resolution) depends on `V9b` and is itself a prerequisite of `V9c`/`V9i`/`V9j`, so the seam runs `V9b → V11a → V9c`/`V9i`/`V9j` — `V11a` lands mid-V9, not after all of V9. Separately, `V9h` (and therefore `V9g`) depend on `V18c` — the lightweight static-gates leaf from the `V18` SDK-gate slice (itself needing only `V18a`/`V18b`) — solely for its `session-shutdown-reason-snapshot` brand-string constant; they do **not** wait on the high-dependency runtime-evidence acceptance leaf `V18d`. `V9l` (session-only degraded-state branch) also depends on `V18c`, both for that brand-string constant and because `V18c` owns the clause-(a) resolution that gates it — `V9l` is **blocked** until that resolution lands (see [§Blocked obligations](#blocked-obligations)). Sequence by **Deps**, not slice number.
 
 - [`V9a` — Capability probe (Step 0)](./plan_topics/V9a-capability-probe.md)
-- [`V9b` — Registration steps and reload-wiring seams](./plan_topics/V9b-registration-drain-state.md)
+- [`V9b` — Registration steps and reload-wiring seams](./plan_topics/V9b-registration-reload-wiring.md)
 - [`V9c` — Prompt-mode conversation drive and active-set gating](./plan_topics/V9c-conversation-drive.md)
 - [`V9d` — Runtime-event channel and `masked` co-fire](./plan_topics/V9d-runtime-event-channel.md)
 - [`V9e` — `ActiveInvocationRegistry`](./plan_topics/V9e-active-invocation-registry.md)

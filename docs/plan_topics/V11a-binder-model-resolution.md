@@ -2,7 +2,7 @@
 
 **Spec.** [`../spec_topics/binder/binder-model-and-context.md`](../spec_topics/binder/binder-model-and-context.md), [`../spec_topics/binder.md`](../spec_topics/binder.md).
 
-**Adds.** The two-step binder-model resolution via `findExactModelReferenceMatch` (no `model:` fallback) and the three-valued `strictCapable` probe, with the per-loom-load verification and the hot-reload recovery note. This `findExactModelReferenceMatch` resolution (run against `ctx.modelRegistry.getAvailable()`) is the shared model-reference-matcher contract that [`V6a`](./V6a-frontmatter-contract.md)'s load-time `model:` resolution also binds through the injection seam `V6a` defines, so the two paths cannot diverge on the "reference matches no available model" condition; the concrete matcher is constructed and injected into the parser at the load pass by [`V9b`](./V9b-registration-drain-state.md).
+**Adds.** The two-step binder-model resolution via `findExactModelReferenceMatch` (no `model:` fallback) and the three-valued `strictCapable` probe, with the per-loom-load verification and the hot-reload recovery note. This `findExactModelReferenceMatch` resolution (run against `ctx.modelRegistry.getAvailable()`) is the shared model-reference-matcher contract that [`V6a`](./V6a-frontmatter-contract.md)'s load-time `model:` resolution also binds through the injection seam `V6a` defines, so the two paths cannot diverge on the "reference matches no available model" condition; the concrete matcher is constructed and injected into the parser at the load pass by [`V9b`](./V9b-registration-reload-wiring.md).
 
 **Tests.**
 - `loom/load/binder-model-unresolved` fires when no exact model reference matches.

@@ -2,7 +2,7 @@
 
 **Spec.** [`../spec_topics/pi-integration-contract/drain-state-contract.md`](../spec_topics/pi-integration-contract/drain-state-contract.md).
 
-**Adds.** The `LoomRegistry` drain-state contract (two fields, four methods, three-arm `readDrainState`, idempotent predicate, read-failure fail-safe, superseded-entry dispatch) over the registry [`V9b`](./V9b-registration-drain-state.md) builds and swaps. The closed three-arm dispatch (dispatch / shutting-down note / degraded-needs-reload note), the no-fourth-arm / no-alternative-gating-field prohibition, and the `readDrainState` read-failure fail-safe MUSTs are owned here.
+**Adds.** The `LoomRegistry` drain-state contract (two fields, four methods, three-arm `readDrainState`, idempotent predicate, read-failure fail-safe, superseded-entry dispatch) over the registry [`V9b`](./V9b-registration-reload-wiring.md) builds and swaps. The closed three-arm dispatch (dispatch / shutting-down note / degraded-needs-reload note), the no-fourth-arm / no-alternative-gating-field prohibition, and the `readDrainState` read-failure fail-safe MUSTs are owned here.
 
 **Tests.**
 - [drain-state-contract.md — three-arm dispatch](../spec_topics/pi-integration-contract/drain-state-contract.md) (PIC area): the drain-state three-arm dispatch routes (dispatch / shutting-down / degraded-needs-reload); the predicate `drained === true || tag !== undefined` is idempotent.
