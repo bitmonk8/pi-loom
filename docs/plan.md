@@ -172,6 +172,7 @@ Each slice is a coherent feature area (e.g. lexer, expressions, schemas, queries
 - [`V15b` — Invoke depth bound and cycle detection](./plan_topics/V15b-invoke-depth-cycle.md)
 - [`V15c` — Imports (`.warp` library files)](./plan_topics/V15c-imports.md)
 - [`V15d` — Prompt→prompt parent-suspend and `setActiveTools` snapshot/restore](./plan_topics/V15d-prompt-suspend-snapshot.md)
+- [`V15e` — Hot-reload static-resolution cache eviction](./plan_topics/V15e-hot-reload-cache-eviction.md)
 
 ### V16 — Hard ceilings
 

@@ -23,6 +23,5 @@ entries:
   - { id: F-0153, tier: high, file: docs/plan_topics/V9d-T-runtime-event-channel.md, anchor: Tests, title: "V9d under-tests the `details`-shape / `display`-`content` matrix and group-A/B routing" }
   - { id: F-0152, tier: high, file: docs/plan_topics/V9c-T-conversation-drive.md, anchor: Tests, title: "V9c — prompt-mode transport-failure detection is named in Adds but asserted by no test" }
   - { id: F-0026, tier: medium, file: docs/plan_topics/V9b-registration-drain-state.md, anchor: "heading + Adds; file renamed", title: "V9b filename slug `registration-drain-state` contradicts the leaf's retitled scope and disclaims its own ownership" }
-  - { id: F-0022, tier: medium, file: docs/plan_topics/V9b-registration-drain-state.md, anchor: "Tests (IMPL bullet) + Ships-when", title: "V9b's hot-reload cache-eviction obligation is sequenced before the parse cache and `.warp` import edges it operates on exist" }
 ---
 <!-- Generated view. Entries are ordered by location and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
