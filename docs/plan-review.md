@@ -54,6 +54,5 @@ entries:
   - { id: F-0082, tier: medium, file: docs/plan_topics/V11b-bind-context-transcript.md, anchor: Deps, title: "V11b / V11b-T omit the `V8e` Deps edge for the `TokenEstimator` seam they bind" }
   - { id: F-0081, tier: medium, file: docs/plan_topics/V11b-bind-context-transcript.md, anchor: "Adds + Tests + Ships when", title: "V11b bundles the byte-exact transcript renderer with the session-context truncation walk" }
   - { id: F-0078, tier: medium, file: docs/plan_topics/V10c-settings-merge.md, anchor: Deps, title: "V10c / V10c-T omit the `V8d` Clock-seam dependency they bind" }
-  - { id: F-0076, tier: medium, file: docs/plan_topics/V10b-package-discovery.md, anchor: "Deps field", title: "V10b / V10b-T omit `V8d` from Deps despite binding the `Clock` seam" }
 ---
 <!-- Generated view. Entries are ordered by location and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
