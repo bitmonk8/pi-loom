@@ -51,6 +51,5 @@ entries:
   - { id: F-0091, tier: high, file: docs/plan_topics/V13a-query-render.md, anchor: Tests, title: "V13a / V13a-T cite `illegal-escape` for the query-template diagnostic, but that code names the string-literal case" }
   - { id: F-0087, tier: medium, file: docs/plan_topics/V11f-binder-retry-taxonomy.md, anchor: "leaf body (title, Adds, Tests, Deps, Ships-when)", title: "V11f bundles the binder retry budget/taxonomy with in-flight cancellation forwarding" }
   - { id: F-0086, tier: medium, file: docs/plan_topics/V11f-binder-retry-taxonomy.md, anchor: "\"Binder-call cancellation forwarding\" Tests bullet", title: "V11f binder-call cancellation boundary stated in non-spec checkpoint terminology" }
-  - { id: F-0082, tier: medium, file: docs/plan_topics/V11b-bind-context-transcript.md, anchor: Deps, title: "V11b / V11b-T omit the `V8e` Deps edge for the `TokenEstimator` seam they bind" }
 ---
 <!-- Generated view. Entries are ordered by location and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
