@@ -20,6 +20,5 @@ entries:
   - { id: F-0159, tier: medium, file: docs/plan_topics/V9h-degraded-unknown-reason.md, anchor: "leaf file", title: "V9h leaf-pair file slug retains a `degraded-` prefix for a responsibility split out to V9l" }
   - { id: F-0157, tier: medium, file: docs/plan_topics/V9g-T-session-shutdown.md, anchor: "`CNCL-4` Tests bullet", title: "V9g CNCL-4 test bullet: ambiguous \"this\" leaves the `signal.reason` shape undetermined" }
   - { id: F-0154, tier: medium, file: docs/plan_topics/V9d-runtime-event-channel.md, anchor: "Tests, `PIC-1` bullet", title: "V9d PIC-1 reachable-domain bullet reuses the reserved plan ID `V1` to mean \"loom 1.0\"" }
-  - { id: F-0153, tier: high, file: docs/plan_topics/V9d-T-runtime-event-channel.md, anchor: Tests, title: "V9d under-tests the `details`-shape / `display`-`content` matrix and group-A/B routing" }
 ---
 <!-- Generated view. Entries are ordered by location and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
