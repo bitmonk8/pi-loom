@@ -7,6 +7,5 @@ entries:
   - { id: F-0088, tier: high, file: docs/plan_topics/coverage-matrix.md, anchor: "code-keyed obligation-area table (~lines 71–104)", title: "V11g closes a spec obligation that no coverage-matrix row maps to it" }
   - { id: F-0110, tier: medium, file: docs/plan_topics/coverage-matrix.md, anchor: "code-keyed obligation-area table (~lines 69–104)", title: "V17b closes the Forwarding-listener-throw MUST that no coverage-matrix row maps to it" }
   - { id: F-0104, tier: high, file: docs/plan_topics/coverage-matrix.md, anchor: "Code-keyed obligation-area table (and the `PIC-17, PIC-18` numbered row)", title: "V15d is untraceable: prompt→prompt suspend / `setActiveTools` snapshot-restore obligation has no coverage-matrix row" }
-  - { id: F-0151, tier: medium, file: docs/plan_topics/coverage-matrix.md, anchor: "Code-keyed obligation-area table", title: "`registration-steps.md` has normative MUSTs but no coverage-matrix row" }
 ---
 <!-- Generated view. Entries are ordered by location and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
