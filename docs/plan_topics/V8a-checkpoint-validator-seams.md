@@ -1,6 +1,6 @@
 # `V8a` — `Checkpoint` seam
 
-**Spec.** [`../spec_topics/pi-integration-contract/host-interfaces-core.md`](../spec_topics/pi-integration-contract/host-interfaces-core.md), [`../spec_topics/implementation-notes.md`](../spec_topics/implementation-notes.md).
+**Spec.** [`../spec_topics/pi-integration-contract/host-interfaces-services.md`](../spec_topics/pi-integration-contract/host-interfaces-services.md), [`../spec_topics/implementation-notes.md`](../spec_topics/implementation-notes.md).
 
 **Adds.** The `Checkpoint` seam (await before each cancel checkpoint; macrotask yield for `loop-iter`, microtask otherwise; per-invocation; no extra sites). The `SchemaValidator` seam is owned by [`V8c`](./V8c-schema-validator-seam.md).
 
