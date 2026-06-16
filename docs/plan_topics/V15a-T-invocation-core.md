@@ -20,6 +20,6 @@
 - [ceilings-3-and-4.md — Per-boundary destination/surface table (ceiling #4)](../spec_topics/hard-ceilings/ceilings-3-and-4.md#ceiling-4-table) (delegated live-carrier witness for `V5e`'s `params` / `invoke<T>`-return routing rows): a depth-6 value passed as a runtime `invoke(...)` `params` argument trips the loom-owned depth walk (`V5e`) before AJV and surfaces as `Err(InvokeInfraError { cause: "validation" })`, and a depth-6 `invoke<T>` return value surfaces as `Err(InvokeInfraError { cause: "return_validation" })`; both carry `schema_keyword: "maxDepth"` (message `"JSON document depth exceeds 5"`). The `params` vector targets the runtime `invoke` boundary, not the binder slash-load `params` boundary — per `CIO-1` a ceiling-#4 breach at the slash-load `params` boundary cross-routes to ceiling #3 (witnessed at `V11f` / `V4e`) and does not surface here.
 - `SLSH-5` invocation-record provenance seam ([slash-invocation.md — Chain attribution](../spec_topics/slash-invocation.md#slsh-5), consumed by `V12b`): for an executed `invoke` hop, the per-frame invocation record exposes the parent loom's post-`realpath` path and the call-site token's 1-indexed source line; a multi-line call confirms the recorded line is the call-site token's (the `invoke(` token of a literal call, or the callee-name identifier of a `.loom`-callable bare-identifier call), not a receiving binding's.
 
-**Deps.** `V10a`, `V2b`, `V3d`, `V8a`, `V5e`
+**Deps.** `V10a`, `V2b`, `V3d`, `V8a`, `V8b`, `V5e`
 
 **Ships when.** The tests above exist, compile, and fail red for the intended reason.

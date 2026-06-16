@@ -43,6 +43,5 @@ entries:
   - { id: F-0111, tier: medium, file: docs/plan_topics/V18a-capability-inventory.md, anchor: "Tests bullet 2, Ships when", title: "V18a — second `PIC-15` Tests bullet has no paired failing test and no Ships-when gate" }
   - { id: F-0106, tier: medium, file: docs/plan_topics/V16a-ceiling-order-masked.md, anchor: "Adds (output bullet), Tests (CIO-5), \"Verified at the seam\" bullet", title: "V16a names the `masked` co-fire concept with three interchangeable terms" }
   - { id: F-0101, tier: medium, file: docs/plan_topics/V15b-invoke-depth-cycle.md, anchor: "Tests (INV-4 bullet) + Ships when", title: "V15b INV-4 test bullet conflates two required surfacing modes with \"vs\"" }
-  - { id: F-0098, tier: medium, file: docs/plan_topics/V15a-invocation-core.md, anchor: "Deps field", title: "V15a consumes `FileSystem.realpath` (owned by V8b) without declaring `V8b` in Deps" }
 ---
 <!-- Generated view. Entries are ordered by location and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
