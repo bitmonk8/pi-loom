@@ -1,6 +1,6 @@
 # `V8c` — `SchemaValidator` seam
 
-**Spec.** [`../spec_topics/pi-integration-contract/host-interfaces-core.md`](../spec_topics/pi-integration-contract/host-interfaces-core.md), [`../spec_topics/implementation-notes.md`](../spec_topics/implementation-notes.md).
+**Spec.** [`../spec_topics/pi-integration-contract/host-interfaces-services.md`](../spec_topics/pi-integration-contract/host-interfaces-services.md), [`../spec_topics/implementation-notes.md`](../spec_topics/implementation-notes.md).
 
 **Adds.** The `SchemaValidator` seam (one-pass multi-error AJV wrapper, no convert/defaults, in-doc `$ref`, silent unknown `format`, deterministic, per-runtime, slug-cache byte-verify).
 

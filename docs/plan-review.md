@@ -25,6 +25,5 @@ entries:
   - { id: F-0026, tier: medium, file: docs/plan_topics/V9b-registration-drain-state.md, anchor: "heading + Adds; file renamed", title: "V9b filename slug `registration-drain-state` contradicts the leaf's retitled scope and disclaims its own ownership" }
   - { id: F-0022, tier: medium, file: docs/plan_topics/V9b-registration-drain-state.md, anchor: "Tests (IMPL bullet) + Ships-when", title: "V9b's hot-reload cache-eviction obligation is sequenced before the parse cache and `.warp` import edges it operates on exist" }
   - { id: F-0149, tier: medium, file: docs/plan_topics/V9b-registration-drain-state.md, anchor: "Adds (wiring point), Tests, Ships when", title: "V9b owns the model-reference-matcher production wiring but no test asserts it" }
-  - { id: F-0144, tier: high, file: docs/plan_topics/V8c-schema-validator-seam.md, anchor: "Spec field", title: "V8c / V8c-T cite the wrong spec page for PIC-11 (`SchemaValidator`)" }
 ---
 <!-- Generated view. Entries are ordered by location and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
