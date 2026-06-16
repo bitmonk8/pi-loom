@@ -178,7 +178,7 @@ Each slice is a coherent feature area (e.g. lexer, expressions, schemas, queries
 
 ### V18 — Build-time SDK gates
 
-- [`V18a` — SDK capability inventory](./plan_topics/V18a-capability-inventory.md)
+- [`V18a` — SDK capability and surface inventory](./plan_topics/V18a-capability-inventory.md)
 - [`V18b` — Inventory-closure audit gate](./plan_topics/V18b-inventory-audit.md)
 - [`V18c` — Pi version-bump static gates](./plan_topics/V18c-version-bump-checklist.md)
 - [`V18d` — Pi version-bump runtime-evidence acceptance gate and revert path](./plan_topics/V18d-version-bump-acceptance.md)

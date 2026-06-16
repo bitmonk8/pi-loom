@@ -1,4 +1,4 @@
-# `V18a` — SDK capability inventory
+# `V18a` — SDK capability and surface inventory
 
 **Spec.** [`../spec_topics/pi-integration-contract/inventory-audit-intro.md`](../spec_topics/pi-integration-contract/inventory-audit-intro.md), [`../spec_topics/pi-integration-contract/capability-inventory-items.md`](../spec_topics/pi-integration-contract/capability-inventory-items.md).
 
