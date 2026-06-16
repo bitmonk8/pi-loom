@@ -2,7 +2,7 @@
 
 **Spec.** [`../spec_topics/pi-integration-contract/host-interfaces-core.md`](../spec_topics/pi-integration-contract/host-interfaces-core.md), [`../spec_topics/pi-integration-contract/host-interfaces-services.md`](../spec_topics/pi-integration-contract/host-interfaces-services.md).
 
-**Adds.** The `FileWatcher` host seam (`watch(roots,handler) → Unsubscribe`, three change kinds) and the `TokenEstimator` host seam (`estimate(message)`, delegating `estimateTokens`). The `FileSystem` seam is owned by [`V8b`](./V8b-clock-fs-id-watch-token-seams.md); the `Clock`/`IdSource` seams by [`V8d`](./V8d-clock-id-seams.md).
+**Adds.** The `FileWatcher` host seam (`watch(roots,handler) → Unsubscribe`, three change kinds) and the `TokenEstimator` host seam (`estimate(message)`, delegating `estimateTokens`). The `FileSystem` seam is owned by [`V8b`](./V8b-filesystem-seam.md); the `Clock`/`IdSource` seams by [`V8d`](./V8d-clock-id-seams.md).
 
 **Tests.**
 - `PIC-14`: `FileWatcher.watch` returns an `Unsubscribe` and reports the three change kinds.

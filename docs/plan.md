@@ -103,7 +103,7 @@ Each slice is a coherent feature area (e.g. lexer, expressions, schemas, queries
 ### V8 — Pi host seams
 
 - [`V8a` — `Checkpoint` seam](./plan_topics/V8a-checkpoint-validator-seams.md)
-- [`V8b` — `FileSystem` seam](./plan_topics/V8b-clock-fs-id-watch-token-seams.md)
+- [`V8b` — `FileSystem` seam](./plan_topics/V8b-filesystem-seam.md)
 - [`V8c` — `SchemaValidator` seam](./plan_topics/V8c-schema-validator-seam.md)
 - [`V8d` — `Clock` and `IdSource` seams](./plan_topics/V8d-clock-id-seams.md)
 - [`V8e` — `FileWatcher` and `TokenEstimator` seams](./plan_topics/V8e-watch-token-seams.md)
