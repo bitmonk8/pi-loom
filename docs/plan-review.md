@@ -66,6 +66,5 @@ entries:
   - { id: F-0038, tier: medium, file: docs/plan_topics/H1a-scaffold-and-toolchain.md, anchor: "Adds + Tests", title: "H1a omits the `typescript` devDependency and its load-bearing `>=5.4.0` floor" }
   - { id: F-0036, tier: medium, file: docs/plan_topics/H1a-scaffold-and-toolchain.md, anchor: "Adds (`package.json` field enumeration)", title: "Pi extension-discovery contract (`pi.extensions` manifest entry + `extensions/index.ts` factory path) is owned by no leaf" }
   - { id: F-0035, tier: medium, file: docs/plan_topics/H1a-scaffold-and-toolchain.md, anchor: Adds, title: "H1a never pins the package manager its `file:` plugin resolution and flat `node_modules` layout assume" }
-  - { id: F-0077, tier: medium, file: docs/plan.md, anchor: "§Vertical slices → V10 listing", title: "V10c bundles three independently-verifiable units (settings merge, reload-debounce, and the ReloadFailureInjector settings-re-merge arm)" }
 ---
 <!-- Generated view. Entries are ordered by location and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->

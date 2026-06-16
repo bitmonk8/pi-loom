@@ -130,6 +130,7 @@ Each slice is a coherent feature area (e.g. lexer, expressions, schemas, queries
 - [`V10a` — Discovery walk, sources, and collisions](./plan_topics/V10a-discovery-walk.md)
 - [`V10b` — Package discovery (bounded walk)](./plan_topics/V10b-package-discovery.md)
 - [`V10c` — Settings reads and merge](./plan_topics/V10c-settings-merge.md)
+- [`V10d` — Reload debounce and settings-re-merge failure-injection arm](./plan_topics/V10d-reload-debounce.md)
 
 ### V11 — Binder
 
