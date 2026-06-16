@@ -33,6 +33,5 @@ entries:
   - { id: F-0136, tier: medium, file: docs/plan_topics/V6e-respond-repair-tool-loop.md, anchor: "Tests (FRNT-1 bullet)", title: "V6e FRNT-1 Tests bullet asserts `tool_loop_exhausted` exhaustion without scoping it to the untyped-query path" }
   - { id: F-0129, tier: blocker, file: docs/plan_topics/V5d-T-subset-lowering.md, anchor: Tests, title: "V5d-T carries three stale Tests bullets owned by V5f, deadlocking both TDD exit gates" }
   - { id: F-0130, tier: high, file: docs/plan_topics/V5d-T-subset-lowering.md, anchor: "H1 heading", title: "V5d-T heading over-claims V5f's lowering/canonical-hash scope and collides with V5f-T" }
-  - { id: F-0127, tier: medium, file: docs/plan_topics/V5a-schema-decls.md, anchor: "Tests, enum-violations bullet", title: "`(name-first ordering)` parenthetical in V5a/V5a-T enum-violations bullet is ambiguous" }
 ---
 <!-- Generated view. Entries are ordered by location and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
