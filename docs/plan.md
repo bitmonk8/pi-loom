@@ -142,10 +142,11 @@ Each slice is a coherent feature area (e.g. lexer, expressions, schemas, queries
 - [`V11c` — Binder bypass and envelope schema](./plan_topics/V11c-bypass-envelope.md)
 - [`V11d` — Binder system-prompt builder](./plan_topics/V11d-binder-system-prompt.md)
 - [`V11e` — Binder system-note rendering and determinism](./plan_topics/V11e-system-note-determinism.md)
-- [`V11f` — Binder cancellation, per-class retry budget, and failure taxonomy](./plan_topics/V11f-binder-retry-taxonomy.md)
+- [`V11f` — Binder per-class retry budget and failure taxonomy](./plan_topics/V11f-binder-retry-taxonomy.md)
 - [`V11g` — Fill-if-absent defaulting and post-merge AJV validation](./plan_topics/V11g-defaulting-revalidation.md)
 - [`V11h` — Argument echo](./plan_topics/V11h-argument-echo.md)
 - [`V11i` — Session-context truncation walk](./plan_topics/V11i-session-context-truncation.md)
+- [`V11j` — Binder-call cancellation forwarding](./plan_topics/V11j-binder-call-cancellation.md)
 
 ### V12 — Slash invocation
 
