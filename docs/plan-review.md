@@ -30,6 +30,5 @@ entries:
   - { id: F-0143, tier: medium, file: docs/plan_topics/V8b-clock-fs-id-watch-token-seams.md, anchor: "Adds + `PIC-13` Tests bullet + Ships-when + Spec citations", title: "V8b's byte-read `.code`-rejection contract is attributed to PIC-13, which enumerates no byte-read member" }
   - { id: F-0142, tier: high, file: docs/plan_topics/V8a-checkpoint-validator-seams.md, anchor: "Spec field", title: "V8a / V8a-T Spec field points at pages that do not define PIC-10" }
   - { id: F-0138, tier: medium, file: docs/plan_topics/V7a-T-diagnostics-primitive.md, anchor: Tests, title: "V7a emission fallback chain (`sendSystemNote` → `ctx.ui.notify` → `console.error`) has no asserting test" }
-  - { id: F-0136, tier: medium, file: docs/plan_topics/V6e-respond-repair-tool-loop.md, anchor: "Tests (FRNT-1 bullet)", title: "V6e FRNT-1 Tests bullet asserts `tool_loop_exhausted` exhaustion without scoping it to the untyped-query path" }
 ---
 <!-- Generated view. Entries are ordered by location and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
