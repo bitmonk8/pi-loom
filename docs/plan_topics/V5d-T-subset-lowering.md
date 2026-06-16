@@ -1,4 +1,4 @@
-# `V5d-T` — Schema-subset gate, lowering, and canonical hash (tests)
+# `V5d-T` — Schema-subset reject gate (tests)
 
 **Spec.** [`../spec_topics/schema-subset.md`](../spec_topics/schema-subset.md), [`../spec_topics/schemas.md`](../spec_topics/schemas.md).
 
