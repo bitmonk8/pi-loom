@@ -68,6 +68,5 @@ entries:
   - { id: F-0035, tier: medium, file: docs/plan_topics/H1a-scaffold-and-toolchain.md, anchor: Adds, title: "H1a never pins the package manager its `file:` plugin resolution and flat `node_modules` layout assume" }
   - { id: F-0077, tier: medium, file: docs/plan.md, anchor: "§Vertical slices → V10 listing", title: "V10c bundles three independently-verifiable units (settings merge, reload-debounce, and the ReloadFailureInjector settings-re-merge arm)" }
   - { id: F-0113, tier: medium, file: docs/plan.md, anchor: "§Vertical slices → \"V18 — Build-time SDK gates\" link text", title: "V18a title names only the capability subset, hiding the broader surface inventory and taxonomy it owns" }
-  - { id: F-0084, tier: medium, file: docs/plan.md, anchor: "Vertical slices → V11 (Binder) list, line 141", title: "V11d / V11d-T file slug `defaulting-echo` names concepts owned by other leaves" }
 ---
 <!-- Generated view. Entries are ordered by location and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->

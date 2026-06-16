@@ -138,7 +138,7 @@ Each slice is a coherent feature area (e.g. lexer, expressions, schemas, queries
 - [`V11a` — Binder-model resolution and strict-capability probe](./plan_topics/V11a-binder-model-resolution.md)
 - [`V11b` — Bind context, truncation, and transcript renderer](./plan_topics/V11b-bind-context-transcript.md)
 - [`V11c` — Binder bypass and envelope schema](./plan_topics/V11c-bypass-envelope.md)
-- [`V11d` — Binder system-prompt builder](./plan_topics/V11d-defaulting-echo.md)
+- [`V11d` — Binder system-prompt builder](./plan_topics/V11d-binder-system-prompt.md)
 - [`V11e` — Binder system-note rendering and determinism](./plan_topics/V11e-system-note-determinism.md)
 - [`V11f` — Binder cancellation, per-class retry budget, and failure taxonomy](./plan_topics/V11f-binder-retry-taxonomy.md)
 - [`V11g` — Fill-if-absent defaulting and post-merge AJV validation](./plan_topics/V11g-defaulting-revalidation.md)
