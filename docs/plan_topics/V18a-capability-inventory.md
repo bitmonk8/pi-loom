@@ -10,4 +10,4 @@
 
 **Deps.** `V18a-T`, `V9a`
 
-**Ships when.** `npm test` asserts `CAPABILITY_OBLIGATIONS.length === 7` and that each entry's factory-probed/verified-otherwise partition flag reconciles against the `FACTORY_PROBABLE_CAPABILITIES` constant `V9a` exports.
+**Ships when.** `npm test` asserts `CAPABILITY_OBLIGATIONS.length === 7` and that each entry's factory-probed/verified-otherwise partition flag reconciles against the `FACTORY_PROBABLE_CAPABILITIES` constant `V9a` exports, and that each populated non-capability `SDK_SURFACE_INVENTORY` row (`pi.registerFlag`, `pi.getFlag`, `pi-engines-node`, `peer-dep-range`, `strict-capability-probe`, `api-coverage`) resolves and carries its kind under the leaf-owned entry-kind taxonomy.

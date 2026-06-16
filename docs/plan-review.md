@@ -40,6 +40,5 @@ entries:
   - { id: F-0120, tier: blocker, file: docs/plan_topics/V3a-T-expression-evaluator.md, anchor: Tests, title: "V3a-T carries four stdlib Tests bullets V3a no longer implements — unsatisfiable exit gate, duplicated against V3e-T" }
   - { id: F-0119, tier: medium, file: docs/plan_topics/V18d-version-bump-acceptance.md, anchor: "Ships when / Adds", title: "V18d Ships-when overloads its single-observable gate with revert-path MUST/MUST-NOT obligations" }
   - { id: F-0117, tier: medium, file: docs/plan_topics/V18c-version-bump-checklist.md, anchor: "Adds, Ships when", title: "V18c — editorial-checklist MUST/SHOULD blocking distinction lives only in Adds, not in the exit gate" }
-  - { id: F-0111, tier: medium, file: docs/plan_topics/V18a-capability-inventory.md, anchor: "Tests bullet 2, Ships when", title: "V18a — second `PIC-15` Tests bullet has no paired failing test and no Ships-when gate" }
 ---
 <!-- Generated view. Entries are ordered by location and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
