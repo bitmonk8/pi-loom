@@ -10,6 +10,5 @@ entries:
   - { id: F-0151, tier: medium, file: docs/plan_topics/coverage-matrix.md, anchor: "Code-keyed obligation-area table", title: "`registration-steps.md` has normative MUSTs but no coverage-matrix row" }
   - { id: F-0122, tier: high, file: docs/plan_topics/coverage-matrix.md, anchor: "Code-keyed obligation areas table", title: "V3c asserts only CTRL-1 — the five control-flow reject-path diagnostics are closed by no leaf" }
   - { id: F-0061, tier: medium, file: docs/plan_topics/conventions.md, anchor: "§Per-phase TDD ritual, \"MVP and vertical features — tests-task → implementation-task pairing\", Tests-task bullet", title: "Per-phase TDD ritual: \"One assertion per rule where practical\" gives no exception criterion" }
-  - { id: F-0065, tier: medium, file: docs/plan_topics/conventions.md, anchor: "Cross-cutting rules → *Sequential by default* (Enforcement posture)", title: "Blocking-runtime ban concedes its entire enforcement to manual review when a cheap approximating gate is available" }
 ---
 <!-- Generated view. Entries are ordered by location and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
