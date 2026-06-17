@@ -74,9 +74,10 @@ Each slice is a coherent feature area (e.g. lexer, expressions, schemas, queries
 
 - [`V4a` — `match`, `?`, and `Result`](./plan_topics/V4a-match-result.md)
 - [`V4b` — Runtime panics](./plan_topics/V4b-runtime-panics.md)
-- [`V4c` — Terminal outcomes, partial-append, and no-rollback](./plan_topics/V4c-terminal-outcomes.md)
+- [`V4c` — Terminal outcomes and partial-append](./plan_topics/V4c-terminal-outcomes.md)
 - [`V4d` — `QueryError` variant schema](./plan_topics/V4d-queryerror-variants.md)
 - [`V4e` — Pre-evaluation failures](./plan_topics/V4e-pre-evaluation-failures.md)
+- [`V4f` — No-rollback guarantee](./plan_topics/V4f-no-rollback.md)
 
 ### V5 — Schemas, descriptions, schema-subset
 

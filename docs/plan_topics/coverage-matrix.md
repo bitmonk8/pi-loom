@@ -13,7 +13,8 @@ Use the REQ-ID prefix table in [`../spec_topics/governance.md`](../spec_topics/g
 | TYPE-1 … TYPE-10 | `V2b` |
 | CTRL-1 | `V3c` |
 | ERR-1 … ERR-7 | `V4e` |
-| ERR-8 … ERR-13 | `V4c` |
+| ERR-8 … ERR-12 | `V4c` |
+| ERR-13 | `V4f` |
 | ERR-14 | `V4d` |
 | ERR-15 | `V4d` |
 | ERR-16 | `V4e` |
