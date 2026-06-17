@@ -12,4 +12,4 @@
 
 **Deps.** `V9f-T`, `V9a`, `V5d`
 
-**Ships when.** `npm test` asserts the restore-failure path (`PIC-8`) and the install-failure path (`PIC-19`).
+**Ships when.** `npm test` asserts the restore-failure path (`PIC-8`), the install-failure path (`PIC-19`), and the `ToolDefinition.label` derivation (`code-review.loom` → `"Code-review"`; the synthesised typed-query one-shot tool → `"Loom typed-query response"`).
