@@ -6,6 +6,7 @@
 
 **Tests.**
 - The reject gate fires `loom/parse/unsupported-feature` for each rejected JSON-Schema keyword and `loom/parse/result-in-schema-position` for a `Result` in a schema-feeding position, and accepts the permitted subset.
+- A JSON-Schema construct outside the permitted subset but absent from the enumerated unsupported-keyword list is still rejected with `loom/parse/unsupported-feature`, witnessing the allowlist (reject-by-default) semantics and excluding a denylist build.
 - `Result` in schema position is rejected; array element order is preserved.
 
 **Deps.** `V5a`, `V5b`, `V2d`
