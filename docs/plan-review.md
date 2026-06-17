@@ -33,6 +33,5 @@ entries:
   - { id: F-0234, tier: medium, file: docs/plan_topics/V2d-number-rendering.md, anchor: "BNDR-5 Tests bullet and Ships when", title: "`V2d` BNDR-5 test criterion hedges the interior-magnitude vector with \"such as `5e-8`\", under-specifying what must be asserted" }
   - { id: F-0236, tier: medium, file: docs/plan_topics/V2d-number-rendering.md, anchor: Adds, title: "Renderer input contract: integer-vs-number discriminator and its origin are undefined" }
   - { id: F-0232, tier: medium, file: docs/plan_topics/V2c-value-model.md, anchor: "`V2c` leaf body", title: "V2c bundles value representation, structural equality, and the wire-name translation boundary into one leaf" }
-  - { id: F-0233, tier: medium, file: docs/plan_topics/V2c-value-model.md, anchor: "**Deps.** / **Adds.**", title: "V2c depends on the reject-gate leaf (V5d) instead of the sidecar producer (V5f), and the shared sidecar type has no owning leaf" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
