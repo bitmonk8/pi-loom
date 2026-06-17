@@ -50,6 +50,5 @@ entries:
   - { id: F-0210, tier: medium, file: docs/plan_topics/H4a-factory-shell-and-harness.md, anchor: Adds, title: "Manual real-host smoke carries three competing bolded names in H4a" }
   - { id: F-0196, tier: medium, file: docs/plan.md, anchor: section, title: "Inline-label families (`HC3`, `NOCEIL`) have no convention rule for how they close on the authoring leaf" }
   - { id: F-0198, tier: medium, file: docs/plan.md, anchor: section, title: "Multi-leaf split REQ-IDs pass the closing gate on a single facet's citing test" }
-  - { id: F-0203, tier: medium, file: docs/plan.md, anchor: section, title: "TypeScript devDependency pin: Adds \"pinned to floor `>=5.4.0`\" vs Tests \"satisfies floor\" predicate mismatch" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
