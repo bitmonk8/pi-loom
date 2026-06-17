@@ -177,6 +177,9 @@ Each slice is a coherent feature area (e.g. lexer, expressions, schemas, queries
 - [`V15c` — Imports (`.warp` library files)](./plan_topics/V15c-imports.md)
 - [`V15d` — Prompt→prompt parent-suspend and `setActiveTools` snapshot/restore](./plan_topics/V15d-prompt-suspend-snapshot.md)
 - [`V15e` — Hot-reload static-resolution cache eviction](./plan_topics/V15e-hot-reload-cache-eviction.md)
+- [`V15f` — Invoke parse/load diagnostics](./plan_topics/V15f-invoke-diagnostics.md)
+- [`V15g` — Invoke invocation-record provenance seam](./plan_topics/V15g-invoke-provenance.md)
+- [`V15h` — Invoke ceiling-#4 depth surfaces and swallowing-handler suppression](./plan_topics/V15h-invoke-ceiling-swallowing.md)
 
 ### V16 — Hard ceilings
 

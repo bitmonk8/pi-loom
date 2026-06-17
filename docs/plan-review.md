@@ -62,6 +62,5 @@ entries:
   - { id: F-0184, tier: medium, file: docs/plan.md, anchor: "Spec coverage", title: "plan.md's §Spec coverage describes the coverage matrix as empty, but coverage-matrix.md is fully populated" }
   - { id: F-0243, tier: high, file: docs/plan_topics/V4a-match-result.md, anchor: "Ships when", title: "`V4a` Ships-when conflates runtime match-exhaustion with a structural reading of the arms" }
   - { id: F-0298, tier: high, file: docs/plan_topics/V17a-cancellation-core.md, anchor: "full leaf", title: "V17a bundles four independent cancellation sub-mechanisms in one leaf" }
-  - { id: F-0291, tier: high, file: docs/plan_topics/V15a-invocation-core.md, anchor: "`V15a` leaf body", title: "`V15a` bundles ~14 independent test obligations from six spec documents into one impl+T pair" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
