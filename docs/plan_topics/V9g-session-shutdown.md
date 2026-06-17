@@ -11,6 +11,6 @@
 - `patch-skew-degradation.md` §`session_shutdown` sub-step 3 (PIC code-keyed area): sub-step 3 awaits every in-flight entry's `disposeBarrier` to settle via `Promise.allSettled`, bounded by `SHUTDOWN_AWAIT_CAP_MS`.
 - `CNCL-4` (session-shutdown synthesised-reason facet): the `session_shutdown` handler aborts each in-flight `loomAbort` with a synthesised `Error` whose `message` is byte-exact `"loom cancelled by session shutdown"`; assert the observed `loomAbort.signal.reason` is that synthesised `Error` object itself — `signal.reason instanceof Error` with `signal.reason.message` byte-exact `"loom cancelled by session shutdown"` — per `cancellation.md` CNCL-4's `signal.reason === source.reason` contract, at a downstream checkpoint.
 
-**Deps.** `V9g-T`, `V9e`, `V9h`, `V17a`
+**Deps.** `V9g-T`, `V9a`, `V9e`, `V9h`, `V17a`
 
 **Ships when.** `npm test` drives a shutdown, asserting per-step isolation, the await cap, the wrapped host emissions, and the `CNCL-4` session-shutdown reason facet — each in-flight `loomAbort.signal.reason` is the synthesised `Error` object itself (`signal.reason instanceof Error` with `signal.reason.message` byte-exact `"loom cancelled by session shutdown"`), per `cancellation.md` CNCL-4's `signal.reason === source.reason` contract, at a downstream checkpoint.
