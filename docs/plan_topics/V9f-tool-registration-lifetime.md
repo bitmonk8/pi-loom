@@ -2,7 +2,7 @@
 
 **Spec.** [`../spec_topics/pi-integration-contract/tool-registration-lifetime.md`](../spec_topics/pi-integration-contract/tool-registration-lifetime.md), [`../spec_topics/pi-integration-contract/extension-bootstrap-and-per-loom.md`](../spec_topics/pi-integration-contract/extension-bootstrap-and-per-loom.md) (§Per-loom registration — `ToolDefinition` field derivations).
 
-**Adds.** The per-mode tool wiring (subagent `customTools` vs prompt-mode registration cache), the `Type.Unsafe` schema bridge, the snapshot/restore on the prompt path, the no-`unregisterTool` rule, cache-collision disambiguation, and the materialised `ToolDefinition.label` derivation — the loom file's basename with interior hyphens preserved and only the leading character capitalised (`code-review.loom` → `"Code-review"`), and the synthesised typed-query one-shot tool's literal label `"Loom typed-query response"`.
+**Adds.** The per-mode tool wiring (subagent `customTools` vs prompt-mode registration cache), the `Type.Unsafe` schema bridge, the active-set gating window's snapshot/restore on the prompt path (defined in [`V9c`](./V9c-conversation-drive.md)), the no-`unregisterTool` rule, cache-collision disambiguation, and the materialised `ToolDefinition.label` derivation — the loom file's basename with interior hyphens preserved and only the leading character capitalised (`code-review.loom` → `"Code-review"`), and the synthesised typed-query one-shot tool's literal label `"Loom typed-query response"`.
 
 **Tests.**
 - `PIC-8`: a step-4 restore throw triggers one re-attempt, then `active-set-restore-failed` (E) + a `display:true` note, and propagates the original error.

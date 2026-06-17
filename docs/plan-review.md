@@ -14,6 +14,5 @@ entries:
   - { id: F-0280, tier: medium, file: docs/plan_topics/V9k-extension-bootstrap-failures.md, anchor: "whole leaf", title: "V9k bundles five independent bootstrap-failure surfaces in one leaf" }
   - { id: F-0278, tier: medium, file: docs/plan_topics/V9i-subagent-isolation.md, anchor: "full leaf", title: "V9i bundles three separable concerns into one leaf" }
   - { id: F-0267, tier: medium, file: docs/plan_topics/V9g-session-shutdown.md, anchor: Deps, title: "Consumers of V9a's single-source pinned-constants block under-declare the read: V9g/V9h/V18c omit the direct V9a Deps edge, and V18c's SHUTDOWN_AWAIT_CAP_MS literal-read assertion is backed by no test" }
-  - { id: F-0275, tier: medium, file: docs/plan_topics/V9f-tool-registration-lifetime.md, anchor: Adds, title: "One window concept named three ways across V9c, V9c-T, and V9f" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
