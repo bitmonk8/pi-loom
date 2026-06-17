@@ -12,4 +12,4 @@
 
 **Deps.** `V4a-T`, `V2b`, `V3a`, `V4d`
 
-**Ships when.** `npm test` proves `?` desugaring, `loom/parse/question-on-non-result`, and that a `match` whose arms cover none of the six pattern forms raises the runtime `loom/runtime/match-error` panic (loom 1.0 performs no static exhaustiveness check).
+**Ships when.** `npm test` proves `?` desugaring, `loom/parse/question-on-non-result`, and that a runtime scrutinee value matching none of a `match`'s arms raises the `loom/runtime/match-error` panic (loom 1.0 performs no static exhaustiveness check).
