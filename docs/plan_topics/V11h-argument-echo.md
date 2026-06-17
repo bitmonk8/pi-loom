@@ -2,12 +2,12 @@
 
 **Spec.** [`../spec_topics/binder/defaulting-system-note-echo.md`](../spec_topics/binder/defaulting-system-note-echo.md).
 
-**Adds.** The binder argument echo — the `(default)` annotation rendered only when a field took its declared default — composing the canonical number renderer from `V2d` for numeric rows, over the fill-if-absent defaulting [`V11g`](./V11g-defaulting-revalidation.md) owns.
+**Adds.** The binder argument echo — the `(default)` annotation rendered only when a field took its declared default — composing the canonical number renderer from `V2d` for numeric rows, supplying that renderer's `integer`-vs-`number` kind discriminator from the bound value's static type via the value model ([`V2c`](./V2c-value-model.md)) rather than from runtime integrality, over the fill-if-absent defaulting [`V11g`](./V11g-defaulting-revalidation.md) owns.
 
 **Tests.**
 - `BNDR-6`: the echo reference renderings (6a–6x) reproduce exactly, composing the canonical number renderer from `V2d` for the numeric rows.
 - Echo annotation ([`defaulting-system-note-echo.md#echo-policy`](../spec_topics/binder/defaulting-system-note-echo.md#echo-policy)): `(default)` is rendered only for a field that took its declared default; a binder-supplied value for a defaulted field is rendered untagged.
 
-**Deps.** `V11h-T`, `V11g`, `V2d`
+**Deps.** `V11h-T`, `V11g`, `V2d`, `V2c`
 
 **Ships when.** `npm test` reproduces the BNDR-6 echo reference renderings (6a–6x) and asserts the `(default)` annotation appears only for a field that took its declared default, untagged for a binder-supplied value.
