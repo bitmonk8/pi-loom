@@ -218,7 +218,7 @@ Leaves whose work rests on an unresolved spec open question. Each is gated by a 
 
 ## Spec coverage
 
-- [Spec coverage matrix](./plan_topics/coverage-matrix.md) — every executable spec REQ-ID mapped to its closing leaf(s). Empty today; populated as leaves are authored.
+- [Spec coverage matrix](./plan_topics/coverage-matrix.md) — every executable spec REQ-ID mapped to its closing leaf(s). Maintained per How-to-use step 5 and activated at the loom 1.0 release gate by [`H6a`](./plan_topics/H6a-live-corpus-activation.md).
 
 ## Authoring
 
