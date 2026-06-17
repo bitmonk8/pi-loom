@@ -29,6 +29,5 @@ entries:
   - { id: F-0249, tier: medium, file: docs/plan_topics/V4e-pre-evaluation-failures.md, anchor: "Deps / Adds", title: "V4e wraps V5e's ceiling-#4 depth breach for ERR-16 but declares no dependency on the depth-walk producer" }
   - { id: F-0245, tier: medium, file: docs/plan_topics/V4c-terminal-outcomes.md, anchor: "`V4c` leaf body", title: "`V4c` bundles two independently-shippable units: the ERR-8…ERR-12 trichotomy and the ERR-13 no-rollback proof" }
   - { id: F-0246, tier: medium, file: docs/plan_topics/V4c-terminal-outcomes.md, anchor: "`Tests.`", title: "Duplicate `ERR-13` REQ-ID across two `V4c` / `V4c-T` test bullets" }
-  - { id: F-0244, tier: medium, file: docs/plan_topics/V4a-T-match-result.md, anchor: "`loom/runtime/match-error` Tests bullet", title: "`V4a-T`'s `loom/runtime/match-error` assertion scope is left undetermined by the \"co-asserted here\" note" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
