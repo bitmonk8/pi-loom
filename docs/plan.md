@@ -82,7 +82,7 @@ Each slice is a coherent feature area (e.g. lexer, expressions, schemas, queries
 - [`V5a` — Schema declarations (object / alias / enum)](./plan_topics/V5a-schema-decls.md)
 - [`V5b` — Discriminated unions, recursion, and cycle detection](./plan_topics/V5b-disc-unions-recursion.md)
 - [`V5c` — Descriptions (`///`)](./plan_topics/V5c-descriptions.md)
-- [`V5d` — Schema-subset reject gate](./plan_topics/V5d-subset-lowering.md)
+- [`V5d` — Schema-subset reject gate](./plan_topics/V5d-reject-gate.md)
 - [`V5e` — JSON document depth enforcement (hard ceiling #4)](./plan_topics/V5e-depth-enforcement.md)
 - [`V5f` — Schema lowering and canonical hash](./plan_topics/V5f-subset-lowering-hash.md)
 

@@ -58,6 +58,5 @@ entries:
   - { id: F-0235, tier: medium, file: docs/plan.md, anchor: section, title: "V2d-T's BNDR-5 tests omit the interior-range vector that V2d requires" }
   - { id: F-0254, tier: medium, file: docs/plan.md, anchor: section, title: "V5e's \"walk runs before AJV\" Tests bullet asserts an ordering its isolated harness cannot witness" }
   - { id: F-0281, tier: medium, file: docs/plan.md, anchor: section, title: "`pi.on(...)` failure bullet's \"the remaining steps do not execute\" is undecidable across the three subscriptions" }
-  - { id: F-0253, tier: medium, file: docs/plan.md, anchor: "Vertical slices §V5 TOC entry", title: "V5d / V5d-T filename slug `subset-lowering` names lowering, which V5d no longer owns" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
