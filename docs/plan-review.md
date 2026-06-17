@@ -19,6 +19,5 @@ entries:
   - { id: F-0273, tier: medium, file: docs/plan_topics/V9c-conversation-drive.md, anchor: "implementation leaf body", title: "V9c bundles three concern clusters — query-drive, active-set gating, and transport-error mapping — in one leaf pair" }
   - { id: F-0272, tier: medium, file: docs/plan_topics/V9c-conversation-drive.md, anchor: "Tests, `stopReason: \"error\"` error-detection bullet", title: "Prompt-mode `TransportError.provider` cites V9j's classifier, which owns no prompt-mode session-model read path" }
   - { id: F-0268, tier: medium, file: docs/plan_topics/V9b-registration-reload-wiring.md, anchor: "Adds / Tests / Ships when", title: "V9b's matcher witness asserts a reconciliation only V11a can exercise" }
-  - { id: F-0270, tier: medium, file: docs/plan_topics/V9b-registration-reload-wiring.md, anchor: Adds, title: "The \"pending-registration list\" is named three different ways across V9b, V9k, and the coverage matrix" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
