@@ -37,6 +37,5 @@ entries:
   - { id: F-0227, tier: medium, file: docs/plan_topics/V1a-T-lexer-core.md, anchor: Tests, title: "Lexer/grammar leaves (V1a, V1b, V2a) claim comprehensive coverage of a closed set but assert only the negative subset, leaving positive-path behaviour ungated" }
   - { id: F-0303, tier: medium, file: docs/plan_topics/V18d-T-version-bump-acceptance.md, anchor: "Tests / Ships when", title: "Revert / rollback path has no verification gate" }
   - { id: F-0297, tier: medium, file: docs/plan_topics/V16a-ceiling-order-masked.md, anchor: "Adds, Ships when", title: "V16a's pure arbitration function reuses the spec's reserved `seam` noun" }
-  - { id: F-0294, tier: medium, file: docs/plan_topics/V15e-hot-reload-cache-eviction.md, anchor: "Tests / Ships when", title: "Hot-reload cache eviction has no coverage for a silently-incomplete (stale-serve) eviction" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
