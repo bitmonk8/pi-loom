@@ -14,6 +14,6 @@
 - `ERR-7`: a synthetic watcher-time reload failure injected via `ReloadFailureInjector.injectReloadFailure` — the single interface declared by `V9b`, from which `V4e` imports it — at the **watcher-time reload failure-injection seam**, with `V9b` wiring the `loom/runtime/registry-swap-failed` registry-swap arm and the `.loom`/`.warp` re-parse arm and `V10d` contributing the settings-re-merge arm, exercising both the re-parse/re-merge diagnostic arm and the `loom/runtime/registry-swap-failed` registry-swap arm, routes pre-eval to `loom-system-note` with `triggerTurn:false`, without standing up a live `V10d`/`V9b` watcher.
 - `ERR-16`: the slash-load `params` arm of ceiling #4, cross-routed via CIO-1 / ceiling #3 no-retry, routes pre-eval.
 
-**Deps.** `V9a`, `V6a`, `V11f`, `V10a`, `V16a`, `V9b`, `V10d` (`V9b` declares the `ReloadFailureInjector` interface (`injectReloadFailure`) the `ERR-7` test injects against; `V10d` contributes the settings-re-merge arm against it)
+**Deps.** `V9a`, `V6a`, `V11f`, `V10a`, `V16a`, `V9b`, `V10d`, `V5e` (`V5e` owns the loom-owned depth walk whose ceiling-#4 slash-load `params` routing decision and depth-6 breach `ERR-16` wraps; `V9b` declares the `ReloadFailureInjector` interface (`injectReloadFailure`) the `ERR-7` test injects against; `V10d` contributes the settings-re-merge arm against it)
 
 **Ships when.** The tests above exist, compile, and fail red for the intended reason.

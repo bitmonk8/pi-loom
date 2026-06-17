@@ -26,6 +26,5 @@ entries:
   - { id: F-0226, tier: medium, file: docs/plan_topics/V7a-diagnostics-primitive.md, anchor: Adds, title: "V1a→V7a diagnostic-emission seam is unnamed on both ends" }
   - { id: F-0256, tier: medium, file: docs/plan_topics/V6c-tools-set.md, anchor: "Tests / Ships when", title: "Three `tools:`-resolution load codes have no asserting plan leaf" }
   - { id: F-0252, tier: medium, file: docs/plan_topics/V5d-subset-lowering.md, anchor: "Adds / Tests / Ships when", title: "V5d reject gate: allowlist-vs-denylist semantics unstated" }
-  - { id: F-0249, tier: medium, file: docs/plan_topics/V4e-pre-evaluation-failures.md, anchor: "Deps / Adds", title: "V4e wraps V5e's ceiling-#4 depth breach for ERR-16 but declares no dependency on the depth-walk producer" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
