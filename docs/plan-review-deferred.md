@@ -1,7 +1,79 @@
 ---
 list: deferred
 corpus: plan
-order: bottom-up-by-location
-entries: []
+order: by-importance-then-location
+entries:
+  - { id: F-0171, tier: nit, file: docs/plan_topics/coverage-matrix.md, anchor: range-notation, title: "Range-notation ellipsis is U+2026, byte-significant for H5a, but stated only as typography", defer_reason: nit }
+  - { id: F-0170, tier: nit, file: docs/plan_topics/conventions.md, anchor: "doc artifacts", title: "Repository-root doc artifacts are a plan-authored convention the spec does not request", defer_reason: nit }
+  - { id: F-0164, tier: nit, file: docs/plan_topics/V9k-T-extension-bootstrap-failures.md, anchor: "Tests, fifth bullet (`pi.getCommands()` read failure)", title: "`V9k-T` `getCommands()` read-failure Tests bullet carries a trailing rationale clause its paired leaf omits", defer_reason: nit }
+  - { id: F-0277, tier: nit, file: docs/plan_topics/V9f-tool-registration-lifetime.md, anchor: "Ships when", title: "V9f Ships-when omits the visibility / `registration-cache-collision` green gate", defer_reason: nit }
+  - { id: F-0271, tier: nit, file: docs/plan_topics/V9b-registration-reload-wiring.md, anchor: "structural-change watcher-note bullet", title: "\"un-anchored GOV-22 residue\" tag has three divergent spellings across the plan corpus", defer_reason: nit }
+  - { id: F-0262, tier: nit, file: docs/plan_topics/V7b-code-registry.md, anchor: "DIAG-2 Tests bullet, Ships when", title: "\"Registry is closed\" DIAG-2 bullet attributes closure to a gate that reconciles only test-asserted codes", defer_reason: nit }
+  - { id: F-0259, tier: nit, file: docs/plan_topics/V6d-system-interpolation.md, anchor: "Tests → Adds", title: "`Result<T,E>`-exclusion scope note is a Tests bullet but states a non-testable design fact", defer_reason: nit }
+  - { id: F-0258, tier: nit, file: docs/plan_topics/V6d-system-interpolation.md, anchor: "Tests bullet / Adds", title: "`V6d` / `V6d-T` scope-limitation note (\"row-level correctness stays owned by `V13a`\") is lodged inside a Tests bullet rather than Adds", defer_reason: nit }
+  - { id: F-0241, tier: nit, file: docs/plan_topics/V3e-expression-stdlib.md, anchor: "`Adds` / `Tests` / `Ships when`", title: "V3e bundles four independent stdlib type surfaces in one leaf", defer_reason: nit }
+  - { id: F-0177, tier: nit, file: docs/plan_topics/V2d-number-rendering.md, anchor: Ships-when, title: "Ships-when restates the BNDR-5 switch-range detail already in Tests", defer_reason: nit }
+  - { id: F-0237, tier: nit, file: docs/plan_topics/V2d-number-rendering.md, anchor: "Adds, Tests, Ships when", title: "BNDR-5 number-rendering concept is named three inconsistent ways across `V2d`'s fields", defer_reason: nit }
+  - { id: F-0182, tier: nit, file: docs/plan_topics/V18c-version-bump-checklist.md, anchor: static-gates, title: "\"static gates\" (heading/terms) vs \"static build-time gates\" (body)", defer_reason: nit }
+  - { id: F-0302, tier: nit, file: docs/plan_topics/V18c-version-bump-checklist.md, anchor: "Adds / Ships when", title: "Editorial-review checklist's mechanically-decidable structural half is routed to human review, not a build-time gate", defer_reason: nit }
+  - { id: F-0296, tier: nit, file: docs/plan_topics/V16a-ceiling-order-masked.md, anchor: Adds, title: "V16a Adds pins an exact `arbitrate(candidate) → { surfaced, masked? }` function signature that no consumer or test binds", defer_reason: nit }
+  - { id: F-0179, tier: nit, file: docs/plan_topics/V15e-hot-reload-cache-eviction.md, anchor: Adds, title: "\"in-process hot-reload re-parse path\" (Adds) vs \"in-process re-parse path\" (Tests)", defer_reason: nit }
+  - { id: F-0172, tier: nit, file: docs/plan_topics/V11e-system-note-determinism.md, anchor: descriptor, title: "V11e descriptor \"FNV-1,\" causes a false REQ-ID extraction", defer_reason: nit }
+  - { id: F-0225, tier: nit, file: docs/plan_topics/H7a-integration-acceptance.md, anchor: "whole leaf", title: "H7a bundles a plan-elected end-to-end regression harness with its one genuine spec obligation, without marking the boundary", defer_reason: nit }
+  - { id: F-0175, tier: nit, file: docs/plan_topics/H5d-transitive-completeness-gate.md, anchor: title, title: "H5d leaf-title naming diverges from the canonical term", defer_reason: nit }
+  - { id: F-0217, tier: nit, file: docs/plan_topics/H5c-broad-catch-allow-list-gate.md, anchor: "**Adds**", title: "`H5c` coins a `seeded-fixture-then-live-corpus footing` compound that breaks the two-footing vocabulary", defer_reason: nit }
+  - { id: F-0174, tier: nit, file: docs/plan_topics/H4a-factory-shell-and-harness.md, anchor: governance, title: "Governance \"Consequently a skipped run, not at merge time\" rationale sentence is cruft", defer_reason: nit }
+  - { id: F-0173, tier: nit, file: docs/plan_topics/H1a-scaffold-and-toolchain.md, anchor: capability-probe, title: "capability-probe Node-floor inline snapshot \"(currently >=22.19.0)\" carries stale-value risk", defer_reason: nit }
+  - { id: F-0212, tier: nit, file: docs/plan.md, anchor: section, title: "Golden transcript's composed-ordering correctness rests on a first-commit human review with no recorded criterion", defer_reason: nit }
+  - { id: F-0219, tier: nit, file: docs/plan.md, anchor: section, title: "Release-gate manual-smoke evidence record has no mechanical presence or pin-match check", defer_reason: nit }
+  - { id: F-0282, tier: nit, file: docs/plan.md, anchor: section, title: "`drain state` deviates from the canonical hyphenated `drain-state` in V9k / V9k-T", defer_reason: nit }
+  - { id: F-0187, tier: nit, file: docs/plan.md, anchor: "How to use this plan, step 2", title: "How-to-use step 2 restates the transitive-completeness triggers inline, duplicating conventions.md", defer_reason: nit }
+  - { id: F-0195, tier: low, file: docs/plan_topics/conventions.md, anchor: "*No silent test skipping* bullet", title: "No-silent-test-skipping convention omits the Vitest skip macros CLAUDE.md bans", defer_reason: low }
+  - { id: F-0191, tier: low, file: docs/plan_topics/conventions.md, anchor: "*No globals, statics, singletons* rule", title: "WallClock-ban \"stay in lockstep\" claim is backed only by a hand-copied primitive list", defer_reason: low }
+  - { id: F-0178, tier: low, file: docs/plan_topics/V9l-session-only-degraded-branch.md, anchor: Deps, title: "V9l/V9l-T Deps carry block-condition rationale that belongs in plan.md Blocked obligations", defer_reason: low }
+  - { id: F-0269, tier: low, file: docs/plan_topics/V9b-registration-reload-wiring.md, anchor: "Adds, Tests, Ships when", title: "Three divergent names for the structural-change note within V9b / V9b-T", defer_reason: low }
+  - { id: F-0263, tier: low, file: docs/plan_topics/V7b-code-registry.md, anchor: "`Tests.` DIAG-3 bullet", title: "DIAG-3 Tests bullet folds future-work deferral context into a normative gate requirement", defer_reason: low }
+  - { id: F-0261, tier: low, file: docs/plan_topics/V7a-diagnostics-primitive.md, anchor: "Tests, Multi-error bullet", title: "Diagnostic[] ordering clause leans on an ambiguous \"this order\" pronoun", defer_reason: low }
+  - { id: F-0257, tier: low, file: docs/plan_topics/V6c-tools-set.md, anchor: "Adds, Tests, Ships when", title: "Absent / empty `tools:` default is named but never stated or cited in V6c", defer_reason: low }
+  - { id: F-0255, tier: low, file: docs/plan_topics/V5f-subset-lowering-hash.md, anchor: "Tests, Ships when", title: "`__inline_<slug>` hoist and auto-`$ref` rewrite have no direct asserting vector", defer_reason: low }
+  - { id: F-0250, tier: low, file: docs/plan_topics/V4e-pre-evaluation-failures.md, anchor: "Deps field", title: "V4e / V4e-T Deps parenthetical duplicates the ERR-7 seam decomposition", defer_reason: low }
+  - { id: F-0247, tier: low, file: docs/plan_topics/V4c-terminal-outcomes.md, anchor: "`Adds.` field", title: "V4c `Adds.` carries a no-rollback rationale sentence that belongs out of the field", defer_reason: low }
+  - { id: F-0248, tier: low, file: docs/plan_topics/V4c-terminal-outcomes.md, anchor: "Ships when", title: "V4c Ships-when carries no-rollback design justification instead of an observable gate", defer_reason: low }
+  - { id: F-0242, tier: low, file: docs/plan_topics/V3e-expression-stdlib.md, anchor: "Adds; Tests", title: "`String.replace` label misnames the spec's `replace(from, to)` stdlib member", defer_reason: low }
+  - { id: F-0240, tier: low, file: docs/plan_topics/V3d-T-functions-and-return.md, anchor: "Tests bullet", title: "`final-value contract` Tests citations target `return.md`, but the normative definition lives in `functions.md#final-value-language-definition`", defer_reason: low }
+  - { id: F-0020, tier: low, file: docs/plan_topics/V18d-version-bump-acceptance.md, anchor: "Adds (Blast radius paragraph)", title: "V18d — Adds \"Blast radius\" rationale paragraph", defer_reason: low }
+  - { id: F-0181, tier: low, file: docs/plan_topics/V18c-version-bump-checklist.md, anchor: audit, title: "\"SHOULD-level-audit-but-MUST-record\" compound term is not introduced", defer_reason: low }
+  - { id: F-0180, tier: low, file: docs/plan_topics/V18b-inventory-audit.md, anchor: category, title: "\"category-(1/2/3)\" vs \"family-(4/5)\" share a consecutive numbering with no naming axis", defer_reason: low }
+  - { id: F-0289, tier: low, file: docs/plan_topics/V13a-query-render.md, anchor: "`Ships when` field", title: "V13a `Ships when` gate names two of seven asserted behaviors", defer_reason: low }
+  - { id: F-0286, tier: low, file: docs/plan_topics/V11e-system-note-determinism.md, anchor: "V11e leaf", title: "V11e bundles two cross-spec concerns: system-note rendering rules and the binder determinism contract", defer_reason: low }
+  - { id: F-0222, tier: low, file: docs/plan_topics/H7a-integration-acceptance.md, anchor: "Adds / Tests / Deps / Ships when", title: "H7a's terminal cancellation stage does not declare whether it exercises V11j's in-flight binder-call cancellation", defer_reason: low }
+  - { id: F-0224, tier: low, file: docs/plan_topics/H7a-integration-acceptance.md, anchor: "Adds / Tests", title: "H7a permitted-code-list Tests bullet states artifact existence and role, not a checkable assertion", defer_reason: low }
+  - { id: F-0050, tier: low, file: docs/plan_topics/H6a-live-corpus-activation.md, anchor: "Tests bullet \"Release-gate acceptance (manual real-host smoke)\"", title: "H6a duplicates H4a's live-host smoke pass/fail criteria inline instead of cross-referencing", defer_reason: low }
+  - { id: F-0176, tier: low, file: docs/plan_topics/H6a-live-corpus-activation.md, anchor: Ships-when, title: "H6a Ships-when re-enumerates the same five pass criteria a second time", defer_reason: low }
+  - { id: F-0216, tier: low, file: docs/plan_topics/H5b-warn-only-canary.md, anchor: "Convention bullet and Adds body", title: "\"pre-flight\" used as a noun in H5b's Adds body and Convention bullet, against the canonical noun \"canary\"", defer_reason: low }
+  - { id: F-0207, tier: low, file: docs/plan_topics/H3a-di-seam-skeleton.md, anchor: "Adds / Tests", title: "H3a's \"single source of shape\" claim has no gate tying declared seam members to their contract pages", defer_reason: low }
+  - { id: F-0206, tier: low, file: docs/plan_topics/H2a-cross-cutting-gates.md, anchor: "**Adds.** and *No globals, statics, singletons* **Tests.** bullets", title: "The \"mutable\" qualifier on the object/array-literal ban contradicts H2a's AST-shape parenthetical", defer_reason: low }
+  - { id: F-0204, tier: low, file: docs/plan_topics/H1a-scaffold-and-toolchain.md, anchor: Tests, title: "Runtime `dependencies` have no presence assertion at H1a", defer_reason: low }
+  - { id: F-0194, tier: low, file: docs/plan.md, anchor: section, title: "TDD ritual \"prerequisites are missing\" is undefined and reads two ways", defer_reason: low }
+  - { id: F-0202, tier: low, file: docs/plan.md, anchor: section, title: "DISC-4's V9m superseded-entry-dispatch test bullet omits the inline `DISC-4` citation", defer_reason: low }
+  - { id: F-0211, tier: low, file: docs/plan.md, anchor: section, title: "Manual-smoke trigger-(2) leaves \"edits the fidelity axis\" undefined, so two contributors apply different trigger sets", defer_reason: low }
+  - { id: F-0220, tier: low, file: docs/plan.md, anchor: section, title: "Manual real-host smoke audit assumes the recording commit message survives the merge workflow", defer_reason: low }
+  - { id: F-0238, tier: low, file: docs/plan.md, anchor: section, title: "Integer-overflow non-panic disposition has no asserting test vector in `V3a` / `V3a-T`", defer_reason: low }
+  - { id: F-0239, tier: low, file: docs/plan.md, anchor: section, title: "V3d's final-value contract asserts a cancel outcome with no cancel producer in scope", defer_reason: low }
+  - { id: F-0251, tier: low, file: docs/plan.md, anchor: section, title: "ERR-7 test bullet carries cross-leaf seam-decomposition narrative", defer_reason: low }
+  - { id: F-0265, tier: low, file: docs/plan.md, anchor: section, title: "PIC-10 \"adds no extra sites\" is a negative-completeness claim the behavioural test cannot back", defer_reason: low }
+  - { id: F-0274, tier: low, file: docs/plan.md, anchor: section, title: "PIC-18 cancel-forwarding clause present in `V9c` but absent from its `V9c-T` test driver", defer_reason: low }
+  - { id: F-0279, tier: low, file: docs/plan.md, anchor: section, title: "`substrate` is an undefined term in the V9i / V9i-T swallowing-handler test bullets", defer_reason: low }
+  - { id: F-0287, tier: low, file: docs/plan.md, anchor: section, title: "SLSH-2 streaming test bullet carries editorial-process rationale that belongs in Adds", defer_reason: low }
+  - { id: F-0299, tier: low, file: docs/plan.md, anchor: section, title: "V17a checkpoint-granularity negative arm hides behind the vague qualifier \"best-effort\"", defer_reason: low }
+  - { id: F-0189, tier: low, file: docs/plan.md, anchor: "`### V11 — Binder` interleave note", title: "V11-section interleave note restates a strict subset of the V9-section interleave note", defer_reason: low }
+  - { id: F-0169, tier: low, file: docs/plan.md, anchor: "Vertical slices", title: "V9 interleave note: \"brand-string constant\" jargon is undefined", defer_reason: low }
+  - { id: F-0230, tier: low, file: docs/plan.md, anchor: "V2 TOC", title: "`V2a` bundles type-expression grammar, the loom literal sublanguage, and `array<T>` sink resolution into one leaf", defer_reason: low }
+  - { id: F-0183, tier: low, file: docs/plan.md, anchor: "Release gate", title: "Release-gate narrative omits H6a's H7a dependency edge", defer_reason: low }
+  - { id: F-0168, tier: low, file: docs/plan.md, anchor: "How to use", title: "How-to-use step 2: \"link into the appropriate section\" is a weasel word", defer_reason: low }
+  - { id: F-0185, tier: low, file: docs/plan.md, anchor: "Blocked obligations, `V9l` entry", title: "§Blocked obligations: the V9l entry's \"reloads-and-rebinds\" parenthetical is decision-log rationale", defer_reason: low }
+  - { id: F-0002, tier: low, file: docs/plan.md, anchor: "Blocked obligations (V9l)", title: "§Blocked obligations (V9l) — SM-3b/SM-4/SM-5/SM-6 used without cross-reference", defer_reason: nit }
+  - { id: F-0167, tier: low, file: docs/plan.md, anchor: "Blocked obligations", title: "Blocked obligations: pre-designed-fallback contingency belongs in the V9l leaf", defer_reason: low }
+  - { id: F-0186, tier: low, file: docs/plan.md, anchor: "Blocked obligations", title: "§Blocked obligations intro says \"open question\" while its only entry and the V9l leaves say \"open contradiction\"", defer_reason: low }
 ---
-<!-- Generated view. Entries are ordered by location and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
+<!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->

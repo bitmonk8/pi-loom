@@ -1,7 +1,72 @@
 ---
 list: active
 corpus: plan
-order: bottom-up-by-location
-entries: []
+order: by-importance-then-location
+entries:
+  - { id: F-0197, tier: medium, file: docs/plan_topics/coverage-matrix.md, anchor: "\"`CIO` / `HC3` / `NOCEIL` / `CEIL` closure rationale\" and the Numbered REQ-IDs table", title: "HC3 and NOCEIL closing-leaf mappings live only in rationale prose, not in the coverage-matrix tables" }
+  - { id: F-0190, tier: medium, file: docs/plan_topics/conventions.md, anchor: "REQ-ID discipline, *Transitive-completeness plan-maintenance* clause", title: "`H5d` \"stay in lockstep\" overstates a per-cell at-least-one gate" }
+  - { id: F-0199, tier: medium, file: docs/plan_topics/conventions.md, anchor: "REQ-ID discipline", title: "`<new>` placeholder coverage-matrix rows satisfy the un-anchored-MUST gate without a real closing leaf" }
+  - { id: F-0192, tier: medium, file: docs/plan_topics/conventions.md, anchor: "Leaf format, **Spec** field bullet", title: "Spec-field closure rule uses the undefined terms \"normative cross-link\" / \"narrative cross-link\"" }
+  - { id: F-0188, tier: medium, file: docs/plan_topics/conventions.md, anchor: "Leaf format §Deps / Per-phase TDD ritual", title: "\"Deps satisfied\" build-order step names no machine-checkable pickability predicate" }
+  - { id: F-0193, tier: medium, file: docs/plan_topics/conventions.md, anchor: "Cross-cutting rules → *Sequential by default*", title: "Sequential-by-default allow-list representation is undefined at its own rule site" }
+  - { id: F-0208, tier: medium, file: docs/plan_topics/conventions.md, anchor: "Cross-cutting rules scope paragraph; release-time residue inspection checklist", title: "Gated-tree completeness claim rests on an unverified entry-shim purity property" }
+  - { id: F-0205, tier: medium, file: docs/plan_topics/conventions.md, anchor: "*Sequential by default* enforcement posture; release-time residue-inspection item 3; *Per-phase TDD ritual* self-review", title: "`V8*` FileSystem seam-adapter exclusion names no module-path boundary" }
+  - { id: F-0280, tier: medium, file: docs/plan_topics/V9k-extension-bootstrap-failures.md, anchor: "whole leaf", title: "V9k bundles five independent bootstrap-failure surfaces in one leaf" }
+  - { id: F-0278, tier: medium, file: docs/plan_topics/V9i-subagent-isolation.md, anchor: "full leaf", title: "V9i bundles three separable concerns into one leaf" }
+  - { id: F-0267, tier: medium, file: docs/plan_topics/V9g-session-shutdown.md, anchor: Deps, title: "Consumers of V9a's single-source pinned-constants block under-declare the read: V9g/V9h/V18c omit the direct V9a Deps edge, and V18c's SHUTDOWN_AWAIT_CAP_MS literal-read assertion is backed by no test" }
+  - { id: F-0275, tier: medium, file: docs/plan_topics/V9f-tool-registration-lifetime.md, anchor: Adds, title: "One window concept named three ways across V9c, V9c-T, and V9f" }
+  - { id: F-0276, tier: medium, file: docs/plan_topics/V9f-T-tool-registration-lifetime.md, anchor: Tests, title: "`ToolDefinition.label` derivation is asserted only in the V9f implementation leaf, never red-first in V9f-T and never gated by Ships when" }
+  - { id: F-0273, tier: medium, file: docs/plan_topics/V9c-conversation-drive.md, anchor: "implementation leaf body", title: "V9c bundles three concern clusters — query-drive, active-set gating, and transport-error mapping — in one leaf pair" }
+  - { id: F-0272, tier: medium, file: docs/plan_topics/V9c-conversation-drive.md, anchor: "Tests, `stopReason: \"error\"` error-detection bullet", title: "Prompt-mode `TransportError.provider` cites V9j's classifier, which owns no prompt-mode session-model read path" }
+  - { id: F-0268, tier: medium, file: docs/plan_topics/V9b-registration-reload-wiring.md, anchor: "Adds / Tests / Ships when", title: "V9b's matcher witness asserts a reconciliation only V11a can exercise" }
+  - { id: F-0270, tier: medium, file: docs/plan_topics/V9b-registration-reload-wiring.md, anchor: Adds, title: "The \"pending-registration list\" is named three different ways across V9b, V9k, and the coverage matrix" }
+  - { id: F-0266, tier: medium, file: docs/plan_topics/V9a-capability-probe.md, anchor: Adds, title: "V9a Adds prescribes source-code layout (\"single physical home\" / \"lives alongside\") instead of the export/import obligations" }
+  - { id: F-0264, tier: medium, file: docs/plan_topics/V7c-placeholder-rendering.md, anchor: "Tests block", title: "Category-8 test bullet conflates the byte-identical surround with a free \"tail\" and omits the assertion shape" }
+  - { id: F-0260, tier: medium, file: docs/plan_topics/V7a-diagnostics-primitive.md, anchor: "leaf body", title: "`V7a` bundles the diagnostics data primitive with the `loom-system-note` delivery channel" }
+  - { id: F-0226, tier: medium, file: docs/plan_topics/V7a-diagnostics-primitive.md, anchor: Adds, title: "V1a→V7a diagnostic-emission seam is unnamed on both ends" }
+  - { id: F-0256, tier: medium, file: docs/plan_topics/V6c-tools-set.md, anchor: "Tests / Ships when", title: "Three `tools:`-resolution load codes have no asserting plan leaf" }
+  - { id: F-0252, tier: medium, file: docs/plan_topics/V5d-subset-lowering.md, anchor: "Adds / Tests / Ships when", title: "V5d reject gate: allowlist-vs-denylist semantics unstated" }
+  - { id: F-0249, tier: medium, file: docs/plan_topics/V4e-pre-evaluation-failures.md, anchor: "Deps / Adds", title: "V4e wraps V5e's ceiling-#4 depth breach for ERR-16 but declares no dependency on the depth-walk producer" }
+  - { id: F-0245, tier: medium, file: docs/plan_topics/V4c-terminal-outcomes.md, anchor: "`V4c` leaf body", title: "`V4c` bundles two independently-shippable units: the ERR-8…ERR-12 trichotomy and the ERR-13 no-rollback proof" }
+  - { id: F-0246, tier: medium, file: docs/plan_topics/V4c-terminal-outcomes.md, anchor: "`Tests.`", title: "Duplicate `ERR-13` REQ-ID across two `V4c` / `V4c-T` test bullets" }
+  - { id: F-0244, tier: medium, file: docs/plan_topics/V4a-T-match-result.md, anchor: "`loom/runtime/match-error` Tests bullet", title: "`V4a-T`'s `loom/runtime/match-error` assertion scope is left undetermined by the \"co-asserted here\" note" }
+  - { id: F-0234, tier: medium, file: docs/plan_topics/V2d-number-rendering.md, anchor: "BNDR-5 Tests bullet and Ships when", title: "`V2d` BNDR-5 test criterion hedges the interior-magnitude vector with \"such as `5e-8`\", under-specifying what must be asserted" }
+  - { id: F-0236, tier: medium, file: docs/plan_topics/V2d-number-rendering.md, anchor: Adds, title: "Renderer input contract: integer-vs-number discriminator and its origin are undefined" }
+  - { id: F-0232, tier: medium, file: docs/plan_topics/V2c-value-model.md, anchor: "`V2c` leaf body", title: "V2c bundles value representation, structural equality, and the wire-name translation boundary into one leaf" }
+  - { id: F-0233, tier: medium, file: docs/plan_topics/V2c-value-model.md, anchor: "**Deps.** / **Adds.**", title: "V2c depends on the reject-gate leaf (V5d) instead of the sidecar producer (V5f), and the shared sidecar type has no owning leaf" }
+  - { id: F-0227, tier: medium, file: docs/plan_topics/V1a-T-lexer-core.md, anchor: Tests, title: "Lexer/grammar leaves (V1a, V1b, V2a) claim comprehensive coverage of a closed set but assert only the negative subset, leaving positive-path behaviour ungated" }
+  - { id: F-0303, tier: medium, file: docs/plan_topics/V18d-T-version-bump-acceptance.md, anchor: "Tests / Ships when", title: "Revert / rollback path has no verification gate" }
+  - { id: F-0297, tier: medium, file: docs/plan_topics/V16a-ceiling-order-masked.md, anchor: "Adds, Ships when", title: "V16a's pure arbitration function reuses the spec's reserved `seam` noun" }
+  - { id: F-0294, tier: medium, file: docs/plan_topics/V15e-hot-reload-cache-eviction.md, anchor: "Tests / Ships when", title: "Hot-reload cache eviction has no coverage for a silently-incomplete (stale-serve) eviction" }
+  - { id: F-0292, tier: medium, file: docs/plan_topics/V15e-hot-reload-cache-eviction.md, anchor: "Adds, Tests, Deps, Ships when", title: "Static-resolution per-pass parse cache named inconsistently across V15a and V15e" }
+  - { id: F-0295, tier: medium, file: docs/plan_topics/V15e-hot-reload-cache-eviction.md, anchor: "Adds / Tests / Ships when", title: "Hot-reload eviction never pins a single normalised path identity across the parse-cache key, the import-edge-graph node, and the watcher-delivered changed-file path" }
+  - { id: F-0293, tier: medium, file: docs/plan_topics/V15b-invoke-depth-cycle.md, anchor: "`INV-4` Tests bullet", title: "INV-4 frame-class boundary-coverage scope is ambiguous" }
+  - { id: F-0288, tier: medium, file: docs/plan_topics/V13a-query-render.md, anchor: "`V13a` leaf body", title: "`V13a` bundles five independent query surfaces into one leaf" }
+  - { id: F-0284, tier: medium, file: docs/plan_topics/V10b-package-discovery.md, anchor: Tests, title: "Three `V10b` Tests bullets share the bare `DISC-6` identifier" }
+  - { id: F-0221, tier: medium, file: docs/plan_topics/H6a-live-corpus-activation.md, anchor: "Tests / Ships when", title: "Manual real-host smoke acceptance belongs in `H6a` Ships when, not Tests" }
+  - { id: F-0218, tier: medium, file: docs/plan_topics/H5d-transitive-completeness-gate.md, anchor: Adds, title: "Closing-leaf cell tokenisation is never formally stated" }
+  - { id: F-0214, tier: medium, file: docs/plan_topics/H5a-closing-gate-automation.md, anchor: "H1 heading", title: "H5a heading enumerates two of its three closing-gate surfaces, omitting the un-anchored-MUST arm" }
+  - { id: F-0209, tier: medium, file: docs/plan_topics/H4a-factory-shell-and-harness.md, anchor: Adds, title: "Manual real-host smoke governance protocol is oversized and misplaced in H4a's Adds" }
+  - { id: F-0210, tier: medium, file: docs/plan_topics/H4a-factory-shell-and-harness.md, anchor: Adds, title: "Manual real-host smoke carries three competing bolded names in H4a" }
+  - { id: F-0196, tier: medium, file: docs/plan.md, anchor: section, title: "Inline-label families (`HC3`, `NOCEIL`) have no convention rule for how they close on the authoring leaf" }
+  - { id: F-0198, tier: medium, file: docs/plan.md, anchor: section, title: "Multi-leaf split REQ-IDs pass the closing gate on a single facet's citing test" }
+  - { id: F-0203, tier: medium, file: docs/plan.md, anchor: section, title: "TypeScript devDependency pin: Adds \"pinned to floor `>=5.4.0`\" vs Tests \"satisfies floor\" predicate mismatch" }
+  - { id: F-0213, tier: medium, file: docs/plan.md, anchor: section, title: "Smoke-protocol triggers can fire before their H7a-owned inputs exist" }
+  - { id: F-0215, tier: medium, file: docs/plan.md, anchor: section, title: "Un-anchored-MUST recogniser has no defined behaviour for a `spec_topics/**` page absent from the prefix table" }
+  - { id: F-0223, tier: medium, file: docs/plan.md, anchor: section, title: "Permitted-code-list \"cannot disagree\" guarantee is unenforced and rests on a manually-maintained union" }
+  - { id: F-0231, tier: medium, file: docs/plan.md, anchor: section, title: "`V2b` Adds claims the deferral marker is consumed by `V6b`/`V11g`, but neither leaf binds the seam" }
+  - { id: F-0235, tier: medium, file: docs/plan.md, anchor: section, title: "V2d-T's BNDR-5 tests omit the interior-range vector that V2d requires" }
+  - { id: F-0254, tier: medium, file: docs/plan.md, anchor: section, title: "V5e's \"walk runs before AJV\" Tests bullet asserts an ordering its isolated harness cannot witness" }
+  - { id: F-0281, tier: medium, file: docs/plan.md, anchor: section, title: "`pi.on(...)` failure bullet's \"the remaining steps do not execute\" is undecidable across the three subscriptions" }
+  - { id: F-0253, tier: medium, file: docs/plan.md, anchor: "Vertical slices §V5 TOC entry", title: "V5d / V5d-T filename slug `subset-lowering` names lowering, which V5d no longer owns" }
+  - { id: F-0184, tier: medium, file: docs/plan.md, anchor: "Spec coverage", title: "plan.md's §Spec coverage describes the coverage matrix as empty, but coverage-matrix.md is fully populated" }
+  - { id: F-0243, tier: high, file: docs/plan_topics/V4a-match-result.md, anchor: "Ships when", title: "`V4a` Ships-when conflates runtime match-exhaustion with a structural reading of the arms" }
+  - { id: F-0298, tier: high, file: docs/plan_topics/V17a-cancellation-core.md, anchor: "full leaf", title: "V17a bundles four independent cancellation sub-mechanisms in one leaf" }
+  - { id: F-0291, tier: high, file: docs/plan_topics/V15a-invocation-core.md, anchor: "`V15a` leaf body", title: "`V15a` bundles ~14 independent test obligations from six spec documents into one impl+T pair" }
+  - { id: F-0290, tier: high, file: docs/plan_topics/V14a-tool-calls.md, anchor: "V14a leaf", title: "V14a bundles eight independently-testable concerns from four spec documents" }
+  - { id: F-0283, tier: high, file: docs/plan_topics/V10a-discovery-walk.md, anchor: "`Tests.`", title: "Duplicate `DISC-2` test-bullet label on `V10a` / `V10a-T`" }
+  - { id: F-0200, tier: high, file: docs/plan.md, anchor: section, title: "cancellation.md swallowing-handler attachment MUST has no coverage-matrix.md Code-keyed row" }
+  - { id: F-0201, tier: high, file: docs/plan.md, anchor: section, title: "Session-context truncation walk (V11i) has no coverage-matrix row" }
+  - { id: F-0285, tier: blocker, file: docs/plan.md, anchor: section, title: "BNDR-9 test bullet's `\": \"` code span contradicts its own `(U+003A U+0020)` annotation and \"two-byte sequence\" wording" }
 ---
-<!-- Generated view. Entries are ordered by location and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
+<!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
