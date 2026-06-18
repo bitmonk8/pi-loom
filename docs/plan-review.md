@@ -21,6 +21,5 @@ entries:
   - { id: F-0305, tier: medium, file: docs/plan_topics/conventions.md, anchor: "§REQ-ID discipline, *Transitive-completeness plan-maintenance* clause", title: "'Transitive-completeness trigger verb \"can introduce\" is ambiguous'" }
   - { id: F-0310, tier: medium, file: docs/plan_topics/conventions.md, anchor: "§REQ-ID discipline (third closing-gate surface)", title: "Un-anchored-MUST closing gate checks enumeration but never asserting-test existence" }
   - { id: F-0306, tier: medium, file: docs/plan_topics/conventions.md, anchor: "§Leaf format, Adds. bullet", title: "'Class-2 seam-binding criterion: \"names the seam\" has no precision rule'" }
-  - { id: F-0313, tier: medium, file: docs/plan_topics/conventions.md, anchor: "*No globals, statics, singletons* rule + *loom 1.0 release-time residue inspection* checklist", title: "'Ambient-primitive ban list \"lockstep with spec\" is asserted but has no reconciliation backstop'" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
