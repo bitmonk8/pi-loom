@@ -10,6 +10,6 @@
 - `Convention:` (*REQ-ID discipline*) the gate excludes the `loom/typecheck/*` build-time brand-string prefix from registry reconciliation.
 - `Convention:` (*REQ-ID discipline* — citing tests) the gate fails when a fixture coverage-matrix-mapped numbered REQ-ID has no test citing that REQ-ID inline in the seeded test corpus, and passes when every mapped REQ-ID has a citing test; the recogniser is a best-effort inline-`PREFIX-N`-citation scan over the test sources and certifies citing-test existence, not the assertion's semantic fidelity.
 
-**Deps.** `H4a`
+**Deps.** `H1a`
 
 **Ships when.** `npm test` runs the closing gate green against the seeded no-violation fixture — which includes a seeded fixture coverage-matrix mapping whose numbered REQ-ID has a citing test in the seeded test corpus — and red against each seeded violation fixture this leaf owns, including a seeded fixture spec REQ-ID with no [`coverage-matrix.md`](./coverage-matrix.md) row, a seeded fixture coverage-matrix mapping whose numbered REQ-ID has no citing test in the seeded test corpus, and a seeded registry code with no asserting test, all residing under the same dedicated test-fixtures root outside `docs/spec_topics/**` and outside the live test corpus.

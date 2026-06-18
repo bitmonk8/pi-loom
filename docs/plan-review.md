@@ -12,6 +12,5 @@ entries:
   - { id: F-0312, tier: low, file: docs/plan_topics/conventions.md, anchor: "§No globals, statics, singletons (closing sentence)", title: "'§No globals, statics, singletons — \"partition the space with no third gap\" over-states best-effort manual coverage'" }
   - { id: F-0314, tier: low, file: docs/plan_topics/conventions.md, anchor: "§Leaf format, **Deps** *Pickability predicate*", title: "Deps pickability predicate names git tags authoritative without stating their visibility precondition" }
   - { id: F-0400, tier: low, file: docs/plan_topics/V15c-imports.md, anchor: "implementation leaf", title: "`V15c` bundles import resolution/diagnostics and export-visibility semantics into one oversized leaf" }
-  - { id: F-0338, tier: low, file: docs/plan_topics/H5a-closing-gate-automation.md, anchor: "**Deps.** field", title: "`H5a`'s `Deps: H4a` is a false sequencing edge" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
