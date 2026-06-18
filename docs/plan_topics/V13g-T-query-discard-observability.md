@@ -5,7 +5,7 @@
 **Adds.** Failing tests for the paired `V13g` implementation leaf.
 
 **Tests.**
-- `loom/parse/discarded-query-result` fires on a bare `@`...`` expression-statement; separately, the runtime discard-observability event fires on an explicit `Err` discard (`let _ = @`...`` or the `void`-tail form).
+- `loom/parse/discarded-query-result` fires on a bare `@`...`` expression-statement; separately, a discarded query (via `let _ = @`...`` or the `void`-tail form) fires the runtime discard-observability event when — and only when — it settles to `Err`, and a discarded `Ok` via either form emits no event.
 
 **Deps.** `V13a`, `V9d`
 
