@@ -31,6 +31,5 @@ entries:
   - { id: F-0331, tier: medium, file: docs/plan_topics/H3a-di-seam-skeleton.md, anchor: "second Tests. bullet", title: "Ambient-primitive ban — `outside the WallClock adapter` attachment ambiguity in H3a and conventions.md" }
   - { id: F-0330, tier: medium, file: docs/plan_topics/H2a-cross-cutting-gates.md, anchor: "Adds + Tests blocking-runtime bullet", title: "H2a `*Sync` ban excludes the `V8*` FileSystem seam-adapter modules with no gate-recognisable discriminator" }
   - { id: F-0407, tier: medium, file: docs/plan.md, anchor: "V17 — Cancellation slice listing", title: "`V17a` — Cancellation core bundles the forwarding contract and the checkpoint-site wiring into one leaf" }
-  - { id: F-0316, tier: high, file: docs/plan_topics/coverage-matrix.md, anchor: "*Code-keyed obligation areas (no numbered REQ-IDs)* table", title: "Code-side tool-call envelope-lowering MUSTs are unanchored by any plan leaf or coverage-matrix row" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
