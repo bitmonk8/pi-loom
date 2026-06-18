@@ -8,7 +8,7 @@ Use the REQ-ID prefix table in [`../spec_topics/governance.md`](../spec_topics/g
 
 ## Numbered REQ-IDs (runtime obligations)
 
-`X-n … X-m` denotes the inclusive contiguous range — every REQ-ID from `X-n` through `X-m`, both endpoints included (e.g. `TYPE-1 … TYPE-10` covers `TYPE-1, TYPE-2, …, TYPE-10`). The reading presumes the prefix's spec numbering has no holes between the endpoints; a hole inside a `…` range surfaces as an [`H5a`](./H5a-closing-gate-automation.md) per-prefix-numbering-hole gate failure, not a silent skip.
+`X-n … X-m` denotes the inclusive contiguous range — every REQ-ID from `X-n` through `X-m`, both endpoints included (e.g. `TYPE-1 … TYPE-10` covers `TYPE-1, TYPE-2, …, TYPE-10`). The reading presumes the prefix's spec numbering has no holes between the endpoints; a hole inside a `…` range surfaces as an [`H5a`](./H5a-closing-gate-automation.md) per-prefix-numbering-hole gate failure, not a silent skip. A *retired interior ID* — a number inside a `…` range that the prefix's `## Retired REQ-IDs` table accounts for — is **not** a coverage-matrix-mapped REQ-ID for the [`H5a`](./H5a-closing-gate-automation.md) citing-test reconciliation defined in [`conventions.md`](./conventions.md) *REQ-ID discipline*: being retired it carries no citing test by design, so the range expansion excludes it from the mapped set rather than tripping the mapped-REQ-ID-with-no-citing-test arm. This carve-out is confined to the citing-test direction; a genuine numbering hole (a number neither live nor retired) still surfaces as the per-prefix-numbering-hole gate failure above.
 
 | REQ-ID | Closing leaf(s) |
 |---|---|
