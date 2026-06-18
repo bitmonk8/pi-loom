@@ -26,6 +26,5 @@ entries:
   - { id: F-0416, tier: medium, file: docs/plan_topics/V4c-terminal-outcomes.md, anchor: "Tests (ERR-12) / Adds deferral note", title: "V4c/V4f defer ERR-8…ERR-13 live-surface confirmation to downstream owners that never re-assert it" }
   - { id: F-0350, tier: medium, file: docs/plan_topics/V3e-expression-stdlib.md, anchor: "whole leaf", title: "`V3e` bundles three independent stdlib type namespaces in one leaf" }
   - { id: F-0396, tier: medium, file: docs/plan_topics/V13g-T-query-discard-observability.md, anchor: Tests, title: "V13g discard-observability tests assert only that the event fires, not payload or channel" }
-  - { id: F-0346, tier: medium, file: docs/plan_topics/H5d-transitive-completeness-gate.md, anchor: Adds, title: "H5d tokeniser depends on an unstated backtick authoring convention for coverage-matrix closing-leaf cells" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
