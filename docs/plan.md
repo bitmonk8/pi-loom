@@ -191,7 +191,8 @@ Each slice is a coherent feature area (e.g. lexer, expressions, schemas, queries
 - [`V15e` — Hot-reload static-resolution cache eviction](./plan_topics/V15e-hot-reload-cache-eviction.md)
 - [`V15f` — Invoke parse/load diagnostics](./plan_topics/V15f-invoke-diagnostics.md)
 - [`V15g` — Invoke invocation-record provenance seam](./plan_topics/V15g-invoke-provenance.md)
-- [`V15h` — Invoke ceiling-#4 depth surfaces and swallowing-handler suppression](./plan_topics/V15h-invoke-ceiling-swallowing.md)
+- [`V15h` — Invoke-child execution-Promise swallowing-handler per-site routing](./plan_topics/V15h-invoke-ceiling-swallowing.md)
+- [`V15j` — Invoke ceiling-#4 depth-6 `params` / `invoke<T>`-return routing (live carrier)](./plan_topics/V15j-invoke-ceiling-depth.md)
 
 ### V16 — Hard ceilings
 
