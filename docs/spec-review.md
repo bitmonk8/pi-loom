@@ -2,7 +2,6 @@
 list: active
 corpus: spec
 order: by-importance-then-location
-entries:
-  - { id: F-0581, tier: blocker, file: docs/spec_topics/cancellation.md, anchor: cncl-3, title: "CNCL-3 omits the \"for the same invocation\" scope qualifier its sibling CNCL-2 carries" }
+entries: []
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
