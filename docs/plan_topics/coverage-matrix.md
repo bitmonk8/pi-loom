@@ -17,7 +17,7 @@ Use the REQ-ID prefix table in [`../spec_topics/governance.md`](../spec_topics/g
 | ERR-1 … ERR-6 | `V4e` |
 | ERR-7 | `V4g` |
 | ERR-8 … ERR-12 | `V4c`, `V9i` (live subagent-surface ERR-8 co-witness) |
-| ERR-13 | `V4f`, `V14a`, `V13c`, `V15a` (live completed-callee-finality co-witnesses) |
+| ERR-13 | `V4f`, `V14a` (co-witness — delegated completed-callee-finality live-carrier), `V13c` (co-witness — delegated completed-callee-finality live-carrier), `V15a` (co-witness — delegated completed-callee-finality live-carrier) |
 | ERR-14 | `V4d` |
 | ERR-15 | `V4d` |
 | ERR-16 | `V4e` |
@@ -32,9 +32,9 @@ Use the REQ-ID prefix table in [`../spec_topics/governance.md`](../spec_topics/g
 | DISC-4 | `V10a` (collision-detection closure), `V9m` (superseded-entry-dispatch closure) |
 | DISC-5, DISC-6 | `V10b` |
 | DISC-7 | `V10c` |
-| CIO-1 | `V16a`, `V4e`, `V11f` |
+| CIO-1 | `V16a`, `V4e` (co-witness — slash-load-before-runtime temporal-placement load-time consult), `V11f` (co-witness — slash-load-before-runtime temporal-placement load-time consult) |
 | CIO-2, CIO-3, CIO-4 | `V16a` |
-| CIO-5 | `V16a`, `H7a` |
+| CIO-5 | `V16a`, `H7a` (co-witness — cross-site never-interleaves integration witness) |
 | CIO-6 | `V16a` |
 | SLSH-1, SLSH-2 | `V12a` |
 | SLSH-3, SLSH-4, SLSH-5 | `V12b` |
@@ -119,7 +119,7 @@ Each row carries a **canonical code-keyed-area token** in its leading *Token* co
 | `cka-41` | `binder/defaulting-system-note-echo.md` §System-note rendering — the five line-discipline MUSTs (rule 1 single-line collapse/trim against the reference rendering, rule 2 120-code-point truncation-with-`…`, rule 3 prefix/suffix demarcation grammar, rule 4 empty-model-content→malformed-envelope classification, rule 5 `ambiguous.candidates` non-surfacing) (un-anchored; GOV-22 residue) | `V11e` |
 | `cka-42` | `binder/determinism-cancellation-failure.md` §Determinism — `temperature: 0` + FNV-1a seed-derivation MUSTs (un-anchored; GOV-22 residue) | `V11e` |
 | `cka-43` | `binder/determinism-cancellation-failure.md` §Cancellation + §Failure modes (cancelled-binder row) — the in-flight binder-call cancellation-forwarding MUSTs: `ctx.signal` forwarded into the binder inference call as `options.signal` on the initial attempt and every budgeted retry, and an abort observed before or during the binder call (initial attempt or budgeted retry) suppresses it and surfaces the cancelled-binder system note (`loom /<name>: argument binding cancelled`) immediately while the loom does not run (un-anchored; GOV-22 residue) | `V11j` |
-| `cka-44` | `implementation-notes.md` (IMPL) §Runtime *Static-resolution load pass* — the transitive static-resolution per-pass parse cache walk → `V15a` and the in-process hot-reload re-walk (drop of the changed file plus every transitive `.warp` importer on the `LoomRegistry` swap) → `V15e`; the cross-file `(file, line, col)` diagnostic aggregation order → `V7a` (un-anchored; GOV-22 residue). Pure back-references closed on their owning leaves: multi-error batch delivery → `V7d` (PIC-21), the `Diagnostic[]` assembly and content-line format → `V7a` (DIAG-1), ambient-access ban → `H3a`, runtime dependency declarations (`semver`, `chokidar`, `yaml`) → `H1a` | `V15a` (transitive static-resolution per-pass parse-cache-walk closure), `V15e` (in-process hot-reload re-walk closure), `V7a` (cross-file (file, line, col) diagnostic aggregation-order closure), `V7d` |
+| `cka-44` | `implementation-notes.md` (IMPL) §Runtime *Static-resolution load pass* — the transitive static-resolution per-pass parse cache walk → `V15a` and the in-process hot-reload re-walk (drop of the changed file plus every transitive `.warp` importer on the `LoomRegistry` swap) → `V15e`; the cross-file `(file, line, col)` diagnostic aggregation order → `V7a` (un-anchored; GOV-22 residue). Pure back-references closed on their owning leaves: multi-error batch delivery → `V7d` (PIC-21), the `Diagnostic[]` assembly and content-line format → `V7a` (DIAG-1), ambient-access ban → `H3a`, runtime dependency declarations (`semver`, `chokidar`, `yaml`) → `H1a` | `V15a` (transitive static-resolution per-pass parse-cache-walk closure), `V15e` (in-process hot-reload re-walk closure), `V7a` (cross-file (file, line, col) diagnostic aggregation-order closure), `V7d` (co-witness — PIC-21 multi-error-batch back-reference closed on its owning leaf) |
 | `cka-45` | `binder/binder-bypass-and-envelope.md` §"System-prompt structure (normative)" — the eight structural items (Loom-identity line, Description line, Argument-hint line, Parameters block, User-arguments line, Session-context block, Envelope-kinds enumeration, No-invent-defaults instruction), the *Type display* reference renderings, the *Default-literal rendering* rule, and the *Parameter-line reference renderings* table (un-anchored; GOV-22 residue) | `V11d` |
 | `cka-46` | `pi-integration-contract/host-interfaces-core.md` §Tool execution from loom code (anchor [`#tool-execution-from-loom-code`](../spec_topics/pi-integration-contract/host-interfaces-core.md#tool-execution-from-loom-code)) — the accepted-path `execute()` envelope-lowering MUSTs: the `type === "text"` filter + single-`"\n"` join (non-text blocks discarded, no diagnostic on the discard path), the `Ok("")` empty-result case with no diagnostic, the `isError: true` → `Err(CodeToolError{cause:"execution"})` mapping with 4096-byte code-point-boundary truncation, the fixed `"tool reported an error with no text content"` no-text message, and the `execute()`-throw coercion (thrown value → underlying-error string) under the same truncation rule. Out of scope here: the non-conforming-shape / non-settling-Promise dispositions routed off `CodeToolError` (closed under `tool-calls.md` at `V14c`) (un-anchored; GOV-22 residue) | `V14a` |
 
