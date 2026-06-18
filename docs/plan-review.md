@@ -8,6 +8,5 @@ entries:
   - { id: F-0439, tier: high, file: docs/plan_topics/conventions.md, anchor: "Cross-cutting rules / Sequential by default", title: "Sequential-by-default carve-out: \"mandates concurrency at this site\" has two scopes" }
   - { id: F-0524, tier: high, file: docs/plan_topics/V9a-capability-probe.md, anchor: "Adds field", title: "V9a Adds conflates the five-element capability list with the nine function members the probe iterates" }
   - { id: F-0472, tier: high, file: docs/plan_topics/H2a-cross-cutting-gates.md, anchor: "*Tests* (first `Specific exception types only` bullet)", title: "H2a's broad-catch Code-keyed arm omits the `cka-<n>` token format that H5c pins" }
-  - { id: F-0581, tier: blocker, file: docs/plan_topics/V17a-cancellation-core.md, anchor: "CNCL-3 omits the \"for the same invocation\" scope qualifier i", title: "CNCL-3 omits the \"for the same invocation\" scope qualifier its sibling CNCL-2 carries" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
