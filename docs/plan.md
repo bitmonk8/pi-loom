@@ -81,6 +81,7 @@ Each slice is a coherent feature area (e.g. lexer, expressions, schemas, queries
 - [`V4d` — `QueryError` variant schema](./plan_topics/V4d-queryerror-variants.md)
 - [`V4e` — Pre-evaluation failures](./plan_topics/V4e-pre-evaluation-failures.md)
 - [`V4f` — No-rollback guarantee](./plan_topics/V4f-no-rollback.md)
+- [`V4g` — Pre-evaluation reload-failure integration](./plan_topics/V4g-pre-evaluation-reload-failure.md)
 
 ### V5 — Schemas, descriptions, schema-subset
 

@@ -14,7 +14,8 @@ Use the REQ-ID prefix table in [`../spec_topics/governance.md`](../spec_topics/g
 |---|---|
 | TYPE-1 … TYPE-10 | `V2b` |
 | CTRL-1 | `V3c` |
-| ERR-1 … ERR-7 | `V4e` |
+| ERR-1 … ERR-6 | `V4e` |
+| ERR-7 | `V4g` |
 | ERR-8 … ERR-12 | `V4c`, `V9i` (live subagent-surface ERR-8 co-witness) |
 | ERR-13 | `V4f`, `V14a`, `V13c`, `V15a` (live completed-callee-finality co-witnesses) |
 | ERR-14 | `V4d` |
