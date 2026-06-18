@@ -18,6 +18,5 @@ entries:
   - { id: F-0420, tier: medium, file: docs/plan_topics/coverage-matrix.md, anchor: "PIC-17, PIC-18 row", title: "`PIC-17, PIC-18` coverage row annotates V15d's facet but leaves V9c's unidentified" }
   - { id: F-0319, tier: medium, file: docs/plan_topics/coverage-matrix.md, anchor: "*Numbered REQ-IDs* table, CIO-1 and CIO-5 rows", title: "Co-witness leaves in the CIO-1 / CIO-5 cells are not distinguishable from facets in item 7's split-row sweep" }
   - { id: F-0329, tier: medium, file: docs/plan_topics/conventions.md, anchor: "§Sequential by default (\"Enforcement posture\"), §Per-phase TDD ritual self-review, §loom 1.0 release-time residue inspection item 3", title: "`H2a` blocking-runtime recogniser: `*Sync` enumeration is ambiguous (named form is a subset of the family)" }
-  - { id: F-0305, tier: medium, file: docs/plan_topics/conventions.md, anchor: "§REQ-ID discipline, *Transitive-completeness plan-maintenance* clause", title: "'Transitive-completeness trigger verb \"can introduce\" is ambiguous'" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
