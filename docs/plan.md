@@ -33,6 +33,7 @@ Project scaffold, dependency-injection skeleton, diagnostics primitive, Pi-exten
 - [`H5c` — `no-broad-catch` allow-list closing-gate reconciliation](./plan_topics/H5c-broad-catch-allow-list-gate.md)
 - [`H5d` — Transitive-completeness plan-structural closing-gate arm](./plan_topics/H5d-transitive-completeness-gate.md)
 - [`H5e` — Un-anchored normative-MUST text-scan closing-gate arm](./plan_topics/H5e-un-anchored-must-gate.md)
+- [`H5f` — Per-facet citing-test closing-gate arm (multi-leaf coverage-matrix rows)](./plan_topics/H5f-per-facet-citing-test-gate.md)
 - [`H7a` — Terminal integration-acceptance run (cross-slice end-to-end gate)](./plan_topics/H7a-integration-acceptance.md)
 
 ---
