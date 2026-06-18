@@ -13,6 +13,8 @@
 
 The code-tool off-surface outcome routing is owned by [`V14c`](./V14c-tool-calls-off-surface-routing.md); the host-denial surface by [`V14d`](./V14d-tool-calls-host-denial.md); the ceiling-#4 depth-6 code-driven-tool-args live-carrier routing by [`V14e`](./V14e-tool-calls-depth-ceiling.md); and the code-side `execute()` swallowing-handler per-site routing by [`V14f`](./V14f-tool-calls-swallowing-handler.md).
 
-**Deps.** `V14a-T`, `V15a`, `V9f`, `V8a`, `V5e`, `V4d`
+- `ERR-13` (delegated live-carrier witness for `V4f`'s completed-callee-finality deferral): a code-side tool call driven to completion on the live `V14a` surface, then a downstream `?`/panic/cancel fired, leaves the completed callee's side effect in place with no compensating turn injected.
+
+**Deps.** `V14a-T`, `V15a`, `V9f`, `V8a`, `V5e`, `V4d`, `V4f`
 
 **Ships when.** `npm test` fires the argument codes, asserts the closed `CodeToolError` enum is distinct from `ModelToolError`, asserts both return-type rows lower on the accepted path (Pi tool → `Ok(string)`, subagent-mode `.loom` → `Ok(T)`), asserts the `.loom`-callable failure surfaces via `Invoke*Error` (input-validation = `InvokeInfraError{validation}`), and asserts the five accepted-path `execute()` envelope-lowering mechanics green — text-filter + single-`"\n"` join with silent non-text discard, `Ok("")` empty-result with no diagnostic, `isError: true` → `Err(CodeToolError{cause:"execution"})` with 4096-byte code-point-boundary truncation, the fixed no-text message, and `execute()`-throw coercion under the same truncation rule.

@@ -12,6 +12,8 @@
 - [return.md — final-value contract](../spec_topics/return.md) (RET code-keyed area), against the function-result seam `V3d` defines: the callee's produced final value propagates to the `invoke` caller on success and is absent on fail/cancel.
 - [invocation.md — cross-mode matrix](../spec_topics/invocation.md) (INV area): the cross-mode matrix selects fresh-vs-attach by callee mode and a child uses its own model/tools/system. (The prompt→prompt parent-suspend facet of the matrix is owned by [`V15d`](./V15d-prompt-suspend-snapshot.md).)
 
-**Deps.** `V15a-T`, `V10a`, `V2b`, `V3d`, `V8b`
+- `ERR-13` (delegated live-carrier witness for `V4f`'s completed-callee-finality deferral): an `invoke` child driven to completion on the live `V15a` surface, then a downstream `?`/panic/cancel fired, leaves the completed callee's side effect in place with no compensating turn injected.
+
+**Deps.** `V15a-T`, `V10a`, `V2b`, `V3d`, `V8b`, `V4f`
 
 **Ships when.** `npm test` resolves and spawns an invoke across the fresh-vs-attach cross-mode matrix, asserts `INV-1` load-time and invocation-time `realpath` containment on both channels (diagnostic + `InvokeInfraError{load_failure}`), drives the static-resolution per-pass parse cache's transitive walk over a multi-file entry loom (each visited file parsed and lowered exactly once), and asserts the callee's produced final value propagates to the `invoke` caller on success and is absent on fail/cancel.

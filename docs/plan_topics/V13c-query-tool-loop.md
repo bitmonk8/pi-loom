@@ -10,6 +10,8 @@
 - [query-tool-loop.md — exhaustion](../spec_topics/query/query-tool-loop.md) (QRY code-keyed area), untyped exhaustion: ceiling #2 surfaces as `Err(QueryError { kind: "tool_loop_exhausted" })` (`ToolLoopExhaustedError`), with no `masked` field (omitted, never `[]`).
 - [query-tool-loop.md — Worked example: depth-6 forced respond at `max_rounds`](../spec_topics/query/query-tool-loop.md) (QRY code-keyed area), typed depth-6 co-fire vector: a depth-6 typed-query response trips the loom-owned depth walk (`V5e`) before AJV and ceiling #4 surfaces as `Err(QueryError { kind: "validation", cause: "schema_validation" })` (`schema_keyword: "maxDepth"`), and the surface's `masked` enumerates the co-satisfied-but-masked ceiling #2 — i.e. `masked:["ceiling#2"]` (`CIO-4`/`CIO-6`). The surfaced ceiling is the observable `validation`/`maxDepth` `Err`, not a literal `surfaced:` wire key (the event shape carries only `kind` plus the optional `masked` field).
 
-**Deps.** `V13c-T`, `V13b`, `V9c`, `V16a`, `V5e`, `V8c`, `H4b`
+- `ERR-13` (delegated live-carrier witness for `V4f`'s completed-callee-finality deferral): a query-tool-loop callee driven to completion on the live `V13c` surface, then a downstream `?`/panic/cancel fired, leaves the completed callee's side effect in place with no compensating turn injected.
+
+**Deps.** `V13c-T`, `V13b`, `V9c`, `V16a`, `V5e`, `V8c`, `V4f`, `H4b`
 
 **Ships when.** `npm test` advances the tool loop, runs the forced-respond branch, and asserts the `max_rounds:0` and exhaustion paths.

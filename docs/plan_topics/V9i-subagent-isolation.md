@@ -10,7 +10,8 @@
 - A subagent-mode invocation runs an isolated session with no shared transcript or tool table.
 - [return.md — final-value contract](../spec_topics/return.md) (RET code-keyed area), against the function-result seam `V3d` defines: the callee's produced final value propagates to the subagent caller on success and is absent on fail/cancel.
 - `loom/runtime/subagent-model-unresolved` fires when the pre-spawn model guard fails; `loom/runtime/subagent-dispose-failure` is advisory on a `dispose()` throw.
+- `ERR-8` (delegated live-carrier witness for `V4c`'s ERR-8/ERR-12 deferral): a mid-stream cancellation driven inside the real subagent `AgentSession` does not mutate the subagent session's committed turns — the live-surface confirmation `V4c` defers from the `H4a` double.
 
-**Deps.** `V9i-T`, `V9a`, `V17a`, `V11a`, `V8a`, `V3d`, `H4b`
+**Deps.** `V9i-T`, `V9a`, `V17a`, `V11a`, `V8a`, `V3d`, `V4c`, `H4b`
 
 **Ships when.** `npm test` spawns an isolated subagent session and asserts `dispose()`-in-`finally` idempotency.
