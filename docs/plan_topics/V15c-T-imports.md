@@ -9,9 +9,6 @@
 - `loom/parse/warp-top-level-statement`: a non-permitted top-level form fires.
 - `loom/parse/import-non-warp-extension`: an `import` whose path literal does not end in byte-exact lowercase `.warp` fires the diagnostic, with the offending path rendered per the `<path>` placeholder rule. Cover both a `.loom`-suffixed path and a non-lowercase `.WARP` variant (the extension match is byte-exact lowercase, so `.WARP`/`.Warp` reject on every host regardless of filesystem case-equivalence).
 - `loom/load/import-cycle`: a `.warp` static-graph cycle fires with its path; `import-unknown-symbol` / `import-name-collision` fire.
-- Auto-export visibility: a top-level `schema`, `enum`, and `fn` declared in a `.warp` file are each resolvable from an importing file with no `export` keyword on the declaration (Visibility rule in `imports.md`).
-- Re-export with alias: `export { A as B } from "./x.warp"` is visible to a downstream importer as `B`, and the re-exporting file holds no local binding for `A` (Re-exports rule).
-- Plain `import` is not re-exported: a plain `import { A } from "./x.warp"` leaves `A` invisible to a further downstream `import { A } from "<re-importing file>"` (negative half of the Re-exports rule).
 - Resolver success path: a resolvable relative `.warp` import binds its symbols successfully (complements the `IMP-1` throw test).
 
 **Deps.** `V1a`, `V15a`

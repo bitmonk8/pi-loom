@@ -186,6 +186,7 @@ Each slice is a coherent feature area (e.g. lexer, expressions, schemas, queries
 - [`V15a` — Invocation core](./plan_topics/V15a-invocation-core.md)
 - [`V15b` — Invoke depth bound and cycle detection](./plan_topics/V15b-invoke-depth-cycle.md)
 - [`V15c` — Imports (`.warp` library files)](./plan_topics/V15c-imports.md)
+- [`V15i` — Imports — export visibility and re-exports](./plan_topics/V15i-export-visibility.md)
 - [`V15d` — Prompt→prompt parent-suspend and `setActiveTools` snapshot/restore](./plan_topics/V15d-prompt-suspend-snapshot.md)
 - [`V15e` — Hot-reload static-resolution cache eviction](./plan_topics/V15e-hot-reload-cache-eviction.md)
 - [`V15f` — Invoke parse/load diagnostics](./plan_topics/V15f-invoke-diagnostics.md)
