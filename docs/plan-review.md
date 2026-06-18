@@ -13,6 +13,5 @@ entries:
   - { id: F-0314, tier: low, file: docs/plan_topics/conventions.md, anchor: "§Leaf format, **Deps** *Pickability predicate*", title: "Deps pickability predicate names git tags authoritative without stating their visibility precondition" }
   - { id: F-0400, tier: low, file: docs/plan_topics/V15c-imports.md, anchor: "implementation leaf", title: "`V15c` bundles import resolution/diagnostics and export-visibility semantics into one oversized leaf" }
   - { id: F-0338, tier: low, file: docs/plan_topics/H5a-closing-gate-automation.md, anchor: "**Deps.** field", title: "`H5a`'s `Deps: H4a` is a false sequencing edge" }
-  - { id: F-0317, tier: medium, file: docs/plan_topics/coverage-matrix.md, anchor: "the cancellation.md (CNCL) §*Race semantics — swallowing-handler attachment* row", title: "Coverage-matrix swallowing-handler row lists five closing leaves without per-site annotations" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
