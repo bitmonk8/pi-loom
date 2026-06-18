@@ -15,6 +15,5 @@ entries:
   - { id: F-0338, tier: low, file: docs/plan_topics/H5a-closing-gate-automation.md, anchor: "**Deps.** field", title: "`H5a`'s `Deps: H4a` is a false sequencing edge" }
   - { id: F-0317, tier: medium, file: docs/plan_topics/coverage-matrix.md, anchor: "the cancellation.md (CNCL) §*Race semantics — swallowing-handler attachment* row", title: "Coverage-matrix swallowing-handler row lists five closing leaves without per-site annotations" }
   - { id: F-0318, tier: medium, file: docs/plan_topics/coverage-matrix.md, anchor: "pi-integration-contract/registration-steps.md row in the *Code-keyed obligation areas* table", title: "`registration-steps.md` → V9b coverage row bundles three obligation areas (and a two-predicate watcher-note bullet) with no sub-IDs" }
-  - { id: F-0420, tier: medium, file: docs/plan_topics/coverage-matrix.md, anchor: "PIC-17, PIC-18 row", title: "`PIC-17, PIC-18` coverage row annotates V15d's facet but leaves V9c's unidentified" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
