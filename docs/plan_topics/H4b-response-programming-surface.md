@@ -1,4 +1,4 @@
-# `H4b` — Response-programming surface (scripted-injection contract)
+# `H4b` — Response-programming surface
 
 **Convention.** [`conventions.md`](./conventions.md) (phase categories — end-to-end harness).
 
