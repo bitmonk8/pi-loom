@@ -11,6 +11,6 @@
 - [return.md — final-value contract](../spec_topics/return.md) (RET code-keyed area), against the function-result seam `V3d` defines: the callee's produced final value propagates to the subagent caller on success and is absent on fail/cancel.
 - `loom/runtime/subagent-model-unresolved` fires when the pre-spawn model guard fails; `loom/runtime/subagent-dispose-failure` is advisory on a `dispose()` throw.
 
-**Deps.** `V9a`, `V17a`, `V11a`, `V8a`, `V3d`, `H4b`
+**Deps.** `V9a`, `V17a`, `V11a`, `V8a`, `V3d`, `H4c`
 
 **Ships when.** The tests above exist, compile, and fail red for the intended reason.

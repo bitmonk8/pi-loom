@@ -12,6 +12,6 @@
 - `loom/runtime/subagent-model-unresolved` fires when the pre-spawn model guard fails; `loom/runtime/subagent-dispose-failure` is advisory on a `dispose()` throw.
 - `ERR-8` (delegated live-carrier witness for `V4c`'s ERR-8/ERR-12 deferral): a mid-stream cancellation driven inside the real subagent `AgentSession` does not mutate the subagent session's committed turns — the live-surface confirmation `V4c` defers from the `H4a` double.
 
-**Deps.** `V9i-T`, `V9a`, `V17a`, `V11a`, `V8a`, `V3d`, `V4c`, `H4b`
+**Deps.** `V9i-T`, `V9a`, `V17a`, `V11a`, `V8a`, `V3d`, `V4c`, `H4c`
 
 **Ships when.** `npm test` spawns an isolated subagent session and asserts `dispose()`-in-`finally` idempotency.
