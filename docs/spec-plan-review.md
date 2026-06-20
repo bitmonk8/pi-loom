@@ -179,6 +179,5 @@ entries:
   - { id: F-0833, tier: high, file: docs/spec_topics/pi-integration-contract/version-bump-step2.md, anchor: "step-2 preamble sentence", title: "Step-2 preamble SHOULD range \"(f) through (aj)\" excludes item (ak)" }
   - { id: F-0718, tier: high, file: docs/spec_topics/pi-integration-contract/version-bump-step2.md, anchor: "item (a) (#bump-checklist-instance-survival)", title: "Item (a)'s \"authoritative determination\" gate has no defined evidentiary standard" }
   - { id: F-0836, tier: high, file: docs/spec_topics/pi-integration-contract/version-bump-step2.md, anchor: "editorial-review checklist + numbered sub-step 2", title: "`version-bump-step2.md` — \"step 2(a)\" label collides with editorial-review item (a)" }
-  - { id: F-0824, tier: high, file: docs/spec_topics/pi-integration-contract/version-bump-step2.md, anchor: "checklist item (ah) under the step-2 editorial-review block", title: "version-bump-step2.md — item (ah) embeds a bare MUST inside a SHOULD-level audit obligation" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
