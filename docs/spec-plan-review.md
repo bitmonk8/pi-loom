@@ -187,6 +187,5 @@ entries:
   - { id: F-0713, tier: high, file: docs/spec_topics/pi-integration-contract/host-interfaces-services.md, anchor: "PIC-10 (Checkpoint seam) production-wiring rule", title: "`Checkpoint` `loop-iter` macrotask-yield mechanism unspecified and may collide with the PIC-12 `WallClock` ban" }
   - { id: F-0632, tier: high, file: docs/spec_topics/pi-integration-contract/capability-probe.md, anchor: "Step 0 (d) Peer-dep version", title: "Mandated `createRequire(...).resolve(\"<peer>\")` probe collides with the audit's family-(4) CJS-reach prohibition" }
   - { id: F-0707, tier: high, file: docs/spec_topics/grammar.md, anchor: "Block expressions section, statement-form-block paragraph", title: "grammar.md — StmtBlock tail `?` early-return carve-out lists only `@…?`" }
-  - { id: F-0700, tier: high, file: docs/spec_topics/frontmatter/frontmatter-fields-b-and-templates.md, anchor: "system › Interpolation › Path grammar", title: "`system:` interpolation namespace contradicts the loom-side-only value model" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
