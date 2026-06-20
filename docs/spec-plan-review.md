@@ -172,6 +172,5 @@ entries:
   - { id: F-0584, tier: medium, file: docs/plan.md, anchor: "§Vertical slices — V10, V11, V12, V14, V15 slice sub-sections", title: "Multiple backward cross-slice / sub-series dependencies carry no interleave note (V10, V11e→V11h, V12→V13, V14/V15/V16)" }
   - { id: F-0432, tier: medium, file: docs/plan.md, anchor: "§How to use this plan, step 2", title: "§How to use this plan, step 2 — transitive-completeness trigger verb \"can introduce\" diverges from the authoritative present-state \"carry\"" }
   - { id: F-0921, tier: medium, file: docs/plan.md, anchor: "Horizontal phases link list", title: "H4b heading offers a second name for the response-programming surface with no equivalence statement" }
-  - { id: F-0786, tier: high, file: docs/spec_topics/schema-subset.md, anchor: "§ Lowering Algorithm step 3 (Union-of-primitives bullet)", title: "schema-subset.md — Step 3 primitive-union form is permissive, breaking the canonical-hash byte-identity contract" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
