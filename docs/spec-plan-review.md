@@ -175,6 +175,5 @@ entries:
   - { id: F-0786, tier: high, file: docs/spec_topics/schema-subset.md, anchor: "§ Lowering Algorithm step 3 (Union-of-primitives bullet)", title: "schema-subset.md — Step 3 primitive-union form is permissive, breaking the canonical-hash byte-identity contract" }
   - { id: F-0755, tier: high, file: docs/spec_topics/query/query-forms.md, anchor: "§\"Degenerate rendered templates\" → \"Parse-time warning\" bullet", title: "`empty-template` static-body check: pre- vs post-escape order undefined" }
   - { id: F-0753, tier: high, file: docs/spec_topics/query/query-failure-and-repair.md, anchor: "Schema-validation respond-repair (third paragraph, the \"each follow-up counts as", title: "`query-failure-and-repair.md` — `respond_repair.attempts` accounting self-contradicts" }
-  - { id: F-0833, tier: high, file: docs/spec_topics/pi-integration-contract/version-bump-step2.md, anchor: "step-2 preamble sentence", title: "Step-2 preamble SHOULD range \"(f) through (aj)\" excludes item (ak)" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
