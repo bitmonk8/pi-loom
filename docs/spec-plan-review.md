@@ -189,6 +189,5 @@ entries:
   - { id: F-0707, tier: high, file: docs/spec_topics/grammar.md, anchor: "Block expressions section, statement-form-block paragraph", title: "grammar.md — StmtBlock tail `?` early-return carve-out lists only `@…?`" }
   - { id: F-0700, tier: high, file: docs/spec_topics/frontmatter/frontmatter-fields-b-and-templates.md, anchor: "system › Interpolation › Path grammar", title: "`system:` interpolation namespace contradicts the loom-side-only value model" }
   - { id: F-0685, tier: high, file: docs/spec_topics/discovery/discovery-sources.md, anchor: "DISC-4 Slash-name collision rules paragraph", title: "DISC-4 same-priority collision rule contradicts its own cross-format carve-out" }
-  - { id: F-0452, tier: high, file: docs/plan_topics/conventions.md, anchor: "§REQ-ID discipline, *Transitive-completeness plan-maintenance* clause", title: "Transitive-completeness trigger: item-1 (\"carries an executable REQ-ID\") contradicts the item-2 re-citation carve-out" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
