@@ -153,6 +153,5 @@ entries:
   - { id: F-0569, tier: medium, file: docs/plan_topics/V15e-hot-reload-cache-eviction.md, anchor: "Adds / Tests / Ships when", title: "V15e hot-reload eviction walks only the `.warp` import-edge graph, leaving stale static-resolution entries for `invoke` / `.loom tools:`-edge parents" }
   - { id: F-0399, tier: medium, file: docs/plan_topics/V15b-T-invoke-depth-cycle.md, anchor: "Tests (loom/load/invocation-cycle bullet)", title: "Unresolvable-callee cycle-detection test obligation is unstated in `V15b-T`" }
   - { id: F-0564, tier: medium, file: docs/plan_topics/V15a-invocation-core.md, anchor: "Adds / Tests / Ships-when / Deps", title: "V15a Ships-when spawns an invoke across the cross-mode matrix without depending on the session spawn-and-attach machinery" }
-  - { id: F-0559, tier: medium, file: docs/plan_topics/V14c-tool-calls-off-surface-routing.md, anchor: "Adds, Tests, Ships when", title: "V14c — pre-eval setup throw off-surface bullet drops its `.loom`-callable-adapter scope" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
