@@ -156,6 +156,5 @@ entries:
   - { id: F-0559, tier: medium, file: docs/plan_topics/V14c-tool-calls-off-surface-routing.md, anchor: "Adds, Tests, Ships when", title: "V14c — pre-eval setup throw off-surface bullet drops its `.loom`-callable-adapter scope" }
   - { id: F-0560, tier: medium, file: docs/plan_topics/V14b-tool-calls-parallel-batch.md, anchor: "Adds / Tests", title: "V14b leaves Pi's model-driven parallel-tool-mode behaviour unsurfaced as an unpinned host presupposition" }
   - { id: F-0946, tier: medium, file: docs/plan_topics/V13d-query-failure-repair.md, anchor: "V13d leaf body", title: "V13d bundles respond-repair loop control with byte-exact follow-up template rendering" }
-  - { id: F-0557, tier: medium, file: docs/plan_topics/V13c-query-tool-loop.md, anchor: "depth-6 co-fire Tests bullet", title: "V13c depth-6 co-fire bullet mis-states the `RuntimeEvent` shape as carrying \"only `kind` plus the optional `masked` field\"" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
