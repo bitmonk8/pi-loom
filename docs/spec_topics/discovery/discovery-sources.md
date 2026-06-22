@@ -18,8 +18,6 @@ The `.loom` and `.warp` file extensions are coined by this extension. Under the 
 
 Pi has no central file-extension registry: ownership is established de facto by each extension's discovery walker. Cross-extension collisions on `.loom` or `.warp` files — a hypothetical future extension that also walks `*.loom` — manifest through the existing slash-name collision rule below (see [Slash-name collision rules](#disc-4)), not through a separate file-extension rule; there is no `loom/load/extension-claimed-by-other-extension` code in loom 1.0.
 
-This check is a point-in-time observation, not a guarantee. The check has no REQ-ID, no per-leaf test obligation, and emits no diagnostic; it exists to record the namespace-clearance decision alongside the parallel `pi` manifest-namespace decision in the framing paragraph.
-
 <a id="discovery-roots"></a>
 
 **Discovery roots.** A *discovery root* is the directory each source contributes to the discovery walk. The set of active roots for a Pi session is the union of:
