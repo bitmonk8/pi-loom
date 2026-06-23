@@ -14,4 +14,4 @@
 
 **Deps.** `V9i-T`, `V9a`, `V17a`, `V11a`, `V8a`, `V3d`, `V4c`, `H4c`
 
-**Ships when.** `npm test` spawns an isolated subagent session and asserts `dispose()`-in-`finally` idempotency.
+**Ships when.** `npm test` spawns an isolated subagent session and asserts `dispose()`-in-`finally` idempotency, and asserts the `ERR-8` live-surface outcome — a mid-stream cancellation inside the real subagent `AgentSession` leaves its committed turns unmutated.

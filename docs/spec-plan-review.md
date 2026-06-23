@@ -71,7 +71,6 @@ entries:
   - { id: F-1126, tier: medium, file: docs/spec_topics/audit-wire-and-canary.md, anchor: "", title: "`audit-wire-and-canary.md` — wall-clock budget MUST has no enforceable bound, and green-path counter key names are implementation-chosen" }
   - { id: F-1248, tier: medium, file: docs/plan_topics/coverage-matrix.md, anchor: "Numbered REQ-IDs (runtime obligations) table", title: "SUBS-1 is a numbered REQ-ID with no Numbered REQ-IDs table row" }
   - { id: F-1242, tier: medium, file: docs/plan_topics/V9n-transport-error-mapping.md, anchor: Adds, title: "V9n Adds misattributes the prompt-mode `provider` source to V9j, contradicting the leaf's own tests" }
-  - { id: F-1243, tier: medium, file: docs/plan_topics/V9i-T-subagent-isolation.md, anchor: "`Tests`", title: "ERR-8 delegated live-carrier witness has no red-first home in `V9i-T` and no `Ships when` gate" }
   - { id: F-1249, tier: medium, file: docs/plan_topics/V2e-wire-name-translation.md, anchor: "Tests / Ships when", title: "Outbound wire-name translation is claimed but never asserted" }
   - { id: F-1258, tier: medium, file: docs/plan_topics/V14a-T-tool-calls.md, anchor: "Tests, Deps", title: "V14a-T omits the ERR-13 delegated-witness test and the V4f dependency carried by its paired impl leaf" }
   - { id: F-1255, tier: medium, file: docs/plan_topics/V13c-T-query-tool-loop.md, anchor: "Tests, Deps", title: "V13c-T omits the ERR-13 delegated-witness bullet and `V4f` Dep its impl partner carries" }
