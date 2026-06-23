@@ -104,6 +104,5 @@ entries:
   - { id: F-1247, tier: high, file: docs/plan.md, anchor: "§How to use this plan, step 2", title: "Step 2's H5b-Deps trigger lists a third disjunct broader than conventions.md's predicate" }
   - { id: F-1224, tier: blocker, file: docs/spec_topics/pi-integration-contract/subagent.md, anchor: "`<a id=\"pic-22\">` paragraph and its conformance-test sentence", title: "PIC-22 parallel-spawn obligation gates on N ≥ 3, leaving N = 1/2 unwitnessed" }
   - { id: F-1163, tier: blocker, file: docs/spec_topics/pi-integration-contract/session-only-degraded-state.md, anchor: "opening *Implementation gate* blockquote and every normative clause / fixture below it", title: "`session-only-degraded-state.md` — whole-page implementation gate is ambiguous and contradicts sibling pages" }
-  - { id: F-1177, tier: blocker, file: docs/spec_topics/grammar.md, anchor: "Newline continuation", title: "`grammar.md` — `?` in the trailing-operator continuation trigger conflates the ternary head with postfix error-propagation" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->

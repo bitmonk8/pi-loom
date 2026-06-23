@@ -175,6 +175,8 @@ Statements are separated by newlines. A statement implicitly continues across on
 | Trailing comma | the line ends with `,` (inside any open `(` / `[` / `{`) | `f(a,\n  b)` |
 | Leading binary or ternary operator | the next non-blank line begins with one of the operators above | `let x = a\n  + b` |
 
+**The `?` trigger is the ternary head only.** In both operator rows, `?` triggers continuation solely as the ternary-conditional head (`cond ?\n  a : b`). The postfix error-propagation `?` (ERR-18) is a complete-expression terminator that desugars to `return Err(e)`, so it never triggers continuation and always closes the statement — see the [StmtBlock tail-`?` carve-out](#block-expressions).
+
 **Blank lines do not break a continuation.** When any of the four triggers holds, the parser continues across one or more newlines regardless of how many of those newlines are blank. `let x =\n\n  foo` is one statement equivalent to `let x = foo`. Trailing whitespace on the prior line is irrelevant. The same rule applies to the leading-operator form: `let x = a\n\n  + b` continues across the blank line.
 
 When no trigger holds, the newline closes the statement. There is no semicolon escape and no explicit line-continuation marker (no `\` at end of line; backslash inside source is `loom/parse/stray-backslash` per [Lexical Structure](./lexical.md#stray-backslash)).
