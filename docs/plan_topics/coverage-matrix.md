@@ -87,7 +87,7 @@ Each row carries a **canonical code-keyed-area token** in its leading *Token* co
 | `cka-7` | `functions.md` (FN), `return.md` (RET) | `V3d` |
 | `cka-8` | `schemas.md` (SCHM) | `V5a`, `V5b` |
 | `cka-9` | `descriptions.md` (DESC) | `V5c` |
-| `cka-10` | `schema-subset.md` (SUBS) | `V5d`, `V5e`, `V5f` |
+| `cka-10` | `schema-subset.md` (SUBS) | `V5d`, `V5e`, `V5f`, `V15j` (co-witness — delegated live-carrier witness for V5e's ceiling-#4 routing at the runtime invoke boundary) |
 | `cka-11` | `frontmatter/frontmatter-fields-a.md`, `frontmatter-fields-b-and-templates.md` (FRNT) | `V6a`, `V6b`, `V6c`, `V6d`, `V6e` |
 | `cka-12` | `query/` (QRY) | `V13a`, `V13b`, `V13c`, `V13d`, `V13g`, `V13h` |
 | `cka-13` | `tool-calls.md` (TOOL) | `V14a`, `V14b`, `V14c`, `V14e` |
