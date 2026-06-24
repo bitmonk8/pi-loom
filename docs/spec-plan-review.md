@@ -150,6 +150,5 @@ entries:
   - { id: F-1364, tier: high, file: docs/plan_topics/coverage-matrix.md, anchor: "Numbered REQ-IDs (runtime obligations) table", title: "SUBS-1 union-lowering rule is an unmapped executable REQ-ID with no closing leaf or citing test" }
   - { id: F-1372, tier: high, file: docs/plan_topics/coverage-matrix.md, anchor: "Code-keyed obligation areas table", title: "V15i export-visibility obligations are untracked by the coverage matrix and cite prose section names" }
   - { id: F-1373, tier: high, file: docs/plan_topics/coverage-matrix.md, anchor: "Code-keyed obligation areas (no numbered REQ-IDs) table", title: "V15j invoke-ceiling-#4 live-carrier witness is untracked: no coverage-matrix row and a prose-only Tests citation" }
-  - { id: F-1374, tier: high, file: docs/plan_topics/coverage-matrix.md, anchor: "*Code-keyed obligation areas (no numbered REQ-IDs)* table", title: "V17c (§Granularity closing leaf) has no coverage-matrix row and cites only prose section links" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
