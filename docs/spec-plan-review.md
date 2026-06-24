@@ -146,6 +146,5 @@ entries:
   - { id: F-1132, tier: high, file: docs/spec_topics/binder/defaulting-system-note-echo.md, anchor: "§System-note rendering, rule 2", title: "`defaulting-system-note-echo.md` rule 2: \"exactly 120 code points\" MUST contradicts the cluster-boundary MAY" }
   - { id: F-1253, tier: high, file: docs/plan_topics/leaf-template.md, anchor: "`**Spec.**` field description", title: "Leaf template's `Spec.` closure rule omits transitivity" }
   - { id: F-1352, tier: high, file: docs/plan_topics/coverage-matrix.md, anchor: "Numbered REQ-IDs table", title: "Close BNDR-10 at V11i" }
-  - { id: F-1353, tier: high, file: docs/plan_topics/coverage-matrix.md, anchor: "Numbered REQ-IDs table", title: "Close BNDR-11 at V11a" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
