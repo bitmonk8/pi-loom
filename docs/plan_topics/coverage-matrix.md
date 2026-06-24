@@ -26,6 +26,7 @@ Use the REQ-ID prefix table in [`../spec_topics/governance.md`](../spec_topics/g
 | ERR-17 | `V4d`, `V13d` |
 | ERR-18 | `V4a` |
 | ERR-19 | `V4d`, `V13c` |
+| SUBS-1 | `V5f` |
 | BNDR-1, BNDR-2, BNDR-3 | `V11c` |
 | BNDR-4, BNDR-5 | `V2d` |
 | BNDR-6 | `V11h` |
