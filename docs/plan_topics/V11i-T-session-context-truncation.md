@@ -10,6 +10,7 @@
   - token cap, over-budget mid-walk — `[1200, 900, 1500, 2000, 2800, …]`: four included (5600), fifth excluded;
   - turn cap, inclusive boundary — 21 turns whose token total never exceeds 8000: exactly the 20 newest included, 21st excluded;
   - single oversized newest turn (alone exceeds 8000): zero included turns (distinct from the `BNDR-7i` rendering assertion the `V11b` renderer owns).
+- `BNDR-10` ([BNDR-10](../spec_topics/binder/binder-model-and-context.md#bndr-10)): for a `mode: subagent` loom declaring `bind_context: session`, the truncation walk is skipped and no *Recent session context* block is emitted — the binder input is constructed as for `bind_context: none` (slash text plus frontmatter only).
 
 **Deps.** `V8e`, `V9i`
 
