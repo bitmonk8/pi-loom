@@ -155,6 +155,5 @@ entries:
   - { id: F-1359, tier: high, file: docs/plan_topics/V11a-binder-model-resolution.md, anchor: Adds, title: "`Model<Api>` model-identity field and `provider/modelId` reference grammar are undefined in the cited spec" }
   - { id: F-1241, tier: high, file: docs/plan_topics/H5a-closing-gate-automation.md, anchor: Adds, title: "H5a's warn-only mode enumerates three live-corpus surfaces but omits the H5f per-facet surface H5b and H6a require" }
   - { id: F-1235, tier: high, file: docs/plan_topics/H4a-factory-shell-and-harness.md, anchor: "Adds (the \"complete never-fault prohibition\" / load-bearing-on-synchronous-completion sentence) and Tests bullet 1", title: "H4a \"complete never-fault prohibition\" is spec-backed for the renderer only, not for `registerFlag` or the factory-time `pi.on` subscriptions" }
-  - { id: F-1247, tier: high, file: docs/plan.md, anchor: "§How to use this plan, step 2", title: "Step 2's H5b-Deps trigger lists a third disjunct broader than conventions.md's predicate" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
