@@ -95,7 +95,7 @@ The `abort()` override applies in **both** modes because no spec-supported calle
 
 **Tool execution from loom code.** Code-side `<name>(args)` calls invoke the Pi tool's `execute(toolCallId, params, signal, onUpdate, ctx)` directly:
 
-- `toolCallId` is a synthesised UUID prefixed `loom-direct:`.
+- `toolCallId` is a synthesised UUID prefixed `loom-direct:`, whose UUID body renders in canonical lowercase 8-4-4-4-12 hex form (the [§7 `<uuid>` placeholder convention](../diagnostics/placeholder-rendering-b.md#7-identifier--descriptor--and-closed-enum-placeholders)) and is minted fresh per code-side tool call through the [`IdSource` seam (PIC-20)](./host-interfaces-services.md#pic-20).
 - `params` is the loom value lowered to JSON (wire names applied).
 - `signal` is the loom's current `loomAbort.signal` (always defined; see **Cancellation source** below).
 - `onUpdate` is a no-op (loom 1.0 does not surface streaming partial results to loom code).
