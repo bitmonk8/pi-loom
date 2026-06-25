@@ -1,6 +1,6 @@
 # `V17b` — Forwarding-listener throw-trap
 
-**Spec.** [`../spec_topics/cancellation.md`](../spec_topics/cancellation.md), [`../spec_topics/pi-integration-contract/host-interfaces-core.md`](../spec_topics/pi-integration-contract/host-interfaces-core.md).
+**Spec.** [`../spec_topics/cancellation.md`](../spec_topics/cancellation.md), [`../spec_topics/pi-integration-contract/host-interfaces-core.md`](../spec_topics/pi-integration-contract/host-interfaces-core.md), [`../spec_topics/pi-integration-contract/host-prerequisites.md`](../spec_topics/pi-integration-contract/host-prerequisites.md).
 
 **Adds.** The forwarding-listener throw-trap — a distinctly complex, independently-verifiable sub-mechanism peeled off the [`V17a`](./V17a-cancellation-core.md) cancellation core: a throw raised inside any of the three steady-state forwarding listeners' `loomAbort.abort(source.reason)` call is routed through the runtime-defect surface without swallowing the cancellation.
 
