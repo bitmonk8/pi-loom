@@ -29,3 +29,10 @@ The snapshot/restore is the only control surface for visibility; the cached `pi.
 - The `unknown_tool` cause on `CodeToolError` (see [Tool Calls](../tool-calls.md)) and the captured-reference dispatch model from [Parameters and Frontmatter — Resolution snapshot](../frontmatter.md#resolution-snapshot) are unaffected: code-side `<name>(...)` calls never touch the active-set machinery — they dispatch directly through the loom's load-time callable table.
 
 No Pi-side change is required for loom 1.0; if Pi later adds `pi.unregisterTool`, the registration cache becomes the natural site to call it from on extension teardown without altering the per-mode wiring rule above.
+
+## Acceptance criteria — PIC-17 active-set install vector
+
+The active-set allowlist-gating obligation ([PIC-17](#pic-17)) decomposes into the fixture obligations below, all of which the implementation MUST satisfy (the leaf owns fixture-shape; branch coverage and the exact install vector are normative). Fixtures assert the step-2 `pi.setActiveTools([...])` install vector exactly and that the step-1 `pi.getActiveTools()` snapshot is held only for the step-4 restore and is **not** unioned into the step-2 install, witnessing the [Parameters and Frontmatter](../frontmatter/frontmatter-fields-a.md#tools) "ambient tools are deliberately *not* inherited" invariant. No new active-set API or wire field is introduced.
+
+- **(a) Empty callable set, untyped/free turn.** For a loom whose declared callable set is empty on an untyped query (no respond tool), with the step-1 `pi.getActiveTools()` snapshot non-empty: assert the step-2 install vector is exactly `[]` and contains no member of the step-1 snapshot.
+- **(b) Forced-respond turn.** On a typed-query response turn (the respond tool active), assert the step-2 install vector is exactly `[...loomCallableSetNames, respondToolName]` — i.e. `[respondToolName]` (`__loom_respond_<slug>`) when the callable set is empty — and contains no member of the step-1 snapshot.
