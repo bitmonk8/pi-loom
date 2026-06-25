@@ -11,8 +11,8 @@
 - A subagent-mode invocation runs an isolated session with no shared transcript or tool table.
 - [return.md — final-value contract](../spec_topics/return.md) (RET code-keyed area), against the function-result seam `V3d` defines: the callee's produced final value propagates to the subagent caller on success and is absent on fail/cancel.
 - `loom/runtime/subagent-model-unresolved` fires when the pre-spawn model guard fails; `loom/runtime/subagent-dispose-failure` is advisory on a `dispose()` throw.
-- `ERR-8` (delegated live-carrier witness for `V4c`'s ERR-8/ERR-12 deferral): a mid-stream cancellation driven inside the real subagent `AgentSession` does not mutate the subagent session's committed turns — the live-surface confirmation `V4c` defers from the `H4a` double.
+- `ERR-8` (delegated live-carrier witness for `V4c`'s ERR-8/ERR-12 deferral): the live-surface confirmation that a mid-stream cancellation inside the real subagent `AgentSession` does not mutate the subagent session's committed turns is a **real-host-only behaviour** — it is not asserted under `npm test` (no offline source feeds a real `createAgentSession` session a scripted cancellable stream) but is witnessed at the manual real-host smoke gate ([`real-host-smoke-gate.md`](./real-host-smoke-gate.md) criterion (c)). This is the live-surface confirmation `V4c` defers from the `H4a` double.
 
 **Deps.** `V9i-T`, `V9a`, `V17a`, `V11a`, `V8a`, `V3d`, `V4c`, `H4c`
 
-**Ships when.** `npm test` spawns an isolated subagent session and asserts `dispose()`-in-`finally` idempotency, and asserts the `ERR-8` live-surface outcome — a mid-stream cancellation inside the real subagent `AgentSession` leaves its committed turns unmutated.
+**Ships when.** `npm test` spawns an isolated subagent session and asserts `dispose()`-in-`finally` idempotency. The `ERR-8` live-surface outcome — a mid-stream cancellation inside the real subagent `AgentSession` leaves its committed turns unmutated — is a real-host-only behaviour witnessed at the manual real-host smoke gate ([`real-host-smoke-gate.md`](./real-host-smoke-gate.md)), not under `npm test`.
