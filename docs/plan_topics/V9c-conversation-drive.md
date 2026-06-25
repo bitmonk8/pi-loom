@@ -1,6 +1,6 @@
 # `V9c` — Prompt-mode conversation drive and active-set gating
 
-**Spec.** [`../spec_topics/pi-integration-contract/conversation-drive.md`](../spec_topics/pi-integration-contract/conversation-drive.md), [`../spec_topics/pi-integration-contract/host-interfaces-core.md`](../spec_topics/pi-integration-contract/host-interfaces-core.md), [`../spec_topics/pi-integration-contract/subagent.md`](../spec_topics/pi-integration-contract/subagent.md#pic-2).
+**Spec.** [`../spec_topics/pi-integration-contract/conversation-drive.md`](../spec_topics/pi-integration-contract/conversation-drive.md), [`../spec_topics/pi-integration-contract/host-interfaces-core.md`](../spec_topics/pi-integration-contract/host-interfaces-core.md), [`../spec_topics/pi-integration-contract/conversation-drive.md`](../spec_topics/pi-integration-contract/conversation-drive.md#pic-2).
 
 **Adds.** The prompt-mode driver: `sendUserMessage` (void), `waitForIdle`, trailing-turn `Ok(string)` extraction, the `stopReason:"error"` probe, the prompt-mode `pi.on` subscription (cancel-forward only, forwarding Pi's `ctx.signal` into the `loomAbort` controller owned by V17a), and the active-set gating window (snapshot → `setActiveTools` → query → `finally` restore; ambient tools not inherited). Exposes the `stopReason:"error"` probe-result and the trailing-turn `Ok(string)` extraction points as seams consumed by [`V9n`](./V9n-transport-error-mapping.md)'s transport-error mapping.
 
