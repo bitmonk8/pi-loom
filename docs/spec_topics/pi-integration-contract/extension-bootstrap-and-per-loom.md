@@ -1,5 +1,11 @@
 # Extension bootstrap and per loom
 
+<a id="extension-esm-type-module"></a>
+**Extension ES-module declaration.** The loom runtime is ES-modules-only at loom 1.0, so the extension's `package.json` MUST set `"type": "module"`. A build-time gate verifies both this `package.json#type` value and the absence of CJS-reach shapes in `src/` (the family-(4) CommonJS-reach prohibitions are pinned at [*Recognised import/access shapes*](./audit-recognised-shapes.md#audit-recognised-shapes)) before the inventory-closure audit's first run on `main`.
+
+<a id="extension-entry-point"></a>
+**Extension entry point.** A single Pi extension module (`extensions/index.ts`, the file Pi auto-discovers from `package.json#pi.extensions = ["./extensions"]`) exporting the standard `default function (pi: ExtensionAPI)` factory.
+
 **Extension-bootstrap SDK failures.** A failure from any of the registration calls in steps 1–5 above is fatal at the granularity of the failing surface; the granularity rule is per call type, not per call site. `pi.registerMessageRenderer`, `pi.registerFlag`, and the three factory-time `pi.on` subscriptions are synchronous-void and fault only by a synchronous throw at the factory boundary — there is no separate Promise-rejection path for these calls (see **Renderer registration** and **Factory-time synchronous-void registration** below). A rejection can arise only where a call runs inside an async event handler (the `session_start`-time `pi.registerCommand` and `pi.getCommands` paths below):
 
 - **`pi.registerMessageRenderer` failure (factory-time, step 0 having succeeded so the capability is present but the call itself throws).** The renderer registration is dropped; the extension factory still completes the remaining steps. System notes for this extension instance permanently degrade to the `ctx.ui.notify` arm of the **System notes** fallback chain below (the persistent-transcript surface is unavailable; the transient toast and the `console.error` last-resort arms remain). The runtime emits `loom/load/extension-bootstrap-failed` (E, load) with `details: { capability: "pi.registerMessageRenderer", error: <error.message> }` and proceeds.
