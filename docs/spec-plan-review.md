@@ -11,7 +11,6 @@ entries:
   - { id: F-1210, tier: medium, file: docs/spec_topics/schema-subset.md, anchor: "`## Canonical schema hash`", title: "`schema-subset.md` — canonical schema hash silent on whether `description` participates in the canonical form" }
   - { id: F-1211, tier: medium, file: docs/spec_topics/schema-subset.md, anchor: "Subset bullets (Validation row)", title: "`description:` emission is promised by `descriptions.md` but unspecified by the Schema Subset and Lowering Algorithm" }
   - { id: F-1274, tier: medium, file: docs/spec_topics/runtime-value-model.md, anchor: "", title: "Coin `RVM-1…RVM-N` on `runtime-value-model.md`" }
-  - { id: F-1271, tier: medium, file: docs/spec_topics/return.md, anchor: "", title: "Coin `RET-1…RET-N` on `return.md`" }
   - { id: F-1305, tier: medium, file: docs/spec_topics/query/query-tool-loop.md, anchor: "Forced-respond boundary paragraph and *Initial forced respond turn template*", title: "query-tool-loop.md forced-respond right-trim MUST has no normative test vector" }
   - { id: F-1198, tier: medium, file: docs/spec_topics/provider-error-mapping.md, anchor: "", title: "`provider-error-mapping.md` — five independent defects in the error / seed-field classifier (stop-reason wording, `\"length\"` mapping, `Api` coverage, mistral/bedrock match-surface, broken \"above\" pointer)" }
   - { id: F-1193, tier: medium, file: docs/spec_topics/placeholder-rendering-a.md, anchor: "", title: "`loom/parse/type-alias-cycle` rendering: `<path>` placeholder does not fit a type-name chain" }
