@@ -197,6 +197,5 @@ entries:
   - { id: F-1939, tier: high, file: docs/plan_topics/V15b-invoke-depth-cycle.md, anchor: "Adds / Tests / Deps", title: "INV-4 counts cross-file `.warp fn` frames, but no leaf builds the `.warp fn` call-execution / frame-counting path" }
   - { id: F-1937, tier: high, file: docs/plan_topics/V15a-T-invocation-core.md, anchor: "Tests, Deps", title: "ERR-13 completed-callee-finality live-carrier witnesses are unpaired — present in `V15a`/`V13c`/`V14a` impl Tests but absent from their `-T` leaves and `Ships when` gates" }
   - { id: F-1892, tier: high, file: "docs/plan_topics/<new>-*.md", anchor: "new closing leaf for PIC-55", title: "PIC-55 watcher post-error / `watcher-terminated` recovery has no implementing leaf and its registered diagnostic is untested" }
-  - { id: F-1752, tier: blocker, file: docs/spec_topics/slash-invocation.md, anchor: "SLSH-4 per-kind table (SNK-j row), SLSH-5 chain-attribution paragraph", title: "SNK-j is unreachable under SLSH-5's leaf-kind rule" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
