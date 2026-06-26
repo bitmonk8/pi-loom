@@ -15,7 +15,7 @@
 - `TYPE-8`: inline-object field-wise compatibility with exact field-set / `additionalProperties:false`.
 - `TYPE-9`: per-site codes (`let-rhs-type-mismatch`, `fn-arg-type-mismatch`, ternary/array common-type) fire on static mismatch.
 - `TYPE-10`: object-schema named types are nominal — no cross-named structural admission.
-- `TYPE-11`: alias-schema transparency — alias-unfold cases hold (`"low" ⊑ Severity` for `schema Severity = "low" | "medium" | "high"`, and `StringOrNumber ⊑ string | number`), recursing through nested aliases; aliasing an object schema still re-enters TYPE-10's nominal case.
+- `TYPE-11`: alias-schema transparency — the alias unfolds to its RHS first, recursing through nested aliases: alias-unfold cases hold (`"low" ⊑ Severity` for `schema Severity = "low" | "medium" | "high"`, and `StringOrNumber ⊑ string | number`); aliasing an object schema (`schema Y = SomeObjectSchema`) unfolds to that object schema, which then re-enters TYPE-10's nominal case.
 
 **Deps.** `V2a`, `V5d`
 

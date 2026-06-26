@@ -193,6 +193,5 @@ entries:
   - { id: F-1890, tier: high, file: docs/plan_topics/coverage-matrix.md, anchor: "*Numbered REQ-IDs* table and the `cka-18`/`cka-21`/`cka-22`/`cka-23`/`cka-24`/`cka-25`/`cka-28`/`cka-29` rows of *Code-keyed obligation areas*", title: "Numbered REQ-IDs table omits ~26 live PIC REQ-IDs that already have implementing leaves" }
   - { id: F-1894, tier: high, file: docs/plan_topics/V9o-subagent-swallowing-handler.md, anchor: Tests, title: "cka-33 multi-leaf facets — swallowing-handler Tests bullets cite the spec section by paraphrase, not the `cka-33` token + facet leaf-ID" }
   - { id: F-1923, tier: high, file: docs/plan_topics/V8d-clock-id-seams.md, anchor: "Adds (the `IdSource` member set) and Ships when", title: "`IdSource` seam omits the spec-mandated `newToolCallId()` member" }
-  - { id: F-1913, tier: high, file: docs/plan_topics/V2b-type-compat-engine.md, anchor: "Adds + `TYPE-11` test bullet", title: "TYPE-11 alias-unfold: `V2b` and `V2b-T` describe the object-schema alias case incompatibly" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->

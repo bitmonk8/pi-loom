@@ -15,7 +15,7 @@
 - `TYPE-8`: inline-object field-wise compatibility with exact field-set / `additionalProperties:false`.
 - `TYPE-9`: per-site codes (`let-rhs-type-mismatch`, `fn-arg-type-mismatch`, ternary/array common-type) fire on static mismatch.
 - `TYPE-10`: object-schema named types are nominal — no cross-named structural admission.
-- `TYPE-11`: alias-schema transparency — a `schema X = R` named type unfolds to its RHS for `⊑`, recursing through nested aliases (identified by the `=` form, not by what `R` resolves to).
+- `TYPE-11`: alias-schema transparency — a `schema X = R` named type unfolds to its RHS for `⊑`, recursing through nested aliases (identified by the `=` form, not by what `R` resolves to); when the RHS is an object schema (`schema Y = SomeObjectSchema`), the unfolded object schema then participates under TYPE-10's nominal rules, so transparency never reopens TYPE-10's nominal case.
 
 **Deps.** `V2b-T`, `V2a`, `V5d`
 
