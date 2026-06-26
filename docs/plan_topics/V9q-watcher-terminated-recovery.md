@@ -1,0 +1,13 @@
+# `V9q` — Watcher post-error terminal recovery posture
+
+**Spec.** [`../spec_topics/pi-integration-contract/registration-steps.md`](../spec_topics/pi-integration-contract/registration-steps.md), [`../spec_topics/pi-integration-contract/host-interfaces-services.md`](../spec_topics/pi-integration-contract/host-interfaces-services.md), [`../spec_topics/diagnostics.md`](../spec_topics/diagnostics.md), [`../spec_topics/diagnostics/code-registry-runtime.md`](../spec_topics/diagnostics/code-registry-runtime.md).
+
+**Adds.** The watcher post-`error`/post-throw terminal recovery posture ([`PIC-55`](../spec_topics/pi-integration-contract/registration-steps.md#pic-55)): when one or more watched roots stop delivering, the runtime leaves the [`V8e`](./V8e-watch-token-seams.md) `FileWatcher` torn down rather than re-armed and emits a single persistent `loom/runtime/watcher-terminated` `loom-system-note` prompting `/reload` through the [`V7d`](./V7d-system-note-channel.md) `loom-system-note` channel, keeping `LoomRegistry` live and dispatchable and writing no drain-state tag. The continues-delivering transient-toast arm is owned by the transient-toasts surface, not here; this leaf does not redefine the `FileWatcher.watch` seam shape ([`V8e`](./V8e-watch-token-seams.md), PIC-14/16).
+
+**Tests.**
+- `PIC-55`: when the chokidar `error` route fires or the watcher throws such that one or more watched roots stop delivering events (the **stopped-delivering — terminal** case), the adapter leaves the watcher torn down rather than re-armed, the runtime emits exactly **one** persistent `loom/runtime/watcher-terminated` `loom-system-note` prompting `/reload` (never via `ctx.ui.notify`), the `LoomRegistry` stays live and dispatchable through arm (a) of `readDrainState` against the last-published snapshot, and **no** `LoomRegistry` drain-state tag is written. (The continues-delivering transient-toast arm is asserted on the transient-toasts surface, not here.)
+- `loom/runtime/watcher-terminated`: the emitted note's rendered message is sourced from the *Message* column of the [runtime diagnostics registry](../spec_topics/diagnostics/code-registry-runtime.md) for `loom/runtime/watcher-terminated` and routes through the persistent `loom-system-note` channel as its primary sink.
+
+**Deps.** `V9q-T`, `V8e`, `V7b`, `V7d`
+
+**Ships when.** `npm test` asserts that a stopped-delivering watcher error tears the watcher down, emits exactly one persistent `loom/runtime/watcher-terminated` `loom-system-note` prompting `/reload`, leaves `LoomRegistry` live and dispatchable, and writes no drain-state tag.

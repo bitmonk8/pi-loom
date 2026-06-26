@@ -57,6 +57,7 @@ Use the REQ-ID prefix table in [`../spec_topics/governance.md`](../spec_topics/g
 | PIC-15 | `V18a` |
 | PIC-17, PIC-18 | `V9c` (per-query active-set snapshot/set/restore-in-finally facet of PIC-17 plus the PIC-18 prompt-mode pi.on cancel-forward subscription), `V15d` (prompt→prompt-invoke-path facet of the PIC-17 step-4 finally restore) |
 | PIC-21 | `V7d` |
+| PIC-55 | `V9q` |
 | INV-1, INV-2, INV-3 | `V15a` |
 | INV-4 | `V15b` |
 | DIAG-1 | `V7a` |

@@ -137,6 +137,7 @@ Each slice is a coherent feature area (e.g. lexer, expressions, schemas, queries
 - [`V9p` — Extension-bootstrap SDK-failure non-abort surfaces](./plan_topics/V9p-extension-bootstrap-nonabort.md)
 - [`V9l` — Session-only degraded-state branch](./plan_topics/V9l-session-only-degraded-branch.md) — **blocked** on the host-prerequisites clause (a) resolution (see [§Blocked obligations](#blocked-obligations))
 - [`V9m` — `LoomRegistry` drain-state contract](./plan_topics/V9m-drain-state-contract.md)
+- [`V9q` — Watcher post-error terminal recovery posture](./plan_topics/V9q-watcher-terminated-recovery.md)
 
 ### V10 — Discovery and settings
 
