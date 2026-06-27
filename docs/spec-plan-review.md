@@ -229,6 +229,5 @@ entries:
   - { id: F-2335, tier: high, file: docs/plan_topics/V2c-value-model.md, anchor: Adds, title: "Object-schema representation term \"native map\" diverges from the spec's \"JS plain object keyed by loom-side names\"" }
   - { id: F-2308, tier: high, file: docs/plan_topics/V18c-version-bump-checklist.md, anchor: "Adds; Ships when", title: "V18c's editorial-review checklist range `(a)`–`(al)` is stale against the spec's `(a)`–`(aq)` extent" }
   - { id: F-2298, tier: high, file: docs/plan_topics/V16a-ceiling-order-masked.md, anchor: Adds, title: "V16a's arbitration-seam Adds prescribes wiring topology (Class-3 shape mandate)" }
-  - { id: F-1682, tier: blocker, file: docs/spec_topics/pi-integration-contract/subagent.md, anchor: "PIC-22 *Parallel subagent spawn initiation* (`#pic-22`), the spawn-initiation MUST and its conformance-test sentence", title: "PIC-22's parallel-spawn MUST is weaker than the conformance test it claims to witness" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
