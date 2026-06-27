@@ -174,6 +174,5 @@ entries:
   - { id: F-1926, tier: medium, file: docs/plan.md, anchor: "V9 slice interleave note; V11 slice interleave note", title: "V9/V11 interleave notes overstate V11a as a prerequisite of V9c and V9i" }
   - { id: F-1595, tier: high, file: docs/spec_topics/tool-calls.md, anchor: "§Failures opening sentence + `cause` enum paragraph", title: "`tool-calls.md` \"Failures\" opening sentence contradicts the later `.loom`-callable paragraph" }
   - { id: F-1738, tier: high, file: docs/spec_topics/query/query-forms.md, anchor: "§Schema inference algorithm (Crossed/Stopped lists, worked examples)", title: "Schema-inference algorithm does not classify the postfix `?` operator" }
-  - { id: F-1527, tier: high, file: docs/spec_topics/pi-integration-contract/version-bump-step2b.md, anchor: "Negative-direction branch (3) tie-break / \"single callsite\" gate", title: "Branch (3) exempt-eligibility \"single callsite\" gate leaves `<symbol>` granularity undefined" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->
