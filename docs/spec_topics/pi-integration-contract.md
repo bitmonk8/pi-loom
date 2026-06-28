@@ -34,4 +34,5 @@ The runtime depends on a small, named surface from `@earendil-works/pi-coding-ag
 - [Version bump intro](./pi-integration-contract/version-bump-intro.md)
 - [Version bump step2](./pi-integration-contract/version-bump-step2.md)
 - [Version bump step2b](./pi-integration-contract/version-bump-step2b.md)
+- [Version bump steps 3–4](./pi-integration-contract/version-bump-steps-3-4.md)
 - [Version bump steps 5–7](./pi-integration-contract/version-bump-triggers.md)
