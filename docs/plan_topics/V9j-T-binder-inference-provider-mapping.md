@@ -9,6 +9,6 @@
 - `complete()` is issued with the forced-tool envelope, `temperature:0`, and the mapped seed field.
 - `loom/load/typed-query-unsupported-provider` (W) is surfaced when the provider lacks the typed-query path.
 
-**Deps.** `V4d`, `V11a`
+**Deps.** `V4d`, `V11a`, `V11c`
 
 **Ships when.** The tests above exist, compile, and fail red for the intended reason.
