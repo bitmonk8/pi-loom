@@ -2,7 +2,7 @@
 
 **Spec.** [`../spec_topics/runtime-value-model.md`](../spec_topics/runtime-value-model.md).
 
-**Adds.** The JS representation of loom values (native map, enum tag, internal `Result` tag) and structural `==`/`!=` equality.
+**Adds.** The JS representation of loom values (JS plain object keyed by loom-side names, enum tag, internal `Result` tag) and structural `==`/`!=` equality.
 
 **Tests.**
 - [runtime-value-model.md — value representation](../spec_topics/runtime-value-model.md) (RVM code-keyed area): `JSON.stringify` of an enum value yields the bare wire string; `Result` is never lowered to wire.
