@@ -14,7 +14,7 @@ Loom expressions are a bounded subset of TypeScript. The same grammar applies wh
 - Comparison: `==`, `!=`, `<`, `<=`, `>`, `>=`
 - Logical: `&&`, `||`
 - Ternary: `cond ? a : b`
-- Postfix error-propagation: `expr?` — admitted only on a `Result<T, QueryError>`-typed (for some `T`) operand; the operand-type and enclosing-scope preconditions and the unwrap / early-return semantics are owned by [Errors and Results — `?` operator](./errors-and-results/error-model.md)
+- Postfix error-propagation: `expr?` — admitted only on a `Result<T, QueryError>`-typed (for some `T`) operand; the operand-type and enclosing-scope preconditions and the unwrap / early-return semantics are specified at [§ Error propagation — the `?` operator](#question-operator) below
 - Parenthesised: `(expr)`
 - Query templates (back-tick prefixed by `@`): the literal form of the [Query](./query.md) expression; `${...}` inside them takes any expression listed above
 - Array literals: `[]`, `[a, b, c]`
@@ -143,7 +143,62 @@ Two ambiguities deserve explicit rules:
 
 - **Struct-expression in scrutinee position.** Inside the condition of `if` / `while`, the scrutinee of `match`, and the iterated expression of `for`, a bare `Schema { ... }` constructor would be ambiguous with the body brace. These positions therefore require parentheses around any constructor: `if (Author { name: "x", role: "r", experience_years: 0 } == author) { ... }`. Outside scrutinee positions (RHS of `let`, function arguments, `${...}` interpolations, etc.), no parens are needed.
 - **Newline continuation.** A binary or ternary operator at the *end* of a line continues the statement to the next line (`x +\n  y`); a binary or ternary operator at the *start* of a line continues from the previous line (`x\n  + y`). Both forms are legal and equivalent. Open-bracket forms (`(`, `[`, `{`) and trailing commas continue per the existing rule. A line break inside a `@`...`` query template's text is *not* a statement boundary — the template is one expression regardless of internal newlines.
-- **`match`-arm body.** An arm body is a single expression. To execute multiple statements in an arm, wrap them in a block expression `{ ... }` whose value is the block's tail expression.
+- **`match`-arm body.** An arm body is a single expression; the full rule and the block-expression escape hatch for multi-statement arms are specified at [§ `match` expression — Arm syntax](#match-expression) above.
+
+## `match` expression
+
+**`match` expression** — exhaustive destructuring; arms evaluate to a value, so `match` is itself an expression:
+
+```loom
+let score = match @<ReviewScore>`Rate the critique 1-5: ${critique}` {
+  Ok(s)  => s,
+  Err(e) => ReviewScore { value: 0, reason: "unrated: ${e.message}" }
+}
+```
+
+<a id="pattern-grammar"></a>
+
+**Pattern grammar (loom 1.0).** A `match` arm's left-hand side is one of:
+
+| Pattern | Example | Matches |
+|---|---|---|
+| Wildcard | `_` | anything; binds nothing |
+| Identifier | `x` | anything; binds the value to `x` |
+| Literal | `"validation"`, `0`, `true`, `null` | structural equality |
+| Constructor | `Ok(p)`, `Err(p)` | the named `Result` variant; recurses into `p` |
+| Object/schema | `QueryError { kind: "validation", cause: "schema_validation", attempts }` | object whose listed fields match the inner patterns; unlisted fields are ignored. Field shorthand `{ attempts }` is sugar for `{ attempts: attempts }` |
+| Array | `[a, b]`, `[first, _, _]` | exact-length array; each slot matches its pattern |
+
+Disambiguation: lowercase identifiers bind, capitalised identifiers refer to constructors or schema names. `Ok` and `Err` are reserved.
+
+Guards (`Ok(x) if x.value > 3 => ...`) and rest patterns (`[first, ...rest]`, `{ kind, ...other }`) are not in loom 1.0: their use surfaces as `loom/parse/match-guard-not-supported` and `loom/parse/rest-pattern-not-supported` respectively. See [Future Considerations](./future-considerations.md).
+
+**Exhaustiveness.** Not statically checked in loom 1.0. The analyser cannot enumerate the runtime values of `QueryError.kind` from the type system, so static exhaustiveness would be unsound. A `match` whose arms collectively fail to cover the scrutinee at runtime raises a `MatchError` (`loom/runtime/match-error`). Authors who want a catch-all should add a final `_ => ...` arm.
+
+**Arm syntax.** `pattern => expression`, comma-separated. The trailing comma after the last arm is optional. All arms must produce values of the same type, or values whose types share a common upper bound under [Type System — Type compatibility](./type-system.md#type-compatibility) (every arm `⊑` the chosen common type, narrowed by any sink in scope on the `match` expression itself); a mismatched-arm `match` is `loom/parse/match-arm-type-mismatch`. An arm body is a single expression — statements (`if`, `for`, `while`, `let`, assignment, `break`, `continue`, `return`) are not expressions in Loom and are not admissible as arm bodies on their own. To execute statements before producing the arm's value, wrap them in a block expression `{ ... }` whose tail expression is the arm's value; the ternary `cond ? a : b` is the expression form of conditional and is admissible directly. A bare statement in arm-body position is `loom/parse/statement-in-arm-body`. The full grammar lives in [Grammar Appendix — `match` arm body](./grammar.md#match-arm-body).
+
+## Error propagation — the `?` operator
+
+<a id="question-operator"></a>
+
+**`?` operator** — unwraps `Ok` to the inner value; on `Err`, *early-returns* the `Err` from the enclosing function (or top-level loom). The enclosing scope's return type must therefore be compatible with `Result<U, QueryError>` for some `U` under [Type System — Type compatibility](./type-system.md#type-compatibility) — i.e. either the scope carries no explicit return annotation (whereupon using `?` makes it implicitly return `Result<T, QueryError>`, per the implicit-return rule below) or its explicit return annotation `R` satisfies `Result<U, QueryError> ⊑ R`; otherwise the use of `?` is `loom/parse/question-outside-result-fn`. Concretely:
+
+```loom
+let critique = @`Critique this code:\n${code}`?  // string on success; early-return Err otherwise
+```
+
+Is equivalent to:
+
+```loom
+let critique = match @`Critique this code:\n${code}` {
+  Ok(s)  => s,
+  Err(e) => return Err(e)
+}
+```
+
+A function or loom that uses `?` thus implicitly returns `Result<T, QueryError>` where `T` is the type of its last expression. A function that uses neither `?` nor an explicit `Result` return type is required to handle every query failure with `match` (or to discard explicitly per [Query — Discarded query results](./query.md), which defines the user-facing-vs-operator-facing observability contract for the discarded `Err`).
+
+<a id="err-18"></a> **ERR-18.** **`?` operand-type precondition.** The operand to which `?` is applied MUST itself have Loom static type `Result<T, QueryError>` for some `T` — for instance a `@`-query, an `invoke(...)`, or an explicit `Ok(...)` / `Err(...)`. Applying `?` to an operand of any other type — e.g. `let x = 5?`, where `5` is `integer` — is `loom/parse/question-on-non-result`. The check is static (`type`-phase, per [Diagnostics](./diagnostics.md)); its disposition is the lex / parse / type batch pre-evaluation failure ([ERR-2](./errors-and-results/error-model.md#err-2)), so no `Result` is produced and there is no runtime disposition — the loom fails to load. This operand precondition is distinct from the enclosing-scope precondition above: `loom/parse/question-on-non-result` constrains the operand `?` unwraps, whereas `loom/parse/question-outside-result-fn` constrains the scope `?` early-returns from. The postfix `?` operator's surface syntax and precedence live in [Operator precedence](#operator-precedence).
 
 ## Object construction, array construction, and operator rules
 

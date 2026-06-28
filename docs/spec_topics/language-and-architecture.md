@@ -35,10 +35,10 @@ Surface and semantics of the Loom language (shared by `.loom` and `.warp` files)
   - [Schema Subset](./schema-subset.md) — JSON-Schema subset and lowering algorithm.
 - [Parameters and Frontmatter](./frontmatter.md) — frontmatter fields, `params`, `tools`, `system`, `respond_repair`, template interpolation.
 - [Query](./query.md) — `@`-templates, schema inference, respond-repair, `QueryError`.
-- [Expression Sublanguage](./expressions.md) — supported forms, stdlib, operator precedence, grammar disambiguation, object/array construction.
+- [Expression Sublanguage](./expressions.md) — supported forms, stdlib, operator precedence, grammar disambiguation, object/array construction, the `match` expression and pattern grammar, the `?` operator.
 - [Bindings and Mutability](./bindings.md) — `let`, `let mut`, reassignment.
 - [Control Flow](./control-flow.md) — `if`, `for`, `while`, `break`, `continue`.
-- [Errors and Results](./errors-and-results.md) — `match`, pattern grammar, `Result`, `?`, runtime panics.
+- [Errors and Results](./errors-and-results.md) — `Result`, terminal outcomes, runtime panics, no-rollback contract.
 - [Return Statement](./return.md) — `return expr` rules.
 - [Function Definitions](./functions.md) — `fn`, hoisting, tail-expression returns.
 - [Tool Calls](./tool-calls.md) — `<name>(args)`, `CodeToolError`.
