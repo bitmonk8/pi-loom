@@ -28,7 +28,19 @@ import type {
   ExtensionAPI,
   ExtensionCommandContext,
 } from "@earendil-works/pi-coding-agent";
+import type { Diagnostic } from "../diagnostics/diagnostic";
 import { createSystemNoteRenderer } from "./system-note-renderer";
+
+/**
+ * The diagnostics-registry code a factory-time bootstrap registration /
+ * subscription failure surfaces (diagnostics/code-registry-load.md
+ * `loom/load/extension-bootstrap-failed`). The paired `V9k` implementation
+ * constructs this diagnostic when a factory-time `pi.registerFlag` or
+ * `pi.on(...)` call throws; `V9k-T` declares the code so the failing tests can
+ * anchor against it.
+ */
+export const EXTENSION_BOOTSTRAP_FAILED_CODE =
+  "loom/load/extension-bootstrap-failed";
 
 /** The CLI flag the extension registers for `.loom` discovery roots. */
 const LOOM_FLAG = "loom";
@@ -58,6 +70,16 @@ export interface LoomExtensionDeps {
    * leaf; the harness supplies fixtures here for end-to-end tests.
    */
   readonly fixtures: readonly LoomFixture[];
+
+  /**
+   * The diagnostic-emission seam the factory routes a
+   * `loom/load/extension-bootstrap-failed` diagnostic through when a
+   * factory-time host-binding call throws (the impl wires this to the
+   * **System notes** fallback chain per extension-bootstrap-and-per-loom.md).
+   * Declared by `V9k-T` and consumed by the paired `V9k` implementation; the
+   * `H4a` harness path omits it, so it is optional.
+   */
+  readonly emitDiagnostic?: (diagnostic: Diagnostic) => void;
 }
 
 /**
