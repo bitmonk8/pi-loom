@@ -64,24 +64,43 @@ type FactorySubscription =
   | "session_shutdown";
 
 /**
+ * The closed set of host-binding capabilities a `loom/load/extension-bootstrap-failed`
+ * diagnostic can name (code-registry-load.md). The two whole-extension abort
+ * surfaces (`pi.registerFlag`, `pi.on`) are owned by `V9k`; the three non-abort
+ * surfaces (`pi.registerMessageRenderer`, `pi.registerCommand`,
+ * `pi.getCommands`) are owned by `V9p`.
+ */
+type BootstrapCapability =
+  | "pi.registerFlag"
+  | "pi.on"
+  | "pi.registerMessageRenderer"
+  | "pi.registerCommand"
+  | "pi.getCommands";
+
+/**
  * Construct the `loom/load/extension-bootstrap-failed` diagnostic for a
- * factory-time whole-extension abort surface (a `pi.registerFlag` or
- * `pi.on(...)` failure). `details.error` carries the caught throw's
- * underlying-error string (placeholder-rendering-b.md#underlying-error-coercion)
- * so a non-Error throw yields a deterministic payload; the *Message* renders
- * the byte-identical registry template `extension bootstrap failed:
- * <capability> threw <error>` (code-registry-load.md), the `<error>` tail being
- * the §8 host-derived first-line truncation.
+ * factory-time or `session_start`-time bootstrap failure surface.
+ * `details.error` carries the caught throw's underlying-error string
+ * (placeholder-rendering-b.md#underlying-error-coercion) so a non-Error throw
+ * yields a deterministic payload; the *Message* renders the byte-identical
+ * registry template `extension bootstrap failed: <capability> threw <error>`
+ * (code-registry-load.md), the `<error>` tail being the §8 host-derived
+ * first-line truncation. `details.event` is added for `pi.on` subscription
+ * failures (the failing Pi event); `details.loom` for per-loom
+ * `pi.registerCommand` failures (the failing slash name).
  */
 function bootstrapFailedDiagnostic(
-  capability: "pi.registerFlag" | "pi.on",
+  capability: BootstrapCapability,
   caught: unknown,
-  event?: FactorySubscription,
+  extra?: { readonly event?: FactorySubscription; readonly loom?: string },
 ): Diagnostic {
   const error = renderUnderlyingError(caught);
   const details: Record<string, unknown> = { capability, error };
-  if (event !== undefined) {
-    details.event = event;
+  if (extra?.event !== undefined) {
+    details.event = extra.event;
+  }
+  if (extra?.loom !== undefined) {
+    details.loom = extra.loom;
   }
   return {
     severity: "error",
@@ -171,13 +190,19 @@ export function createLoomExtension(
     }
 
     // Renderer — synchronous-void; registered exactly once in the factory body.
-    // A renderer failure is a NON-abort degrade surface (owned by `V9p`): the
-    // factory still completes the remaining steps. Kept as a local swallow
-    // here; `V9p` adds the system-note degrade + diagnostic.
+    // A renderer failure is a NON-abort degrade surface (V9p): the renderer
+    // registration drops but the factory still completes the remaining steps.
+    // System notes for this extension instance permanently degrade to the
+    // `ctx.ui.notify` arm of the System-notes fallback chain (the
+    // persistent-transcript renderer is unavailable), so the factory degrades
+    // the shared `RendererGate` and emits one diagnostic naming the capability.
     try {
       pi.registerMessageRenderer(SYSTEM_NOTE_CHANNEL, createSystemNoteRenderer());
     } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
-      void e;
+      deps.rendererGate?.degrade();
+      deps.emitDiagnostic?.(
+        bootstrapFailedDiagnostic("pi.registerMessageRenderer", e),
+      );
     }
 
     // The three factory-time `pi.on` subscriptions (steps 1/3/4). A
@@ -197,7 +222,7 @@ export function createLoomExtension(
       pi.on("resources_discover", () => undefined);
     } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
       deps.emitDiagnostic?.(
-        bootstrapFailedDiagnostic("pi.on", e, "resources_discover"),
+        bootstrapFailedDiagnostic("pi.on", e, { event: "resources_discover" }),
       );
       return;
     }
@@ -209,19 +234,46 @@ export function createLoomExtension(
     // Pi's `session_start` dispatch.
     try {
       pi.on("session_start", () => {
+        // The first action of the step-3 handler is a `pi.getCommands()` read
+        // for the cross-format collision pass (registration-steps.md), which
+        // runs before the per-loom `pi.registerCommand` loop. A throw from this
+        // read is a NON-abort surface (V9p): the handler swallows it, drops the
+        // pending-registration list for THIS pass (no `pi.registerCommand`
+        // calls issue), and emits one diagnostic — and MUST NOT set drain state
+        // (drain state is owned by V9m's `LoomRegistry` contract;
+        // drain-state-contract.md), so `deps.registry` is left untouched here.
+        // The failure is scoped to this `session_start` pass; `/reload`
+        // recovers.
+        try {
+          pi.getCommands();
+        } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
+          deps.emitDiagnostic?.(
+            bootstrapFailedDiagnostic("pi.getCommands", e),
+          );
+          return;
+        }
+        // Per-loom `pi.registerCommand` (NON-abort, per-loom): each call is its
+        // own per-call wrap so one loom's failure drops only that loom —
+        // siblings still register — and emits one diagnostic per failing loom
+        // carrying its slash name, without propagating into Pi's
+        // `session_start` dispatch.
         for (const fixture of deps.fixtures) {
           try {
             pi.registerCommand(fixture.slashName, {
               handler: (args, ctx) => fixture.run(args, ctx),
             });
           } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
-            void e;
+            deps.emitDiagnostic?.(
+              bootstrapFailedDiagnostic("pi.registerCommand", e, {
+                loom: fixture.slashName,
+              }),
+            );
           }
         }
       });
     } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
       deps.emitDiagnostic?.(
-        bootstrapFailedDiagnostic("pi.on", e, "session_start"),
+        bootstrapFailedDiagnostic("pi.on", e, { event: "session_start" }),
       );
       return;
     }
@@ -232,7 +284,7 @@ export function createLoomExtension(
       pi.on("session_shutdown", () => undefined);
     } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
       deps.emitDiagnostic?.(
-        bootstrapFailedDiagnostic("pi.on", e, "session_shutdown"),
+        bootstrapFailedDiagnostic("pi.on", e, { event: "session_shutdown" }),
       );
       return;
     }

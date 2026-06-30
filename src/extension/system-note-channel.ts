@@ -138,6 +138,35 @@ export function sendSystemNote(
   note: SystemNote,
   deps: SystemNoteChannelDeps,
 ): void {
+  // Degraded-instance branch (V9p): when the factory-time
+  // `pi.registerMessageRenderer` registration failed the `RendererGate` is
+  // permanently degraded for this extension instance, so the
+  // persistent-transcript renderer is unavailable and delivering to the
+  // transcript via `pi.sendMessage` would render nothing. Skip the transcript
+  // arm entirely and route straight through the `ctx.ui.notify` arm of the
+  // System-notes fallback chain (extension-bootstrap-and-per-loom.md
+  // §"`pi.registerMessageRenderer` failure"). The renderer failure already
+  // emitted one `loom/load/extension-bootstrap-failed` diagnostic at factory
+  // time, so no per-note delivery-failed diagnostic fires for this expected
+  // degraded route; only a throwing toast falls to the terminal
+  // `console.error` (PIC-54).
+  if (deps.rendererGate?.available() === false) {
+    if (note.display !== false && note.content !== "") {
+      try {
+        deps.ui.notify(note.content, "error");
+      } catch (notifyError: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
+        try {
+          console.error(
+            `system-note delivery failed: ${note.content}`,
+            notifyError,
+          );
+        } catch (consoleError: unknown) { // allow-broad-catch: PIC-54 — runtime-event-channel.md#pic-54
+          void consoleError;
+        }
+      }
+    }
+    return;
+  }
   try {
     // Best-effort: `pi.sendMessage` returns `void` (synchronous); never await,
     // never attach a `.catch`. Only a synchronous throw is observable.
