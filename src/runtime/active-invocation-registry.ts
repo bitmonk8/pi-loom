@@ -36,6 +36,7 @@
 import type { Diagnostic, SourceRange } from "../diagnostics/diagnostic";
 import type { IdSource } from "../seams/id-source";
 import type { InvokeInfraError } from "./query-error";
+import { surfaceUnexpectedThrow } from "./runtime-panics";
 
 /** Whether the invocation runs as a prompt-mode body or a subagent session. */
 export type InvocationMode = "prompt" | "subagent";
@@ -76,26 +77,29 @@ export interface AgentSessionLike {
  * seam tests assert on (the registry name itself is internal).
  */
 export class ActiveInvocationRegistry {
+  // V8 `Set` preserves insertion order on iteration — the invariant the
+  // `session_shutdown` teardown sub-steps 2 and 3 rely on. The registry name is
+  // internal; observers use the `size()` / `snapshot()` probe seams.
+  readonly #entries = new Set<ActiveInvocationEntry>();
+
   /** Insert an entry at a dispatch site. */
   add(entry: ActiveInvocationEntry): void {
-    // V9e-T stub: inert (does not store) so the insertion-order tests red on
-    // their own primary assertions while the V9e implementation is absent.
-    void entry;
+    this.#entries.add(entry);
   }
 
   /** Remove an entry from the per-invocation `finally`, after the barrier settles. */
   remove(entry: ActiveInvocationEntry): void {
-    void entry;
+    this.#entries.delete(entry);
   }
 
   /** Entry-count probe (observable side effect; the registry name is internal). */
   size(): number {
-    return 0;
+    return this.#entries.size;
   }
 
   /** Insertion-order snapshot of the live entries. */
   snapshot(): readonly ActiveInvocationEntry[] {
-    return [];
+    return [...this.#entries];
   }
 }
 
@@ -146,27 +150,110 @@ export type DispatchSetupOutcome = DispatchSetupOk | DispatchSetupDefect;
 export async function dispatchSiteSetup(
   request: DispatchSetupRequest,
 ): Promise<DispatchSetupOutcome> {
-  // V9e-T stub: returns a sentinel defect with a deliberately WRONG code/cause
-  // so both the ok-path tests (which red on `kind === "ok"`) and the
-  // failure-path tests (which red on the `loom/runtime/internal-error` code and
-  // `cause: "internal_error"`) red on their own primary assertions while the
-  // V9e implementation is absent.
-  void request;
-  await Promise.resolve();
-  return {
-    kind: "defect",
-    diagnostic: {
-      severity: "error",
-      code: "loom/runtime/__v9e-unimplemented__",
-      message: "internal error: ActiveInvocationRegistry dispatch-site setup not implemented",
-    },
-    error: {
+  const makeAbortController =
+    request.makeAbortController ?? ((): AbortController => new AbortController());
+
+  // The `loomAbort` controller is created first so it is in scope for the
+  // `catch`-arm cleanup `abort()` even when a later setup step throws.
+  const loomAbort = makeAbortController();
+  let added: ActiveInvocationEntry | undefined;
+  let settle: (() => void) | undefined;
+
+  try {
+    // Mint `invocationId` only through the injected `IdSource` seam (PIC-20),
+    // before any awaitable work.
+    const invocationId = request.idSource.newInvocationId();
+
+    // Manual `Promise.withResolvers()` (the lib target is ES2022): the resolve
+    // handle is held in the dispatch-site closure, not as a sixth entry field.
+    let resolveBarrier: () => void = (): void => {};
+    const disposeBarrier = new Promise<void>((resolve) => {
+      resolveBarrier = resolve;
+    });
+    settle = resolveBarrier;
+
+    const entry: ActiveInvocationEntry = {
+      loomAbort,
+      disposeBarrier,
+      shutdownReason: undefined,
+      loom: request.loom,
+      invocationId,
+    };
+
+    // `Set.add` insertion. A throw before this point leaks no entry.
+    request.registry.add(entry);
+    added = entry;
+
+    // Forward the inbound Pi-side abort into `loomAbort`
+    // (cancellation.md §"Forwarding into `loomAbort`").
+    request.source.addEventListener("abort", () => {
+      loomAbort.abort();
+    });
+
+    let session: AgentSessionLike | undefined;
+    if (request.mode === "subagent") {
+      if (request.createAgentSession === undefined) {
+        throw new Error("subagent mode requires createAgentSession");
+      }
+      session = await request.createAgentSession();
+      // Wire the one-shot `AgentSession.abort()` to `loomAbort`.
+      const resolvedSession = session;
+      loomAbort.signal.addEventListener(
+        "abort",
+        () => {
+          resolvedSession.abort();
+        },
+        { once: true },
+      );
+    }
+
+    return {
+      kind: "ok",
+      entry,
+      settleDisposeBarrier: resolveBarrier,
+      session,
+    };
+  } catch (setupError: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
+    // Tear down the half-constructed entry without masking the original throw:
+    // the cleanup `loomAbort.abort()` is wrapped in its own nested try/catch and
+    // any throw from it is dropped.
+    try {
+      loomAbort.abort();
+    } catch (abortCleanupError: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
+      void abortCleanupError;
+    }
+
+    // A throw after `Set.add` would otherwise leak the entry: the setup wrap
+    // returns a defect (no entry handle for the caller's per-invocation
+    // `finally`), so it removes the entry and settles its barrier here.
+    if (added !== undefined) {
+      request.registry.remove(added);
+      settle?.();
+    }
+
+    // Route the captured setup throw through the runtime-defect surface
+    // (`loom/runtime/internal-error`). `surfaceUnexpectedThrow` returns
+    // `undefined` only for a `LoomPanic` / `HostFatal`; a setup throw is
+    // neither, so the diagnostic is always present here.
+    const diagnostic =
+      surfaceUnexpectedThrow(setupError, request.site) ??
+      {
+        severity: "error" as const,
+        code: "loom/runtime/internal-error",
+        file: request.site.file,
+        range: request.site.range,
+        message: "internal error: dispatch-site setup failed",
+      };
+    const message =
+      setupError instanceof Error ? setupError.message : String(setupError);
+    const error: InvokeInfraError = {
       kind: "invoke_infra",
-      message: "ActiveInvocationRegistry dispatch-site setup not implemented",
-      callee_path: "",
-      cause: "load_failure",
-    },
-  };
+      message,
+      callee_path: request.loom,
+      cause: "internal_error",
+    };
+    return { kind: "defect", diagnostic, error };
+  }
 }
 
 /** Inputs to the per-invocation `finally` that settles one entry's barrier. */
@@ -187,9 +274,12 @@ export interface PerInvocationFinallyRequest {
 export async function runPerInvocationFinally(
   request: PerInvocationFinallyRequest,
 ): Promise<void> {
-  // V9e-T stub: inert — does not dispose, does not settle the barrier, does not
-  // remove the entry. The disposeBarrier tests red on the prior `kind === "ok"`
-  // assertion before they await the barrier, so this stub never deadlocks them.
-  void request;
-  await Promise.resolve();
+  // Subagent mode settles the barrier *after* `AgentSession.dispose()` returns;
+  // prompt mode settles immediately. Only this entry's barrier is settled —
+  // never the aggregate settle-all.
+  if (request.mode === "subagent" && request.session !== undefined) {
+    await request.session.dispose();
+  }
+  request.settleDisposeBarrier();
+  request.registry.remove(request.entry);
 }

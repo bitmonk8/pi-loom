@@ -412,3 +412,27 @@ this rebuild-failure trap is not literally among them. It is nonetheless a
 spec-mandated broad catch (PIC-36 "if any rebuild step throws"). Recorded for the
 loom 1.0 release-time residue inspection (checklist item 6) to confirm or
 re-anchor; no contract invented.
+
+## 2026-07-01 — V9e ActiveInvocationRegistry
+
+Two implementation decisions diverge slightly from the literal spec text and are
+recorded here for the loom 1.0 release-time residue inspection:
+
+1. **Setup-wrap catch removes the entry itself.** active-invocation-registry.md
+   §"Registry contract → Dispatch-site setup wrap" says a throw after `Set.add`
+   is removed by "the same per-invocation `finally`". In the seam decomposition
+   `dispatchSiteSetup` returns a `defect` outcome carrying no entry handle, so
+   the caller's per-invocation `finally` has nothing to remove. To honour the
+   "no entry leaks" intent, the `catch` arm itself removes the added entry and
+   settles its barrier. Observable behaviour (the entry-count probe returns to
+   empty after a failed setup) matches spec intent; only the locus of the
+   removal differs.
+
+2. **Broad-catch token.** The setup wrap and its nested cleanup catch use
+   `// allow-broad-catch: pi-sdk-boundary`. The wrap exists to catch the
+   `createAgentSession(...)` Pi-SDK rejection and SDK-object interactions
+   (conventions.md exempt category (1)); the nested cleanup wraps the
+   `loomAbort.abort()` host call the spec mandates be defensively dropped. The
+   token resolves under the closing-gate predicate. Category-membership
+   (requirement (b)) recorded for the release-time residue inspection
+   (checklist item 6) — no contract invented.
