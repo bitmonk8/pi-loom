@@ -46,16 +46,466 @@ export interface LiteralCheckSite {
  * literal sublanguage fires `loom/parse/default-not-literal` (defaults position)
  * or `loom/parse/tool-arg-not-literal` (Pi-tool argument position); the
  * diagnostic names the offending sub-expression.
- *
- * V2a-T stubs this as an inert no-op (returns no diagnostics); the paired V2a
- * implementation leaf parses the AST and applies the is-literal check.
  */
 export function checkLiteralSublanguage(
-  _source: string,
-  _position: LiteralPosition,
-  _site: LiteralCheckSite,
+  source: string,
+  position: LiteralPosition,
+  site: LiteralCheckSite,
 ): Diagnostic[] {
-  return [];
+  const tokens = tokeniseExpr(source);
+  const parser = new ExprParser(tokens, source);
+  const node = parser.parse();
+  if (node === undefined) {
+    return [];
+  }
+  const offending = firstNonLiteral(node);
+  if (offending === undefined) {
+    return [];
+  }
+  const expr = source.slice(offending.start, offending.end).trim();
+  const code =
+    position === "default"
+      ? "loom/parse/default-not-literal"
+      : "loom/parse/tool-arg-not-literal";
+  const prefix =
+    position === "default"
+      ? "params default RHS must be a literal-sublanguage form"
+      : "Pi-tool argument must be a literal-sublanguage form";
+  return [
+    {
+      severity: "error",
+      code,
+      file: site.file,
+      range: site.range,
+      message: `${prefix}; offending sub-expression: ${expr}`,
+    },
+  ];
+}
+
+/** An expression AST node; `start`/`end` are char offsets into the source. */
+type ExprNode = { readonly start: number; readonly end: number } & (
+  | { readonly kind: "literal" } // string / number / boolean / null
+  | { readonly kind: "neg"; readonly operand: ExprNode } // unary `-`
+  | { readonly kind: "unary-other" } // any other unary (e.g. `!`)
+  | { readonly kind: "ident" }
+  | { readonly kind: "member"; readonly objectIsIdent: boolean } // `a.b`
+  | { readonly kind: "call" }
+  | { readonly kind: "index" }
+  | { readonly kind: "binary" }
+  | { readonly kind: "ternary" }
+  | { readonly kind: "template" } // backtick / `${...}` interpolation
+  | { readonly kind: "query" } // `@`...`` query template
+  | { readonly kind: "array"; readonly elements: ExprNode[] }
+  | { readonly kind: "object"; readonly fieldValues: ExprNode[] }
+  | { readonly kind: "unknown" }
+);
+
+interface ExprToken {
+  readonly kind: "str" | "num" | "ident" | "punct" | "template" | "query";
+  readonly text: string;
+  readonly start: number;
+  readonly end: number;
+}
+
+function tokeniseExpr(source: string): ExprToken[] {
+  const tokens: ExprToken[] = [];
+  const n = source.length;
+  let i = 0;
+  const isDigit = (c: string): boolean => c >= "0" && c <= "9";
+  const isIdentStart = (c: string): boolean =>
+    (c >= "A" && c <= "Z") || (c >= "a" && c <= "z") || c === "_";
+  const isIdentPart = (c: string): boolean => isIdentStart(c) || isDigit(c);
+  const twoChar = new Set(["==", "!=", "<=", ">=", "&&", "||"]);
+  while (i < n) {
+    const c = source[i] ?? "";
+    if (c === " " || c === "\t" || c === "\n" || c === "\r") {
+      i += 1;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      const start = i;
+      const quote = c;
+      i += 1;
+      while (i < n && source[i] !== quote) {
+        if (source[i] === "\\" && i + 1 < n) {
+          i += 1;
+        }
+        i += 1;
+      }
+      if (i < n) {
+        i += 1;
+      }
+      tokens.push({ kind: "str", text: source.slice(start, i), start, end: i });
+      continue;
+    }
+    if (c === "`") {
+      // A backtick template literal (`${...}` interpolation lives here).
+      const start = i;
+      i += 1;
+      while (i < n && source[i] !== "`") {
+        i += 1;
+      }
+      if (i < n) {
+        i += 1;
+      }
+      tokens.push({ kind: "template", text: source.slice(start, i), start, end: i });
+      continue;
+    }
+    if (c === "@") {
+      // An `@`...`` query template. Consume the following backtick block too.
+      const start = i;
+      i += 1;
+      // Optional `<T>` schema annotation.
+      if (source[i] === "<") {
+        while (i < n && source[i] !== ">") {
+          i += 1;
+        }
+        if (i < n) {
+          i += 1;
+        }
+      }
+      if (source[i] === "`") {
+        i += 1;
+        while (i < n && source[i] !== "`") {
+          i += 1;
+        }
+        if (i < n) {
+          i += 1;
+        }
+      }
+      tokens.push({ kind: "query", text: source.slice(start, i), start, end: i });
+      continue;
+    }
+    if (c === "$" && source[i + 1] === "{") {
+      // A bare `${...}` interpolation outside a string — a template form.
+      const start = i;
+      i += 2;
+      let depth = 1;
+      while (i < n && depth > 0) {
+        if (source[i] === "{") {
+          depth += 1;
+        } else if (source[i] === "}") {
+          depth -= 1;
+        }
+        i += 1;
+      }
+      tokens.push({ kind: "template", text: source.slice(start, i), start, end: i });
+      continue;
+    }
+    if (isDigit(c)) {
+      const start = i;
+      while (
+        i < n &&
+        (isDigit(source[i] ?? "") || source[i] === "." || source[i] === "e" || source[i] === "E")
+      ) {
+        i += 1;
+      }
+      tokens.push({ kind: "num", text: source.slice(start, i), start, end: i });
+      continue;
+    }
+    if (isIdentStart(c)) {
+      const start = i;
+      while (i < n && isIdentPart(source[i] ?? "")) {
+        i += 1;
+      }
+      tokens.push({ kind: "ident", text: source.slice(start, i), start, end: i });
+      continue;
+    }
+    const pair = source.slice(i, i + 2);
+    if (twoChar.has(pair)) {
+      tokens.push({ kind: "punct", text: pair, start: i, end: i + 2 });
+      i += 2;
+      continue;
+    }
+    tokens.push({ kind: "punct", text: c, start: i, end: i + 1 });
+    i += 1;
+  }
+  return tokens;
+}
+
+/** Binary operator precedence (higher binds tighter); 0 = not a binary op. */
+const BINARY_PRECEDENCE: Readonly<Record<string, number>> = Object.freeze({
+  "||": 1,
+  "&&": 2,
+  "==": 3,
+  "!=": 3,
+  "<": 4,
+  "<=": 4,
+  ">": 4,
+  ">=": 4,
+  "+": 5,
+  "-": 5,
+  "*": 6,
+  "/": 6,
+  "%": 6,
+});
+
+/** A tolerant recursive-descent / precedence-climbing expression parser. */
+class ExprParser {
+  private pos = 0;
+  constructor(
+    private readonly tokens: readonly ExprToken[],
+    private readonly source: string,
+  ) {}
+
+  private peek(): ExprToken | undefined {
+    return this.tokens[this.pos];
+  }
+
+  private next(): ExprToken | undefined {
+    const t = this.tokens[this.pos];
+    this.pos += 1;
+    return t;
+  }
+
+  private spanFrom(start: number): number {
+    const prev = this.tokens[this.pos - 1];
+    return prev !== undefined ? prev.end : start;
+  }
+
+  parse(): ExprNode | undefined {
+    if (this.peek() === undefined) {
+      return undefined;
+    }
+    return this.parseTernary();
+  }
+
+  private parseTernary(): ExprNode {
+    const cond = this.parseBinary(1);
+    const t = this.peek();
+    if (t !== undefined && t.kind === "punct" && t.text === "?") {
+      this.next();
+      this.parseTernary(); // then-branch
+      const colon = this.peek();
+      if (colon !== undefined && colon.kind === "punct" && colon.text === ":") {
+        this.next();
+        this.parseTernary(); // else-branch
+      }
+      return { kind: "ternary", start: cond.start, end: this.spanFrom(cond.start) };
+    }
+    return cond;
+  }
+
+  private parseBinary(minPrec: number): ExprNode {
+    let left = this.parseUnary();
+    for (;;) {
+      const t = this.peek();
+      if (t === undefined || t.kind !== "punct") {
+        break;
+      }
+      const prec = BINARY_PRECEDENCE[t.text];
+      if (prec === undefined || prec < minPrec) {
+        break;
+      }
+      this.next();
+      this.parseBinary(prec + 1);
+      left = { kind: "binary", start: left.start, end: this.spanFrom(left.start) };
+    }
+    return left;
+  }
+
+  private parseUnary(): ExprNode {
+    const t = this.peek();
+    if (t !== undefined && t.kind === "punct" && (t.text === "-" || t.text === "!")) {
+      const start = t.start;
+      this.next();
+      const operand = this.parseUnary();
+      if (t.text === "-") {
+        return { kind: "neg", operand, start, end: operand.end };
+      }
+      return { kind: "unary-other", start, end: operand.end };
+    }
+    return this.parsePostfix();
+  }
+
+  private parsePostfix(): ExprNode {
+    let node = this.parsePrimary();
+    for (;;) {
+      const t = this.peek();
+      if (t === undefined || t.kind !== "punct") {
+        break;
+      }
+      if (t.text === ".") {
+        this.next();
+        this.next(); // the property name
+        const objectIsIdent = node.kind === "ident";
+        node = {
+          kind: "member",
+          objectIsIdent,
+          start: node.start,
+          end: this.spanFrom(node.start),
+        };
+        continue;
+      }
+      if (t.text === "(") {
+        this.skipBracketed("(", ")");
+        node = { kind: "call", start: node.start, end: this.spanFrom(node.start) };
+        continue;
+      }
+      if (t.text === "[") {
+        this.skipBracketed("[", "]");
+        node = { kind: "index", start: node.start, end: this.spanFrom(node.start) };
+        continue;
+      }
+      break;
+    }
+    return node;
+  }
+
+  private skipBracketed(open: string, close: string): void {
+    if (this.peek()?.text !== open) {
+      return;
+    }
+    this.next();
+    let depth = 1;
+    while (depth > 0) {
+      const t = this.next();
+      if (t === undefined) {
+        break;
+      }
+      if (t.kind === "punct" && t.text === open) {
+        depth += 1;
+      } else if (t.kind === "punct" && t.text === close) {
+        depth -= 1;
+      }
+    }
+  }
+
+  private parsePrimary(): ExprNode {
+    const t = this.peek();
+    if (t === undefined) {
+      const end = this.source.length;
+      return { kind: "unknown", start: end, end };
+    }
+    if (t.kind === "str" || t.kind === "num") {
+      this.next();
+      return { kind: "literal", start: t.start, end: t.end };
+    }
+    if (t.kind === "template") {
+      this.next();
+      return { kind: "template", start: t.start, end: t.end };
+    }
+    if (t.kind === "query") {
+      this.next();
+      return { kind: "query", start: t.start, end: t.end };
+    }
+    if (t.kind === "ident") {
+      this.next();
+      if (t.text === "true" || t.text === "false" || t.text === "null") {
+        return { kind: "literal", start: t.start, end: t.end };
+      }
+      // `Ident { ... }` — a named-object literal.
+      if (this.peek()?.text === "{") {
+        const obj = this.parseObjectBody(t.start);
+        return obj;
+      }
+      return { kind: "ident", start: t.start, end: t.end };
+    }
+    if (t.kind === "punct") {
+      if (t.text === "(") {
+        this.next();
+        const inner = this.parseTernary();
+        if (this.peek()?.text === ")") {
+          this.next();
+        }
+        return inner;
+      }
+      if (t.text === "[") {
+        return this.parseArray(t.start);
+      }
+      if (t.text === "{") {
+        return this.parseObjectBody(t.start);
+      }
+    }
+    // Unexpected token: consume and report unknown.
+    this.next();
+    return { kind: "unknown", start: t.start, end: t.end };
+  }
+
+  private parseArray(start: number): ExprNode {
+    this.next(); // `[`
+    const elements: ExprNode[] = [];
+    while (this.peek() !== undefined && this.peek()?.text !== "]") {
+      elements.push(this.parseTernary());
+      if (this.peek()?.text === ",") {
+        this.next();
+      } else {
+        break;
+      }
+    }
+    if (this.peek()?.text === "]") {
+      this.next();
+    }
+    return { kind: "array", elements, start, end: this.spanFrom(start) };
+  }
+
+  private parseObjectBody(start: number): ExprNode {
+    this.next(); // `{`
+    const fieldValues: ExprNode[] = [];
+    while (this.peek() !== undefined && this.peek()?.text !== "}") {
+      // FieldName `:` value.
+      const key = this.peek();
+      if (key !== undefined && key.kind === "ident") {
+        this.next();
+      } else {
+        this.next();
+        continue;
+      }
+      if (this.peek()?.text === ":") {
+        this.next();
+        fieldValues.push(this.parseTernary());
+      }
+      if (this.peek()?.text === ",") {
+        this.next();
+      } else {
+        break;
+      }
+    }
+    if (this.peek()?.text === "}") {
+      this.next();
+    }
+    return { kind: "object", fieldValues, start, end: this.spanFrom(start) };
+  }
+}
+
+/**
+ * Pre-order walk returning the first sub-expression outside the literal
+ * sublanguage, or `undefined` when the whole expression is a literal. Admitted
+ * container literals (array, bare/named object) recurse into their members; an
+ * `Enum.Variant` member access (`Ident "." Ident`) and a unary `-` on a numeric
+ * literal are admitted carve-outs.
+ */
+function firstNonLiteral(node: ExprNode): ExprNode | undefined {
+  switch (node.kind) {
+    case "literal":
+      return undefined;
+    case "neg":
+      // Unary `-` is admitted only on a numeric literal.
+      return node.operand.kind === "literal" ? undefined : node;
+    case "member":
+      // `Enum.Variant` only — the head must be a bare identifier (one level).
+      return node.objectIsIdent ? undefined : node;
+    case "array":
+      for (const el of node.elements) {
+        const bad = firstNonLiteral(el);
+        if (bad !== undefined) {
+          return bad;
+        }
+      }
+      return undefined;
+    case "object":
+      for (const v of node.fieldValues) {
+        const bad = firstNonLiteral(v);
+        if (bad !== undefined) {
+          return bad;
+        }
+      }
+      return undefined;
+    default:
+      // ident, call, index, binary, ternary, template, query, unary-other,
+      // unknown — all outside the literal sublanguage.
+      return node;
+  }
 }
 
 /**
@@ -80,9 +530,22 @@ export interface ObjectSchemaSpec {
  * implementation leaf computes the omitted-field set.
  */
 export function checkObjectLiteralFields(
-  _schema: ObjectSchemaSpec,
-  _presentFields: readonly string[],
-  _site: LiteralCheckSite,
+  schema: ObjectSchemaSpec,
+  presentFields: readonly string[],
+  site: LiteralCheckSite,
 ): Diagnostic[] {
-  return [];
+  const present = new Set(presentFields);
+  const diagnostics: Diagnostic[] = [];
+  for (const field of schema.fields) {
+    if (!present.has(field)) {
+      diagnostics.push({
+        severity: "error",
+        code: "loom/parse/missing-object-field",
+        file: site.file,
+        range: site.range,
+        message: `missing field '${field}' on schema '${schema.name}'`,
+      });
+    }
+  }
+  return diagnostics;
 }
