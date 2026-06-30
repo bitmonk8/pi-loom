@@ -353,3 +353,14 @@ and speculative code. The probe is the load-bearing deliverable; the adapter-lay
 refusal enforcement is left to the leaf that introduces that adapter. "Ships when"
 (npm test proves the probe refuses on each failure kind with the right
 details.kind and binds nothing) is met by the probe function alone.
+
+## 2026-06-30 — V9f tool-registration lifetime
+
+PIC-8(c) pins only the `loom-system-note` advisory's `content` (verbatim template)
+and `display:true`; it does not specify the note's `details` payload. The
+SystemNote shape (system-note-channel.ts) requires a `details` of one of four
+disjoint shapes. Chose the `event` arm with `{ code: "loom/runtime/active-set-restore-failed" }`
+as the minimal, non-misleading payload that ties the advisory to its emitting
+diagnostic. No spec rule constrains this field, so this is a fill-in of an
+underspecified field rather than a divergence from literal spec text. The V9f-T
+tests assert only `content` and `display`, leaving the choice open.

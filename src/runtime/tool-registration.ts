@@ -24,7 +24,18 @@
 // implementation leaf fills these in.
 
 import type { Diagnostic } from "../diagnostics/diagnostic";
+import { renderUnderlyingError } from "../diagnostics/placeholder";
 import type { SystemNote } from "../extension/system-note-channel";
+
+// Runtime diagnostics-registry codes this module emits
+// (diagnostics/code-registry-runtime.md).
+const ACTIVE_SET_RESTORE_FAILED = "loom/runtime/active-set-restore-failed";
+const REGISTRATION_CACHE_COLLISION = "loom/runtime/registration-cache-collision";
+
+/** Coerce a caught (post-probe SDK-shape-drift) throw to an `Error`. */
+function asError(thrown: unknown): Error {
+  return thrown instanceof Error ? thrown : new Error(renderUnderlyingError(thrown));
+}
 
 // --- ToolDefinition.label derivation ---------------------------------------
 
@@ -49,8 +60,14 @@ export type ToolLabelInput =
  * assertion (the absent capitalisation / absent literal). The V9f
  * implementation fills this in.
  */
-export function deriveToolLabel(_input: ToolLabelInput): string {
-  return "";
+export function deriveToolLabel(input: ToolLabelInput): string {
+  if (input.kind === "typed-query-respond") {
+    return "Loom typed-query response";
+  }
+  // Interior hyphens preserved; only the leading character capitalised
+  // (`code-review` → `Code-review`).
+  const { basename } = input;
+  return basename.charAt(0).toUpperCase() + basename.slice(1);
 }
 
 // --- Active-set gating window (PIC-17 / PIC-8 / PIC-19) ---------------------
@@ -100,10 +117,80 @@ export interface ActiveSetGateDeps {
  * effects. The V9f implementation fills this in.
  */
 export async function withActiveSetGate<T>(
-  _deps: ActiveSetGateDeps,
+  deps: ActiveSetGateDeps,
   body: () => Promise<T>,
 ): Promise<T> {
-  return body();
+  const { pi, installVector } = deps;
+
+  // Step 1 — snapshot the user session's active set. A throw here is a
+  // setup-side (PIC-19) failure: no active-set change has committed, so no
+  // restore is owed; route it to `loom/runtime/internal-error` and propagate.
+  let snapshot: string[];
+  try {
+    snapshot = pi.getActiveTools();
+  } catch (snapshotError: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
+    deps.routeInternalError(asError(snapshotError));
+    throw snapshotError;
+  }
+
+  // Step 2 — swap-install the exact install vector (the snapshot is held only
+  // for the step-4 restore and is deliberately NOT unioned in). A throw here is
+  // also setup-side (PIC-19): the install left uncommitted, no restore is owed.
+  try {
+    pi.setActiveTools([...installVector]);
+  } catch (installError: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
+    deps.routeInternalError(asError(installError));
+    throw installError;
+  }
+
+  // Step 3 — issue the query. Step 4 restore runs in `finally` so cancellation,
+  // panic, and provider exceptions all preserve the invariant; the restore
+  // never masks the inner error the `finally` is protecting (PIC-8(d)).
+  try {
+    return await body();
+  } finally {
+    restoreActiveSet(deps, snapshot);
+  }
+}
+
+/**
+ * Step-4 restore with the PIC-8 single-re-attempt protocol: restore the
+ * snapshot; on a throw, re-attempt exactly once with the same snapshot; on a
+ * second failure, emit `loom/runtime/active-set-restore-failed` (E) plus a
+ * `display: true` advisory note. The restore failure is swallowed here so the
+ * original error the `finally` protects propagates unmasked.
+ */
+function restoreActiveSet(deps: ActiveSetGateDeps, snapshot: string[]): void {
+  try {
+    deps.pi.setActiveTools([...snapshot]);
+    return;
+  } catch (firstError: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
+    void firstError;
+  }
+
+  // PIC-8(a): re-attempt the restore exactly once with the same snapshot. The
+  // retry MUST NOT chain back into `pi.setActiveTools` beyond this single try.
+  try {
+    deps.pi.setActiveTools([...snapshot]);
+    return;
+  } catch (secondError: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
+    // PIC-8(b): emit `loom/runtime/active-set-restore-failed` (E). `message`
+    // carries the underlying restore error; `hint` lists the snapshot tool
+    // names so an operator can manually restore via `/tools`.
+    deps.emitDiagnostic({
+      severity: "error",
+      code: ACTIVE_SET_RESTORE_FAILED,
+      message: `failed to restore tool active-set after /${deps.loomName}: ${renderUnderlyingError(secondError)}`,
+      hint: snapshot.join(", "),
+    });
+    // PIC-8(c): a `display: true` note carrying the verbatim template — only
+    // `<name>` is substituted; every other character ships verbatim.
+    deps.emitSystemNote({
+      content: `loom: failed to restore tool active-set after /${deps.loomName}; the user session may have unexpected tools active. Run /reload to reset.`,
+      display: true,
+      details: { event: { code: ACTIVE_SET_RESTORE_FAILED } },
+    });
+  }
 }
 
 // --- Prompt-mode registration cache (PIC-44) -------------------------------
@@ -168,14 +255,59 @@ export function createRegistrationCache(): RegistrationCache {
  * implementation fills this in.
  */
 export function registerToolInCache(
-  _cache: RegistrationCache,
+  cache: RegistrationCache,
   entry: RegistrationEntry,
   deps: RegistrationCacheDeps,
 ): string {
-  const name =
-    entry.kind === "callee"
-      ? `__loom_callee_${entry.slug}__${entry.postRenameName}`
-      : `__loom_respond_${entry.slug}`;
-  deps.registerTool(name);
-  return name;
+  const baseName = contentAddressedName(entry);
+  const existing = cache.get(entry.slug);
+
+  // First encounter of a unique slug: register once under the content-addressed
+  // name and store the canonical-form bytes alongside it for the PIC-44
+  // byte-equality check on later hits.
+  if (existing === undefined) {
+    cache.set(entry.slug, {
+      registeredName: baseName,
+      canonicalFormBytes: entry.canonicalFormBytes,
+      nextCounter: 2,
+    });
+    deps.registerTool(baseName);
+    return baseName;
+  }
+
+  // Cache hit (PIC-44): verify byte-equality of the cached canonical-form bytes
+  // against the new entry's before reusing the registration. Byte-equal reuses
+  // the existing registration with no re-register and no collision.
+  if (existing.canonicalFormBytes === entry.canonicalFormBytes) {
+    return existing.registeredName;
+  }
+
+  // Byte-mismatch: a slug collision between two distinct lowered schemas. Fire
+  // `loom/runtime/registration-cache-collision`, refuse to dedup, and register
+  // under a disambiguated per-slug-counter name (`n` starts at 2).
+  const n = existing.nextCounter;
+  existing.nextCounter = n + 1;
+  const disambiguated = contentAddressedName(entry, n);
+  deps.emitDiagnostic({
+    severity: "error",
+    code: REGISTRATION_CACHE_COLLISION,
+    message: `tool-registration cache collision on slug ${entry.slug}: ${existing.registeredName} vs ${disambiguated}`,
+    // Both lowered-schema canonical-form bytes are carried in full in `hint`,
+    // not in the byte-exact Message template.
+    hint: `cached: ${existing.canonicalFormBytes}\nnew: ${entry.canonicalFormBytes}`,
+  });
+  deps.registerTool(disambiguated);
+  return disambiguated;
+}
+
+/**
+ * The content-addressed registration name for a lowered tool. With no counter,
+ * the base name; with a per-slug disambiguation counter `n`, the collision form
+ * (`__loom_callee_<slug>_<n>__<post-rename-name>` / `__loom_respond_<slug>_<n>`).
+ */
+function contentAddressedName(entry: RegistrationEntry, n?: number): string {
+  const counter = n === undefined ? "" : `_${n}`;
+  return entry.kind === "callee"
+    ? `__loom_callee_${entry.slug}${counter}__${entry.postRenameName}`
+    : `__loom_respond_${entry.slug}${counter}`;
 }
