@@ -215,3 +215,36 @@ extension-bootstrap throw) whose runtime shape loom cannot statically guarantee
 spec obligation exists for it), which the H5c broad-catch allow-list closing-gate
 arm admits. The catch swallows any throw and returns the spec-mandated
 `<unreadable>` sentinel (not a rethrow-on-mismatch).
+
+## 2026-06-30 — V1a lexer core
+
+- **`=` as a continuation trigger.** grammar.md §"Newline continuation"
+  tabulates the closed trigger set as the binary/ternary operators
+  (`+ - * / % == != < <= > >= && || ? :`), trailing comma, open bracket, and
+  leading operator — `=` is not in that operator list. But the spec's own
+  worked example of the blank-line rule, repeated verbatim in lexical.md
+  §"Statement terminators" and grammar.md, is `let x =\n\n  foo` "is one
+  statement equivalent to `let x = foo`", which requires a *trailing* `=` to
+  trigger continuation. lexical.md's framing — "continues … only when the
+  parser cannot otherwise close it" — covers a dangling binding `=`. The lexer
+  therefore treats trailing `=` as a continuation trigger (it is not a *leading*
+  trigger). Recorded because it reconciles an apparent gap between the closed
+  operator table and the normative worked example rather than following the
+  table's literal operator list. No spec edit made: the worked example is
+  itself normative and the "cannot otherwise close it" framing authorises it.
+
+- **Contextual diagnostic scope.** lexical.md frames the case / reserved-keyword
+  / single-line-body rules as *parser*-enforced. This lexer-core leaf enforces
+  them at the closed positions its V1a-T Tests obligations name: declarator-name
+  slots (`let` / `let mut` / `fn` → binding; `schema` / `enum` → type) and
+  control headers (`if` / `for` / `while` / `fn`). Full identifier-position
+  coverage (every reserved word in every grammatical identifier slot, the case
+  rule for fn params and schema fields, the `for`/`fn` single-line forms beyond
+  the `if (x) stmt` vector) belongs to the later parser leaves; the lexer core
+  does not over-reach into positions it cannot resolve without a parse tree.
+
+- **`?` continuation trigger.** The closed table lists `?` as a trailing/leading
+  trigger (ternary head). grammar.md carves out the postfix error-propagation
+  `?` (ERR-18) as a statement terminator, but that distinction needs the parser;
+  the lexer core treats `?` as a continuation trigger per the table's positive
+  path. No V1a vector exercises the postfix-`?` carve-out.
