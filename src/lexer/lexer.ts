@@ -38,6 +38,20 @@ export type TokenKind =
 export interface Token {
   readonly kind: TokenKind;
   readonly text: string;
+  /**
+   * For `string` tokens: the decoded literal value with the escape table
+   * (`\"`, `\'`, `\\`, `\n`, `\t`, `\r`, `\u{XXXX}`) lowered to its characters
+   * (lexical.md §"String literals"). Absent on non-string tokens and until V1b
+   * fills in escape decoding.
+   */
+  readonly value?: string;
+  /**
+   * For `number` tokens: the integer/number type classification — a literal
+   * with no fractional or exponent part is `integer`, otherwise `number`
+   * (lexical.md §"Number literals"). Absent on non-number tokens and until V1b
+   * fills in numeric typing.
+   */
+  readonly numericType?: "integer" | "number";
   readonly range: {
     readonly start: { readonly line: number; readonly column: number };
     readonly end: { readonly line: number; readonly column: number };

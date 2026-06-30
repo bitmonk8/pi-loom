@@ -248,3 +248,27 @@ arm admits. The catch swallows any throw and returns the spec-mandated
   `?` (ERR-18) as a statement terminator, but that distinction needs the parser;
   the lexer core treats `?` as a continuation trigger per the table's positive
   path. No V1a vector exercises the postfix-`?` carve-out.
+
+## V1b-T — string/number/path literal tests
+
+- **Seam split: lexer-surfaced vs parse-context literals.** String escape
+  decoding and number range/type checks are lexer behaviours, so V1b-T asserts
+  them through `lexLoom` and the V7d diagnostic seam (decoded value lands on
+  `Token.value`, the integer/number tag on `Token.numericType`, the numeric
+  codes are emitted during scanning). Path-literal validation and the
+  integer→number narrowing rule need a parse / type context the tokeniser does
+  not have, so V1b-T gives them standalone seams in `src/lexer/literals.ts`
+  (`validatePathLiteral`, `checkIntegerNarrowing`) that the later import /
+  invoke / type-check leaves call. This keeps the V1a `lexLoom` token contract
+  intact (two optional fields added) while not forcing path/narrowing checks
+  into a position the lexer cannot resolve.
+
+- **`.LOOM` rejection code.** The leaf's path bullet cites only
+  `loom/parse/invalid-path-separator` and adds the prose ".LOOM is rejected
+  byte-exact cross-OS". The registry code that actually fires for a non-`.loom`
+  `invoke` path is `loom/parse/invoke-non-loom-extension` (lexical.md
+  §"Extension matching" — byte-exact lowercase final-segment check), which V1b's
+  Adds names ("byte-exact lowercase .loom/.warp final segment"). The `.LOOM`
+  test therefore asserts `loom/parse/invoke-non-loom-extension`; this lands an
+  asserting test for that registry code and is faithful to the spec rule the
+  bullet's prose describes.
