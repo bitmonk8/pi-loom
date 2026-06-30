@@ -32,6 +32,10 @@ Each scenario directory uses the conventional closing-gate corpus layout the
   The un-anchored-MUST arm resolves each Code-keyed closing-leaf token against
   the backtick-delimited leaf IDs listed here. Absent in the H5a/H5c/H5d
   scenarios, which leaves the un-anchored-MUST arm dormant for them.
+- `h5f-enabled.md` — (for the H5f arm) a marker file whose mere presence flips
+  `loadCorpus`'s `perFacetCitingTests` flag on, enabling the per-facet citing-
+  test arm for that scenario. Absent in every other scenario, which leaves the
+  per-facet arm dormant for them.
 
 Scenarios:
 
@@ -71,3 +75,12 @@ Scenarios:
   residue defect. (The non-resolving-token case — a closing-leaf token like
   `V99z` resolving to no real plan leaf — is exercised by an inline unit corpus
   in `tests/closing-gate.test.ts` rather than a fixture directory.)
+- `per-facet-no-violation/` — (H5f) every facet leaf of every multi-leaf row
+  carries its own facet-naming citing test: a *Numbered REQ-IDs* row (`FOO-1`)
+  whose co-witness-annotated `H7a` leaf is correctly excluded from the facet
+  partition (leaving the single facet `V1a`), a two-facet numbered row (`FOO-2` →
+  `V2c`, `V3b`), a two-facet *Code-keyed obligation areas* row (`cka-1` → `V5a`,
+  `V5b`), and a single-leaf row (`BAR-1`) out of per-facet scope.
+- `per-facet-violation/` — (H5f) the same corpus with one facet's citing test
+  removed: the `cka-1` row's facet `V5b` carries no test citing both `cka-1` and
+  `V5b` inline, so only the per-facet arm reds out (subject `V5b`).

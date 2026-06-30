@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 // @ts-expect-error — JS closing-gate module, no type declarations.
-import { loadCorpus, runClosingGate, extractReqIds, parsePrefixTable, parseRetiredReqIds, parseCoverageMatrix, parseRegistryCodes, extractAssertedCodes, extractCitingReqIds, parseCkaTokens, extractBroadCatchEntries, expandLeafTokens, parseH5bDeps, parseClosingLeafCells, parsePrefixTablePages, parseCkaAreaRows, parsePlanLeaves, pageHasUnanchoredMust, classifyClosingCell } from "../tools/closing-gate/index.js";
+import { loadCorpus, runClosingGate, extractReqIds, parsePrefixTable, parseRetiredReqIds, parseCoverageMatrix, parseRegistryCodes, extractAssertedCodes, extractCitingReqIds, parseCkaTokens, extractBroadCatchEntries, expandLeafTokens, parseH5bDeps, parseClosingLeafCells, parsePrefixTablePages, parseCkaAreaRows, parsePlanLeaves, pageHasUnanchoredMust, classifyClosingCell, deriveFacetPartition, parseFacetRows, citesTokenInline } from "../tools/closing-gate/index.js";
 
 // H5a — REQ-ID / diagnostic-code closing-gate automation. These assertions ARE
 // the closing gate "wired into npm test": they run the gate against the seeded
@@ -329,6 +329,136 @@ describe("H5e — un-anchored-MUST recogniser parsing (unit)", () => {
     const findings = runClosingGate(corpus) as Finding[];
     expect(kinds(findings)).toEqual(["un-anchored-must-unresolved-leaf"]);
     expect(findings[0]?.subject).toBe("typo.md");
+  });
+});
+
+// H5f — per-facet citing-test arm, running as part of the unified closing-gate
+// machinery against seeded fixtures under the same dedicated test-fixtures root
+// (outside docs/spec_topics/** and outside this live vitest corpus). For every
+// multi-leaf coverage-matrix row — across BOTH obligation tables — the arm
+// derives the facet partition (dropping co-witness-annotated leaves) and reddens
+// when a remaining facet's closing leaf carries no facet-naming citing test
+// citing both the row's subject (REQ-ID or cka-<n>) and that facet's leaf-ID
+// inline. Each block cites the conventions.md *REQ-ID discipline* convention.
+describe("H5f — per-facet citing-test arm against the seeded no-violation fixture", () => {
+  it("(Convention: REQ-ID discipline — per-facet citing tests) runs green when every facet leaf of every multi-leaf row carries its own facet-naming citing test, including a row whose co-witness-annotated leaf is correctly excluded from the facet partition", () => {
+    expect(gate("per-facet-no-violation")).toEqual([]);
+  });
+});
+
+describe("H5f — per-facet citing-test arm against the seeded violation fixture", () => {
+  it("(Convention: REQ-ID discipline — per-facet citing tests) fails when a facet leaf of a multi-leaf row has no test citing both the row's cka-<n> token and that facet's leaf-ID inline", () => {
+    const findings = gate("per-facet-violation");
+    expect(kinds(findings)).toEqual(["per-facet-citing-test-missing"]);
+    expect(findings[0]?.subject).toBe("V5b");
+  });
+});
+
+describe("H5f — per-facet citing-test parsing and arm (unit)", () => {
+  it("(Convention: REQ-ID discipline — facet partition) deriveFacetPartition keeps every non-co-witness facet and drops a leaf whose immediately-following parenthetical contains the literal `co-witness` token", () => {
+    // Single facet after dropping a lone co-witness.
+    expect(
+      deriveFacetPartition("`V16a`, `H7a` (co-witness — cross-site integration witness)"),
+    ).toEqual({ listed: ["V16a", "H7a"], facets: ["V16a"] });
+    // Two co-witnesses, each marked by its own immediately-following parenthetical.
+    expect(
+      deriveFacetPartition("`V16a`, `V4e` (co-witness — load-time consult), `V11f` (co-witness — load-time consult)"),
+    ).toEqual({ listed: ["V16a", "V4e", "V11f"], facets: ["V16a"] });
+    // A non-co-witness facet annotation keeps its leaf in the partition.
+    expect(
+      deriveFacetPartition("`V10a` (collision-detection closure), `V9m` (superseded-entry-dispatch closure)"),
+    ).toEqual({ listed: ["V10a", "V9m"], facets: ["V10a", "V9m"] });
+    // Bare comma-separated facets.
+    expect(deriveFacetPartition("`V2c`, `V3b`")).toEqual({
+      listed: ["V2c", "V3b"],
+      facets: ["V2c", "V3b"],
+    });
+  });
+
+  it("parseFacetRows reads numbered-row REQ-ID subjects (ranges expanded) and code-keyed-row cka-<n> subjects, scoped to the two obligation tables", () => {
+    const rows = parseFacetRows(
+      [
+        "## Numbered REQ-IDs (runtime obligations)",
+        "| REQ-ID | Closing leaf(s) |",
+        "|---|---|",
+        "| FOO-1, FOO-2 | `V1a`, `V2c` |",
+        "| BAR-1 … BAR-3 | `V3b`, `H7a` (co-witness — x) |",
+        "",
+        "## Code-keyed obligation areas (no numbered REQ-IDs)",
+        "| Token | Spec area (prefix) | Closing leaf(s) |",
+        "|---|---|---|",
+        "| `cka-7` | `foo.md` (FOO) | `V5a`, `V5b` |",
+        "",
+        "## Governance REQ-IDs (GOV-*) — not runtime obligations",
+        "| GOV-1 | `someplace` |",
+      ].join("\n"),
+    );
+    expect(rows).toEqual([
+      { subjects: ["FOO-1", "FOO-2"], closing: "`V1a`, `V2c`" },
+      { subjects: ["BAR-1", "BAR-2", "BAR-3"], closing: "`V3b`, `H7a` (co-witness — x)" },
+      { subjects: ["cka-7"], closing: "`V5a`, `V5b`" },
+    ]);
+  });
+
+  it("citesTokenInline matches a REQ-ID / cka-token / leaf-ID on word boundaries and not as a substring of a larger identifier", () => {
+    expect(citesTokenInline("// cites cka-33 and V9o here", "cka-33")).toBe(true);
+    expect(citesTokenInline("// cites cka-33 and V9o here", "V9o")).toBe(true);
+    expect(citesTokenInline("// only V9oxyz appears", "V9o")).toBe(false);
+    expect(citesTokenInline("// FOO-1 cited", "FOO-1")).toBe(true);
+    expect(citesTokenInline("// FOO-12 cited", "FOO-1")).toBe(false);
+  });
+
+  it("(Convention: REQ-ID discipline — best-effort existence) the arm certifies per-facet citing-test EXISTENCE, not assertion fidelity: a single-leaf row is out of scope, and a numbered-row facet reds out only when no test cites both its REQ-ID and its leaf-ID", () => {
+    const base = {
+      prefixTableText: "## REQ-ID prefix table\n| Page | Prefix |\n|---|---|\n| foo.md | FOO |",
+      specSources: [{ path: "foo.md", text: "**FOO-1.** x **FOO-2.** y" }],
+      registryText: "",
+      perFacetCitingTests: true,
+    };
+    const matrix = [
+      "## Numbered REQ-IDs (runtime obligations)",
+      "| REQ-ID | Closing leaf(s) |",
+      "|---|---|",
+      "| FOO-1 | `V1a` |", // single-leaf — out of per-facet scope
+      "| FOO-2 | `V2c`, `V3b` |", // two facets
+    ].join("\n");
+    const facetFindings = (testText: string): Finding[] =>
+      (runClosingGate({
+        ...base,
+        coverageMatrixText: matrix,
+        testSources: [{ path: "t.test.ts", text: testText }],
+      }) as Finding[]).filter((f) => f.kind === "per-facet-citing-test-missing");
+
+    // Both facets cited with their REQ-ID → green; the single-leaf FOO-1/V1a row
+    // is never checked even though V1a is cited nowhere.
+    expect(facetFindings("// FOO-2 V2c\n// FOO-2 V3b")).toEqual([]);
+    // V3b's facet-naming test missing → exactly one finding for V3b.
+    const missing = facetFindings("// FOO-2 V2c only");
+    expect(missing.map((f) => f.subject)).toEqual(["V3b"]);
+    // Granularity is per-test-source: the facet leaf-ID and the row subject must
+    // co-occur in the SAME test source. A file citing V3b but not FOO-2, beside a
+    // separate file citing FOO-2 but not V3b, does NOT satisfy V3b's facet.
+    const split = (runClosingGate({
+      ...base,
+      coverageMatrixText: matrix,
+      testSources: [
+        { path: "a.test.ts", text: "// FOO-2 V2c\n// FOO-2 only here" },
+        { path: "b.test.ts", text: "// V3b mentioned with no REQ-ID" },
+      ],
+    }) as Finding[]).filter((f) => f.kind === "per-facet-citing-test-missing");
+    expect(split.map((f) => f.subject)).toEqual(["V3b"]);
+  });
+
+  it("the arm stays dormant when the corpus does not set perFacetCitingTests (other arms' fixtures are unaffected)", () => {
+    const corpus = {
+      prefixTableText: "## REQ-ID prefix table\n| Page | Prefix |\n|---|---|\n| foo.md | FOO |",
+      specSources: [{ path: "foo.md", text: "**FOO-2.** y" }],
+      coverageMatrixText: "| REQ-ID | Closing leaf(s) |\n|---|---|\n| FOO-2 | `V2c`, `V3b` |",
+      registryText: "",
+      testSources: [{ path: "t.test.ts", text: "// FOO-2 cited" }],
+    };
+    const findings = runClosingGate(corpus) as Finding[];
+    expect(findings.some((f) => f.kind === "per-facet-citing-test-missing")).toBe(false);
   });
 });
 

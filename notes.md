@@ -134,3 +134,24 @@ therefore omit the absent token from the *entire* fixture file — a comment tha
 merely names the token (e.g. "FOO-2 is deliberately not cited") leaks it and is
 counted as a citation, masking the intended violation. The fixtures keep their
 explanatory comments token-free for the omitted subject.
+
+## 2026-06-30 — H5f closing-gate section-heading classification order
+
+Implementation discovery (not a plan/spec change): the coverage-matrix Code-keyed
+section heading literally reads "Code-keyed obligation areas (no numbered REQ-IDs)",
+whose substring "numbered REQ-IDs" matches a naive `/Numbered REQ-IDs/i` test. The
+new `parseFacetRows` section classifier therefore tests the Code-keyed branch
+**before** the Numbered branch; otherwise the entire Code-keyed table is
+mis-classified as the Numbered table and its `cka-<n>` rows are silently dropped
+from the per-facet scan. The pre-existing `parseClosingLeafCells` avoids this by
+OR-ing both predicates into one `inScope` flag (order-independent), and
+`parseCkaAreaRows` only ever tests the Code-keyed predicate — so neither exhibited
+the bug, but any future single-`section`-variable scoped reader of these two tables
+must order Code-keyed first.
+
+Granularity choice for the H5f facet-naming citing-test scan: per-test-source-file
+co-occurrence (a single test source must cite both the row subject and the facet
+leaf-ID inline). This is strictly tighter than the H5a per-REQ-ID corpus-wide scan
+yet still a best-effort existence check; finer per-`it`-block association and
+per-facet assertion fidelity stay routed to the release-time residue inspection
+item 7, exactly as conventions.md specifies.

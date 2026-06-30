@@ -43,6 +43,12 @@
 //                                      real plan leaf ID (a typo like V99z) (H5e)
 //   - un-rowed-page-residue           : a non-hub-stub spec_topics/**-shaped
 //                                      page absent from the prefix table (H5e)
+//   - per-facet-citing-test-missing  : a facet leaf of a multi-leaf coverage-
+//                                      matrix row carries no facet-naming citing
+//                                      test — a test citing BOTH the row's
+//                                      subject (the numbered REQ-ID, or the
+//                                      `cka-<n>` Token for a code-keyed row) and
+//                                      that facet's closing-leaf-ID inline (H5f)
 //
 // H5e — un-anchored normative-MUST text-scan arm. A best-effort MUST/MUST-NOT
 // token scan over the non-narrative spec pages, spanning three sub-recognisers
@@ -62,6 +68,30 @@
 // plan leaf-ID universe); the H5a/H5c/H5d fixtures omit it and are unaffected.
 // Like the H5a surfaces it is exercised against the seeded fixtures here and
 // first binds against the live spec corpus at the H6a release-gate activation.
+//
+// H5f — per-facet citing-test arm. For every coverage-matrix row whose *Closing
+// leaf(s)* cell lists two or more leaves — across BOTH the *Numbered REQ-IDs*
+// table and the *Code-keyed obligation areas (no numbered REQ-IDs)* table — the
+// arm derives the row's FACET PARTITION from the cell alone by the rule the
+// release-time residue inspection item 7 / coverage-matrix.md *Multi-leaf-row
+// per-facet citing tests* convention fixes: a listed leaf whose immediately-
+// following parenthetical annotation contains the literal token `co-witness` is
+// dropped, and every remaining listed leaf is a FACET of the row's obligation.
+// It then asserts each remaining facet carries its own FACET-NAMING CITING TEST
+// — a test source citing BOTH the row's subject inline (the numbered REQ-ID for
+// a *Numbered REQ-IDs* row, or the `cka-<n>` *Token* for a *Code-keyed
+// obligation areas* row) and that facet's closing-leaf-ID inline — and reddens
+// on any remaining facet with no such citing test in the corpus. Like the H5a
+// per-REQ-ID citing-test scan it is a BEST-EFFORT inline-citation EXISTENCE scan:
+// it certifies a facet-naming citing test exists for each facet, not that the
+// cited test's assertion is semantically faithful to the facet's obligation —
+// that per-facet faithfulness stays a TDD / self-review and release-time residue
+// (item 7) obligation. The arm reuses the existing backtick-delimited leaf-ID
+// tokens as facet keys and adds no token to the closing-leaf cell. It runs only
+// when the corpus sets `perFacetCitingTests`; the H5a/H5c/H5d/H5e fixtures leave
+// it unset and are unaffected. Like the other live-corpus surfaces it is
+// exercised against the seeded fixtures here and first binds against the live
+// test corpus at the H6a release-gate activation.
 //
 // H5d — transitive-completeness plan-structural arm. For every row in the
 // coverage-matrix's *Numbered REQ-IDs* and *Code-keyed obligation areas (no
@@ -323,6 +353,81 @@ export function parseClosingLeafCells(text) {
   return cells;
 }
 
+// ── Per-facet citing-test parsing (H5f) ───────────────────────────────────────
+// Derive a closing-leaf cell's facet partition from the cell ALONE (no recourse
+// to the coverage-matrix closure-rationale prose), by the rule the release-time
+// residue inspection item 7 fixes. Walk the cell left-to-right; each backtick-
+// delimited leaf-ID span is a LISTED leaf, and the parenthetical that
+// immediately follows it (if any) is its annotation. A leaf whose immediately-
+// following parenthetical contains the literal `co-witness` token is dropped
+// from the facet set; every other listed leaf (bare or carrying a non-co-witness
+// facet annotation) is a FACET. Returns { listed, facets } as ordered arrays.
+//
+// Limitation (documented, not exercised by any live closing-leaf cell): a
+// within-group range form `` `V2a`–`V2d` `` keeps only its two backtick
+// endpoints as listed leaves and does not expand the interior; real multi-leaf
+// closing-leaf cells are comma-separated singletons, never ranges.
+export function deriveFacetPartition(cell) {
+  const listed = [];
+  const facets = [];
+  const re = /`([A-Z]+[0-9]*[a-z]?)`\s*(?:\(([^)]*)\))?/g;
+  let m;
+  while ((m = re.exec(cell)) !== null) {
+    const leaf = m[1];
+    listed.push(leaf);
+    const paren = m[2];
+    if (paren != null && /\bco-witness\b/.test(paren)) continue; // co-witness — dropped
+    facets.push(leaf);
+  }
+  return { listed, facets };
+}
+
+// Parse the coverage matrix's two obligation tables into one entry per body row:
+// { subjects, closing }. For a *Numbered REQ-IDs* row the subjects are the
+// expanded REQ-IDs of the left cell (a range / comma list expands per
+// `expandReqIdSpec`); for a *Code-keyed obligation areas* row the subject is the
+// single `cka-<n>` *Token* cell. The *Governance* and any other section is out
+// of scope, and the header rows (last cell `Closing leaf(s)`) are skipped.
+export function parseFacetRows(text) {
+  const rows = [];
+  let section = null; // "numbered" | "cka" | null
+  for (const line of text.split("\n")) {
+    const heading = line.match(/^\s*##\s+(.*)$/);
+    if (heading != null) {
+      // Code-keyed is tested first: its heading literally contains the phrase
+      // "no numbered REQ-IDs", which would otherwise match the Numbered branch.
+      if (/Code-keyed obligation areas/i.test(heading[1])) section = "cka";
+      else if (/Numbered REQ-IDs/i.test(heading[1])) section = "numbered";
+      else section = null;
+      continue;
+    }
+    if (section == null) continue;
+    const cells = parseTableRow(line);
+    if (cells == null || cells.length < 2) continue;
+    const last = cells[cells.length - 1].trim();
+    if (/^Closing leaf\(s\)$/i.test(last)) continue; // header row
+    if (section === "numbered") {
+      if (/^REQ-ID$/i.test(cells[0].trim())) continue; // header row
+      const subjects = expandReqIdSpec(cells[0]);
+      if (subjects.length === 0) continue;
+      rows.push({ subjects, closing: last });
+    } else {
+      const tok = cells[0].match(/`(cka-[1-9][0-9]*)`/);
+      if (tok == null) continue;
+      rows.push({ subjects: [tok[1]], closing: last });
+    }
+  }
+  return rows;
+}
+
+// True iff `token` is cited inline anywhere in `text`, matched on word
+// boundaries so a leaf-ID / REQ-ID / cka-token is not a substring of a larger
+// identifier. The token is regex-escaped before use.
+export function citesTokenInline(text, token) {
+  const esc = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`\\b${esc}\\b`).test(text);
+}
+
 // ── Un-anchored-MUST text-scan parsing (H5e) ──────────────────────────────────
 // The byte-exact narrative-cell literal (GOV-3). A prefix-table row whose cell
 // is EXACTLY this string classifies its page as pure-narrative and out of the
@@ -521,6 +626,7 @@ export function extractCitingReqIds(sources) {
  *   srcSources?: {path: string, text: string}[],
  *   h5bDepsText?: string,
  *   planLeavesText?: string,
+ *   perFacetCitingTests?: boolean,
  * }} corpus
  * @returns {{kind: string, subject: string, detail: string}[]}
  */
@@ -689,6 +795,34 @@ export function runClosingGate(corpus) {
     }
   }
 
+  // (5e) Per-facet citing-test (H5f): for every multi-leaf coverage-matrix row
+  // (across both obligation tables), derive its facet partition (dropping the
+  // co-witness-annotated leaves) and require each remaining facet to carry a
+  // facet-naming citing test — a test source citing BOTH the row's subject (a
+  // numbered REQ-ID, or the `cka-<n>` token) and that facet's closing-leaf-ID
+  // inline. Runs only when the corpus sets `perFacetCitingTests`; the other
+  // arms' fixtures leave it unset and this arm stays dormant.
+  if (corpus.perFacetCitingTests) {
+    for (const row of parseFacetRows(corpus.coverageMatrixText)) {
+      const { listed, facets } = deriveFacetPartition(row.closing);
+      if (listed.length < 2) continue; // single-leaf row — out of per-facet scope
+      for (const facet of facets) {
+        const satisfied = corpus.testSources.some(
+          (src) =>
+            citesTokenInline(src.text, facet) &&
+            row.subjects.some((subject) => citesTokenInline(src.text, subject)),
+        );
+        if (!satisfied) {
+          findings.push({
+            kind: "per-facet-citing-test-missing",
+            subject: facet,
+            detail: `facet leaf ${facet} of multi-leaf row [${row.subjects.join(", ")}] has no facet-naming citing test citing both the row subject and ${facet} inline`,
+          });
+        }
+      }
+    }
+  }
+
   // (6) Per-prefix numbering hole: for each prefix the corpus owns, an integer
   // n ≤ max(live ∪ retired) that is neither live nor retired.
   for (const hole of numberingHoles(specReqIds, retired)) {
@@ -734,6 +868,8 @@ function numberingHoles(liveIds, retiredSet) {
 //   <dir>/tests/**            — the (seeded or live) test corpus
 //   <dir>/h5b-deps.md         — (H5d) H5b's `Deps.` field snapshot; absent in
 //                               the H5a/H5c scenarios (arm stays dormant)
+//   <dir>/h5f-enabled.md      — (H5f) marker enabling the per-facet citing-test
+//                               arm for this scenario; absent elsewhere (dormant)
 //
 // At the live-corpus footing (H6a) the same loader is pointed at the live trees;
 // the path selection MUST exclude the fixtures root so no seeded fixture is ever
@@ -755,6 +891,9 @@ export function loadCorpus(dir) {
     // H5e: the real plan leaf-ID universe snapshot. Absent in the H5a/H5c/H5d
     // scenarios, which leaves the un-anchored-MUST arm dormant for those fixtures.
     planLeavesText: readIfPresent(path.join(dir, "plan-leaves.md")),
+    // H5f: marker file presence enables the per-facet citing-test arm. Absent in
+    // every other scenario, which leaves the per-facet arm dormant for them.
+    perFacetCitingTests: existsSync(path.join(dir, "h5f-enabled.md")),
   };
 }
 
