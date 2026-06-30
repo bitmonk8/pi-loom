@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 // @ts-expect-error — JS closing-gate module, no type declarations.
-import { loadCorpus, runClosingGate, extractReqIds, parsePrefixTable, parseRetiredReqIds, parseCoverageMatrix, parseRegistryCodes, extractAssertedCodes, extractCitingReqIds } from "../tools/closing-gate/index.js";
+import { loadCorpus, runClosingGate, extractReqIds, parsePrefixTable, parseRetiredReqIds, parseCoverageMatrix, parseRegistryCodes, extractAssertedCodes, extractCitingReqIds, parseCkaTokens, extractBroadCatchEntries } from "../tools/closing-gate/index.js";
 
 // H5a — REQ-ID / diagnostic-code closing-gate automation. These assertions ARE
 // the closing gate "wired into npm test": they run the gate against the seeded
@@ -75,6 +75,77 @@ describe("H5a — closing gate against each seeded violation fixture", () => {
     const findings = gate("asserted-code-not-in-registry");
     expect(kinds(findings)).toEqual(["asserted-code-not-in-registry"]);
     expect(findings[0]?.subject).toBe("loom/runtime/ghost");
+  });
+});
+
+// H5c — `no-broad-catch` allow-list closing-gate reconciliation arm, running as
+// part of the unified closing-gate machinery against seeded fixtures under the
+// same dedicated test-fixtures root. The arm scans the `// allow-broad-catch:`
+// comments across the (seeded) `src/**` as its allow-list entries and reds out
+// when an entry's cited token resolves to none of the four admitted arms.
+describe("H5c — broad-catch allow-list reconciliation against seeded fixtures", () => {
+  it("(Convention: Specific exception types only — broad-catch allow-list) runs green when every entry cites an admitted token (REQ-ID, cka-<n>, concrete loom/... code, pi-sdk-boundary)", () => {
+    expect(gate("broad-catch-no-violation")).toEqual([]);
+  });
+
+  it("(Convention: Specific exception types only — broad-catch allow-list) fails when an entry cites a loom/... glob/wildcard family that the concrete-registry-code resolver never matches", () => {
+    const findings = gate("broad-catch-unresolved");
+    expect(kinds(findings)).toEqual(["broad-catch-allow-list-unresolved"]);
+    expect(findings[0]?.subject).toBe("loom/host/session-shutdown-*");
+  });
+});
+
+describe("H5c — broad-catch allow-list token resolution (unit)", () => {
+  const corpus = (srcText: string) => ({
+    prefixTableText: "## REQ-ID prefix table\n| Page | Prefix |\n|---|---|\n| foo.md | FOO |",
+    specSources: [{ path: "foo.md", text: "**FOO-1.** x" }],
+    coverageMatrixText: [
+      "| REQ-ID | Closing leaf(s) |",
+      "|---|---|",
+      "| FOO-1 | `V1a` |",
+      "",
+      "## Code-keyed obligation areas (no numbered REQ-IDs)",
+      "| Token | Spec area | Closing leaf(s) |",
+      "|---|---|---|",
+      "| `cka-7` | `foo.md` (FOO) | `V1a` |",
+    ].join("\n"),
+    registryText: "| `loom/parse/foo-bad` | E | msg |",
+    testSources: [{ path: "t.test.ts", text: "// FOO-1 cited\n loom/parse/foo-bad" }],
+    srcSources: [{ path: "s.ts", text: srcText }],
+  });
+
+  const arm = (srcText: string): Finding[] =>
+    (runClosingGate(corpus(srcText)) as Finding[]).filter(
+      (f) => f.kind === "broad-catch-allow-list-unresolved",
+    );
+
+  it("resolves a coverage-matrix REQ-ID, a cka-<n> Token cell, a concrete loom code, and pi-sdk-boundary", () => {
+    expect(arm("// allow-broad-catch: FOO-1 — p")).toEqual([]);
+    expect(arm("// allow-broad-catch: cka-7 — p")).toEqual([]);
+    expect(arm("// allow-broad-catch: loom/parse/foo-bad — p")).toEqual([]);
+    expect(arm("// allow-broad-catch: pi-sdk-boundary — p")).toEqual([]);
+  });
+
+  it("rejects an unmapped REQ-ID, an unknown cka token, a non-registry loom code, a glob/wildcard, and a bare token", () => {
+    expect(arm("// allow-broad-catch: FOO-9 — p")[0]?.subject).toBe("FOO-9");
+    expect(arm("// allow-broad-catch: cka-99 — p")[0]?.subject).toBe("cka-99");
+    expect(arm("// allow-broad-catch: loom/parse/ghost — p")[0]?.subject).toBe("loom/parse/ghost");
+    expect(arm("// allow-broad-catch: loom/host/session-shutdown-* — p")[0]?.subject).toBe("loom/host/session-shutdown-*");
+    expect(arm("// allow-broad-catch: bogus — p")[0]?.subject).toBe("bogus");
+  });
+
+  it("parseCkaTokens counts each Token cell; resolution requires exactly one match", () => {
+    const counts = parseCkaTokens("| `cka-1` | a | b |\n| `cka-2` | c | d |");
+    expect(counts.get("cka-1")).toBe(1);
+    expect(counts.get("cka-2")).toBe(1);
+    expect(counts.has("cka-3")).toBe(false);
+  });
+
+  it("extractBroadCatchEntries reads the cited token (first span after the colon) from each comment", () => {
+    const entries = extractBroadCatchEntries([
+      { path: "s.ts", text: "x; // allow-broad-catch: pi-sdk-boundary — page\ny; // allow-broad-catch: cka-1 — page" },
+    ]);
+    expect(entries.map((e: { token: string }) => e.token)).toEqual(["pi-sdk-boundary", "cka-1"]);
   });
 });
 

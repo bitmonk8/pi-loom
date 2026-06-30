@@ -26,6 +26,22 @@
 //   - retired-live-id-clash          : a REQ-ID present in both live and retired
 //   - per-prefix-numbering-hole      : an n ≤ max(live∪retired) neither live nor
 //                                      retired for a prefix the corpus owns
+//   - broad-catch-allow-list-unresolved: a `// allow-broad-catch:` entry whose
+//                                      cited token resolves to none of the four
+//                                      admitted arms (H5c)
+//
+// H5c — `no-broad-catch` allow-list closing-gate reconciliation arm. The gate
+// scans the `// allow-broad-catch:` comments across `src/**` (the lint allow-
+// list conventions.md *Specific exception types only* defines) as its entries;
+// every entry's cited token MUST resolve to one of the four arms that rule's
+// predicate admits: a coverage-matrix REQ-ID, a *Code-keyed obligation areas
+// (no numbered REQ-IDs)* row's canonical `cka-<n>` token (resolving iff it
+// matches exactly one such row's *Token* cell), a concrete `loom/...`
+// diagnostics-registry code present in the registry (never a glob/wildcard
+// family — the resolver matches no wildcard), or the structural
+// `pi-sdk-boundary` token. An entry resolving to none is a CI failure, on the
+// same seeded-fixture-then-live-corpus footing as the H5a surfaces; the live-
+// corpus binding flips at H6a.
 //
 // The `loom/typecheck/*` build-time `tsc` brand-string prefix is NOT a
 // diagnostics-registry code and is excluded from registry reconciliation on
@@ -127,6 +143,23 @@ export function extractReqIds(sources, prefixes) {
 // Parse the `| REQ-ID | Closing leaf(s) |` rows, expanding each `X-n … X-m`
 // inclusive range, into the set of mapped REQ-IDs. Retired interior IDs are
 // excluded from the citing-test obligation set by the caller (see runClosingGate).
+// ── Code-keyed-area token parsing (H5c) ───────────────────────────────────────
+// Parse the *Code-keyed obligation areas (no numbered REQ-IDs)* table's leading
+// *Token* column into a frequency map of `cka-<n>` tokens. A token resolves for
+// the broad-catch allow-list arm iff it matches exactly one row's *Token* cell
+// (count === 1); a bare prefix or a token appearing in no row never resolves.
+export function parseCkaTokens(text) {
+  const counts = new Map();
+  for (const line of text.split("\n")) {
+    const cells = parseTableRow(line);
+    if (cells == null || cells.length < 1) continue;
+    const m = cells[0].match(/`(cka-[1-9][0-9]*)`/);
+    if (m == null) continue;
+    counts.set(m[1], (counts.get(m[1]) ?? 0) + 1);
+  }
+  return counts;
+}
+
 export function parseCoverageMatrix(text) {
   const mapped = new Set();
   for (const line of text.split("\n")) {
@@ -190,6 +223,37 @@ export function extractAssertedCodes(sources) {
   return [...codes];
 }
 
+// ── Broad-catch allow-list scan (H5c) ─────────────────────────────────────────
+// Extract every `// allow-broad-catch: <token> — <spec-page>` comment across the
+// (seeded or live) `src/**` sources as the allow-list entries. The cited token
+// is the first whitespace-delimited span after the colon; a `loom/...` glob or
+// wildcard family (e.g. `loom/host/session-shutdown-*`) is captured verbatim and
+// later rejected by the resolver.
+export function extractBroadCatchEntries(sources) {
+  const entries = [];
+  for (const src of sources) {
+    const lines = src.text.split("\n");
+    lines.forEach((line, i) => {
+      const m = line.match(/\/\/\s*allow-broad-catch:\s*(\S+)/);
+      if (m != null) entries.push({ token: m[1], path: src.path, line: i + 1 });
+    });
+  }
+  return entries;
+}
+
+// Resolve a cited broad-catch token against the four admitted arms. Returns true
+// iff the token resolves; the `loom/...` arm matches only a concrete registry
+// code (the `[a-z0-9/_-]` char class excludes `*`, so a glob/wildcard family
+// never matches), and the `cka-<n>` arm resolves iff the token matches exactly
+// one *Token* cell (count === 1).
+function resolveBroadCatchToken(token, { mapped, ckaCounts, registryCodes }) {
+  if (token === "pi-sdk-boundary") return true;
+  if (/^[A-Z]{2,4}-[1-9][0-9]*$/.test(token)) return mapped.has(token);
+  if (/^cka-[1-9][0-9]*$/.test(token)) return ckaCounts.get(token) === 1;
+  if (/^loom\/[a-z0-9/_-]+$/.test(token)) return registryCodes.has(token);
+  return false;
+}
+
 // Distinct `PREFIX-N` tokens cited inline anywhere in the test sources.
 export function extractCitingReqIds(sources) {
   const ids = new Set();
@@ -211,6 +275,7 @@ export function extractCitingReqIds(sources) {
  *   coverageMatrixText: string,
  *   registryText: string,
  *   testSources: {path: string, text: string}[],
+ *   srcSources?: {path: string, text: string}[],
  * }} corpus
  * @returns {{kind: string, subject: string, detail: string}[]}
  */
@@ -222,6 +287,9 @@ export function runClosingGate(corpus) {
   const registryCodes = parseRegistryCodes(corpus.registryText);
   const assertedCodes = new Set(extractAssertedCodes(corpus.testSources));
   const citingReqIds = new Set(extractCitingReqIds(corpus.testSources));
+  const ckaCounts = parseCkaTokens(corpus.coverageMatrixText);
+  const registrySet = new Set(registryCodes);
+  const broadCatchEntries = extractBroadCatchEntries(corpus.srcSources ?? []);
 
   const findings = [];
 
@@ -264,7 +332,6 @@ export function runClosingGate(corpus) {
   }
 
   // (4) Asserted code absent from the registry (loom/typecheck/* already excluded).
-  const registrySet = new Set(registryCodes);
   for (const code of assertedCodes) {
     if (!registrySet.has(code)) {
       findings.push({
@@ -283,6 +350,20 @@ export function runClosingGate(corpus) {
         kind: "retired-live-id-clash",
         subject: id,
         detail: `REQ-ID ${id} is both live in the spec and listed retired`,
+      });
+    }
+  }
+
+  // (5b) Broad-catch allow-list (H5c): a `// allow-broad-catch:` entry whose
+  // cited token resolves to none of the four admitted arms (coverage-matrix
+  // REQ-ID, exactly-one `cka-<n>` Token cell, concrete `loom/...` registry code,
+  // or the structural `pi-sdk-boundary` token).
+  for (const entry of broadCatchEntries) {
+    if (!resolveBroadCatchToken(entry.token, { mapped, ckaCounts, registryCodes: registrySet })) {
+      findings.push({
+        kind: "broad-catch-allow-list-unresolved",
+        subject: entry.token,
+        detail: `// allow-broad-catch: token ${entry.token} resolves to none of the four admitted arms (coverage-matrix REQ-ID, cka-<n> token, concrete loom/... registry code, pi-sdk-boundary)`,
       });
     }
   }
@@ -344,6 +425,7 @@ export function loadCorpus(dir) {
       .map((s) => s.text)
       .join("\n") || readIfPresent(path.join(dir, "registry.md")),
     testSources: readTree(path.join(dir, "tests"), (f) => f.endsWith(".ts")),
+    srcSources: readTree(path.join(dir, "src"), (f) => f.endsWith(".ts")),
   };
 }
 
