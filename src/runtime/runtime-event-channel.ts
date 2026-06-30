@@ -122,11 +122,26 @@ export interface MaskedPredicateInput {
  * mutates no per-frame state.
  */
 export function computeMasked(
-  _input: MaskedPredicateInput,
+  input: MaskedPredicateInput,
 ): readonly string[] | undefined {
-  // STUB (V9d-T): a sentinel id outside the closed set so the reachable-domain,
-  // omit-when-empty, and closed-id-set assertions all red.
-  return ["<unimplemented>"];
+  // The only loom-1.0 non-empty reachable mask (clause d): a `validation` event
+  // whose underlying cause is `schema_validation`, raised at the typed-query
+  // response AJV boundary, on a forced respond turn whose post-increment
+  // `tool_loop` slot count equals `max_rounds` (the final permitted slot). A
+  // `max_rounds: 0` query has only the forced respond turn, so the predicate is
+  // unreachable — guarded by the `maxRounds > 0` clause. Every other surface
+  // omits `masked` (clause b: `undefined`, never `[]`).
+  if (
+    input.kind === "validation" &&
+    input.validationCause === "schema_validation" &&
+    input.atTypedQueryResponse &&
+    input.turnKind === "forced_respond" &&
+    input.maxRounds > 0 &&
+    input.toolLoopSlotCount === input.maxRounds
+  ) {
+    return ["ceiling#2"];
+  }
+  return undefined;
 }
 
 // --- dedup tuple (PIC-1 clause g) ------------------------------------------
@@ -138,14 +153,14 @@ export function computeMasked(
  * same occurrence.
  */
 export function dedupKey(event: RuntimeEvent): string {
-  // STUB (V9d-T): wrongly includes `masked`, so two events differing only in
-  // `masked` produce different keys and the non-inclusion assertion reds.
+  // Clause (g): the dedup tuple is `(kind, query_site, message, occurred_at)`
+  // only — `masked` is excluded, so two emissions differing only in `masked`
+  // collapse to the same occurrence.
   return JSON.stringify({
     kind: event.kind,
     query_site: event.query_site ?? null,
     message: event.message,
     occurred_at: event.occurred_at,
-    masked: event.masked ?? null,
   });
 }
 
@@ -155,10 +170,10 @@ export function dedupKey(event: RuntimeEvent): string {
  * rather than re-deriving the predicate at the boundary.
  */
 export function cascadeReemit(event: RuntimeEvent): RuntimeEvent {
-  // STUB (V9d-T): strips `masked`, so the verbatim-copy assertion reds.
-  const copy: RuntimeEvent = { ...event };
-  delete copy.masked;
-  return copy;
+  // Clause (f): copy the originating instance verbatim — including `masked` and
+  // `occurred_at`. Re-deriving `masked` at the boundary is forbidden; the
+  // origin is the only authoritative source.
+  return { ...event };
 }
 
 // --- always-log set membership + group routing -----------------------------
@@ -168,9 +183,11 @@ export function cascadeReemit(event: RuntimeEvent): RuntimeEvent {
  * kinds). The four §"deliberately not in the always-log set" kinds return
  * `false`.
  */
-export function isAlwaysLogKind(_kind: string): boolean {
-  // STUB (V9d-T): always false, so the group-A membership assertions red.
-  return false;
+export function isAlwaysLogKind(kind: string): boolean {
+  // The five group-A `QueryError.kind` always-log members. The four excluded
+  // kinds (`validation`, `context_overflow`, `cancelled`, `invoke_callee`) are
+  // deliberately not members.
+  return (GROUP_A_KINDS as readonly string[]).includes(kind);
 }
 
 /**
@@ -180,15 +197,23 @@ export function isAlwaysLogKind(_kind: string): boolean {
  * through exactly one shape — no fan-out.
  */
 export function alwaysLogGroup(
-  _failure: { readonly kind?: string; readonly code?: string },
+  failure: { readonly kind?: string; readonly code?: string },
 ): "A" | "B" {
-  // STUB (V9d-T): always "B", so the group-A routing assertion reds.
+  // A `loom/runtime/*` panic code routes group B (`details: { diagnostics }`);
+  // a group-A `QueryError.kind` or binder failure cause routes group A
+  // (`details: { event }`). Group-A events never carry a `loom/runtime/*` code
+  // (panics construct no `RuntimeEvent`), so the panic check is unambiguous. A
+  // given failure routes through exactly one shape — no fan-out.
+  if (failure.code !== undefined && failure.code.startsWith("loom/runtime/")) {
+    return "B";
+  }
+  if (failure.kind !== undefined) {
+    return "A";
+  }
   return "B";
 }
 
 // --- `details` builders (the display/content matrix) -----------------------
-
-const STUB_CONTENT = "<runtime-event-channel: unimplemented>";
 
 /** Context for building a group-A runtime-event note. */
 export interface RuntimeEventEmitContext {
@@ -210,11 +235,16 @@ export interface RuntimeEventEmitContext {
  */
 export function buildRuntimeEventNote(
   event: RuntimeEvent,
-  _ctx: RuntimeEventEmitContext,
+  ctx: RuntimeEventEmitContext,
 ): SystemNote {
-  // STUB (V9d-T): wrong display + sentinel content so both the cascade and the
-  // author-handled rows red.
-  return { content: STUB_CONTENT, display: false, details: { event } };
+  // Top-level cascade → `display: true` with the user-facing template;
+  // author-handled / subagent-private invoke-reached cascade → `display: false`
+  // with `content: ""` (the empty string, verbatim).
+  return {
+    content: ctx.topLevelCascade ? ctx.userFacingTemplate : "",
+    display: ctx.topLevelCascade,
+    details: { event },
+  };
 }
 
 /**
@@ -223,10 +253,9 @@ export function buildRuntimeEventNote(
  */
 export function buildDiagnosticsBatchNote(
   diagnostics: readonly Diagnostic[],
-  _content: string,
+  content: string,
 ): SystemNote {
-  // STUB (V9d-T): wrong display so the matrix row reds.
-  return { content: STUB_CONTENT, display: false, details: { diagnostics } };
+  return { content, display: true, details: { diagnostics } };
 }
 
 /**
@@ -235,12 +264,11 @@ export function buildDiagnosticsBatchNote(
  */
 export function buildPanicNote(
   diagnostic: Diagnostic,
-  _framing: string,
+  framing: string,
 ): SystemNote {
-  // STUB (V9d-T): wrong display so the matrix row reds.
   return {
-    content: STUB_CONTENT,
-    display: false,
+    content: framing,
+    display: true,
     details: { diagnostics: [diagnostic] },
   };
 }
@@ -251,10 +279,9 @@ export function buildPanicNote(
  */
 export function buildStructuralNote(
   structural: { readonly added: readonly string[]; readonly removed: readonly string[] },
-  _content: string,
+  content: string,
 ): SystemNote {
-  // STUB (V9d-T): wrong display so the matrix row reds.
-  return { content: STUB_CONTENT, display: false, details: { structural } };
+  return { content, display: true, details: { structural } };
 }
 
 /**
@@ -263,12 +290,11 @@ export function buildStructuralNote(
  */
 export function buildRecoveryNote(
   looms: readonly string[],
-  _content: string,
+  content: string,
 ): SystemNote {
-  // STUB (V9d-T): wrong display so the matrix row reds.
   return {
-    content: STUB_CONTENT,
-    display: false,
+    content,
+    display: true,
     details: { recovery: { looms } },
   };
 }
@@ -281,12 +307,15 @@ export function buildRecoveryNote(
  * site. An occurrence produces exactly one always-log emission at its origin.
  */
 export function emitRuntimeEvent(
-  _event: RuntimeEvent,
-  _ctx: RuntimeEventEmitContext,
-  _deps: SystemNoteChannelDeps,
+  event: RuntimeEvent,
+  ctx: RuntimeEventEmitContext,
+  deps: SystemNoteChannelDeps,
 ): void {
-  // STUB (V9d-T): emits nothing, so the exactly-once / routing assertions red.
-  void sendSystemNote;
+  // Exactly one always-log emission at the origin, routed through the single
+  // `details: { event }` group-A shape. The note carries `event` verbatim
+  // (including any `masked` the originating site attached), so the pure-read
+  // predicate is never re-evaluated here.
+  sendSystemNote(buildRuntimeEventNote(event, ctx), deps);
 }
 
 /**
@@ -294,11 +323,14 @@ export function emitRuntimeEvent(
  * channel as a single-element `details: { diagnostics }` batch.
  */
 export function emitPanic(
-  _diagnostic: Diagnostic,
-  _framing: string,
-  _deps: SystemNoteChannelDeps,
+  diagnostic: Diagnostic,
+  framing: string,
+  deps: SystemNoteChannelDeps,
 ): void {
-  // STUB (V9d-T): emits nothing, so the exactly-once / routing assertions red.
+  // Exactly one `loom-system-note` per top-level panic, routed through the
+  // single-element `details: { diagnostics: [Diagnostic] }` group-B shape. The
+  // cascade-twin dedup key does not apply to group B.
+  sendSystemNote(buildPanicNote(diagnostic, framing), deps);
 }
 
 /**
@@ -307,6 +339,8 @@ export function emitPanic(
  * always-log entry whose emission predicate is satisfied by a success.
  */
 export function successSideNote(): SystemNote | null {
-  // STUB (V9d-T): returns a non-null note so the null-policy assertion reds.
-  return { content: STUB_CONTENT, display: true, details: { recovery: { looms: [] } } };
+  // An `Ok(v)` termination is neither a `QueryError` kind (group A) nor a
+  // runtime panic (group B), so no always-log entry's emission predicate is
+  // satisfied — there is nothing to emit.
+  return null;
 }
