@@ -26,17 +26,37 @@ function textComponent(lines: readonly string[]): Component {
 }
 
 /**
+ * Construction dependencies for the `loom-system-note` renderer. `formatLines`
+ * is the dim-styling step PIC-21 wraps: a throw from it is an internal
+ * renderer failure the V7d hardening catches, falling back to the raw
+ * `message.content` rendering. Absent, the renderer renders raw content lines.
+ */
+export interface SystemNoteRendererDeps {
+  readonly formatLines?: (content: string) => readonly string[];
+}
+
+/**
  * Construct the `loom-system-note` renderer. Returns `undefined` for
  * `display === false` messages (Pi skips them); otherwise returns a text
  * `Component` rendering the message's string content.
+ *
+ * PIC-21's render-time exception-safety wrap (catch an internal `formatLines`
+ * throw within the renderer body and fall back to a minimal raw-content
+ * `Component`) is owned by V7d; this leaf establishes the injectable
+ * `formatLines` seam so the V7d-T PIC-21 test can drive an internal throw.
  */
-export function createSystemNoteRenderer(): MessageRenderer {
+export function createSystemNoteRenderer(
+  deps?: SystemNoteRendererDeps,
+): MessageRenderer {
   return (message, _options, _theme): Component | undefined => {
     if (message.display === false) {
       return undefined;
     }
     const content =
       typeof message.content === "string" ? message.content : "";
-    return textComponent(content.split("\n"));
+    const lines = deps?.formatLines
+      ? deps.formatLines(content)
+      : content.split("\n");
+    return textComponent(lines);
   };
 }
