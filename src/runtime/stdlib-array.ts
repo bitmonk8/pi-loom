@@ -20,25 +20,12 @@
 // The `array<T>.concat(array<U>)` LUB element type is owned by V3f
 // (`concatElementType` in `stdlib-string.ts`) and is not re-declared here.
 //
-// V3g-T (tests-task) declares the seam — the `evaluateArrayMember` runtime
-// dispatcher and the `checkArrayJoin` parse-time precondition — and stubs the
-// behaviour-bearing functions inertly so the failing tests compile and red on
-// their own primary assertions:
-//
-//   - `evaluateArrayMember` returns the inert `null` sentinel without
-//     evaluating any member, so every result-value assertion reds (a `length`
-//     count, a `join` string, an `includes` boolean, an `indexOf` index, or a
-//     `slice` array);
-//   - `checkArrayJoin` returns `undefined` without checking the element type,
-//     so the `loom/parse/non-string-array-join` firing assertion reds.
-//
-// No test reds on a compile error, a missing fixture, or a harness throw. The
-// paired V3g implementation leaf fills these in (and wires array member-access
-// / method-call parsing into the V3a evaluator).
+// The paired V3g implementation leaf fills in the runtime member dispatch and
+// the parse-time `join` precondition.
 
-import { type CompatType, type CompatSite } from "../parser/type-compat";
+import { displayType, type CompatType, type CompatSite } from "../parser/type-compat";
 import { type Diagnostic } from "../diagnostics/diagnostic";
-import type { LoomValue } from "./value";
+import { valuesEqual, type LoomValue } from "./value";
 
 /**
  * Evaluate an `array<T>` standard-library member on `receiver`: the `length`
@@ -48,18 +35,36 @@ import type { LoomValue } from "./value";
  * stdlib table (`includes` / `indexOf` use the V2c `valuesEqual` structural
  * equality; `slice` follows JS semantics).
  *
- * V3g-T stubs this as the inert `null` sentinel (no member is evaluated); the
- * paired V3g implementation leaf fills it in.
  */
 export function evaluateArrayMember(
   receiver: readonly LoomValue[],
   member: string,
   args: readonly LoomValue[],
 ): LoomValue {
-  void receiver;
-  void member;
-  void args;
-  return null;
+  switch (member) {
+    // `length` — the element count.
+    case "length":
+      return receiver.length;
+    // `join(sep)` — concatenate the (string) elements with `sep`. The parse-
+    // time `checkArrayJoin` precondition guarantees a `string` element type, so
+    // no implicit conversion happens here.
+    case "join":
+      return receiver.join(args[0] as string);
+    // `includes(x)` — membership test using loom structural equality (V2c).
+    case "includes":
+      return receiver.some((element) => valuesEqual(element, args[0] as LoomValue));
+    // `indexOf(x)` — first index by structural equality, or `-1` if absent.
+    case "indexOf":
+      return receiver.findIndex((element) => valuesEqual(element, args[0] as LoomValue));
+    // `slice(start, end?)` — JS semantics: negative indices count from the end,
+    // `end` is exclusive, an omitted `end` slices to length. `Array.prototype.
+    // slice` already implements all three; an omitted optional argument is
+    // `undefined`, which `slice` treats as "to length".
+    case "slice":
+      return receiver.slice(args[0] as number, args[1] as number | undefined);
+    default:
+      throw new Error(`unknown array stdlib member: ${member}`);
+  }
 }
 
 /**
@@ -68,13 +73,29 @@ export function evaluateArrayMember(
  * (a `type`-phase diagnostic). Returns `undefined` for a `string` element type
  * (expressions.md §"Built-in methods and properties", `array<T>` `join` row).
  *
- * V3g-T stubs this inert (always `undefined`); the paired V3g leaf fills it in.
  */
 export function checkArrayJoin(
   elementType: CompatType,
   site: CompatSite,
 ): Diagnostic | undefined {
-  void elementType;
-  void site;
-  return undefined;
+  // The element type must be `string` (no implicit type conversion in loom
+  // 1.0). A `string`-typed literal element (e.g. `array<"a">`) types as
+  // `string` in expression position and is equally admissible.
+  const isString =
+    (elementType.kind === "prim" && elementType.name === "string") ||
+    (elementType.kind === "literal" && elementType.typesAs === "string");
+  if (isString) {
+    return undefined;
+  }
+  // Message anchored to the diagnostics registry (code-registry-parse.md): the
+  // `<element>` placeholder renders the offending element type.
+  return {
+    severity: "error",
+    code: "loom/parse/non-string-array-join",
+    file: site.file,
+    range: site.range,
+    message: `array.join requires a string element type; got array<${displayType(
+      elementType,
+    )}>`,
+  };
 }
