@@ -14,18 +14,37 @@
 // The lowering pass and the canonical-hash recipe that operate on the accepted
 // subset are owned by V5f.
 //
-// V5d-T (tests-task) declares these seam shapes and stubs the three checks as
-// inert no-ops (no diagnostic produced) so the failing tests compile and red on
-// their own primary assertions (the allowlist gate is absent). The paired V5d
-// implementation leaf fills them in.
+// V5d implements the allowlist gate; V5d-T declared the seam shapes.
 
 import { type Diagnostic, type SourceRange } from "../diagnostics/diagnostic";
+import { parseTypeExpression } from "./type-grammar";
 
 /** A located site at which a schema-subset construct is checked. */
 export interface SchemaSubsetSite {
   readonly file: string;
   readonly range: SourceRange;
 }
+
+// The fixed, loom-defined permitted JSON-Schema-keyword subset
+// (schema-subset.md): composition (`anyOf` only), validation (`enum`, `const`),
+// objects (`properties`, `required`, `additionalProperties` — always emitted
+// `false`), arrays (`items`, a single subschema), reuse (`$defs`, `$ref`), and
+// the `type` keyword (incl. the multi-type-array null union form). The gate is
+// an allowlist: this set is the *whole* of what it accepts, and every other
+// keyword — enumerated-unsupported or not — is rejected by default. Immutable
+// module-level data, not mutable cross-invocation state.
+const PERMITTED_SUBSET_KEYWORDS: ReadonlySet<string> = new Set<string>([
+  "type",
+  "anyOf",
+  "enum",
+  "const",
+  "properties",
+  "required",
+  "additionalProperties",
+  "items",
+  "$defs",
+  "$ref",
+]);
 
 /**
  * Check a single candidate JSON-Schema keyword against the permitted-subset
@@ -35,16 +54,28 @@ export interface SchemaSubsetSite {
  * reject-by-default / allowlist, not a denylist) — and `undefined` for a
  * permitted keyword.
  *
- * V5d-T stubs this as an inert accept-all no-op (returns `undefined`); the
- * paired V5d implementation leaf supplies the allowlist and the rejection.
+ * Reject-by-default: a keyword is accepted iff it is in the fixed permitted
+ * subset; anything else fires, so the gate is an allowlist (not a denylist of
+ * the enumerated unsupported keywords).
  */
 export function checkSubsetKeyword(
   keyword: string,
   site: SchemaSubsetSite,
 ): Diagnostic | undefined {
-  void keyword;
-  void site;
-  return undefined;
+  if (PERMITTED_SUBSET_KEYWORDS.has(keyword)) {
+    return undefined;
+  }
+  // Message anchored to the diagnostics registry
+  // (diagnostics/code-registry-parse.md) *Message* column:
+  // `unsupported syntactic feature: <construct>`, the offending keyword as the
+  // interpolated construct.
+  return {
+    severity: "error",
+    code: "loom/parse/unsupported-feature",
+    file: site.file,
+    range: site.range,
+    message: `unsupported syntactic feature: ${keyword}`,
+  };
 }
 
 /**
@@ -53,17 +84,21 @@ export function checkSubsetKeyword(
  * array-element-order-preservation property of schema-subset.md. A permitted
  * keyword contributes no diagnostic.
  *
- * V5d-T stubs this as an inert no-op (returns `[]`); the paired V5d
- * implementation leaf supplies the per-keyword allowlist gate and the
- * order-preserving collection.
+ * One diagnostic per rejected keyword, in input (array element) order — the
+ * array-element-order-preservation property.
  */
 export function checkSubsetKeywords(
   keywords: readonly string[],
   site: SchemaSubsetSite,
 ): Diagnostic[] {
-  void keywords;
-  void site;
-  return [];
+  const out: Diagnostic[] = [];
+  for (const keyword of keywords) {
+    const diagnostic = checkSubsetKeyword(keyword, site);
+    if (diagnostic !== undefined) {
+      out.push(diagnostic);
+    }
+  }
+  return out;
 }
 
 /**
@@ -76,14 +111,17 @@ export function checkSubsetKeywords(
  * union arms preserves array element order. A lowerable subset type raises no
  * diagnostic.
  *
- * V5d-T stubs this as an inert no-op (returns `[]`); the paired V5d
- * implementation leaf wires the schema-feeding type gate.
+ * Delegates to the V2a type-grammar parser at the `schema-feeding` position,
+ * which walks the whole type tree (including `array<T>` element types and
+ * union arms in source order) and raises `loom/parse/result-in-schema-position`
+ * for any `Result` application reachable there.
  */
 export function checkSchemaFeedingType(
   typeSource: string,
   site: SchemaSubsetSite,
 ): Diagnostic[] {
-  void typeSource;
-  void site;
-  return [];
+  return parseTypeExpression(typeSource, "schema-feeding", {
+    file: site.file,
+    range: site.range,
+  });
 }
