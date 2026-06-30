@@ -29,6 +29,7 @@ import type {
   ExtensionCommandContext,
 } from "@earendil-works/pi-coding-agent";
 import type { Diagnostic } from "../diagnostics/diagnostic";
+import { renderUnderlyingError } from "../diagnostics/placeholder";
 import { createSystemNoteRenderer } from "./system-note-renderer";
 
 /**
@@ -46,6 +47,47 @@ export const EXTENSION_BOOTSTRAP_FAILED_CODE =
 const LOOM_FLAG = "loom";
 /** The loom-internal system-note renderer channel. */
 const SYSTEM_NOTE_CHANNEL = "loom-system-note";
+
+/**
+ * The closed set of factory-time `pi.on` subscriptions a bootstrap failure can
+ * name, in the canonical registration order (steps 1/3/4 of
+ * registration-steps.md): `resources_discover` (step 1, after the `--loom`
+ * flag), `session_start` (step 3), `session_shutdown` (step 4). A subscription
+ * failure is fatal to the whole extension; `details.event` names the failing
+ * one.
+ */
+type FactorySubscription =
+  | "resources_discover"
+  | "session_start"
+  | "session_shutdown";
+
+/**
+ * Construct the `loom/load/extension-bootstrap-failed` diagnostic for a
+ * factory-time whole-extension abort surface (a `pi.registerFlag` or
+ * `pi.on(...)` failure). `details.error` carries the caught throw's
+ * underlying-error string (placeholder-rendering-b.md#underlying-error-coercion)
+ * so a non-Error throw yields a deterministic payload; the *Message* renders
+ * the byte-identical registry template `extension bootstrap failed:
+ * <capability> threw <error>` (code-registry-load.md), the `<error>` tail being
+ * the §8 host-derived first-line truncation.
+ */
+function bootstrapFailedDiagnostic(
+  capability: "pi.registerFlag" | "pi.on",
+  caught: unknown,
+  event?: FactorySubscription,
+): Diagnostic {
+  const error = renderUnderlyingError(caught);
+  const details: Record<string, unknown> = { capability, error };
+  if (event !== undefined) {
+    details.event = event;
+  }
+  return {
+    severity: "error",
+    code: EXTENSION_BOOTSTRAP_FAILED_CODE,
+    message: `extension bootstrap failed: ${capability} threw ${error}`,
+    details,
+  };
+}
 
 /**
  * One in-memory loom fixture: a slash name plus the body run when the command
@@ -90,35 +132,59 @@ export function createLoomExtension(
   deps: LoomExtensionDeps,
 ): (pi: ExtensionAPI) => void {
   return function loomExtension(pi: ExtensionAPI): void {
-    // Step 1 — `--loom` flag. Synchronous-void; per-call wrapped.
+    // Step 1 — `--loom` flag. Synchronous-void; per-call wrapped. A
+    // `registerFlag` throw is FATAL to the whole extension: step 1's `--loom`
+    // flag is what every subsequent discovery / `resources_discover` walk reads
+    // via `pi.getFlag('loom')`, so a flag-less factory cannot honour the
+    // `--loom` source. The factory skips every subsequent `pi.register*` /
+    // `pi.on` call (steps 2–5 do not execute) and emits a single diagnostic.
     try {
       pi.registerFlag(LOOM_FLAG, {
         type: "string",
         description: "Path(s) to .loom discovery roots.",
       });
     } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
-      void e;
+      deps.emitDiagnostic?.(bootstrapFailedDiagnostic("pi.registerFlag", e));
+      return;
     }
 
     // Renderer — synchronous-void; registered exactly once in the factory body.
+    // A renderer failure is a NON-abort degrade surface (owned by `V9p`): the
+    // factory still completes the remaining steps. Kept as a local swallow
+    // here; `V9p` adds the system-note degrade + diagnostic.
     try {
       pi.registerMessageRenderer(SYSTEM_NOTE_CHANNEL, createSystemNoteRenderer());
     } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
       void e;
     }
 
-    // `resources_discover` subscription — factory-time, synchronous-void.
+    // The three factory-time `pi.on` subscriptions (steps 1/3/4). A
+    // subscription throw is FATAL to the whole extension: the subscribed
+    // handlers are extension-scoped, so a factory that cannot install the
+    // `resources_discover` re-walk, the `session_start` collision/registration
+    // pass, or the `session_shutdown` teardown contract cannot honour its
+    // load-bearing obligations. On the first throw the factory skips every
+    // subsequent `pi.register*` / `pi.on` call and emits a single diagnostic
+    // naming the failing event. The literal-event `pi.on` overloads keep each
+    // call on its typed handler signature (the host overloads are keyed by the
+    // literal event name), so the three subscriptions are installed inline
+    // rather than from a list.
+
+    // `resources_discover` (step 1) — no-op handler at this leaf.
     try {
       pi.on("resources_discover", () => undefined);
     } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
-      void e;
+      deps.emitDiagnostic?.(
+        bootstrapFailedDiagnostic("pi.on", e, "resources_discover"),
+      );
+      return;
     }
 
-    // `session_start` subscription — factory-time, synchronous-void. The
-    // handler is where per-loom `pi.registerCommand` calls fire (NOT the
-    // factory body), per the registration-timing split. Each command
-    // registration is itself per-call wrapped so one loom's failure does not
-    // abort the others or propagate into Pi's `session_start` dispatch.
+    // `session_start` (step 3) — the handler is where per-loom
+    // `pi.registerCommand` calls fire (NOT the factory body), per the
+    // registration-timing split. Each command registration is itself per-call
+    // wrapped so one loom's failure does not abort the others or propagate into
+    // Pi's `session_start` dispatch.
     try {
       pi.on("session_start", () => {
         for (const fixture of deps.fixtures) {
@@ -132,16 +198,21 @@ export function createLoomExtension(
         }
       });
     } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
-      void e;
+      deps.emitDiagnostic?.(
+        bootstrapFailedDiagnostic("pi.on", e, "session_start"),
+      );
+      return;
     }
 
-    // `session_shutdown` subscription — factory-time, synchronous-void. The
-    // teardown contract (registry drain / forwarding-listener detach) is added
-    // by later leaves; H4a installs only the subscription.
+    // `session_shutdown` (step 4) — no-op handler at this leaf; the teardown
+    // contract (registry drain / forwarding-listener detach) is added later.
     try {
       pi.on("session_shutdown", () => undefined);
     } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
-      void e;
+      deps.emitDiagnostic?.(
+        bootstrapFailedDiagnostic("pi.on", e, "session_shutdown"),
+      );
+      return;
     }
   };
 }
