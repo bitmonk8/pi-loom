@@ -48,6 +48,8 @@ export interface SchemaValidator {
 // deterministic, per-runtime, slug-cache byte-verify).
 // --------------------------------------------------------------------------
 
+import Ajv, { type ErrorObject, type ValidateFunction } from "ajv";
+import addFormats from "ajv-formats";
 import type { Diagnostic } from "../diagnostics/diagnostic";
 
 /**
@@ -79,41 +81,88 @@ export interface AjvSchemaValidatorDeps {
   readonly slugOf: SchemaSlugFn;
 }
 
+/** A cached compiled validator alongside the canonical bytes that minted it. */
+interface CacheEntry {
+  readonly validator: CompiledValidator;
+  readonly canonicalBytes: string;
+}
+
 /**
- * The inert V8c-T stub: every `compile(...)` hands back a validator that reports
- * a single sentinel "not implemented" error and rejects every value, performs
- * no caching, and never emits the slug-collision diagnostic. Each V8c-T test
- * therefore reds on its own primary assertion because the V8c behaviour is
- * absent — not on a harness throw. The paired V8c leaf replaces this body.
+ * The production `SchemaValidator` (PIC-11). One instance is constructed per
+ * runtime instance (never a module-level global); its `Ajv` instance and
+ * compiled-validator cache are owned per-instance, so parallel runtimes share
+ * no state.
+ *
+ * AJV flag rationale (implementation-notes.md §"Schema validation" hint):
+ * `allErrors: true` gives one-pass multi-error reporting; the absence of
+ * `coerceTypes` / `useDefaults` gives no-type-conversion / no-default-fill;
+ * AJV's default in-document `$ref` resolver gives the ref-scope rule; and
+ * `strict: false` + `ajv-formats` makes unknown `format` keywords silently
+ * accepted rather than raised, and `logger: false` suppresses AJV's
+ * console warning for an ignored unknown format so acceptance is truly silent.
  */
 export class AjvSchemaValidator implements SchemaValidator {
   readonly #deps: AjvSchemaValidatorDeps;
+  readonly #ajv: Ajv;
+  /** Per-query compiled-validator cache, keyed by schema slug. */
+  readonly #cache = new Map<string, CacheEntry>();
 
   constructor(deps: AjvSchemaValidatorDeps) {
     this.#deps = deps;
+    this.#ajv = new Ajv({ strict: false, allErrors: true, logger: false });
+    addFormats(this.#ajv);
   }
 
-  compile(_schema: LoweredSchema): CompiledValidator {
-    void this.#deps;
+  compile(schema: LoweredSchema): CompiledValidator {
+    const { slug, canonicalBytes } = this.#deps.slugOf(schema);
+    const cached = this.#cache.get(slug);
+    if (cached !== undefined) {
+      // Cache hit: verify byte-equality of the candidate document's canonical
+      // form against the cached document's bytes before serving the cached
+      // validator (PIC-11 byte-comparison, not a re-serialisation).
+      if (cached.canonicalBytes === canonicalBytes) {
+        return cached.validator;
+      }
+      // Byte mismatch == schema-slug collision: refuse to serve the wrong
+      // cached validator. Emit `validator-cache-collision` and recompile the
+      // new document; validation proceeds against the fresh validator so the
+      // diagnostic does not abort the query.
+      this.#deps.emit({
+        severity: "error",
+        code: "loom/runtime/validator-cache-collision",
+        message: `validator-cache collision on slug ${slug}: two distinct schema documents hash alike`,
+        hint: `cached document canonical bytes: ${cached.canonicalBytes}; new document canonical bytes: ${canonicalBytes}`,
+      });
+      return this.#build(schema);
+    }
+    const validator = this.#build(schema);
+    this.#cache.set(slug, { validator, canonicalBytes });
+    return validator;
+  }
+
+  invalidate(schemaSlug: string): void {
+    this.#cache.delete(schemaSlug);
+  }
+
+  /** Compile a lowered schema into a `CompiledValidator` (no caching). */
+  #build(schema: LoweredSchema): CompiledValidator {
+    const validateFn: ValidateFunction = this.#ajv.compile(schema);
     return {
-      validate(_value: unknown) {
-        return {
-          ok: false as const,
-          errors: [
-            {
-              instancePath: "",
-              schemaPath: "",
-              keyword: "loom-test-stub",
-              message: "SchemaValidator not implemented (V8c-T stub)",
-              params: {},
-            },
-          ],
-        };
+      validate(value: unknown) {
+        if (validateFn(value)) {
+          return { ok: true as const };
+        }
+        const errors: ValidationError[] = (validateFn.errors ?? []).map(
+          (e: ErrorObject) => ({
+            instancePath: e.instancePath,
+            schemaPath: e.schemaPath,
+            keyword: e.keyword,
+            message: e.message ?? "",
+            params: e.params,
+          }),
+        );
+        return { ok: false as const, errors };
       },
     };
-  }
-
-  invalidate(_schemaSlug: string): void {
-    // V8c-T stub: no cache to invalidate.
   }
 }
