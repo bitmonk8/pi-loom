@@ -289,3 +289,25 @@ In the explicit `by` path the order is nested → non-string → duplicate-value
 (a nested value's type/value cannot be read, so it is reported first). This keeps
 the most-specific, most-actionable diagnostic surfacing first and matches the
 spec's general "duplicate discriminator values … are loom/parse/duplicate-discriminator-value" statement.
+
+## V5d-T — `<construct>` rendering for rejected JSON-Schema keywords (non-plan discovery)
+
+The V5d reject gate fires `loom/parse/unsupported-feature` for out-of-subset
+JSON-Schema keywords (schema-subset.md). That code's registry *Message* is
+`unsupported syntactic feature: <construct>`, but the closed `<construct>`
+token-name table in diagnostics/placeholder-rendering-a.md §3 enumerates only
+loom/JS syntactic constructs (arrow function, spread, typeof, …) — it does NOT
+enumerate JSON-Schema keywords (`pattern`, `oneOf`, …). The closed table is the
+rendering surface for source-syntax constructs; the schema-subset reject gate is
+a distinct site.
+
+Decision (tests-task contract): the V5d-T tests anchor the rendered message to
+the registry *Message*-column **prefix** `unsupported syntactic feature: ` and
+assert the offending keyword appears in the message, rather than pinning a
+specific closed-table token. This keeps the message anchored to the registry
+(per *Diagnostic message anchors*) without forcing V5d into a `<construct>`
+rendering the closed table does not define for JSON-Schema keywords. If a future
+spec edit extends the §3 closed token table to cover schema-subset keywords, the
+V5d implementation should render that token and the V5d-T assertions can tighten
+to full-string equality. Surfaced here, not re-anchored — re-anchoring is a
+spec-side GOV-7/GOV-8 placeholder-table decision, not a plan-leaf change.
