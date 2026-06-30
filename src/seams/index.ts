@@ -17,6 +17,8 @@ export type {
   FileWatchEvent,
   FileWatchEventKind,
   Unsubscribe,
+  WatchTermination,
+  OnWatchTerminate,
 } from "./file-watcher";
 export type { TokenEstimator } from "./token-estimator";
 export type { IdSource } from "./id-source";
