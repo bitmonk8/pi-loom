@@ -40,6 +40,26 @@ export interface ParsedLoom {
   readonly slashName: string;
 }
 
+// --- drain-state contract types (drain-state-contract.md) ---
+
+/**
+ * The closed two-arm `drainStateTag` value set the `LoomRegistry` maintains.
+ * The unset runtime state (`undefined`) is an implementation-side artefact of
+ * the **Per-step isolation** swallow rule rather than a third literal value
+ * (drain-state-contract.md *Fields* (2)).
+ */
+export type DrainStateTag = "shutting-down" | "degraded-needs-reload";
+
+/**
+ * The snapshot `LoomRegistry.readDrainState()` returns — the two drain-state
+ * fields as a tuple. The public key is the shorter `tag`; the internal field is
+ * `drainStateTag` (drain-state-contract.md *Methods*).
+ */
+export interface DrainStateSnapshot {
+  readonly drained: boolean;
+  readonly tag: DrainStateTag | undefined;
+}
+
 /**
  * The internal mutable registry (`Map<slashName, parsedLoom>`) the slash
  * handler closes over. The swap installs a staged map in a single synchronous
@@ -66,6 +86,64 @@ export class LoomRegistry {
   /** Install a staged map as the new published snapshot (single synchronous write). */
   publish(staged: ReadonlyMap<string, ParsedLoom>): void {
     this.#published = new Map(staged);
+  }
+
+  // --- drain-state contract (PIC-29/30/31/32, drain-state-contract.md) ---
+  //
+  // The `LoomRegistry` carries exactly two drain-related fields — a boolean
+  // `drained` flag and the `drainStateTag` field — mediated through the closed
+  // four-method call surface below; no third boolean drain-state field and no
+  // fifth drain-state method are added (PIC-30, *Non-normative editorial
+  // convention*). V9m-T declares the surface and the two backing fields; the
+  // paired V9m implementation fills in the three writers. `readDrainState` is
+  // the single read API the slash handler and the `session_shutdown` handler
+  // consult.
+
+  /** The drain flag, `false` at factory construction; flipped once by `drain()`. */
+  #drained = false;
+  /** The drain-state tag, `undefined` at factory construction. */
+  #drainStateTag: DrainStateTag | undefined = undefined;
+
+  /**
+   * `LoomRegistry.drain(): void` — sets `drained = true` (PIC-32).
+   *
+   * V9m-T stub: a no-op leaving the field at its factory value, so the PIC-32
+   * test reds on its primary assertion (the paired V9m sets the flag).
+   */
+  drain(): void {
+    // V9m implementation: this.#drained = true;
+  }
+
+  /**
+   * `LoomRegistry.initDrainStateTag(): void` — sets `drainStateTag =
+   * "shutting-down"` iff `drainStateTag === undefined` (a no-op once the tag is
+   * a member of the closed two-arm set).
+   *
+   * V9m-T stub: a no-op (the paired V9m sets the tag).
+   */
+  initDrainStateTag(): void {
+    // V9m implementation: if (this.#drainStateTag === undefined) this.#drainStateTag = "shutting-down";
+  }
+
+  /**
+   * `LoomRegistry.markRuntimeDegraded(): void` — sets `drainStateTag =
+   * "degraded-needs-reload"` unconditionally.
+   *
+   * V9m-T stub: a no-op (the paired V9m sets the tag).
+   */
+  markRuntimeDegraded(): void {
+    // V9m implementation: this.#drainStateTag = "degraded-needs-reload";
+  }
+
+  /**
+   * `LoomRegistry.readDrainState()` — returns a snapshot of the two drain-state
+   * fields. The single read API consulted at the slash-handler and
+   * `session_shutdown` handler-entry call sites (PIC-29/PIC-31). This reader is
+   * a trivial field read and is implemented here; the V9m behaviour under test
+   * is the three writers above and the routing in `drain-state.ts`.
+   */
+  readDrainState(): DrainStateSnapshot {
+    return { drained: this.#drained, tag: this.#drainStateTag };
   }
 }
 
