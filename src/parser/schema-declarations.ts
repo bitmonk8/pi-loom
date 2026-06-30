@@ -330,9 +330,10 @@ export function checkVariantAccess(
 //   - `loom/parse/type-alias-cycle`             — a pure-alias cycle (a cycle
 //     through at least one object-schema hop remains legal).
 //
-// V5b-T (this tests-task) declares these seam shapes and stubs the
-// behaviour-bearing functions so the failing tests compile and red on their own
-// primary assertions. The paired V5b implementation leaf fills these in.
+// V5b-T declared these seam shapes; V5b (this leaf) implements every check:
+// implicit discriminator detection (present-in-all / single string-literal /
+// unique-value), the explicit `by <field>` overrides, and the type-alias-cycle
+// detector whose object-schema hops remain legal.
 
 /**
  * A field of a union variant relevant to discriminator detection. `literal` is
@@ -375,10 +376,238 @@ export function checkDiscriminatedUnion(
   decl: DiscriminatedUnionDecl,
   site: SchemaDeclSite,
 ): Diagnostic[] {
-  // V5b-T stub: inert until the paired V5b implementation lands.
-  void decl;
-  void site;
+  // Explicit `by <field>` overrides implicit detection (schemas.md
+  // §Discriminated unions). Detection runs on the wire name in both paths.
+  if (decl.by !== undefined) {
+    return checkExplicitDiscriminator(decl, decl.by, site);
+  }
+  return detectImplicitDiscriminator(decl, site);
+}
+
+/** The effective wire name a discriminator field is detected under. */
+function wireNameOf(field: DiscriminatorCandidateField): string {
+  return field.wireName ?? field.name;
+}
+
+/** The wire-named field on `variant`, or `undefined` when absent. */
+function fieldInVariant(
+  variant: UnionVariantSchema,
+  wireName: string,
+): DiscriminatorCandidateField | undefined {
+  return variant.fields.find((f) => wireNameOf(f) === wireName);
+}
+
+/** Wire-named fields in first-seen order across the variants. */
+function orderedWireNames(variants: readonly UnionVariantSchema[]): string[] {
+  const seen = new Set<string>();
+  const order: string[] = [];
+  for (const variant of variants) {
+    for (const field of variant.fields) {
+      const wire = wireNameOf(field);
+      if (!seen.has(wire)) {
+        seen.add(wire);
+        order.push(wire);
+      }
+    }
+  }
+  return order;
+}
+
+/**
+ * Render a parse-time literal value per diagnostics/placeholder-rendering-b.md
+ * category 5: bare when identifier-shaped, double-quoted otherwise.
+ */
+function renderParseLiteralValue(text: string): string {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(text) ? text : JSON.stringify(text);
+}
+
+/** The per-variant evaluation of one candidate wire-name across the union. */
+interface FieldEvaluation {
+  readonly name: string;
+  readonly presentInAll: boolean;
+  readonly anyNested: boolean;
+  readonly allLiteral: boolean;
+  readonly allString: boolean;
+  readonly firstNonStringKind?: EnumValueKind | undefined;
+  readonly literalTexts: readonly string[];
+  readonly uniqueValues: boolean;
+  readonly firstDuplicateValue?: string | undefined;
+}
+
+/** Evaluate one candidate wire-name's shape across every variant. */
+function evaluateField(
+  wire: string,
+  variants: readonly UnionVariantSchema[],
+): FieldEvaluation {
+  const occurrences = variants.map((v) => fieldInVariant(v, wire));
+  const presentInAll = occurrences.every((o) => o !== undefined);
+  const anyNested = occurrences.some((o) => o?.nested === true);
+  const allLiteral =
+    presentInAll && occurrences.every((o) => o?.literal !== undefined);
+
+  const literals = allLiteral
+    ? occurrences.map((o) => o?.literal).filter((l): l is NonNullable<typeof l> => l !== undefined)
+    : [];
+  const allString = allLiteral && literals.every((l) => l.kind === "string");
+  const firstNonStringKind = literals.find((l) => l.kind !== "string")?.kind;
+  const literalTexts = literals.map((l) => l.text);
+
+  // First value (in variant order) borne by an earlier variant — the reported
+  // duplicate.
+  let firstDuplicateValue: string | undefined;
+  const seenTexts = new Set<string>();
+  for (const text of literalTexts) {
+    if (seenTexts.has(text)) {
+      firstDuplicateValue = text;
+      break;
+    }
+    seenTexts.add(text);
+  }
+  const uniqueValues = firstDuplicateValue === undefined;
+
+  return {
+    name: wire,
+    presentInAll,
+    anyNested,
+    allLiteral,
+    allString,
+    firstNonStringKind,
+    literalTexts,
+    uniqueValues,
+    firstDuplicateValue,
+  };
+}
+
+/** Implicit discriminator detection (no `by` clause). */
+function detectImplicitDiscriminator(
+  decl: DiscriminatedUnionDecl,
+  site: SchemaDeclSite,
+): Diagnostic[] {
+  const evaluations = orderedWireNames(decl.variants)
+    .map((wire) => evaluateField(wire, decl.variants))
+    .filter((e) => e.presentInAll && e.allLiteral);
+
+  // String-literal, present-in-all fields are discriminator-shaped; those with
+  // unique values qualify, those with duplicate values are duplicate-value
+  // candidates (schemas.md §Discriminated unions, detection rules 1–3).
+  const stringShaped = evaluations.filter((e) => e.allString);
+  const qualifying = stringShaped.filter((e) => e.uniqueValues);
+  const duplicateValued = stringShaped.filter((e) => !e.uniqueValues);
+  const nonStringShaped = evaluations.filter((e) => !e.allString);
+
+  if (qualifying.length === 1) {
+    // Exactly one field qualifies — it is the discriminator. No diagnostic.
+    return [];
+  }
+
+  if (qualifying.length >= 2) {
+    const candidates = qualifying.map((e) => e.name).join(", ");
+    return [
+      {
+        severity: "error",
+        code: "loom/parse/ambiguous-discriminator",
+        file: site.file,
+        range: site.range,
+        message: `ambiguous discriminator for ${decl.name}; candidates: ${candidates}. Declare explicitly with 'by <field>'.`,
+      },
+    ];
+  }
+
+  // No field qualifies. A discriminator-shaped string field with duplicate
+  // values is the most specific failure; then a structurally-shaped field whose
+  // literal type is non-string; otherwise no discriminator exists at all.
+  const dup = duplicateValued[0];
+  if (dup !== undefined && dup.firstDuplicateValue !== undefined) {
+    return [duplicateValueDiagnostic(decl.name, dup.firstDuplicateValue, site)];
+  }
+
+  const nonString = nonStringShaped[0];
+  if (nonString !== undefined && nonString.firstNonStringKind !== undefined) {
+    return [
+      nonStringDiagnostic(decl.name, nonString.name, nonString.firstNonStringKind, site),
+    ];
+  }
+
+  return [
+    {
+      severity: "error",
+      code: "loom/parse/missing-discriminator",
+      file: site.file,
+      range: site.range,
+      message: `${decl.name} is a union of object schemas with no shared single-literal discriminator field. Add a 'kind' (or similar) field to each variant, or declare explicitly with 'by <field>'.`,
+    },
+  ];
+}
+
+/** Explicit `by <field>` discriminator validation. */
+function checkExplicitDiscriminator(
+  decl: DiscriminatedUnionDecl,
+  field: string,
+  site: SchemaDeclSite,
+): Diagnostic[] {
+  const evaluation = evaluateField(field, decl.variants);
+
+  // A nested discriminator value (`kind: { type: "x" }`) is not a top-level
+  // literal — checked first, since its value/type cannot otherwise be read.
+  if (evaluation.anyNested) {
+    return [
+      {
+        severity: "error",
+        code: "loom/parse/nested-discriminator",
+        file: site.file,
+        range: site.range,
+        message: `discriminator field '${field}' must be at the top level of each variant of ${decl.name}`,
+      },
+    ];
+  }
+
+  // The string-literal constraint applies equally to the explicit form
+  // (schemas.md §Discriminated unions).
+  if (evaluation.allLiteral && !evaluation.allString && evaluation.firstNonStringKind !== undefined) {
+    return [nonStringDiagnostic(decl.name, field, evaluation.firstNonStringKind, site)];
+  }
+
+  // A chosen discriminator whose value is not unique across the variants.
+  if (
+    evaluation.allLiteral &&
+    evaluation.allString &&
+    evaluation.firstDuplicateValue !== undefined
+  ) {
+    return [duplicateValueDiagnostic(decl.name, evaluation.firstDuplicateValue, site)];
+  }
+
   return [];
+}
+
+/** The shared `loom/parse/non-string-discriminator` diagnostic. */
+function nonStringDiagnostic(
+  schemaName: string,
+  field: string,
+  kind: EnumValueKind,
+  site: SchemaDeclSite,
+): Diagnostic {
+  return {
+    severity: "error",
+    code: "loom/parse/non-string-discriminator",
+    file: site.file,
+    range: site.range,
+    message: `discriminator '${field}' on ${schemaName} must be a string-literal type; got ${kind}`,
+  };
+}
+
+/** The shared `loom/parse/duplicate-discriminator-value` diagnostic. */
+function duplicateValueDiagnostic(
+  schemaName: string,
+  valueText: string,
+  site: SchemaDeclSite,
+): Diagnostic {
+  return {
+    severity: "error",
+    code: "loom/parse/duplicate-discriminator-value",
+    file: site.file,
+    range: site.range,
+    message: `duplicate discriminator value '${renderParseLiteralValue(valueText)}' across variants of ${schemaName}`,
+  };
 }
 
 /**
@@ -401,10 +630,20 @@ export function checkByClause(
   decl: ByClauseDecl,
   site: SchemaDeclSite,
 ): Diagnostic | undefined {
-  // V5b-T stub: inert until the paired V5b implementation lands.
-  void decl;
-  void site;
-  return undefined;
+  // The `by` clause is admitted only on the union form; an object body has one
+  // variant by definition and the discriminator concept does not apply
+  // (schemas.md §Discriminated unions, grammar.md §`schema X by <field>`).
+  if (decl.form === "union") {
+    return undefined;
+  }
+  return {
+    severity: "error",
+    code: "loom/parse/by-on-object-schema",
+    file: site.file,
+    range: site.range,
+    message:
+      "the 'by' clause applies only to discriminated-union schemas (schema X by f = A | B | …)",
+  };
 }
 
 /**
@@ -429,8 +668,59 @@ export function detectTypeAliasCycles(
   nodes: readonly SchemaGraphNode[],
   site: SchemaDeclSite,
 ): Diagnostic[] {
-  // V5b-T stub: inert until the paired V5b implementation lands.
-  void nodes;
-  void site;
-  return [];
+  const nodeMap = new Map(nodes.map((n) => [n.name, n] as const));
+  const diagnostics: Diagnostic[] = [];
+  const reportedCycles = new Set<string>();
+  const fullyExplored = new Set<string>();
+  const stack: string[] = [];
+  const onStack = new Set<string>();
+
+  // DFS detecting back-edges to a node currently on the recursion stack. A
+  // cycle whose every node is an alias is rejected; a cycle traversing at least
+  // one object-schema hop crosses a `$ref` against `$defs` and is legal
+  // (schemas.md §Recursion). Detection runs over the resolved reference graph.
+  const dfs = (name: string): void => {
+    const node = nodeMap.get(name);
+    if (node === undefined) {
+      // Dangling reference (unresolved name) — not this checker's concern.
+      return;
+    }
+    stack.push(name);
+    onStack.add(name);
+    for (const ref of node.references) {
+      if (onStack.has(ref)) {
+        const idx = stack.indexOf(ref);
+        const cycleNodes = stack.slice(idx);
+        const allAlias = cycleNodes.every(
+          (n) => nodeMap.get(n)?.kind === "alias",
+        );
+        if (allAlias) {
+          const signature = [...cycleNodes].sort().join("|");
+          if (!reportedCycles.has(signature)) {
+            reportedCycles.add(signature);
+            const path = [...cycleNodes, ref].join(" \u2192 ");
+            diagnostics.push({
+              severity: "error",
+              code: "loom/parse/type-alias-cycle",
+              file: site.file,
+              range: site.range,
+              message: `type-alias cycle: ${path}`,
+            });
+          }
+        }
+      } else if (!fullyExplored.has(ref)) {
+        dfs(ref);
+      }
+    }
+    onStack.delete(name);
+    stack.pop();
+    fullyExplored.add(name);
+  };
+
+  for (const node of nodes) {
+    if (!fullyExplored.has(node.name)) {
+      dfs(node.name);
+    }
+  }
+  return diagnostics;
 }

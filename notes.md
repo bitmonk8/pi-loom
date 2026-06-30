@@ -272,3 +272,20 @@ arm admits. The catch swallows any throw and returns the spec-mandated
   test therefore asserts `loom/parse/invoke-non-loom-extension`; this lands an
   asserting test for that registry code and is faithful to the spec rule the
   bullet's prose describes.
+
+## 2026-06-30 — V5b discriminated-union detection precedence (under-specification)
+
+schemas.md §Discriminated unions states the three implicit-detection rules
+(present-in-all, single string-literal, unique value) and lists the failure
+diagnostics, but does not pin the *precedence* among failures when implicit
+detection finds zero qualifying fields, nor whether
+`loom/parse/duplicate-discriminator-value` can fire under implicit detection (the
+spec's duplicate-value sentence is unscoped; V5b-T only exercises it under
+explicit `by`). Decision (minimal, faithful): in implicit mode with zero
+qualifiers, a present-in-all single-string-literal field with duplicate values
+fires `duplicate-discriminator-value` first, else a present-in-all single-literal
+non-string field fires `non-string-discriminator`, else `missing-discriminator`.
+In the explicit `by` path the order is nested → non-string → duplicate-value
+(a nested value's type/value cannot be read, so it is reported first). This keeps
+the most-specific, most-actionable diagnostic surfacing first and matches the
+spec's general "duplicate discriminator values … are loom/parse/duplicate-discriminator-value" statement.
