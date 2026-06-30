@@ -22,7 +22,8 @@
 // value), not on a compile error, a missing fixture, or a harness throw. The
 // paired V4a implementation leaf fills it in.
 
-import { type LoomValue, valuesEqual } from "./value";
+import { type LoomValue, type ResultValue, valuesEqual } from "./value";
+import { LoomPanic } from "./runtime-panics";
 
 /** The registry code carried by the non-exhaustive-`match` runtime panic. */
 export const MATCH_ERROR_CODE = "loom/runtime/match-error";
@@ -31,16 +32,60 @@ export const MATCH_ERROR_CODE = "loom/runtime/match-error";
  * The non-exhaustive-`match` runtime panic (errors-and-results/error-model.md
  * §"Runtime panics"; the implementation refers to it as `MatchError`). Carries
  * the `loom/runtime/match-error` registry code. The registered message-template
- * formatting and the `?`/`match` bypass routing are deferred to V4b-T; V4a-T
- * asserts only that this panic is raised when a scrutinee matches no arm.
+ * formatting and the `?`/`match` bypass routing are closed by V4b. It is a
+ * `LoomPanic` so the runtime-defect surface (`surfaceUnexpectedThrow`)
+ * recognises it as one of the six closed panic sources rather than
+ * reclassifying it as `loom/runtime/internal-error`.
  */
-export class MatchError extends Error {
+export class MatchError extends LoomPanic {
   readonly code = MATCH_ERROR_CODE;
 
   constructor(message: string) {
     super(message);
     this.name = "MatchError";
   }
+}
+
+/**
+ * Render the `<scrutinee summary>` of a non-exhaustive-`match` panic per the
+ * category-2 runtime-value placeholder rule (diagnostics/placeholder-
+ * rendering-a.md): integers/numbers as their shortest decimal (`-0` normalised
+ * to `0`), booleans / `null` literally, strings truncated past 80 code points
+ * to 77-code-points-plus-`...`, enum variants as their bare wire string,
+ * `Result` values as `Ok(<inner>)` / `Err(<inner>)`, and arrays / schema-typed
+ * objects as compact `JSON.stringify` (the schema name does not surface).
+ */
+function summariseScrutinee(value: LoomValue): string {
+  if (value === null) {
+    return "null";
+  }
+  if (typeof value === "string") {
+    const codePoints = Array.from(value);
+    return codePoints.length <= 80 ? value : codePoints.slice(0, 77).join("") + "...";
+  }
+  if (typeof value === "boolean") {
+    return value ? "true" : "false";
+  }
+  if (typeof value === "number") {
+    return Object.is(value, -0) ? "0" : String(value);
+  }
+  // An enum runtime value is a boxed `String`; it renders as its bare wire
+  // string (the declaring-enum tag never surfaces).
+  if (value instanceof String) {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    return JSON.stringify(value);
+  }
+  // A `Result` value renders as `Ok(<inner>)` / `Err(<inner>)`.
+  if (typeof (value as { ok?: unknown }).ok === "boolean") {
+    const result = value as ResultValue;
+    return result.ok
+      ? `Ok(${summariseScrutinee(result.value)})`
+      : `Err(${summariseScrutinee(result.error)})`;
+  }
+  // Any other schema-typed object: compact `JSON.stringify`.
+  return JSON.stringify(value);
 }
 
 /**
@@ -107,9 +152,11 @@ export function evaluateMatch(
     }
   }
   // The scrutinee matched none of the six pattern forms: raise the runtime
-  // non-exhaustive-`match` panic. loom 1.0 performs no static exhaustiveness
-  // check (expressions.md §"Exhaustiveness").
-  throw new MatchError("no arm matched");
+  // non-exhaustive-`match` panic carrying its registered message template
+  // (`MatchError: no arm matched <scrutinee summary>`,
+  // diagnostics/code-registry-runtime.md). loom 1.0 performs no static
+  // exhaustiveness check (expressions.md §"Exhaustiveness").
+  throw new MatchError(`MatchError: no arm matched ${summariseScrutinee(scrutinee)}`);
 }
 
 /**

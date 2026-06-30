@@ -34,7 +34,8 @@
 // input). The paired V4b implementation leaf fills these in.
 
 import type { Diagnostic, SourceRange } from "../diagnostics/diagnostic";
-import type { LoomValue } from "./value";
+import { renderInteger } from "../diagnostics/placeholder";
+import type { LoomValue, ResultValue } from "./value";
 
 /** The registry codes carried by the five panic sources this module owns. */
 export const INDEX_OUT_OF_BOUNDS_CODE = "loom/runtime/index-out-of-bounds";
@@ -112,16 +113,39 @@ export class InvokeDepthExceededPanic extends LoomPanic {
  *   - object, missing loom-side key → `MissingObjectKeyPanic` (`<key>`);
  *   - otherwise                    → the indexed element / member value.
  *
- * V4b-T stubs this inert (returns the `null` sentinel, raising nothing), so the
- * panic-source and bypass assertions red on their absent throw. The paired V4b
- * leaf implements the bounds / null / missing-key checks and the registered
- * message templates.
+ * The registered message templates are sourced from
+ * diagnostics/code-registry-runtime.md and interpolated per the placeholder-
+ * rendering categories (`<i>` / `<length>` are category-4 numerics; `<key>` is
+ * a category-5 source-derived identifier).
  */
 export function evaluateIndexAccess(
-  _target: LoomValue,
-  _index: number | string,
+  target: LoomValue,
+  index: number | string,
 ): LoomValue {
-  return null;
+  if (target === null) {
+    // `[i]` access on `null` (`loom/runtime/null-index-access`). `<i>`.
+    const rendered = typeof index === "number" ? renderInteger(index) : index;
+    throw new NullIndexAccessPanic(`null index access: [${rendered}]`);
+  }
+  if (Array.isArray(target)) {
+    // Array indexing: bounds-check `i < 0 || i >= arr.length`
+    // (`loom/runtime/index-out-of-bounds`). `<i> not in 0..<length>`.
+    const i = index as number;
+    if (typeof i !== "number" || i < 0 || i >= target.length) {
+      throw new IndexOutOfBoundsPanic(
+        `index out of bounds: ${renderInteger(i)} not in 0..${renderInteger(target.length)}`,
+      );
+    }
+    return target[i] as LoomValue;
+  }
+  // Object indexing: a key that is not a present loom-side name on the object
+  // is the missing-object-key panic (`loom/runtime/missing-object-key`).
+  const key = index as string;
+  const obj = target as { readonly [k: string]: LoomValue };
+  if (!Object.prototype.hasOwnProperty.call(obj, key)) {
+    throw new MissingObjectKeyPanic(`missing object key: ${key}`);
+  }
+  return obj[key] as LoomValue;
 }
 
 /**
@@ -129,11 +153,15 @@ export function evaluateIndexAccess(
  * panics"). `target.field` on a `null` target raises `NullMemberAccessPanic`
  * (`.<field>`); otherwise it returns the member value.
  *
- * V4b-T stubs this inert (returns the `null` sentinel, raising nothing). The
- * paired V4b leaf implements the null check and the registered message template.
+ * The registered `null member access: .<field>` template is sourced from
+ * diagnostics/code-registry-runtime.md (`<field>` is a category-5 source-
+ * derived identifier rendered bare).
  */
-export function evaluateMemberAccess(_target: LoomValue, _field: string): LoomValue {
-  return null;
+export function evaluateMemberAccess(target: LoomValue, field: string): LoomValue {
+  if (target === null) {
+    throw new NullMemberAccessPanic(`null member access: .${field}`);
+  }
+  return (target as { readonly [k: string]: LoomValue })[field] as LoomValue;
 }
 
 /**
@@ -142,11 +170,16 @@ export function evaluateMemberAccess(_target: LoomValue, _field: string): LoomVa
  * `InvokeDepthExceededPanic` (`invoke chain depth exceeded: <depth> > 32`);
  * otherwise it returns normally.
  *
- * V4b-T stubs this inert (returns without raising). The paired V4b leaf
- * implements the bound check and the registered message template.
+ * The registered `invoke chain depth exceeded: <depth> > 32` template is
+ * sourced from diagnostics/code-registry-runtime.md (`<depth>` is a category-4
+ * numeric).
  */
-export function enterInvokeFrame(_nextDepth: number): void {
-  // Inert: raises nothing.
+export function enterInvokeFrame(nextDepth: number): void {
+  if (nextDepth > INVOKE_DEPTH_CAP) {
+    throw new InvokeDepthExceededPanic(
+      `invoke chain depth exceeded: ${renderInteger(nextDepth)} > ${INVOKE_DEPTH_CAP}`,
+    );
+  }
 }
 
 /**
@@ -170,14 +203,17 @@ export type QuestionResult =
  * propagates unchanged (the thunk is invoked without a surrounding catch), so a
  * panic bypasses `?`.
  *
- * V4b-T stubs this inert: it returns a `value` sentinel **without invoking**
- * `operand`, so the `Ok`/`Err` discrimination assertions red on the wrong
- * outcome and the bypass assertion reds because the panic-raising thunk is never
- * called (no throw escapes). The paired V4b leaf invokes the thunk and
- * implements propagation.
+ * Invoking `operand` *outside* any surrounding catch is the mechanism by which
+ * a panic bypasses `?`: a thrown `LoomPanic` (or `MatchError`) propagates from
+ * this call unchanged, never becoming a `propagate` outcome.
  */
-export function evaluateQuestion(_operand: () => LoomValue): QuestionResult {
-  return { kind: "value", value: null };
+export function evaluateQuestion(operand: () => LoomValue): QuestionResult {
+  // A panic thrown while producing the operand propagates past this call
+  // unchanged (no catch surrounds it), so `?` is bypassed.
+  const result = operand() as ResultValue;
+  return result.ok
+    ? { kind: "value", value: result.value }
+    : { kind: "propagate", err: result.error };
 }
 
 /**
@@ -202,22 +238,39 @@ export class HostFatal {
  *     whose `message` is the underlying `error.message` and whose `hint` is the
  *     underlying `error.stack` (or `"<no stack available>"` when falsy).
  *
- * V4b-T stubs this inert: it returns a wrong-code sentinel `Diagnostic` for
- * **every** input, so the positive `internal-error` assertion reds on the code
- * mismatch and the NOCEIL-3 / panic-passthrough negative assertions red because
- * a (sentinel) diagnostic is returned where `undefined` is required. The paired
- * V4b leaf implements the discrimination and the registered message template.
+ * The `internal error: <error.message>` template is sourced from
+ * diagnostics/code-registry-runtime.md; `hint` carries the underlying
+ * `error.stack` (or `"<no stack available>"` when falsy) for operator triage.
  */
 export function surfaceUnexpectedThrow(
-  _thrown: unknown,
+  thrown: unknown,
   site: { readonly file: string; readonly range: SourceRange },
 ): Diagnostic | undefined {
+  // Already a panic (one of the six closed sources): not a runtime defect, not
+  // reclassified — the caller rethrows it so it bypasses `?`/`match`.
+  if (isLoomPanic(thrown)) {
+    return undefined;
+  }
+  // NOCEIL-3 carve-out: an uncatchable host fatal terminates the host process
+  // before any wrap observes it, so the runtime-defect surface emits no
+  // diagnostic at all for it.
+  if (thrown instanceof HostFatal) {
+    return undefined;
+  }
+  const errorLike = thrown as { readonly message?: unknown; readonly stack?: unknown };
+  const message =
+    typeof errorLike.message === "string" ? errorLike.message : String(thrown);
+  const stack =
+    typeof errorLike.stack === "string" && errorLike.stack.length > 0
+      ? errorLike.stack
+      : "<no stack available>";
   return {
     severity: "error",
-    code: "loom/runtime/__unimplemented__",
+    code: INTERNAL_ERROR_CODE,
     file: site.file,
     range: site.range,
-    message: "",
+    message: `internal error: ${message}`,
+    hint: stack,
   };
 }
 
