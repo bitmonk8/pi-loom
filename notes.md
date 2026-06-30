@@ -364,3 +364,17 @@ as the minimal, non-misleading payload that ties the advisory to its emitting
 diagnostic. No spec rule constrains this field, so this is a fill-in of an
 underspecified field rather than a divergence from literal spec text. The V9f-T
 tests assert only `content` and `display`, leaving the choice open.
+
+## V10c-T — settings-unreadable on a missing file (wording tension, not a divergence)
+
+The V10c-T leaf bullet and discovery/package-and-settings.md §"Settings file
+reads" → Failure modes both say a "missing or unreadable" settings file fires
+`loom/load/settings-unreadable` (treated as `{}`). The
+diagnostics/code-registry-load.md *Trigger* cell for that code instead reads
+"exists but is unreadable". The leaf and the spec-page failure-modes list are the
+binding obligations here, so the tests pin: a MISSING file also fires
+`settings-unreadable` (not only an EACCES/EPERM-unreadable one). This means a
+project with neither `.pi/settings.json` nor `~/.pi/agent/settings.json` emits
+two W-severity warnings at load — noisy but spec-faithful. Flagging for the V10c
+implementer; the registry *Trigger* wording could be reconciled spec-side later.
+No code/spec change made in this -T leaf.
