@@ -284,7 +284,7 @@ function decidePrimitive(sub: PrimitiveName, sup: PrimitiveName): Compatibility 
  * interpolate (the `<expected>` / `<actual>` fields of the
  * diagnostics/code-registry-parse.md *Message* strings).
  */
-function displayType(type: CompatType): string {
+export function displayType(type: CompatType): string {
   switch (type.kind) {
     case "prim":
       return type.name;

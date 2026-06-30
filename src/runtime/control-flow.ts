@@ -50,5 +50,12 @@ export interface ForLoopHost {
  * The paired V3c leaf implements it.
  */
 export function evaluateForLoop(host: ForLoopHost): void {
-  void host;
+  // CTRL-1: evaluate the iterand exactly once at loop entry, committing its
+  // effect, and capture the resulting `array<T>` snapshot before iterating. A
+  // body-side `let mut` reassignment of the iterand source cannot reach this
+  // captured reference, so the iterated sequence stays fixed.
+  const snapshot = host.evaluateIterand();
+  for (let index = 0; index < snapshot.length; index += 1) {
+    host.runIteration(snapshot[index] as LoomValue, index);
+  }
 }

@@ -24,7 +24,7 @@
 // implementation leaf fills every check in.
 
 import { type Diagnostic, type SourceRange } from "../diagnostics/diagnostic";
-import { type CompatType } from "./type-compat";
+import { type CompatType, displayType } from "./type-compat";
 
 /** A located site at which a control-flow form is checked. */
 export interface ControlFlowSite {
@@ -52,9 +52,17 @@ export function checkForIterand(
   iterand: ForIterand,
   site: ControlFlowSite,
 ): Diagnostic | undefined {
-  void iterand;
-  void site;
-  return undefined;
+  if (iterand.type.kind === "array") {
+    return undefined;
+  }
+  // Message from diagnostics/code-registry-parse.md.
+  return {
+    severity: "error",
+    code: "loom/parse/non-array-iterand",
+    file: site.file,
+    range: site.range,
+    message: `'for' expects array<T> after 'in'; got ${displayType(iterand.type)}`,
+  };
 }
 
 /**
@@ -81,8 +89,26 @@ export function checkBreakStatement(
   brk: BreakStatement,
   site: ControlFlowSite,
 ): Diagnostic | undefined {
-  void brk;
-  void site;
+  if (!brk.insideLoop) {
+    // Message from diagnostics/code-registry-parse.md.
+    return {
+      severity: "error",
+      code: "loom/parse/break-outside-loop",
+      file: site.file,
+      range: site.range,
+      message: "'break' outside of a loop",
+    };
+  }
+  if (brk.hasValue) {
+    // Message from diagnostics/code-registry-parse.md.
+    return {
+      severity: "error",
+      code: "loom/parse/break-with-value",
+      file: site.file,
+      range: site.range,
+      message: "'break' takes no value in loom 1.0",
+    };
+  }
   return undefined;
 }
 
@@ -106,7 +132,15 @@ export function checkContinueStatement(
   cont: ContinueStatement,
   site: ControlFlowSite,
 ): Diagnostic | undefined {
-  void cont;
-  void site;
+  if (!cont.insideLoop) {
+    // Message from diagnostics/code-registry-parse.md.
+    return {
+      severity: "error",
+      code: "loom/parse/continue-outside-loop",
+      file: site.file,
+      range: site.range,
+      message: "'continue' outside of a loop",
+    };
+  }
   return undefined;
 }
