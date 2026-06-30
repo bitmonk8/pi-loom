@@ -9,10 +9,9 @@
 // `undefined` when `display === false` (Pi skips rendering that message).
 //
 // PIC-21's render-time exception-safety wrap (catch-internally / return a
-// minimal raw-content `Component`) is owned by `V7d`, not this leaf; H4a
-// establishes only the construct-a-`Component` shape. The factory wraps the
-// `pi.registerMessageRenderer` call itself in a per-call `try`/`catch` so a
-// registration-time throw never escapes the factory body.
+// minimal raw-content `Component`) is owned by this V7d leaf. The factory
+// wraps the `pi.registerMessageRenderer` call itself in a per-call
+// `try`/`catch` so a registration-time throw never escapes the factory body.
 
 import type { Component } from "@earendil-works/pi-tui";
 import type { MessageRenderer } from "@earendil-works/pi-coding-agent";
@@ -40,23 +39,35 @@ export interface SystemNoteRendererDeps {
  * `display === false` messages (Pi skips them); otherwise returns a text
  * `Component` rendering the message's string content.
  *
- * PIC-21's render-time exception-safety wrap (catch an internal `formatLines`
- * throw within the renderer body and fall back to a minimal raw-content
- * `Component`) is owned by V7d; this leaf establishes the injectable
- * `formatLines` seam so the V7d-T PIC-21 test can drive an internal throw.
+ * PIC-21: an internal renderer-body throw (e.g. from the injected
+ * `formatLines` dim-styling step) MUST NOT escape the `MessageRenderer`
+ * invocation. On such a throw the renderer falls back to a minimal `Component`
+ * rendering the raw `message.content` for `display === true` and `undefined`
+ * for `display === false`, and emits no `loom/runtime/*` diagnostic (the
+ * factory takes no diagnostics sink, so that property holds by construction).
  */
 export function createSystemNoteRenderer(
   deps?: SystemNoteRendererDeps,
 ): MessageRenderer {
   return (message, _options, _theme): Component | undefined => {
-    if (message.display === false) {
-      return undefined;
-    }
     const content =
       typeof message.content === "string" ? message.content : "";
-    const lines = deps?.formatLines
-      ? deps.formatLines(content)
-      : content.split("\n");
-    return textComponent(lines);
+    try {
+      if (message.display === false) {
+        return undefined;
+      }
+      const lines = deps?.formatLines
+        ? deps.formatLines(content)
+        : content.split("\n");
+      return textComponent(lines);
+    } catch (e: unknown) { // allow-broad-catch: PIC-21 — runtime-event-channel.md / extension-bootstrap-and-per-loom.md#pic-21
+      // PIC-21: trap any internal renderer-body failure. `display === false`
+      // still renders nothing; otherwise fall back to the raw content lines.
+      void e;
+      if (message.display === false) {
+        return undefined;
+      }
+      return textComponent(content.split("\n"));
+    }
   };
 }

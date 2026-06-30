@@ -8,12 +8,15 @@
 // → terminal `console.error`) per
 // pi-integration-contract/runtime-event-channel.md §"System notes" and PIC-54.
 //
-// V7d-T (tests-task) declares the seam shape and stubs the two behaviour-
-// bearing functions so the failing tests compile and red on their own primary
-// assertions (delivery / fallback absent). The paired V7d implementation leaf
-// fills these in.
+// The V7d implementation fills in the delivery / fallback behaviour the
+// V7d-T tests-task declared.
 
-import type { Diagnostic } from "../diagnostics/diagnostic";
+import { renderDiagnosticBatch, type Diagnostic } from "../diagnostics/diagnostic";
+
+/** Extract a human-readable message from an arbitrary thrown value. */
+function throwMessage(thrown: unknown): string {
+  return thrown instanceof Error ? thrown.message : String(thrown);
+}
 
 /** The loom-internal system-note renderer channel `customType`. */
 export const SYSTEM_NOTE_CHANNEL = "loom-system-note";
@@ -93,10 +96,63 @@ export function sendSystemNote(
   note: SystemNote,
   deps: SystemNoteChannelDeps,
 ): void {
-  // V7d-T stub: implementation owned by V7d. Intentionally a no-op so the
-  // paired tests red on their own primary assertions (delivery absent).
-  void note;
-  void deps;
+  try {
+    // Best-effort: `pi.sendMessage` returns `void` (synchronous); never await,
+    // never attach a `.catch`. Only a synchronous throw is observable.
+    deps.pi.sendMessage(
+      {
+        customType: SYSTEM_NOTE_CHANNEL,
+        content: note.content,
+        display: note.display,
+        details: note.details,
+      },
+      { triggerTurn: false },
+    );
+    return;
+  } catch (sendError: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
+    // Fallback step 1 — transient toast so the user still sees the message in
+    // the current session. Skipped when `display: false` (the author handled
+    // the underlying `Err`, or it is a subagent-private cascade) and when
+    // `content` is `""` (an empty toast carries no signal). A throwing
+    // `ctx.ui.notify` (e.g. print mode with no attached UI) is caught and the
+    // fallback proceeds to step 2.
+    if (note.display !== false && note.content !== "") {
+      try {
+        deps.ui.notify(note.content, "error");
+      } catch (notifyError: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
+        void notifyError;
+      }
+    }
+
+    // Fallback step 2 — a `loom/runtime/system-note-delivery-failed`
+    // diagnostic: `message` = the original note's content, `hint` = the
+    // underlying throw's message. Itself best-effort: a throw here routes to
+    // the terminal `console.error`.
+    try {
+      deps.emitDiagnostic({
+        severity: "error",
+        code: SYSTEM_NOTE_DELIVERY_FAILED_CODE,
+        message: note.content,
+        hint: throwMessage(sendError),
+      });
+    } catch (emitError: unknown) { // allow-broad-catch: PIC-54 — runtime-event-channel.md#pic-54
+      // Terminal `console.error` (PIC-54): wrapped so a throw from it is
+      // silently swallowed and never propagates out of the fallback chain,
+      // regardless of the reach-path. The original note content and both
+      // underlying throws are logged for post-mortem triage.
+      try {
+        console.error(
+          `system-note delivery failed: ${note.content}`,
+          sendError,
+          emitError,
+        );
+      } catch (consoleError: unknown) { // allow-broad-catch: PIC-54 — runtime-event-channel.md#pic-54
+        void consoleError;
+      }
+    }
+  }
+  // The fallback never aborts the slash-command handler or spawned subagent
+  // session: control returns normally on every path above.
 }
 
 /**
@@ -109,7 +165,16 @@ export function emitDiagnosticBatch(
   diagnostics: readonly Diagnostic[],
   deps: SystemNoteChannelDeps,
 ): void {
-  // V7d-T stub: implementation owned by V7d. No-op until V7d.
-  void diagnostics;
-  void deps;
+  // One `loom-system-note` per `.loom` scan carrying the full batch — no
+  // per-error fan-out. Content is the serialised batch; `details.diagnostics`
+  // carries the full `Diagnostic[]`. A re-scan re-emits with no dedup /
+  // supersede (a second call is a second `sendMessage`).
+  sendSystemNote(
+    {
+      content: renderDiagnosticBatch(diagnostics),
+      display: true,
+      details: { diagnostics },
+    },
+    deps,
+  );
 }
