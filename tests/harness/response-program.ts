@@ -36,6 +36,63 @@
 /** Where in the binder drive an abort/cancellation is injected (category e). */
 export type AbortPoint = "pre-call" | "in-flight" | "during-retry";
 
+// --- H4c modeled-behaviour categories (f), (g) -------------------------------
+//
+// H4c extends this surface with the two scripted-injection categories whose
+// authoring complexity comes from MODELLING not-yet-authored slice contracts,
+// split out of H4b so the core categories (a)–(e) can ship first. They are the
+// single shared scripting contract every (f)/(g)-driven harness leaf consumes —
+// `V4c`, `V4f`, `V9i`, `V9o` — and the owning slices (`V4f`, `V9i`) consume
+// this surface rather than redefining the modelled contracts.
+//
+//   (f) drive a nested `invoke(...)` child to completion — a produced final
+//       value from the child invocation — surfaced as an observable
+//       completed-invoke-child outcome, modelling the no-rollback completed-
+//       invoke-child contract (error-model.md ERR-13; the V4f vector): an
+//       `invoke` child that has already run to its terminal event remains final
+//       and its produced final value is what the parent observes.
+//   (g) script/observe a subagent-mode callee — a private subagent
+//       `AgentSession` dispatched per the V9i subagent-mode session contract
+//       (subagent.md): a fresh in-memory session is spawned (createAgentSession),
+//       driven via sendUserMessage, and the outcome is extracted from the
+//       TERMINAL `agent_end` event (`willRetry: false`), ignoring any
+//       `willRetry: true` events that precede an automatic SDK retry (PIC-43).
+//       The session's transcript is private and discarded, so its internal
+//       turns are NOT surfaced as ordinary assistant fragments — the outcome is
+//       a subagent-loom outcome, not a plain scripted (a) turn (the V4c vector).
+
+/**
+ * A scripted nested `invoke(...)` child run to completion (category f). The
+ * child invocation produces `finalValue`; per ERR-13 (no rollback) a completed
+ * invoke-child remains final and the parent observes its produced final value.
+ */
+export interface InvokeChildScript {
+  readonly childName: string;
+  readonly finalValue: string;
+}
+
+/**
+ * One `agent_end` event a scripted subagent-mode callee's private session
+ * emits. `willRetry: true` precedes an automatic SDK retry and does NOT resolve
+ * the query (its `value` is a decoy the runtime ignores, per PIC-43); only the
+ * terminal `willRetry: false` event resolves the subagent-loom outcome.
+ */
+export interface SubagentAgentEnd {
+  readonly value: string;
+  readonly willRetry: boolean;
+}
+
+/**
+ * A scripted subagent-mode callee dispatch (category g), modelled on the V9i
+ * subagent-mode session contract rather than a plain scripted turn: a private
+ * in-memory `AgentSession` is spawned and the outcome is extracted from the
+ * terminal `agent_end` event walking the `agentEnds` sequence in order.
+ */
+export interface SubagentCalleeScript {
+  readonly loomName: string;
+  readonly agentEnds: readonly SubagentAgentEnd[];
+}
+
 /** A retry-eligible binder failure class (determinism-cancellation-failure.md). */
 export type BinderFailureClass = "transport" | "malformed-envelope";
 
@@ -100,7 +157,27 @@ export type ResponseEvent =
       readonly failureClass: BinderFailureClass;
     }
   | { readonly kind: "tool-loop-exhausted"; readonly rounds: number }
-  | { readonly kind: "cancelled"; readonly point: AbortPoint };
+  | { readonly kind: "cancelled"; readonly point: AbortPoint }
+  | {
+      // (f) ERR-13 completed-invoke-child: the produced final value the
+      // already-run child invocation surfaces to its parent.
+      readonly kind: "completed-invoke-child";
+      readonly childName: string;
+      readonly finalValue: string;
+    }
+  | {
+      // (g) V9i subagent-mode callee: a private AgentSession was spawned
+      // (createAgentSession) to dispatch the callee.
+      readonly kind: "subagent-spawn";
+      readonly loomName: string;
+    }
+  | {
+      // (g) V9i subagent-mode outcome: the final value extracted from the
+      // terminal `agent_end` event of the private session.
+      readonly kind: "subagent-loom";
+      readonly loomName: string;
+      readonly finalValue: string;
+    };
 
 /**
  * The runtime MUST issue at most 3 binder LLM calls per slash invocation
@@ -121,6 +198,8 @@ export class ResponseProgrammer {
   #toolResults = new Map<string, ScriptedToolResult>();
   #binderAttempts: BinderAttempt[] = [];
   #abortAt: AbortPoint | undefined;
+  #invokeChildren: InvokeChildScript[] = [];
+  #subagentCallees: SubagentCalleeScript[] = [];
 
   // --- (a) assistant turns + per-turn streamed fragments -------------------
 
@@ -171,6 +250,33 @@ export class ResponseProgrammer {
     return this;
   }
 
+  // --- (f) completed invoke-child (ERR-13 no-rollback) ---------------------
+
+  /**
+   * Script a nested `invoke(...)` child driven to completion. The child's
+   * produced final value surfaces as the completed-invoke-child observable; the
+   * already-run child remains final (no rollback, ERR-13).
+   */
+  scriptInvokeChild(child: InvokeChildScript): this {
+    this.#invokeChildren.push({ ...child });
+    return this;
+  }
+
+  // --- (g) subagent-mode callee (V9i subagent-mode session contract) -------
+
+  /**
+   * Script a subagent-mode callee dispatch. Models the V9i contract: a private
+   * in-memory `AgentSession` is spawned and the outcome is read from the
+   * terminal `agent_end` event, ignoring `willRetry: true` events (PIC-43).
+   */
+  scriptSubagentCallee(callee: SubagentCalleeScript): this {
+    this.#subagentCallees.push({
+      loomName: callee.loomName,
+      agentEnds: callee.agentEnds.map((e) => ({ ...e })),
+    });
+    return this;
+  }
+
   // --- deterministic replay -------------------------------------------------
 
   /**
@@ -190,6 +296,14 @@ export class ResponseProgrammer {
     if (this.#toolLoopMaxRounds !== undefined) this.#driveToolLoop(events);
     if (this.#assistantTurns.length > 0) {
       this.#driveTurns(this.#assistantTurns, events);
+    }
+    // (f) completed invoke-child outcomes (ERR-13 no-rollback).
+    for (const child of this.#invokeChildren) {
+      this.#driveInvokeChild(child, events);
+    }
+    // (g) subagent-mode callee outcomes (V9i subagent-mode session contract).
+    for (const callee of this.#subagentCallees) {
+      this.#driveSubagentCallee(callee, events);
     }
     return events;
   }
@@ -302,5 +416,43 @@ export class ResponseProgrammer {
     if (lastFailure !== undefined) {
       out.push({ kind: "binder-surfaced-failure", failureClass: lastFailure });
     }
+  }
+
+  /**
+   * (f) A completed `invoke(...)` child surfaces its produced final value. The
+   * child has already run to its terminal event, so per ERR-13 it remains final
+   * and the parent observes the produced value — no rollback is modelled.
+   */
+  #driveInvokeChild(child: InvokeChildScript, out: ResponseEvent[]): void {
+    out.push({
+      kind: "completed-invoke-child",
+      childName: child.childName,
+      finalValue: child.finalValue,
+    });
+  }
+
+  /**
+   * (g) Dispatch a subagent-mode callee, modelled on the V9i contract: spawn a
+   * private in-memory `AgentSession` (createAgentSession), then resolve the
+   * outcome from the TERMINAL `agent_end` event (`willRetry: false`), ignoring
+   * any preceding `willRetry: true` events (PIC-43). The private session's
+   * internal turns are not surfaced as ordinary assistant fragments — the
+   * observable is a subagent-loom outcome, not a plain scripted (a) turn.
+   */
+  #driveSubagentCallee(callee: SubagentCalleeScript, out: ResponseEvent[]): void {
+    out.push({ kind: "subagent-spawn", loomName: callee.loomName });
+    const terminal = callee.agentEnds.find((e) => !e.willRetry);
+    if (terminal === undefined) {
+      // A subagent query that never reaches a terminal `agent_end` is a
+      // scripting error: model it deterministically rather than hanging.
+      throw new Error(
+        `subagent callee "${callee.loomName}" has no terminal agent_end (willRetry:false)`,
+      );
+    }
+    out.push({
+      kind: "subagent-loom",
+      loomName: callee.loomName,
+      finalValue: terminal.value,
+    });
   }
 }

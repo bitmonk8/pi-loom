@@ -109,3 +109,18 @@ Free-form running log of discoveries that are not plan changes.
   at pre-call / in-flight (initial call) / during-retry short-circuits to the
   cancelled observable. The most-recent failure surfaces when both budgets are
   spent (`binder-surfaced-failure`).
+
+## H4c — modeled-behaviour surface (2026-06-30)
+- **(f) completed-invoke-child model.** A scripted invoke-child is just its
+  `childName` + produced `finalValue`; the drive emits a single
+  `completed-invoke-child` event. ERR-13 (no rollback) is modelled by the fact
+  that the child has "already run" — the surface only ever exposes the produced
+  final value, never a rollback or a completed-side-effect manifest.
+- **(g) subagent-mode callee model.** Modelled on V9i rather than as a plain (a)
+  turn: the drive emits a `subagent-spawn` (the private `createAgentSession`)
+  then a `subagent-loom` outcome whose value comes from the FIRST
+  `willRetry:false` `agent_end` (PIC-43) — earlier `willRetry:true` events are
+  decoys the runtime ignores. The private session's turns are deliberately NOT
+  surfaced as `fragment`/`turn-end` events (transcript privacy), which is the
+  observable distinction from a plain scripted assistant turn. A callee with no
+  terminal `agent_end` throws deterministically rather than modelling a hang.

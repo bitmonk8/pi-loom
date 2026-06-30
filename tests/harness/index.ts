@@ -21,8 +21,11 @@ export {
   type BinderAttempt,
   type BinderEnvelopeKind,
   type BinderFailureClass,
+  type InvokeChildScript,
   type ResponseEvent,
   type ScriptedToolResult,
+  type SubagentAgentEnd,
+  type SubagentCalleeScript,
 } from "./response-program";
 
 export interface LoadedExtension {
