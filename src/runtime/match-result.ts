@@ -22,7 +22,7 @@
 // value), not on a compile error, a missing fixture, or a harness throw. The
 // paired V4a implementation leaf fills it in.
 
-import { type LoomValue } from "./value";
+import { type LoomValue, valuesEqual } from "./value";
 
 /** The registry code carried by the non-exhaustive-`match` runtime panic. */
 export const MATCH_ERROR_CODE = "loom/runtime/match-error";
@@ -96,12 +96,97 @@ export interface MatchArm {
  * `MatchError` raise.
  */
 export function evaluateMatch(
-  _scrutinee: LoomValue,
-  _arms: readonly MatchArm[],
+  scrutinee: LoomValue,
+  arms: readonly MatchArm[],
 ): LoomValue {
-  // V4a-T stub: inert. Returns a sentinel that no bind test expects and raises
-  // no `MatchError`, so the raise-versus-bind tests red on their own primary
-  // assertions. The paired V4a leaf implements the six-pattern dispatch and the
-  // non-exhaustive-`match` `MatchError` raise.
-  return null;
+  // First matching arm wins; a non-selected arm's body is never evaluated.
+  for (const arm of arms) {
+    const bindings: Record<string, LoomValue> = {};
+    if (matchPattern(arm.pattern, scrutinee, bindings)) {
+      return arm.body(bindings);
+    }
+  }
+  // The scrutinee matched none of the six pattern forms: raise the runtime
+  // non-exhaustive-`match` panic. loom 1.0 performs no static exhaustiveness
+  // check (expressions.md §"Exhaustiveness").
+  throw new MatchError("no arm matched");
+}
+
+/**
+ * Attempt to match `value` against `pattern`, recording any identifier bindings
+ * the pattern introduces into `bindings`. Returns whether the pattern matched.
+ * On a failed match the partial `bindings` are discarded by the caller (a fresh
+ * map per arm), so a partially-populated map never leaks into a later arm.
+ */
+function matchPattern(
+  pattern: Pattern,
+  value: LoomValue,
+  bindings: Record<string, LoomValue>,
+): boolean {
+  switch (pattern.kind) {
+    case "wildcard":
+      return true;
+    case "identifier":
+      bindings[pattern.name] = value;
+      return true;
+    case "literal":
+      return valuesEqual(value, pattern.value);
+    case "constructor": {
+      // `Ok(p)` / `Err(p)` match the named `Result` variant and recurse into the
+      // payload. The scrutinee must be a `Result` value (an `ok` discriminator).
+      if (
+        typeof value !== "object" ||
+        value === null ||
+        Array.isArray(value) ||
+        typeof (value as { ok?: unknown }).ok !== "boolean"
+      ) {
+        return false;
+      }
+      const result = value as { ok: boolean; value?: LoomValue; error?: LoomValue };
+      if (pattern.ctor === "Ok") {
+        if (!result.ok) {
+          return false;
+        }
+        return matchPattern(pattern.inner, result.value as LoomValue, bindings);
+      }
+      if (result.ok) {
+        return false;
+      }
+      return matchPattern(pattern.inner, result.error as LoomValue, bindings);
+    }
+    case "object": {
+      // An object/schema pattern matches an object whose listed fields match
+      // their inner patterns; unlisted fields are ignored.
+      if (
+        typeof value !== "object" ||
+        value === null ||
+        Array.isArray(value)
+      ) {
+        return false;
+      }
+      const obj = value as { readonly [key: string]: LoomValue };
+      for (const field of pattern.fields) {
+        if (!Object.prototype.hasOwnProperty.call(obj, field.name)) {
+          return false;
+        }
+        if (!matchPattern(field.pattern, obj[field.name] as LoomValue, bindings)) {
+          return false;
+        }
+      }
+      return true;
+    }
+    case "array": {
+      // An array pattern matches an exact-length array, each slot against its
+      // pattern.
+      if (!Array.isArray(value) || value.length !== pattern.elements.length) {
+        return false;
+      }
+      for (let i = 0; i < pattern.elements.length; i++) {
+        if (!matchPattern(pattern.elements[i] as Pattern, value[i] as LoomValue, bindings)) {
+          return false;
+        }
+      }
+      return true;
+    }
+  }
 }

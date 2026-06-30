@@ -31,7 +31,7 @@
 // The paired V4a implementation leaf fills every check in.
 
 import { type Diagnostic, type SourceRange } from "../diagnostics/diagnostic";
-import { type CompatType, type TypeEnv } from "./type-compat";
+import { checkCompatible, type CompatType, type TypeEnv } from "./type-compat";
 
 /** A located site at which a `match` / `?` form is type-checked. */
 export interface MatchResultSite {
@@ -64,13 +64,26 @@ export type QuestionOperandType =
  * V4a-T stubs this inert (always `undefined`); the paired V4a leaf fills it in.
  */
 export function checkQuestionOperand(
-  _operand: QuestionOperandType,
-  _site: MatchResultSite,
+  operand: QuestionOperandType,
+  site: MatchResultSite,
 ): Diagnostic | undefined {
-  // V4a-T stub: inert. The paired V4a leaf reports
-  // `loom/parse/question-on-non-result` for a non-`Result<_, QueryError>`
-  // operand, sourcing its message from diagnostics/code-registry-parse.md.
-  return undefined;
+  // A `Result<T, QueryError>` operand satisfies the precondition.
+  if (operand.kind === "result" && operand.errIsQueryError) {
+    return undefined;
+  }
+  // Otherwise the operand is not `Result<T, QueryError>`: either a non-`Result`
+  // type, or a `Result` whose error arm is not `QueryError`. The `<type>`
+  // placeholder renders the operand's type name (a `Result` whose error arm is
+  // not `QueryError` renders as `Result`). Message from
+  // diagnostics/code-registry-parse.md.
+  const display = operand.kind === "non-result" ? operand.display : "Result";
+  return {
+    severity: "error",
+    code: "loom/parse/question-on-non-result",
+    file: site.file,
+    range: site.range,
+    message: `'?' requires a Result operand; got ${display}`,
+  };
 }
 
 /**
@@ -99,14 +112,24 @@ export type EnclosingReturnScope =
  * V4a-T stubs this inert (always `undefined`); the paired V4a leaf fills it in.
  */
 export function checkQuestionScope(
-  _scope: EnclosingReturnScope,
-  _site: MatchResultSite,
+  scope: EnclosingReturnScope,
+  site: MatchResultSite,
 ): Diagnostic | undefined {
-  // V4a-T stub: inert. The paired V4a leaf reports
-  // `loom/parse/question-outside-result-fn` for a `?` in a non-`Result`-
-  // compatible scope, sourcing its message from
-  // diagnostics/code-registry-parse.md.
-  return undefined;
+  // An inferred scope implicitly returns `Result<T, QueryError>` once `?` is
+  // used, and an annotated scope whose return type admits
+  // `Result<U, QueryError>` is compatible by construction.
+  if (scope.kind === "inferred" || scope.resultCompatible) {
+    return undefined;
+  }
+  // An explicit return annotation that does not admit `Result<U, QueryError>`
+  // for any `U`. Message from diagnostics/code-registry-parse.md.
+  return {
+    severity: "error",
+    code: "loom/parse/question-outside-result-fn",
+    file: site.file,
+    range: site.range,
+    message: "'?' used in a scope whose return type is not Result<T, QueryError>",
+  };
 }
 
 /**
@@ -139,15 +162,77 @@ export interface MatchArmCheck {
  * V4a-T stubs this inert (no diagnostics, no computed LUB); the paired V4a leaf
  * fills it in.
  */
-export function checkMatchArmTypes(_opts: {
+export function checkMatchArmTypes(opts: {
   readonly armTypes: readonly CompatType[];
   readonly sink: CompatType | undefined;
   readonly env: TypeEnv;
   readonly site: MatchResultSite;
 }): MatchArmCheck {
-  // V4a-T stub: inert. The paired V4a leaf computes the arm LUB and reports
-  // `loom/parse/match-arm-type-mismatch` (message from
-  // diagnostics/code-registry-parse.md) when the arms share no common upper
-  // bound.
-  return { diagnostics: [], lub: undefined };
+  const { armTypes, sink, env, site } = opts;
+
+  // With an in-scope sink on the `match` expression itself, every arm body must
+  // be `⊑` the sink; the `match` then resolves to the sink type. A
+  // statically-unresolvable arm is deferred to the runtime AJV safety net.
+  if (sink !== undefined) {
+    for (const armType of armTypes) {
+      const r = checkCompatible(armType, sink, env);
+      if (r === "compatible" || r === "unknown") {
+        continue;
+      }
+      return { diagnostics: [mismatchDiagnostic(site)], lub: undefined };
+    }
+    return { diagnostics: [], lub: sink };
+  }
+
+  // Without a sink, the arms need a common upper bound — an arm type every other
+  // arm is `⊑`, the least such being the LUB the `match` resolves to.
+  const lub = leastUpperBound(armTypes, env);
+  if (lub === undefined) {
+    return { diagnostics: [mismatchDiagnostic(site)], lub: undefined };
+  }
+  return { diagnostics: [], lub };
+}
+
+/** The `loom/parse/match-arm-type-mismatch` diagnostic (diagnostics/code-registry-parse.md). */
+function mismatchDiagnostic(site: MatchResultSite): Diagnostic {
+  return {
+    severity: "error",
+    code: "loom/parse/match-arm-type-mismatch",
+    file: site.file,
+    range: site.range,
+    message: "match arm body type does not match the common type of the other arms",
+  };
+}
+
+/**
+ * The least upper bound of the arm types under type-system.md §"Type
+ * compatibility": a candidate arm type that every arm is `⊑`, and that is itself
+ * `⊑` every other such candidate (the least). Returns `undefined` when the arms
+ * share no common upper bound. A statically-unresolvable arm does not block a
+ * candidate (deferred to the runtime AJV safety net).
+ */
+function leastUpperBound(
+  armTypes: readonly CompatType[],
+  env: TypeEnv,
+): CompatType | undefined {
+  const covers = (candidate: CompatType): boolean =>
+    armTypes.every((arm) => {
+      const r = checkCompatible(arm, candidate, env);
+      return r === "compatible" || r === "unknown";
+    });
+  const candidates = armTypes.filter(covers);
+  if (candidates.length === 0) {
+    return undefined;
+  }
+  // The least candidate is `⊑` every other candidate.
+  for (const candidate of candidates) {
+    const isLeast = candidates.every((other) => {
+      const r = checkCompatible(candidate, other, env);
+      return r === "compatible" || r === "unknown";
+    });
+    if (isLeast) {
+      return candidate;
+    }
+  }
+  return candidates[0];
 }
