@@ -6,11 +6,6 @@
 // case-canonicalisation / transitive-symlink / ELOOP / ENOENT behaviour at
 // chosen boundaries instead of reaching the real disk.
 //
-// V8b-T stub: the constructor shape and member signatures are declared so the
-// V8b-T tests type-check; each member throws until the paired `V8b` leaf
-// implements the in-memory behaviour, so every behavioural test reds on its
-// own assertion (the implementation under test is absent).
-//
 // Spec: host-interfaces-services.md PIC-13; lexical.md §Encoding.
 
 import type { FileStat, FileSystem } from "../../src/seams/file-system";
@@ -38,8 +33,11 @@ export interface FakeFileSystemOptions {
   readonly caseInsensitive?: boolean;
 }
 
-function notImplemented(member: string): never {
-  throw new Error(`V8b: FakeFileSystem.${member} not implemented`);
+/** Build a Node-style error carrying the injected `.code`. */
+function codeError(code: string): NodeJS.ErrnoException {
+  const error: NodeJS.ErrnoException = new Error(`${code}: fake filesystem`);
+  error.code = code;
+  return error;
 }
 
 class FakeStat implements FileStat {
@@ -58,48 +56,169 @@ class FakeStat implements FileStat {
 }
 
 export class FakeFileSystem implements FileSystem {
-  // Retained for the V8b implementation; referenced so the field is live.
-  readonly #options: FakeFileSystemOptions;
+  readonly #homedir: string;
+  readonly #cwd: string;
+  // Regular files are mutable so `writeText` can round-trip through `readText`.
+  readonly #files: Map<string, string | Uint8Array>;
+  readonly #dirs: Map<string, readonly string[]>;
+  readonly #symlinks: Map<string, string>;
+  readonly #errors: Map<string, string>;
+  readonly #caseInsensitive: boolean;
 
   constructor(options: FakeFileSystemOptions) {
-    this.#options = options;
-    void this.#options;
-    void FakeStat;
+    this.#homedir = options.homedir;
+    this.#cwd = options.cwd;
+    this.#files = new Map(Object.entries(options.files ?? {}));
+    this.#dirs = new Map(Object.entries(options.dirs ?? {}));
+    this.#symlinks = new Map(Object.entries(options.symlinks ?? {}));
+    this.#errors = new Map(Object.entries(options.errors ?? {}));
+    this.#caseInsensitive = options.caseInsensitive === true;
   }
 
-  readText(_path: string): Promise<string> {
-    return notImplemented("readText");
+  async readText(path: string): Promise<string> {
+    const injected = this.#errors.get(path);
+    if (injected !== undefined) {
+      throw codeError(injected);
+    }
+    const content = this.#files.get(path);
+    if (content === undefined) {
+      throw codeError("ENOENT");
+    }
+    return typeof content === "string" ? content : new TextDecoder().decode(content);
   }
 
-  readBytes(_path: string): Promise<Uint8Array> {
-    return notImplemented("readBytes");
+  async readBytes(path: string): Promise<Uint8Array> {
+    const injected = this.#errors.get(path);
+    if (injected !== undefined) {
+      throw codeError(injected);
+    }
+    const content = this.#files.get(path);
+    if (content === undefined) {
+      throw codeError("ENOENT");
+    }
+    return typeof content === "string"
+      ? new TextEncoder().encode(content)
+      : new Uint8Array(content);
   }
 
-  writeText(_path: string, _contents: string): Promise<void> {
-    return notImplemented("writeText");
+  async writeText(path: string, contents: string): Promise<void> {
+    const injected = this.#errors.get(path);
+    if (injected !== undefined) {
+      throw codeError(injected);
+    }
+    this.#files.set(path, contents);
   }
 
-  exists(_path: string): Promise<boolean> {
-    return notImplemented("exists");
+  async exists(path: string): Promise<boolean> {
+    const injected = this.#errors.get(path);
+    if (injected !== undefined) {
+      if (injected === "ENOENT") {
+        return false;
+      }
+      throw codeError(injected);
+    }
+    return this.#files.has(path) || this.#dirs.has(path) || this.#symlinks.has(path);
   }
 
   homedir(): string {
-    return notImplemented("homedir");
+    return this.#homedir;
   }
 
   cwd(): string {
-    return notImplemented("cwd");
+    return this.#cwd;
   }
 
-  readdir(_path: string): Promise<readonly string[]> {
-    return notImplemented("readdir");
+  async readdir(path: string): Promise<readonly string[]> {
+    const injected = this.#errors.get(path);
+    if (injected !== undefined) {
+      throw codeError(injected);
+    }
+    const entries = this.#dirs.get(path);
+    if (entries === undefined) {
+      throw codeError("ENOENT");
+    }
+    // Returned verbatim — no Unicode normalisation, per the entry-name guarantee.
+    return entries;
   }
 
-  lstat(_path: string): Promise<FileStat> {
-    return notImplemented("lstat");
+  async lstat(path: string): Promise<FileStat> {
+    const injected = this.#errors.get(path);
+    if (injected !== undefined) {
+      throw codeError(injected);
+    }
+    // `lstat` does NOT follow symlinks: a symlink path stats as a symbolic link.
+    if (this.#symlinks.has(path)) {
+      return new FakeStat("symlink");
+    }
+    if (this.#dirs.has(path)) {
+      return new FakeStat("dir");
+    }
+    if (this.#files.has(path)) {
+      return new FakeStat("file");
+    }
+    throw codeError("ENOENT");
   }
 
-  realpath(_path: string): Promise<string> {
-    return notImplemented("realpath");
+  async realpath(path: string): Promise<string> {
+    const seen = new Set<string>();
+    let current = path;
+    // Follow every symlink on the chain transitively; detect cycles as ELOOP.
+    for (;;) {
+      const injected = this.#errors.get(current);
+      if (injected !== undefined) {
+        throw codeError(injected);
+      }
+      const target = this.#lookupSymlink(current);
+      if (target === undefined) {
+        break;
+      }
+      if (seen.has(current)) {
+        throw codeError("ELOOP");
+      }
+      seen.add(current);
+      current = target;
+    }
+    const canonical = this.#resolveExisting(current);
+    if (canonical === undefined) {
+      throw codeError("ENOENT");
+    }
+    return canonical;
+  }
+
+  /** Immediate symlink target for a path, honouring case-insensitive matching. */
+  #lookupSymlink(path: string): string | undefined {
+    const exact = this.#symlinks.get(path);
+    if (exact !== undefined) {
+      return exact;
+    }
+    if (this.#caseInsensitive) {
+      for (const [key, value] of this.#symlinks) {
+        if (key.toLowerCase() === path.toLowerCase()) {
+          return value;
+        }
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Canonical spelling of an existing (non-symlink) path among files/dirs, or
+   * `undefined` if no such entry exists. Under case-insensitivity the returned
+   * value is the on-disk key spelling, so case-variant inputs to one entry
+   * yield byte-identical output (the case-canonicalisation guarantee).
+   */
+  #resolveExisting(path: string): string | undefined {
+    if (this.#files.has(path) || this.#dirs.has(path)) {
+      return path;
+    }
+    if (this.#caseInsensitive) {
+      const lower = path.toLowerCase();
+      for (const key of [...this.#files.keys(), ...this.#dirs.keys()]) {
+        if (key.toLowerCase() === lower) {
+          return key;
+        }
+      }
+    }
+    return undefined;
   }
 }
