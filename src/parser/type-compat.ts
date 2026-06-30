@@ -21,12 +21,13 @@
 //     through nested aliases until a non-alias form is reached. Aliasing an
 //     object schema unfolds to that object schema, which re-enters TYPE-10.
 //
-// V2b-T (tests-task) declares the seam shape and stubs the behaviour-bearing
-// functions so the failing tests compile and red on their own primary
-// assertions: `checkCompatible` returns the inert `"unknown"` sentinel (a
-// value the paired V2b implementation never returns) and the per-site
-// diagnostic checkers return no diagnostics. The paired V2b implementation
-// leaf fills these in.
+// V2b implements the decision procedure: `checkCompatible` decides the
+// directed relation `T₁ ⊑ T₂` over the `CompatType` model (TYPE-1…TYPE-11) and
+// the three per-site checkers report the parse-time mismatch diagnostics
+// (TYPE-9). An operand past the parser's static view (an unresolvable `named`
+// reference) yields `"unknown"`, at which point the per-site checkers emit no
+// diagnostic and the runtime AJV check is the safety net (type-system.md
+// §"Unresolvable operands").
 
 import { type Diagnostic, type SourceRange } from "../diagnostics/diagnostic";
 
@@ -110,14 +111,194 @@ export type Compatibility =
  * implementation leaf computes the relation.
  */
 export function checkCompatible(
-  _sub: CompatType,
-  _sup: CompatType,
-  _env: TypeEnv,
+  sub: CompatType,
+  sup: CompatType,
+  env: TypeEnv,
 ): Compatibility {
-  // Inert V2b-T stub: returns the `"unknown"` sentinel so every relation test
-  // reds on its own primary assertion (the engine is absent). The paired V2b
-  // leaf replaces this with the TYPE-1…TYPE-11 decision procedure.
-  return "unknown";
+  return decide(unfoldAlias(sub, env), unfoldAlias(sup, env), env);
+}
+
+/**
+ * TYPE-11 — transparently unfold a `named` type whose declaration is a
+ * type-alias schema (`schema X = R`) to its right-hand side, recursing through
+ * nested aliases until a non-alias form is reached. A `named` that resolves to
+ * an object schema stays `named` (nominal, TYPE-10); an unresolvable `named`
+ * (past the parser's static view) stays `named` so the relation reports
+ * `"unknown"` and the runtime AJV safety net applies.
+ */
+function unfoldAlias(type: CompatType, env: TypeEnv): CompatType {
+  let current = type;
+  // Bounded by the alias chain length; alias cycles are rejected upstream
+  // (`loom/parse/type-alias-cycle`) before any compatibility question arises.
+  while (current.kind === "named") {
+    const decl = env[current.name];
+    if (decl === undefined || decl.kind !== "alias") {
+      return current;
+    }
+    current = decl.rhs;
+  }
+  return current;
+}
+
+/**
+ * The directed decision procedure over alias-unfolded operands. Implements
+ * TYPE-1…TYPE-10 (TYPE-11 transparency is applied by `unfoldAlias` before and
+ * during recursion). Returns `"unknown"` when an operand is an unresolvable
+ * `named` reference past the parser's static view.
+ */
+function decide(sub: CompatType, sup: CompatType, env: TypeEnv): Compatibility {
+  // TYPE-6 — union-distributive on the left: `T₁ | T₂ ⊑ T₃` iff each arm is.
+  if (sub.kind === "union") {
+    let sawUnknown = false;
+    for (const arm of sub.arms) {
+      const r = decide(unfoldAlias(arm, env), sup, env);
+      if (r === "unknown") {
+        sawUnknown = true;
+      } else if (r !== "compatible") {
+        return "incompatible";
+      }
+    }
+    return sawUnknown ? "unknown" : "compatible";
+  }
+
+  // TYPE-5 — union-widening on the right: `T ⊑ T | U` iff `T ⊑` some arm.
+  if (sup.kind === "union") {
+    let sawUnknown = false;
+    for (const arm of sup.arms) {
+      const r = decide(sub, unfoldAlias(arm, env), env);
+      if (r === "compatible") {
+        return "compatible";
+      }
+      if (r === "unknown") {
+        sawUnknown = true;
+      }
+    }
+    return sawUnknown ? "unknown" : "incompatible";
+  }
+
+  // TYPE-7 — element-wise covariance on arrays: `array<T₁> ⊑ array<T₂>` iff
+  // `T₁ ⊑ T₂`.
+  if (sup.kind === "array") {
+    if (sub.kind !== "array") {
+      return "incompatible";
+    }
+    return decide(unfoldAlias(sub.element, env), unfoldAlias(sup.element, env), env);
+  }
+
+  // TYPE-8 — field-wise on inline object types with an exact field set
+  // (`additionalProperties:false` ⇒ no excess-property widening), field order
+  // irrelevant. Never crosses the inline/named boundary (TYPE-10).
+  if (sup.kind === "object") {
+    if (sub.kind !== "object") {
+      return "incompatible";
+    }
+    if (sub.fields.length !== sup.fields.length) {
+      return "incompatible";
+    }
+    let sawUnknown = false;
+    for (const supField of sup.fields) {
+      const subField = sub.fields.find((f) => f.name === supField.name);
+      if (subField === undefined) {
+        return "incompatible";
+      }
+      const r = decide(
+        unfoldAlias(subField.type, env),
+        unfoldAlias(supField.type, env),
+        env,
+      );
+      if (r === "unknown") {
+        sawUnknown = true;
+      } else if (r !== "compatible") {
+        return "incompatible";
+      }
+    }
+    return sawUnknown ? "unknown" : "compatible";
+  }
+
+  // TYPE-10 — object-schema named types are nominal: a `named` (resolved to an
+  // object schema, since aliases are unfolded) is `⊑` only the same named
+  // schema by name identity (TYPE-1). It never relates structurally to an
+  // inline object or to a distinct named schema.
+  if (sup.kind === "named") {
+    if (env[sup.name] === undefined) {
+      return "unknown";
+    }
+    if (sub.kind === "named") {
+      if (env[sub.name] === undefined) {
+        return "unknown";
+      }
+      return sub.name === sup.name ? "compatible" : "incompatible";
+    }
+    return "incompatible";
+  }
+
+  // A `named` sub against a non-named, non-union sup: nominal, never structural.
+  if (sub.kind === "named") {
+    return env[sub.name] === undefined ? "unknown" : "incompatible";
+  }
+
+  // TYPE-2 / TYPE-3 — primitive and literal-to-primitive against a primitive
+  // target. A literal types as its `typesAs` primitive in expression position.
+  if (sup.kind === "prim") {
+    if (sub.kind === "prim") {
+      return decidePrimitive(sub.name, sup.name);
+    }
+    if (sub.kind === "literal") {
+      return decidePrimitive(sub.typesAs, sup.name);
+    }
+    return "incompatible";
+  }
+
+  // TYPE-1 reflexivity for a literal target: a literal is `⊑` a literal that
+  // types as the same primitive.
+  if (sup.kind === "literal") {
+    if (sub.kind === "literal") {
+      return decidePrimitive(sub.typesAs, sup.typesAs);
+    }
+    return "incompatible";
+  }
+
+  return "incompatible";
+}
+
+/**
+ * Decide compatibility between two primitive type names (TYPE-1 reflexivity,
+ * TYPE-2 one-way `integer ⊑ number` widening, and the reverse
+ * `number ⊑ integer` `integer-narrowing` case).
+ */
+function decidePrimitive(sub: PrimitiveName, sup: PrimitiveName): Compatibility {
+  if (sub === sup) {
+    return "compatible";
+  }
+  if (sub === "integer" && sup === "number") {
+    return "compatible";
+  }
+  if (sub === "number" && sup === "integer") {
+    return "integer-narrowing";
+  }
+  return "incompatible";
+}
+
+/**
+ * Render a `CompatType` to the display name the per-site mismatch messages
+ * interpolate (the `<expected>` / `<actual>` fields of the
+ * diagnostics/code-registry-parse.md *Message* strings).
+ */
+function displayType(type: CompatType): string {
+  switch (type.kind) {
+    case "prim":
+      return type.name;
+    case "literal":
+      return type.typesAs;
+    case "named":
+      return type.name;
+    case "array":
+      return `array<${displayType(type.element)}>`;
+    case "union":
+      return type.arms.map(displayType).join(" | ");
+    case "object":
+      return `{ ${type.fields.map((f) => `${f.name}: ${displayType(f.type)}`).join(", ")} }`;
+  }
 }
 
 /** A located site at which a compatibility check reports a parse-time diagnostic. */
@@ -135,14 +316,45 @@ export interface CompatSite {
  *
  * V2b-T stubs this inert (no diagnostics); the paired V2b leaf fills it in.
  */
-export function checkLetRhsCompat(_opts: {
+export function checkLetRhsCompat(opts: {
   readonly name: string;
   readonly annotation: CompatType;
   readonly rhs: CompatType;
   readonly env: TypeEnv;
   readonly site: CompatSite;
 }): Diagnostic[] {
-  return [];
+  const { name, annotation, rhs, env, site } = opts;
+  const r = checkCompatible(rhs, annotation, env);
+  if (r === "compatible" || r === "unknown") {
+    // Compatible, or statically unresolvable — the latter defers to the runtime
+    // AJV safety net (type-system.md §"Unresolvable operands").
+    return [];
+  }
+  if (r === "integer-narrowing") {
+    // TYPE-2 — a `number` RHS under an `integer` annotation. Message from
+    // diagnostics/code-registry-parse.md.
+    return [
+      {
+        severity: "error",
+        code: "loom/parse/integer-narrowing",
+        file: site.file,
+        range: site.range,
+        message: "cannot narrow number to integer",
+      },
+    ];
+  }
+  // TYPE-9 — incompatible RHS. Message from diagnostics/code-registry-parse.md.
+  return [
+    {
+      severity: "error",
+      code: "loom/parse/let-rhs-type-mismatch",
+      file: site.file,
+      range: site.range,
+      message: `let binding '${name}' initialiser type mismatch: expected ${displayType(
+        annotation,
+      )}, got ${displayType(rhs)}`,
+    },
+  ];
 }
 
 /**
@@ -153,7 +365,7 @@ export function checkLetRhsCompat(_opts: {
  *
  * V2b-T stubs this inert (no diagnostics); the paired V2b leaf fills it in.
  */
-export function checkFnArgCompat(_opts: {
+export function checkFnArgCompat(opts: {
   readonly fnName: string;
   readonly index: number;
   readonly paramName: string;
@@ -162,7 +374,25 @@ export function checkFnArgCompat(_opts: {
   readonly env: TypeEnv;
   readonly site: CompatSite;
 }): Diagnostic[] {
-  return [];
+  const { fnName, index, paramName, paramType, argType, env, site } = opts;
+  const r = checkCompatible(argType, paramType, env);
+  if (r === "compatible" || r === "unknown") {
+    return [];
+  }
+  // TYPE-9 — a plain `fn` argument slot mismatch (a `number⊑integer` narrowing
+  // is equally a mismatch here; TYPE-9 routes both through fn-arg-type-mismatch).
+  // Message from diagnostics/code-registry-parse.md.
+  return [
+    {
+      severity: "error",
+      code: "loom/parse/fn-arg-type-mismatch",
+      file: site.file,
+      range: site.range,
+      message: `fn '${fnName}' argument ${index} ('${paramName}') type mismatch: expected ${displayType(
+        paramType,
+      )}, got ${displayType(argType)}`,
+    },
+  ];
 }
 
 /**
@@ -179,11 +409,69 @@ export function checkFnArgCompat(_opts: {
  * common type). V2b-T stubs this inert (no diagnostics); the paired V2b leaf
  * fills it in.
  */
-export function checkCommonType(_opts: {
+export function checkCommonType(opts: {
   readonly branches: readonly CompatType[];
   readonly sink: CompatType | undefined;
   readonly env: TypeEnv;
   readonly site: CompatSite;
 }): Diagnostic[] {
-  return [];
+  const { branches, sink, env, site } = opts;
+
+  // With an in-scope sink: each branch must be `⊑` the sink's element type.
+  // Report the first branch that fails (skipping statically-unresolvable
+  // branches, which the runtime AJV safety net covers).
+  if (sink !== undefined) {
+    for (let i = 0; i < branches.length; i++) {
+      const branch = branches[i] as CompatType;
+      const r = checkCompatible(branch, sink, env);
+      if (r === "compatible" || r === "unknown") {
+        continue;
+      }
+      // Message from diagnostics/code-registry-parse.md.
+      return [
+        {
+          severity: "error",
+          code: "loom/parse/array-element-type-mismatch",
+          file: site.file,
+          range: site.range,
+          message: `array element type mismatch at index ${i}: expected ${displayType(
+            sink,
+          )}, got ${displayType(branch)}`,
+        },
+      ];
+    }
+    return [];
+  }
+
+  // Without a sink: the branches need a common type — a branch every other
+  // branch is `⊑` (the array/ternary LUB). Fewer than two branches trivially
+  // share one.
+  if (branches.length < 2 || hasCommonType(branches, env)) {
+    return [];
+  }
+  // Message from diagnostics/code-registry-parse.md.
+  return [
+    {
+      severity: "error",
+      code: "loom/parse/array-no-common-type",
+      file: site.file,
+      range: site.range,
+      message:
+        "array elements have no common type; annotate the binding with array<A | B> or use a single schema",
+    },
+  ];
+}
+
+/**
+ * Whether the branch types share a common type that narrows them: some branch
+ * `C` such that every branch is `⊑ C`. A statically-unresolvable branch is
+ * treated as not blocking a candidate (deferred to the runtime AJV safety net).
+ */
+function hasCommonType(branches: readonly CompatType[], env: TypeEnv): boolean {
+  return branches.some((candidate) =>
+    branches.every((branch) => {
+      const r = checkCompatible(branch, candidate, env);
+      return r === "compatible" || r === "unknown";
+    }),
+  );
 }
