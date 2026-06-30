@@ -31,9 +31,5 @@ entries:
   - { id: F-2714, tier: medium, file: docs/plan_topics/H6a-live-corpus-activation.md, anchor: "H6a leaf", title: "H6a bundles three independently-failable release-time activities into one leaf" }
   - { id: F-2710, tier: medium, file: docs/plan_topics/H2a-cross-cutting-gates.md, anchor: "whole leaf", title: "H2a bundles four independent lint/architectural gates into one leaf" }
   - { id: F-2734, tier: medium, file: docs/plan.md, anchor: "§Vertical slices → V13 listing", title: "V13c bundles six verification points, including a cross-ceiling depth-6 integration scenario" }
-  - { id: F-2782, tier: high, file: docs/plan_topics/V9q-watcher-terminated-recovery.md, anchor: "Deps field", title: "V9q/V9q-T omit a Deps edge to the V9m drain-state contract they assert against" }
-  - { id: F-2739, tier: high, file: docs/plan_topics/V15a-invocation-core.md, anchor: "Adds / Tests / Deps / Ships-when", title: "V15a invocation-core bundles eight independently-verifiable facets across load-time, static-resolution, runtime, and cancellation" }
-  - { id: F-2736, tier: high, file: docs/plan_topics/V14a-tool-calls.md, anchor: "V14 slice, the leaf being split", title: "`V14a`/`V14a-T` re-accumulated multiple verification surfaces and exceeds the smallest-shippable-leaf convention" }
-  - { id: F-2713, tier: high, file: docs/plan_topics/H5d-transitive-completeness-gate.md, anchor: "Adds / Tests / Ships when", title: "H5d transitive-completeness gate reddens CI permanently on retired `*(numbered above)*` rows" }
 ---
 <!-- Generated view. Entries are ordered by importance (highest-importance last, addressed first by the bottom-up picker), then by location, and carry a renderer-owned projection (tier/file/anchor/title) of each finding; edit only membership: which ids appear and their defer_reason/note. Substance lives in docs/findings/F-NNNN.md. -->

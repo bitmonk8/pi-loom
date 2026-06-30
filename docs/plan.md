@@ -190,6 +190,7 @@ Each slice is a coherent feature area (e.g. lexer, expressions, schemas, queries
 - [`V14d` — Code-tool host-denial surface](./plan_topics/V14d-tool-calls-host-denial.md)
 - [`V14e` — Ceiling-#4 depth-6 code-driven-tool-args routing (live carrier)](./plan_topics/V14e-tool-calls-depth-ceiling.md)
 - [`V14f` — Code-side `execute()` swallowing-handler per-site routing](./plan_topics/V14f-tool-calls-swallowing-handler.md)
+- [`V14g` — Code-side `execute()` envelope-lowering (runtime surface)](./plan_topics/V14g-tool-calls-execute-lowering.md)
 
 ### V15 — Invocation and imports
 
@@ -205,6 +206,9 @@ Each slice is a coherent feature area (e.g. lexer, expressions, schemas, queries
 - [`V15g` — Invoke invocation-record provenance seam](./plan_topics/V15g-invoke-provenance.md)
 - [`V15h` — Invoke-child execution-Promise swallowing-handler per-site routing](./plan_topics/V15h-invoke-ceiling-swallowing.md)
 - [`V15j` — Invoke ceiling-#4 depth-6 `params` / `invoke<T>`-return routing (live carrier)](./plan_topics/V15j-invoke-ceiling-depth.md)
+- [`V15k` — Invoke runtime arg/options and final-value propagation](./plan_topics/V15k-invoke-args-options-final-value.md)
+- [`V15l` — Invoke fresh-vs-attach cross-mode matrix](./plan_topics/V15l-invoke-cross-mode-matrix.md)
+- [`V15m` — Invoke-site cancellation checkpoint and completed-callee-finality witness](./plan_topics/V15m-invoke-cancellation-facets.md)
 
 ### V16 — Hard ceilings
 
@@ -216,7 +220,7 @@ Each slice is a coherent feature area (e.g. lexer, expressions, schemas, queries
 - [`V17b` — Forwarding-listener throw-trap](./plan_topics/V17b-forwarding-listener-throw-trap.md)
 - [`V17c` — Checkpoint granularity](./plan_topics/V17c-checkpoint-granularity.md)
 
-> **Interleave note.** `V17c`/`V17c-T` (checkpoint granularity) depend on `V3c` (the `for`/`while` loop site) and `V9j` (the binder-inference LLM-call site) so their two cycle-free per-site checkpoint arms fail red for a behavioural reason rather than because the site constructs do not yet parse. The remaining three per-site checkpoint arms — `@`-query dispatch, tool call, and `invoke` — are distributed onto `V13c`/`V14a`/`V15a`, which land after `V17c` via the `V4f` chain (`V4f` depends on `V17c`; `V13c`/`V14a`/`V15a` each depend on `V4f`), so those leaves cannot be pulled into `V17c.Deps` without closing the `V17c ↔ V4f` cycle. Each carries its own `cka-47` facet test. Sequence by **Deps**, not slice number.
+> **Interleave note.** `V17c`/`V17c-T` (checkpoint granularity) depend on `V3c` (the `for`/`while` loop site) and `V9j` (the binder-inference LLM-call site) so their two cycle-free per-site checkpoint arms fail red for a behavioural reason rather than because the site constructs do not yet parse. The remaining three per-site checkpoint arms — `@`-query dispatch, tool call, and `invoke` — are distributed onto `V13c`/`V14g`/`V15m`, which land after `V17c` via the `V4f` chain (`V4f` depends on `V17c`; `V13c`/`V14g`/`V15m` each depend on `V4f`), so those leaves cannot be pulled into `V17c.Deps` without closing the `V17c ↔ V4f` cycle. Each carries its own `cka-47` facet test. Sequence by **Deps**, not slice number.
 
 ### V18 — Build-time SDK gates
 

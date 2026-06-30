@@ -7,6 +7,6 @@
 **Tests.**
 - [trust-boundary.md — No additional access channels (PIC-52)](../spec_topics/pi-integration-contract/trust-boundary.md#pic-52): a host-side denial (thrown or `isError: true` tool return) reaches loom code as `Err(QueryError{kind:"code_tool", cause:"execution"})` and never resolves as a silent `Ok` (silent success on denial is forbidden).
 
-**Deps.** `V14a`
+**Deps.** `V14a`, `V14g`
 
 **Ships when.** The tests above exist, compile, and fail red for the intended reason.
