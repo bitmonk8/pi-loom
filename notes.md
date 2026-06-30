@@ -124,3 +124,13 @@ Free-form running log of discoveries that are not plan changes.
   surfaced as `fragment`/`turn-end` events (transcript privacy), which is the
   observable distinction from a plain scripted assistant turn. A callee with no
   terminal `agent_end` throws deterministically rather than modelling a hang.
+
+## H5a — closing-gate citing/asserting scan is purely textual
+
+The H5a closing-gate citing-test and asserting-code scans are best-effort
+textual `PREFIX-N` / `loom/...` token scans over the whole test-source bytes,
+comments included. A seeded "missing citation / missing assertion" fixture must
+therefore omit the absent token from the *entire* fixture file — a comment that
+merely names the token (e.g. "FOO-2 is deliberately not cited") leaks it and is
+counted as a citation, masking the intended violation. The fixtures keep their
+explanatory comments token-free for the omitted subject.
