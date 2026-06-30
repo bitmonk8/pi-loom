@@ -28,6 +28,7 @@ Implementation in progress. Track progress against
 |---|---|---|---|
 | H1a | Complete | 2026-06-30 | Project scaffold and toolchain: `package.json` deps/scripts, `tsconfig.json`, Vitest, lint toolchain + loadable `eslint-plugin-loom-local` skeleton, architectural manifest tests. |
 | H2a | Complete | 2026-06-30 | Cross-cutting lint + architectural gates over `src/**`: comment-keyed `no-broad-catch`, `no-unguarded-promise-combinator`, `no-blocking-sync` ESLint rules (`eslint.config.js`), and a module-level-mutable-binding architectural scan; wired into `npm test`. |
+| H3a | Complete | 2026-06-30 | Dependency-injection seam skeleton: the seven host-seam interfaces (`Checkpoint`, `SchemaValidator`, `Clock`, `FileSystem`, `FileWatcher`, `TokenEstimator`, `IdSource`) and a constructor-injection `RuntimeRoot`; plus an identifier-keyed ambient-primitive scan (`// allow-ambient:` comment-keyed) wired into `npm test` over `src/**`. |
 
 Open spec-review work lives in [`docs/spec-review.md`](./docs/spec-review.md)
 (per-finding fixes processed bottom-up by `/fix-spec-shape-single-findings`).
