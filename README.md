@@ -27,6 +27,7 @@ Implementation in progress. Track progress against
 | Leaf | Status | Date | Notes |
 |---|---|---|---|
 | H1a | Complete | 2026-06-30 | Project scaffold and toolchain: `package.json` deps/scripts, `tsconfig.json`, Vitest, lint toolchain + loadable `eslint-plugin-loom-local` skeleton, architectural manifest tests. |
+| H2a | Complete | 2026-06-30 | Cross-cutting lint + architectural gates over `src/**`: comment-keyed `no-broad-catch`, `no-unguarded-promise-combinator`, `no-blocking-sync` ESLint rules (`eslint.config.js`), and a module-level-mutable-binding architectural scan; wired into `npm test`. |
 
 Open spec-review work lives in [`docs/spec-review.md`](./docs/spec-review.md)
 (per-finding fixes processed bottom-up by `/fix-spec-shape-single-findings`).
