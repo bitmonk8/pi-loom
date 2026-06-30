@@ -172,3 +172,22 @@ driver over the injected `pi` handle, because `sendUserMessage` lives on
 (`waitForIdle`). The fixture is fed through H4a's in-memory fixture-supply seam
 (`LoomExtensionDeps.fixtures`), so no FileSystem seam and no ambient src/** read
 is introduced. M fills in the parse + drive; M-T leaves the stub inert.
+
+## V7b-T — diagnostic code-registry tests
+
+Placed the V7b machine-checkable-registry seam in a new `tools/code-registry/`
+module (beside the H5a `tools/closing-gate/`) rather than extending the gate
+module directly: V7b "the closed-set + stable-id enforcement that the H5a gate
+consumes" reads as a registry artifact the gate depends on, so a dedicated
+module keeps the dependency direction explicit (gate → registry) and leaves the
+existing green closing-gate fixtures untouched. The V7b impl wires the gate to
+consume it.
+
+DIAG-3 mechanical contract: the spec defers *renames* to loom 2.0 but does not
+prescribe HOW the gate detects a rename (additions/removals are allowed within
+1.x per the GOV-15 diagnostic-registry carve-out). The V7b-T tests pin the
+narrowest mechanical proxy: a *pinned stable-id baseline* of registered code
+IDs, with `reconcileStableIds` reporting `code-renamed` for any baseline code
+absent from the current registry. This is the closest mechanical signal of a
+rename (a rename removes the old code); distinguishing an intentional removal
+from a rename is left to the V7b impl / its baseline-maintenance discipline.
