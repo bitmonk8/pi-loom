@@ -14,6 +14,16 @@ import {
 import { SessionDouble } from "./session-double";
 
 export { SessionDouble } from "./session-double";
+export {
+  ResponseProgrammer,
+  type AbortPoint,
+  type AssistantTurnScript,
+  type BinderAttempt,
+  type BinderEnvelopeKind,
+  type BinderFailureClass,
+  type ResponseEvent,
+  type ScriptedToolResult,
+} from "./response-program";
 
 export interface LoadedExtension {
   /** The in-process session double the extension was loaded against. */

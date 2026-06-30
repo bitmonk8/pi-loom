@@ -83,3 +83,29 @@ Free-form running log of discoveries that are not plan changes.
   (aborts the in-flight turn signal WITH a reason, the value CNCL-4 requires be
   mirrored into `loomAbort`); `ctx.abort()` is the loom→Pi teardown direction
   (SDK `abort()` takes no reason argument).
+
+## H4b — response-programming surface
+
+- **Surface lives in tests/, not src/**.** Like H4a's session double, the
+  response-programming surface is test-support code Pi never loads, so it lives
+  under `tests/harness/` and is outside the `src/**` mechanical gates. No
+  production code was added by this leaf — it is a Convention (horizontal)
+  harness leaf whose inline self-check is the deliverable.
+- **API shape finalised by the implementer (permitted by the leaf).** The leaf
+  states "the API's exact shape is the implementer's to finalise" and phrases
+  its obligations in terms of the observable each scripted input must yield.
+  Chosen shape: a chainable `ResponseProgrammer` with `scriptAssistantTurns` /
+  `scriptToolResult` / `scriptBinderAttempts` / `scriptToolLoop` /
+  `scriptAbortAt` setters and a pure, deterministic `drive()` that replays the
+  script into a discriminated `ResponseEvent[]` observable transcript. No
+  spec/plan divergence — the contract's named injection points (a)–(e) are all
+  modelled.
+- **Determinism via a pure replay.** `drive()` is pure over the scripted state
+  (no clock/randomness/async ordering), so replaying the same script — same
+  instance or an independently-constructed harness double — yields a
+  byte-identical transcript. This is how the determinism gate is asserted.
+- **Binder budget model.** The V11f per-invocation budget is modelled as
+  one transport + one malformed retry, capped at 3 total binder calls; an abort
+  at pre-call / in-flight (initial call) / during-retry short-circuits to the
+  cancelled observable. The most-recent failure surfaces when both budgets are
+  spent (`binder-surfaced-failure`).

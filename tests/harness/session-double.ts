@@ -22,6 +22,7 @@ import type {
   ExtensionAPI,
   ExtensionCommandContext,
 } from "@earendil-works/pi-coding-agent";
+import { ResponseProgrammer, type ResponseEvent } from "./response-program";
 
 type EventHandler = (event: unknown, ctx: ExtensionCommandContext) => unknown;
 
@@ -73,6 +74,28 @@ export class SessionDouble {
 
   #programmed: string[][] = [];
   #turn: DrivenTurn | undefined;
+
+  /**
+   * The H4b response-programming surface: the single input-side scripting API
+   * the double exposes (categories (a)–(e)). The double drives it via
+   * `driveResponses()`, which records the deterministic observable transcript
+   * onto `responseTranscript`. This extends H4a's minimal `programResponse`
+   * emission capability into the full scripted-injection surface.
+   */
+  readonly responses = new ResponseProgrammer();
+  /** The observable transcript the most recent `driveResponses()` produced. */
+  readonly responseTranscript: ResponseEvent[] = [];
+
+  /**
+   * Drive the scripted response-programming surface through this double,
+   * recording and returning the deterministic observable transcript.
+   */
+  driveResponses(): ResponseEvent[] {
+    const transcript = this.responses.drive();
+    this.responseTranscript.length = 0;
+    this.responseTranscript.push(...transcript);
+    return transcript;
+  }
 
   // --- minimal response-emission / programming surface (H4a deliverable) ---
 
