@@ -16,21 +16,38 @@
     "type": "git",
     "url": "git+ssh://git@github.com/bitmonk8/pi-loom.git"
   },
+  "type": "module",
   "pi": {
     "extensions": ["./extensions"]
   },
   "engines": {
     "node": ">=22.19.0"
   },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
   "dependencies": {
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "chokidar": "^4.0.1",
+    "minimatch": "^10.0.1",
     "semver": "^7.6.0",
     "yaml": "^2.9.0"
   },
   "devDependencies": {
-    "@types/semver": "^7.5.0"
+    "@earendil-works/pi-coding-agent": "~0.75.5",
+    "@earendil-works/pi-agent-core": "~0.75.5",
+    "@earendil-works/pi-ai": "~0.75.5",
+    "@earendil-works/pi-tui": "~0.75.5",
+    "@types/node": "^22.0.0",
+    "@types/semver": "^7.5.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.0.0",
+    "eslint-plugin-loom-local": "file:./tools/eslint-plugin-loom-local",
+    "typescript": "^5.4.0",
+    "vitest": "^2.1.8"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "~0.75.5",

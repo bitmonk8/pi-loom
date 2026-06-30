@@ -20,13 +20,13 @@ lives in [`docs/plan.md`](./docs/plan.md).
 
 ## Status
 
-Pre-implementation. The specification is complete. The implementation
-plan's infrastructure — phase structure, authoring conventions, and the
-spec coverage matrix — is in place, but plan leaves are authored
-incrementally and none have been written yet. No runtime code has been
-written yet. As leaves are authored, track progress against
+Implementation in progress. Track progress against
 [`docs/plan.md`](./docs/plan.md) and the
 [spec coverage matrix](./docs/plan_topics/coverage-matrix.md).
+
+| Leaf | Status | Date | Notes |
+|---|---|---|---|
+| H1a | Complete | 2026-06-30 | Project scaffold and toolchain: `package.json` deps/scripts, `tsconfig.json`, Vitest, lint toolchain + loadable `eslint-plugin-loom-local` skeleton, architectural manifest tests. |
 
 Open spec-review work lives in [`docs/spec-review.md`](./docs/spec-review.md)
 (per-finding fixes processed bottom-up by `/fix-spec-shape-single-findings`).

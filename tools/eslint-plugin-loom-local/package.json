@@ -1,0 +1,8 @@
+{
+  "name": "eslint-plugin-loom-local",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Local ESLint plugin for loom's bespoke rules (no-broad-catch). Rule body is populated by H2a; H1a ships the loadable skeleton.",
+  "main": "index.js",
+  "license": "MIT OR Apache-2.0"
+}
