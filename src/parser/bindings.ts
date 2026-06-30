@@ -22,9 +22,8 @@
 //       * `loom/parse/increment-decrement` — `++` / `--` are rejected; use
 //         `count += 1` / `count -= 1` (bindings.md §Increment / decrement).
 //
-// V3b-T (tests-task, this leaf) declares these seam shapes and stubs the five
-// behaviour-bearing functions so the failing tests compile and red on their
-// own primary assertions; the paired V3b implementation leaf fills them in.
+// V3b-T (tests-task) declared these seam shapes and stubbed the five
+// behaviour-bearing functions; V3b (this leaf) implements every check.
 
 import { type Diagnostic, type SourceRange } from "../diagnostics/diagnostic";
 
@@ -50,12 +49,21 @@ export interface LetBindingDecl {
  * an initialiser (bindings.md §`let` requires an initialiser).
  */
 export function checkLetBinding(
-  _decl: LetBindingDecl,
-  _site: BindingSite,
+  decl: LetBindingDecl,
+  site: BindingSite,
 ): Diagnostic | undefined {
-  // V3b-T stub: the V3b implementation raises
-  // `loom/parse/let-without-initialiser` here when `!decl.hasInitialiser`.
-  return undefined;
+  if (decl.hasInitialiser) {
+    return undefined;
+  }
+  return {
+    severity: "error",
+    code: "loom/parse/let-without-initialiser",
+    file: site.file,
+    range: site.range,
+    message: `let binding '${decl.name}' has no initialiser`,
+    hint:
+      "Initialise the binding at declaration, or restructure to bind once at the point a value is available.",
+  };
 }
 
 /**
@@ -75,12 +83,20 @@ export interface BindingReassignment {
  * `let mut` binding).
  */
 export function checkReassignment(
-  _reassign: BindingReassignment,
-  _site: BindingSite,
+  reassign: BindingReassignment,
+  site: BindingSite,
 ): Diagnostic | undefined {
-  // V3b-T stub: the V3b implementation raises `loom/parse/immutable-rebinding`
-  // here when `!reassign.mutable`.
-  return undefined;
+  if (reassign.mutable) {
+    return undefined;
+  }
+  return {
+    severity: "error",
+    code: "loom/parse/immutable-rebinding",
+    file: site.file,
+    range: site.range,
+    message: `cannot reassign immutable binding '${reassign.name}'`,
+    hint: "Use `let mut` if mutation is intentional.",
+  };
 }
 
 /** The shape of an assignment target. */
@@ -98,13 +114,21 @@ export interface AssignmentTarget {
  * target (bindings.md §Mutability is binding-level only).
  */
 export function checkAssignmentTarget(
-  _target: AssignmentTarget,
-  _site: BindingSite,
+  target: AssignmentTarget,
+  site: BindingSite,
 ): Diagnostic | undefined {
-  // V3b-T stub: the V3b implementation raises
-  // `loom/parse/assignment-to-member-or-index` here when `target.kind !==
-  // "identifier"`.
-  return undefined;
+  if (target.kind === "identifier") {
+    return undefined;
+  }
+  return {
+    severity: "error",
+    code: "loom/parse/assignment-to-member-or-index",
+    file: site.file,
+    range: site.range,
+    message:
+      "cannot assign to member or index; mutability is binding-level only",
+    hint: "Rebind the whole value with `let mut`.",
+  };
 }
 
 /**
@@ -126,12 +150,19 @@ export interface MutModifier {
  * §Immutable contexts).
  */
 export function checkMutModifier(
-  _mod: MutModifier,
-  _site: BindingSite,
+  mod: MutModifier,
+  site: BindingSite,
 ): Diagnostic | undefined {
-  // V3b-T stub: the V3b implementation raises
-  // `loom/parse/mut-on-immutable-context` here when `mod.position !== "let"`.
-  return undefined;
+  if (mod.position === "let") {
+    return undefined;
+  }
+  return {
+    severity: "error",
+    code: "loom/parse/mut-on-immutable-context",
+    file: site.file,
+    range: site.range,
+    message: "'mut' is not permitted in this binding position",
+  };
 }
 
 /** An increment / decrement operator occurrence (`x++`, `--y`, …). */
@@ -146,10 +177,15 @@ export interface IncrementDecrementOp {
  * placeholder in the message is the source token verbatim.
  */
 export function checkIncrementDecrement(
-  _op: IncrementDecrementOp,
-  _site: BindingSite,
+  op: IncrementDecrementOp,
+  site: BindingSite,
 ): Diagnostic | undefined {
-  // V3b-T stub: the V3b implementation raises `loom/parse/increment-decrement`
-  // here for every `++` / `--` occurrence.
-  return undefined;
+  return {
+    severity: "error",
+    code: "loom/parse/increment-decrement",
+    file: site.file,
+    range: site.range,
+    message: `'${op.op}' operator is not supported`,
+    hint: "Use `count += 1` / `count -= 1`.",
+  };
 }
