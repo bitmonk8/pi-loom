@@ -1195,3 +1195,22 @@ folded into the (not-yet-built) V9g `session_shutdown` handler. Rationale:
 This is a seam-shape choice, not a divergence from spec text (the iteration
 primitive and internal handler structure are explicitly leaf-owned); no
 `decisions.jsonl` entry.
+
+## V9g-T — session_shutdown teardown seam placement
+
+The per-invocation `loom/runtime/cancelled-by-session-shutdown` note is
+specified to be emitted from the invocation's *own* `finally` block (the V9e
+`ActiveInvocationRegistry` per-invocation finally), not from the
+`session_shutdown` handler itself. To keep the V9g-T obligation testable in
+isolation, the seam exposes a `cancelledBySessionShutdownDiagnostic(entry)`
+*builder* (V9g owns the code + its nested `details.event` wire shape) that the
+paired V9g impl wires into the per-invocation finally, rather than emitting the
+note from the teardown orchestrator. The teardown orchestrator
+(`runSessionShutdown`) itself only aborts each entry (sub-step 2) and awaits the
+bounded settle-all (sub-step 3); the note's emission site stays in V9e's finally.
+This is a seam-shape choice consistent with the spec's leaf-owned handler
+internal structure, not a divergence from spec text.
+
+`SHUTDOWN_AWAIT_CAP_MS` is owned by `V9a` (`src/extension/capability-probe.ts`)
+per the existing single-declaration-site convention; V9g-T re-exports it rather
+than redeclaring, so the cap constant has one source of truth.
