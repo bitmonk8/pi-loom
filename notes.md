@@ -707,3 +707,10 @@ impl fills it). Design decisions recorded for the V13a implementer:
 - `InvokeCancellationGuard.cancellationSurfaced` is a live (mutable) flag read at settlement time, not snapshotted at Promise construction, because cancellation may surface at the invoke checkpoint between the child Promise's construction and its late settlement.
 - Channel-1 tests use the real `process` `unhandledRejection` event (per-test listener registered/removed in beforeEach/afterEach; each test awaits a macrotask so a would-be event is observed within the test and cannot bleed across files). This matches the spec's "no Node unhandledRejection process event" fidelity rather than a fake.
 - No divergence from spec/plan; no decisions.jsonl entry.
+
+## V15h — invoke-child execution-Promise swallowing handler (implementation task)
+
+- Filled `src/runtime/invoke-swallowing-handler.ts`. `guardInvokeExecutionPromise` now attaches `.then(onResolve, onReject)` at the construction site (synchronous, before the first microtask boundary) and routes each settlement through `routeInvokeExecutionLateSettlement`; the construction-site handler is what absorbs a late rejection so no Node `unhandledRejection` fires. `routeInvokeExecutionLateSettlement` returns `"discarded"` (emitting nothing) when `guard.cancellationSurfaced` is true, else `"surfaced"`. Removed the two V15h-T bypass sentinel emitters.
+- Used `.then(onResolve, onReject)` rather than `.catch` so a late RESOLVE is also routed (the discriminator is whether cancellation surfaced, not the settle kind) and so the rejection handler is attached at construction, not after an intermediate `.then` microtask hop.
+- Pre-existing failure observed (not caused by this leaf): `tests/pre-evaluation-reload-failure.test.ts` has 4 reds on baseline HEAD (551a114) independent of this change (confirmed via git stash). Out of scope for V15h; left untouched.
+- No divergence from spec/plan; no decisions.jsonl entry.

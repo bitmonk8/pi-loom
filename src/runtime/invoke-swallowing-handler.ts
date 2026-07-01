@@ -23,18 +23,11 @@
 // the late settlement at a chosen point without depending on JS microtask
 // scheduling.
 //
-// V15h-T (tests-task) declares the seam shapes and stubs the behaviour-bearing
-// functions inertly so the paired failing tests red on their own primary
-// assertions:
-//   - `guardInvokeExecutionPromise` returns the Promise WITHOUT attaching the
-//     construction-site handler, so a late rejection reaches Node's
-//     `unhandledRejection` channel — reddening the "no unhandledRejection"
-//     assertion until `V15h` attaches the handler.
-//   - `routeInvokeExecutionLateSettlement` bypasses the substrate: it re-surfaces
-//     the late settlement on the `RuntimeEvent` and diagnostic channels
-//     regardless of cancellation and returns `"surfaced"` — reddening the
-//     three-channel-suppression assertions until `V15h` routes the discard.
-// No test reds on a compile error, a missing fixture, or a harness throw.
+// `guardInvokeExecutionPromise` attaches the construction-site handler and
+// routes every settlement through `routeInvokeExecutionLateSettlement`, which
+// discards a settlement once cancellation has surfaced for the invocation
+// (emitting nothing on any of the three side channels) and reports it live
+// otherwise.
 //
 // Spec: cancellation.md (§"Race semantics — swallowing-handler attachment on
 // every abandonable Promise"); host-interfaces-services.md (§"`Checkpoint`
@@ -101,43 +94,34 @@ export type InvokeLateSettlementDisposition = "discarded" | "surfaced";
  */
 export function guardInvokeExecutionPromise<T>(
   executionPromise: Promise<T>,
-  _guard: InvokeCancellationGuard,
-  _channels: InvokeExecutionSideChannels,
+  guard: InvokeCancellationGuard,
+  channels: InvokeExecutionSideChannels,
 ): Promise<T> {
-  // V15h-T stub: the construction-site swallowing handler is NOT attached, so a
-  // late rejection reaches Node's `unhandledRejection` channel. `V15h` replaces
-  // this with a synchronous `.then(onResolve, onReject)` at the construction
-  // site that routes every settlement through
-  // `routeInvokeExecutionLateSettlement`.
+  // Attach the swallowing handler synchronously at the construction site,
+  // before the first microtask boundary: `.then(onResolve, onReject)` on the
+  // execution Promise as it is constructed. A lazily-attached `.catch` would
+  // miss a rejection already queued for `unhandledRejection`. Each settlement
+  // is routed through `routeInvokeExecutionLateSettlement`, which decides
+  // discard-vs-surface against the live cancellation state; a discarded late
+  // rejection is absorbed here and never reaches Node's `unhandledRejection`
+  // process event.
+  executionPromise.then(
+    (value: T): void => {
+      routeInvokeExecutionLateSettlement(
+        { kind: "resolved", value },
+        guard,
+        channels,
+      );
+    },
+    (error: unknown): void => {
+      routeInvokeExecutionLateSettlement(
+        { kind: "rejected", error },
+        guard,
+        channels,
+      );
+    },
+  );
   return executionPromise;
-}
-
-/**
- * The sentinel `RuntimeEvent` the V15h-T stub emits to red the "no second
- * `RuntimeEvent`" assertion; a bypassing build would re-surface the late
- * settlement through the always-log channel with an event like this.
- */
-function bypassSentinelEvent(): RuntimeEvent {
-  return {
-    kind: "invoke_callee",
-    loom: "/stub",
-    invocation_id: "00000000-0000-4000-8000-000000000000",
-    message: "V15h-T stub: late invoke-child settlement re-surfaced",
-    occurred_at: 0,
-  };
-}
-
-/**
- * The sentinel diagnostic the V15h-T stub emits to red the "no diagnostic of any
- * severity" assertion; a bypassing build would promote the late rejection to
- * `loom/runtime/internal-error`, the exact promotion this rule forbids.
- */
-function bypassSentinelDiagnostic(): Diagnostic {
-  return {
-    severity: "error",
-    code: "loom/runtime/internal-error",
-    message: "V15h-T stub: late invoke-child settlement promoted",
-  };
 }
 
 /**
@@ -145,17 +129,31 @@ function bypassSentinelDiagnostic(): Diagnostic {
  * execution Promise. Once `guard.cancellationSurfaced` is true the settlement is
  * discarded on all three side channels (this function emits nothing); otherwise
  * the child result flows to the normal `invoke` Surfacing path.
+ *
+ * The discriminator is whether cancellation has surfaced for this invocation,
+ * not the late-settle kind: a late `resolved` value and a late `rejected` error
+ * are discarded identically once `cancellationSurfaced` is true. A late
+ * rejection whose `.error` would otherwise be diagnostic-worthy is still
+ * discarded — promoting it to `loom/runtime/internal-error` would re-introduce
+ * the second-event surface this rule forbids (cancellation.md §"Race
+ * semantics — swallowing-handler attachment on every abandonable Promise").
  */
 export function routeInvokeExecutionLateSettlement(
   _settlement: InvokeExecutionSettlement,
-  _guard: InvokeCancellationGuard,
-  channels: InvokeExecutionSideChannels,
+  guard: InvokeCancellationGuard,
+  _channels: InvokeExecutionSideChannels,
 ): InvokeLateSettlementDisposition {
-  // V15h-T stub: bypasses the substrate — re-surfaces the late settlement on the
-  // `RuntimeEvent` and diagnostic channels regardless of cancellation. `V15h`
-  // replaces this with the discard decision keyed on `guard.cancellationSurfaced`
-  // (emit nothing, return `"discarded"`) that the swallowing handler applies.
-  channels.emitRuntimeEvent(bypassSentinelEvent());
-  channels.emitDiagnostic(bypassSentinelDiagnostic());
+  if (guard.cancellationSurfaced) {
+    // Abandoned case: cancellation already surfaced `cause: "cancelled"` at the
+    // `invoke` checkpoint. Discard silently on all three side channels — emit
+    // no second `RuntimeEvent` and no diagnostic of any severity; the
+    // construction-site handler in `guardInvokeExecutionPromise` closes the
+    // `unhandledRejection` channel by absorbing the rejection here.
+    return "discarded";
+  }
+  // Pre-cancellation path: the child result flows to the normal `invoke`
+  // Surfacing rules. This site emits nothing itself — the normal `invoke`
+  // execution path owns the resolve/reject surfacing; routing here only
+  // reports that the settlement is live so the caller does not absorb it.
   return "surfaced";
 }
