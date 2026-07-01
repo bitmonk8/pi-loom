@@ -52,11 +52,12 @@
 // errors-and-results/queryerror-variants.md (ERR-17 forced-respond
 // non-compliance synthesised shapes; ValidationError shape).
 
-import type {
-  ForcedRespondBranch,
-  QueryError,
-  ValidationError,
-  ValidationIssue,
+import {
+  synthesizeForcedRespondIssue,
+  type ForcedRespondBranch,
+  type QueryError,
+  type ValidationError,
+  type ValidationIssue,
 } from "./query-error";
 
 // ---------------------------------------------------------------------------
@@ -170,6 +171,14 @@ export type RespondRepairOutcome =
  */
 export const NONCOMPLIANCE_TERMINAL_MESSAGE = "model did not call the forced respond tool";
 
+/**
+ * The terminal-exhaustion `ValidationError.message` when the query gave up on an
+ * AJV schema-validation failure (queryerror-variants.md ValidationError
+ * `cause: "schema_validation"`).
+ */
+export const SCHEMA_VALIDATION_TERMINAL_MESSAGE =
+  "typed query response failed schema validation";
+
 // ---------------------------------------------------------------------------
 // The loop (V13d-T stub; the paired V13d fills it in).
 // ---------------------------------------------------------------------------
@@ -187,20 +196,109 @@ export const NONCOMPLIANCE_TERMINAL_MESSAGE = "model did not call the forced res
  * `validation_errors` carries only the final attempt's issue (the synthesised
  * ERR-17 issue on a non-compliance).
  *
- * V13d-T stubs this inert: it issues NO follow-up, consults neither `initial`
- * nor the `driver`, and returns an inert `value` outcome — so the attempt
- * accounting, proximate-propagation, per-attempt-budget, and ERR-17
- * synthesised-issue assertions red on their own primary expectation rather than
- * on a compile error, a missing fixture, or a harness throw. The paired `V13d`
- * leaf implements the loop.
+ * The paired `V13d` leaf implements the loop.
  */
-export function runRespondRepairLoop(
+export async function runRespondRepairLoop(
   initial: ValidationFailure,
   driver: RespondRepairDriver,
   input: RespondRepairInput,
 ): Promise<RespondRepairOutcome> {
-  void initial;
-  void driver;
-  void input;
-  return Promise.resolve({ kind: "value", value: null, attemptsUsed: 0 });
+  const { methodology, attempts } = input.config;
+
+  // `methodology: none` (equivalently `attempts: 0`) issues no follow-up at all:
+  // the first validation-family failure surfaces immediately, its `attempts`
+  // field `0`, carrying the opening failure's issue(s) (QRY-11; ERR-17 `none`).
+  if (methodology === "none" || attempts <= 0) {
+    return { kind: "validation", error: terminalValidationError(initial, 0) };
+  }
+
+  // The most recent validation-family failure — seeded by the opening failure
+  // and replaced by each re-validated follow-up's failure. Its issue(s) and
+  // `raw_response` are what a terminal-exhaustion `ValidationError` carries; the
+  // spec pins that only the *final* attempt's issue survives (never a cumulative
+  // concatenation across attempts).
+  let latest: ValidationFailure = initial;
+  // Slots debited: one per *re-validated* follow-up (a schema-validation or
+  // forced-respond-non-compliance outcome). A non-validation failure debits none.
+  let attemptsUsed = 0;
+
+  // Each iteration appends one *new* user turn (never re-issues the original
+  // query) serviced with a *fresh* full `tool_loop` budget (`maxRounds`), then
+  // re-validates the response. `attempt` is 1-based.
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const result = await driver.nextFollowUp(attempt, input.maxRounds);
+    switch (result.kind) {
+      case "validated":
+        // A follow-up re-validated successfully: debit its slot and return the
+        // corrected value with the slots debited so far.
+        attemptsUsed++;
+        return { kind: "value", value: result.value, attemptsUsed };
+      case "schema_validation":
+        // A re-validation ran and AJV rejected the response: debit one slot and
+        // carry this attempt's issue forward as the latest failure.
+        attemptsUsed++;
+        latest = {
+          kind: "schema_validation",
+          issues: result.issues,
+          raw_response: result.raw_response,
+        };
+        break;
+      case "noncompliance":
+        // Forced-respond non-compliance on the follow-up turn: same accounting as
+        // an AJV failure — debit one slot and carry the branch forward so the
+        // synthesised issue reflects the final attempt (ERR-17).
+        attemptsUsed++;
+        latest = {
+          kind: "noncompliance",
+          branch: result.branch,
+          raw_response: result.raw_response,
+        };
+        break;
+      case "non_validation":
+        // A non-validation failure (transport, cancelled, model_tool,
+        // tool_loop_exhausted, context_overflow, invoke_infra, invoke_callee):
+        // the proximate cause wins — propagate it immediately, consuming NO slot
+        // and issuing no further follow-up. `context_overflow` short-circuits
+        // permanently by the same path (the conversation only grows).
+        return { kind: "propagated", error: result.error, attemptsUsed };
+    }
+  }
+
+  // Terminal exhaustion of the attempts budget: surface the schema_validation
+  // ValidationError whose `attempts` equals the re-validated-follow-up count
+  // (== the configured budget on exhaustion), carrying only the final attempt's
+  // issue(s) and `raw_response`.
+  return { kind: "validation", error: terminalValidationError(latest, attemptsUsed) };
+}
+
+/**
+ * Build the terminal `ValidationError` (`cause: "schema_validation"`) the loop
+ * surfaces on exhaustion or on `none`/`0`. Its `validation_errors` carries only
+ * the given (final) failure's issue(s) — the AJV issues verbatim, or the single
+ * ERR-17 synthesised issue on a forced-respond non-compliance — and its
+ * `message` is the ERR-17 terminal message on a non-compliance, or the AJV
+ * schema-validation message otherwise.
+ */
+function terminalValidationError(
+  failure: ValidationFailure,
+  attempts: number,
+): ValidationError {
+  if (failure.kind === "noncompliance") {
+    return {
+      kind: "validation",
+      cause: "schema_validation",
+      message: NONCOMPLIANCE_TERMINAL_MESSAGE,
+      attempts,
+      validation_errors: [synthesizeForcedRespondIssue(failure.branch)],
+      raw_response: failure.raw_response,
+    };
+  }
+  return {
+    kind: "validation",
+    cause: "schema_validation",
+    message: SCHEMA_VALIDATION_TERMINAL_MESSAGE,
+    attempts,
+    validation_errors: [...failure.issues],
+    raw_response: failure.raw_response,
+  };
 }
