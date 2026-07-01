@@ -545,3 +545,21 @@ not surprised by them.
    asserts only `name` / `description` / `parameters` on the tool entry and omits
    `label`; the label literal belongs (if anywhere) to loom's internal
    ToolDefinition→pi bridge, not to the off-session `complete()` call args.
+
+### V9j (impl) — 2026-07-01
+
+3. **Binder user-message `timestamp`.** `binder-inference.md` pins the binder
+   `complete()` call as deterministic (`temperature:0`, the fixed literal user
+   content) and says nothing about a message `timestamp`. pi-ai's `UserMessage`
+   type requires a numeric `timestamp`. Reading a wall clock would break
+   determinism and breach the WallClock/ambient-primitive ban, so
+   `buildBinderCompleteCall` sets a fixed `timestamp: 0` (`BINDER_MESSAGE_TIMESTAMP`)
+   — a constant, no ambient read. The `V9j-T` envelope test asserts only `role`
+   and `content`, so the constant is not spec-observable.
+4. **Seed-field `Api`-coverage assertion not wired.** `provider-error-mapping.md`
+   §"Provider seed-field mapping" mentions a build-time assertion enumerating
+   pi-ai's `Api` union and asserting every value is a seed-table row key. No
+   `V9j-T` test exercises it, and (per divergence 1 above) it cannot be satisfied
+   literally against the pinned pi-ai `Api` union; `V9j` implements the
+   four-api-string table faithfully and leaves the coverage gate to a
+   spec-coverage follow-up.

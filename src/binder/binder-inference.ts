@@ -35,8 +35,33 @@ import type {
   Model,
   ProviderResponse,
   ProviderStreamOptions,
+  Tool,
 } from "@earendil-works/pi-ai";
 import type { BinderEnvelopeSchema } from "./binder-envelope";
+
+/**
+ * The per-provider binder seed-field mapping
+ * (provider-error-mapping.md §"Provider seed-field mapping"), keyed on the
+ * resolved binder model's `api` field. A provider whose row omits the seed
+ * field maps to `undefined` and receives no seed key; a provider absent from the
+ * table likewise receives none. Held as a single named constant so the
+ * seed-supporting set has one source of truth to widen (a spec-versioned change).
+ */
+const BINDER_SEED_FIELD_BY_API: Readonly<Record<string, string | undefined>> =
+  Object.freeze({
+    "openai-completions": "seed",
+    mistral: "random_seed",
+    "anthropic-messages": undefined,
+    "amazon-bedrock": undefined,
+  });
+
+/**
+ * The binder user message carries no wall-clock time — the call is deterministic
+ * (temperature 0, fixed literal content) — but `@earendil-works/pi-ai`'s
+ * `UserMessage` type requires a `timestamp`. A fixed `0` keeps the constructed
+ * message deterministic and reads no ambient timing primitive.
+ */
+const BINDER_MESSAGE_TIMESTAMP = 0;
 
 // --- fixed literals ---------------------------------------------------------
 
@@ -107,16 +132,39 @@ export interface BinderCompleteCall {
 export function buildBinderCompleteCall(
   input: BinderCompleteCallInput,
 ): BinderCompleteCall {
-  void input.envelopeSchema;
-  void input.slug;
-  void input.seed;
-  void input.signal;
-  void input.onResponse;
-  void input.systemPrompt;
-  void Type;
-  return {
-    model: input.model,
-    context: { messages: [] },
-    options: {},
+  const toolName = binderToolName(input.slug);
+
+  const tool: Tool = {
+    name: toolName,
+    description: BINDER_TOOL_DESCRIPTION,
+    parameters: Type.Unsafe<unknown>(input.envelopeSchema),
   };
+
+  const context: Context = {
+    systemPrompt: input.systemPrompt,
+    messages: [
+      {
+        role: "user",
+        content: BINDER_MESSAGE_CONTENT,
+        timestamp: BINDER_MESSAGE_TIMESTAMP,
+      },
+    ],
+    tools: [tool],
+  };
+
+  const options: ProviderStreamOptions = {
+    temperature: 0,
+    signal: input.signal,
+    onResponse: input.onResponse,
+    toolChoice: { type: "tool", name: toolName },
+  };
+
+  // Provider seed-field mapping: place the fixed seed under the provider's seed
+  // field name, when its row carries one; omit it otherwise.
+  const seedField = BINDER_SEED_FIELD_BY_API[input.model.api];
+  if (seedField !== undefined) {
+    (options as Record<string, unknown>)[seedField] = input.seed;
+  }
+
+  return { model: input.model, context, options };
 }

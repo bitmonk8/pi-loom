@@ -100,11 +100,20 @@ export interface TypedQueryProviderCheckInput {
 export function checkTypedQueryProviderSupport(
   input: TypedQueryProviderCheckInput,
 ): Diagnostic | null {
-  void input;
+  if (!input.hasTypedQuery) return null;
+  if (
+    (TYPED_QUERY_SUPPORTED_PROVIDER_APIS as readonly string[]).includes(input.api)
+  ) {
+    return null;
+  }
   return {
     severity: "warning",
-    code: "loom/load/__v9j-unimplemented__",
-    message: "",
+    code: TYPED_QUERY_UNSUPPORTED_PROVIDER_CODE,
+    file: input.file,
+    message: typedQueryUnsupportedProviderMessage(
+      input.api,
+      input.modelReference,
+    ),
   };
 }
 
@@ -123,14 +132,129 @@ export function checkTypedQueryProviderSupport(
 export function synthesizeUnsupportedProviderTransportError(
   provider: string,
 ): TransportError {
-  void provider;
   return {
     kind: "transport",
-    message: "__v9j-unimplemented__",
-    http_status: 0,
-    provider: "",
-    retryable: true,
+    message: `${provider} does not support forced tool-use; typed queries unavailable`,
+    http_status: null,
+    provider,
+    retryable: false,
   };
+}
+
+// --- overflow signatures + deterministic token-count extraction -------------
+
+/**
+ * Per-provider context-overflow signatures (provider-error-mapping.md §"Overflow
+ * signatures"). Each `|` is regex alternation; a backslash-escaped `\|` must not
+ * appear in any signature. Matched against the pi-ai-formatted
+ * `AssistantMessage.errorMessage` string.
+ */
+const OVERFLOW_SIGNATURES: Readonly<Record<string, RegExp>> = Object.freeze({
+  "anthropic-messages":
+    /(prompt is too long|exceeds .* context window|maximum context length)/i,
+  "openai-completions": /maximum context length|context_length_exceeded/i,
+  mistral: /context.*length/i,
+  "amazon-bedrock": /(input is too long|context window)/i,
+});
+
+/**
+ * The two providers whose overflow `errorMessage` carries extractable numeric
+ * token counts (provider-error-mapping.md §"Overflow token-count extraction").
+ * `mistral` and `amazon-bedrock` surface no counts — both fields stay `null`.
+ */
+const TOKEN_EXTRACTING_APIS: ReadonlySet<string> = new Set([
+  "anthropic-messages",
+  "openai-completions",
+]);
+
+/** A maximal numeric run: digits with interior `,`/`_` separators flanked by digits. */
+const NUMERIC_RUN = /[0-9]+(?:[,_][0-9]+)*/g;
+
+/**
+ * Deterministic overflow token-count extraction
+ * (provider-error-mapping.md §"Overflow token-count extraction"): scan the
+ * message for numeric runs, strip separators, parse base-10. Exactly two runs →
+ * larger populates `tokens_used`, smaller `tokens_limit`; any other count → both
+ * `null`. Providers outside the token-extracting set always yield `null`/`null`.
+ */
+function extractOverflowTokens(
+  api: string,
+  message: string,
+): { tokens_used: number | null; tokens_limit: number | null } {
+  if (!TOKEN_EXTRACTING_APIS.has(api)) {
+    return { tokens_used: null, tokens_limit: null };
+  }
+  const runs = [...message.matchAll(NUMERIC_RUN)].map((match) =>
+    Number.parseInt(match[0].replace(/[,_]/g, ""), 10),
+  );
+  if (runs.length !== 2) {
+    return { tokens_used: null, tokens_limit: null };
+  }
+  const [a, b] = runs as [number, number];
+  return { tokens_used: Math.max(a, b), tokens_limit: Math.min(a, b) };
+}
+
+/**
+ * Whether the response's HTTP status satisfies the provider's overflow-signature
+ * status gate (provider-error-mapping.md §"Overflow signatures"). Anthropic and
+ * mistral gate on HTTP 400; openai additionally admits an HTTP-200 `stopReason:
+ * "error"` body-envelope overflow; bedrock is SDK-only, so signature match takes
+ * precedence at any captured status (including the network-level `null` class).
+ */
+function overflowStatusGateSatisfied(input: ProviderClassifierInput): boolean {
+  switch (input.api) {
+    case "anthropic-messages":
+    case "mistral":
+      return input.httpStatus === 400;
+    case "openai-completions":
+      return (
+        input.httpStatus === 400 ||
+        (input.httpStatus === 200 && input.stopReason === "error")
+      );
+    case "amazon-bedrock":
+      return true;
+    default:
+      return false;
+  }
+}
+
+/**
+ * Return a `ContextOverflowError` when the response matches the resolved
+ * provider's overflow signature and its status gate; `null` otherwise. Overflow
+ * matching takes precedence over both stop-reason and transport classification.
+ */
+function matchOverflowSignature(
+  input: ProviderClassifierInput,
+): ContextOverflowError | null {
+  const signature = OVERFLOW_SIGNATURES[input.api];
+  if (signature === undefined) return null;
+  const message = input.errorMessage;
+  if (message === undefined) return null;
+  if (!signature.test(message)) return null;
+  if (!overflowStatusGateSatisfied(input)) return null;
+  const { tokens_used, tokens_limit } = extractOverflowTokens(
+    input.api,
+    message,
+  );
+  return {
+    kind: "context_overflow",
+    message,
+    tokens_used,
+    tokens_limit,
+    raw_response: input.rawResponse ?? null,
+  };
+}
+
+/**
+ * `TransportError.retryable` population by transport-error class
+ * (provider-error-mapping.md §"`TransportError.retryable` population"): `true`
+ * for network-level failures (no HTTP response — status `null`), HTTP 5xx, and
+ * HTTP 429; `false` for every other captured status.
+ */
+function transportRetryable(httpStatus: number | null): boolean {
+  if (httpStatus === null) return true;
+  if (httpStatus === 429) return true;
+  return httpStatus >= 500 && httpStatus <= 599;
 }
 
 // --- provider-error → QueryError classifier ---------------------------------
@@ -179,8 +303,34 @@ export interface ProviderClassifierInput {
 export function classifyProviderResponse(
   input: ProviderClassifierInput,
 ): QueryError {
-  void input;
-  return { kind: "cancelled", message: "__v9j-unimplemented__" };
+  // 1. Overflow-signature precedence over stop-reason and transport routing.
+  const overflow = matchOverflowSignature(input);
+  if (overflow !== null) return overflow;
+
+  // 2. Stop-reason classification: the HTTP-200 output-boundary terminator
+  //    (`length`) is a clean context overflow with null token counts. Every
+  //    other non-turn-boundary stop reason (`error`, `content_filter`, …) falls
+  //    through to the transport classifier below, which yields retryable:false
+  //    for its captured status.
+  if (input.stopReason === "length") {
+    return {
+      kind: "context_overflow",
+      message: input.errorMessage ?? "",
+      tokens_used: null,
+      tokens_limit: null,
+      raw_response: input.rawResponse ?? null,
+    };
+  }
+
+  // 3. Every other classifier-reaching response is a TransportError, with
+  //    `retryable` populated by transport-error class.
+  return {
+    kind: "transport",
+    message: input.errorMessage ?? "",
+    http_status: input.httpStatus,
+    provider: input.api,
+    retryable: transportRetryable(input.httpStatus),
+  };
 }
 
 // A type-only reference so `ContextOverflowError` stays part of this module's
