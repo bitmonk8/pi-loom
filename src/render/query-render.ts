@@ -31,10 +31,38 @@
 import { type Diagnostic, type SourceRange } from "../diagnostics/diagnostic";
 import { type ValidationError } from "../runtime/query-error";
 import { type LoomValue } from "../runtime/value";
+import { renderCanonicalNumber } from "./canonical-number";
 import {
   translateOutbound,
   type OutboundTranslationInput,
 } from "../runtime/wire-translation";
+
+// --- Whitespace alphabets ---------------------------------------------------
+//
+// Two distinct sets, deliberately not the regex `\s` class:
+//
+//   - The dedent common-prefix walk and the whitespace-only-*line* predicate of
+//     QRY-7 rule 5 draw only from {U+0020 space, U+0009 tab}.
+//   - The degenerate-template predicates of QRY-6 (parse-time warning and
+//     runtime short-circuit) draw from the ASCII whitespace set pinned at
+//     System-note rendering rule 1: {U+0009, U+000A, U+000B, U+000C, U+000D,
+//     U+0020}. Non-ASCII whitespace (e.g. U+00A0) is ordinary content for both.
+
+/** {U+0020, U+0009} — the dedent / whitespace-only-line alphabet (QRY-7 rule 5). */
+const DEDENT_WHITESPACE = new Set<number>([0x20, 0x09]);
+
+/** ASCII whitespace set pinned at System-note rendering rule 1 (QRY-6). */
+const ASCII_WHITESPACE = new Set<number>([0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x20]);
+
+/** Whether every code point of `text` is in the ASCII whitespace set (empty ⇒ true). */
+function isAsciiWhitespaceOnly(text: string): boolean {
+  for (const ch of text) {
+    if (!ASCII_WHITESPACE.has(ch.codePointAt(0) as number)) {
+      return false;
+    }
+  }
+  return true;
+}
 
 // --- Diagnostic codes + registry-anchored message strings ------------------
 //
@@ -106,11 +134,115 @@ export interface QueryTemplateLexResult {
  * `${` / `}` pair delimits an interpolation.
  */
 export function lexQueryTemplate(source: string): QueryTemplateLexResult {
-  // V13a-T inert stub: the escape resolution, interpolation splitting, and
-  // escape/termination diagnostics are absent — return the raw source as one
-  // undifferentiated text part with no diagnostics and assume termination so
-  // each behavioural test reds on its own primary assertion.
-  return { parts: [{ kind: "text", value: source }], diagnostics: [], terminated: true };
+  const parts: QueryTemplatePart[] = [];
+  const diagnostics: Diagnostic[] = [];
+  let text = "";
+  let terminated = false;
+
+  const flushText = (): void => {
+    if (text.length > 0) {
+      parts.push({ kind: "text", value: text });
+      text = "";
+    }
+  };
+
+  // Skip the opening backtick; `source` begins with it.
+  let i = source[0] === "`" ? 1 : 0;
+
+  while (i < source.length) {
+    const c = source[i];
+
+    if (c === "\\") {
+      const next = source[i + 1];
+      if (next === undefined) {
+        // Trailing backslash at EOF — the body is unterminated; stop scanning
+        // and let the post-loop `unterminated` diagnostic fire.
+        break;
+      }
+      switch (next) {
+        case "`":
+          text += "`";
+          break;
+        case "$":
+          text += "$";
+          break;
+        case "\\":
+          text += "\\";
+          break;
+        case "n":
+          text += "\n";
+          break;
+        case "t":
+          text += "\t";
+          break;
+        case "r":
+          text += "\r";
+          break;
+        default:
+          // No other escapes are recognised (QRY-17): a backslash before any
+          // other character is `loom/parse/illegal-template-escape`. Recovery
+          // renders the offending character as literal content so the rest of
+          // the body still lexes.
+          diagnostics.push({
+            severity: "error",
+            code: ILLEGAL_TEMPLATE_ESCAPE_CODE,
+            message: illegalTemplateEscapeMessage(next),
+          });
+          text += next;
+      }
+      i += 2;
+      continue;
+    }
+
+    if (c === "`") {
+      terminated = true;
+      i += 1;
+      break;
+    }
+
+    if (c === "$" && source[i + 1] === "{") {
+      // Only the `${` / `}` pair delimits an interpolation; braces alone are
+      // ordinary text. Track nesting so a `}` inside the expression (e.g. an
+      // object literal) does not close the interpolation early.
+      flushText();
+      let depth = 1;
+      let j = i + 2;
+      let exprSource = "";
+      while (j < source.length) {
+        const cj = source[j];
+        if (cj === "{") {
+          depth += 1;
+        } else if (cj === "}") {
+          depth -= 1;
+          if (depth === 0) {
+            break;
+          }
+        }
+        exprSource += cj;
+        j += 1;
+      }
+      parts.push({ kind: "interp", exprSource });
+      // Advance past the closing `}` (or to EOF when the interpolation was not
+      // closed — the outer loop then ends and `unterminated` fires).
+      i = j + 1;
+      continue;
+    }
+
+    text += c;
+    i += 1;
+  }
+
+  flushText();
+
+  if (!terminated) {
+    diagnostics.push({
+      severity: "error",
+      code: UNTERMINATED_TEMPLATE_CODE,
+      message: UNTERMINATED_TEMPLATE_MESSAGE,
+    });
+  }
+
+  return { parts, diagnostics, terminated };
 }
 
 // --- Newline-trim → dedent (QRY-7) -----------------------------------------
@@ -125,9 +257,75 @@ export function lexQueryTemplate(source: string): QueryTemplateLexResult {
  * the normative vector table.
  */
 export function renderTemplateText(text: string): string {
-  // V13a-T inert stub: neither normalisation is applied — the identity return
-  // reds every vector on its own expected-rendered-text assertion.
-  return text;
+  // Source CR / CRLF are normalised to LF before newline-trim and dedent run.
+  const normalised = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
+  // A template with no line-feed is a single physical line: both newline-trim
+  // and dedent are no-ops, so any leading whitespace inside the backticks is
+  // preserved (QRY-5 / QRY-7 vector 5). A line-feed introduced only by
+  // newline-trim's own removal must still take the dedent path (vector 7), so
+  // this branch keys off the pre-trim newline presence, not the post-trim text.
+  if (!normalised.includes("\n")) {
+    return normalised;
+  }
+
+  // Newline-trim: strip a single LF immediately after the opening backtick and
+  // a single LF immediately before the closing backtick.
+  let trimmed = normalised;
+  if (trimmed.startsWith("\n")) {
+    trimmed = trimmed.slice(1);
+  }
+  if (trimmed.endsWith("\n")) {
+    trimmed = trimmed.slice(0, -1);
+  }
+
+  return dedent(trimmed);
+}
+
+/** Leading run of {U+0020, U+0009} characters at the start of `line`. */
+function leadingDedentWhitespace(line: string): string {
+  let end = 0;
+  while (end < line.length && DEDENT_WHITESPACE.has(line.charCodeAt(end))) {
+    end += 1;
+  }
+  return line.slice(0, end);
+}
+
+/** Whether `line` is empty or drawn solely from the {U+0020, U+0009} alphabet. */
+function isDedentBlankLine(line: string): boolean {
+  return leadingDedentWhitespace(line).length === line.length;
+}
+
+/** Longest common literal prefix of two strings. */
+function commonPrefix(a: string, b: string): string {
+  const limit = Math.min(a.length, b.length);
+  let n = 0;
+  while (n < limit && a[n] === b[n]) {
+    n += 1;
+  }
+  return a.slice(0, n);
+}
+
+/**
+ * The dedent normalisation of QRY-7: strip the longest common leading
+ * {U+0020, U+0009} prefix shared by every non-blank line; whitespace-only lines
+ * are excluded from the common-prefix computation and normalised to empty
+ * lines. LF-only line splitting.
+ */
+function dedent(text: string): string {
+  const lines = text.split("\n");
+  let margin: string | undefined;
+  for (const line of lines) {
+    if (isDedentBlankLine(line)) {
+      continue;
+    }
+    const indent = leadingDedentWhitespace(line);
+    margin = margin === undefined ? indent : commonPrefix(margin, indent);
+  }
+  const prefix = margin ?? "";
+  return lines
+    .map((line) => (isDedentBlankLine(line) ? "" : line.slice(prefix.length)))
+    .join("\n");
 }
 
 // --- Stringification of interpolated values (QRY-18) -----------------------
@@ -178,14 +376,49 @@ export function stringifyInterpolatedValue(
   value: LoomValue,
   type: InterpolationType,
 ): StringifyResult {
-  // V13a-T inert stub: no per-type rendering and no Result rejection — the
-  // empty-text success reds every per-type row and the Result-rejection test on
-  // their own assertions. Reference the outbound-translation seam so the
-  // array/object arm's dependency is wired for the paired V13a implementation.
-  void translateOutbound;
-  void value;
-  void type;
-  return { ok: true, text: "" };
+  switch (type.kind) {
+    case "string":
+      return { ok: true, text: value as string };
+    case "integer":
+      return { ok: true, text: renderCanonicalNumber(value as number, "integer") };
+    case "number":
+      return { ok: true, text: renderCanonicalNumber(value as number, "number") };
+    case "boolean":
+      return { ok: true, text: (value as boolean) ? "true" : "false" };
+    case "null":
+      return { ok: true, text: "null" };
+    case "enum":
+      // The enum brand is dropped — the model only ever sees the bare wire
+      // string. The boxed-string enum value stringifies to its wire form.
+      return { ok: true, text: String(value) };
+    case "array":
+    case "object": {
+      // Compact `JSON.stringify` (no pretty-printing) with outbound wire-name
+      // translation applied recursively. When the sidecars / root `$defs` are
+      // supplied, lower loom-side names to wire before serialising; otherwise
+      // `JSON.stringify` already collapses enum values to their bare wire form.
+      const lowered =
+        type.sidecars !== undefined && type.rootDef !== undefined
+          ? translateOutbound({
+              value,
+              sidecars: type.sidecars,
+              rootDef: type.rootDef,
+            })
+          : value;
+      return { ok: true, text: JSON.stringify(lowered) };
+    }
+    case "result":
+      // Static rejection: a `Result`-valued interpolation is a parse error
+      // (QRY-18, `Result` row).
+      return {
+        ok: false,
+        diagnostic: {
+          severity: "error",
+          code: INTERPOLATED_RESULT_CODE,
+          message: INTERPOLATED_RESULT_MESSAGE,
+        },
+      };
+  }
 }
 
 // --- Degenerate rendered templates (QRY-6) ---------------------------------
@@ -203,12 +436,20 @@ export function emptyTemplateWarning(
   staticBody: string,
   range?: SourceRange,
 ): Diagnostic | undefined {
-  // V13a-T inert stub: the static-body degeneracy predicate is absent, so no
-  // warning ever fires and the degenerate-template test reds on its own
-  // presence-of-warning assertion.
-  void staticBody;
-  void range;
-  return undefined;
+  // The predicate is evaluated over the static body with newline-trim and
+  // dedent notionally applied and the escape rewrites notionally NOT applied,
+  // so the literal two-character `\n` sequence is non-whitespace and suppresses
+  // the warning while a genuinely whitespace-only body warns.
+  const rendered = renderTemplateText(staticBody);
+  if (!isAsciiWhitespaceOnly(rendered)) {
+    return undefined;
+  }
+  return {
+    severity: "warning",
+    code: EMPTY_TEMPLATE_CODE,
+    message: EMPTY_TEMPLATE_MESSAGE,
+    ...(range !== undefined ? { range } : {}),
+  };
 }
 
 /**
@@ -224,9 +465,18 @@ export function emptyTemplateWarning(
 export function renderEmptyShortCircuit(
   renderedText: string,
 ): ValidationError | undefined {
-  // V13a-T inert stub: the degeneracy predicate is absent, so the short-circuit
-  // never fires and the degenerate-template test reds on its own
-  // ValidationError assertion.
-  void renderedText;
-  return undefined;
+  // The predicate uses the ASCII whitespace set only — never the regex `\s`
+  // class — so a render consisting solely of non-ASCII whitespace (e.g. U+00A0)
+  // issues a turn rather than short-circuiting.
+  if (!isAsciiWhitespaceOnly(renderedText)) {
+    return undefined;
+  }
+  return {
+    kind: "validation",
+    cause: "empty_template",
+    message: EMPTY_TEMPLATE_RENDER_MESSAGE,
+    attempts: 0,
+    validation_errors: [],
+    raw_response: null,
+  };
 }
