@@ -27,10 +27,10 @@
 // the late settlement at a chosen point without depending on JS microtask
 // scheduling.
 //
-// V13f-T (this tests-task) declares the seam shapes and stubs the two
-// behaviour-bearing functions in a NON-COMPLIANT shape so the failing tests
-// compile and red on their own primary assertions. The paired `V13f`
-// implementation leaf makes them compliant.
+// `guardQueryProviderPromise` attaches the construction-site handler and routes
+// every settlement through `routeQueryProviderLateSettlement`, which discards a
+// settlement once cancellation has surfaced for the invocation (emitting nothing
+// on any of the three side channels) and reports it live otherwise.
 //
 // Spec: cancellation.md (§"Race semantics — swallowing-handler attachment on
 // every abandonable Promise"); host-interfaces-services.md (§"`Checkpoint`
@@ -87,47 +87,75 @@ export interface QueryProviderSideChannels {
 export type QueryProviderLateSettlementDisposition = "discarded" | "surfaced";
 
 /**
- * NON-COMPLIANT STUB (V13f-T). The compliant `V13f` implementation attaches the
- * swallowing handler to the underlying `@`-query provider Promise at its
- * construction site, before the first microtask boundary, routing each
- * settlement through `routeQueryProviderLateSettlement`. This stub instead
- * returns the Promise WITHOUT attaching any handler, so a late rejection
- * reaches Node's `unhandledRejection` process event — reddening the
- * construction-site attachment test (cka-33 / V13f channel 1).
+ * Attach the swallowing handler to the underlying `@`-query provider Promise at
+ * its construction site, before the first microtask boundary, and return the
+ * same Promise so callers keep the construction expression. Each settlement is
+ * routed through `routeQueryProviderLateSettlement`, so a late rejection
+ * arriving after cancellation surfaced is absorbed without a Node
+ * `unhandledRejection` process event.
  */
 export function guardQueryProviderPromise<T>(
   providerPromise: Promise<T>,
-  _guard: QueryProviderCancellationGuard,
-  _channels: QueryProviderSideChannels,
+  guard: QueryProviderCancellationGuard,
+  channels: QueryProviderSideChannels,
 ): Promise<T> {
-  // No construction-site handler attached — non-compliant.
+  // Attach the swallowing handler synchronously at the construction site,
+  // before the first microtask boundary: `.then(onResolve, onReject)` on the
+  // provider Promise as it is constructed. A lazily-attached `.catch` would
+  // miss a rejection already queued for `unhandledRejection`. Each settlement
+  // is routed through `routeQueryProviderLateSettlement`, which decides
+  // discard-vs-surface against the live cancellation state; a discarded late
+  // rejection is absorbed here and never reaches Node's `unhandledRejection`
+  // process event.
+  providerPromise.then(
+    (value: T): void => {
+      routeQueryProviderLateSettlement(
+        { kind: "resolved", value },
+        guard,
+        channels,
+      );
+    },
+    (error: unknown): void => {
+      routeQueryProviderLateSettlement(
+        { kind: "rejected", error },
+        guard,
+        channels,
+      );
+    },
+  );
   return providerPromise;
 }
 
 /**
- * NON-COMPLIANT STUB (V13f-T). The compliant `V13f` implementation discards a
- * late settlement once `guard.cancellationSurfaced` is true, emitting nothing
- * on any of the three side channels. This stub ignores the guard and
- * re-surfaces every settlement on both emit channels, returning `"surfaced"` —
- * reddening the three-channel suppression tests (cka-33 / V13f channels 2
- * and 3).
+ * Decide the disposition of one late settlement of the underlying `@`-query
+ * provider Promise. Once `guard.cancellationSurfaced` is true the settlement is
+ * discarded on all three side channels (this function emits nothing); otherwise
+ * the query result flows to the normal `@`-query Surfacing path.
+ *
+ * The discriminator is whether cancellation has surfaced for this invocation,
+ * not the late-settle kind: a late `resolved` value and a late `rejected` error
+ * are discarded identically once `cancellationSurfaced` is true. A late
+ * rejection whose `.error` would otherwise be diagnostic-worthy is still
+ * discarded — promoting it to `loom/runtime/internal-error` would re-introduce
+ * the second-event surface this rule forbids (cancellation.md §"Race
+ * semantics — swallowing-handler attachment on every abandonable Promise").
  */
 export function routeQueryProviderLateSettlement(
   _settlement: QueryProviderSettlement,
-  _guard: QueryProviderCancellationGuard,
-  channels: QueryProviderSideChannels,
+  guard: QueryProviderCancellationGuard,
+  _channels: QueryProviderSideChannels,
 ): QueryProviderLateSettlementDisposition {
-  channels.emitRuntimeEvent({
-    kind: "cancelled",
-    loom: "/query",
-    invocation_id: "00000000-0000-0000-0000-000000000000",
-    message: "non-compliant stub re-surfaced a late @-query provider settlement",
-    occurred_at: 0,
-  });
-  channels.emitDiagnostic({
-    severity: "error",
-    code: "loom/runtime/internal-error",
-    message: "non-compliant stub promoted a late @-query provider settlement",
-  });
+  if (guard.cancellationSurfaced) {
+    // Abandoned case: cancellation already surfaced `cause: "cancelled"` at the
+    // `@`-query checkpoint. Discard silently on all three side channels — emit
+    // no second `RuntimeEvent` and no diagnostic of any severity; the
+    // construction-site handler in `guardQueryProviderPromise` closes the
+    // `unhandledRejection` channel by absorbing the rejection here.
+    return "discarded";
+  }
+  // Pre-cancellation path: the query result flows to the normal `@`-query
+  // Surfacing rules. This site emits nothing itself — the normal `@`-query
+  // execution path owns the resolve/reject surfacing; routing here only
+  // reports that the settlement is live so the caller does not absorb it.
   return "surfaced";
 }
