@@ -1214,3 +1214,19 @@ internal structure, not a divergence from spec text.
 `SHUTDOWN_AWAIT_CAP_MS` is owned by `V9a` (`src/extension/capability-probe.ts`)
 per the existing single-declaration-site convention; V9g-T re-exports it rather
 than redeclaring, so the cap constant has one source of truth.
+
+## 2026-07-01 — V9g session-shutdown handler scope
+
+`runSessionShutdown` (the `session_shutdown` teardown orchestrator) emits only the
+diagnostics its own five sub-steps produce: `loom/host/session-shutdown-teardown-step-failed`
+(per-step isolation) and `loom/runtime/reload-teardown-timeout` (sub-step 3 cap). It does
+**not** emit `loom/host/session-shutdown-runtime-degraded` (the session-only post-sub-step-4
+degraded transition) nor `loom/runtime/cancelled-by-session-shutdown` (the per-invocation
+clean-cancel note). Rationale: the per-invocation note is spec-emitted from each invocation's
+own `finally` (V9e's `runPerInvocationFinally` territory), and the session-only degraded-state
+transition (`markRuntimeDegraded` + `runtime-degraded`) is the session-only-degraded-state.md
+mechanism owned by a separate leaf (V9i, per the `SHUTDOWN_AWAIT_CAP_MS` importer comment in
+`capability-probe.ts`). None of V9g's Tests bullets exercise those two emissions from the
+handler. The `emitNestedShapeDiagnostic` seam that builds both nested-shape fallback forms IS
+implemented (V9g's PIC-25/26 fixtures drive it directly), so it is a consumer-bound seam, not
+a speculative export. This keeps V9g minimal and faithful to its binding obligations.

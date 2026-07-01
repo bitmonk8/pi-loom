@@ -136,7 +136,55 @@ export interface SessionShutdownDeps {
  * reason).
  */
 export function synthesiseSessionShutdownReason(): Error {
-  return new Error("<stub: session-shutdown reason not synthesised>");
+  return new Error(SESSION_SHUTDOWN_ABORT_MESSAGE);
+}
+
+/**
+ * Coerce a caught throw to its underlying string per the diagnostics
+ * underlying-error coercion (placeholder-rendering-b.md #underlying-error-
+ * coercion): an object with a string `.message` yields that message; otherwise
+ * `String(error)`, falling back to the literal `"<unreadable>"` when either the
+ * `.message` access or the `String(...)` coercion itself throws (the same
+ * `"<unreadable>"` convention `session-shutdown-reason-unknown`'s
+ * `details.observed` applies, per the **Per-step isolation** paragraph).
+ */
+function coerceUnderlyingError(error: unknown): string {
+  try {
+    if (typeof error === "object" && error !== null) {
+      const message = (error as Record<string, unknown>).message;
+      if (typeof message === "string") {
+        return message;
+      }
+    }
+  } catch (messageError: unknown) { // allow-broad-catch: PIC-7 — pi-integration-contract/session-shutdown-semantics.md
+    void messageError;
+  }
+  try {
+    return String(error);
+  } catch (coerceError: unknown) { // allow-broad-catch: PIC-7 — pi-integration-contract/session-shutdown-semantics.md
+    void coerceError;
+    return "<unreadable>";
+  }
+}
+
+/**
+ * Coerce the handler-captured `event.reason` to the stamped string. A closed-set
+ * member reads as itself; a non-string reason is `String(...)`-coerced, falling
+ * back to `"<unreadable>"` if that coercion throws. The full four-arm
+ * Unknown-reason routing (set-membership, snapshot read, the two diagnostics) is
+ * owned by `V9h`; this handler only needs the stamped-string channel sub-step 2
+ * writes onto each entry's `shutdownReason`.
+ */
+function coerceReasonString(reason: unknown): string {
+  if (typeof reason === "string") {
+    return reason;
+  }
+  try {
+    return String(reason);
+  } catch (coerceError: unknown) { // allow-broad-catch: PIC-7 — pi-integration-contract/session-shutdown-semantics.md
+    void coerceError;
+    return "<unreadable>";
+  }
 }
 
 /**
@@ -153,10 +201,13 @@ export function teardownStepFailedDiagnostic(
   call: string,
   error: unknown,
 ): Diagnostic {
-  void step;
-  void call;
-  void error;
-  return { severity: "warning", code: "<stub>", message: "<stub>" };
+  const errorString = coerceUnderlyingError(error);
+  return {
+    severity: "warning",
+    code: TEARDOWN_STEP_FAILED_CODE,
+    message: `session_shutdown teardown step ${step} failed at ${call}: ${errorString}`,
+    details: { step, call, error: errorString },
+  };
 }
 
 /**
@@ -170,8 +221,23 @@ export function teardownStepFailedDiagnostic(
 export function cancelledBySessionShutdownDiagnostic(
   entry: ActiveInvocationEntry,
 ): Diagnostic {
-  void entry;
-  return { severity: "error", code: "<stub>", message: "<stub>" };
+  // The per-invocation `finally` reads `entry.shutdownReason` (stamped by
+  // sub-step 2) rather than re-reading the handler-scoped `event.reason`; an
+  // unset field falls back to the `"<unreadable>"` sentinel per the residual-gap
+  // paragraph. `details.event` is the runtime-constructed nested shape.
+  const reason = entry.shutdownReason ?? "<unreadable>";
+  return {
+    severity: "error",
+    code: CANCELLED_BY_SESSION_SHUTDOWN_CODE,
+    message: `loom /${entry.loom} cancelled by session shutdown (${reason})`,
+    details: {
+      event: {
+        reason,
+        loom: entry.loom,
+        invocation_id: entry.invocationId,
+      },
+    },
+  };
 }
 
 /**
@@ -186,9 +252,19 @@ export function reloadTeardownTimeoutDiagnostic(
   stillInFlight: readonly ActiveInvocationEntry[],
   elapsedMs: number,
 ): Diagnostic {
-  void stillInFlight;
-  void elapsedMs;
-  return { severity: "error", code: "<stub>", message: "<stub>" };
+  // `<list>` is the `, `-joined `/<slash-name>:<invocation-id>` sequence in
+  // insertion order; `<ms>` renders the elapsed wall time and `hint` carries the
+  // same value as a bare decimal integer (code-registry-runtime.md).
+  const list = stillInFlight
+    .map((entry) => `/${entry.loom}:${entry.invocationId}`)
+    .join(", ");
+  const count = stillInFlight.length;
+  return {
+    severity: "error",
+    code: RELOAD_TEARDOWN_TIMEOUT_CODE,
+    message: `reload teardown timed out after ${elapsedMs}ms; ${count} invocation(s) still in flight: ${list}`,
+    hint: String(elapsedMs),
+  };
 }
 
 /**
@@ -207,8 +283,27 @@ export function emitTeardownDiagnostic(
   sink: EmissionSink,
   diagnostic: Diagnostic,
 ): void {
-  void sink;
-  void diagnostic;
+  // The whole serialisation-and-emission sequence is one wrapped `try`/`catch`
+  // (PIC-24). On a serialiser throw the catch arm emits the bare-`code` string
+  // so it stays grep-able (PIC-25); a throw out of `console.error` is swallowed
+  // with no retry (PIC-27) — `serialiseOk` distinguishes the two so a failed
+  // emit does not trigger a second bare-`code` emission (invocation-site count,
+  // PIC-28).
+  let serialiseOk = false;
+  try {
+    const line = sink.serialise(diagnostic);
+    serialiseOk = true;
+    sink.emit(line);
+  } catch (emitError: unknown) { // allow-broad-catch: PIC-7 — pi-integration-contract/diagnostic-emission-isolation.md
+    void emitError;
+    if (!serialiseOk) {
+      try {
+        sink.emit(diagnostic.code);
+      } catch (fallbackError: unknown) { // allow-broad-catch: PIC-7 — pi-integration-contract/diagnostic-emission-isolation.md
+        void fallbackError;
+      }
+    }
+  }
 }
 
 /** The nested-shape emission's `details.event` reason + optional `entry`. */
@@ -242,8 +337,54 @@ export function emitNestedShapeDiagnostic(
   sink: EmissionSink,
   emission: NestedShapeEmission,
 ): void {
-  void sink;
-  void emission;
+  const { code, diagnostic, detailsEventReason, entry, forceConstructionThrow } =
+    emission;
+
+  // Construction-site wrap (PIC-26): the `details.event` construction and the
+  // `detailsEventReason` hoist run *before* the serialisation-and-emission wrap
+  // and are therefore not defended by it. A throw here skips the structured
+  // sequence and emits a per-code fallback — the three-token
+  // `${code} ${entry.loom} <unreadable>` form for the per-invocation note, else
+  // the two-token `${code} <unreadable>` form — self-wrapped so an inner
+  // `console.error` throw is swallowed with no second emission (PIC-26/27).
+  try {
+    if (forceConstructionThrow === true) {
+      throw new Error("session-shutdown payload construction failed");
+    }
+  } catch (constructionError: unknown) { // allow-broad-catch: PIC-7 — pi-integration-contract/diagnostic-emission-isolation.md
+    void constructionError;
+    const fallback =
+      entry !== undefined
+        ? `${code} ${entry.loom} <unreadable>`
+        : `${code} <unreadable>`;
+    try {
+      sink.emit(fallback);
+    } catch (fallbackError: unknown) { // allow-broad-catch: PIC-7 — pi-integration-contract/diagnostic-emission-isolation.md
+      void fallbackError;
+    }
+    return;
+  }
+
+  // Wrapped serialisation-and-emission sequence (PIC-24/25/27): on a serialiser
+  // throw the catch arm emits the two-token `${code} ${detailsEventReason}` form
+  // — preserving the `details.event.reason` dedup discriminator — for both
+  // nested-shape codes; a throw out of `console.error` is swallowed with no
+  // retry.
+  let serialiseOk = false;
+  try {
+    const line = sink.serialise(diagnostic);
+    serialiseOk = true;
+    sink.emit(line);
+  } catch (emitError: unknown) { // allow-broad-catch: PIC-7 — pi-integration-contract/diagnostic-emission-isolation.md
+    void emitError;
+    if (!serialiseOk) {
+      try {
+        sink.emit(`${code} ${detailsEventReason}`);
+      } catch (fallbackError: unknown) { // allow-broad-catch: PIC-7 — pi-integration-contract/diagnostic-emission-isolation.md
+        void fallbackError;
+      }
+    }
+  }
 }
 
 /**
@@ -264,7 +405,170 @@ export async function runSessionShutdown(
   event: SessionShutdownEventLike,
   deps: SessionShutdownDeps,
 ): Promise<void> {
-  void event;
-  void deps;
-  return Promise.resolve();
+  const capturedReason = coerceReasonString(event.reason);
+
+  // ── Sub-step 1: stop accepting new work (drain, then init drain-state tag) ──
+  // Fixed order — `drain()` then `initDrainStateTag()` — each in its own
+  // per-call `try`/`catch` so a throw from either routes to a distinct
+  // `(code, details.step, details.call)` bucket and does not stop the other.
+  runIsolatedCall(1, "loomRegistry.drain", deps.sink, () => {
+    deps.registry.drain();
+  });
+  runIsolatedCall(1, "loomRegistry.initDrainStateTag", deps.sink, () => {
+    deps.registry.initDrainStateTag();
+  });
+
+  // ── Sub-step 2: cancel in-flight invocations (stamp reason, then abort) ──
+  // Per-entry isolation: stamp `shutdownReason` *before* aborting so the
+  // per-invocation `finally` observes a populated field; a stamp/abort throw is
+  // caught per entry, emits no `teardown-step-failed`, and does not escape the
+  // loop. Each entry is aborted with the synthesised CNCL-4 reason so
+  // `loomAbort.signal.reason === source.reason` downstream.
+  const entries = deps.activeInvocations.snapshot();
+  const abortReason = synthesiseSessionShutdownReason();
+  for (const entry of entries) {
+    try {
+      entry.shutdownReason = capturedReason;
+      entry.loomAbort.abort(abortReason);
+    } catch (abortError: unknown) { // allow-broad-catch: PIC-7 — pi-integration-contract/session-shutdown-semantics.md
+      void abortError;
+    }
+  }
+
+  // ── Sub-step 3: bounded await over every entry's disposeBarrier ──
+  await runBoundedDisposeAwait(entries, deps);
+
+  // ── Sub-step 4: close watchers, cancel the pending debounce timer ──
+  runIsolatedCall(4, "discoveryWatcher.close", deps.sink, () => {
+    deps.discoveryWatcher.close();
+  });
+  runIsolatedCall(4, "settingsWatcher.close", deps.sink, () => {
+    deps.settingsWatcher.close();
+  });
+  runIsolatedCall(4, "Clock.clearTimeout(debounce)", deps.sink, () => {
+    if (deps.debounceHandle !== undefined) {
+      deps.clock.clearTimeout(deps.debounceHandle);
+    }
+  });
+
+  // ── Sub-step 5: detach forwarding listeners ──
+  for (const signal of deps.forwardingSignals) {
+    runIsolatedCall(5, signal.label, deps.sink, () => {
+      signal.removeEventListener();
+    });
+  }
+}
+
+/**
+ * Run one teardown call site inside its own `try`/`catch` (**Per-step
+ * isolation**): a throw is caught, emits exactly one `teardown-step-failed` via
+ * the wrapped `console.error`, and does not prevent later call sites or
+ * sub-steps from running.
+ */
+function runIsolatedCall(
+  step: TeardownStep,
+  call: string,
+  sink: EmissionSink,
+  act: () => void,
+): void {
+  try {
+    act();
+  } catch (stepError: unknown) { // allow-broad-catch: PIC-7 — pi-integration-contract/session-shutdown-semantics.md
+    emitTeardownDiagnostic(sink, teardownStepFailedDiagnostic(step, call, stepError));
+  }
+}
+
+/**
+ * Sub-step 3: await every in-flight entry's `disposeBarrier` to settle via
+ * `Promise.allSettled`, bounded by `SHUTDOWN_AWAIT_CAP_MS` measured against the
+ * injected `Clock`. The deadline-capture `Clock.now()` and cap-arming
+ * `Clock.setTimeout` each run in their own isolation `try`/`catch`; when the cap
+ * cannot be armed the handler skips the await (proceeds to sub-step 4) rather
+ * than awaiting unbounded. On timeout it emits one `reload-teardown-timeout`
+ * naming the still-in-flight entries; on the success path it clears the timer.
+ */
+async function runBoundedDisposeAwait(
+  entries: readonly ActiveInvocationEntry[],
+  deps: SessionShutdownDeps,
+): Promise<void> {
+  const { clock, sink } = deps;
+
+  // Track still-in-flight entries synchronously — one microtask hop after a
+  // `disposeBarrier` settles, ahead of `Promise.allSettled`'s extra internal
+  // hops — so the cap timer decides accurately whether to emit the timeout.
+  const inFlight = new Set<ActiveInvocationEntry>(entries);
+  for (const entry of entries) {
+    const drop = (): void => {
+      inFlight.delete(entry);
+    };
+    void entry.disposeBarrier.then(drop, drop);
+  }
+
+  let start = 0;
+  let armed = true;
+  try {
+    // Absolute deadline capture; a slow sub-step-2 abort does not extend it.
+    start = clock.now();
+  } catch (nowError: unknown) { // allow-broad-catch: PIC-7 — pi-integration-contract/session-shutdown-semantics.md
+    emitTeardownDiagnostic(sink, teardownStepFailedDiagnostic(3, "Clock.now()", nowError));
+    armed = false;
+  }
+
+  let timerHandle: TimerHandle | undefined;
+  let timerFired = false;
+  let resolveRace: () => void = (): void => {};
+  const race = new Promise<void>((resolve) => {
+    resolveRace = resolve;
+  });
+
+  if (armed) {
+    try {
+      timerHandle = clock.setTimeout(() => {
+        timerFired = true;
+        resolveRace();
+      }, SHUTDOWN_AWAIT_CAP_MS);
+    } catch (setError: unknown) { // allow-broad-catch: PIC-7 — pi-integration-contract/session-shutdown-semantics.md
+      emitTeardownDiagnostic(
+        sink,
+        teardownStepFailedDiagnostic(3, "Clock.setTimeout(awaitCap)", setError),
+      );
+      armed = false;
+    }
+  }
+
+  // When the cap cannot be armed, degrade to a skipped await rather than an
+  // unbounded one: proceed directly to sub-step 4.
+  if (!armed) {
+    return;
+  }
+
+  // The settle-all barrier the cka-31 obligation mandates: resolve the race on
+  // the earlier of `Promise.allSettled` settling or the cap firing.
+  void Promise.allSettled(entries.map((entry) => entry.disposeBarrier)).then( // allow: cka-31 — session-shutdown-semantics.md
+    () => {
+      resolveRace();
+    },
+  );
+
+  await race;
+
+  if (timerFired && inFlight.size > 0) {
+    // Cap fired with entries still in flight: emit one `reload-teardown-timeout`
+    // naming them in insertion order, then proceed to sub-step 4.
+    const stillInFlight = entries.filter((entry) => inFlight.has(entry));
+    const elapsed = clock.now() - start;
+    emitTeardownDiagnostic(
+      sink,
+      reloadTeardownTimeoutDiagnostic(stillInFlight, elapsed),
+    );
+    return;
+  }
+
+  // Success path: clear the pending cap timer so a completed reload does not
+  // leak a timer onto the about-to-be-invalidated runtime.
+  runIsolatedCall(3, "Clock.clearTimeout(awaitCap)", sink, () => {
+    if (timerHandle !== undefined) {
+      clock.clearTimeout(timerHandle);
+    }
+  });
 }
