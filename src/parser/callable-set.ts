@@ -146,20 +146,202 @@ export interface CallableSetResult {
  *   - freeze the resulting snapshot (no ambient inheritance).
  *
  * The loom registers iff no error-severity diagnostic was raised.
- *
- * V6c-T stub: inert. Registers an empty, **unfrozen** snapshot and raises no
- * diagnostic, so every paired V6c-T test reds on its own primary assertion — an
- * absent expected diagnostic, a missing resolved entry, or an unfrozen snapshot
- * — not on a compile error, missing fixture, or harness throw. The paired V6c
- * implementation leaf fills this in.
  */
 export function resolveCallableSet(
   input: ResolveCallableSetInput,
 ): CallableSetResult {
-  void input;
-  return {
-    registered: true,
-    callableSet: { entries: new Map<string, ResolvedCallable>() },
-    diagnostics: [],
-  };
+  const { file, tools, deps } = input;
+  const diagnostics: Diagnostic[] = [];
+  const entries = new Map<string, ResolvedCallable>();
+
+  for (const raw of splitEntries(tools)) {
+    const parsed = parseEntry(raw);
+
+    // Validate an `as` rename target before resolving the underlying callable:
+    // a rename target that is not loom-identifier-shaped is rejected outright
+    // (frontmatter-fields-a.md §`tools` — the `as` rename rule).
+    if (parsed.rename !== undefined && !isLowercaseFirstIdentifier(parsed.rename)) {
+      diagnostics.push({
+        severity: "error",
+        code: "loom/load/invalid-tool-rename",
+        file,
+        message: `'as ${parsed.rename}' rename target must be lowercase-first; got '${parsed.rename}'`,
+      });
+      continue;
+    }
+
+    // Resolve the entry's underlying callable and compute its default name.
+    const resolution = resolveEntry(parsed.spec, deps, file);
+    if (resolution.diagnostic !== undefined) {
+      diagnostics.push(resolution.diagnostic);
+      continue;
+    }
+
+    const name = parsed.rename ?? resolution.defaultName;
+
+    // Name-collision: against a name already bound by an earlier entry, or a
+    // top-level `fn` / imported symbol.
+    if (entries.has(name) || deps.reservedNames.has(name)) {
+      diagnostics.push({
+        severity: "error",
+        code: "loom/load/tool-name-collision",
+        file,
+        message: `tool name '${name}' collides with another 'tools:' entry, top-level fn, or import`,
+      });
+      continue;
+    }
+
+    entries.set(name, resolution.callable);
+  }
+
+  // The loom registers iff no error-severity diagnostic was raised. On any
+  // rejection there is no resolution snapshot.
+  const registered = !diagnostics.some((d) => d.severity === "error");
+  if (!registered) {
+    return { registered, diagnostics };
+  }
+
+  // Freeze the snapshot so no ambient inheritance or post-load mutation can
+  // widen the resolved callable set (frontmatter-fields-b-and-templates.md
+  // §Resolution snapshot).
+  const callableSet: CallableSetSnapshot = Object.freeze({ entries });
+  return { registered, callableSet, diagnostics };
+}
+
+/** A parsed `tools:` entry: the callable spec plus an optional `as` rename. */
+interface ParsedEntry {
+  /** The Pi-tool name or `.loom` path literal as written. */
+  readonly spec: string;
+  /** The `as <name>` rename target, if present. */
+  readonly rename?: string;
+}
+
+/** The outcome of resolving one entry's underlying callable. */
+interface EntryResolution {
+  /** The resolved callable, present iff `diagnostic` is absent. */
+  readonly callable: ResolvedCallable;
+  /** The default (pre-rename) name for the entry. */
+  readonly defaultName: string;
+  /** The rejection diagnostic, present iff resolution failed. */
+  readonly diagnostic?: Diagnostic;
+}
+
+/**
+ * Split a `tools:` value into per-entry strings. Both YAML spellings reduce to
+ * the same per-entry grammar (frontmatter-fields-b-and-templates.md
+ * §YAML-shape): the comma short form is the plain scalar split on commas with
+ * each entry trimmed; the list form takes one entry per sequence item. Empty
+ * entries are dropped.
+ */
+function splitEntries(tools: ToolsField): readonly string[] {
+  switch (tools.kind) {
+    case "absent":
+      return [];
+    case "scalar":
+      return tools.text
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+    case "list":
+      return tools.items.map((s) => s.trim()).filter((s) => s.length > 0);
+  }
+}
+
+/**
+ * Parse one trimmed entry into its callable spec and optional `as` rename. The
+ * grammar is `<spec> ('as' <name>)?`; neither a `.loom` path nor an `as` target
+ * contains whitespace, so a whitespace split disambiguates.
+ */
+function parseEntry(raw: string): ParsedEntry {
+  const parts = raw.split(/\s+/).filter((p) => p.length > 0);
+  const rename = parts.length >= 3 && parts[1] === "as" ? parts[2] : undefined;
+  return rename !== undefined ? { spec: parts[0] ?? "", rename } : { spec: parts[0] ?? "" };
+}
+
+/**
+ * Resolve one entry's spec to a callable, or produce the rejection diagnostic.
+ * A bare identifier is a Pi-tool name (resolved against the host registry);
+ * anything else is a `.loom` path literal (resolved against the parse cache,
+ * then gated on subagent-mode).
+ */
+function resolveEntry(
+  spec: string,
+  deps: CallableSetDeps,
+  file: string,
+): EntryResolution {
+  if (isBareIdentifier(spec)) {
+    const resolved = deps.resolvePiTool(spec);
+    if (resolved === undefined) {
+      return {
+        callable: { kind: "pi-tool", toolDefinition: undefined },
+        defaultName: spec,
+        diagnostic: {
+          severity: "error",
+          code: "loom/load/unknown-tool",
+          file,
+          message: `unknown Pi tool '${spec}'`,
+        },
+      };
+    }
+    // A Pi-tool entry's default name is the Pi tool name verbatim.
+    return { callable: resolved, defaultName: spec };
+  }
+
+  // `.loom` path entry.
+  const resolved = deps.resolveLoomCallee(spec);
+  const defaultName = loomDefaultName(spec);
+  if (resolved === undefined) {
+    return {
+      callable: { kind: "loom", mode: "subagent", callee: undefined },
+      defaultName,
+      diagnostic: {
+        severity: "error",
+        code: "loom/load/unresolvable-loom-path",
+        file,
+        message: `cannot resolve .loom path '${spec}'`,
+      },
+    };
+  }
+  if (resolved.mode === "prompt") {
+    return {
+      callable: resolved,
+      defaultName,
+      diagnostic: {
+        severity: "error",
+        code: "loom/load/prompt-mode-callable",
+        file,
+        message: `'tools:' entry '${spec}' points at a prompt-mode loom; only subagent-mode looms are permitted`,
+      },
+    };
+  }
+  return { callable: resolved, defaultName };
+}
+
+/**
+ * The default name for a `.loom` path entry: the file's basename without the
+ * `.loom` extension, with hyphens replaced by underscores
+ * (`./code-review.loom` → `code_review`).
+ */
+function loomDefaultName(loomPath: string): string {
+  const basename = loomPath.slice(loomPath.lastIndexOf("/") + 1);
+  const stem = basename.endsWith(".loom") ? basename.slice(0, -".loom".length) : basename;
+  return stem.replace(/-/g, "_");
+}
+
+/**
+ * A bare loom identifier `[A-Za-z_][A-Za-z0-9_]*` with no path separator or
+ * extension — the shape that marks a `tools:` entry as a Pi-tool name rather
+ * than a `.loom` path literal.
+ */
+function isBareIdentifier(spec: string): boolean {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(spec);
+}
+
+/**
+ * The loom lowercase-first identifier rule (lexical.md §Identifiers): a
+ * lowercase letter or `_` first, then identifier characters. The `as` rename
+ * target must satisfy this.
+ */
+function isLowercaseFirstIdentifier(name: string): boolean {
+  return /^[a-z_][A-Za-z0-9_]*$/.test(name);
 }
