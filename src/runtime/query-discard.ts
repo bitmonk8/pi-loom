@@ -98,11 +98,21 @@ export interface QueryStatement {
 export function checkDiscardedQueryResult(
   stmt: QueryStatement,
 ): Diagnostic | undefined {
-  // Inert V13g-T stub: never fires. The paired V13g impl returns the
-  // `loom/parse/discarded-query-result` diagnostic iff
-  // `stmt.isQuery && stmt.disposition === "bare-expr-statement"`.
-  void stmt;
-  return undefined;
+  // QRY-19: only a must-use `@`...`` query result in bare expression-statement
+  // position drops the `Result` without acknowledgement. The `?`-propagate,
+  // `let _ =`-discard, and `let x = ...?`-bind forms acknowledge it at the call
+  // site and are accepted.
+  if (!stmt.isQuery || stmt.disposition !== "bare-expr-statement") {
+    return undefined;
+  }
+  return {
+    severity: "error",
+    code: DISCARDED_QUERY_RESULT_CODE,
+    file: stmt.file,
+    range: stmt.range,
+    message: DISCARDED_QUERY_RESULT_MESSAGE,
+    hint: DISCARDED_QUERY_RESULT_HINT,
+  };
 }
 
 // --- QRY-20 — discard observability ----------------------------------------
@@ -161,18 +171,29 @@ export function buildDiscardEvent(
   error: QueryError,
   input: DiscardEmitInput,
 ): RuntimeEvent {
-  // Inert V13g-T stub: a sentinel event that preserves neither `kind` /
-  // `message` nor `discard_site`, so the QRY-20 payload assertions red. The
-  // paired V13g impl copies `error.kind` / `error.message` (+ `code` /
-  // `attempts` / `tokens_used`) and stamps `discard_site: input.discardSite`.
-  void error;
-  return {
-    kind: "unimplemented",
+  // QRY-20: preserve the discarded `Err`'s `kind` and `message`, and (where the
+  // variant defines them) its `attempts` (validation) / `tokens_used`
+  // (context_overflow), and stamp `discard_site` with the discard location. The
+  // group-A `RuntimeEvent` carries no `loom/runtime/*` code by construction, so
+  // `code` is populated only when the error variant surfaces one.
+  const event: RuntimeEvent = {
+    kind: error.kind,
     loom: input.loom,
     invocation_id: input.invocationId,
-    message: "unimplemented",
+    message: error.message,
+    discard_site: input.discardSite,
     occurred_at: input.occurredAt,
   };
+  if (input.querySite !== undefined) {
+    event.query_site = input.querySite;
+  }
+  if ("attempts" in error && typeof error.attempts === "number") {
+    event.attempts = error.attempts;
+  }
+  if ("tokens_used" in error && typeof error.tokens_used === "number") {
+    event.tokens_used = error.tokens_used;
+  }
+  return event;
 }
 
 /**
@@ -185,23 +206,15 @@ export function emitDiscardObservability(
   input: DiscardEmitInput,
   deps: SystemNoteChannelDeps,
 ): void {
-  // Inert V13g-T stub: unconditionally emit one sentinel event with
-  // `display: true` (topLevelCascade), regardless of `Ok`/`Err`. This reds both
-  // the `Err`-arm assertions (wrong display / kind / message / discard_site)
-  // and the `Ok`-arm assertion (a discarded `Ok` must emit nothing). The paired
-  // V13g impl guards on `!input.outcome.ok`, builds the event via
-  // `buildDiscardEvent`, and emits with `topLevelCascade: false` so the note
-  // carries `display: false` and `content: ""`.
-  const sentinel: RuntimeEvent = {
-    kind: "unimplemented",
-    loom: input.loom,
-    invocation_id: input.invocationId,
-    message: "unimplemented",
-    occurred_at: input.occurredAt,
-  };
-  emitRuntimeEvent(
-    sentinel,
-    { topLevelCascade: true, userFacingTemplate: "unimplemented" },
-    deps,
-  );
+  // QRY-20: a discarded `Ok` has nothing to observe — emit nothing. A discarded
+  // `Err` is preserved as an operator-facing runtime event on the always-log
+  // `loom-system-note` channel. It is author-handled (the `let _ =` / void-tail
+  // discard is a disposition, not a top-level cascade), so it emits with
+  // `topLevelCascade: false` — the note carries `display: false` and
+  // `content: ""`.
+  if (input.outcome.ok) {
+    return;
+  }
+  const event = buildDiscardEvent(input.outcome.error, input);
+  emitRuntimeEvent(event, { topLevelCascade: false, userFacingTemplate: "" }, deps);
 }
