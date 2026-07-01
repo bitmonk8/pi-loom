@@ -563,3 +563,25 @@ not surprised by them.
    literally against the pinned pi-ai `Api` union; `V9j` implements the
    four-api-string table faithfully and leaves the coverage gate to a
    spec-coverage follow-up.
+
+## V11d-T — binder system-prompt builder seam shape (2026-07-01)
+
+The `buildBinderSystemPrompt` / `renderBinderParamLine` seam (cka-45) takes the
+per-field **surface type** string, the **default-literal surface** string, and
+the **compact-transcript body** as *pre-rendered inputs* rather than rendering
+them from a structured AST/value inside the builder. Rationale: the Loom
+surface-type syntax and the literal-sublanguage surface forms are owned by V2a
+(a dep), and the transcript body is owned by V11b (BNDR-7/8/9) with the walk in
+V11i (cka-39). V11d's job under cka-45 is therefore the *structural composition*
+of the eight prompt items and the byte-exact per-field-line format
+(`<wire> (<type>) <requirement>[ — <desc>]`, two-U+0020 indent), not the
+literal→surface or type→surface conversion. The V11d-T tests exercise the
+composition (Type-display table entries appear verbatim inside `(<type>)`;
+default literals appear verbatim after `default=`; the four reference lines
+reproduce byte-exact). The paired V11d implementation may keep this seam shape
+or fold the surface rendering in behind the same public signatures.
+
+Not a spec divergence: binder-bypass-and-envelope.md pins the *rendered output*
+bytes, and leaves the builder's internal input API unspecified (the envelope and
+prompt are runtime-internal, never Loom-visible). Recorded here for the V11d
+implementer and for discoverability.
