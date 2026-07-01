@@ -20,12 +20,15 @@
 // listener so the defect is caught synchronously and routed, rather than
 // escaping the listener boundary.
 //
-// V17b-T (tests-task) declares the seam and stubs each entry point inertly: a
-// no-op listener that neither forwards the abort into `loomAbort` nor traps and
-// routes a throw. The failing tests therefore red on their own primary
-// assertions (no runtime-defect diagnostic emitted; the downstream checkpoint
-// never observes cancellation; the invoke parent never surfaces
-// `InvokeInfraError`) because the paired `V17b` implementation is absent.
+// V17b (implementation) fills in the three entry points: each registers the
+// *real* forwarding listener that calls `loomAbort.abort(source.reason)` inside
+// a synchronous `try`/`catch`. A throw is trapped at the listener boundary and
+// routed through the runtime-defect surface (`surfaceUnexpectedThrow` →
+// `loom/runtime/internal-error`); at an `invoke` parent it additionally surfaces
+// via the `cause: "internal_error"` arm of `InvokeInfraError`. Because the abort
+// takes effect on the underlying signal *before* the trailing throw, the trap
+// does not swallow the cancellation: `source.signal.aborted` stays `true` and the
+// next `Checkpoint`-seam await still surfaces `Err(QueryError { kind: "cancelled" })`.
 //
 // Spec: cancellation.md (§"Forwarding into `loomAbort`", §"Forwarding-listener
 // throw", CNCL-4 one-shot guard); pi-integration-contract/host-interfaces-core.md
@@ -33,6 +36,7 @@
 // pi-integration-contract/host-prerequisites.md.
 
 import type { Diagnostic, SourceRange } from "../diagnostics/diagnostic";
+import { surfaceUnexpectedThrow } from "./runtime-panics";
 import type { InvokeInfraError } from "./query-error";
 
 /**
@@ -84,16 +88,13 @@ export function trapForwardSlashCommandCancel(
   sink: ForwardingDefectSink,
   site: ForwardingListenerSite,
 ): void {
-  void loomAbort;
-  void sink;
-  void site;
+  // Pi documents `ctx.signal` as `undefined` in idle, non-turn contexts — which
+  // is exactly when the slash-command handler fires — so tolerate it without
+  // depending on its truthiness; there is nothing to forward yet.
   if (ctxSignal === undefined) {
     return;
   }
-  // Inert V17b-T stub: subscribe so the source listener exists, but neither
-  // forward the abort into `loomAbort` nor trap/route a throw. The paired V17b
-  // implementation wraps `loomAbort.abort(ctxSignal.reason)` in the trap.
-  ctxSignal.addEventListener("abort", () => {}, { once: true });
+  forwardWithTrap(loomAbort, ctxSignal, sink, site);
 }
 
 /**
@@ -108,11 +109,7 @@ export function trapForwardToolExposedCancel(
   sink: ForwardingDefectSink,
   site: ForwardingListenerSite,
 ): void {
-  void loomAbort;
-  void sink;
-  void site;
-  // Inert V17b-T stub: see `trapForwardSlashCommandCancel`.
-  signal.addEventListener("abort", () => {}, { once: true });
+  forwardWithTrap(loomAbort, signal, sink, site);
 }
 
 /**
@@ -129,10 +126,88 @@ export function trapDeriveChildLoomAbort(
   site: ForwardingListenerSite,
   calleePath: string,
 ): void {
-  void child;
-  void sink;
-  void site;
-  void calleePath;
-  // Inert V17b-T stub: see `trapForwardSlashCommandCancel`.
-  parentSignal.addEventListener("abort", () => {}, { once: true });
+  forwardWithTrap(child, parentSignal, sink, site, calleePath);
+}
+
+// ---------------------------------------------------------------------------
+// The shared trap.
+// ---------------------------------------------------------------------------
+
+/**
+ * Register the real forwarding listener on `source` and wrap the
+ * `loomAbort.abort(source.reason)` call in a synchronous `try`/`catch`
+ * (cancellation.md §"Forwarding-listener throw"). The abort is issued first so
+ * the cancellation takes effect on the underlying signal before any throw; a
+ * throw from the `abort(...)` call is then caught synchronously at the listener
+ * boundary — a throw inside an `AbortSignal` "abort" listener is otherwise
+ * reported out-of-band by the WHATWG dispatch algorithm (Node raises it as an
+ * asynchronous `uncaughtException`) and never reaches the `.abort()` caller — and
+ * routed through the runtime-defect surface (`surfaceUnexpectedThrow` →
+ * `loom/runtime/internal-error`) without swallowing the cancellation. When
+ * `calleePath` is supplied the sink is an `invoke`-parent sink and the defect
+ * additionally surfaces as `InvokeInfraError { cause: "internal_error" }`.
+ *
+ * If `source` is already aborted at attach time the forward fires synchronously
+ * (mirroring the `V17a` `forwardSignalReason` seam); otherwise a one-shot
+ * listener carries it. The first-source-wins one-shot guard is inherent to the
+ * underlying controller: a second `abort(...)` on an already-aborted controller
+ * is a no-op and does not re-stamp the reason, so a re-entrant second trigger's
+ * throw is trapped without altering the stamped reason.
+ */
+function forwardWithTrap(
+  loomAbort: LoomAbortLike,
+  source: AbortSignal,
+  sink: ForwardingDefectSink | InvokeForwardingDefectSink,
+  site: ForwardingListenerSite,
+  calleePath?: string,
+): void {
+  const forward = (): void => {
+    try {
+      // Issue the abort first: the cancellation takes effect on the underlying
+      // signal before any throw, so the trap below never swallows it.
+      loomAbort.abort(source.reason);
+    } catch (thrown: unknown) { // allow-broad-catch: loom/runtime/internal-error — cancellation.md
+      // cancellation.md §"Forwarding-listener throw" mandates trapping any throw
+      // from the `loomAbort.abort(source.reason)` call at the listener boundary
+      // and routing it through the runtime-defect surface; the throw's type is
+      // not statically knowable (a hostile `reason` getter, a Pi-side
+      // `ctx.abort()` wrapper failure, or an internal invariant violation).
+      routeForwardingDefect(thrown, sink, site, calleePath);
+    }
+  };
+
+  if (source.aborted) {
+    forward();
+    return;
+  }
+  source.addEventListener("abort", forward, { once: true });
+}
+
+/**
+ * Route a trapped forwarding-listener throw through the runtime-defect surface.
+ * `surfaceUnexpectedThrow` classifies the throw (returning `undefined` for a
+ * `LoomPanic` / host-fatal, which are not runtime defects); when it yields a
+ * `loom/runtime/internal-error` `Diagnostic` the trap emits it, and at an
+ * `invoke` parent (`calleePath` supplied on an `InvokeForwardingDefectSink`)
+ * additionally surfaces the `cause: "internal_error"` arm of `InvokeInfraError`.
+ */
+function routeForwardingDefect(
+  thrown: unknown,
+  sink: ForwardingDefectSink | InvokeForwardingDefectSink,
+  site: ForwardingListenerSite,
+  calleePath?: string,
+): void {
+  const diagnostic = surfaceUnexpectedThrow(thrown, { file: site.file, range: site.range });
+  if (diagnostic === undefined) {
+    return;
+  }
+  sink.emitDefect(diagnostic);
+  if (calleePath !== undefined && "emitInvokeInfra" in sink) {
+    sink.emitInvokeInfra({
+      kind: "invoke_infra",
+      message: diagnostic.message,
+      callee_path: calleePath,
+      cause: "internal_error",
+    });
+  }
 }
