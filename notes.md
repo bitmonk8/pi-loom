@@ -714,3 +714,8 @@ impl fills it). Design decisions recorded for the V13a implementer:
 - Used `.then(onResolve, onReject)` rather than `.catch` so a late RESOLVE is also routed (the discriminator is whether cancellation surfaced, not the settle kind) and so the rejection handler is attached at construction, not after an intermediate `.then` microtask hop.
 - Pre-existing failure observed (not caused by this leaf): `tests/pre-evaluation-reload-failure.test.ts` has 4 reds on baseline HEAD (551a114) independent of this change (confirmed via git stash). Out of scope for V15h; left untouched.
 - No divergence from spec/plan; no decisions.jsonl entry.
+
+## V15l-T (2026-07-01)
+- Added `src/runtime/invoke-cross-mode.ts` (inert-stub seam) + `tests/invoke-cross-mode.test.ts` (9 tests). The cross-mode matrix carries no numbered PREFIX-N REQ-ID (it is an un-anchored INV-area obligation; the prompt→prompt facet is the only cell with a cka row — cka-15 → V15d). Tests cite invocation.md §Cross-mode semantics / §Tools and model inline rather than a REQ-ID, matching the leaf's "(INV area)" framing.
+- Observation (not a divergence): the coverage matrix has no row for V15l's in-scope cross-mode cells (fresh-vs-attach selection + child-config-not-inherited). cka-15 covers only the prompt→prompt suspend/snapshot cell (V15d). The general cross-mode matrix selection appears to lack a code-keyed-area row. Out of scope to fix in a tests-task; flagging for the V15l impl / plan maintenance to reconcile (H5b Deps + a coverage-matrix cka row may be warranted if the matrix selection is a distinct un-anchored MUST).
+- No spec edit made; no decisions.jsonl entry (no behavioural divergence from spec/plan — the tests encode the matrix exactly as invocation.md states it).
