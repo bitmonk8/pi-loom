@@ -32,16 +32,24 @@
 // Spec: slash-invocation.md (SLSH-3, SLSH-4, SNK-a…SNK-k, SLSH-5),
 // errors-and-results/queryerror-variants.md (the nine-variant union).
 
-import type { InvokeCalleeError, QueryError } from "./query-error";
+import type {
+  CodeToolError,
+  ContextOverflowError,
+  InvokeCalleeError,
+  InvokeInfraError,
+  ModelToolError,
+  QueryError,
+  ToolLoopExhaustedError,
+  TransportError,
+  ValidationError,
+} from "./query-error";
 import type { InvocationRecord } from "./invoke-provenance";
 
 /**
- * The non-compliant stub sentinel. Deliberately NOT any SLSH-4 template and NOT
- * a chain suffix, so every V12b-T assertion that compares against a normative
- * rendered string reds. It is a single line so the SLSH-3 "one line" structural
- * check is not what reds — the per-kind string-equality assertion is.
+ * The SLSH-4 template separator: em-dash U+2014. The registry/template cells
+ * carry the literal em-dash; only the readability backticks are stripped.
  */
-const UNIMPLEMENTED_ERR_NOTE = "<err-note-render unimplemented>";
+const DASH = "\u2014";
 
 /**
  * One `invoke_callee` hop's rendering inputs. Each hop pairs the wrapper's
@@ -95,9 +103,64 @@ export interface ErrNoteInput {
  * The V12b-T stub returns the sentinel so the per-kind string assertions red.
  */
 export function renderLeafKindNote(loomName: string, leaf: QueryError): string {
-  void loomName;
-  void leaf;
-  return UNIMPLEMENTED_ERR_NOTE;
+  const prefix = `loom /${loomName}`;
+  // `kind` is typed `string` (ERR-15 discriminator openness), so the union
+  // members are not TS-discriminable by tag; each branch casts to the variant
+  // whose fields it reads. Any tag outside the loom 1.0.0 set falls to SNK-k,
+  // making the renderer total over the open discriminator.
+  switch (leaf.kind) {
+    case "validation": {
+      const e = leaf as ValidationError;
+      // SNK-a (schema_validation) / SNK-b (empty_template) share `kind`,
+      // keyed on `cause`.
+      if (e.cause === "empty_template") {
+        // SNK-b
+        return `${prefix} returned Err: rendered query template was empty ${DASH} no provider turn was issued`;
+      }
+      // SNK-a
+      return `${prefix} returned Err: model failed schema after ${e.attempts} respond-repair attempts`;
+    }
+    case "transport": {
+      // SNK-c
+      const e = leaf as TransportError;
+      return `${prefix} returned Err: transport ${DASH} ${e.message}`;
+    }
+    case "model_tool": {
+      // SNK-d
+      const e = leaf as ModelToolError;
+      return `${prefix} returned Err: tool ${e.tool_name} failed ${DASH} ${e.message}`;
+    }
+    case "context_overflow": {
+      // SNK-e
+      void (leaf as ContextOverflowError);
+      return `${prefix} returned Err: context overflow`;
+    }
+    case "cancelled": {
+      // SNK-f
+      return `${prefix} cancelled`;
+    }
+    case "code_tool": {
+      // SNK-g
+      const e = leaf as CodeToolError;
+      return `${prefix} returned Err: tool ${e.tool_name} call failed (${e.cause}) ${DASH} ${e.message}`;
+    }
+    case "tool_loop_exhausted": {
+      // SNK-h — `last_tool_name` renders as the literal `respond` when null
+      // (defensive forward-compat rendering; no loom 1.0-reachable null case).
+      const e = leaf as ToolLoopExhaustedError;
+      const lastTool = e.last_tool_name ?? "respond";
+      return `${prefix} returned Err: tool-call loop exhausted after ${e.rounds} rounds (last tool: ${lastTool})`;
+    }
+    case "invoke_infra": {
+      // SNK-i
+      const e = leaf as InvokeInfraError;
+      return `${prefix} returned Err: invoke of ${e.callee_path} failed (${e.cause})`;
+    }
+    default: {
+      // SNK-k catch-all — total over any unlisted `kind` in the open union.
+      return `${prefix} returned Err: ${leaf.kind} ${DASH} ${leaf.message}`;
+    }
+  }
 }
 
 /**
@@ -110,8 +173,27 @@ export function renderLeafKindNote(loomName: string, leaf: QueryError): string {
  * assertions red on their own primary comparison.
  */
 export function renderTopLevelErrNote(input: ErrNoteInput): string {
-  void input;
-  return UNIMPLEMENTED_ERR_NOTE;
+  // Walk `inner` through any `invoke_callee` wrapper(s) to the leaf variant;
+  // the leaf `kind` drives the per-kind row (SLSH-5), never the wrapper.
+  let leaf: QueryError = input.error;
+  while (isInvokeCalleeError(leaf)) {
+    leaf = leaf.inner;
+  }
+  const row = renderLeafKindNote(input.loomName, leaf);
+
+  // SLSH-5 chain suffix: one ` from <calleePath> invoked at <parentPath>:<line>`
+  // per hop, emitted leaf-first (innermost hop first). `input.chain` is supplied
+  // OUTERMOST-first, so reverse it to render leaf-first.
+  const suffix = input.chain
+    .slice()
+    .reverse()
+    .map(
+      (h) =>
+        ` from ${h.calleePath} invoked at ${h.record.parentPath}:${h.record.callSiteLine}`,
+    )
+    .join("");
+
+  return row + suffix;
 }
 
 /**
