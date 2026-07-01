@@ -1015,3 +1015,32 @@ with `V16a` present, needs no `H5b` Deps edit; it closes no new REQ-ID.
   `details.kind`/`details.tool_name`/`details.shape_check` fields carry the
   precise, spec-pinned discriminator. No V14c-T test constrains this defect
   message string. Minor interpretation, not a spec contradiction.
+
+## 2026-07-01 — V14d-T (code-tool host-denial surface, tests)
+
+PIC-52 (trust-boundary.md) enumerates a host-side denial as "a thrown or
+`isError: true` return". This is in tension with spec fix F-1578 (recorded in
+the V14g / V14g-T notes), which removed the `isError` field from the *code-side*
+`AgentToolResult` type in host-interfaces-core.md: at the loom 1.0 Pi-SDK pin a
+well-behaved Pi tool signals denial by throwing, and a cleanly-resolving
+code-side envelope always lowers to `Ok` (the throw is the only code-side
+`cause:"execution"` path). tool-calls.md line 34 and trust-boundary.md PIC-52
+still carry the pre-F-1578 "isError: true return" phrasing (residual staleness
+already flagged by V14g-T for spec-side lock-step).
+
+Reconciliation taken for V14d-T (and the paired V14d seam): the host-denial
+surface (`src/runtime/tool-call-host-denial.ts`) models both denial forms PIC-52
+enumerates. The `isError: true` return form is modelled as a *defensive guard*
+on an optional envelope flag (`HostDeniableEnvelope.isError?`) rather than a
+declared code-side field, because the content-only accepted-path lowering
+(`filterJoinToolText`, V14g) reads only `content` and would otherwise silently
+lower an `{ content, isError: true }` denial to `Ok(<content text>)` — exactly
+the "silent success on denial is forbidden" PIC-52 MUST. Both forms
+(throw, `isError:true` return) classify as `denied` and lower to
+`Err(CodeToolError { kind:"code_tool", cause:"execution" })`; only a non-denial
+return lowers to `Ok`. This keeps the observable behaviour faithful to PIC-52's
+literal text and its silent-success prohibition without contradicting F-1578's
+removal of `isError` from the code-side *type* (the guard fires on the flag if
+present, but the loom 1.0 pin's tools do not set it, so the throw path is the
+live one). No spec edit made; the residual PIC-52 / tool-calls.md staleness
+remains a spec-side lock-step item owned by the relevant spec-coverage finding.
