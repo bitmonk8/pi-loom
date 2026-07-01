@@ -123,13 +123,17 @@ export function createLoadFailurePreEvalRouter(
 ): LoadFailurePreEvalRouter {
   return {
     routePreEvalFailure(cause: PreEvalFailureCause, note: SystemNote): void {
-      // V4e-T stub: the pre-eval routing the paired V4e implementation owns is
-      // absent — the assembled `loom-system-note` is dropped rather than
-      // delivered onto the `loom-system-note` channel. No `pi.sendMessage`
-      // fires, so the ERR-1…ERR-6/ERR-16 tests red on their primary assertion
-      // (the routed note never reaches the channel).
+      // Route the assembled pre-eval failure `loom-system-note` onto the V7d
+      // `loom-system-note` delivery channel. `sendSystemNote` applies the fixed
+      // `triggerTurn:false` option (SystemNoteSender), so the failure never
+      // fires a turn and never becomes an evaluation outcome — this is the
+      // single routing surface all seven load-time causes (ERR-1…ERR-6,
+      // ERR-16) share, and the surface the watcher-time reload cause (ERR-7,
+      // `V4g`) reuses. The `cause` discriminant is carried for callers /
+      // reload-integration reuse; every cause routes through the one delivery
+      // path, so no per-cause branching is required here.
       void cause;
-      void note;
+      sendSystemNote(note, deps.channel);
     },
     crossRouteSlashLoadParams(
       loomName: string,
