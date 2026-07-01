@@ -210,6 +210,16 @@ function build() {
 		leafReport[id] = leafStatus(leaves[id], tags, current);
 	}
 
+	// The current leaf may be a `-T` tests leaf; its work belongs to the impl
+	// card, which is keyed by the bare id. Normalise so the marker lights up the
+	// right card whether the agent is writing tests or the implementation.
+	const curBase =
+		current && current.leaf
+			? current.leaf.endsWith("-T")
+				? current.leaf.slice(0, -2)
+				: current.leaf
+			: null;
+
 	// Build human-facing FEATURE cards: one card per implementation/horizontal
 	// leaf (the bare id). Its `-T` partner becomes the "tests" checkpoint.
 	const features = [];
@@ -222,7 +232,12 @@ function build() {
 		const blurb = catalog.tasks[id]?.blurb ?? "";
 		const builtDone = tags.has(`${id}-complete`);
 		const testsDone = partner ? tags.has(`${partner.id}-complete`) : null;
-		const status = leafStatus(leaf, tags, current);
+		// A card is in-progress when the agent is on either its impl leaf or its
+		// `-T` tests partner. leafStatus itself stays exact so the orchestrator
+		// frontier keeps tracking the precise leaf id.
+		let status = leafStatus(leaf, tags, current);
+		const writingTests = !!partner && curBase === id && current.leaf === partner.id;
+		if (!builtDone && !leaf.blocked && curBase === id) status = "in-progress";
 		features.push({
 			phase: leaf.phaseKey,
 			name,
@@ -231,6 +246,7 @@ function build() {
 			testsDone,
 			builtDone,
 			status,
+			writingTests,
 		});
 	}
 
