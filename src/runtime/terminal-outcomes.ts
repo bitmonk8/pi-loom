@@ -14,15 +14,14 @@
 // streaming turn and the next driver send (ERR-11); and the non-mutation
 // obligation holds inside a subagent loom too (ERR-12).
 //
-// V4c-T (tests-task) declares the seam — the committed-surface model, the
+// V4c-T (tests-task) declared the seam — the committed-surface model, the
 // `CommittedConversationMutator` the runtime holds against Pi's conversation,
 // the `handlePartialTerminalOutcome` entry the runtime routes a mid-stream
-// terminal event through, and the `classifyNonMutationWindow` scope helper — and
-// stubs the behaviour-bearing functions with a deliberately non-compliant body
-// (the stub mutates committed surfaces / injects a compensating turn, and the
-// window helper mis-scopes) so the failing tests red on their own non-mutation
-// primary assertions. The paired V4c implementation leaf replaces these bodies
-// with the non-mutation contract.
+// terminal event through, and the `classifyNonMutationWindow` scope helper. V4c
+// (this leaf) supplies the behaviour: `handlePartialTerminalOutcome` performs no
+// mutation and no compensating injection (calls nothing on the mutator), and
+// `classifyNonMutationWindow` scopes the window to the half-open interval
+// `[cancelled-turn, next-driver-send)`.
 
 /** The kinds of surface Pi can commit to the driven conversation. */
 export type CommittedSurfaceKind = "assistant-tokens" | "tool-call-card" | "system-note";
@@ -88,22 +87,21 @@ export function handlePartialTerminalOutcome(
   outcome: PartialTerminalOutcome,
   mutator: CommittedConversationMutator,
 ): void {
-  // STUB (V4c-T): NON-COMPLIANT placeholder so the failing tests red on their
-  // non-mutation primary assertions. It performs exactly the mutations the
-  // contract forbids — truncating and rewriting a committed surface (ERR-8) and
-  // injecting a compensating turn (ERR-9) — on every path and in every mode
-  // (ERR-10 / ERR-12). The paired V4c implementation leaf replaces this body
-  // with the non-mutation contract (call nothing on `mutator`).
-  const first = outcome.committed[0];
-  if (first !== undefined) {
-    mutator.truncate(first.id);
-    mutator.rewrite(first.id, "");
-  }
-  mutator.injectCompensatingTurn({
-    kind: "system-note",
-    id: "v4c-stub-compensating-turn",
-    content: `stub compensating turn for ${outcome.path}/${outcome.mode}`,
-  });
+  // V4c: the partial-append / non-mutation contract. Turns Pi has committed to
+  // the driven conversation remain final — the runtime performs no implicit
+  // rollback (§"No rollback", ERR-13) and, on a mid-stream terminal event
+  // (cancellation OR `?`-propagation after a partial stream), MUST NOT mutate
+  // any Pi-committed surface (no truncate / rewrite / replace / remove —
+  // ERR-8) and MUST NOT inject a compensating turn (ERR-9). These obligations
+  // bind symmetrically across the two paths (ERR-10) and across prompt and
+  // subagent modes (ERR-12). A compliant runtime therefore calls no method on
+  // `mutator` for any `outcome` — the committed surfaces are read-only here.
+  //
+  // The parameters carry the observable outcome (path / mode / committed
+  // surfaces) that a caller may inspect; the contract's whole content is the
+  // absence of any mutating call, so the body is intentionally empty.
+  void outcome;
+  void mutator;
 }
 
 /**
@@ -145,21 +143,32 @@ export interface NonMutationWindow {
 export function classifyNonMutationWindow(
   events: readonly WindowTimelineEvent[],
 ): NonMutationWindow {
-  // STUB (V4c-T): NON-COMPLIANT placeholder so the ERR-11 window-scope test
-  // reds. It mis-scopes the window — closing it at the LAST driver send rather
-  // than the first, and collecting EVERY respond-repair append (including those
-  // after the next driver send, which ERR-11 excludes). The paired V4c leaf
-  // replaces this with the [cancelled-turn, next-driver-send) scope.
+  // V4c: the ERR-11 non-mutation window binds between the cancelled streaming
+  // turn and the NEXT driver send — the half-open interval
+  // `[cancelled-turn, next-driver-send)`. The window opens at the cancelled
+  // turn, closes at the FIRST subsequent driver send, and its
+  // `appendsInsideWindow` are exactly the respond-repair appends recorded
+  // before that first send. Appends after the next driver send are the
+  // respond-repair loop's own — governed by Query §"Schema-validation
+  // respond-repair", not ERR-11 — so they are excluded.
   let opensAt = "";
   let closesAt = "";
+  let windowClosed = false;
   const appendsInsideWindow: CommittedSurface[] = [];
   for (const event of events) {
     if (event.kind === "cancelled-turn") {
       opensAt = event.turnId;
     } else if (event.kind === "driver-send") {
-      closesAt = event.sendId; // wrong: keeps overwriting to the LAST send
-    } else {
-      appendsInsideWindow.push(event.surface); // wrong: collects all appends
+      // Close the window at the FIRST driver send after the cancelled turn;
+      // later sends do not re-open or move it.
+      if (!windowClosed) {
+        closesAt = event.sendId;
+        windowClosed = true;
+      }
+    } else if (!windowClosed) {
+      // A respond-repair append recorded before the next driver send falls
+      // inside the window; appends after it are excluded.
+      appendsInsideWindow.push(event.surface);
     }
   }
   return { opensAt, closesAt, appendsInsideWindow };

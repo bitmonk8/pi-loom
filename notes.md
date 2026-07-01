@@ -782,3 +782,8 @@ impl fills it). Design decisions recorded for the V13a implementer:
 - ERR-11 modelled as a `classifyNonMutationWindow` scope helper returning [opensAt, closesAt) + appendsInsideWindow: the window opens at the cancelled streaming turn and closes at the NEXT driver send, so respond-repair appends after that send fall OUT of the ERR-11 window (governed by Query §respond-repair). This makes the ERR-11 "window between the cancelled turn and the next driver send" clause a directly-testable boundary.
 - ERR-12 exercised via the H4a/H4c harness `scriptSubagentCallee` surface (subagent-loom outcome) rather than the live V9i surface, per the leaf's explicit instruction; the live-surface re-assertion is a real-host-only behaviour V9i carries off the H4a double (not under npm test).
 - Confirmed the 4 pre-existing tests/pre-evaluation-reload-failure.test.ts (V4g-T) reds persist on HEAD independent of this change (V4g impl not yet landed — no V4g-complete tag) — unrelated, left untouched.
+
+## V4c (2026-07-01)
+- Implemented the two V4c-T seams: handlePartialTerminalOutcome is now a no-op against the mutator (the whole ERR-8/ERR-9/ERR-10/ERR-12 contract is the absence of any mutating call), and classifyNonMutationWindow closes the ERR-11 window at the FIRST driver send after the cancelled turn (half-open [cancelled-turn, next-driver-send)), collecting only respond-repair appends before that send.
+- No spec/plan divergence. The seam shape was fixed by V4c-T; V4c only supplies compliant bodies.
+- Ships-when confirmed: npx vitest run tests/terminal-outcomes.test.ts → 6/6 green. The 4 pre-existing tests/pre-evaluation-reload-failure.test.ts (V4g-T) reds persist on HEAD independent of this change (V4g impl not yet landed) — unrelated, untouched.
