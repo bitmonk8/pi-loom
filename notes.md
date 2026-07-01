@@ -625,3 +625,25 @@ impl fills it). Design decisions recorded for the V13a implementer:
   pre-existing spec-prose/registry wording mismatch (a local clarification, not a
   structural defect); left unedited because the registry SSoT already resolves it
   and no behaviour depends on the prose phrasing.
+
+## 2026-07-01 — V15a-T invocation-core seam shaping (non-plan discovery)
+
+- INV-1 containment seam (`src/runtime/invocation.ts`): modeled the "active
+  discovery-root union" as a `readonly string[]` passed into
+  `checkInvokePathContainment` / the two surface functions, rather than reading a
+  shared discovery-roots registry. `src/discovery/discovery-walk.ts`
+  (`DiscoveryResult`) exposes discovered looms + diagnostics but no active-roots
+  list, so a caller-supplied root set is the minimal seam. The paired `V15a`
+  impl can wire the roots from wherever the factory computes them; the runtime
+  re-check taking `activeRoots` by value is what makes "uses the currently
+  active set (hot-reload fail-closed)" testable.
+- The `loom/load/invoke-path-escape` diagnostic `<path>` placeholder is rendered
+  from the *literal path as written* (no realpath normalisation) per
+  placeholder-rendering-b.md, so the surface input carries `literalPath`
+  separately from the parse-time `resolvedPath`. Diagnostic Message string is
+  sourced from the code-registry-load.md Message column, not from leaf/spec
+  prose, per the "Diagnostic message anchors" cross-cutting rule.
+- Static-resolution walk: `runStaticResolutionPass` takes a `parseAndLower`
+  callback (the per-pass parse cache's parse/lower step) as an injected dep so
+  the "exactly once per canonical path" property is observable by spying on the
+  callback — no whole-loom-document parser entry point exists yet in `src/`.
