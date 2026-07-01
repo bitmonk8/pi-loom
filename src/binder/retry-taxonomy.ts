@@ -43,6 +43,7 @@
 
 import type { ValidationIssue } from "../runtime/query-error";
 import type { DepthViolationIssue, DepthWalkResult } from "../runtime/depth-walk";
+import { capSystemNote, renderFailureNote } from "./system-note";
 
 /**
  * The worst-case binder LLM-call budget per slash invocation
@@ -50,13 +51,6 @@ import type { DepthViolationIssue, DepthWalkResult } from "../runtime/depth-walk
  * malformed-envelope-class retry.
  */
 export const MAX_BINDER_LLM_CALLS = 3;
-
-/**
- * The inert sentinel every string-producing V11f-T stub returns so no rendered
- * note or summary coincides with a pinned template — each template test reds on
- * its own equality assertion. The paired V11f implementation removes it.
- */
-export const UNIMPLEMENTED = "\u0000UNIMPLEMENTED\u0000";
 
 /** The two-character `<ajv-summary>` inter-issue separator (spec: `; `). */
 const AJV_SUMMARY_SEPARATOR = "; ";
@@ -84,15 +78,52 @@ export type BinderFailureSurface =
  * V11e line discipline. Only the `<…>` placeholders are interpolated; the
  * surrounding template text is fixed.
  *
- * V11f-T stub: returns {@link UNIMPLEMENTED} for every surface so each template
- * test reds on its own equality assertion. The paired V11f implementation fills
- * this in (composing through `renderFailureNote` / `capSystemNote`).
+ * The `needs_info`, `ambiguous`, `malformed`, and `ajv_args` rows follow the
+ * rule-3 em-dash grammar `loom /<name>: <fixed-phrase> — <suffix>` and compose
+ * through {@link renderFailureNote}. The `transport` row (its own
+ * `(<provider>: <message>)` parenthetical grammar) and the `cancelled` row (no
+ * suffix) do not use the em-dash boundary, so they are composed directly and
+ * passed through the rule-2 length cap {@link capSystemNote}.
  */
 export function renderBinderSystemNote(
-  _loomName: string,
-  _surface: BinderFailureSurface,
+  loomName: string,
+  surface: BinderFailureSurface,
 ): string {
-  return UNIMPLEMENTED;
+  switch (surface.kind) {
+    case "needs_info":
+      return renderFailureNote({
+        loomName,
+        fixedPhrase: "argument binding needs more info",
+        suffix: surface.message,
+      });
+    case "ambiguous":
+      return renderFailureNote({
+        loomName,
+        fixedPhrase: "ambiguous arguments",
+        suffix: surface.message,
+      });
+    case "malformed":
+      return renderFailureNote({
+        loomName,
+        fixedPhrase: "argument binding failed",
+        suffix: "could not parse arguments",
+      });
+    case "ajv_args":
+      return renderFailureNote({
+        loomName,
+        fixedPhrase: "argument binding produced invalid args",
+        suffix: surface.ajvSummary,
+      });
+    case "transport":
+      // The transport row uses the `(<provider>: <message>)` parenthetical
+      // rather than the em-dash suffix boundary; `<provider>` is the
+      // classifier's `Model<Api>.api` value rendered verbatim.
+      return capSystemNote(
+        `loom /${loomName}: argument binder unavailable (${surface.provider}: ${surface.message})`,
+      );
+    case "cancelled":
+      return capSystemNote(`loom /${loomName}: argument binding cancelled`);
+  }
 }
 
 // --- the `<ajv-summary>` placeholder ----------------------------------------
@@ -103,12 +134,11 @@ export function renderBinderSystemNote(
  * the failed validation's `ValidationIssue` entries, joined by the
  * two-character separator `; ` in canonical `validation_errors` order. An empty
  * issue list renders the empty string.
- *
- * V11f-T stub: returns {@link UNIMPLEMENTED} so the summary tests red on their
- * own assertions. The paired V11f implementation fills this in.
  */
-export function renderAjvSummary(_issues: readonly ValidationIssue[]): string {
-  return UNIMPLEMENTED;
+export function renderAjvSummary(issues: readonly ValidationIssue[]): string {
+  return issues
+    .map((issue) => `${issue.path} ${issue.message}`)
+    .join(AJV_SUMMARY_SEPARATOR);
 }
 
 /**
@@ -119,16 +149,14 @@ export function renderAjvSummary(_issues: readonly ValidationIssue[]): string {
  * issue (`schema_keyword: "maxDepth"`, message `"JSON document depth exceeds 5"`),
  * NOT from an `errorsText` traversal of the (empty) AJV `errors` array — AJV did
  * not run at this site.
- *
- * V11f-T stub: returns {@link UNIMPLEMENTED} so the depth-walk test reds on its
- * own assertion. The paired V11f implementation fills this in.
  */
-export function renderDepthWalkAjvSummary(_issue: DepthViolationIssue): string {
-  return UNIMPLEMENTED;
+export function renderDepthWalkAjvSummary(issue: DepthViolationIssue): string {
+  // Single-issue form: the one canonical depth-walk issue rendered as
+  // `<JSON-Pointer> <message>` with no `; ` separator — synthesised from the
+  // depth-walk issue, not from an `errorsText` traversal of the empty AJV
+  // `errors` array.
+  return `${issue.path} ${issue.message}`;
 }
-
-// keep the separator part of the module's declared surface for the paired impl.
-void AJV_SUMMARY_SEPARATOR;
 
 // --- cross-ceiling `params`-boundary classification (CIO-1 / CIO-3) ---------
 
@@ -152,13 +180,23 @@ export interface ClassifyBinderArgsInput {
  * AJV-on-`args` class with the depth-walk-synthesised summary; a non-empty AJV
  * issue set yields the AJV-on-`args` class with the joined summary; a clean
  * value is `ok`.
- *
- * V11f-T stub: always returns `{ kind: "ok" }` so the depth-walk classification
- * test reds on its own assertion. The paired V11f implementation fills this in.
  */
 export function classifyBinderArgs(
-  _input: ClassifyBinderArgsInput,
+  input: ClassifyBinderArgsInput,
 ): BinderArgsClassification {
+  // CIO-3: the depth-walk runs before AJV at the `params` boundary. A depth
+  // breach cross-routes (CIO-1: ceiling #4 → ceiling #3) into the AJV-on-`args`
+  // class with the depth-walk-synthesised summary — AJV did not run, so its
+  // issue set is empty and is not consulted here.
+  if (!input.depth.ok) {
+    return {
+      kind: "ajv_args",
+      ajvSummary: renderDepthWalkAjvSummary(input.depth.issue),
+    };
+  }
+  if (input.ajvIssues.length > 0) {
+    return { kind: "ajv_args", ajvSummary: renderAjvSummary(input.ajvIssues) };
+  }
   return { kind: "ok" };
 }
 
@@ -206,12 +244,40 @@ export interface BinderRetryResult {
  * are terminal (HC3-c). The returned `outcome` is the most-recent failure's row
  * (HC3-e).
  *
- * V11f-T stub: returns a zero-call sentinel result WITHOUT issuing any attempt,
- * so every budget test reds on its own `callCount` / `outcome` assertion. The
- * paired V11f implementation fills this in.
+ * Each attempt is classified independently. A `transport` or `malformed`
+ * failure consumes its own single per-invocation budget on retry; the two
+ * budgets interleave (a transport failure observed on the retry of a malformed
+ * envelope consumes the transport budget, and symmetrically), bounding the
+ * issued calls at {@link MAX_BINDER_LLM_CALLS}. `ok` / `needs_info` /
+ * `ambiguous` / `ajv_args` are terminal (HC3-c: AJV-on-`args` carries no retry
+ * budget). The returned `outcome` is the most-recent attempt's outcome, so the
+ * surfaced row matches the most recent failure (HC3-e).
  */
 export async function runBinderWithRetries(
-  _input: BinderRetryInput,
+  input: BinderRetryInput,
 ): Promise<BinderRetryResult> {
-  return { callCount: 0, outcome: { kind: "ok" } };
+  let transportBudget = 1;
+  let malformedBudget = 1;
+  let callCount = 0;
+
+  // The loop issues at most MAX_BINDER_LLM_CALLS attempts: it re-issues only
+  // while a retry-eligible class still has budget, and each retry consumes one
+  // of the two single budgets, so it terminates after at most 1 initial + 1
+  // transport + 1 malformed = 3 attempts.
+  for (;;) {
+    const outcome = await input.attempt(callCount);
+    callCount += 1;
+
+    if (outcome.kind === "transport" && transportBudget > 0) {
+      transportBudget -= 1;
+      continue;
+    }
+    if (outcome.kind === "malformed" && malformedBudget > 0) {
+      malformedBudget -= 1;
+      continue;
+    }
+    // Terminal (ok / needs_info / ambiguous / ajv_args) or a retry-eligible
+    // class whose budget is exhausted: surface the most-recent outcome.
+    return { callCount, outcome };
+  }
 }
