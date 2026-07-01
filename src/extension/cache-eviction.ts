@@ -39,7 +39,7 @@
 // invocation.md (§Resolution), imports.md.
 
 import type { FileSystem } from "../seams/file-system";
-import type { ParsedCallee } from "../runtime/invocation";
+import { canonicalizePath, type ParsedCallee } from "../runtime/invocation";
 
 /**
  * A `.warp` import-edge graph keyed in the canonical
@@ -94,19 +94,49 @@ export interface CacheEvictionResult {
  * and for every file that transitively imports it across the rebuilt post-swap
  * `.warp` import-edge graph, matching all three path identities in the
  * canonical `realpath`-then-forward-slash form.
- *
- * V15e-T stub: inert. Returns an empty `evicted` list, never mutates `cache`,
- * and never invokes `rebuildImportGraph`, so every V15e assertion reds on its
- * own primary assertion (the paired V15e leaf fills this in).
  */
 export async function evictStaleParseCacheEntries(
   deps: CacheEvictionDeps,
   input: CacheEvictionInput,
 ): Promise<CacheEvictionResult> {
-  // Inert stub (V15e-T): touch neither the cache nor the rebuild thunk. Kept
-  // async so the paired V15e implementation can `await deps.fs.realpath(...)`
-  // without a signature change.
-  void deps;
-  void input;
-  return { evicted: [] };
+  // Canonicalise the watcher-delivered changed-file path (V9b) to the single
+  // `realpath`-then-forward-slash form (invocation.md §Resolution) the parse
+  // cache (V15a) and the import-edge graph (V15c) are both keyed under, so a
+  // non-canonical delivered path (symlink, case-variant, `.`/`..`, relative)
+  // matches rather than silently missing.
+  const changedCanonical = await canonicalizePath(deps.fs, input.changedPath);
+
+  // Rebuild the post-swap import-edge graph and walk over *that* result:
+  // sequenced after the rebuild, never before, so a reload that newly
+  // establishes an import edge to the changed file identifies the new importer
+  // rather than serving it stale from a pre-swap-graph computation.
+  const graph = input.rebuildImportGraph();
+
+  // Reverse-walk the importer→imported edges to a fixed point: the eviction set
+  // is the changed file plus every node that transitively imports it. Iterate
+  // until no new importer is discovered so a multi-hop chain (c imports b
+  // imports a) is fully reached regardless of edge iteration order.
+  const toEvict = new Set<string>([changedCanonical]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const [importer, imported] of graph.edges) {
+      if (toEvict.has(importer)) continue;
+      if (imported.some((target) => toEvict.has(target))) {
+        toEvict.add(importer);
+        grew = true;
+      }
+    }
+  }
+
+  // Drop the stale entries in place as part of the `LoomRegistry` swap; report
+  // only the paths whose cache entry was actually present and removed, so the
+  // next load pass re-parses exactly those files.
+  const evicted: string[] = [];
+  for (const path of toEvict) {
+    if (input.cache.delete(path)) {
+      evicted.push(path);
+    }
+  }
+  return { evicted };
 }

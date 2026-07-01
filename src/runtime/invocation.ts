@@ -105,11 +105,11 @@ export async function checkInvokePathContainment(
   // §Resolution). Forward-slash-normalise per the Lexical "Path literals" rule;
   // no independent case-folding — the canonical form is whatever `realpath`
   // returns on the host.
-  const canonicalPath = normalizePath(await deps.fs.realpath(resolvedPath));
+  const canonicalPath = await canonicalizePath(deps.fs, resolvedPath);
 
   for (const root of activeRoots) {
     const canonicalRoot = stripTrailingSeparator(
-      normalizePath(await deps.fs.realpath(root)),
+      await canonicalizePath(deps.fs, root),
     );
     // Segment-boundary containment: within iff the callee equals the root
     // byte-for-byte or begins with the root followed by a single separator. A
@@ -128,6 +128,22 @@ export async function checkInvokePathContainment(
 /** Forward-slash-normalise a host path (per the Lexical "Path literals" rule). */
 function normalizePath(path: string): string {
   return path.replace(/\\/g, "/");
+}
+
+/**
+ * The single canonical `realpath`-then-forward-slash path form (invocation.md
+ * §Resolution): `realpath`-normalise the host path, then forward-slash-normalise
+ * per the Lexical "Path literals" rule; no independent case-folding — the
+ * canonical form is whatever `realpath` returns on the host. This is the one
+ * function that mints the canonical path identity the containment check, the
+ * static-resolution per-pass parse cache key, and the `.warp` import-edge-graph
+ * node identity all compare under; consumers reuse it rather than restating it.
+ */
+export async function canonicalizePath(
+  fs: Pick<FileSystem, "realpath">,
+  path: string,
+): Promise<string> {
+  return normalizePath(await fs.realpath(path));
 }
 
 /** Strip a single trailing forward-slash separator from a normalised root. */
