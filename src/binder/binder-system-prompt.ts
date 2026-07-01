@@ -36,18 +36,18 @@
 //   are reproduced byte-exact, including the description-omitted form
 //   (`  language (string) required`, no trailing space or em-dash).
 //
-// V11d-T (tests-task) declares these seams and stubs every behaviour-bearing
-// function inertly (`renderBinderParamLine` and `buildBinderSystemPrompt` both
-// return `""`) so the paired failing tests compile and red on their own primary
-// assertions (every structural item, the Type-display / Default-literal
-// renderings, and the byte-exact Parameter-line renderings are all absent). The
-// paired V11d implementation leaf fills them in.
+// V11d implements these seams: `renderBinderParamLine` renders one per-field
+// line (item 4, Type display, Default-literal rendering, byte-exact
+// Parameter-line reference renderings) and `buildBinderSystemPrompt` assembles
+// the full prompt from the eight structural items.
 //
 // Spec: binder/binder-bypass-and-envelope.md (§"System-prompt structure
 // (normative)", §"Binder system prompt", Type display, Default-literal
 // rendering, Parameter-line reference renderings); the compact-transcript body
 // referenced by item 6 is rendered by V11b (BNDR-7/8/9) and the truncation walk
 // by V11i (cka-39) — both are inputs to this builder, not its responsibility.
+
+import { trimSlashArgumentWhitespace } from "./binder-envelope";
 
 // --- per-field descriptor ---------------------------------------------------
 
@@ -142,12 +142,25 @@ export interface BuildBinderSystemPromptInput {
  * leading bytes are U+0020 U+0020; the content is
  * `<wire-name> (<type>) <requirement>[ — <description>]`.
  *
- * V11d-T stub: returns `""` so the Type-display, Default-literal, and
- * byte-exact Parameter-line reference-rendering tests red on their own primary
- * assertions. The paired V11d implementation fills this in.
+ * The requirement token is `required` or `default=<literal>` (item 4,
+ * Default-literal rendering); the ` — <description>` segment (U+0020 U+2014
+ * U+0020 separator) is appended iff `description` is present and non-empty, and
+ * omitted entirely otherwise so the line ends immediately after the
+ * requirement with no trailing whitespace.
  */
-export function renderBinderParamLine(_field: SystemPromptParamField): string {
-  return "";
+export function renderBinderParamLine(field: SystemPromptParamField): string {
+  const requirement =
+    field.requirement.kind === "required"
+      ? "required"
+      : `default=${field.requirement.literal}`;
+  // Two leading U+0020 SPACE, then `<wire-name> (<type>) <requirement>`.
+  const base = `  ${field.wireName} (${field.type}) ${requirement}`;
+  const description = field.description;
+  if (description !== undefined && description !== "") {
+    // Separator is exactly U+0020 U+2014 U+0020 (space, em-dash, space).
+    return `${base} \u2014 ${description}`;
+  }
+  return base;
 }
 
 // --- the full prompt ---------------------------------------------------------
@@ -155,12 +168,71 @@ export function renderBinderParamLine(_field: SystemPromptParamField): string {
 /**
  * Construct the binder system prompt for one binder attempt (item list above).
  *
- * V11d-T stub: returns `""` so every structural-item test (identity line,
- * conditional Description / Argument-hint / Parameters / Session-context blocks,
- * User-arguments line, envelope-kinds enumeration, no-invent-defaults
- * instruction) reds on its own primary assertion. The paired V11d implementation
- * fills this in.
+ * The wording of the fixed intro / envelope / no-invent lines is non-normative;
+ * the listed tokens, line-prefixes, and conditional-presence rules are the
+ * contract. This rendering follows the illustrative example in the spec.
  */
-export function buildBinderSystemPrompt(_input: BuildBinderSystemPromptInput): string {
-  return "";
+export function buildBinderSystemPrompt(input: BuildBinderSystemPromptInput): string {
+  // Accumulate the prompt line-by-line; each `push` contributes one `\n`-
+  // terminated line, except the Session-context block, which owns its own
+  // multi-line framing including the terminating blank line.
+  let out = "";
+  const line = (value: string): void => {
+    out += `${value}\n`;
+  };
+
+  line("You bind free-form slash-command arguments to typed loom parameters.");
+  line("");
+
+  // Item 1 — Loom identity line (exactly one).
+  line(`Loom: /${input.name}`);
+
+  // Item 2 — Description line (only when non-empty).
+  if (input.description !== undefined && input.description !== "") {
+    line(`Description: ${input.description}`);
+  }
+
+  // Item 3 — Argument-hint line (only when non-empty).
+  if (input.argumentHint !== undefined && input.argumentHint !== "") {
+    line(`Argument hint: ${input.argumentHint}`);
+  }
+
+  // Item 4 — Parameters block (only when ≥1 field), in declaration order.
+  if (input.params.length >= 1) {
+    line("");
+    line("Parameters:");
+    for (const field of input.params) {
+      line(renderBinderParamLine(field));
+    }
+  }
+
+  // Item 5 — User-arguments line (always present). Strip only leading/trailing
+  // ASCII slash-argument whitespace; no other normalisation.
+  line("");
+  line(`User arguments: ${trimSlashArgumentWhitespace(input.rawArguments)}`);
+
+  // Item 6 — Session-context block (only when the input carries a body). The
+  // opening line begins with the literal token `Recent session context` and
+  // ends with `:`; the body ends with its last turn block's trailing `\n`; the
+  // terminating blank line is exactly one further `\n`, so the block ends `\n\n`.
+  if (input.sessionContext !== undefined) {
+    out += "\n";
+    out += "Recent session context (most recent 20 turns / 8000 tokens):\n";
+    out += input.sessionContext.transcriptBody;
+    out += "\n";
+  }
+
+  // Item 7 — Envelope-kinds enumeration (the three `kind` tokens are normative).
+  line("");
+  line("Return one of three envelopes:");
+  line('- { "kind": "ok", "args": { ... } } when every required parameter can be confidently extracted.');
+  line('- { "kind": "needs_info", "message": "<one sentence>" } when a required parameter cannot be determined.');
+  line('- { "kind": "ambiguous", "message": "<one sentence>", "candidates": [...] | null } when multiple bindings are plausible.');
+
+  // Item 8 — No-invent-defaults instruction (single line: `defaulted` + a
+  // directive of `Do not` / `omit` / `skip`).
+  line("");
+  line("Do not invent values for defaulted parameters that the user did not specify; omit them.");
+
+  return out;
 }
