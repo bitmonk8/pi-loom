@@ -90,47 +90,79 @@ export interface ToolExecuteSideChannels {
 export type ToolExecuteLateSettlementDisposition = "discarded" | "surfaced";
 
 /**
- * NON-COMPLIANT STUB (V14f-T). The compliant `V14f` implementation attaches the
- * swallowing handler to the underlying code-side `execute()` Promise at its
- * construction site, before the first microtask boundary, routing each
- * settlement through `routeToolExecuteLateSettlement`. This stub instead
- * returns the Promise WITHOUT attaching any handler, so a late rejection
- * reaches Node's `unhandledRejection` process event — reddening the
- * construction-site attachment test (cka-33 / V14f channel 1).
+ * Attach the swallowing handler to the underlying code-side `execute()` Promise
+ * at its construction site, before the first microtask boundary, and return the
+ * same Promise so callers keep the construction expression. Each settlement is
+ * routed through `routeToolExecuteLateSettlement`, so a late rejection arriving
+ * after cancellation surfaced is absorbed without a Node `unhandledRejection`
+ * process event.
  */
 export function guardToolExecutePromise<T>(
   executePromise: Promise<T>,
-  _guard: ToolExecuteCancellationGuard,
-  _channels: ToolExecuteSideChannels,
+  guard: ToolExecuteCancellationGuard,
+  channels: ToolExecuteSideChannels,
 ): Promise<T> {
-  // No construction-site handler attached — non-compliant.
+  // Attach the swallowing handler synchronously at the construction site,
+  // before the first microtask boundary: `.then(onResolve, onReject)` on the
+  // `execute()` Promise as it is constructed. A lazily-attached `.catch` would
+  // miss a rejection already queued for `unhandledRejection`. Each settlement
+  // is routed through `routeToolExecuteLateSettlement`, which decides
+  // discard-vs-surface against the live cancellation state; a discarded late
+  // rejection is absorbed here and never reaches Node's `unhandledRejection`
+  // process event.
+  executePromise.then(
+    (value: T): void => {
+      routeToolExecuteLateSettlement(
+        { kind: "resolved", value },
+        guard,
+        channels,
+      );
+    },
+    (error: unknown): void => {
+      routeToolExecuteLateSettlement(
+        { kind: "rejected", error },
+        guard,
+        channels,
+      );
+    },
+  );
   return executePromise;
 }
 
 /**
- * NON-COMPLIANT STUB (V14f-T). The compliant `V14f` implementation discards a
- * late settlement once `guard.cancellationSurfaced` is true, emitting nothing
- * on any of the three side channels. This stub ignores the guard and
- * re-surfaces every settlement on both emit channels, returning `"surfaced"` —
- * reddening the three-channel suppression tests (cka-33 / V14f channels 2
- * and 3).
+ * Decide the disposition of one late settlement of the underlying code-side
+ * `execute()` Promise. Once `guard.cancellationSurfaced` is true the settlement
+ * is discarded on all three side channels (this function emits nothing);
+ * otherwise the tool result flows to the normal tool-call surfacing path.
+ *
+ * The discriminator is whether cancellation has surfaced for this invocation,
+ * not the late-settle kind: a late `resolved` value and a late `rejected` error
+ * are discarded identically once `cancellationSurfaced` is true. A late
+ * rejection whose `.error` would otherwise be diagnostic-worthy is still
+ * discarded — promoting it to `loom/runtime/internal-error` would re-introduce
+ * the second-event surface this rule forbids (cancellation.md §"Race
+ * semantics — swallowing-handler attachment on every abandonable Promise").
+ *
+ * The tool-call-only `Err` clauses (a)/(b) (CNCL-1 / CNCL-2) are owned by the
+ * *late-settlement discard at the tool-call checkpoint* paragraph and are NOT
+ * re-derived here; this seam owns only the three-side-channel suppression.
  */
 export function routeToolExecuteLateSettlement(
   _settlement: ToolExecuteSettlement,
-  _guard: ToolExecuteCancellationGuard,
-  channels: ToolExecuteSideChannels,
+  guard: ToolExecuteCancellationGuard,
+  _channels: ToolExecuteSideChannels,
 ): ToolExecuteLateSettlementDisposition {
-  channels.emitRuntimeEvent({
-    kind: "code_tool",
-    loom: "/tool-call",
-    invocation_id: "00000000-0000-0000-0000-000000000000",
-    message: "non-compliant stub re-surfaced a late execute() settlement",
-    occurred_at: 0,
-  });
-  channels.emitDiagnostic({
-    severity: "error",
-    code: "loom/runtime/internal-error",
-    message: "non-compliant stub promoted a late execute() settlement",
-  });
+  if (guard.cancellationSurfaced) {
+    // Abandoned case: cancellation already surfaced `cause: "cancelled"` at the
+    // `tool-call` checkpoint. Discard silently on all three side channels —
+    // emit no second `RuntimeEvent` and no diagnostic of any severity; the
+    // construction-site handler in `guardToolExecutePromise` closes the
+    // `unhandledRejection` channel by absorbing the rejection here.
+    return "discarded";
+  }
+  // Pre-cancellation path: the tool result flows to the normal tool-call
+  // Surfacing rules. This site emits nothing itself — the normal tool-call
+  // execution path owns the resolve/reject surfacing; routing here only reports
+  // that the settlement is live so the caller does not absorb it.
   return "surfaced";
 }
