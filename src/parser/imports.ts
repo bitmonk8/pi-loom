@@ -19,6 +19,7 @@
 // rendered per diagnostics/placeholder-rendering-b.md (the path-literal text as
 // written, no realpath normalisation).
 
+import { posix } from "node:path";
 import type { Diagnostic, SourceRange } from "../diagnostics/diagnostic";
 
 /** A located `import` / `export … from` / top-level-form site. */
@@ -50,6 +51,15 @@ export type WarpTopLevelForm =
   | "statement"
   | "query";
 
+/** The five forms a `.warp` top level may contain (imports.md §"`.warp` file rules"). */
+const PERMITTED_WARP_TOP_LEVEL_FORMS: ReadonlySet<WarpTopLevelForm> = new Set([
+  "import",
+  "export",
+  "schema",
+  "enum",
+  "fn",
+]);
+
 /**
  * Check a `.warp` file's top-level form, returning
  * `loom/parse/warp-top-level-statement` for a non-permitted form and
@@ -59,10 +69,20 @@ export type WarpTopLevelForm =
  * reds on its own primary assertion. The paired V15c leaf fills it in.
  */
 export function checkWarpTopLevelForm(
-  _form: WarpTopLevelForm,
-  _site: ImportSite,
+  form: WarpTopLevelForm,
+  site: ImportSite,
 ): Diagnostic | undefined {
-  return undefined;
+  if (PERMITTED_WARP_TOP_LEVEL_FORMS.has(form)) {
+    return undefined;
+  }
+  return {
+    severity: "error",
+    code: WARP_TOP_LEVEL_STATEMENT_CODE,
+    file: site.file,
+    range: site.range,
+    message: WARP_TOP_LEVEL_STATEMENT_MESSAGE,
+    hint: WARP_TOP_LEVEL_STATEMENT_HINT,
+  };
 }
 
 // ── loom/parse/import-non-warp-extension ────────────────────────────────────
@@ -90,10 +110,22 @@ export function importNonWarpExtensionMessage(path: string): string {
  * leaf fills it in.
  */
 export function checkImportExtension(
-  _pathLiteral: string,
-  _site: ImportSite,
+  pathLiteral: string,
+  site: ImportSite,
 ): Diagnostic | undefined {
-  return undefined;
+  // Byte-exact lowercase `.warp`: `.WARP` / `.Warp` / `.loom` all reject, on
+  // every host regardless of the filesystem's case-equivalence model.
+  if (pathLiteral.endsWith(".warp")) {
+    return undefined;
+  }
+  return {
+    severity: "error",
+    code: IMPORT_NON_WARP_EXTENSION_CODE,
+    file: site.file,
+    range: site.range,
+    message: importNonWarpExtensionMessage(pathLiteral),
+    hint: IMPORT_NON_WARP_EXTENSION_HINT,
+  };
 }
 
 // ── loom/load/unresolvable-warp-path + the Resolver seam (IMP-1) ─────────────
@@ -160,10 +192,37 @@ export class RelativeWarpResolver implements Resolver {
   constructor(private readonly probe: WarpDirectoryProbe) {}
 
   resolve(spec: string, fromFile: string): string {
-    void this.probe;
-    void spec;
-    void fromFile;
-    return "";
+    // Only relative `./` / `../` specs are in scope for loom 1.0; a
+    // package-style (`@scope/pkg`) or project-rooted (`/looms/...`) spec is
+    // unresolvable and signalled by throwing (IMP-1).
+    if (!spec.startsWith("./") && !spec.startsWith("../")) {
+      throw new UnresolvableWarpPathError(spec);
+    }
+    // The relative resolver requires the `.warp` extension (byte-exact
+    // lowercase); a non-`.warp` spec is unresolvable through this resolver.
+    if (!spec.endsWith(".warp")) {
+      throw new UnresolvableWarpPathError(spec);
+    }
+
+    // Join the spec against the importing file's directory, then match the
+    // final segment byte-for-byte against the resolved parent directory's
+    // entries — enumerating once via the probe rather than a single
+    // `exists`/`readText`, so a case-variant entry (`Personas.warp` for a
+    // `personas.warp` literal) rejects on a case-insensitive host (IMP-1).
+    const resolved = posix.join(posix.dirname(fromFile), spec);
+    const parent = posix.dirname(resolved);
+    const finalSegment = posix.basename(resolved);
+
+    // `entries` throws (unreadable parent directory) → unresolvable, and the
+    // throw is the resolution-failure signal, so it propagates unchanged.
+    const names = this.probe.entries(parent);
+    if (!names.includes(finalSegment)) {
+      throw new UnresolvableWarpPathError(spec);
+    }
+    if (!this.probe.entryReadable(parent, finalSegment)) {
+      throw new UnresolvableWarpPathError(spec);
+    }
+    return resolved;
   }
 }
 
@@ -188,12 +247,35 @@ export interface WarpImportLoad {
  * paired V15c leaf fills it in.
  */
 export function loadWarpImport(
-  _resolver: Resolver,
-  _spec: string,
-  _fromFile: string,
-  _site: ImportSite,
+  resolver: Resolver,
+  spec: string,
+  fromFile: string,
+  site: ImportSite,
 ): WarpImportLoad {
-  return { registered: true, diagnostics: [] };
+  let resolvedPath: string;
+  try {
+    resolvedPath = resolver.resolve(spec, fromFile);
+  } catch (resolveError: unknown) { // allow-broad-catch: loom/load/unresolvable-warp-path — spec_topics/imports.md (IMP-1: the load pipeline treats *any* throw from `resolve` as a resolution failure)
+    // IMP-1 mandates treating a throw from `resolve` as a resolution failure —
+    // any throw, not only `UnresolvableWarpPathError` — so this does not
+    // rethrow. The diagnostic renders the spec path as written (`<path>`), not
+    // the thrown error's message.
+    void resolveError;
+    return {
+      registered: false,
+      diagnostics: [
+        {
+          severity: "error",
+          code: UNRESOLVABLE_WARP_PATH_CODE,
+          file: site.file,
+          range: site.range,
+          message: unresolvableWarpPathMessage(spec),
+          hint: UNRESOLVABLE_WARP_PATH_HINT,
+        },
+      ],
+    };
+  }
+  return { resolvedPath, registered: true, diagnostics: [] };
 }
 
 // ── loom/parse/import-unknown-symbol + loom/parse/import-name-collision ──────
@@ -247,9 +329,51 @@ export interface ImportCheckInput {
  * leaf fills it in.
  */
 export function checkImportedSymbols(
-  _input: ImportCheckInput,
+  input: ImportCheckInput,
 ): readonly Diagnostic[] {
-  return [];
+  const diagnostics: Diagnostic[] = [];
+  const exported = new Set(input.resolvedExports);
+
+  // Unknown-symbol arm: a specifier whose SOURCE symbol is neither a top-level
+  // declaration nor a transitive re-export of the resolved file. The message
+  // names the source symbol, not the `as` alias. No fast-fail — every offending
+  // specifier is collected (multi-error batching rule).
+  for (const specifier of input.specifiers) {
+    if (!exported.has(specifier.source)) {
+      diagnostics.push({
+        severity: "error",
+        code: IMPORT_UNKNOWN_SYMBOL_CODE,
+        file: input.file,
+        range: specifier.range,
+        message: importUnknownSymbolMessage(specifier.source, input.specPath),
+      });
+    }
+  }
+
+  // Name-collision arm: a local binding shared by two imports, or colliding
+  // with a same-file top-level declaration. The message names the local name;
+  // each colliding name is reported once.
+  const localTopLevel = new Set(input.localTopLevelNames);
+  const seenLocal = new Set<string>();
+  const reported = new Set<string>();
+  for (const specifier of input.specifiers) {
+    const local = specifier.local;
+    const collides = localTopLevel.has(local) || seenLocal.has(local);
+    if (collides && !reported.has(local)) {
+      diagnostics.push({
+        severity: "error",
+        code: IMPORT_NAME_COLLISION_CODE,
+        file: input.file,
+        range: specifier.range,
+        message: importNameCollisionMessage(local),
+        hint: IMPORT_NAME_COLLISION_HINT,
+      });
+      reported.add(local);
+    }
+    seenLocal.add(local);
+  }
+
+  return diagnostics;
 }
 
 // ── loom/load/import-cycle ──────────────────────────────────────────────────
@@ -283,9 +407,50 @@ export interface WarpImportGraph {
  * own primary assertion. The paired V15c leaf fills it in.
  */
 export function detectImportCycle(
-  _entry: string,
-  _graph: WarpImportGraph,
-  _site: ImportSite,
+  entry: string,
+  graph: WarpImportGraph,
+  site: ImportSite,
 ): Diagnostic | undefined {
-  return undefined;
+  const stack: string[] = [];
+  const onStack = new Set<string>();
+  const visited = new Set<string>();
+  let cyclePath: readonly string[] | undefined;
+
+  const walk = (node: string): void => {
+    if (cyclePath !== undefined) {
+      return;
+    }
+    stack.push(node);
+    onStack.add(node);
+    for (const next of graph.edges.get(node) ?? []) {
+      if (onStack.has(next)) {
+        // Back-edge: the cycle path runs from `next`'s first appearance on the
+        // current stack, with `next` repeated at the end.
+        const from = stack.indexOf(next);
+        cyclePath = [...stack.slice(from), next];
+        return;
+      }
+      if (!visited.has(next)) {
+        walk(next);
+        if (cyclePath !== undefined) {
+          return;
+        }
+      }
+    }
+    stack.pop();
+    onStack.delete(node);
+    visited.add(node);
+  };
+
+  walk(entry);
+  if (cyclePath === undefined) {
+    return undefined;
+  }
+  return {
+    severity: "error",
+    code: IMPORT_CYCLE_CODE,
+    file: site.file,
+    range: site.range,
+    message: importCycleMessage(cyclePath),
+  };
 }
