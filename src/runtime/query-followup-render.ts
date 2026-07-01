@@ -38,7 +38,7 @@
 // `<ajv-summary>` / `<schema-json>` / `<slug>` placeholders),
 // errors-and-results/queryerror-variants.md (ERR-14 `ValidationIssue` ordering).
 
-import type { ValidationIssue } from "./query-error";
+import { orderValidationIssues, type ValidationIssue } from "./query-error";
 
 /**
  * The non-`none` respond-repair methodologies, each with its own follow-up
@@ -78,9 +78,46 @@ export interface FollowUpTurnInput {
  *
  * The paired `V13h` leaf implements the renderer.
  */
-export function renderFollowUpTurn(_input: FollowUpTurnInput): string {
-  // V13h-T inert stub: return the empty string so every byte-comparison test
-  // reds on its own primary assertion because the `V13h` renderer is absent —
-  // never a compile error, missing fixture, or harness throw.
-  return "";
+export function renderFollowUpTurn(input: FollowUpTurnInput): string {
+  // `<schema-json>` — JSON.stringify(schema, null, 2) over the lowered response
+  // schema (the form handed to AJV), not the source-Loom-type form (QRY-12).
+  const schemaJson = JSON.stringify(input.loweredSchema, null, 2);
+  // `<slug>` — the lowered response schema slug, byte-equal to the synthesised
+  // `__loom_respond_<slug>` tool name (QRY-12). The tool reference is wrapped in
+  // literal U+0060 backticks.
+  const toolRef = "`__loom_respond_" + input.slug + "`";
+  // The instruction sentence, its single trailing U+000A, then `<schema-json>`
+  // and the mandated trailing U+000A after the interpolation — shared by both
+  // methodologies.
+  const instructionAndSchema =
+    "Return your final answer using the " +
+    toolRef +
+    " tool, conforming to this schema:\n" +
+    schemaJson +
+    "\n";
+
+  // The non-compliance sentence leads both templates verbatim (QRY-12).
+  const nonComplianceSentence =
+    "Your previous response did not match the required schema. ";
+
+  if (input.methodology === "validator_error") {
+    // `<ajv-summary>` — the in-order `<path> <message>` concatenation of the
+    // most-recent failed attempt's issues, joined by `; ` in the canonical
+    // ERR-14 order. The renderer is handed only the current attempt's issues, so
+    // the summary is never cumulative across attempts (QRY-12 / ERR-14).
+    const ajvSummary = orderValidationIssues(input.issues)
+      .map((issue) => issue.path + " " + issue.message)
+      .join("; ");
+    return (
+      nonComplianceSentence +
+      "Validation errors: " +
+      ajvSummary +
+      ". " +
+      instructionAndSchema
+    );
+  }
+
+  // `schema_repeat` — the non-compliance sentence plus the instruction sentence
+  // and `<schema-json>`; it carries no `<ajv-summary>` clause (QRY-12).
+  return nonComplianceSentence + instructionAndSchema;
 }
