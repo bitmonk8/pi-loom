@@ -29,7 +29,8 @@ import type {
 } from "../seams/file-watcher";
 import type { Diagnostic } from "../diagnostics/diagnostic";
 import type { LoomRegistry } from "./reload-wiring";
-import { emitDiagnosticBatch, type SystemNoteChannelDeps } from "./system-note-channel";
+import { sendSystemNote, type SystemNoteChannelDeps } from "./system-note-channel";
+import { renderDiagnosticLine } from "../diagnostics/diagnostic";
 
 /**
  * The diagnostics-registry code the terminal recovery posture emits, per the
@@ -83,28 +84,39 @@ export interface WatcherTerminalRecoveryDeps {
  * wired onto its `onTerminate` channel (PIC-55). Returns the watcher's
  * `Unsubscribe`.
  *
- * V9q-T stub: arms the change-delivery contract but wires an INERT `onTerminate`
- * callback — the terminal recovery posture (tear-down + persistent-note
- * emission) is absent, so the paired-V9q tests red on their primary assertions
- * (no note emitted, watcher not torn down). The paired V9q implementation fills
- * in the `onTerminate` body.
+ * On the terminal-signal (stopped-delivering) path the recovery posture: (1)
+ * tears the watcher down via `unsub()` (idempotent; leaves it torn down, never
+ * re-armed); (2) emits exactly one persistent
+ * `loom/runtime/watcher-terminated` `loom-system-note` through the V7d channel
+ * as its primary sink (never `ctx.ui.notify` on the steady-state route); (3)
+ * leaves the `LoomRegistry` untouched — no drain-state tag is written, so the
+ * registry stays live and dispatchable through arm (a) of `readDrainState`.
  */
 export function armWatcherWithTerminalRecovery(
   deps: WatcherTerminalRecoveryDeps,
 ): Unsubscribe {
-  // V9q-T stub: the terminal-signal channel is wired but the recovery body is
-  // absent. The paired V9q implementation replaces this no-op with: (1) tear
-  // the watcher down via `unsub()` (leave it torn down, never re-armed); (2)
-  // emit exactly one persistent `loom/runtime/watcher-terminated`
-  // `loom-system-note` through the V7d channel as its primary sink; (3) leave
-  // the `LoomRegistry` untouched (no drain-state tag written).
   const unsub = deps.watcher.watch(deps.roots, deps.onChange, () => {
-    // Intentionally inert in the tests-task stub. Referencing the recovery
-    // collaborators keeps them wired for the paired V9q implementation without
-    // performing the recovery.
-    void unsub;
+    // (1) Tear the watcher down — leave it torn down rather than re-armed. The
+    // seam's `Unsubscribe` is idempotent, so this is safe on any terminal path.
+    unsub();
+
+    // (2) Emit exactly one persistent `loom/runtime/watcher-terminated`
+    // `loom-system-note` through the V7d channel as its primary sink. The note
+    // carries the single terminal diagnostic; its rendered content is sourced
+    // from the registry *Message* column via the location-less diagnostic line.
+    const diagnostic = watcherTerminatedDiagnostic();
+    sendSystemNote(
+      {
+        content: renderDiagnosticLine(diagnostic),
+        display: true,
+        details: { diagnostics: [diagnostic] },
+      },
+      deps.channel,
+    );
+
+    // (3) The `LoomRegistry` is deliberately untouched: no drain-state tag is
+    // written from this path, keeping it live and dispatchable.
     void deps.registry;
-    void emitDiagnosticBatch;
   });
   return unsub;
 }
