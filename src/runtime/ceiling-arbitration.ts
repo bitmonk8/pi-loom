@@ -28,14 +28,15 @@
 // (CIO-6), drawn from the closed identifier set and omitted (never `[]`) when no
 // co-fire occurred.
 //
-// V16a-T (tests-task) declares the seam shape and stubs `arbitrate` inertly: it
-// mis-maps the check site to a sibling ceiling and never enumerates the co-fired
-// siblings, so the paired tests red on their own primary assertions — a wrong
-// `surfaced` identifier and an absent `masked` enumeration. No test reds on a
-// compile error, a missing fixture, or a harness throw. The paired `V16a`
-// implementation leaf fills this in.
+// V16a fills in the arbitration: `surfaced` is the ceiling whose
+// first-enforcement point IS the candidate's check site (the site→ceiling map),
+// and `masked` enumerates the remaining co-present siblings in the closed set's
+// canonical order (`MASKED_CEILING_IDS`), omitted when empty (never `[]`).
 
-import type { MaskedCeilingId } from "./runtime-event-channel";
+import {
+  MASKED_CEILING_IDS,
+  type MaskedCeilingId,
+} from "./runtime-event-channel";
 
 /**
  * The four distinct check sites at which a hard ceiling is evaluated during
@@ -94,21 +95,37 @@ export interface ArbitrationResult {
 }
 
 /**
+ * The fixed site→ceiling map: each check site is the first-enforcement point of
+ * exactly one ceiling class, so a candidate tagged with that site surfaces that
+ * ceiling (CIO-2 `invoke`-entry→#1, CIO-4 round-boundary→#2, CIO-1
+ * slash-load-binder→#3, CIO-3 AJV-boundary→#4). The slash-load-binder→#3 entry
+ * realises CIO-1's #3-over-runtime-class precedence decision: a co-fire whose
+ * surfacing site is the slash-load site surfaces #3 and masks any co-present
+ * runtime-class ceiling.
+ */
+const SITE_CEILING = {
+  "invoke-entry": "ceiling#1",
+  "round-boundary": "ceiling#2",
+  "slash-load-binder": "ceiling#3",
+  "ajv-boundary": "ceiling#4",
+} as const satisfies Record<CheckSite, MaskedCeilingId>;
+
+/**
  * Arbitrate a single ceiling-candidate to the ceiling that surfaces and the
  * co-fired siblings it masks (CIO-1 … CIO-6, the at-most-one-ceiling-per-event
  * rule, and the `masked` enumeration).
  *
- * V16a-T inert stub: mis-maps the check site to a sibling ceiling (a derangement
- * of the correct site→ceiling map, so every single-site case surfaces the wrong
- * ceiling) and never enumerates the co-fired siblings, so the paired tests red
- * on their own primary assertions. The `V16a` implementation fills this in.
+ * The surfacing site's own ceiling surfaces (at most one per event); every
+ * other satisfied ceiling is masked, enumerated in the closed set's canonical
+ * order and omitted when empty (never `masked: []`).
  */
 export function arbitrate(candidate: CeilingCandidate): ArbitrationResult {
-  const derangedSiteMap: Record<CheckSite, MaskedCeilingId> = {
-    "invoke-entry": "ceiling#2",
-    "round-boundary": "ceiling#3",
-    "slash-load-binder": "ceiling#4",
-    "ajv-boundary": "ceiling#1",
-  };
-  return { surfaced: derangedSiteMap[candidate.site] };
+  const surfaced = SITE_CEILING[candidate.site];
+  const masked = MASKED_CEILING_IDS.filter(
+    (id) => id !== surfaced && candidate.satisfied.includes(id),
+  );
+  if (masked.length === 0) {
+    return { surfaced };
+  }
+  return { surfaced, masked };
 }
