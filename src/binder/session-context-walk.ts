@@ -83,20 +83,90 @@ export interface SessionContextWalkResult {
  * inclusive 8000-token / 20-turn caps and returns the included slice
  * chronological oldest-to-newest.
  *
- * The V11i-T stub returns an inert sentinel: `applies: true` with a negative
- * `includedTurnCount` fails every walk-vector assertion (each expects a concrete
- * non-negative count) and the BNDR-10 subagent-skip assertion (which expects
- * `applies: false`), so every V11i-T test reds on its own primary assertion
- * because the walk is absent — not on a harness throw or a compile error. The
- * sentinel is constructed fresh per call (no module-level object binding).
+ * Included turns are returned chronological oldest-to-newest, ready for the
+ * V11b compact-transcript renderer. The result record is constructed fresh per
+ * call (no module-level object binding, no cached state — the BNDR-12
+ * re-entrancy invariant).
  */
 export function walkSessionContext(
-  _input: SessionContextWalkInput,
+  input: SessionContextWalkInput,
 ): SessionContextWalkResult {
+  // BNDR-10: at slash-invocation time a `bind_context: session` declaration on a
+  // `mode: subagent` loom is treated as `bind_context: none` — the walk is
+  // skipped and no *Recent session context* block is emitted. The walk applies
+  // only when session context is requested on a prompt-mode loom.
+  const applies = input.bindContext === "session" && input.mode === "prompt";
+  if (!applies) {
+    return {
+      applies: false,
+      includedMessages: [],
+      includedTurnCount: 0,
+      includedTokenTotal: 0,
+    };
+  }
+
+  // Group into turns using the same turn boundary the V11b renderer uses: a turn
+  // is a `user` message plus all subsequent assistant / toolResult / custom
+  // messages up to (but not including) the next `user` message.
+  // `buildSessionContext(...).messages` is guaranteed to begin with a `user`
+  // message (leading-`user`-message precondition), so no leading run falls
+  // outside a turn; a message preceding any `user` (contra the precondition)
+  // still opens a turn so the walk stays total.
+  const turns: AgentMessage[][] = [];
+  for (const message of input.messages) {
+    if (message.role === "user" || turns.length === 0) {
+      turns.push([message]);
+    } else {
+      turns[turns.length - 1]?.push(message);
+    }
+  }
+
+  // Walk turns newest-to-oldest (the newest turn sits at the array tail).
+  // Include a candidate turn iff, after inclusion, the running token total is
+  // ≤ 8000 AND the running turn count is ≤ 20; the first candidate that would
+  // violate either inequality is excluded entirely (whole-turn truncation;
+  // partial messages are not split) and terminates the walk. Both cap-equality
+  // boundaries are inclusive.
+  let runningTokens = 0;
+  let runningTurns = 0;
+  const includedNewestFirst: AgentMessage[][] = [];
+  for (let i = turns.length - 1; i >= 0; i -= 1) {
+    const turn = turns[i];
+    if (turn === undefined) {
+      continue;
+    }
+    const turnTokens = turn.reduce(
+      (sum, message) => sum + input.estimator.estimate(message),
+      0,
+    );
+    const candidateTokens = runningTokens + turnTokens;
+    const candidateTurns = runningTurns + 1;
+    if (
+      candidateTokens > SESSION_CONTEXT_TOKEN_CAP ||
+      candidateTurns > SESSION_CONTEXT_TURN_CAP
+    ) {
+      break;
+    }
+    runningTokens = candidateTokens;
+    runningTurns = candidateTurns;
+    includedNewestFirst.push(turn);
+  }
+
+  // Emit the included turns chronological oldest-to-newest: the walk accumulated
+  // them newest-to-oldest, so reverse the turn order and flatten each turn's
+  // messages (already chronological within the turn).
+  const includedMessages: AgentMessage[] = [];
+  for (let i = includedNewestFirst.length - 1; i >= 0; i -= 1) {
+    const turn = includedNewestFirst[i];
+    if (turn !== undefined) {
+      includedMessages.push(...turn);
+    }
+  }
+
   return {
     applies: true,
-    includedMessages: [],
-    includedTurnCount: -1,
-    includedTokenTotal: -1,
+    includedMessages,
+    includedTurnCount: runningTurns,
+    includedTokenTotal: runningTokens,
   };
 }
