@@ -22,19 +22,18 @@
 // through the forwarded `options.signal`, and its suppression of any remaining
 // budgeted retry.
 //
-// V11j-T (tests-task) declares this seam and stubs the driver inertly: it issues
-// no binder call, never forwards the signal, and never surfaces cancellation
-// (it returns a zero-call `completed`/`ok` sentinel). The cancellation
-// assertions therefore red on their own primary expectation — no cancelled-binder
-// note surfaces, the signal is never forwarded to an attempt, and the loom would
-// wrongly run — not on a compile error, a missing fixture, or a harness throw.
-// The paired V11j implementation leaf fills it in.
+// The V11j implementation leaf drives the V11f per-class retry budget with the
+// loom's abort signal forwarded into every attempt and a cancellation check
+// before and after each attempt, so an abort observed before or during any
+// attempt suppresses the remaining budget and surfaces the cancelled-binder
+// note immediately.
 //
 // Spec: cancellation.md (§Granularity binder-call clause, §Surfacing
 // cancelled-binder arm); binder/determinism-cancellation-failure.md
 // (§Cancellation, §Failure modes cancelled-binder row).
 
 import type { BinderAttemptOutcome } from "./retry-taxonomy";
+import { renderBinderSystemNote } from "./retry-taxonomy";
 
 /**
  * The outcome of a cancellation-aware binder run.
@@ -90,10 +89,57 @@ export interface BinderCallInput {
 export async function runBinderCallWithCancellation(
   input: BinderCallInput,
 ): Promise<BinderCallResult> {
-  // V11j-T inert stub: issue no binder call and never surface cancellation, so
-  // the cancelled-binder assertions red on their own primary expectation. The
-  // paired V11j implementation leaf forwards the signal into each attempt and
-  // surfaces the cancelled-binder note on an abort observed before/during a call.
-  void input;
-  return { kind: "completed", callCount: 0, outcome: { kind: "ok" } };
+  const { loomName, signal, attempt } = input;
+
+  // The cancelled-binder surface, sourced from the diagnostics-registry-anchored
+  // V11f renderer (the `cancelled` failure-mode row
+  // `loom /<name>: argument binding cancelled`).
+  const cancelled = (): BinderCallResult => ({
+    kind: "cancelled",
+    note: renderBinderSystemNote(loomName, { kind: "cancelled" }),
+  });
+
+  // The V11f per-class retry budget (HC3-a / HC3-b), re-driven here so the
+  // cancellation checks can suppress any remaining retry between attempts.
+  let transportBudget = 1;
+  let malformedBudget = 1;
+  let callCount = 0;
+
+  // Bounded by the V11f budget: each retry consumes one of the two single
+  // budgets, so the loop issues at most 1 initial + 1 transport + 1 malformed
+  // attempt (MAX_BINDER_LLM_CALLS) before terminating.
+  for (;;) {
+    // Abort observed *before* issuing this (initial or retry) call: surface the
+    // cancelled-binder note and do not issue the call. The loom does not run.
+    if (signal.aborted) {
+      return cancelled();
+    }
+
+    // Forward `loomAbort.signal` (input.signal) into the provider invocation as
+    // its `options.signal`, on the initial attempt and on every budgeted retry.
+    const outcome = await attempt(callCount, signal);
+    callCount += 1;
+
+    // Abort observed *during* the in-flight call — surfaced through the
+    // forwarded `options.signal`. Suppress any remaining budgeted retry and
+    // surface the cancelled-binder note immediately, irrespective of which
+    // class's budget remains. The loom does not run: no `Result` reaches loom
+    // code.
+    if (signal.aborted) {
+      return cancelled();
+    }
+
+    if (outcome.kind === "transport" && transportBudget > 0) {
+      transportBudget -= 1;
+      continue;
+    }
+    if (outcome.kind === "malformed" && malformedBudget > 0) {
+      malformedBudget -= 1;
+      continue;
+    }
+    // Terminal outcome (or a retry-eligible class whose budget is exhausted):
+    // the chain settled without an abort, so the most-recent outcome flows to
+    // the normal V11f binder surfacing / loom-start path.
+    return { kind: "completed", callCount, outcome };
+  }
 }
