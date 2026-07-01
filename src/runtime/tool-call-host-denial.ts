@@ -39,9 +39,15 @@
 // execution from loom code"; tool-calls.md §"Failures";
 // errors-and-results/queryerror-variants.md (§"Code-side tool-call variant").
 
-import type { ToolContentBlock } from "./tool-call-execute";
+import {
+  CODE_TOOL_MESSAGE_MAX_BYTES,
+  filterJoinToolText,
+  lowerToolExecuteThrow,
+  truncateUtf8CodePointBoundary,
+  type ToolContentBlock,
+} from "./tool-call-execute";
 import type { CodeToolError } from "./query-error";
-import { makeOk, type ResultValue } from "./value";
+import { makeErr, makeOk, type LoomValue, type ResultValue } from "./value";
 
 // --------------------------------------------------------------------------
 // Host-side tool outcome (throw or return) as seen at the denial boundary
@@ -95,11 +101,13 @@ export type HostDenialLowering =
  * V14d-T stubs this to `false` so the denial-recognition assertions red.
  */
 export function isHostDenial(outcome: HostToolOutcome): boolean {
-  void outcome;
-  // V14d-T inert stub — the paired V14d leaf fills in the throw / `isError:
-  // true` recognition. Returning `false` reds the denial-recognition tests on
-  // their own primary assertion.
-  return false;
+  // A thrown value is always a host-side denial (PIC-52); a return is a denial
+  // only when its `isError` flag is `true`. An absent or falsy `isError` is the
+  // accepted (non-denial) path.
+  if (outcome.kind === "throw") {
+    return true;
+  }
+  return outcome.envelope.isError === true;
 }
 
 /**
@@ -119,12 +127,33 @@ export function classifyHostDenial(
   outcome: HostToolOutcome,
   toolName: string,
 ): HostDenialLowering {
-  void outcome;
-  void toolName;
-  // V14d-T inert stub — the forbidden behaviour: it silently succeeds on every
-  // outcome (including a denial), so the denial assertions red. The paired V14d
-  // implementation leaf routes a throw / `isError: true` return to
-  // `Err(CodeToolError { cause: "execution" })` and only a non-denial return to
-  // `Ok(<joined text>)`.
-  return { kind: "accepted", result: makeOk("") };
+  // Throw form: reuse the V14g `execute()`-throw coercion / truncation so a
+  // thrown denial lowers identically to the live-surface execution error.
+  if (outcome.kind === "throw") {
+    const error = lowerToolExecuteThrow(outcome.thrown, toolName);
+    return { kind: "denied", result: makeErr(error as unknown as LoomValue), error };
+  }
+
+  const content = outcome.envelope.content ?? [];
+  // `isError: true` return form: a denial-signalling return that the
+  // content-only accepted-path lowering would otherwise turn into a silent
+  // `Ok(<content text>)`. Carry the joined denial text as the message, under the
+  // same 4096-byte code-point-boundary cap the throw form uses, so silent
+  // success on denial is refused (PIC-52).
+  if (outcome.envelope.isError === true) {
+    const error: CodeToolError = {
+      kind: "code_tool",
+      message: truncateUtf8CodePointBoundary(
+        filterJoinToolText(content),
+        CODE_TOOL_MESSAGE_MAX_BYTES,
+      ),
+      tool_name: toolName,
+      cause: "execution",
+    };
+    return { kind: "denied", result: makeErr(error as unknown as LoomValue), error };
+  }
+
+  // Non-denial return: the accepted path — `Ok(<joined text>)` (possibly
+  // `Ok("")`). The denial guard does not over-fire on a clean return.
+  return { kind: "accepted", result: makeOk(filterJoinToolText(content)) };
 }
