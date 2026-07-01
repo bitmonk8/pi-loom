@@ -108,39 +108,121 @@ export type DepthDestination =
   | "ceiling-3-cross-route";
 
 // --------------------------------------------------------------------------
-// V5e-T inert stubs — see the module header. The paired V5e leaf fills these.
+// V5e — implementation. The counting algorithm, the fast-fail short-circuit,
+// the canonical issue shape, and the routing table.
 // --------------------------------------------------------------------------
 
 /**
- * The depth computation over a materialised JSON value (schema-subset.md
- * §Counting algorithm). V5e-T stub: returns a wrong constant so every
- * depth-count assertion reds on its own primary assertion.
+ * True for a non-empty object or array — the only shapes that add a nesting
+ * level under the §Counting algorithm (`1 + max(depth(child))`). A scalar,
+ * `null`, `{}`, and `[]` all count as depth 1 and never recurse.
  */
-export function jsonDepth(_value: unknown): number {
-  return 0;
+function hasChildren(value: unknown): value is object {
+  if (value === null || typeof value !== "object") {
+    return false;
+  }
+  if (Array.isArray(value)) {
+    return value.length > 0;
+  }
+  return Object.keys(value as Record<string, unknown>).length > 0;
+}
+
+/** RFC-6901 JSON Pointer reference-token escaping: `~`→`~0`, `/`→`~1`. */
+function escapePointerToken(token: string): string {
+  return token.replace(/~/g, "~0").replace(/\//g, "~1");
+}
+
+/**
+ * The depth computation over a materialised JSON value (schema-subset.md
+ * §Counting algorithm): a scalar or empty container is depth 1; a non-empty
+ * object or array is `1 + max(depth(child))`. `anyOf` arms add no level because
+ * depth is measured against the single materialised runtime value.
+ */
+export function jsonDepth(value: unknown): number {
+  if (!hasChildren(value)) {
+    return 1;
+  }
+  const children = Array.isArray(value)
+    ? value
+    : Object.values(value as Record<string, unknown>);
+  let maxChild = 0;
+  for (const child of children) {
+    const childDepth = jsonDepth(child);
+    if (childDepth > maxChild) {
+      maxChild = childDepth;
+    }
+  }
+  return 1 + maxChild;
+}
+
+/**
+ * Recursive descent that short-circuits on the first node whose nesting level
+ * exceeds `MAX_JSON_DEPTH`, returning its RFC-6901 JSON Pointer. The root sits
+ * at level 1; descending into a member/element increments the level. Returns
+ * `undefined` when the whole value is within the cap.
+ */
+function firstTooDeep(value: unknown, level: number, path: string): string | undefined {
+  if (level > MAX_JSON_DEPTH) {
+    return path;
+  }
+  if (!hasChildren(value)) {
+    return undefined;
+  }
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) {
+      const breach = firstTooDeep(value[i], level + 1, `${path}/${i}`);
+      if (breach !== undefined) {
+        return breach;
+      }
+    }
+    return undefined;
+  }
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    const breach = firstTooDeep(child, level + 1, `${path}/${escapePointerToken(key)}`);
+    if (breach !== undefined) {
+      return breach;
+    }
+  }
+  return undefined;
 }
 
 /**
  * The depth walk: fast-fails the first node whose depth would exceed
- * `MAX_JSON_DEPTH`, producing the canonical depth-violation issue. V5e-T stub:
- * never fires (always `{ ok: true }`) so the depth-6 breach assertion reds.
+ * `MAX_JSON_DEPTH`, producing the canonical depth-violation issue
+ * (`schema_keyword: "maxDepth"`, message `"JSON document depth exceeds 5"`,
+ * `cause: "schema_validation"`) with the RFC-6901 JSON Pointer to that node.
  */
-export function depthWalk(_value: unknown): DepthWalkResult {
-  return { ok: true };
+export function depthWalk(value: unknown): DepthWalkResult {
+  const breachPath = firstTooDeep(value, 1, "");
+  if (breachPath === undefined) {
+    return { ok: true };
+  }
+  return {
+    ok: false,
+    cause: "schema_validation",
+    issue: {
+      path: breachPath,
+      message: DEPTH_VIOLATION_MESSAGE,
+      schema_keyword: DEPTH_VIOLATION_SCHEMA_KEYWORD,
+    },
+  };
 }
 
 /**
- * The per-boundary routing decision. V5e-T stub: deranges the site→destination
- * map (every site maps to a wrong destination) so each routing assertion reds.
+ * The per-boundary routing decision (ceiling-4-table): which destination
+ * surface class each of ceiling #4's five enforcement points maps a depth
+ * breach to. Three rows produce a loom-code `Err` carrier at their site owner
+ * (`ValidationError`/`CodeToolError`/`InvokeInfraError`); the model-driven and
+ * slash-load `params` rows produce no loom-code `Err` at this seam.
  */
 export function routeDepthBoundary(site: DepthBoundarySite): DepthDestination {
-  const deranged: Record<DepthBoundarySite, DepthDestination> = {
-    "typed-query-response": "model-feedback",
-    "tool-args-model-driven": "ValidationError",
-    "tool-args-code-driven": "InvokeInfraError",
-    "params-invoke": "CodeToolError",
-    "params-slash-load": "InvokeInfraError",
-    "invoke-return": "ceiling-3-cross-route",
+  const routing: Record<DepthBoundarySite, DepthDestination> = {
+    "typed-query-response": "ValidationError",
+    "tool-args-model-driven": "model-feedback",
+    "tool-args-code-driven": "CodeToolError",
+    "params-invoke": "InvokeInfraError",
+    "params-slash-load": "ceiling-3-cross-route",
+    "invoke-return": "InvokeInfraError",
   };
-  return deranged[site];
+  return routing[site];
 }
