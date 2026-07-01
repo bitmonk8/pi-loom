@@ -26,6 +26,7 @@ import {
   SYSTEM_NOTE_CHANNEL,
   type SystemNoteDetails,
 } from "../extension/system-note-channel";
+import { trimSlashArgumentWhitespace } from "../binder/binder-envelope";
 
 // ===========================================================================
 // SLSH-1 — no-params slash-argument overflow.
@@ -38,10 +39,9 @@ import {
  * so the exact-string assertion reds.
  */
 export function renderNoParamsOverflowNote(name: string): string {
-  // NON-COMPLIANT stub: not the SLSH-1 template. The paired V12a returns
-  // `loom /${name}: ignoring extra arguments — this loom takes no parameters`.
-  void name;
-  return "<no-params-overflow-note not implemented>";
+  // SLSH-1 normative template (slash-invocation.md#slsh-1), em-dash (U+2014)
+  // separator, `<name>` interpolated.
+  return `loom /${name}: ignoring extra arguments \u2014 this loom takes no parameters`;
 }
 
 /**
@@ -81,12 +81,17 @@ export async function dispatchNoParamsLoom(
   input: NoParamsDispatchInput,
   deps: NoParamsDispatchDeps,
 ): Promise<void> {
-  // NON-COMPLIANT stub: emit the overflow note UNCONDITIONALLY — ignoring both
-  // the trim-to-empty rule (whitespace-only must stay silent) and the
-  // slash-path-only rule (`invoke`/`tool` callers must not emit) — then run.
-  // The paired V12a trims `rawArgs`, gates on `caller === "slash"` and a
-  // non-empty trimmed remainder, and emits `renderNoParamsOverflowNote(name)`.
-  deps.emitOverflowNote(renderNoParamsOverflowNote(input.name));
+  // SLSH-1: the overflow note is slash-path-only — `invoke`/`tool` callers skip
+  // the slash parser and have no notion of "extra text". On the slash path,
+  // trim leading/trailing slash-argument whitespace; emit exactly one note only
+  // when the trimmed remainder is non-empty. The note never blocks execution —
+  // the loom always runs, and after the note.
+  if (input.caller === "slash") {
+    const trimmed = trimSlashArgumentWhitespace(input.rawArgs);
+    if (trimmed.length > 0) {
+      deps.emitOverflowNote(renderNoParamsOverflowNote(input.name));
+    }
+  }
   await deps.run();
 }
 
@@ -110,11 +115,10 @@ export type PromptTurnKind = "user_visible" | "forced_respond";
  * turn does not.
  */
 export function rendersTranscriptCard(kind: PromptTurnKind): boolean {
-  // NON-COMPLIANT stub: reports EVERY turn kind as card-rendering, including the
-  // off-session forced-respond turn. The paired V12a returns `false` for
-  // `forced_respond`.
-  void kind;
-  return true;
+  // SLSH-2: the off-session forced-respond turn (dispatched through pi-ai's
+  // `complete()` free function) attaches no turn to the user session, so it
+  // renders no transcript card; user-visible turns render an ordinary card.
+  return kind === "user_visible";
 }
 
 /**
@@ -166,10 +170,15 @@ export async function driveSlashPromptTurn(
   queryText: string,
   deps: SlashPromptDriveDeps,
 ): Promise<void> {
-  // NON-COMPLIANT stub: append the note FIRST (before any streamed prefix) and
-  // never issue the streamed turn nor await `ctx.waitForIdle()` — the
-  // buffer-then-append / note-before-prefix anti-pattern SLSH-2 forbids. The
-  // paired V12a issues the turn, awaits idle, then appends the note last.
+  // SLSH-2: issue the rendered query as one streamed user-visible turn so its
+  // tokens are observable in the transcript before the interpreter resumes,
+  // then await `ctx.waitForIdle()` so the streamed prefix is fully committed.
+  // Only after the prefix has committed — never interleaved with it — is the
+  // failure / cancellation `loom-system-note` appended (SLSH-2 edge cases). On
+  // `ok` no note is appended. The retained partial prefix is Pi's committed
+  // conversation surface and is not rolled back.
+  deps.pi.sendUserMessage(queryText);
+  await deps.ctx.waitForIdle();
   if (deps.outcome.kind !== "ok") {
     deps.pi.sendMessage({
       customType: SYSTEM_NOTE_CHANNEL,
@@ -178,6 +187,4 @@ export async function driveSlashPromptTurn(
       details: { event: {} },
     });
   }
-  deps.pi.sendUserMessage(queryText);
-  void queryText;
 }
