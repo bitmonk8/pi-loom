@@ -152,6 +152,16 @@ export class LoomRegistry {
 /** The diagnostics-registry code a failed registry swap surfaces (PIC-36). */
 export const REGISTRY_SWAP_FAILED_CODE = "loom/runtime/registry-swap-failed";
 
+/**
+ * The diagnostics-registry code the watcher-time settings-re-merge arm re-
+ * produces (V10d). Per package-and-settings.md §"Watcher-time reload failures"
+ * the re-merge arm re-emits a load-phase `loom/load/settings-*` diagnostic (a
+ * re-merge of a changed settings file that fails to re-parse), not the
+ * registry-swap arm's `loom/runtime/registry-swap-failed` — this is the
+ * "re-parse / re-merge diagnostic" arm V4g distinguishes from the swap arm.
+ */
+export const SETTINGS_REMERGE_FAILED_CODE = "loom/load/settings-invalid-json";
+
 /** Construction dependencies for the registry-swap and failure-injection seams. */
 export interface RegistrySwapDeps {
   /** The live registry whose entries the swap publishes. */
@@ -241,10 +251,24 @@ export function createReloadFailureInjector(
     injectReloadFailure(arm: ReloadFailureArm, error: Error): void {
       // V9b wires the two watcher-time arms it owns onto the registry-swap-
       // failed surfacing path: a registry-swap failure and a `.loom`/`.warp`
-      // re-parse failure both surface `loom/runtime/registry-swap-failed`. The
-      // `settings-remerge` arm is contributed by V10d against this interface.
+      // re-parse failure both surface `loom/runtime/registry-swap-failed`.
       if (arm === "registry-swap" || arm === "loom-warp-reparse") {
         emitRegistrySwapFailed(`<injected:${arm}>`, error, deps);
+        return;
+      }
+      // V10d's contribution: the settings-re-merge arm re-produces a load-phase
+      // `loom/load/settings-*` diagnostic on the same watcher-time surfacing
+      // path (package-and-settings.md §"Watcher-time reload failures" — the
+      // re-parse/re-merge diagnostic arm, distinct from the swap arm's
+      // `loom/runtime/registry-swap-failed`). V4g routes this pre-eval onto the
+      // `loom-system-note` channel with `triggerTurn:false`.
+      if (arm === "settings-remerge") {
+        deps.emitDiagnostic({
+          severity: "error",
+          code: SETTINGS_REMERGE_FAILED_CODE,
+          message: `settings re-merge failed: <injected:${arm}>`,
+          hint: error.message,
+        });
       }
     },
   };

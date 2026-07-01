@@ -86,20 +86,55 @@ export class ReloadDebouncer {
 
   /**
    * A watcher event for an existing loom / `.warp` / settings file: clear the
-   * pending timer and reschedule (drop-and-reschedule coalescing), then, when
-   * the window closes, run the rebuild under the PIC-49 guard.
-   *
-   * V10d-T stub: a no-op. The paired V10d implements the drop-and-reschedule
-   * coalescing and the across-window serialization guard, so the debounce and
-   * serialization tests red on their own primary assertions (no reload fires).
+   * pending timer and reschedule (drop-and-reschedule coalescing), holding only
+   * the most-recent handle, so a burst of writes within one window coalesces
+   * into a single reload firing `windowMs` after the last event. When the
+   * window closes the timer runs the rebuild under the PIC-49 guard.
    */
   onWatcherEvent(): void {
-    // Intentionally empty in the tests-task stub; see the class doc comment.
-    void this.#clock;
-    void this.#rebuild;
-    void this.#windowMs;
-    void this.#pending;
-    void this.#inFlight;
-    void this.#deferred;
+    if (this.#pending !== undefined) {
+      this.#clock.clearTimeout(this.#pending);
+    }
+    this.#pending = this.#clock.setTimeout(() => this.#onWindowClosed(), this.#windowMs);
+  }
+
+  /**
+   * The debounce window closed: drop the fired handle, then either start the
+   * rebuild or — if a prior window's rebuild is still in flight — defer it
+   * (PIC-49: at most one rebuild against the live registry / validator cache /
+   * registration cache at a time). Collapsing multiple deferrals to a single
+   * flag means many windows closing during one in-flight rebuild run exactly
+   * one deferred rebuild, not one per window.
+   */
+  #onWindowClosed(): void {
+    this.#pending = undefined;
+    if (this.#inFlight) {
+      this.#deferred = true;
+      return;
+    }
+    this.#startRebuild();
+  }
+
+  /**
+   * Run one rebuild under the in-flight guard. The guard releases on the
+   * rebuild's completion signal (the PIC-36 single synchronous publish or the
+   * `loom/runtime/registry-swap-failed` discard V9b owns) — both settle the
+   * returned promise — after which a deferred window's rebuild runs.
+   */
+  #startRebuild(): void {
+    this.#inFlight = true;
+    void this.#rebuild().then(
+      () => this.#onRebuildSettled(),
+      () => this.#onRebuildSettled(),
+    );
+  }
+
+  /** Release the PIC-49 in-flight guard, then run any deferred rebuild. */
+  #onRebuildSettled(): void {
+    this.#inFlight = false;
+    if (this.#deferred) {
+      this.#deferred = false;
+      this.#startRebuild();
+    }
   }
 }

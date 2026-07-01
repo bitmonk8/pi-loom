@@ -480,3 +480,19 @@ Package discovery is not yet plumbed into `discoverLooms` (no production caller
 wires the discovery walk into the extension factory yet); that integration is a
 later leaf. V10b's obligations (DISC-5 / DISC-6 via `discoverPackageLooms`) and
 its "Ships when" gate are satisfied by the package-discovery test suite.
+
+## 2026-07-01 — V10d settings-remerge arm code choice
+
+The V10d leaf mandates contributing the settings-re-merge arm of the watcher-time
+reload failure-injection seam (`ReloadFailureInjector.injectReloadFailure`,
+declared by V9b). The spec (package-and-settings.md §"Watcher-time reload
+failures") says the re-merge arm re-produces a load-phase `loom/load/settings-*`
+diagnostic (the re-merge codes family) rather than the swap arm's
+`loom/runtime/registry-swap-failed`, but does not pin which single `settings-*`
+code a synthetic injected failure surfaces. The injector receives only an
+`Error` (no code). Chose `loom/load/settings-invalid-json` as the representative
+re-merge code (a changed settings file failing to re-parse at watcher time is the
+canonical re-merge failure), exposed as `SETTINGS_REMERGE_FAILED_CODE`. V4g
+(which lists V10d in Deps and binds this arm) asserts the ERR-7 pre-eval routing
+to `loom-system-note` with `triggerTurn:false`; its Ships-when tests the routing,
+not the exact registry message string, so this code choice is compatible.
