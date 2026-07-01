@@ -585,3 +585,28 @@ Not a spec divergence: binder-bypass-and-envelope.md pins the *rendered output*
 bytes, and leaves the builder's internal input API unspecified (the envelope and
 prompt are runtime-internal, never Loom-visible). Recorded here for the V11d
 implementer and for discoverability.
+
+## V13a-T — query render/escapes/stringification tests (2026-07-01)
+
+Seam module `src/render/query-render.ts` created by the tests-task (paired V13a
+impl fills it). Design decisions recorded for the V13a implementer:
+
+- **Vector-count divergence.** The leaf prose says "the eight normative vectors",
+  but query-forms.md QRY-7 now pins a ten-row vector table. The binding is the
+  spec table, so `tests/query-render.test.ts` reproduces all ten vectors. (Logged
+  to decisions.jsonl.)
+- **Seam input shapes are runtime-internal.** `lexQueryTemplate` takes the raw
+  template literal source (leading + trailing backtick), returns resolved text
+  parts + `${…}` interpolation parts + escape/termination diagnostics +
+  `terminated`. `renderTemplateText` takes the fully-assembled post-escape,
+  post-interpolation text (literal bytes) and applies CR/CRLF→LF, newline-trim,
+  dedent. `stringifyInterpolatedValue` takes a `LoomValue` + an `InterpolationType`
+  static-type descriptor (array/object carry optional V2e sidecars + rootDef for
+  outbound wire-name translation) — the caller derives the static type, mirroring
+  V2d/V11h's caller-derives-the-kind contract. These input APIs are unspecified
+  (the render pipeline is runtime-internal, never Loom-visible); V13a may keep or
+  fold them behind the same signatures.
+- **Vector 5 coincides with the identity stub.** The single-line vector
+  `"  hi"→"  hi"` passes against the identity `renderTemplateText` stub (input ==
+  output); the other nine vectors red. Kept because it is a genuine normative
+  vector, not a masked missing-prerequisite pass.
