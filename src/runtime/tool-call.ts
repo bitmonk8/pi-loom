@@ -1,0 +1,241 @@
+// V14a / V14a-T — the code-side `<name>(args)` tool-call dispatch/lowering seam.
+//
+// This module owns the interpreter-side seam the paired `V14a` implementation
+// leaf fills in for a code-side tool call over the loom's *callable set*
+// (tool-calls.md; pi-integration-contract/host-interfaces-core.md
+// §"Tool execution from loom code"):
+//
+//   - The parse-time argument checks with the arity-before-type ordering:
+//     `loom/parse/tool-arg-arity` (a multi-argument Pi-tool call), then
+//     `loom/parse/tool-arg-not-literal` (the single positional argument is not
+//     a literal-sublanguage form), then `loom/parse/tool-arg-type-mismatch`
+//     (a statically-resolvable `.loom`-callable argument that does not match
+//     the callee's `params:`). Arity is checked before type: a call that both
+//     over-supplies positional arguments and type-mismatches fires only the
+//     arity code.
+//   - The closed `CodeToolError.cause` enum surface
+//     (`validation` / `execution` / `cancelled` / `unknown_tool`) and its
+//     distinctness from `ModelToolError` — the two `QueryError` variants carry
+//     different `kind` wire tags (`"code_tool"` vs `"model_tool"`).
+//   - The accepted-path return lowering: a conforming Pi-tool return lowers to
+//     `Ok(string)` (the tool's final output as a single string); a conforming
+//     subagent-mode `.loom`-callable return lowers to `Ok(T)` (the callee's
+//     inferred / AJV-enforced return payload).
+//   - The `.loom`-callable failure surface: failures cascade through
+//     `InvokeCalleeError` / `InvokeInfraError`, with an input-validation
+//     failure surfacing as `InvokeInfraError { cause: "validation", ... }`
+//     (the same `invoke`-shaped arm), never as a `CodeToolError`.
+//
+// The accepted-path `execute()` envelope-lowering *mechanics* (content-block
+// filtering / joining, the four off-surface dispositions), the `cka-47`
+// tool-call checkpoint facet, and the `ERR-13` completed-callee-finality
+// witness are owned by the paired `V14g` leaf and are out of scope here.
+//
+// V14a-T (tests-task) declares these seam shapes and stubs every
+// behaviour-bearing function inertly:
+//   - `checkToolCallArguments` returns no diagnostics (so the arity, not-literal,
+//     type-mismatch, and arity-before-type assertions all red),
+//   - `codeToolErrorCauses` returns the empty set and `codeToolErrorKind` /
+//     `modelToolErrorKind` return `""` (so the closed-enum and distinctness
+//     assertions red),
+//   - `lowerAcceptedPiToolReturn` / `lowerAcceptedLoomCallableReturn` return an
+//     inert `Err(null)` (so both accepted-path `Ok` assertions red),
+//   - `surfaceLoomCallableInputValidationFailure` /
+//     `surfaceLoomCallableCalleeFailure` return inert `kind: ""` values (so the
+//     `Invoke*Error` surfacing assertions red).
+// Each paired V14a-T test reds on its own primary assertion, not on a compile
+// error, a missing fixture, or a harness throw. The paired V14a implementation
+// leaf fills these in.
+//
+// Spec: tool-calls.md, pi-integration-contract/host-interfaces-core.md
+// (§"Tool execution from loom code"), errors-and-results/queryerror-variants.md.
+
+import type { Diagnostic, SourceRange } from "../diagnostics/diagnostic";
+import { makeErr, type LoomValue, type ResultValue } from "./value";
+import type {
+  CodeToolCause,
+  InvokeCalleeError,
+  InvokeInfraError,
+  QueryError,
+} from "./query-error";
+
+// --------------------------------------------------------------------------
+// Parse-time argument checks (arity → not-literal → type; arity before type)
+// --------------------------------------------------------------------------
+
+/** Which callee kind a code-side `<name>(args)` call resolves to. */
+export type ToolCallCalleeKind = "pi-tool" | "loom-callable";
+
+/**
+ * The static-resolution facts a `.loom`-callable argument type-mismatch check
+ * consumes (tool-calls.md §"Argument shape"). Type-mismatch is a parse error
+ * only for a `.loom` callee that is *statically resolvable*; a Pi-tool argument
+ * mismatch is never a parse error (it surfaces at runtime as
+ * `Err(CodeToolError { cause: "validation", ... })`).
+ */
+export interface ToolCallStaticResolution {
+  /** Whether the `.loom` callee is statically resolvable per invocation.md. */
+  readonly resolvable: boolean;
+  /** Whether the argument type-checks against the callee's `params:`. */
+  readonly matches: boolean;
+  /** Rendered expected type, for the `<expected>` placeholder. */
+  readonly expected: string;
+  /** Rendered actual type, for the `<actual>` placeholder. */
+  readonly actual: string;
+}
+
+/**
+ * A single code-side `<name>(args)` call site, as seen by the parse-time
+ * argument checks.
+ */
+export interface ToolCallArgCheckInput {
+  /** Post-rename callable-set name as written in `tools:` / at the call site. */
+  readonly toolName: string;
+  readonly calleeKind: ToolCallCalleeKind;
+  /** Number of positional arguments written at the call site. */
+  readonly positionalCount: number;
+  /**
+   * Source text of the single positional argument (the bare object literal),
+   * checked against the literal sublanguage for a Pi-tool call. Absent when
+   * arity already failed or the call is a `.loom`-callable call.
+   */
+  readonly argumentSource?: string;
+  /** Static-resolution facts for a `.loom`-callable type-mismatch check. */
+  readonly staticResolution?: ToolCallStaticResolution;
+  readonly file: string;
+  readonly range: SourceRange;
+}
+
+/**
+ * Run the parse-time argument checks for a code-side `<name>(args)` call,
+ * returning every diagnostic raised. The checks run in order — arity, then
+ * not-literal, then type-mismatch — and **arity is checked before type**: a
+ * call that both over-supplies positional arguments and type-mismatches fires
+ * only `loom/parse/tool-arg-arity`, not `loom/parse/tool-arg-type-mismatch`.
+ *
+ * V14a-T stubs this as an inert no-op (returns no diagnostics), so every
+ * argument-check assertion reds on its own primary assertion. The paired V14a
+ * implementation leaf fills in the three checks and their ordering.
+ */
+export function checkToolCallArguments(
+  input: ToolCallArgCheckInput,
+): Diagnostic[] {
+  void input;
+  return [];
+}
+
+// --------------------------------------------------------------------------
+// `CodeToolError` closed enum + distinctness from `ModelToolError`
+// --------------------------------------------------------------------------
+
+/**
+ * The closed `CodeToolError.cause` enum, in declaration order
+ * (queryerror-variants.md): `validation` / `execution` / `cancelled` /
+ * `unknown_tool`. This is the contract surface for loom authors — it is **not**
+ * widened to cover every observable `execute()` disposition.
+ *
+ * V14a-T stubs this to the empty set so the closed-enum assertion reds.
+ */
+export function codeToolErrorCauses(): readonly CodeToolCause[] {
+  return [];
+}
+
+/**
+ * The `kind` wire discriminator of `CodeToolError` (`"code_tool"`).
+ *
+ * V14a-T stubs this to `""` so the distinctness assertion reds.
+ */
+export function codeToolErrorKind(): string {
+  return "";
+}
+
+/**
+ * The `kind` wire discriminator of `ModelToolError` (`"model_tool"`) — a
+ * *distinct* variant from `CodeToolError`: a code-side call carries a structured
+ * `cause` enum and no `tool_call_id` / `raw_response`, whereas the model-loop
+ * adapter failure carries both and no `cause`.
+ *
+ * V14a-T stubs this to `""` so the distinctness assertion reds.
+ */
+export function modelToolErrorKind(): string {
+  return "";
+}
+
+// --------------------------------------------------------------------------
+// Accepted-path return lowering (Pi tool → Ok(string); `.loom` → Ok(T))
+// --------------------------------------------------------------------------
+
+/**
+ * Lower a conforming Pi-tool return to the loom 1.0 `Result<string, QueryError>`
+ * accepted value: `Ok(<final output>)`, carrying the tool's final output as a
+ * single `string` (tool-calls.md §"Return type", Pi-tool row). The
+ * content-block filtering / joining that *produces* `finalOutput` from the
+ * `AgentToolResult` envelope is owned by the paired `V14g` leaf.
+ *
+ * V14a-T stubs this to an inert `Err(null)` so the accepted-path `Ok(string)`
+ * assertion reds.
+ */
+export function lowerAcceptedPiToolReturn(finalOutput: string): ResultValue {
+  void finalOutput;
+  return makeErr(null);
+}
+
+/**
+ * Lower a conforming subagent-mode `.loom`-callable return to the loom 1.0
+ * `Result<T, QueryError>` accepted value: `Ok(<payload>)`, carrying the
+ * callee's inferred (statically resolved) or AJV-enforced return payload
+ * (tool-calls.md §"Return type", registered-loom row).
+ *
+ * V14a-T stubs this to an inert `Err(null)` so the accepted-path `Ok(T)`
+ * assertion reds.
+ */
+export function lowerAcceptedLoomCallableReturn(payload: LoomValue): ResultValue {
+  void payload;
+  return makeErr(null);
+}
+
+// --------------------------------------------------------------------------
+// `.loom`-callable failure surface (Invoke*Error, never CodeToolError)
+// --------------------------------------------------------------------------
+
+/**
+ * Surface an input-side argument-validation failure of a `.loom`-callable call
+ * (when the callee is not statically resolvable, so the parse-time
+ * `loom/parse/tool-arg-type-mismatch` check did not fire) as
+ * `Err(InvokeInfraError { cause: "validation", ... })` — the same `invoke`-shaped
+ * arm `invoke(...)` uses for input validation, and **distinct** from a
+ * `CodeToolError` (tool-calls.md §"Failures").
+ *
+ * V14a-T stubs this to an inert value whose `kind` is `""` and whose `cause` is
+ * `"load_failure"`, so the `InvokeInfraError { cause: "validation" }` assertion
+ * reds.
+ */
+export function surfaceLoomCallableInputValidationFailure(
+  calleePath: string,
+  message: string,
+): InvokeInfraError {
+  void calleePath;
+  void message;
+  return { kind: "", message: "", callee_path: "", cause: "load_failure" };
+}
+
+/**
+ * Surface a failure the `.loom` callee itself returned as
+ * `Err(InvokeCalleeError { inner, ... })` — the call is semantically an
+ * `invoke`, so a callee-returned `Err` cascades through `InvokeCalleeError`
+ * carrying the callee's original `QueryError` as `inner` (tool-calls.md
+ * §"Failures"). `CodeToolError` arises for a `.loom` callable only in the
+ * `"unknown_tool"` safety-net case.
+ *
+ * V14a-T stubs this to an inert value whose `kind` is `""`, so the
+ * `InvokeCalleeError` surfacing assertion reds.
+ */
+export function surfaceLoomCallableCalleeFailure(
+  calleePath: string,
+  inner: QueryError,
+  message: string,
+): InvokeCalleeError {
+  void calleePath;
+  void message;
+  return { kind: "", message: "", callee_path: "", inner };
+}

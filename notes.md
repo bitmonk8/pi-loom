@@ -647,3 +647,20 @@ impl fills it). Design decisions recorded for the V13a implementer:
   callback (the per-pass parse cache's parse/lower step) as an injected dep so
   the "exactly once per canonical path" property is observable by spying on the
   callback — no whole-loom-document parser entry point exists yet in `src/`.
+
+## V14a-T — code-side tool-call seam (2026-07-01)
+- The `CodeToolError` schema + closed `cause` enum and `ModelToolError` already
+  exist in `src/runtime/query-error.ts` (declared by V4d), and
+  `loom/parse/tool-arg-not-literal` already fires via the V2a literal-sublanguage
+  check. V14a's *new* surface is the code-side tool-call dispatch/lowering seam
+  (`src/runtime/tool-call.ts`): the combined argument-check with the
+  arity-before-type ordering (adding `tool-arg-arity` and `tool-arg-type-mismatch`),
+  the accepted-path return lowering (Pi tool → `Ok(string)`, `.loom` → `Ok(T)`),
+  and the `.loom`-callable failure surfacing (`Invoke*Error`, never `CodeToolError`).
+  The closed-enum / distinctness tests assert against V14a-owned reporter helpers
+  (`codeToolErrorCauses` / `codeToolErrorKind` / `modelToolErrorKind`) so the
+  tests-task reds for the intended reason rather than passing off the pre-existing
+  V4d types.
+- Pre-existing unrelated reds: `tests/pre-evaluation-reload-failure.test.ts`
+  (V4g-T, ERR-7, 4 tests) fails on HEAD without this change; out of scope for
+  this leaf.
