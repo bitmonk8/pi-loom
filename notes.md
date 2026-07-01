@@ -830,3 +830,37 @@ plumbing changed.
 Unrelated pre-existing reds: 4 tests in
 `tests/pre-evaluation-reload-failure.test.ts` (a V4g-T subsystem) fail on the
 base tree (`git stash` confirms) and are outside V9i's scope.
+
+## 2026-07-01 — V9n-T (prompt-mode transport-error mapping tests)
+
+Two minor design decisions recorded while writing the V9n-T failing tests and
+the V9n seam module (`src/runtime/prompt-transport-mapping.ts`):
+
+1. **`provider` source: caller-supplied, not derived in the seam.** The
+   `V9n-T` leaf's Tests bullet 1 describes the synthesised `TransportError.provider`
+   as "the loom's resolved `model:` `Model<Api>.api` value (the frontmatter
+   `model:`, or the inherited `ctx.model` when `model:` is absent)". The spec
+   `conversation-drive.md` PIC-50/PIC-51 text instead says the `provider` is the
+   user-session model read from `ctx.model` — "**not** the loom's resolved
+   `model:`" — because the driven user turn runs on the user session, not the
+   loom's off-session model. These two readings differ only when a loom declares
+   an explicit frontmatter `model:` distinct from the user session's `ctx.model`.
+   The V9n leaf's `Adds.` resolves the tension in the seam's favour: it says the
+   `provider` field "is sourced from `V9j`'s provider-error-mapping surface, not
+   re-derived here." So V9n does not derive the provider at all — it receives it
+   as an input. The seam therefore takes `provider: string` (mirroring
+   `SubagentExtractionCtx.provider`), and the tests assert only that the supplied
+   provider flows through into `TransportError.provider`. Which upstream value
+   (ctx.model vs resolved model:) is chosen is owned by the caller (V6a/V9j) and
+   is out of scope for this leaf; the spec-vs-leaf wording tension is noted here
+   but is not blocking for V9n-T.
+
+2. **The `stopReason:"error"` probe is built inside the V9n seam.** `V9c`'s
+   `Adds.` claims it "exposes the `stopReason:"error"` probe-result ... as seams
+   consumed by V9n", but the landed `conversation-drive.ts` exports no discrete
+   probe function — only `extractTrailingTurnText` (the `Ok(string)` extraction
+   seam). V9n-T therefore builds the trailing-`assistant` `stopReason` probe
+   inside `prompt-transport-mapping.ts` (V9n's own module), consuming V9c's
+   `extractTrailingTurnText` for the `Ok(string)` fall-through. This mirrors the
+   subagent-mode `extractSubagentQueryResult` shape, which likewise inlines its
+   transport short-circuit and reuses `extractTrailingTurnText`.
