@@ -1,0 +1,276 @@
+// V15b / V15b-T — the invoke depth-bound (INV-4) and invocation-cycle seam.
+//
+// This module owns the two mechanisms the paired `V15b` implementation leaf
+// fills in (invocation.md §INV-4 "Invocation depth bound", §"Cycle detection";
+// hard-ceilings/ceilings-3-and-4.md CIO-2):
+//
+//   - INV-4 — the per-chain `invoke`-depth counter. A single per-chain counter,
+//     incremented BEFORE the child frame begins executing, counting all three
+//     countable frame classes — a direct `invoke(...)` frame, a `.loom`
+//     callable frame dispatched through a `tools:` entry, and a *cross-file*
+//     `.warp` `fn` frame (caller and callee residing in different source
+//     files). An intra-file `.warp` `fn` call is NOT countable. The counter is
+//     per-chain, not per-process: sibling invokes do not share budget, and the
+//     counter crosses subagent-mode boundaries UNCHANGED (a subagent invocation
+//     does not reset it). The cap is 32; the breach fires
+//     `InvokeDepthExceededPanic` (`loom/runtime/invoke-depth-exceeded`) when the
+//     runtime is about to push the 33rd frame (`invoke chain depth exceeded:
+//     33 > 32`). The panic routes in two separately-required modes: a top-level
+//     overflow surfaces as a Pi system note, a nested overflow surfaces to the
+//     parent as `Err(InvokeInfraError { cause: "panic", ... })`.
+//
+//   - The parse-time invocation-cycle detector over the per-load-pass
+//     static-resolution graph (invocation.md §"Cycle detection"). A back-edge
+//     fires `loom/load/invocation-cycle`; an unresolvable callee (one that
+//     produced `loom/load/callee-has-errors`) is treated as a LEAF — the walk
+//     arm terminates there and a cycle routed through it is not detected until
+//     the underlying file is fixed.
+//
+// V15b-T (tests-task) declares the seam shapes and stubs each behaviour-bearing
+// function inertly so the failing tests compile and red on their own primary
+// assertions:
+//   - `pushCountableFrame` returns the chain UNCHANGED (never increments, never
+//     enters the cap guard), so the 32→33 overflow assertion reds (no panic)
+//     and every depth-count / sibling-independence assertion reds.
+//   - `warpFnFrameKind` returns a fixed wrong sentinel for every call, so both
+//     the cross-file (expects `"warp-fn-cross-file"`) and the intra-file
+//     (expects `undefined`) residence assertions red.
+//   - `crossSubagentBoundary` RESETS the count to 0, so the "crosses the
+//     subagent boundary unchanged" assertion reds.
+//   - `surfaceDepthOverflow` always returns a top-level surface carrying a
+//     wrong-code sentinel diagnostic, so both routing-mode assertions red.
+//   - `detectInvocationCycle` returns `undefined`, so the cycle-fires assertion
+//     reds.
+// No test reds on a compile error, a missing fixture, or a harness throw.
+//
+// Spec: invocation.md (§INV-4, §Static resolution, §Cycle detection),
+// hard-ceilings/ceilings-3-and-4.md (CIO-2), diagnostics/code-registry-runtime.md
+// (`loom/runtime/invoke-depth-exceeded`), diagnostics/code-registry-load.md
+// (`loom/load/invocation-cycle`), errors-and-results/queryerror-variants.md
+// (`InvokeInfraError`).
+
+import type { Diagnostic } from "../diagnostics/diagnostic";
+import type { InvokeInfraError } from "./query-error";
+import { InvokeDepthExceededPanic } from "./runtime-panics";
+
+// Re-export the depth-cap primitives so consumers reference one import site.
+export {
+  INVOKE_DEPTH_CAP,
+  INVOKE_DEPTH_EXCEEDED_CODE,
+  InvokeDepthExceededPanic,
+} from "./runtime-panics";
+
+// --------------------------------------------------------------------------
+// Countable frame classes (INV-4)
+// --------------------------------------------------------------------------
+
+/**
+ * The three countable frame classes that each contribute +1 to the single
+ * shared per-chain depth counter (invocation.md §INV-4):
+ *   - `"direct-invoke"`       — a literal `invoke(...)` / `invoke<Schema>(...)` call;
+ *   - `"loom-tools-callable"` — a `.loom` callable call dispatched through a `tools:` entry;
+ *   - `"warp-fn-cross-file"`  — a *cross-file* `.warp` `fn` call (an intra-file
+ *                               `fn` call is NOT countable).
+ */
+export type CountableFrameKind =
+  | "direct-invoke"
+  | "loom-tools-callable"
+  | "warp-fn-cross-file";
+
+// --------------------------------------------------------------------------
+// `.warp` `fn` residence classification (INV-4 cross-file test)
+// --------------------------------------------------------------------------
+
+/**
+ * A `.warp` `fn` call, classified for countability by residence. A `fn`'s
+ * *residence* is its declaration site — the `.warp` file it is declared in — so
+ * re-exports and `as`-aliased imports (resolved through V15c/V15i) do not change
+ * residence; `calleeResidence` is that already-resolved declaration-site path.
+ */
+export interface WarpFnCall {
+  /** The source file the call is written in (`.warp` or `.loom`). */
+  readonly callerFile: string;
+  /**
+   * The `.warp` file the callee `fn` is DECLARED in — after V15c/V15i re-export
+   * and aliased-import resolution. The cross-file test compares this against
+   * `callerFile`.
+   */
+  readonly calleeResidence: string;
+}
+
+/**
+ * Classify a `.warp` `fn` call for the depth counter (invocation.md §INV-4): a
+ * *cross-file* call (caller and callee in different source files) contributes a
+ * countable `"warp-fn-cross-file"` frame; an *intra-file* call (same source
+ * file) is NOT countable and returns `undefined`.
+ *
+ * V15b-T stubs this inert-but-wrong: it returns a fixed wrong sentinel
+ * (`"loom-tools-callable"`) for every call, so the cross-file assertion (expects
+ * `"warp-fn-cross-file"`) and the intra-file assertion (expects `undefined`)
+ * both red. The paired V15b leaf compares `callerFile` against `calleeResidence`.
+ */
+export function warpFnFrameKind(call: WarpFnCall): CountableFrameKind | undefined {
+  void call;
+  return "loom-tools-callable";
+}
+
+// --------------------------------------------------------------------------
+// The per-chain depth counter (INV-4)
+// --------------------------------------------------------------------------
+
+/**
+ * The per-chain `invoke`-depth counter (invocation.md §INV-4). `depth` is the
+ * count of countable frames on the active call chain; the slash-invoked
+ * top-level loom is depth 0 and the first frame nested inside it is depth 1.
+ * Modelled as an immutable value so sibling chains derived from the same parent
+ * are independent by construction ("sibling invokes do not share budget").
+ */
+export interface InvokeChain {
+  readonly depth: number;
+}
+
+/** The starting chain for a slash-invoked top-level loom (depth 0). */
+export function newInvokeChain(): InvokeChain {
+  return { depth: 0 };
+}
+
+/**
+ * Push a countable frame onto the chain (invocation.md §INV-4). The counter is
+ * incremented BEFORE the child frame begins executing, so a child whose body
+ * overflows from depth 32 surfaces the panic at its very first nested frame.
+ * The cap is breached when about to push a frame that would bring the count to
+ * 33 (> 32), raising `InvokeDepthExceededPanic` (`invoke chain depth exceeded:
+ * 33 > 32`); otherwise it returns the child chain at `depth + 1`.
+ *
+ * V15b-T stubs this inert: it returns the chain UNCHANGED (never increments,
+ * never enters the cap guard), so the 32→33 overflow assertion reds (no panic
+ * raised) and every depth-count / sibling-independence assertion reds. The
+ * paired V15b leaf increments and enters the cap guard.
+ */
+export function pushCountableFrame(
+  chain: InvokeChain,
+  kind: CountableFrameKind,
+): InvokeChain {
+  void kind;
+  return chain;
+}
+
+/**
+ * Cross a subagent-mode invocation boundary (invocation.md §INV-4). The
+ * per-chain counter passes through UNCHANGED — a `subagent → subagent` or
+ * `prompt → subagent` invocation does NOT reset the count; the subagent
+ * carve-outs concern conversation isolation, not call-chain accounting.
+ *
+ * V15b-T stubs this inert-but-wrong: it RESETS the count to 0, so the "crosses
+ * the subagent boundary unchanged" assertion reds. The paired V15b leaf returns
+ * the chain unchanged.
+ */
+export function crossSubagentBoundary(chain: InvokeChain): InvokeChain {
+  void chain;
+  return { depth: 0 };
+}
+
+// --------------------------------------------------------------------------
+// Depth-overflow panic routing (INV-4 two modes)
+// --------------------------------------------------------------------------
+
+/**
+ * The two separately-required surfacing modes of a depth-overflow panic
+ * (invocation.md §INV-4): a top-level overflow surfaces as a Pi system note
+ * (carrying the `loom/runtime/invoke-depth-exceeded` diagnostic), a nested
+ * overflow surfaces to the parent as `Err(InvokeInfraError { cause: "panic" })`.
+ */
+export type DepthOverflowSurface =
+  | { readonly mode: "top-level"; readonly diagnostic: Diagnostic }
+  | { readonly mode: "nested"; readonly error: InvokeInfraError };
+
+/** Where the overflowing frame sat: at the slash-invoked top level, or nested inside an invoke chain. */
+export interface DepthOverflowContext {
+  /** True when the overflow occurred at the slash-invoked top-level loom (no invoke parent). */
+  readonly topLevel: boolean;
+  /** The callee path carried onto the parent's `InvokeInfraError` in the nested case. */
+  readonly calleePath: string;
+}
+
+/**
+ * Route a depth-overflow panic to its surface (invocation.md §INV-4, the
+ * panic-routing rules in errors-and-results.md): a top-level overflow yields a
+ * `{ mode: "top-level" }` surface carrying the
+ * `loom/runtime/invoke-depth-exceeded` diagnostic (delivered as a Pi system
+ * note by the V7d channel); a nested overflow yields a `{ mode: "nested" }`
+ * surface carrying `InvokeInfraError { kind: "invoke_infra", cause: "panic" }`.
+ *
+ * V15b-T stubs this inert-but-wrong: it always returns a top-level surface
+ * carrying a wrong-code sentinel diagnostic, so the top-level assertion (expects
+ * the `loom/runtime/invoke-depth-exceeded` code and the registered message) and
+ * the nested assertion (expects `mode: "nested"` with cause `"panic"`) both red.
+ * The paired V15b leaf routes per the panic-routing rules.
+ */
+export function surfaceDepthOverflow(
+  panic: InvokeDepthExceededPanic,
+  context: DepthOverflowContext,
+): DepthOverflowSurface {
+  void panic;
+  void context;
+  return {
+    mode: "top-level",
+    diagnostic: {
+      severity: "error",
+      code: "stub/v15b-unimplemented",
+      message: "stub",
+    },
+  };
+}
+
+// --------------------------------------------------------------------------
+// Invocation-cycle detection (loom/load/invocation-cycle)
+// --------------------------------------------------------------------------
+
+/** The `loom/load/invocation-cycle` diagnostic code (code-registry-load.md). */
+export const INVOCATION_CYCLE_CODE = "loom/load/invocation-cycle";
+
+/**
+ * The registered `invocation cycle: <A> → <B> → <A>` message
+ * (code-registry-load.md), rendered from the cycle path's file-path stems joined
+ * by ` → ` per placeholder-rendering-b.md — with the first stem repeated at the
+ * end. A cycle `A → B → A` renders `invocation cycle: A → B → A` exactly as the
+ * invocation.md §"Cycle detection" prose example shows.
+ */
+export function invocationCycleMessage(stems: readonly string[]): string {
+  return `invocation cycle: ${stems.join(" → ")}`;
+}
+
+/**
+ * The per-load-pass static-resolution graph the cycle walk runs over
+ * (invocation.md §Static resolution). `edges` maps each node (a file-path stem)
+ * to the nodes reached from its literal `invoke("./x.loom")` paths and its
+ * `.loom` `tools:` entries; `unresolvable` names the nodes that produced
+ * `loom/load/callee-has-errors` — those are treated as LEAVES.
+ */
+export interface InvokeGraph {
+  readonly edges: ReadonlyMap<string, readonly string[]>;
+  readonly unresolvable: ReadonlySet<string>;
+}
+
+/**
+ * Walk the static-resolution graph from `entry` and return
+ * `loom/load/invocation-cycle` (with the cycle path printed) on the first
+ * back-edge, or `undefined` for an acyclic graph (invocation.md §"Cycle
+ * detection"). An `unresolvable` node terminates its own walk arm — it is a
+ * leaf, so a cycle routed through it is NOT detected until the underlying file
+ * is fixed. The diagnostic is location-less (no `file`, no `range`): the cycle
+ * has no single token span, and its participating paths are carried inline in
+ * the message (diagnostic-shape.md §Location-less).
+ *
+ * V15b-T stubs this inert: it always returns `undefined`, so the cycle-fires
+ * assertion reds on its own primary assertion. The paired V15b leaf walks the
+ * graph.
+ */
+export function detectInvocationCycle(
+  entry: string,
+  graph: InvokeGraph,
+): Diagnostic | undefined {
+  void entry;
+  void graph;
+  return undefined;
+}
