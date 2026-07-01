@@ -208,6 +208,75 @@ function renderScalarValue(value: unknown): string {
   return String(value);
 }
 
+/** The identifier-shape predicate `<key>` / `<observed>` string rendering uses. */
+function isIdentifierShaped(s: string): boolean {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(s);
+}
+
+/**
+ * Render the offending *parsed* scalar for the `<observed>` token on
+ * `loom/load/frontmatter-value-out-of-range` (`placeholder-rendering-b.md` §8
+ * parsed-scalar carve-out): a `number` (including integer-valued numbers) bare,
+ * a `boolean` as `true`/`false`, `null` as the literal `null`, and a `string`
+ * per category 5's `<key>` rule (bare when identifier-shaped, double-quoted
+ * otherwise — so a stringly-typed `"25"` renders `"25"`, distinct from `25`).
+ */
+function renderObserved(value: unknown): string {
+  if (typeof value === "string") {
+    return isIdentifierShaped(value) ? value : `"${value}"`;
+  }
+  if (value === null || value === undefined) {
+    return "null";
+  }
+  return String(value);
+}
+
+/**
+ * Resolve a non-negative-integer sub-field of a `tool_loop` / `respond_repair`
+ * block (FRNT-1). An absent, `null`, or non-map block — and a block missing the
+ * sub-field — takes `defaultValue`. A present sub-field must parse to a
+ * non-negative integer (integer-ness judged on the parsed numeric value, so
+ * `25` and `25.0` both accept); anything else (a negative integer, a
+ * non-integer number, a non-number scalar, or `null`) yields the
+ * `loom/load/frontmatter-value-out-of-range` load error and the loom is not
+ * registered.
+ */
+function resolveNonNegIntBlock(
+  blockNode: Node | null | undefined,
+  subKey: string,
+  dottedKey: string,
+  defaultValue: number,
+  file: string,
+  lineCounter: LineCounter,
+  lineOffset: number,
+): { value: number } | { diagnostic: Diagnostic } {
+  if (blockNode === null || blockNode === undefined || !isMap(blockNode)) {
+    return { value: defaultValue };
+  }
+  const sub = blockNode.items.find(
+    (it) => isScalar(it.key) && String(it.key.value) === subKey,
+  );
+  if (sub === undefined) {
+    return { value: defaultValue };
+  }
+  const raw = isScalar(sub.value) ? sub.value.value : sub.value;
+  if (typeof raw === "number" && Number.isInteger(raw) && raw >= 0) {
+    return { value: raw };
+  }
+  const range = rangeOf((sub.value ?? sub.key) as Node, lineCounter, lineOffset);
+  return {
+    diagnostic: {
+      severity: "error",
+      code: "loom/load/frontmatter-value-out-of-range",
+      file,
+      ...(range !== undefined ? { range } : {}),
+      message: `frontmatter field '${dottedKey}' must be a non-negative integer; got ${renderObserved(
+        raw,
+      )}`,
+    },
+  };
+}
+
 /**
  * Parse a loom file's YAML frontmatter against the loom 1.0 field contract
  * (`frontmatter.md`, `frontmatter/frontmatter-fields-a.md`):
@@ -247,6 +316,8 @@ export function parseFrontmatter(
   let modelRange: SourceRange | undefined;
   let bindContextValue: string | undefined;
   let bindContextRange: SourceRange | undefined;
+  let toolLoopNode: Node | null | undefined;
+  let respondRepairNode: Node | null | undefined;
 
   if (map !== undefined) {
     for (const item of map.items) {
@@ -281,6 +352,14 @@ export function parseFrontmatter(
           ? String(item.value.value)
           : undefined;
         bindContextRange = valueRange;
+        continue;
+      }
+      if (key === "tool_loop") {
+        toolLoopNode = item.value;
+        continue;
+      }
+      if (key === "respond_repair") {
+        respondRepairNode = item.value;
         continue;
       }
       if (key === "timeout") {
@@ -349,16 +428,53 @@ export function parseFrontmatter(
     }
   }
 
+  // FRNT-1: parse + range-validate the `tool_loop` / `respond_repair` blocks,
+  // defaulting to `{ maxRounds: 25 }` / `{ attempts: 3 }` when absent or empty.
+  const toolLoopResult = resolveNonNegIntBlock(
+    toolLoopNode,
+    "max_rounds",
+    "tool_loop.max_rounds",
+    25,
+    file,
+    lineCounter,
+    lineOffset,
+  );
+  const respondRepairResult = resolveNonNegIntBlock(
+    respondRepairNode,
+    "attempts",
+    "respond_repair.attempts",
+    3,
+    file,
+    lineCounter,
+    lineOffset,
+  );
+  if ("diagnostic" in toolLoopResult) {
+    diagnostics.push(toolLoopResult.diagnostic);
+  }
+  if ("diagnostic" in respondRepairResult) {
+    diagnostics.push(respondRepairResult.diagnostic);
+  }
+
   const registered = !diagnostics.some((d) => d.severity === "error");
   if (!registered) {
     return { registered: false, diagnostics };
   }
 
   // `modeValue` is defined here: a missing `mode:` is an error, which would have
-  // set `registered` to `false` above.
+  // set `registered` to `false` above. An out-of-range `tool_loop` /
+  // `respond_repair` value also unsets `registered`, so both results carry a
+  // `value` here.
+  const toolLoop: ParsedToolLoop = {
+    maxRounds: "value" in toolLoopResult ? toolLoopResult.value : 25,
+  };
+  const respondRepair: ParsedRespondRepair = {
+    attempts: "value" in respondRepairResult ? respondRepairResult.value : 3,
+  };
   const frontmatter: ParsedFrontmatter = {
     mode: modeValue as LoomMode,
     ...(resolvedModel !== undefined ? { model: resolvedModel } : {}),
+    toolLoop,
+    respondRepair,
   };
   return { registered: true, frontmatter, diagnostics };
 }
