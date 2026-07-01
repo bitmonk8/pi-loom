@@ -176,7 +176,8 @@
 					var det = document.createElement("details");
 					det.className = "phase";
 					det.setAttribute("data-label", p.label);
-					det.open = hadState ? !!openLabels[p.label] : (p.done < p.total && p.done > 0);
+					var hasActive = p.items.some(function (it) { return it.status === "in-progress"; });
+					det.open = hadState ? !!openLabels[p.label] : (hasActive || (p.done < p.total && p.done > 0));
 					var rows = p.items.map(function (it) {
 						var badges = "";
 						if (it.hasTests && it.testsDone && !it.builtDone)
