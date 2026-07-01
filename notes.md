@@ -1044,3 +1044,22 @@ removal of `isError` from the code-side *type* (the guard fires on the flag if
 present, but the loom 1.0 pin's tools do not set it, so the throw path is the
 live one). No spec edit made; the residual PIC-52 / tool-calls.md staleness
 remains a spec-side lock-step item owned by the relevant spec-coverage finding.
+
+## V18b-T — inventory-closure audit seam shape
+
+The inventory-closure audit spec (pi-integration-contract audit shards) frames
+the audit as a disk walker over `src/**/*.ts` with symlink / encoding rules and
+a fail-closed infrastructure wrapper. The `V18b-T` seam (`runInventoryClosureAudit`
+in `src/extension/inventory-closure-audit.ts`) is a **pure function over an
+in-memory file map** (POSIX path -> UTF-8 content) plus the inventory and the
+two typebox allow-lists; the paired `V18b` implementation wraps it in a thin
+disk-walk + `npm test` driver that owns the glob / symlink / encoding /
+infrastructure-failure surface. This keeps the recogniser core deterministic and
+off the *Sequential by default* blocking-runtime surface.
+
+Field-name note: the audit's per-category join key resolves against each
+inventory row's stable identifier. The spec's minimum-entry-shape names that
+field `path`; the already-shipped `V18a` `SDK_SURFACE_INVENTORY` chose `id` for
+the same role. The seam consumes `id` as that identifier rather than introducing
+a parallel `path` field. Logged as a divergence in
+`.pi/impl-progress/decisions.jsonl`.
