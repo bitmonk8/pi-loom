@@ -41,7 +41,10 @@ import type {
   ParseFrontmatterOptions,
   FrontmatterParseResult,
 } from "../parser/frontmatter";
-import type { ModelRegistrySurface } from "../extension/reload-wiring";
+import {
+  createModelReferenceMatcher,
+  type ModelRegistrySurface,
+} from "../extension/reload-wiring";
 import type { LoomSettings } from "../discovery/settings";
 import { buildRecoveryNote } from "../runtime/runtime-event-channel";
 import type { SystemNote } from "../extension/system-note-channel";
@@ -146,13 +149,87 @@ export interface BinderModelResolution {
 export function resolveBinderModel(
   input: BinderModelResolutionInput,
 ): BinderModelResolution {
-  // V11a-T stub: inert. The paired V11a implementation performs the two-step
-  // resolution, the short-circuited strict-capability probe, and the diagnostic
-  // emission. Returning an unresolved, diagnostic-free result reds each behaviour
-  // test on its own primary assertion (absent code / absent resolution) rather
-  // than on a harness throw.
-  void input;
-  return { resolved: false, diagnostics: [] };
+  // Bypass-eligible looms (no-params / single-string bypass) never call the
+  // binder, so they skip both binder-model resolution and the strict-capability
+  // probe entirely (binder-model-and-context.md §Binder model).
+  if (input.bypassEligible) {
+    return { resolved: true, diagnostics: [] };
+  }
+
+  // Two-step chain (`bind_model:` → `looms.binderModel`) resolved through the
+  // shared exact-match matcher. A reference that matches no available model — or
+  // is ambiguous across providers — resolves to no model.
+  const reference = resolveChainReference(input);
+  if (reference === null) {
+    return {
+      resolved: false,
+      diagnostics: [
+        {
+          severity: "error",
+          code: BINDER_MODEL_UNRESOLVED_CODE,
+          file: input.file,
+          message: BINDER_MODEL_UNRESOLVED_MESSAGE,
+        },
+      ],
+    };
+  }
+
+  // The reference resolved to a model, so the strict-capability probe runs (it
+  // is short-circuited only when resolution yielded no model). Duck-typed
+  // three-valued read of `Model<Api>.strictCapable`
+  // (binder-model-and-context.md#strict-capability-requirement).
+  const strictCapable = input.probeStrictCapable(reference)?.strictCapable;
+  if (strictCapable === false) {
+    return {
+      resolved: false,
+      diagnostics: [
+        {
+          severity: "error",
+          code: BINDER_MODEL_NOT_STRICT_CAPABLE_CODE,
+          file: input.file,
+          message: binderModelNotStrictCapableMessage(reference),
+        },
+      ],
+    };
+  }
+  if (strictCapable === undefined) {
+    // The pinned production branch: the field is absent on `Model<Api>`. W-level
+    // — the loom still registers.
+    return {
+      resolved: true,
+      binderModel: reference,
+      diagnostics: [
+        {
+          severity: "warning",
+          code: BINDER_MODEL_STRICT_CAPABILITY_UNKNOWN_CODE,
+          file: input.file,
+          message: binderModelStrictCapabilityUnknownMessage(reference),
+        },
+      ],
+    };
+  }
+  // strictCapable === true → admit with no diagnostic.
+  return { resolved: true, binderModel: reference, diagnostics: [] };
+}
+
+/**
+ * Resolve the two-step binder-model chain (`bind_model:` frontmatter →
+ * `looms.binderModel` setting) to a single model reference, then match it
+ * against the available models through the shared exact-match matcher. Returns
+ * the matched reference string when exactly one available model matches, or
+ * `null` when the chain is empty, matches no available model, or is ambiguous
+ * across providers (binder-model-and-context.md#binder-model-parse-rule). This
+ * is the matcher-only "re-resolves to a model" step the hot-reload recovery note
+ * keys on — independent of the downstream strict-capability probe.
+ */
+function resolveChainReference(
+  input: BinderModelResolutionInput,
+): string | null {
+  const reference = input.bindModel ?? input.settingsBinderModel;
+  if (reference === undefined || reference === "") {
+    return null;
+  }
+  return input.matcher.resolve(reference) === "resolved" ? reference : null;
 }
 
 // --- hot-reload recovery note -----------------------------------------------
@@ -176,13 +253,24 @@ export interface PreviouslyUnresolvedLoom {
 export function computeBinderModelRecoveryNote(
   previouslyUnresolved: readonly PreviouslyUnresolvedLoom[],
 ): SystemNote | null {
-  // V11a-T stub: inert. The paired V11a implementation re-runs resolution and,
-  // when at least one loom re-resolves, builds the verbatim recovery note via
-  // `buildRecoveryNote`. Returning `null` unconditionally reds the recovery test
-  // on its primary assertion (a note is expected) rather than on a harness throw.
-  void previouslyUnresolved;
-  void buildRecoveryNote;
-  return null;
+  // Re-run binder-model resolution alone (matcher step only; no strict-capability
+  // gate) for each previously-unresolved loom. Membership is exactly the looms
+  // whose binder model now re-resolves to a model under the changed setting; a
+  // listed loom's next `/reload` may still fail for an independent reason.
+  const recovered = previouslyUnresolved
+    .filter((loom) => resolveChainReference(loom.resolution) !== null)
+    .map((loom) => loom.slashName)
+    // Ascending Unicode code-point order (the default string sort compares by
+    // code unit, equivalent over the ASCII slash-name domain).
+    .sort();
+  // The note MUST NOT be emitted when no previously-unresolved loom re-resolves.
+  if (recovered.length === 0) {
+    return null;
+  }
+  return buildRecoveryNote(
+    recovered,
+    renderBinderModelRecoveryContent(recovered),
+  );
 }
 
 /**
@@ -236,13 +324,12 @@ export function reconcileBinderModelSettingsEdit(
   loadedLooms: readonly LoadedLoom[],
   deps: BinderModelSettingsEditDeps,
 ): readonly LoadedLoom[] {
-  // V11a-T stub: inert. The paired V11a implementation returns the loaded looms
-  // untouched WITHOUT invoking `deps.resolve` (BNDR-11 suppression). Returning an
-  // empty set reds the retention assertion on its primary check (handles are not
-  // retained) rather than on a harness throw.
-  void loadedLooms;
+  // BNDR-11: a `looms.binderModel`-only settings edit MUST NOT re-run binder-
+  // model resolution or the strict-capability probe for any already-loaded loom.
+  // `deps.resolve` is deliberately never invoked; each loom retains its
+  // previously-resolved binder-model handle until its next load.
   void deps;
-  return [];
+  return loadedLooms;
 }
 
 // --- load-pass cross-resolution wiring (single shared matcher) --------------
@@ -293,13 +380,25 @@ export function loadPassResolveBinderModels(
   files: readonly BinderModelLoadPassFile[],
   deps: BinderModelLoadPassDeps,
 ): readonly BinderModelLoadPassResult[] {
-  // V11a-T stub: inert. The paired V11a implementation constructs the matcher
-  // once via `createModelReferenceMatcher(deps.modelRegistry)` and injects that
-  // one instance into every `parse` and `resolveBinderModel` call. Returning an
-  // empty set (no `parse` / `resolveBinderModel` calls made) reds the instance-
-  // identity test on its primary assertion (the shared matcher never reaches
-  // either path) rather than on a harness throw.
-  void files;
-  void deps;
-  return [];
+  // Single source of construction: build the matcher ONCE over
+  // `modelRegistry.getAvailable()`, then thread that one instance into BOTH V6a's
+  // `parse({ modelMatcher })` and each loom's `resolveBinderModel({ matcher })`,
+  // so the two resolution paths bind the same instance (instance identity) and
+  // cannot diverge on the "reference matches no available model" condition.
+  const matcher = createModelReferenceMatcher(deps.modelRegistry);
+  const settingsBinderModel = deps.settings.looms?.binderModel;
+  return files.map((f) => {
+    const parse = deps.parse({ file: f.file, modelMatcher: matcher });
+    // `exactOptionalPropertyTypes` forbids an explicit `undefined` on the
+    // optional chain keys, so only include each when a value is present.
+    const binderModel = deps.resolveBinderModel({
+      file: f.file,
+      ...(f.bindModel !== undefined ? { bindModel: f.bindModel } : {}),
+      ...(settingsBinderModel !== undefined ? { settingsBinderModel } : {}),
+      bypassEligible: f.bypassEligible,
+      matcher,
+      probeStrictCapable: deps.probeStrictCapable,
+    });
+    return { file: f.file, parse, binderModel };
+  });
 }

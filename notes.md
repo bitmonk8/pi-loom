@@ -496,3 +496,17 @@ canonical re-merge failure), exposed as `SETTINGS_REMERGE_FAILED_CODE`. V4g
 (which lists V10d in Deps and binds this arm) asserts the ERR-7 pre-eval routing
 to `loom-system-note` with `triggerTurn:false`; its Ships-when tests the routing,
 not the exact registry message string, so this code choice is compatible.
+
+## V11a — binder-model resolution (2026-07-01)
+
+Divergence (minor, spec-faithful): `computeBinderModelRecoveryNote` keys recovery-note
+membership on the matcher-only "re-resolves to a model" step (`resolveChainReference`
+→ `matcher.resolve(...) === "resolved"`), NOT on the full `resolveBinderModel` result.
+Rationale: binder-model-and-context.md#binder-model-hot-reload says membership is
+"exactly the looms whose original load failure was `loom/load/binder-model-unresolved`
+and whose binder model now re-resolves to a model … computed by re-running binder-model
+resolution alone", and explicitly that "membership … makes no claim that a listed loom's
+next /reload succeeds" (a re-resolved loom can still fail `/reload` for the strict-
+capability reason, surfaced at that next load). So a model that now matches but is
+strict-capable=`false` is still listed as recovered. The V11a-T test only exercises the
+resolved+strictCapable-true case, so this choice is not test-pinned; recorded here.
