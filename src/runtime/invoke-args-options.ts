@@ -23,20 +23,13 @@
 //     the corresponding `Err` envelope (functions.md FN-5, invocation.md
 //     §Final-value propagation across callees, return.md).
 //
-// V15k-T (tests-task) declares the seam shapes and stubs the behaviour-bearing
-// functions inertly so the failing tests compile and red on their own primary
-// assertions:
-//   - `buildInvokeArgList` returns the wrong `style` (`"named"`), so the
-//     positional-style assertion reds.
-//   - `invokeArgListStyleDefinedInLoom10` returns the inverted verdict, so both
-//     the positional-defined and named-undefined assertions red.
-//   - `readInvokeOptions` drops the present known-field values (returns all
-//     `undefined`), so the open-struct known-field projection assertions red.
-//   - `invokeFinalValueFromCalleeResult` returns a fixed `propagated` sentinel
-//     regardless of the callee outcome, so the success-propagation and the
-//     fail/cancel-absent assertions all red.
-// No test reds on a compile error, a missing fixture, or a harness throw. The
-// paired V15k implementation leaf fills these in.
+// V15k (implementation) fills in the behaviour V15k-T's tests pin:
+//   - `buildInvokeArgList` builds the arg list with `style: "positional"`.
+//   - `invokeArgListStyleDefinedInLoom10` returns `true` only for `"positional"`.
+//   - `readInvokeOptions` projects the three known slots verbatim while
+//     tolerating additive unknown fields (open struct).
+//   - `invokeFinalValueFromCalleeResult` propagates the callee's final value on
+//     success and reports it absent on fail/cancel, off the V3d seam.
 //
 // Spec: invocation.md (INV-2, INV-3, §Final-value propagation across callees),
 // return.md, functions.md §Final value (language definition).
@@ -77,28 +70,20 @@ export interface InvokeArgList {
  * Build the invocation AST arg-list node for a loom 1.0 `invoke(...)` call.
  * loom 1.0's only surface syntax is positional, so the built list always carries
  * `style: "positional"` (invocation.md INV-2).
- *
- * V15k-T stubs this to return the wrong style (`"named"`), so the positional-
- * style assertion reds on its own primary assertion. The paired V15k leaf
- * returns `"positional"`.
  */
 export function buildInvokeArgList(args: readonly InvokeArg[]): InvokeArgList {
-  return { style: "named", args };
+  return { style: "positional", args };
 }
 
 /**
  * Whether an arg-list `style` has defined behaviour in loom 1.0 (invocation.md
  * INV-2): only `"positional"` does; `"named"` is a reserved seam with no loom
  * 1.0 grammar or behaviour.
- *
- * V15k-T stubs this to the inverted verdict, so both the positional-defined and
- * the named-undefined assertions red. The paired V15k leaf returns `style ===
- * "positional"`.
  */
 export function invokeArgListStyleDefinedInLoom10(
   style: InvokeArgListStyle,
 ): boolean {
-  return style === "named";
+  return style === "positional";
 }
 
 // --------------------------------------------------------------------------
@@ -136,14 +121,13 @@ export interface ResolvedInvokeOptions {
  * struct, tolerating (ignoring) any additive unknown field (invocation.md
  * INV-3). Reading the known slots must be unaffected by an unknown field's
  * presence — the additive-seam property.
- *
- * V15k-T stubs this to drop the present values (returns all `undefined`), so the
- * known-field projection assertions red. The paired V15k leaf returns the three
- * known slots verbatim.
  */
 export function readInvokeOptions(options: InvokeOptions): ResolvedInvokeOptions {
-  void options;
-  return { cancellation: undefined, calleeHandle: undefined, returnSchema: undefined };
+  return {
+    cancellation: options.cancellation,
+    calleeHandle: options.calleeHandle,
+    returnSchema: options.returnSchema,
+  };
 }
 
 // --------------------------------------------------------------------------
@@ -166,22 +150,12 @@ export type InvokeFinalValueObservation =
  * invocation.md §Final-value propagation across callees): a `present` result
  * propagates its value to the caller; an absent result (fail / cancel) yields no
  * final value.
- *
- * V15k-T stubs this to return a fixed `propagated` sentinel regardless of the
- * callee outcome, so the success-propagation assertion (wrong value) and the
- * fail/cancel-absent assertions (wrong `kind`) all red. The paired V15k leaf
- * projects `result.present`.
  */
 export function invokeFinalValueFromCalleeResult(
   result: FunctionResult,
 ): InvokeFinalValueObservation {
-  void result;
-  return { kind: "propagated", value: STUB_UNIMPLEMENTED_SENTINEL };
+  if (result.present) {
+    return { kind: "propagated", value: result.value as LoomValue };
+  }
+  return { kind: "absent" };
 }
-
-/**
- * Inert sentinel the V15k-T stub returns so the FN-5 success-propagation test
- * reds on a wrong value rather than a compile error. Not part of the seam
- * contract; the paired V15k leaf removes it.
- */
-const STUB_UNIMPLEMENTED_SENTINEL = "<v15k-unimplemented>";
