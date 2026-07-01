@@ -510,3 +510,38 @@ next /reload succeeds" (a re-resolved loom can still fail `/reload` for the stri
 capability reason, surfaced at that next load). So a model that now matches but is
 strict-capable=`false` is still listed as recovered. The V11a-T test only exercises the
 resolved+strictCapable-true case, so this choice is not test-pinned; recorded here.
+
+## V9j-T — pi-ai SDK naming vs spec provider/api strings, and the binder-tool `label` field
+
+Two spec-vs-`@earendil-works/pi-ai` mismatches surfaced while writing the V9j-T
+tests. Both are recorded here (and in `.pi/impl-progress/decisions.jsonl`) so the
+paired V9j implementation and the spec's build-time `Api`-coverage assertion are
+not surprised by them.
+
+1. **Provider `api`-string naming.** `provider-error-mapping.md` keys its overflow
+   signatures and its seed-field table on the `api`-shaped `Model<Api>.api` values
+   `anthropic-messages`, `openai-completions`, `mistral`, and `amazon-bedrock`. In
+   the pinned pi-ai (`~0.75.5`), `KnownApi` is
+   `openai-completions | mistral-conversations | openai-responses |
+   azure-openai-responses | openai-codex-responses | anthropic-messages |
+   bedrock-converse-stream | google-generative-ai | google-vertex` — so `mistral`
+   and `amazon-bedrock` are **`Provider`** (`KnownProvider`) values, NOT `Api`
+   values; the corresponding `Api` values are `mistral-conversations` and
+   `bedrock-converse-stream`. The V9j-T tests encode the spec's four api-strings
+   verbatim (the observable contract the spec pins). This means the spec's
+   build-time "`Api`-coverage assertion which enumerates pi-ai's exposed `Api`
+   literal-union values and asserts every value appears as a row key in the
+   seed-field table" cannot be satisfied as literally written against this pi-ai
+   version — the seed-field table row keys (`mistral`, `amazon-bedrock`) are not
+   `Api` union members, and several real `Api` members (`openai-responses`,
+   `google-generative-ai`, …) have no row. Resolving this is a V9j (impl) /
+   spec-coverage concern; V9j-T only pins the spec's four-provider behaviour.
+
+2. **Binder-tool `label`.** `binder-inference.md` describes the binder's
+   structured-output tool as a `ToolDefinition` with a `label` field
+   (`"Loom binder envelope"`). But the value `complete()` consumes —
+   `Context.tools[i]` — is pi-ai's `Tool = { name; description; parameters }`,
+   which has no `label` field. The V9j-T `complete()`-envelope test therefore
+   asserts only `name` / `description` / `parameters` on the tool entry and omits
+   `label`; the label literal belongs (if anywhere) to loom's internal
+   ToolDefinition→pi bridge, not to the off-session `complete()` call args.
