@@ -116,9 +116,16 @@ export interface PinnedSdkSurface {
 export function surfaceInventoryPresenceFailures(
   sdk: PinnedSdkSurface,
 ): readonly string[] {
-  void sdk;
-  void SDK_SURFACE_INVENTORY;
-  return [];
+  const presenceCheckableKinds: ReadonlySet<string> = new Set([
+    "namespace-function",
+    "pi-member",
+    "ctx-member",
+    "peer-named-import",
+  ]);
+  return SDK_SURFACE_INVENTORY.filter(
+    (entry) =>
+      presenceCheckableKinds.has(entry.kind) && !sdk.presentIds.has(entry.id),
+  ).map((entry) => entry.id);
 }
 
 // --- step 2(b): capability count-equality co-edit ---------------------------
@@ -137,9 +144,12 @@ export function capabilityCountCoEditFailures(
   obligationsLength: number,
   pinnedCount: number,
 ): readonly string[] {
-  void obligationsLength;
-  void pinnedCount;
-  return [];
+  if (obligationsLength === pinnedCount) {
+    return [];
+  }
+  return [
+    `CAPABILITY_OBLIGATIONS cardinality ${obligationsLength} diverges from the pinned literal ${pinnedCount}`,
+  ];
 }
 
 // --- step 3: engines.node three-way equality --------------------------------
@@ -160,10 +170,12 @@ export function enginesNodeEqualityFailures(
   inventoryPinned: string,
   liveUpstream: string,
 ): readonly string[] {
-  void loomLiteral;
-  void inventoryPinned;
-  void liveUpstream;
-  return [];
+  if (loomLiteral === inventoryPinned && inventoryPinned === liveUpstream) {
+    return [];
+  }
+  return [
+    `engines.node three-way equality broken: (i) package.json '${loomLiteral}', (ii) pi-engines-node '${inventoryPinned}', (iii) live upstream '${liveUpstream}'`,
+  ];
 }
 
 // --- step 4: peerDependencies literal-read ----------------------------------
@@ -181,9 +193,26 @@ export function peerDependencyPinFailures(
   peerDependencies: Readonly<Record<string, string>>,
   pinLiteral: string,
 ): readonly string[] {
-  void peerDependencies;
-  void pinLiteral;
-  return [];
+  const pinnedPackages: readonly string[] = [
+    "@earendil-works/pi-coding-agent",
+    "@earendil-works/pi-agent-core",
+    "@earendil-works/pi-ai",
+    "@earendil-works/pi-tui",
+  ];
+  const failures: string[] = [];
+  for (const pkg of pinnedPackages) {
+    if (peerDependencies[pkg] !== pinLiteral) {
+      failures.push(
+        `peerDependencies['${pkg}'] is '${String(peerDependencies[pkg])}', expected the Pi-SDK pin '${pinLiteral}'`,
+      );
+    }
+  }
+  if (peerDependencies.typebox !== "*") {
+    failures.push(
+      `peerDependencies['typebox'] is '${String(peerDependencies.typebox)}', expected '*'`,
+    );
+  }
+  return failures;
 }
 
 // --- step 2(a): reason-snapshot literal-array consistency -------------------
@@ -206,9 +235,30 @@ export function reasonSnapshotConsistencyFailures(
   snapshotLiterals: readonly string[],
   sdkReasonUnion: readonly string[],
 ): readonly string[] {
-  void snapshotLiterals;
-  void sdkReasonUnion;
-  return [];
+  const failures: string[] = [];
+  if (snapshotLiterals.length === 0) {
+    failures.push("session-shutdown reason snapshot is empty");
+  }
+  const snapshotSet = new Set(snapshotLiterals);
+  if (snapshotSet.size !== snapshotLiterals.length) {
+    failures.push("session-shutdown reason snapshot carries duplicate members");
+  }
+  const unionSet = new Set(sdkReasonUnion);
+  for (const member of unionSet) {
+    if (!snapshotSet.has(member)) {
+      failures.push(
+        `SDK reason union member '${member}' is absent from the pinned snapshot (widen)`,
+      );
+    }
+  }
+  for (const member of snapshotSet) {
+    if (!unionSet.has(member)) {
+      failures.push(
+        `pinned snapshot member '${member}' is absent from the SDK reason union (narrow)`,
+      );
+    }
+  }
+  return failures;
 }
 
 // --- step 6: provider seed-field Api-coverage + fixture ---------------------
@@ -225,9 +275,8 @@ export function apiCoverageFailures(
   apiUnionSnapshot: readonly string[],
   seedFieldTableKeys: readonly string[],
 ): readonly string[] {
-  void apiUnionSnapshot;
-  void seedFieldTableKeys;
-  return [];
+  const keySet = new Set(seedFieldTableKeys);
+  return apiUnionSnapshot.filter((api) => !keySet.has(api));
 }
 
 /**
@@ -243,9 +292,21 @@ export function seedFieldFixtureFailures(
   pinnedTable: Readonly<Record<string, string>>,
   observedTable: Readonly<Record<string, string>>,
 ): readonly string[] {
-  void pinnedTable;
-  void observedTable;
-  return [];
+  const failures: string[] = [];
+  const providers = new Set([
+    ...Object.keys(pinnedTable),
+    ...Object.keys(observedTable),
+  ]);
+  for (const provider of providers) {
+    const pinned = pinnedTable[provider];
+    const observed = observedTable[provider];
+    if (pinned !== observed) {
+      failures.push(
+        `provider '${provider}' seed field changed: pinned '${String(pinned)}', observed '${String(observed)}'`,
+      );
+    }
+  }
+  return failures;
 }
 
 // --- step 7: strict-capability probe (both arms) ----------------------------
@@ -286,7 +347,17 @@ export function strictCapabilityProbeFailures(
   probedName: string,
   modelMembers: readonly string[],
 ): readonly StrictCapabilityProbeFailure[] {
-  void probedName;
-  void modelMembers;
-  return [];
+  const failures: StrictCapabilityProbeFailure[] = [];
+  for (const member of modelMembers) {
+    if (member === probedName) {
+      // Absence-under-probed-name arm: the loom 1.0 absence pin requires the
+      // probed member to be absent; its presence violates the pin.
+      failures.push({ arm: "absence-under-probed-name", member });
+    } else if (member.toLowerCase().includes("strict")) {
+      // Rename-detection arm: a strict-capability indicator is present under a
+      // name other than the probed `strictCapable`.
+      failures.push({ arm: "rename-detection", member });
+    }
+  }
+  return failures;
 }
