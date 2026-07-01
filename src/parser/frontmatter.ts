@@ -55,12 +55,44 @@ export interface ModelReferenceMatcher {
   resolve(reference: unknown): ModelMatchOutcome;
 }
 
+/**
+ * The parsed `tool_loop` block (FRNT-1). `maxRounds` is a non-negative integer
+ * bounding free-phase tool-call rounds; `0` disables model-driven tool calls.
+ * Absent / empty (`tool_loop: {}`) blocks default to `{ maxRounds: 25 }`.
+ */
+export interface ParsedToolLoop {
+  /** The non-negative-integer free-phase round cap (FRNT-1). */
+  readonly maxRounds: number;
+}
+
+/**
+ * The parsed `respond_repair` block. `attempts` is a non-negative integer
+ * bounding respond-repair follow-up turns. Absent / empty (`respond_repair: {}`)
+ * blocks default to `{ attempts: 3 }`.
+ */
+export interface ParsedRespondRepair {
+  /** The non-negative-integer respond-repair follow-up budget. */
+  readonly attempts: number;
+}
+
 /** The recognised, defaulted frontmatter a successfully-loaded loom exposes. */
 export interface ParsedFrontmatter {
   /** The required `mode:` field. */
   readonly mode: LoomMode;
   /** The present `model:` reference, when one was declared and resolved. */
   readonly model?: string;
+  /**
+   * The parsed `tool_loop` block (FRNT-1). Populated on every registered loom
+   * — the default `{ maxRounds: 25 }` when the block is absent or empty. Owned
+   * by the `V6e` implementation leaf; the `V6e-T` seam declares the shape.
+   */
+  readonly toolLoop?: ParsedToolLoop;
+  /**
+   * The parsed `respond_repair` block. Populated on every registered loom —
+   * the default `{ attempts: 3 }` when the block is absent or empty. Owned by
+   * the `V6e` implementation leaf; the `V6e-T` seam declares the shape.
+   */
+  readonly respondRepair?: ParsedRespondRepair;
 }
 
 /** The outcome of a frontmatter parse: registration decision + diagnostics. */
