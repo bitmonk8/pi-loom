@@ -44,9 +44,9 @@
 // carrier). Code-keyed obligation area `cka-10` (schema-subset.md, no numbered
 // REQ-ID — `V15j` is its `params` / `invoke<T>`-return co-witness closing leaf).
 
-import type { DepthViolationIssue } from "./depth-walk";
+import { depthWalk, type DepthViolationIssue } from "./depth-walk";
 import type { InvokeInfraError } from "./query-error";
-import type { ResultValue } from "./value";
+import { makeErr, type LoomValue, type ResultValue } from "./value";
 
 /**
  * A depth-6 `invoke`-boundary ceiling-#4 breach, materialised at one of the two
@@ -81,14 +81,10 @@ export interface InvokeDepthBreach {
  * at `V11f` / `V4e`) and does not surface here.
  */
 export function enforceInvokeParamsDepth(
-  _calleePath: string,
-  _paramsValue: unknown,
+  calleePath: string,
+  paramsValue: unknown,
 ): InvokeDepthBreach | undefined {
-  // V15j-T stub: never fires, so a depth-6 `params` value yields no breach and
-  // the failing test reds on its own primary "expected a breach" assertion. The
-  // paired `V15j` implementation runs the depth walk and wraps a depth-6 breach
-  // into `Err(InvokeInfraError { cause: "validation", ... })`.
-  return undefined;
+  return enforceInvokeDepth(calleePath, paramsValue, "validation");
 }
 
 /**
@@ -101,12 +97,45 @@ export function enforceInvokeParamsDepth(
  * value, deferring to the downstream AJV boundary.
  */
 export function enforceInvokeReturnDepth(
-  _calleePath: string,
-  _returnValue: unknown,
+  calleePath: string,
+  returnValue: unknown,
 ): InvokeDepthBreach | undefined {
-  // V15j-T stub: never fires, so a depth-6 return value yields no breach and the
-  // failing test reds on its own primary "expected a breach" assertion. The
-  // paired `V15j` implementation runs the depth walk and wraps a depth-6 breach
-  // into `Err(InvokeInfraError { cause: "return_validation", ... })`.
-  return undefined;
+  return enforceInvokeDepth(calleePath, returnValue, "return_validation");
+}
+
+/**
+ * The shared depth-walk-before-AJV enforcement both `invoke`-boundary sites run
+ * (CIO-3). Runs `V5e`'s loom-owned depth walk over the materialised value; a
+ * within-cap value returns `undefined` (deferring to the downstream AJV
+ * boundary), and a depth-6+ breach is wrapped into the boundary-specific
+ * `InvokeInfraError` carrier (`cause: "validation"` at the `params` argument
+ * boundary, `cause: "return_validation"` at the `invoke<T>` return boundary) and
+ * surfaced as `Err(InvokeInfraError)` to the invoke parent
+ * (ceilings-3-and-4.md#ceiling-4-table).
+ *
+ * The two boundaries route identically per `V5e`'s `routeDepthBoundary`
+ * (`params-invoke` → `InvokeInfraError`, `invoke-return` → `InvokeInfraError`);
+ * they differ only in the `cause` the carrier records, so the caller passes the
+ * boundary-specific `cause` directly.
+ */
+function enforceInvokeDepth(
+  calleePath: string,
+  value: unknown,
+  cause: "validation" | "return_validation",
+): InvokeDepthBreach | undefined {
+  const walk = depthWalk(value);
+  if (walk.ok) {
+    return undefined;
+  }
+  const error: InvokeInfraError = {
+    kind: "invoke_infra",
+    message: walk.issue.message,
+    callee_path: calleePath,
+    cause,
+  };
+  return {
+    result: makeErr(error as unknown as LoomValue),
+    error,
+    issue: walk.issue,
+  };
 }
