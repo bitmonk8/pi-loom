@@ -162,29 +162,6 @@ export const INVOKE_NON_LOOM_EXTENSION_HINT =
 export const CALLEE_HAS_ERRORS_HINT = "Open the callee and fix the listed errors.";
 
 // --------------------------------------------------------------------------
-// V15f-T stub sentinel
-// --------------------------------------------------------------------------
-
-/**
- * The inert stub diagnostic every V15f-T checker returns until the paired V15f
- * implementation replaces the body. Its code is deliberately *not* a
- * `loom/...` registry code, so no test asserts it and the closing-gate registry
- * parity is unaffected; every V15f-T test reds because it observes this sentinel
- * instead of the intended diagnostic (or instead of an empty result).
- */
-const STUB_CODE = "stub/v15f-unimplemented";
-
-function stub(): Diagnostic[] {
-  return [
-    {
-      severity: "error",
-      code: STUB_CODE,
-      message: "V15f invoke diagnostics not implemented",
-    },
-  ];
-}
-
-// --------------------------------------------------------------------------
 // Argument type mismatch — loom/parse/invoke-arg-type-mismatch
 // --------------------------------------------------------------------------
 
@@ -222,11 +199,37 @@ export interface InvokeArgTypeInput {
  * `loom/parse/invoke-arg-type-mismatch`. A statically-unresolvable operand
  * within a slot (`checkCompatible` → `"unknown"`) is likewise deferred.
  *
- * V15f-T stubs this inert (a single sentinel diagnostic); the paired V15f leaf
- * fills it in.
+ * A statically-unresolvable operand within a slot (`checkCompatible` →
+ * `"unknown"`) is likewise deferred to the runtime AJV net.
  */
-export function checkInvokeArgTypes(_input: InvokeArgTypeInput): Diagnostic[] {
-  return stub();
+export function checkInvokeArgTypes(input: InvokeArgTypeInput): Diagnostic[] {
+  const { staticallyResolvable, args, env, site } = input;
+  // Callee not statically resolvable → skip the parse check entirely; the
+  // runtime AJV check is the only safety net (invocation.md §Argument binding).
+  if (!staticallyResolvable) {
+    return [];
+  }
+  const diags: Diagnostic[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const slot = args[i] as InvokeArgSlot;
+    const r = checkCompatible(slot.argType, slot.paramType, env);
+    if (r === "compatible" || r === "unknown") {
+      continue;
+    }
+    diags.push({
+      severity: "error",
+      code: INVOKE_ARG_TYPE_MISMATCH_CODE,
+      file: site.file,
+      range: site.range,
+      message: invokeArgTypeMismatchMessage(
+        i,
+        slot.paramName,
+        displayType(slot.paramType),
+        displayType(slot.argType),
+      ),
+    });
+  }
+  return diags;
 }
 
 // --------------------------------------------------------------------------
@@ -261,10 +264,32 @@ export interface InvokeReturnTypeInput {
  * `loom/parse/invoke-return-type-mismatch`. When either side is not statically
  * resolvable no parse error fires (runtime AJV net).
  *
- * V15f-T stubs this inert; the paired V15f leaf fills it in.
  */
-export function checkInvokeReturnType(_input: InvokeReturnTypeInput): Diagnostic[] {
-  return stub();
+export function checkInvokeReturnType(input: InvokeReturnTypeInput): Diagnostic[] {
+  const { callee, calleeResolvable, schema, calleeReturn, env, site } = input;
+  // Callee not statically resolvable → no parse error; the runtime AJV check is
+  // the net (invocation.md §Typed return).
+  if (!calleeResolvable) {
+    return [];
+  }
+  // T_calleeReturn ⊑ Schema by compatibility (not equality). A narrower callee
+  // return under a wider annotation (Cat ⊑ Animal) is accepted; an
+  // unresolvable operand (either side past the parser's static view) defers to
+  // the runtime AJV net.
+  const r = checkCompatible(calleeReturn, schema, env);
+  if (r === "compatible" || r === "unknown") {
+    return [];
+  }
+  return [
+    {
+      severity: "error",
+      code: INVOKE_RETURN_TYPE_MISMATCH_CODE,
+      file: site.file,
+      range: site.range,
+      message: invokeReturnTypeMismatchMessage(callee, displayType(calleeReturn)),
+      hint: INVOKE_RETURN_TYPE_MISMATCH_HINT,
+    },
+  ];
 }
 
 // --------------------------------------------------------------------------
@@ -302,10 +327,42 @@ export interface InvokeArityInput {
  *   - `providedCount < requiredCount` → `loom/parse/invoke-arity-too-few` when
  *     statically resolvable; otherwise no parse error (runtime AJV net).
  *
- * V15f-T stubs this inert; the paired V15f leaf fills it in.
  */
-export function checkInvokeArity(_input: InvokeArityInput): Diagnostic[] {
-  return stub();
+export function checkInvokeArity(input: InvokeArityInput): Diagnostic[] {
+  const { callee, staticallyResolvable, requiredCount, totalCount, providedCount, site } =
+    input;
+  // Too-many is always a parse error: extra positionals have no destination and
+  // no runtime net can catch them (invocation.md §Argument arity).
+  if (providedCount > totalCount) {
+    return [
+      {
+        severity: "error",
+        code: INVOKE_ARITY_TOO_MANY_CODE,
+        file: site.file,
+        range: site.range,
+        message: invokeArityTooManyMessage(callee, totalCount, providedCount),
+        hint: INVOKE_ARITY_TOO_MANY_HINT,
+      },
+    ];
+  }
+  // Too-few is a parse error only when statically resolvable; otherwise the
+  // runtime AJV check reds on the missing required field(s).
+  if (providedCount < requiredCount) {
+    if (!staticallyResolvable) {
+      return [];
+    }
+    return [
+      {
+        severity: "error",
+        code: INVOKE_ARITY_TOO_FEW_CODE,
+        file: site.file,
+        range: site.range,
+        message: invokeArityTooFewMessage(callee, requiredCount, providedCount),
+        hint: INVOKE_ARITY_TOO_FEW_HINT,
+      },
+    ];
+  }
+  return [];
 }
 
 // --------------------------------------------------------------------------
@@ -337,10 +394,24 @@ export interface InvokeCallInput {
  * per-argument type error on the first extra slot. When arity fails the
  * per-argument type check does not run.
  *
- * V15f-T stubs this inert; the paired V15f leaf fills it in.
  */
-export function checkInvokeCall(_input: InvokeCallInput): Diagnostic[] {
-  return stub();
+export function checkInvokeCall(input: InvokeCallInput): Diagnostic[] {
+  const { callee, staticallyResolvable, requiredCount, totalCount, args, env, site } =
+    input;
+  // Arity is checked BEFORE per-argument type (invocation.md §Argument arity).
+  const arityDiags = checkInvokeArity({
+    callee,
+    staticallyResolvable,
+    requiredCount,
+    totalCount,
+    providedCount: args.length,
+    site,
+  });
+  if (arityDiags.length > 0) {
+    return arityDiags;
+  }
+  // Arity is in range → run the per-argument type check.
+  return checkInvokeArgTypes({ staticallyResolvable, args, env, site });
 }
 
 // --------------------------------------------------------------------------
@@ -366,10 +437,25 @@ export interface InvokeExtensionInput {
  * such as `.LOOM` (invocation.md §Resolution, lexical.md §Extension matching).
  * The same code fires for both surfaces.
  *
- * V15f-T stubs this inert; the paired V15f leaf fills it in.
  */
-export function checkInvokeExtension(_input: InvokeExtensionInput): Diagnostic[] {
-  return stub();
+export function checkInvokeExtension(input: InvokeExtensionInput): Diagnostic[] {
+  const { literalPath, site } = input;
+  // Byte-exact-lowercase `.loom` suffix (no realpath normalisation, no
+  // case-folding): a `.warp` path or any non-lowercase variant such as `.LOOM`
+  // fires (invocation.md §Resolution). The same code fires for both surfaces.
+  if (literalPath.endsWith(".loom")) {
+    return [];
+  }
+  return [
+    {
+      severity: "error",
+      code: INVOKE_NON_LOOM_EXTENSION_CODE,
+      file: site.file,
+      range: site.range,
+      message: invokeNonLoomExtensionMessage(literalPath),
+      hint: INVOKE_NON_LOOM_EXTENSION_HINT,
+    },
+  ];
 }
 
 // --------------------------------------------------------------------------
@@ -404,10 +490,29 @@ export interface CalleeHasErrorsInput {
  * are skipped, and the runtime AJV check is the net). The underlying sites are
  * listed via `related`.
  *
- * V15f-T stubs this inert; the paired V15f leaf fills it in.
  */
-export function checkCalleeHasErrors(_input: CalleeHasErrorsInput): Diagnostic[] {
-  return stub();
+export function checkCalleeHasErrors(input: CalleeHasErrorsInput): Diagnostic[] {
+  const { calleePath, surface, hasErrors, relatedSites, site } = input;
+  if (!hasErrors) {
+    return [];
+  }
+  // Deliberate severity split (invocation.md §Static resolution): **error** for
+  // a `tools:` `.loom` entry (the callable cannot be created and the parent does
+  // not register) and **warning** for a literal `invoke(...)` callee (the parent
+  // registers, static checks against the callee are skipped, and the runtime
+  // AJV check is the net).
+  const severity = surface === "tools" ? "error" : "warning";
+  return [
+    {
+      severity,
+      code: CALLEE_HAS_ERRORS_CODE,
+      file: site.file,
+      range: site.range,
+      message: calleeHasErrorsMessage(calleePath),
+      hint: CALLEE_HAS_ERRORS_HINT,
+      related: relatedSites,
+    },
+  ];
 }
 
 // Re-export the compatibility helpers the checkers compose with, so consumers
