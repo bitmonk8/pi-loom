@@ -518,12 +518,16 @@ export interface WarpModuleForms {
  * `resolvedExports` list `checkImportedSymbols` matches an importing specifier
  * against.
  *
- * V15i-T stubs this to the WRONG set (the plain-import locals only), so each
- * visibility test reds on its own primary assertion. The paired V15i leaf fills
- * it in.
+ * Every top-level declaration is auto-exported (no `export` keyword, no privacy
+ * modifier) and every `export … from` re-export is visible under its downstream
+ * name (`exported`); a plain `import` local is excluded — a plain import is not
+ * re-exported downstream (imports.md §Re-exports, negative half).
  */
 export function computeWarpExports(forms: WarpModuleForms): readonly string[] {
-  return forms.plainImports.map((specifier) => specifier.local);
+  return [
+    ...forms.declarations.map((declaration) => declaration.name),
+    ...forms.reExports.map((reExport) => reExport.exported),
+  ];
 }
 
 /**
@@ -532,10 +536,14 @@ export function computeWarpExports(forms: WarpModuleForms): readonly string[] {
  * for its source symbol, so re-export sources are excluded (imports.md
  * §Re-exports — "a dedicated form that creates no local binding").
  *
- * V15i-T stubs this to the WRONG set (the re-export source names, which are
- * exactly what a re-export does NOT bind locally), so the "no local binding for
- * the re-exported symbol" assertion reds. The paired V15i leaf fills it in.
+ * A top-level declaration binds its own name locally and a plain `import` binds
+ * its local (`as` alias or source name); an `export … from` re-export creates NO
+ * local binding for its source symbol (imports.md §Re-exports — "a dedicated
+ * form that creates no local binding"), so re-export sources are excluded.
  */
 export function warpLocalBindings(forms: WarpModuleForms): readonly string[] {
-  return forms.reExports.map((reExport) => reExport.source);
+  return [
+    ...forms.declarations.map((declaration) => declaration.name),
+    ...forms.plainImports.map((specifier) => specifier.local),
+  ];
 }
