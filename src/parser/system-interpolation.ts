@@ -39,7 +39,10 @@
 import { type Diagnostic, type SourceRange } from "../diagnostics/diagnostic";
 import { type LoomMode } from "./frontmatter";
 import { type LoomValue } from "../runtime/value";
-import { type InterpolationType } from "../render/query-render";
+import {
+  stringifyInterpolatedValue,
+  type InterpolationType,
+} from "../render/query-render";
 
 // --- Diagnostic codes + registry-anchored message strings ------------------
 //
@@ -184,9 +187,251 @@ export interface CheckSystemInterpolationResult {
  * path's terminal static type to its `InterpolationType`.
  */
 export function checkSystemInterpolation(
-  _input: CheckSystemInterpolationInput,
+  input: CheckSystemInterpolationInput,
 ): CheckSystemInterpolationResult {
-  return { diagnostics: [] };
+  const { systemValue, mode, params, file } = input;
+
+  // Subagent-mode-only: `system:` on a `mode: prompt` loom belongs to Pi, not
+  // the loom, and is rejected outright — no template is produced.
+  if (mode === "prompt") {
+    return {
+      diagnostics: [
+        located(SYSTEM_ON_PROMPT_MODE_CODE, SYSTEM_ON_PROMPT_MODE_MESSAGE, file, input.range),
+      ],
+    };
+  }
+
+  const parts: SystemTemplatePart[] = [];
+  const diagnostics: Diagnostic[] = [];
+  let text = "";
+
+  const flushText = (): void => {
+    if (text.length > 0) {
+      parts.push({ kind: "text", value: text });
+      text = "";
+    }
+  };
+
+  let i = 0;
+  while (i < systemValue.length) {
+    const c = systemValue[i];
+
+    // `\${` escape — a literal `${` suppresses interpolation. Only this exact
+    // sequence is special; in any other position `\` is passed through verbatim.
+    if (c === "\\" && systemValue[i + 1] === "$" && systemValue[i + 2] === "{") {
+      text += "${";
+      i += 3;
+      continue;
+    }
+
+    if (c === "$" && systemValue[i + 1] === "{") {
+      // Scan to the matching `}` (tracking `{`/`}` nesting so a brace inside the
+      // body does not close the interpolation early); EOF first ⇒ unterminated.
+      flushText();
+      let depth = 1;
+      let j = i + 2;
+      let body = "";
+      while (j < systemValue.length) {
+        const cj = systemValue[j];
+        if (cj === "{") {
+          depth += 1;
+        } else if (cj === "}") {
+          depth -= 1;
+          if (depth === 0) {
+            break;
+          }
+        }
+        body += cj;
+        j += 1;
+      }
+      if (depth !== 0) {
+        diagnostics.push(
+          located(SYSTEM_INTERP_UNTERMINATED_CODE, SYSTEM_INTERP_UNTERMINATED_MESSAGE, file, input.range),
+        );
+        // Unterminated body: stop scanning; no further parts.
+        i = systemValue.length;
+        break;
+      }
+      const pathPart = parseInterpolationPath(body, params, file, input.range, diagnostics);
+      if (pathPart !== undefined) {
+        parts.push(pathPart);
+      }
+      i = j + 1;
+      continue;
+    }
+
+    text += c;
+    i += 1;
+  }
+  flushText();
+
+  const hasError = diagnostics.some((d) => d.severity === "error");
+  if (hasError) {
+    return { diagnostics };
+  }
+  return { diagnostics, template: { parts } };
+}
+
+// --- Path-body parsing + resolution ----------------------------------------
+
+/** A lexical identifier start character (lexical.md — Identifiers). */
+function isIdentStart(c: string): boolean {
+  return (c >= "A" && c <= "Z") || (c >= "a" && c <= "z") || c === "_";
+}
+
+/** A lexical identifier continuation character (lexical.md — Identifiers). */
+function isIdentPart(c: string): boolean {
+  return isIdentStart(c) || (c >= "0" && c <= "9");
+}
+
+/**
+ * Split a trimmed `${…}` body into `Ident ('.' Ident)*` segments, or return
+ * `undefined` when the body is not a bare identifier `Path` (indexed access,
+ * call syntax, optional chaining, arithmetic, string literals, empty body, …).
+ * The restriction is applied to the tokenised body, not a `${param}` regex, so
+ * the deferred richer-expression extension widens the filter here.
+ */
+function splitPathSegments(body: string): readonly string[] | undefined {
+  const segments: string[] = [];
+  let k = 0;
+  for (;;) {
+    const first = body[k];
+    if (first === undefined || !isIdentStart(first)) {
+      return undefined;
+    }
+    let seg = "";
+    for (let ch = body[k]; ch !== undefined && isIdentPart(ch); ch = body[k]) {
+      seg += ch;
+      k += 1;
+    }
+    segments.push(seg);
+    if (k === body.length) {
+      return segments;
+    }
+    if (body[k] !== ".") {
+      return undefined;
+    }
+    k += 1; // consume the `.`
+  }
+}
+
+/**
+ * Parse one interpolation body into a validated path part, pushing the relevant
+ * `loom/parse/system-interp-*` diagnostic and returning `undefined` on any
+ * violation: not-path, unknown head param, or a `.Ident` step that names no
+ * reachable object field (or descends into an array / un-narrowed union).
+ */
+function parseInterpolationPath(
+  rawBody: string,
+  params: ReadonlyMap<string, SystemParamType>,
+  file: string,
+  range: SourceRange | undefined,
+  diagnostics: Diagnostic[],
+): Extract<SystemTemplatePart, { kind: "path" }> | undefined {
+  const body = rawBody.trim();
+  const segments = splitPathSegments(body);
+  if (segments === undefined) {
+    diagnostics.push(located(SYSTEM_INTERP_NOT_PATH_CODE, SYSTEM_INTERP_NOT_PATH_MESSAGE, file, range));
+    return undefined;
+  }
+
+  const head = segments[0] as string;
+  let current = params.get(head);
+  if (current === undefined) {
+    diagnostics.push(
+      located(SYSTEM_INTERP_UNKNOWN_PARAM_CODE, systemInterpUnknownParamMessage(head), file, range),
+    );
+    return undefined;
+  }
+
+  // Each subsequent `.Ident` must name a reachable field of an *object* schema;
+  // arrays, discriminated unions, and scalars terminate the path.
+  for (let s = 1; s < segments.length; s++) {
+    const field = segments[s] as string;
+    if (current.kind === "object") {
+      const next = current.fields.get(field);
+      if (next === undefined) {
+        diagnostics.push(
+          located(
+            SYSTEM_INTERP_BAD_FIELD_CODE,
+            systemInterpBadFieldMessage(field, segments.slice(0, s).join(".")),
+            file,
+            range,
+          ),
+        );
+        return undefined;
+      }
+      current = next;
+    } else {
+      // A non-object type terminates the path: a `.Ident` step into an array,
+      // discriminated union, or scalar is a bad-field error.
+      diagnostics.push(
+        located(
+          SYSTEM_INTERP_BAD_FIELD_CODE,
+          systemInterpBadFieldMessage(field, segments.slice(0, s).join(".")),
+          file,
+          range,
+        ),
+      );
+      return undefined;
+    }
+  }
+
+  return { kind: "path", segments, type: toInterpolationType(current) };
+}
+
+/**
+ * Map a terminal `SystemParamType` to the canonical-table `InterpolationType`
+ * the shared renderer consumes. There is no `Result` arm — `params:` types
+ * never include `Result` — so the `Result<T, E>` row can never arise here. A
+ * discriminated union renders as a compact-JSON object (it is an object value
+ * at runtime); the `system:` grammar rejects descending *into* one.
+ */
+function toInterpolationType(type: SystemParamType): InterpolationType {
+  switch (type.kind) {
+    case "string":
+      return { kind: "string" };
+    case "integer":
+      return { kind: "integer" };
+    case "number":
+      return { kind: "number" };
+    case "boolean":
+      return { kind: "boolean" };
+    case "null":
+      return { kind: "null" };
+    case "enum":
+      return { kind: "enum" };
+    case "array":
+      return {
+        kind: "array",
+        ...(type.sidecars !== undefined ? { sidecars: type.sidecars } : {}),
+        ...(type.rootDef !== undefined ? { rootDef: type.rootDef } : {}),
+      };
+    case "object":
+      return {
+        kind: "object",
+        ...(type.sidecars !== undefined ? { sidecars: type.sidecars } : {}),
+        ...(type.rootDef !== undefined ? { rootDef: type.rootDef } : {}),
+      };
+    case "discriminated-union":
+      return { kind: "object" };
+  }
+}
+
+/** Build an error-severity diagnostic, carrying `file` (and `range` when known). */
+function located(
+  code: string,
+  message: string,
+  file: string,
+  range: SourceRange | undefined,
+): Diagnostic {
+  return {
+    severity: "error",
+    code,
+    message,
+    file,
+    ...(range !== undefined ? { range } : {}),
+  };
 }
 
 // --- Resolve-time render ----------------------------------------------------
@@ -220,7 +465,37 @@ export type RenderSystemPromptResult =
  * into `stringifyInterpolatedValue`.
  */
 export function renderSystemPrompt(
-  _input: RenderSystemPromptInput,
+  input: RenderSystemPromptInput,
 ): RenderSystemPromptResult {
-  return { ok: true, text: "" };
+  let text = "";
+  for (const part of input.template.parts) {
+    if (part.kind === "text") {
+      text += part.value;
+      continue;
+    }
+    // Resolve the validated path against the params object, then stringify the
+    // resolved value through the shared canonical renderer (QRY-18) so the model
+    // sees one rendering of a given value regardless of surface.
+    const value = resolvePath(input.params, part.segments);
+    const rendered = stringifyInterpolatedValue(value, part.type);
+    if (!rendered.ok) {
+      return { ok: false, diagnostic: rendered.diagnostic };
+    }
+    text += rendered.text;
+  }
+  return { ok: true, text };
+}
+
+/** Resolve a validated `Ident ('.' Ident)*` path against the params object. */
+function resolvePath(
+  params: Readonly<Record<string, LoomValue>>,
+  segments: readonly string[],
+): LoomValue {
+  let current: LoomValue = params[segments[0] as string] as LoomValue;
+  for (let s = 1; s < segments.length; s++) {
+    current = (current as { readonly [key: string]: LoomValue })[
+      segments[s] as string
+    ] as LoomValue;
+  }
+  return current;
 }
