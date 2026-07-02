@@ -1230,3 +1230,51 @@ mechanism owned by a separate leaf (V9i, per the `SHUTDOWN_AWAIT_CAP_MS` importe
 handler. The `emitNestedShapeDiagnostic` seam that builds both nested-shape fallback forms IS
 implemented (V9g's PIC-25/26 fixtures drive it directly), so it is a consumer-bound seam, not
 a speculative export. This keeps V9g minimal and faithful to its binding obligations.
+
+---
+
+## H5b — live-corpus wiring surfaced three latent gate-machinery gaps (2026-07-02)
+
+Wiring the warn-only canary over the *live* corpus (H5b) is the first time
+`runClosingGate` runs against `docs/spec_topics/**` + `docs/plan_topics/` +
+`tests/**` rather than the flat, LF-encoded seeded fixtures under
+`test-fixtures/closing-gate/`. Three latent machinery assumptions that held for
+the fixtures broke on the live corpus. All three are corrected in the shared
+`tools/closing-gate/index.js` (or normalised in the H5b assembly) so both the
+warn-only canary and H6a's hard-fail footing run the identical, now-correct
+machinery — no second copy of the surface definitions was authored:
+
+1. **Backtick-delimited Prefix cells.** `parsePrefixTable` tested the raw
+   Prefix cell against `/^[A-Z]{2,4}$/`. The live prefix table delimits the
+   cell in backticks (`` | `lexical.md` | `LEX` | ``) whereas the fixtures use
+   the bare form (`| foo.md | FOO |`), so on the live table the parser returned
+   **zero** prefixes — silently disabling the spec-REQ-ID and mapped-citing-test
+   surfaces (extractReqIds saw no live prefixes). Fixed by stripping backticks
+   before the test, mirroring the strip `parsePrefixTablePages` already applies
+   to the Page cell. Bare fixtures are unaffected (strip is a no-op there).
+
+2. **Subtree-nested pages read as un-rowed.** The un-rowed/un-anchored-MUST
+   recogniser resolved a page's prefix-table row by basename only, excluding
+   just GOV-24 hub stubs whose *stem* matches a trailing-slash subtree row
+   (`binder.md` ↔ `binder/`). The 65 live pages nested *inside* subtree-bound
+   directories (`binder/binder-envelope.md`, …) matched neither, so every one
+   false-flagged `un-rowed-page-residue` and never reached the un-anchored-MUST
+   enumeration check. Fixed by resolving a page under a subtree-bound directory
+   through that subtree row (GOV subtree-binding semantics): `parsePrefixTablePages`
+   now returns `subtrees` as a `name → { narrative }` Map, and the gate resolves
+   `prefixPages.get(basename) ?? subtrees.get(parentDir)`. Flat fixtures (parent
+   dir `spec`, not a subtree) are unaffected.
+
+3. **CRLF line endings.** The live docs are CRLF; the gate's `$`-anchored
+   section-heading regexes (`parseFacetRows`, `parseCkaAreaRows`) cannot span a
+   trailing `\r` (`.` excludes `\r`), so `## …` headings were invisible — the
+   per-facet arm never ran and the un-anchored enumeration table read as empty
+   (inflating `un-anchored-must-unenumerated`). Fixed at the H5b assembly
+   boundary by normalising CRLF→LF when reading, leaving the gate regexes (and
+   the LF fixtures) untouched.
+
+These are integration corrections, not spec/plan defects; the residual live
+findings the canary now surfaces (unmapped REQ-IDs, missing citing tests,
+per-facet gaps, best-effort un-anchored-MUST residue) are genuine warn-only
+signals for contributors to close before H6a flips the same surfaces to
+hard-fail. Closing them is H6a's obligation, not H5b's.

@@ -171,7 +171,11 @@ export function parsePrefixTable(text) {
     if (!inTable) continue;
     const cells = parseTableRow(line);
     if (cells == null || cells.length < 2) continue;
-    const prefix = cells[cells.length - 1].trim();
+    // The live prefix table delimits its Prefix cell in backticks
+    // (`| `lexical.md` | `LEX` |`); the seeded fixtures use the bare form
+    // (`| foo.md | FOO |`). Strip backticks so both parse identically, mirroring
+    // the backtick strip parsePrefixTablePages already applies to the Page cell.
+    const prefix = cells[cells.length - 1].replace(/`/g, "").trim();
     if (/^[A-Z]{2,4}$/.test(prefix)) prefixes.add(prefix);
   }
   return [...prefixes];
@@ -435,15 +439,19 @@ export function citesTokenInline(text, token) {
 const NARRATIVE_CELL = "(no IDs — narrative)";
 
 // Parse the governance prefix table into a per-page classification map plus the
-// set of subtree directory names (trailing-slash `Page` cells). A page row's
-// `Page` cell is the FIRST column (optionally backtick-delimited); the
-// classification cell is the LAST column. A `Page` cell ending in `/` is a
-// subtree binding (e.g. `binder/`), recorded in `subtrees` (its trailing slash
-// stripped) rather than as a single-file page; the GOV-24 hub-stub exclusion
-// matches an un-rowed page's filename stem against this set.
+// subtree-binding map (trailing-slash `Page` cells). A page row's `Page` cell is
+// the FIRST column (optionally backtick-delimited); the classification cell is
+// the LAST column. A `Page` cell ending in `/` is a subtree binding (e.g.
+// `binder/`), recorded in `subtrees` (its trailing slash stripped, keyed to its
+// own `{ narrative }` classification) rather than as a single-file page. The
+// subtree map serves two lookups: the GOV-24 hub-stub exclusion matches an un-
+// rowed page's filename STEM against it, and a page nested inside a subtree-
+// bound DIRECTORY is resolved through it (a page under `binder/` is rowed by the
+// `binder/` subtree binding, not un-rowed). `.has(name)` behaves identically to
+// the former Set for the stem-exclusion callers.
 export function parsePrefixTablePages(text) {
   const pages = new Map(); // basename → { narrative: boolean }
-  const subtrees = new Set(); // subtree directory names (no trailing slash)
+  const subtrees = new Map(); // subtree directory name (no trailing slash) → { narrative }
   const lines = text.split("\n");
   let inTable = false;
   for (const line of lines) {
@@ -459,7 +467,9 @@ export function parsePrefixTablePages(text) {
     if (/^Page$/i.test(pageCell)) continue; // header row
     const classCell = cells[cells.length - 1].trim();
     if (pageCell.endsWith("/")) {
-      subtrees.add(pageCell.replace(/\/$/, ""));
+      subtrees.set(pageCell.replace(/\/$/, ""), {
+        narrative: classCell === NARRATIVE_CELL,
+      });
       continue;
     }
     pages.set(pageCell, { narrative: classCell === NARRATIVE_CELL });
@@ -752,7 +762,14 @@ export function runClosingGate(corpus) {
     const ckaRows = parseCkaAreaRows(corpus.coverageMatrixText);
     for (const src of corpus.specSources) {
       const basename = path.basename(src.path);
-      const row = prefixPages.get(basename);
+      // Resolve the page's prefix-table row: an explicit single-file row keyed
+      // by basename, else the subtree binding of its containing directory (a
+      // page under `binder/` is rowed by the `binder/` subtree binding, GOV
+      // subtree-binding semantics), so a nested page is neither un-rowed nor out
+      // of the un-anchored-MUST scope.
+      const row =
+        prefixPages.get(basename) ??
+        subtrees.get(path.basename(path.dirname(src.path)));
       if (row == null) {
         // Un-rowed page: in scope unless it is a GOV-24 hub stub (its filename
         // stem names a trailing-slash subtree row). Emit only the un-rowed
