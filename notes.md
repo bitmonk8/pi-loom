@@ -1606,3 +1606,25 @@ the environment API to `V19b`):
   producer drives whole programs; these are internal statement handlers, not new
   exported API surface. No `match` node exists in `V19a`'s AST yet, so the
   `Adds.`-named `match` arm is not representable and is not implemented.
+
+## V19d-T — effectful statement wiring tests (2026-07-02)
+
+- The V19d assembly seam is introduced as `createEffectfulStatementHost(deps)`
+  in `src/runtime/effectful-statement-host.ts`, returning the V19c executor's
+  `StatementEvalHost`. The plan leaf names no concrete seam identifier; this is
+  the tests-task's design commitment the paired V19d fills in.
+- Divergence recorded (decisions.jsonl): the invoke-dispatch cancellation
+  witness requires the real invoke trampoline (`runInvokeChild`) to observe the
+  abort at its OWN pre-spawn `invoke` checkpoint, distinct from the V19c
+  executor's per-statement sequence checkpoint. Because the executor's
+  `runCancellableSequence` fires a checkpoint before it ever calls `runEffect`,
+  an abort landed at that first checkpoint would preempt before the trampoline
+  is reached (that is the V19c-owned checkpoint, already witnessed in V19c-T).
+  To witness the trampoline's own checkpoint the test aborts at the SECOND
+  `invoke`-kind `before(...)` call — which constrains V19d to thread the SAME
+  `checkpoint`/`signal` into `runInvokeChild`, so the invoke checkpoint is
+  genuinely honoured on the real host `V19d` assembles (the bullet's intent).
+- The real hosts are exercised through their legitimate injected boundary
+  doubles only (the model transcript, the tool `execute()` envelope, the
+  spawned child session); the query loop / tool-call path / invoke trampoline
+  functions themselves are the real production code the assembly calls.
