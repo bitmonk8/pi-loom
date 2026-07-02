@@ -87,19 +87,17 @@ export interface TripwireGuardDeps {
  * (diagnostics/code-registry-host.md; the message is the registry *Message*
  * column with `<reason>` interpolated).
  *
- * V9r-T stub: returns a SENTINEL diagnostic (wrong severity/code/message/details)
- * so the message-anchor + `details.event.reason` shape assertions red on their
- * primary check. The paired V9r sources the registry *Message* row.
+ * The message is the registry *Message* column with `<reason>` interpolated
+ * (diagnostics/code-registry-host.md; sourced verbatim).
  */
 export function sessionSwapInstanceSurvivedDiagnostic(
   reason: SessionOnlyReason,
 ): Diagnostic {
-  void reason;
   return {
-    severity: "warning",
-    code: "loom/host/session-swap-tripwire-stub",
-    message: "session-swap tripwire stub — not yet implemented",
-    details: {},
+    severity: "error",
+    code: SESSION_SWAP_INSTANCE_SURVIVED_CODE,
+    message: `extension instance survived a session-only session_shutdown (reason: ${reason}); Pi lifecycle contract violated — terminating`,
+    details: { event: { reason } },
   };
 }
 
@@ -112,15 +110,16 @@ export function sessionSwapInstanceSurvivedDiagnostic(
  * or emit `loom/host/session-shutdown-runtime-degraded` — the session-only
  * degraded-state branch is retired (governed-by-rebind).
  *
- * V9r-T stub: a NO-OP — never arms the registry, so the "arms on session-only
- * reason" assertions red on their primary check.
+ * On any non-session-only reason (`"quit"`/`"reload"`, or an unknown coerced
+ * reason string) the tripwire stays unarmed.
  */
 export function armSessionSwapTripwireForReason(
   registry: LoomRegistry,
   capturedEventReason: string,
 ): void {
-  void registry;
-  void capturedEventReason;
+  if (isSessionOnlyReason(capturedEventReason)) {
+    registry.armSessionSwapTornDown(capturedEventReason);
+  }
 }
 
 /**
@@ -131,15 +130,13 @@ export function armSessionSwapTripwireForReason(
  * then fail-fast-terminate the process. A no-op (dormant) when the tripwire is
  * unset (the proven governed-by-rebind steady state).
  *
- * V9r-T stub: DELIBERATELY INVERTED — fires on the UNARMED registry and stays
- * dormant on the ARMED one, so both the "fires when armed" and the "dormant when
- * unset" tests red on their primary assertions. The paired V9r reads the armed
- * flag, emits on the armed path, and terminates.
+ * Fires only on the ARMED tripwire (the proven governed-by-rebind steady state
+ * leaves it dormant): emit exactly one survived diagnostic, then fail-fast-
+ * terminate (control does not return past the trip). A no-op when unarmed.
  */
 export function guardSessionSwapTripwire(deps: TripwireGuardDeps): void {
   const state = deps.registry.readSessionSwapTornDown();
-  // INVERTED stub: `!state.armed` where the real guard fires on `state.armed`.
-  if (!state.armed) {
+  if (state.armed) {
     emitTeardownDiagnostic(
       deps.sink,
       sessionSwapInstanceSurvivedDiagnostic(state.reason ?? "new"),
@@ -156,14 +153,13 @@ export function guardSessionSwapTripwire(deps: TripwireGuardDeps): void {
  * loom-registered handler and is never wrapped by this function, so it is not
  * guarded (host-prerequisites clause (c-i)).
  *
- * V9r-T stub: dispatches WITHOUT guarding (the guard-before-dispatch wiring is
- * absent), so the "guards before dispatch / terminates before dispatch"
- * assertions red on their primary check.
+ * The guard runs at entry: on an armed tripwire it fail-fast-terminates before
+ * `dispatch` is ever called; otherwise it is a no-op and `dispatch` runs.
  */
 export function runGuardedSlashHandler<T>(
   deps: TripwireGuardDeps,
   dispatch: () => T,
 ): T {
-  void deps;
+  guardSessionSwapTripwire(deps);
   return dispatch();
 }

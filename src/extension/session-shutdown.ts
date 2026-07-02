@@ -26,6 +26,7 @@ import type { Clock, TimerHandle } from "../seams/clock";
 import type { ActiveInvocationEntry, ActiveInvocationRegistry } from "../runtime/active-invocation-registry";
 import type { LoomRegistry } from "./reload-wiring";
 import { SHUTDOWN_AWAIT_CAP_MS } from "./capability-probe";
+import { armSessionSwapTripwireForReason } from "./session-swap-tripwire";
 
 // The bounded-await cap for sub-step 3 (session-shutdown-semantics.md sub-step 3
 // / `cka-31`) is owned by the single `SHUTDOWN_AWAIT_CAP_MS` declaration site
@@ -457,6 +458,15 @@ export async function runSessionShutdown(
       signal.removeEventListener();
     });
   }
+
+  // Arm the session-swap fail-fast tripwire (V9r): after the full teardown, on a
+  // session-only reason (`"new"`/`"resume"`/`"fork"`) set the private per-
+  // extension-instance flag on the closed-over registry. Idempotent under a
+  // permitted multi-`session_shutdown` delivery (host-prerequisites clause (b));
+  // a no-op on the always-tear-down reasons. This writes NO degraded-state tag,
+  // performs NO `markRuntimeDegraded` transition, and emits NO
+  // `session-shutdown-runtime-degraded` row (governed-by-rebind).
+  armSessionSwapTripwireForReason(deps.registry, capturedReason);
 }
 
 /**
