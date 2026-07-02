@@ -1452,3 +1452,45 @@ commit, or H6a-complete tag was created. Resolution owner: complete V19a–V19e
 (and any remaining QRY citing tests / un-anchored-MUST coverage-matrix rows /
 per-facet citing tests), add V19b/V19d/V19e to H5b's Deps, drive the warn-only
 canary to zero findings, then re-dispatch H6a.
+
+## 2026-07-02 — V19a whole-program parser (divergences from Adds/Ships-when prose)
+
+The paired `V19a-T` tests-task froze a deliberately coarse body AST
+(`SchemaDecl`/`EnumDecl` carry only a `name`; `import`/`export` carry path +
+symbols; no per-field/variant/type detail) and a 25-test corpus. Implementing
+`V19a` against that frozen seam surfaced three decisions worth recording:
+
+1. **Frontmatter fence gating.** `parseLoomDocument` calls `V6a`'s
+   `parseFrontmatter` only when the source begins with a `---` fence; a
+   fence-less source is treated as body-only and returns `frontmatter: null`
+   with no frontmatter diagnostics. Rationale: every `V19a-T` fixture supplies a
+   bare body, and `parseFrontmatter` emits a `missing mode:` error on a
+   fence-less input, which would pollute the aggregated diagnostic set the
+   multi-error test inspects. The load-time "frontmatter is required" obligation
+   is the loader's (`V6*`), not the whole-file body parser's.
+
+2. **Trailing action vs tail `Expr`.** `LoomBody ::= Stmt* Expr?` admits any
+   expression as the tail. The `V19a-T` continuation witness `f(a,\n  b)` asserts
+   `body.statements.length === 1` (i.e. a lone trailing call is a *statement*,
+   not the tail). So the parser promotes a trailing line-start expression to the
+   body tail only when it is a value expression (binary/ternary/ident/literal/
+   array/try); a lone call/invoke/query action stands as its statement node. A
+   trailing call *after* other forms is still promoted (grammar-faithful).
+
+3. **Delegated-checker coverage.** `Adds`/`Ships when` prose lists the full
+   `V3b`/`V3c`/`V3d`/`V4a`/`V5a`–`V5c`/`V6a`–`V6c`/`V13b`/`V14a`/`V15c`/`V15f`
+   checker set. Over the coarse body AST this leaf produces, only two checkers
+   have enough structure to run and are the two the `V19a-T` aggregation test
+   witnesses: `V3b`'s `checkReassignment` (`loom/parse/immutable-rebinding`,
+   driven by the parser's tracked binding-mutability scope) and `V5c`'s
+   `checkDocCommentPlacement` (`loom/parse/doc-comment-misplaced`, driven by the
+   `///` run's following production). The remaining checkers operate over the
+   richer per-slice ASTs their own leaves reconstruct (object-schema fields,
+   enum variants, `by`-clauses, frontmatter `params:`, query schema inference,
+   tool-call/invoke argument literals, import symbol resolution); the whole-file
+   body AST discards that detail (`schema X { … }` bodies are skipped as
+   balanced braces). Their integration is deferred to the leaves that consume
+   this AST (`V19c` executor / `V19e` composition producer). The `Tests` bullet
+   frames the checkers as "integration witnesses" and states `V19a` closes only
+   `cka-49` and re-closes no delegated checker's REQ-ID/token, so wiring the two
+   the frozen AST supports is a faithful witness of the aggregation mechanism.
