@@ -204,11 +204,38 @@ export const SDK_SURFACE_INVENTORY: readonly SurfaceInventoryEntry[] =
     // touches (`V18b`, audit-target-categories.md category (3)), derived from
     // the `ExtensionContext` / `ExtensionCommandContext` `.d.ts` declarations.
     { id: "ctx.waitForIdle", kind: "ctx-member" },
+    // The H8a production composition root reads these canonical-`ctx` members at
+    // `session_start`: the host working directory the five-source discovery walk
+    // is keyed to (`ctx.cwd`), the model registry the binder-model resolver /
+    // model-reference matcher run over (`ctx.modelRegistry`), and the transient
+    // toast surface discovery / parse diagnostics route through (`ctx.ui`).
+    { id: "ctx.cwd", kind: "ctx-member" },
+    { id: "ctx.modelRegistry", kind: "ctx-member" },
+    { id: "ctx.ui", kind: "ctx-member" },
+    // The H8a per-loom run-drive resolves a chained (non-first) query off-session
+    // through pi-ai's `complete()` against the dispatch context's current model.
+    { id: "ctx.model", kind: "ctx-member" },
+    // The H8a per-loom prompt-mode run-drive reads the dispatch context's
+    // cancellation signal (the `loomAbort`-equivalent every checkpoint gates on)
+    // and the read-only session manager (the PIC-53 trailing-turn message list,
+    // via `buildSessionContext(getEntries(), getLeafId())`).
+    { id: "ctx.signal", kind: "ctx-member" },
+    { id: "ctx.sessionManager", kind: "ctx-member" },
     // The category-(2) named-import surfaces from the four `@earendil-works/*`
     // peer packages the runtime imports (`V18b`, audit-target-categories.md
     // category (2); resolved by leftmost-segment against the imported name).
     { id: "ExtensionAPI", kind: "peer-named-import" },
+    { id: "ExtensionContext", kind: "peer-named-import" },
     { id: "ExtensionCommandContext", kind: "peer-named-import" },
+    // The H8a production composition root imports the host `ModelRegistry` type
+    // (binder-model resolution + structured-output turns).
+    { id: "ModelRegistry", kind: "peer-named-import" },
+    // The H8a per-loom prompt-mode run-drive resolves the driven user session's
+    // chronological message list through the `buildSessionContext` free function.
+    { id: "buildSessionContext", kind: "peer-named-import" },
+    // The H8a per-loom run-drive resolves a chained (non-first) query off-session
+    // through pi-ai's `complete()` free function.
+    { id: "complete", kind: "peer-named-import" },
     { id: "MessageRenderer", kind: "peer-named-import" },
     { id: "SlashCommandInfo", kind: "peer-named-import" },
     { id: "estimateTokens", kind: "peer-named-import" },

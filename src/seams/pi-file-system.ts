@@ -24,11 +24,13 @@ const realpathNative = promisify(realpathCallback.native);
 export class PiFileSystem implements FileSystem {
   // The factory-time working directory captured ONCE at construction, per
   // PIC-13's `cwd()` single-source-of-truth rule — production never re-reads
-  // `process.cwd()` ad-hoc.
+  // `process.cwd()` ad-hoc. The composition root MAY inject the host-reported
+  // working directory (the `session_start` `ctx.cwd`) explicitly; when omitted
+  // the adapter falls back to the process working directory captured once here.
   readonly #cwd: string;
 
-  constructor() {
-    this.#cwd = process.cwd(); // allow-ambient: process.cwd — FileSystem
+  constructor(cwd?: string) {
+    this.#cwd = cwd ?? process.cwd(); // allow-ambient: process.cwd — FileSystem
   }
 
   readText(path: string): Promise<string> {

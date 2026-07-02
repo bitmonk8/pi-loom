@@ -1628,3 +1628,58 @@ the environment API to `V19b`):
   doubles only (the model transcript, the tool `execute()` envelope, the
   spawned child session); the query loop / tool-call path / invoke trampoline
   functions themselves are the real production code the assembly calls.
+
+## H8a — live production composition (2026-07-02)
+
+- **V19a `parseLoomDocument` frontmatter bug (fixed here).** `splitFrontmatter`
+  returns the frontmatter text with the `---` fences stripped, but
+  `parseFrontmatter` re-requires them (`extractFrontmatterBlock` matches a
+  leading/closing `---`). So every fenced `.loom` parsed to `frontmatter: null`
+  with a spurious `loom/load/missing-mode` — the shipped extension could never
+  read `mode:`. Fixed by re-wrapping the block in fences at the call site.
+  Caveat: frontmatter diagnostic line numbers are now block-relative for a fence
+  at file line 0 (the universal case); a fence preceded by blank lines shifts
+  them by the blank-line count. No current obligation asserts frontmatter
+  diagnostic line numbers through `parseLoomDocument` (the V19a-T fixtures are
+  bare-body), so this is acceptable; the full suite stays green.
+- **V19a body-parse completions (needed by the typed live loom).** `@`…``
+  query templates are now recovered verbatim by slicing the raw body text
+  between the backtick tokens (the prior `parts.join(" ")` collapsed spacing —
+  corrupting `LOOM-LIVE-OK` into `LOOM - LIVE - OK` — and dropped `${…}`
+  interpolation braces). `parseType` now consumes a leading balanced `{ … }`
+  inline object type. `parseLet` threads a typed `let x: T = @`…`` annotation
+  onto the query as its response schema (a bare `@`…`` initialiser carries no
+  `@<Schema>` of its own). All existing whole-program-parser tests stay green.
+- **`PiFileSystem` cwd override.** The composition root needs the FileSystem
+  seam's `cwd()` to be the host-reported `session_start` `ctx.cwd`, not the
+  vitest/host process cwd. Added an optional constructor `cwd` argument (falls
+  back to `process.cwd()` — the V8b single-source-of-truth capture is
+  preserved for the no-arg path the V8b tests exercise).
+- **Package-vs-others priority merge (simplification).** The composition root
+  runs `discoverLooms` (cli/settings/project/global) and `discoverPackageLooms`
+  separately, then merges package looms that do not collide by slash name with
+  a walk survivor. This treats every walk survivor as higher priority than a
+  package loom; the exact package-vs-global tiebreak (package priority 4 beats
+  global priority 5) is not modelled. No H8a obligation exercises a
+  package/global collision.
+- **Discovery/parse diagnostics routing (deferred).** At the composition root
+  discovery/parse error diagnostics route to a transient `ctx.ui.notify` toast;
+  full `loom-system-note` transcript routing for load-phase diagnostics is
+  deferred. No H8a obligation asserts them.
+- **Prompt-mode idle detection.** `ctx.waitForIdle()` is a no-op in a session
+  bound without `commandContextActions` (the live harness binding), so the live
+  `QueryModelDriver` detects turn completion by polling `ctx.isIdle()`
+  (start→end) on the injected `Clock` rather than awaiting `waitForIdle`.
+- **First-query-streams design decision (test-4 divergence).** Only the first
+  `@`-query per dispatch drives a user-visible session turn; a body's
+  subsequent queries run off-session via pi-ai `complete()` (no transcript
+  card). This keeps a typed query's structured JSON as the sole captured stream
+  and prevents a trailing `@`${…}`` from interleaving. A fuller design would
+  stream every prompt-mode turn (SLSH-2); this bounded choice satisfies the
+  acceptance obligations without corrupting the captured typed reply.
+- **Subagent-mode live drive (deferred).** `spawnSubagentConversation` throws a
+  specific `SubagentDriveNotComposedError` — no `mode: subagent` loom is
+  exercised by H8a and no prompt-mode path reaches it. The shipped composition
+  root therefore does not yet drive subagent-mode looms live (host
+  `AuthStorage`/model are not threaded to the producer). A limitation to close
+  when a subagent-mode acceptance obligation lands.

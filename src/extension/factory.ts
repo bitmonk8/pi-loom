@@ -27,12 +27,14 @@
 import type {
   ExtensionAPI,
   ExtensionCommandContext,
+  ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import type { Diagnostic } from "../diagnostics/diagnostic";
 import { renderUnderlyingError } from "../diagnostics/placeholder";
 import { createSystemNoteRenderer } from "./system-note-renderer";
 import type { RendererGate } from "./system-note-channel";
 import type { LoomRegistry } from "./reload-wiring";
+import { discoverAndComposeFixtures } from "./production-composition";
 
 /**
  * The diagnostics-registry code a factory-time bootstrap registration /
@@ -129,10 +131,33 @@ export interface LoomFixture {
 export interface LoomExtensionDeps {
   /**
    * The in-memory loom fixtures whose slash commands the `session_start`
-   * handler registers. Empty in production until discovery lands in a later
-   * leaf; the harness supplies fixtures here for end-to-end tests.
+   * handler registers. The `H4a` harness supplies fixtures here for its
+   * in-memory end-to-end tests; the shipped production composition root
+   * (`H8a`) supplies none here and discovers them at `session_start` via
+   * `discoverFixtures`.
    */
   readonly fixtures: readonly LoomFixture[];
+
+  /**
+   * The `H8a` production discovery-and-composition supplier. When present, the
+   * `session_start` handler runs it (against the host `ctx`, whose `cwd` /
+   * `modelRegistry` the five-source discovery walk and per-loom composition
+   * read) and registers every discovered `.loom`-derived `LoomFixture`
+   * alongside the static `fixtures`. Absent on the `H4a` in-memory harness
+   * path, which supplies its fixtures synchronously through `fixtures`.
+   *
+   * Supplying this makes the `session_start` handler asynchronous (the walk
+   * reads the real filesystem through the `V8b` `PiFileSystem` seam); the
+   * host runner awaits the returned promise before reading the registered
+   * command list. A discovery-supplier throw is trapped like any other
+   * `session_start`-time host-boundary failure and surfaces one
+   * `loom/load/extension-bootstrap-failed` diagnostic rather than propagating
+   * into the host `session_start` dispatch.
+   */
+  readonly discoverFixtures?: (
+    pi: ExtensionAPI,
+    ctx: ExtensionContext,
+  ) => Promise<readonly LoomFixture[]>;
 
   /**
    * The diagnostic-emission seam the factory routes a
@@ -233,49 +258,79 @@ export function createLoomExtension(
     // wrapped so one loom's failure does not abort the others or propagate into
     // Pi's `session_start` dispatch.
     try {
-      pi.on("session_start", () => {
-        // The first action of the step-3 handler is a `pi.getCommands()` read
-        // for the cross-format collision pass (registration-steps.md), which
-        // runs before the per-loom `pi.registerCommand` loop. A throw from this
-        // read is a NON-abort surface (V9p): the handler swallows it, drops the
-        // pending-registration list for THIS pass (no `pi.registerCommand`
-        // calls issue), and emits one diagnostic — and MUST NOT set drain state
-        // (drain state is owned by V9m's `LoomRegistry` contract;
-        // drain-state-contract.md), so `deps.registry` is left untouched here.
-        // The failure is scoped to this `session_start` pass; `/reload`
-        // recovers.
-        try {
-          pi.getCommands();
-        } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
-          deps.emitDiagnostic?.(
-            bootstrapFailedDiagnostic("pi.getCommands", e),
-          );
+      pi.on("session_start", (_event, ctx: ExtensionContext) => {
+        // The H4a in-memory path registers its static fixtures synchronously
+        // (the harness fires `session_start` synchronously and reads the
+        // registered list immediately). The H8a production path additionally
+        // discovers fixtures from the real filesystem — an async walk keyed to
+        // the host `ctx.cwd` — so when `discoverFixtures` is present the handler
+        // returns a promise the host runner awaits before reading commands.
+        if (deps.discoverFixtures === undefined) {
+          registerFixtures(deps.fixtures);
           return;
         }
-        // Per-loom `pi.registerCommand` (NON-abort, per-loom): each call is its
-        // own per-call wrap so one loom's failure drops only that loom —
-        // siblings still register — and emits one diagnostic per failing loom
-        // carrying its slash name, without propagating into Pi's
-        // `session_start` dispatch.
-        for (const fixture of deps.fixtures) {
-          try {
-            pi.registerCommand(fixture.slashName, {
-              handler: (args, ctx: ExtensionCommandContext) => fixture.run(args, ctx),
-            });
-          } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
-            deps.emitDiagnostic?.(
-              bootstrapFailedDiagnostic("pi.registerCommand", e, {
-                loom: fixture.slashName,
-              }),
-            );
-          }
-        }
+        return runProductionRegistration(ctx);
       });
     } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
       deps.emitDiagnostic?.(
         bootstrapFailedDiagnostic("pi.on", e, { event: "session_start" }),
       );
       return;
+    }
+
+    /**
+     * The shared `session_start` registration body: read `pi.getCommands()`
+     * for the cross-format collision pass (treated read-only by convention,
+     * PIC-39) and register each pending fixture through a per-loom-wrapped
+     * `pi.registerCommand`. A `getCommands()` read failure is a NON-abort
+     * surface (V9p): it drops the pending-registration list for this pass (no
+     * `pi.registerCommand` calls issue), emits one diagnostic, and MUST NOT set
+     * drain state (owned by V9m's `LoomRegistry` contract). A per-loom
+     * `registerCommand` throw drops only that loom — siblings still register —
+     * and emits one diagnostic carrying its slash name.
+     */
+    function registerFixtures(fixtures: readonly LoomFixture[]): void {
+      try {
+        pi.getCommands();
+      } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
+        deps.emitDiagnostic?.(bootstrapFailedDiagnostic("pi.getCommands", e));
+        return;
+      }
+      for (const fixture of fixtures) {
+        try {
+          pi.registerCommand(fixture.slashName, {
+            handler: (args, ctx: ExtensionCommandContext) => fixture.run(args, ctx),
+          });
+        } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
+          deps.emitDiagnostic?.(
+            bootstrapFailedDiagnostic("pi.registerCommand", e, {
+              loom: fixture.slashName,
+            }),
+          );
+        }
+      }
+    }
+
+    /**
+     * The H8a production `session_start` pass: run the discovery-and-
+     * composition supplier against the host `ctx`, then register the
+     * discovered fixtures alongside the static ones through the shared
+     * `registerFixtures` body. A discovery-supplier throw is trapped here (an
+     * exempt Pi-SDK-boundary broad-catch site) so it surfaces one
+     * `loom/load/extension-bootstrap-failed` diagnostic rather than
+     * propagating into the host `session_start` dispatch; the static fixtures
+     * still register.
+     */
+    async function runProductionRegistration(ctx: ExtensionContext): Promise<void> {
+      let discovered: readonly LoomFixture[] = [];
+      try {
+        discovered = await deps.discoverFixtures!(pi, ctx);
+      } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
+        deps.emitDiagnostic?.(
+          bootstrapFailedDiagnostic("pi.registerCommand", e),
+        );
+      }
+      registerFixtures([...deps.fixtures, ...discovered]);
     }
 
     // `session_shutdown` (step 4) — no-op handler at this leaf; the teardown
@@ -295,9 +350,16 @@ export function createLoomExtension(
  * The production Pi extension factory — the standard
  * `default function (pi: ExtensionAPI)` export the `extensions/index.ts` entry
  * shim re-exports. It constructs a fresh factory per call (no module-level
- * mutable state) with no fixtures wired: `.loom` discovery is owned by a later
- * leaf, so the production factory currently registers no slash commands.
+ * mutable state) wired to the `H8a` production composition root: no static
+ * fixtures, and a `discoverFixtures` supplier that at `session_start` runs the
+ * five-source discovery walk over the real host seams, parses each discovered
+ * `.loom`, composes it into a runnable `LoomFixture`, and returns them for
+ * registration. So the shipped extension actually discovers, registers, and
+ * runs `.loom` slash commands.
  */
 export default function loomExtension(pi: ExtensionAPI): void {
-  createLoomExtension({ fixtures: [] })(pi);
+  createLoomExtension({
+    fixtures: [],
+    discoverFixtures: (pi, ctx: ExtensionContext) => discoverAndComposeFixtures(pi, ctx),
+  })(pi);
 }

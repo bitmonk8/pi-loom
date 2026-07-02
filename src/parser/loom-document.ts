@@ -30,7 +30,7 @@
 // functions.md, return.md, expressions.md, frontmatter.md, descriptions.md,
 // schemas.md, imports.md, invocation.md, diagnostics.md.
 
-import type { Diagnostic, SourceRange } from "../diagnostics/diagnostic";
+import type { Diagnostic, Position, SourceRange } from "../diagnostics/diagnostic";
 import { assembleDiagnostics } from "../diagnostics/diagnostic";
 import { lexLoom, type LoomSource, type Token } from "../lexer/lexer";
 import type { SystemNoteChannelDeps } from "../extension/system-note-channel";
@@ -371,7 +371,16 @@ export function parseLoomDocument(
   const frontmatterDiags: Diagnostic[] = [];
   let frontmatter: ParsedFrontmatter | null = null;
   if (split.frontmatterText !== null) {
-    const fm = parseFrontmatter(split.frontmatterText, {
+    // `splitFrontmatter` returns the frontmatter text with the `---` fences
+    // stripped, but `parseFrontmatter` re-requires them (its
+    // `extractFrontmatterBlock` matches a leading/closing `---` fence). Re-wrap
+    // the block in fences so the frontmatter fields (`mode:` / `model:` / …)
+    // actually parse; without this every fenced `.loom` yields `frontmatter:
+    // null` and a spurious `loom/load/missing-mode`. See notes.md (the
+    // frontmatter line numbers are block-relative for a fence at file line 0 —
+    // the common case; a fence preceded by blank lines shifts them by the
+    // blank-line count, which no current obligation asserts).
+    const fm = parseFrontmatter(`---\n${split.frontmatterText}\n---`, {
       file,
       modelMatcher: deps.modelMatcher,
     });
@@ -388,7 +397,7 @@ export function parseLoomDocument(
   // statement.
   const lex = lexLoom({ path: file, bytes: encodeSource(split.bodyText) }, deps.systemNote);
 
-  const parser = new BodyParser(lex.tokens, file);
+  const parser = new BodyParser(lex.tokens, file, split.bodyText);
   const body = parser.parseBody();
 
   // The `///` doc-comment runs are lexed away (the lexer emits no comment
@@ -605,6 +614,14 @@ class BodyParser {
   public constructor(
     private readonly tokens: readonly Token[],
     private readonly file: string,
+    /**
+     * The raw (newline-normalised) body source the tokens index into. A
+     * `@`...`` query template is recovered by slicing this verbatim between the
+     * backtick token bounds, so the template preserves the author's exact text
+     * (punctuation, interpolation braces, and internal spacing) rather than a
+     * lossy space-join of the interior tokens.
+     */
+    private readonly bodyText: string = "",
   ) {}
 
   // --- cursor helpers -----------------------------------------------------
@@ -794,6 +811,19 @@ class BodyParser {
     if (this.isPunct("=")) {
       this.advance();
       init = this.parseExpression();
+    }
+    // A `let x: T = @`…`` binds a typed query: propagate the declared annotation
+    // onto the query so the runtime drives the typed two-phase respond loop and
+    // lowers `T` as the response schema (a bare `@`…`` initialiser carries no
+    // `@<Schema>` annotation of its own).
+    if (
+      init !== null &&
+      init.kind === "query" &&
+      init.schema === null &&
+      annotation !== null &&
+      annotation.length > 0
+    ) {
+      init = { ...init, schema: annotation };
     }
     this.bindings.set(name, mutable);
     return {
@@ -1062,6 +1092,31 @@ class BodyParser {
   private parseType(): string {
     const parts: string[] = [];
     let depth = 0;
+    // A leading `{` introduces an inline object type (`let x: { a: T, … }`):
+    // consume the balanced brace group verbatim so the annotation carries the
+    // whole object shape rather than terminating at the opening brace. Only a
+    // *leading* brace is treated this way, so a `fn` return type followed by a
+    // `{ body }` block is unaffected.
+    if (this.peek().kind === "punct" && this.peek().text === "{") {
+      let braceDepth = 0;
+      while (!this.atEnd()) {
+        const t = this.peek();
+        if (t.kind === "stmt-sep") {
+          break;
+        }
+        if (t.kind === "punct" && t.text === "{") {
+          braceDepth += 1;
+        } else if (t.kind === "punct" && t.text === "}") {
+          braceDepth -= 1;
+        }
+        parts.push(t.text);
+        this.advance();
+        if (braceDepth === 0) {
+          break;
+        }
+      }
+      return parts.join("");
+    }
     while (!this.atEnd()) {
       const t = this.peek();
       if (t.kind === "stmt-sep") {
@@ -1335,19 +1390,33 @@ class BodyParser {
       }
     }
     const parts: string[] = [];
+    let openTick: Token | null = null;
+    let closeTick: Token | null = null;
     if (this.isPunct("`")) {
-      this.advance(); // opening backtick
+      openTick = this.advance(); // opening backtick
       while (!this.isPunct("`") && !this.atEnd()) {
         parts.push(this.advance().text);
       }
       if (this.isPunct("`")) {
-        this.advance(); // closing backtick
+        closeTick = this.advance(); // closing backtick
       }
     }
+    // Recover the verbatim template between the backticks from the raw body
+    // source (the tokens are a lossy, space-joined view — they collapse the
+    // author's spacing and drop interpolation braces). Fall back to the
+    // space-joined tokens only when the raw slice is unavailable (no closing
+    // backtick, or no body source threaded through).
+    const rawTemplate =
+      openTick !== null && closeTick !== null && this.bodyText.length > 0
+        ? this.bodyText.slice(
+            positionToOffset(this.bodyText, openTick.range.end),
+            positionToOffset(this.bodyText, closeTick.range.start),
+          )
+        : parts.join(" ");
     return {
       kind: "query",
       schema,
-      template: parts.join(" "),
+      template: rawTemplate,
       range: spanRange(at.range, this.prevRange()),
     };
   }
@@ -1361,6 +1430,23 @@ class BodyParser {
 /** Build a range spanning from `start`'s start to `end`'s end. */
 function spanRange(start: SourceRange, end: SourceRange): SourceRange {
   return { start: start.start, end: end.end };
+}
+
+/**
+ * Convert a 1-indexed `{ line, column }` source position into a 0-based
+ * character offset into `text` (newline-normalised to `\n`). Used to slice a
+ * `@`...`` query template verbatim between its backtick token bounds.
+ */
+function positionToOffset(text: string, pos: Position): number {
+  let offset = 0;
+  let line = 1;
+  while (line < pos.line && offset < text.length) {
+    if (text[offset] === "\n") {
+      line += 1;
+    }
+    offset += 1;
+  }
+  return offset + (pos.column - 1);
 }
 
 /** A synthetic `null` literal placeholder for a missing operand. */
