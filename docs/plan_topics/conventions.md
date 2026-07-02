@@ -39,6 +39,8 @@ A feature is **not** complete until the implementation task's exit gate is met. 
 
 Infrastructure leaves are **not** test-paired (no `-T` leaf): they carry inline tests where they hold logic (architectural tests, lint-rule wiring, harness self-checks). A horizontal leaf runs the **Implement → Run → Self-review → Fix → exit gate** loop above in one task and ships when its "Ships when" condition is observable; tag the commit `<id>-complete` and push the tag to the shared remote.
 
+**Exception — live-host acceptance pair.** A horizontal *acceptance* leaf that must observe a red state against the live product before its closing seam exists MAY be authored as a tests-task/implementation pair (`<id>-T` → `<id>`), mirroring the MVP/vertical ritual: the `-T` leaf ships when its opt-in live suite exists, compiles, and fails red for the intended reason, and the paired `<id>` leaf lists `<id>-T` in its **Deps.** and ships when that suite turns green. Both leaves remain horizontal in every other respect (they cite **Convention.**, close no spec REQ-ID, and add no coverage-matrix row). The [`H8a`](./H8a-live-production-acceptance.md) live production end-to-end acceptance pair is the sole instance — it verifies the live discovery→registration→turn composition that the double-backed [`H4a`](./H4a-factory-shell-and-harness.md)/[`H7a`](./H7a-integration-acceptance.md)/[`V18d`](./V18d-version-bump-acceptance.md) gates never exercise, spending real tokens against a live provider through a runner excluded from the default `npm test`.
+
 ## Leaf format
 
 Each leaf has the same fields, in the same order. The blank skeleton lives in [`leaf-template.md`](./leaf-template.md).

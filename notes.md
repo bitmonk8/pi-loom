@@ -1278,3 +1278,77 @@ findings the canary now surfaces (unmapped REQ-IDs, missing citing tests,
 per-facet gaps, best-effort un-anchored-MUST residue) are genuine warn-only
 signals for contributors to close before H6a flips the same surfaces to
 hard-fail. Closing them is H6a's obligation, not H5b's.
+
+---
+
+## 2026-07-02 — H6a (live-corpus closing-gate activation) — NOT TAGGED (needs-attention)
+
+Attempted the loom 1.0 release-gate activation leaf. Ran H5a's gate machinery
+over the LIVE corpus (via H5b's `assembleLiveCorpus` / `warnOnlyFindings`).
+Result: **59 hard-fail findings** across the four arms H6a would flip to
+hard-fail. H6a's Tests bullet 1 and *Ships when* require the live-corpus gate to
+run **green**; it does not. Two independent, decisive blockers:
+
+### Blocker 1 — live corpus is not release-clean (59 gaps)
+
+- `unmapped-executable-req-id` (4): `BNDR-12` (genuine runtime re-entrancy
+  obligation, no coverage-matrix row); `FRNT-2`, `FRNT-3`, `SUBS-2` (terminology
+  "Authors and implementers MUST use the term …" obligations wearing runtime
+  prefixes — no runtime closing leaf exists; re-anchoring/exclusion is a GOV-22
+  spec-coverage-finding decision, explicitly "not by this plan rule").
+- `mapped-req-id-no-citing-test` (7): `QRY-1,5,8,9,10,15,21` — mapped to `V13a`
+  but `V13a`'s tests cite no `QRY-N` inline. (QRY-1…21 were GOV-22-drained from
+  `cka-12` into numbered REQ-IDs; citing tests were not added for these 7.)
+- `un-anchored-must-unenumerated` (18): diagnostic-shape, discovery-sources,
+  corpus-direction-and-scope, release-version-naming, req-id-prefix-table-active-a,
+  ceiling-invariants-and-audit, ceilings-3-and-4, capability-inventory-items,
+  capability-probe, host-interfaces-services, patch-skew-degradation,
+  runtime-event-channel, subagent, tool-registration-lifetime, version-bump-intro,
+  version-bump-step2, version-bump-steps-3-4, query-failure-and-repair. Enumerating
+  / re-anchoring each is "a spec-side GOV-22 decision owned by the relevant
+  spec-coverage finding, not by this plan rule"; much is likely narrative/quoted
+  GOV-15 residue the best-effort token scan over-reports.
+- `un-rowed-page-residue` (5): model-changes-and-non-goals, surface-extensions,
+  language-and-architecture, overview-and-orientation, session-model-and-appendix
+  — narrative overview pages absent from the REQ-ID prefix table. Fix is "a
+  page-completeness invariant alongside GOV-6, owned by the relevant spec-coverage
+  finding, not this plan rule."
+- `un-anchored-must-unresolved-leaf` (3): conversation-drive, drain-state-contract,
+  host-prerequisites — pages whose only cka rows (cka-21/22/24/25) are retired
+  `*(numbered above)*` cells; the pages still carry MUST-token prose the scan
+  cannot tie to the drained PIC-N anchors (GOV-15/GOV-22 residue).
+- `per-facet-citing-test-missing` (22): V9m, V3a/f/g/h, V5a/b/d/f, V6a-e, V14a/c/e,
+  V9k, V9p, V15a/e, V7a — facet leaves of multi-leaf coverage-matrix rows with no
+  facet-naming citing test citing both the row subject and the facet leaf-ID inline.
+
+The BNDR-12 / QRY / per-facet subset is superficially tractable (add matrix rows
+and facet-naming citations), but faithful closure requires verifying each
+obligation is genuinely asserted by the cited test — bare-citation stuffing would
+be gaming, which the ritual forbids. The terminology-REQ-ID, un-rowed-page, and
+un-anchored-MUST subsets require spec-side GOV-22 / GOV-6 / GOV-15 decisions the
+conventions explicitly route to spec-coverage findings, not to this plan leaf.
+H5b's own note already states these are "genuine warn-only signals for
+contributors to close before H6a flips the same surfaces to hard-fail." They are
+not yet closed; H6a cannot flip green.
+
+### Blocker 2 — manual release-gate steps require a human owner + live Pi host
+
+H6a's *Ships when* also gates the release on (a) a **manual real-host smoke run**
+executed and PASSED against a live Pi host at the Pi-SDK pin `~0.75.5`
+(host-prerequisites.md#pi-sdk-pin), with a falsifiable record — pin literal,
+named human owner (the contributor performing the bump), date, observed
+model-output-invariant result — committed in the gate-activation commit message;
+and (b) the **9-item loom 1.0 release-time residue inspection** performed with each
+item recorded clean/dispositioned in the same commit message. Both are MANUAL
+human-in-the-loop gates. An unsupervised worker has no live Pi host and no human
+owner, and the spec explicitly forbids and is designed to detect a skipped /
+mis-recorded / stale-pin run ("detectable after the fact by reading the commit
+message"). Fabricating this evidence is not permissible.
+
+### Action taken
+
+No gate flip, no spec contract invented, no manual-gate evidence fabricated, no
+tag. Returned needs-attention with this inventory so the corpus owners can close
+the coverage gaps (spec-coverage findings for the spec-side items; the relevant
+leaves for the citing-test items) and a human contributor can run the manual
+smoke + residue-inspection gates, after which H6a's flip can land green.

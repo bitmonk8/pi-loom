@@ -36,6 +36,7 @@
     "H5f": { "name": "Check shared requirements are fully tested", "blurb": "Ensures each part of a requirement split across tasks has its own test." },
     "H6a": { "name": "Turn on the release coverage gate", "blurb": "Flips coverage checks to the real project at release time, after smoke and review." },
     "H7a": { "name": "End-to-end integration check", "blurb": "Runs one rich example through the whole pipeline to catch cross-feature regressions." },
+    "H8a": { "name": "Live end-to-end product check", "blurb": "Actually launches the shipped add-on against a real model: a loom file on disk becomes a working slash command that runs a live turn — the composition unit tests can't see." },
     "M": { "name": "Run a basic loom command", "blurb": "The smallest working command: read a file, ask the model once, and stream the reply." },
     "V1a": { "name": "Read and tokenise loom source", "blurb": "Turns raw loom text into the tokens the rest of the language works with." },
     "V1b": { "name": "Read text, number, and path values", "blurb": "Reads quoted strings, numbers, and file paths written directly in loom source." },

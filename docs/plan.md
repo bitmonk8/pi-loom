@@ -36,6 +36,8 @@ Project scaffold, dependency-injection skeleton, diagnostics primitive, Pi-exten
 - [`H5e` — Un-anchored normative-MUST text-scan closing-gate arm](./plan_topics/H5e-un-anchored-must-gate.md)
 - [`H5f` — Per-facet citing-test closing-gate arm (multi-leaf coverage-matrix rows)](./plan_topics/H5f-per-facet-citing-test-gate.md)
 - [`H7a` — Terminal integration-acceptance run (cross-slice end-to-end gate)](./plan_topics/H7a-integration-acceptance.md)
+- [`H8a-T` — Live production end-to-end acceptance (tests)](./plan_topics/H8a-T-live-production-acceptance.md)
+- [`H8a` — Live production composition wiring and end-to-end acceptance](./plan_topics/H8a-live-production-acceptance.md)
 
 ---
 
