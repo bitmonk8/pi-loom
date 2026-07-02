@@ -1433,3 +1433,22 @@ half-wired shipped default export validated against only 3/4 live tests (burning
 tokens on prompt turns), and cannot address the bullet-4 conflict. No tag, no
 invented interpreter, no invented streaming contract, no live-token spend on a
 speculative run.
+
+2026-07-02 H6a — needs-attention: terminal live-corpus release gate cannot activate green.
+The H6a Ships-when requires `npm test` to run the closing gate on its live-corpus
+footing and pass green. Running H5a's gate machinery over the live corpus
+(via runWarnOnlyCanary) currently returns 59 findings on the four surfaces H6a
+hard-fails on: unmapped-executable-req-id (4: BNDR-12, FRNT-2, FRNT-3, SUBS-2),
+mapped-req-id-no-citing-test (7: QRY-1/5/8/9/10/15/21), un-anchored-must-unenumerated (18),
+un-rowed-page-residue (5), un-anchored-must-unresolved-leaf (3), per-facet-citing-test-missing (22).
+Root cause: the coverage-producing set is not closed. The recently-added V19
+program-parse-and-execution slice (V19a–V19e) has NO completion tags — not even
+its -T tests tasks — and V19b/V19d/V19e are not even in H5b's Deps. H6a's own
+sequencing rule requires it land after every leaf that can introduce an
+executable REQ-ID or un-anchored MUST; that precondition is unmet. Flipping the
+gate to its hard-fail footing now would permanently red `main` (the leaf's
+Rollback section's "live coverage not yet closed" bad-flip). No gate wiring,
+commit, or H6a-complete tag was created. Resolution owner: complete V19a–V19e
+(and any remaining QRY citing tests / un-anchored-MUST coverage-matrix rows /
+per-facet citing tests), add V19b/V19d/V19e to H5b's Deps, drive the warn-only
+canary to zero findings, then re-dispatch H6a.
