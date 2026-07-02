@@ -1822,3 +1822,96 @@ file (the per-facet scan is a per-file both-token existence scan); the 6 QRY
 mapped-citing findings by genuine assertions of the shipped untyped-Ok(string),
 render-normalisation, interpolation-panic-propagation, and respond-repair
 failure-contract behaviour. No behaviour was found genuinely absent.
+
+## 2026-07-02 — H6a live-corpus activation: mechanical blocker cleared, blocked on the manual real-host smoke run (needs-attention)
+
+State at this dispatch: the live-corpus warn-only canary returns ZERO findings
+(`runWarnOnlyCanary` → `[]`) and the full `npm test` suite is green (1466). The
+H5b/H5c/H7a deps are all tagged complete. The mechanical coverage blocker that
+returned needs-attention on the prior two dispatches (58 → 29 → 0 findings,
+cleared by H6a-chunk-1/chunk-2) is gone: the live spec REQ-ID set, the live
+`spec_topics/**` normative-MUST set, the live per-facet citing tests, and the
+live test corpus all reconcile clean against `coverage-matrix.md`.
+
+**Why this leaf still did not tag.** H6a's *Ships when* is a conjunction: the
+gate flips green **and** the manual real-host smoke run is executed+passed and
+recorded in the gate-activation commit message **and** the nine-item residue
+inspection is recorded there. The real-host smoke run is the class of manual
+item that cannot be satisfied by an unsupervised worker without fabricating
+forbidden, after-the-fact-detectable evidence:
+
+- It drives H7a's committed `tests/fixtures/h7a/acceptance.loom` against a **live
+  Pi host** at the pinned SDK `@earendil-works/pi-coding-agent ~0.75.5`
+  (host-prerequisites.md#pi-sdk-pin) with a **structured-output-capable binder
+  model resolvable through `ctx.modelRegistry`** plus credentials. In this
+  environment the `ANTHROPIC_*` provider variables are `x`-prefixed (masked /
+  disabled), so no binder-capable provider is configured; criterion (b) — a
+  structurally-valid binder pass — is unsatisfiable without one, and running it
+  would spend real tokens I have no configured, spendable credentials for.
+- real-host-smoke-gate.md fixes the owner as a **named human contributor** (the
+  bump/merging contributor) who runs the gate and records the falsifiable result
+  in the triggering commit message. An unsupervised agent is not that
+  contributor; recording an owner/date/result for a run I did not perform would
+  fabricate the attestation the gate exists to make falsifiable.
+
+Fabricating the Pi-SDK-pin/owner/date/observed-result would be exactly the
+skipped-or-mis-recorded run the leaf says must be "detectable after the fact by
+reading the commit message". Per the agent instruction, I recorded the blocker
+and returned needs-attention rather than tagging.
+
+**Nine-item release-time residue inspection — best-effort preparatory pass.**
+Performed by the unsupervised worker on 2026-07-02 to de-risk the eventual
+human-owned activation commit. NOT the authoritative record: the leaf requires
+H6a's human owner to re-affirm each item in the gate-activation commit message.
+All `src/**`-scoped mechanical gates (H2a no-globals, H3a ambient-primitive scan,
+`no-broad-catch`, `no-restricted-syntax`, closing-gate arms) pass under the green
+`npm test`; the items below are the conceded residue those scans do not witness.
+
+1. Closure-captured / lazy-cache / DI-container singletons — preparatory-clean.
+   H2a green; no module-level mutable state observed outside injected seams
+   (repeatedly attested per-leaf in CHANGELOG). Full read of all 128 `src/**`
+   modules is the human owner's obligation.
+2. Indirect ambient reads (alias/destructure/computed/wrapper/re-export) —
+   preparatory-clean. Grep for `= process`, `{ cwd }`, `{ env }`, `process[`,
+   `require('node:process')` across `src/**` (excl. tests) returned no hits.
+3. Blocking-runtime residue (busy-wait / dynamic sync) — preparatory-clean.
+   `no-restricted-syntax` `Sync`-suffix + Promise-combinator scan green; no
+   busy-wait loop or dynamically-constructed sync call observed. All file/process
+   I/O routes through the V8* FileSystem seam.
+4. Doc-update artifacts — preparatory-clean. README status rows + dated CHANGELOG
+   lines present for completed leaves (spot-checked H5b/H5c/H7a/H8a/V19*).
+5. Un-anchored-MUST residue — preparatory-clean/dispositioned. Canary=0 covers the
+   mechanical MUST-token arm; the token-less/narrative/seam-name residue was
+   dispositioned by H6a-chunk-1 (10 runtime pages enumerated cka-51…cka-61 with
+   shipped closers; governance pages back-referenced to their owning GOV rule;
+   ceiling-invariants + three version-bump pages narrative-classified; five
+   overview pages given `(no IDs — narrative)` rows). conventions.md item-5
+   disposition prose extended.
+6. Broad-catch category membership — preparatory-clean. Every `// allow-broad-catch:`
+   site (capability-probe PIC-6, drain-state PIC-31, factory + tool-registration +
+   active-invocation-registry + tool-call-execute/off-surface + system-note-channel
+   `pi-sdk-boundary`, session-shutdown PIC-7, system-note-channel/renderer PIC-54/PIC-21,
+   unknown-reason-rule `loom/host/session-shutdown-reason-unknown` /
+   `-pinned-constant-unreadable`, reload-wiring `loom/runtime/registry-swap-failed`,
+   imports `loom/load/unresolvable-warp-path`, forwarding-listener-trap
+   `loom/runtime/internal-error`, subagent-isolation `loom/runtime/subagent-dispose-failure`)
+   sits at one of the five enumerated exempt categories (Pi-SDK boundary / probe
+   traps / event.reason read / per-step isolation / diagnostic-emission isolation).
+7. Split-row joint-completeness / per-facet semantic fidelity — existence clean
+   (H5f canary=0). Per-facet **semantic** fidelity across the full live corpus is
+   the extensive human-owner review; not exhaustively re-verified here.
+8. Entry-shim purity — clean. `extensions/index.ts` is a single
+   `export { default } from "../src/extension/factory";` re-export with no broad
+   catch, no global/static/singleton, no ambient read, no Promise combinator.
+9. Ambient timing-primitive list reconciliation — clean. The H3a scan's
+   `TIMING_PRIMITIVES` (`tests/clock-id-seams.test.ts`) is exactly
+   {`Date.now`, `performance.now`, `Date.prototype.getTime`, `setTimeout`,
+   `clearTimeout`} = the PIC-12 (`host-interfaces-services.md`) enumeration, so
+   scan-list ⊇ spec-ban holds.
+
+**Handoff for the human owner.** The only remaining step is the manual real-host
+smoke run (record its Pi-SDK-pin/owner/date/result) + re-affirmation of the nine
+residue items above, both in the single gate-activation commit that flips the
+gate to its live-corpus hard-fail footing, followed by `git tag H6a-complete`.
+The gate was deliberately left on its seeded-fixture footing (no partial flip on
+`main`) so the release-authorizing flip stays atomic with the smoke evidence.
