@@ -42,7 +42,11 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import type { LoomFixture } from "./factory";
 import type { ParsedLoom } from "./reload-wiring";
-import type { BodyExecution, ExecuteBodyDeps } from "../runtime/statement-executor";
+import {
+  executeBody,
+  type BodyExecution,
+  type ExecuteBodyDeps,
+} from "../runtime/statement-executor";
 import type { ResultValue } from "../runtime/value";
 
 /**
@@ -125,13 +129,20 @@ export interface LoomProducerDeps {
 /**
  * Compose the per-loom runnable `LoomFixture` for one parsed `.loom`.
  *
- * V19e-T stub: the returned fixture carries the correct `slashName` (so the
- * mapping is registered) but its `run` is INERT — it runs no binder, does no
- * mode routing, drives no `V19d` executor, and surfaces no result. Every
- * `V19e-T` behavioural assertion therefore reds. The paired `V19e` leaf fills
- * `run` in: run the binder (when applicable), route on `loom.frontmatter.mode`,
- * drive `executeBody(loom.body, binding.executeDeps)` against the mode's
- * conversation, and `binding.surface(...)` the result.
+ * The composed `run` realises the extension-bootstrap-and-per-loom.md
+ * §"Per-loom registration" obligation — "the slash-command `handler` runs the
+ * binder (when applicable) and then the loom interpreter against the
+ * appropriate conversation":
+ *
+ *   1. run the `V11a` frontmatter binder over `args`; a non-binding envelope
+ *      (needs-info / ambiguous / cancelled) short-circuits so the loom body
+ *      never runs;
+ *   2. route on `loom.frontmatter.mode` — prompt-mode binds `V19d`'s executor
+ *      to the user session (`V12a`/`V9c`), subagent-mode spawns an isolated
+ *      `AgentSession` and binds the executor to that private session (`V9i`);
+ *   3. drive `executeBody(loom.body, binding.executeDeps)` against the bound
+ *      conversation and surface the mode's return value (prompt-mode extracts
+ *      the trailing-turn `Ok(string)`, `PIC-53`).
  */
 export function composeLoomFixture(
   loom: LoomCompositionInput,
@@ -139,15 +150,23 @@ export function composeLoomFixture(
 ): LoomFixture {
   return {
     slashName: loom.slashName,
-    run: async (_args: string, ctx: ExtensionCommandContext): Promise<void> => {
-      // V19e-T inert stub — the composition is absent. The paired `V19e`
-      // implementation runs `deps.runBinder(...)`, routes on
-      // `loom.frontmatter.mode` to `deps.bindPromptConversation(...)` /
-      // `deps.spawnSubagentConversation(...)`, drives `executeBody(...)`, and
-      // surfaces the result.
-      void ctx;
-      void deps;
-      void loom;
+    run: async (args: string, ctx: ExtensionCommandContext): Promise<void> => {
+      // 1. Binder before interpreter: bind `args` first. A non-binding envelope
+      //    short-circuits — the loom body never runs.
+      const binderResult = await deps.runBinder({ loom, args, ctx });
+      if (!binderResult.bound) {
+        return;
+      }
+      // 2. Route on mode to the conversation the executor drives against.
+      const bindInput: ConversationBindInput = { loom, args, ctx };
+      const binding: ConversationBinding =
+        loom.frontmatter.mode === "subagent"
+          ? await deps.spawnSubagentConversation(bindInput)
+          : deps.bindPromptConversation(bindInput);
+      // 3. Drive `V19d`'s effectful executor against the bound conversation and
+      //    surface the mode's return value.
+      const execution: BodyExecution = await executeBody(loom.body, binding.executeDeps);
+      binding.surface(execution);
     },
   };
 }
