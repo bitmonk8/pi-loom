@@ -1494,3 +1494,24 @@ symbols; no per-field/variant/type detail) and a 25-test corpus. Implementing
    frames the checkers as "integration witnesses" and states `V19a` closes only
    `cka-49` and re-closes no delegated checker's REQ-ID/token, so wiring the two
    the frozen AST supports is a faithful witness of the aggregation mechanism.
+
+## 2026-07-02 — V19b-T lexical-environment seam shape
+
+`V19b-T` declares the `src/runtime/lexical-environment.ts` seam the paired
+`V19b` fills in. Two non-plan seam-shape decisions worth recording (neither
+diverges from spec text — the plan leaves the environment API to `V19b`):
+
+- **Enum variants are supplied alongside `EnumDecl`.** `V19a`'s `EnumDecl` AST
+  node carries only `{ kind, name }` — it does not enumerate the variant wire
+  strings. The environment needs the variant set to materialise a runtime
+  `EnumValue` for `Enum.Variant` access (runtime-value-model.md enum row), so
+  `buildEnvironment` takes the enum registrations via an `enums:
+  EnumRegistration[]` input (name + variants) and imported enums carry their
+  `variants` on `MaterializedImport`, rather than reading them off `EnumDecl`.
+  `V19b` will source these from the `V5*` schema/enum declaration parse detail
+  the whole-file `EnumDecl` discards.
+- **Resolution is arm-labelled.** `resolve(name)` returns a `Resolution` tagged
+  with the matched arm (`local`/`fn`/`import`/`callable`/`unresolved`) so the
+  expressions.md §"Identifier resolution" first-match precedence is directly
+  observable in tests without executing the callable arm (which `V19b` only
+  DEFINES the position of; `V6c` populates it, `V19d`/`V19e` execute it).
