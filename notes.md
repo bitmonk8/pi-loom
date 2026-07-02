@@ -1683,3 +1683,48 @@ the environment API to `V19b`):
   root therefore does not yet drive subagent-mode looms live (host
   `AuthStorage`/model are not threaded to the producer). A limitation to close
   when a subagent-mode acceptance obligation lands.
+
+## 2026-07-02 — H6a live-corpus gate re-evaluation (blocked: needs-attention)
+
+Re-dispatched after V19a–V19e and H8a completed. Ran H5a's closing-gate
+machinery over the live corpus in the H5b warn-only footing (the identical
+machinery H6a would flip to hard-fail; `live-corpus.js` guarantees the two
+footings are in lockstep). It returns **58 findings across all four live-corpus
+arms** H6a hard-fails on, so flipping the gate now would redden `npm test` /
+`main`. The prior "only V19a–V19e" diagnosis was incomplete: none of these 58
+findings are V19-owned; they are pre-existing warn-only gaps in coverage-
+producing leaves (V13a/V13d/V5x/V6x/V9x/V14x/V15x/…) plus un-drained un-anchored
+MUSTs. H6a produces no coverage, so it cannot close them; they belong to the
+respective closing leaves and the un-anchored-MUST/per-facet drain work.
+
+Findings by arm (58 total):
+- **unmapped-executable-req-id (4):** `BNDR-12` (live runtime REQ-ID, no
+  coverage-matrix row); `FRNT-2`, `FRNT-3`, `SUBS-2` (live terminology REQ-IDs —
+  the gate cannot tell them from runtime REQ-IDs, so they need coverage-matrix
+  rows or a spec-side GOV-22 disposition).
+- **mapped-req-id-no-citing-test (6):** `QRY-1`, `QRY-5`, `QRY-21` (mapped to
+  `V13a`), `QRY-8`, `QRY-9`, `QRY-10` (mapped to `V13d`) — those leaves shipped
+  without an inline `PREFIX-N` citing test for every mapped REQ-ID (the arm was
+  fixture-only until this leaf).
+- **un-anchored-must-unenumerated (18):** diagnostic-shape, discovery-sources,
+  corpus-direction-and-scope, release-version-naming, req-id-prefix-table-active-a,
+  ceiling-invariants-and-audit, ceilings-3-and-4, capability-inventory-items,
+  capability-probe, host-interfaces-services, patch-skew-degradation,
+  runtime-event-channel, subagent, tool-registration-lifetime, version-bump-intro,
+  version-bump-step2, version-bump-steps-3-4, query-failure-and-repair.
+- **un-anchored-must-unresolved-leaf (3):** conversation-drive, drain-state-contract,
+  host-prerequisites (mapped only to a closing-leaf token resolving to no plan leaf).
+- **un-rowed-page-residue (5):** model-changes-and-non-goals, surface-extensions,
+  language-and-architecture, overview-and-orientation, session-model-and-appendix
+  (spec pages absent from the prefix table, not GOV-24 hub stubs).
+- **per-facet-citing-test-missing (22):** V9m(DISC-4); V3a,V3f,V3g,V3h(cka-3);
+  V5a,V5b(cka-8); V5d,V5f(cka-10); V6a,V6b,V6c,V6d,V6e(cka-11);
+  V14a,V14c,V14e(cka-13); V9k,V9p(cka-16); V15a,V15e,V7a(cka-44).
+
+Verified genuine (not scan artifacts): BNDR-12 is a live re-entrancy runtime
+MUST with no matrix row; QRY-1 is `qry-1` in query-forms.md, mapped to `V13a`,
+uncited in `tests/**`; DISC-4's `V9m` facet has no test citing both `DISC-4` and
+`V9m` inline. Deps H5b/H5c/H7a and H8a are all tagged complete.
+
+Not tagged; gate left on its seeded-fixture footing (no red gate wired). H6a can
+ship only after the 58 findings are closed by their owning leaves / drain work.
