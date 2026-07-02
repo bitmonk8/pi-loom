@@ -120,6 +120,11 @@ describe("V7a-T — diagnostics primitive", () => {
 
   // Multi-error assembly — no fast-fail, no per-error loss, ordered by
   // (file, line, col) across an entry `.loom` and >=2 transitive `.warp` modules.
+  //
+  // cka-44 / V7a: the IMPL code-keyed obligation area (implementation-notes.md
+  // §Runtime Static-resolution load pass) closes its cross-file (file, line, col)
+  // diagnostic aggregation-order facet on V7a; this assertion witnesses that
+  // facet against the shipped `assembleDiagnostics` ordering.
   it("Multi-error assembly: aggregates entry .loom + transitive .warp errors into one ordered Diagnostic[] with no loss", () => {
     const located = (
       code: string,

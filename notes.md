@@ -1801,3 +1801,24 @@ cka row to the real shipped closer:
 BNDR-12 left in `unmapped-executable-req-id` (adding its numbered-REQ-IDs row
 was optional this chunk and would move it to the test-owed arm; deferred to the
 tests chunk that adds its citing test).
+
+H6a-chunk-2 (2026-07-02): closed the remaining 29 warn-only findings (oracle
+29 → 0) with citing tests only — no src/** runtime change. BNDR-12 is now mapped
+in coverage-matrix.md's *Numbered REQ-IDs* table → `V11d`, the leaf that builds
+the per-call binder input record (parameter table + raw slash text + optional
+session-context block) via `buildBinderSystemPrompt`; its citing test on
+`tests/binder-system-prompt.test.ts` asserts the re-entrancy invariant (fresh
+per-call construction, no cached state that would serve a stale `bind_context`
+snapshot). Owning-leaf choice note: the spec's BNDR-12 "input record" is exactly
+`BuildBinderSystemPromptInput` (params / rawArguments / sessionContext), which
+`V11d` owns; the `complete()`-call constructor `buildBinderCompleteCall` (`V9j`)
+and the resolved model handle (`V11a`/BNDR-11) sit on the same binder path but
+do not own the input-record assembly, so `V11d` is the closest single closing
+leaf and is within `H5b`'s `Deps` (`V11a`–`V11j`), keeping the H5d transitive-
+completeness arm green. The 22 per-facet findings were closed by adding the
+row-subject token (`cka-<n>` or `DISC-4`) inline next to the already-present
+facet leaf-ID on a genuine facet-asserting test in each facet's natural test
+file (the per-facet scan is a per-file both-token existence scan); the 6 QRY
+mapped-citing findings by genuine assertions of the shipped untyped-Ok(string),
+render-normalisation, interpolation-panic-propagation, and respond-repair
+failure-contract behaviour. No behaviour was found genuinely absent.

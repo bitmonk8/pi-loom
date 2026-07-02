@@ -74,6 +74,9 @@ function makeValidator(): AjvSchemaValidator {
 
 // --- §Defaults — no non-defaulted field after a defaulted one --------------
 
+// cka-11 / V6b: the FRNT code-keyed obligation area's `params`/defaults facet
+// closes on V6b; the assertions in this file witness that facet against the
+// shipped params contract.
 describe("V6b-T — default ordering (loom/parse/non-trailing-default)", () => {
   it("loom/parse/non-trailing-default: a non-defaulted param after a defaulted one fires, naming the offending field", () => {
     // `language` defaults; `focus_areas` does not and follows it — illegal.

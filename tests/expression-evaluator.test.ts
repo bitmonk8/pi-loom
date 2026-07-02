@@ -88,7 +88,11 @@ function withCode(diags: readonly Diagnostic[], code: string): Diagnostic | unde
 
 // --- expressions.md §"Operator precedence" --------------------------------
 
-describe("V3a-T — operator precedence and associativity (expressions.md §Operator precedence, EXPR code-keyed area)", () => {
+// cka-3 / V3a: the EXPR code-keyed obligation area (expressions.md) closes across
+// V3a (this evaluator core), V3f, V3g, V3h; the assertions below witness the V3a
+// facet — operator precedence/associativity, evaluation order, and arithmetic —
+// against the shipped interpreter.
+describe("V3a-T — operator precedence and associativity (expressions.md §Operator precedence, EXPR code-keyed area / cka-3)", () => {
   it("EXPR precedence: `*` (level 3) binds tighter than `+` (level 4)", () => {
     // 2 + (3 * 4) = 14, not (2 + 3) * 4 = 20.
     expect(evalExpr("2 + 3 * 4")).toBe(14);

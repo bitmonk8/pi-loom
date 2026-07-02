@@ -428,3 +428,105 @@ describe("V13d-T — ERR-17 forced-respond non-compliance into the respond-repai
     expect(outcome.attemptsUsed).toBe(2);
   });
 });
+
+// ===========================================================================
+// QRY-8 / QRY-9 / QRY-10 — the query-failure-and-repair.md failure contract the
+// V13d respond-repair loop closes (the coverage-matrix maps these three REQ-IDs
+// to V13d). The loop is the runtime surface where the "a query never throws"
+// guarantee (QRY-8), the forced-respond-noncompliance → schema_validation
+// terminal (QRY-9), and the context-overflow permanent short-circuit (QRY-10)
+// are observable.
+// ===========================================================================
+
+describe("V13d — query failure contract (query-failure-and-repair.md QRY-8/9/10)", () => {
+  it("QRY-8: on failure the loop RETURNS a Result carrying a kind-tagged QueryError — it never throws", async () => {
+    // QRY-8: "A query never throws. Both forms return a Result carrying a
+    // QueryError on failure. QueryError is a discriminated union (anyOf over
+    // kind-tagged variants)." A budget-exhausting schema-validation failure is
+    // surfaced as a returned outcome whose `error` is a `kind`-tagged QueryError
+    // (the discriminated-union discriminator), NOT a thrown exception.
+    const driver = new ScriptedRepairDriver([
+      followSchemaFail([issue("/a1")], "attempt-1"),
+    ]);
+
+    // The call resolves (does not reject/throw): the awaited value is the Result
+    // surface, and its `error.kind` is the discriminated-union tag.
+    const outcome = await runRespondRepairLoop(
+      schemaFailure([issue("/initial")], "initial"),
+      driver,
+      input(config("validator_error", 1), 8),
+    );
+    expect(outcome.kind).toBe("validation");
+    if (outcome.kind !== "validation") return;
+    // The carried error is a `kind`-tagged QueryError variant, never a raw throw.
+    const carried: QueryError = outcome.error;
+    expect(typeof carried.kind).toBe("string");
+    expect(carried.kind).toBe("validation");
+  });
+
+  it("QRY-9: a forced-respond non-compliance is routed through respond-repair and terminal exhaustion surfaces Err(QueryError{kind:'validation', cause:'schema_validation'})", async () => {
+    // QRY-9: when the model fails to invoke the forced respond tool, the runtime
+    // synthesises a single ValidationIssue and routes it through the schema-
+    // validation respond-repair pipeline; terminal exhaustion surfaces
+    // Err(QueryError{kind:'validation', cause:'schema_validation'}). Every
+    // follow-up is also non-compliant, so the 2-attempt budget exhausts.
+    const branch: ForcedRespondBranch = {
+      kind: "wrong_tool",
+      providerToolName: "search",
+      respondToolName: "__loom_respond_triage",
+    };
+    const driver = new ScriptedRepairDriver([
+      followNoncompliance(branch, "prose-1"),
+      followNoncompliance(branch, "prose-2"),
+    ]);
+
+    const outcome = await runRespondRepairLoop(
+      { kind: "noncompliance", branch, raw_response: "prose-0" },
+      driver,
+      input(config("validator_error", 2), 8),
+    );
+
+    // Routed through respond-repair: a follow-up user turn was appended per
+    // attempt (not re-issued), exhausting the 2-attempt budget.
+    expect(driver.calls.map((c) => c.attempt)).toEqual([1, 2]);
+    expect(outcome.kind).toBe("validation");
+    if (outcome.kind !== "validation") return;
+    expect(outcome.error.kind).toBe("validation");
+    expect(outcome.error.cause).toBe("schema_validation");
+    // The synthesised issue (ERR-17 shape) is what the loop fed into repair.
+    expect(outcome.error.validation_errors).toEqual([
+      synthesizeForcedRespondIssue(branch),
+    ]);
+  });
+
+  it("QRY-10: a recognised context-overflow failure surfaces the context_overflow variant, permanently short-circuits respond-repair (no attempt consumed), and carries tokens_used/tokens_limit that are null when the provider omits them", async () => {
+    // QRY-10: the runtime maps recognised provider context-overflow responses to
+    // the context_overflow variant; that variant permanently short-circuits the
+    // respond-repair loop. `tokens_used`/`tokens_limit` are populated when the
+    // provider supplies them and null otherwise.
+    const overflow = contextOverflowError();
+    const driver = new ScriptedRepairDriver([
+      followNonValidation(overflow),
+      // Guard: must never be consulted after a permanent short-circuit.
+      followSchemaFail([issue("/never")]),
+    ]);
+
+    const outcome = await runRespondRepairLoop(
+      schemaFailure([issue("/initial")]),
+      driver,
+      input(config("validator_error", 3), 8),
+    );
+
+    // Permanent short-circuit: exactly one follow-up, no attempt debited.
+    expect(driver.calls.map((c) => c.attempt)).toEqual([1]);
+    expect(outcome.kind).toBe("propagated");
+    if (outcome.kind !== "propagated") return;
+    expect(outcome.error.kind).toBe("context_overflow");
+    expect(outcome.attemptsUsed).toBe(0);
+    // The context_overflow variant carries the null token-count fields (the
+    // documented null condition when the provider omits them).
+    const co = outcome.error as ContextOverflowError;
+    expect(co.tokens_used).toBeNull();
+    expect(co.tokens_limit).toBeNull();
+  });
+});

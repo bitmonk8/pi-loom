@@ -47,6 +47,9 @@ function withCode(diags: readonly Diagnostic[], code: string): Diagnostic | unde
 
 // --- schemas.md §Object schema — empty body -------------------------------
 
+// cka-8 / V5a: the SCHM code-keyed obligation area (schemas.md) closes across V5a
+// (schema/alias/enum declaration forms) and V5b; the assertions in this file
+// witness the V5a facet against the shipped parser.
 describe("V5a-T — empty schema body (loom/parse/empty-schema-body)", () => {
   it("loom/parse/empty-schema-body: `schema X { }` with no fields fires; a non-empty schema does not", () => {
     const diags = checkObjectSchema({ name: "X", fields: [] }, site());

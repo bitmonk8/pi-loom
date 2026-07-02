@@ -131,6 +131,10 @@ describe("code-side tool-call argument checks (tool-calls.md §Argument shape)",
 
 // --- CodeToolError closed enum + distinctness from ModelToolError ----------
 
+// cka-13 / V14a: the TOOL code-keyed obligation area (tool-calls.md) closes across
+// V14a (this code-side call + CodeToolError + return-type table), V14b, V14c,
+// V14e; the assertions in this file witness the V14a facet against the shipped
+// code-side tool-call machinery.
 describe("CodeToolError (tool-calls.md TOOL code-keyed area; queryerror-variants.md)", () => {
   it("CodeToolError.cause is closed at validation / execution / cancelled / unknown_tool", () => {
     expect(codeToolErrorCauses()).toEqual([

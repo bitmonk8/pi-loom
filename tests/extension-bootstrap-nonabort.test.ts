@@ -170,6 +170,10 @@ function fixture(slashName: string): LoomFixture {
 
 // ── `pi.registerMessageRenderer` failure — non-abort renderer degrade ────────
 
+// cka-16 / V9p: the extension-bootstrap SDK-failure code-keyed obligation area's
+// three non-abort surfaces (renderer degrade, per-loom registerCommand drop,
+// getCommands read-failure drop) close on V9p; the assertions in this file
+// witness the V9p facet against the shipped bootstrap.
 describe("V9p extension bootstrap — pi.registerMessageRenderer failure (loom/load/extension-bootstrap-failed)", () => {
   it("loom/load/extension-bootstrap-failed: a factory-time pi.registerMessageRenderer throw drops the renderer, completes the remaining steps, and emits one diagnostic with details.capability='pi.registerMessageRenderer'", () => {
     const gate = new RendererGate();

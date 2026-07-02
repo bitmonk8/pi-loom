@@ -48,6 +48,9 @@ function fsWith(
 // (1) Changed file + every transitive `.warp` importer dropped in the swap.
 // --------------------------------------------------------------------------
 
+// cka-44 / V15e: the IMPL code-keyed obligation area's in-process hot-reload
+// re-walk facet closes on V15e; the assertions in this file witness that facet
+// — the parse-cache eviction on the LoomRegistry swap — against the shipped path.
 describe("V15e-T — eviction drops the changed file and its transitive .warp importers (implementation-notes.md — Static-resolution load pass)", () => {
   it("implementation-notes.md — Static-resolution load pass: the changed file and every transitive .warp importer are dropped from the per-pass parse cache as part of the LoomRegistry swap", async () => {
     // Import graph (importer → imported): b imports a, c imports b, so the

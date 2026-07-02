@@ -52,6 +52,9 @@ function loom(...frontmatterLines: string[]): string {
 
 // --- frontmatter-fields-a.md §Field contract — required `mode:` -----------
 
+// cka-11 / V6a: the FRNT code-keyed obligation area (frontmatter fields a/b)
+// closes across V6a (this field contract), V6b, V6c, V6d, V6e; the assertions in
+// this file witness the V6a facet against the shipped frontmatter parser.
 describe("V6a-T — required `mode:` (loom/load/missing-mode)", () => {
   it("loom/load/missing-mode: frontmatter omitting `mode:` fires the load error and the loom is not registered", () => {
     const r = parse(loom("description: a review loom"));

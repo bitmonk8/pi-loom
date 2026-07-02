@@ -175,6 +175,9 @@ describe("V9m-T — drain() and predicate idempotence (PIC-32)", () => {
 
 // --- superseded-entry dispatch (registration-steps.md#superseded-entry-dispatch) ---
 
+// DISC-4 / V9m: the DISC-4 discovery obligation closes across V10a (collision
+// detection) and V9m (superseded-entry dispatch); the assertion below witnesses
+// the V9m superseded-entry-dispatch facet against the shipped LoomRegistry.
 describe("V9m-T — superseded-entry dispatch (PIC area)", () => {
   const noopRun = async (): Promise<void> => {};
   const loom = (slashName: string): ParsedLoom => ({

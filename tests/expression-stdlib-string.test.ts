@@ -39,7 +39,10 @@ function union(arms: readonly CompatType[]): CompatType {
 
 // --- expressions.md §"Built-in methods and properties" — `replace` vectors -
 
-describe("V3f-T — `String.replace` reference vectors (expressions.md §Built-in methods and properties, EXPR code-keyed area)", () => {
+// cka-3 / V3f: the EXPR code-keyed obligation area's `string` stdlib facet closes
+// on V3f; the reference-vector assertions below witness that facet against the
+// shipped interpreter.
+describe("V3f-T — `String.replace` reference vectors (expressions.md §Built-in methods and properties, EXPR code-keyed area / cka-3)", () => {
   // The five normative reference vectors conforming implementations MUST
   // reproduce exactly. Each exercises a distinct clause of the `replace`
   // semantics (all-occurrences, literal `$&` / `$$` / `$n`, empty `from`,

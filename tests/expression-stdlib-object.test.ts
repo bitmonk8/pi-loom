@@ -25,7 +25,10 @@ import type { LoomValue } from "../src/runtime/value";
 
 // --- expressions.md §"Built-in methods and properties" — `object` ----------
 
-describe("V3h-T — `object.keys()` (expressions.md §Built-in methods and properties, EXPR code-keyed area)", () => {
+// cka-3 / V3h: the EXPR code-keyed obligation area's `object` stdlib facet closes
+// on V3h; the member assertions below witness that facet against the shipped
+// interpreter.
+describe("V3h-T — `object.keys()` (expressions.md §Built-in methods and properties, EXPR code-keyed area / cka-3)", () => {
   it("EXPR `keys`: field names in schema declaration order for named schemas", () => {
     // A named-schema value is constructed in declaration order; `keys()`
     // returns those loom-side field names as an `array<string>` in that order.

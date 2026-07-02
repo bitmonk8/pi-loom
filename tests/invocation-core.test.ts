@@ -213,6 +213,10 @@ function parseAndLowerSpy(): (path: string, source: string) => ParsedCallee {
   });
 }
 
+// cka-44 / V15a: the IMPL code-keyed obligation area (implementation-notes.md
+// §Runtime Static-resolution load pass) closes across V15a (this transitive
+// per-pass parse-cache walk), V15e, and V7a; the assertions below witness the
+// V15a parse-cache-walk facet against the shipped static-resolution pass.
 describe("Static-resolution load pass — transitive per-pass parse cache (implementation-notes.md)", () => {
   it("walks transitively from the entry loom across invoke paths and .loom tools: entries", async () => {
     const fs = graphFs();

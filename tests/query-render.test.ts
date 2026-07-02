@@ -67,6 +67,27 @@ describe("V13a-T — newline-trim → dedent order (query-forms.md QRY-7)", () =
       expect(renderTemplateText(vector.input)).toBe(vector.rendered);
     });
   }
+
+  // QRY-5 (query/query-forms.md#qry-5): a multi-line backtick template applies
+  // the two normalisations — newline-trim (a newline immediately after the
+  // opening backtick and immediately before the closing backtick is stripped)
+  // then dedent (the common leading whitespace of every non-blank line is
+  // stripped). Exercises the exact worked example from the QRY-5 prose.
+  it("QRY-5: the multi-line template worked example is newline-trimmed then dedented", () => {
+    // The QRY-5 worked example body: a leading newline after the opening
+    // backtick, three uniformly-indented content lines, and a trailing newline
+    // before the closing backtick.
+    const body =
+      "\n    The author is Ada, a reviewer\n    with 9 years of experience.\n    Produce a review plan tailored to that level.\n";
+    // QRY-5: newline-trim strips the opening/closing newlines; dedent then
+    // strips the common four-space leading indent shared by every line.
+    expect(renderTemplateText(body)).toBe(
+      "The author is Ada, a reviewer\nwith 9 years of experience.\nProduce a review plan tailored to that level.",
+    );
+    // QRY-5: a single-line template has no leading whitespace and no internal
+    // newlines, so both normalisations are no-ops.
+    expect(renderTemplateText("one line prompt")).toBe("one line prompt");
+  });
 });
 
 describe("V13a-T — template escapes and termination (query-escapes-stringification.md QRY-17)", () => {

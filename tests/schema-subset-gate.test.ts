@@ -110,6 +110,9 @@ const PERMITTED_KEYWORDS: readonly string[] = [
 
 // --- schema-subset.md — the allowlist reject gate (each rejected keyword) ---
 
+// cka-10 / V5d: the SUBS code-keyed obligation area (schema-subset.md) closes
+// across V5d (this allowlist reject gate), V5e, and V5f; the assertions in this
+// file witness the V5d facet against the shipped reject gate.
 describe("V5d-T — reject gate fires loom/parse/unsupported-feature per rejected keyword", () => {
   for (const keyword of REJECTED_KEYWORDS) {
     it(`loom/parse/unsupported-feature: rejects the out-of-subset keyword '${keyword}'`, () => {

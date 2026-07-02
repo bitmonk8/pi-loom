@@ -236,6 +236,48 @@ describe("V4b-T — panics bypass `match` (a `match` arm body cannot contain the
   }
 });
 
+describe("V13a — QRY-21: interpolation-expression panics propagate before the `let _ =` binding completes (query/query-escapes-stringification.md#qry-21)", () => {
+  // QRY-21: "A `${expr}` interpolation can trip any of the runtime panics …
+  // (non-exhaustive `match`, OOB, null/missing-key access). Panics arise during
+  // evaluation of the RHS and propagate before the `let _ =` binding completes;
+  // the discard form does not contain them." The panic sources exercised here
+  // are exactly the primitives an interpolated `${expr}` evaluates through
+  // (indexed / member access and `match`), so a panic they raise escapes as a
+  // thrown LoomPanic — never a `LoomValue` — and therefore cannot be absorbed by
+  // a discard binding that only ever sees a settled query `Result` value.
+  const interpolationPanics = PANIC_CASES.filter(
+    (c) => c.code !== INVOKE_DEPTH_EXCEEDED_CODE,
+  );
+
+  for (const c of interpolationPanics) {
+    it(`QRY-21: ${c.code} raised while evaluating an interpolated \`\${expr}\` propagates as a thrown LoomPanic, not a discardable value`, () => {
+      let raised: unknown;
+      try {
+        // The value the interpolation would stringify is never produced: the
+        // evaluation panics.
+        c.trigger();
+      } catch (e: unknown) {
+        raised = e;
+      }
+      // QRY-21: the panic is a thrown LoomPanic (propagates), not a value the
+      // render pipeline could stringify.
+      expect(isLoomPanic(raised)).toBe(true);
+
+      // A `let _ = <RHS>` discard binds only a produced value. Model the discard
+      // as a binding whose RHS is the panicking interpolation evaluation: the
+      // panic propagates out of RHS evaluation *before* the binding completes,
+      // so the discard never contains it.
+      const discardBinding = (): void => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const _ = c.trigger();
+      };
+      expect(discardBinding, `${c.code}: propagates past the discard`).toThrow(
+        c.panicClass,
+      );
+    });
+  }
+});
+
 describe("V4b-T — `?` propagation discrimination (the non-panic baseline)", () => {
   it("an `Ok(v)` operand yields the inner value", () => {
     expect(evaluateQuestion(() => makeOk(7))).toEqual({ kind: "value", value: 7 });

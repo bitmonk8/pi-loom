@@ -30,6 +30,9 @@ const DEPTH_6_ARG = { a: { b: { c: { d: { e: 1 } } } } };
 
 const TOOL_NAME = "read";
 
+// cka-13 / V14e: the TOOL code-keyed obligation area's ceiling-#4 depth-6
+// code-driven-tool-args facet closes on V14e (live-carrier witness); the
+// assertions in this file witness that facet against the shipped depth walk.
 describe("V14e-T — depth-6 code-driven tool-call args live carrier (ceiling-4-table code-driven row)", () => {
   it("ceiling-4-table (code-driven row) / CIO-3: a depth-6 code-driven arg trips the loom-owned depth walk before AJV and surfaces as Err(CodeToolError { cause: 'validation' }) carrying schema_keyword `maxDepth`", () => {
     // ceilings-3-and-4.md#ceiling-4-table, code-driven `<name>(args)` row: the

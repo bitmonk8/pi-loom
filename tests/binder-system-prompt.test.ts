@@ -350,3 +350,70 @@ describe("V11d-T — No-invent-defaults instruction (cka-45 item 8)", () => {
     expect(hasDirective).toBe(true);
   });
 });
+
+// ============================================================================
+// BNDR-12 — binder-invocation-path re-entrancy
+// (binder/binder-model-and-context.md#bndr-12)
+//
+// V11d builds the per-call binder invocation input record — the parameter table
+// (`params`), the raw slash text (`rawArguments`), and the optional
+// session-context block (`sessionContext`) — into the binder system prompt.
+// BNDR-12 requires that record be "constructed afresh on every binder call, with
+// no cached state that would let a second call serve a stale `bind_context`
+// snapshot". `buildBinderSystemPrompt` is a pure per-call constructor holding no
+// module-level state, so a second call reflects its own input entirely and never
+// carries a first call's session-context block forward.
+// ============================================================================
+
+describe("V11d — BNDR-12 binder-input re-entrancy (binder/binder-model-and-context.md#bndr-12)", () => {
+  const SESSION_A = "[user]: alpha turn\n";
+  const SESSION_B = "[user]: bravo turn\n";
+
+  it("BNDR-12: each binder call constructs the input record afresh — a second call never serves a stale bind_context snapshot from a prior call", () => {
+    // Call 1 carries a session-context block sourced from bind_context: session.
+    const withA = buildBinderSystemPrompt(
+      baseInput({
+        rawArguments: "review the diff",
+        sessionContext: { transcriptBody: SESSION_A },
+      }),
+    );
+    expect(withA).toContain("Recent session context");
+    expect(withA).toContain(SESSION_A.trim());
+
+    // Call 2 (a fresh binder call) carries a DIFFERENT session-context block.
+    // BNDR-12: no cached state — the second prompt reflects SESSION_B only and
+    // carries none of SESSION_A's snapshot forward.
+    const withB = buildBinderSystemPrompt(
+      baseInput({
+        rawArguments: "review the diff",
+        sessionContext: { transcriptBody: SESSION_B },
+      }),
+    );
+    expect(withB).toContain(SESSION_B.trim());
+    expect(withB).not.toContain(SESSION_A.trim());
+
+    // Call 3 carries NO session-context block (bind_context: none). A stale
+    // snapshot would have leaked call 1/2's block; a re-entrant per-call build
+    // omits the block entirely.
+    const withNone = buildBinderSystemPrompt(
+      baseInput({ rawArguments: "review the diff" }),
+    );
+    expect(withNone).not.toContain("Recent session context");
+    expect(withNone).not.toContain(SESSION_A.trim());
+    expect(withNone).not.toContain(SESSION_B.trim());
+  });
+
+  it("BNDR-12: the per-call construction is order-independent and deterministic — rebuilding an earlier input reproduces its prompt byte-for-byte with no carried state", () => {
+    const inputA = (): BuildBinderSystemPromptInput =>
+      baseInput({ rawArguments: "first", sessionContext: { transcriptBody: SESSION_A } });
+    const inputB = (): BuildBinderSystemPromptInput =>
+      baseInput({ rawArguments: "second", sessionContext: { transcriptBody: SESSION_B } });
+
+    const firstA = buildBinderSystemPrompt(inputA());
+    // Interleave a different call, then rebuild A: a cached state would make the
+    // second A diverge from the first.
+    buildBinderSystemPrompt(inputB());
+    const secondA = buildBinderSystemPrompt(inputA());
+    expect(secondA).toBe(firstA);
+  });
+});

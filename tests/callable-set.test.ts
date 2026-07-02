@@ -75,6 +75,9 @@ function resolveList(items: readonly string[], d: CallableSetDeps): CallableSetR
 
 // --- frontmatter-fields-a.md §`tools` — unknown Pi tool -------------------
 
+// cka-11 / V6c: the FRNT code-keyed obligation area's `tools` callable-set facet
+// closes on V6c; the assertions in this file witness that facet against the
+// shipped callable-set resolution.
 describe("V6c-T — unknown Pi tool (loom/load/unknown-tool)", () => {
   it("loom/load/unknown-tool: a `tools:` entry naming a Pi tool absent from the registry is rejected at load time", () => {
     const r = resolveScalar("read, bogus_tool", deps({ piTools: ["read"] }));

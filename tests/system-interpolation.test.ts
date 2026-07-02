@@ -77,6 +77,9 @@ function render(template: SystemTemplate, obj: Readonly<Record<string, LoomValue
 
 // --- frontmatter-fields-b-and-templates.md — the four parse-error codes ----
 
+// cka-11 / V6d: the FRNT code-keyed obligation area's `system` template facet
+// closes on V6d; the assertions in this file witness that facet against the
+// shipped Path-only interpolation surface.
 describe("V6d-T — `${…}` grammar restriction (four loom/parse/system-interp-* codes)", () => {
   it("loom/parse/system-interp-not-path: a non-Path `${…}` body is rejected", () => {
     // Indexed access is not a `Path` (grammar: `Ident ('.' Ident)*`).

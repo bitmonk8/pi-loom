@@ -47,6 +47,9 @@ function withCode(diags: readonly Diagnostic[], code: string): Diagnostic | unde
 
 // --- schemas.md §Discriminated unions — non-string discriminator ----------
 
+// cka-8 / V5b: the SCHM code-keyed obligation area (schemas.md) closes across V5a
+// and V5b (discriminated-union detection, recursion, cycle detection); the
+// assertions in this file witness the V5b facet against the shipped parser.
 describe("V5b-T — non-string discriminator (loom/parse/non-string-discriminator)", () => {
   it("loom/parse/non-string-discriminator: an otherwise-qualifying field with a numeric literal fires with the offending kind", () => {
     // `schema Animal = Cat | Dog` where each variant's `kind` is an integer

@@ -91,6 +91,9 @@ function exactlyOne(diagnostics: readonly Diagnostic[]): Diagnostic {
 
 // ── `pi.registerFlag` failure — fatal to the whole extension ────────────────
 
+// cka-16 / V9k: the extension-bootstrap SDK-failure code-keyed obligation area
+// closes across V9k (the two whole-extension abort surfaces) and V9p; the
+// assertions in this file witness the V9k facet against the shipped bootstrap.
 describe("V9k extension bootstrap — pi.registerFlag failure (loom/load/extension-bootstrap-failed)", () => {
   it("loom/load/extension-bootstrap-failed: a factory-time pi.registerFlag throw is fatal — steps 2–5 do not execute", () => {
     const rec = makeRecordingPi(new Set(["registerFlag"]));

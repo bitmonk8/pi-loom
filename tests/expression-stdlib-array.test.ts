@@ -47,7 +47,10 @@ const SITE: CompatSite = {
 
 // --- expressions.md §"Built-in methods and properties" — `array<T>` --------
 
-describe("V3g-T — `array<T>.length` (expressions.md §Built-in methods and properties, EXPR code-keyed area)", () => {
+// cka-3 / V3g: the EXPR code-keyed obligation area's `array<T>` stdlib facet closes
+// on V3g; the member assertions below witness that facet against the shipped
+// interpreter.
+describe("V3g-T — `array<T>.length` (expressions.md §Built-in methods and properties, EXPR code-keyed area / cka-3)", () => {
   it("EXPR `length`: the element count", () => {
     expect(evaluateArrayMember([1, 2, 3], "length", [])).toBe(3);
     // The empty array is length 0 (distinguishing a count from the inert

@@ -94,6 +94,9 @@ class SpyObserver implements LateSettlementObserver {
 // diagnostic + one `loom-system-note` (tool-calls.md §"Outcome enumeration").
 // ===========================================================================
 
+// cka-13 / V14c: the TOOL code-keyed obligation area's off-surface outcome-routing
+// facet closes on V14c; the assertions in this file witness that facet — each of
+// the four off-surface outcomes on its own channel — against the shipped router.
 describe("V14c-T — pre-eval setup throw inside the `.loom`-callable adapter (tool-calls.md §Outcome enumeration)", () => {
   it("translates the captured setup throw into a clean { isError: true } value carrying the bare callable-set name", () => {
     const sink = new RecordingSink();

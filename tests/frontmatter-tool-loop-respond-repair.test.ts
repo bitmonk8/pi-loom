@@ -58,6 +58,9 @@ const OOR = "loom/load/frontmatter-value-out-of-range";
 
 // --- FRNT-1 — `tool_loop.max_rounds` parse (non-negative integer) ----------
 
+// cka-11 / V6e: the FRNT code-keyed obligation area's `respond_repair`/`tool_loop`
+// facet closes on V6e; the assertions in this file witness that facet against the
+// shipped range validation and defaults.
 describe("V6e-T — FRNT-1 `tool_loop.max_rounds` parse", () => {
   it("FRNT-1: `max_rounds: 0` (the model-tool-call disable form) parses, registers, and exposes maxRounds 0", () => {
     const r = parse("tool_loop:", "  max_rounds: 0");

@@ -327,4 +327,21 @@ describe("V9c-T — PIC-53 untyped-query trailing-turn Ok(string) extraction", (
     ];
     expect(extractTrailingTurnText(messages)).toBe("");
   });
+
+  // QRY-1 (query/query-forms.md#qry-1): the untyped `@`...`` form's `Ok` value
+  // is "the assistant's text response as a string" (return type
+  // Result<string, QueryError>). The trailing-turn extractor is the runtime
+  // surface that produces that `Ok(string)` payload, so this is the same shipped
+  // behaviour PIC-53 exercises, asserted against the QRY-1 query-forms
+  // obligation the untyped form states.
+  it("QRY-1: the untyped-query Ok(string) value is the assistant's text response as a string", () => {
+    const messages: Message[] = [
+      userMessage("Critique this code"),
+      assistantMessage([{ text: "the assistant's critique" }]),
+    ];
+    const okValue: string = extractTrailingTurnText(messages);
+    // QRY-1: the Ok value is a `string` carrying the assistant's text response.
+    expect(typeof okValue).toBe("string");
+    expect(okValue).toBe("the assistant's critique");
+  });
 });

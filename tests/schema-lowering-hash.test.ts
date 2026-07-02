@@ -43,6 +43,10 @@ function site(): { file: string; range: SourceRange } {
 // --- schema-subset.md §Canonical schema hash — SHA-256 over the canonical form,
 //     slug = first 16 hex --------------------------------------------------
 
+// cka-10 / V5f: the SUBS code-keyed obligation area (schema-subset.md) closes
+// across V5d, V5e, and V5f (this lowering pass + canonical-hash recipe + the
+// per-schema sidecar); the assertions in this file witness the V5f facet against
+// the shipped lowering pass.
 describe("V5f-T — canonical schema hash (schema-subset.md §Canonical schema hash)", () => {
   it("canonical form sorts object keys by code point and emits no whitespace (step 2)", () => {
     // A fragment whose entries are emitted in NON-sorted order (`type` before
