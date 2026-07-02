@@ -1570,3 +1570,39 @@ the environment API to `V19b`):
   tested forms; the real one arrives with `V19d`.
 - No spec/plan divergence: the executor seam shape is a design choice the plan
   defers to this leaf. No `decisions.jsonl` entry.
+
+## 2026-07-02 — V19c statement executor
+
+- **Per-effect single-statement `runCancellableSequence`.** The leaf's `Adds.`
+  prose says the executor "segments each linear run of statements onto
+  `runCancellableSequence`". The implementation instead routes *each*
+  checkpointed effect sub-expression through its own single-statement
+  `runCancellableSequence` call, driven sequentially. This is more faithful to
+  the observable contract than one sequence per straight-line run: a bare effect
+  statement whose result is a non-cancel `Err` is a terminal `fail` (the V19c-T
+  fail witness asserts this), so the walk must short-circuit before the next
+  effect commits. A multi-statement sequence would run every statement's `run()`
+  regardless of a prior `Err`, committing effects after a failure. Per-effect
+  sequencing preserves fail-fast short-circuit while still gating every effect on
+  the real `Checkpoint.before(...)` + pre-dispatch signal read (cka-47) and
+  retaining every completed binding verbatim (CNCL-5). `Adds.` is descriptive
+  (Class-3, illustrative); the binding obligations are the Tests bullets, which
+  per-effect sequencing satisfies. Logged in decisions.jsonl.
+- **Sync `evaluateForLoop` vs. async loop body.** `V3c`'s `evaluateForLoop` is
+  synchronous (`runIteration` returns `void`), but a loom loop body runs async
+  effects. The executor bridges this by driving the real `evaluateForLoop` with a
+  loop host whose `evaluateIterand` returns the once-evaluated snapshot and whose
+  `runIteration` merely captures each element in source order; the executor then
+  walks the captured plan asynchronously, honouring `break`/`continue`/`return`.
+  The CTRL-1 obligation actually witnessed — the iterand evaluated exactly once
+  at loop entry over a fixed snapshot — is preserved (the iterand expression is
+  evaluated once, and `evaluateForLoop` calls `evaluateIterand` once). Logged in
+  decisions.jsonl.
+- **`while` / `let` / reassign implemented though not directly tested.** The
+  V19c-T suite exercises tool-call/expr statements, `for`, `if`, `break`,
+  `continue`, `return`, and tail/empty bodies. `while`, `let`, and reassignment
+  are implemented as part of the complete statement family the executor walks
+  (Adds. names `let`/reassign, `if`/`while`/`for`) because `V19e`'s composition
+  producer drives whole programs; these are internal statement handlers, not new
+  exported API surface. No `match` node exists in `V19a`'s AST yet, so the
+  `Adds.`-named `match` arm is not representable and is not implemented.
