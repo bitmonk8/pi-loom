@@ -1545,3 +1545,28 @@ the environment API to `V19b`):
   specific `IdentifierNotReadableError` rather than returning a silent `null`.
   No test exercises these arms (the callable arm is only DEFINED by `V19b`); the
   throw keeps the inert-null "not wired" state from masquerading as a value.
+
+## V19c-T — statement-executor effect-boundary seam shape (non-plan discovery)
+
+- The plan (`V19c` `Adds.`) names `V19d` as the leaf that "supplies real
+  effectful hosts to" the executor but does not fix the seam shape. This leaf
+  introduces that boundary as `StatementEvalHost` in
+  `src/runtime/statement-executor.ts` with three members:
+  `evaluatePure(expr, env)` (synchronous pure sub-expression evaluation — pure
+  in-process work is not a checkpoint, cancellation.md §Granularity),
+  `checkpointFor(expr)` (whether an expression is a checkpointed effect — an
+  `@`-query / code-tool call / `invoke` — and its `CheckpointKind`/`CheckpointSite`),
+  and `runEffect(expr, env)` (run one checkpointed effect, returning `V17a`'s
+  `OperationResult`, invoked from inside `runCancellableSequence` after the
+  pre-dispatch `Checkpoint.before` signal read). Rationale: this granularity
+  matches cancellation.md's "smallest unit … is one checkpointed sub-expression,
+  not one statement" and lets the executor own statement semantics (walk /
+  sequencing / control-flow / final value) while `V19d` owns effect execution.
+- No AST-`Expr`→value evaluator exists in `src/**` (the `V3a`
+  `expression-evaluator.evaluateSource` is string-sourced); the executor
+  therefore evaluates AST `Expr` nodes through the injected `StatementEvalHost`
+  rather than the string evaluator. The V19c-T witness supplies a recording
+  `StatementEvalHost` double carrying a bounded AST-expression evaluator for the
+  tested forms; the real one arrives with `V19d`.
+- No spec/plan divergence: the executor seam shape is a design choice the plan
+  defers to this leaf. No `decisions.jsonl` entry.
