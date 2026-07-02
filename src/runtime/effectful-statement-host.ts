@@ -42,12 +42,16 @@
 import type { CallExpr, Expr, InvokeExpr, QueryExpr } from "../parser/loom-document";
 import type { Checkpoint, CheckpointSite } from "../seams/checkpoint";
 import type { OperationResult } from "./cancellation-core";
+import { makeCancelledError } from "./cancellation-core";
 import type { CheckpointDescriptor, StatementEvalHost } from "./statement-executor";
 import type { LexicalEnvironment } from "./lexical-environment";
 import type { LoomValue } from "./value";
 import type { QueryModelDriver, QueryToolLoopConfig } from "./query-tool-loop";
+import { runTypedQueryLoop, runUntypedQueryLoop } from "./query-tool-loop";
 import type { CodeSideToolCall, ToolLoweringSink } from "./tool-call-execute";
+import { runCodeSideToolCall } from "./tool-call-execute";
 import type { InvokeChild } from "./invoke-cancellation";
+import { runInvokeChild } from "./invoke-cancellation";
 
 /**
  * How to drive one `@`-query through the real two-phase query loop: whether the
@@ -90,6 +94,98 @@ function siteOf(expr: Expr, file: string): CheckpointSite {
 }
 
 /**
+ * Dispatch one `@`-query through the real two-phase query-model driver
+ * (`runUntypedQueryLoop` / `runTypedQueryLoop`) against the driven conversation
+ * (QRY-13 … QRY-16 integration witness, owned on `V13*`). A terminating turn's
+ * final response — the untyped plain-text turn or the typed forced-respond
+ * value — flows back as the query value; a cancellation observed at the query
+ * checkpoint surfaces the cancel `Err`; an exhaustion / validation failure
+ * surfaces its `QueryError`.
+ */
+async function runQueryEffect(
+  expr: QueryExpr,
+  env: LexicalEnvironment,
+  deps: EffectfulStatementHostDeps,
+): Promise<OperationResult> {
+  const dispatch = deps.resolveQuery(expr, env);
+  if (dispatch.typed) {
+    const outcome = await runTypedQueryLoop(deps.checkpoint, deps.signal, dispatch.model, dispatch.config);
+    switch (outcome.kind) {
+      case "value":
+        return { ok: true, value: outcome.value };
+      case "validation":
+        return { ok: false, error: outcome.error };
+      case "cancelled":
+        return { ok: false, error: makeCancelledError() };
+    }
+  }
+  const outcome = await runUntypedQueryLoop(deps.checkpoint, deps.signal, dispatch.model, dispatch.config);
+  switch (outcome.kind) {
+    case "text":
+      return { ok: true, value: outcome.text };
+    case "tool_loop_exhausted":
+      return { ok: false, error: outcome.error };
+    case "cancelled":
+      return { ok: false, error: makeCancelledError() };
+  }
+}
+
+/**
+ * Dispatch one `<name>(args)` code-tool call through the real code-side
+ * tool-call path and lowering sink (`runCodeSideToolCall`) against the driven
+ * conversation (`cka-13` / `cka-46` integration witness, owned on `V14*`). A
+ * clean resolution and an `execute()` throw both yield the lowered `Result`
+ * value (`Ok(<text>)` / `Err(CodeToolError)`) as the tool-call expression's
+ * value; a cancellation observed at the tool-call checkpoint surfaces the cancel
+ * `Err`.
+ */
+async function runToolCallEffect(
+  expr: CallExpr,
+  env: LexicalEnvironment,
+  deps: EffectfulStatementHostDeps,
+): Promise<OperationResult> {
+  const call = deps.resolveToolCall(expr, env);
+  const outcome = await runCodeSideToolCall(
+    deps.checkpoint,
+    deps.signal,
+    siteOf(expr, deps.file),
+    call,
+    deps.sink,
+  );
+  switch (outcome.kind) {
+    case "value":
+    case "execution-error":
+      return { ok: true, value: outcome.result };
+    case "cancelled":
+      return { ok: false, error: makeCancelledError() };
+  }
+}
+
+/**
+ * Dispatch one `invoke(...)` through the real invoke trampoline
+ * (`runInvokeChild`) against a freshly spawned isolated session (INV-1 … INV-4
+ * integration witness, owned on `V15*`), honouring the invoke-dispatch
+ * cancellation checkpoint on the real host (`cka-47`, `V15m` facet). The
+ * completed callee's top-level `Result` flows back as the invoke value; a
+ * cancellation observed at the invoke checkpoint interrupts dispatch before the
+ * spawn and surfaces the cancel `Err`.
+ */
+async function runInvokeEffect(
+  expr: InvokeExpr,
+  env: LexicalEnvironment,
+  deps: EffectfulStatementHostDeps,
+): Promise<OperationResult> {
+  const child = deps.resolveInvoke(expr, env);
+  const outcome = await runInvokeChild(deps.checkpoint, deps.signal, siteOf(expr, deps.file), child);
+  switch (outcome.kind) {
+    case "value":
+      return { ok: true, value: outcome.result };
+    case "cancelled":
+      return { ok: false, error: makeCancelledError() };
+  }
+}
+
+/**
  * Assemble the concrete `StatementEvalHost` the `V19c` executor drives its body
  * effects through: `checkpointFor` classifies each `@`-query / `<name>(args)` /
  * `invoke(...)` as its checkpointed effect kind, and `runEffect` dispatches the
@@ -117,13 +213,25 @@ export function createEffectfulStatementHost(deps: EffectfulStatementHostDeps): 
           return null;
       }
     },
-    async runEffect(_expr: Expr, _env: LexicalEnvironment): Promise<OperationResult> {
-      // V19d-T stub: the real-host assembly is absent. No effect is dispatched
-      // through the real query-model driver, code-side tool-call path, or invoke
-      // trampoline; an inert `Ok(null)` is returned so every integration
-      // assertion reds on its own primary expectation. The paired `V19d`
-      // implementation leaf dispatches through the real hosts here.
-      return { ok: true, value: null };
+    async runEffect(expr: Expr, env: LexicalEnvironment): Promise<OperationResult> {
+      // Dispatch the checkpointed effect through the REAL host against the
+      // driven conversation, threading the SAME `checkpoint` + `signal` the
+      // `V19c` executor gates on (so the invoke-dispatch cancellation checkpoint
+      // — `cka-47`, `V15m` facet — is honoured on the real trampoline), and
+      // normalise the host outcome to the executor's `OperationResult`.
+      switch (expr.kind) {
+        case "query":
+          return runQueryEffect(expr, env, deps);
+        case "call":
+          return runToolCallEffect(expr, env, deps);
+        case "invoke":
+          return runInvokeEffect(expr, env, deps);
+        default:
+          // `checkpointFor` only classifies query / tool-call / invoke as
+          // checkpointed effects, so `runEffect` is never invoked for any other
+          // expression kind; treat a pure value inertly if it ever is.
+          return { ok: true, value: deps.evaluatePure(expr, env) };
+      }
     },
   };
 }
