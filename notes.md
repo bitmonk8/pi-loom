@@ -2183,3 +2183,31 @@ ONE gate-activation commit wire the hard-fail live-corpus test
 (`assertLiveCorpusGateGreen`, asserting `runWarnOnlyCanary` / equivalent live
 oracle returns `[]`) and record the Phase-1 + Phase-2 + nine-item evidence in
 that commit message, then `git tag H6a-complete`.
+
+## H8a bug-fix — subagent `@`-queries always cancelled (2026-07-03)
+
+Root cause: the H9a leaf, to make black-box `pi -p` observe subagent cancellation,
+wired an acceptance-only DEMONSTRATION driver (`LiveSubagentQueryModel`) into the
+SHIPPED composition root `spawnSubagentConversation`. That driver self-cancelled
+every subagent query (unconditional mid-stream `loomAbort.abort`) and `surface`
+stubbed `makeOk(null)`, so no subagent-mode loom could reach success. V9i
+(`src/runtime/subagent-isolation.ts`) was already correct and unit-tested; the
+defect was purely composition-root miswiring.
+
+Fix: `spawnSubagentConversation` now builds a compliant subagent `QueryModelDriver`
+(`createSubagentQueryModel`) over V9i's `awaitTerminalAgentEnd` +
+`extractSubagentQueryResult`. Success extracts trailing-turn text (untyped) or the
+parsed structured payload (typed, FN-5). Genuine cancellation still fires only on a
+real `loomAbort` abort (Esc/`ctx.signal`, `session_shutdown`, parent-invoke
+propagation) via the preserved PIC-41 forwarding + PIC-9 dispose.
+
+Two known-limitation divergences (see .pi/impl-progress/decisions.jsonl):
+1. Untyped-path transport failures cannot be surfaced as a distinct
+   `Err(transport)` because `UntypedQueryOutcome` has only text /
+   `tool_loop_exhausted` / `cancelled` (owned by V13c). A non-cancel extraction
+   failure bounces empty rounds and degrades to `tool_loop_exhausted` — an `Err`,
+   never a false success. Faithful transport carriage stays owned by V13c/V9i.
+2. The `pi -p` black-box acceptance suite cannot inject a `loomAbort` fire (SIGTERM
+   discards the buffer), so genuine-cancellation coverage moved in-process to
+   tests/production-subagent-query-model.test.ts; acceptance area (e) now covers
+   subagent SUCCESS end-to-end.

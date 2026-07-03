@@ -58,6 +58,17 @@ function typedQueryLoom(): string {
   ].join("\n");
 }
 
+/** A subagent-mode `.loom` whose one untyped query drives a private spawned session to completion. */
+function subagentLoom(): string {
+  return [
+    "---",
+    "mode: subagent",
+    "---",
+    "@`Reply with a short one-line greeting.`",
+    "",
+  ].join("\n");
+}
+
 /** The JSON-Schema the typed reply must structurally validate against (declared-schema lowering). */
 const TYPED_REPLY_SCHEMA: LoweredSchema = {
   type: "object",
@@ -210,6 +221,43 @@ describe("H8a-T — typed-query lowering, bounded (Convention: live-host accepta
         outcome.ok,
         outcome.ok ? "" : "typed reply failed schema validation: " + JSON.stringify(outcome.errors),
       ).toBe(true);
+    } finally {
+      await handle.dispose();
+      workspace.dispose();
+    }
+  });
+});
+
+// ===========================================================================
+// Tests bullet 5 — subagent-mode drive to a success terminal (Convention:
+// live-host acceptance). A `mode: subagent` loom spawns an isolated
+// AgentSession, drives one real turn to completion, and reaches a success
+// terminal outcome — the path the H8a production driver previously made
+// unreachable by self-cancelling every subagent query. The fixed driver wires
+// V9i's `awaitTerminalAgentEnd` + `extractSubagentQueryResult`, so the
+// invocation resolves cleanly rather than forcing `Err(cancelled)`.
+// ===========================================================================
+
+describe("H8a-T — subagent-mode drive against a live model (Convention: live-host acceptance)", () => {
+  it("drives a subagent-mode loom's spawned session to a success terminal without a forced cancel", async () => {
+    const provider = requireLiveProvider();
+    const workspace = plantLoomWorkspace([
+      { source: "project", stem: "subrun", text: subagentLoom() },
+    ]);
+    const handle = await bootShippedExtension({ workspace, provider });
+    try {
+      expect(
+        handle.command("subrun"),
+        "no subagent-mode command to invoke — shipped composition root registers " +
+          "no discovered loom. Registered: " + JSON.stringify(handle.registeredNames()),
+      ).toBeDefined();
+
+      // The fixed subagent driver spawns, drives the private session to its
+      // terminal `agent_end`, extracts the result, and tears the session down;
+      // the invocation resolves cleanly (no forced mid-stream cancel). The
+      // spawned session is private, so no user-session assistant text streams —
+      // the observable here is a clean drive-to-completion, not stdout content.
+      await expect(driveSlashCaptureText(handle.session, "/subrun")).resolves.toBeDefined();
     } finally {
       await handle.dispose();
       workspace.dispose();

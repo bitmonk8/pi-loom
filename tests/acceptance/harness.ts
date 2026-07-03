@@ -97,7 +97,7 @@ export type FeatureArea =
   | "typed-query-named-schema" // (b) typed query with a named `schema` decl
   | "typed-query-inline" // (c) typed query with an inline object type
   | "params-binder" // (d) a params loom that forces a real binder pass
-  | "subagent-cancel" // (e) subagent-mode spawn + mid-stream cancellation
+  | "subagent-success" // (e) subagent-mode spawn drives to a success terminal
   | "code-tool-loop" // (f) a code-tool loop
   | "imports-invoke" // (g) imports / invoke across looms
   | "match-queryerror" // (h) error/result `match` surfacing a QueryError
@@ -122,10 +122,14 @@ export interface FeatureInvariants {
    */
   readonly binderEnvelope?: BuildBinderEnvelopeSchemaInput;
   /**
-   * (e) A mid-stream cancellation is injected and cancellation propagation must
-   * be observed, with the spawned subagent session's committed turns unmutated.
+   * (e) A subagent-mode loom spawns an isolated `AgentSession` and drives it to
+   * a SUCCESS terminal outcome (no error exit). The production subagent driver
+   * no longer self-cancels; genuine mid-stream cancellation (a real `loomAbort`
+   * fire) is deterministically locked by the in-process regression test
+   * `tests/production-subagent-query-model.test.ts`, not by this black-box
+   * `pi -p` run (SIGTERM discards the buffer, so stdout cannot be scored).
    */
-  readonly observesCancellation?: true;
+  readonly subagentSuccess?: true;
   /**
    * (i) The loom must also register when discovered from the `--loom` CLI source
    * (not only the project walk), proving discovery is source-general.
@@ -216,14 +220,14 @@ export const FEATURE_LOOMS: readonly FeatureLoomSpec[] = [
     },
   },
   {
-    area: "subagent-cancel",
+    area: "subagent-success",
     label: "(e)",
-    stem: "acc-subagent-cancel",
-    fixtureFile: "acc-subagent-cancel.loom",
+    stem: "acc-subagent-success",
+    fixtureFile: "acc-subagent-success.loom",
     invariants: {
       noErrorExit: true,
       permittedCodesSubset: true,
-      observesCancellation: true,
+      subagentSuccess: true,
     },
   },
   {

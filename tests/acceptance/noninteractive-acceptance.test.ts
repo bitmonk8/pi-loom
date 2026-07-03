@@ -237,52 +237,54 @@ describe("H9a-T (d) params loom forcing a binder pass (binder envelope; Conventi
 });
 
 // ===========================================================================
-// (e) a subagent-mode loom exercising spawn + mid-stream CANCELLATION.
-// A `mode: subagent` loom that spawns an AgentSession and is cancelled
-// mid-stream; cancellation propagation MUST be observed and the spawned
-// session's committed turns MUST be left unmutated by the mid-stream cancel.
+// (e) a subagent-mode loom that drives to a SUCCESS terminal outcome.
+// A `mode: subagent` loom spawns an isolated AgentSession, drives one real
+// subagent turn to completion, and reaches a success terminal outcome — the
+// path the H8a production driver previously made unreachable (it self-cancelled
+// every subagent query). Invariant set: no-error exit + codes ⊆ permitted, with
+// NO `cancelled` marker on this normal completion.
+//
+// WHY cancellation moved: the fixed production driver no longer self-cancels, so
+// this black-box `pi -p` run drives subagent SUCCESS. Genuine mid-stream
+// cancellation (a REAL injected `loomAbort` fire at a scripted cancel point) is
+// deterministically locked in-process by
+// `tests/production-subagent-query-model.test.ts`; it cannot be scored here
+// because `pi -p` buffers stdout and an external SIGTERM discards the buffer.
 // ===========================================================================
 
-describe("H9a-T (e) subagent spawn + mid-stream cancellation (Convention: Phase 1)", () => {
-  it("observes cancellation propagation with the subagent's committed turns unmutated", async () => {
-    const spec = featureLoom("subagent-cancel");
+describe("H9a-T (e) subagent spawn drives to a success terminal (Convention: Phase 1)", () => {
+  it("drives a subagent-mode loom to a no-error success terminal with permitted codes only", async () => {
+    const spec = featureLoom("subagent-success");
     const loomPath = requireAuthoredLoom(spec);
     expect(loomPath).toBeDefined();
-    expect(spec.invariants.observesCancellation).toBe(true);
+    expect(spec.invariants.subagentSuccess).toBe(true);
 
     requireLiveHost();
     const cwd = scratchCwd();
-    // WHY no external abort: `pi -p` buffers stdout, so an external SIGTERM
-    // (abortAfterMs) discards the buffer and yields empty stdout/stderr — the
-    // `/cancel|aborted/i` assertion could never see the cancellation. Instead
-    // the fixture self-cancels: its production subagent drive injects a bounded
-    // mid-stream cancel through the injected Clock and echoes the observed
-    // cancellation on the user-visible channel on NORMAL completion. So we let
-    // the run complete normally (exit 0) and score the captured stdout — this
-    // exercises the real in-flight mid-stream cancel path, not a process kill.
     const result = await spawnPiPrint({
       loomDir: FEATURE_LOOM_DIR,
       slashInvocation: `/${spec.stem}`,
       cwd,
     });
 
-    // Cancellation propagation is observed: the run surfaces the cancellation
-    // (a `cancelled`/`invoke_callee` QueryError) rather than a silent success,
-    // and no code outside the permitted list escapes.
+    // Subagent success: the run completes without error and emits no code outside
+    // the permitted list. The old self-cancel coupling (a `cancelled` substring
+    // on normal completion) is intentionally dropped — the fixed driver reaches
+    // the success terminal instead of forcing a cancel.
+    assertNoErrorExit(result, spec);
     assertCodesSubsetOfPermitted(result, spec);
     expect(
       /cancel|aborted/i.test(result.stdout + result.stderr),
-      `${spec.label}: expected observed cancellation propagation in the run ` +
-        `output. stdout: ${result.stdout} stderr: ${result.stderr}`,
-    ).toBe(true);
+      `${spec.label}: a normal subagent completion must NOT surface a ` +
+        `cancellation marker. stdout: ${result.stdout} stderr: ${result.stderr}`,
+    ).toBe(false);
 
-    // Committed turns unmutated: the run does not emit a runtime-internal-error
-    // signalling a mutated committed-turn set under the mid-stream cancel.
+    // The success path does not emit a runtime-internal-error.
     const codes = parseSystemNoteCodes(result.stdout + result.stderr);
     expect(
       codes.includes("loom/runtime/internal-error"),
-      `${spec.label}: a mid-stream cancel must leave the subagent's committed ` +
-        `turns unmutated (no loom/runtime/internal-error). codes: ${JSON.stringify(codes)}`,
+      `${spec.label}: a subagent success terminal must not emit ` +
+        `loom/runtime/internal-error. codes: ${JSON.stringify(codes)}`,
     ).toBe(false);
   });
 });
@@ -416,7 +418,7 @@ describe("H9a-T feature-loom manifest (harness self-check)", () => {
       "typed-query-named-schema",
       "typed-query-inline",
       "params-binder",
-      "subagent-cancel",
+      "subagent-success",
       "code-tool-loop",
       "imports-invoke",
       "match-queryerror",

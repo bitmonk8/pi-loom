@@ -33,7 +33,13 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import {
   attachSubagentAbortForwarding,
+  awaitTerminalAgentEnd,
+  extractSubagentQueryResult,
   makeIdempotentDispose,
+  type AgentEndEvent,
+  type GlobalEventBus,
+  type SubagentEventSource,
+  type SubagentSessionEvent,
 } from "../runtime/subagent-isolation";
 import type { Api, AssistantMessage, Message, Model } from "@earendil-works/pi-ai";
 import { complete } from "@earendil-works/pi-ai";
@@ -71,7 +77,8 @@ import type {
   CommittedConversationMutator,
   CommittedSurface,
 } from "../runtime/terminal-outcomes";
-import { makeOk, type LoomValue, type ResultValue } from "../runtime/value";
+import { makeCancelledError } from "../runtime/cancellation-core";
+import { makeErr, makeOk, type LoomValue, type ResultValue } from "../runtime/value";
 import type { Expr, QueryExpr } from "../parser/loom-document";
 import { evaluateMemberAccess } from "../runtime/runtime-panics";
 import { lexQueryTemplate, renderTemplateText } from "../render/query-render";
@@ -293,7 +300,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
   async spawnSubagentConversation(
     bindInput: ConversationBindInput,
   ): Promise<ConversationBinding> {
-    const { pi, root, modelRegistry } = this.#input;
+    const { root, modelRegistry } = this.#input;
     const { loom, ctx } = bindInput;
 
     // PIC-40 pre-spawn model guard: the subagent's resolved model is the loom's
@@ -359,28 +366,36 @@ class ProductionLoomProducer implements LoomProducerDeps {
       sink: noopSink(),
       file: loom.slashName,
       evaluatePure: (expr, env) => evaluatePureExpression(expr, env),
-      resolveQuery: (expr, env) => ({
-        typed: false,
-        model: new LiveSubagentQueryModel({
-          pi,
-          ctx,
-          clock: root.clock,
-          session,
-          loomAbort,
-          queryText: renderQueryText(expr, env),
-        }),
-        config: {
-          maxRounds: 25,
-          querySite: {
-            file: loom.slashName,
-            line: expr.range.start.line,
-            column: expr.range.start.column,
+      resolveQuery: (expr, env) => {
+        // A subagent `@`-query drives the freshly spawned private session via
+        // `V9i`'s compliant completion driver: send the rendered query as one
+        // real turn, await the terminal `agent_end`, and map
+        // `extractSubagentQueryResult` onto the query loop's terminating turn.
+        // A typed query conveys the declared JSON shape and parses the extracted
+        // structured payload so a typed return crosses the subagent boundary
+        // (FN-5); the `maxRounds: 0` boundary routes it straight to the
+        // forced-respond terminator, mirroring the prompt-mode typed path.
+        const typed = expr.schema !== null;
+        return {
+          typed,
+          model: createSubagentQueryModel({
+            driveTurn: () => driveSubagentTurn(session, renderTypedAwareQueryText(expr, env)),
+            loomAbort,
+            provider: String(model.provider),
+          }),
+          config: {
+            maxRounds: typed ? 0 : loom.frontmatter.toolLoop?.maxRounds ?? 25,
+            querySite: {
+              file: loom.slashName,
+              line: expr.range.start.line,
+              column: expr.range.start.column,
+            },
+            loomSlashName: loom.slashName,
+            invocationId: root.idSource.newInvocationId(),
+            occurredAt: root.clock.wallNow(),
           },
-          loomSlashName: loom.slashName,
-          invocationId: root.idSource.newInvocationId(),
-          occurredAt: root.clock.wallNow(),
-        },
-      }),
+        };
+      },
       resolveToolCall: () => inertToolCall(),
       resolveInvoke: () => inertInvoke(),
     };
@@ -397,14 +412,21 @@ class ProductionLoomProducer implements LoomProducerDeps {
     return {
       drivenAgainst: "subagent-private-session",
       executeDeps,
-      surface: (_execution: BodyExecution): ResultValue => {
+      surface: (execution: BodyExecution): ResultValue => {
         // PIC-9 teardown on the return path: detach the one-shot abort listener
         // and dispose the spawned session (idempotent). The subagent's committed
         // turns are never mutated by the cancel (ERR-8 / ERR-12) — the executor's
         // cancel path routes through the inert `NoopConversationMutator`.
         forwarding.detach();
         dispose();
-        return makeOk(null);
+        // FN-5: surface the subagent body's terminal final value. On the success
+        // path the produced value flows as `Ok`; on fail/cancel no value flows,
+        // so the subagent caller observes the corresponding `Err` envelope
+        // (the terminal cancellation marker) rather than a fabricated `Ok(null)`.
+        if (execution.outcome === "success") {
+          return makeOk(execution.result.value ?? null);
+        }
+        return makeErr(makeCancelledError() as unknown as LoomValue);
       },
     };
   }
@@ -432,12 +454,10 @@ class ProductionLoomProducer implements LoomProducerDeps {
     const typed = expr.schema !== null;
     // A typed query instructs the model to emit only a JSON object of the
     // declared shape, so its user-visible turn streams the structured value as
-    // its assistant text (and an off-session typed turn's reply parses the same).
-    const queryText = typed
-      ? `${renderQueryText(expr, env)}\n\nRespond with ONLY a single minified JSON ` +
-        `object matching this loom type, and nothing else — no prose, no markdown, ` +
-        `no code fences: ${expr.schema}`
-      : renderQueryText(expr, env);
+    // its assistant text (shared with the subagent path via
+    // `renderTypedAwareQueryText`; an off-session typed turn's reply parses the
+    // same).
+    const queryText = renderTypedAwareQueryText(expr, env);
 
     const model = deps.userVisible
       ? new LivePromptQueryModel({
@@ -639,90 +659,72 @@ class OffSessionQueryModel implements QueryModelDriver {
 /** The off-session `complete()` path has no resolved model to dispatch against. */
 class OffSessionModelUnavailableError extends Error {}
 
-/**
- * The delay (ms), scheduled on the injected `Clock`, between beginning the
- * subagent turn and firing the mid-stream cancel. Small enough that the abort
- * lands while the spawned session's turn is still in flight (a real mid-stream
- * cancellation), on the macrotask queue rather than a bare `setTimeout`.
- */
-const SUBAGENT_MID_STREAM_CANCEL_MS = 250;
+/** Construction inputs for the production subagent-mode `QueryModelDriver`. */
+export interface SubagentQueryModelDeps {
+  /**
+   * Drive ONE real subagent turn against the private session and resolve to its
+   * terminal (`willRetry: false`) `agent_end` event: `session.sendUserMessage`
+   * then `V9i`'s session-local `awaitTerminalAgentEnd` (see `driveSubagentTurn`).
+   * Injected so a test scripts the terminal event deterministically.
+   */
+  readonly driveTurn: () => Promise<AgentEndEvent>;
+  /** The per-invocation cancel controller the loop's `signal` gates on. */
+  readonly loomAbort: AbortController;
+  /** The resolved-model provider, for `V9i`'s transport-failure `Err`. */
+  readonly provider: string;
+}
 
 /**
- * The user-visible echo prompt the subagent-mode drive issues to surface the
- * observed cancellation on the `pi -p` stdout channel: the spawned subagent
- * session is private / in-memory and never reaches stdout, and `pi -p` text mode
- * prints only the trailing user-session assistant turn, so the cancellation is
- * echoed as one exact-text user turn (the `substring `cancelled`` the acceptance
- * runner scores against). See status DIVERGENCE.
+ * Build the production subagent-mode `QueryModelDriver` (`V9i`): it drives a real
+ * `@`-query turn against the freshly spawned isolated `AgentSession`, awaits the
+ * terminal `agent_end`, and maps `extractSubagentQueryResult` onto the query
+ * loop's terminating turn. On success the extracted trailing-turn assistant text
+ * is the untyped query's plain-text result (or, for a typed query, the parsed
+ * structured payload of the forced-respond terminator, so a typed return crosses
+ * the subagent boundary — FN-5). `extractSubagentQueryResult`'s CONDITIONAL
+ * short-circuits surface an `Err` only when they genuinely occur: a real
+ * `loomAbort` abort (the `signal` the loop gates on) drives the cancellation
+ * path; there is NO production driver self-cancel.
  */
-const SUBAGENT_CANCEL_ECHO_PROMPT =
-  "Reply with exactly this text and nothing else, no punctuation: subagent query cancelled";
+export function createSubagentQueryModel(deps: SubagentQueryModelDeps): QueryModelDriver {
+  return new SubagentQueryModel(deps);
+}
 
-/**
- * The live subagent-mode `QueryModelDriver` (`V9i`): it drives a real `@`-query
- * turn against the freshly spawned isolated `AgentSession`, then injects a
- * bounded mid-stream cancel through the injected `Clock` so cancellation
- * propagates into the in-flight turn (`loomAbort.abort()` → the PIC-41 one-shot
- * listener → `AgentSession.abort()`). The observed cancellation is surfaced on
- * the user-visible channel (an exact-text echo turn) so a black-box `pi -p`
- * capture can observe it, then an empty free-phase round is returned so the
- * query loop's round-boundary cancellation checkpoint (cancellation.md
- * §Granularity) surfaces `Err(QueryError { kind: "cancelled" })` to loom code.
- * The spawned session's committed turns are never mutated by the cancel
- * (ERR-8 / ERR-12).
- */
-class LiveSubagentQueryModel implements QueryModelDriver {
-  readonly #pi: ExtensionAPI;
-  readonly #ctx: ExtensionCommandContext;
-  readonly #clock: Clock;
-  readonly #session: AgentSession;
+class SubagentQueryModel implements QueryModelDriver {
+  readonly #driveTurn: () => Promise<AgentEndEvent>;
   readonly #loomAbort: AbortController;
-  readonly #queryText: string;
+  readonly #provider: string;
+  // The round-0 extraction result, cached so a bounce round does not re-drive a
+  // second real subagent turn (per-invocation state, not module-level).
+  #firstResult: ReturnType<typeof extractSubagentQueryResult> | undefined;
 
-  constructor(deps: {
-    readonly pi: ExtensionAPI;
-    readonly ctx: ExtensionCommandContext;
-    readonly clock: Clock;
-    readonly session: AgentSession;
-    readonly loomAbort: AbortController;
-    readonly queryText: string;
-  }) {
-    this.#pi = deps.pi;
-    this.#ctx = deps.ctx;
-    this.#clock = deps.clock;
-    this.#session = deps.session;
+  constructor(deps: SubagentQueryModelDeps) {
+    this.#driveTurn = deps.driveTurn;
     this.#loomAbort = deps.loomAbort;
-    this.#queryText = deps.queryText;
+    this.#provider = deps.provider;
   }
 
   async nextFreePhaseTurn(round: number): Promise<FreePhaseTurn> {
-    if (round !== 0) {
-      // The first round bounces the loop into its cancellation checkpoint, so a
-      // round beyond the first is not reached; a defensive terminating turn keeps
-      // the loop total.
-      return { kind: "text", text: "" };
+    if (round === 0) {
+      const terminal = await this.#driveTurn();
+      this.#firstResult = extractSubagentQueryResult(terminal, {
+        aborted: this.#loomAbort.signal.aborted,
+        provider: this.#provider,
+      });
     }
-    // Begin a real in-flight subagent turn on the spawned session. Fire-and-
-    // forget: the turn's completion is not awaited — the mid-stream cancel below
-    // aborts it, and a late rejection of the abandoned turn is swallowed per
-    // Cancellation's swallowing-handler rule.
-    void this.#session.sendUserMessage(this.#queryText).catch(() => {});
-    // Mid-stream cancel through the injected `Clock`: let the turn begin
-    // streaming, then fire `loomAbort.abort(...)` — the PIC-41 one-shot listener
-    // forwards it into the spawned session's `abort()`.
-    await macrotask(this.#clock, SUBAGENT_MID_STREAM_CANCEL_MS);
-    this.#loomAbort.abort(new Error("loom subagent query cancelled mid-stream"));
-    // Surface the observed cancellation on the user-visible channel so the
-    // buffered `pi -p` stdout carries it (the private in-memory subagent session
-    // never reaches stdout).
-    await driveStreamedUserTurn({
-      pi: this.#pi,
-      ctx: this.#ctx,
-      clock: this.#clock,
-      queryText: SUBAGENT_CANCEL_ECHO_PROMPT,
-    });
-    // Bounce an empty free-phase round so the loop observes `loomAbort` at its
-    // next round-boundary checkpoint and surfaces `Err(cancelled)` to loom code.
+    const result = this.#firstResult;
+    if (result !== undefined && result.ok) {
+      // PIC-43: on success the trailing-turn assistant text is the untyped
+      // query's terminating plain-text turn.
+      return { kind: "text", text: result.value };
+    }
+    // A non-`ok` extraction. A GENUINE cancellation aborted `loomAbort` (== the
+    // loop's `signal`), so bounce one empty round; the loop's next round-boundary
+    // cancellation checkpoint surfaces `Err(cancelled)`. A non-cancel (transport)
+    // extraction cannot cross the untyped loop's outcome types (`text` /
+    // `tool_loop_exhausted` / `cancelled`), so it degrades to
+    // `tool_loop_exhausted` — an `Err`, never a false success; faithful transport
+    // carriage on the untyped path is owned by `V13c` / `V9i`, out of scope here.
     return { kind: "tool_use", batch: [] };
   }
 
@@ -731,11 +733,62 @@ class LiveSubagentQueryModel implements QueryModelDriver {
     return Promise.resolve([]);
   }
 
-  forcedRespondTurn(): Promise<ForcedRespondTurn> {
-    // The subagent query is untyped, so the forced-respond terminator is never
-    // dispatched; a defensive inert payload keeps the driver total.
-    return Promise.resolve({ kind: "respond", payload: null });
+  async forcedRespondTurn(): Promise<ForcedRespondTurn> {
+    // A typed subagent query drives one turn, extracts its result, and parses the
+    // extracted text as the candidate structured payload (mirroring the
+    // prompt-mode `LivePromptQueryModel.forcedRespondTurn`) so the typed value
+    // crosses the subagent boundary (FN-5).
+    const terminal = await this.#driveTurn();
+    const result = extractSubagentQueryResult(terminal, {
+      aborted: this.#loomAbort.signal.aborted,
+      provider: this.#provider,
+    });
+    if (result.ok) {
+      return { kind: "respond", payload: parseStructuredPayload(result.value) };
+    }
+    // A genuine cancellation / transport failure carries no structured payload;
+    // an inert `null` lets the typed loop's depth-walk / value projection yield
+    // the absent value rather than a fabricated structured result.
+    return { kind: "respond", payload: null };
   }
+}
+
+/**
+ * Drive ONE real subagent turn against the private spawned session and resolve
+ * to its terminal `agent_end` event. PIC-42: the completion is awaited via the
+ * SESSION-LOCAL `subscribe` API (`awaitTerminalAgentEnd`), never the process-
+ * global `pi.on`. The subscription is attached BEFORE the turn is sent so the
+ * terminal event cannot be missed; the send is fire-and-forget (a late rejection
+ * of an aborted turn is swallowed per Cancellation's swallowing-handler rule —
+ * the terminal `agent_end` is the completion signal the driver resolves from).
+ */
+function driveSubagentTurn(session: AgentSession, queryText: string): Promise<AgentEndEvent> {
+  const eventSource: SubagentEventSource = {
+    subscribe: (listener) =>
+      session.subscribe((event) => listener(event as unknown as SubagentSessionEvent)),
+  };
+  // The global bus is required by the seam signature but deliberately unused
+  // (PIC-42 forbids it); an inert bus documents that it is never consulted.
+  const inertGlobalBus: GlobalEventBus = { on: (): void => {} };
+  const terminal = awaitTerminalAgentEnd(eventSource, inertGlobalBus);
+  void session.sendUserMessage(queryText).catch(() => {});
+  return terminal;
+}
+
+/**
+ * Render one `@`-query to its wire text, appending the typed-query JSON-only
+ * instruction for a schema-typed query. Shared by the prompt-mode and
+ * subagent-mode drivers so both convey the declared shape identically.
+ */
+function renderTypedAwareQueryText(expr: QueryExpr, env: LexicalEnvironment): string {
+  const base = renderQueryText(expr, env);
+  if (expr.schema === null) {
+    return base;
+  }
+  return (
+    `${base}\n\nRespond with ONLY a single minified JSON object matching this loom ` +
+    `type, and nothing else — no prose, no markdown, no code fences: ${expr.schema}`
+  );
 }
 
 /** Concatenate the text content of an assistant message (thinking / tool calls omitted). */
