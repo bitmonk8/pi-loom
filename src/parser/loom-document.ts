@@ -40,8 +40,22 @@ import {
   type ModelReferenceMatcher,
   type ParsedFrontmatter,
 } from "./frontmatter";
-import { checkReassignment } from "./bindings";
+import {
+  checkReassignment,
+  checkLetBinding,
+  checkAssignmentTarget,
+  checkMutModifier,
+} from "./bindings";
 import { checkDocCommentPlacement } from "./descriptions";
+import { checkBreakStatement, checkContinueStatement } from "./control-flow";
+import {
+  checkFnPlacement,
+  checkFunctionReference,
+  checkBareReturn,
+  checkUnreachableCode,
+} from "./functions";
+import { checkObjectSchema } from "./schema-declarations";
+import { parseTypeExpression } from "./type-grammar";
 
 // --------------------------------------------------------------------------
 // Expression AST (the `Expr` node family; grammar.md §Expression sublanguage)
@@ -300,6 +314,12 @@ export interface ForStmt extends NodeBase {
 /** A `break` statement (control-flow.md). */
 export interface BreakStmt extends NodeBase {
   readonly kind: "break";
+  /**
+   * `true` when the `break` is followed by a value operand on the same logical
+   * line (`break expr`), which loom 1.0 forbids. Marked at parse time so the
+   * structural checker can raise `loom/parse/break-with-value`.
+   */
+  readonly hasValue?: boolean;
 }
 
 /** A `continue` statement (control-flow.md). */
@@ -536,11 +556,24 @@ export function parseLoomDocument(
     frontmatterDiags.push(...fm.diagnostics);
   }
 
+  // Run the implemented structural (AST-shape) parse-checkers over the whole
+  // parsed body (C2a wiring): the delegated V-slice checkers that need only the
+  // parse-shape, no type inference (control-flow, `fn` placement/first-class
+  // use, `let` initialiser, `mut`-context member/index assignment is emitted
+  // inline by the parser, bare `return`, unreachable code, empty object
+  // schemas, and the position-sensitive type-grammar checks over declared type
+  // sources).
+  const structuralDiags = checkStructural(
+    { statements, tail: body.tail },
+    file,
+  );
+
   const diagnostics = assembleDiagnostics([
     frontmatterDiags,
     lex.diagnostics,
     parser.diagnostics,
     docScan.diagnostics,
+    structuralDiags,
   ]);
 
   return {
@@ -942,6 +975,38 @@ class BodyParser {
     if (expr === null) {
       return null;
     }
+    // A member / index expression at statement head followed by an assignment
+    // operator is `obj.field = …` / `arr[i] = …` — loom 1.0 mutability is
+    // binding-level only (bindings.md §Mutability is binding-level only). Detect
+    // it here (the AST carries no member/index reassignment form) and consume
+    // the RHS so the assignment does not mis-parse into stray forms.
+    if (expr.kind === "member" || expr.kind === "index") {
+      const isSimple = this.isPunct("=") && !this.isPunct("=", 1);
+      const opTok = this.peek();
+      const isCompound =
+        opTok.kind === "punct" &&
+        COMPOUND_OPS.has(opTok.text) &&
+        this.isPunct("=", 1);
+      if (isSimple || isCompound) {
+        this.advance(); // operator (`=`, or the `<op>` of `<op>=`)
+        if (isCompound) {
+          this.advance(); // the `=` of a compound `<op>=`
+        }
+        const diag = checkAssignmentTarget(
+          { kind: expr.kind },
+          { file: this.file, range: expr.range },
+        );
+        if (diag !== undefined) {
+          this.diagnostics.push(diag);
+        }
+        this.parseExpression(); // consume + discard the RHS
+        return this.wrap(
+          { kind: "expr", expr, range: expr.range },
+          null,
+          lineStart,
+        );
+      }
+    }
     return this.wrap(this.exprToStmt(expr), expr, lineStart);
   }
 
@@ -964,6 +1029,17 @@ class BodyParser {
 
   private simpleKeyword(kind: "break" | "continue"): Stmt {
     const t = this.advance();
+    if (kind === "break") {
+      // A value operand on the same logical line (`break expr`) is forbidden in
+      // loom 1.0. Peek (do not consume) so the residual expression still parses
+      // as its own statement; the structural checker reads `hasValue`.
+      const next = this.peek();
+      const hasValue =
+        next.kind !== "stmt-sep" &&
+        next.kind !== "eof" &&
+        !(next.kind === "punct" && next.text === "}");
+      return { kind, hasValue, range: t.range };
+    }
     return { kind, range: t.range };
   }
 
@@ -1128,6 +1204,18 @@ class BodyParser {
 
   private parseFor(): Stmt {
     const kw = this.advance();
+    if (this.isKeyword("mut")) {
+      // A `mut` modifier on a `for` iteration variable is an always-immutable
+      // context (bindings.md §Immutable contexts).
+      const mutTok = this.advance();
+      const diag = checkMutModifier(
+        { position: "for-var" },
+        { file: this.file, range: mutTok.range },
+      );
+      if (diag !== undefined) {
+        this.diagnostics.push(diag);
+      }
+    }
     const variable = this.advance().text;
     if (this.isKeyword("in")) {
       this.advance();
@@ -1150,6 +1238,18 @@ class BodyParser {
     if (this.isPunct("(")) {
       this.advance();
       while (!this.isPunct(")") && !this.atEnd()) {
+        if (this.isKeyword("mut")) {
+          // A `mut` modifier on a function parameter is an always-immutable
+          // context (bindings.md §Immutable contexts).
+          const mutTok = this.advance();
+          const diag = checkMutModifier(
+            { position: "fn-param" },
+            { file: this.file, range: mutTok.range },
+          );
+          if (diag !== undefined) {
+            this.diagnostics.push(diag);
+          }
+        }
         const pName = this.advance().text;
         let pType = "";
         if (this.isPunct(":")) {
@@ -1760,6 +1860,18 @@ class BodyParser {
    * (`"s"` / `42` / `true` / `null`), or an identifier binding.
    */
   private parsePattern(): PatternNode {
+    if (this.isKeyword("mut")) {
+      // A `mut` modifier on a `match` pattern binding is an always-immutable
+      // context (bindings.md §Immutable contexts).
+      const mutTok = this.advance();
+      const diag = checkMutModifier(
+        { position: "match-bind" },
+        { file: this.file, range: mutTok.range },
+      );
+      if (diag !== undefined) {
+        this.diagnostics.push(diag);
+      }
+    }
     const t = this.peek();
     if (t.kind === "number") {
       this.advance();
@@ -2036,4 +2148,343 @@ function positionToOffset(text: string, pos: Position): number {
 /** A synthetic `null` literal placeholder for a missing operand. */
 function nullExpr(range: SourceRange): Expr {
   return { kind: "null", range };
+}
+
+// --------------------------------------------------------------------------
+// Structural (AST-shape) parse checkers (C2a wiring)
+// --------------------------------------------------------------------------
+
+/** The lexical context a structural check consults as the walk descends. */
+interface WalkCtx {
+  /** Whether the current statements sit inside a `for` / `while` body. */
+  readonly inLoop: boolean;
+  /** Whether the current statements are the loom's top level (for `fn` placement). */
+  readonly topLevel: boolean;
+  /** Whether the enclosing `fn` is `void`-annotated (for bare `return`). */
+  readonly voidReturn: boolean;
+}
+
+/**
+ * Run the implemented structural (AST-shape) parse-checkers over the whole-file
+ * body and aggregate their diagnostics. These are shape-level well-formedness
+ * checks that need no type inference: loop-context (`break` / `continue`), `fn`
+ * placement and first-class use, `let` initialiser presence, bare `return`,
+ * unreachable code, empty object schemas, and the position-sensitive
+ * type-grammar checks over declared type sources. (`mut`-context and member /
+ * index assignment are emitted inline by the parser, where the source tokens
+ * are still in hand.)
+ */
+function checkStructural(body: Block, file: string): Diagnostic[] {
+  const out: Diagnostic[] = [];
+  // Hoisted top-level `fn` names, so a bare reference to one in value position
+  // is `loom/parse/function-as-value` (functions.md FN-1).
+  const fnNames = new Set<string>();
+  for (const s of body.statements) {
+    if (s.kind === "fn") {
+      fnNames.add(s.name);
+    }
+  }
+  walkStatements(
+    body.statements,
+    { inLoop: false, topLevel: true, voidReturn: false },
+    fnNames,
+    file,
+    out,
+  );
+  if (body.tail !== null) {
+    walkExpr(body.tail, fnNames, file, out);
+  }
+  return out;
+}
+
+/** Push a checker's optional diagnostic result, dropping `undefined`. */
+function pushDiag(out: Diagnostic[], diag: Diagnostic | undefined): void {
+  if (diag !== undefined) {
+    out.push(diag);
+  }
+}
+
+function walkStatements(
+  statements: readonly Stmt[],
+  scope: WalkCtx,
+  fnNames: ReadonlySet<string>,
+  file: string,
+  out: Diagnostic[],
+): void {
+  // RET-3 — the first statement after a `return` in the same block is
+  // unreachable (a warning).
+  let returnedAt = -1;
+  for (let i = 0; i < statements.length; i += 1) {
+    const s = statements[i];
+    if (s === undefined) {
+      continue;
+    }
+    if (returnedAt >= 0 && i === returnedAt + 1) {
+      pushDiag(
+        out,
+        checkUnreachableCode(
+          { hasCodeAfterReturn: true },
+          { file, range: s.range },
+        ),
+      );
+    }
+    walkStatement(s, scope, fnNames, file, out);
+    if (s.kind === "return") {
+      returnedAt = i;
+    }
+  }
+}
+
+function walkBlock(
+  block: Block,
+  scope: WalkCtx,
+  fnNames: ReadonlySet<string>,
+  file: string,
+  out: Diagnostic[],
+): void {
+  walkStatements(block.statements, scope, fnNames, file, out);
+  if (block.tail !== null) {
+    walkExpr(block.tail, fnNames, file, out);
+  }
+}
+
+function walkStatement(
+  s: Stmt,
+  scope: WalkCtx,
+  fnNames: ReadonlySet<string>,
+  file: string,
+  out: Diagnostic[],
+): void {
+  switch (s.kind) {
+    case "let": {
+      pushDiag(
+        out,
+        checkLetBinding(
+          { name: s.name, mutable: s.mutable, hasInitialiser: s.init !== null },
+          { file, range: s.range },
+        ),
+      );
+      if (s.annotation !== null && s.annotation.length > 0) {
+        out.push(
+          ...parseTypeExpression(s.annotation, "value", { file, range: s.range }),
+        );
+      }
+      if (s.init !== null) {
+        walkExpr(s.init, fnNames, file, out);
+      }
+      return;
+    }
+    case "reassign":
+      walkExpr(s.value, fnNames, file, out);
+      return;
+    case "if": {
+      walkExpr(s.condition, fnNames, file, out);
+      walkBlock(s.then, { ...scope, topLevel: false }, fnNames, file, out);
+      if (s.otherwise !== null) {
+        if ("statements" in s.otherwise) {
+          walkBlock(s.otherwise, { ...scope, topLevel: false }, fnNames, file, out);
+        } else {
+          walkStatement(
+            s.otherwise,
+            { ...scope, topLevel: false },
+            fnNames,
+            file,
+            out,
+          );
+        }
+      }
+      return;
+    }
+    case "while":
+      walkExpr(s.condition, fnNames, file, out);
+      walkBlock(
+        s.body,
+        { ...scope, inLoop: true, topLevel: false },
+        fnNames,
+        file,
+        out,
+      );
+      return;
+    case "for":
+      walkExpr(s.iterand, fnNames, file, out);
+      walkBlock(
+        s.body,
+        { ...scope, inLoop: true, topLevel: false },
+        fnNames,
+        file,
+        out,
+      );
+      return;
+    case "break":
+      pushDiag(
+        out,
+        checkBreakStatement(
+          { insideLoop: scope.inLoop, hasValue: s.hasValue ?? false },
+          { file, range: s.range },
+        ),
+      );
+      return;
+    case "continue":
+      pushDiag(
+        out,
+        checkContinueStatement(
+          { insideLoop: scope.inLoop },
+          { file, range: s.range },
+        ),
+      );
+      return;
+    case "fn": {
+      pushDiag(
+        out,
+        checkFnPlacement({ nested: !scope.topLevel }, { file, range: s.range }),
+      );
+      for (const p of s.params) {
+        if (p.type.length > 0) {
+          out.push(
+            ...parseTypeExpression(p.type, "value", { file, range: s.range }),
+          );
+        }
+      }
+      if (s.returnType !== null && s.returnType.length > 0) {
+        out.push(
+          ...parseTypeExpression(s.returnType, "return", {
+            file,
+            range: s.range,
+          }),
+        );
+      }
+      walkBlock(
+        s.body,
+        { inLoop: false, topLevel: false, voidReturn: s.returnType === "void" },
+        fnNames,
+        file,
+        out,
+      );
+      return;
+    }
+    case "return":
+      if (s.operand === null) {
+        pushDiag(
+          out,
+          checkBareReturn(
+            { returnTypeIsVoid: scope.voidReturn },
+            { file, range: s.range },
+          ),
+        );
+      } else {
+        walkExpr(s.operand, fnNames, file, out);
+      }
+      return;
+    case "query":
+      walkExpr(s.query, fnNames, file, out);
+      return;
+    case "tool-call":
+      walkExpr(s.call, fnNames, file, out);
+      return;
+    case "invoke":
+      walkExpr(s.invoke, fnNames, file, out);
+      return;
+    case "expr":
+      walkExpr(s.expr, fnNames, file, out);
+      return;
+    case "schema": {
+      if (s.fields !== undefined) {
+        out.push(
+          ...checkObjectSchema(
+            { name: s.name, fields: s.fields.map((f) => ({ loomName: f.name })) },
+            { file, range: s.range },
+          ),
+        );
+        for (const f of s.fields) {
+          out.push(
+            ...parseTypeExpression(f.typeSource, "schema-feeding", {
+              file,
+              range: s.range,
+            }),
+          );
+        }
+      }
+      return;
+    }
+    default:
+      return;
+  }
+}
+
+function walkExpr(
+  e: Expr,
+  fnNames: ReadonlySet<string>,
+  file: string,
+  out: Diagnostic[],
+): void {
+  switch (e.kind) {
+    case "ident":
+      if (fnNames.has(e.name)) {
+        pushDiag(
+          out,
+          checkFunctionReference(
+            { name: e.name, position: "value" },
+            { file, range: e.range },
+          ),
+        );
+      }
+      return;
+    case "binary":
+      walkExpr(e.left, fnNames, file, out);
+      walkExpr(e.right, fnNames, file, out);
+      return;
+    case "ternary":
+      walkExpr(e.condition, fnNames, file, out);
+      walkExpr(e.consequent, fnNames, file, out);
+      walkExpr(e.alternate, fnNames, file, out);
+      return;
+    case "try":
+      walkExpr(e.operand, fnNames, file, out);
+      return;
+    case "call":
+      for (const arg of e.args) {
+        walkExpr(arg, fnNames, file, out);
+      }
+      return;
+    case "invoke":
+      for (const arg of e.args) {
+        walkExpr(arg, fnNames, file, out);
+      }
+      return;
+    case "member":
+      walkExpr(e.target, fnNames, file, out);
+      return;
+    case "index":
+      walkExpr(e.target, fnNames, file, out);
+      walkExpr(e.index, fnNames, file, out);
+      return;
+    case "object":
+      for (const field of e.fields) {
+        walkExpr(field.value, fnNames, file, out);
+      }
+      return;
+    case "match":
+      walkExpr(e.scrutinee, fnNames, file, out);
+      for (const arm of e.arms) {
+        walkExpr(arm.body, fnNames, file, out);
+      }
+      return;
+    case "result-ctor":
+      walkExpr(e.arg, fnNames, file, out);
+      return;
+    case "method-call":
+      walkExpr(e.target, fnNames, file, out);
+      for (const arg of e.args) {
+        walkExpr(arg, fnNames, file, out);
+      }
+      return;
+    case "array":
+      for (const el of e.elements) {
+        walkExpr(el, fnNames, file, out);
+      }
+      return;
+    default:
+      // number / string / bool / null / query — no nested expressions.
+      return;
+  }
 }
