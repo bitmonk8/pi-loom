@@ -50,6 +50,25 @@ import {
 import type { LoomValue, ResultValue } from "../runtime/value";
 
 /**
+ * Project the binder's bound `args` object onto the executor's `paramBindings`
+ * map, so the loom's own typed `params:` reach body scope at a top-level `/stem`
+ * dispatch (the same install path invoke-supplied args use). Absent `args`
+ * (a loom with no `params:`) yields `undefined` — no param slots installed.
+ */
+function paramBindingsFrom(
+  args: Readonly<Record<string, unknown>> | undefined,
+): ReadonlyMap<string, LoomValue> | undefined {
+  if (args === undefined) {
+    return undefined;
+  }
+  const bindings = new Map<string, LoomValue>();
+  for (const [name, value] of Object.entries(args)) {
+    bindings.set(name, value as LoomValue);
+  }
+  return bindings;
+}
+
+/**
  * The parsed `.loom` the producer maps to a runnable `LoomFixture`: the `V19a`
  * frontmatter + body AST under a slash name. It is exactly the widened
  * `ParsedLoom` seam minus the `run` the producer is about to compose (so the
@@ -76,6 +95,14 @@ export interface BinderRunResult {
    * which case the loom does NOT run.
    */
   readonly bound: boolean;
+  /**
+   * The bound typed `params:` object (`applyBinderBypass(...).args` on a bypass
+   * arm, or the parsed `ok`-envelope `args` on a real binder pass). Threaded
+   * into the executor environment as `paramBindings` so a loom's own `params:`
+   * reach body scope at top-level `/stem` dispatch. Absent when the loom
+   * declares no `params:`.
+   */
+  readonly args?: Readonly<Record<string, unknown>>;
 }
 
 /**
@@ -164,8 +191,11 @@ export function composeLoomFixture(
       if (!binderResult.bound) {
         return;
       }
-      // 2. Route on mode to the conversation the executor drives against.
-      const bindInput: ConversationBindInput = { loom, args, ctx };
+      // 2. Route on mode to the conversation the executor drives against. The
+      //    binder's bound `params:` object is threaded into the executor
+      //    environment as `paramBindings` so top-level `params:` reach body scope.
+      const paramBindings = paramBindingsFrom(binderResult.args);
+      const bindInput: ConversationBindInput = { loom, args, ctx, ...(paramBindings !== undefined ? { paramBindings } : {}) };
       const binding: ConversationBinding =
         loom.frontmatter.mode === "subagent"
           ? await deps.spawnSubagentConversation(bindInput)

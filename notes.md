@@ -2274,3 +2274,37 @@ for follow-on work and are out of H8b's scope:
    The invoke resolver itself binds its callee's params correctly
    (`buildBoundEnvironment` + `env.defineLocal`); the gap is the *top-level*
    binder→env threading (V11a/V19e territory), a distinct composition defect.
+
+## core-exec-eval — core body-execution deficiency fix (2026-07-03)
+
+Fixed the executor never evaluating `?`/`match`/member/index/object-literal, plus
+two composition gaps (binder param threading, object-literal tool-arg lowering).
+Follow-on to the H8b changelog DIVERGENCE (gaps (a) and (b)).
+
+Divergences / decisions worth recording:
+- Postfix-`?` newline continuation: grammar.md §"Newline continuation" locates
+  the rule in the lexer (a postfix `?` must never trigger continuation), but the
+  lexer cannot distinguish a postfix `?` from a ternary-head `?` without parse
+  context, so it swallows the following `stmt-sep` uniformly. Rather than a
+  risky lexer heuristic, the fix is at the parser (`parseForms`): a form whose
+  final token is a postfix `?` forces the NEXT form's `lineStart`, restoring
+  tail-`Expr` promotion. Observable behaviour matches the spec (the postfix `?`
+  closes its statement); only the fix SITE differs from where the spec names the
+  rule. Consequence: the trailing-`?` ternary continuation form `cond ?\n a : b`
+  still lexes as continuation (the `?` is mid-form there, not the last token, so
+  the parser rule does not fire) — ternary continuation is unaffected.
+- `@<Schema>` query annotation was never parsed through `parseLoomDocument`
+  before (V13e exercised typed-query validation by passing the schema name
+  directly). parseQuery now consumes the `<…>` angle-bracket annotation.
+- The `let x: T = @…?` sink-typed query: the parser propagated the `: T`
+  annotation onto a bare `@…` init but NOT onto the `?`-wrapped `try(@…)` form,
+  so `sentiment.loom`'s `let result: Sentiment = @…?` ran untyped and bound
+  null. Now propagated onto the try's inner query.
+- Match arm bodies are evaluated as pure (sync `evaluateMatch` thunks) with the
+  pattern bindings in a child scope; an effect inside an arm body is out of loom
+  1.0 scope for the sync `match` evaluator (the shipped examples' arm bodies are
+  object literals / member reads / identifier binds).
+- Completion tag: no dedicated plan leaf exists for this cross-leaf fix (it
+  repairs V19a/V19c/V19d/V19e/V14g, all already tagged), and docs/plan_topics/
+  is out of scope for this task, so the fix is tagged `core-exec-eval-complete`
+  rather than a `<Leaf>-complete` form.

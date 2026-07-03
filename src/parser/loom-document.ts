@@ -133,6 +133,74 @@ export interface QueryExpr extends NodeBase {
   readonly template: string;
 }
 
+/** A postfix member-access expression `target.field` (expressions.md §"Member access"). */
+export interface MemberExpr extends NodeBase {
+  readonly kind: "member";
+  readonly target: Expr;
+  readonly field: string;
+}
+
+/** A postfix index expression `target[index]` (expressions.md §"Index access"). */
+export interface IndexExpr extends NodeBase {
+  readonly kind: "index";
+  readonly target: Expr;
+  readonly index: Expr;
+}
+
+/** One `field: value` entry of an object-literal expression. */
+export interface ObjectFieldNode {
+  readonly name: string;
+  readonly value: Expr;
+}
+
+/**
+ * An object-literal / schema-constructor expression (grammar.md §"Loom literal
+ * sublanguage" `BareObjectLit` / `NamedObjectLit`; expressions.md §"Object
+ * construction"). `typeName` is the schema constructor name for `Ident { … }`,
+ * or `null` for a bare `{ … }` object literal.
+ */
+export interface ObjectExpr extends NodeBase {
+  readonly kind: "object";
+  readonly typeName: string | null;
+  readonly fields: readonly ObjectFieldNode[];
+}
+
+/**
+ * One of the six loom 1.0 `match` pattern forms (expressions.md §"Pattern
+ * grammar (loom 1.0)"). Mirrors the runtime `Pattern` model of
+ * `../runtime/match-result.ts`; the executor maps this parse-shape onto that
+ * runtime shape. A literal pattern carries the primitive literal value; an
+ * object pattern's `typeName` (the schema constructor name) is retained for
+ * diagnostics but ignored by runtime dispatch.
+ */
+export type PatternNode =
+  | { readonly kind: "wildcard" }
+  | { readonly kind: "identifier"; readonly name: string }
+  | { readonly kind: "literal"; readonly value: string | number | boolean | null }
+  | { readonly kind: "constructor"; readonly ctor: "Ok" | "Err"; readonly inner: PatternNode }
+  | {
+      readonly kind: "object";
+      readonly typeName: string | null;
+      readonly fields: readonly { readonly name: string; readonly pattern: PatternNode }[];
+    }
+  | { readonly kind: "array"; readonly elements: readonly PatternNode[] };
+
+/** One `Pattern "=>" ArmBody` arm of a `match` expression. */
+export interface MatchArmNode {
+  readonly pattern: PatternNode;
+  readonly body: Expr;
+}
+
+/**
+ * A `match` expression (expressions.md §`match` expression): a scrutinee and an
+ * ordered arm list, first-matching-arm-wins.
+ */
+export interface MatchExpr extends NodeBase {
+  readonly kind: "match";
+  readonly scrutinee: Expr;
+  readonly arms: readonly MatchArmNode[];
+}
+
 /**
  * The `Expr` node family. A tail `Expr` of a `LoomBody` / block, a `let`
  * initialiser, a condition, etc. all use this union.
@@ -149,7 +217,11 @@ export type Expr =
   | TryExpr
   | CallExpr
   | InvokeExpr
-  | QueryExpr;
+  | QueryExpr
+  | MemberExpr
+  | IndexExpr
+  | ObjectExpr
+  | MatchExpr;
 
 // --------------------------------------------------------------------------
 // Statement / declaration AST (the `Stmt` node family; grammar.md)
@@ -616,6 +688,15 @@ const CALL_LIKE: ReadonlySet<Expr["kind"]> = new Set([
  */
 class BodyParser {
   private pos = 0;
+  /**
+   * When set, `parsePrimary` does NOT treat a leading `{` (bare object literal)
+   * or an `Ident {` (named object literal) as an object-literal expression, so
+   * an `if` / `while` / `for` header's `{` reads as the block opener, not an
+   * object literal. It is cleared inside a bracketed group (`(...)`, `[...]`,
+   * call args, object-field values, match arms) so an object literal nested
+   * inside a condition still parses.
+   */
+  private suppressBrace = false;
   /** Declared binding mutability, for the V3b immutable-rebinding delegation. */
   private readonly bindings = new Map<string, boolean>();
   public readonly diagnostics: Diagnostic[] = [];
@@ -697,8 +778,16 @@ class BodyParser {
   /** Parse forms until `isEnd`, promoting a trailing tail `Expr` per grammar. */
   private parseForms(isEnd: () => boolean): Block {
     const forms: Form[] = [];
+    // The postfix error-propagation `?` is a complete-expression terminator that
+    // always closes its statement and never triggers newline continuation
+    // (grammar.md §"Newline continuation" — "The `?` trigger is the ternary head
+    // only"). The lexer, unable to distinguish a postfix `?` from a ternary-head
+    // `?`, swallows the following `stmt-sep`; so a form whose final token is a
+    // postfix `?` forces the NEXT form to start a new logical line, restoring
+    // its `lineStart` (and hence its tail-`Expr` promotion eligibility).
+    let forcedLineStart = false;
     while (!isEnd()) {
-      let sawSep = forms.length === 0;
+      let sawSep = forms.length === 0 || forcedLineStart;
       while (this.peek().kind === "stmt-sep") {
         this.advance();
         sawSep = true;
@@ -716,6 +805,9 @@ class BodyParser {
         continue;
       }
       forms.push(form);
+      const lastTok = this.tokens[this.pos - 1];
+      forcedLineStart =
+        lastTok !== undefined && lastTok.kind === "punct" && lastTok.text === "?";
     }
 
     // LoomBody ::= Stmt* Expr? — the final form is promoted to the tail iff it
@@ -830,18 +922,22 @@ class BodyParser {
       this.advance();
       init = this.parseExpression();
     }
-    // A `let x: T = @`…`` binds a typed query: propagate the declared annotation
-    // onto the query so the runtime drives the typed two-phase respond loop and
-    // lowers `T` as the response schema (a bare `@`…`` initialiser carries no
-    // `@<Schema>` annotation of its own).
-    if (
-      init !== null &&
-      init.kind === "query" &&
-      init.schema === null &&
-      annotation !== null &&
-      annotation.length > 0
-    ) {
-      init = { ...init, schema: annotation };
+    // A `let x: T = @`…`` (or its `?`-propagating form `let x: T = @`…`?`) binds
+    // a typed query: propagate the declared annotation onto the query so the
+    // runtime drives the typed two-phase respond loop and lowers `T` as the
+    // response schema (a bare `@`…`` initialiser carries no `@<Schema>`
+    // annotation of its own). The `?`-wrapped form is `try(query)`, so the
+    // annotation propagates onto the try's inner query operand.
+    if (init !== null && annotation !== null && annotation.length > 0) {
+      if (init.kind === "query" && init.schema === null) {
+        init = { ...init, schema: annotation };
+      } else if (
+        init.kind === "try" &&
+        init.operand.kind === "query" &&
+        init.operand.schema === null
+      ) {
+        init = { ...init, operand: { ...init.operand, schema: annotation } };
+      }
     }
     this.bindings.set(name, mutable);
     return {
@@ -910,9 +1006,24 @@ class BodyParser {
     };
   }
 
+  /**
+   * Parse a control-flow header expression (an `if` / `while` condition or a
+   * `for` iterand) with object-literal brace-suppression active so the trailing
+   * `{` opens the block rather than reading as an object literal.
+   */
+  private parseHeaderExpression(): Expr | null {
+    const save = this.suppressBrace;
+    this.suppressBrace = true;
+    try {
+      return this.parseExpression();
+    } finally {
+      this.suppressBrace = save;
+    }
+  }
+
   private parseIf(): Stmt {
     const kw = this.advance(); // `if`
-    const condition = this.parseExpression() ?? nullExpr(kw.range);
+    const condition = this.parseHeaderExpression() ?? nullExpr(kw.range);
     const then = this.parseBlock();
     let otherwise: IfStmt | Block | null = null;
     // An `else` may follow across an intervening `stmt-sep`.
@@ -941,7 +1052,7 @@ class BodyParser {
 
   private parseWhile(): Stmt {
     const kw = this.advance();
-    const condition = this.parseExpression() ?? nullExpr(kw.range);
+    const condition = this.parseHeaderExpression() ?? nullExpr(kw.range);
     const body = this.parseBlock();
     return {
       kind: "while",
@@ -957,7 +1068,7 @@ class BodyParser {
     if (this.isKeyword("in")) {
       this.advance();
     }
-    const iterand = this.parseExpression() ?? nullExpr(kw.range);
+    const iterand = this.parseHeaderExpression() ?? nullExpr(kw.range);
     const body = this.parseBlock();
     return {
       kind: "for",
@@ -1331,9 +1442,54 @@ class BodyParser {
         };
         continue;
       }
+      if (this.isPunct(".")) {
+        // Member access `target.field` (expressions.md §"Member access").
+        this.advance();
+        const nameTok = this.advance();
+        expr = {
+          kind: "member",
+          target: expr,
+          field: nameTok.text,
+          range: spanRange(expr.range, nameTok.range),
+        };
+        continue;
+      }
+      if (this.isPunct("[")) {
+        // Index access `target[index]` (expressions.md §"Index access"). The
+        // index sub-expression parses inside the brackets, so a nested object
+        // literal there is not brace-suppressed.
+        this.advance();
+        const indexExpr: Expr = this.parseBracketedExpression() ?? nullExpr(expr.range);
+        if (this.isPunct("]")) {
+          this.advance();
+        }
+        expr = {
+          kind: "index",
+          target: expr,
+          index: indexExpr,
+          range: spanRange(expr.range, this.prevRange()),
+        };
+        continue;
+      }
       break;
     }
     return expr;
+  }
+
+  /**
+   * Parse an expression inside a bracketed group (`(...)`, `[...]`, call args,
+   * object-field value, match arm) with object-literal brace-suppression
+   * cleared, so a nested object literal parses even inside a control-flow
+   * header expression.
+   */
+  private parseBracketedExpression(): Expr | null {
+    const save = this.suppressBrace;
+    this.suppressBrace = false;
+    try {
+      return this.parseExpression();
+    } finally {
+      this.suppressBrace = save;
+    }
   }
 
   private parsePrimary(): Expr | null {
@@ -1363,6 +1519,9 @@ class BodyParser {
       if (t.text === "invoke") {
         return this.parseInvoke();
       }
+      if (t.text === "match") {
+        return this.parseMatch();
+      }
     }
     if (t.kind === "ident") {
       this.advance();
@@ -1375,12 +1534,18 @@ class BodyParser {
           range: spanRange(t.range, this.prevRange()),
         };
       }
+      // Named object literal / schema constructor `Ident { field: expr, … }`
+      // (grammar.md `NamedObjectLit`), unless brace-suppression is active (a
+      // control-flow header, where the `{` opens the block).
+      if (this.isPunct("{") && !this.suppressBrace) {
+        return this.parseObjectLiteral(t.text, t.range);
+      }
       return { kind: "ident", name: t.text, range: t.range };
     }
     if (t.kind === "punct") {
       if (t.text === "(") {
         this.advance();
-        const inner = this.parseExpression();
+        const inner = this.parseBracketedExpression();
         if (this.isPunct(")")) {
           this.advance();
         }
@@ -1392,8 +1557,217 @@ class BodyParser {
       if (t.text === "@") {
         return this.parseQuery();
       }
+      // Bare object literal `{ field: expr, … }` (grammar.md `BareObjectLit`),
+      // unless brace-suppression is active (a control-flow header block opener).
+      if (t.text === "{" && !this.suppressBrace) {
+        return this.parseObjectLiteral(null, t.range);
+      }
     }
     return null;
+  }
+
+  /**
+   * Parse an object-literal / schema-constructor body `{ field: expr, … }` — the
+   * opening `{` is the current token. `typeName` is the constructor name for a
+   * `NamedObjectLit`, or `null` for a `BareObjectLit`. Field values parse inside
+   * the braces, so a nested object literal is not brace-suppressed. A malformed
+   * field is skipped defensively (matching the array / arg recovery), never
+   * silently swallowing the whole literal.
+   */
+  private parseObjectLiteral(typeName: string | null, startRange: SourceRange): Expr {
+    this.advance(); // `{`
+    const save = this.suppressBrace;
+    this.suppressBrace = false;
+    const fields: ObjectFieldNode[] = [];
+    while (!this.isPunct("}") && !this.atEnd()) {
+      const nameTok = this.peek();
+      if (nameTok.kind !== "ident" && nameTok.kind !== "string") {
+        // Not a field name: drop the token to guarantee progress.
+        this.advance();
+        continue;
+      }
+      this.advance();
+      if (this.isPunct(":")) {
+        this.advance();
+      }
+      const value = this.parseExpression() ?? nullExpr(nameTok.range);
+      fields.push({ name: nameTok.text, value });
+      if (this.isPunct(",")) {
+        this.advance();
+      }
+    }
+    if (this.isPunct("}")) {
+      this.advance();
+    }
+    this.suppressBrace = save;
+    return {
+      kind: "object",
+      typeName,
+      fields,
+      range: spanRange(startRange, this.prevRange()),
+    };
+  }
+
+  /**
+   * Parse a `match <scrutinee> { Pattern "=>" ArmBody, … }` expression
+   * (expressions.md §`match` expression). The scrutinee parses with
+   * brace-suppression active so the arms `{` is not read as an object literal.
+   */
+  private parseMatch(): Expr {
+    const kw = this.advance(); // `match`
+    const scrutinee = this.parseHeaderExpression() ?? nullExpr(kw.range);
+    const arms: MatchArmNode[] = [];
+    if (this.isPunct("{")) {
+      this.advance();
+      const save = this.suppressBrace;
+      this.suppressBrace = false;
+      while (!this.isPunct("}") && !this.atEnd()) {
+        while (this.peek().kind === "stmt-sep") {
+          this.advance();
+        }
+        if (this.isPunct("}") || this.atEnd()) {
+          break;
+        }
+        const before = this.pos;
+        const pattern = this.parsePattern();
+        // Consume the `=>` arm arrow (lexed as two punct tokens `=` `>`).
+        if (this.isPunct("=") && this.isPunct(">", 1)) {
+          this.advance();
+          this.advance();
+        }
+        const body = this.parseExpression() ?? nullExpr(kw.range);
+        arms.push({ pattern, body });
+        if (this.isPunct(",")) {
+          this.advance();
+        }
+        if (this.pos === before) {
+          // No progress (a malformed arm): drop a token to guarantee termination.
+          this.advance();
+        }
+      }
+      this.suppressBrace = save;
+      if (this.isPunct("}")) {
+        this.advance();
+      }
+    }
+    return {
+      kind: "match",
+      scrutinee,
+      arms,
+      range: spanRange(kw.range, this.prevRange()),
+    };
+  }
+
+  /**
+   * Parse one `match` pattern (expressions.md §"Pattern grammar (loom 1.0)"):
+   * wildcard `_`, `Ok(p)` / `Err(p)` constructors, a named/bare object pattern
+   * `Ident { field: p, … }`, an array pattern `[p, …]`, a literal
+   * (`"s"` / `42` / `true` / `null`), or an identifier binding.
+   */
+  private parsePattern(): PatternNode {
+    const t = this.peek();
+    if (t.kind === "number") {
+      this.advance();
+      return { kind: "literal", value: Number(t.text) };
+    }
+    if (t.kind === "string") {
+      this.advance();
+      return { kind: "literal", value: t.value ?? t.text };
+    }
+    if (t.kind === "punct" && t.text === "[") {
+      this.advance();
+      const elements: PatternNode[] = [];
+      while (!this.isPunct("]") && !this.atEnd()) {
+        elements.push(this.parsePattern());
+        if (this.isPunct(",")) {
+          this.advance();
+        }
+      }
+      if (this.isPunct("]")) {
+        this.advance();
+      }
+      return { kind: "array", elements };
+    }
+    if (t.kind === "keyword" && t.text === "true") {
+      this.advance();
+      return { kind: "literal", value: true };
+    }
+    if (t.kind === "keyword" && t.text === "false") {
+      this.advance();
+      return { kind: "literal", value: false };
+    }
+    if (t.kind === "keyword" && t.text === "null") {
+      this.advance();
+      return { kind: "literal", value: null };
+    }
+    if (t.kind === "ident" || t.kind === "keyword") {
+      this.advance();
+      // `Ok(p)` / `Err(p)` result constructor patterns.
+      if ((t.text === "Ok" || t.text === "Err") && this.isPunct("(")) {
+        this.advance();
+        const inner = this.isPunct(")") ? ({ kind: "wildcard" } as PatternNode) : this.parsePattern();
+        if (this.isPunct(")")) {
+          this.advance();
+        }
+        return { kind: "constructor", ctor: t.text, inner };
+      }
+      // `Ident { field: p, … }` object / schema pattern.
+      if (this.isPunct("{")) {
+        this.advance();
+        const fields: { readonly name: string; readonly pattern: PatternNode }[] = [];
+        while (!this.isPunct("}") && !this.atEnd()) {
+          const nameTok = this.peek();
+          if (nameTok.kind !== "ident" && nameTok.kind !== "string") {
+            this.advance();
+            continue;
+          }
+          this.advance();
+          if (this.isPunct(":")) {
+            this.advance();
+          }
+          fields.push({ name: nameTok.text, pattern: this.parsePattern() });
+          if (this.isPunct(",")) {
+            this.advance();
+          }
+        }
+        if (this.isPunct("}")) {
+          this.advance();
+        }
+        return { kind: "object", typeName: t.text, fields };
+      }
+      // A bare `_` wildcard, else an identifier binding pattern.
+      if (t.text === "_") {
+        return { kind: "wildcard" };
+      }
+      return { kind: "identifier", name: t.text };
+    }
+    // A bare object pattern `{ field: p, … }`.
+    if (t.kind === "punct" && t.text === "{") {
+      this.advance();
+      const fields: { readonly name: string; readonly pattern: PatternNode }[] = [];
+      while (!this.isPunct("}") && !this.atEnd()) {
+        const nameTok = this.peek();
+        if (nameTok.kind !== "ident" && nameTok.kind !== "string") {
+          this.advance();
+          continue;
+        }
+        this.advance();
+        if (this.isPunct(":")) {
+          this.advance();
+        }
+        fields.push({ name: nameTok.text, pattern: this.parsePattern() });
+        if (this.isPunct(",")) {
+          this.advance();
+        }
+      }
+      if (this.isPunct("}")) {
+        this.advance();
+      }
+      return { kind: "object", typeName: null, fields };
+    }
+    // Unrecognised: consume one token and treat as a wildcard to keep progress.
+    this.advance();
+    return { kind: "wildcard" };
   }
 
   private parseInvoke(): Expr {
@@ -1425,6 +1799,8 @@ class BodyParser {
       return args;
     }
     this.advance(); // `(`
+    const saveArgs = this.suppressBrace;
+    this.suppressBrace = false;
     while (!this.isPunct(")") && !this.atEnd()) {
       const arg = this.parseExpression();
       if (arg === null) {
@@ -1436,6 +1812,7 @@ class BodyParser {
         this.advance();
       }
     }
+    this.suppressBrace = saveArgs;
     if (this.isPunct(")")) {
       this.advance();
     }
@@ -1444,6 +1821,8 @@ class BodyParser {
 
   private parseArray(): Expr {
     const open = this.advance(); // `[`
+    const saveArr = this.suppressBrace;
+    this.suppressBrace = false;
     const elements: Expr[] = [];
     while (!this.isPunct("]") && !this.atEnd()) {
       const el = this.parseExpression();
@@ -1456,6 +1835,7 @@ class BodyParser {
         this.advance();
       }
     }
+    this.suppressBrace = saveArr;
     if (this.isPunct("]")) {
       this.advance();
     }
@@ -1469,8 +1849,29 @@ class BodyParser {
   private parseQuery(): Expr {
     const at = this.advance(); // `@`
     let schema: string | null = null;
-    // An optional `@<Schema>` annotation precedes the backtick template.
-    if (!this.isPunct("`")) {
+    // An optional `@<Schema>` annotation precedes the backtick template
+    // (query-forms.md QRY-3). The annotation is a type expression between angle
+    // brackets — a named schema (`@<Triage>`), a primitive (`@<integer>`), or a
+    // nested generic (`@<array<Foo>>`) — captured verbatim as the annotation.
+    if (this.isPunct("<")) {
+      this.advance(); // `<`
+      const parts: string[] = [];
+      let depth = 1;
+      while (depth > 0 && !this.atEnd()) {
+        if (this.isPunct("<")) {
+          depth += 1;
+        } else if (this.isPunct(">")) {
+          depth -= 1;
+          if (depth === 0) {
+            this.advance();
+            break;
+          }
+        }
+        parts.push(this.advance().text);
+      }
+      schema = parts.join("").trim();
+    } else if (!this.isPunct("`")) {
+      // A bare `@Schema` (no angle brackets) annotation.
       const ann = this.peek();
       if (ann.kind === "ident" || ann.kind === "keyword") {
         schema = ann.text;

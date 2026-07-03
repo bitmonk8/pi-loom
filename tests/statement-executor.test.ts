@@ -612,3 +612,194 @@ describe("V19c-T — terminal-outcome production at real hosts (ERR-8 … ERR-12
     ).toEqual([]);
   });
 });
+
+// ===========================================================================
+// Core-execution deficiency fix — `?` (try) / `match` dispatch-through and the
+// `?`-propagation flow (ERR-18 / expressions.md §`?` operator / §`match`).
+// ===========================================================================
+
+import { makeErr, makeOk } from "../src/runtime/value";
+import type {
+  MatchArmNode,
+  MatchExpr,
+  PatternNode,
+  TryExpr,
+} from "../src/parser/loom-document";
+
+/** A `?`-wrapped operand expression. */
+function tryExpr(operand: Expr): TryExpr {
+  return { kind: "try", operand, range: span() };
+}
+
+/** An untyped `@`-query expression. */
+function queryExpr(template: string): Expr {
+  return { kind: "query", schema: null, template, range: span() };
+}
+
+/** A `match` expression node. */
+function matchExpr(scrutinee: Expr, arms: readonly MatchArmNode[]): MatchExpr {
+  return { kind: "match", scrutinee, arms, range: span() };
+}
+
+function objectExpr(fields: readonly { name: string; value: Expr }[]): Expr {
+  return { kind: "object", typeName: null, fields, range: span() };
+}
+
+/**
+ * A `StatementEvalHost` double whose `runEffect` returns a scripted
+ * `OperationResult` per callee, and whose `evaluatePure` evaluates the bounded
+ * literal / ident / member / object forms the try/match witnesses need against
+ * the real `V19b` environment.
+ */
+class CoreExecHost implements StatementEvalHost {
+  readonly results = new Map<string, OperationResult>();
+
+  evaluatePure(expr: Expr, env: LexicalEnvironment): LoomValue {
+    switch (expr.kind) {
+      case "number":
+        return Number(expr.text);
+      case "string":
+      case "bool":
+        return expr.value;
+      case "null":
+        return null;
+      case "ident":
+        return env.resolve(expr.name).value ?? null;
+      case "member": {
+        const target = this.evaluatePure(expr.target, env);
+        return target === null
+          ? null
+          : (target as { readonly [k: string]: LoomValue })[expr.field] ?? null;
+      }
+      case "object": {
+        const obj: Record<string, LoomValue> = {};
+        for (const f of expr.fields) {
+          obj[f.name] = this.evaluatePure(f.value, env);
+        }
+        return obj;
+      }
+      default:
+        return null;
+    }
+  }
+
+  checkpointFor(expr: Expr): CheckpointDescriptor | null {
+    if (expr.kind === "call" || expr.kind === "query" || expr.kind === "invoke") {
+      return { kind: "tool-call", site: { file: "loom.loom", line: 1, column: 1 } };
+    }
+    return null;
+  }
+
+  runEffect(expr: Expr): Promise<OperationResult> {
+    const key = expr.kind === "call" ? expr.callee : expr.kind;
+    return Promise.resolve(this.results.get(key) ?? { ok: true, value: null });
+  }
+}
+
+describe("core-exec — `?` (try) dispatch-through and unwrap/propagate", () => {
+  it("`let s = call()?` dispatches the real effect and unwraps Ok(v) to v", async () => {
+    const host = new CoreExecHost();
+    // The loom-callable call effect yields the callee's top-level Result Ok(v).
+    host.results.set("sentiment", { ok: true, value: makeOk({ label: "pos" }) });
+    const program = body(
+      [{ kind: "let", name: "s", mutable: false, annotation: null, init: tryExpr(callExpr("sentiment")), range: span() }],
+      identExpr("s"),
+    );
+
+    const r = await executeBody(program, deps({ host }));
+
+    expect(r.outcome, "the body succeeds — `?` unwrapped Ok").toBe("success");
+    expect(r.result.value, "`?` bound the unwrapped Ok payload, not null").toEqual({ label: "pos" });
+  });
+
+  it("`call()?` over an Err propagates — the body fails carrying the Err payload (ERR-18)", async () => {
+    const host = new CoreExecHost();
+    host.results.set("sentiment", { ok: true, value: makeErr({ kind: "panic", message: "boom" }) });
+    const program = body(
+      [{ kind: "let", name: "s", mutable: false, annotation: null, init: tryExpr(callExpr("sentiment")), range: span() }],
+      identExpr("s"),
+    );
+
+    const r = await executeBody(program, deps({ host }));
+
+    expect(r.outcome, "`?` over Err propagates → fail terminal outcome").toBe("fail");
+    expect(r.result.present, "no FN-5 final value flows on the propagation path").toBe(false);
+    expect(r.error, "the propagated Err payload is carried for the caller's Err envelope").toEqual({
+      kind: "panic",
+      message: "boom",
+    });
+  });
+
+  it("a query's plain terminating value is normalised to Ok before `?` unwraps it", async () => {
+    const host = new CoreExecHost();
+    // An (untyped) query effect yields a plain string value; `?` must see Ok(text).
+    host.results.set("query", { ok: true, value: "answer" });
+    const program = body(
+      [{ kind: "let", name: "a", mutable: false, annotation: null, init: tryExpr(queryExpr("q")), range: span() }],
+      identExpr("a"),
+    );
+
+    const r = await executeBody(program, deps({ host }));
+
+    expect(r.outcome).toBe("success");
+    expect(r.result.value, "`?` over a normalised Ok(text) unwraps to the text").toBe("answer");
+  });
+
+  it("a non-cancel effect Err under `match` is surfaced as Err(e) for the arms to catch", async () => {
+    const host = new CoreExecHost();
+    // The query effect FAILS (validation) — the executor surfaces Err(queryError)
+    // as the match scrutinee.
+    host.results.set("query", {
+      ok: false,
+      error: { kind: "validation", cause: "schema_validation" } as unknown as QueryError,
+    });
+    const arms: MatchArmNode[] = [
+      { pattern: { kind: "constructor", ctor: "Ok", inner: { kind: "identifier", name: "t" } }, body: identExpr("t") },
+      {
+        pattern: {
+          kind: "constructor",
+          ctor: "Err",
+          inner: {
+            kind: "object",
+            typeName: "QueryError",
+            fields: [{ name: "cause", pattern: { kind: "literal", value: "schema_validation" } }],
+          },
+        },
+        body: objectExpr([{ name: "recovered", value: boolExpr(true) }]),
+      },
+      { pattern: { kind: "constructor", ctor: "Err", inner: { kind: "wildcard" } }, body: nullLit() },
+    ];
+    const program = body(
+      [{ kind: "let", name: "o", mutable: false, annotation: null, init: matchExpr(queryExpr("q"), arms), range: span() }],
+      identExpr("o"),
+    );
+
+    const r = await executeBody(program, deps({ host }));
+
+    expect(r.outcome, "match caught the Err arm — body succeeds").toBe("success");
+    expect(r.result.value, "the matched Err arm's object-literal body value").toEqual({ recovered: true });
+  });
+
+  it("`match call() { Ok(t) => t.field }` dispatches the effect, binds the pattern var, and evaluates the arm body", async () => {
+    const host = new CoreExecHost();
+    host.results.set("classify", { ok: true, value: makeOk({ category: "bug" }) });
+    const arms: MatchArmNode[] = [
+      {
+        pattern: { kind: "constructor", ctor: "Ok", inner: { kind: "identifier", name: "t" } },
+        body: { kind: "member", target: identExpr("t"), field: "category", range: span() },
+      },
+      { pattern: { kind: "wildcard" }, body: nullLit() },
+    ];
+    const program = body([], matchExpr(callExpr("classify"), arms));
+
+    const r = await executeBody(program, deps({ host }));
+
+    expect(r.outcome).toBe("success");
+    expect(r.result.value, "the Ok(t) arm bound t and read t.category").toBe("bug");
+  });
+});
+
+/** A `null` literal expression. */
+function nullLit(): Expr {
+  return { kind: "null", range: span() };
+}

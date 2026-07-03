@@ -114,7 +114,7 @@ function enumTagOf(value: LoomValue): string | undefined {
 }
 
 /** Whether `value` is a `Result` runtime value (carries an `ok` discriminator). */
-function isResultValue(value: LoomValue): value is ResultValue {
+export function isResultValue(value: LoomValue): value is ResultValue {
   return (
     typeof value === "object" &&
     value !== null &&

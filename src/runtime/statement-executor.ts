@@ -30,19 +30,31 @@
 // (CTRL-1), functions.md (FN-4/FN-5), return.md (RET-1/RET-2/RET-3),
 // errors-and-results/error-model.md (§Terminal outcomes, ERR-8 … ERR-12).
 
-import type { Block, Expr, ForStmt, IfStmt, LoomBody, Stmt } from "../parser/loom-document";
+import type {
+  Block,
+  Expr,
+  ForStmt,
+  IfStmt,
+  LoomBody,
+  MatchExpr,
+  PatternNode,
+  Stmt,
+  TryExpr,
+} from "../parser/loom-document";
 import type { Checkpoint, CheckpointKind, CheckpointSite } from "../seams/checkpoint";
 import type { CancellableStatement, OperationResult } from "./cancellation-core";
 import { runCancellableSequence } from "./cancellation-core";
 import { evaluateForLoop, type ForLoopHost } from "./control-flow";
 import { functionResult, type FunctionResult, type TerminalOutcome } from "./function-result";
 import type { LexicalEnvironment } from "./lexical-environment";
+import { evaluateQuestion } from "./runtime-panics";
+import { evaluateMatch, type MatchArm, type Pattern } from "./match-result";
 import {
   handlePartialTerminalOutcome,
   type CommittedConversationMutator,
   type DrivenConversationMode,
 } from "./terminal-outcomes";
-import type { LoomValue } from "./value";
+import { isResultValue, makeErr, makeOk, type LoomValue, type ResultValue } from "./value";
 
 /**
  * The checkpoint a checkpointed effect sub-expression gates on (one of the five
@@ -106,6 +118,15 @@ export interface ExecuteBodyDeps {
 export interface BodyExecution {
   readonly outcome: TerminalOutcome;
   readonly result: FunctionResult;
+  /**
+   * The `Err` payload of a `?`-propagation (ERR-18) that unwound the body — the
+   * loom's terminal `Result` on the fail path is `Err(error)`. Present only on
+   * the fail outcome when a `?` propagated an `Err`; absent for a panic /
+   * effect-`Err` fail, where no `Result` payload is carried. A mode's `surface`
+   * projects this onto the caller-visible `Err` (FN-5 fail path) instead of a
+   * fabricated cancel marker.
+   */
+  readonly error?: LoomValue;
 }
 
 // ---------------------------------------------------------------------------
@@ -130,17 +151,29 @@ type Flow =
   | { readonly kind: "break" }
   | { readonly kind: "continue" }
   | { readonly kind: "fail" }
+  | { readonly kind: "propagate"; readonly err: LoomValue }
   | { readonly kind: "cancel" };
 
 /** The outcome of evaluating a single sub-expression (pure or checkpointed). */
 type EvalResult =
   | { readonly flow: "value"; readonly value: LoomValue }
   | { readonly flow: "fail" }
+  | { readonly flow: "propagate"; readonly err: LoomValue }
   | { readonly flow: "cancel" };
 
-/** Lift a terminal `EvalResult` (`fail` / `cancel`) onto the matching `Flow`. */
+/**
+ * Lift a terminal `EvalResult` (`fail` / `propagate` / `cancel`) onto the
+ * matching `Flow`. A `?`-propagation carries its `Err` payload through so the
+ * body's terminal `Result` is `Err(err)` (ERR-18 / FN-5 fail path).
+ */
 function terminalFlow(result: Exclude<EvalResult, { flow: "value" }>): Flow {
-  return result.flow === "fail" ? { kind: "fail" } : { kind: "cancel" };
+  if (result.flow === "fail") {
+    return { kind: "fail" };
+  }
+  if (result.flow === "propagate") {
+    return { kind: "propagate", err: result.err };
+  }
+  return { kind: "cancel" };
 }
 
 /** A loom condition is a boolean; only the literal `true` steers control flow. */
@@ -190,6 +223,17 @@ function applyCompound(
  * fail outcome.
  */
 async function evalExpr(expr: Expr, env: LexicalEnvironment, deps: ExecuteBodyDeps): Promise<EvalResult> {
+  // `?` (try) and `match` are control-flow forms whose operand / scrutinee may
+  // itself be a checkpointed effect. They are evaluated by the executor (not the
+  // pure host) so a `?`-propagation early-returns from the body and a `match`
+  // dispatches the real effect before applying the sync V4a/V4b semantics.
+  if (expr.kind === "try") {
+    return evalTry(expr, env, deps);
+  }
+  if (expr.kind === "match") {
+    return evalMatch(expr, env, deps);
+  }
+
   const checkpoint = deps.host.checkpointFor(expr);
   if (checkpoint === null) {
     // Pure, synchronous, non-checkpointed work — runs to completion regardless
@@ -226,6 +270,144 @@ async function evalExpr(expr: Expr, env: LexicalEnvironment, deps: ExecuteBodyDe
     return { flow: "cancel" };
   }
   return { flow: "fail" };
+}
+
+/**
+ * Evaluate an expression *as a loom `Result` value* — the operand of `?` and the
+ * scrutinee of `match`, both of which operate on `Result` values. A checkpointed
+ * effect (query / tool-call / invoke) is dispatched through the real host (so
+ * the live resolvers fire for `?`- and `match`-wrapped calls — the "look through
+ * `try`/`match` to the inner effect" obligation) and its outcome is normalised
+ * to a `Result`:
+ *
+ *   - a clean dispatch whose value is already a `Result` flows through verbatim
+ *     (tool-call / invoke / a bare query that already models `Result`); any
+ *     other clean value is wrapped `Ok(value)` (a query's plain terminating
+ *     text / typed value);
+ *   - a non-cancel effect `Err` (a query exhaustion / validation failure) is
+ *     surfaced as the loom `Err(error)` so `?` propagates it and `match` can
+ *     catch it;
+ *   - a cancellation surfaces the cancel flow (never a `Result`).
+ *
+ * A pure operand is evaluated through the host and returned verbatim — ERR-18
+ * guarantees a `?` operand is `Result`-typed, and a `match` scrutinee is
+ * whatever value the pure expression produced.
+ */
+async function evalAsResult(
+  operand: Expr,
+  env: LexicalEnvironment,
+  deps: ExecuteBodyDeps,
+): Promise<EvalResult> {
+  // A nested `try` / `match` operand is itself a control-flow form.
+  if (operand.kind === "try" || operand.kind === "match") {
+    const inner = await evalExpr(operand, env, deps);
+    if (inner.flow !== "value") {
+      return inner;
+    }
+    return { flow: "value", value: asResultValue(inner.value) };
+  }
+
+  const checkpoint = deps.host.checkpointFor(operand);
+  if (checkpoint === null) {
+    return { flow: "value", value: deps.host.evaluatePure(operand, env) };
+  }
+
+  const statement: CancellableStatement = {
+    binding: "_effect",
+    kind: checkpoint.kind,
+    site: checkpoint.site,
+    run: () => deps.host.runEffect(operand, env),
+  };
+  const outcome = await runCancellableSequence(
+    { checkpoint: deps.checkpoint, signal: deps.signal },
+    [statement],
+  );
+  const result = outcome.result;
+  if (result.ok) {
+    return { flow: "value", value: asResultValue(result.value as LoomValue) };
+  }
+  if (result.error.kind === "cancelled") {
+    handlePartialTerminalOutcome({ path: "cancelled", mode: deps.mode, committed: [] }, deps.mutator);
+    return { flow: "cancel" };
+  }
+  // A non-cancel effect failure is the loom `Err(error)` — the `Result` value
+  // `?` propagates and `match` dispatches on.
+  return { flow: "value", value: makeErr(result.error as unknown as LoomValue) };
+}
+
+/** Normalise an effect's clean value to a `Result`: a `Result` passes through, else `Ok(value)`. */
+function asResultValue(value: LoomValue): ResultValue {
+  return isResultValue(value) ? value : makeOk(value);
+}
+
+/**
+ * Evaluate `operand?` (ERR-18 / expressions.md §`?` operator): dispatch the
+ * operand to its `Result`, then apply the sync V4b `?` propagation —
+ * `Ok(v)` yields `v`, `Err(e)` early-returns the body with `Err(e)` (the
+ * `propagate` flow). A panic thrown while producing the operand bypasses `?`
+ * unchanged.
+ */
+async function evalTry(expr: TryExpr, env: LexicalEnvironment, deps: ExecuteBodyDeps): Promise<EvalResult> {
+  const operand = await evalAsResult(expr.operand, env, deps);
+  if (operand.flow !== "value") {
+    return operand;
+  }
+  const rv = operand.value as ResultValue;
+  const q = evaluateQuestion(() => rv);
+  if (q.kind === "value") {
+    return { flow: "value", value: q.value };
+  }
+  return { flow: "propagate", err: q.err };
+}
+
+/**
+ * Evaluate `match <scrutinee> { arm, … }` (expressions.md §`match` expression):
+ * dispatch the scrutinee (an effect fires its real host), then apply the sync
+ * V4a `evaluateMatch` — first matching arm wins, the selected arm's body is
+ * evaluated with the pattern's bindings installed in a child scope. A
+ * non-exhaustive match raises `MatchError` (a panic that bypasses `?`/`match`).
+ */
+async function evalMatch(expr: MatchExpr, env: LexicalEnvironment, deps: ExecuteBodyDeps): Promise<EvalResult> {
+  const scrutinee = await evalAsResult(expr.scrutinee, env, deps);
+  if (scrutinee.flow !== "value") {
+    return scrutinee;
+  }
+  const arms: MatchArm[] = expr.arms.map((arm) => ({
+    pattern: toRuntimePattern(arm.pattern),
+    body: (bindings) => {
+      // The selected arm's body is evaluated with the pattern bindings in a
+      // fresh child scope. Arm bodies are pure expressions (loom 1.0 arm-body
+      // grammar — object literals, member reads, identifier binds); an effect in
+      // an arm body is out of loom 1.0 scope for the sync `match` evaluator.
+      const armEnv = env.child();
+      for (const [name, value] of Object.entries(bindings)) {
+        armEnv.defineLocal(name, value, false);
+      }
+      return deps.host.evaluatePure(arm.body, armEnv);
+    },
+  }));
+  return { flow: "value", value: evaluateMatch(scrutinee.value, arms) };
+}
+
+/** Map a parsed {@link PatternNode} onto the runtime `Pattern` dispatch shape. */
+function toRuntimePattern(pattern: PatternNode): Pattern {
+  switch (pattern.kind) {
+    case "wildcard":
+      return { kind: "wildcard" };
+    case "identifier":
+      return { kind: "identifier", name: pattern.name };
+    case "literal":
+      return { kind: "literal", value: pattern.value };
+    case "constructor":
+      return { kind: "constructor", ctor: pattern.ctor, inner: toRuntimePattern(pattern.inner) };
+    case "object":
+      return {
+        kind: "object",
+        fields: pattern.fields.map((f) => ({ name: f.name, pattern: toRuntimePattern(f.pattern) })),
+      };
+    case "array":
+      return { kind: "array", elements: pattern.elements.map(toRuntimePattern) };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -441,6 +623,11 @@ export async function executeBody(body: LoomBody, deps: ExecuteBodyDeps): Promis
       return { outcome: "success", result: functionResult("success", flow.value) };
     case "fail":
       return { outcome: "fail", result: functionResult("fail", null) };
+    case "propagate":
+      // A `?`-propagation (ERR-18): the body's terminal `Result` is `Err(err)`;
+      // no FN-5 final value flows, but the propagated `Err` is carried so the
+      // mode's `surface` returns it (not a fabricated cancel).
+      return { outcome: "fail", result: functionResult("fail", null), error: flow.err };
     case "cancel":
       return { outcome: "cancel", result: functionResult("cancel", null) };
     case "break":

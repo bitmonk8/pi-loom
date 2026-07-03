@@ -80,7 +80,7 @@ import type {
   CommittedSurface,
 } from "../runtime/terminal-outcomes";
 import { makeCancelledError } from "../runtime/cancellation-core";
-import { makeErr, makeOk, type LoomValue, type ResultValue } from "../runtime/value";
+import { makeErr, makeOk, valuesEqual, type LoomValue, type ResultValue } from "../runtime/value";
 import type { CallExpr, Expr, InvokeExpr, LoomBody, QueryExpr, SchemaDecl } from "../parser/loom-document";
 import { lowerQueryResponseSchema } from "../runtime/query-schema-lowering";
 import type { LoweredSchema } from "../seams/schema-validator";
@@ -90,9 +90,10 @@ import {
   parseStructuredPayload,
   payloadForRespond,
 } from "../runtime/typed-query-validation";
-import { evaluateMemberAccess } from "../runtime/runtime-panics";
+import { evaluateIndexAccess, evaluateMemberAccess } from "../runtime/runtime-panics";
 import { lexQueryTemplate, renderTemplateText } from "../render/query-render";
 import {
+  applyBinderBypass,
   buildBinderEnvelopeSchema,
   classifyBinderBypass,
 } from "../binder/binder-envelope";
@@ -222,7 +223,9 @@ class ProductionLoomProducer implements LoomProducerDeps {
     // no-op and the body runs unconditionally.
     const params = binderInput.loom.frontmatter.params;
     if (params === undefined || params.loweredSchema === undefined) {
-      return { bound: true };
+      // A loom with no declared `params:` has nothing to bind: the body runs
+      // with an empty params object (no slots installed).
+      return { bound: true, args: {} };
     }
     // Load-time bypass classification (§Binder bypass): the no-params and
     // single-string bypasses skip the binder call (and the LLM inference)
@@ -230,7 +233,11 @@ class ProductionLoomProducer implements LoomProducerDeps {
     // `binder` decision drives a real binder pass.
     const decision = classifyBinderBypass(params.fields);
     if (decision.kind !== "binder") {
-      return { bound: true };
+      // The bypass args are derived without any binder / LLM call and threaded
+      // into body scope (the single-string bypass sets the sole field to the
+      // trimmed slash-argument string; the no-params bypass yields `{}`).
+      const bypass = applyBinderBypass({ decision, slashArguments: binderInput.args });
+      return { bound: true, args: bypass.args };
     }
     // A genuine binder pass over the declared params: construct the per-loom
     // three-arm envelope schema (§Binder envelope) and drive ONE user-visible
@@ -259,8 +266,12 @@ class ProductionLoomProducer implements LoomProducerDeps {
     // The loom body runs only on the `ok` arm; `needs_info` / `ambiguous`
     // short-circuit (the loom body never runs). A reply that does not parse as
     // an envelope object also short-circuits rather than throwing, so the run
-    // still exits cleanly (the printed reply is what the runner scores).
-    return { bound: isOkEnvelope(text) };
+    // still exits cleanly (the printed reply is what the runner scores). On the
+    // `ok` arm the parsed envelope's `args` object is threaded into body scope.
+    if (!isOkEnvelope(text)) {
+      return { bound: false };
+    }
+    return { bound: true, args: await parseOkEnvelopeArgs(text) };
   }
 
   bindPromptConversation(bindInput: ConversationBindInput): ConversationBinding {
@@ -310,7 +321,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
           userVisible,
         });
       },
-      resolveToolCall: (expr, _env) => this.#resolveToolCall(expr, signal),
+      resolveToolCall: (expr, env) => this.#resolveToolCall(expr, env, signal),
       resolveInvoke: (expr, env) => this.#resolveInvoke(loom, expr, env, ctx),
       classifyCall: (expr) => this.#classifyCall(loom, expr),
       resolveCallAsInvoke: (expr, env) => this.#resolveCallAsInvoke(loom, expr, env, ctx),
@@ -452,7 +463,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
             : {}),
         };
       },
-      resolveToolCall: (expr, _env) => this.#resolveToolCall(expr, signal),
+      resolveToolCall: (expr, env) => this.#resolveToolCall(expr, env, signal),
       resolveInvoke: (expr, env) => this.#resolveInvoke(loom, expr, env, ctx),
       classifyCall: (expr) => this.#classifyCall(loom, expr),
       resolveCallAsInvoke: (expr, env) => this.#resolveCallAsInvoke(loom, expr, env, ctx),
@@ -478,11 +489,15 @@ class ProductionLoomProducer implements LoomProducerDeps {
         forwarding.detach();
         dispose();
         // FN-5: surface the subagent body's terminal final value. On the success
-        // path the produced value flows as `Ok`; on fail/cancel no value flows,
-        // so the subagent caller observes the corresponding `Err` envelope
-        // (the terminal cancellation marker) rather than a fabricated `Ok(null)`.
+        // path the produced value flows as `Ok`; a `?`-propagation fail carries
+        // its `Err` payload, so the caller observes that `Err` (ERR-18); any
+        // other fail / cancel surfaces the terminal cancellation `Err` rather
+        // than a fabricated `Ok(null)`.
         if (execution.outcome === "success") {
           return makeOk(execution.result.value ?? null);
+        }
+        if (execution.outcome === "fail" && execution.error !== undefined) {
+          return makeErr(execution.error);
         }
         return makeErr(makeCancelledError() as unknown as LoomValue);
       },
@@ -621,11 +636,11 @@ class ProductionLoomProducer implements LoomProducerDeps {
    * throws `UnknownHostToolError` from `dispatch()`, lowering to the execution
    * `Err` rather than fabricating a value.
    */
-  #resolveToolCall(expr: CallExpr, signal: AbortSignal): CodeSideToolCall {
+  #resolveToolCall(expr: CallExpr, env: LexicalEnvironment, signal: AbortSignal): CodeSideToolCall {
     const toolName = expr.callee;
     const resolve = this.#input.resolvePiTool;
     const tool = resolve?.(toolName);
-    const params = lowerToolCallParams(expr);
+    const params = lowerToolCallParams(expr, env);
     const toolCallId = `loom-direct:${this.#input.root.idSource.newInvocationId()}`;
     return {
       toolName,
@@ -745,14 +760,22 @@ function loomCalleePath(
 
 /**
  * Lower a code-side `<name>(args)` call's arguments to the JSON params object the
- * host tool's `execute(...)` receives. loom 1.0's body grammar has no
- * object-literal expression, so a single object argument cannot yet be conveyed;
- * this returns an empty params object until object-literal expressions land (see
- * status DIVERGENCE). The tool still dispatches for real — the composition is no
- * longer inert.
+ * host tool's `execute(...)` receives (V14g). The call convention is a single
+ * object-literal argument (`grep({ pattern, path })`): its fields are evaluated
+ * against the environment and become the JSON params object. A call with no
+ * object argument (or a non-object first argument) lowers to an empty params
+ * object.
  */
-function lowerToolCallParams(_expr: CallExpr): Record<string, unknown> {
-  return {};
+function lowerToolCallParams(expr: CallExpr, env: LexicalEnvironment): Record<string, unknown> {
+  const first = expr.args[0];
+  if (first === undefined || first.kind !== "object") {
+    return {};
+  }
+  const params: Record<string, unknown> = {};
+  for (const field of first.fields) {
+    params[field.name] = evaluatePureExpression(field.value, env) as unknown;
+  }
+  return params;
 }
 
 /**
@@ -1214,6 +1237,26 @@ function isOkEnvelope(text: string): boolean {
 }
 
 /**
+ * Extract the `ok` envelope's `args` object from the streamed binder reply,
+ * NON-throwing: it reuses the `V13e` `parseStructuredPayload` (a promise
+ * rejection handler, never a broad `catch`). A reply that does not parse as a
+ * JSON object, or an `ok` envelope carrying no `args` object, yields `{}` (the
+ * body still runs on the `ok` arm, with no param slots). The authoritative
+ * envelope schema validation lives in the acceptance runner.
+ */
+async function parseOkEnvelopeArgs(text: string): Promise<Readonly<Record<string, unknown>>> {
+  const parse = await parseStructuredPayload(text);
+  if (!parse.parsed || typeof parse.value !== "object" || parse.value === null) {
+    return {};
+  }
+  const args = (parse.value as Record<string, unknown>)["args"];
+  if (typeof args === "object" && args !== null && !Array.isArray(args)) {
+    return args as Readonly<Record<string, unknown>>;
+  }
+  return {};
+}
+
+/**
  * Render one `@`-query template to its wire text against the lexical
  * environment: lex the template into literal / `${…}` interpolation parts,
  * resolve each interpolation path against the environment, and apply the QRY-7
@@ -1279,10 +1322,97 @@ function evaluatePureExpression(expr: Expr, env: LexicalEnvironment): LoomValue 
       const resolution = env.resolve(expr.name);
       return resolution.arm === "local" ? resolution.value ?? null : null;
     }
+    case "array":
+      return expr.elements.map((element) => evaluatePureExpression(element, env));
+    case "object": {
+      // An object-literal / schema-constructor value (expressions.md §"Object
+      // construction"): the schema constructor name is a type-phase concern only
+      // — the runtime value is the plain field object.
+      const obj: Record<string, LoomValue> = {};
+      for (const field of expr.fields) {
+        obj[field.name] = evaluatePureExpression(field.value, env);
+      }
+      return obj;
+    }
+    case "member":
+      // `.field` access — a `null` target raises `NullMemberAccessPanic` (V4b).
+      return evaluateMemberAccess(evaluatePureExpression(expr.target, env), expr.field);
+    case "index": {
+      // `[i]` access — a `null` target / out-of-bounds / missing key panics (V4b).
+      const target = evaluatePureExpression(expr.target, env);
+      const index = evaluatePureExpression(expr.index, env);
+      return evaluateIndexAccess(target, typeof index === "number" ? index : String(index));
+    }
+    case "binary":
+      return evaluateBinaryExpression(expr.op, expr.left, expr.right, env);
+    case "ternary": {
+      // `cond ? a : b` — only the taken branch is evaluated (short-circuit).
+      const condition = evaluatePureExpression(expr.condition, env);
+      return condition === true
+        ? evaluatePureExpression(expr.consequent, env)
+        : evaluatePureExpression(expr.alternate, env);
+    }
     default:
-      // The composition root drives every checkpointed effect (`@`-query /
-      // tool-call / `invoke`) through `runEffect`; a richer pure form is not
-      // reached by the shipped test looms and yields the inert `null` value.
+      // `try` / `match` / effect forms are driven by the executor (not the pure
+      // host); a query / tool-call / invoke expression reaching here has no pure
+      // value and yields the inert `null` (the expressions.md safety net).
+      return null;
+  }
+}
+
+/**
+ * Evaluate a pure binary / unary-modelled expression against the environment,
+ * reusing the V2c structural-equality relation for `==` / `!=`. `&&` / `||`
+ * short-circuit; arithmetic and ordering use native IEEE-754 semantics (no
+ * div/mod-by-zero panic — expressions.md §"Other arithmetic"). Unary `!` / `-`
+ * are modelled by the parser as a binary with a synthetic `null` left operand.
+ */
+function evaluateBinaryExpression(
+  op: string,
+  leftExpr: Expr,
+  rightExpr: Expr,
+  env: LexicalEnvironment,
+): LoomValue {
+  if (op === "!") {
+    return !(evaluatePureExpression(rightExpr, env) as boolean);
+  }
+  if (op === "-" && leftExpr.kind === "null") {
+    return -(evaluatePureExpression(rightExpr, env) as number);
+  }
+  const left = evaluatePureExpression(leftExpr, env);
+  if (op === "&&") {
+    return left === true ? evaluatePureExpression(rightExpr, env) === true : false;
+  }
+  if (op === "||") {
+    return left === true ? true : evaluatePureExpression(rightExpr, env) === true;
+  }
+  const right = evaluatePureExpression(rightExpr, env);
+  switch (op) {
+    case "==":
+      return valuesEqual(left, right);
+    case "!=":
+      return !valuesEqual(left, right);
+    case "+":
+      return typeof left === "string" && typeof right === "string"
+        ? left + right
+        : (left as number) + (right as number);
+    case "-":
+      return (left as number) - (right as number);
+    case "*":
+      return (left as number) * (right as number);
+    case "/":
+      return (left as number) / (right as number);
+    case "%":
+      return (left as number) % (right as number);
+    case "<":
+      return (left as number | string) < (right as number | string);
+    case "<=":
+      return (left as number | string) <= (right as number | string);
+    case ">":
+      return (left as number | string) > (right as number | string);
+    case ">=":
+      return (left as number | string) >= (right as number | string);
+    default:
       return null;
   }
 }

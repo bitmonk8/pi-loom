@@ -8,14 +8,18 @@ import type {
 import type { ModelReferenceMatcher } from "../src/parser/frontmatter";
 import {
   parseLoomDocument,
+  type Expr,
   type ExportDecl,
   type ForStmt,
   type FnDecl,
   type ImportDecl,
   type LetStmt,
   type LoomDocument,
+  type MatchExpr,
+  type ObjectExpr,
   type ParseLoomDocumentDeps,
   type ReassignStmt,
+  type TryExpr,
 } from "../src/parser/loom-document";
 
 // V19a-T — failing tests for the paired `V19a` whole-program parser.
@@ -316,10 +320,20 @@ describe("cka-49: newline continuation triggers (V1a cka-1 integration witness)"
   });
 
   it("does NOT continue on the postfix error-propagation ? (ERR-18)", () => {
-    // cka-49: postfix `?` is a complete-expression terminator, never a
-    // continuation trigger — the two lines are two statements.
+    // cka-49 / grammar.md §"Newline continuation": postfix `?` is a
+    // complete-expression terminator — it closes its statement and never joins
+    // the following line into one continued statement. `foo()?` is its own
+    // statement (a `try`); the trailing `bar()` is the body's tail `Expr` (the
+    // last expression is the body's value). The two forms stay SEPARATE — the
+    // `?` did not swallow the statement boundary into a single joined statement.
     const { body } = parse(["foo()?", "bar()"].join("\n"));
-    expect(body.statements.length).toBe(2);
+    expect(body.statements.length).toBe(1);
+    // `foo()?` is an expression statement wrapping the `try` (a `?`-terminated
+    // form is not a lone call/invoke/query action statement).
+    const stmt0 = body.statements[0];
+    expect(stmt0?.kind).toBe("expr");
+    expect(stmt0 && "expr" in stmt0 ? stmt0.expr.kind : null).toBe("try");
+    expect(body.tail?.kind).toBe("call");
   });
 
   it("does not break a held continuation across blank lines", () => {
@@ -378,5 +392,156 @@ describe("cka-49: whole-file multi-error aggregation (no fast-fail, sorted)", ()
         pf < cf || (pf === cf && (pl < cl || (pl === cl && pc <= cc)));
       expect(ordered).toBe(true);
     }
+  });
+});
+
+// --------------------------------------------------------------------------
+// Core-execution deficiency fix — body-grammar productions for `match`, object
+// literals, and postfix member / index access (grammar.md §"Loom literal
+// sublanguage" `BareObjectLit`/`NamedObjectLit`, expressions.md §`match`
+// expression / §"Member access" / §"Index access").
+// --------------------------------------------------------------------------
+
+describe("core-exec: postfix member access `.field` in the body grammar", () => {
+  it("parses `s.label` into a member node over an ident target", () => {
+    const doc = parse(["let s = obj", "s.label"].join("\n"));
+    const tail = doc.body.tail;
+    expect(tail?.kind).toBe("member");
+    if (tail?.kind === "member") {
+      expect(tail.field).toBe("label");
+      expect(tail.target.kind).toBe("ident");
+    }
+  });
+
+  it("chains member access `a.b.c` left-to-right", () => {
+    const doc = parse(["a.b.c"].join("\n"));
+    const tail = doc.body.tail;
+    // ((a.b).c)
+    expect(tail?.kind).toBe("member");
+    if (tail?.kind === "member") {
+      expect(tail.field).toBe("c");
+      expect(tail.target.kind).toBe("member");
+    }
+  });
+});
+
+describe("core-exec: postfix index access `[i]` in the body grammar", () => {
+  it("parses `xs[0]` into an index node", () => {
+    const doc = parse(["let xs = arr", "xs[0]"].join("\n"));
+    const tail = doc.body.tail;
+    expect(tail?.kind).toBe("index");
+    if (tail?.kind === "index") {
+      expect(tail.target.kind).toBe("ident");
+      expect(tail.index.kind).toBe("number");
+    }
+  });
+});
+
+describe("core-exec: object-literal expressions (no more silent token-skip)", () => {
+  it("parses a bare object literal in call args `grep({ pattern: \"TODO\", path: \"src\" })`", () => {
+    // Previously the leading `{` in parseArgs was silently advanced past with no
+    // diagnostic; now it parses into an ObjectExpr argument.
+    const doc = parse(['let hits = grep({ pattern: "TODO", path: "src" })'].join("\n"));
+    const let_ = doc.body.statements.find((s): s is LetStmt => s.kind === "let");
+    const call = let_?.init as Expr | null;
+    expect(call?.kind === "call" ? call.args[0]?.kind : undefined).toBe("object");
+    if (call?.kind === "call" && call.args[0]?.kind === "object") {
+      const obj = call.args[0];
+      expect(obj.typeName).toBeNull();
+      expect(obj.fields.map((f) => f.name)).toEqual(["pattern", "path"]);
+    }
+  });
+
+  it("parses a named object literal / schema constructor `Triage { category: \"question\", urgent: false }`", () => {
+    const doc = parse(['let t = Triage { category: "question", urgent: false }'].join("\n"));
+    const let_ = doc.body.statements.find((s): s is LetStmt => s.kind === "let");
+    const init = let_?.init as ObjectExpr | undefined;
+    expect(init?.kind).toBe("object");
+    expect(init?.typeName).toBe("Triage");
+    expect(init?.fields.map((f) => f.name)).toEqual(["category", "urgent"]);
+  });
+
+  it("does NOT read an `if <ident> {` header brace as a named object literal", () => {
+    // Brace-suppression: the `{` opens the block, so the condition is the bare
+    // ident and the `if` parses as a control-flow statement, not a match on an
+    // object literal that swallows the block.
+    const doc = parse(["if ready {", "  x = 1", "}"].join("\n"));
+    expect(doc.body.statements.some((s) => s.kind === "if")).toBe(true);
+  });
+});
+
+describe("core-exec: `match` expression in the body grammar", () => {
+  const src = [
+    "let outcome = match r {",
+    '  Ok(t) => t,',
+    '  Err(QueryError { kind: "validation", cause: "schema_validation" }) => fallback,',
+    "  Err(_) => other,",
+    "}",
+  ].join("\n");
+
+  it("parses `match <scrutinee> { arm, … }` into a MatchExpr with its arms", () => {
+    const doc = parse(src);
+    const let_ = doc.body.statements.find((s): s is LetStmt => s.kind === "let");
+    const m = let_?.init as MatchExpr | undefined;
+    expect(m?.kind).toBe("match");
+    expect(m?.scrutinee.kind).toBe("ident");
+    expect(m?.arms.length).toBe(3);
+  });
+
+  it("captures the six pattern forms — constructor over an object pattern, wildcard-in-Err, identifier binding", () => {
+    const doc = parse(src);
+    const let_ = doc.body.statements.find((s): s is LetStmt => s.kind === "let");
+    const m = let_?.init as MatchExpr;
+    // Arm 0: Ok(t) — constructor over an identifier binding.
+    expect(m.arms[0]?.pattern.kind).toBe("constructor");
+    const arm0 = m.arms[0]?.pattern;
+    if (arm0?.kind === "constructor") {
+      expect(arm0.ctor).toBe("Ok");
+      expect(arm0.inner.kind).toBe("identifier");
+    }
+    // Arm 1: Err(QueryError { … }) — constructor over an object pattern.
+    const arm1 = m.arms[1]?.pattern;
+    if (arm1?.kind === "constructor") {
+      expect(arm1.ctor).toBe("Err");
+      expect(arm1.inner.kind).toBe("object");
+      if (arm1.inner.kind === "object") {
+        expect(arm1.inner.fields.map((f) => f.name)).toEqual(["kind", "cause"]);
+        expect(arm1.inner.fields[0]?.pattern).toEqual({
+          kind: "literal",
+          value: "validation",
+        });
+      }
+    }
+    // Arm 2: Err(_) — constructor over a wildcard.
+    const arm2 = m.arms[2]?.pattern;
+    if (arm2?.kind === "constructor") {
+      expect(arm2.inner.kind).toBe("wildcard");
+    }
+  });
+
+  it("parses a typed-query scrutinee whose arms brace does not read as an object literal", () => {
+    const doc = parse(
+      [
+        "let outcome = match @<Triage>`Triage: ${m}` {",
+        "  Ok(t) => t,",
+        "  Err(_) => fallback,",
+        "}",
+      ].join("\n"),
+    );
+    const let_ = doc.body.statements.find((s): s is LetStmt => s.kind === "let");
+    const m = let_?.init as MatchExpr;
+    expect(m.kind).toBe("match");
+    expect(m.scrutinee.kind).toBe("query");
+    expect(m.arms.length).toBe(2);
+  });
+});
+
+describe("core-exec: postfix `?` still terminates and composes with access", () => {
+  it("wraps a `.field` chain result under `?` correctly (foo()?.bar order)", () => {
+    const doc = parse(["let s = sentiment(text)?"].join("\n"));
+    const let_ = doc.body.statements.find((s): s is LetStmt => s.kind === "let");
+    const init = let_?.init as TryExpr | undefined;
+    expect(init?.kind).toBe("try");
+    expect(init?.operand.kind).toBe("call");
   });
 });
