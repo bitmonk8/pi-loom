@@ -36,6 +36,7 @@ import { lexLoom, type LoomSource, type Token } from "../lexer/lexer";
 import type { SystemNoteChannelDeps } from "../extension/system-note-channel";
 import {
   parseFrontmatter,
+  type FrontmatterBodyTypes,
   type ModelReferenceMatcher,
   type ParsedFrontmatter,
 } from "./frontmatter";
@@ -485,6 +486,35 @@ export function parseLoomDocument(
   // the aggregated set. See notes.md.
   const split = splitFrontmatter(text);
 
+  // V1a's newline-continuation lexer is the integration witness for statement
+  // joining: its `stmt-sep` tokens mark the boundaries at depth 0, and it
+  // swallows the newline at every continuation trigger (open bracket,
+  // trailing/leading operator, trailing comma). The parser splits any residual
+  // over-joined line by grammar completion — notably the postfix `?`, which
+  // the lexer treats as a trailing trigger but which never continues a
+  // statement.
+  //
+  // The body is lexed + parsed BEFORE the frontmatter so the whole-file
+  // named-type set (body `schema`/`enum` decls + imported symbols) is available
+  // to the frontmatter `params:` named-type resolution and the `system:`
+  // interpolation field checks, both of which resolve a `NamedType` whole-file
+  // (a frontmatter → body forward reference resolves). The body parse does not
+  // depend on the frontmatter, so the reorder is behaviour-preserving.
+  const lex = lexLoom({ path: file, bytes: encodeSource(split.bodyText) }, deps.systemNote);
+
+  const parser = new BodyParser(lex.tokens, file, split.bodyText);
+  const body = parser.parseBody();
+
+  // The `///` doc-comment runs are lexed away (the lexer emits no comment
+  // tokens), so they are recovered by a line scan over the body text and
+  // merged into the statement list in source order; each run's placement is
+  // delegated to V5c's `checkDocCommentPlacement` over the following
+  // production.
+  const docScan = scanDocComments(split.bodyText, file);
+  const statements = mergeByLine(body.statements, docScan.nodes);
+
+  const bodyTypes = collectBodyTypes(statements);
+
   const frontmatterDiags: Diagnostic[] = [];
   let frontmatter: ParsedFrontmatter | null = null;
   if (split.frontmatterText !== null) {
@@ -500,30 +530,11 @@ export function parseLoomDocument(
     const fm = parseFrontmatter(`---\n${split.frontmatterText}\n---`, {
       file,
       modelMatcher: deps.modelMatcher,
+      bodyTypes,
     });
     frontmatter = fm.frontmatter ?? null;
     frontmatterDiags.push(...fm.diagnostics);
   }
-
-  // V1a's newline-continuation lexer is the integration witness for statement
-  // joining: its `stmt-sep` tokens mark the boundaries at depth 0, and it
-  // swallows the newline at every continuation trigger (open bracket,
-  // trailing/leading operator, trailing comma). The parser splits any residual
-  // over-joined line by grammar completion — notably the postfix `?`, which
-  // the lexer treats as a trailing trigger but which never continues a
-  // statement.
-  const lex = lexLoom({ path: file, bytes: encodeSource(split.bodyText) }, deps.systemNote);
-
-  const parser = new BodyParser(lex.tokens, file, split.bodyText);
-  const body = parser.parseBody();
-
-  // The `///` doc-comment runs are lexed away (the lexer emits no comment
-  // tokens), so they are recovered by a line scan over the body text and
-  // merged into the statement list in source order; each run's placement is
-  // delegated to V5c's `checkDocCommentPlacement` over the following
-  // production.
-  const docScan = scanDocComments(split.bodyText, file);
-  const statements = mergeByLine(body.statements, docScan.nodes);
 
   const diagnostics = assembleDiagnostics([
     frontmatterDiags,
@@ -537,6 +548,32 @@ export function parseLoomDocument(
     body: { statements, tail: body.tail },
     diagnostics,
   };
+}
+
+/**
+ * Collect the whole-file named-type set the frontmatter `params:` / `system:`
+ * value-validations resolve a `NamedType` against: body `schema` declarations
+ * (with their object field sources when present), body `enum` declarations, and
+ * the symbols pulled in by body `import` declarations. Supplying the names is
+ * sufficient to decide `loom/parse/unresolved-named-type`; the schema field
+ * sources let the `system:` surface descend `.Ident` steps.
+ */
+function collectBodyTypes(statements: readonly Stmt[]): FrontmatterBodyTypes {
+  const schemas = new Map<string, readonly SchemaFieldSource[] | undefined>();
+  const enums = new Set<string>();
+  const imports = new Set<string>();
+  for (const stmt of statements) {
+    if (stmt.kind === "schema") {
+      schemas.set(stmt.name, stmt.fields);
+    } else if (stmt.kind === "enum") {
+      enums.add(stmt.name);
+    } else if (stmt.kind === "import") {
+      for (const symbol of stmt.symbols) {
+        imports.add(symbol);
+      }
+    }
+  }
+  return { schemas, enums, imports };
 }
 
 // --------------------------------------------------------------------------

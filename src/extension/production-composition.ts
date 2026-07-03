@@ -280,7 +280,7 @@ async function parseCalleeLoom(
     return undefined;
   }
   const document = parseLoomDocument({ path: absolute, bytes }, deps);
-  if (document.frontmatter === null) {
+  if (document.frontmatter === null || hasLoadParseError(document.diagnostics)) {
     return undefined;
   }
   return {
@@ -289,6 +289,21 @@ async function parseCalleeLoom(
     frontmatter: document.frontmatter,
     body: document.body,
   };
+}
+
+/**
+ * Whether any aggregated diagnostic is an error-severity load / parse diagnostic
+ * that must block registration (the frontmatter value-validations, the `params:`
+ * named-type / ordering / default-literal checks, and the `system:` checks all
+ * surface here). Warnings never block registration.
+ */
+function hasLoadParseError(diagnostics: readonly Diagnostic[]): boolean {
+  return diagnostics.some(
+    (diagnostic) =>
+      diagnostic.severity === "error" &&
+      (diagnostic.code.startsWith("loom/load/") ||
+        diagnostic.code.startsWith("loom/parse/")),
+  );
 }
 
 /** The `.loom` basename (minus extension) of a path, for the callee slash name. */
@@ -311,10 +326,14 @@ async function parseDiscoveredLoom(
     return undefined;
   }
   const document = parseLoomDocument({ path: loom.path, bytes }, deps);
-  if (document.frontmatter === null) {
-    // A well-formed `.loom` carries `mode:` frontmatter; a frontmatter-less
-    // file cannot be composed into a runnable fixture. Its load-phase
-    // diagnostics were aggregated by the parser and routed above.
+  if (document.frontmatter === null || hasLoadParseError(document.diagnostics)) {
+    // A well-formed `.loom` carries `mode:` frontmatter and produces no
+    // error-severity load/parse diagnostic; a frontmatter-less file cannot be
+    // composed into a runnable fixture, and a loom that produced an
+    // error-severity `loom/load/*` / `loom/parse/*` diagnostic (an invalid
+    // frontmatter value, an unresolved param named type, a `system:`
+    // interpolation error, …) must not register (warnings still register).
+    // Its load-phase diagnostics were aggregated by the parser and routed above.
     return undefined;
   }
   return {

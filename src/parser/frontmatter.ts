@@ -23,7 +23,16 @@ import {
 } from "../diagnostics/diagnostic";
 import { LineCounter, parseDocument, isMap, isScalar, isSeq, type Node } from "yaml";
 import { type LoweredSchema } from "../seams/schema-validator";
-import { parseParams, type ParamFieldInput } from "./params";
+import {
+  parseParams,
+  splitTopLevel,
+  type ParamFieldInput,
+  type BodyTypeDeclaration,
+} from "./params";
+import {
+  checkSystemInterpolation,
+  type SystemParamType,
+} from "./system-interpolation";
 import { type BypassParamsField } from "../binder/binder-envelope";
 
 /** A loom 1.0 invocation mode (`frontmatter-fields-a.md` field contract). */
@@ -149,12 +158,40 @@ export interface FrontmatterParseResult {
   readonly diagnostics: readonly Diagnostic[];
 }
 
+/** One body-level `schema` object field, as the whole-file resolution sees it. */
+export interface FrontmatterSchemaField {
+  readonly name: string;
+  readonly typeSource: string;
+}
+
+/**
+ * The whole-file named-type set the `params:` / `system:` value-validations
+ * resolve a `NamedType` against: the body `schema` declarations (carrying their
+ * object field sources when present), the body `enum` declarations, and the
+ * symbols pulled in by body `import` declarations. Resolution is whole-file, so
+ * a frontmatter → body forward reference resolves; supplying only the names is
+ * sufficient to decide `loom/parse/unresolved-named-type`, and the schema field
+ * sources let the `system:` interpolation surface descend `.Ident` steps.
+ */
+export interface FrontmatterBodyTypes {
+  readonly schemas: ReadonlyMap<string, readonly FrontmatterSchemaField[] | undefined>;
+  readonly enums: ReadonlySet<string>;
+  readonly imports: ReadonlySet<string>;
+}
+
 /** Inputs to a frontmatter parse. */
 export interface ParseFrontmatterOptions {
   /** The source file path, for located diagnostics. */
   readonly file: string;
   /** The injected model-reference matcher the `model:` hook consults. */
   readonly modelMatcher: ModelReferenceMatcher;
+  /**
+   * The whole-file named-type set the `params:` named-type resolution and the
+   * `system:` interpolation checks resolve against. Absent when the caller has
+   * no body AST (a frontmatter-only parse); a `NamedType` param then resolves
+   * against no declaration.
+   */
+  readonly bodyTypes?: FrontmatterBodyTypes;
 }
 
 /**
@@ -341,6 +378,110 @@ function resolveNonNegIntBlock(
   };
 }
 
+/** The recognised `respond_repair.methodology:` values (frontmatter.md). */
+const RECOGNISED_METHODOLOGIES: ReadonlySet<string> = new Set([
+  "validator_error",
+  "schema_repeat",
+  "none",
+]);
+
+/**
+ * Validate a present `respond_repair.methodology:` sub-field against the
+ * recognised set (`validator_error` / `schema_repeat` / `none`). Absent (or a
+ * non-map block) takes the default; a present value outside the set (including
+ * non-string scalars) is `loom/load/unknown-methodology-value` (E) and the loom
+ * is not registered.
+ */
+function checkMethodology(
+  blockNode: Node | null | undefined,
+  file: string,
+  lineCounter: LineCounter,
+  lineOffset: number,
+): Diagnostic | undefined {
+  if (blockNode === null || blockNode === undefined || !isMap(blockNode)) {
+    return undefined;
+  }
+  const sub = blockNode.items.find(
+    (it) => isScalar(it.key) && String(it.key.value) === "methodology",
+  );
+  if (sub === undefined) {
+    return undefined;
+  }
+  const raw = isScalar(sub.value) ? sub.value.value : sub.value;
+  const value = raw === null || raw === undefined ? "null" : String(raw);
+  if (RECOGNISED_METHODOLOGIES.has(value)) {
+    return undefined;
+  }
+  const range = rangeOf((sub.value ?? sub.key) as Node, lineCounter, lineOffset);
+  return {
+    severity: "error",
+    code: "loom/load/unknown-methodology-value",
+    file,
+    ...(range !== undefined ? { range } : {}),
+    message: `unknown 'respond_repair.methodology:' value '${value}'; expected 'validator_error', 'schema_repeat', or 'none'`,
+  };
+}
+
+/**
+ * Map a `params:` field type-expression source to the `SystemParamType` the
+ * `system:` interpolation surface consumes. Primitives map to their scalar
+ * kinds; `array<T>` terminates as an array; a top-level union / other generic
+ * terminates as a compact-object value; a `NamedType` resolving to a body
+ * `enum` is an enum, one resolving to an object `schema` carries its typed
+ * fields (so `.Ident` steps validate), and any other / unresolved atom
+ * terminates as a scalar (so `${param}` is admitted but `${param.field}` is a
+ * bad-field). `seen` guards a self-referential schema against unbounded
+ * descent.
+ */
+function toSystemParamType(
+  typeSource: string,
+  bodyTypes: FrontmatterBodyTypes | undefined,
+  seen: ReadonlySet<string>,
+): SystemParamType {
+  const s = typeSource.trim();
+  const lt = s.indexOf("<");
+  if (lt > 0 && s.endsWith(">")) {
+    const ctor = s.slice(0, lt).trim();
+    return ctor === "array" ? { kind: "array" } : { kind: "discriminated-union" };
+  }
+  if (splitTopLevel(s, "|").length > 1) {
+    return { kind: "discriminated-union" };
+  }
+  switch (s) {
+    case "string":
+      return { kind: "string" };
+    case "integer":
+      return { kind: "integer" };
+    case "number":
+      return { kind: "number" };
+    case "boolean":
+      return { kind: "boolean" };
+    case "null":
+      return { kind: "null" };
+    default:
+      break;
+  }
+  if (bodyTypes !== undefined) {
+    if (bodyTypes.enums.has(s)) {
+      return { kind: "enum" };
+    }
+    if (bodyTypes.schemas.has(s)) {
+      const fields = bodyTypes.schemas.get(s);
+      if (fields !== undefined && !seen.has(s)) {
+        const nextSeen = new Set(seen);
+        nextSeen.add(s);
+        const map = new Map<string, SystemParamType>();
+        for (const field of fields) {
+          map.set(field.name, toSystemParamType(field.typeSource, bodyTypes, nextSeen));
+        }
+        return { kind: "object", fields: map };
+      }
+      return { kind: "string" };
+    }
+  }
+  return { kind: "string" };
+}
+
 /**
  * Split a `params:` field value scalar (`<type-expr>` optionally followed by
  * `= <literal>`) into its type expression and default RHS at the first top-level
@@ -395,20 +536,21 @@ function typeSourceIsNullable(typeSource: string): boolean {
  * Extract the loom's lowered `params:` schema plus the load-time bypass inputs
  * from the `params:` YAML node. Returns `undefined` when the block is absent,
  * `null`, or not a mapping. The lowered schema is derived through the `V6b`
- * `parseParams` seam (with no body-level named types available at the
- * frontmatter parse — a `NamedType` param therefore lowers without a `$def` and
- * leaves `loweredSchema` absent); any `parseParams` diagnostics are NOT folded
- * into the frontmatter result here, so exposing `params` is purely additive and
- * does not change the loom's registration decision.
+ * `parseParams` seam (with no body-level named types available in this lowering
+ * pass — a `NamedType` param therefore lowers without a `$def` and leaves
+ * `loweredSchema` absent; the whole-file named-type resolution runs as a
+ * separate diagnostics pass in `parseFrontmatter`). The raw per-field inputs are
+ * returned alongside so `parseFrontmatter` can run the whole-file `params:`
+ * diagnostics pass and build the `system:` interpolation param types.
  */
 function extractParsedParams(
   paramsNode: Node | null | undefined,
   file: string,
   lineCounter: LineCounter,
   lineOffset: number,
-): ParsedParams | undefined {
+): { params: ParsedParams | undefined; fieldInputs: readonly ParamFieldInput[] } {
   if (paramsNode === null || paramsNode === undefined || !isMap(paramsNode)) {
-    return undefined;
+    return { params: undefined, fieldInputs: [] };
   }
   const fieldInputs: ParamFieldInput[] = [];
   const bypassFields: BypassParamsField[] = [];
@@ -441,9 +583,12 @@ function extractParsedParams(
   }
   const lowered = parseParams(fieldInputs, [], { file });
   return {
-    ...(lowered.loweredSchema !== undefined ? { loweredSchema: lowered.loweredSchema } : {}),
-    defaultedFields,
-    fields: bypassFields,
+    params: {
+      ...(lowered.loweredSchema !== undefined ? { loweredSchema: lowered.loweredSchema } : {}),
+      defaultedFields,
+      fields: bypassFields,
+    },
+    fieldInputs,
   };
 }
 
@@ -481,6 +626,7 @@ export function parseFrontmatter(
 
   // The recognised fields the contract pins behaviour for.
   let modeValue: string | undefined;
+  let modeRange: SourceRange | undefined;
   let modelPresent = false;
   let modelRaw: unknown;
   let modelRange: SourceRange | undefined;
@@ -490,6 +636,11 @@ export function parseFrontmatter(
   let toolLoopNode: Node | null | undefined;
   let respondRepairNode: Node | null | undefined;
   let paramsNode: Node | null | undefined;
+  let paramsPresent = false;
+  let paramsRange: SourceRange | undefined;
+  let systemPresent = false;
+  let systemValue: string | undefined;
+  let systemRange: SourceRange | undefined;
   let toolsValue: readonly string[] | undefined;
 
   if (map !== undefined) {
@@ -512,6 +663,7 @@ export function parseFrontmatter(
         modeValue = isScalar(item.value)
           ? String(item.value.value)
           : undefined;
+        modeRange = valueRange;
         continue;
       }
       if (key === "model") {
@@ -528,6 +680,8 @@ export function parseFrontmatter(
       }
       if (key === "params") {
         paramsNode = item.value;
+        paramsPresent = true;
+        paramsRange = valueRange ?? keyRange;
         continue;
       }
       if (key === "bind_context") {
@@ -542,6 +696,14 @@ export function parseFrontmatter(
         // (`tools:\n  - ./sentiment.loom`) of Pi-tool names / `.loom`-callable
         // paths. Surfaced verbatim; the H8b resolvers classify each entry.
         toolsValue = extractToolsList(item.value);
+        continue;
+      }
+      if (key === "system") {
+        // Captured for the subagent-mode-only rule + the `${…}` interpolation
+        // checks, run once the whole-file named-type set is known.
+        systemPresent = true;
+        systemValue = isScalar(item.value) ? String(item.value.value) : undefined;
+        systemRange = valueRange;
         continue;
       }
       if (key === "tool_loop") {
@@ -645,6 +807,120 @@ export function parseFrontmatter(
     diagnostics.push(respondRepairResult.diagnostic);
   }
 
+  // A present-but-unrecognised `mode:` is the separate unknown-mode-value error
+  // (distinct from missing-mode, which fired above only when `mode:` is absent);
+  // "missing" and "present-but-bad" do not collapse into one code.
+  if (
+    modeValue !== undefined &&
+    modeValue !== "prompt" &&
+    modeValue !== "subagent"
+  ) {
+    diagnostics.push({
+      severity: "error",
+      code: "loom/load/unknown-mode-value",
+      file,
+      ...(modeRange !== undefined ? { range: modeRange } : {}),
+      message: `unknown 'mode:' value '${modeValue}'; expected 'prompt' or 'subagent'`,
+    });
+  }
+
+  // A present `bind_context:` value other than `none` / `session` (incl.
+  // non-string scalars) is the unknown-bind-context-value load error.
+  if (
+    bindContextValue !== undefined &&
+    bindContextValue !== "none" &&
+    bindContextValue !== "session"
+  ) {
+    diagnostics.push({
+      severity: "error",
+      code: "loom/load/unknown-bind-context-value",
+      file,
+      ...(bindContextRange !== undefined ? { range: bindContextRange } : {}),
+      message: `unknown 'bind_context:' value '${bindContextValue}'; expected 'none' or 'session'`,
+    });
+  }
+
+  // The redundant `params: null` is rejected — omit `params:` or use `params: {}`
+  // (both of which are equivalent no-params forms).
+  const paramsIsNull =
+    paramsPresent &&
+    (paramsNode === null ||
+      paramsNode === undefined ||
+      (isScalar(paramsNode) && paramsNode.value === null));
+  if (paramsIsNull) {
+    diagnostics.push({
+      severity: "error",
+      code: "loom/load/params-null",
+      file,
+      ...(paramsRange !== undefined ? { range: paramsRange } : {}),
+      message:
+        "'params: null' is not permitted; omit 'params:' or use 'params: {}'",
+    });
+  }
+
+  // `respond_repair.methodology:` outside the recognised set.
+  const methodologyDiag = checkMethodology(
+    respondRepairNode,
+    file,
+    lineCounter,
+    lineOffset,
+  );
+  if (methodologyDiag !== undefined) {
+    diagnostics.push(methodologyDiag);
+  }
+
+  // `params:` lowering + bypass classification (the binder's runtime schema).
+  const { params, fieldInputs } = extractParsedParams(
+    paramsNode,
+    file,
+    lineCounter,
+    lineOffset,
+  );
+
+  // Whole-file `params:` named-type / ordering / default-literal diagnostics.
+  // The named-type resolution is whole-file, so the body `schema`/`enum` decls
+  // and imported symbols supplied via `options.bodyTypes` resolve a forward
+  // `NamedType` reference; only a genuinely-undeclared type fires
+  // `loom/parse/unresolved-named-type`.
+  if (fieldInputs.length > 0) {
+    const bodyTypeDecls: BodyTypeDeclaration[] = [];
+    if (options.bodyTypes !== undefined) {
+      for (const name of options.bodyTypes.schemas.keys()) {
+        bodyTypeDecls.push({ name, lowered: {} });
+      }
+      for (const name of options.bodyTypes.enums) {
+        bodyTypeDecls.push({ name, lowered: {} });
+      }
+      for (const name of options.bodyTypes.imports) {
+        bodyTypeDecls.push({ name, lowered: {} });
+      }
+    }
+    diagnostics.push(
+      ...parseParams(fieldInputs, bodyTypeDecls, { file }).diagnostics,
+    );
+  }
+
+  // `system:` subagent-mode-only rule + `${…}` interpolation checks, run against
+  // the loom's typed `params` (`system:` on a `mode: prompt` loom is rejected).
+  if (systemPresent && systemValue !== undefined) {
+    const systemParams = new Map<string, SystemParamType>();
+    for (const fieldInput of fieldInputs) {
+      systemParams.set(
+        fieldInput.name,
+        toSystemParamType(fieldInput.typeSource, options.bodyTypes, new Set()),
+      );
+    }
+    diagnostics.push(
+      ...checkSystemInterpolation({
+        systemValue,
+        mode: modeValue === "prompt" ? "prompt" : "subagent",
+        params: systemParams,
+        file,
+        ...(systemRange !== undefined ? { range: systemRange } : {}),
+      }).diagnostics,
+    );
+  }
+
   const registered = !diagnostics.some((d) => d.severity === "error");
   if (!registered) {
     return { registered: false, diagnostics };
@@ -660,7 +936,6 @@ export function parseFrontmatter(
   const respondRepair: ParsedRespondRepair = {
     attempts: "value" in respondRepairResult ? respondRepairResult.value : 3,
   };
-  const params = extractParsedParams(paramsNode, file, lineCounter, lineOffset);
   const frontmatter: ParsedFrontmatter = {
     mode: modeValue as LoomMode,
     ...(resolvedModel !== undefined ? { model: resolvedModel } : {}),
