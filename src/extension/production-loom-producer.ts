@@ -63,7 +63,12 @@ import {
   type EnumRegistration,
   type LexicalEnvironment,
 } from "../runtime/lexical-environment";
-import { executeBody, type BodyExecution, type ExecuteBodyDeps } from "../runtime/statement-executor";
+import {
+  executeBody,
+  LoomFnArityError,
+  type BodyExecution,
+  type ExecuteBodyDeps,
+} from "../runtime/statement-executor";
 import { extractTrailingTurnText } from "../runtime/conversation-drive";
 import type {
   ForcedRespondTurn,
@@ -88,7 +93,17 @@ import { makeErr, makeOk, valuesEqual, type LoomValue, type ResultValue } from "
 import { evaluateStringMember } from "../runtime/stdlib-string";
 import { evaluateArrayMember } from "../runtime/stdlib-array";
 import { evaluateObjectMember } from "../runtime/stdlib-object";
-import type { CallExpr, Expr, InvokeExpr, LoomBody, QueryExpr, SchemaDecl } from "../parser/loom-document";
+import type {
+  Block,
+  CallExpr,
+  Expr,
+  FnDecl,
+  InvokeExpr,
+  LoomBody,
+  QueryExpr,
+  SchemaDecl,
+  Stmt,
+} from "../parser/loom-document";
 import { lowerQueryResponseSchema } from "../runtime/query-schema-lowering";
 import type { LoweredSchema } from "../seams/schema-validator";
 import type { TypedQuerySchemaValidation } from "../runtime/query-tool-loop";
@@ -1369,6 +1384,22 @@ function evaluatePureExpression(expr: Expr, env: LexicalEnvironment): LoomValue 
       const index = evaluatePureExpression(expr.index, env);
       return evaluateIndexAccess(target, typeof index === "number" ? index : String(index));
     }
+    case "call": {
+      // A `<name>(args)` call whose callee resolves to a user `fn` executes the
+      // function body (functions.md FN-1…FN-5). In a pure sub-expression
+      // position (a binary/ternary operand, an argument, a template
+      // interpoland) the value is produced synchronously against a pure body;
+      // an effectful `fn` body cannot run on the pure path and yields the inert
+      // `null` safety net (its effects are driven only by the executor). A
+      // non-`fn` callee (a Pi tool / `.loom`-callable) is an effect with no
+      // synchronous value — also the `null` safety net.
+      const resolution = env.resolve(expr.callee);
+      const fn =
+        (resolution.arm === "fn" || resolution.arm === "import") && resolution.fn !== undefined
+          ? resolution.fn
+          : undefined;
+      return fn !== undefined ? evaluatePureFnCall(fn, expr, env) : null;
+    }
     case "result-ctor":
       // `Ok(arg)` / `Err(arg)` — a pure Result construction (never a tool-call).
       return expr.ctor === "Ok"
@@ -1397,6 +1428,96 @@ function evaluatePureExpression(expr: Expr, env: LexicalEnvironment): LoomValue 
       // value and yields the inert `null` (the expressions.md safety net).
       return null;
   }
+}
+
+/**
+ * Evaluate a pure user `fn` call synchronously (functions.md FN-1…FN-5) for a
+ * pure sub-expression position: validate arity (a mismatch is a defect surfaced
+ * as `LoomFnArityError`, shared with the executor's async path), evaluate each
+ * argument in the caller scope, bind it as an immutable local in a fresh child
+ * scope, then evaluate the `fn` body's pure statements + tail. The evaluator
+ * covers the pure body forms (`let`, `if`/`else`, `return`, expression
+ * statements, and the tail expression); an effect statement or a `while`/`for`
+ * loop has no synchronous pure value and short-circuits to the `null` safety
+ * net, matching the surrounding pure-evaluator convention.
+ */
+function evaluatePureFnCall(fn: FnDecl, expr: CallExpr, env: LexicalEnvironment): LoomValue {
+  if (expr.args.length !== fn.params.length) {
+    throw new LoomFnArityError(fn.name, fn.params.length, expr.args.length);
+  }
+  const scope = env.child();
+  fn.params.forEach((param, index) => {
+    scope.defineLocal(param.name, evaluatePureExpression(expr.args[index] as Expr, env), false);
+  });
+  return evaluatePureBlock(fn.body, scope).value;
+}
+
+/** The outcome of evaluating a pure block: a fallen-through value or an explicit `return`. */
+type PureBlockOutcome =
+  | { readonly kind: "value"; readonly value: LoomValue }
+  | { readonly kind: "return"; readonly value: LoomValue };
+
+/**
+ * Evaluate a pure `fn` body `Block` synchronously: walk its statements, then
+ * yield the tail expression's value (or `null` for a statement-terminated body).
+ * An explicit `return` short-circuits the block to its operand (FN-3…FN-5).
+ */
+function evaluatePureBlock(block: Block, env: LexicalEnvironment): PureBlockOutcome {
+  for (const stmt of block.statements) {
+    const outcome = evaluatePureStatement(stmt, env);
+    if (outcome.kind === "return") {
+      return outcome;
+    }
+  }
+  return {
+    kind: "value",
+    value: block.tail !== null ? evaluatePureExpression(block.tail, env) : null,
+  };
+}
+
+/**
+ * Evaluate one pure statement of a `fn` body. `let` binds a local; `if`/`else`
+ * takes the matching arm's block; `return` short-circuits; an expression
+ * statement is evaluated for its (discarded) value. A form with no synchronous
+ * pure value (an effect statement, a `while`/`for` loop, a reassignment against
+ * a captured slot) falls through as a plain value — the pure evaluator does not
+ * model the effect/loop control flow the async executor owns.
+ */
+function evaluatePureStatement(stmt: Stmt, env: LexicalEnvironment): PureBlockOutcome {
+  switch (stmt.kind) {
+    case "let": {
+      const value = stmt.init !== null ? evaluatePureExpression(stmt.init, env) : null;
+      env.defineLocal(stmt.name, value, stmt.mutable);
+      return { kind: "value", value: null };
+    }
+    case "return":
+      return {
+        kind: "return",
+        value: stmt.operand !== null ? evaluatePureExpression(stmt.operand, env) : null,
+      };
+    case "if":
+      return evaluatePureIf(stmt, env);
+    case "expr":
+      return { kind: "value", value: evaluatePureExpression(stmt.expr, env) };
+    default:
+      return { kind: "value", value: null };
+  }
+}
+
+/** Evaluate a pure statement-form `if` / `else if` / `else` chain. */
+function evaluatePureIf(
+  stmt: Extract<Stmt, { kind: "if" }>,
+  env: LexicalEnvironment,
+): PureBlockOutcome {
+  if (evaluatePureExpression(stmt.condition, env) === true) {
+    return evaluatePureBlock(stmt.then, env.child());
+  }
+  if (stmt.otherwise === null) {
+    return { kind: "value", value: null };
+  }
+  return "statements" in stmt.otherwise
+    ? evaluatePureBlock(stmt.otherwise, env.child())
+    : evaluatePureIf(stmt.otherwise, env);
 }
 
 /**

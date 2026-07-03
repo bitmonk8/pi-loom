@@ -32,7 +32,9 @@
 
 import type {
   Block,
+  CallExpr,
   Expr,
+  FnDecl,
   ForStmt,
   IfStmt,
   LoomBody,
@@ -176,6 +178,81 @@ function terminalFlow(result: Exclude<EvalResult, { flow: "value" }>): Flow {
   return { kind: "cancel" };
 }
 
+/**
+ * A `<name>(args)` call whose arg count does not match the resolved `fn`'s
+ * declared parameter count. Arity is a type-phase concern the loom grammar
+ * expects to be well-formed by execution time, so a mismatch reaching the
+ * runtime is a defect: it surfaces as a thrown error (routed to the extension's
+ * command-execution error surface, `loom/runtime/internal-error`) rather than
+ * silently binding `null` for a missing arg or crashing the host.
+ */
+export class LoomFnArityError extends Error {
+  public constructor(name: string, expected: number, actual: number) {
+    super(`function '${name}' expects ${expected} argument(s) but received ${actual}`);
+  }
+}
+
+/**
+ * Whether a resolved identifier names an executable user `fn` — a hoisted
+ * top-level `fn` (`arm: "fn"`) or an imported `.warp fn` (`arm: "import"`),
+ * both carrying the `FnDecl` body. A `.loom`-callable / Pi-tool call (the
+ * `callable` arm) is NOT a user `fn`; it stays on the effect (tool-call /
+ * invoke) path.
+ */
+function resolveUserFn(callee: string, env: LexicalEnvironment): FnDecl | undefined {
+  const r = env.resolve(callee);
+  return (r.arm === "fn" || r.arm === "import") && r.fn !== undefined ? r.fn : undefined;
+}
+
+/**
+ * Execute a user `fn` call `<name>(args)` in-process (functions.md FN-1…FN-5) —
+ * NOT as a host tool-call or an invoke, and NOT against the invoke-depth ceiling
+ * (intra-file `fn` calls are unbounded, hard-ceilings NOCEIL-3/-4). Each argument
+ * is evaluated in the caller's scope through the same expression machinery (so a
+ * nested effect / user-`fn` argument runs on its normal path), bound as an
+ * immutable local into a fresh child scope, and the `fn` body runs through the
+ * SAME `executeBlock` the top-level body and the invoke callee use. The body's
+ * final value flows back as the call's value: an explicit `return` or the block's
+ * tail expression (FN-3…FN-5); a `?`-propagation inside the body early-returns
+ * the `fn` with `Err(e)` (the enclosing function of a `?` is this `fn`); a
+ * `break`/`continue` with no enclosing loop yields the `null` final value.
+ */
+async function evalUserFnCall(
+  fn: FnDecl,
+  expr: CallExpr,
+  env: LexicalEnvironment,
+  deps: ExecuteBodyDeps,
+): Promise<EvalResult> {
+  if (expr.args.length !== fn.params.length) {
+    throw new LoomFnArityError(fn.name, fn.params.length, expr.args.length);
+  }
+  const scope = env.child();
+  for (let i = 0; i < fn.params.length; i += 1) {
+    const arg = await evalExpr(expr.args[i] as Expr, env, deps);
+    if (arg.flow !== "value") {
+      return arg;
+    }
+    scope.defineLocal((fn.params[i] as FnDecl["params"][number]).name, arg.value, false);
+  }
+  const flow = await executeBlock(fn.body, scope, deps);
+  switch (flow.kind) {
+    case "return":
+    case "normal":
+      return { flow: "value", value: flow.value };
+    case "break":
+    case "continue":
+      return { flow: "value", value: null };
+    case "propagate":
+      // A `?` inside the body returns from THIS `fn` with `Err(e)`; the call
+      // evaluates to that `Err` value so an enclosing `?`/`match` sees it.
+      return { flow: "value", value: makeErr(flow.err) };
+    case "fail":
+      return { flow: "fail" };
+    case "cancel":
+      return { flow: "cancel" };
+  }
+}
+
 /** A loom condition is a boolean; only the literal `true` steers control flow. */
 function isTruthy(value: LoomValue): boolean {
   return value === true;
@@ -232,6 +309,15 @@ async function evalExpr(expr: Expr, env: LexicalEnvironment, deps: ExecuteBodyDe
   }
   if (expr.kind === "match") {
     return evalMatch(expr, env, deps);
+  }
+  // A `<name>(args)` call whose callee resolves to a user `fn` executes the
+  // function body in-process (FN-1…FN-5); it is not a host tool-call / invoke
+  // effect, so it never reaches `checkpointFor`.
+  if (expr.kind === "call") {
+    const fn = resolveUserFn(expr.callee, env);
+    if (fn !== undefined) {
+      return evalUserFnCall(fn, expr, env, deps);
+    }
   }
 
   const checkpoint = deps.host.checkpointFor(expr);
@@ -298,8 +384,14 @@ async function evalAsResult(
   env: LexicalEnvironment,
   deps: ExecuteBodyDeps,
 ): Promise<EvalResult> {
-  // A nested `try` / `match` operand is itself a control-flow form.
-  if (operand.kind === "try" || operand.kind === "match") {
+  // A nested `try` / `match` operand is itself a control-flow form; a user `fn`
+  // call operand executes in-process and its returned value is normalised to a
+  // `Result` so `?` can propagate and `match` can dispatch on it.
+  if (
+    operand.kind === "try" ||
+    operand.kind === "match" ||
+    (operand.kind === "call" && resolveUserFn(operand.callee, env) !== undefined)
+  ) {
     const inner = await evalExpr(operand, env, deps);
     if (inner.flow !== "value") {
       return inner;
