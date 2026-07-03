@@ -1956,3 +1956,53 @@ never renders through the real TUI width contract.
   envelope and (c) subagent cancellation are not exercised by this fixture as
   written. A faithful (b)/(c)/(d) run needs a fixture that takes an argument
   (forces a binder pass) and spawns a subagent.
+
+## 2026-07-02 — RELEASE-BLOCKING (owner to confirm): typed-query schema validation is not integrated
+
+The manual real-host smoke's third finding, root-caused to the runtime, not just
+the live composition. **Typed-query schema enforcement (V5d lowering, V13c AJV
+boundary, V13d respond-repair, QRY-8/9/10) is built and unit-tested in isolation
+but never wired into the execution path.** A typed `let x: Schema = @\`…\`` query
+returns whatever JSON the model emits, unvalidated.
+
+**Evidence (all in `src/`):**
+- `resolveSchema` (lexical-environment.ts — name → `schema Report {…}` decl): 0
+  callers. A named schema is never resolved to its fields.
+- `runRespondRepairLoop` (query-respond-repair.ts, V13d): 0 callers. Dead code.
+- No `AjvSchemaValidator` / `.validate(` / schema-lowering use anywhere in the
+  runtime query path or `production-loom-producer.ts`.
+- `runTypedQueryLoop` (query-tool-loop.ts) runs only `depthWalk` (ceiling #4),
+  then `return { kind: "value", value: forced.payload }` — the comment calls it
+  "the respond tool's validated value" but no schema validation runs.
+- `runQueryEffect` (effectful-statement-host.ts:112) returns that raw value.
+- Live observation: `/acceptance` typed `@`-query against `schema Report {
+  status: "ok"|"degraded"; summary: string }` returned
+  `{workspace,path,configFiles,piConfig,status:"inspected",notes}` — non-conforming
+  — and `respond report` echoed it with no `schema_validation` outcome and no note.
+
+**Prompt half (3a):** `production-loom-producer.ts:277-279` builds the typed prompt
+as `…matching this loom type…: ${expr.schema}`, and `QueryExpr.schema` is
+`string|null` (loom-document.ts:131) — for a named schema it interpolates the bare
+name (`Report`), never the field shape. Inline object types interpolate more of
+their shape, which is why the `test:live` inline case looked fine.
+
+**Why the gates missed it:** the closing gate checks citing-test *existence*, not
+integration; the isolated V13c/V13d/V5d unit tests pass; the H7a in-process double
+*models* the validated outcome directly rather than exercising the wiring. This is
+the exact class the release-time residue inspection item 7 (per-facet semantic
+fidelity) concedes to human review and which was recorded "not exhaustively
+verified."
+
+**Criteria gap:** the manual real-host smoke pass criteria (a)–(e) in
+`real-host-smoke-gate.md` do NOT include "typed-query response validates against
+its declared schema," so the smoke would score (a)+(e) green while this defect
+stands. The criteria set has a hole; recording for owner triage alongside the
+finding.
+
+**Severity:** typed queries are a core loom-1.0 feature (V5*, V13*, QRY-*). If the
+runtime does not enforce their declared schema, that is release-blocking. Owner to
+confirm severity/scope and whether it blocks the loom 1.0 tag. Not fixed here
+(investigation only); fixing it reopens runtime integration work (wire
+resolveSchema → lowering → AjvSchemaValidator → runRespondRepairLoop into
+runTypedQueryLoop) plus integration tests that drive the wiring rather than the
+pieces.
