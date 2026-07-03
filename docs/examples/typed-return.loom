@@ -1,0 +1,13 @@
+---
+description: Invoke a subagent classifier and branch on its typed result
+mode: subagent
+tools:
+  - ./sentiment.loom
+params:
+  text: string
+---
+let s = sentiment(text)?
+if s.confidence < 0.5 {
+  @`The classifier was unsure (${s.label}). Ask a clarifying question.`?
+}
+@`Acknowledge the ${s.label} sentiment in one line.`

@@ -1,0 +1,10 @@
+---
+description: "Summarise a file for a given audience"
+argument-hint: "<path> for <audience>"
+mode: subagent
+bind_echo: true
+params:
+  path: string
+  audience: string
+---
+@`Summarise the file at ${path} for an audience of: ${audience}.`

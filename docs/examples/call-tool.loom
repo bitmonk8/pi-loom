@@ -1,0 +1,7 @@
+---
+description: Count TODO markers under src
+mode: subagent
+tools: grep
+---
+let hits = grep({ pattern: "TODO", path: "src" })?
+@`How many TODO markers appear in this grep output? ${hits}`

@@ -1,0 +1,13 @@
+---
+description: Classify text sentiment
+mode: subagent
+params:
+  text: string
+---
+schema Sentiment {
+  label: "positive" | "neutral" | "negative",
+  confidence: number
+}
+
+let result: Sentiment = @`Classify the sentiment of: ${text}`?
+result

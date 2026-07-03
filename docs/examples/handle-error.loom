@@ -1,0 +1,18 @@
+---
+description: Triage a message, recovering from a schema-validation failure
+mode: subagent
+params:
+  message: string
+---
+schema Triage {
+  category: "bug" | "feature" | "question",
+  urgent: boolean
+}
+
+let outcome = match @<Triage>`Triage this message: ${message}` {
+  Ok(t) => t,
+  Err(QueryError { kind: "validation", cause: "schema_validation" }) =>
+    Triage { category: "question", urgent: false },
+  Err(_) => Triage { category: "question", urgent: false },
+}
+@`Handling as ${outcome.category} (urgent: ${outcome.urgent}).`

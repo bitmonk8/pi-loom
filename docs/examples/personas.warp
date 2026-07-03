@@ -1,0 +1,9 @@
+schema Author {
+  name: string,
+  role: string,
+  experience_years: integer
+}
+
+fn rate_strictness(a: Author): Result<integer, QueryError> {
+  @<integer>`On a 1-5 scale, how strict a reviewer is ${a.name}, a ${a.role} with ${a.experience_years}y of experience?`
+}

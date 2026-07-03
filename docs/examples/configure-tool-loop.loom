@@ -1,0 +1,14 @@
+---
+description: Locate config loading with a bounded tool-call budget
+mode: subagent
+tools: grep
+tool_loop:
+  max_rounds: 4
+---
+let answer = match @`Find where configuration is loaded. Use grep as needed.` {
+  Ok(text) => text,
+  Err(QueryError { kind: "tool_loop_exhausted" }) =>
+    "search stopped after the round budget",
+  Err(_) => "search failed",
+}
+@`Report: ${answer}`
