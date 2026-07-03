@@ -2006,3 +2006,23 @@ confirm severity/scope and whether it blocks the loom 1.0 tag. Not fixed here
 resolveSchema → lowering → AjvSchemaValidator → runRespondRepairLoop into
 runTypedQueryLoop) plus integration tests that drive the wiring rather than the
 pieces.
+
+## 2026-07-03 — V7e-T (render-width contract, PIC-56)
+
+V7e-T is a governed-anchor tests task whose paired fix already shipped. The
+width behaviour PIC-56 pins (system-note renderer's `render(width)` returns no
+over-wide line; blank line preserved; non-positive width → raw lines) was
+implemented in src/extension/system-note-renderer.ts under the H6a-smoke
+findings (commit 8d3ea6e2), and a width regression test was landed then in
+tests/system-note-channel.test.ts under the V7d-T describe.
+
+Divergence from the literal per-phase TDD ritual: conventions.md requires a
+`-T` suite to "fail red for the intended reason" (each test reds on its own
+assertion because the impl is absent). Here the impl is present, so the new
+PIC-56 test lands GREEN. This is not a ritual violation — the V7e-T leaf
+explicitly redefines its red-for-right-reason condition as "the absence of a
+`PIC-56`-anchored contract test, not a re-introduction of the crash", and its
+Ships-when is "the PIC-56-anchored render-width test exists and compiles". I
+followed the leaf's own gate. The pre-existing V7d-T width block is left intact
+(not re-anchored); the new block adds the governed `PIC-56` anchor so the
+coverage matrix's PIC-56→V7e mapping has a citing test in the corpus.

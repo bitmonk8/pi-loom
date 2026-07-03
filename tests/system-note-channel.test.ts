@@ -235,6 +235,65 @@ describe("V7d-T — renderer honours the TUI render width (no over-wide line)", 
   });
 });
 
+// --- PIC-56 — system-note renderer render-width contract -----------------
+
+describe("V7e-T — loom-system-note renderer render-width contract (PIC-56)", () => {
+  const opts = { expanded: false } as never;
+  const theme = {} as never;
+
+  it("PIC-56: Component.render(width) returns only lines whose visible width is <= width for a content line longer than width", () => {
+    // PIC-56 (runtime-event-channel.md#pic-56): the renderer's returned
+    // Component MUST fit its output to the supplied render width — no returned
+    // line's visible width may exceed `width`, wrapping (width-aware,
+    // preserving injected styling) or truncating each content line as needed.
+    // Pi's TUI aborts on any line wider than the terminal, so an over-wide
+    // returned line crashes the host at emission time.
+    const width = 24;
+    const content =
+      "this single content line is far wider than the supplied render width and must be split";
+    const renderer = createSystemNoteRenderer();
+    const component = renderer(
+      { customType: SYSTEM_NOTE_CHANNEL, content, display: true } as never,
+      opts,
+      theme,
+    );
+    expect(component).toBeDefined();
+    const lines = component?.render(width) ?? [];
+    // The over-wide source line must be split into more than one returned line
+    // and every returned line must fit the render width.
+    expect(lines.length).toBeGreaterThan(1);
+    for (const line of lines) {
+      expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+    }
+  });
+
+  it("PIC-56: a blank content line is preserved as a single blank line", () => {
+    // PIC-56: a blank content line MUST be preserved as one blank line, not
+    // dropped or collapsed.
+    const renderer = createSystemNoteRenderer();
+    const component = renderer(
+      { customType: SYSTEM_NOTE_CHANNEL, content: "before\n\nafter", display: true } as never,
+      opts,
+      theme,
+    );
+    expect(component?.render(80)).toEqual(["before", "", "after"]);
+  });
+
+  it("PIC-56: a non-positive width (no width contract) falls back to the raw lines", () => {
+    // PIC-56: a non-positive `width` (no width contract available) falls back
+    // to the raw lines — no wrap or truncate is attempted.
+    const content = "an over-wide raw line that is definitely longer than zero columns wide";
+    const renderer = createSystemNoteRenderer();
+    const component = renderer(
+      { customType: SYSTEM_NOTE_CHANNEL, content, display: true } as never,
+      opts,
+      theme,
+    );
+    expect(component?.render(0)).toEqual([content]);
+    expect(component?.render(-5)).toEqual([content]);
+  });
+});
+
 describe("V7d-T — loom/runtime/system-note-delivery-failed fallback chain", () => {
   function note(overrides?: Partial<SystemNote>): SystemNote {
     return {
