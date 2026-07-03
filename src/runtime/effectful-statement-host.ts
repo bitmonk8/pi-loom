@@ -46,7 +46,11 @@ import { makeCancelledError } from "./cancellation-core";
 import type { CheckpointDescriptor, StatementEvalHost } from "./statement-executor";
 import type { LexicalEnvironment } from "./lexical-environment";
 import type { LoomValue } from "./value";
-import type { QueryModelDriver, QueryToolLoopConfig } from "./query-tool-loop";
+import type {
+  QueryModelDriver,
+  QueryToolLoopConfig,
+  TypedQuerySchemaValidation,
+} from "./query-tool-loop";
 import { runTypedQueryLoop, runUntypedQueryLoop } from "./query-tool-loop";
 import type { CodeSideToolCall, ToolLoweringSink } from "./tool-call-execute";
 import { runCodeSideToolCall } from "./tool-call-execute";
@@ -63,6 +67,14 @@ export interface QueryHostDispatch {
   readonly typed: boolean;
   readonly model: QueryModelDriver;
   readonly config: QueryToolLoopConfig;
+  /**
+   * V13e-T seam (QRY-22): the typed-query schema-validation collaborators the
+   * execution path orchestrates for a typed query (resolution → lowering →
+   * `AjvSchemaValidator` → `runRespondRepairLoop`). Present only for a typed
+   * query; the paired `V13e` implementation resolves it from the query
+   * expression's declared schema against the driven conversation.
+   */
+  readonly schemaValidation?: TypedQuerySchemaValidation;
 }
 
 /**
@@ -109,7 +121,13 @@ async function runQueryEffect(
 ): Promise<OperationResult> {
   const dispatch = deps.resolveQuery(expr, env);
   if (dispatch.typed) {
-    const outcome = await runTypedQueryLoop(deps.checkpoint, deps.signal, dispatch.model, dispatch.config);
+    const outcome = await runTypedQueryLoop(
+      deps.checkpoint,
+      deps.signal,
+      dispatch.model,
+      dispatch.config,
+      dispatch.schemaValidation,
+    );
     switch (outcome.kind) {
       case "value":
         return { ok: true, value: outcome.value };

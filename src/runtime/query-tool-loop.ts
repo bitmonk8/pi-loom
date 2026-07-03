@@ -63,8 +63,11 @@ import {
   makeToolLoopExhaustedError,
   type ToolLoopExhaustedError,
   type ValidationError,
+  type ValidationIssue,
 } from "./query-error";
 import { DEPTH_VIOLATION_MESSAGE, depthWalk } from "./depth-walk";
+import type { LoweredSchema } from "../seams/schema-validator";
+import type { RespondRepairOutcome, ValidationFailure } from "./query-respond-repair";
 
 // ---------------------------------------------------------------------------
 // The model turns the loop drives.
@@ -199,6 +202,81 @@ export type TypedQueryOutcome =
   | { readonly kind: "cancelled"; readonly committed: readonly CommittedSideEffect[] };
 
 // ---------------------------------------------------------------------------
+// V13e-T — the typed-query schema-validation integration seam (QRY-22).
+//
+// This seam is the collaborator the runtime execution path (`runTypedQueryLoop`
+// / `runQueryEffect`) MUST orchestrate for a typed query so a query's declared
+// schema — a named `schema` decl (resolved via `resolveSchema`) or an inline
+// object/type annotation — is resolved, lowered to the validating JSON Schema
+// (`V5d`/`SUBS-1`), conveyed to the model on the forced-respond turn (the
+// conveyance carries the *lowered shape*, not the bare type name), and the
+// response validated against it with respond-repair (`QRY-11`) on
+// non-conformance. It bundles the four steps QRY-22 pins as separately
+// observable invocations: schema resolution → lowering → `AjvSchemaValidator`
+// → `runRespondRepairLoop`.
+//
+// V13e-T declares this seam and adds it as an OPTIONAL, ignored parameter to
+// `runTypedQueryLoop` (the paired `V13e` implementation wires the loop to
+// orchestrate it). The `V13c` loop body added no orchestration, so a test that
+// injects this seam and drives the loop reds: none of the seam's steps are
+// invoked and a non-conforming response is bound as the query value instead of
+// routing through respond-repair.
+//
+// Spec: query/query-failure-and-repair.md (QRY-22 typed-query schema-validation
+// integration; QRY-11 respond-repair), schema-subset.md (SUBS-1 lowering),
+// errors-and-results/queryerror-variants.md (ValidationError shape).
+// ---------------------------------------------------------------------------
+
+/**
+ * The result of validating a candidate response payload against the lowered
+ * declared schema via the `AjvSchemaValidator`. On non-conformance it carries
+ * the ordered `ValidationIssue` entries and the malformed response text so the
+ * caller can open the `QRY-11` respond-repair loop with the opening failure.
+ */
+export type TypedQueryValidationResult =
+  | { readonly ok: true }
+  | {
+      readonly ok: false;
+      readonly issues: readonly ValidationIssue[];
+      readonly raw_response: string | null;
+    };
+
+/**
+ * The typed-query schema-validation collaborators the execution path
+ * orchestrates for a typed `@`-query (QRY-22). Held by dependency injection so
+ * the live path threads the real resolution / lowering / `AjvSchemaValidator` /
+ * `runRespondRepairLoop`, and a test injects spies over those same real pieces
+ * and asserts the path invokes them (rather than exercising the isolated
+ * `V5d` / `V13c` / `V13d` units).
+ */
+export interface TypedQuerySchemaValidation {
+  /**
+   * Resolve the typed query's declared schema annotation to its declared shape:
+   * a named `schema` decl (resolved via `resolveSchema`) or an inline
+   * object/type annotation.
+   */
+  resolveDeclaredSchema(): unknown;
+  /** Lower a resolved declared shape to the validating JSON Schema (`SUBS-1`). */
+  lower(shape: unknown): LoweredSchema;
+  /**
+   * Convey the lowered shape to the model on the forced-respond turn — the
+   * forced-respond tool / structured-output instruction carries the lowered
+   * shape, NOT merely the schema's bare type name.
+   */
+  convey(lowered: LoweredSchema): void;
+  /**
+   * Compile and validate a candidate response payload against the lowered
+   * declared schema via the `AjvSchemaValidator`.
+   */
+  validate(lowered: LoweredSchema, payload: unknown): TypedQueryValidationResult;
+  /**
+   * Route a non-conforming response through the `QRY-11` respond-repair loop
+   * (`runRespondRepairLoop`), returning its outcome.
+   */
+  runRespondRepair(initial: ValidationFailure): Promise<RespondRepairOutcome>;
+}
+
+// ---------------------------------------------------------------------------
 // The two drivers (V13c-T stubs; the paired V13c fills them in).
 // ---------------------------------------------------------------------------
 
@@ -299,6 +377,11 @@ export async function runTypedQueryLoop(
   signal: AbortSignal,
   model: QueryModelDriver,
   config: QueryToolLoopConfig,
+  // V13e-T seam (QRY-22): the schema-validation integration collaborators the
+  // paired `V13e` implementation wires the loop to orchestrate. Optional and
+  // ignored by the `V13c` loop body — a test injecting it reds because the loop
+  // invokes none of its steps.
+  _schemaValidation?: TypedQuerySchemaValidation,
 ): Promise<TypedQueryOutcome> {
   // cka-47 `V13c` facet: the cancellation checkpoint fires immediately before
   // the `@`-query dispatch, exactly as for an untyped query.

@@ -2026,3 +2026,47 @@ Ships-when is "the PIC-56-anchored render-width test exists and compiles". I
 followed the leaf's own gate. The pre-existing V7d-T width block is left intact
 (not re-anchored); the new block adds the governed `PIC-56` anchor so the
 coverage matrix's PIC-56→V7e mapping has a citing test in the corpus.
+
+## 2026-07-03 — V13e-T typed-query schema-validation integration seam + a broken Spec link
+
+Two discoveries while writing the V13e-T integration tests (paired V13e impl):
+
+1. **Broken Spec link in the V13e/V13e-T leaves.** Both leaves' `Spec.` field
+   cite `../spec_topics/query/query-schema-inference.md`, which does NOT exist
+   under `docs/spec_topics/` — the only `query-schema-inference` files are the
+   plan topics (`docs/plan_topics/V13b*-query-schema-inference.md`). The binding
+   obligation for this leaf is `QRY-22` in `query/query-failure-and-repair.md`,
+   which does exist and is complete, so this dangling cite did not block the
+   tests-task. Not edited here: fixing a leaf's `Spec.` field is a plan change,
+   out of the tests-task remit, and the actual schema-inference behaviour lives
+   in `query/query-forms.md` (the likely intended target). Flagged for a plan
+   maintainer to repoint or drop the dangling cite. Logged in decisions.jsonl.
+
+2. **The integration seam is a tests-task-declared collaborator bundle.** QRY-22
+   pins four separately-observable invocations (schema resolution → lowering →
+   `AjvSchemaValidator` → `runRespondRepairLoop`) that the execution path must
+   orchestrate but currently does not (the 2026-07-02 real-host-smoke finding).
+   To let the tests drive the REAL `runTypedQueryLoop` / `runQueryEffect` and
+   witness each step, V13e-T declares one seam — `TypedQuerySchemaValidation`
+   (`src/runtime/query-tool-loop.ts`) — bundling the four steps as separate
+   methods (`resolveDeclaredSchema`, `lower`, `convey`, `validate`,
+   `runRespondRepair`), added as an OPTIONAL, `V13c`-loop-ignored parameter to
+   `runTypedQueryLoop` and threaded additively through
+   `QueryHostDispatch.schemaValidation` → `runQueryEffect`. The tests inject a
+   spy seam whose methods wrap the real collaborators (real `env.resolveSchema`,
+   a hand-lowered real JSON Schema, the real `AjvSchemaValidator`, the real
+   `runRespondRepairLoop`) so the "wiring" assertions witness the path invoking
+   the real pieces, not the isolated units. This seam shape is the implementer's
+   to keep or refold behind the same signatures (the loop orchestration is the
+   paired `V13e` deliverable); it is a tests-task seam declaration, not a spec
+   divergence. The `convey(lowered)` step is the QRY-22 "conveyance carries the
+   lowered shape, not the bare type name" obligation — in production the loop
+   must convey the lowered shape to the model BEFORE dispatching the forced
+   respond turn (today `production-loom-producer.#resolvePromptQuery`
+   interpolates the bare `expr.schema` name); the seam lets the test observe the
+   conveyed value without reaching into that private producer method.
+
+   The conforming-response test does not mask a missing prerequisite: it asserts
+   `validation.validateCalls > 0` (the validator actually ran) in addition to the
+   value binding, so it reds on the "validator invoked" assertion under the
+   current no-orchestration loop rather than passing vacuously.
