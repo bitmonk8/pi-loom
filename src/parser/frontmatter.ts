@@ -21,7 +21,7 @@ import {
   type Diagnostic,
   type SourceRange,
 } from "../diagnostics/diagnostic";
-import { LineCounter, parseDocument, isMap, isScalar, type Node } from "yaml";
+import { LineCounter, parseDocument, isMap, isScalar, isSeq, type Node } from "yaml";
 import { type LoweredSchema } from "../seams/schema-validator";
 import { parseParams, type ParamFieldInput } from "./params";
 import { type BypassParamsField } from "../binder/binder-envelope";
@@ -124,6 +124,15 @@ export interface ParsedFrontmatter {
    * the `V6e` implementation leaf; the `V6e-T` seam declares the shape.
    */
   readonly respondRepair?: ParsedRespondRepair;
+  /**
+   * The loom's callable set (`tools:` field, FRNT-2/FRNT-3). Each entry is
+   * either a Pi-tool name (`grep`) or a `.loom`-callable path
+   * (`./sentiment.loom`). Present iff the loom declares a non-empty `tools:`
+   * field. Consumed by the `H8b` live tool-call / invoke resolvers to route a
+   * `<name>(args)` call to the Pi-tool `execute` dispatch or the `.loom`
+   * spawn-and-drive invoke path.
+   */
+  readonly tools?: readonly string[];
 }
 
 /** The outcome of a frontmatter parse: registration decision + diagnostics. */
@@ -237,6 +246,30 @@ function renderScalarValue(value: unknown): string {
     return "null";
   }
   return String(value);
+}
+
+/**
+ * Extract the `tools:` callable set (FRNT-2/FRNT-3): a single scalar becomes a
+ * one-element list; a sequence becomes the list of its scalar entries; any other
+ * shape (empty / non-scalar) yields `undefined` (no callable set). Entries are
+ * carried verbatim so the H8b resolvers can classify each as a Pi-tool name or a
+ * `.loom`-callable path.
+ */
+function extractToolsList(node: unknown): readonly string[] | undefined {
+  if (isScalar(node)) {
+    const value = String(node.value);
+    return value.length > 0 ? [value] : undefined;
+  }
+  if (isSeq(node)) {
+    const entries: string[] = [];
+    for (const item of node.items) {
+      if (isScalar(item)) {
+        entries.push(String(item.value));
+      }
+    }
+    return entries.length > 0 ? entries : undefined;
+  }
+  return undefined;
 }
 
 /** The identifier-shape predicate `<key>` / `<observed>` string rendering uses. */
@@ -457,6 +490,7 @@ export function parseFrontmatter(
   let toolLoopNode: Node | null | undefined;
   let respondRepairNode: Node | null | undefined;
   let paramsNode: Node | null | undefined;
+  let toolsValue: readonly string[] | undefined;
 
   if (map !== undefined) {
     for (const item of map.items) {
@@ -501,6 +535,13 @@ export function parseFrontmatter(
           ? String(item.value.value)
           : undefined;
         bindContextRange = valueRange;
+        continue;
+      }
+      if (key === "tools") {
+        // FRNT-2/FRNT-3 callable set: a scalar (`tools: grep`) or a sequence
+        // (`tools:\n  - ./sentiment.loom`) of Pi-tool names / `.loom`-callable
+        // paths. Surfaced verbatim; the H8b resolvers classify each entry.
+        toolsValue = extractToolsList(item.value);
         continue;
       }
       if (key === "tool_loop") {
@@ -627,6 +668,7 @@ export function parseFrontmatter(
     ...(params !== undefined ? { params } : {}),
     toolLoop,
     respondRepair,
+    ...(toolsValue !== undefined ? { tools: toolsValue } : {}),
   };
   return { registered: true, frontmatter, diagnostics };
 }

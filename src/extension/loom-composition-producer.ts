@@ -47,7 +47,7 @@ import {
   type BodyExecution,
   type ExecuteBodyDeps,
 } from "../runtime/statement-executor";
-import type { ResultValue } from "../runtime/value";
+import type { LoomValue, ResultValue } from "../runtime/value";
 
 /**
  * The parsed `.loom` the producer maps to a runnable `LoomFixture`: the `V19a`
@@ -92,6 +92,13 @@ export interface ConversationBindInput {
   readonly loom: LoomCompositionInput;
   readonly args: string;
   readonly ctx: ExtensionCommandContext;
+  /**
+   * H8b: positional invoke arguments bound onto the callee's declared params as
+   * local slots before its body runs. Present only when this binding drives an
+   * `invoke(...)` / `.loom`-callable callee; absent for a top-level slash
+   * dispatch (whose args are bound by the frontmatter binder).
+   */
+  readonly paramBindings?: ReadonlyMap<string, LoomValue>;
 }
 
 /**

@@ -50,6 +50,7 @@ import type {
   BinderRunResult,
   ConversationBinding,
   ConversationBindInput,
+  LoomCompositionInput,
   LoomProducerDeps,
 } from "./loom-composition-producer";
 import type {
@@ -58,7 +59,7 @@ import type {
 } from "../runtime/effectful-statement-host";
 import { createEffectfulStatementHost } from "../runtime/effectful-statement-host";
 import { buildEnvironment, type LexicalEnvironment } from "../runtime/lexical-environment";
-import type { BodyExecution, ExecuteBodyDeps } from "../runtime/statement-executor";
+import { executeBody, type BodyExecution, type ExecuteBodyDeps } from "../runtime/statement-executor";
 import { extractTrailingTurnText } from "../runtime/conversation-drive";
 import type {
   ForcedRespondTurn,
@@ -73,13 +74,14 @@ import type {
 } from "../runtime/tool-call-execute";
 import type { CommittedSideEffect } from "../runtime/no-rollback";
 import type { InvokeChild } from "../runtime/invoke-cancellation";
+import type { InvokeInfraError } from "../runtime/query-error";
 import type {
   CommittedConversationMutator,
   CommittedSurface,
 } from "../runtime/terminal-outcomes";
 import { makeCancelledError } from "../runtime/cancellation-core";
 import { makeErr, makeOk, type LoomValue, type ResultValue } from "../runtime/value";
-import type { Expr, LoomBody, QueryExpr, SchemaDecl } from "../parser/loom-document";
+import type { CallExpr, Expr, InvokeExpr, LoomBody, QueryExpr, SchemaDecl } from "../parser/loom-document";
 import { lowerQueryResponseSchema } from "../runtime/query-schema-lowering";
 import type { LoweredSchema } from "../seams/schema-validator";
 import type { TypedQuerySchemaValidation } from "../runtime/query-tool-loop";
@@ -95,6 +97,23 @@ import {
   classifyBinderBypass,
 } from "../binder/binder-envelope";
 
+/**
+ * H8b: one resolved host Pi tool the code-side tool-call path dispatches
+ * `execute` against. `execute` invokes the host tool's `execute(...)` and maps
+ * its `AgentToolResult` to the loom-load-bearing `AgentToolResultEnvelope`
+ * (`content` only), or throws when the tool signals failure — the V14g lowering
+ * (`runCodeSideToolCall`) turns a clean resolve into `Ok(text)` and a throw into
+ * `Err(CodeToolError{cause:"execution"})`.
+ */
+export interface PiToolDispatch {
+  readonly toolName: string;
+  execute(
+    toolCallId: string,
+    params: unknown,
+    signal: AbortSignal,
+  ): Promise<AgentToolResultEnvelope>;
+}
+
 /** Construction inputs for the production per-loom producer collaborators. */
 export interface ProductionProducerInput {
   /** The live host extension API (turn drive, message send, command surface). */
@@ -103,6 +122,26 @@ export interface ProductionProducerInput {
   readonly root: RuntimeRoot;
   /** The host model registry (binder-model resolution, structured-output turns). */
   readonly modelRegistry: ModelRegistry;
+  /**
+   * H8b: resolve a Pi-tool name from the loom's callable set (frontmatter
+   * `tools:`) to its `execute` dispatch, or `undefined` when the name is not a
+   * known host tool. Constructed at the composition root over the live host
+   * `cwd` / `ctx`. Absent on non-production harnesses, in which case a code-side
+   * `<name>(args)` call surfaces `Err(CodeToolError{cause:"execution"})` for the
+   * unknown host tool rather than fabricating a value.
+   */
+  readonly resolvePiTool?: (name: string) => PiToolDispatch | undefined;
+  /**
+   * H8b: parse a `.loom`-callable / `invoke(...)` callee referenced from
+   * `callerPath` into a runnable composition input (resolving the callee path
+   * against the caller's directory), or `undefined` when the callee is missing
+   * / unparseable. Constructed at the composition root over the real
+   * `FileSystem` seam and the shared parser deps.
+   */
+  readonly parseCallee?: (
+    callerPath: string | undefined,
+    calleePath: string,
+  ) => Promise<LoomCompositionInput | undefined>;
 }
 
 /**
@@ -149,29 +188,18 @@ class NoopConversationMutator implements CommittedConversationMutator {
 }
 
 /**
- * The inert tool-call / invoke resolvers. The test looms' bodies carry only
- * `@`-queries, so `resolveToolCall` / `resolveInvoke` are legitimately never
- * reached; they satisfy the `EffectfulStatementHostDeps` shape without lying —
- * a body that DID carry a `<name>(args)` / `invoke(...)` would need the real
- * `V14*` / `V15*` hosts wired here, which the shipped test corpus never exercises.
+ * H8b. Raised (a specific type, never a broad throw) when a code-side
+ * `<name>(args)` call names a host tool the composition root cannot resolve (no
+ * `resolvePiTool` collaborator, or the name is not a known host tool). Thrown
+ * from the `CodeSideToolCall.dispatch()` so the V14g lowering surfaces it as
+ * `Err(CodeToolError{cause:"execution"})` rather than fabricating a value.
  */
-function inertToolCall(): CodeSideToolCall {
-  return {
-    toolName: "unused",
-    committed: [],
-    dispatch(): Promise<AgentToolResultEnvelope> {
-      return Promise.resolve({ content: [] });
-    },
-  };
-}
-function inertInvoke(): InvokeChild {
-  return {
-    calleePath: "unused",
-    committed: [],
-    drive(): Promise<ResultValue> {
-      return Promise.resolve(makeOk(null));
-    },
-  };
+class UnknownHostToolError extends Error {}
+
+/** The basename of a `.loom`-callable path, minus its `.loom` extension. */
+function loomCallableName(path: string): string {
+  const base = path.slice(path.replace(/\\/g, "/").lastIndexOf("/") + 1);
+  return base.endsWith(".loom") ? base.slice(0, -".loom".length) : base;
 }
 
 /**
@@ -282,12 +310,14 @@ class ProductionLoomProducer implements LoomProducerDeps {
           userVisible,
         });
       },
-      resolveToolCall: () => inertToolCall(),
-      resolveInvoke: () => inertInvoke(),
+      resolveToolCall: (expr, _env) => this.#resolveToolCall(expr, signal),
+      resolveInvoke: (expr, env) => this.#resolveInvoke(loom, expr, env, ctx),
+      classifyCall: (expr) => this.#classifyCall(loom, expr),
+      resolveCallAsInvoke: (expr, env) => this.#resolveCallAsInvoke(loom, expr, env, ctx),
     };
 
     const executeDeps: ExecuteBodyDeps = {
-      env: buildEnvironment({ body: loom.body }),
+      env: buildBoundEnvironment(loom.body, bindInput.paramBindings),
       host: createEffectfulStatementHost(hostDeps),
       checkpoint: root.checkpoint,
       signal,
@@ -422,12 +452,14 @@ class ProductionLoomProducer implements LoomProducerDeps {
             : {}),
         };
       },
-      resolveToolCall: () => inertToolCall(),
-      resolveInvoke: () => inertInvoke(),
+      resolveToolCall: (expr, _env) => this.#resolveToolCall(expr, signal),
+      resolveInvoke: (expr, env) => this.#resolveInvoke(loom, expr, env, ctx),
+      classifyCall: (expr) => this.#classifyCall(loom, expr),
+      resolveCallAsInvoke: (expr, env) => this.#resolveCallAsInvoke(loom, expr, env, ctx),
     };
 
     const executeDeps: ExecuteBodyDeps = {
-      env: buildEnvironment({ body: loom.body }),
+      env: buildBoundEnvironment(loom.body, bindInput.paramBindings),
       host: createEffectfulStatementHost(hostDeps),
       checkpoint: root.checkpoint,
       signal,
@@ -566,6 +598,179 @@ class ProductionLoomProducer implements LoomProducerDeps {
     });
     return { validation, lowered };
   }
+
+  /**
+   * H8b call-kind routing. A `<name>(args)` call whose callee resolves to a
+   * `.loom`-callable in the loom's callable set (frontmatter `tools:`) is
+   * semantically an invoke; every other call is a Pi tool. The resolution is
+   * against the callable set alone — a name bound to a `./x.loom` entry routes
+   * to the invoke spawn-and-drive path, all else to the tool-`execute` path.
+   */
+  #classifyCall(
+    loom: ConversationBindInput["loom"],
+    expr: CallExpr,
+  ): "pi-tool" | "loom-callable" {
+    return loomCalleePath(loom, expr.callee) !== undefined ? "loom-callable" : "pi-tool";
+  }
+
+  /**
+   * H8b live tool-call resolver. Resolve `expr.callee` against the host tool set
+   * and return a `CodeSideToolCall` whose `dispatch()` invokes the host tool's
+   * `execute(...)` (V14g lowering turns a clean resolve into `Ok(text)`, a throw
+   * into `Err(CodeToolError{cause:"execution"})`). An unresolved host tool name
+   * throws `UnknownHostToolError` from `dispatch()`, lowering to the execution
+   * `Err` rather than fabricating a value.
+   */
+  #resolveToolCall(expr: CallExpr, signal: AbortSignal): CodeSideToolCall {
+    const toolName = expr.callee;
+    const resolve = this.#input.resolvePiTool;
+    const tool = resolve?.(toolName);
+    const params = lowerToolCallParams(expr);
+    const toolCallId = `loom-direct:${this.#input.root.idSource.newInvocationId()}`;
+    return {
+      toolName,
+      committed: [],
+      dispatch: (): Promise<AgentToolResultEnvelope> => {
+        if (tool === undefined) {
+          return Promise.reject(
+            new UnknownHostToolError(`code-side call names no resolvable host tool '${toolName}'`),
+          );
+        }
+        return tool.execute(toolCallId, params, signal);
+      },
+    };
+  }
+
+  /**
+   * H8b live invoke resolver for an `invoke("./x.loom", ...args)` expression:
+   * bind the positional args, resolve+parse the callee against the caller's
+   * directory, spawn/drive it, and return its top-level `Result` (FN-5).
+   */
+  #resolveInvoke(
+    loom: ConversationBindInput["loom"],
+    expr: InvokeExpr,
+    env: LexicalEnvironment,
+    ctx: ExtensionCommandContext,
+  ): InvokeChild {
+    // `expr.args[0]` is the callee path literal; the remaining args are the
+    // positional invocation arguments bound to the callee's params.
+    const argValues = expr.args.slice(1).map((arg) => evaluatePureExpression(arg, env));
+    return this.#buildInvokeChild(loom, expr.path, argValues, ctx);
+  }
+
+  /**
+   * H8b live invoke resolver for a `.loom`-callable `<name>(args)` call: resolve
+   * the callee path from the callable set, bind the positional args, and drive
+   * the callee, returning its typed top-level `Result` across the boundary
+   * (FN-5).
+   */
+  #resolveCallAsInvoke(
+    loom: ConversationBindInput["loom"],
+    expr: CallExpr,
+    env: LexicalEnvironment,
+    ctx: ExtensionCommandContext,
+  ): InvokeChild {
+    const calleePath = loomCalleePath(loom, expr.callee) ?? `./${expr.callee}.loom`;
+    const argValues = expr.args.map((arg) => evaluatePureExpression(arg, env));
+    return this.#buildInvokeChild(loom, calleePath, argValues, ctx);
+  }
+
+  /** Build the `InvokeChild` whose `drive()` parses, spawns, and drives the callee. */
+  #buildInvokeChild(
+    loom: ConversationBindInput["loom"],
+    calleePath: string,
+    argValues: readonly LoomValue[],
+    ctx: ExtensionCommandContext,
+  ): InvokeChild {
+    return {
+      calleePath,
+      committed: [],
+      drive: (): Promise<ResultValue> => this.#driveCallee(loom, calleePath, argValues, ctx),
+    };
+  }
+
+  /**
+   * Parse the callee `.loom`, spawn a fresh isolated subagent session for it
+   * (V15l: a subagent callee spawns fresh; the caller's settings are not
+   * inherited), bind the positional args onto its declared params, run its body
+   * through the executor, and surface its top-level `Result` (FN-5). An
+   * unparseable / missing callee surfaces `Err(InvokeInfraError{cause:
+   * "load_failure"})` — never a fabricated `Ok(null)`.
+   */
+  async #driveCallee(
+    loom: ConversationBindInput["loom"],
+    calleePath: string,
+    argValues: readonly LoomValue[],
+    ctx: ExtensionCommandContext,
+  ): Promise<ResultValue> {
+    const callee = await this.#input.parseCallee?.(loom.sourcePath, calleePath);
+    if (callee === undefined) {
+      const error: InvokeInfraError = {
+        kind: "invoke_infra",
+        message: `invoke callee '${calleePath}' could not be loaded`,
+        callee_path: calleePath,
+        cause: "load_failure",
+      };
+      return makeErr(error as unknown as LoomValue);
+    }
+    const paramNames = callee.frontmatter.params?.fields.map((field) => field.wireName) ?? [];
+    const paramBindings = new Map<string, LoomValue>();
+    paramNames.forEach((name, index) => {
+      paramBindings.set(name, argValues[index] ?? null);
+    });
+    const binding = await this.spawnSubagentConversation({
+      loom: callee,
+      args: "",
+      ctx,
+      paramBindings,
+    });
+    const execution = await executeBody(callee.body, binding.executeDeps);
+    return binding.surface(execution);
+  }
+}
+
+/**
+ * The callable-set entry (a `./x.loom` path) that a call name resolves to, or
+ * `undefined` when the name binds to no `.loom`-callable (so it is a Pi tool).
+ */
+function loomCalleePath(
+  loom: ConversationBindInput["loom"],
+  calleeName: string,
+): string | undefined {
+  const tools = loom.frontmatter.tools ?? [];
+  return tools.find(
+    (entry) => entry.endsWith(".loom") && loomCallableName(entry) === calleeName,
+  );
+}
+
+/**
+ * Lower a code-side `<name>(args)` call's arguments to the JSON params object the
+ * host tool's `execute(...)` receives. loom 1.0's body grammar has no
+ * object-literal expression, so a single object argument cannot yet be conveyed;
+ * this returns an empty params object until object-literal expressions land (see
+ * status DIVERGENCE). The tool still dispatches for real — the composition is no
+ * longer inert.
+ */
+function lowerToolCallParams(_expr: CallExpr): Record<string, unknown> {
+  return {};
+}
+
+/**
+ * Build the executor's root environment for a body, binding any invoke-supplied
+ * positional args onto the callee's declared params as local slots (V15k final
+ * value / arg binding) so the body can read them.
+ */
+function buildBoundEnvironment(
+  body: LoomBody,
+  paramBindings: ReadonlyMap<string, LoomValue> | undefined,
+): LexicalEnvironment {
+  const env = buildEnvironment({ body });
+  if (paramBindings !== undefined) {
+    for (const [name, value] of paramBindings) {
+      env.defineLocal(name, value, false);
+    }
+  }
+  return env;
 }
 
 /**

@@ -19,7 +19,21 @@
 // Spec (narrative): pi-integration-contract/extension-bootstrap-and-per-loom.md,
 // pi-integration-contract/registration-steps.md, discovery.md.
 
-import { delimiter as PATH_DELIMITER } from "node:path";
+import {
+  delimiter as PATH_DELIMITER,
+  dirname,
+  isAbsolute,
+  resolve as resolvePath,
+} from "node:path";
+import {
+  createBashToolDefinition,
+  createEditToolDefinition,
+  createFindToolDefinition,
+  createGrepToolDefinition,
+  createLsToolDefinition,
+  createReadToolDefinition,
+  createWriteToolDefinition,
+} from "@earendil-works/pi-coding-agent";
 import type {
   ExtensionAPI,
   ExtensionContext,
@@ -150,7 +164,19 @@ export async function discoverAndComposeFixtures(
     getAvailable: () => ctx.modelRegistry.getAvailable() as never,
   });
   const systemNote = buildSystemNoteDeps(pi, ctx, emitDiagnostic);
-  const producerDeps = createProductionProducerDeps({ pi, root, modelRegistry: ctx.modelRegistry });
+  const parseDeps = { systemNote, modelMatcher };
+  const producerDeps = createProductionProducerDeps({
+    pi,
+    root,
+    modelRegistry: ctx.modelRegistry,
+    // H8b: resolve a code-side Pi-tool name to its `execute` dispatch over the
+    // live host `cwd` / `ctx`.
+    resolvePiTool: (name: string) => resolvePiTool(name, ctx),
+    // H8b: parse an `invoke` / `.loom`-callable callee against the caller's
+    // directory, reusing the shared parser deps.
+    parseCallee: (callerPath, calleePath) =>
+      parseCalleeLoom(fileSystem, ctx.cwd, callerPath, calleePath, parseDeps),
+  });
 
   const fixtures: LoomFixture[] = [];
   for (const loom of discovered) {
@@ -164,6 +190,111 @@ export async function discoverAndComposeFixtures(
     fixtures.push(composeLoomFixture(parsed, producerDeps));
   }
   return fixtures;
+}
+
+/** The loom-load-bearing shape of a host tool definition's `execute` member. */
+type HostToolExecute = (
+  toolCallId: string,
+  params: never,
+  signal: AbortSignal | undefined,
+  onUpdate: undefined,
+  ctx: ExtensionContext,
+) => Promise<{ readonly content: readonly { readonly type: string }[] }>;
+
+/**
+ * H8b: construct the host built-in tool definition for `name` over `cwd`, or
+ * `undefined` when the name is not a known host built-in. Each returns a
+ * `ToolDefinition` whose `execute(...)` loom drives directly for a code-side
+ * `<name>(args)` call (host-interfaces-core.md §"Tool execution from loom code").
+ * A switch (not a module-level lookup object) keeps the composition root free of
+ * module-level mutable state.
+ */
+function builtinToolDefinition(
+  name: string,
+  cwd: string,
+): { execute: HostToolExecute } | undefined {
+  switch (name) {
+    case "grep":
+      return createGrepToolDefinition(cwd);
+    case "read":
+      return createReadToolDefinition(cwd);
+    case "find":
+      return createFindToolDefinition(cwd);
+    case "ls":
+      return createLsToolDefinition(cwd);
+    case "bash":
+      return createBashToolDefinition(cwd);
+    case "edit":
+      return createEditToolDefinition(cwd);
+    case "write":
+      return createWriteToolDefinition(cwd);
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * H8b: resolve a code-side Pi-tool name to its `execute` dispatch. Returns
+ * `undefined` for a name that is not a known host built-in, so the code-side
+ * path surfaces the unknown-tool execution `Err` rather than fabricating a
+ * value. The synthesised `execute` invokes the host tool with a `loom-direct:`
+ * tool-call id and maps its `AgentToolResult` to loom's `content`-only envelope.
+ */
+function resolvePiTool(
+  name: string,
+  ctx: ExtensionContext,
+): { readonly toolName: string; execute: (id: string, params: unknown, signal: AbortSignal) => Promise<{ readonly content: readonly { readonly type: string }[] }> } | undefined {
+  const definition = builtinToolDefinition(name, ctx.cwd);
+  if (definition === undefined) {
+    return undefined;
+  }
+  return {
+    toolName: name,
+    execute: async (id, params, signal) => {
+      const result = await definition.execute(id, params as never, signal, undefined, ctx);
+      return { content: result.content };
+    },
+  };
+}
+
+/**
+ * H8b: resolve a callee path against the caller's directory (or `cwd` for an
+ * in-memory caller) and parse it into a runnable composition input. Returns
+ * `undefined` when the callee is missing / unparseable, so the invoke resolver
+ * surfaces the `load_failure` `Err`.
+ */
+async function parseCalleeLoom(
+  fs: FileSystem,
+  cwd: string,
+  callerPath: string | undefined,
+  calleePath: string,
+  deps: Parameters<typeof parseLoomDocument>[1],
+): Promise<LoomCompositionInput | undefined> {
+  const baseDir = callerPath !== undefined ? dirname(callerPath) : cwd;
+  const absolute = isAbsolute(calleePath) ? calleePath : resolvePath(baseDir, calleePath);
+  const bytes = await fs.readBytes(absolute).then(
+    (value) => value,
+    () => undefined,
+  );
+  if (bytes === undefined) {
+    return undefined;
+  }
+  const document = parseLoomDocument({ path: absolute, bytes }, deps);
+  if (document.frontmatter === null) {
+    return undefined;
+  }
+  return {
+    slashName: loomBasename(absolute),
+    sourcePath: absolute,
+    frontmatter: document.frontmatter,
+    body: document.body,
+  };
+}
+
+/** The `.loom` basename (minus extension) of a path, for the callee slash name. */
+function loomBasename(path: string): string {
+  const base = path.slice(path.replace(/\\/g, "/").lastIndexOf("/") + 1);
+  return base.endsWith(".loom") ? base.slice(0, -".loom".length) : base;
 }
 
 /** Read + parse one discovered `.loom` into its `V19a` frontmatter + body AST. */
@@ -188,6 +319,7 @@ async function parseDiscoveredLoom(
   }
   return {
     slashName: loom.name,
+    sourcePath: loom.path,
     frontmatter: document.frontmatter,
     body: document.body,
   };

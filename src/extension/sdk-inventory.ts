@@ -264,6 +264,17 @@ export const SDK_SURFACE_INVENTORY: readonly SurfaceInventoryEntry[] =
     { id: "ProviderStreamOptions", kind: "peer-named-import" },
     { id: "Component", kind: "peer-named-import" },
     { id: "wrapTextWithAnsi", kind: "peer-named-import" },
+    // The H8b live tool-call resolver constructs the host built-in tool
+    // definitions by name so a code-side `<name>(args)` call can drive the
+    // host tool's `execute(...)` directly (host-interfaces-core.md §"Tool
+    // execution from loom code").
+    { id: "createGrepToolDefinition", kind: "peer-named-import" },
+    { id: "createReadToolDefinition", kind: "peer-named-import" },
+    { id: "createFindToolDefinition", kind: "peer-named-import" },
+    { id: "createLsToolDefinition", kind: "peer-named-import" },
+    { id: "createBashToolDefinition", kind: "peer-named-import" },
+    { id: "createEditToolDefinition", kind: "peer-named-import" },
+    { id: "createWriteToolDefinition", kind: "peer-named-import" },
     // The non-`namespace-function` operand rows the version-bump gates (`V18c`)
     // read. Each carries the pinned operand its gate reconciles against the
     // pinned SDK: the in-repo Node floor (operand (ii) of the `engines.node`

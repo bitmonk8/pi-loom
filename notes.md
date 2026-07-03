@@ -2239,3 +2239,38 @@ QRY-22 intent:
    outcome), and a bare `@<string>` schema accepts prose. A genuinely-`null`
    parsed reply is validated and rejected by any non-nullable schema. Neither
    throws nor binds a fabricated value.
+
+## H8b (Defect A) — live tool-call / invoke resolvers; two pre-existing end-to-end gaps
+
+Defect A fixed: the shipped composition wired inert `resolveToolCall`/`resolveInvoke`
+doubles, so code-side `<name>(args)` tool calls and `.loom`-callable `invoke`/calls
+returned fabricated `Ok(null)`/`Ok("")` without executing. Built the real
+Layer-2 resolvers (dispatch through the V14g tool runner; spawn-and-drive the
+callee through the V15m invoke runner) and wired them into both dep blocks of
+`production-loom-producer.ts`; removed the inert stubs. Callable-set resolution is
+against frontmatter `tools:` (now surfaced on `ParsedFrontmatter`): a `./x.loom`
+entry routes a `<name>(args)` call to the invoke path (typed final `Result` across
+the boundary, FN-5); a plain name routes to the Pi-tool `execute` dispatch.
+
+Two SEPARATE pre-existing gaps (NOT the inert-calls defect, NOT introduced here)
+block the two example looms from running fully green end-to-end; both are logged
+for follow-on work and are out of H8b's scope:
+
+1. **No object-literal expression in the body grammar.** The main body-expression
+   parser (`src/parser/loom-document.ts`) has no `{ … }` object-literal expression
+   (only the separate `literal-sublanguage.ts` for params defaults). So
+   `docs/examples/call-tool.loom`'s `grep({ pattern: "TODO", path: "src" })`
+   cannot convey its object argument — the args parse into a garbled positional
+   list and lower to an empty params object. The `grep` tool now *runs for real*
+   (no longer inert), but with empty params. Fixing this is a language feature
+   (an object-literal `Expr` kind + evaluation), a vertical-slice concern.
+
+2. **Binder-bound params not threaded into the executor environment.** For a
+   top-level slash dispatch, `runBinder` returns only `{ bound: boolean }` and
+   discards the bound param values; `composeLoomFixture` never passes them to the
+   mode binding, so the body's env has no param slots and a param identifier
+   resolves to `null`. This is why `docs/examples/typed-return.loom`'s `text`
+   resolves `null` (so `sentiment(text)` drives the callee with `text = null`).
+   The invoke resolver itself binds its callee's params correctly
+   (`buildBoundEnvironment` + `env.defineLocal`); the gap is the *top-level*
+   binder→env threading (V11a/V19e territory), a distinct composition defect.

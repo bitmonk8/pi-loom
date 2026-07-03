@@ -52,6 +52,12 @@ import type {
 export interface ParsedLoom {
   /** The slash-command name this loom registers under. */
   readonly slashName: string;
+  /**
+   * The loom's source file path, when discovered from disk. Carried so the
+   * `H8b` invoke resolver can resolve a relative `.loom`-callable / `invoke`
+   * path against the calling loom's directory. Absent for in-memory fixtures.
+   */
+  readonly sourcePath?: string;
   /** The `V19a` parsed frontmatter (`mode:` / `model:` / `tool_loop` / …). */
   readonly frontmatter: ParsedFrontmatter;
   /** The `V19a` whole-file body statement-list AST the interpreter walks. */

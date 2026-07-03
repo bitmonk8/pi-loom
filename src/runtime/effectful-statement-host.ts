@@ -98,6 +98,23 @@ export interface EffectfulStatementHostDeps {
   resolveQuery(expr: QueryExpr, env: LexicalEnvironment): QueryHostDispatch;
   resolveToolCall(expr: CallExpr, env: LexicalEnvironment): CodeSideToolCall;
   resolveInvoke(expr: InvokeExpr, env: LexicalEnvironment): InvokeChild;
+  /**
+   * H8b live-resolver routing. Classify a `<name>(args)` call by its resolved
+   * callee against the loom's callable set (frontmatter `tools:`): a name bound
+   * to a Pi tool routes to the tool-`execute` dispatch (`resolveToolCall`), a
+   * name bound to a `.loom`-callable routes to the invoke spawn-and-drive path
+   * (`resolveCallAsInvoke`). Absent ⇒ every `<name>(args)` call is treated as a
+   * Pi tool, preserving the `V19d`-double runner behaviour.
+   */
+  classifyCall?(expr: CallExpr, env: LexicalEnvironment): "pi-tool" | "loom-callable";
+  /**
+   * H8b live-resolver. Resolve a `<name>(args)` call bound to a `.loom`-callable
+   * to its invoke child — the same `InvokeChild` boundary `resolveInvoke`
+   * returns — so it drives through the real `runInvokeChild` trampoline and
+   * returns the callee's typed top-level `Result` across the boundary (FN-5).
+   * Consulted only when `classifyCall` returns `"loom-callable"`.
+   */
+  resolveCallAsInvoke?(expr: CallExpr, env: LexicalEnvironment): InvokeChild;
 }
 
 /** Build a `CheckpointSite` from an expression's source span. */
@@ -166,6 +183,29 @@ async function runToolCallEffect(
   env: LexicalEnvironment,
   deps: EffectfulStatementHostDeps,
 ): Promise<OperationResult> {
+  // A `<name>(args)` call bound to a `.loom`-callable (frontmatter `tools:`) is
+  // semantically an invoke: drive it through the real invoke trampoline and
+  // return the callee's typed top-level `Result` directly (FN-5), NOT the
+  // string-lowered tool-call value. A name bound to a Pi tool falls through to
+  // the code-side `execute` dispatch below.
+  if (
+    deps.classifyCall?.(expr, env) === "loom-callable" &&
+    deps.resolveCallAsInvoke !== undefined
+  ) {
+    const child = deps.resolveCallAsInvoke(expr, env);
+    const invokeOutcome = await runInvokeChild(
+      deps.checkpoint,
+      deps.signal,
+      siteOf(expr, deps.file),
+      child,
+    );
+    switch (invokeOutcome.kind) {
+      case "value":
+        return { ok: true, value: invokeOutcome.result };
+      case "cancelled":
+        return { ok: false, error: makeCancelledError() };
+    }
+  }
   const call = deps.resolveToolCall(expr, env);
   const outcome = await runCodeSideToolCall(
     deps.checkpoint,

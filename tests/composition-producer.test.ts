@@ -212,9 +212,12 @@ class ScriptedSessionQueryModel implements QueryModelDriver {
   }
 }
 
-// Inert tool-call / invoke resolvers — the test bodies carry only an `@`-query,
-// so `resolveToolCall` / `resolveInvoke` are never reached; they exist to
-// satisfy the `EffectfulStatementHostDeps` shape.
+// Test-local tool-call / invoke resolver doubles for this V19e harness: the
+// test bodies carry only an `@`-query, so these resolvers are not reached in
+// these cases. They are harness doubles satisfying the
+// `EffectfulStatementHostDeps` shape — NOT an assertion of production behaviour.
+// The shipped production resolvers (H8b) are real; their live wiring is covered
+// by tests/production-live-resolvers.test.ts.
 const INERT_TOOL_CALL: CodeSideToolCall = {
   toolName: "unused",
   committed: [],
