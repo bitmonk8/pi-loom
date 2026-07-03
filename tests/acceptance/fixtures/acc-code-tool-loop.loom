@@ -1,0 +1,10 @@
+---
+mode: prompt
+tools:
+  - read
+---
+// H9a acceptance area (f) — code-tool loop.
+// A code-side Pi-tool call feeds a follow-up query; invariant set: no-error exit
+// + permitted codes only.
+let contents = read({ path: "acc-code-tool-loop.loom" })?
+respond @`Summarise in one short sentence what this file is: ${contents}`

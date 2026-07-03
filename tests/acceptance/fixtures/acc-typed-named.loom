@@ -1,0 +1,12 @@
+---
+mode: prompt
+---
+// H9a acceptance area (b) — typed query with a NAMED schema decl (QRY-22).
+// The declared `Reply` schema is lowered and the model's response is validated
+// against it; the structured JSON streams as the turn's assistant text.
+schema Reply {
+  status: string
+  summary: string
+}
+let r: Reply = @`Report on a hypothetical build. Set status to a single short word and summary to one sentence.`
+respond r

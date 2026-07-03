@@ -1,0 +1,11 @@
+---
+mode: prompt
+---
+// H9a acceptance area (h) — error/result `match` surfacing a QueryError.
+// The query result is destructured with `match`; the `Err(QueryError)` arm is
+// handled rather than thrown, so the run exits cleanly either way.
+let outcome = match @`Reply with a short one-line greeting.` {
+  Ok(text) => text,
+  Err(e) => "handled query error: ${e.message}"
+}
+respond outcome

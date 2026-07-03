@@ -43,6 +43,28 @@ export const PI_CLI_ENTRY = fileURLToPath(
   ),
 );
 
+/**
+ * The working-copy Pi extension entry (`<repo>/extensions`). The acceptance
+ * runner loads THIS checkout's extension explicitly (`-ne -e <entry>`) rather
+ * than relying on ambient extension discovery from the spawned process's `cwd`
+ * (a throwaway scratch dir that contains no `package.json#pi.extensions`), so
+ * the suite exercises the code under test in this working tree — never a
+ * globally-installed loom build from an unrelated checkout.
+ */
+export const EXTENSION_ENTRY = fileURLToPath(
+  new URL("../../extensions", import.meta.url),
+);
+
+/**
+ * The live provider/model the spawned `pi -p` session drives its turns against.
+ * Overridable through the environment so a different live host can be pinned
+ * without editing the suite; the defaults name a broadly-available structured-
+ * output-capable model. `pi -p` inherits `process.env`, so a missing credential
+ * surfaces as the live-host precondition failure (never a silent skip).
+ */
+export const ACCEPTANCE_PROVIDER = process.env["PI_LOOM_ACC_PROVIDER"] ?? "unity-messages";
+export const ACCEPTANCE_MODEL = process.env["PI_LOOM_ACC_MODEL"] ?? "claude-haiku-4-5";
+
 /** Directory holding the committed feature-loom fixtures (authored by the paired `H9a`). */
 export const FEATURE_LOOM_DIR = fileURLToPath(
   new URL("./fixtures", import.meta.url),
@@ -154,14 +176,14 @@ export const FEATURE_LOOMS: readonly FeatureLoomSpec[] = [
     area: "prompt-sentinel",
     label: "(a)",
     stem: "acc-prompt-sentinel",
-    fixtureFile: "a-prompt-sentinel.loom",
+    fixtureFile: "acc-prompt-sentinel.loom",
     invariants: { noErrorExit: true, permittedCodesSubset: true },
   },
   {
     area: "typed-query-named-schema",
     label: "(b)",
     stem: "acc-typed-named",
-    fixtureFile: "b-typed-query-named-schema.loom",
+    fixtureFile: "acc-typed-named.loom",
     invariants: {
       noErrorExit: true,
       permittedCodesSubset: true,
@@ -172,7 +194,7 @@ export const FEATURE_LOOMS: readonly FeatureLoomSpec[] = [
     area: "typed-query-inline",
     label: "(c)",
     stem: "acc-typed-inline",
-    fixtureFile: "c-typed-query-inline.loom",
+    fixtureFile: "acc-typed-inline.loom",
     invariants: {
       noErrorExit: true,
       permittedCodesSubset: true,
@@ -183,7 +205,7 @@ export const FEATURE_LOOMS: readonly FeatureLoomSpec[] = [
     area: "params-binder",
     label: "(d)",
     stem: "acc-params-binder",
-    fixtureFile: "d-params-binder.loom",
+    fixtureFile: "acc-params-binder.loom",
     invariants: {
       noErrorExit: true,
       permittedCodesSubset: true,
@@ -197,7 +219,7 @@ export const FEATURE_LOOMS: readonly FeatureLoomSpec[] = [
     area: "subagent-cancel",
     label: "(e)",
     stem: "acc-subagent-cancel",
-    fixtureFile: "e-subagent-cancel.loom",
+    fixtureFile: "acc-subagent-cancel.loom",
     invariants: {
       noErrorExit: true,
       permittedCodesSubset: true,
@@ -208,28 +230,28 @@ export const FEATURE_LOOMS: readonly FeatureLoomSpec[] = [
     area: "code-tool-loop",
     label: "(f)",
     stem: "acc-code-tool-loop",
-    fixtureFile: "f-code-tool-loop.loom",
+    fixtureFile: "acc-code-tool-loop.loom",
     invariants: { noErrorExit: true, permittedCodesSubset: true },
   },
   {
     area: "imports-invoke",
     label: "(g)",
     stem: "acc-imports-invoke",
-    fixtureFile: "g-imports-invoke.loom",
+    fixtureFile: "acc-imports-invoke.loom",
     invariants: { noErrorExit: true, permittedCodesSubset: true },
   },
   {
     area: "match-queryerror",
     label: "(h)",
     stem: "acc-match-queryerror",
-    fixtureFile: "h-match-queryerror.loom",
+    fixtureFile: "acc-match-queryerror.loom",
     invariants: { noErrorExit: true, permittedCodesSubset: true },
   },
   {
     area: "multi-source-discovery",
     label: "(i)",
     stem: "acc-multi-source",
-    fixtureFile: "i-multi-source-discovery.loom",
+    fixtureFile: "acc-multi-source.loom",
     invariants: {
       noErrorExit: true,
       permittedCodesSubset: true,
@@ -337,6 +359,16 @@ export function spawnPiPrint(options: SpawnPiPrintOptions): Promise<PiPrintResul
   const args = [
     PI_CLI_ENTRY,
     "-p",
+    // Load THIS working tree's extension (disable ambient discovery so the
+    // scratch cwd cannot pull an unrelated globally-installed loom build).
+    "-ne",
+    "-e",
+    EXTENSION_ENTRY,
+    // Pin the live provider/model the driven turns run against.
+    "--provider",
+    ACCEPTANCE_PROVIDER,
+    "--model",
+    ACCEPTANCE_MODEL,
     ...loomDirs.flatMap((dir) => ["--loom", dir]),
     options.slashInvocation,
   ];
@@ -344,6 +376,11 @@ export function spawnPiPrint(options: SpawnPiPrintOptions): Promise<PiPrintResul
     const child = spawn(process.execPath, args, {
       cwd: options.cwd,
       env: process.env,
+      // Close the child's stdin: `pi -p` in non-interactive print mode reads its
+      // prompt from argv, but an OPEN inherited stdin pipe leaves it waiting for
+      // EOF and the process-and-exit run never terminates. `"ignore"` gives the
+      // child an already-closed stdin so it exits after emitting its output.
+      stdio: ["ignore", "pipe", "pipe"],
     });
     let stdout = "";
     let stderr = "";

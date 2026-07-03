@@ -1,0 +1,8 @@
+---
+mode: prompt
+---
+// H9a acceptance area (a) — prompt-mode sentinel turn.
+// One prompt-mode untyped query drives a single user-visible turn through the
+// real `pi -p` binary. Invariant set: no-error exit + emitted codes subset of
+// the committed permitted-code list.
+@`Reply with exactly this text and nothing else, no punctuation: ACC SENTINEL OK`

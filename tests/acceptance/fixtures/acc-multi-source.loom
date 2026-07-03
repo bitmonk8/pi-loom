@@ -1,0 +1,7 @@
+---
+mode: prompt
+---
+// H9a acceptance area (i) — multi-source discovery (project + --loom CLI source).
+// The suite drives this same loom discovered from two sources; both registrations
+// must run identically. Invariant set: no-error exit + permitted codes only.
+@`Reply with exactly this text and nothing else, no punctuation: ACC MULTI SOURCE OK`

@@ -2070,3 +2070,71 @@ Two discoveries while writing the V13e-T integration tests (paired V13e impl):
    `validation.validateCalls > 0` (the validator actually ran) in addition to the
    value binding, so it reds on the "validator invoked" assertion under the
    current no-orchestration loop rather than passing vacuously.
+
+## 2026-07-03 — H9a non-interactive `pi -p` acceptance suite: divergences & discoveries
+
+Landing the Phase-1 acceptance suite (areas (a)–(i) green through the real `pi -p`
+binary) surfaced several non-plan discoveries and required minimal, faithful
+decisions:
+
+1. **Runner wiring (harness, test-support).** The H9a-T `spawnPiPrint` drove
+   `pi -p --loom <dir> "/<name>"` with no extension load and no model pin, relying
+   on ambient extension discovery from the spawned process's cwd — but the runner
+   uses a throwaway scratch cwd (no `package.json#pi.extensions`), and a globally
+   installed loom build (an unrelated checkout) would otherwise auto-load. The
+   runner now loads THIS working tree's extension explicitly (`-ne -e
+   <repo>/extensions`) and pins an env-overridable live provider/model
+   (`PI_LOOM_ACC_PROVIDER`/`PI_LOOM_ACC_MODEL`, default `unity-messages` /
+   `claude-haiku-4-5`). Also: the H9a-T manifest's `fixtureFile` names (`a-…`,
+   `b-…`) did not match the invoked slash stems (`acc-…`); discovery derives the
+   slash name from the filename stem verbatim, so the fixtures are named
+   `acc-<area>.loom` and the manifest `fixtureFile` fields corrected to match.
+
+2. **`pi -p` buffers stdout.** `pi -p` prints only the trailing user-session
+   assistant turn, at turn end — it does not stream incrementally. Killing the
+   spawned process mid-turn (the harness `abortAfterMs`→SIGTERM backstop) yields
+   EMPTY stdout+stderr (verified). Consequently the area-(e) cancellation cannot
+   be observed via the external process kill; it must be surfaced by the loom on
+   normal completion (see item 4).
+
+3. **`ParsedFrontmatter` did not expose `params`/`bind_model`.** The production
+   frontmatter parser recognised `params:`/`bind_model:` only for the unknown-key
+   check; it exposed neither to the runtime, so the production composition could
+   not run a real binder. `ParsedFrontmatter` was widened additively to carry the
+   lowered `params` schema, its defaulted field names, and `bind_model`; the
+   binder-route loom (area (d)) now drives a genuine binder pass whose three-arm
+   envelope JSON streams as one user-visible turn and validates against
+   `buildBinderEnvelopeSchema`. The envelope `ok`-arm gate uses a NON-throwing
+   structural discriminator read (`/"kind":"ok"/`) rather than `JSON.parse`, to
+   avoid a broad `catch` on malformed model output; the acceptance test performs
+   the authoritative schema validation.
+
+4. **Area (e) subagent cancellation surfacing.** `spawnSubagentConversation` was
+   uncomposed at the production root (it rejected). It now spawns a real isolated
+   in-memory `AgentSession` (`createAgentSession` + loom-suppressing
+   `DefaultResourceLoader` so the spawned session does not recursively re-load
+   this extension + `SessionManager.inMemory`, empty tool allowlist), forwards
+   `loomAbort` into the session (PIC-41) with an idempotent dispose (PIC-9), and
+   injects a bounded mid-stream cancel through the injected `Clock` (~250 ms) so
+   `Err(cancelled)` reaches loom code at the query loop's round-boundary
+   checkpoint with the spawned session's committed turns unmutated (ERR-8, via the
+   inert `NoopConversationMutator`). Because the spawned subagent session is
+   private/in-memory and `pi -p` prints only the trailing user-session turn, the
+   observed cancellation is surfaced on the user-visible channel via one
+   exact-text echo turn (yielding the `cancelled` token the runner scores). Two
+   supporting decisions: the loom-suppressing `DefaultResourceLoader` is used
+   instead of the spec's hand-built adapter (which cannot supply the
+   `ExtensionRuntime` `LoadExtensionsResult.runtime` requires); the abandoned
+   in-flight turn is aborted fire-and-forget (a late rejection swallowed per the
+   cancellation swallowing-handler rule) rather than awaited, avoiding any hang
+   before the 4000 ms harness backstop.
+
+5. **`match`/`respond` surfacing is limited in the production composition
+   runtime.** The production executor drives observable output only through the
+   query/binder turns (a typed query streams its JSON; the binder streams its
+   envelope); a `respond` of a pure value and the `match` result value do not
+   themselves reach `pi -p` stdout. Areas (b)/(c)/(h) therefore observe their
+   invariant on the query turn, not on a `respond`/`match` value. This is a
+   pre-existing production-composition limitation (H8a prompt-mode drive), not a
+   regression; the H9a acceptance areas assert only their model-output-invariant
+   observables, which the query/binder turns carry.

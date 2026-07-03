@@ -236,6 +236,16 @@ export const SDK_SURFACE_INVENTORY: readonly SurfaceInventoryEntry[] =
     // The H8a per-loom run-drive resolves a chained (non-first) query off-session
     // through pi-ai's `complete()` free function.
     { id: "complete", kind: "peer-named-import" },
+    // The H9a subagent-mode drive spawns an isolated in-memory `AgentSession`
+    // (`createAgentSession`) whose spawn consumes three further peer surfaces:
+    // the fresh in-memory transcript manager (`SessionManager.inMemory`), the
+    // loom-suppressing resource loader that prevents the spawned session from
+    // re-loading this extension (`DefaultResourceLoader` with `noExtensions`),
+    // and the global config directory the loader/session resolve against
+    // (`getAgentDir`).
+    { id: "SessionManager", kind: "peer-named-import" },
+    { id: "DefaultResourceLoader", kind: "peer-named-import" },
+    { id: "getAgentDir", kind: "peer-named-import" },
     { id: "MessageRenderer", kind: "peer-named-import" },
     { id: "SlashCommandInfo", kind: "peer-named-import" },
     { id: "estimateTokens", kind: "peer-named-import" },

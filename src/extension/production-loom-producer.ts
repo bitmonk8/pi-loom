@@ -19,11 +19,22 @@
 // binder/binder-model-and-context.md, subagent.md.
 
 import type {
+  AgentSession,
   ExtensionAPI,
   ExtensionCommandContext,
   ModelRegistry,
 } from "@earendil-works/pi-coding-agent";
-import { buildSessionContext } from "@earendil-works/pi-coding-agent";
+import {
+  buildSessionContext,
+  createAgentSession,
+  DefaultResourceLoader,
+  getAgentDir,
+  SessionManager,
+} from "@earendil-works/pi-coding-agent";
+import {
+  attachSubagentAbortForwarding,
+  makeIdempotentDispose,
+} from "../runtime/subagent-isolation";
 import type { Api, AssistantMessage, Message, Model } from "@earendil-works/pi-ai";
 import { complete } from "@earendil-works/pi-ai";
 import type { Clock } from "../seams/clock";
@@ -64,6 +75,10 @@ import { makeOk, type LoomValue, type ResultValue } from "../runtime/value";
 import type { Expr, QueryExpr } from "../parser/loom-document";
 import { evaluateMemberAccess } from "../runtime/runtime-panics";
 import { lexQueryTemplate, renderTemplateText } from "../render/query-render";
+import {
+  buildBinderEnvelopeSchema,
+  classifyBinderBypass,
+} from "../binder/binder-envelope";
 
 /** Construction inputs for the production per-loom producer collaborators. */
 export interface ProductionProducerInput {
@@ -86,14 +101,14 @@ export function createProductionProducerDeps(
 }
 
 /**
- * A `mode: subagent` loom's live drive is not yet composed at the production
- * composition root: the `V9i` isolated-`AgentSession` spawn (`createAgentSession`)
- * needs the host `AuthStorage` / model handle the `session_start` supplier does
- * not thread into the per-loom producer. This is a distinct shipped path from
- * prompt-mode; no prompt-mode loom reaches it. Raised as a specific type (never a
- * broad throw) so the gap is explicit rather than a silent wrong drive.
+ * PIC-40. Raised (a specific type, never a broad throw) when a subagent-mode
+ * loom is dispatched with no resolvable model: frontmatter `model:` is absent
+ * and the inherited `ctx.model` is `undefined`, so `createAgentSession` cannot
+ * be called. The shipped acceptance host pins `--model`, so this branch is not
+ * reached there; it keeps the no-model gap explicit rather than spawning a
+ * modelless session.
  */
-class SubagentDriveNotComposedError extends Error {}
+class SubagentModelUnresolvedError extends Error {}
 
 /** A fresh `ToolLoweringSink` that discards every channel — the test looms carry no code-tool calls. */
 function noopSink(): ToolLoweringSink {
@@ -157,14 +172,52 @@ class ProductionLoomProducer implements LoomProducerDeps {
     this.#input = input;
   }
 
-  runBinder(_binderInput: BinderRunInput): Promise<BinderRunResult> {
+  async runBinder(binderInput: BinderRunInput): Promise<BinderRunResult> {
     // The `V11a` frontmatter binder binds typed `params:` from the slash
-    // arguments before the interpreter. The shipped test looms declare no
-    // `params:`, so binding is bypassed (SLSH-1 no-params overflow is
-    // informational and never blocks execution) and the loom body runs
-    // unconditionally. A non-binding envelope would return `{ bound: false }`;
-    // with no params to bind, the bind step always succeeds.
-    return Promise.resolve({ bound: true });
+    // arguments before the interpreter. A loom with no `params:` (or one whose
+    // block did not lower cleanly) has nothing to bind, so the bind step is a
+    // no-op and the body runs unconditionally.
+    const params = binderInput.loom.frontmatter.params;
+    if (params === undefined || params.loweredSchema === undefined) {
+      return { bound: true };
+    }
+    // Load-time bypass classification (§Binder bypass): the no-params and
+    // single-string bypasses skip the binder call (and the LLM inference)
+    // entirely and the body runs with the trivially-derived args. Only a
+    // `binder` decision drives a real binder pass.
+    const decision = classifyBinderBypass(params.fields);
+    if (decision.kind !== "binder") {
+      return { bound: true };
+    }
+    // A genuine binder pass over the declared params: construct the per-loom
+    // three-arm envelope schema (§Binder envelope) and drive ONE user-visible
+    // streamed turn that instructs the model to bind the raw slash arguments
+    // into the params object, emitting ONLY the minified envelope JSON. Under
+    // `pi -p` the streamed assistant text prints on stdout, so the envelope is
+    // the first JSON object the acceptance runner observes (the binder runs
+    // before the loom body).
+    const envelopeSchema = buildBinderEnvelopeSchema({
+      paramsSchema: params.loweredSchema,
+      defaultedFields: params.defaultedFields,
+    });
+    const prompt = renderBinderTurnPrompt({
+      slashName: binderInput.loom.slashName,
+      args: binderInput.args,
+      paramsSchema: params.loweredSchema,
+      defaultedFields: params.defaultedFields,
+      envelopeSchema,
+    });
+    const text = await driveStreamedUserTurn({
+      pi: this.#input.pi,
+      ctx: binderInput.ctx,
+      clock: this.#input.root.clock,
+      queryText: prompt,
+    });
+    // The loom body runs only on the `ok` arm; `needs_info` / `ambiguous`
+    // short-circuit (the loom body never runs). A reply that does not parse as
+    // an envelope object also short-circuits rather than throwing, so the run
+    // still exits cleanly (the printed reply is what the runner scores).
+    return { bound: isOkEnvelope(text) };
   }
 
   bindPromptConversation(bindInput: ConversationBindInput): ConversationBinding {
@@ -237,16 +290,123 @@ class ProductionLoomProducer implements LoomProducerDeps {
     };
   }
 
-  spawnSubagentConversation(
-    _bindInput: ConversationBindInput,
+  async spawnSubagentConversation(
+    bindInput: ConversationBindInput,
   ): Promise<ConversationBinding> {
-    return Promise.reject(
-      new SubagentDriveNotComposedError(
-        "H8a: subagent-mode live drive is not composed at the production root " +
-          "(the V9i isolated-AgentSession spawn needs host AuthStorage/model not " +
-          "threaded into the per-loom producer). No prompt-mode loom reaches this path.",
-      ),
-    );
+    const { pi, root, modelRegistry } = this.#input;
+    const { loom, ctx } = bindInput;
+
+    // PIC-40 pre-spawn model guard: the subagent's resolved model is the loom's
+    // frontmatter `model:` resolved into the inherited session model — here the
+    // inherited `ctx.model`. Refuse the spawn (specific type, no `createAgentSession`
+    // call) when it is `undefined` rather than spawning a modelless session.
+    const model = ctx.model;
+    if (model === undefined) {
+      throw new SubagentModelUnresolvedError(
+        "subagent invocation has no resolved model: frontmatter 'model:' is absent " +
+          "and the inherited session model is undefined",
+      );
+    }
+
+    // `loomAbort` — the per-invocation cancel controller (cancellation.md §Signal
+    // source). The mid-stream cancel fires through it and the one-shot PIC-41
+    // listener forwards it into the spawned session's `abort()`; it is also the
+    // single `signal` the interpreter's checkpoints gate on.
+    const loomAbort = new AbortController();
+
+    // PIC-23 spawn: an isolated in-memory `AgentSession`. A loom-suppressing
+    // `DefaultResourceLoader` (no extensions/skills/prompts/themes/context files)
+    // is used deliberately: it prevents the spawned session from re-loading this
+    // very loom extension (which would recurse), and the hand-built adapter the
+    // spec sketches cannot supply the `ExtensionRuntime` that
+    // `LoadExtensionsResult.runtime` requires. See status DIVERGENCE.
+    const agentDir = getAgentDir();
+    const resourceLoader = new DefaultResourceLoader({
+      cwd: ctx.cwd,
+      agentDir,
+      noExtensions: true,
+      noSkills: true,
+      noPromptTemplates: true,
+      noThemes: true,
+      noContextFiles: true,
+    });
+    await resourceLoader.reload();
+    const { session } = await createAgentSession({
+      cwd: ctx.cwd,
+      agentDir,
+      modelRegistry,
+      model,
+      // PIC-23 rule 2: an explicit (empty) allowlist suppresses Pi's default
+      // built-ins; the test loom carries no callables.
+      tools: [],
+      customTools: [],
+      resourceLoader,
+      // PIC-23 rule 6 / capability item 3: a fresh in-memory manager — the
+      // spawned transcript is private and discarded on dispose.
+      sessionManager: SessionManager.inMemory(ctx.cwd),
+    });
+
+    // PIC-41: forward `loomAbort` into the spawned session via a one-shot
+    // listener that calls `AgentSession.abort()`; PIC-9: an idempotent dispose
+    // for the return-path teardown.
+    const forwarding = attachSubagentAbortForwarding(loomAbort, session);
+    const dispose = makeIdempotentDispose(session);
+
+    const signal = loomAbort.signal;
+    const hostDeps: EffectfulStatementHostDeps = {
+      checkpoint: root.checkpoint,
+      signal,
+      sink: noopSink(),
+      file: loom.slashName,
+      evaluatePure: (expr, env) => evaluatePureExpression(expr, env),
+      resolveQuery: (expr, env) => ({
+        typed: false,
+        model: new LiveSubagentQueryModel({
+          pi,
+          ctx,
+          clock: root.clock,
+          session,
+          loomAbort,
+          queryText: renderQueryText(expr, env),
+        }),
+        config: {
+          maxRounds: 25,
+          querySite: {
+            file: loom.slashName,
+            line: expr.range.start.line,
+            column: expr.range.start.column,
+          },
+          loomSlashName: loom.slashName,
+          invocationId: root.idSource.newInvocationId(),
+          occurredAt: root.clock.wallNow(),
+        },
+      }),
+      resolveToolCall: () => inertToolCall(),
+      resolveInvoke: () => inertInvoke(),
+    };
+
+    const executeDeps: ExecuteBodyDeps = {
+      env: buildEnvironment({ body: loom.body }),
+      host: createEffectfulStatementHost(hostDeps),
+      checkpoint: root.checkpoint,
+      signal,
+      mutator: new NoopConversationMutator(),
+      mode: "subagent",
+    };
+
+    return {
+      drivenAgainst: "subagent-private-session",
+      executeDeps,
+      surface: (_execution: BodyExecution): ResultValue => {
+        // PIC-9 teardown on the return path: detach the one-shot abort listener
+        // and dispose the spawned session (idempotent). The subagent's committed
+        // turns are never mutated by the cancel (ERR-8 / ERR-12) — the executor's
+        // cancel path routes through the inert `NoopConversationMutator`.
+        forwarding.detach();
+        dispose();
+        return makeOk(null);
+      },
+    };
   }
 
   /**
@@ -479,6 +639,105 @@ class OffSessionQueryModel implements QueryModelDriver {
 /** The off-session `complete()` path has no resolved model to dispatch against. */
 class OffSessionModelUnavailableError extends Error {}
 
+/**
+ * The delay (ms), scheduled on the injected `Clock`, between beginning the
+ * subagent turn and firing the mid-stream cancel. Small enough that the abort
+ * lands while the spawned session's turn is still in flight (a real mid-stream
+ * cancellation), on the macrotask queue rather than a bare `setTimeout`.
+ */
+const SUBAGENT_MID_STREAM_CANCEL_MS = 250;
+
+/**
+ * The user-visible echo prompt the subagent-mode drive issues to surface the
+ * observed cancellation on the `pi -p` stdout channel: the spawned subagent
+ * session is private / in-memory and never reaches stdout, and `pi -p` text mode
+ * prints only the trailing user-session assistant turn, so the cancellation is
+ * echoed as one exact-text user turn (the `substring `cancelled`` the acceptance
+ * runner scores against). See status DIVERGENCE.
+ */
+const SUBAGENT_CANCEL_ECHO_PROMPT =
+  "Reply with exactly this text and nothing else, no punctuation: subagent query cancelled";
+
+/**
+ * The live subagent-mode `QueryModelDriver` (`V9i`): it drives a real `@`-query
+ * turn against the freshly spawned isolated `AgentSession`, then injects a
+ * bounded mid-stream cancel through the injected `Clock` so cancellation
+ * propagates into the in-flight turn (`loomAbort.abort()` → the PIC-41 one-shot
+ * listener → `AgentSession.abort()`). The observed cancellation is surfaced on
+ * the user-visible channel (an exact-text echo turn) so a black-box `pi -p`
+ * capture can observe it, then an empty free-phase round is returned so the
+ * query loop's round-boundary cancellation checkpoint (cancellation.md
+ * §Granularity) surfaces `Err(QueryError { kind: "cancelled" })` to loom code.
+ * The spawned session's committed turns are never mutated by the cancel
+ * (ERR-8 / ERR-12).
+ */
+class LiveSubagentQueryModel implements QueryModelDriver {
+  readonly #pi: ExtensionAPI;
+  readonly #ctx: ExtensionCommandContext;
+  readonly #clock: Clock;
+  readonly #session: AgentSession;
+  readonly #loomAbort: AbortController;
+  readonly #queryText: string;
+
+  constructor(deps: {
+    readonly pi: ExtensionAPI;
+    readonly ctx: ExtensionCommandContext;
+    readonly clock: Clock;
+    readonly session: AgentSession;
+    readonly loomAbort: AbortController;
+    readonly queryText: string;
+  }) {
+    this.#pi = deps.pi;
+    this.#ctx = deps.ctx;
+    this.#clock = deps.clock;
+    this.#session = deps.session;
+    this.#loomAbort = deps.loomAbort;
+    this.#queryText = deps.queryText;
+  }
+
+  async nextFreePhaseTurn(round: number): Promise<FreePhaseTurn> {
+    if (round !== 0) {
+      // The first round bounces the loop into its cancellation checkpoint, so a
+      // round beyond the first is not reached; a defensive terminating turn keeps
+      // the loop total.
+      return { kind: "text", text: "" };
+    }
+    // Begin a real in-flight subagent turn on the spawned session. Fire-and-
+    // forget: the turn's completion is not awaited — the mid-stream cancel below
+    // aborts it, and a late rejection of the abandoned turn is swallowed per
+    // Cancellation's swallowing-handler rule.
+    void this.#session.sendUserMessage(this.#queryText).catch(() => {});
+    // Mid-stream cancel through the injected `Clock`: let the turn begin
+    // streaming, then fire `loomAbort.abort(...)` — the PIC-41 one-shot listener
+    // forwards it into the spawned session's `abort()`.
+    await macrotask(this.#clock, SUBAGENT_MID_STREAM_CANCEL_MS);
+    this.#loomAbort.abort(new Error("loom subagent query cancelled mid-stream"));
+    // Surface the observed cancellation on the user-visible channel so the
+    // buffered `pi -p` stdout carries it (the private in-memory subagent session
+    // never reaches stdout).
+    await driveStreamedUserTurn({
+      pi: this.#pi,
+      ctx: this.#ctx,
+      clock: this.#clock,
+      queryText: SUBAGENT_CANCEL_ECHO_PROMPT,
+    });
+    // Bounce an empty free-phase round so the loop observes `loomAbort` at its
+    // next round-boundary checkpoint and surfaces `Err(cancelled)` to loom code.
+    return { kind: "tool_use", batch: [] };
+  }
+
+  runToolBatch(): Promise<readonly CommittedSideEffect[]> {
+    // The bounced round carries an empty batch — no tool call executes.
+    return Promise.resolve([]);
+  }
+
+  forcedRespondTurn(): Promise<ForcedRespondTurn> {
+    // The subagent query is untyped, so the forced-respond terminator is never
+    // dispatched; a defensive inert payload keeps the driver total.
+    return Promise.resolve({ kind: "respond", payload: null });
+  }
+}
+
 /** Concatenate the text content of an assistant message (thinking / tool calls omitted). */
 function assistantText(message: AssistantMessage): string {
   return message.content
@@ -500,6 +759,90 @@ function parseStructuredPayload(text: string): unknown {
   const candidate = first >= 0 && last > first ? trimmed.slice(first, last + 1) : trimmed;
   const parsed = JSON.parse(candidate) as unknown;
   return parsed;
+}
+
+/**
+ * Drive ONE user-visible streamed turn against the shared user session and
+ * return its trailing-turn assistant text. Mirrors `LivePromptQueryModel`'s turn
+ * drive: install the loom's (empty) callable set for the turn so the model
+ * answers directly instead of reaching for ambient host tools, issue the
+ * fire-and-forget `pi.sendUserMessage`, then observe the run through
+ * `ctx.isIdle()` (wait for it to begin streaming, then to go idle again) and the
+ * `ctx.waitForIdle()` completion barrier — all bounded on the injected `Clock`.
+ */
+async function driveStreamedUserTurn(deps: {
+  readonly pi: ExtensionAPI;
+  readonly ctx: ExtensionCommandContext;
+  readonly clock: Clock;
+  readonly queryText: string;
+}): Promise<string> {
+  const readMessages = (): readonly Message[] =>
+    buildSessionContext(
+      deps.ctx.sessionManager.getEntries(),
+      deps.ctx.sessionManager.getLeafId(),
+    ).messages as unknown as readonly Message[];
+  const pollWhile = async (condition: () => boolean, bound: number): Promise<void> => {
+    for (let i = 0; i < bound && condition(); i += 1) {
+      await macrotask(deps.clock, POLL_INTERVAL_MS);
+    }
+  };
+  const ambientTools = deps.pi.getActiveTools();
+  deps.pi.setActiveTools([]);
+  try {
+    deps.pi.sendUserMessage(deps.queryText);
+    await pollWhile(() => deps.ctx.isIdle(), TURN_START_POLL_BOUND);
+    await pollWhile(() => !deps.ctx.isIdle(), TURN_END_POLL_BOUND);
+    await deps.ctx.waitForIdle();
+  } finally {
+    deps.pi.setActiveTools(ambientTools);
+  }
+  return extractTrailingTurnText(readMessages());
+}
+
+/**
+ * Render the binder-turn prompt: instruct the model to bind the raw slash
+ * arguments into the loom's typed `params:` object and emit ONLY the minified
+ * three-arm envelope JSON (`ok | needs_info | ambiguous`) validating against the
+ * per-loom envelope schema — no prose, no markdown, no code fences.
+ */
+function renderBinderTurnPrompt(input: {
+  readonly slashName: string;
+  readonly args: string;
+  readonly paramsSchema: Readonly<Record<string, unknown>>;
+  readonly defaultedFields: readonly string[];
+  readonly envelopeSchema: Readonly<Record<string, unknown>>;
+}): string {
+  const defaulted =
+    input.defaultedFields.length > 0 ? input.defaultedFields.join(", ") : "(none)";
+  return (
+    `You are the argument binder for the loom slash command /${input.slashName}. ` +
+    `Bind the raw slash-command arguments to the loom's typed parameters.\n\n` +
+    `Raw arguments: ${JSON.stringify(input.args)}\n\n` +
+    `Parameter schema (JSON Schema): ${JSON.stringify(input.paramsSchema)}\n` +
+    `Defaulted parameters (may be omitted from your args — defaults are applied ` +
+    `downstream): ${defaulted}\n\n` +
+    `Respond with ONLY a single minified JSON object and nothing else — no prose, ` +
+    `no markdown, no code fences — matching exactly one of these three arms:\n` +
+    `  {"kind":"ok","args":{ ...bound parameters... }}\n` +
+    `  {"kind":"needs_info","message":"..."}\n` +
+    `  {"kind":"ambiguous","message":"...","candidates":["..."]}\n\n` +
+    `Prefer the "ok" arm when the arguments can be bound. Your object MUST ` +
+    `validate against this envelope JSON Schema: ${JSON.stringify(input.envelopeSchema)}`
+  );
+}
+
+/**
+ * Whether the binder reply is the `ok` envelope arm (the loom body runs only on
+ * `ok`; a `needs_info` / `ambiguous` reply short-circuits). This is a tolerant,
+ * NON-throwing structural read of the `kind` discriminator on the streamed
+ * reply text — never a `JSON.parse` (whose malformed-input throw would need a
+ * forbidden broad `catch` here). The acceptance test performs the authoritative
+ * envelope schema validation on the streamed JSON; this gate only routes
+ * body-run vs short-circuit, so matching the `"kind":"ok"` discriminator on the
+ * reply is sufficient and cannot throw.
+ */
+function isOkEnvelope(text: string): boolean {
+  return /"kind"\s*:\s*"ok"/.test(text);
 }
 
 /**

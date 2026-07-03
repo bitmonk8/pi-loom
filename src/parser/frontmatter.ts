@@ -22,6 +22,9 @@ import {
   type SourceRange,
 } from "../diagnostics/diagnostic";
 import { LineCounter, parseDocument, isMap, isScalar, type Node } from "yaml";
+import { type LoweredSchema } from "../seams/schema-validator";
+import { parseParams, type ParamFieldInput } from "./params";
+import { type BypassParamsField } from "../binder/binder-envelope";
 
 /** A loom 1.0 invocation mode (`frontmatter-fields-a.md` field contract). */
 export type LoomMode = "prompt" | "subagent";
@@ -75,12 +78,40 @@ export interface ParsedRespondRepair {
   readonly attempts: number;
 }
 
+/**
+ * The loom's lowered `params:` object schema plus the load-time bypass inputs the
+ * binder needs. Present iff the loom declares a `params:` block. `loweredSchema`
+ * is the AJV-validatable object document (`V6b`), absent when the block did not
+ * lower cleanly (e.g. an unresolved named type); `defaultedFields` names the
+ * fields that declared a `= <literal>` default; `fields` is the per-field bypass
+ * classification input (`classifyBinderBypass`).
+ */
+export interface ParsedParams {
+  /** The lowered `params:` object schema, when the block lowered cleanly. */
+  readonly loweredSchema?: LoweredSchema;
+  /** The wire names of fields that declared a default. */
+  readonly defaultedFields: readonly string[];
+  /** The per-field bypass-classification input, in declaration order. */
+  readonly fields: readonly BypassParamsField[];
+}
+
 /** The recognised, defaulted frontmatter a successfully-loaded loom exposes. */
 export interface ParsedFrontmatter {
   /** The required `mode:` field. */
   readonly mode: LoomMode;
   /** The present `model:` reference, when one was declared and resolved. */
   readonly model?: string;
+  /**
+   * The `bind_model:` reference verbatim, when declared. The binder pass over
+   * `params:` uses it (chain step 1); absent when no `bind_model:` is declared.
+   */
+  readonly bindModel?: string;
+  /**
+   * The lowered `params:` schema + bypass inputs, present iff the loom declares
+   * a `params:` block. Consumed by the binder pass to classify bypass and build
+   * the per-loom envelope schema.
+   */
+  readonly params?: ParsedParams;
   /**
    * The parsed `tool_loop` block (FRNT-1). Populated on every registered loom
    * — the default `{ maxRounds: 25 }` when the block is absent or empty. Owned
@@ -278,6 +309,112 @@ function resolveNonNegIntBlock(
 }
 
 /**
+ * Split a `params:` field value scalar (`<type-expr>` optionally followed by
+ * `= <literal>`) into its type expression and default RHS at the first top-level
+ * `=` — one not nested inside `<...>` angle brackets, `{...}` braces, `[...]`
+ * brackets, or a `"`/`'` string literal (so `array<string> = []` and
+ * `Author = { name: "x" }` split correctly, and an `==`/`>=` inside a default is
+ * not mistaken for the separator).
+ */
+function splitParamValue(raw: string): { typeSource: string; defaultSource?: string } {
+  let depth = 0;
+  let quote: string | undefined;
+  for (let i = 0; i < raw.length; i += 1) {
+    const c = raw[i];
+    if (quote !== undefined) {
+      if (c === "\\" && i + 1 < raw.length) {
+        i += 1;
+      } else if (c === quote) {
+        quote = undefined;
+      }
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      quote = c;
+      continue;
+    }
+    if (c === "<" || c === "{" || c === "[") {
+      depth += 1;
+      continue;
+    }
+    if (c === ">" || c === "}" || c === "]") {
+      depth -= 1;
+      continue;
+    }
+    if (depth === 0 && c === "=" && raw[i + 1] !== "=" && raw[i - 1] !== "=") {
+      const typeSource = raw.slice(0, i).trim();
+      const defaultSource = raw.slice(i + 1).trim();
+      return { typeSource, defaultSource };
+    }
+  }
+  return { typeSource: raw.trim() };
+}
+
+/** Whether a lowered type expression is a nullable union (a top-level `| null` arm). */
+function typeSourceIsNullable(typeSource: string): boolean {
+  return typeSource
+    .split("|")
+    .map((arm) => arm.trim())
+    .some((arm) => arm === "null");
+}
+
+/**
+ * Extract the loom's lowered `params:` schema plus the load-time bypass inputs
+ * from the `params:` YAML node. Returns `undefined` when the block is absent,
+ * `null`, or not a mapping. The lowered schema is derived through the `V6b`
+ * `parseParams` seam (with no body-level named types available at the
+ * frontmatter parse — a `NamedType` param therefore lowers without a `$def` and
+ * leaves `loweredSchema` absent); any `parseParams` diagnostics are NOT folded
+ * into the frontmatter result here, so exposing `params` is purely additive and
+ * does not change the loom's registration decision.
+ */
+function extractParsedParams(
+  paramsNode: Node | null | undefined,
+  file: string,
+  lineCounter: LineCounter,
+  lineOffset: number,
+): ParsedParams | undefined {
+  if (paramsNode === null || paramsNode === undefined || !isMap(paramsNode)) {
+    return undefined;
+  }
+  const fieldInputs: ParamFieldInput[] = [];
+  const bypassFields: BypassParamsField[] = [];
+  const defaultedFields: string[] = [];
+  for (const item of paramsNode.items) {
+    if (!isScalar(item.key)) {
+      continue;
+    }
+    const name = String(item.key.value);
+    const rawValue = isScalar(item.value) ? String(item.value.value) : "";
+    const { typeSource, defaultSource } = splitParamValue(rawValue);
+    const range =
+      rangeOf((item.value ?? item.key) as Node, lineCounter, lineOffset) ??
+      { start: { line: 0, column: 0 }, end: { line: 0, column: 0 } };
+    fieldInputs.push({
+      name,
+      typeSource,
+      ...(defaultSource !== undefined ? { defaultSource } : {}),
+      range,
+    });
+    bypassFields.push({
+      wireName: name,
+      type: typeSource,
+      hasDefault: defaultSource !== undefined,
+      nullable: typeSourceIsNullable(typeSource),
+    });
+    if (defaultSource !== undefined) {
+      defaultedFields.push(name);
+    }
+  }
+  const lowered = parseParams(fieldInputs, [], { file });
+  return {
+    ...(lowered.loweredSchema !== undefined ? { loweredSchema: lowered.loweredSchema } : {}),
+    defaultedFields,
+    fields: bypassFields,
+  };
+}
+
+/**
  * Parse a loom file's YAML frontmatter against the loom 1.0 field contract
  * (`frontmatter.md`, `frontmatter/frontmatter-fields-a.md`):
  *
@@ -316,8 +453,10 @@ export function parseFrontmatter(
   let modelRange: SourceRange | undefined;
   let bindContextValue: string | undefined;
   let bindContextRange: SourceRange | undefined;
+  let bindModelValue: string | undefined;
   let toolLoopNode: Node | null | undefined;
   let respondRepairNode: Node | null | undefined;
+  let paramsNode: Node | null | undefined;
 
   if (map !== undefined) {
     for (const item of map.items) {
@@ -345,6 +484,16 @@ export function parseFrontmatter(
         modelPresent = true;
         modelRaw = rawValue;
         modelRange = valueRange;
+        continue;
+      }
+      if (key === "bind_model") {
+        bindModelValue = isScalar(item.value)
+          ? String(item.value.value)
+          : undefined;
+        continue;
+      }
+      if (key === "params") {
+        paramsNode = item.value;
         continue;
       }
       if (key === "bind_context") {
@@ -470,9 +619,12 @@ export function parseFrontmatter(
   const respondRepair: ParsedRespondRepair = {
     attempts: "value" in respondRepairResult ? respondRepairResult.value : 3,
   };
+  const params = extractParsedParams(paramsNode, file, lineCounter, lineOffset);
   const frontmatter: ParsedFrontmatter = {
     mode: modeValue as LoomMode,
     ...(resolvedModel !== undefined ? { model: resolvedModel } : {}),
+    ...(bindModelValue !== undefined ? { bindModel: bindModelValue } : {}),
+    ...(params !== undefined ? { params } : {}),
     toolLoop,
     respondRepair,
   };
