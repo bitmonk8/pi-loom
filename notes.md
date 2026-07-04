@@ -2627,3 +2627,22 @@ Test-shape notes discovered while authoring (production code unchanged):
 - A BARE `@`-query that yields `Err` fails the body (the executor's non-`?`/non-
   `match` effect path); the `Err` VALUE (empty_template short-circuit) is observed
   through a `match` arm, per loom's `?`/`match`-normalise-to-Result semantics.
+
+## V20g — production conformance suite impl: no-op-green landing
+
+The paired V20g impl leaf's Ships-when targets the conformance suite driving the
+full documented surface through the production composition GREEN, with `npm test`
+/ `npm run typecheck` / `npm run lint` / the `src/**` architectural gates all
+green and `extensions/index.ts` a thin shim. Because the build-order reorder
+(see the V20g-T divergence above) landed V20a–V20f BEFORE the V20g-T tests task,
+that task authored the suite as the deterministic green standing net rather than
+a red-on-unlanded-gaps suite. Consequently the V20g impl leaf requires **no new
+`src/**` composition support**: the shipped composition root, the production
+`LoomProducerDeps`, the real whole-file parser, and the discovery walk already
+drive every enumerated behaviour green. V20g's work is the verification pass that
+its Ships-when condition is observable — `npm run test:conformance` (26 green),
+`npm test` (1595 green incl. the H2a/H3a `src/**` architectural gates),
+`npm run typecheck`, `npm run lint` all clean, and `extensions/index.ts`
+unchanged as the thin `export { default } from "../src/extension/factory"` shim.
+The leaf lands as the completion tag over the already-green artifact; the paired
+tests-task/impl distinction is collapsed for this pair by the reorder.
