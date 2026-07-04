@@ -18,6 +18,7 @@
 // `loom/load/*` diagnostic codes/messages sourced from
 // diagnostics/code-registry-load.md.
 
+import { minimatch } from "minimatch";
 import type { Diagnostic, Severity } from "../diagnostics/diagnostic";
 import type { FileSystem } from "../seams/file-system";
 import type { LoomSettings } from "./settings";
@@ -75,6 +76,7 @@ const NON_CANONICAL_EXTENSION = "loom/load/non-canonical-extension";
 const INVALID_SLASH_NAME = "loom/load/invalid-slash-name";
 const CROSS_SOURCE_SHADOW = "loom/load/cross-source-shadow";
 const CROSS_FORMAT_COLLISION = "loom/load/cross-format-collision";
+const INVALID_EXTENSION = "loom/load/invalid-extension";
 
 /** Accepted slash-name (filename stem) shape, per DISC-3 Filename validity. */
 const SLASH_NAME = /^[a-z0-9][a-z0-9_-]*$/;
@@ -165,6 +167,24 @@ function expandHome(path: string, fs: FileSystem): string {
     return joinPosix(fs.homedir(), path.slice(2));
   }
   return path;
+}
+
+/** True when a path is absolute (POSIX root or a Windows drive prefix). */
+function isAbsolutePath(path: string): boolean {
+  return path.startsWith("/") || /^[A-Za-z]:/.test(path);
+}
+
+/** POSIX dirname (`/` for a root-level leaf). */
+function dirnameOf(path: string): string {
+  const norm = normalizePath(path);
+  const idx = norm.lastIndexOf("/");
+  return idx <= 0 ? "/" : norm.slice(0, idx);
+}
+
+/** True when an operand carries a minimatch glob metacharacter. The `!`/`+`/`-`
+ *  override prefix is stripped by the caller before this test. */
+function isGlobPattern(operand: string): boolean {
+  return /[*?[\]{}]/.test(operand);
 }
 
 /** Node-style `.code` reader that binds no broad `catch` (the fs rejections
@@ -439,6 +459,238 @@ function dedupeByPath(candidates: readonly SourcedCandidate[]): SourcedCandidate
   return out;
 }
 
+// --------------------------------------------------------------------------
+// Settings `loomPaths` resolution (DISC-7 `loomPaths` entry schema).
+//
+// Unlike the CLI / conventional sources (whose entries are single directory
+// roots or explicit `.loom` files), settings entries resolve relative to the
+// settings-file directory, support globs, and carry the `!`/`+`/`-` override
+// grammar of DISC-5 (the same fixed order the package `pi.looms` path uses:
+// plain includes → `!` drops → `+` re-admits an exact path → `-` removes an
+// exact path). A non-`.loom` file match is a `loom/load/invalid-extension`
+// error (not `wrong-type-source`); a directory expands non-recursively; a
+// literal path that is missing / unreadable / a non-regular type still carries
+// the per-entry-index failure diagnostic of the failure-modes table.
+// --------------------------------------------------------------------------
+
+/** One recursively-enumerated filesystem entry (the universe a glob matches). */
+interface TreeEntry {
+  readonly abs: string;
+  readonly base: string;
+  readonly isDir: boolean;
+  readonly isFile: boolean;
+}
+
+/** Recursively enumerate every file/dir under `root` (symlinks not followed);
+ *  the universe glob patterns are matched against. A non-existent / unreadable
+ *  root yields the empty universe. */
+async function listTree(fs: FileSystem, root: string): Promise<TreeEntry[]> {
+  const out: TreeEntry[] = [];
+  const walk = async (dir: string): Promise<void> => {
+    const names = await fs.readdir(dir).then(
+      (n) => n,
+      () => undefined,
+    );
+    if (names === undefined) return;
+    for (const name of names) {
+      const abs = joinPosix(dir, name);
+      const stat = await lstatOutcome(fs, abs);
+      if (!stat.ok) continue;
+      out.push({ abs, base: name, isDir: stat.isDir, isFile: stat.isFile });
+      if (stat.isDir) {
+        await walk(abs);
+      }
+    }
+  };
+  await walk(root);
+  return out;
+}
+
+/** The longest leading path segment run containing no glob metacharacter — the
+ *  directory to root the universe enumeration at. */
+function staticPrefixRoot(absPattern: string): string {
+  const segs = normalizePath(absPattern).split("/");
+  const out: string[] = [];
+  for (const seg of segs) {
+    if (isGlobPattern(seg)) break;
+    out.push(seg);
+  }
+  const joined = out.join("/");
+  return joined === "" ? "/" : joined;
+}
+
+/** Match a universe entry against a resolved absolute glob pattern (matches the
+ *  entry's absolute path and its basename, `nocase` off — DISC-5 matching). */
+function globMatches(entry: TreeEntry, absPattern: string): boolean {
+  return (
+    minimatch(entry.abs, absPattern, { nocase: false }) ||
+    minimatch(entry.base, basename(absPattern), { nocase: false })
+  );
+}
+
+/** One parsed `loomPaths` entry: its array index, override prefix, and the
+ *  operand resolved to an absolute POSIX path. */
+interface ParsedSettingsEntry {
+  readonly index: number;
+  readonly prefix: "" | "!" | "+" | "-";
+  readonly abs: string;
+  readonly glob: boolean;
+}
+
+/** Resolve one raw operand to an absolute POSIX path: a bare `~` / `~/…`
+ *  expands via the seam (DISC-1), an absolute path normalises as-is, and a
+ *  relative entry joins the settings-file directory (`baseDir`). When no base
+ *  dir is known (settings supplied without an origin) a relative entry is taken
+ *  verbatim. */
+function resolveSettingsOperand(
+  operand: string,
+  baseDir: string | undefined,
+  fs: FileSystem,
+): string {
+  const expanded = expandHome(operand, fs);
+  if (isAbsolutePath(expanded) || expanded.startsWith("~")) {
+    return normalizePath(expanded);
+  }
+  if (baseDir !== undefined) {
+    return normalizePath(joinPosix(baseDir, expanded));
+  }
+  return normalizePath(expanded);
+}
+
+/**
+ * Resolve the Settings source's `loomPaths` into raw `.loom` candidates,
+ * applying the DISC-5 override order and the DISC-7 `loomPaths` schema. Returns
+ * candidates deduplicated by resolved absolute path; per-entry failures are
+ * non-fatal.
+ */
+async function resolveSettingsSource(
+  fs: FileSystem,
+  settings: LoomSettings,
+  diagnostics: Diagnostic[],
+): Promise<RawCandidate[]> {
+  const entries = settings.loomPaths ?? [];
+  if (entries.length === 0) {
+    return [];
+  }
+  const baseDir = settings.loomPathsBaseDir;
+
+  const parsed: ParsedSettingsEntry[] = entries.map((raw, index) => {
+    const first = raw[0];
+    const prefix = first === "!" || first === "+" || first === "-" ? first : "";
+    const operand = prefix === "" ? raw : raw.slice(1);
+    return {
+      index,
+      prefix,
+      abs: resolveSettingsOperand(operand, baseDir, fs),
+      glob: isGlobPattern(operand),
+    };
+  });
+
+  // `selected` is keyed by the candidate `.loom` file's absolute path (dedup by
+  // resolved absolute path); dir entries have already been expanded to files.
+  const selected = new Map<string, RawCandidate>();
+  const treeCache = new Map<string, TreeEntry[]>();
+  const treeFor = async (root: string): Promise<TreeEntry[]> => {
+    const cached = treeCache.get(root);
+    if (cached !== undefined) return cached;
+    const tree = await listTree(fs, root);
+    treeCache.set(root, tree);
+    return tree;
+  };
+
+  const addDir = async (dir: string): Promise<void> => {
+    for (const cand of await enumerateDirectory(fs, dir, diagnostics)) {
+      selected.set(cand.path, cand);
+    }
+  };
+  const addFile = (absPath: string, index: number): void => {
+    // A file match must end in `.loom` (byte-exact lowercase); anything else is
+    // an `invalid-extension` error, reported per match, and does not register.
+    if (splitExtension(basename(absPath)).ext !== "loom") {
+      diagnostics.push({
+        severity: "error",
+        code: INVALID_EXTENSION,
+        file: absPath,
+        message: `'loomPaths[${index}]' resolves to '${absPath}' which does not end in .loom`,
+      });
+      return;
+    }
+    selected.set(absPath, { path: absPath, stem: splitExtension(basename(absPath)).stem });
+  };
+
+  // A literal (non-glob) entry classifies directly, preserving the per-entry
+  // missing / unreadable / wrong-type failure diagnostics of the DISC-2 table.
+  const addLiteral = async (entry: ParsedSettingsEntry): Promise<void> => {
+    const cls = await classifyPath(fs, entry.abs);
+    const descriptor = `settings entry index ${entry.index}`;
+    switch (cls.kind) {
+      case "dir":
+        await addDir(entry.abs);
+        return;
+      case "file":
+        addFile(entry.abs, entry.index);
+        return;
+      case "missing":
+        emitSourceFailure(SETTINGS_MODES.missing, MISSING_SOURCE, descriptor, entry.abs, diagnostics, "missing");
+        return;
+      case "unreadable":
+        emitSourceFailure(SETTINGS_MODES.unreadable, UNREADABLE_SOURCE, descriptor, entry.abs, diagnostics, "unreadable");
+        return;
+      case "wrong-type":
+        emitSourceFailure(SETTINGS_MODES.wrongType, WRONG_TYPE_SOURCE, descriptor, entry.abs, diagnostics, "wrong-type");
+        return;
+    }
+  };
+
+  // A glob entry enumerates the universe under its static-prefix root and
+  // contributes per match (file → register, dir → non-recursive scan).
+  const addGlob = async (entry: ParsedSettingsEntry): Promise<void> => {
+    const tree = await treeFor(staticPrefixRoot(entry.abs));
+    for (const universeEntry of tree) {
+      if (!globMatches(universeEntry, entry.abs)) continue;
+      if (universeEntry.isDir) {
+        await addDir(universeEntry.abs);
+      } else if (universeEntry.isFile) {
+        addFile(universeEntry.abs, entry.index);
+      }
+    }
+  };
+
+  // Fixed DISC-5 override order: (1) plain includes select the starting set.
+  for (const entry of parsed) {
+    if (entry.prefix !== "") continue;
+    if (entry.glob) await addGlob(entry);
+    else await addLiteral(entry);
+  }
+  // (2) `!` patterns drop selected candidates (glob → pattern match; literal →
+  // the exact path, or a directory whose children were contributed).
+  for (const entry of parsed) {
+    if (entry.prefix !== "!") continue;
+    for (const key of [...selected.keys()]) {
+      const drop = entry.glob
+        ? minimatch(key, entry.abs, { nocase: false }) ||
+          minimatch(basename(key), basename(entry.abs), { nocase: false })
+        : key === entry.abs || dirnameOf(key) === entry.abs;
+      if (drop) selected.delete(key);
+    }
+  }
+  // (3) `+` operands re-admit an exact path (classified like a plain literal).
+  for (const entry of parsed) {
+    if (entry.prefix !== "+") continue;
+    await addLiteral(entry);
+  }
+  // (4) `-` operands remove an exact path (or a directory's contributed
+  // children), taking final precedence.
+  for (const entry of parsed) {
+    if (entry.prefix !== "-") continue;
+    for (const key of [...selected.keys()]) {
+      if (key === entry.abs || dirnameOf(key) === entry.abs) selected.delete(key);
+    }
+  }
+
+  return [...selected.values()];
+}
+
 /**
  * Walk the (currently four — package source is V10b's) discovery sources,
  * resolve priority and collisions, and return the registrable looms plus the
@@ -463,19 +715,13 @@ export async function discoverLooms(input: DiscoveryInput): Promise<DiscoveryRes
     diagnostics,
   );
 
-  // Settings (priority 2) — explicit references; missing/wrong-type are errors.
-  const loomPaths = input.settings.loomPaths ?? [];
-  await collectFromEntries(
-    fs,
-    loomPaths.map((raw, index) => ({
-      path: expandHome(raw, fs),
-      descriptor: `settings entry index ${index}`,
-    })),
-    "settings",
-    SETTINGS_MODES,
-    candidates,
-    diagnostics,
-  );
+  // Settings (priority 2) — explicit references resolved per the DISC-7
+  // `loomPaths` entry schema: relative to the settings-file dir, with globs and
+  // the `!`/`+`/`-` override grammar; missing/wrong-type are errors.
+  const settingsSourceLabel = sourceLabelOf("settings");
+  for (const candidate of await resolveSettingsSource(fs, input.settings, diagnostics)) {
+    candidates.push({ ...candidate, source: "settings", sourceLabel: settingsSourceLabel });
+  }
 
   // Project (priority 3) — conventional `.pi/looms/`; silent when absent.
   await collectFromEntries(

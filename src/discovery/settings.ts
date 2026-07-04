@@ -47,6 +47,16 @@ export interface LoomsSettings {
 export interface LoomSettings {
   /** `loomPaths` — the validated string entries (non-string entries dropped). */
   readonly loomPaths?: readonly string[];
+  /**
+   * The settings-file directory the `loomPaths` entries resolve relative to
+   * (DISC-7 `loomPaths` resolution): the origin dir of whichever file supplied
+   * the surviving array — project `<cwd>/.pi` or global `<homedir>/.pi/agent`.
+   * Absent when no file supplied `loomPaths`. Absolute and `~/` entries ignore
+   * it; relative entries join it. The project array replaces the global array
+   * wholesale (no concat), so the surviving array is wholly from one file and
+   * carries exactly one origin dir.
+   */
+  readonly loomPathsBaseDir?: string;
   /** The `looms.*` scalar namespace. */
   readonly looms?: LoomsSettings;
 }
@@ -340,9 +350,22 @@ export async function loadSettings(fs: FileSystem): Promise<SettingsLoadResult> 
 
   const merged = mergeSettings(global.cleaned, project.cleaned);
 
-  const settings: { loomPaths?: readonly string[]; looms?: LoomsSettings } = {};
+  const settings: {
+    loomPaths?: readonly string[];
+    loomPathsBaseDir?: string;
+    looms?: LoomsSettings;
+  } = {};
   if (Array.isArray(merged["loomPaths"])) {
     settings.loomPaths = merged["loomPaths"] as readonly string[];
+    // The project array replaces the global array wholesale (DISC-7), so the
+    // surviving array is wholly from one file: its origin dir is that file's
+    // directory. Project wins when it supplied `loomPaths`, else global.
+    settings.loomPathsBaseDir = Object.prototype.hasOwnProperty.call(
+      project.cleaned,
+      "loomPaths",
+    )
+      ? posixJoin(fs.cwd(), ".pi")
+      : posixJoin(fs.homedir(), ".pi/agent");
   }
   if (isPlainObject(merged["looms"])) {
     settings.looms = merged["looms"] as LoomsSettings;
