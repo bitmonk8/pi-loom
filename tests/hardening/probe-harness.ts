@@ -1,0 +1,238 @@
+// Hardening probe harness (test-support; Pi never loads it).
+//
+// Boots the SHIPPED loom extension (through the real `extensions/index.ts`
+// entry) against a REAL live `AgentSession`, plants `.loom`/`.warp` files on the
+// real filesystem so the real discovery walk reads them, injects a capturing
+// `uiContext` so discovery/parse diagnostics (routed through `ctx.ui.notify`)
+// are observable, and drives real slash invocations against a LIVE model.
+//
+// This is the faithful "real extension in real life" surface used by the
+// hardening subagents. It is NOT a unit-test double: the model turns are real.
+// Keep probes token-bounded — prefer deterministic observation channels:
+//   * `registeredNames` — which slash commands the real discovery+parse+compose
+//     pipeline registered (observes discovery/validity/collision outcomes with
+//     ZERO model turns).
+//   * `diagnostics`     — every `ctx.ui.notify(message, type)` the load phase
+//     emitted (discovery/parse/load diagnostics).
+//   * per-drive `userTexts` — the exact user-turn text the loom CODE computed
+//     and sent to the model (deterministic; reveals control-flow / expression /
+//     stdlib evaluation without depending on the model's reply).
+//   * per-drive `toolCalls` — code-driven tool calls with their computed args
+//     (deterministic).
+//   * per-drive `assistantText` — the streamed model reply (stochastic; only
+//     assert on it when the loom pins the reply with a deterministic sentinel
+//     instruction).
+
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { assert } from "vitest";
+import {
+  AuthStorage,
+  DefaultResourceLoader,
+  ModelRegistry,
+  SessionManager,
+  createAgentSession,
+  getAgentDir,
+} from "@earendil-works/pi-coding-agent";
+import type { AgentSession, AgentSessionEvent } from "@earendil-works/pi-coding-agent";
+
+export const SHIPPED_EXTENSION_ENTRY = fileURLToPath(
+  new URL("../../extensions/index.ts", import.meta.url),
+);
+
+export function failLoudly(message: string): never {
+  assert.fail(message);
+  throw new Error(message);
+}
+
+export interface LiveProvider {
+  readonly authStorage: ReturnType<typeof AuthStorage.create>;
+  readonly modelRegistry: ModelRegistry;
+  readonly model: unknown;
+  readonly modelId: string;
+}
+
+/** Resolve the configured live provider/model; fail loudly if none (never a silent skip). */
+export function requireLiveProvider(): LiveProvider {
+  const authStorage = AuthStorage.create();
+  const modelRegistry = ModelRegistry.create(authStorage);
+  const available = modelRegistry.getAvailable();
+  if (available.length === 0) {
+    failLoudly(
+      "live-host precondition unmet: no live provider/model is configured. " +
+        "Configure a provider and credentials; this harness never silently skips.",
+    );
+  }
+  const idOf = (m: unknown): string => (m as { id?: string }).id ?? "";
+  const model =
+    available.find((m) => idOf(m) === "claude-opus-4-8") ??
+    available.find((m) => idOf(m).includes("opus")) ??
+    available[0];
+  if (model === undefined) failLoudly("no resolvable live model");
+  return { authStorage, modelRegistry, model, modelId: idOf(model) };
+}
+
+/** A file to plant before discovery runs. */
+export interface PlantedFile {
+  /** Discovery source. `project` → <cwd>/.pi/looms/. `cli` → a --loom dir. `rel` → relative to cwd (for .warp imports / nested dirs). */
+  readonly source: "project" | "cli" | "rel";
+  /** Path relative to the source root, e.g. "foo.loom" or "shared/x.warp". Stem must be a valid slash name for a registrable .loom. */
+  readonly path: string;
+  readonly text: string;
+}
+
+export interface Diagnostic {
+  readonly message: string;
+  readonly type: "info" | "warning" | "error";
+}
+
+export interface ProbeTurn {
+  readonly invocation: string;
+  /** Exact user-turn text(s) the loom code sent to the model (deterministic). */
+  readonly userTexts: readonly string[];
+  /** Streamed assistant reply text (stochastic). */
+  readonly assistantText: string;
+  /** Code-driven tool calls with computed args (deterministic). */
+  readonly toolCalls: readonly { name: string; args: unknown }[];
+  /** Any error thrown while driving this invocation. */
+  readonly error?: string;
+}
+
+export interface ProbeResult {
+  readonly registeredNames: readonly string[];
+  readonly diagnostics: readonly Diagnostic[];
+  readonly turns: readonly ProbeTurn[];
+  dispose(): Promise<void>;
+}
+
+/**
+ * Boot the shipped extension over a fresh temp workspace, plant `files`, wire
+ * `--loom` sources, capture load-phase diagnostics, and drive each `invocation`
+ * in `drives` in order against the live model. Returns everything observable.
+ */
+export async function runProbe(options: {
+  readonly provider: LiveProvider;
+  readonly files: readonly PlantedFile[];
+  /** Slash invocations to drive in order, e.g. "/foo hello world". Empty → registration/diagnostics only (no tokens). */
+  readonly drives?: readonly string[];
+  /** Extra settings.json content to write under <cwd>/.pi/settings.json. */
+  readonly projectSettings?: unknown;
+}): Promise<ProbeResult> {
+  const { provider, files, drives = [], projectSettings } = options;
+  const cwd = mkdtempSync(join(tmpdir(), "loom-harden-"));
+  const cliDirs = new Map<string, string>();
+  const cleanup: string[] = [cwd];
+
+  for (const f of files) {
+    let base: string;
+    if (f.source === "project") {
+      base = join(cwd, ".pi", "looms");
+    } else if (f.source === "rel") {
+      base = cwd;
+    } else {
+      // one shared cli dir per probe
+      if (!cliDirs.has("_cli")) {
+        const d = mkdtempSync(join(tmpdir(), "loom-harden-cli-"));
+        cliDirs.set("_cli", d);
+        cleanup.push(d);
+      }
+      base = cliDirs.get("_cli")!;
+    }
+    const full = join(base, f.path);
+    mkdirSync(dirname(full), { recursive: true });
+    writeFileSync(full, f.text, "utf8");
+  }
+  if (projectSettings !== undefined) {
+    mkdirSync(join(cwd, ".pi"), { recursive: true });
+    writeFileSync(join(cwd, ".pi", "settings.json"), JSON.stringify(projectSettings, null, 2), "utf8");
+  }
+
+  const agentDir = getAgentDir();
+  const resourceLoader = new DefaultResourceLoader({
+    cwd,
+    agentDir,
+    additionalExtensionPaths: [SHIPPED_EXTENSION_ENTRY],
+    noExtensions: true,
+    noSkills: true,
+    noPromptTemplates: true,
+    noThemes: true,
+    noContextFiles: true,
+  });
+  await resourceLoader.reload();
+
+  const { session } = await createAgentSession({
+    cwd,
+    agentDir,
+    authStorage: provider.authStorage,
+    modelRegistry: provider.modelRegistry,
+    model: provider.model as never,
+    resourceLoader,
+    sessionManager: SessionManager.inMemory(cwd),
+  });
+
+  const diagnostics: Diagnostic[] = [];
+  const runner = session.extensionRunner;
+  const cliDir = cliDirs.get("_cli");
+  if (cliDir !== undefined) runner.setFlagValue("loom", cliDir);
+
+  // Inject a capturing uiContext so load-phase `ctx.ui.notify` diagnostics are observable.
+  const capturingUi = {
+    notify(message: string, type: "info" | "warning" | "error" = "info"): void {
+      diagnostics.push({ message, type });
+    },
+  };
+  await session.bindExtensions({ uiContext: capturingUi as never });
+
+  const registeredNames = runner.getRegisteredCommands().map((c) => c.name);
+
+  const turns: ProbeTurn[] = [];
+  for (const invocation of drives) {
+    const userTexts: string[] = [];
+    const toolCalls: { name: string; args: unknown }[] = [];
+    let assistantText = "";
+    const unsub = session.subscribe((event: AgentSessionEvent) => {
+      if (event.type === "message_update") {
+        const inner = event.assistantMessageEvent;
+        if (inner.type === "text_delta") assistantText += inner.delta;
+      } else if (event.type === "tool_execution_start") {
+        toolCalls.push({ name: event.toolName, args: event.args });
+      } else if (event.type === "agent_end") {
+        for (const m of event.messages) {
+          const role = (m as { role?: string }).role;
+          if (role === "user") {
+            const content = (m as { content?: unknown }).content;
+            if (typeof content === "string") userTexts.push(content);
+            else if (Array.isArray(content)) {
+              for (const part of content) {
+                const t = (part as { text?: string; type?: string }).text;
+                if (typeof t === "string") userTexts.push(t);
+              }
+            }
+          }
+        }
+      }
+    });
+    let error: string | undefined;
+    try {
+      await session.prompt(invocation);
+    } catch (e) {
+      error = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+    } finally {
+      unsub();
+    }
+    turns.push({ invocation, userTexts, assistantText, toolCalls, error });
+  }
+
+  return {
+    registeredNames,
+    diagnostics,
+    turns,
+    dispose: async (): Promise<void> => {
+      session.dispose();
+      for (const p of cleanup) rmSync(p, { recursive: true, force: true });
+      await Promise.resolve();
+    },
+  };
+}
