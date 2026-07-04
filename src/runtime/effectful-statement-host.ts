@@ -52,6 +52,7 @@ import type {
   TypedQuerySchemaValidation,
 } from "./query-tool-loop";
 import { runTypedQueryLoop, runUntypedQueryLoop } from "./query-tool-loop";
+import { renderEmptyShortCircuit } from "../render/query-render";
 import type { CodeSideToolCall, ToolLoweringSink } from "./tool-call-execute";
 import { runCodeSideToolCall } from "./tool-call-execute";
 import type { InvokeChild } from "./invoke-cancellation";
@@ -67,6 +68,16 @@ export interface QueryHostDispatch {
   readonly typed: boolean;
   readonly model: QueryModelDriver;
   readonly config: QueryToolLoopConfig;
+  /**
+   * QRY-6 / SNK-b: the query's FULLY-RENDERED template body (interpolation +
+   * newline-trim + dedent applied; the typed-query schema conveyance NOT
+   * appended). The empty-rendered-template short-circuit is evaluated over this
+   * text before any provider turn is issued, for both untyped and typed queries.
+   * Every production `resolveQuery` (prompt-mode and subagent-mode) populates
+   * it; optional only so pre-QRY-6 test doubles that never exercise the empty
+   * path stay valid — an absent value skips the short-circuit (guard inert).
+   */
+  readonly renderedText?: string;
   /**
    * V13e-T seam (QRY-22): the typed-query schema-validation collaborators the
    * execution path orchestrates for a typed query (resolution → lowering →
@@ -137,6 +148,21 @@ async function runQueryEffect(
   deps: EffectfulStatementHostDeps,
 ): Promise<OperationResult> {
   const dispatch = deps.resolveQuery(expr, env);
+  // QRY-6 empty-rendered-template short-circuit (errors-and-results.md
+  // ValidationError cause `empty_template`): when the fully-rendered template
+  // body is empty or ASCII-whitespace-only, the runtime MUST refuse to issue a
+  // provider turn and instead surface `Err(ValidationError{cause:
+  // "empty_template", ...})` with no round-trip. Evaluated ahead of the
+  // typed/untyped branch so it governs both query forms; the typed path's
+  // schema conveyance is scaffolding and is deliberately excluded from the body
+  // the predicate reads.
+  const emptyTemplate =
+    dispatch.renderedText !== undefined
+      ? renderEmptyShortCircuit(dispatch.renderedText)
+      : undefined;
+  if (emptyTemplate !== undefined) {
+    return { ok: false, error: emptyTemplate };
+  }
   if (dispatch.typed) {
     const outcome = await runTypedQueryLoop(
       deps.checkpoint,

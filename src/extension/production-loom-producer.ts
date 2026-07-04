@@ -463,6 +463,9 @@ class ProductionLoomProducer implements LoomProducerDeps {
           : undefined;
         return {
           typed,
+          // QRY-6: the bare rendered template body (schema conveyance excluded)
+          // the empty-template short-circuit is evaluated over before any turn.
+          renderedText: renderQueryText(expr, env),
           model: createSubagentQueryModel({
             driveTurn: () =>
               driveSubagentTurn(session, renderTypedAwareQueryText(expr, env, validation?.lowered)),
@@ -579,6 +582,11 @@ class ProductionLoomProducer implements LoomProducerDeps {
         })
       : new OffSessionQueryModel({ model: deps.ctx.model, queryText });
 
+    // QRY-6: the bare rendered template body (typed-query schema conveyance
+    // excluded) the empty-template short-circuit is evaluated over before any
+    // provider turn is issued.
+    const renderedText = renderQueryText(expr, env);
+
     const config: QueryToolLoopConfig = {
       // A typed query dispatches only the forced-respond terminator (no
       // free-phase provider call), so its `max_rounds`-final branch fires at
@@ -597,6 +605,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
 
     return {
       typed,
+      renderedText,
       model,
       config,
       ...(validation !== undefined ? { schemaValidation: validation.validation } : {}),
