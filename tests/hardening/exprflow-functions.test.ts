@@ -63,14 +63,14 @@ describe("exprflow — functions, recursion, return", () => {
       expect(u).toContain("d=42|");   // dbl(21) tail = n*2
       expect(u).toContain("c1=3|");   // clamp(3) tail = n
       expect(u).toContain("c2=10|");  // clamp(50) early return works
-      // EXPR-5 (BUG): recursion in a tail-expression operand mis-evaluates.
-      // fact(5) should be 120; observed 0 (recursive call in `n * fact(n-1)`
-      // tail resolves to null, and n * null === 0). Pin OBSERVED.
-      expect(u).toContain("f=0|");
-      // EXPR-4 (BUG): mutual recursion through bare-call tails yields null.
-      // is_even(10)/is_odd(7) should be true; observed null.
-      expect(u).toContain("ev=null|");
-      expect(u).toContain("od=null|");
+      // EXPR-5 (fixed): recursion in a tail-expression operand evaluates
+      // correctly — `n * fact(n-1)` is the body's tail (FN-5). fact(5) = 120.
+      expect(u).toContain("f=120|");
+      // EXPR-4 (fixed): mutual recursion through bare-call tails — the lone
+      // `is_odd(n-1)` / `is_even(n-1)` calls are each the body's tail value.
+      // is_even(10) = true, is_odd(7) = true.
+      expect(u).toContain("ev=true|");
+      expect(u).toContain("od=true|");
     } finally {
       await probe.dispose();
     }

@@ -1,10 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { requireLiveProvider, runProbe } from "./probe-harness";
 
-// EXPR-4 / EXPR-5 regression pins. A user `fn` (functions.md FN-5: final value =
-// tail expression value) whose TAIL is a bare call to another fn loses the
-// value (null); and recursion in a tail-expression operand mis-evaluates, while
-// the `return` / `let`-bound equivalents are correct.
+// EXPR-4 / EXPR-5 regression pins (fixed). A user `fn` (functions.md FN-5: final
+// value = tail expression value) whose TAIL is a bare call to another fn returns
+// that call's value; recursion in a tail-expression operand evaluates correctly,
+// matching the `return` / `let`-bound equivalents. The parser now promotes a
+// trailing bare-expression form (including a lone/trailing call) to `block.tail`
+// so the single tail value is the block's final value on both the async executor
+// and the pure-recursion path.
 
 const L = (path: string, body: string[]) => ({
   source: "project" as const,
@@ -68,10 +71,10 @@ describe("exprflow — fn tail-call value loss (EXPR-4/EXPR-5)", () => {
         console.log(`FNTAIL ${t.invocation}>>>`, JSON.stringify(t.userTexts), "ERR:", t.error);
         m[t.invocation] = t.userTexts.join("\n");
       }
-      // EXPR-4: bare-call tail loses the value.
-      expect(m["/bchain"]).toContain("R=null|");
-      // EXPR-5: tail-operand recursion mis-evaluates (3 instead of 6).
-      expect(m["/btailrec"]).toContain("R=3|");
+      // EXPR-4 (fixed): bare-call tail is the body's final value (FN-5).
+      expect(m["/bchain"]).toContain("R=7|");
+      // EXPR-5 (fixed): tail-operand recursion evaluates correctly.
+      expect(m["/btailrec"]).toContain("R=6|");
       // Controls behave correctly.
       expect(m["/bretrec"]).toContain("R=6|");
       expect(m["/bletcall"]).toContain("R=6|");

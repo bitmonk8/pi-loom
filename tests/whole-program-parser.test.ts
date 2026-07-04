@@ -314,9 +314,16 @@ describe("cka-49: newline continuation triggers (V1a cka-1 integration witness)"
   });
 
   it("continues across a newline on a trailing comma inside an open group", () => {
-    // cka-49: trailing-comma trigger — one tool-call statement.
+    // cka-49: trailing-comma trigger — the multi-line call arguments group into
+    // ONE form (the continuation witness, orthogonal to tail promotion). That
+    // one bare-call form is the body's tail `Expr` — its value is the body's
+    // final value (functions.md FN-5), so it is promoted to `tail` with no
+    // residual statement, not left as a discarded action statement. The
+    // lexer-level grouping witness is `lexer-core.test.ts` (`statementGroups`
+    // length 1); here the parser confirms the joined line is a SINGLE form.
     const { body } = parse(["f(a,", "  b)"].join("\n"));
-    expect(body.statements.length).toBe(1);
+    expect(body.statements.length).toBe(0);
+    expect(body.tail?.kind).toBe("call");
   });
 
   it("does NOT continue on the postfix error-propagation ? (ERR-18)", () => {

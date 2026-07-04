@@ -857,13 +857,6 @@ interface Form {
   readonly lineStart: boolean;
 }
 
-/** Expression kinds that are never promoted to a lone body tail (actions). */
-const CALL_LIKE: ReadonlySet<Expr["kind"]> = new Set([
-  "call",
-  "invoke",
-  "query",
-]);
-
 /**
  * A per-invocation recursive-descent parser over the lexer's continuation-joined
  * token stream. Holds only per-parse cursor / diagnostic / binding-scope state
@@ -995,21 +988,31 @@ class BodyParser {
       }
       forms.push(form);
       const lastTok = this.tokens[this.pos - 1];
+      // A postfix `?` and a block-closing `}` both terminate their statement and
+      // never continue onto the next line: the `stmt-sep` after each is not
+      // surfaced as a form boundary here (the lexer swallows the postfix-`?`
+      // separator; a block-terminated statement leaves the next form with no
+      // consumed `stmt-sep`), so restore `lineStart` for the NEXT form to keep
+      // its tail-`Expr` promotion eligibility. Without the `}` arm, a trailing
+      // expression after an `if`/`while`/`for`/`fn` block
+      // (`fn s(n){ if …{…}\n n + s(n - 1) }`) would lose its FN-5 tail promotion
+      // and its value would be dropped.
       forcedLineStart =
-        lastTok !== undefined && lastTok.kind === "punct" && lastTok.text === "?";
+        lastTok !== undefined &&
+        lastTok.kind === "punct" &&
+        (lastTok.text === "?" || lastTok.text === "}");
     }
 
     // LoomBody ::= Stmt* Expr? — the final form is promoted to the tail iff it
-    // is a line-start expression form and is not a lone call/invoke/query
-    // action (a lone action stands as a statement per the V19a-T continuation
-    // witness `f(a,\n b)` → one statement).
+    // is a line-start expression form. Its value is the body's final value
+    // (functions.md FN-5: a fn/loom body's value is its tail expression),
+    // including a lone or trailing call/invoke/query — `fn f(n){ g(n) }` MUST
+    // return `g(n)` (FN-5), so a bare-call tail is the final value, not a
+    // discarded action. The V19a-T continuation witness `f(a,\n b)` is about
+    // grouping the multi-line call arguments into ONE form (a lexer concern),
+    // orthogonal to whether that one form's value is the body's tail.
     const last = forms[forms.length - 1];
-    if (
-      last !== undefined &&
-      last.expr !== null &&
-      last.lineStart &&
-      !(CALL_LIKE.has(last.expr.kind) && forms.length === 1)
-    ) {
+    if (last !== undefined && last.expr !== null && last.lineStart) {
       return {
         statements: forms.slice(0, -1).map((f) => f.stmt),
         tail: last.expr,
