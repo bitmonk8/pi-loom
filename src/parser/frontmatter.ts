@@ -629,7 +629,20 @@ export function parseFrontmatter(
     block === undefined
       ? undefined
       : parseDocument(block.yaml, { lineCounter });
-  const map = doc !== undefined && isMap(doc.contents) ? doc.contents : undefined;
+  // FM-5: refuse a partially-recovered YAML parse. The `yaml` lib recovers from
+  // malformed input (e.g. `x: : :`) and exposes the damage in `doc.errors`;
+  // consuming its partial `contents` as if well-formed would register a loom
+  // built from frontmatter the parser itself rejected. The closed diagnostics
+  // registry (docs/reference/diagnostics.md) has NO dedicated malformed-YAML
+  // code, so a YAML parse failure degrades to the documented "no recognised
+  // frontmatter mapping" surface: discard the recovered `contents` so `map`
+  // becomes undefined and `loom/load/missing-mode` fires (the same surface
+  // `extractFrontmatterBlock` resolves an unusable frontmatter block to).
+  const yamlErrored = doc !== undefined && doc.errors.length > 0;
+  const map =
+    doc !== undefined && !yamlErrored && isMap(doc.contents)
+      ? doc.contents
+      : undefined;
   const lineOffset = block?.lineOffset ?? 0;
 
   // The recognised fields the contract pins behaviour for.

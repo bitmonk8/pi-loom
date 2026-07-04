@@ -190,9 +190,15 @@ export async function discoverAndComposeFixtures(
       systemNote,
       modelMatcher,
     });
-    if (parsed === undefined) {
+    if ("dropped" in parsed) {
+      // FM-3: surface the load/parse diagnostics that un-registered this loom.
+      // `emitDiagnostic` routes only error-severity entries to `ctx.ui.notify`.
+      for (const diagnostic of parsed.dropped) {
+        emitDiagnostic(diagnostic);
+      }
       continue;
     }
+    const input = parsed.fixture;
     // V20a — resolve the `tools:` callable set against the shipped Pi tool
     // registry at production load time. A `tools:` rejection (unknown Pi tool,
     // prompt-mode `.loom` callee, name collision, invalid `as` rename, or a
@@ -200,7 +206,7 @@ export async function discoverAndComposeFixtures(
     // exactly as the isolation-tested `resolveCallableSet` (V6c) and
     // callee-has-errors (V15f) checks decide.
     const toolDiagnostics = await resolveLoomToolsAtLoad(
-      parsed,
+      input,
       fileSystem,
       ctx,
       parseDeps,
@@ -211,7 +217,7 @@ export async function discoverAndComposeFixtures(
     if (toolDiagnostics.some((diagnostic) => diagnostic.severity === "error")) {
       continue;
     }
-    fixtures.push(composeLoomFixture(parsed, producerDeps));
+    fixtures.push(composeLoomFixture(input, producerDeps));
   }
   return fixtures;
 }
@@ -523,18 +529,27 @@ function loomBasename(path: string): string {
   return base.endsWith(".loom") ? base.slice(0, -".loom".length) : base;
 }
 
+/**
+ * The outcome of parsing one discovered `.loom`: either a runnable composition
+ * input, or a drop carrying the load/parse diagnostics that caused the drop so
+ * the caller can surface them (FM-3 / DIAG-1).
+ */
+type ParsedDiscoveredLoom =
+  | { readonly fixture: LoomCompositionInput }
+  | { readonly dropped: readonly Diagnostic[] };
+
 /** Read + parse one discovered `.loom` into its `V19a` frontmatter + body AST. */
 async function parseDiscoveredLoom(
   fs: FileSystem,
   loom: DiscoveredLoom,
   deps: Parameters<typeof parseLoomDocument>[1],
-): Promise<LoomCompositionInput | undefined> {
+): Promise<ParsedDiscoveredLoom> {
   const bytes = await fs.readBytes(loom.path).then(
     (value) => value,
     () => undefined,
   );
   if (bytes === undefined) {
-    return undefined;
+    return { dropped: [] };
   }
   const document = parseLoomDocument({ path: loom.path, bytes }, deps);
   if (document.frontmatter === null || hasLoadParseError(document.diagnostics)) {
@@ -544,14 +559,22 @@ async function parseDiscoveredLoom(
     // error-severity `loom/load/*` / `loom/parse/*` diagnostic (an invalid
     // frontmatter value, an unresolved param named type, a `system:`
     // interpolation error, …) must not register (warnings still register).
-    // Its load-phase diagnostics were aggregated by the parser and routed above.
-    return undefined;
+    //
+    // FM-3: return the load-phase diagnostics so the caller emits them. DIAG-1
+    // requires every author-visible drop to carry its registry code/message;
+    // previously these were computed here and silently discarded, so a `mode:`
+    // typo made the command vanish with no feedback. (The `tools:`-resolution
+    // diagnostics are emitted separately by `resolveLoomToolsAtLoad` and are
+    // not part of `document.diagnostics`, so this does not double-emit them.)
+    return { dropped: document.diagnostics };
   }
   return {
-    slashName: loom.name,
-    sourcePath: loom.path,
-    frontmatter: document.frontmatter,
-    body: document.body,
+    fixture: {
+      slashName: loom.name,
+      sourcePath: loom.path,
+      frontmatter: document.frontmatter,
+      body: document.body,
+    },
   };
 }
 

@@ -710,9 +710,18 @@ function splitFrontmatter(text: string): {
     }
   }
   if (close < 0) {
-    // Unterminated fence: treat the whole file as frontmatter, empty body.
+    // FM-4: an opening `---` with no closing `---` is a malformed, unterminated
+    // frontmatter fence. frontmatter.md delimits the block with a closing
+    // fence; an unclosed block is not a valid frontmatter mapping. Rather than
+    // swallow the whole file as frontmatter and silently register a do-nothing
+    // empty-body loom (dropping the author's query), yield an EMPTY frontmatter
+    // block so `parseFrontmatter` produces `loom/load/missing-mode` and the
+    // loom un-registers with author feedback. The closed diagnostics registry
+    // (docs/reference/diagnostics.md) has no dedicated unterminated-fence code;
+    // missing-mode is the documented "no recognised frontmatter mapping"
+    // surface (see `extractFrontmatterBlock` in frontmatter.ts).
     return {
-      frontmatterText: lines.slice(open + 1).join("\n"),
+      frontmatterText: "",
       bodyText: lines.map(() => "").join("\n"),
     };
   }

@@ -68,14 +68,18 @@ describe("frontmatter / tools / diagnostics — live hardening", () => {
   // a code. But parse/frontmatter diagnostics are computed inside
   // parseDiscoveredLoom and DISCARDED — never emitted. The loom vanishes with no
   // explanation. (Contrast: tools-resolution errors DO surface — see FM-1/FM-6.)
-  it("FM-3: mode/system/range/params/body errors un-register with NO diagnostic", async () => {
+  // FIXED: parseDiscoveredLoom now returns the load/parse diagnostics on drop and
+  // the composition-root loop routes them through emitDiagnostic (DIAG-1).
+  it("FM-3: mode/system/range/params/body errors un-register AND emit a diagnostic", async () => {
     const files: PlantedFile[] = [
       { source: "project", path: "missing-mode.loom", text: fm("---", "description: no mode", "---", "@`hi`") },
       { source: "project", path: "bad-mode.loom", text: fm("---", "mode: agent", "---", "@`hi`") },
       { source: "project", path: "system-prompt.loom", text: fm("---", "mode: prompt", "system: You are a bot.", "---", "@`hi`") },
       { source: "project", path: "neg-maxrounds.loom", text: fm("---", "mode: prompt", "tool_loop:", "  max_rounds: -1", "---", "@`hi`") },
       { source: "project", path: "params-null.loom", text: fm("---", "mode: prompt", "params: null", "---", "@`hi`") },
-      { source: "project", path: "unterminated-str.loom", text: fm("---", "mode: prompt", "---", 'let x = "abc', "@`hi`") },
+      // The broken string sits at EOF so the lexer reports an unterminated
+      // string (a mid-body break instead reports literal-newline-in-string).
+      { source: "project", path: "unterminated-str.loom", text: fm("---", "mode: prompt", "---", "@`hi`", 'let x = "abc') },
     ];
     const probe = await runProbe({ provider, files, drives: [] });
     try {
@@ -83,51 +87,58 @@ describe("frontmatter / tools / diagnostics — live hardening", () => {
       for (const n of ["missing-mode", "bad-mode", "system-prompt", "neg-maxrounds", "params-null", "unterminated-str"]) {
         expect(probe.registeredNames).not.toContain(n);
       }
-      // BUG: none of the normative diagnostic messages reach the user.
-      expect(hasDiag(probe, "frontmatter is missing required field 'mode:'")).toBe(false);
-      expect(hasDiag(probe, "unknown 'mode:' value 'agent'")).toBe(false);
-      expect(hasDiag(probe, "'system:' is not permitted on a mode: prompt loom")).toBe(false);
-      expect(hasDiag(probe, "must be a non-negative integer")).toBe(false);
-      expect(hasDiag(probe, "'params: null' is not permitted")).toBe(false);
-      expect(hasDiag(probe, "unterminated string literal")).toBe(false);
-      // The load phase emitted zero diagnostics for this whole batch.
-      expect(probe.diagnostics.length).toBe(0);
+      // FIXED: each un-registered loom now carries its normative diagnostic.
+      expect(hasDiag(probe, "frontmatter is missing required field 'mode:'")).toBe(true);
+      expect(hasDiag(probe, "unknown 'mode:' value 'agent'")).toBe(true);
+      expect(hasDiag(probe, "'system:' is not permitted on a mode: prompt loom")).toBe(true);
+      expect(hasDiag(probe, "must be a non-negative integer")).toBe(true);
+      expect(hasDiag(probe, "'params: null' is not permitted")).toBe(true);
+      expect(hasDiag(probe, "unterminated string literal")).toBe(true);
     } finally {
       await probe.dispose();
     }
   });
 
-  // === FM-4: missing closing frontmatter delimiter → body silently dropped =
-  // A `.loom` with an opening `---` but no closing `---` has its body silently
-  // discarded (splitFrontmatter: "Unterminated fence: treat the whole file as
-  // frontmatter, empty body") and still registers as an empty loom. The author's
-  // `@`...`` query is lost with no diagnostic.
-  it("FM-4: missing closing `---` registers an empty loom (body dropped)", async () => {
+  // === FM-4: missing closing frontmatter delimiter → malformed fence =======
+  // A `.loom` with an opening `---` but no closing `---` previously had its body
+  // silently discarded and still registered as an empty loom. FIXED:
+  // splitFrontmatter treats the unterminated fence as "no recognised frontmatter
+  // mapping", so the loom un-registers with `loom/load/missing-mode`. (The closed
+  // diagnostics registry has no dedicated unterminated-fence code — see the WHY
+  // comment in splitFrontmatter.)
+  it("FM-4: missing closing `---` un-registers with a diagnostic (no empty-body loom)", async () => {
     const files: PlantedFile[] = [
       { source: "project", path: "no-close.loom", text: fm("---", "mode: prompt", "@`hello world`") },
     ];
     const probe = await runProbe({ provider, files, drives: [] });
     try {
-      // BUG: registers despite the unterminated fence + swallowed body.
-      expect(probe.registeredNames).toContain("no-close");
-      expect(probe.diagnostics.length).toBe(0);
+      // FIXED: does not register a do-nothing empty-body loom.
+      expect(probe.registeredNames).not.toContain("no-close");
+      // FIXED: the unterminated fence surfaces an author-visible diagnostic.
+      expect(hasDiag(probe, "frontmatter is missing required field 'mode:'")).toBe(true);
     } finally {
       await probe.dispose();
     }
   });
 
-  // === FM-5: malformed YAML frontmatter silently accepted ==================
-  // The YAML parser reports doc.errors for `x: : :`, but parseFrontmatter never
-  // inspects doc.errors, so a loom with malformed frontmatter registers anyway.
-  it("FM-5: malformed YAML frontmatter (`x: : :`) registers anyway", async () => {
+  // === FM-5: malformed YAML frontmatter ====================================
+  // The YAML parser reports doc.errors for `x: : :`, but parseFrontmatter
+  // previously never inspected doc.errors, so a loom built from a
+  // partially-recovered parse registered anyway. FIXED: a non-empty doc.errors
+  // discards the recovered contents, so the frontmatter is treated as no
+  // recognised mapping and the loom un-registers with `loom/load/missing-mode`.
+  // (Registry gap: no dedicated malformed-YAML code — see the WHY comment in
+  // parseFrontmatter.)
+  it("FM-5: malformed YAML frontmatter (`x: : :`) un-registers with a diagnostic", async () => {
     const files: PlantedFile[] = [
       { source: "project", path: "bad-yaml.loom", text: fm("---", "mode: prompt", "params:", "  x: : :", "---", "@`hi`") },
     ];
     const probe = await runProbe({ provider, files, drives: [] });
     try {
-      // BUG: malformed YAML is silently recovered; the loom registers.
-      expect(probe.registeredNames).toContain("bad-yaml");
-      expect(probe.diagnostics.length).toBe(0);
+      // FIXED: malformed YAML is no longer silently recovered into a loom.
+      expect(probe.registeredNames).not.toContain("bad-yaml");
+      // FIXED: the rejected parse surfaces an author-visible diagnostic.
+      expect(hasDiag(probe, "frontmatter is missing required field 'mode:'")).toBe(true);
     } finally {
       await probe.dispose();
     }
