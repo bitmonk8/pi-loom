@@ -18,14 +18,12 @@ async function drive(files: readonly PlantedFile[], invocation: string, timeoutN
 }
 
 describe("INVOKE runtime / ceilings / cross-mode", () => {
-  it("INV-5r: a callee OUTSIDE every discovery root is invoked successfully (sandbox not enforced)", async () => {
-    // EXPECTED (invocation.md §Resolution, INV-1): the realpath+containment
-    // check re-runs when the runtime opens the callee; an escaping callee must
-    // fail closed with Err(InvokeInfraError{cause:"load_failure"}). The `?` would
-    // then abort the parent BEFORE its @`x` query.
-    // OBSERVED: invoke of <cwd>/evil.loom (outside .pi/looms) SUCCEEDS and the
-    // parent proceeds to run @`x` — the containment guard is enforced neither at
-    // load nor at runtime.
+  it("INV-5r: a callee OUTSIDE every discovery root is NOT invoked (sandbox enforced)", async () => {
+    // invocation.md §Resolution / INV-1: the escaping callee is rejected. The
+    // load-time containment check (`loom/load/invoke-path-escape`) un-registers
+    // `escparent`, and the runtime open-time re-check is the backstop
+    // (`Err(InvokeInfraError{cause:"load_failure"})`). Either way the parent body
+    // never proceeds to run @`x` against the out-of-root callee.
     const { probe, turn } = await drive(
       [
         { source: "project", path: "escparent.loom", text: ["---", "mode: prompt", "---", 'let _ = invoke("../../evil.loom")?', "@`x`"].join("\n") },
@@ -34,21 +32,23 @@ describe("INVOKE runtime / ceilings / cross-mode", () => {
       "/escparent",
     );
     try {
-      expect(turn.error).toBeUndefined();
-      expect(turn.userTexts).toContain("x"); // parent body continued past the escaping invoke
+      // Load-time rejection: the escaping loom did not register.
+      expect(probe.registeredNames).not.toContain("escparent");
+      expect(
+        probe.diagnostics.some((d) => d.message.includes("resolves outside every active discovery root")),
+      ).toBe(true);
+      // The parent never continued past the escaping invoke.
+      expect(turn.userTexts).not.toContain("x");
     } finally {
       await probe.dispose();
     }
   });
 
-  it("INV-6: invoke<number> does NOT AJV-validate a string-returning callee's return value", async () => {
-    // EXPECTED (invocation.md §Typed return; hard-ceilings.md ceiling-#4 table):
-    // the runtime AJV-validates the child's return value against the annotated
-    // schema; a string under `invoke<number>` must be
-    // Err(InvokeInfraError{cause:"return_validation"}), aborting the parent
-    // before @`got ${n}`.
-    // OBSERVED: the string "a-string" flows straight into `n` and the parent
-    // renders "got a-string" — the typed-invoke return check is absent.
+  it("INV-6: invoke<number> AJV-validates a string-returning callee's return value and aborts the parent", async () => {
+    // invocation.md §Typed return; hard-ceilings.md ceiling-#4 table: the runtime
+    // AJV-validates the child's return value against the annotated schema; a
+    // string under `invoke<number>` is Err(InvokeInfraError{cause:
+    // "return_validation"}), aborting the parent via `?` before @`got ${n}`.
     const { probe, turn } = await drive(
       [
         { source: "project", path: "retparent.loom", text: ["---", "mode: prompt", "---", 'let n: number = invoke<number>("./retstr.loom")?', "@`got ${n}`"].join("\n") },
@@ -57,8 +57,9 @@ describe("INVOKE runtime / ceilings / cross-mode", () => {
       "/retparent",
     );
     try {
-      expect(turn.error).toBeUndefined();
-      expect(turn.userTexts.join("\n")).toContain("got a-string");
+      // The wrongly-typed value is rejected: the parent aborts before its query,
+      // so "got a-string" never reaches a user turn.
+      expect(turn.userTexts.join("\n")).not.toContain("got a-string");
     } finally {
       await probe.dispose();
     }
@@ -84,16 +85,13 @@ describe("INVOKE runtime / ceilings / cross-mode", () => {
     }
   });
 
-  it("INV-7: a bounded 40-deep invoke chain (>32) runs to completion — depth ceiling #1 not enforced", async () => {
-    // EXPECTED (INV-4 / ceiling #1): the interpreter caps invoke-chain nesting
-    // at 32; frame 33 raises loom/runtime/invoke-depth-exceeded. A chain of 40
-    // query-less links must abort ~frame 33, so the prompt head aborts BEFORE
-    // its @`REACHED-TAIL` sentinel → userTexts == [].
-    // OBSERVED: the full 40-deep chain returns and the head reaches its sentinel
-    // → userTexts contains "REACHED-TAIL". No cap fires. (Consequence: the
-    // self-cycle of INV-4b recurses UNBOUNDED and hangs the host — that loom is
-    // deliberately not driven; this bounded chain reproduces the missing cap
-    // while still terminating.)
+  it("INV-7: a bounded 40-deep invoke chain (>32) ABORTS at the depth ceiling #1 (cap 32)", async () => {
+    // INV-4 / ceiling #1: the interpreter caps invoke-chain nesting at 32; frame
+    // 33 raises loom/runtime/invoke-depth-exceeded. A chain of 40 query-less
+    // links aborts ~frame 33, so the prompt head aborts BEFORE its
+    // @`REACHED-TAIL` sentinel → userTexts does NOT contain "REACHED-TAIL". The
+    // links carry no @-query, so this probe drives ZERO model turns and always
+    // terminates (bounded 40 subagent spawns, aborted at frame 33).
     const files: PlantedFile[] = [
       { source: "project", path: "head.loom", text: ["---", "mode: prompt", "---", 'let _ = invoke("./link1.loom")?', "@`REACHED-TAIL`"].join("\n") },
     ];
@@ -105,19 +103,16 @@ describe("INVOKE runtime / ceilings / cross-mode", () => {
 
     const { probe, turn } = await drive(files, "/head");
     try {
-      expect(turn.error).toBeUndefined();
-      expect(turn.userTexts).toContain("REACHED-TAIL");
+      expect(turn.userTexts).not.toContain("REACHED-TAIL");
     } finally {
       await probe.dispose();
     }
   });
 
-  it("INV-8: a dynamic (non-literal) invoke path silently aborts the body with no diagnostic", async () => {
-    // EXPECTED (invocation.md §Resolution): "Dynamic dispatch (a runtime-computed
-    // path) is not supported in loom 1.0" — this must be a clear, surfaced error.
-    // OBSERVED: the parser extracts an empty path (first arg is not a string
-    // literal), and at runtime invoke("") aborts the body before @`x` with NO
-    // captured error and NO diagnostic (silent). The sentinel query never runs.
+  it("INV-8: a dynamic (non-literal) invoke path is a surfaced parse error that un-registers the loom", async () => {
+    // invocation.md §Resolution: "Dynamic dispatch (a runtime-computed path) is
+    // not supported in loom 1.0" — surfaced as `loom/parse/unsupported-feature`
+    // rather than degrading to a silent empty-path no-op. The loom un-registers.
     const { probe, turn } = await drive(
       [
         { source: "project", path: "dynparent.loom", text: ["---", "mode: prompt", "---", 'let p = "./noq.loom"', "let _ = invoke(p)?", "@`x`"].join("\n") },
@@ -126,26 +121,30 @@ describe("INVOKE runtime / ceilings / cross-mode", () => {
       "/dynparent",
     );
     try {
-      expect(turn.error).toBeUndefined();
-      expect(turn.userTexts).toEqual([]); // body aborted at invoke(""), silently
-      expect(probe.diagnostics).toEqual([]);
+      expect(probe.registeredNames).not.toContain("dynparent");
+      expect(
+        probe.diagnostics.some(
+          (d) => d.message.includes("unsupported syntactic feature") && d.message.includes("dynamic invoke path"),
+        ),
+      ).toBe(true);
+      expect(turn.userTexts).not.toContain("x");
     } finally {
       await probe.dispose();
     }
   });
 
-  it("INV-1r: invoke of a .warp path silently aborts the body at runtime with no diagnostic", async () => {
-    // Runtime consequence of INV-1: with no parse-time rejection, the body runs
-    // and invoke("./lib.warp") aborts it before @`x` with no captured error and
-    // no diagnostic — a silent no-op failure.
+  it("INV-1r: invoke of a .warp path is a surfaced parse error that un-registers the loom", async () => {
+    // Corrected consequence of INV-1: the .warp invoke path is rejected at parse
+    // time (`loom/parse/invoke-non-loom-extension`), so `warpinv` never registers
+    // and its body is never driven into a silent no-op.
     const { probe, turn } = await drive(
       [{ source: "project", path: "warpinv.loom", text: ["---", "mode: prompt", "---", 'let _ = invoke("./lib.warp")?', "@`x`"].join("\n") }],
       "/warpinv",
     );
     try {
-      expect(turn.error).toBeUndefined();
-      expect(turn.userTexts).toEqual([]);
-      expect(probe.diagnostics).toEqual([]);
+      expect(probe.registeredNames).not.toContain("warpinv");
+      expect(probe.diagnostics.some((d) => d.message.includes("does not end in .loom"))).toBe(true);
+      expect(turn.userTexts).not.toContain("x");
     } finally {
       await probe.dispose();
     }

@@ -48,6 +48,7 @@ import {
   type ExecuteBodyDeps,
 } from "../runtime/statement-executor";
 import type { LoomValue, ResultValue } from "../runtime/value";
+import type { InvokeChain } from "../runtime/invoke-depth-cycle";
 
 /**
  * Project the binder's bound `args` object onto the executor's `paramBindings`
@@ -126,6 +127,14 @@ export interface ConversationBindInput {
    * dispatch (whose args are bound by the frontmatter binder).
    */
   readonly paramBindings?: ReadonlyMap<string, LoomValue>;
+  /**
+   * INV-4 / ceiling #1 (invocation.md §"Invocation depth bound"): the per-chain
+   * invoke-depth counter carried into this binding. Present only when this
+   * binding drives a nested `invoke(...)` callee (the parent pushes a countable
+   * frame before spawning); absent for a top-level slash dispatch, which starts
+   * a fresh chain at depth 0.
+   */
+  readonly chain?: InvokeChain;
 }
 
 /**

@@ -86,7 +86,7 @@ function callExpr(callee: string, args: readonly Expr[] = []): CallExpr {
 }
 
 function invokeExpr(path: string, args: readonly Expr[] = []): InvokeExpr {
-  return { kind: "invoke", path, args, range: span() };
+  return { kind: "invoke", path, returnSchema: null, args, range: span() };
 }
 
 function queryStmt(template: string): QueryStmt {

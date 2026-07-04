@@ -33,6 +33,7 @@
 import type { Diagnostic, Position, SourceRange } from "../diagnostics/diagnostic";
 import { assembleDiagnostics } from "../diagnostics/diagnostic";
 import { lexLoom, type LoomSource, type Token } from "../lexer/lexer";
+import { validatePathLiteral } from "../lexer/literals";
 import type { SystemNoteChannelDeps } from "../extension/system-note-channel";
 import {
   parseFrontmatter,
@@ -137,6 +138,12 @@ export interface InvokeExpr extends NodeBase {
   readonly kind: "invoke";
   /** The literal callee path (`invoke("./x.loom", ...)`). */
   readonly path: string;
+  /**
+   * The `invoke<Schema>` return-type annotation text (`"number"`, `"Plan"`, …),
+   * or `null` for an untyped `invoke(...)`. Feeds the runtime AJV return-value
+   * validation (invocation.md §Typed return; hard-ceilings ceiling #4).
+   */
+  readonly returnSchema: string | null;
   readonly args: readonly Expr[];
 }
 
@@ -2421,22 +2428,65 @@ class BodyParser {
 
   private parseInvoke(): Expr {
     const kw = this.advance(); // `invoke`
-    // Skip an optional `<T>` type argument.
+    // Capture an optional `<T>` return-type annotation (invocation.md §Typed
+    // return): its text is threaded onto the AST so the runtime can AJV-validate
+    // the callee's returned value against it (the parse-time type check is
+    // separate; the runtime check is the safety net — hard-ceilings ceiling #4).
+    let returnSchema: string | null = null;
     if (this.isPunct("<")) {
-      let depth = 0;
-      do {
-        const t = this.advance();
-        if (t.kind === "punct" && t.text === "<") depth += 1;
-        else if (t.kind === "punct" && t.text === ">") depth -= 1;
-        else if (t.kind === "eof") break;
-      } while (depth > 0);
+      this.advance(); // `<`
+      let depth = 1;
+      const parts: string[] = [];
+      while (depth > 0 && !this.atEnd()) {
+        const t = this.peek();
+        if (t.kind === "punct" && t.text === "<") {
+          depth += 1;
+        } else if (t.kind === "punct" && t.text === ">") {
+          depth -= 1;
+          if (depth === 0) {
+            this.advance();
+            break;
+          }
+        }
+        parts.push(t.text);
+        this.advance();
+      }
+      const annotation = parts.join("").trim();
+      returnSchema = annotation.length > 0 ? annotation : null;
     }
     const args = this.parseArgs();
     const first = args[0];
     const path = first !== undefined && first.kind === "string" ? first.value : "";
+    // INV-1 / INV-2 (invocation.md §Resolution; lexical.md §"Path literals" /
+    // §"Extension matching"): the callee path is a string literal — validate its
+    // byte-exact-lowercase `.loom` suffix and forward-slash-only rule at parse
+    // time. INV-8: a non-literal (runtime-computed) path is not supported in
+    // loom 1.0, so surface it as a parse error rather than degrading to a silent
+    // empty-path no-op at runtime.
+    if (first !== undefined) {
+      if (first.kind === "string") {
+        this.diagnostics.push(
+          ...validatePathLiteral(
+            { value: first.value, range: first.range },
+            "invoke",
+            this.file,
+          ),
+        );
+      } else {
+        this.diagnostics.push({
+          severity: "error",
+          code: "loom/parse/unsupported-feature",
+          file: this.file,
+          range: first.range,
+          message:
+            "unsupported syntactic feature: dynamic invoke path (runtime-computed)",
+        });
+      }
+    }
     return {
       kind: "invoke",
       path,
+      returnSchema,
       args,
       range: spanRange(kw.range, this.prevRange()),
     };

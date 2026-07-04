@@ -63,6 +63,11 @@ import {
   type CallableSetDeps,
 } from "../parser/callable-set";
 import { checkCalleeHasErrors } from "../parser/invoke-diagnostics";
+import {
+  buildInvokeGraph,
+  checkInvokeStaticResolution,
+  type CalleeArity,
+} from "./invoke-static-checks";
 import type { LoomMode } from "../parser/frontmatter";
 import { createModelReferenceMatcher } from "./reload-wiring";
 import type { SystemNoteChannelDeps } from "./system-note-channel";
@@ -171,6 +176,16 @@ export async function discoverAndComposeFixtures(
   });
   const systemNote = buildSystemNoteDeps(pi, ctx, emitDiagnostic);
   const parseDeps = { systemNote, modelMatcher };
+
+  // INV-5 (invocation.md §Resolution): the active discovery-root union threaded
+  // into the invoke containment check — the parent directory of every discovered
+  // loom. Every registrable loom sits inside an active discovery root, so this
+  // set is the roots the load-time and runtime containment checks compare
+  // against; a callee resolving outside all of them escapes the sandbox.
+  const activeRoots = Array.from(
+    new Set(discovered.map((loom) => dirname(loom.path))),
+  );
+
   const producerDeps = createProductionProducerDeps({
     pi,
     root,
@@ -182,9 +197,15 @@ export async function discoverAndComposeFixtures(
     // directory, reusing the shared parser deps.
     parseCallee: (callerPath, calleePath) =>
       parseCalleeLoom(fileSystem, ctx.cwd, callerPath, calleePath, parseDeps),
+    // INV-5 (invocation.md INV-1 seam): the runtime open-time containment
+    // re-check consults the same `realpath` seam and active-root union.
+    fileSystem,
+    activeRoots,
   });
 
-  const fixtures: LoomFixture[] = [];
+  // Parse pass: parse every discovered loom into its composition input; a drop
+  // surfaces its load/parse diagnostics (FM-3 / DIAG-1) and does not register.
+  const parsedInputs: LoomCompositionInput[] = [];
   for (const loom of discovered) {
     const parsed = await parseDiscoveredLoom(fileSystem, loom, {
       systemNote,
@@ -198,7 +219,16 @@ export async function discoverAndComposeFixtures(
       }
       continue;
     }
-    const input = parsed.fixture;
+    parsedInputs.push(parsed.fixture);
+  }
+
+  // INV-4 (invocation.md §Cycle detection): build the per-load-pass
+  // static-resolution invoke graph across the parsed looms once, so the cycle
+  // walk below runs per entry against a shared graph.
+  const invokeGraph = buildInvokeGraph(parsedInputs);
+
+  const fixtures: LoomFixture[] = [];
+  for (const input of parsedInputs) {
     // V20a — resolve the `tools:` callable set against the shipped Pi tool
     // registry at production load time. A `tools:` rejection (unknown Pi tool,
     // prompt-mode `.loom` callee, name collision, invalid `as` rename, or a
@@ -217,9 +247,58 @@ export async function discoverAndComposeFixtures(
     if (toolDiagnostics.some((diagnostic) => diagnostic.severity === "error")) {
       continue;
     }
+
+    // INV-3 / INV-4 / INV-5: run the invoke static checks against the resolved
+    // callees and the shared invoke graph. An error-severity diagnostic (an
+    // arity error, a discovery-root escape, or an invocation cycle) un-registers
+    // the loom.
+    const invokeDiagnostics = await checkInvokeStaticResolution(input, {
+      fs: fileSystem,
+      activeRoots,
+      graph: invokeGraph,
+      resolveCalleeArity: (absolutePath) =>
+        resolveCalleeArity(fileSystem, absolutePath, parseDeps),
+    });
+    for (const diagnostic of invokeDiagnostics) {
+      emitDiagnostic(diagnostic);
+    }
+    if (invokeDiagnostics.some((diagnostic) => diagnostic.severity === "error")) {
+      continue;
+    }
+
     fixtures.push(composeLoomFixture(input, producerDeps));
   }
   return fixtures;
+}
+
+/**
+ * INV-3 arity support: parse a callee `.loom` at `absolutePath` and report its
+ * `params:` arity counts — the total field count and the count of fields that
+ * are neither defaulted nor optional (the minimum required arity). Returns
+ * `undefined` when the callee is unreadable / unparseable (not statically
+ * resolvable), so the arity check is skipped and the runtime AJV net applies.
+ */
+async function resolveCalleeArity(
+  fs: FileSystem,
+  absolutePath: string,
+  deps: Parameters<typeof parseLoomDocument>[1],
+): Promise<CalleeArity | undefined> {
+  const bytes = await fs.readBytes(absolutePath).then(
+    (value) => value,
+    () => undefined,
+  );
+  if (bytes === undefined) {
+    return undefined;
+  }
+  const document = parseLoomDocument({ path: absolutePath, bytes }, deps);
+  if (document.frontmatter === null || hasLoadParseError(document.diagnostics)) {
+    return undefined;
+  }
+  const fields = document.frontmatter.params?.fields ?? [];
+  const requiredCount = fields.filter(
+    (field) => !field.hasDefault && field.optional !== true,
+  ).length;
+  return { requiredCount, totalCount: fields.length };
 }
 
 /**

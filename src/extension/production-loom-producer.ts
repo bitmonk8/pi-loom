@@ -24,6 +24,7 @@ import type {
   ExtensionCommandContext,
   ModelRegistry,
 } from "@earendil-works/pi-coding-agent";
+import { dirname, isAbsolute, resolve as resolvePath } from "node:path";
 import {
   buildSessionContext,
   createAgentSession,
@@ -84,6 +85,15 @@ import type {
 import type { CommittedSideEffect } from "../runtime/no-rollback";
 import type { InvokeChild } from "../runtime/invoke-cancellation";
 import type { InvokeInfraError } from "../runtime/query-error";
+import {
+  newInvokeChain,
+  pushCountableFrame,
+  surfaceDepthOverflow,
+  InvokeDepthExceededPanic,
+  type InvokeChain,
+} from "../runtime/invoke-depth-cycle";
+import { recheckInvokePathAtRuntime } from "../runtime/invocation";
+import type { FileSystem } from "../seams/file-system";
 import type {
   CommittedConversationMutator,
   CommittedSurface,
@@ -178,6 +188,15 @@ export interface ProductionProducerInput {
     callerPath: string | undefined,
     calleePath: string,
   ) => Promise<LoomCompositionInput | undefined>;
+  /**
+   * INV-5 (invocation.md §Resolution, INV-1 seam): the `FileSystem.realpath`
+   * seam and the union of currently-active discovery roots, used by the runtime
+   * open-time containment re-check. Absent on non-production harnesses, in which
+   * case the runtime re-check is skipped (the load-time check remains the
+   * primary guard).
+   */
+  readonly fileSystem?: Pick<FileSystem, "realpath">;
+  readonly activeRoots?: readonly string[];
 }
 
 /**
@@ -312,6 +331,9 @@ class ProductionLoomProducer implements LoomProducerDeps {
   bindPromptConversation(bindInput: ConversationBindInput): ConversationBinding {
     const { pi, root } = this.#input;
     const { loom, ctx } = bindInput;
+    // INV-4 / ceiling #1: a top-level dispatch starts a fresh chain at depth 0;
+    // a nested invoke carries the parent's pushed chain in `bindInput.chain`.
+    const chain = bindInput.chain ?? newInvokeChain();
 
     // The `loomAbort`-equivalent signal the executor and every checkpoint gate
     // on: the dispatch context's signal when the agent is streaming, else a
@@ -357,9 +379,9 @@ class ProductionLoomProducer implements LoomProducerDeps {
         });
       },
       resolveToolCall: (expr, env) => this.#resolveToolCall(expr, env, signal),
-      resolveInvoke: (expr, env) => this.#resolveInvoke(loom, expr, env, ctx),
+      resolveInvoke: (expr, env) => this.#resolveInvoke(loom, expr, env, ctx, chain),
       classifyCall: (expr) => this.#classifyCall(loom, expr),
-      resolveCallAsInvoke: (expr, env) => this.#resolveCallAsInvoke(loom, expr, env, ctx),
+      resolveCallAsInvoke: (expr, env) => this.#resolveCallAsInvoke(loom, expr, env, ctx, chain),
     };
 
     const executeDeps: ExecuteBodyDeps = {
@@ -386,6 +408,10 @@ class ProductionLoomProducer implements LoomProducerDeps {
   ): Promise<ConversationBinding> {
     const { root, modelRegistry } = this.#input;
     const { loom, ctx } = bindInput;
+    // INV-4 / ceiling #1: carry the parent's pushed chain into the spawned
+    // subagent session so the per-chain depth counter crosses the subagent
+    // boundary unchanged; a top-level subagent dispatch starts at depth 0.
+    const chain = bindInput.chain ?? newInvokeChain();
 
     // PIC-40 pre-spawn model guard: the subagent's resolved model is the loom's
     // frontmatter `model:` resolved into the inherited session model — here the
@@ -502,9 +528,9 @@ class ProductionLoomProducer implements LoomProducerDeps {
         };
       },
       resolveToolCall: (expr, env) => this.#resolveToolCall(expr, env, signal),
-      resolveInvoke: (expr, env) => this.#resolveInvoke(loom, expr, env, ctx),
+      resolveInvoke: (expr, env) => this.#resolveInvoke(loom, expr, env, ctx, chain),
       classifyCall: (expr) => this.#classifyCall(loom, expr),
-      resolveCallAsInvoke: (expr, env) => this.#resolveCallAsInvoke(loom, expr, env, ctx),
+      resolveCallAsInvoke: (expr, env) => this.#resolveCallAsInvoke(loom, expr, env, ctx, chain),
     };
 
     const executeDeps: ExecuteBodyDeps = {
@@ -710,11 +736,15 @@ class ProductionLoomProducer implements LoomProducerDeps {
     expr: InvokeExpr,
     env: LexicalEnvironment,
     ctx: ExtensionCommandContext,
+    chain: InvokeChain,
   ): InvokeChild {
     // `expr.args[0]` is the callee path literal; the remaining args are the
     // positional invocation arguments bound to the callee's params.
     const argValues = expr.args.slice(1).map((arg) => evaluatePureExpression(arg, env));
-    return this.#buildInvokeChild(loom, expr.path, argValues, ctx);
+    // INV-6: the `invoke<Schema>` return annotation drives the runtime AJV
+    // return-value validation on the child's `Ok` payload (invocation.md §Typed
+    // return; hard-ceilings ceiling #4).
+    return this.#buildInvokeChild(loom, expr.path, argValues, ctx, chain, expr.returnSchema);
   }
 
   /**
@@ -728,10 +758,14 @@ class ProductionLoomProducer implements LoomProducerDeps {
     expr: CallExpr,
     env: LexicalEnvironment,
     ctx: ExtensionCommandContext,
+    chain: InvokeChain,
   ): InvokeChild {
     const calleePath = loomCalleePath(loom, expr.callee) ?? `./${expr.callee}.loom`;
     const argValues = expr.args.map((arg) => evaluatePureExpression(arg, env));
-    return this.#buildInvokeChild(loom, calleePath, argValues, ctx);
+    // A `.loom`-callable call through `tools:` carries no `invoke<Schema>`
+    // annotation, so there is no parse-time return-type site; the runtime AJV
+    // net still applies at the query/typed boundary inside the callee.
+    return this.#buildInvokeChild(loom, calleePath, argValues, ctx, chain, null);
   }
 
   /** Build the `InvokeChild` whose `drive()` parses, spawns, and drives the callee. */
@@ -740,11 +774,35 @@ class ProductionLoomProducer implements LoomProducerDeps {
     calleePath: string,
     argValues: readonly LoomValue[],
     ctx: ExtensionCommandContext,
+    chain: InvokeChain,
+    returnSchema: string | null,
   ): InvokeChild {
     return {
       calleePath,
       committed: [],
-      drive: (): Promise<ResultValue> => this.#driveCallee(loom, calleePath, argValues, ctx),
+      drive: (): Promise<ResultValue> => {
+        // INV-4 / ceiling #1 (invocation.md §INV-4, CIO-2): push a countable
+        // frame BEFORE the callee body runs. The cap is breached when about to
+        // push the 33rd frame; the nested overflow surfaces to this invoke
+        // parent as `Err(InvokeInfraError{cause:"panic"})` — the runtime backstop
+        // that (with load-time cycle detection) bounds a self-referential loom.
+        let childChain: InvokeChain;
+        try {
+          childChain = pushCountableFrame(chain, "direct-invoke");
+        } catch (panic) {
+          if (panic instanceof InvokeDepthExceededPanic) {
+            const surfaced = surfaceDepthOverflow(panic, {
+              topLevel: false,
+              calleePath,
+            });
+            if (surfaced.mode === "nested") {
+              return Promise.resolve(makeErr(surfaced.error as unknown as LoomValue));
+            }
+          }
+          throw panic;
+        }
+        return this.#driveCallee(loom, calleePath, argValues, ctx, childChain, returnSchema);
+      },
     };
   }
 
@@ -761,7 +819,18 @@ class ProductionLoomProducer implements LoomProducerDeps {
     calleePath: string,
     argValues: readonly LoomValue[],
     ctx: ExtensionCommandContext,
+    chain: InvokeChain,
+    returnSchema: string | null,
   ): Promise<ResultValue> {
+    // INV-5 (invocation.md §Resolution, INV-1 seam): re-run the realpath +
+    // discovery-root containment check at the moment the runtime opens the
+    // callee, against the *currently* active roots. An escape fails closed with
+    // `Err(InvokeInfraError{cause:"load_failure"})` — the runtime backstop to the
+    // load-time `loom/load/invoke-path-escape` guard.
+    const escape = await this.#recheckCalleeContainment(loom, calleePath);
+    if (escape !== undefined) {
+      return makeErr(escape as unknown as LoomValue);
+    }
     const callee = await this.#input.parseCallee?.(loom.sourcePath, calleePath);
     if (callee === undefined) {
       const error: InvokeInfraError = {
@@ -782,9 +851,79 @@ class ProductionLoomProducer implements LoomProducerDeps {
       args: "",
       ctx,
       paramBindings,
+      chain,
     });
     const execution = await executeBody(callee.body, binding.executeDeps);
-    return binding.surface(execution);
+    const result = binding.surface(execution);
+    // INV-6 (invocation.md §Typed return; hard-ceilings ceiling #4): AJV-validate
+    // the child's returned value against the `invoke<Schema>` annotation. A
+    // mismatch (e.g. a `string` under `invoke<number>`) is
+    // `Err(InvokeInfraError{cause:"return_validation"})`, aborting the parent.
+    return this.#validateInvokeReturn(loom, calleePath, returnSchema, result);
+  }
+
+  /**
+   * INV-5 runtime re-check: resolve the callee path against the caller's
+   * directory and re-run the shared realpath + discovery-root containment check
+   * against the currently-active roots. Returns the `load_failure`
+   * `InvokeInfraError` on escape, or `undefined` when contained (or when the
+   * production seams needed for the check are absent).
+   */
+  async #recheckCalleeContainment(
+    loom: ConversationBindInput["loom"],
+    calleePath: string,
+  ): Promise<InvokeInfraError | undefined> {
+    const fileSystem = this.#input.fileSystem;
+    const activeRoots = this.#input.activeRoots;
+    if (fileSystem === undefined || activeRoots === undefined) {
+      return undefined;
+    }
+    const baseDir = loom.sourcePath !== undefined ? dirname(loom.sourcePath) : undefined;
+    const resolvedPath =
+      baseDir !== undefined && !isAbsolute(calleePath)
+        ? resolvePath(baseDir, calleePath)
+        : calleePath;
+    const verdict = await recheckInvokePathAtRuntime({
+      deps: { fs: fileSystem },
+      resolvedPath,
+      literalPath: calleePath,
+      activeRoots,
+    });
+    return verdict.kind === "escape" ? verdict.error : undefined;
+  }
+
+  /**
+   * INV-6 runtime return-value validation: lower the `invoke<Schema>` annotation
+   * against the caller loom's `schema` decls, compile it, and AJV-validate the
+   * child's `Ok` payload. An untyped invoke (`returnSchema === null`) or an
+   * `Err` result passes through unchanged; a validation failure is surfaced as
+   * `Err(InvokeInfraError{cause:"return_validation"})`.
+   */
+  #validateInvokeReturn(
+    loom: ConversationBindInput["loom"],
+    calleePath: string,
+    returnSchema: string | null,
+    result: ResultValue,
+  ): ResultValue {
+    if (returnSchema === null || !result.ok) {
+      return result;
+    }
+    const lowered = lowerQueryResponseSchema(returnSchema, schemaDeclsOf(loom.body));
+    if (lowered === undefined) {
+      return result;
+    }
+    const validator = this.#input.root.schemaValidator.compile(lowered);
+    const verdict = validator.validate(result.value as unknown);
+    if (verdict.ok) {
+      return result;
+    }
+    const error: InvokeInfraError = {
+      kind: "invoke_infra",
+      message: `invoke<${returnSchema}> return value failed validation`,
+      callee_path: calleePath,
+      cause: "return_validation",
+    };
+    return makeErr(error as unknown as LoomValue);
   }
 }
 
