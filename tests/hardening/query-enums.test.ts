@@ -30,40 +30,38 @@ describe("schema — enum runtime + validation", () => {
     }
   });
 
-  it("QRY-4 BUG: direct enum-variant interpolation ${Color.Red} aborts the loom", async () => {
+  it("QRY-4 FIXED: direct enum-variant interpolation ${Color.Red} renders and issues a turn", async () => {
     const probe = await runProbe({
       provider,
       files: [loom("direct", "enum Color { Red, Green }\n@`VAL=${Color.Red}`")],
       drives: ["/direct"],
     });
     try {
-      // EXPECTED (QRY-18): renders "VAL=Red" and issues a turn.
-      // OBSERVED: no turn issued — direct enum-variant access in interpolation
-      // position aborts the loom (contrast the let-bound form below, which
-      // issues a turn).
-      expect(probe.turns[0]?.userTexts).toEqual([]); // BUG: expected ["VAL=Red"]
+      // FIXED (QRY-18): renders "VAL=Red" and issues a turn (the interpolation
+      // is evaluated as an expression, resolving Color.Red to the enum value).
+      expect(probe.turns[0]?.userTexts).toEqual(["VAL=Red"]);
       expect(probe.turns[0]?.error).toBeUndefined();
     } finally {
       await probe.dispose();
     }
   });
 
-  it("QRY-2 BUG: enum interpolation is JSON-quoted instead of the unquoted wire value", async () => {
+  it("QRY-2 FIXED: enum interpolation renders the unquoted wire value", async () => {
     const probe = await runProbe({
       provider,
       files: [loom("quoted", "enum Color { Red, Green }\nlet s: Color = Color.Red\n@`VAL=${s}`")],
       drives: ["/quoted"],
     });
     try {
-      // EXPECTED (QRY-18: "Enum variant | the variant's wire value, unquoted"):
-      // "VAL=Red". OBSERVED: 'VAL="Red"' — the wire value is JSON-quoted.
-      expect(probe.turns[0]?.userTexts).toEqual(['VAL="Red"']); // BUG: expected ["VAL=Red"]
+      // FIXED (QRY-18: "Enum variant | the variant's wire value, unquoted"):
+      // "VAL=Red" — the bare wire value, no JSON quoting.
+      expect(probe.turns[0]?.userTexts).toEqual(["VAL=Red"]);
     } finally {
       await probe.dispose();
     }
   });
 
-  it("QRY-3 BUG: explicit enum value (Low = \"low\") is dropped; the variant name is used as the wire value", async () => {
+  it("QRY-3 FIXED: explicit enum value (Low = \"low\") is used as the wire value", async () => {
     const probe = await runProbe({
       provider,
       files: [
@@ -75,11 +73,10 @@ describe("schema — enum runtime + validation", () => {
       drives: ["/explicit"],
     });
     try {
-      // EXPECTED (schemas.md: "Explicit values override that mapping: Low =
-      // \"low\" -> the model produces \"low\""): "VAL=low".
-      // OBSERVED: 'VAL="Low"' — the explicit value "low" is dropped (parseEnum
-      // captures variant NAMES only) AND the value is JSON-quoted (QRY-2).
-      expect(probe.turns[0]?.userTexts).toEqual(['VAL="Low"']); // BUG: expected ["VAL=low"]
+      // FIXED (schemas.md: "Explicit values override that mapping: Low =
+      // \"low\" -> the model produces \"low\""): "VAL=low" — the explicit value
+      // is captured by parseEnum and rendered as the bare wire value.
+      expect(probe.turns[0]?.userTexts).toEqual(["VAL=low"]);
     } finally {
       await probe.dispose();
     }

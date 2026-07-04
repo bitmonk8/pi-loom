@@ -55,20 +55,20 @@ describe("exprflow — interpolation & enums", () => {
       // Enum equality is correct.
       expect(byName["/enumb"]).toContain("eq1=true|");
       expect(byName["/enumb"]).toContain("eq2=false|");
-      // EXPR-6 (BUG): a bound enum interpolates as JSON-quoted ("Red") rather
-      // than QRY-18's bare unquoted wire value (Red).
-      expect(byName["/enumb"]).toContain('c="Red"|');
-      // EXPR-7 (BUG): a direct ${Enum.Variant} interpolation aborts the loom
-      // (null member access in the dotted-path resolver) — no user turn.
-      expect(byName["/enumd"]).toBe("");
-      // EXPR-8 (BUG): interpolation only resolves dotted identifier paths.
-      // Arbitrary expressions render null / undefined instead of their value.
-      expect(byName["/iexpr"]).toContain("plus=null|");   // ${x + 1} → 6 expected
-      expect(byName["/iexpr"]).toContain("prod=null|");   // ${x * 2} → 10
-      expect(byName["/iexpr"]).toContain("idx=null|");    // ${arr[0]} → 10
-      expect(byName["/iexpr"]).toContain("call=null|");   // ${dbl(x)} → 10
-      expect(byName["/iexpr"]).toContain("meth=undefined|"); // ${s.toUpperCase()} → HI
-      expect(byName["/iexpr"]).toContain("len=2|");       // ${s.length} dotted path works
+      // EXPR-6 (FIXED): a bound enum interpolates as QRY-18's bare unquoted wire
+      // value (Red), not JSON-quoted ("Red").
+      expect(byName["/enumb"]).toContain("c=Red|");
+      // EXPR-7 (FIXED): a direct ${Enum.Variant} interpolation evaluates to the
+      // enum value and issues a turn (VAL=Red), no longer aborting the loom.
+      expect(byName["/enumd"]).toContain("d=Red|");
+      // EXPR-8 (FIXED): interpolation evaluates any expression, not just dotted
+      // identifier paths.
+      expect(byName["/iexpr"]).toContain("plus=6|");    // ${x + 1}
+      expect(byName["/iexpr"]).toContain("prod=10|");   // ${x * 2}
+      expect(byName["/iexpr"]).toContain("idx=10|");    // ${arr[0]}
+      expect(byName["/iexpr"]).toContain("call=10|");   // ${dbl(x)}
+      expect(byName["/iexpr"]).toContain("meth=HI|");   // ${s.toUpperCase()}
+      expect(byName["/iexpr"]).toContain("len=2|");     // ${s.length}
     } finally {
       await probe.dispose();
     }

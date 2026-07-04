@@ -132,6 +132,12 @@ export interface MaterializedImport {
 export interface EnumRegistration {
   readonly name: string;
   readonly variants: readonly string[];
+  /**
+   * Explicit `= "..."` wire values keyed by variant name (schemas.md §Enum
+   * declarations). A variant absent here uses its name verbatim as the wire
+   * value, preserving the name-is-wire default.
+   */
+  readonly values?: Readonly<Record<string, string>>;
 }
 
 /**
@@ -174,6 +180,18 @@ function syntheticRange(): SourceRange {
   return { start: { line: 0, column: 0 }, end: { line: 0, column: 0 } };
 }
 
+/**
+ * Build the variant-name → wire-value map for a registered enum: each name maps
+ * to its explicit `= "..."` value when declared, else to the name verbatim
+ * (schemas.md §Enum declarations — the name-is-wire default).
+ */
+function buildVariantWireMap(
+  names: readonly string[],
+  values: Readonly<Record<string, string>> | undefined,
+): ReadonlyMap<string, string> {
+  return new Map(names.map((name) => [name, values?.[name] ?? name]));
+}
+
 /** An identifier resolved to a non-value arm (`fn` / `import` / `callable` / `unresolved`) at a read position. */
 class IdentifierNotReadableError extends Error {}
 
@@ -185,8 +203,14 @@ export class LexicalEnvironment {
   private readonly fns: Map<string, FnDecl>;
   /** Registered top-level + imported `schema` declarations — root only. */
   private readonly schemas: Map<string, SchemaDecl>;
-  /** Registered top-level + imported `enum` variant sets — root only. */
-  private readonly enums: Map<string, ReadonlySet<string>>;
+  /**
+   * Registered top-level + imported `enum` variant → wire-value maps — root
+   * only. The key is the variant name (`Enum.Variant` resolution keys by name);
+   * the value is the variant's wire string (the explicit `= "..."` value when
+   * declared, else the name verbatim), so `Enum.Variant` renders the correct
+   * wire form (schemas.md §Enum declarations).
+   */
+  private readonly enums: Map<string, ReadonlyMap<string, string>>;
   /** Materialised imports keyed by local binding name — root only. */
   private readonly imports: Map<string, MaterializedImport>;
   /** The callable-set names (`tools:`, `V6c`) — the arm `V19b` defines but does not populate. */
@@ -218,7 +242,7 @@ export class LexicalEnvironment {
       // Top-level `enum` registrations carry the variant sets (`V19a`'s
       // `EnumDecl` carries only the name — see notes.md seam-shape decision).
       for (const reg of inputs.enums ?? []) {
-        this.enums.set(reg.name, new Set(reg.variants));
+        this.enums.set(reg.name, buildVariantWireMap(reg.variants, reg.values));
       }
       // Imported `.warp` symbols materialised via `V15c`'s import loader
       // (imports.md §Visibility): an `fn` is resolvable + callable, a `schema`
@@ -228,7 +252,10 @@ export class LexicalEnvironment {
         if (imp.kind === "schema") {
           this.schemas.set(imp.name, { kind: "schema", name: imp.name, range: syntheticRange() });
         } else if (imp.kind === "enum") {
-          this.enums.set(imp.name, new Set(imp.variants ?? []));
+          // Imported enums carry variant names only; each name is its own wire
+          // value (imported explicit values are not threaded through the
+          // materialisation seam).
+          this.enums.set(imp.name, buildVariantWireMap(imp.variants ?? [], undefined));
         }
       }
       callables = new Set(inputs.callables ?? []);
@@ -340,7 +367,9 @@ export class LexicalEnvironment {
     if (variants === undefined || !variants.has(variant)) {
       return undefined;
     }
-    return makeEnumValue(enumName, variant);
+    // Resolve to the variant's wire value (the explicit `= "..."` value when
+    // declared, else the name) so `Enum.Variant` carries the correct wire form.
+    return makeEnumValue(enumName, variants.get(variant) as string);
   }
 }
 

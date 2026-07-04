@@ -89,7 +89,14 @@ import type {
   CommittedSurface,
 } from "../runtime/terminal-outcomes";
 import { makeCancelledError } from "../runtime/cancellation-core";
-import { makeErr, makeOk, valuesEqual, type LoomValue, type ResultValue } from "../runtime/value";
+import {
+  isEnumValue,
+  makeErr,
+  makeOk,
+  valuesEqual,
+  type LoomValue,
+  type ResultValue,
+} from "../runtime/value";
 import { evaluateStringMember } from "../runtime/stdlib-string";
 import { evaluateArrayMember } from "../runtime/stdlib-array";
 import { evaluateObjectMember } from "../runtime/stdlib-object";
@@ -104,6 +111,7 @@ import type {
   SchemaDecl,
   Stmt,
 } from "../parser/loom-document";
+import { parseExpressionSource } from "../parser/loom-document";
 import { lowerQueryResponseSchema } from "../runtime/query-schema-lowering";
 import type { LoweredSchema } from "../seams/schema-validator";
 import type { TypedQuerySchemaValidation } from "../runtime/query-tool-loop";
@@ -113,7 +121,12 @@ import {
   payloadForRespond,
 } from "../runtime/typed-query-validation";
 import { evaluateIndexAccess, evaluateMemberAccess } from "../runtime/runtime-panics";
-import { lexQueryTemplate, renderTemplateText } from "../render/query-render";
+import {
+  lexQueryTemplate,
+  renderTemplateText,
+  stringifyInterpolatedValue,
+  type InterpolationType,
+} from "../render/query-render";
 import {
   applyBinderBypass,
   buildBinderEnvelopeSchema,
@@ -818,13 +831,18 @@ function buildBoundEnvironment(
   body: LoomBody,
   paramBindings: ReadonlyMap<string, LoomValue> | undefined,
 ): LexicalEnvironment {
-  // Register top-level `enum` declarations (with their captured variant names)
-  // so `Enum.Variant` access resolves to a first-class enum value rather than
+  // Register top-level `enum` declarations (with their captured variant names
+  // and any explicit `= "..."` wire values) so `Enum.Variant` access resolves
+  // to a first-class enum value — carrying the correct wire form — rather than
   // panicking on a member access against an unresolved name.
   const enums: EnumRegistration[] = [];
   for (const stmt of body.statements) {
     if (stmt.kind === "enum" && stmt.variants !== undefined) {
-      enums.push({ name: stmt.name, variants: stmt.variants });
+      enums.push({
+        name: stmt.name,
+        variants: stmt.variants,
+        ...(stmt.variantValues !== undefined ? { values: stmt.variantValues } : {}),
+      });
     }
   }
   const env = buildEnvironment({ body, enums });
@@ -1299,9 +1317,12 @@ async function parseOkEnvelopeArgs(text: string): Promise<Readonly<Record<string
 /**
  * Render one `@`-query template to its wire text against the lexical
  * environment: lex the template into literal / `${…}` interpolation parts,
- * resolve each interpolation path against the environment, and apply the QRY-7
- * newline-trim → dedent normalisation. A path interpolation resolves its head
- * identifier against the environment and walks the remaining `.field` segments.
+ * evaluate each interpolation as a full expression (expressions.md
+ * §"Supported forms" — not a dotted-path subset), stringify the resulting
+ * runtime value by the QRY-18 rule, and apply the QRY-7 newline-trim → dedent
+ * normalisation. An interpolation whose source does not parse, or that has no
+ * pure runtime value (an effectful `fn` body / tool-call), yields the inert
+ * `null` render (the expressions.md safety net), never a throw.
  */
 function renderQueryText(expr: QueryExpr, env: LexicalEnvironment): string {
   const lexed = lexQueryTemplate(expr.template);
@@ -1311,34 +1332,71 @@ function renderQueryText(expr: QueryExpr, env: LexicalEnvironment): string {
       text += part.value;
       continue;
     }
-    text += stringifyPathValue(resolveInterpolationPath(part.exprSource, env));
+    text += stringifyInterpolation(part.exprSource, env);
   }
   return renderTemplateText(text);
 }
 
-/** Resolve a `Ident ('.' Ident)*` interpolation path against the environment. */
-function resolveInterpolationPath(source: string, env: LexicalEnvironment): LoomValue {
-  const segments = source
-    .split(".")
-    .map((segment) => segment.trim())
-    .filter((segment) => segment.length > 0);
-  if (segments.length === 0) {
-    return null;
+/**
+ * Evaluate one `${…}` interpolation source and stringify its runtime value by
+ * the QRY-18 rule. The source is parsed into the same `Expr` a `let` RHS parses
+ * to and evaluated by the shared pure evaluator, so arithmetic, indexing, calls,
+ * method calls, ternaries, and `Enum.Variant` access all render their value
+ * (EXPR-1/6/7/8, QRY-2/3/4). The `InterpolationType` discriminator is derived
+ * from the resulting runtime `LoomValue` — numbers route through the canonical
+ * decimal renderer (so `Infinity`/`NaN` render as `Infinity`/`NaN`, not
+ * `null`), an enum renders its bare unquoted wire value, and arrays/objects
+ * render as compact JSON. A `Result` value is not statically rejectable here
+ * (this is the runtime render, not a parse) — it renders as compact JSON,
+ * preserving the prior non-crashing behaviour rather than emitting a diagnostic.
+ */
+function stringifyInterpolation(source: string, env: LexicalEnvironment): string {
+  const parsed = parseExpressionSource(source);
+  if (parsed === null) {
+    // An unparseable interpolation has no value; render the inert `null` rather
+    // than throwing out of the render path (the expressions.md safety net).
+    return "null";
   }
-  const head = env.resolve(segments[0] as string);
-  let current: LoomValue = head.arm === "local" ? head.value ?? null : null;
-  for (let i = 1; i < segments.length; i += 1) {
-    current = evaluateMemberAccess(current, segments[i] as string);
-  }
-  return current;
+  const value = evaluatePureExpression(parsed, env);
+  const rendered = stringifyInterpolatedValue(value, interpolationTypeOf(value));
+  // `stringifyInterpolatedValue` only reports `ok: false` for the static
+  // `result` arm, which `interpolationTypeOf` never selects (a `Result` is
+  // routed to the compact-JSON `object` arm below), so the value branch always
+  // holds; the JSON fallback keeps this total without a throw.
+  return rendered.ok ? rendered.text : JSON.stringify(value);
 }
 
-/** Stringify a resolved interpolation value: a string verbatim, else compact JSON. */
-function stringifyPathValue(value: LoomValue): string {
+/**
+ * Derive the QRY-18 `InterpolationType` discriminator from a runtime
+ * `LoomValue`. A number uses the `number` rule (canonical decimal, no trailing
+ * `.0`, `Infinity`/`NaN` verbatim); an enum uses the bare-wire `enum` rule; a
+ * `Result` is rendered as compact JSON via the `object` arm, preserving the
+ * prior non-crashing render (the static `result`-rejection arm is a parse-time
+ * concern, not reachable on this runtime render path).
+ */
+function interpolationTypeOf(value: LoomValue): InterpolationType {
   if (typeof value === "string") {
-    return value;
+    return { kind: "string" };
   }
-  return JSON.stringify(value);
+  if (typeof value === "number") {
+    return { kind: "number" };
+  }
+  if (typeof value === "boolean") {
+    return { kind: "boolean" };
+  }
+  if (value === null) {
+    return { kind: "null" };
+  }
+  if (isEnumValue(value)) {
+    return { kind: "enum" };
+  }
+  if (Array.isArray(value)) {
+    return { kind: "array" };
+  }
+  // A plain object schema value or a `Result` — compact JSON (a `Result`
+  // serialises through its `ok`/`value`/`error` shape, preserving the prior
+  // non-crashing behaviour).
+  return { kind: "object" };
 }
 
 /**

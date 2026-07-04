@@ -113,6 +113,16 @@ function enumTagOf(value: LoomValue): string | undefined {
   return undefined;
 }
 
+/**
+ * Whether `value` is an enum runtime value (carries the declaring-enum tag). A
+ * consumer that must stringify by the QRY-18 rule keys off this to render the
+ * bare wire value rather than JSON-quoting the boxed-string representation
+ * (runtime-value-model.md, enum row).
+ */
+export function isEnumValue(value: LoomValue): value is EnumValue {
+  return enumTagOf(value) !== undefined;
+}
+
 /** Whether `value` is a `Result` runtime value (carries an `ok` discriminator). */
 export function isResultValue(value: LoomValue): value is ResultValue {
   return (

@@ -67,12 +67,11 @@ describe("exprflow — arithmetic & precedence", () => {
       expect(u).toContain("tern=100|");
       expect(u).toContain("strcat=ab|");
       expect(u).toContain("up=-6|");
-      // EXPR-1 (BUG): Infinity / NaN interpolate as "null" via JSON.stringify,
-      // diverging from QRY-18 canonical renderer ("Infinity" / "NaN").
-      // Pin OBSERVED behaviour so this file is a regression net.
-      expect(u).toContain("divz=null|");
-      expect(u).toContain("zdivz=null|");
-      expect(u).toContain("modz=null|");
+      // EXPR-1 (FIXED): Infinity / NaN interpolate via the QRY-18 canonical
+      // number renderer ("Infinity" / "NaN"), not JSON.stringify's "null".
+      expect(u).toContain("divz=Infinity|");
+      expect(u).toContain("zdivz=NaN|");
+      expect(u).toContain("modz=NaN|");
     } finally {
       await probe.dispose();
     }

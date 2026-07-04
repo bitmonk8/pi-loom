@@ -408,6 +408,14 @@ export interface EnumDecl extends NodeBase {
    * shape the body parser could not read.
    */
   readonly variants?: readonly string[];
+  /**
+   * Explicit `= "..."` wire values keyed by variant name (schemas.md §Enum
+   * declarations — "Explicit values override that mapping"). A variant absent
+   * here uses its name verbatim as the wire value. Only string-literal values
+   * are captured; a non-string explicit value is left for enum-declaration
+   * validation and does not override the name.
+   */
+  readonly variantValues?: Readonly<Record<string, string>>;
 }
 
 /** An `import … from` declaration (imports.md). */
@@ -597,6 +605,30 @@ export function parseLoomDocument(
     body: { statements, tail: body.tail },
     diagnostics,
   };
+}
+
+/**
+ * Parse a standalone expression `source` into an `Expr`, reusing the same
+ * `parseExpression` entry the body parser drives for a `let` RHS so a caller
+ * (e.g. a `@`...`` template's `${…}` interpolation, expressions.md
+ * §"Supported forms") honours the full expression sublanguage rather than a
+ * dotted-path subset. Returns `null` when the source does not parse as a single
+ * expression. Lex diagnostics are discarded here: a well-formed loom's
+ * interpolation already lexed as part of the whole-file body, and a malformed
+ * one degrades to `null` at the call site (the inline no-op channel keeps this
+ * helper free of shared state — no module-level mutable channel).
+ */
+export function parseExpressionSource(source: string): Expr | null {
+  const lex = lexLoom(
+    { path: "<interpolation>", bytes: encodeSource(source) },
+    {
+      pi: { sendMessage: () => {} },
+      ui: { notify: () => {} },
+      emitDiagnostic: () => {},
+    },
+  );
+  const parser = new BodyParser(lex.tokens, "<interpolation>", source);
+  return parser.parseSingleExpression();
 }
 
 /**
@@ -1452,30 +1484,46 @@ class BodyParser {
   private parseEnum(): Stmt {
     const kw = this.advance();
     const name = this.advance().text;
-    const variants = this.parseEnumVariants();
-    return { kind: "enum", name, variants, range: spanRange(kw.range, this.prevRange()) };
+    const { names, values } = this.parseEnumVariants();
+    const hasValues = Object.keys(values).length > 0;
+    return {
+      kind: "enum",
+      name,
+      variants: names,
+      ...(hasValues ? { variantValues: values } : {}),
+      range: spanRange(kw.range, this.prevRange()),
+    };
   }
 
   /**
-   * Capture the variant names of an `enum X { A, B = "b", … }` body in source
-   * order so the runtime can register the enum for `Enum.Variant` resolution.
-   * Only the leading identifier of each variant is recorded; an explicit
-   * `= <literal>` value is skipped (the runtime keys the enum value by variant
-   * name). A non-brace enum shape yields no variants.
+   * Capture the variants of an `enum X { A, B = "b", … }` body in source order
+   * so the runtime can register the enum for `Enum.Variant` resolution: the
+   * leading identifier is the variant name, and an explicit `= <string-literal>`
+   * value (schemas.md §Enum declarations — "Explicit values override that
+   * mapping") is captured as that variant's wire value. A non-string explicit
+   * value is not captured (the name stands as the wire value; the strictness
+   * diagnostic is a separate check). A non-brace enum shape yields no variants.
    */
-  private parseEnumVariants(): readonly string[] {
+  private parseEnumVariants(): {
+    readonly names: readonly string[];
+    readonly values: Readonly<Record<string, string>>;
+  } {
     // Advance to the opening `{`; a non-brace enum shape carries no variants.
     while (!this.atEnd() && !this.isPunct("{")) {
       if (this.peek().kind === "stmt-sep") {
-        return [];
+        return { names: [], values: {} };
       }
       this.advance();
     }
     if (!this.isPunct("{")) {
-      return [];
+      return { names: [], values: {} };
     }
     this.advance(); // `{`
     const names: string[] = [];
+    const values: Record<string, string> = {};
+    // The most recently captured variant name, so a following `= "wire"` binds
+    // to it; cleared at each `,` so an inter-variant `=` cannot mis-bind.
+    let currentName: string | null = null;
     let expectName = true;
     let depth = 1;
     while (!this.atEnd() && depth > 0) {
@@ -1492,20 +1540,33 @@ class BodyParser {
       }
       if (depth === 1 && expectName && (t.kind === "ident" || t.kind === "keyword")) {
         names.push(t.text);
+        currentName = t.text;
         expectName = false;
         this.advance();
         continue;
       }
+      if (depth === 1 && currentName !== null && t.kind === "punct" && t.text === "=") {
+        // An explicit `= <value>` for the current variant: only a string literal
+        // becomes the wire value; any other value kind is skipped here.
+        this.advance(); // `=`
+        const valueTok = this.peek();
+        if (valueTok.kind === "string") {
+          values[currentName] = valueTok.value ?? valueTok.text;
+          this.advance();
+        }
+        continue;
+      }
       if (depth === 1 && t.kind === "punct" && t.text === ",") {
+        currentName = null;
         expectName = true;
         this.advance();
         continue;
       }
-      // An `= <literal>` explicit value or any other in-variant token: skip; the
-      // next comma re-arms name capture.
+      // Any other in-variant token (e.g. a non-string explicit value): skip;
+      // the next comma re-arms name capture.
       this.advance();
     }
-    return names;
+    return { names, values };
   }
 
   /** Skip a schema/enum shape (`{ ... }` block or `= …` / `by … = …` tail). */
@@ -1636,6 +1697,16 @@ class BodyParser {
 
   private parseExpression(): Expr | null {
     return this.parseTernary();
+  }
+
+  /**
+   * Parse the token stream as a single expression — the same `parseExpression`
+   * entry the `let` RHS drives, exposed so a `@`...`` template's `${…}`
+   * interpolation body honours the full expression sublanguage
+   * (expressions.md §"Supported forms").
+   */
+  public parseSingleExpression(): Expr | null {
+    return this.parseExpression();
   }
 
   /**
