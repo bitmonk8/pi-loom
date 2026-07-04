@@ -37,8 +37,6 @@ enums, and user functions all work. Some specified behaviour is **not yet fully
 wired into the shipped runtime**, so the specification is not yet fully
 implemented. Known gaps at this release:
 
-- **`tools:` load-time resolution** — an unknown tool name, a prompt-mode `.loom`
-  callable, or a name collision is not yet diagnosed at load time.
 - **Type-layer diagnostics** — static checks that require type inference are
   partial (e.g. a non-boolean `if` condition, indexing a `string`, a
   non-array `for` iterand).

@@ -2308,3 +2308,26 @@ Divergences / decisions worth recording:
   repairs V19a/V19c/V19d/V19e/V14g, all already tagged), and docs/plan_topics/
   is out of scope for this task, so the fix is tagged `core-exec-eval-complete`
   rather than a `<Leaf>-complete` form.
+
+## V20a — `tools:` load-time resolution wiring (2026-07-04)
+
+Wired `resolveCallableSet` + the V15f callee-has-errors check into the shipped
+`discoverAndComposeFixtures` load path. Two minimal wiring decisions worth
+recording (neither changes observable behaviour any V20a obligation pins):
+
+- **File-head diagnostic range.** The load-path `tools:`-resolution diagnostics
+  (`resolveCallableSet`'s own, and the `loom/load/callee-has-errors` one built
+  via `checkCalleeHasErrors`) are located at a file-head range
+  (`1:1`) because the shipped `V19a` parsed frontmatter retains no
+  per-`tools:`-entry source span. The V20a tests anchor on the diagnostic code
+  and the registry *Message* string, not the range, so a file-head locator is a
+  faithful load-path anchor. A finer span would need the frontmatter parser to
+  carry per-entry ranges (out of scope for this wiring leaf).
+- **`subagent` mode fallback for a frontmatter-less callee.** A `.loom` callee
+  that exists but whose parse yields `frontmatter === null` is reported as
+  `loom/load/callee-has-errors` (an existing callee that failed its own
+  structural checks), not `loom/load/unresolvable-loom-path` (reserved for a
+  path that resolves to no file). Because that callee has no readable `mode:`,
+  `resolveLoomCallee` reports it as `subagent` so the callee-has-errors
+  rejection — not a spurious `prompt-mode-callable` / `unresolvable-loom-path`
+  diagnostic — is the sole rejection for that callee.

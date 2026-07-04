@@ -57,7 +57,13 @@ import {
 } from "../discovery/discovery-walk";
 import { discoverPackageLooms } from "../discovery/package-discovery";
 import { loadSettings, type LoomSettings } from "../discovery/settings";
-import { parseLoomDocument } from "../parser/loom-document";
+import { parseLoomDocument, type LoomBody } from "../parser/loom-document";
+import {
+  resolveCallableSet,
+  type CallableSetDeps,
+} from "../parser/callable-set";
+import { checkCalleeHasErrors } from "../parser/invoke-diagnostics";
+import type { LoomMode } from "../parser/frontmatter";
 import { createModelReferenceMatcher } from "./reload-wiring";
 import type { SystemNoteChannelDeps } from "./system-note-channel";
 import { SYSTEM_NOTE_CHANNEL } from "./system-note-channel";
@@ -187,9 +193,214 @@ export async function discoverAndComposeFixtures(
     if (parsed === undefined) {
       continue;
     }
+    // V20a — resolve the `tools:` callable set against the shipped Pi tool
+    // registry at production load time. A `tools:` rejection (unknown Pi tool,
+    // prompt-mode `.loom` callee, name collision, invalid `as` rename, or a
+    // `.loom` callee carrying its own load/parse errors) un-registers the loom
+    // exactly as the isolation-tested `resolveCallableSet` (V6c) and
+    // callee-has-errors (V15f) checks decide.
+    const toolDiagnostics = await resolveLoomToolsAtLoad(
+      parsed,
+      fileSystem,
+      ctx,
+      parseDeps,
+    );
+    for (const diagnostic of toolDiagnostics) {
+      emitDiagnostic(diagnostic);
+    }
+    if (toolDiagnostics.some((diagnostic) => diagnostic.severity === "error")) {
+      continue;
+    }
     fixtures.push(composeLoomFixture(parsed, producerDeps));
   }
   return fixtures;
+}
+
+/**
+ * A file-head located range used for the load-path `tools:`-resolution
+ * diagnostics whose obligation carries no finer source span through the shipped
+ * discovery seam (the parsed frontmatter does not retain a per-`tools:`-entry
+ * range). The range is not asserted by any V20a obligation — the tests anchor on
+ * the diagnostic code and its registry *Message* string — so a file-head span is
+ * a faithful load-path locator. See notes.md.
+ */
+const TOOLS_DIAGNOSTIC_RANGE = {
+  start: { line: 1, column: 1 },
+  end: { line: 1, column: 1 },
+} as const;
+
+/** A pre-parsed `.loom` callee, resolved once per load pass for the tools scan. */
+interface CalleeParse {
+  /**
+   * Whether the `.loom` path resolved to a readable file. `false` only when the
+   * path resolves to no file (drives `loom/load/unresolvable-loom-path`); a file
+   * that exists but fails to parse is `fileExists: true` with `hasErrors: true`
+   * (drives `loom/load/callee-has-errors`) — the spec's deliberate split between
+   * "resolves to no file" and "exists but failed its own structural checks".
+   */
+  readonly fileExists: boolean;
+  /**
+   * The callee's declared `mode:` (gates `loom/load/prompt-mode-callable`).
+   * Falls back to `subagent` for a file that exists but carries no parseable
+   * frontmatter, so the callee-has-errors rejection — not a spurious
+   * prompt-mode/unresolvable diagnostic — is the sole rejection for that callee.
+   */
+  readonly mode: LoomMode;
+  /** Whether the callee carries its own error-severity load/parse diagnostics. */
+  readonly hasErrors: boolean;
+}
+
+/**
+ * V20a — resolve a discovered loom's `tools:` callable set at production load
+ * time, returning every load-time diagnostic (error-severity entries
+ * un-register the loom). Pre-parses each distinct `.loom` callee once so the
+ * synchronous `resolveLoomCallee` lookup `resolveCallableSet` drives can read a
+ * resolved parse, and so the V15f callee-has-errors check can inspect it.
+ */
+async function resolveLoomToolsAtLoad(
+  parsed: LoomCompositionInput,
+  fs: FileSystem,
+  ctx: ExtensionContext,
+  parseDeps: Parameters<typeof parseLoomDocument>[1],
+): Promise<readonly Diagnostic[]> {
+  const toolsList = parsed.frontmatter.tools;
+  if (
+    toolsList === undefined ||
+    toolsList.length === 0 ||
+    parsed.sourcePath === undefined
+  ) {
+    return [];
+  }
+  const callerDir = dirname(parsed.sourcePath);
+  const diagnostics: Diagnostic[] = [];
+
+  // Pre-parse each distinct `.loom` callee once, keyed by the spec as written.
+  const calleeCache = new Map<string, CalleeParse>();
+  for (const entry of toolsList) {
+    const spec = toolsEntrySpec(entry);
+    if (spec.length > 0 && !isBareToolName(spec) && !calleeCache.has(spec)) {
+      calleeCache.set(
+        spec,
+        await parseCalleeForTools(fs, callerDir, spec, parseDeps),
+      );
+    }
+  }
+
+  // callee-has-errors (V15f): a readable, parseable `.loom` callee that carries
+  // its own error-severity load/parse diagnostics rejects the parent at load
+  // time (`tools:` surface → error severity).
+  for (const [spec, callee] of calleeCache) {
+    if (callee.fileExists && callee.hasErrors) {
+      diagnostics.push(
+        ...checkCalleeHasErrors({
+          calleePath: spec,
+          surface: "tools",
+          hasErrors: true,
+          relatedSites: [],
+          site: { file: parsed.sourcePath, range: TOOLS_DIAGNOSTIC_RANGE },
+        }),
+      );
+    }
+  }
+
+  const deps: CallableSetDeps = {
+    resolvePiTool: (name) => {
+      const resolved = resolvePiTool(name, ctx);
+      return resolved === undefined
+        ? undefined
+        : { kind: "pi-tool", toolDefinition: resolved };
+    },
+    resolveLoomCallee: (loomPath) => {
+      const callee = calleeCache.get(loomPath);
+      if (callee === undefined || !callee.fileExists) {
+        return undefined;
+      }
+      return { kind: "loom", mode: callee.mode, callee: undefined };
+    },
+    reservedNames: collectReservedNames(parsed.body),
+  };
+
+  const result = resolveCallableSet({
+    file: parsed.sourcePath,
+    tools: { kind: "list", items: toolsList },
+    deps,
+  });
+  diagnostics.push(...result.diagnostics);
+  return diagnostics;
+}
+
+/**
+ * Extract one `tools:` entry's callable spec (the token before an optional
+ * `as <name>` rename). Mirrors the callable-set per-entry grammar
+ * (`<spec> ('as' <name>)?`).
+ */
+function toolsEntrySpec(entry: string): string {
+  const parts = entry.trim().split(/\s+/).filter((p) => p.length > 0);
+  return parts[0] ?? "";
+}
+
+/**
+ * Whether a `tools:` spec is a bare Pi-tool name (identifier-shaped, no path
+ * separator or `.loom` extension) rather than a `.loom` path literal — the same
+ * routing `resolveCallableSet` applies internally.
+ */
+function isBareToolName(spec: string): boolean {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(spec);
+}
+
+/**
+ * Pre-parse one `.loom` callee for the tools scan: resolve it against the
+ * caller's directory, read + parse it, and report readability, declared mode,
+ * and whether it carries its own error-severity load/parse diagnostics. An
+ * unreadable / frontmatter-less callee is `readable: false` (drives
+ * `loom/load/unresolvable-loom-path` through `resolveCallableSet`).
+ */
+async function parseCalleeForTools(
+  fs: FileSystem,
+  callerDir: string,
+  spec: string,
+  deps: Parameters<typeof parseLoomDocument>[1],
+): Promise<CalleeParse> {
+  const absolute = isAbsolute(spec) ? spec : resolvePath(callerDir, spec);
+  const bytes = await fs.readBytes(absolute).then(
+    (value) => value,
+    () => undefined,
+  );
+  if (bytes === undefined) {
+    return { fileExists: false, mode: "subagent", hasErrors: false };
+  }
+  const document = parseLoomDocument({ path: absolute, bytes }, deps);
+  if (document.frontmatter === null) {
+    // The file exists but produced no parseable frontmatter — an existing callee
+    // that failed its own structural checks (callee-has-errors), not a path that
+    // resolves to no file (unresolvable-loom-path).
+    return { fileExists: true, mode: "subagent", hasErrors: true };
+  }
+  return {
+    fileExists: true,
+    mode: document.frontmatter.mode,
+    hasErrors: hasLoadParseError(document.diagnostics),
+  };
+}
+
+/**
+ * The names a callable-set entry must not collide with beyond the other
+ * `tools:` entries: the loom's top-level `fn` declarations and imported symbols
+ * (frontmatter-fields-a.md §`tools` — the top-level arm of
+ * `loom/load/tool-name-collision`).
+ */
+function collectReservedNames(body: LoomBody): ReadonlySet<string> {
+  const names = new Set<string>();
+  for (const statement of body.statements) {
+    if (statement.kind === "fn") {
+      names.add(statement.name);
+    } else if (statement.kind === "import") {
+      for (const symbol of statement.symbols) {
+        names.add(symbol);
+      }
+    }
+  }
+  return names;
 }
 
 /** The loom-load-bearing shape of a host tool definition's `execute` member. */
