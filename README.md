@@ -40,9 +40,11 @@ implemented. Known gaps at this release:
 - **Type-layer diagnostics** — static checks that require type inference are
   partial (e.g. a non-boolean `if` condition, indexing a `string`, a
   non-array `for` iterand).
-- **Nested control forms in an expression position** — a `match`, a user-`fn`
-  call, or an effect nested inside another expression may not evaluate in every
-  position.
+- **Nested control forms in an expression position** — a nested `match` and an
+  effectful expression (a user-`fn` call, a tool-call, an `@`-query) in a `match`
+  arm body now route through the single runtime executor, but the same forms
+  nested deeper inside a wholesale-evaluated pure expression (an object-literal
+  field, an array element) may still not evaluate in every position.
 
 Report issues against the behaviour the [Reference](./docs/reference/) defines.
 

@@ -50,7 +50,7 @@ import { evaluateForLoop, type ForLoopHost } from "./control-flow";
 import { functionResult, type FunctionResult, type TerminalOutcome } from "./function-result";
 import type { LexicalEnvironment } from "./lexical-environment";
 import { evaluateQuestion } from "./runtime-panics";
-import { evaluateMatch, type MatchArm, type Pattern } from "./match-result";
+import { evaluateMatch, type Bindings, type MatchArm, type Pattern } from "./match-result";
 import {
   handlePartialTerminalOutcome,
   type CommittedConversationMutator,
@@ -464,21 +464,39 @@ async function evalMatch(expr: MatchExpr, env: LexicalEnvironment, deps: Execute
   if (scrutinee.flow !== "value") {
     return scrutinee;
   }
-  const arms: MatchArm[] = expr.arms.map((arm) => ({
+  // V20e — pure/async evaluator unification. Select the matching arm and its
+  // pattern bindings through the sync `V4a` pattern dispatch (`evaluateMatch`,
+  // which still raises `MatchError` on a non-exhaustive scrutinee), but do NOT
+  // evaluate the arm body inside that sync thunk: the selecting thunk only
+  // records the chosen arm index and its bindings. The selected arm body is
+  // then evaluated through the REAL executor (`evalExpr`) rather than the
+  // producer's partial `evaluatePureExpression` — so a nested `match` in the arm
+  // body, or an effectful expression (a user-`fn` call whose body dispatches an
+  // effect, an `@`-query, a tool-call) in that pure sub-expression position,
+  // resolves through the single `V19c` evaluation path instead of the partial
+  // pure evaluator's `default: return null` safety net.
+  let selection: { readonly index: number; readonly bindings: Bindings } | undefined;
+  const arms: MatchArm[] = expr.arms.map((arm, index) => ({
     pattern: toRuntimePattern(arm.pattern),
     body: (bindings) => {
-      // The selected arm's body is evaluated with the pattern bindings in a
-      // fresh child scope. Arm bodies are pure expressions (loom 1.0 arm-body
-      // grammar — object literals, member reads, identifier binds); an effect in
-      // an arm body is out of loom 1.0 scope for the sync `match` evaluator.
-      const armEnv = env.child();
-      for (const [name, value] of Object.entries(bindings)) {
-        armEnv.defineLocal(name, value, false);
-      }
-      return deps.host.evaluatePure(arm.body, armEnv);
+      selection = { index, bindings };
+      // A sentinel: the real arm body runs asynchronously through `evalExpr`
+      // below; `evaluateMatch`'s returned value is discarded.
+      return null;
     },
   }));
-  return { flow: "value", value: evaluateMatch(scrutinee.value, arms) };
+  // Drives the `V4a` pattern dispatch + `MatchError` raise; the thunk above sets
+  // `selection` for the first matching arm (a non-selected arm's body thunk is
+  // never invoked).
+  evaluateMatch(scrutinee.value, arms);
+  // `evaluateMatch` returned normally, so a matching arm's thunk ran and set
+  // `selection` (a non-exhaustive scrutinee would have thrown `MatchError`).
+  const chosen = selection as { readonly index: number; readonly bindings: Bindings };
+  const armEnv = env.child();
+  for (const [name, value] of Object.entries(chosen.bindings)) {
+    armEnv.defineLocal(name, value, false);
+  }
+  return evalExpr((expr.arms[chosen.index] as MatchExpr["arms"][number]).body, armEnv, deps);
 }
 
 /** Map a parsed {@link PatternNode} onto the runtime `Pattern` dispatch shape. */
@@ -590,17 +608,30 @@ async function executeStatement(stmt: Stmt, env: LexicalEnvironment, deps: Execu
  * the literal `null` for a statement-terminated / empty block — FN-5).
  */
 async function executeBlock(block: Block, env: LexicalEnvironment, deps: ExecuteBodyDeps): Promise<Flow> {
+  // A trailing bare-expression statement contributes the block's FN-5 final
+  // value (V20e). The parser promotes a trailing bare expression form to the
+  // block `tail` and leaves only lone call/invoke/query actions (and non-
+  // expression statements) as trailing statements, so a bare-`expr` last
+  // statement is tail-equivalent: it carries the value the same trailing
+  // expression would if the AST recorded it as the tail. This keeps the
+  // executor's final value invariant to the tail-vs-`expr`-statement encoding of
+  // a trailing expression, so a `match` (or any expression) routed through the
+  // executor at the block tail-position yields its value regardless of encoding.
+  // A trailing action statement, or any other statement, still terminates the
+  // block with the literal `null` (FN-5 statement-terminated body).
+  let trailingExprValue: { readonly value: LoomValue } | undefined;
   for (const stmt of block.statements) {
     const flow = await executeStatement(stmt, env, deps);
     if (flow.kind !== "normal") {
       return flow;
     }
+    trailingExprValue = stmt.kind === "expr" ? { value: flow.value } : undefined;
   }
   if (block.tail !== null) {
     const r = await evalExpr(block.tail, env, deps);
     return r.flow === "value" ? { kind: "normal", value: r.value } : terminalFlow(r);
   }
-  return { kind: "normal", value: null };
+  return { kind: "normal", value: trailingExprValue !== undefined ? trailingExprValue.value : null };
 }
 
 /** Execute a statement-form `if` / `else if` / `else` (control-flow.md). */

@@ -2504,3 +2504,43 @@ Implemented the eight Bucket-B checks. Divergences / decisions:
   tool-call reaches `evaluatePureExpression`'s `default: return null`.
 - Doc-update applied to CHANGELOG only; README `## Status` kept as prose per the
   prior-leaf convention (no per-leaf status table exists in this repo).
+
+## V20e — pure/async evaluator unification (impl)
+
+- Core fix in `src/runtime/statement-executor.ts` `evalMatch`: the selected
+  `match` arm body was evaluated through `deps.host.evaluatePure` (the producer's
+  partial `evaluatePureExpression`, whose `match`/effect cases hit
+  `default: return null`). It now uses the sync V4a `evaluateMatch` ONLY to
+  select the matching arm + pattern bindings (a selecting thunk records the arm
+  index/bindings; `MatchError` still raises on non-exhaustion), then evaluates
+  the selected arm body through the real executor (`evalExpr`) in a child scope
+  carrying the bindings. A nested `match`, a user-`fn` call whose body dispatches
+  an effect, an `@`-query, or a tool-call in an arm body now resolves through the
+  single V19c evaluation path rather than the inert null safety net.
+- DIVERGENCE 1 (executeBlock trailing-`expr`-statement final value): bullet 2's
+  arm-body `match` is encoded in the test AST as an `{kind:"expr"}` statement with
+  `tail: null`, so under the prior `executeBlock` the FN-5 final value was the
+  statement-terminated `null`, not the arm's `Ok(text)`. The real parser ALWAYS
+  promotes a trailing bare expression to the block `tail` (only lone
+  call/invoke/query actions and non-expression statements remain trailing
+  statements — see `parseForms`/`CALL_LIKE` in loom-document.ts), so a trailing
+  bare-`expr` statement is tail-equivalent. `executeBlock` now yields a trailing
+  bare-`expr` statement's value as the block final value, making the final value
+  invariant to the tail-vs-`expr`-statement encoding of a trailing expression. A
+  trailing action or other statement still terminates the block with `null`
+  (the FN-5 "statement-terminated body → null" test uses a tool-call action and
+  stays green). This touches FN-5 final-value handling (owned by V19c/V3d) beyond
+  the leaf's literal arm-body description; it is faithful to the parser's
+  tail-promotion and required to make the committed V20e-T bullet-2 assertion pass.
+- DIVERGENCE 2 (partial safety-net retirement): the leaf's Ships-when says "the
+  partial pure-evaluator `default: return null` path removed". The arm-body
+  evaluation path — the pure/async unification surface V20e's tests exercise — no
+  longer reaches `evaluatePureExpression`'s `default: return null` (arm bodies now
+  route through `evalExpr`). The physical `default: return null` in the producer
+  REMAINS as an inert fallback for deeper recursive pure positions the executor
+  does not decompose (a `match`/effect nested inside a wholesale-evaluated object
+  literal or array element), which are outside V20e's tested scope; fully routing
+  those through the executor requires decomposing composite pure expressions in
+  the executor, a larger change than this leaf. The retirement is realised on the
+  tested arm-body path, not by physically deleting the net (deleting it would
+  make the untested recursive positions return `undefined`/throw).
