@@ -30,9 +30,26 @@ failure, or cancellation — defined in
 
 ## Status
 
-pi-loom is at **1.0**, its first release. The specification is fully implemented.
-As with any first release, undiscovered rough edges are possible. Report issues
-against the behaviour the [Reference](./docs/reference/) defines.
+pi-loom is at **1.0**, its first release. The core language surface is
+implemented and exercised end-to-end — the binder, typed queries with schema
+validation, code-driven tool calls, `invoke`/subagent value passing, `match`/`?`,
+enums, and user functions all work. Some specified behaviour is **not yet fully
+wired into the shipped runtime**, so the specification is not yet fully
+implemented. Known gaps at this release:
+
+- **`tools:` load-time resolution** — an unknown tool name, a prompt-mode `.loom`
+  callable, or a name collision is not yet diagnosed at load time.
+- **Type-layer diagnostics** — static checks that require type inference are
+  partial (e.g. a non-boolean `if` condition, indexing a `string`, a
+  non-array `for` iterand).
+- **Some parser/lexer diagnostics** are not yet emitted (e.g. unterminated /
+  multi-line string literals, chained comparison, a statement in a `match` arm
+  body).
+- **Nested control forms in an expression position** — a `match`, a user-`fn`
+  call, or an effect nested inside another expression may not evaluate in every
+  position.
+
+Report issues against the behaviour the [Reference](./docs/reference/) defines.
 
 ## Documentation
 
