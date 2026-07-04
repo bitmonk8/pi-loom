@@ -46,6 +46,12 @@ implemented. Known gaps at this release:
   nested deeper inside a wholesale-evaluated pure expression (an object-literal
   field, an array element) may still not evaluate in every position.
 
+A standing **production-path conformance suite** drives the full documented
+language surface through the shipped composition (discovery/registration, the
+whole-file parser, and the runtime dispatch) as a regression net against
+wiring breaks that isolated unit tests miss; it runs under the opt-in
+`npm run test:conformance` runner, outside the default `npm test`.
+
 Report issues against the behaviour the [Reference](./docs/reference/) defines.
 
 ## Documentation

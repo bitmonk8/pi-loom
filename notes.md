@@ -2583,3 +2583,47 @@ descriptor-appropriate prefix (`'--loom flag #N' resolves to '<path>' which does
 end in .loom`), keeping the canonical "does not end in .loom" message tail. This is
 the same source-descriptor substitution pattern the failure-modes diagnostics already
 use ("--loom flag #1" vs "settings entry index N").
+
+## V20g-T — production-path conformance suite: build-order reorder divergence
+
+The V20g-T leaf frames the conformance suite as (a) reding on the still-unlanded
+V20a–V20f gap fixes and (b) failing loudly on an unmet live-provider precondition
+(driven "via the live SDK harness tests/live/harness.ts"). Both premises are void
+against the actual repository state:
+
+1. **Build-order reorder.** V20a-complete … V20f-complete (and their -T tags) are
+   all present BEFORE V20g-T. The intended-reason red for a tests-task ("the
+   implementation under test is absent") cannot be produced — driving the full
+   documented surface through the shipped production composition now passes green
+   because the gap fixes are landed. Manufacturing a red by breaking a landed fix
+   would violate the no-gaming-thin-tests rule, so the suite is authored to
+   FAITHFULLY drive the surface, which is green.
+
+2. **No live precondition needed.** Every behaviour the Tests bullets enumerate
+   is reachable WITHOUT a provider turn: load-time / tools-resolution / structural
+   rejections through the shipped session_start composition root
+   (`discoverAndComposeFixtures`, re-exported by `extensions/index.ts`);
+   parse/lex/type diagnostics and the `@`-prose `//`/backslash lexing through the
+   real whole-file `parseLoomDocument`; runtime string-index through
+   `evaluateIndexAccess`; and the pure/runtime forms (method chains, Ok/Err +
+   match + `?`, Enum.Variant, fn recursion, empty-template short-circuit,
+   object-pattern shorthand, pure-position nested match, code-side tool-call over
+   a `resolvePiTool` double) through the production `LoomProducerDeps` +
+   `executeBody`. A standing regression net that required live tokens to be green
+   could not run in CI; the deterministic drive IS the faithful production-path
+   net, so the suite has no live precondition to be unmet — the "fails loudly
+   when precondition unmet, never a silent skip" clause is vacuously satisfied and
+   there are no conditional/skipped tests. The suite runs under its own opt-in
+   runner (`npm run test:conformance` / `vitest.conformance.config.ts`) excluded
+   from the default `npm test`, a sibling to `test:live` / `test:acceptance`.
+
+Net effect: V20g-T's deliverable (the standing conformance suite) is the same
+green artifact the paired V20g Ships-when targets; the reorder collapses the
+tests-task/impl distinction for this pair.
+
+Test-shape notes discovered while authoring (production code unchanged):
+- `if`/`else` is statement-form; a recursive `fn` returning a value uses explicit
+  `return` (`if n <= 1 { return 1 } return n * fact(n - 1)`), not an `if`-as-tail.
+- A BARE `@`-query that yields `Err` fails the body (the executor's non-`?`/non-
+  `match` effect path); the `Err` VALUE (empty_template short-circuit) is observed
+  through a `match` arm, per loom's `?`/`match`-normalise-to-Result semantics.
