@@ -2450,3 +2450,16 @@ the full suite stays green with them firing in production.
 
 The walk-context identifier was renamed `ctx`→`flow` because the
 inventory-closure audit reserves `ctx` for the `ExtensionContext` carrier.
+
+## V20d-T
+
+Followed the V20c-T production-parse harness verbatim (makeDeps → parseLoomDocument
+→ codesOf). The eight Bucket-B codes are absent from src/**, so each test reds
+solely on its `toContain(code)` assertion; several snippets also surface unrelated
+diagnostics (e.g. the assignment-as-expression snippet surfaces
+`loom/parse/non-boolean-condition` for `if (x = 1)`), which is harmless — the
+`toContain` assertion still reds on the absent target code and matches the
+intended reason (the specific check is unimplemented).
+
+Doc-update applied to CHANGELOG only; README `## Status` prose kept, consistent
+with every prior V20* leaf (no per-leaf status table exists in this repo).
