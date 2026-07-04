@@ -308,6 +308,59 @@ export interface CompatSite {
 }
 
 /**
+ * How an indexed-access receiver `a` in `a[k]` types statically
+ * (expressions.md §"Supported forms"): only `array<T>` and object values are
+ * indexable.
+ *
+ *   - `"array"`     — an `array<T>`, indexable by integer position;
+ *   - `"object"`    — an object value (a nominal `object-schema` `NamedType`,
+ *                     an alias transparently resolving to one, or an inline
+ *                     object type), indexable by `string` loom-side name;
+ *   - `"primitive"` — a `string` / `number` / `integer` / `boolean` / `null`
+ *                     receiver, which is not indexable
+ *                     (`loom/parse/non-indexable-receiver`);
+ *   - `"unknown"`   — statically unresolvable past the parser's view (an
+ *                     unresolved `NamedType`, a union): deferred to the runtime
+ *                     safety net, raising no `type`-phase diagnostic.
+ */
+export type IndexReceiverKind = "array" | "object" | "primitive" | "unknown";
+
+/**
+ * Classify an indexed-access receiver's static type as `array<T>`, an object
+ * value, a non-indexable primitive, or statically-unknown. A `NamedType`
+ * resolves through `env`: a nominal `object-schema` declaration is an object
+ * value, a transparent `alias` is classified by its RHS (TYPE-11), and an
+ * unresolved name is `"unknown"` (deferred to the runtime safety net).
+ */
+export function classifyIndexReceiver(
+  type: CompatType,
+  env: TypeEnv,
+): IndexReceiverKind {
+  switch (type.kind) {
+    case "array":
+      return "array";
+    case "object":
+      return "object";
+    case "prim":
+    case "literal":
+      return "primitive";
+    case "union":
+      return "unknown";
+    case "named": {
+      const decl = env[type.name];
+      if (decl === undefined) {
+        return "unknown";
+      }
+      if (decl.kind === "object-schema") {
+        return "object";
+      }
+      // A transparent alias: classify its resolved RHS (TYPE-11).
+      return classifyIndexReceiver(decl.rhs, env);
+    }
+  }
+}
+
+/**
  * TYPE-9 — the RHS of a typed binding `let x: T = expr`. Reports
  * `loom/parse/let-rhs-type-mismatch` when the RHS static type is not `⊑` the
  * annotation `T` (both statically resolvable), or `loom/parse/integer-narrowing`

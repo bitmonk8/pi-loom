@@ -21,7 +21,50 @@
 // order otherwise), and `has(k)` tests own loom-side names only (never the JS
 // prototype chain), returning `false` for an unknown key without panic.
 
+import type { Diagnostic } from "../diagnostics/diagnostic";
+import {
+  classifyIndexReceiver,
+  displayType,
+  type CompatSite,
+  type CompatType,
+  type TypeEnv,
+} from "../parser/type-compat";
 import type { LoomValue } from "./value";
+
+/**
+ * The type-phase object-index check (expressions.md §"Supported forms").
+ * Reports `loom/parse/non-string-object-index` when an `obj[k]` index
+ * expression addresses an object-value receiver with a non-`string` index `k`
+ * (e.g. `obj[0]`) — an object value is keyed by its `string` loom-side names.
+ * Returns no diagnostic for a `string` index, a non-object receiver (handled
+ * by `loom/parse/non-indexable-receiver` / array indexing), or a
+ * statically-unresolvable one (deferred to the runtime safety net).
+ */
+export function checkObjectIndex(opts: {
+  readonly receiverType: CompatType;
+  readonly indexType: CompatType;
+  readonly env: TypeEnv;
+  readonly site: CompatSite;
+}): Diagnostic | undefined {
+  const { receiverType, indexType, env, site } = opts;
+  if (classifyIndexReceiver(receiverType, env) !== "object") {
+    return undefined;
+  }
+  const isString =
+    (indexType.kind === "prim" && indexType.name === "string") ||
+    (indexType.kind === "literal" && indexType.typesAs === "string");
+  if (isString) {
+    return undefined;
+  }
+  // Message from diagnostics/code-registry-parse.md (`loom/parse/non-string-object-index`).
+  return {
+    severity: "error",
+    code: "loom/parse/non-string-object-index",
+    file: site.file,
+    range: site.range,
+    message: `object index must be string; got ${displayType(indexType)}`,
+  };
+}
 
 /**
  * Evaluate an `object` standard-library member on `receiver`: one of the method

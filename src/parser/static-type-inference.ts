@@ -81,11 +81,17 @@ export class StaticTypeInferencePass {
   infer(body: LoomBody, env: TypeEnv): InferredTypeMap {
     const types = new Map<Expr, CompatType>();
     const nodes: Expr[] = [];
+    // The whole-program `infer` pass carries no binding-type scope: it types a
+    // free identifier as a nominal self-reference (deferred to the runtime AJV
+    // safety net), preserving the substrate's read-only, binding-blind view.
+    // The `V20c` type-layer wiring, which must classify identifier receivers /
+    // operands, threads a binding scope through the public `typeOf` seam below.
+    const noBindings: ReadonlyMap<string, CompatType> = new Map();
     const record = (expr: Expr): void => {
       if (types.has(expr)) {
         return;
       }
-      types.set(expr, this.#typeExpr(expr, env));
+      types.set(expr, this.#typeExpr(expr, env, noBindings));
       nodes.push(expr);
     };
     this.#walkBlock(body, record, env);
@@ -165,12 +171,34 @@ export class StaticTypeInferencePass {
   }
 
   /**
+   * The static type this pass assigns to an arbitrary expression node — the
+   * per-expression static-type lookup the `V20c` type-layer checkers consume.
+   * `bindings` resolves an in-scope `let`-binding identifier to its inferred
+   * type; an unbound identifier remains a nominal self-reference (deferred to
+   * the runtime AJV safety net). The computation is pure — it records nothing —
+   * so a consumer may query any node (nested or statement-level) without
+   * mutating the pass.
+   */
+  typeOf(
+    node: Expr,
+    env: TypeEnv,
+    bindings: ReadonlyMap<string, CompatType> = new Map(),
+  ): CompatType {
+    return this.#typeExpr(node, env, bindings);
+  }
+
+  /**
    * Compute the static type of an expression node over the resolved
    * `CompatType` model. Recurses into operands to compute composite types; the
    * recursion is pure (it records nothing), so only the statement-level nodes
-   * the walk visits enter the published lookup.
+   * the walk visits enter the published lookup. `bindings` resolves an in-scope
+   * `let`-binding identifier to its inferred type.
    */
-  #typeExpr(node: Expr, env: TypeEnv): CompatType {
+  #typeExpr(
+    node: Expr,
+    env: TypeEnv,
+    bindings: ReadonlyMap<string, CompatType>,
+  ): CompatType {
     switch (node.kind) {
       case "number":
         return { kind: "literal", typesAs: node.numericType };
@@ -181,28 +209,34 @@ export class StaticTypeInferencePass {
       case "null":
         return { kind: "literal", typesAs: "null" };
       case "ident":
-        // A free identifier: a nominal reference past the parser's static view.
-        return { kind: "named", name: node.name };
+        // A `let`-bound identifier resolves to its inferred type; a free
+        // identifier is a nominal reference past the parser's static view.
+        return (
+          bindings.get(node.name) ?? { kind: "named", name: node.name }
+        );
       case "array": {
         const element = this.#commonType(
-          node.elements.map((e) => this.#typeExpr(e, env)),
+          node.elements.map((e) => this.#typeExpr(e, env, bindings)),
           env,
         );
         return { kind: "array", element };
       }
       case "binary":
-        return this.#typeBinary(node.op, node.left, node.right, env);
+        return this.#typeBinary(node.op, node.left, node.right, env, bindings);
       case "ternary":
         return this.#commonType(
-          [this.#typeExpr(node.consequent, env), this.#typeExpr(node.alternate, env)],
+          [
+            this.#typeExpr(node.consequent, env, bindings),
+            this.#typeExpr(node.alternate, env, bindings),
+          ],
           env,
         );
       case "try":
         // `operand?` propagates the operand's success type statically.
-        return this.#typeExpr(node.operand, env);
+        return this.#typeExpr(node.operand, env, bindings);
       case "match":
         return this.#commonType(
-          node.arms.map((arm) => this.#typeExpr(arm.body, env)),
+          node.arms.map((arm) => this.#typeExpr(arm.body, env, bindings)),
           env,
         );
       case "member":
@@ -211,7 +245,7 @@ export class StaticTypeInferencePass {
       case "index": {
         // An element read narrows to the target's element type when the target
         // is statically an array; otherwise it is an unresolved reference.
-        const target = this.#typeExpr(node.target, env);
+        const target = this.#typeExpr(node.target, env, bindings);
         return target.kind === "array" ? target.element : { kind: "named", name: "index" };
       }
       case "call":
@@ -230,7 +264,13 @@ export class StaticTypeInferencePass {
   }
 
   /** The static type of a binary-operator expression. */
-  #typeBinary(op: string, left: Expr, right: Expr, env: TypeEnv): CompatType {
+  #typeBinary(
+    op: string,
+    left: Expr,
+    right: Expr,
+    env: TypeEnv,
+    bindings: ReadonlyMap<string, CompatType>,
+  ): CompatType {
     // Comparison and logical operators statically produce a boolean.
     if (BOOLEAN_BINARY_OPS.has(op)) {
       return { kind: "prim", name: "boolean" };
@@ -238,7 +278,10 @@ export class StaticTypeInferencePass {
     // Arithmetic narrows the operands to their common type through the `⊑`
     // engine (e.g. `integer + number` narrows to `number`).
     return this.#commonType(
-      [this.#typeExpr(left, env), this.#typeExpr(right, env)],
+      [
+        this.#typeExpr(left, env, bindings),
+        this.#typeExpr(right, env, bindings),
+      ],
       env,
     );
   }

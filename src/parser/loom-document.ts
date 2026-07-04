@@ -56,6 +56,7 @@ import {
 } from "./functions";
 import { checkObjectSchema } from "./schema-declarations";
 import { parseTypeExpression } from "./type-grammar";
+import { checkTypeLayer } from "./type-layer-checks";
 
 // --------------------------------------------------------------------------
 // Expression AST (the `Expr` node family; grammar.md §Expression sublanguage)
@@ -575,12 +576,20 @@ export function parseLoomDocument(
     file,
   );
 
+  // C-bucket wiring (V20c): run the `type`-phase checkers against the `V20b`
+  // per-expression static-type substrate so they fire in production
+  // (non-boolean condition, non-array iterand, `?` misuse, array/return LUB,
+  // integer narrowing, match-arm mismatch, non-indexable / object-index /
+  // array-join).
+  const typeLayerDiags = checkTypeLayer({ statements, tail: body.tail }, file);
+
   const diagnostics = assembleDiagnostics([
     frontmatterDiags,
     lex.diagnostics,
     parser.diagnostics,
     docScan.diagnostics,
     structuralDiags,
+    typeLayerDiags,
   ]);
 
   return {
@@ -768,6 +777,44 @@ function mergeByLine(
 
 /** Compound-assignment leading operators (`+=`, `-=`, …) lexed as two tokens. */
 const COMPOUND_OPS: ReadonlySet<string> = new Set(["+", "-", "*", "/", "%"]);
+
+/** Reserved keywords that can begin an expression (used in ternary-head lookahead). */
+const EXPRESSION_KEYWORDS: ReadonlySet<string> = new Set([
+  "match",
+  "true",
+  "false",
+  "null",
+  "Ok",
+  "Err",
+  "invoke",
+]);
+
+/** Punctuation that can begin an expression (used in ternary-head lookahead). */
+const EXPRESSION_LEAD_PUNCT: ReadonlySet<string> = new Set([
+  "(",
+  "[",
+  "{",
+  "-",
+  "!",
+  "@",
+  "`",
+]);
+
+/** Whether a token can begin an expression (a ternary consequent). */
+function canStartExpression(t: Token): boolean {
+  switch (t.kind) {
+    case "number":
+    case "string":
+    case "ident":
+      return true;
+    case "keyword":
+      return EXPRESSION_KEYWORDS.has(t.text);
+    case "punct":
+      return EXPRESSION_LEAD_PUNCT.has(t.text);
+    default:
+      return false;
+  }
+}
 
 /** One parsed top-level / block form: its statement node plus tail metadata. */
 interface Form {
@@ -1572,6 +1619,41 @@ class BodyParser {
     return this.parseTernary();
   }
 
+  /**
+   * Whether the `?` at the cursor is a ternary head rather than the postfix
+   * error-propagation `?`. A ternary head's `?` is immediately followed by an
+   * expression-starting token and, at the same bracket depth, a `:` before the
+   * statement terminates; a postfix `?` is followed by a statement boundary, a
+   * closing bracket, or a statement keyword. Distinguishing by the trailing `:`
+   * keeps `foo()?` (postfix, `try`) separate from `c ? a : b` (ternary), even
+   * across the lexer's swallowed continuation newline after a trailing `?`.
+   */
+  private isTernaryHead(): boolean {
+    if (!canStartExpression(this.peek(1))) {
+      return false;
+    }
+    let depth = 0;
+    for (let i = 1; ; i += 1) {
+      const t = this.peek(i);
+      if (t.kind === "eof" || t.kind === "stmt-sep") {
+        return false;
+      }
+      if (t.kind === "punct") {
+        const x = t.text;
+        if (x === "(" || x === "[" || x === "{") {
+          depth += 1;
+        } else if (x === ")" || x === "]" || x === "}") {
+          if (depth === 0) {
+            return false;
+          }
+          depth -= 1;
+        } else if (x === ":" && depth === 0) {
+          return true;
+        }
+      }
+    }
+  }
+
   private parseTernary(): Expr | null {
     const condition = this.parseBinary(0);
     if (condition === null) {
@@ -1654,9 +1736,15 @@ class BodyParser {
     }
     for (;;) {
       if (this.isPunct("?")) {
-        // Postfix error-propagation `?`: a complete-expression terminator. Fold
-        // it only when it is not a ternary head — a following `:` is impossible
-        // here because a bare `?` immediately after an operand is postfix.
+        // Postfix error-propagation `?` vs ternary head `cond ? a : b`. A `?`
+        // whose consequent is an expression followed (at the same bracket
+        // depth) by a `:` is a ternary head: leave it unconsumed so
+        // `parseTernary` builds the ternary. Otherwise it is the postfix
+        // error-propagation terminator (grammar.md §"Newline continuation" —
+        // "the `?` trigger is the ternary head only").
+        if (this.isTernaryHead()) {
+          break;
+        }
         const q = this.advance();
         expr = {
           kind: "try",

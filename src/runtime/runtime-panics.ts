@@ -138,6 +138,18 @@ export function evaluateIndexAccess(
     }
     return target[i] as LoomValue;
   }
+  // A primitive receiver (`string` / `number` / `integer` / `boolean`) is not
+  // indexable: the type layer rejects `s[0]` at parse time
+  // (`loom/parse/non-indexable-receiver`). Reaching here means the static check
+  // was bypassed; surface it as a runtime defect rather than silently returning
+  // a character (the pre-V20c behaviour, which returned `"h"` for `"hi"[0]`).
+  // A non-panic throw is reclassified to `loom/runtime/internal-error` by the
+  // runtime-defect surface.
+  if (typeof target !== "object") {
+    throw new Error(
+      `indexed access requires an array<T> or object receiver; got ${typeof target}`,
+    );
+  }
   // Object indexing: a key that is not a present loom-side name on the object
   // is the missing-object-key panic (`loom/runtime/missing-object-key`).
   const key = index as string;

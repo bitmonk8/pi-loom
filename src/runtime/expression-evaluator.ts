@@ -51,7 +51,13 @@
 // paired V3a implementation leaf fills these in.
 
 import type { Diagnostic } from "../diagnostics/diagnostic";
-import { checkCompatible, type CompatSite, type CompatType } from "../parser/type-compat";
+import {
+  checkCompatible,
+  classifyIndexReceiver,
+  type CompatSite,
+  type CompatType,
+  type TypeEnv,
+} from "../parser/type-compat";
 import { valuesEqual, type LoomValue } from "./value";
 
 /**
@@ -596,6 +602,35 @@ export function checkBooleanPosition(opts: {
       message: `condition must be boolean; got ${displayCompatType(operandType)}`,
     },
   ];
+}
+
+/**
+ * The type-phase indexed-access receiver check (expressions.md §"Supported
+ * forms"). Reports `loom/parse/non-indexable-receiver` when the receiver `a` of
+ * an `a[k]` index expression is neither `array<T>` nor an object value — e.g.
+ * `s[i]` on a `string`. Returns no diagnostic for an `array<T>` or object
+ * receiver, or a statically-unresolvable one (deferred to the runtime safety
+ * net).
+ */
+export function checkIndexReceiver(opts: {
+  readonly receiverType: CompatType;
+  readonly env: TypeEnv;
+  readonly site: CompatSite;
+}): Diagnostic | undefined {
+  const { receiverType, env, site } = opts;
+  if (classifyIndexReceiver(receiverType, env) !== "primitive") {
+    return undefined;
+  }
+  // Message from diagnostics/code-registry-parse.md (`loom/parse/non-indexable-receiver`).
+  return {
+    severity: "error",
+    code: "loom/parse/non-indexable-receiver",
+    file: site.file,
+    range: site.range,
+    message: `indexed access requires an array<T> or object receiver; got ${displayCompatType(
+      receiverType,
+    )}`,
+  };
 }
 
 /**

@@ -2403,3 +2403,50 @@ is `true` (JS strings carry indexed own-properties) and the branch returns the
 character. The V20c-T runtime test asserts the accessor throws instead; `V4b`'s
 correction (owned there) makes a string receiver surface the not-indexable
 error rather than a character.
+
+## V20c — type-layer diagnostics production wiring + runtime string-index correction
+
+The paired `V20c` implementation wires the type-phase checkers to the `V20b`
+per-expression static type and corrects the runtime index accessor. Four
+non-plan discoveries surfaced during implementation:
+
+1. **V20b types identifiers as nominal self-references.** `StaticTypeInferencePass`
+   assigns a free identifier the shape `{kind:"named", name}` (its own name),
+   deferring to the runtime AJV safety net — it carries no binding-type scope.
+   But the wired checkers must classify identifier *receivers* (`s[0]`) and
+   *operands* (`xs.join(...)`), which requires knowing `s` is a `string` and
+   `xs` an `array<T>`. Resolution: extended `V20b` with a public binding-aware
+   `typeOf(node, env, bindings)` (and `#typeExpr` resolving a bound identifier
+   through the passed scope), and the wiring builds the `let`-binding scope as
+   it walks. This is backward-compatible: `infer` passes an empty scope, so the
+   whole-program pass and its tests are unchanged (idents still type as `named`).
+
+2. **The parser folded a ternary-head `?` as a postfix `try`.** `1 ? 2 : 3`
+   parsed to `try(1)` (plus stray `2 : 3`) because `parsePostfix` greedily
+   folded any `?`. The non-boolean-condition check needs a real ternary node.
+   Fix: `isTernaryHead` lookahead — a `?` is a ternary head iff its next token
+   can start an expression and a depth-0 `:` follows before the statement ends;
+   otherwise it is the postfix error-propagation `?`. This keeps the
+   `foo()?`/`bar()` continuation witness (a postfix `?` with no trailing `:`)
+   intact while making `1 ? 2 : 3` a ternary.
+
+3. **Two registry codes had no emitting checker.** `loom/parse/non-indexable-receiver`
+   (V3a) and `loom/parse/non-string-object-index` (V3h) carried registry rows
+   but no `src/**` checker. `V20c` supplies both (`checkIndexReceiver`,
+   `checkObjectIndex`) over a shared `classifyIndexReceiver` type-model helper.
+
+4. **No dedicated runtime not-indexable code exists.** The Bucket-C runtime
+   correction makes a primitive index receiver throw; since coining a new
+   `loom/runtime/*` code is out of scope (the leaf closes no new REQ-ID and a
+   new registry code would need its own asserting test), the throw is a plain
+   `Error` that the runtime-defect surface reclassifies to
+   `loom/runtime/internal-error` — signalling that the type layer should have
+   rejected the access at parse time.
+
+The `let`-binding-RHS check is wired via `checkLetRhsCompat`, which surfaces
+`loom/parse/integer-narrowing` (the enumerated code) and also
+`loom/parse/let-rhs-type-mismatch` (TYPE-9); both are genuine type errors and
+the full suite stays green with them firing in production.
+
+The walk-context identifier was renamed `ctx`→`flow` because the
+inventory-closure audit reserves `ctx` for the `ExtensionContext` carrier.
