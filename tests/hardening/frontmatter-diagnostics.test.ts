@@ -16,11 +16,11 @@ function hasDiag(probe: ProbeResult, substr: string): boolean {
 describe("frontmatter / tools / diagnostics — live hardening", () => {
   const provider = requireLiveProvider();
 
-  // === FM-1: `tools:` comma short-form is broken ==========================
+  // === FM-1: `tools:` comma short-form loads ==============================
   // Spec (frontmatter.md §`tools:`, frontmatter-fields-b §YAML-shape): "tools:
   // accepts a comma-separated short form and a YAML list form, both parsed by
   // the same per-entry grammar." Example in frontmatter.md: `tools: read, grep`.
-  it("FM-1: a legal `tools: read, grep` comma short-form fails to load", async () => {
+  it("FM-1: a legal `tools: read, grep` comma short-form registers", async () => {
     const files: PlantedFile[] = [
       { source: "project", path: "comma-tools.loom", text: fm("---", "mode: prompt", "tools: read, grep", "---", "@`hi`") },
       { source: "project", path: "list-tools.loom", text: fm("---", "mode: prompt", "tools:", "  - read", "  - grep", "---", "@`hi`") },
@@ -31,31 +31,31 @@ describe("frontmatter / tools / diagnostics — live hardening", () => {
       // The YAML list form and a single bare tool both register.
       expect(probe.registeredNames).toContain("list-tools");
       expect(probe.registeredNames).toContain("single-tool");
-      // BUG: the comma short form does NOT register.
-      expect(probe.registeredNames).not.toContain("comma-tools");
-      // BUG: it fails with a WRONG diagnostic — the whole scalar is treated as a
-      // single `.loom` path `read,` instead of two Pi-tool entries `read`,`grep`.
-      expect(hasDiag(probe, "cannot resolve .loom path 'read,'")).toBe(true);
+      // FIXED: the comma short form is interchangeable with the list form and
+      // registers with a two-entry callable set {read, grep}.
+      expect(probe.registeredNames).toContain("comma-tools");
+      // FIXED: no mis-parse into a bogus `.loom` path `read,`.
+      expect(hasDiag(probe, "cannot resolve .loom path 'read,'")).toBe(false);
     } finally {
       await probe.dispose();
     }
   });
 
-  // === FM-2: wrong diagnostic for an unknown Pi tool in comma form =========
+  // === FM-2: correct diagnostic for an unknown Pi tool in comma form =======
   // Spec: an unknown Pi tool name is `loom/load/unknown-tool` ("unknown Pi tool
-  // '<name>'"). Because the comma form is mis-parsed (FM-1), a `tools: read,
-  // bogus_tool` loom never reaches the unknown-tool check.
-  it("FM-2: `tools: read, bogus_tool` yields unresolvable-loom-path, not unknown-tool", async () => {
+  // '<name>'"). With the comma form parsed correctly, a `tools: read,
+  // bogus_tool` loom reaches the unknown-tool check on the `bogus_tool` entry.
+  it("FM-2: `tools: read, bogus_tool` yields unknown-tool, not unresolvable-loom-path", async () => {
     const files: PlantedFile[] = [
       { source: "project", path: "unknown-tool.loom", text: fm("---", "mode: prompt", "tools: read, bogus_tool", "---", "@`hi`") },
     ];
     const probe = await runProbe({ provider, files, drives: [] });
     try {
       expect(probe.registeredNames).not.toContain("unknown-tool");
-      // Expected message would be: "unknown Pi tool 'bogus_tool'".
-      expect(hasDiag(probe, "unknown Pi tool 'bogus_tool'")).toBe(false);
-      // Observed: the mis-parse surfaces an unrelated path error instead.
-      expect(hasDiag(probe, "cannot resolve .loom path 'read,'")).toBe(true);
+      // FIXED: the correct unknown-tool diagnostic surfaces for `bogus_tool`.
+      expect(hasDiag(probe, "unknown Pi tool 'bogus_tool'")).toBe(true);
+      // FIXED: no mis-parse into a bogus `.loom` path `read,`.
+      expect(hasDiag(probe, "cannot resolve .loom path 'read,'")).toBe(false);
     } finally {
       await probe.dispose();
     }

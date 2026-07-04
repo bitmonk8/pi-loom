@@ -286,16 +286,24 @@ function renderScalarValue(value: unknown): string {
 }
 
 /**
- * Extract the `tools:` callable set (FRNT-2/FRNT-3): a single scalar becomes a
- * one-element list; a sequence becomes the list of its scalar entries; any other
- * shape (empty / non-scalar) yields `undefined` (no callable set). Entries are
- * carried verbatim so the H8b resolvers can classify each as a Pi-tool name or a
- * `.loom`-callable path.
+ * Extract the `tools:` callable set (FRNT-2/FRNT-3): a plain scalar is the
+ * comma-separated short form (frontmatter-fields-b-and-templates.md §YAML-shape:
+ * the plain scalar split on commas, each entry trimmed) so `read, grep` becomes
+ * two entries interchangeable with the YAML list form; a sequence becomes the
+ * list of its scalar entries; any other shape (empty / non-scalar) yields
+ * `undefined` (no callable set). Entries are split ONLY on commas — the
+ * whitespace split that separates an `as` rename (`grep as g`) happens later in
+ * the per-entry grammar, so a single scalar entry with an `as` clause stays one
+ * entry. Entries are carried verbatim so the H8b resolvers can classify each as
+ * a Pi-tool name or a `.loom`-callable path.
  */
 function extractToolsList(node: unknown): readonly string[] | undefined {
   if (isScalar(node)) {
-    const value = String(node.value);
-    return value.length > 0 ? [value] : undefined;
+    const entries = String(node.value)
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0);
+    return entries.length > 0 ? entries : undefined;
   }
   if (isSeq(node)) {
     const entries: string[] = [];
