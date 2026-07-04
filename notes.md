@@ -2544,3 +2544,22 @@ Implemented the eight Bucket-B checks. Divergences / decisions:
   the executor, a larger change than this leaf. The retirement is realised on the
   tested arm-body path, not by physically deleting the net (deleting it would
   make the untested recursive positions return `undefined`/throw).
+
+## V20f-T — CLI/settings non-`.loom` file → invalid-extension (tests)
+
+Empirical finding: the leaf frames the bug as "a `--loom` / settings entry
+pointing at a non-`.loom` file emits `loom/load/wrong-type-source`". Verified
+against the current `src/discovery/discovery-walk.ts`: only the CLI (and any
+source routed through `classifyForSource`, i.e. the conventional-root
+`resolveEntry` path) reclassifies a non-`.loom` regular file to
+`wrong-type-source`. The settings `loomPaths` path is separate
+(`resolveSettingsSource` → `addLiteral`/`addGlob` → `addFile`) and *already*
+emits `loom/load/invalid-extension`. So the reddening obligation lives on the
+CLI source; the settings entry is a green regression witness.
+
+Test decision: the combined test exercises both a `--loom` entry and a settings
+`loomPaths` entry in one discovery pass and asserts invalid-extension count 2 /
+wrong-type-source count 0 — it reds today because the CLI entry emits
+wrong-type-source (1/1 observed). A CLI-only isolation test reds identically.
+The paired V20f fix must route the CLI non-`.loom` file entry to
+`invalid-extension` without breaking the already-correct settings path.
