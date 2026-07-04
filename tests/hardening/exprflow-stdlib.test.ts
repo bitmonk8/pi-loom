@@ -126,7 +126,7 @@ describe("exprflow — stdlib string/array/object", () => {
     }
   });
 
-  it("EXPR-2 (BUG): array.concat is unimplemented at runtime and silently aborts the loom", async () => {
+  it("EXPR-2 (FIXED): array.concat appends the argument array's elements", async () => {
     const probe = await runProbe({
       provider,
       files: [
@@ -144,11 +144,12 @@ describe("exprflow — stdlib string/array/object", () => {
       drives: ["/concat"],
     });
     try {
-      // Registers fine (parse/type accept `.concat`), but the runtime member
-      // dispatch has no `concat` case (throws "unknown array stdlib member"),
-      // so the loom aborts and NO user turn is produced.
+      // Parse/type accept `.concat`, and the runtime member dispatch now has a
+      // `concat` case, so the loom completes and produces the interpolated
+      // user turn with the appended result `[1,2,3,4]`.
       expect(probe.registeredNames).toContain("concat");
-      expect(probe.turns[0].userTexts).toEqual([]);
+      const u = probe.turns[0].userTexts.join("\n");
+      expect(u).toContain("cc=[1,2,3,4]|");
     } finally {
       await probe.dispose();
     }

@@ -30,7 +30,7 @@ import { valuesEqual, type LoomValue } from "./value";
 /**
  * Evaluate an `array<T>` standard-library member on `receiver`: the `length`
  * property (called with `args === []`) or one of the method calls (`join` /
- * `includes` / `indexOf` / `slice`), with the arguments already evaluated by
+ * `includes` / `indexOf` / `slice` / `concat`), with the arguments already evaluated by
  * the V3a interpreter. Returns the member's loom value per the expressions.md
  * stdlib table (`includes` / `indexOf` use the V2c `valuesEqual` structural
  * equality; `slice` follows JS semantics).
@@ -62,6 +62,14 @@ export function evaluateArrayMember(
     // `undefined`, which `slice` treats as "to length".
     case "slice":
       return receiver.slice(args[0] as number, args[1] as number | undefined);
+    // `concat(other)` — a new array: the receiver's elements followed by the
+    // argument array's elements. The V3f type layer (`concatElementType`) has
+    // already resolved the result element type to the LUB `T ⊔ U`; at runtime
+    // the values are structurally uniform loom values, so a plain positional
+    // append is faithful. `Array.prototype.concat` copies rather than mutating
+    // the receiver, matching the immutable-value discipline of the other cases.
+    case "concat":
+      return receiver.concat(args[0] as readonly LoomValue[]);
     default:
       throw new Error(`unknown array stdlib member: ${member}`);
   }
