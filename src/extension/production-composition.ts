@@ -68,6 +68,7 @@ import {
   checkInvokeStaticResolution,
   type CalleeArity,
 } from "./invoke-static-checks";
+import { checkLoomImports } from "./import-static-checks";
 import type { LoomMode } from "../parser/frontmatter";
 import { createModelReferenceMatcher } from "./reload-wiring";
 import type { SystemNoteChannelDeps } from "./system-note-channel";
@@ -266,7 +267,31 @@ export async function discoverAndComposeFixtures(
       continue;
     }
 
-    fixtures.push(composeLoomFixture(input, producerDeps));
+    // IMP-1 / IMP-3 / IMP-4 / IMP-5 (imports.md): resolve each `.warp` import,
+    // parse it, and run the unresolvable-path / unknown-symbol / warp-top-level /
+    // cycle checks. An error-severity diagnostic un-registers the loom. The
+    // resolved exports are materialised into the loom's runtime environment so an
+    // imported `fn` is callable (IMP-6) and its query body drives the caller's
+    // conversation (IMP-7).
+    const importCheck = await checkLoomImports(input, {
+      fs: fileSystem,
+      parseDeps,
+    });
+    for (const diagnostic of importCheck.diagnostics) {
+      emitDiagnostic(diagnostic);
+    }
+    if (importCheck.diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
+      continue;
+    }
+
+    fixtures.push(
+      composeLoomFixture(
+        importCheck.imports.length > 0
+          ? { ...input, imports: importCheck.imports }
+          : input,
+        producerDeps,
+      ),
+    );
   }
   return fixtures;
 }

@@ -34,6 +34,10 @@ import type { Diagnostic, Position, SourceRange } from "../diagnostics/diagnosti
 import { assembleDiagnostics } from "../diagnostics/diagnostic";
 import { lexLoom, type LoomSource, type Token } from "../lexer/lexer";
 import { validatePathLiteral } from "../lexer/literals";
+import {
+  checkWarpTopLevelForm,
+  type WarpTopLevelForm,
+} from "./imports";
 import type { SystemNoteChannelDeps } from "../extension/system-note-channel";
 import {
   parseFrontmatter,
@@ -598,6 +602,16 @@ export function parseLoomDocument(
   // array-join).
   const typeLayerDiags = checkTypeLayer({ statements, tail: body.tail }, file);
 
+  // imports.md §"`.warp` file rules": a `.warp` top level may contain only
+  // `import` / `export` / `schema` / `enum` / `fn` declarations; a bare
+  // statement, a `let` binding, or a top-level query is
+  // `loom/parse/warp-top-level-statement`. The check keys off the file's
+  // `.warp` extension (byte-exact lowercase), so it never fires for a `.loom`
+  // (IMP-4).
+  const warpTopLevelDiags = file.endsWith(".warp")
+    ? checkWarpTopLevel({ statements, tail: body.tail }, file)
+    : [];
+
   const diagnostics = assembleDiagnostics([
     frontmatterDiags,
     lex.diagnostics,
@@ -605,6 +619,7 @@ export function parseLoomDocument(
     docScan.diagnostics,
     structuralDiags,
     typeLayerDiags,
+    warpTopLevelDiags,
   ]);
 
   return {
@@ -612,6 +627,66 @@ export function parseLoomDocument(
     body: { statements, tail: body.tail },
     diagnostics,
   };
+}
+
+/**
+ * Map a top-level `.warp` statement AST kind to its `WarpTopLevelForm` for the
+ * permitted-form check (imports.md §"`.warp` file rules"). `import` / `export` /
+ * `schema` / `enum` / `fn` are the permitted forms; a `let` binding, a bare
+ * query, and any other statement are non-permitted. A `///` doc-comment carries
+ * no executable form and is not checked.
+ */
+function warpFormOf(stmt: Stmt): WarpTopLevelForm | null {
+  switch (stmt.kind) {
+    case "import":
+      return "import";
+    case "export":
+      return "export";
+    case "schema":
+      return "schema";
+    case "enum":
+      return "enum";
+    case "fn":
+      return "fn";
+    case "let":
+      return "let";
+    case "query":
+      return "query";
+    case "doc-comment":
+      return null;
+    default:
+      return "statement";
+  }
+}
+
+/**
+ * Check a `.warp` file's top-level forms, emitting
+ * `loom/parse/warp-top-level-statement` for every non-permitted top-level form
+ * (imports.md §"`.warp` file rules"). A trailing tail expression at the top
+ * level is a bare statement and is likewise non-permitted.
+ */
+function checkWarpTopLevel(block: Block, file: string): Diagnostic[] {
+  const diagnostics: Diagnostic[] = [];
+  for (const stmt of block.statements) {
+    const form = warpFormOf(stmt);
+    if (form === null) {
+      continue;
+    }
+    const diag = checkWarpTopLevelForm(form, { file, range: stmt.range });
+    if (diag !== undefined) {
+      diagnostics.push(diag);
+    }
+  }
+  if (block.tail !== null) {
+    const diag = checkWarpTopLevelForm("statement", {
+      file,
+      range: block.tail.range,
+    });
+    if (diag !== undefined) {
+      diagnostics.push(diag);
+    }
+  }
+  return diagnostics;
 }
 
 /**
@@ -1646,6 +1721,18 @@ class BodyParser {
     const pathTok = this.peek();
     if (pathTok.kind === "string") {
       path = pathTok.value ?? pathTok.text;
+      // imports.md §"Path resolution": an `import` / `export … from` path
+      // literal must end in a byte-exact lowercase `.warp` and use forward-slash
+      // separators; a `.loom` path (or any non-`.warp` variant) is
+      // `loom/parse/import-non-warp-extension`. Validate the literal as written
+      // at parse time so a wrong-extension import un-registers the loom (IMP-2).
+      this.diagnostics.push(
+        ...validatePathLiteral(
+          { value: path, range: pathTok.range },
+          "import",
+          this.file,
+        ),
+      );
       this.advance();
     }
     return {

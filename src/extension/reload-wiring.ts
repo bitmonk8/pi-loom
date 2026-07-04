@@ -29,6 +29,7 @@ import type {
 import type { Diagnostic } from "../diagnostics/diagnostic";
 import type { SystemNote } from "./system-note-channel";
 import type { LoomBody } from "../parser/loom-document";
+import type { MaterializedImport } from "../runtime/lexical-environment";
 import type {
   ModelMatchOutcome,
   ModelReferenceMatcher,
@@ -62,6 +63,12 @@ export interface ParsedLoom {
   readonly frontmatter: ParsedFrontmatter;
   /** The `V19a` whole-file body statement-list AST the interpreter walks. */
   readonly body: LoomBody;
+  /**
+   * The `.warp` symbols this loom imports, resolved + materialised at load time
+   * (imports.md §Visibility): an imported `fn` becomes callable and an imported
+   * `schema` / `enum` registers. Absent when the loom declares no `import`.
+   */
+  readonly imports?: readonly MaterializedImport[];
   /**
    * The per-loom runnable the `V19e` composition producer composes: it runs the
    * binder (when applicable) and then drives `V19d`'s effectful executor against
