@@ -58,6 +58,8 @@ import type { CodeSideToolCall, ToolLoweringSink } from "./tool-call-execute";
 import { runCodeSideToolCall } from "./tool-call-execute";
 import type { InvokeChild } from "./invoke-cancellation";
 import { runInvokeChild } from "./invoke-cancellation";
+import { surfaceLoomCallableCalleeFailure } from "./tool-call";
+import type { QueryError } from "./query-error";
 
 /**
  * How to drive one `@`-query through the real two-phase query loop: whether the
@@ -274,20 +276,49 @@ async function runInvokeEffect(
   const child = deps.resolveInvoke(expr, env);
   const outcome = await runInvokeChild(deps.checkpoint, deps.signal, siteOf(expr, deps.file), child);
   switch (outcome.kind) {
-    case "value":
-      // INVCEIL-3 (discovery-cli.md §Typed return; invocation.md §Typed return):
-      // an UNTYPED `invoke(...)` (no `<Schema>` annotation) returns
-      // `Result<null, QueryError>` — the runtime discards the callee's return
-      // value entirely, so the parent's `Ok` payload is `null`, not the child's
-      // final value. Only the success payload is discarded; an `Err` envelope
-      // (callee `?`-propagation, panic, ceiling) passes through unchanged so the
-      // parent's `?` / `match Err(_)` still observes it. A typed
-      // `invoke<Schema>(...)` keeps its AJV-validated value (returned unchanged
-      // by the callee-drive return-validation step).
-      if (expr.returnSchema === null && outcome.result.ok) {
-        return { ok: true, value: makeOk(null) };
+    case "value": {
+      const result = outcome.result;
+      if (result.ok) {
+        // INVCEIL-3 (discovery-cli.md §Typed return; invocation.md §Typed
+        // return): an UNTYPED `invoke(...)` (no `<Schema>` annotation) returns
+        // `Result<null, QueryError>` — the runtime discards the callee's
+        // return value entirely, so the parent's `Ok` payload is `null`, not
+        // the child's final value. A typed `invoke<Schema>(...)` keeps its
+        // AJV-validated value (returned unchanged by the callee-drive
+        // return-validation step).
+        if (expr.returnSchema === null) {
+          return { ok: true, value: makeOk(null) };
+        }
+        return { ok: true, value: result };
       }
-      return { ok: true, value: outcome.result };
+      // XMODE-1 (errors-and-results.md §InvokeCalleeError; invocation.md
+      // §Failures / §Final-value-propagation): a callee that returns or
+      // propagates its OWN `Err` MUST be wrapped as
+      // `InvokeCalleeError { kind: "invoke_callee", callee_path, inner, message }`
+      // so a spec-conformant parent can read `e.kind == "invoke_callee"`,
+      // `e.inner` (the callee's original `QueryError`), and `e.callee_path`.
+      // Two envelopes are NOT callee-returned Errs and pass through unchanged:
+      //   - `invoke_infra` — an infra-side error the trampoline already
+      //     produced (panic / internal_error / return_validation, see
+      //     `runInvokeChild` and the typed-return validation path); and
+      //   - `cancelled` — cancellation is its own terminal outcome.
+      // Every other `QueryError` (the callee's own validation / code_tool /
+      // transport / model_tool / context_overflow / tool_loop_exhausted /
+      // invoke_callee failure) is the callee's returned `Err` and is wrapped.
+      // `invoke_callee` is NOT special-cased: each invoke hop adds exactly one
+      // wrapper (the SLSH-5 chain), so a deeper hop's `invoke_callee` is
+      // wrapped again. This applies to both untyped and typed invoke.
+      const innerKind = (result.error as { readonly kind?: unknown } | null)?.kind;
+      if (innerKind === "invoke_infra" || innerKind === "cancelled") {
+        return { ok: true, value: result };
+      }
+      const wrapped = surfaceLoomCallableCalleeFailure(
+        child.calleePath,
+        result.error as unknown as QueryError,
+        `invoke of ${child.calleePath} callee returned Err(${String(innerKind)})`,
+      );
+      return { ok: true, value: makeErr(wrapped as unknown as LoomValue) };
+    }
     case "cancelled":
       return { ok: false, error: makeCancelledError() };
   }
