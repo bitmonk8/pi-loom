@@ -61,6 +61,7 @@ import { parseLoomDocument, type LoomBody } from "../parser/loom-document";
 import {
   resolveCallableSet,
   type CallableSetDeps,
+  type CallableSetSnapshot,
 } from "../parser/callable-set";
 import { checkCalleeHasErrors } from "../parser/invoke-diagnostics";
 import {
@@ -251,16 +252,16 @@ export async function discoverAndComposeFixtures(
     // `.loom` callee carrying its own load/parse errors) un-registers the loom
     // exactly as the isolation-tested `resolveCallableSet` (V6c) and
     // callee-has-errors (V15f) checks decide.
-    const toolDiagnostics = await resolveLoomToolsAtLoad(
+    const toolResult = await resolveLoomToolsAtLoad(
       input,
       fileSystem,
       ctx,
       parseDeps,
     );
-    for (const diagnostic of toolDiagnostics) {
+    for (const diagnostic of toolResult.diagnostics) {
       emitDiagnostic(diagnostic);
     }
-    if (toolDiagnostics.some((diagnostic) => diagnostic.severity === "error")) {
+    if (toolResult.diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
       continue;
     }
 
@@ -299,14 +300,19 @@ export async function discoverAndComposeFixtures(
       continue;
     }
 
-    fixtures.push(
-      composeLoomFixture(
-        importCheck.imports.length > 0
-          ? { ...input, imports: importCheck.imports }
-          : input,
-        producerDeps,
-      ),
-    );
+    // Thread the frozen callable-set snapshot resolved above onto the runnable
+    // loom so the runtime enforces the per-loom `tools:` set (QTL-2: code-driven
+    // calls dispatch only through a held reference; QTL-4: prompt-mode query
+    // turns install exactly this set's underlying Pi-tool names as the model's
+    // active tools).
+    const composedInput: LoomCompositionInput = {
+      ...input,
+      ...(importCheck.imports.length > 0 ? { imports: importCheck.imports } : {}),
+      ...(toolResult.callableSet !== undefined
+        ? { callableSet: toolResult.callableSet }
+        : {}),
+    };
+    fixtures.push(composeLoomFixture(composedInput, producerDeps));
   }
   return fixtures;
 }
@@ -375,26 +381,49 @@ interface CalleeParse {
   readonly hasErrors: boolean;
 }
 
+/** The outcome of resolving a discovered loom's `tools:` callable set at load. */
+interface LoomToolsResolution {
+  /** Every load-time diagnostic; error-severity entries un-register the loom. */
+  readonly diagnostics: readonly Diagnostic[];
+  /**
+   * The frozen callable-set snapshot the runtime enforces against. Present
+   * whenever the loom registers (an EMPTY frozen snapshot for a loom with no
+   * `tools:` — the empty callable set the runtime treats as "no `<name>(...)`
+   * callables"); absent only when a `tools:` rejection un-registered the loom.
+   */
+  readonly callableSet?: CallableSetSnapshot;
+}
+
+/** The empty frozen callable set for a loom that declares no `tools:`. */
+const EMPTY_CALLABLE_SET: CallableSetSnapshot = Object.freeze({
+  entries: new Map(),
+});
+
 /**
  * V20a — resolve a discovered loom's `tools:` callable set at production load
  * time, returning every load-time diagnostic (error-severity entries
- * un-register the loom). Pre-parses each distinct `.loom` callee once so the
- * synchronous `resolveLoomCallee` lookup `resolveCallableSet` drives can read a
- * resolved parse, and so the V15f callee-has-errors check can inspect it.
+ * un-register the loom) together with the frozen resolution snapshot the
+ * runtime enforces against (QTL-2 / QTL-4). Pre-parses each distinct `.loom`
+ * callee once so the synchronous `resolveLoomCallee` lookup `resolveCallableSet`
+ * drives can read a resolved parse, and so the V15f callee-has-errors check can
+ * inspect it.
  */
 async function resolveLoomToolsAtLoad(
   parsed: LoomCompositionInput,
   fs: FileSystem,
   ctx: ExtensionContext,
   parseDeps: Parameters<typeof parseLoomDocument>[1],
-): Promise<readonly Diagnostic[]> {
+): Promise<LoomToolsResolution> {
   const toolsList = parsed.frontmatter.tools;
   if (
     toolsList === undefined ||
     toolsList.length === 0 ||
     parsed.sourcePath === undefined
   ) {
-    return [];
+    // No `tools:` → the empty callable set (no `<name>(...)` callables). Attach
+    // the empty frozen snapshot so the runtime enforces "no ambient tools"
+    // rather than falling back to the producer-wide resolver.
+    return { diagnostics: [], callableSet: EMPTY_CALLABLE_SET };
   }
   const callerDir = dirname(parsed.sourcePath);
   const diagnostics: Diagnostic[] = [];
@@ -451,7 +480,16 @@ async function resolveLoomToolsAtLoad(
     deps,
   });
   diagnostics.push(...result.diagnostics);
-  return diagnostics;
+  // A callee-has-errors rejection above sets an error diagnostic without an
+  // error inside `resolveCallableSet`; the loom registers iff no error-severity
+  // diagnostic was raised on either path.
+  const registered = !diagnostics.some((d) => d.severity === "error");
+  return {
+    diagnostics,
+    ...(registered
+      ? { callableSet: result.callableSet ?? EMPTY_CALLABLE_SET }
+      : {}),
+  };
 }
 
 /**

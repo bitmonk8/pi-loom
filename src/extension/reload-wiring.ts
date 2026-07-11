@@ -29,6 +29,7 @@ import type {
 import type { Diagnostic } from "../diagnostics/diagnostic";
 import type { SystemNote } from "./system-note-channel";
 import type { LoomBody } from "../parser/loom-document";
+import type { CallableSetSnapshot } from "../parser/callable-set";
 import type { MaterializedImport } from "../runtime/lexical-environment";
 import type {
   ModelMatchOutcome,
@@ -69,6 +70,16 @@ export interface ParsedLoom {
    * `schema` / `enum` registers. Absent when the loom declares no `import`.
    */
   readonly imports?: readonly MaterializedImport[];
+  /**
+   * The frozen `tools:` callable-set resolution snapshot resolved at load time
+   * (`resolveCallableSet`), threaded onto the runnable loom so the runtime
+   * enforces the per-loom callable set: a code-driven `<name>(...)` call
+   * dispatches only through a held reference in this snapshot, and prompt-mode
+   * query turns install exactly this set's underlying Pi-tool names as the
+   * model's active tools. Absent → the runtime falls back to the producer-wide
+   * resolver (in-memory fixtures) rather than the frozen set.
+   */
+  readonly callableSet?: CallableSetSnapshot;
   /**
    * The per-loom runnable the `V19e` composition producer composes: it runs the
    * binder (when applicable) and then drives `V19d`'s effectful executor against

@@ -334,6 +334,8 @@ class ProductionLoomProducer implements LoomProducerDeps {
       ctx: binderInput.ctx,
       clock: this.#input.root.clock,
       queryText: prompt,
+      // The binder turn emits a structured envelope and calls no tools.
+      activeTools: [],
     });
     // The loom body runs only on the `ok` arm; `needs_info` / `ambiguous`
     // short-circuit (the loom body never runs). A reply that does not parse as
@@ -530,7 +532,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
           userVisible,
         });
       },
-      resolveToolCall: (expr, env) => this.#resolveToolCall(expr, env, signal),
+      resolveToolCall: (expr, env) => this.#resolveToolCall(loom, expr, env, signal),
       resolveInvoke: (expr, env) => this.#resolveInvoke(loom, expr, env, ctx, chain),
       classifyCall: (expr) => this.#classifyCall(loom, expr),
       resolveCallAsInvoke: (expr, env) => this.#resolveCallAsInvoke(loom, expr, env, ctx, chain),
@@ -679,7 +681,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
             : {}),
         };
       },
-      resolveToolCall: (expr, env) => this.#resolveToolCall(expr, env, signal),
+      resolveToolCall: (expr, env) => this.#resolveToolCall(loom, expr, env, signal),
       resolveInvoke: (expr, env) => this.#resolveInvoke(loom, expr, env, ctx, chain),
       classifyCall: (expr) => this.#classifyCall(loom, expr),
       resolveCallAsInvoke: (expr, env) => this.#resolveCallAsInvoke(loom, expr, env, ctx, chain),
@@ -741,6 +743,9 @@ class ProductionLoomProducer implements LoomProducerDeps {
   ): QueryHostDispatch {
     const { root } = this.#input;
     const typed = expr.schema !== null;
+    // QTL-4: the loom's callable-set underlying Pi-tool names installed as the
+    // model's active tools for each user-visible query turn.
+    const activeTools = callableSetPiToolNames(deps.loom);
     // QRY-22: a typed prompt-mode query drives respond-repair follow-ups as new
     // user turns against the SAME conversation (a user-visible turn when the
     // query streams, else off-session), extracting each follow-up's reply text.
@@ -751,6 +756,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
             ctx: deps.ctx,
             clock: root.clock,
             queryText: prompt,
+            activeTools,
           })
         : offSessionComplete(deps.ctx.model, prompt);
     const validation = typed
@@ -770,6 +776,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
           clock: root.clock,
           queryText,
           readMessages: deps.readMessages,
+          activeTools,
         })
       : new OffSessionQueryModel({ model: deps.ctx.model, queryText });
 
@@ -851,17 +858,23 @@ class ProductionLoomProducer implements LoomProducerDeps {
   }
 
   /**
-   * H8b live tool-call resolver. Resolve `expr.callee` against the host tool set
-   * and return a `CodeSideToolCall` whose `dispatch()` invokes the host tool's
+   * H8b live tool-call resolver. Resolve `expr.callee` against the loom's frozen
+   * `tools:` callable set (QTL-2 runtime enforcement) and return a
+   * `CodeSideToolCall` whose `dispatch()` invokes the resolved host tool's
    * `execute(...)` (V14g lowering turns a clean resolve into `Ok(text)`, a throw
-   * into `Err(CodeToolError{cause:"execution"})`). An unresolved host tool name
-   * throws `UnknownHostToolError` from `dispatch()`, lowering to the execution
-   * `Err` rather than fabricating a value.
+   * into `Err(CodeToolError{cause:"execution"})`). A callable name that is NOT
+   * in the set (or resolves to no host tool) throws `UnknownHostToolError` from
+   * `dispatch()`, lowering to the code-tool `Err` rather than executing an
+   * ambient host tool or fabricating a value.
    */
-  #resolveToolCall(expr: CallExpr, env: LexicalEnvironment, signal: AbortSignal): CodeSideToolCall {
+  #resolveToolCall(
+    loom: ConversationBindInput["loom"],
+    expr: CallExpr,
+    env: LexicalEnvironment,
+    signal: AbortSignal,
+  ): CodeSideToolCall {
     const toolName = expr.callee;
-    const resolve = this.#input.resolvePiTool;
-    const tool = resolve?.(toolName);
+    const tool = this.#resolvePiToolForLoom(loom, toolName);
     const params = lowerToolCallParams(expr, env);
     const toolCallId = `loom-direct:${this.#input.root.idSource.newInvocationId()}`;
     return {
@@ -876,6 +889,38 @@ class ProductionLoomProducer implements LoomProducerDeps {
         return tool.execute(toolCallId, params, signal);
       },
     };
+  }
+
+  /**
+   * QTL-2. Resolve a code-driven callable name against the loom's frozen `tools:`
+   * callable set: the name must be a `pi-tool` entry in the snapshot, and the
+   * call dispatches through that entry's HELD `PiToolDispatch` reference — the
+   * runtime never re-queries Pi's tool registry by name
+   * (frontmatter-fields-b-and-templates.md §Resolution snapshot). A name absent
+   * from the set (or bound to a `.loom` callee, which `#classifyCall` routes to
+   * the invoke path instead) resolves to `undefined`, so the code-side path
+   * surfaces the unavailable-tool `Err` rather than executing an ambient tool.
+   * Honours `as`-renames because the snapshot is keyed by the post-rename
+   * callable name.
+   *
+   * A loom carrying no snapshot (an in-memory harness fixture) falls back to the
+   * producer-wide `resolvePiTool` collaborator — production discovered looms
+   * always carry a (possibly empty) snapshot, so the fallback never widens a
+   * real loom's ambient reach.
+   */
+  #resolvePiToolForLoom(
+    loom: ConversationBindInput["loom"],
+    callableName: string,
+  ): PiToolDispatch | undefined {
+    const callableSet = loom.callableSet;
+    if (callableSet === undefined) {
+      return this.#input.resolvePiTool?.(callableName);
+    }
+    const entry = callableSet.entries.get(callableName);
+    if (entry === undefined || entry.kind !== "pi-tool") {
+      return undefined;
+    }
+    return entry.toolDefinition as PiToolDispatch;
   }
 
   /**
@@ -1082,6 +1127,30 @@ class ProductionLoomProducer implements LoomProducerDeps {
 }
 
 /**
+ * QTL-4. The underlying Pi-tool names in the loom's frozen `tools:` callable set
+ * — the host tool each `pi-tool` entry dispatches to (an `as`-rename entry
+ * carries the underlying tool's own registered name, which is what the model's
+ * active-tool set must reference). A loom with no snapshot (an in-memory
+ * fixture) or no Pi tools yields `[]`, so the prompt-mode active set stays empty
+ * and no ambient tool is installed.
+ */
+function callableSetPiToolNames(
+  loom: ConversationBindInput["loom"],
+): readonly string[] {
+  const set = loom.callableSet;
+  if (set === undefined) {
+    return [];
+  }
+  const names: string[] = [];
+  for (const entry of set.entries.values()) {
+    if (entry.kind === "pi-tool") {
+      names.push((entry.toolDefinition as PiToolDispatch).toolName);
+    }
+  }
+  return names;
+}
+
+/**
  * The callable-set entry (a `./x.loom` path) that a call name resolves to, or
  * `undefined` when the name binds to no `.loom`-callable (so it is a Pi tool).
  */
@@ -1166,6 +1235,7 @@ class LivePromptQueryModel implements QueryModelDriver {
   readonly #clock: Clock;
   readonly #queryText: string;
   readonly #readMessages: () => readonly Message[];
+  readonly #activeTools: readonly string[];
 
   constructor(deps: {
     readonly pi: ExtensionAPI;
@@ -1173,12 +1243,15 @@ class LivePromptQueryModel implements QueryModelDriver {
     readonly clock: Clock;
     readonly queryText: string;
     readonly readMessages: () => readonly Message[];
+    /** QTL-4: the loom's callable-set underlying Pi-tool names to install for the turn. */
+    readonly activeTools: readonly string[];
   }) {
     this.#pi = deps.pi;
     this.#ctx = deps.ctx;
     this.#clock = deps.clock;
     this.#queryText = deps.queryText;
     this.#readMessages = deps.readMessages;
+    this.#activeTools = deps.activeTools;
   }
 
   async nextFreePhaseTurn(round: number): Promise<FreePhaseTurn> {
@@ -1237,13 +1310,14 @@ class LivePromptQueryModel implements QueryModelDriver {
     // that never starts (or one that starts and ends within a single tick)
     // cannot hang. The final `waitForIdle` is the real-host completion barrier
     // (PIC-18) when the session binds one.
-    // PIC-17 active-set gating: install exactly the loom's callable set (empty
-    // for these looms) for the query turn and restore the ambient set in a
-    // `finally`, so the model answers the query directly instead of reaching for
-    // ambient host tools (read / write / …). Ambient tools are deliberately not
-    // inherited.
+    // PIC-17 active-set gating (QTL-4): install exactly the loom's callable set
+    // — its underlying Pi-tool names — as the model's active tools for the query
+    // turn and restore the ambient set in a `finally`. The model can then call a
+    // declared `tools:` entry (and query-time tool loops / ceiling #2 become
+    // reachable), while the host session's ambient tools stay deliberately not
+    // inherited (a loom with no Pi tools in its set installs `[]`).
     const ambientTools = this.#pi.getActiveTools();
-    this.#pi.setActiveTools([]);
+    this.#pi.setActiveTools([...this.#activeTools]);
     try {
       this.#pi.sendUserMessage(this.#queryText);
       await this.#pollWhile(() => this.#ctx.isIdle(), TURN_START_POLL_BOUND);
@@ -1511,8 +1585,8 @@ async function offSessionComplete(
 /**
  * Drive ONE user-visible streamed turn against the shared user session and
  * return its trailing-turn assistant text. Mirrors `LivePromptQueryModel`'s turn
- * drive: install the loom's (empty) callable set for the turn so the model
- * answers directly instead of reaching for ambient host tools, issue the
+ * drive: install the caller-supplied active tools for the turn (the loom's
+ * callable set for a query follow-up, `[]` for the binder), issue the
  * fire-and-forget `pi.sendUserMessage`, then observe the run through
  * `ctx.isIdle()` (wait for it to begin streaming, then to go idle again) and the
  * `ctx.waitForIdle()` completion barrier — all bounded on the injected `Clock`.
@@ -1522,6 +1596,12 @@ async function driveStreamedUserTurn(deps: {
   readonly ctx: ExtensionCommandContext;
   readonly clock: Clock;
   readonly queryText: string;
+  /**
+   * QTL-4: the active tool names to install for the turn (the loom's
+   * callable-set underlying Pi-tool names for a query follow-up; `[]` for the
+   * binder turn, which emits a structured envelope and calls no tools).
+   */
+  readonly activeTools: readonly string[];
 }): Promise<string> {
   const readMessages = (): readonly Message[] =>
     buildSessionContext(
@@ -1534,7 +1614,7 @@ async function driveStreamedUserTurn(deps: {
     }
   };
   const ambientTools = deps.pi.getActiveTools();
-  deps.pi.setActiveTools([]);
+  deps.pi.setActiveTools([...deps.activeTools]);
   try {
     deps.pi.sendUserMessage(deps.queryText);
     await pollWhile(() => deps.ctx.isIdle(), TURN_START_POLL_BOUND);
