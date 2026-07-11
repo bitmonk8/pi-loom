@@ -150,6 +150,8 @@ import {
 } from "../binder/binder-envelope";
 import { fillDefaultsAndRevalidate, type DefaultedField } from "../binder/defaulting";
 import { renderNoParamsOverflowNote } from "../runtime/slash-dispatch";
+import { renderTopLevelErrNote } from "../runtime/err-note-render";
+import type { QueryError } from "../runtime/query-error";
 import { SYSTEM_NOTE_CHANNEL } from "./system-note-channel";
 
 /**
@@ -473,6 +475,30 @@ class ProductionLoomProducer implements LoomProducerDeps {
     );
   }
 
+  /**
+   * SLSH-3/SLSH-4/SLSH-5 top-level `Err` note. `composeLoomFixture.run` — the
+   * slash-dispatch entry point, reached only for a slash caller with no invoke
+   * parent — calls this when the mode's `surface` yields an `Err`. The
+   * `renderTopLevelErrNote` renderer emits the SNK per-kind row verbatim
+   * (em-dash U+2014). `chain: []` renders the correct leaf row for every
+   * reachable kind (including an `invoke_callee` wrapper, which the renderer
+   * walks to its leaf); the SLSH-5 chain suffix is a deferred refinement — no
+   * readily-usable invoke provenance reaches this boundary. Routed through the
+   * same `pi.sendMessage` `loom-system-note` delivery as the SLSH-1 overflow
+   * note.
+   */
+  emitTopLevelErrNote(loomName: string, error: QueryError): void {
+    this.#input.pi.sendMessage(
+      {
+        customType: SYSTEM_NOTE_CHANNEL,
+        content: renderTopLevelErrNote({ loomName, error, chain: [] }),
+        display: true,
+        details: { event: {} },
+      },
+      { triggerTurn: false },
+    );
+  }
+
   bindPromptConversation(bindInput: ConversationBindInput): ConversationBinding {
     const { pi, root } = this.#input;
     const { loom, ctx } = bindInput;
@@ -551,9 +577,22 @@ class ProductionLoomProducer implements LoomProducerDeps {
       drivenAgainst: "prompt-user-session",
       executeDeps,
       // PIC-53: the prompt-mode return value is the trailing turn's accumulated
-      // assistant text of the driven user session.
-      surface: (_execution: BodyExecution): ResultValue =>
-        makeOk(extractTrailingTurnText(readMessages())),
+      // assistant text of the driven user session on the SUCCESS path. A failed
+      // run surfaces its real terminal outcome (mirroring the subagent surface):
+      // a `?`-propagated `Err` carries its `QueryError` payload so the
+      // slash-dispatch boundary (SLSH-3) can emit the top-level err note, and
+      // any other fail / cancel surfaces the terminal cancellation `Err` — never
+      // a masking `Ok`. Without this a failed prompt loom was indistinguishable
+      // from a successful one and the SLSH-3 note was never emitted.
+      surface: (execution: BodyExecution): ResultValue => {
+        if (execution.outcome === "success") {
+          return makeOk(extractTrailingTurnText(readMessages()));
+        }
+        if (execution.outcome === "fail" && execution.error !== undefined) {
+          return makeErr(execution.error);
+        }
+        return makeErr(makeCancelledError() as unknown as LoomValue);
+      },
     };
   }
 

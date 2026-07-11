@@ -49,6 +49,7 @@ import {
 } from "../runtime/statement-executor";
 import type { LoomValue, ResultValue } from "../runtime/value";
 import type { InvokeChain } from "../runtime/invoke-depth-cycle";
+import type { QueryError } from "../runtime/query-error";
 
 /**
  * Project the binder's bound `args` object onto the executor's `paramBindings`
@@ -167,6 +168,16 @@ export interface LoomProducerDeps {
   spawnSubagentConversation(
     input: ConversationBindInput,
   ): Promise<ConversationBinding>;
+  /**
+   * SLSH-3/SLSH-4/SLSH-5: emit the one-line `loom-system-note` for a top-level
+   * `Err(QueryError)` returned to the slash-dispatch boundary (a loom with a
+   * slash caller and no invoke parent). Called by `composeLoomFixture.run` —
+   * the slash-dispatch entry point — when `binding.surface(execution)` yields an
+   * `Err`. Owns the `pi.sendMessage` delivery on the `loom-system-note` channel
+   * (production-loom-producer.ts). The note is the only user-facing surface for
+   * a directly-slash-invoked subagent-mode failure (its transcript is private).
+   */
+  emitTopLevelErrNote(loomName: string, error: QueryError): void;
 }
 
 /**
@@ -212,7 +223,18 @@ export function composeLoomFixture(
       // 3. Drive `V19d`'s effectful executor against the bound conversation and
       //    surface the mode's return value.
       const execution: BodyExecution = await executeBody(loom.body, binding.executeDeps);
-      binding.surface(execution);
+      // 4. SLSH-3: a top-level `Err(QueryError)` returned to THIS boundary (a
+      //    slash caller, no invoke parent — invoke-reached looms never go through
+      //    `run`) gets a one-line `loom-system-note` formatted from the error
+      //    (SLSH-4 SNK templates). A loom that HANDLES its `Err` terminates with
+      //    `outcome === "success"`, so only a genuinely-unhandled top-level `Err`
+      //    surfaces here. `chain: []` renders the correct leaf row for every
+      //    reachable kind; the SLSH-5 invoke_callee suffix is a deferred
+      //    refinement (no readily-usable invoke provenance at this boundary).
+      const terminal: ResultValue = binding.surface(execution);
+      if (!terminal.ok) {
+        deps.emitTopLevelErrNote(loom.slashName, terminal.error as unknown as QueryError);
+      }
     },
   };
 }

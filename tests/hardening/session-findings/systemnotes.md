@@ -18,7 +18,45 @@ rendering surface.
 
 ---
 
-## FINDING SNOTE-1: the SLSH-3/SLSH-4/SLSH-5 top-level-`Err` system note is never emitted — every top-level `Err` at the slash-dispatch boundary is silent
+## FINDING SNOTE-1 — FIXED: the SLSH-3/SLSH-4/SLSH-5 top-level-`Err` system note is never emitted — every top-level `Err` at the slash-dispatch boundary is silent
+
+> **STATUS: FIXED.** The renderer is now wired into the shipped composition.
+>
+> - **Before:** `turn.systemNotes === []` for every top-level-`Err` variant; a
+>   failed slash loom (prompt or subagent) produced no user-facing signal.
+>   Prompt-mode `surface` returned `Ok(trailing-text)` even for a failed run,
+>   masking the failure; `composeLoomFixture.run` discarded the terminal.
+> - **After:** each variant emits its SNK note VERBATIM on the user session's
+>   `loom-system-note` channel (em-dash U+2014). Observed live
+>   (`session-systemnotes.test.ts`, all 7 green):
+>   - SNK-b `loom /snkb returned Err: rendered query template was empty — no provider turn was issued`
+>   - SNK-g `loom /snkg returned Err: tool read call failed (execution) — ENOENT: no such file or directory, access '<path>'`
+>   - SNK-i `loom /snki returned Err: invoke of ./snki_broken.loom failed (load_failure)`
+>   - SNK-a `loom /snka returned Err: model failed schema after 0 respond-repair attempts`
+>   - SLSH-3 subagent `loom /snksub returned Err: rendered query template was empty — no provider turn was issued`
+>   - SLSH-5 cascade `loom /snkchain returned Err: rendered query template was empty — no provider turn was issued` (correct LEAF row).
+> - **Fix (src):**
+>   1. `src/extension/production-loom-producer.ts` `bindPromptConversation`
+>      `surface` — return the REAL terminal outcome (mirror the subagent
+>      surface): `Ok(trailing-text)` on success, `makeErr(execution.error)` on
+>      `?`-propagated fail, else `makeErr(cancelled)`. No longer masks failure.
+>   2. `src/extension/production-loom-producer.ts` — new `emitTopLevelErrNote`
+>      method routing `renderTopLevelErrNote({ loomName, error, chain: [] })`
+>      through the same `pi.sendMessage` `loom-system-note` delivery as the
+>      SLSH-1 overflow note.
+>   3. `src/extension/loom-composition-producer.ts` `composeLoomFixture.run` —
+>      capture `const terminal = binding.surface(execution)` and, when
+>      `!terminal.ok`, call `deps.emitTopLevelErrNote(loom.slashName, error)`.
+>      New `emitTopLevelErrNote` hook on `LoomProducerDeps`.
+> - **DEFERRED refinement:** the SLSH-5 chain suffix
+>   (` from <callee> invoked at <parent>:<line>`) is NOT emitted — the boundary
+>   passes `chain: []` because invoke provenance is not readily available at the
+>   slash-dispatch seam. The renderer walks the `invoke_callee` wrapper to its
+>   leaf, so the LEAF row is correct for every reachable kind; only the
+>   provenance suffix is deferred (would require threading V15g invocation
+>   records to `run`).
+
+### Original finding (pre-fix, retained for provenance)
 
 - **repro** (one representative; all six variants below reproduce identically —
   empty `systemNotes`, no throw):

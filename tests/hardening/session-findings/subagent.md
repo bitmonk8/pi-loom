@@ -25,7 +25,7 @@ prompt-mode tool findings QTL-2/QTL-4 are distinct code paths; the subagent
 |---|---|---|
 | SUBAG-1 | bug | `system:` frontmatter is never injected into the spawned subagent conversation — the model does not receive it |
 | SUBAG-2 | bug | a subagent's `tools:` callable set is never installed — `customTools: []` is hardcoded, so the subagent model has no tools |
-| SUBAG-3 | bug | a top-level `Err` at the slash-dispatch boundary (SLSH-3) emits NO system note — a directly-slash-invoked subagent (or prompt) loom fails silently |
+| SUBAG-3 | bug (FIXED) | a top-level `Err` at the slash-dispatch boundary (SLSH-3) emits NO system note — a directly-slash-invoked subagent (or prompt) loom fails silently |
 
 Bug-verdict count: **3**.
 
@@ -116,7 +116,21 @@ Bug-verdict count: **3**.
   a no-op; the model can never make a tool call. Not called out as intended in any
   user-facing doc.
 
-## SUBAG-3 — top-level `Err` at the slash-dispatch boundary (SLSH-3) emits no system note
+## SUBAG-3 — FIXED — top-level `Err` at the slash-dispatch boundary (SLSH-3) emits no system note
+
+> **STATUS: FIXED.**
+> - **Before:** `/errsub` (direct `mode: subagent`, empty-template `?`) →
+>   `turn.systemNotes === []`, `turn.error === undefined` — the subagent failed
+>   silently; the boundary note (the only user-facing surface) was absent.
+> - **After:** the user session's `loom-system-note` channel carries exactly
+>   `loom /errsub returned Err: rendered query template was empty — no provider
+>   turn was issued` (em-dash U+2014). Verified live in
+>   `session-subagent.test.ts` (`SUBAG-slsh3`, 6/6 green).
+> - **Root cause / fix:** shared with SNOTE-1 (`session-findings/systemnotes.md`).
+>   The prompt/subagent `surface` now returns the real terminal `Err`, and
+>   `composeLoomFixture.run` routes an unhandled top-level `Err` to the new
+>   `emitTopLevelErrNote` hook (renders `renderTopLevelErrNote` via
+>   `pi.sendMessage`). SLSH-5 chain suffix deferred (`chain: []`).
 
 - **repro:** `errsub.loom` (`mode: subagent`), body: `` @` `? `` (a whitespace-only
   template propagated with `?` — the empty-template short-circuit yields

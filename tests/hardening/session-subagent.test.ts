@@ -193,9 +193,13 @@ describe("subagent mode — direct slash dispatch", () => {
       // SLSH-3/SNK-b normative template. Recorded as an assertion so the probe
       // pins the spec expectation; the finding md documents the observed reality.
       const snkB = "loom /errsub returned Err: rendered query template was empty \u2014 no provider turn was issued";
-      // Report both: does ANY boundary note appear, and does it match SNK-b?
       // eslint-disable-next-line no-console
       console.log("SUBAG-slsh3 expected-note:", JSON.stringify(snkB), "present:", notes.includes(snkB));
+      // SUBAG-3 FIXED: SLSH-3 requires this note in the USER session for a
+      // directly-slash-invoked subagent loom — its transcript stays private, so
+      // the boundary note is the ONLY user-facing surface for the failure.
+      expect(t.systemNotes).toContain(snkB);
+      expect(t.systemNotes).toEqual([snkB]);
     } finally {
       await probe.dispose();
     }

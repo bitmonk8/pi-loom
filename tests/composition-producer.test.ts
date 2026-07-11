@@ -25,7 +25,8 @@ import type {
   CommittedSurface,
   DrivenConversationMode,
 } from "../src/runtime/terminal-outcomes";
-import { makeOk, type LoomValue, type ResultValue } from "../src/runtime/value";
+import { makeErr, makeOk, type LoomValue, type ResultValue } from "../src/runtime/value";
+import type { QueryError } from "../src/runtime/query-error";
 import type {
   ForcedRespondTurn,
   FreePhaseTurn,
@@ -282,6 +283,7 @@ interface ProducerProbe {
   subagentSpawned: boolean;
   drivenAgainst: DrivenConversation | undefined;
   surfaced: ResultValue | undefined;
+  errNote: { loomName: string; error: QueryError } | undefined;
 }
 
 interface Harness {
@@ -298,7 +300,7 @@ interface Harness {
  * freshly spawned isolated private session. Each binding drives the REAL
  * executor against its own recording conversation.
  */
-function makeHarness(opts: { bound?: boolean } = {}): Harness {
+function makeHarness(opts: { bound?: boolean; surfaceErr?: QueryError } = {}): Harness {
   const order: string[] = [];
   const userSession = new RecordingUserSession();
   const subagentSession = new RecordingSubagentSession();
@@ -308,6 +310,7 @@ function makeHarness(opts: { bound?: boolean } = {}): Harness {
     subagentSpawned: false,
     drivenAgainst: undefined,
     surfaced: undefined,
+    errNote: undefined,
   };
 
   function bindingOver(
@@ -322,7 +325,10 @@ function makeHarness(opts: { bound?: boolean } = {}): Harness {
       drivenAgainst,
       executeDeps,
       surface(): ResultValue {
-        const r = makeOk(extractTrailingTurnText(messages));
+        const r: ResultValue =
+          opts.surfaceErr !== undefined
+            ? makeErr(opts.surfaceErr as unknown as LoomValue)
+            : makeOk(extractTrailingTurnText(messages));
         state.surfaced = r;
         return r;
       },
@@ -342,6 +348,9 @@ function makeHarness(opts: { bound?: boolean } = {}): Harness {
     spawnSubagentConversation(_input: ConversationBindInput): Promise<ConversationBinding> {
       state.subagentSpawned = true;
       return Promise.resolve(bindingOver(subagentSession, "subagent", "subagent-private-session"));
+    },
+    emitTopLevelErrNote(loomName: string, error: QueryError): void {
+      state.errNote = { loomName, error };
     },
   };
 
@@ -468,6 +477,45 @@ describe("V19e-T — binder-before-interpreter ordering (V11a seam witness)", ()
       h.userSession.calls.length,
       "a non-binding envelope short-circuits: the interpreter drives no turn",
     ).toBe(0);
+  });
+});
+
+// ===========================================================================
+// SLSH-3 top-level Err note — the slash-dispatch boundary emits the note.
+// ===========================================================================
+
+describe("V19e-T — SLSH-3 top-level Err at the slash-dispatch boundary", () => {
+  it("a top-level Err returned by the mode's surface routes the QueryError to emitTopLevelErrNote (SLSH-3); the note is the boundary's user-facing surface", async () => {
+    const err: QueryError = {
+      kind: "validation",
+      cause: "empty_template",
+      attempts: 0,
+      message: "rendered query template was empty",
+    } as unknown as QueryError;
+    const h = makeHarness({ surfaceErr: err });
+
+    await composeLoomFixture(loomInput("snkb", "prompt"), h.deps).run("", ctxDouble());
+
+    const p = h.probe();
+    expect(p.surfaced?.ok, "the failed run surfaces an Err, not a masking Ok").toBe(false);
+    expect(
+      p.errNote?.loomName,
+      "run routes the top-level Err to emitTopLevelErrNote under the loom's slash name",
+    ).toBe("snkb");
+    expect(
+      p.errNote?.error,
+      "the QueryError payload of the Err is threaded into the note renderer",
+    ).toBe(err);
+  });
+
+  it("a successful top-level run emits NO boundary note (no over-emission)", async () => {
+    const h = makeHarness();
+
+    await composeLoomFixture(loomInput("summarise", "prompt"), h.deps).run("", ctxDouble());
+
+    expect(h.probe().errNote, "a successful run does not emit a top-level Err note").toBe(
+      undefined,
+    );
   });
 });
 

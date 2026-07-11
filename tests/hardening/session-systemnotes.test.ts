@@ -84,10 +84,10 @@ describe("system-note rendering fidelity — top-level Err at the slash boundary
       // eslint-disable-next-line no-console
       console.log("SNK-b notes:", JSON.stringify(notes), "err:", probe.turns[0]?.error);
       const expected = `loom /snkb returned Err: rendered query template was empty ${DASH} no provider turn was issued`;
-      // SNOTE-1: the spec-mandated SLSH-3/SNK-b note is NOT emitted (renderer
-      // unwired). Clean `?` propagation, no throw. Lock the observed absence.
-      expect(notes).not.toContain(expected);
-      expect(notes).toEqual([]);
+      // SNOTE-1 FIXED: the SLSH-3/SNK-b note is now emitted verbatim on the
+      // slash-dispatch boundary. Clean `?` propagation, no throw.
+      expect(notes).toContain(expected);
+      expect(notes).toEqual([expected]);
       expect(probe.turns[0]?.error).toBeUndefined();
     } finally {
       await probe.dispose();
@@ -124,9 +124,11 @@ describe("system-note rendering fidelity — top-level Err at the slash boundary
       // eslint-disable-next-line no-console
       console.log("SNK-g notes:", JSON.stringify(notes), "err:", probe.turns[0]?.error);
       const prefix = `loom /snkg returned Err: tool read call failed (execution) ${DASH} `;
-      // SNOTE-1: no SLSH-3/SNK-g note emitted.
-      expect(notes.some((n) => n.startsWith(prefix))).toBe(false);
-      expect(notes).toEqual([]);
+      // SNOTE-1 FIXED: the SLSH-3/SNK-g note is emitted; the <message> tail is
+      // the model-external tool-error text (non-deterministic per SLSH-4, so
+      // only the surrounding template is asserted).
+      expect(notes.some((n) => n.startsWith(prefix))).toBe(true);
+      expect(notes.length).toBe(1);
       expect(probe.turns[0]?.error).toBeUndefined();
     } finally {
       await probe.dispose();
@@ -176,10 +178,10 @@ describe("system-note rendering fidelity — top-level Err at the slash boundary
         JSON.stringify(probe.registeredNames),
       );
       const prefix = `loom /snki returned Err: invoke of `;
-      // SNOTE-1: no SLSH-3/SNK-i note emitted (parent registered and ran).
+      // SNOTE-1 FIXED: the SLSH-3/SNK-i note is emitted (parent registered+ran).
       expect(probe.registeredNames).toContain("snki");
-      expect(notes.some((n) => n.startsWith(prefix))).toBe(false);
-      expect(notes).toEqual([]);
+      expect(notes.some((n) => n.startsWith(prefix))).toBe(true);
+      expect(notes.length).toBe(1);
     } finally {
       await probe.dispose();
     }
@@ -221,10 +223,15 @@ describe("system-note rendering fidelity — top-level Err at the slash boundary
       // eslint-disable-next-line no-console
       console.log("SLSH-5 notes:", JSON.stringify(notes), "err:", probe.turns[0]?.error);
       const leaf = `loom /snkchain returned Err: rendered query template was empty ${DASH} no provider turn was issued`;
-      // SNOTE-1: no SLSH-3 note and therefore no SLSH-5 chain suffix emitted.
-      expect(notes.some((n) => n.startsWith(leaf))).toBe(false);
+      // SNOTE-1 FIXED: the SLSH-3 note is emitted and renders the correct LEAF
+      // row (the renderer walks the invoke_callee wrapper to its leaf). The
+      // SLSH-5 chain suffix (' from <child> invoked at <parent>:<line>') is a
+      // DEFERRED refinement: the boundary passes chain:[] because invoke
+      // provenance is not readily available at the slash-dispatch seam, so no
+      // ` invoked at ` suffix is emitted yet. Leaf row is correct.
+      expect(notes.some((n) => n.startsWith(leaf))).toBe(true);
       expect(notes.some((n) => n.includes(" invoked at "))).toBe(false);
-      expect(notes).toEqual([]);
+      expect(notes).toEqual([leaf]);
     } finally {
       await probe.dispose();
     }
@@ -252,10 +259,11 @@ describe("system-note rendering fidelity — top-level Err at the slash boundary
       // eslint-disable-next-line no-console
       console.log("SLSH-3 subagent notes:", JSON.stringify(notes), "err:", probe.turns[0]?.error);
       const expected = `loom /snksub returned Err: rendered query template was empty ${DASH} no provider turn was issued`;
-      // SNOTE-1: SLSH-3 explicitly requires this note in the user session for a
-      // directly-slash-invoked subagent loom (sole user-facing surface). Absent.
-      expect(notes).not.toContain(expected);
-      expect(notes).toEqual([]);
+      // SNOTE-1 FIXED: SLSH-3 requires this note in the USER session for a
+      // directly-slash-invoked subagent loom (sole user-facing surface). The
+      // subagent transcript stays private; the note surfaces at the boundary.
+      expect(notes).toContain(expected);
+      expect(notes).toEqual([expected]);
     } finally {
       await probe.dispose();
     }
@@ -295,9 +303,10 @@ describe("system-note rendering fidelity — top-level Err at the slash boundary
       // eslint-disable-next-line no-console
       console.log("SNK-a notes:", JSON.stringify(notes), "err:", probe.turns[0]?.error);
       const re = /^loom \/snka returned Err: model failed schema after \d+ respond-repair attempts$/;
-      // SNOTE-1: no SLSH-3/SNK-a note emitted (even after a real model turn).
-      expect(notes.some((n) => re.test(n))).toBe(false);
-      expect(notes).toEqual([]);
+      // SNOTE-1 FIXED: the SLSH-3/SNK-a note is emitted after the real model
+      // turn(s); <n> is the interpolated attempt count.
+      expect(notes.some((n) => re.test(n))).toBe(true);
+      expect(notes.length).toBe(1);
     } finally {
       await probe.dispose();
     }
