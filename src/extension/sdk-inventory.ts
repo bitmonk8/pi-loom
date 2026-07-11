@@ -208,10 +208,15 @@ export const SDK_SURFACE_INVENTORY: readonly SurfaceInventoryEntry[] =
     // `session_start`: the host working directory the five-source discovery walk
     // is keyed to (`ctx.cwd`), the model registry the binder-model resolver /
     // model-reference matcher run over (`ctx.modelRegistry`), and the transient
-    // toast surface discovery / parse diagnostics route through (`ctx.ui`).
+    // toast surface discovery / parse diagnostics route through (`ctx.ui`), and
+    // the UI-availability flag (`ctx.hasUI`) that gates the headless-mode stderr
+    // mirror of error diagnostics (in print / RPC mode `ctx.ui.notify` is the
+    // runner no-op, so a dropped-loom diagnostic is additionally written to
+    // stderr — FMC-1 / DISCLI-2 / IMPORTS-3).
     { id: "ctx.cwd", kind: "ctx-member" },
     { id: "ctx.modelRegistry", kind: "ctx-member" },
     { id: "ctx.ui", kind: "ctx-member" },
+    { id: "ctx.hasUI", kind: "ctx-member" },
     // The H8a per-loom run-drive resolves a chained (non-first) query off-session
     // through pi-ai's `complete()` against the dispatch context's current model.
     { id: "ctx.model", kind: "ctx-member" },

@@ -48,7 +48,7 @@ import { AjvSchemaValidator } from "../seams/schema-validator";
 import { ProductionCheckpoint } from "../seams/production-checkpoint";
 import { createRuntimeRoot, type RuntimeRoot } from "../runtime-root";
 import type { FileSystem } from "../seams/file-system";
-import type { Diagnostic } from "../diagnostics/diagnostic";
+import { renderDiagnosticLine, type Diagnostic } from "../diagnostics/diagnostic";
 import type { LoweredSchema } from "../seams/schema-validator";
 import {
   discoverLooms,
@@ -96,8 +96,23 @@ export async function discoverAndComposeFixtures(
   // not assert them). See notes.md — full `loom-system-note` routing for
   // discovery diagnostics is deferred.
   const emitDiagnostic = (diagnostic: Diagnostic): void => {
-    if (diagnostic.severity === "error") {
-      ctx.ui.notify(diagnostic.message, "error");
+    if (diagnostic.severity !== "error") {
+      return;
+    }
+    ctx.ui.notify(diagnostic.message, "error");
+    // In headless print / RPC mode there is no UI, so `ctx.ui.notify` resolves to
+    // the runner's default no-op and every load/parse error that drops a loom
+    // would vanish: the slash command silently fails to register, the raw
+    // `/stem …` text is forwarded to the model as chat, and the run still exits 0
+    // — the user gets no signal their loom is broken (the exact FMC-1 / DISCLI-2 /
+    // IMPORTS-3 gap). Mirror the diagnostic to stderr in that case so a `-p` / CI
+    // user observes it. stderr (never stdout) is used so the model reply and the
+    // `--mode json` event stream on stdout stay uncorrupted. `process.stderr` is
+    // not a gated ambient primitive (no-ambient-primitives MEMBER_RULES covers
+    // `process.env` / `process.cwd` only), and this write is confined to the
+    // no-UI path so the interactive toast surface is unchanged.
+    if (!ctx.hasUI) {
+      process.stderr.write(`loom: ${renderDiagnosticLine(diagnostic)}\n`);
     }
   };
 
