@@ -316,54 +316,63 @@ export interface ImportCheckInput {
 }
 
 /**
- * Check an importing file's specifiers (`parse` phase), returning
- * `loom/parse/import-unknown-symbol` for a specifier whose source symbol is
+ * Unknown-symbol arm (`parse` phase): a specifier whose SOURCE symbol is
  * neither a top-level declaration nor a transitive re-export of the resolved
- * file (the message names the source symbol, not the alias), and
- * `loom/parse/import-name-collision` for a local binding shared by two imports
- * or colliding with a top-level declaration in the same file. Participates in
- * the multi-error batching rule (returns every diagnostic, no fast-fail).
- *
- * V15c-T stubs this inert (always `[]`), so the unknown-symbol and
- * name-collision tests red on their own primary assertions. The paired V15c
- * leaf fills it in.
+ * `.warp` file is `loom/parse/import-unknown-symbol`. The message names the
+ * source symbol, not the `as` alias. No fast-fail — every offending specifier is
+ * collected (multi-error batching rule). Scoped to a single `import … from`
+ * decl because the export set is per-resolved-file.
  */
-export function checkImportedSymbols(
-  input: ImportCheckInput,
+export function checkImportUnknownSymbols(
+  file: string,
+  specPath: string,
+  specifiers: readonly ImportSpecifier[],
+  resolvedExports: readonly string[],
 ): readonly Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
-  const exported = new Set(input.resolvedExports);
-
-  // Unknown-symbol arm: a specifier whose SOURCE symbol is neither a top-level
-  // declaration nor a transitive re-export of the resolved file. The message
-  // names the source symbol, not the `as` alias. No fast-fail — every offending
-  // specifier is collected (multi-error batching rule).
-  for (const specifier of input.specifiers) {
+  const exported = new Set(resolvedExports);
+  for (const specifier of specifiers) {
     if (!exported.has(specifier.source)) {
       diagnostics.push({
         severity: "error",
         code: IMPORT_UNKNOWN_SYMBOL_CODE,
-        file: input.file,
+        file,
         range: specifier.range,
-        message: importUnknownSymbolMessage(specifier.source, input.specPath),
+        message: importUnknownSymbolMessage(specifier.source, specPath),
       });
     }
   }
+  return diagnostics;
+}
 
-  // Name-collision arm: a local binding shared by two imports, or colliding
-  // with a same-file top-level declaration. The message names the local name;
-  // each colliding name is reported once.
-  const localTopLevel = new Set(input.localTopLevelNames);
+/**
+ * Name-collision arm (`parse` phase): a LOCAL binding shared by two imports —
+ * whether from two different `.warp` files or the same file imported twice — or
+ * colliding with a same-file top-level declaration is
+ * `loom/parse/import-name-collision` (imports.md §"Name collisions": no implicit
+ * shadowing; resolve with `as`-aliasing). The message names the local name; each
+ * colliding name is reported once. `specifiers` is the union of EVERY importing
+ * `import … from` decl's specifiers for the file, so an import-vs-import collision
+ * across two separate `import` statements is caught, mirroring the import-vs-
+ * local-declaration arm rather than being lost to last-import-wins shadowing.
+ */
+export function checkImportNameCollisions(
+  file: string,
+  specifiers: readonly ImportSpecifier[],
+  localTopLevelNames: readonly string[],
+): readonly Diagnostic[] {
+  const diagnostics: Diagnostic[] = [];
+  const localTopLevel = new Set(localTopLevelNames);
   const seenLocal = new Set<string>();
   const reported = new Set<string>();
-  for (const specifier of input.specifiers) {
+  for (const specifier of specifiers) {
     const local = specifier.local;
     const collides = localTopLevel.has(local) || seenLocal.has(local);
     if (collides && !reported.has(local)) {
       diagnostics.push({
         severity: "error",
         code: IMPORT_NAME_COLLISION_CODE,
-        file: input.file,
+        file,
         range: specifier.range,
         message: importNameCollisionMessage(local),
         hint: IMPORT_NAME_COLLISION_HINT,
@@ -372,8 +381,40 @@ export function checkImportedSymbols(
     }
     seenLocal.add(local);
   }
-
   return diagnostics;
+}
+
+/**
+ * Check an importing file's specifiers (`parse` phase), returning
+ * `loom/parse/import-unknown-symbol` for a specifier whose source symbol is
+ * neither a top-level declaration nor a transitive re-export of the resolved
+ * file (the message names the source symbol, not the alias), and
+ * `loom/parse/import-name-collision` for a local binding shared by two imports
+ * or colliding with a top-level declaration in the same file. Participates in
+ * the multi-error batching rule (returns every diagnostic, no fast-fail).
+ *
+ * Retained as the single-decl composition of {@link checkImportUnknownSymbols}
+ * and {@link checkImportNameCollisions}. The load pass (import-static-checks.ts)
+ * calls the two arms separately — the unknown-symbol arm per resolved decl and
+ * the collision arm once over the union of every decl's specifiers — so an
+ * import-vs-import collision across two separate `import` statements is caught.
+ */
+export function checkImportedSymbols(
+  input: ImportCheckInput,
+): readonly Diagnostic[] {
+  return [
+    ...checkImportUnknownSymbols(
+      input.file,
+      input.specPath,
+      input.specifiers,
+      input.resolvedExports,
+    ),
+    ...checkImportNameCollisions(
+      input.file,
+      input.specifiers,
+      input.localTopLevelNames,
+    ),
+  ];
 }
 
 // ── loom/load/import-cycle ──────────────────────────────────────────────────

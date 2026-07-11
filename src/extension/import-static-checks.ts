@@ -32,7 +32,8 @@ import type { Diagnostic } from "../diagnostics/diagnostic";
 import type { FileSystem } from "../seams/file-system";
 import {
   RelativeWarpResolver,
-  checkImportedSymbols,
+  checkImportNameCollisions,
+  checkImportUnknownSymbols,
   computeWarpExports,
   detectImportCycle,
   loadWarpImport,
@@ -91,8 +92,9 @@ function collectTopLevelNames(body: LoomBody): string[] {
  * Extract the top-level forms of a resolved `.warp` module that bear on
  * downstream visibility (imports.md §Visibility + §Re-exports): every top-level
  * `schema` / `enum` / `fn` (auto-exported), every `export … from` re-export, and
- * every plain `import` local. The parser tracks no `as` alias for a specifier,
- * so each specifier's source and local/exported name are the same token.
+ * every plain `import` local. The parser's `specifiers` carry the `as`-alias
+ * mapping, so a re-export's downstream name is its `exported` alias and a plain
+ * import's binding is its `local` alias.
  */
 function extractWarpForms(body: LoomBody): WarpModuleForms {
   const declarations: WarpDeclaration[] = [];
@@ -102,17 +104,21 @@ function extractWarpForms(body: LoomBody): WarpModuleForms {
     if (stmt.kind === "schema" || stmt.kind === "enum" || stmt.kind === "fn") {
       declarations.push({ kind: stmt.kind, name: stmt.name });
     } else if (stmt.kind === "export") {
-      for (const symbol of stmt.symbols) {
+      for (const specifier of stmt.specifiers) {
         reExports.push({
-          source: symbol,
-          exported: symbol,
+          source: specifier.source,
+          exported: specifier.local,
           fromPath: stmt.path,
-          range: stmt.range,
+          range: specifier.range,
         });
       }
     } else if (stmt.kind === "import") {
-      for (const symbol of stmt.symbols) {
-        plainImports.push({ source: symbol, local: symbol, range: stmt.range });
+      for (const specifier of stmt.specifiers) {
+        plainImports.push({
+          source: specifier.source,
+          local: specifier.local,
+          range: specifier.range,
+        });
       }
     }
   }
@@ -123,22 +129,26 @@ function extractWarpForms(body: LoomBody): WarpModuleForms {
  * Materialise one imported symbol from the resolved `.warp`'s body into a
  * runtime binding (imports.md §Visibility): an imported `fn` carries its
  * `FnDecl` body (callable), an imported `schema` / `enum` registers its
- * constructor / variants. Returns `undefined` when the symbol names no
- * top-level declaration (an unknown symbol — already diagnosed by IMP-3).
+ * constructor / variants. The resolved declaration is found by its SOURCE name
+ * (the name in the `.warp` file) and bound under the specifier's LOCAL name (the
+ * `as` alias, or the source name when unaliased), which the runtime keys imports
+ * by. Returns `undefined` when the source names no top-level declaration (an
+ * unknown symbol — already diagnosed by IMP-3).
  */
 function materializeSymbol(
-  symbol: string,
+  source: string,
+  local: string,
   body: LoomBody,
 ): MaterializedImport | undefined {
   for (const stmt of body.statements) {
-    if (stmt.kind === "fn" && stmt.name === symbol) {
-      return { name: symbol, kind: "fn", fn: stmt };
+    if (stmt.kind === "fn" && stmt.name === source) {
+      return { name: local, kind: "fn", fn: stmt };
     }
-    if (stmt.kind === "schema" && stmt.name === symbol) {
-      return { name: symbol, kind: "schema" };
+    if (stmt.kind === "schema" && stmt.name === source) {
+      return { name: local, kind: "schema" };
     }
-    if (stmt.kind === "enum" && stmt.name === symbol) {
-      return { name: symbol, kind: "enum", variants: stmt.variants ?? [] };
+    if (stmt.kind === "enum" && stmt.name === source) {
+      return { name: local, kind: "enum", variants: stmt.variants ?? [] };
     }
   }
   return undefined;
@@ -306,6 +316,13 @@ export async function checkLoomImports(
 
   const localTopLevelNames = collectTopLevelNames(input.body);
   const entryStems: string[] = [];
+  // The union of every importing `import … from` decl's specifiers, checked once
+  // for name collisions after the per-decl loop (imports.md §"Name collisions"):
+  // two imports binding the same local name — from two different `.warp` files or
+  // the same file twice — is `loom/parse/import-name-collision`, not last-import-
+  // wins shadowing. Per-decl checking would only see one specifier at a time and
+  // miss the import-vs-import collision the import-vs-local arm already catches.
+  const allSpecifiers: ImportSpecifier[] = [];
 
   for (const decl of importDecls) {
     const spec = decl.path;
@@ -341,29 +358,34 @@ export async function checkLoomImports(
       }
     }
 
-    // IMP-3: compute the resolved `.warp`'s export set and check every
-    // importing specifier against it (unknown-symbol / name-collision).
+    // IMP-3: compute the resolved `.warp`'s export set and check this decl's
+    // specifiers against it (unknown-symbol arm, per resolved file). The
+    // name-collision arm runs once after the loop over the union of every decl's
+    // specifiers, so an import-vs-import collision across two separate `import`
+    // statements is caught (not silently last-import-wins).
     const forms = extractWarpForms(parsed.document.body);
     const resolvedExports = computeWarpExports(forms);
-    const specifiers: ImportSpecifier[] = decl.symbols.map((symbol) => ({
-      source: symbol,
-      local: symbol,
-      range: decl.range,
-    }));
+    const specifiers = decl.specifiers;
+    allSpecifiers.push(...specifiers);
     diagnostics.push(
-      ...checkImportedSymbols({
-        file: input.sourcePath,
-        specPath: spec,
+      ...checkImportUnknownSymbols(
+        input.sourcePath,
+        spec,
         specifiers,
         resolvedExports,
-        localTopLevelNames,
-      }),
+      ),
     );
 
     // IMP-6 / IMP-7: materialise each resolved symbol so an imported `fn` is
-    // callable and its query body drives the caller's conversation.
-    for (const symbol of decl.symbols) {
-      const materialized = materializeSymbol(symbol, parsed.document.body);
+    // callable and its query body drives the caller's conversation. The
+    // declaration is found by its source name and bound under its local (`as`)
+    // name.
+    for (const specifier of specifiers) {
+      const materialized = materializeSymbol(
+        specifier.source,
+        specifier.local,
+        parsed.document.body,
+      );
       if (materialized !== undefined) {
         imports.push(materialized);
       }
@@ -372,6 +394,19 @@ export async function checkLoomImports(
     // Seed the cycle graph from this resolved `.warp`.
     await walkWarp(resolvedPath);
   }
+
+  // IMP-3 (name collisions): check the union of every resolved decl's specifiers
+  // once, so two imports binding the same local name — across two separate
+  // `import` statements, whether from different `.warp` files or the same file
+  // twice — fire `loom/parse/import-name-collision` (imports.md §"Name
+  // collisions"), mirroring the import-vs-local-declaration arm.
+  diagnostics.push(
+    ...checkImportNameCollisions(
+      input.sourcePath,
+      allSpecifiers,
+      localTopLevelNames,
+    ),
+  );
 
   // IMP-5: walk the static import graph from each directly-imported `.warp`;
   // the first cycle discovered un-registers the importing loom.

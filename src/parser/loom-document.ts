@@ -36,6 +36,7 @@ import { lexLoom, type LoomSource, type Token } from "../lexer/lexer";
 import { validatePathLiteral } from "../lexer/literals";
 import {
   checkWarpTopLevelForm,
+  type ImportSpecifier,
   type WarpTopLevelForm,
 } from "./imports";
 import type { SystemNoteChannelDeps } from "../extension/system-note-channel";
@@ -401,6 +402,13 @@ export interface ExprStmt extends NodeBase {
 export interface SchemaFieldSource {
   readonly name: string;
   readonly typeSource: string;
+  /**
+   * The explicit `as "WireName"` rename when present (schemas.md §Wire-name
+   * renaming). Absent means the wire name equals the loom-side `name`. Retained
+   * so the runtime can apply outbound wire-name translation when an object of
+   * this schema is interpolated into a query template (QRY-18).
+   */
+  readonly wireName?: string;
 }
 
 /** A `schema` declaration (`SchemaDecl`; schemas.md). */
@@ -449,14 +457,24 @@ export interface EnumDecl extends NodeBase {
 export interface ImportDecl extends NodeBase {
   readonly kind: "import";
   readonly path: string;
+  /**
+   * The LOCAL binding names — the `as` alias where present, else the source name
+   * (imports.md §Visibility). Downstream named-type / reserved-name consumers key
+   * off the local name a `{ A as B }` specifier binds (`B`), not the raw tokens.
+   */
   readonly symbols: readonly string[];
+  /** The `{ source as local }` specifiers, carrying the `as`-alias mapping. */
+  readonly specifiers: readonly ImportSpecifier[];
 }
 
 /** An `export … from` declaration (imports.md). */
 export interface ExportDecl extends NodeBase {
   readonly kind: "export";
   readonly path: string;
+  /** The downstream-visible names — the `as` alias where present, else the source. */
   readonly symbols: readonly string[];
+  /** The `{ source as exported }` re-export specifiers, carrying the `as`-alias mapping. */
+  readonly specifiers: readonly ImportSpecifier[];
 }
 
 /** A `///` doc-comment run (`DocComment`; descriptions.md). */
@@ -1564,13 +1582,34 @@ class BodyParser {
         return null;
       }
       this.advance();
+      // An optional `as "WireName"` rename sits between the field identifier and
+      // its type (schemas.md §Wire-name renaming). Capture it so the runtime can
+      // apply outbound wire-name translation on interpolation (QRY-18).
+      let wireName: string | undefined;
+      if (
+        (this.peek().kind === "ident" || this.peek().kind === "keyword") &&
+        this.peek().text === "as"
+      ) {
+        this.advance(); // `as`
+        const wireTok = this.peek();
+        if (wireTok.kind !== "string") {
+          this.skipBraceRemainder();
+          return null;
+        }
+        this.advance();
+        wireName = wireTok.value ?? wireTok.text;
+      }
       if (!this.isPunct(":")) {
         this.skipBraceRemainder();
         return null;
       }
       this.advance(); // `:`
       const typeSource = this.parseType();
-      fields.push({ name: nameTok.text, typeSource });
+      fields.push({
+        name: nameTok.text,
+        typeSource,
+        ...(wireName !== undefined ? { wireName } : {}),
+      });
       if (this.isPunct(",")) {
         this.advance();
       }
@@ -1732,14 +1771,46 @@ class BodyParser {
 
   private parseImportExport(kind: "import" | "export"): Stmt {
     const kw = this.advance();
+    // Each specifier is `Source` or `Source as Local` (imports.md §"Unknown
+    // imported symbol" / §"Re-exports"): the `as` keyword rebinds the imported
+    // symbol to a local alias. `symbols` carries the LOCAL name (alias when
+    // present) so downstream named-type / reserved-name consumers see the name
+    // actually bound; `specifiers` retains the `{ source, local }` mapping the
+    // import / re-export checks need (source drives unknown-symbol resolution,
+    // local drives name-collision).
+    const specifiers: ImportSpecifier[] = [];
     const symbols: string[] = [];
     if (this.isPunct("{")) {
       this.advance();
       while (!this.isPunct("}") && !this.atEnd()) {
         const t = this.peek();
-        if (t.kind === "ident" || t.kind === "keyword") {
-          symbols.push(t.text);
+        const isSymbolToken =
+          (t.kind === "ident" || t.kind === "keyword") && t.text !== "as";
+        if (isSymbolToken) {
+          const source = t.text;
+          const sourceRange = t.range;
           this.advance();
+          let local = source;
+          let endRange = sourceRange;
+          // `Source as Local`: the `as` keyword rebinds to the trailing alias.
+          if (this.isKeyword("as")) {
+            this.advance(); // `as`
+            const aliasTok = this.peek();
+            if (
+              (aliasTok.kind === "ident" || aliasTok.kind === "keyword") &&
+              aliasTok.text !== "as"
+            ) {
+              local = aliasTok.text;
+              endRange = aliasTok.range;
+              this.advance();
+            }
+          }
+          specifiers.push({
+            source,
+            local,
+            range: spanRange(sourceRange, endRange),
+          });
+          symbols.push(local);
         } else if (t.kind === "punct" && t.text === ",") {
           this.advance();
         } else {
@@ -1775,6 +1846,7 @@ class BodyParser {
       kind,
       path,
       symbols,
+      specifiers,
       range: spanRange(kw.range, this.prevRange()),
     } as ImportDecl | ExportDecl;
   }
@@ -3052,7 +3124,13 @@ function walkStatement(
       if (s.fields !== undefined) {
         out.push(
           ...checkObjectSchema(
-            { name: s.name, fields: s.fields.map((f) => ({ loomName: f.name })) },
+            {
+              name: s.name,
+              fields: s.fields.map((f) => ({
+                loomName: f.name,
+                ...(f.wireName !== undefined ? { wireName: f.wireName } : {}),
+              })),
+            },
             { file, range: s.range },
           ),
         );
