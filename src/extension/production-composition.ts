@@ -682,16 +682,35 @@ async function parseDiscoveredLoom(
   };
 }
 
-/** Split the `--loom` CLI flag value into discovery-source paths. */
+/**
+ * Split the `--loom` CLI flag value into discovery-source paths.
+ *
+ * A single `--loom A` arrives as a string; a repeated `--loom A --loom B`
+ * arrives as an ARRAY of strings (DISCLI-1). Treat repetition additively:
+ * flatten every string occurrence, split each on the platform PATH_DELIMITER,
+ * trim, drop empties, and return the de-duplicated union. Previously a repeated
+ * flag (array) failed the `typeof raw !== "string"` guard and silently
+ * discarded every user-supplied path, so neither dir's looms registered.
+ */
 function readLoomFlagPaths(pi: ExtensionAPI): readonly string[] {
-  const raw = pi.getFlag("loom");
-  if (typeof raw !== "string" || raw.length === 0) {
-    return [];
+  const raw: unknown = pi.getFlag("loom");
+  const occurrences: string[] = Array.isArray(raw)
+    ? raw.filter((entry): entry is string => typeof entry === "string")
+    : typeof raw === "string"
+      ? [raw]
+      : [];
+  const seen = new Set<string>();
+  const paths: string[] = [];
+  for (const occurrence of occurrences) {
+    for (const entry of occurrence.split(PATH_DELIMITER)) {
+      const trimmed = entry.trim();
+      if (trimmed.length > 0 && !seen.has(trimmed)) {
+        seen.add(trimmed);
+        paths.push(trimmed);
+      }
+    }
   }
-  return raw
-    .split(PATH_DELIMITER)
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0);
+  return paths;
 }
 
 /**
