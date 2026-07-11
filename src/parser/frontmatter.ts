@@ -177,6 +177,17 @@ export interface FrontmatterBodyTypes {
   readonly schemas: ReadonlyMap<string, readonly FrontmatterSchemaField[] | undefined>;
   readonly enums: ReadonlySet<string>;
   readonly imports: ReadonlySet<string>;
+  /**
+   * The lowered JSON-Schema fragment each body-level named type contributes,
+   * keyed by name: a body `schema` lowers to its object body, a body `enum` to
+   * `{ type: "string", enum: [<wire values>] }`, and an imported symbol to a
+   * permissive `{}` (precise cross-file lowering is out of scope — the name
+   * resolves so `loom/parse/unresolved-named-type` does not fire). Supplied so a
+   * `params:` field of a `NamedType` produces a present, correct `loweredSchema`
+   * rather than being mis-classified as a no-params loom. Absent name → the
+   * `NamedType` resolves against no declaration (frontmatter-only parse).
+   */
+  readonly lowered: ReadonlyMap<string, Record<string, unknown>>;
 }
 
 /** Inputs to a frontmatter parse. */
@@ -544,18 +555,21 @@ function typeSourceIsNullable(typeSource: string): boolean {
  * Extract the loom's lowered `params:` schema plus the load-time bypass inputs
  * from the `params:` YAML node. Returns `undefined` when the block is absent,
  * `null`, or not a mapping. The lowered schema is derived through the `V6b`
- * `parseParams` seam (with no body-level named types available in this lowering
- * pass — a `NamedType` param therefore lowers without a `$def` and leaves
- * `loweredSchema` absent; the whole-file named-type resolution runs as a
- * separate diagnostics pass in `parseFrontmatter`). The raw per-field inputs are
- * returned alongside so `parseFrontmatter` can run the whole-file `params:`
- * diagnostics pass and build the `system:` interpolation param types.
+ * `parseParams` seam, supplied with the whole-file body-level named types
+ * (`bodyTypeDecls`) so a `NamedType` param (a body `enum` / `schema`) lowers to
+ * a present `loweredSchema` with the resolved `$def` — BIND-1: an empty body-type
+ * list here previously left `loweredSchema` absent for a `NamedType` param, which
+ * the runtime binder guard then mis-classified as a no-params loom. The raw
+ * per-field inputs are returned alongside so `parseFrontmatter` can run the
+ * whole-file `params:` diagnostics pass and build the `system:` interpolation
+ * param types.
  */
 function extractParsedParams(
   paramsNode: Node | null | undefined,
   file: string,
   lineCounter: LineCounter,
   lineOffset: number,
+  bodyTypeDecls: readonly BodyTypeDeclaration[],
 ): { params: ParsedParams | undefined; fieldInputs: readonly ParamFieldInput[] } {
   if (paramsNode === null || paramsNode === undefined || !isMap(paramsNode)) {
     return { params: undefined, fieldInputs: [] };
@@ -589,7 +603,7 @@ function extractParsedParams(
       defaultedFields.push(name);
     }
   }
-  const lowered = parseParams(fieldInputs, [], { file });
+  const lowered = parseParams(fieldInputs, bodyTypeDecls, { file });
   return {
     params: {
       ...(lowered.loweredSchema !== undefined ? { loweredSchema: lowered.loweredSchema } : {}),
@@ -890,12 +904,26 @@ export function parseFrontmatter(
     diagnostics.push(methodologyDiag);
   }
 
+  // The whole-file body-level named types the `params:` RHS resolves against.
+  // Each carries its lowered JSON-Schema fragment (a body `enum` / `schema`
+  // lowers concretely; an import lowers permissively) so a `NamedType` param
+  // produces a present `loweredSchema` (BIND-1). The SAME decl list feeds the
+  // runtime lowering (`extractParsedParams`) and the diagnostics pass below, so
+  // the two agree on resolution.
+  const bodyTypeDecls: BodyTypeDeclaration[] = [];
+  if (options.bodyTypes !== undefined) {
+    for (const [name, lowered] of options.bodyTypes.lowered) {
+      bodyTypeDecls.push({ name, lowered });
+    }
+  }
+
   // `params:` lowering + bypass classification (the binder's runtime schema).
   const { params, fieldInputs } = extractParsedParams(
     paramsNode,
     file,
     lineCounter,
     lineOffset,
+    bodyTypeDecls,
   );
 
   // Whole-file `params:` named-type / ordering / default-literal diagnostics.
@@ -904,18 +932,6 @@ export function parseFrontmatter(
   // `NamedType` reference; only a genuinely-undeclared type fires
   // `loom/parse/unresolved-named-type`.
   if (fieldInputs.length > 0) {
-    const bodyTypeDecls: BodyTypeDeclaration[] = [];
-    if (options.bodyTypes !== undefined) {
-      for (const name of options.bodyTypes.schemas.keys()) {
-        bodyTypeDecls.push({ name, lowered: {} });
-      }
-      for (const name of options.bodyTypes.enums) {
-        bodyTypeDecls.push({ name, lowered: {} });
-      }
-      for (const name of options.bodyTypes.imports) {
-        bodyTypeDecls.push({ name, lowered: {} });
-      }
-    }
     diagnostics.push(
       ...parseParams(fieldInputs, bodyTypeDecls, { file }).diagnostics,
     );

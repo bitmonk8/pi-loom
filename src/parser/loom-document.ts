@@ -70,6 +70,7 @@ import {
 } from "./schema-declarations";
 import { parseTypeExpression } from "./type-grammar";
 import { checkTypeLayer } from "./type-layer-checks";
+import { buildBodyTypeSchemas } from "./body-type-lowering";
 
 // --------------------------------------------------------------------------
 // Expression AST (the `Expr` node family; grammar.md §Expression sublanguage)
@@ -759,18 +760,41 @@ function collectBodyTypes(statements: readonly Stmt[]): FrontmatterBodyTypes {
   const schemas = new Map<string, readonly SchemaFieldSource[] | undefined>();
   const enums = new Set<string>();
   const imports = new Set<string>();
+  const schemaDecls: SchemaDecl[] = [];
+  const enumDecls: EnumDecl[] = [];
+  const importNames: string[] = [];
   for (const stmt of statements) {
     if (stmt.kind === "schema") {
       schemas.set(stmt.name, stmt.fields);
+      schemaDecls.push(stmt);
     } else if (stmt.kind === "enum") {
       enums.add(stmt.name);
+      enumDecls.push(stmt);
     } else if (stmt.kind === "import") {
       for (const symbol of stmt.symbols) {
         imports.add(symbol);
+        importNames.push(symbol);
       }
     }
   }
-  return { schemas, enums, imports };
+  // Lower each named type to the JSON-Schema fragment a `params:` `NamedType`
+  // resolves to (BIND-1): schema object bodies and enum wire-value sets lower
+  // concretely; a schema without an object body (alias / discriminated union)
+  // and an imported symbol lower permissively to `{}` — the name still resolves,
+  // so `loom/parse/unresolved-named-type` does not fire, and the `params:`
+  // schema is present (not mis-classified as no-params).
+  const lowered = buildBodyTypeSchemas(schemaDecls, enumDecls);
+  for (const decl of schemaDecls) {
+    if (!lowered.has(decl.name)) {
+      lowered.set(decl.name, {});
+    }
+  }
+  for (const name of importNames) {
+    if (!lowered.has(name)) {
+      lowered.set(name, {});
+    }
+  }
+  return { schemas, enums, imports, lowered };
 }
 
 // --------------------------------------------------------------------------

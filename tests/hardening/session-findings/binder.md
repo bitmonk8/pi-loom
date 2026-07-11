@@ -27,7 +27,35 @@ below (BIND-1) is a distinct, previously-unreported defect.
 
 ---
 
-## FINDING BIND-1 (BUG): a NamedType param (body-level `enum` or `schema`) mis-classifies the loom as no-params — the binder is skipped, the param arrives null, and a false SLSH-1 "this loom takes no parameters" note fires
+## FINDING BIND-1 (FIXED): a NamedType param (body-level `enum` or `schema`) mis-classifies the loom as no-params — the binder is skipped, the param arrives null, and a false SLSH-1 "this loom takes no parameters" note fires
+
+> **STATUS: FIXED.** Root cause was the runtime `params:` lowering pass
+> (`extractParsedParams` in `src/parser/frontmatter.ts`) calling
+> `parseParams(fieldInputs, [], …)` with an EMPTY body-type list, so a
+> `NamedType` param left `params.loweredSchema` `undefined` and the runBinder
+> guard mis-routed to the no-params branch. Fix plumbs the real lowered
+> body-level `schema`/`enum`/import fragments (via a new
+> `src/parser/body-type-lowering.ts` shared helper + `collectBodyTypes` in
+> `src/parser/loom-document.ts`, threaded through `FrontmatterBodyTypes.lowered`)
+> into BOTH `parseParams` call sites. A body `enum` lowers to
+> `{ type: "string", enum: [<wire values>] }`; a body `schema` to its object
+> body; imports to a permissive `{}`.
+>
+> **Before (buggy)** `/triage the login page crashes on submit, high severity`
+> → `turn.userTexts.length === 1` (no binder turn), body `TRI s=null`,
+> `systemNotes == ["loom /triage: ignoring extra arguments — this loom takes no
+> parameters"]`. Schema `/shape …` → same false no-params note.
+>
+> **After (fixed, live probe)** `/triage …` → `turn.userTexts.length === 2`
+> (binder-prompt turn + body turn), body `TRI s=High`, `systemNotes == []`.
+> Schema `/shape …` → registers clean, `userTexts.length === 2`,
+> `systemNotes == []`. Mixed `sev: Severity, note: string | null` →
+> `TRI2 s=High n=the login page crashes on submit` (both bound, neither null),
+> `userTexts.length === 2`, no note. Regression cases (primitive multi-param,
+> string/boolean defaults, single-string bypass, `array<string>`,
+> `string | null`, no-params SLSH-1 control, key=value) unchanged. Verified by
+> `tests/hardening/session-binder.test.ts` (10/10 live probes green) and the
+> full `npm test` suite (1599/1599).
 
 - **repro** (enum manifestation):
   ```loom

@@ -173,15 +173,15 @@ describe("binder — typed-param extraction from free-form slash args", () => {
     },
   );
 
-  // (7) enum-typed param. BIND-3 BUG (documented as current behaviour):
-  // a NamedType param (here a body-level `enum`) leaves `params.loweredSchema`
-  // undefined, so runBinder's `params.loweredSchema === undefined` guard
-  // mis-routes the loom down the NO-PARAMS branch — the binder never runs, the
-  // enum param arrives `null` in body scope, and a false SLSH-1
-  // "this loom takes no parameters" overflow note is emitted. No load diagnostic.
-  // Nullable/optional params (8) are NOT affected (verified conformant, see .md).
+  // (7) enum-typed param — BIND-1 FIXED. A NamedType param (here a body-level
+  // `enum`) now lowers to a present `params.loweredSchema` (the enum lowers to
+  // `{ type: "string", enum: [<wire values>] }`), so runBinder no longer takes
+  // the no-params branch: the binder RUNS (binder-prompt turn + body turn), the
+  // enum param binds to a valid variant (High/Low, NOT null), and NO false
+  // SLSH-1 "this loom takes no parameters" note fires. Registers with no load
+  // diagnostic.
   it(
-    "BIND-3 BUG: enum-typed param mis-classifies loom as no-params (param->null, false SLSH-1 note)",
+    "BIND-1 FIXED: enum-typed param runs the binder, binds a variant (not null), no false SLSH-1 note",
     { timeout: 180000 },
     async () => {
       const probe = await runProbe({
@@ -204,26 +204,27 @@ describe("binder — typed-param extraction from free-form slash args", () => {
         console.log("BIND enum body:", JSON.stringify(body.match(/TRI[^\n]*/)?.[0]));
         console.log("BIND enum nUserTexts:", t?.userTexts.length);
         console.log("BIND enum systemNotes:", JSON.stringify(t?.systemNotes));
-        // BUG documentation: enum param dropped to null; the binder never ran
-        // (single body user-turn, no binder-prompt turn); false no-params note.
-        expect(body).toContain("TRI s=null");
-        expect(t?.userTexts.length).toBe(1);
-        expect((t?.systemNotes ?? []).join("\n")).toContain("this loom takes no parameters");
+        // Binder ran (binder-prompt turn + body turn) and the enum bound to a
+        // valid variant — never the no-params-misclassification null.
+        expect(t?.userTexts.length).toBe(2);
+        expect(body).toMatch(/TRI s=(High|Low)\b/);
+        expect(body).not.toContain("TRI s=null");
+        expect((t?.systemNotes ?? []).join("\n")).not.toContain("this loom takes no parameters");
       } finally {
         await probe.dispose();
       }
     },
   );
 
-  // (7b/schema) BIND-3 BUG, second manifestation: a params field typed as a
-  // body-level `schema` (NamedType) also mis-classifies the loom as no-params.
-  // The loom REGISTERS with no diagnostic (unlike a genuinely unresolved type),
-  // but at invoke time the binder never runs and the false SLSH-1
-  // "this loom takes no parameters" note fires. A constant body isolates the
-  // note (no `${p...}` deref). Confirms the defect is NamedType-general
-  // (enum + schema), not enum-specific; array/primitive/nullable params lower OK.
+  // (7b/schema) BIND-1 FIXED, second manifestation: a params field typed as a
+  // body-level `schema` (NamedType) also lowers to a present `loweredSchema`
+  // (the schema's object body). The loom registers with no diagnostic AND the
+  // binder runs at invoke time — no false SLSH-1 "this loom takes no parameters"
+  // note. A constant body isolates the note (no `${p...}` deref). Confirms the
+  // fix is NamedType-general (enum + schema), matching the array/primitive/
+  // nullable params that already lowered.
   it(
-    "BIND-3 BUG (schema): schema-typed param also mis-classifies loom as no-params",
+    "BIND-1 FIXED (schema): schema-typed param runs the binder, no false SLSH-1 note",
     { timeout: 180000 },
     async () => {
       const probe = await runProbe({
@@ -236,11 +237,50 @@ describe("binder — typed-param extraction from free-form slash args", () => {
         if (t?.error !== undefined) throw new Error(`transport/drive error: ${t.error}`);
         console.log("BIND schema-param registered:", probe.registeredNames.includes("shape"));
         console.log("BIND schema-param diagnostics:", JSON.stringify(probe.diagnostics));
+        console.log("BIND schema-param nUserTexts:", t?.userTexts.length);
         console.log("BIND schema-param systemNotes:", JSON.stringify(t?.systemNotes));
-        // BUG documentation: registers clean, then treated as no-params at runtime.
+        // Registers clean, and the binder runs (no no-params misclassification):
+        // a binder-prompt turn precedes the constant body turn, and no false note.
         expect(probe.registeredNames).toContain("shape");
         expect(probe.diagnostics).toHaveLength(0);
-        expect((t?.systemNotes ?? []).join("\n")).toContain("this loom takes no parameters");
+        expect(t?.userTexts.length).toBe(2);
+        expect((t?.systemNotes ?? []).join("\n")).not.toContain("this loom takes no parameters");
+      } finally {
+        await probe.dispose();
+      }
+    },
+  );
+
+  // (7c/mixed) BIND-1 FIXED, mixed manifestation: a NamedType field alongside a
+  // nullable primitive. Pre-fix a single NamedType poisoned the whole params
+  // block (both params dropped to null); post-fix BOTH bind (neither null) and
+  // the binder runs.
+  it(
+    "BIND-1 FIXED (mixed): enum + nullable primitive both bind, neither null",
+    { timeout: 180000 },
+    async () => {
+      const probe = await runProbe({
+        provider,
+        files: [
+          loom(
+            "triage2",
+            "enum Severity { Low, High }\n@`Reply with exactly: OK. TRI2 s=${sev} n=${note}`",
+            ["params:", "  sev: Severity", "  note: string | null"],
+          ),
+        ],
+        drives: ["/triage2 the login page crashes on submit, high severity"],
+      });
+      try {
+        const t = probe.turns[0];
+        if (t?.error !== undefined) throw new Error(`transport/drive error: ${t.error}`);
+        const body = bodyLine(probe, 0);
+        console.log("BIND mixed body:", JSON.stringify(body.match(/TRI2[^\n]*/)?.[0]));
+        console.log("BIND mixed nUserTexts:", t?.userTexts.length);
+        console.log("BIND mixed systemNotes:", JSON.stringify(t?.systemNotes));
+        expect(t?.userTexts.length).toBe(2);
+        expect(body).toMatch(/TRI2 s=(High|Low)\b/);
+        expect(body).not.toContain("s=null");
+        expect((t?.systemNotes ?? []).join("\n")).not.toContain("this loom takes no parameters");
       } finally {
         await probe.dispose();
       }
