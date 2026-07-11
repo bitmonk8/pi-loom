@@ -213,7 +213,7 @@ export async function discoverAndComposeFixtures(
     // H8b: parse an `invoke` / `.loom`-callable callee against the caller's
     // directory, reusing the shared parser deps.
     parseCallee: (callerPath, calleePath) =>
-      parseCalleeLoom(fileSystem, ctx.cwd, callerPath, calleePath, parseDeps),
+      parseCalleeLoom(fileSystem, ctx, callerPath, calleePath, parseDeps),
     // INV-5 (invocation.md INV-1 seam): the runtime open-time containment
     // re-check consults the same `realpath` seam and active-root union.
     fileSystem,
@@ -639,12 +639,12 @@ function resolvePiTool(
  */
 async function parseCalleeLoom(
   fs: FileSystem,
-  cwd: string,
+  ctx: ExtensionContext,
   callerPath: string | undefined,
   calleePath: string,
   deps: Parameters<typeof parseLoomDocument>[1],
 ): Promise<LoomCompositionInput | undefined> {
-  const baseDir = callerPath !== undefined ? dirname(callerPath) : cwd;
+  const baseDir = callerPath !== undefined ? dirname(callerPath) : ctx.cwd;
   const absolute = isAbsolute(calleePath) ? calleePath : resolvePath(baseDir, calleePath);
   const bytes = await fs.readBytes(absolute).then(
     (value) => value,
@@ -657,12 +657,20 @@ async function parseCalleeLoom(
   if (document.frontmatter === null || hasLoadParseError(document.diagnostics)) {
     return undefined;
   }
-  return {
+  const input: LoomCompositionInput = {
     slashName: loomBasename(absolute),
     sourcePath: absolute,
     frontmatter: document.frontmatter,
     body: document.body,
   };
+  // Resolve and attach the callee's OWN frozen `tools:` callable set so an
+  // invoked child enforces its callable set at runtime exactly like a discovered
+  // loom (QTL-2 residual): without a snapshot the runtime falls back to the
+  // unrestricted producer-wide resolver, letting a child with no/narrow `tools:`
+  // reach ambient host tools (bash / read / …) from code. A no-`tools:` child
+  // resolves to the frozen EMPTY snapshot, so it has no code callables.
+  const toolResult = await resolveLoomToolsAtLoad(input, fs, ctx, deps);
+  return { ...input, callableSet: toolResult.callableSet ?? EMPTY_CALLABLE_SET };
 }
 
 /**
