@@ -134,6 +134,7 @@ import {
 import { evaluateIndexAccess, evaluateMemberAccess } from "../runtime/runtime-panics";
 import {
   lexQueryTemplate,
+  renderEmptyShortCircuit,
   renderTemplateText,
   stringifyInterpolatedValue,
   type InterpolationType,
@@ -142,7 +143,10 @@ import {
   applyBinderBypass,
   buildBinderEnvelopeSchema,
   classifyBinderBypass,
+  trimSlashArgumentWhitespace,
 } from "../binder/binder-envelope";
+import { renderNoParamsOverflowNote } from "../runtime/slash-dispatch";
+import { SYSTEM_NOTE_CHANNEL } from "./system-note-channel";
 
 /**
  * H8b: one resolved host Pi tool the code-side tool-call path dispatches
@@ -279,7 +283,10 @@ class ProductionLoomProducer implements LoomProducerDeps {
     const params = binderInput.loom.frontmatter.params;
     if (params === undefined || params.loweredSchema === undefined) {
       // A loom with no declared `params:` has nothing to bind: the body runs
-      // with an empty params object (no slots installed).
+      // with an empty params object (no slots installed). SLSH-1: a no-params
+      // loom bypasses the binder, so the overflow note is emitted here before
+      // the body runs.
+      this.#emitNoParamsOverflowNote(binderInput);
       return { bound: true, args: {} };
     }
     // Load-time bypass classification (§Binder bypass): the no-params and
@@ -288,6 +295,12 @@ class ProductionLoomProducer implements LoomProducerDeps {
     // `binder` decision drives a real binder pass.
     const decision = classifyBinderBypass(params.fields);
     if (decision.kind !== "binder") {
+      // SLSH-1: the no-params bypass (`params: {}`) also overflows on extra
+      // slash arguments; the single-string bypass consumes the argument as its
+      // sole param, so it never overflows.
+      if (decision.kind === "no-params-bypass") {
+        this.#emitNoParamsOverflowNote(binderInput);
+      }
       // The bypass args are derived without any binder / LLM call and threaded
       // into body scope (the single-string bypass sets the sole field to the
       // trimmed slash-argument string; the no-params bypass yields `{}`).
@@ -329,6 +342,32 @@ class ProductionLoomProducer implements LoomProducerDeps {
     return { bound: true, args: await parseOkEnvelopeArgs(text) };
   }
 
+  /**
+   * SLSH-1 no-params overflow note (slash-invocation.md#slsh-1): a no-params
+   * loom bypasses the binder; the runtime trims slash-argument whitespace and,
+   * if the remainder is non-empty, emits exactly ONE
+   * `loom /<name>: ignoring extra arguments — this loom takes no parameters`
+   * note on the `loom-system-note` channel BEFORE the body runs (a
+   * whitespace-only remainder emits no note). `runBinder` is only reached on the
+   * slash-invocation path (invoke/tool callers spawn callees directly), so no
+   * caller-kind guard is needed. Routed through `pi.sendMessage` — the same
+   * channel the shipped system-note delivery uses.
+   */
+  #emitNoParamsOverflowNote(binderInput: BinderRunInput): void {
+    if (trimSlashArgumentWhitespace(binderInput.args).length === 0) {
+      return;
+    }
+    this.#input.pi.sendMessage(
+      {
+        customType: SYSTEM_NOTE_CHANNEL,
+        content: renderNoParamsOverflowNote(binderInput.loom.slashName),
+        display: true,
+        details: { event: {} },
+      },
+      { triggerTurn: false },
+    );
+  }
+
   bindPromptConversation(bindInput: ConversationBindInput): ConversationBinding {
     const { pi, root } = this.#input;
     const { loom, ctx } = bindInput;
@@ -368,8 +407,17 @@ class ProductionLoomProducer implements LoomProducerDeps {
       file: loom.slashName,
       evaluatePure: (expr, env) => evaluatePureExpression(expr, env),
       resolveQuery: (expr, env) => {
-        const userVisible = queryOrdinal === 0;
-        queryOrdinal += 1;
+        // QRY-6/QRY-8: a query whose rendered template is empty short-circuits
+        // to `Err(empty_template)` with NO provider turn, so it must not consume
+        // the single user-visible streamed-turn budget (SLSH-2) — the NEXT real
+        // query is the first user-visible turn. Without this, an empty-template
+        // query at the head of a body would silence the downstream query.
+        const shortCircuits =
+          renderEmptyShortCircuit(renderQueryText(expr, env)) !== undefined;
+        const userVisible = !shortCircuits && queryOrdinal === 0;
+        if (!shortCircuits) {
+          queryOrdinal += 1;
+        }
         return this.#resolvePromptQuery(expr, env, {
           pi,
           ctx,

@@ -143,16 +143,46 @@ function splitExtension(name: string): { readonly stem: string; readonly ext: st
   return { stem: name.slice(0, idx), ext: name.slice(idx + 1) };
 }
 
-/** Proper-ancestor directory paths of `path`, root-first (excludes the leaf). */
+/** Proper-ancestor directory paths of `path`, root-first (excludes the leaf).
+ *  The chain climbs from the path's real root so the clean-leaf-ENOENT walk
+ *  (DISC-2) probes ancestors that actually exist on the host: a Windows
+ *  drive-letter absolute path (`C:/Users/…`) climbs from the drive root `C:/`,
+ *  a POSIX absolute path (`/home/…`) from `/`, and a relative path from its
+ *  first segment. Reconstructing a POSIX `/C:` chain for a Windows path (the
+ *  pre-fix behaviour) named ancestors that never exist, so `ancestorsClean`
+ *  returned false and a genuine clean-leaf ENOENT was mis-classified as
+ *  `unreadable` (warning) instead of `missing` (error) — DISC-2 mandates the
+ *  same result on POSIX and Windows with no platform branch, and this keys off
+ *  the path's own shape rather than the host. */
 function properAncestors(path: string): readonly string[] {
   const segs = normalizePath(path)
     .split("/")
     .filter((s) => s.length > 0);
-  const out: string[] = ["/"];
-  let cur = "";
-  for (let i = 0; i < segs.length - 1; i++) {
-    cur += `/${segs[i]}`;
-    out.push(cur);
+  const out: string[] = [];
+  if (/^[A-Za-z]:$/.test(segs[0] ?? "")) {
+    // Windows drive-letter absolute: the chain climbs from the drive root
+    // `C:/`, then `C:/Users`, … (never the bogus POSIX-rooted `/C:`).
+    out.push(`${segs[0]}/`);
+    let cur = segs[0] ?? "";
+    for (let i = 1; i < segs.length - 1; i++) {
+      cur = `${cur}/${segs[i]}`;
+      out.push(cur);
+    }
+  } else if (normalizePath(path).startsWith("/")) {
+    // POSIX absolute: the chain climbs from `/` (unchanged behaviour).
+    out.push("/");
+    let cur = "";
+    for (let i = 0; i < segs.length - 1; i++) {
+      cur += `/${segs[i]}`;
+      out.push(cur);
+    }
+  } else {
+    // Relative: no synthetic root; ancestors are the relative path prefixes.
+    let cur = "";
+    for (let i = 0; i < segs.length - 1; i++) {
+      cur = cur === "" ? (segs[i] ?? "") : `${cur}/${segs[i]}`;
+      out.push(cur);
+    }
   }
   return out;
 }

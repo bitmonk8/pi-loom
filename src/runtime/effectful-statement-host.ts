@@ -46,6 +46,7 @@ import { makeCancelledError } from "./cancellation-core";
 import type { CheckpointDescriptor, StatementEvalHost } from "./statement-executor";
 import type { LexicalEnvironment } from "./lexical-environment";
 import type { LoomValue } from "./value";
+import { makeErr } from "./value";
 import type {
   QueryModelDriver,
   QueryToolLoopConfig,
@@ -161,7 +162,14 @@ async function runQueryEffect(
       ? renderEmptyShortCircuit(dispatch.renderedText)
       : undefined;
   if (emptyTemplate !== undefined) {
-    return { ok: false, error: emptyTemplate };
+    // QRY-8 (query-failure-and-repair.md): a query NEVER throws — both forms
+    // return a `Result`. The empty-template short-circuit is the query's RESULT
+    // VALUE `Err(ValidationError{cause:"empty_template"})`, not an effect
+    // failure that aborts the body: `let r = @`\n`` must bind `r` to that `Err`
+    // (a `match`/`?` then observes it) and the loom continues (query-forms.md
+    // QRY-6). Surfaced as `ok: true` carrying the `Err` value so `evalExpr`
+    // binds it and `evalAsResult` passes the already-`Result` value through.
+    return { ok: true, value: makeErr(emptyTemplate as unknown as LoomValue) };
   }
   if (dispatch.typed) {
     const outcome = await runTypedQueryLoop(

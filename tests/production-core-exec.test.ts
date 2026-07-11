@@ -105,7 +105,9 @@ interface ProducerOpts {
 
 function producer(opts: ProducerOpts) {
   return createProductionProducerDeps({
-    pi: {} as unknown as ExtensionAPI,
+    // `runBinder` routes the SLSH-1 no-params overflow note through
+    // `pi.sendMessage` (loom-system-note channel); a noop stub satisfies it.
+    pi: { sendMessage: () => {} } as unknown as ExtensionAPI,
     root: rootDouble(),
     modelRegistry: {} as unknown as ModelRegistry,
     ...(opts.resolvePiTool !== undefined ? { resolvePiTool: opts.resolvePiTool } : {}),

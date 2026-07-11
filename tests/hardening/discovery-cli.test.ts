@@ -181,38 +181,48 @@ describe("discovery — correct behaviour (baseline guards)", () => {
 // DISC-2-mandated `loom/load/missing-source` (error) never fires on Windows.
 // ===========================================================================
 
-describe("DISC-1 — missing explicit settings path is swallowed (no missing-source error)", () => {
-  it("absolute missing loomPaths entry: expected missing-source error, observed NOTHING", async () => {
+describe("DISC-1 — missing explicit settings path emits loom/load/missing-source (error)", () => {
+  it("absolute path with a genuinely-missing intermediate ancestor is unreadable (warning, suppressed), not a clean-leaf missing", async () => {
     const probe = await runProbe({
       provider,
       files: [loom("project", "p.loom")],
       projectSettings: { loomPaths: ["/definitely/missing/xyz123/looms"] },
     });
     try {
-      // Registration proceeds (good), but the mandated error is absent.
+      // Registration proceeds. `/definitely` itself does not exist, so this is
+      // NOT an "otherwise-clean leaf": per DISC-2 the ancestor walk hits an
+      // ENOENT ancestor and classifies the path as `unreadable` (warning),
+      // which the shipped error-only `emitDiagnostic` filter then suppresses.
+      // This is spec-correct — the DISC-1 bug is the clean-leaf case below.
       expect(probe.registeredNames).toEqual(["p"]);
-      const missing = probe.diagnostics.filter(
-        (d) => d.message.includes("does not exist") || d.message.includes("unreadable"),
-      );
-      // BUG: DISC-2 requires a `loom/load/missing-source` ERROR here. None emitted.
+      const errors = probe.diagnostics.filter((d) => d.type === "error");
       expect(
-        missing.length,
-        `expected a missing-source error; got diagnostics=${JSON.stringify(msgs(probe))}`,
-      ).toBe(0); // documents the buggy observed state (should be >=1 error)
+        errors.length,
+        `a missing intermediate ancestor is unreadable (warning), not a missing error; got ${JSON.stringify(msgs(probe))}`,
+      ).toBe(0);
     } finally {
       await probe.dispose();
     }
   });
 
-  it("relative missing loomPaths entry (parent .pi exists) also emits nothing", async () => {
+  it("FIXED: relative missing loomPaths entry on a clean leaf (parent .pi exists) emits one missing-source error", async () => {
     const probe = await runProbe({
       provider,
       files: [loom("project", "p.loom")],
       projectSettings: { loomPaths: ["nope-does-not-exist"] },
     });
     try {
+      // The unrelated project loom still registers; the missing settings entry
+      // is a clean leaf (every ancestor — including the drive root on Windows —
+      // exists), so DISC-2 mandates one `loom/load/missing-source` ERROR.
       expect(probe.registeredNames).toEqual(["p"]);
-      expect(msgs(probe)).toEqual([]); // BUG: expected a missing-source error
+      const missing = probe.diagnostics.filter(
+        (d) => d.type === "error" && d.message.includes("does not exist"),
+      );
+      expect(
+        missing.length,
+        `expected one missing-source error; got ${JSON.stringify(msgs(probe))}`,
+      ).toBe(1);
     } finally {
       await probe.dispose();
     }
@@ -227,7 +237,7 @@ describe("DISC-1 — missing explicit settings path is swallowed (no missing-sou
 // ===========================================================================
 
 describe("DISC-2 — SLSH-1 no-params overflow note is never emitted", () => {
-  it("a no-params loom with trailing arguments runs and ignores them silently", async () => {
+  it("FIXED: a no-params loom with trailing arguments emits one overflow note before running", async () => {
     const probe = await runProbe({
       provider,
       files: [
@@ -252,11 +262,13 @@ describe("DISC-2 — SLSH-1 no-params overflow note is never emitted", () => {
       const allUser = turn.userTexts.join("\n");
       expect(allUser).toContain("Reply with exactly the single word: READY");
       expect(turn.error, `unexpected throw: ${turn.error}`).toBeUndefined();
-      // No overflow note surfaces anywhere the harness can observe (it is not a
-      // diagnostic, and the production path emits none). Documented via the
-      // absence of any "ignoring extra arguments" text in observable channels.
-      const observable = [...msgs(probe), allUser, turn.assistantText].join("\n");
-      expect(observable.includes("ignoring extra arguments")).toBe(false);
+      // FIXED (SLSH-1): exactly one overflow note is emitted on the
+      // `loom-system-note` channel before the body runs.
+      const notes = turn.systemNotes.filter((n) => n.includes("ignoring extra arguments"));
+      expect(notes).toHaveLength(1);
+      expect(notes[0]).toBe(
+        "loom /greet: ignoring extra arguments \u2014 this loom takes no parameters",
+      );
     } finally {
       await probe.dispose();
     }

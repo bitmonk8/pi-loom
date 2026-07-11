@@ -41,7 +41,7 @@ describe("query — empty-template short-circuit", () => {
     }
   });
 
-  it("QRY-1 BUG: empty-template short-circuit aborts the loom instead of yielding a catchable Err", async () => {
+  it("QRY-1 FIXED: empty-template short-circuit yields a catchable Err and the loom continues", async () => {
     const probe = await runProbe({
       provider,
       files: [
@@ -68,13 +68,13 @@ describe("query — empty-template short-circuit", () => {
       drives: ["/emptytmpl"],
     });
     try {
-      // EXPECTED per QRY-6/QRY-8: r = Err(empty_template), tag = "err", and the
-      // downstream query issues "FIRST tag=err" (== the errctl control).
-      // OBSERVED: no provider turn at all — the loom aborted at the empty
-      // template. The empty-template Err is not catchable.
-      expect(probe.turns[0]?.assistantText).toBe("");
-      expect(probe.turns[0]?.userTexts).toEqual([]); // BUG: expected ["FIRST tag=err"]
-      expect(probe.turns[0]?.error).toBeUndefined(); // no throw surfaced either
+      // FIXED per QRY-6/QRY-8: the empty-template short-circuit is the query's
+      // RESULT VALUE `Err(empty_template)`, so `r` binds to that Err, `match`
+      // sees `Err(_)` → tag = "err", and the downstream query issues
+      // "FIRST tag=err" (== the errctl control). The loom never aborts and the
+      // query never throws.
+      expect(probe.turns[0]?.userTexts).toEqual(["FIRST tag=err"]);
+      expect(probe.turns[0]?.error).toBeUndefined();
     } finally {
       await probe.dispose();
     }

@@ -96,6 +96,13 @@ export interface ProbeTurn {
   readonly assistantText: string;
   /** Code-driven tool calls with computed args (deterministic). */
   readonly toolCalls: readonly { name: string; args: unknown }[];
+  /**
+   * `loom-system-note` channel entries emitted during this invocation (the
+   * SLSH-1 no-params overflow note, binder failure notes, …). Read
+   * deterministically off the in-memory `SessionManager` entries after the
+   * drive settles, so the note is observable independent of event timing.
+   */
+  readonly systemNotes: readonly string[];
   /** Any error thrown while driving this invocation. */
   readonly error?: string;
 }
@@ -162,6 +169,7 @@ export async function runProbe(options: {
   });
   await resourceLoader.reload();
 
+  const sessionManager = SessionManager.inMemory(cwd);
   const { session } = await createAgentSession({
     cwd,
     agentDir,
@@ -169,7 +177,7 @@ export async function runProbe(options: {
     modelRegistry: provider.modelRegistry,
     model: provider.model as never,
     resourceLoader,
-    sessionManager: SessionManager.inMemory(cwd),
+    sessionManager,
   });
 
   const diagnostics: Diagnostic[] = [];
@@ -214,6 +222,7 @@ export async function runProbe(options: {
         }
       }
     });
+    const notesBefore = sessionManager.getEntries().length;
     let error: string | undefined;
     try {
       await session.prompt(invocation);
@@ -222,7 +231,21 @@ export async function runProbe(options: {
     } finally {
       unsub();
     }
-    turns.push({ invocation, userTexts, assistantText, toolCalls, error });
+    // Read the `loom-system-note` entries appended during this drive off the
+    // in-memory session manager (deterministic; no dependence on event timing).
+    const systemNotes: string[] = [];
+    for (const entry of sessionManager.getEntries().slice(notesBefore)) {
+      const e = entry as { customType?: string; content?: unknown };
+      if (e.customType !== "loom-system-note") continue;
+      if (typeof e.content === "string") systemNotes.push(e.content);
+      else if (Array.isArray(e.content)) {
+        for (const part of e.content) {
+          const t = (part as { text?: string }).text;
+          if (typeof t === "string") systemNotes.push(t);
+        }
+      }
+    }
+    turns.push({ invocation, userTexts, assistantText, toolCalls, systemNotes, error });
   }
 
   return {

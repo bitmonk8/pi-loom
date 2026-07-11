@@ -59,7 +59,14 @@ import {
   checkBareReturn,
   checkUnreachableCode,
 } from "./functions";
-import { checkObjectSchema } from "./schema-declarations";
+import {
+  checkObjectSchema,
+  checkEnumDeclaration,
+  checkInlineEnumForm,
+  checkVariantAccess,
+  type EnumValueKind,
+  type EnumVariantDecl,
+} from "./schema-declarations";
 import { parseTypeExpression } from "./type-grammar";
 import { checkTypeLayer } from "./type-layer-checks";
 
@@ -427,6 +434,15 @@ export interface EnumDecl extends NodeBase {
    * validation and does not override the name.
    */
   readonly variantValues?: Readonly<Record<string, string>>;
+  /**
+   * The full variant declarations in source order (name + explicit-value kind
+   * and text), captured so the parse pipeline can run `checkEnumDeclaration`
+   * (schemas.md §Enum declarations): empty body, non-string values, duplicate
+   * variant names. Unlike `variantValues` (string wire values only) this
+   * retains non-string explicit values so they can be rejected. Absent for a
+   * non-`{ … }` enum shape the body parser could not read.
+   */
+  readonly variantDecls?: readonly EnumVariantDecl[];
 }
 
 /** An `import … from` declaration (imports.md). */
@@ -1578,13 +1594,14 @@ class BodyParser {
   private parseEnum(): Stmt {
     const kw = this.advance();
     const name = this.advance().text;
-    const { names, values } = this.parseEnumVariants();
+    const { names, values, variantDecls } = this.parseEnumVariants();
     const hasValues = Object.keys(values).length > 0;
     return {
       kind: "enum",
       name,
       variants: names,
       ...(hasValues ? { variantValues: values } : {}),
+      variantDecls,
       range: spanRange(kw.range, this.prevRange()),
     };
   }
@@ -1601,23 +1618,32 @@ class BodyParser {
   private parseEnumVariants(): {
     readonly names: readonly string[];
     readonly values: Readonly<Record<string, string>>;
+    readonly variantDecls: readonly EnumVariantDecl[];
   } {
     // Advance to the opening `{`; a non-brace enum shape carries no variants.
     while (!this.atEnd() && !this.isPunct("{")) {
       if (this.peek().kind === "stmt-sep") {
-        return { names: [], values: {} };
+        return { names: [], values: {}, variantDecls: [] };
       }
       this.advance();
     }
     if (!this.isPunct("{")) {
-      return { names: [], values: {} };
+      return { names: [], values: {}, variantDecls: [] };
     }
     this.advance(); // `{`
     const names: string[] = [];
     const values: Record<string, string> = {};
-    // The most recently captured variant name, so a following `= "wire"` binds
+    // The full per-variant decls (name + explicit-value kind/text) in source
+    // order, feeding `checkEnumDeclaration`. Non-string explicit values ARE
+    // retained here (unlike `values`) so they can be rejected.
+    const variantDecls: {
+      name: string;
+      value?: { kind: EnumValueKind; text: string };
+    }[] = [];
+    // The most recently captured variant decl, so a following `= "wire"` binds
     // to it; cleared at each `,` so an inter-variant `=` cannot mis-bind.
     let currentName: string | null = null;
+    let currentDecl: { name: string; value?: { kind: EnumValueKind; text: string } } | null = null;
     let expectName = true;
     let depth = 1;
     while (!this.atEnd() && depth > 0) {
@@ -1635,32 +1661,42 @@ class BodyParser {
       if (depth === 1 && expectName && (t.kind === "ident" || t.kind === "keyword")) {
         names.push(t.text);
         currentName = t.text;
+        currentDecl = { name: t.text };
+        variantDecls.push(currentDecl);
         expectName = false;
         this.advance();
         continue;
       }
       if (depth === 1 && currentName !== null && t.kind === "punct" && t.text === "=") {
-        // An explicit `= <value>` for the current variant: only a string literal
-        // becomes the wire value; any other value kind is skipped here.
+        // An explicit `= <value>` for the current variant. Only a string literal
+        // becomes the wire value; a non-string literal is retained on the
+        // variant decl (kind + text) so `checkEnumDeclaration` can reject it
+        // (schemas.md §Enum declarations — string values only).
         this.advance(); // `=`
         const valueTok = this.peek();
-        if (valueTok.kind === "string") {
-          values[currentName] = valueTok.value ?? valueTok.text;
+        const captured = classifyEnumValueToken(valueTok);
+        if (captured !== undefined) {
+          if (currentDecl !== null) {
+            currentDecl.value = captured;
+          }
+          if (captured.kind === "string" && currentName !== null) {
+            values[currentName] = captured.text;
+          }
           this.advance();
         }
         continue;
       }
       if (depth === 1 && t.kind === "punct" && t.text === ",") {
         currentName = null;
+        currentDecl = null;
         expectName = true;
         this.advance();
         continue;
       }
-      // Any other in-variant token (e.g. a non-string explicit value): skip;
-      // the next comma re-arms name capture.
+      // Any other in-variant token: skip; the next comma re-arms name capture.
       this.advance();
     }
-    return { names, values };
+    return { names, values, variantDecls };
   }
 
   /** Skip a schema/enum shape (`{ ... }` block or `= …` / `by … = …` tail). */
@@ -1788,9 +1824,13 @@ class BodyParser {
       ) {
         break;
       }
-      if (t.kind === "punct" && (t.text === "<" || t.text === "(")) {
+      if (t.kind === "punct" && (t.text === "<" || t.text === "(" || t.text === "[")) {
+        // Track `[` depth too so an inline `enum["a", "b"]` form is captured
+        // whole (its interior comma must not terminate the type source),
+        // reaching `checkInlineEnumForm` for `loom/parse/inline-enum` rather
+        // than truncating the field to `enum["a"` and discarding the field list.
         depth += 1;
-      } else if (t.kind === "punct" && (t.text === ">" || t.text === ")")) {
+      } else if (t.kind === "punct" && (t.text === ">" || t.text === ")" || t.text === "]")) {
         depth -= 1;
       }
       parts.push(t.text);
@@ -2708,6 +2748,31 @@ function spanRange(start: SourceRange, end: SourceRange): SourceRange {
 }
 
 /**
+ * Classify an enum-variant explicit `= <literal>` value token into the
+ * `checkEnumDeclaration` value shape (kind + text). Only single-token literals
+ * (string / number / `true` / `false` / `null`) are recognised; any other token
+ * (e.g. a bare identifier) is left uncaptured. A non-string kind is retained so
+ * the enum-declaration checker can reject it (schemas.md §Enum declarations).
+ */
+function classifyEnumValueToken(
+  tok: Token,
+): { kind: EnumValueKind; text: string } | undefined {
+  if (tok.kind === "string") {
+    return { kind: "string", text: tok.value ?? tok.text };
+  }
+  if (tok.kind === "number") {
+    return { kind: tok.numericType ?? "integer", text: tok.text };
+  }
+  if (tok.kind === "keyword" && (tok.text === "true" || tok.text === "false")) {
+    return { kind: "boolean", text: tok.text };
+  }
+  if (tok.kind === "keyword" && tok.text === "null") {
+    return { kind: "null", text: tok.text };
+  }
+  return undefined;
+}
+
+/**
  * Convert a 1-indexed `{ line, column }` source position into a 0-based
  * character offset into `text` (newline-normalised to `\n`). Used to slice a
  * `@`...`` query template verbatim between its backtick token bounds.
@@ -2732,6 +2797,16 @@ function nullExpr(range: SourceRange): Expr {
 // --------------------------------------------------------------------------
 // Structural (AST-shape) parse checkers (C2a wiring)
 // --------------------------------------------------------------------------
+
+/**
+ * The whole-file declaration references a structural check resolves against as
+ * the walk descends: hoisted top-level `fn` names (for `function-as-value`) and
+ * the declared enum-variant sets keyed by enum name (for `unknown-variant`).
+ */
+interface StructuralRefs {
+  readonly fnNames: ReadonlySet<string>;
+  readonly enums: ReadonlyMap<string, ReadonlySet<string>>;
+}
 
 /** The lexical context a structural check consults as the walk descends. */
 interface WalkCtx {
@@ -2758,20 +2833,27 @@ function checkStructural(body: Block, file: string): Diagnostic[] {
   // Hoisted top-level `fn` names, so a bare reference to one in value position
   // is `loom/parse/function-as-value` (functions.md FN-1).
   const fnNames = new Set<string>();
+  // Hoisted top-level `enum` declarations, so a `Enum.Variant` member access to
+  // a variant the enum does not declare is `loom/parse/unknown-variant`
+  // (schemas.md §Variant access).
+  const enums = new Map<string, ReadonlySet<string>>();
   for (const s of body.statements) {
     if (s.kind === "fn") {
       fnNames.add(s.name);
+    } else if (s.kind === "enum" && s.variants !== undefined) {
+      enums.set(s.name, new Set(s.variants));
     }
   }
+  const refs: StructuralRefs = { fnNames, enums };
   walkStatements(
     body.statements,
     { inLoop: false, topLevel: true, voidReturn: false },
-    fnNames,
+    refs,
     file,
     out,
   );
   if (body.tail !== null) {
-    walkExpr(body.tail, fnNames, file, out);
+    walkExpr(body.tail, refs, file, out);
   }
   return out;
 }
@@ -2786,7 +2868,7 @@ function pushDiag(out: Diagnostic[], diag: Diagnostic | undefined): void {
 function walkStatements(
   statements: readonly Stmt[],
   scope: WalkCtx,
-  fnNames: ReadonlySet<string>,
+  refs: StructuralRefs,
   file: string,
   out: Diagnostic[],
 ): void {
@@ -2807,7 +2889,7 @@ function walkStatements(
         ),
       );
     }
-    walkStatement(s, scope, fnNames, file, out);
+    walkStatement(s, scope, refs, file, out);
     if (s.kind === "return") {
       returnedAt = i;
     }
@@ -2817,20 +2899,20 @@ function walkStatements(
 function walkBlock(
   block: Block,
   scope: WalkCtx,
-  fnNames: ReadonlySet<string>,
+  refs: StructuralRefs,
   file: string,
   out: Diagnostic[],
 ): void {
-  walkStatements(block.statements, scope, fnNames, file, out);
+  walkStatements(block.statements, scope, refs, file, out);
   if (block.tail !== null) {
-    walkExpr(block.tail, fnNames, file, out);
+    walkExpr(block.tail, refs, file, out);
   }
 }
 
 function walkStatement(
   s: Stmt,
   scope: WalkCtx,
-  fnNames: ReadonlySet<string>,
+  refs: StructuralRefs,
   file: string,
   out: Diagnostic[],
 ): void {
@@ -2849,24 +2931,24 @@ function walkStatement(
         );
       }
       if (s.init !== null) {
-        walkExpr(s.init, fnNames, file, out);
+        walkExpr(s.init, refs, file, out);
       }
       return;
     }
     case "reassign":
-      walkExpr(s.value, fnNames, file, out);
+      walkExpr(s.value, refs, file, out);
       return;
     case "if": {
-      walkExpr(s.condition, fnNames, file, out);
-      walkBlock(s.then, { ...scope, topLevel: false }, fnNames, file, out);
+      walkExpr(s.condition, refs, file, out);
+      walkBlock(s.then, { ...scope, topLevel: false }, refs, file, out);
       if (s.otherwise !== null) {
         if ("statements" in s.otherwise) {
-          walkBlock(s.otherwise, { ...scope, topLevel: false }, fnNames, file, out);
+          walkBlock(s.otherwise, { ...scope, topLevel: false }, refs, file, out);
         } else {
           walkStatement(
             s.otherwise,
             { ...scope, topLevel: false },
-            fnNames,
+            refs,
             file,
             out,
           );
@@ -2875,21 +2957,21 @@ function walkStatement(
       return;
     }
     case "while":
-      walkExpr(s.condition, fnNames, file, out);
+      walkExpr(s.condition, refs, file, out);
       walkBlock(
         s.body,
         { ...scope, inLoop: true, topLevel: false },
-        fnNames,
+        refs,
         file,
         out,
       );
       return;
     case "for":
-      walkExpr(s.iterand, fnNames, file, out);
+      walkExpr(s.iterand, refs, file, out);
       walkBlock(
         s.body,
         { ...scope, inLoop: true, topLevel: false },
-        fnNames,
+        refs,
         file,
         out,
       );
@@ -2935,7 +3017,7 @@ function walkStatement(
       walkBlock(
         s.body,
         { inLoop: false, topLevel: false, voidReturn: s.returnType === "void" },
-        fnNames,
+        refs,
         file,
         out,
       );
@@ -2951,20 +3033,20 @@ function walkStatement(
           ),
         );
       } else {
-        walkExpr(s.operand, fnNames, file, out);
+        walkExpr(s.operand, refs, file, out);
       }
       return;
     case "query":
-      walkExpr(s.query, fnNames, file, out);
+      walkExpr(s.query, refs, file, out);
       return;
     case "tool-call":
-      walkExpr(s.call, fnNames, file, out);
+      walkExpr(s.call, refs, file, out);
       return;
     case "invoke":
-      walkExpr(s.invoke, fnNames, file, out);
+      walkExpr(s.invoke, refs, file, out);
       return;
     case "expr":
-      walkExpr(s.expr, fnNames, file, out);
+      walkExpr(s.expr, refs, file, out);
       return;
     case "schema": {
       if (s.fields !== undefined) {
@@ -2975,6 +3057,12 @@ function walkStatement(
           ),
         );
         for (const f of s.fields) {
+          // An inline `enum[...]` in a schema field type is `loom/parse/inline-enum`
+          // — `enum` is top-level only (schemas.md §Enum declarations).
+          pushDiag(
+            out,
+            checkInlineEnumForm(f.typeSource, { file, range: s.range }),
+          );
           out.push(
             ...parseTypeExpression(f.typeSource, "schema-feeding", {
               file,
@@ -2985,6 +3073,21 @@ function walkStatement(
       }
       return;
     }
+    case "enum": {
+      // Enum-declaration well-formedness (schemas.md §Enum declarations): empty
+      // body, non-string explicit values, duplicate variant names. The
+      // `variantDecls` retain non-string explicit values (unlike the runtime
+      // `variantValues`) so they are rejected here.
+      if (s.variantDecls !== undefined) {
+        out.push(
+          ...checkEnumDeclaration(
+            { name: s.name, variants: s.variantDecls },
+            { file, range: s.range },
+          ),
+        );
+      }
+      return;
+    }
     default:
       return;
   }
@@ -2992,13 +3095,13 @@ function walkStatement(
 
 function walkExpr(
   e: Expr,
-  fnNames: ReadonlySet<string>,
+  refs: StructuralRefs,
   file: string,
   out: Diagnostic[],
 ): void {
   switch (e.kind) {
     case "ident":
-      if (fnNames.has(e.name)) {
+      if (refs.fnNames.has(e.name)) {
         pushDiag(
           out,
           checkFunctionReference(
@@ -3009,57 +3112,77 @@ function walkExpr(
       }
       return;
     case "binary":
-      walkExpr(e.left, fnNames, file, out);
-      walkExpr(e.right, fnNames, file, out);
+      walkExpr(e.left, refs, file, out);
+      walkExpr(e.right, refs, file, out);
       return;
     case "ternary":
-      walkExpr(e.condition, fnNames, file, out);
-      walkExpr(e.consequent, fnNames, file, out);
-      walkExpr(e.alternate, fnNames, file, out);
+      walkExpr(e.condition, refs, file, out);
+      walkExpr(e.consequent, refs, file, out);
+      walkExpr(e.alternate, refs, file, out);
       return;
     case "try":
-      walkExpr(e.operand, fnNames, file, out);
+      walkExpr(e.operand, refs, file, out);
       return;
     case "call":
       for (const arg of e.args) {
-        walkExpr(arg, fnNames, file, out);
+        walkExpr(arg, refs, file, out);
       }
       return;
     case "invoke":
       for (const arg of e.args) {
-        walkExpr(arg, fnNames, file, out);
+        walkExpr(arg, refs, file, out);
       }
       return;
-    case "member":
-      walkExpr(e.target, fnNames, file, out);
+    case "member": {
+      // A `Enum.Variant` member access (target is a bare enum name) to a variant
+      // the enum does not declare is `loom/parse/unknown-variant` at parse time
+      // (schemas.md §Variant access).
+      if (e.target.kind === "ident") {
+        const variants = refs.enums.get(e.target.name);
+        if (variants !== undefined) {
+          pushDiag(
+            out,
+            checkVariantAccess(
+              {
+                enumName: e.target.name,
+                variant: e.field,
+                knownVariants: [...variants],
+              },
+              { file, range: e.range },
+            ),
+          );
+        }
+      }
+      walkExpr(e.target, refs, file, out);
       return;
+    }
     case "index":
-      walkExpr(e.target, fnNames, file, out);
-      walkExpr(e.index, fnNames, file, out);
+      walkExpr(e.target, refs, file, out);
+      walkExpr(e.index, refs, file, out);
       return;
     case "object":
       for (const field of e.fields) {
-        walkExpr(field.value, fnNames, file, out);
+        walkExpr(field.value, refs, file, out);
       }
       return;
     case "match":
-      walkExpr(e.scrutinee, fnNames, file, out);
+      walkExpr(e.scrutinee, refs, file, out);
       for (const arm of e.arms) {
-        walkExpr(arm.body, fnNames, file, out);
+        walkExpr(arm.body, refs, file, out);
       }
       return;
     case "result-ctor":
-      walkExpr(e.arg, fnNames, file, out);
+      walkExpr(e.arg, refs, file, out);
       return;
     case "method-call":
-      walkExpr(e.target, fnNames, file, out);
+      walkExpr(e.target, refs, file, out);
       for (const arg of e.args) {
-        walkExpr(arg, fnNames, file, out);
+        walkExpr(arg, refs, file, out);
       }
       return;
     case "array":
       for (const el of e.elements) {
-        walkExpr(el, fnNames, file, out);
+        walkExpr(el, refs, file, out);
       }
       return;
     default:

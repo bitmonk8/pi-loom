@@ -82,7 +82,7 @@ describe("schema — enum runtime + validation", () => {
     }
   });
 
-  it("QRY-5 + QRY-6 BUG: invalid enum declarations & references load instead of being rejected", async () => {
+  it("QRY-5 + QRY-6 FIXED: invalid enum declarations & references are rejected (un-registered)", async () => {
     // Zero model turns: registration is the parse-acceptance signal. Controls
     // establish that ERROR-severity parse/type diagnostics DO block
     // registration (typeerr, empty schema body are rejected below).
@@ -105,14 +105,15 @@ describe("schema — enum runtime + validation", () => {
       // Controls: correctly rejected.
       expect(reg.has("ctl_typeerr")).toBe(false);
       expect(reg.has("ctl_emptyschema")).toBe(false);
-      // BUG (QRY-5): invalid enum declarations register (checks unwired).
-      expect(reg.has("emptyenum")).toBe(true); // expected: rejected
-      expect(reg.has("nonstrenum")).toBe(true); // expected: rejected
-      expect(reg.has("boolenum")).toBe(true); // expected: rejected
-      expect(reg.has("dupname")).toBe(true); // expected: rejected
-      expect(reg.has("inlineenum")).toBe(true); // expected: rejected
-      // BUG (QRY-6): unknown-variant reference registers.
-      expect(reg.has("unkvar")).toBe(true); // expected: rejected
+      // FIXED (QRY-5): invalid enum declarations are ERROR-severity parse
+      // diagnostics that reach document.diagnostics → the loom un-registers.
+      expect(reg.has("emptyenum")).toBe(false); // loom/parse/empty-enum-body
+      expect(reg.has("nonstrenum")).toBe(false); // loom/parse/non-string-enum-value
+      expect(reg.has("boolenum")).toBe(false); // loom/parse/non-string-enum-value
+      expect(reg.has("dupname")).toBe(false); // loom/parse/duplicate-enum-variant-name
+      expect(reg.has("inlineenum")).toBe(false); // loom/parse/inline-enum
+      // FIXED (QRY-6): unknown-variant reference un-registers.
+      expect(reg.has("unkvar")).toBe(false); // loom/parse/unknown-variant
     } finally {
       await probe.dispose();
     }
