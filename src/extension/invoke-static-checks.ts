@@ -30,7 +30,7 @@ import type {
   LoomBody,
   Stmt,
 } from "../parser/loom-document";
-import { checkInvokeArity } from "../parser/invoke-diagnostics";
+import { checkInvokeArity, checkCalleeHasErrors } from "../parser/invoke-diagnostics";
 import {
   detectInvocationCycle,
   type InvokeGraph,
@@ -247,13 +247,41 @@ export async function checkInvokeStaticResolution(
       const resolvedPath = resolveCalleeAbsolute(callerPath, invoke.path);
 
       // INV-5 (invocation.md §Resolution): a resolved callee outside every
-      // active discovery root un-registers the parent.
+      // active discovery root un-registers the parent. The containment check
+      // consults `realpath`, which THROWS for a callee that does not exist on
+      // disk. Per discovery-cli.md §Static resolution, an unreadable callee
+      // reached by a *literal* `invoke(...)` is `loom/load/callee-has-errors`
+      // severity WARNING — the parent still registers, static checks against
+      // that callee are skipped, and the runtime AJV load is the safety net. So
+      // a missing callee must NOT propagate as a throw: an unguarded throw here
+      // aborts the whole discovery/compose walk, silently un-registering every
+      // unrelated sibling loom from the same source (INVCEIL-1). Convert it into
+      // a per-loom, non-fatal warning and skip the remaining static checks for
+      // this site.
+      // A `realpath` rejection (an unreadable / non-existent callee) is handled
+      // as `undefined` via the same rejection-to-`undefined` idiom the callee
+      // read paths in this pipeline use, rather than a broad `try`/`catch`.
       const containment = await checkInvokePathAtLoad({
         deps: { fs: deps.fs },
         resolvedPath,
         literalPath: invoke.path,
         activeRoots: deps.activeRoots,
-      });
+      }).then(
+        (value) => value,
+        () => undefined,
+      );
+      if (containment === undefined) {
+        diagnostics.push(
+          ...checkCalleeHasErrors({
+            calleePath: invoke.path,
+            surface: "invoke",
+            hasErrors: true,
+            relatedSites: [],
+            site,
+          }),
+        );
+        continue;
+      }
       if (containment.kind === "escape") {
         diagnostics.push({ ...containment.diagnostic, file: site.file, range: site.range });
         // An escaping callee cannot be opened for the arity check; move on.
