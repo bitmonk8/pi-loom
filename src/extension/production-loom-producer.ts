@@ -101,9 +101,11 @@ import type {
 } from "../runtime/terminal-outcomes";
 import { makeCancelledError } from "../runtime/cancellation-core";
 import {
+  brandSchemaValue,
   isEnumValue,
   makeErr,
   makeOk,
+  schemaTagOf,
   valuesEqual,
   type LoomValue,
   type ResultValue,
@@ -1553,12 +1555,86 @@ function stringifyInterpolation(source: string, env: LexicalEnvironment): string
     return "null";
   }
   const value = evaluatePureExpression(parsed, env);
-  const rendered = stringifyInterpolatedValue(value, interpolationTypeOf(value));
+  const type = interpolationTypeOf(value);
+  if (type.kind === "object" || type.kind === "array") {
+    // QRY-18: a Schema-typed object / `array<T>` interpolation renders as compact
+    // `JSON.stringify` with wire-name translation applied recursively. The
+    // outbound pass rewrites every renamed field to its wire name at every
+    // nesting level, driven by each object value's declaring-schema brand (with
+    // the declared field type as a fallback for un-branded nested values); loom
+    // code never sees a wire name, and the model never sees a loom-side name.
+    return JSON.stringify(translateInterpolationOutbound(value, env));
+  }
+  const rendered = stringifyInterpolatedValue(value, type);
   // `stringifyInterpolatedValue` only reports `ok: false` for the static
-  // `result` arm, which `interpolationTypeOf` never selects (a `Result` is
-  // routed to the compact-JSON `object` arm below), so the value branch always
-  // holds; the JSON fallback keeps this total without a throw.
+  // `result` arm, which `interpolationTypeOf` never selects, so the value branch
+  // always holds; the JSON fallback keeps this total without a throw.
   return rendered.ok ? rendered.text : JSON.stringify(value);
+}
+
+/**
+ * Recursively lower an object/array interpolation value to its wire-named JSON
+ * form (QRY-18 outbound wire-name translation, runtime-value-model.md §Wire-name
+ * translation). Each object-schema value renames its fields loom→wire using the
+ * schema resolved from the value's declaring-schema brand (attached at
+ * construction) — falling back to the declared field type `typeHint` for a value
+ * that carries no brand (e.g. a bare object literal in a schema-typed field).
+ * Enum values collapse to their bare wire string; arrays recurse element-wise;
+ * primitives pass through. A value whose schema cannot be resolved recurses with
+ * its keys unchanged (the safe no-rename default).
+ */
+function translateInterpolationOutbound(
+  value: LoomValue,
+  env: LexicalEnvironment,
+  typeHint?: string,
+): unknown {
+  if (isEnumValue(value)) {
+    // The enum brand is dropped; the model only ever sees the bare wire string.
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    const elementHint = typeHint !== undefined ? arrayElementTypeSource(typeHint) : undefined;
+    return value.map((element) => translateInterpolationOutbound(element, env, elementHint));
+  }
+  if (typeof value !== "object" || value === null) {
+    return value;
+  }
+
+  // Resolve the declaring schema: the construction-time brand is authoritative;
+  // an un-branded value falls back to the declared field type when that names a
+  // resolvable schema (a `Result` value / bare literal resolves to neither and
+  // recurses with its keys unchanged).
+  const hintName = typeHint !== undefined ? identifierTypeSource(typeHint) : undefined;
+  const brand = schemaTagOf(value);
+  const schemaName =
+    brand ?? (hintName !== undefined && env.resolveSchema(hintName) !== undefined ? hintName : undefined);
+  const decl = schemaName !== undefined ? env.resolveSchema(schemaName) : undefined;
+  const fields = new Map<string, { readonly wire: string; readonly type: string }>();
+  if (decl?.fields !== undefined) {
+    for (const field of decl.fields) {
+      fields.set(field.name, { wire: field.wireName ?? field.name, type: field.typeSource });
+    }
+  }
+
+  const result: Record<string, unknown> = {};
+  for (const [loomKey, fieldValue] of Object.entries(value)) {
+    const field = fields.get(loomKey);
+    const wireKey = field?.wire ?? loomKey;
+    result[wireKey] = translateInterpolationOutbound(fieldValue, env, field?.type);
+  }
+  return result;
+}
+
+/** The leading identifier of a type-expression source (`Inner`), else `undefined`. */
+function identifierTypeSource(source: string): string | undefined {
+  const s = source.trim();
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(s) ? s : undefined;
+}
+
+/** The element type source of an `array<T>` type-expression source, else `undefined`. */
+function arrayElementTypeSource(source: string): string | undefined {
+  const m = /^array<(.+)>$/.exec(source.trim());
+  return m !== null ? (m[1] as string).trim() : undefined;
 }
 
 /**
@@ -1619,11 +1695,17 @@ function evaluatePureExpression(expr: Expr, env: LexicalEnvironment): LoomValue 
       return expr.elements.map((element) => evaluatePureExpression(element, env));
     case "object": {
       // An object-literal / schema-constructor value (expressions.md §"Object
-      // construction"): the schema constructor name is a type-phase concern only
-      // — the runtime value is the plain field object.
+      // construction"): the runtime value is the plain field object keyed by
+      // loom-side names. When the constructor names a declared `schema`, brand
+      // the value (non-enumerably, so no loom-visible surface changes) with that
+      // schema name so the QRY-18 interpolation render path can recover the
+      // schema and apply outbound wire-name translation recursively.
       const obj: Record<string, LoomValue> = {};
       for (const field of expr.fields) {
         obj[field.name] = evaluatePureExpression(field.value, env);
+      }
+      if (expr.typeName !== null && env.resolveSchema(expr.typeName) !== undefined) {
+        return brandSchemaValue(obj, expr.typeName);
       }
       return obj;
     }

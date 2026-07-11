@@ -114,6 +114,52 @@ function enumTagOf(value: LoomValue): string | undefined {
 }
 
 /**
+ * The interpreter-private property name recording the declaring `schema` of an
+ * object-schema value. Installed **non-enumerable** so it is invisible to every
+ * loom-visible object surface — `JSON.stringify`, `Object.keys` / `.entries`
+ * (`obj.keys()`), and the {@link valuesEqual} structural relation all iterate
+ * enumerable keys only, so the tag never appears in JSON output, never appears
+ * in a `keys()` result, and never affects equality (runtime-value-model.md: an
+ * object schema is a "JS plain object keyed by loom-side names"). Its sole
+ * consumer is the QRY-18 interpolation render path, which needs to recover the
+ * declaring schema to apply outbound wire-name translation recursively.
+ */
+const SCHEMA_TAG = "__loomSchema";
+
+/**
+ * Brand a freshly-constructed object-schema value with its declaring `schema`
+ * name, so a later consumer can recover the schema to apply outbound wire-name
+ * translation (QRY-18). The tag is installed **non-enumerable**, so the branded
+ * value is indistinguishable from a plain object on every loom-visible surface;
+ * only {@link schemaTagOf} reads it. Returns the same object for chaining.
+ */
+export function brandSchemaValue(
+  value: { [key: string]: LoomValue },
+  schemaName: string,
+): { readonly [key: string]: LoomValue } {
+  Object.defineProperty(value, SCHEMA_TAG, {
+    value: schemaName,
+    enumerable: false,
+    writable: false,
+    configurable: false,
+  });
+  return value;
+}
+
+/** The declaring-`schema` tag of `value` if it carries one, else `undefined`. */
+export function schemaTagOf(value: LoomValue): string | undefined {
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.prototype.hasOwnProperty.call(value, SCHEMA_TAG)
+  ) {
+    return (value as unknown as Record<string, string>)[SCHEMA_TAG];
+  }
+  return undefined;
+}
+
+/**
  * Whether `value` is an enum runtime value (carries the declaring-enum tag). A
  * consumer that must stringify by the QRY-18 rule keys off this to render the
  * bare wire value rather than JSON-quoting the boxed-string representation
