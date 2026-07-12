@@ -145,9 +145,20 @@ detail + spec anchors + unwired evidence: `dead-code-audit.md` (FLAGGED-UNWIRED)
   `temperature: 0` added (Determinism). Verified: `npm test` 1612 + live
   `session-binder.test.ts` (10) no-regression (retry loop unit-tested in
   `binder-retry-taxonomy`/`binder-call-cancellation`; classifier in
-  `binder-inference-provider-mapping`). **b3 pending:** `bind_context: session`
-  (session-context-walk + compact-transcript + binder-system-prompt block —
-  mechanism-independent, works on the free-text prompt).
+  `binder-inference-provider-mapping`).
+  **b3 FIXED (commit pending):** `bind_context: session` (BNDR-10) is wired — the
+  parser now retains `bindContext` on `ParsedFrontmatter` (prompt-mode only;
+  subagent-mode `session` normalised to `none`), and `runBinder` builds the
+  *Recent session context* block via `#buildBinderSessionContext`
+  (`walkSessionContext` ≤20 turns ∧ ≤8000 tokens over the injected
+  `TokenEstimator` → `renderCompactTranscript`) and prepends it to the binder
+  prompt; a BNDR-9 transcript-unsafe `customType` aborts binding with the
+  custom-type-unsafe note. Verified: parser unit tests (`frontmatter-contract`
+  +4) + live `session-bind-context.test.ts` (2) — `/plan` bound `city=Zurich`
+  purely from a prior `/setctx` turn (args omitted "Zurich"), echo
+  `Running /plan: city=Zurich`; empty-session void-truncation still binds
+  explicit args. `binder-inference.ts` / `binder-seed.ts` (the forced-tool +
+  FNV-1a seed) remain intentionally unwired (b1 not realizable, above).
 
 - **Binder context subsystem (5 modules) unused by the Phase-1 off-session binder.**
   `session-context-walk.ts` (BNDR-10 `bind_context: session` truncation walk —

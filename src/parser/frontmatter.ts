@@ -159,6 +159,14 @@ export interface ParsedFrontmatter {
    * conversation runs under the model's training defaults.
    */
   readonly system?: SystemTemplate;
+  /**
+   * The resolved `bind_context:` value (BNDR-10) — `"session"` when the loom
+   * declares `bind_context: session` (prompt-mode only; on a subagent-mode loom
+   * it is inert and treated as `"none"`), else `"none"`. Drives whether the
+   * slash-argument binder receives a *Recent session context* block
+   * (binder/binder-model-and-context.md §Binder context). Absent ⇒ `"none"`.
+   */
+  readonly bindContext?: "none" | "session";
 }
 
 /** The outcome of a frontmatter parse: registration decision + diagnostics. */
@@ -1012,6 +1020,12 @@ export function parseFrontmatter(
     respondRepair,
     ...(toolsValue !== undefined ? { tools: toolsValue } : {}),
     ...(systemTemplate !== undefined ? { system: systemTemplate } : {}),
+    // BNDR-10: retain `bind_context: session` so the binder can source the
+    // Recent session context block. A subagent-mode `session` is inert (a
+    // warning was emitted above) and is normalised to `none`.
+    ...(bindContextValue === "session" && modeValue === "prompt"
+      ? { bindContext: "session" as const }
+      : {}),
   };
   return { registered: true, frontmatter, diagnostics };
 }

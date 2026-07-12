@@ -183,6 +183,11 @@ import {
   type BinderFailureSurface,
 } from "../binder/retry-taxonomy";
 import { classifyProviderResponse } from "../binder/provider-error-mapping";
+import { walkSessionContext } from "../binder/session-context-walk";
+import {
+  renderCompactTranscript,
+  renderCustomTypeUnsafeNote,
+} from "../binder/compact-transcript";
 import { coerceUnderlyingString } from "../diagnostics/placeholder";
 import { capSystemNote, classifyModelContent } from "../binder/system-note";
 import {
@@ -438,12 +443,24 @@ class ProductionLoomProducer implements LoomProducerDeps {
       paramsSchema: params.loweredSchema,
       defaultedFields: params.defaultedFields,
     });
+    // BNDR-10 (binder/binder-model-and-context.md §Binder context): a
+    // `bind_context: session` prompt-mode loom grounds the binder in a *Recent
+    // session context* block — the newest→oldest truncation walk (≤20 turns ∧
+    // ≤8000 tokens) rendered as a compact transcript. A BNDR-9 transcript-unsafe
+    // `customType` aborts binding (the loom does not run) with the
+    // custom-type-unsafe note. `bind_context: none` (or subagent-mode) → no block.
+    const sessionContext = this.#buildBinderSessionContext(binderInput);
+    if (sessionContext.kind === "unsafe") {
+      this.#emitCustomTypeUnsafeNote(binderInput.loom.slashName, sessionContext.value);
+      return { bound: false };
+    }
     const prompt = renderBinderTurnPrompt({
       slashName: binderInput.loom.slashName,
       args: binderInput.args,
       paramsSchema: params.loweredSchema,
       defaultedFields: params.defaultedFields,
       envelopeSchema,
+      ...(sessionContext.kind === "block" ? { sessionContext: sessionContext.body } : {}),
     });
     // OFF-session completion via pi-ai `complete()` against the resolved binder
     // model (never `driveStreamedUserTurn`, never `ctx.model`): the reply text
@@ -695,6 +712,65 @@ class ProductionLoomProducer implements LoomProducerDeps {
    * is the malformed-envelope row (`could not parse arguments`). The raw
    * envelope JSON is NEVER surfaced.
    */
+  /**
+   * BNDR-10 (binder/binder-model-and-context.md §Binder context): build the
+   * binder's *Recent session context* transcript body for a `bind_context:
+   * session` prompt-mode loom. Sources the chronological message list from the
+   * live session, runs the newest→oldest truncation walk (≤20 turns ∧ ≤8000
+   * tokens via the injected `TokenEstimator`), and renders the included slice as
+   * a compact transcript. Returns `none` when the feature is off (subagent-mode,
+   * `bind_context: none`, or the walk produced zero turns — BNDR-7i void
+   * truncation), `block` with the transcript body when ≥1 turn was included, or
+   * `unsafe` when an included `custom` message's `customType` is not
+   * transcript-safe (BNDR-9: binding must not proceed).
+   */
+  #buildBinderSessionContext(
+    binderInput: BinderRunInput,
+  ): { readonly kind: "none" } | { readonly kind: "block"; readonly body: string } | { readonly kind: "unsafe"; readonly value: string } {
+    const fm = binderInput.loom.frontmatter;
+    if (fm.bindContext !== "session" || fm.mode !== "prompt") {
+      return { kind: "none" };
+    }
+    const messages = buildSessionContext(
+      binderInput.ctx.sessionManager.getEntries(),
+      binderInput.ctx.sessionManager.getLeafId(),
+    ).messages as unknown as readonly import("@earendil-works/pi-agent-core").AgentMessage[];
+    const walk = walkSessionContext({
+      messages,
+      estimator: this.#input.root.tokenEstimator,
+      mode: fm.mode,
+      bindContext: "session",
+    });
+    if (!walk.applies || walk.includedMessages.length === 0) {
+      return { kind: "none" };
+    }
+    const rendered = renderCompactTranscript(walk.includedMessages);
+    if (rendered.kind === "custom-type-unsafe") {
+      return { kind: "unsafe", value: rendered.value };
+    }
+    if (rendered.sessionContext === undefined) {
+      return { kind: "none" };
+    }
+    return { kind: "block", body: rendered.sessionContext.transcriptBody };
+  }
+
+  /**
+   * BNDR-9: emit the `loom/runtime/custom-type-unsafe` user-facing note on the
+   * loom-system-note channel when an included session-context `custom` message
+   * carries a transcript-unsafe `customType`; binding does not proceed.
+   */
+  #emitCustomTypeUnsafeNote(loomName: string, value: string): void {
+    this.#input.pi.sendMessage(
+      {
+        customType: SYSTEM_NOTE_CHANNEL,
+        content: renderCustomTypeUnsafeNote(loomName, value),
+        display: true,
+        details: { event: {} },
+      },
+      { triggerTurn: false },
+    );
+  }
+
   #emitBinderFailureNote(loomName: string, surface: BinderFailureSurface): void {
     this.#input.pi.sendMessage(
       {
@@ -2555,12 +2631,20 @@ function renderBinderTurnPrompt(input: {
   readonly paramsSchema: Readonly<Record<string, unknown>>;
   readonly defaultedFields: readonly string[];
   readonly envelopeSchema: Readonly<Record<string, unknown>>;
+  /** BNDR-10 Recent session context transcript body (`bind_context: session`). */
+  readonly sessionContext?: string;
 }): string {
   const defaulted =
     input.defaultedFields.length > 0 ? input.defaultedFields.join(", ") : "(none)";
+  // BNDR-10: ground the binder in the recent session transcript when present.
+  const sessionBlock =
+    input.sessionContext !== undefined
+      ? `Recent session context (most recent 20 turns / 8000 tokens):\n${input.sessionContext}\n`
+      : "";
   return (
     `You are the argument binder for the loom slash command /${input.slashName}. ` +
     `Bind the raw slash-command arguments to the loom's typed parameters.\n\n` +
+    sessionBlock +
     `Raw arguments: ${JSON.stringify(input.args)}\n\n` +
     `Parameter schema (JSON Schema): ${JSON.stringify(input.paramsSchema)}\n` +
     `Defaulted parameters (may be omitted from your args — defaults are applied ` +

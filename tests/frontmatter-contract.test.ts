@@ -155,3 +155,31 @@ describe("V6a-T — present `model:` resolution (loom/load/model-unresolved)", (
     expect(r.frontmatter?.model).toBe("anthropic/claude-sonnet-4-5");
   });
 });
+
+// --- BNDR-10 `bind_context:` retention (binder/binder-model-and-context.md) ---
+
+describe("BNDR-10 — `bind_context:` retention on ParsedFrontmatter", () => {
+  it("a prompt-mode `bind_context: session` loom retains bindContext: 'session'", () => {
+    const r = parse(loom("mode: prompt", "bind_context: session"));
+    expect(r.registered).toBe(true);
+    expect(r.frontmatter?.bindContext).toBe("session");
+  });
+
+  it("an absent `bind_context:` leaves bindContext undefined (defaults to none)", () => {
+    const r = parse(loom("mode: prompt"));
+    expect(r.registered).toBe(true);
+    expect(r.frontmatter?.bindContext).toBeUndefined();
+  });
+
+  it("an explicit `bind_context: none` is not retained as session (undefined)", () => {
+    const r = parse(loom("mode: prompt", "bind_context: none"));
+    expect(r.registered).toBe(true);
+    expect(r.frontmatter?.bindContext).toBeUndefined();
+  });
+
+  it("BNDR-10: `bind_context: session` on a subagent-mode loom is inert (not retained) + warns", () => {
+    const r = parse(loom("mode: subagent", "bind_context: session"));
+    expect(r.registered, "the loom still registers (session is inert on subagent, a warning)").toBe(true);
+    expect(r.frontmatter?.bindContext, "subagent-mode session is normalised away").toBeUndefined();
+  });
+});
