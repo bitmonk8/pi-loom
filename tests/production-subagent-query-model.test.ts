@@ -102,6 +102,25 @@ function textReply(text: string): AssistantMessage {
   };
 }
 
+/**
+ * An assistant message carrying `stopReason: "error"` (a provider transport
+ * failure), with an optional `errorMessage` — the subagent transport probe maps
+ * this to `Err(TransportError)`, never `Ok(text)`.
+ */
+function errorReply(errorMessage?: string): AssistantMessage {
+  return {
+    role: "assistant",
+    content: errorMessage !== undefined ? [{ type: "text", text: "partial" }] : [],
+    api: "anthropic-messages",
+    provider: "anthropic",
+    model: "claude-test",
+    usage: USAGE,
+    stopReason: "error",
+    ...(errorMessage !== undefined ? { errorMessage } : {}),
+    timestamp: 0,
+  };
+}
+
 /** An assistant message that calls one tool (a `tool_use` turn). */
 function toolCallReply(name: string, id: string): AssistantMessage {
   return {
@@ -281,6 +300,150 @@ describe("STAGE A — production subagent QueryModelDriver (loom-owned tool loop
       runCompletion: () => {
         loomAbort.abort(new Error("loom subagent query cancelled mid-stream"));
         return Promise.resolve(textReply("ignored"));
+      },
+      executeTool: () => Promise.reject(new Error("no tool call expected")),
+      loomAbort,
+      provider: "anthropic",
+    });
+
+    const outcome = await runUntypedQueryLoop(NOOP_CHECKPOINT, loomAbort.signal, model, config(25));
+
+    expect(outcome.kind).toBe("cancelled");
+  });
+});
+
+// ===========================================================================
+// PIC-50/51 (mirrors tests/query-tool-loop.test.ts's prompt-mode transport
+// tests) — the production subagent driver maps a failed provider turn to the
+// shared `transport` outcome, never `Ok(text)` / a parsed value. Covers the
+// `stopReason: "error"` probe (free-phase + forced-respond) and the
+// `complete()` sync-throw / reject mapping.
+// ===========================================================================
+
+describe("PIC-50/51 — production subagent transport-error surfacing", () => {
+  it("untyped: a free-phase completion with stopReason:'error' surfaces Err(transport), never Ok(text)", async () => {
+    const loomAbort = new AbortController();
+    const model = createSubagentQueryModel({
+      queryText: "hello",
+      runCompletion: () => Promise.resolve(errorReply("provider 529")),
+      executeTool: () => Promise.reject(new Error("no tool call expected")),
+      loomAbort,
+      provider: "anthropic",
+    });
+
+    const outcome = await runUntypedQueryLoop(NOOP_CHECKPOINT, loomAbort.signal, model, config(25));
+
+    expect(outcome.kind).toBe("transport");
+    if (outcome.kind === "transport") {
+      expect(outcome.error.kind).toBe("transport");
+      expect(outcome.error.message).toBe("provider 529");
+      expect(outcome.error.provider).toBe("anthropic");
+      expect(outcome.error.retryable).toBe(false);
+    }
+  });
+
+  it("untyped: an errored turn with no errorMessage falls back to 'provider transport failure'", async () => {
+    const loomAbort = new AbortController();
+    const model = createSubagentQueryModel({
+      queryText: "hello",
+      runCompletion: () => Promise.resolve(errorReply()),
+      executeTool: () => Promise.reject(new Error("no tool call expected")),
+      loomAbort,
+      provider: "anthropic",
+    });
+
+    const outcome = await runUntypedQueryLoop(NOOP_CHECKPOINT, loomAbort.signal, model, config(25));
+
+    expect(outcome.kind).toBe("transport");
+    if (outcome.kind === "transport") {
+      expect(outcome.error.message).toBe("provider transport failure");
+    }
+  });
+
+  it("untyped: a non-cancel complete() reject surfaces Err(transport), never loom/runtime/internal-error", async () => {
+    const loomAbort = new AbortController();
+    const model = createSubagentQueryModel({
+      queryText: "hello",
+      runCompletion: () => Promise.reject(new Error("socket hang up")),
+      executeTool: () => Promise.reject(new Error("no tool call expected")),
+      loomAbort,
+      provider: "anthropic",
+    });
+
+    const outcome = await runUntypedQueryLoop(NOOP_CHECKPOINT, loomAbort.signal, model, config(25));
+
+    expect(outcome.kind).toBe("transport");
+    if (outcome.kind === "transport") {
+      expect(outcome.error.kind).toBe("transport");
+      expect(outcome.error.message).toBe("socket hang up");
+      expect(outcome.error.provider).toBe("anthropic");
+    }
+  });
+
+  it("typed: a forced-respond turn with stopReason:'error' surfaces Err(transport), never parsed as a value", async () => {
+    const loomAbort = new AbortController();
+    let forcedCalls = 0;
+    const model = createSubagentQueryModel({
+      queryText: "answer",
+      // `max_rounds: 0` routes straight to the forced-respond terminator.
+      runCompletion: () => {
+        forcedCalls += 1;
+        return Promise.resolve(errorReply("forced-respond error"));
+      },
+      executeTool: () => Promise.reject(new Error("no tool call expected")),
+      loomAbort,
+      provider: "anthropic",
+    });
+
+    const outcome = await runTypedQueryLoop(
+      NOOP_CHECKPOINT,
+      loomAbort.signal,
+      model,
+      config(0),
+      subagentValidation(),
+    );
+
+    expect(outcome.kind, "a transport forced-respond is not validated/bound").toBe("transport");
+    if (outcome.kind === "transport") {
+      expect(outcome.error.message).toBe("forced-respond error");
+      expect(outcome.forcedRespond.dispatched).toBe(true);
+    }
+    expect(forcedCalls).toBe(1);
+  });
+
+  it("typed: a non-cancel forced-respond reject surfaces Err(transport)", async () => {
+    const loomAbort = new AbortController();
+    const model = createSubagentQueryModel({
+      queryText: "answer",
+      runCompletion: () => Promise.reject(new Error("connection reset")),
+      executeTool: () => Promise.reject(new Error("no tool call expected")),
+      loomAbort,
+      provider: "anthropic",
+    });
+
+    const outcome = await runTypedQueryLoop(
+      NOOP_CHECKPOINT,
+      loomAbort.signal,
+      model,
+      config(0),
+      subagentValidation(),
+    );
+
+    expect(outcome.kind).toBe("transport");
+    if (outcome.kind === "transport") {
+      expect(outcome.error.message).toBe("connection reset");
+    }
+  });
+
+  it("a mid-stream cancel is NOT reclassified as transport (cancel wins over the reject map)", async () => {
+    const loomAbort = new AbortController();
+    const model = createSubagentQueryModel({
+      queryText: "answer",
+      // Abort fires, then the completion rejects (the abort-driven reject): the
+      // cancel bounce must win, not the transport map.
+      runCompletion: () => {
+        loomAbort.abort(new Error("cancelled"));
+        return Promise.reject(new Error("aborted"));
       },
       executeTool: () => Promise.reject(new Error("no tool call expected")),
       loomAbort,

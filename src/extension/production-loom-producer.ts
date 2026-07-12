@@ -35,6 +35,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import {
   attachSubagentAbortForwarding,
+  extractSubagentQueryResult,
   makeIdempotentDispose,
 } from "../runtime/subagent-isolation";
 import { runPromptSuspendInvoke } from "../runtime/invoke-prompt-suspend";
@@ -2600,7 +2601,7 @@ export interface SubagentQueryModelDeps {
   readonly executeTool: (call: ToolCall, signal: AbortSignal) => Promise<ToolResultMessage>;
   /** The per-invocation cancel controller the loop's `signal` gates on. */
   readonly loomAbort: AbortController;
-  /** The resolved-model provider (reserved for transport-shaped surfaces). */
+  /** PIC-50/51: the resolved-model provider for a synthesised `TransportError`. */
   readonly provider: string;
 }
 
@@ -2623,6 +2624,9 @@ class SubagentQueryModel implements QueryModelDriver {
   readonly #runCompletion: SubagentQueryModelDeps["runCompletion"];
   readonly #executeTool: SubagentQueryModelDeps["executeTool"];
   readonly #loomAbort: AbortController;
+  // PIC-50/51: the resolved-model provider for a synthesised `TransportError`
+  // (mirrors `LivePromptQueryModel.#provider`).
+  readonly #provider: string;
   // The subagent's PRIVATE conversation, owned by this driver and discarded
   // with the invocation (subagent isolation): the seeding user query, each
   // assistant turn, and each tool-result turn fed back.
@@ -2636,21 +2640,44 @@ class SubagentQueryModel implements QueryModelDriver {
     this.#runCompletion = deps.runCompletion;
     this.#executeTool = deps.executeTool;
     this.#loomAbort = deps.loomAbort;
+    this.#provider = deps.provider;
     this.#messages = [{ role: "user", content: deps.queryText, timestamp: 0 }];
+  }
+
+  /**
+   * PIC-50/51 (mirror of the prompt path's `extractPromptModeQueryResult`
+   * probe): reuse the shared subagent transport probe over the private
+   * conversation's settled trailing `assistant` turn. Only a
+   * `stopReason: "error"` verdict diverts — a `TransportError` is returned;
+   * cancellation stays handled by the loop's abort bounce, and the `Ok`-text
+   * path stays with the driver's `assistantText`.
+   */
+  #probeTransport(): TransportError | undefined {
+    const probe = extractSubagentQueryResult(
+      { type: "agent_end", messages: this.#messages, willRetry: false },
+      { aborted: this.#loomAbort.signal.aborted, provider: this.#provider },
+    );
+    return !probe.ok && probe.error.kind === "transport"
+      ? (probe.error as TransportError)
+      : undefined;
   }
 
   async nextFreePhaseTurn(_round: number): Promise<FreePhaseTurn> {
     let reply: AssistantMessage;
     try {
       reply = await this.#runCompletion(this.#messages, this.#loomAbort.signal);
-    } catch (thrown: unknown) { // allow-broad-catch: pi-sdk-boundary — a cancellation abort bounces to the loop's cancelled surface
+    } catch (thrown: unknown) { // allow-broad-catch: pi-sdk-boundary — cancel bounces to the loop's cancelled surface; a non-cancel complete() reject is a PIC-50 transport failure
       // CANCEL: a completion aborted by `loomAbort` rejects; bounce an empty
       // `tool_use` round so the loop's next round-boundary checkpoint surfaces
-      // `Err(cancelled)`. A non-cancel rejection (transport) propagates.
+      // `Err(cancelled)`.
       if (this.#loomAbort.signal.aborted) {
         return { kind: "tool_use", batch: [] };
       }
-      throw thrown;
+      // PIC-50 (mirror of the prompt path's `sendUserMessage` sync-throw
+      // mapping): a non-cancel `complete()` rejection is a provider transport
+      // failure. Surface it as the free-phase `transport` turn — never escape as
+      // `loom/runtime/internal-error`, never mask as a terminating `Ok(text)`.
+      return { kind: "transport", error: mapPromptModeSyncThrow(thrown, this.#provider) };
     }
     // CANCEL: a cancellation that fired DURING the completion bounces an empty
     // round so the loop surfaces `Err(cancelled)` rather than binding a stale
@@ -2659,6 +2686,13 @@ class SubagentQueryModel implements QueryModelDriver {
       return { kind: "tool_use", batch: [] };
     }
     this.#messages.push(reply);
+    // PIC-51 (mirror of the prompt path): probe the settled turn's trailing
+    // `assistant` `stopReason` before extracting tool calls or text. A
+    // `stopReason: "error"` turn diverts to `Err(TransportError)`.
+    const transport = this.#probeTransport();
+    if (transport !== undefined) {
+      return { kind: "transport", error: transport };
+    }
     const calls = reply.content.filter((part): part is ToolCall => part.type === "toolCall");
     if (calls.length > 0) {
       // A `tool_use` round: one free-phase round consuming exactly one slot
@@ -2699,8 +2733,29 @@ class SubagentQueryModel implements QueryModelDriver {
     // prompt-mode `LivePromptQueryModel.forcedRespondTurn`) so the typed value
     // crosses the subagent boundary (FN-5). A non-JSON reply parses to its raw
     // text so the schema validation reports the mismatch.
-    const reply = await this.#runCompletion(this.#messages, this.#loomAbort.signal);
+    let reply: AssistantMessage;
+    try {
+      reply = await this.#runCompletion(this.#messages, this.#loomAbort.signal);
+    } catch (thrown: unknown) { // allow-broad-catch: pi-sdk-boundary — an abort propagates unchanged; a non-cancel forced-respond reject is a PIC-50 transport failure
+      // CANCEL: a cancellation during the forced-respond terminator propagates
+      // unchanged (handled by the loop as before).
+      if (this.#loomAbort.signal.aborted) {
+        throw thrown;
+      }
+      // PIC-50 (mirror of the prompt path): a non-cancel forced-respond
+      // rejection is a provider transport failure — surface the typed query's
+      // `Err(TransportError)` rather than parsing an empty/partial payload.
+      return { kind: "transport", error: mapPromptModeSyncThrow(thrown, this.#provider) };
+    }
     this.#messages.push(reply);
+    // PIC-50/51 (mirror of the prompt path): a `stopReason: "error"` forced-
+    // respond turn surfaces the typed query's `Err(TransportError)` rather than
+    // being parsed as a structured payload (which would mis-surface as a
+    // validation failure).
+    const transport = this.#probeTransport();
+    if (transport !== undefined) {
+      return { kind: "transport", error: transport };
+    }
     const parse = await parseStructuredPayload(assistantText(reply));
     return { kind: "respond", payload: payloadForRespond(parse) };
   }
