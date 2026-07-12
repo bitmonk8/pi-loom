@@ -33,8 +33,12 @@ import type { Diagnostic } from "../diagnostics/diagnostic";
 import { renderUnderlyingError } from "../diagnostics/placeholder";
 import { createSystemNoteRenderer } from "./system-note-renderer";
 import type { RendererGate } from "./system-note-channel";
-import type { LoomRegistry } from "./reload-wiring";
-import { discoverAndComposeFixtures } from "./production-composition";
+import type { LoomRegistry, ParsedLoom } from "./reload-wiring";
+import type { HotReloadHandle } from "./hot-reload";
+import {
+  composeExtensionInstance,
+  type ExtensionInstanceWiring,
+} from "./production-composition";
 
 /**
  * The diagnostics-registry code a factory-time bootstrap registration /
@@ -188,6 +192,21 @@ export interface LoomExtensionDeps {
    * `V9p`.
    */
   readonly registry?: LoomRegistry;
+
+  /**
+   * The Phase-5 production supplier that composes one extension instance and
+   * exposes the step-5 watcher installer
+   * (registration-steps.md#watcher-hot-reload-registration). When present the
+   * `session_start` handler runs it, registers the composed looms, and arms ONE
+   * hot-reload watcher over the discovery-root union + settings-file paths; the
+   * `session_shutdown` handler detaches it. Takes precedence over
+   * `discoverFixtures`. The shipped production default export supplies this;
+   * the `H4a` in-memory harness omits it.
+   */
+  readonly composeInstance?: (
+    pi: ExtensionAPI,
+    ctx: ExtensionContext,
+  ) => Promise<ExtensionInstanceWiring>;
 }
 
 /**
@@ -198,6 +217,10 @@ export function createLoomExtension(
   deps: LoomExtensionDeps,
 ): (pi: ExtensionAPI) => void {
   return function loomExtension(pi: ExtensionAPI): void {
+    // The step-5 hot-reload teardown handle, armed by the `session_start`
+    // compose-instance path and detached by `session_shutdown`. Closed over by
+    // both handlers (one extension instance, no module-level state).
+    let hotReloadHandle: HotReloadHandle | undefined;
     // Step 1 — `--loom` flag. Synchronous-void; per-call wrapped. A
     // `registerFlag` throw is FATAL to the whole extension: step 1's `--loom`
     // flag is what every subsequent discovery / `resources_discover` walk reads
@@ -265,6 +288,9 @@ export function createLoomExtension(
         // discovers fixtures from the real filesystem — an async walk keyed to
         // the host `ctx.cwd` — so when `discoverFixtures` is present the handler
         // returns a promise the host runner awaits before reading commands.
+        if (deps.composeInstance !== undefined) {
+          return runComposeInstanceRegistration(ctx);
+        }
         if (deps.discoverFixtures === undefined) {
           registerFixtures(deps.fixtures);
           return;
@@ -333,10 +359,55 @@ export function createLoomExtension(
       registerFixtures([...deps.fixtures, ...discovered]);
     }
 
-    // `session_shutdown` (step 4) — no-op handler at this leaf; the teardown
-    // contract (registry drain / forwarding-listener detach) is added later.
+    /**
+     * The Phase-5 production `session_start` pass: compose one extension
+     * instance, register its looms alongside the static ones, then arm the
+     * step-5 watcher / debounced hot-reload
+     * (registration-steps.md#watcher-hot-reload-registration). The arming
+     * closure re-uses `registerFixtures` as its reload re-registration step
+     * (collision pass + `pi.registerCommand`). A compose-supplier throw is
+     * trapped like any other `session_start`-time host-boundary failure and
+     * surfaces one `loom/load/extension-bootstrap-failed` diagnostic; an arming
+     * throw likewise surfaces a single diagnostic rather than propagating into
+     * the host `session_start` dispatch.
+     */
+    async function runComposeInstanceRegistration(
+      ctx: ExtensionContext,
+    ): Promise<void> {
+      let wiring: ExtensionInstanceWiring | undefined;
+      try {
+        wiring = await deps.composeInstance!(pi, ctx);
+      } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
+        deps.emitDiagnostic?.(bootstrapFailedDiagnostic("pi.registerCommand", e));
+        registerFixtures(deps.fixtures);
+        return;
+      }
+      registerFixtures([...deps.fixtures, ...wiring.looms]);
+      try {
+        hotReloadHandle = wiring.installHotReload(
+          (looms: readonly ParsedLoom[]) => registerFixtures(looms),
+        );
+      } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
+        deps.emitDiagnostic?.(
+          bootstrapFailedDiagnostic("pi.on", e, { event: "session_start" }),
+        );
+      }
+    }
+
+    // `session_shutdown` (step 4) — detach the step-5 watcher + cancel the
+    // pending debounce timer (registration-steps.md step 4). The teardown body
+    // is per-call wrapped so a watcher-close / timer-clear throw surfaces one
+    // diagnostic rather than propagating into the host teardown dispatch.
     try {
-      pi.on("session_shutdown", () => undefined);
+      pi.on("session_shutdown", () => {
+        try {
+          hotReloadHandle?.detach();
+        } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
+          deps.emitDiagnostic?.(
+            bootstrapFailedDiagnostic("pi.on", e, { event: "session_shutdown" }),
+          );
+        }
+      });
     } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
       deps.emitDiagnostic?.(
         bootstrapFailedDiagnostic("pi.on", e, { event: "session_shutdown" }),
@@ -360,6 +431,7 @@ export function createLoomExtension(
 export default function loomExtension(pi: ExtensionAPI): void {
   createLoomExtension({
     fixtures: [],
-    discoverFixtures: (pi, ctx: ExtensionContext) => discoverAndComposeFixtures(pi, ctx),
+    composeInstance: (pi, ctx: ExtensionContext) =>
+      composeExtensionInstance(pi, ctx),
   })(pi);
 }

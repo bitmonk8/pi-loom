@@ -58,14 +58,19 @@ confirm before/after, and gated on `npm test` (1601) + `npm run typecheck` +
   `driveStreamedUserTurn`, which takes no model parameter). Recommend a human
   decision on both facets. See `session-findings/discodyn.md` (DISCO-1).
 
-- **DISCO-2 — hot-reload / watcher subsystem unwired.** `ReloadDebouncer`,
-  `armWatcherWithTerminalRecovery`, `rebuildAndSwap`, `structuralChangeNote`, and
-  the settings-file watcher are full implementations with no production caller;
-  the factory installs no step-5 watcher. Editing a `.loom` / `.pi/settings.json`
-  during a live session produces no re-scan, no debounced reload, no
-  structural-change note, and no ERR-7 surface — the user must restart. A large
-  subsystem-wiring change AND a 1.0-scope question (is hot-reload in scope for the
-  first release?). Recommend a scoping decision before wiring. See
+- **DISCO-2 (FIXED/WIRED) — hot-reload / watcher subsystem unwired.**
+  `ReloadDebouncer`, `armWatcherWithTerminalRecovery`, `rebuildAndSwap`,
+  `structuralChangeNote`, and the settings-file watcher were full
+  implementations with no production caller; the factory installed no step-5
+  watcher. FIXED in Phase 5 (maintainer decision 3 = ship it): the composition
+  root (`composeExtensionInstance`) + a new single production caller
+  (`src/extension/hot-reload.ts`) arm ONE watcher over the discovery-root union
+  + settings-file paths, debounce (250 ms / injected `Clock`), re-run discovery,
+  swap the `LoomRegistry` (PIC-36), re-register with pi, emit the
+  structural-change note on set changes, and surface watcher-time failures as
+  ERR-7 on `loom-system-note`; `session_shutdown` now detaches the watcher +
+  cancels the pending timer. Deterministic integration test (fake watcher + fake
+  clock, no chokidar): `tests/watcher-hot-reload-integration.test.ts`. See
   `session-findings/discodyn.md` (DISCO-2).
 
 ## Second sub-wave — subagent tool-loops + cancellation (probed after the 6 fixes landed)

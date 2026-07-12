@@ -99,6 +99,20 @@ export class ReloadDebouncer {
   }
 
   /**
+   * Cancel any pending debounce timer without firing it. Called from the
+   * `session_shutdown` teardown so a window that closed after teardown began
+   * does not run a rebuild against the about-to-be-invalidated runtime
+   * (registration-steps.md step 4 — "Clock.clearTimeout(debounce)"). Idempotent:
+   * clearing an already-fired / absent handle is a no-op.
+   */
+  cancel(): void {
+    if (this.#pending !== undefined) {
+      this.#clock.clearTimeout(this.#pending);
+      this.#pending = undefined;
+    }
+  }
+
+  /**
    * The debounce window closed: drop the fired handle, then either start the
    * rebuild or — if a prior window's rebuild is still in flight — defer it
    * (PIC-49: at most one rebuild against the live registry / validator cache /

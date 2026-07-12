@@ -123,11 +123,65 @@ Not covered by any DISC-*/BND-*/QTL-* entry in the two SUMMARY files.
 
 ---
 
-## DISCO-2 — the hot-reload / watcher subsystem is unwired: no live re-scan of `.loom` / settings / package changes within a session
+## DISCO-2 (FIXED/WIRED) — the hot-reload / watcher subsystem is unwired: no live re-scan of `.loom` / settings / package changes within a session
 
-**Verdict: BUG (source-inspection, not live-repro).** The `runProbe` harness
-boots discovery once and cannot fire the chokidar watcher within one boot, so
-this is substantiated statically per the briefing's hot-reload instruction.
+**Verdict: BUG (source-inspection, not live-repro) — FIXED/WIRED** (Phase 5
+production-conformance; maintainer decision 3 = ship it).
+
+> **STATUS: FIXED/WIRED.** The step-5 watcher / hot-reload subsystem now has a
+> production caller. The shipped composition root
+> (`composeExtensionInstance`, `src/extension/production-composition.ts`) runs
+> the initial discovery pass, computes the discovery-root union + the two
+> settings-file paths (`.pi/settings.json`, `~/.pi/agent/settings.json`), seeds
+> the live `LoomRegistry`, and exposes an `installHotReload(reRegister)`
+> installer. The factory (`src/extension/factory.ts`) arms it at `session_start`
+> (new `runComposeInstanceRegistration`) and detaches it at `session_shutdown`
+> (previously a no-op).
+>
+> **Wiring (new `src/extension/hot-reload.ts`, the single production caller):**
+> - `armWatcherWithTerminalRecovery` (`watcher-recovery.ts`) arms ONE watcher
+>   over the discovery-root union + settings-file paths via the injected
+>   `fileWatcher` seam;
+> - each `onChange` feeds the `ReloadDebouncer` (`reload-debounce.ts`,
+>   `RELOAD_DEBOUNCE_WINDOW_MS = 250` over the injected `Clock`); a new
+>   `ReloadDebouncer.cancel()` cancels the pending timer at teardown;
+> - on debounce fire the reload re-runs discovery+compose (`runComposePass`,
+>   "hot-reload re-runs the computation"), swaps the `LoomRegistry` atomically
+>   via `rebuildAndSwap` (PIC-36), re-registers survivors through the factory's
+>   own `pi.registerCommand` path, and emits `structuralChangeNote` when the
+>   registered loom SET changed;
+> - watcher-time rebuild failures surface as **ERR-7** on the `loom-system-note`
+>   channel (`triggerTurn:false`): `REGISTRY_SWAP_FAILED_CODE` for a swap /
+>   re-parse / re-merge / re-compose throw before publish (routed through
+>   `emitDiagnosticBatch`).
+>
+> A reload-only self-collision was found and fixed while wiring: Pi reports
+> loom's own registered commands with `source:"extension"`, so re-running the
+> cross-format collision check against the raw `pi.getCommands()` snapshot
+> self-dropped every loom on reload. `runComposePass` now takes an
+> `excludeOwnedNames` set (the current registry keys) on the hot-reload pass.
+>
+> **Integration test (deterministic, NO real chokidar):**
+> `tests/watcher-hot-reload-integration.test.ts` boots the shipped composition
+> through the real factory with a FAKE `FileWatcher` + FAKE `FakeClock`
+> (injected via `composeExtensionInstance(pi, ctx, { fileWatcher, clock })`),
+> discovering a real temp-dir `.pi/looms/` workspace. It fires `onChange`,
+> advances the clock past 250 ms, and asserts: (a) discovery re-ran + the
+> registry swapped; (b) a newly-planted `.loom` is registered and a removed one
+> dropped from the swapped `LoomRegistry`; (c) `structuralChangeNote` emitted on
+> a set change (`loom watcher: 1 file(s) added or removed; run /reload …`,
+> `triggerTurn:false`); (d) a rebuild failure surfaces ERR-7
+> (`loom/runtime/registry-swap-failed`) on the note channel while the prior
+> registry stays live; (e) `session_shutdown` detaches the watcher + cancels the
+> pending debounce timer (no post-teardown reload).
+>
+> No live probe was added: `runProbe` cannot fire chokidar within one boot (the
+> briefing's instruction), so a flaky live probe would be dishonest.
+
+Original verdict: **BUG (source-inspection, not live-repro).** The `runProbe`
+harness boots discovery once and cannot fire the chokidar watcher within one
+boot, so this was substantiated statically per the briefing's hot-reload
+instruction.
 
 ### Expected (with citation)
 `docs/spec_topics/discovery/package-and-settings.md` §"Caching and reload":

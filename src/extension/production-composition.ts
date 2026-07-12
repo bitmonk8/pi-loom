@@ -40,6 +40,8 @@ import type {
   ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 import type { LoomFixture } from "./factory";
+import type { Clock } from "../seams/clock";
+import type { FileWatcher } from "../seams/file-watcher";
 import { PiFileSystem } from "../seams/pi-file-system";
 import { WallClock } from "../seams/wall-clock";
 import { CryptoIdSource } from "../seams/crypto-id-source";
@@ -78,32 +80,38 @@ import {
   type StrictCapableProbe,
 } from "../binder/binder-model";
 import { classifyBinderBypass } from "../binder/binder-envelope";
-import { createModelReferenceMatcher } from "./reload-wiring";
-import type { SystemNoteChannelDeps } from "./system-note-channel";
-import { SYSTEM_NOTE_CHANNEL } from "./system-note-channel";
+import {
+  createModelReferenceMatcher,
+  LoomRegistry,
+  type ParsedLoom,
+} from "./reload-wiring";
+import {
+  emitDiagnosticBatch,
+  SYSTEM_NOTE_CHANNEL,
+  type SystemNoteChannelDeps,
+} from "./system-note-channel";
+import { installHotReload, type HotReloadHandle } from "./hot-reload";
 import {
   composeLoomFixture,
   type LoomCompositionInput,
 } from "./loom-composition-producer";
 import { createProductionProducerDeps } from "./production-loom-producer";
 
+/** Seam overrides for test injection — the FAKE FileWatcher / Clock the
+ * watcher-hot-reload integration test drives through the real composition. */
+export interface ComposeSeamOverrides {
+  readonly fileWatcher?: FileWatcher;
+  readonly clock?: Clock;
+}
+
 /**
- * The `session_start` production supplier: construct the runtime root over the
- * real host seams, run the five-source discovery walk keyed to the host
- * `ctx.cwd`, parse each discovered `.loom`, and compose each into a runnable
- * `LoomFixture`. Returned to `factory.ts`, which registers each via
- * `pi.registerCommand`.
+ * The error-severity diagnostic router the shipped load path uses: a transient
+ * toast (`ctx.ui.notify`), mirrored to stderr in headless print / RPC mode.
+ * See notes.md — full `loom-system-note` routing for discovery diagnostics is
+ * deferred (the known load-phase routing gap).
  */
-export async function discoverAndComposeFixtures(
-  pi: ExtensionAPI,
-  ctx: ExtensionContext,
-): Promise<readonly LoomFixture[]> {
-  // Diagnostics surfaced during discovery / parse route through a transient
-  // toast (`ctx.ui.notify`) for errors; the load-phase note-channel wiring is
-  // best-effort at the composition root (the opt-in live acceptance suite does
-  // not assert them). See notes.md — full `loom-system-note` routing for
-  // discovery diagnostics is deferred.
-  const emitDiagnostic = (diagnostic: Diagnostic): void => {
+function makeLoadEmit(ctx: ExtensionContext): (diagnostic: Diagnostic) => void {
+  return (diagnostic: Diagnostic): void => {
     if (diagnostic.severity !== "error") {
       return;
     }
@@ -123,12 +131,22 @@ export async function discoverAndComposeFixtures(
       process.stderr.write(`loom: ${renderDiagnosticLine(diagnostic)}\n`);
     }
   };
+}
 
-  // Host seams — one runtime root per `session_start` invocation, `cwd` pinned
-  // to the host-reported working directory so the project / global discovery
-  // sources resolve against the live session's directory.
+/**
+ * Construct one runtime root over the real host seams. `overrides` substitutes
+ * the `FileWatcher` / `Clock` seams for the watcher-hot-reload integration test
+ * (production supplies neither). `cwd` is pinned to the host-reported working
+ * directory so the project / global discovery sources resolve against the live
+ * session's directory.
+ */
+function buildRuntimeRoot(
+  ctx: ExtensionContext,
+  emitDiagnostic: (diagnostic: Diagnostic) => void,
+  overrides?: ComposeSeamOverrides,
+): RuntimeRoot {
+  const clock: Clock = overrides?.clock ?? new WallClock();
   const fileSystem = new PiFileSystem(ctx.cwd);
-  const clock = new WallClock();
   const schemaValidator = new AjvSchemaValidator({
     emit: emitDiagnostic,
     slugOf: (schema: LoweredSchema) => {
@@ -136,15 +154,66 @@ export async function discoverAndComposeFixtures(
       return { slug: canonicalBytes, canonicalBytes };
     },
   });
-  const root: RuntimeRoot = createRuntimeRoot({
+  return createRuntimeRoot({
     checkpoint: new ProductionCheckpoint(clock),
     schemaValidator,
     clock,
     fileSystem,
-    fileWatcher: new PiFileWatcher(),
+    fileWatcher: overrides?.fileWatcher ?? new PiFileWatcher(),
     tokenEstimator: new PiTokenEstimator(),
     idSource: new CryptoIdSource(),
   });
+}
+
+/** The result of one discovery + compose pass. */
+interface ComposePassResult {
+  /** The composed runnable looms (a superset of the `LoomFixture` registration shape). */
+  readonly looms: readonly ParsedLoom[];
+  /** The active discovery-root union computed for this pass. */
+  readonly activeRoots: readonly string[];
+}
+
+/**
+ * The `session_start` production supplier: construct the runtime root over the
+ * real host seams, run the five-source discovery walk keyed to the host
+ * `ctx.cwd`, parse each discovered `.loom`, and compose each into a runnable
+ * `LoomFixture`. Returned to `factory.ts`, which registers each via
+ * `pi.registerCommand`.
+ */
+export async function discoverAndComposeFixtures(
+  pi: ExtensionAPI,
+  ctx: ExtensionContext,
+): Promise<readonly LoomFixture[]> {
+  const emitDiagnostic = makeLoadEmit(ctx);
+  const root = buildRuntimeRoot(ctx, emitDiagnostic);
+  const pass = await runComposePass(pi, ctx, root, emitDiagnostic);
+  return pass.looms;
+}
+
+/**
+ * One discovery + compose pass against an already-constructed runtime root.
+ * Factored out of `discoverAndComposeFixtures` so `composeExtensionInstance`
+ * can re-run it on every hot-reload (the "hot-reload re-runs the computation"
+ * of discovery-sources.md §"Discovery roots"), with a per-pass `emitDiagnostic`
+ * (load-toast at session_start, ERR-7 note-channel at watcher time).
+ *
+ * `excludeOwnedNames` names the extension's own previously-registered looms so
+ * a hot-reload pass does NOT drop them as cross-format collisions against
+ * themselves: Pi reports loom's own registered commands with `source:
+ * "extension"` (indistinguishable from a sibling extension), so re-running the
+ * collision check against the raw `pi.getCommands()` snapshot would self-drop
+ * every loom on reload. At `session_start` (first load) the set is empty — loom
+ * has not registered yet — so no exclusion is needed.
+ */
+async function runComposePass(
+  pi: ExtensionAPI,
+  ctx: ExtensionContext,
+  root: RuntimeRoot,
+  emitDiagnostic: (diagnostic: Diagnostic) => void,
+  excludeOwnedNames?: ReadonlySet<string>,
+): Promise<ComposePassResult> {
+  const fileSystem = root.fileSystem;
+  const clock = root.clock;
 
   // Merged, validated settings (V10c) drive the settings discovery source and
   // the package-walk bounds.
@@ -157,7 +226,7 @@ export async function discoverAndComposeFixtures(
   // Discovery walk. CLI `--loom` roots are split on the platform path
   // delimiter (the walk is platform-independent over already-split paths).
   const cliPaths = readLoomFlagPaths(pi);
-  const piOwnedNames = readPiOwnedCommands(pi);
+  const piOwnedNames = readPiOwnedCommands(pi, excludeOwnedNames);
   const walk = await discoverLooms({
     fs: fileSystem,
     settings,
@@ -275,7 +344,7 @@ export async function discoverAndComposeFixtures(
   // walk below runs per entry against a shared graph.
   const invokeGraph = buildInvokeGraph(parsedInputs);
 
-  const fixtures: LoomFixture[] = [];
+  const looms: ParsedLoom[] = [];
   for (const input of parsedInputs) {
     // V20a — resolve the `tools:` callable set against the shipped Pi tool
     // registry at production load time. A `tools:` rejection (unknown Pi tool,
@@ -377,9 +446,128 @@ export async function discoverAndComposeFixtures(
         ? { binderModel: binderModelResolution.binderModel }
         : {}),
     };
-    fixtures.push(composeLoomFixture(composedInput, producerDeps));
+    // Carry the parsed frontmatter + body onto the runnable loom so the
+    // hot-reload rebuild can swap the `LoomRegistry` with full `ParsedLoom`
+    // entries; the registration path reads only `slashName` + `run`.
+    const fixture = composeLoomFixture(composedInput, producerDeps);
+    looms.push({ ...composedInput, run: fixture.run });
   }
-  return fixtures;
+  return { looms, activeRoots };
+}
+
+/**
+ * The extension-instance wiring the shipped factory drives: the initial
+ * `session_start` looms plus the step-5 watcher installer
+ * (registration-steps.md#watcher-hot-reload-registration). Threaded from the
+ * composition root so the factory can arm ONE watcher over the discovery-root
+ * union + settings-file paths and run the debounced rebuild against the live
+ * `pi` + `ctx`.
+ */
+export interface ExtensionInstanceWiring {
+  /** The composed runnable looms registered at `session_start`. */
+  readonly looms: readonly ParsedLoom[];
+  /**
+   * The live `LoomRegistry` the hot-reload swaps atomically (PIC-36) — the
+   * source of truth for the dispatchable loom SET across reloads (Pi exposes no
+   * `pi.unregisterCommand`, so a removed loom is dropped here rather than from
+   * Pi's command list).
+   */
+  readonly registry: LoomRegistry;
+  /**
+   * Arm the step-5 watcher + debounced hot-reload. `reRegister` is the
+   * factory's own `session_start` registration step (collision pass +
+   * `pi.registerCommand`), re-run on each reload against the freshly-composed
+   * looms. Returns the `session_shutdown` teardown handle.
+   */
+  installHotReload(
+    reRegister: (looms: readonly ParsedLoom[]) => void,
+  ): HotReloadHandle;
+}
+
+/**
+ * Compose one extension instance: run the initial discovery + compose pass over
+ * a single runtime root, then expose the step-5 watcher installer. The runtime
+ * root (its `FileWatcher` + `Clock` seams) is constructed ONCE and retained so
+ * the armed watcher and the 250 ms debounce measure against the same seams the
+ * initial pass used; each hot-reload re-runs `runComposePass` against that same
+ * root (`PiFileSystem` re-reads live disk), routing watcher-time load/parse/
+ * re-merge diagnostics onto the `loom-system-note` channel as ERR-7.
+ */
+export async function composeExtensionInstance(
+  pi: ExtensionAPI,
+  ctx: ExtensionContext,
+  overrides?: ComposeSeamOverrides,
+): Promise<ExtensionInstanceWiring> {
+  const emitLoad = makeLoadEmit(ctx);
+  const root = buildRuntimeRoot(ctx, emitLoad, overrides);
+
+  // The `loom-system-note` delivery channel: carries the informational
+  // structural-change note and the ERR-7 watcher-time reload failures
+  // (`triggerTurn:false`).
+  const channel = buildSystemNoteDeps(pi, ctx, emitLoad);
+  // Watcher-time diagnostics (re-parse / re-merge / swap failures) surface as
+  // ERR-7 on the `loom-system-note` channel rather than a load-time toast
+  // (package-and-settings.md §"Watcher-time reload failures").
+  const emitErr7 = (diagnostic: Diagnostic): void => {
+    emitDiagnosticBatch([diagnostic], channel);
+  };
+
+  const initial = await runComposePass(pi, ctx, root, emitLoad);
+
+  // The watched set: the active discovery-root union plus the two settings-file
+  // paths (project `.pi/settings.json`, global `~/.pi/agent/settings.json`).
+  const roots = [
+    ...initial.activeRoots,
+    ...settingsFilePaths(ctx, root.fileSystem),
+  ];
+
+  // The live `LoomRegistry` the reload swaps atomically (PIC-36), seeded with
+  // the initial registered looms.
+  const registry = new LoomRegistry(
+    initial.looms.map((loom) => [loom.slashName, loom] as const),
+  );
+
+  return {
+    looms: initial.looms,
+    registry,
+    installHotReload(reRegister): HotReloadHandle {
+      return installHotReload({
+        watcher: root.fileWatcher,
+        clock: root.clock,
+        roots,
+        registry,
+        channel,
+        rediscover: async () =>
+          (
+            await runComposePass(
+              pi,
+              ctx,
+              root,
+              emitErr7,
+              new Set(registry.snapshot().keys()),
+            )
+          ).looms,
+        reRegister,
+        initialNames: initial.looms.map((loom) => loom.slashName),
+      });
+    },
+  };
+}
+
+/**
+ * The two settings-file paths the watcher covers: the project
+ * `.pi/settings.json` (relative to `ctx.cwd`) and the global
+ * `~/.pi/agent/settings.json` (home expanded via the `FileSystem` seam), per
+ * package-and-settings.md §"Settings file reads".
+ */
+function settingsFilePaths(
+  ctx: ExtensionContext,
+  fileSystem: FileSystem,
+): readonly string[] {
+  return [
+    resolvePath(ctx.cwd, ".pi", "settings.json"),
+    resolvePath(fileSystem.homedir(), ".pi", "agent", "settings.json"),
+  ];
 }
 
 /**
@@ -844,9 +1032,18 @@ function readLoomFlagPaths(pi: ExtensionAPI): readonly string[] {
  * command snapshot filtered to the collision source set (`prompt` / `skill` /
  * `extension`). Read read-only-by-convention (PIC-39).
  */
-function readPiOwnedCommands(pi: ExtensionAPI): readonly PiOwnedCommand[] {
+function readPiOwnedCommands(
+  pi: ExtensionAPI,
+  excludeOwnedNames?: ReadonlySet<string>,
+): readonly PiOwnedCommand[] {
   const owned: PiOwnedCommand[] = [];
   for (const command of pi.getCommands()) {
+    // Skip the extension's own previously-registered looms on a hot-reload pass
+    // so they are not dropped as collisions against themselves (they carry
+    // `source: "extension"`, like a sibling extension's command).
+    if (excludeOwnedNames?.has(command.name) === true) {
+      continue;
+    }
     if (
       command.source === "prompt" ||
       command.source === "skill" ||
