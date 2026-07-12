@@ -81,16 +81,54 @@ interface ProducerOpts {
     callerPath: string | undefined,
     calleePath: string,
   ) => Promise<LoomCompositionInput | undefined>;
+  /** An `ExtensionAPI` double (default empty). The prompt→prompt attach path
+   * reads `getActiveTools`/`setActiveTools`, so a test that drives it supplies
+   * stubs. */
+  readonly pi?: ExtensionAPI;
 }
 
 function producer(opts: ProducerOpts) {
   return createProductionProducerDeps({
-    pi: {} as unknown as ExtensionAPI,
+    pi: opts.pi ?? ({} as unknown as ExtensionAPI),
     root: rootDouble(),
     modelRegistry: {} as unknown as ModelRegistry,
     ...(opts.resolvePiTool !== undefined ? { resolvePiTool: opts.resolvePiTool } : {}),
     ...(opts.parseCallee !== undefined ? { parseCallee: opts.parseCallee } : {}),
   });
+}
+
+/** A `NumberExpr` integer literal. */
+function numberExpr(n: number): Expr {
+  return { kind: "number", text: String(n), numericType: "integer", range: span() };
+}
+/** A `StringExpr` literal. */
+function stringExpr(value: string): Expr {
+  return { kind: "string", value, range: span() };
+}
+/** `depth` nested `[...]` around a `1` leaf — JSON-document depth `depth+1` (the
+ * leaf counts as a level). `nestedArray(5)` → depth 6 trips ceiling #4's
+ * depth-≤5 cap; `nestedArray(4)` → depth 5 is at the cap and defers. */
+function nestedArray(depth: number): Expr {
+  let e: Expr = numberExpr(1);
+  for (let i = 0; i < depth; i += 1) {
+    e = { kind: "array", elements: [e], range: span() };
+  }
+  return e;
+}
+/** An `invoke<returnSchema>("path", ...positional)` expression. args[0] is the
+ * callee-path literal per the parser convention; args[1..] are positional. */
+function invokeExpr(
+  path: string,
+  returnSchema: string | null,
+  positional: readonly Expr[] = [],
+): Expr {
+  return {
+    kind: "invoke",
+    path,
+    returnSchema,
+    args: [stringExpr(path), ...positional],
+    range: span(),
+  };
 }
 
 function promptLoom(tail: Expr, tools?: readonly string[]): LoomCompositionInput {
@@ -205,5 +243,72 @@ describe("H8b — `.loom`-callable routing surfaces Err on a load failure (FN-5)
     const err = (inner as { readonly ok: false; readonly error: { readonly cause?: string; readonly kind?: string } }).error;
     expect(err.kind, "the load failure is an InvokeInfraError").toBe("invoke_infra");
     expect(err.cause, "with cause 'load_failure'").toBe("load_failure");
+  });
+});
+
+// ===========================================================================
+// Ceiling #4 (JSON-document depth ≤5) on the two `invoke` boundaries
+// (hard-ceilings/ceilings-3-and-4.md#ceiling-4-table; CIO-3 depth-before-AJV).
+// Proves invoke-ceiling-depth.ts is WIRED into the production invoke path.
+// ===========================================================================
+
+describe("ceiling #4 on invoke boundaries (invoke-ceiling-depth.ts wired)", () => {
+  it("a depth-6 `invoke(...)` params argument surfaces Err(InvokeInfraError{cause:'validation'}) before the callee loads", async () => {
+    let parseAttempted = false;
+    const parseCallee = (): Promise<LoomCompositionInput | undefined> => {
+      parseAttempted = true;
+      return Promise.resolve(undefined);
+    };
+    // A depth-6 positional arg (5 nested arrays + leaf) trips the params-boundary
+    // depth walk at invoke entry — before the callee is even parsed.
+    const inner = (await runBody(
+      producer({ parseCallee }),
+      promptLoom(invokeExpr("./child.loom", null, [nestedArray(5)])),
+    )) as ResultValue;
+
+    expect(inner.ok, "a depth-6 params argument surfaces Err, never binds silently").toBe(false);
+    const err = (inner as { readonly ok: false; readonly error: { readonly kind?: string; readonly cause?: string } }).error;
+    expect(err.kind, "the params-depth breach is an InvokeInfraError").toBe("invoke_infra");
+    expect(err.cause, "with cause 'validation' (the input boundary)").toBe("validation");
+    expect(parseAttempted, "the depth check fires before the callee load (CIO-3 / params boundary)").toBe(false);
+  });
+
+  it("a depth-5 `invoke(...)` params argument is within the cap and defers past the depth walk", async () => {
+    // A depth-5 arg (4 nested arrays + leaf) is at the cap; the callee then loads
+    // (and here fails to load, surfacing the load_failure Err) — proving the
+    // depth walk did NOT false-trip a within-cap argument.
+    const inner = (await runBody(
+      producer({ parseCallee: () => Promise.resolve(undefined) }),
+      promptLoom(invokeExpr("./child.loom", null, [nestedArray(4)])),
+    )) as ResultValue;
+    expect(inner.ok).toBe(false);
+    const err = (inner as { readonly ok: false; readonly error: { readonly cause?: string } }).error;
+    expect(err.cause, "a within-cap arg defers past ceiling #4 to the callee load").toBe("load_failure");
+  });
+
+  it("a depth-6 `invoke<T>` return value surfaces Err(InvokeInfraError{cause:'return_validation'}) before AJV", async () => {
+    // The callee is a prompt-mode loom whose body tail is a depth-6 value; a
+    // prompt caller invoking it attaches (no live model needed for a query-free
+    // body). Its Ok(depth-6) payload trips the return-boundary depth walk before
+    // the AJV schema is consulted.
+    const calleeLoom: LoomCompositionInput = {
+      slashName: "child",
+      sourcePath: "/looms/child.loom",
+      frontmatter: { mode: "prompt" },
+      body: body(nestedArray(5)),
+    };
+    const piDouble = {
+      getActiveTools: () => [],
+      setActiveTools: () => {},
+    } as unknown as ExtensionAPI;
+    const inner = (await runBody(
+      producer({ pi: piDouble, parseCallee: () => Promise.resolve(calleeLoom) }),
+      promptLoom(invokeExpr("./child.loom", "Deep")),
+    )) as ResultValue;
+
+    expect(inner.ok, "a depth-6 typed return surfaces Err, never binds silently").toBe(false);
+    const err = (inner as { readonly ok: false; readonly error: { readonly kind?: string; readonly cause?: string } }).error;
+    expect(err.kind, "the return-depth breach is an InvokeInfraError").toBe("invoke_infra");
+    expect(err.cause, "with cause 'return_validation' (the return boundary)").toBe("return_validation");
   });
 });

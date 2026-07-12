@@ -47,7 +47,8 @@ commit: `npm test` 1606, `npm run test:conformance` 26, typecheck + lint clean.
 | 5 | DISCO-2 | Hot-reload/watcher subsystem wired (arm watcher → 250 ms debounce → rebuild-and-swap → re-register + structural-change note + ERR-7; shutdown detaches) | `f970c200` |
 | 6 | decision 7 | Dead-code audit: deleted 4 provably-superseded modules (+4 leaf tests); kept 7 gates; flagged 16 unwired (Part B) | `552545b9` |
 | 7 | INV-9 (Part B decision 1) | prompt→prompt `invoke` attaches to the caller's user session (`runPromptSuspendInvoke` wired; caller-mode threaded; callee final value via shared `surfaceCalleeFinalValue`; CANCEL-5 derived child); subagent→prompt attach deferred | `5dec2a70` |
-| 8 | Prompt-mode transport mapping (Part B decision 2) | PIC-50/51 wired: `transport` outcome variant through query-tool-loop + host; `LivePromptQueryModel` probes `stopReason` (untyped + typed) + maps `sendUserMessage` sync-throw; subagent-mode parity gap flagged | pending |
+| 8 | Prompt-mode transport mapping (Part B decision 2) | PIC-50/51 wired: `transport` outcome variant through query-tool-loop + host; `LivePromptQueryModel` probes `stopReason` (untyped + typed) + maps `sendUserMessage` sync-throw; subagent-mode parity gap flagged | `6c6b286f` |
+| 9 | Ceiling #4 on invoke boundaries (Part B decision 3) | `invoke-ceiling-depth.ts` wired: `enforceInvokeParamsDepth` per arg at invoke entry (`validation`) + `enforceInvokeReturnDepth` on typed return before AJV (`return_validation`); code-tool-args ceiling-#4 gap newly flagged | pending |
 
 Earlier standalone hardening fixes on `main` (same program, pre-decisions):
 XMODE-1 `d3db448c`, BIND-1 `e9d17ffd`, SNOTE-1/SUBAG-3 `fe3594c4`,
@@ -103,11 +104,23 @@ detail + spec anchors + unwired evidence: `dead-code-audit.md` (FLAGGED-UNWIRED)
   a real transport failure cannot be forced deterministically). **Subagent-mode has
   the identical gap** (`extractSubagentQueryResult` also unwired) — out of this
   finding's named scope; flag for a later decision.
-- **Ceiling #4 not enforced on `invoke` boundaries.** `src/runtime/invoke-ceiling-depth.ts`.
-  JSON-document depth ≤5 (`"JSON document depth exceeds 5"`) at the `invoke(...)`
-  `params` boundary and the `invoke<T>` return boundary — production runs AJV only
-  (no `maxDepth`) and binds params without a depth walk. (Distinct from the wired
-  chain-depth ceiling #1.) Spec: `hard-ceilings.md` ceiling #4.
+- **Ceiling #4 not enforced on `invoke` boundaries. ✅ FIXED (decision 3, Option A, commit pending push).**
+  `src/runtime/invoke-ceiling-depth.ts` is now WIRED. **Before:** production ran AJV
+  only (lowered schemas carry no `maxDepth`) and bound params without a depth walk
+  — a depth-6 `invoke(...)` arg or `invoke<T>` return bound silently. **After:**
+  `#driveCallee` runs `enforceInvokeParamsDepth` per positional arg at invoke entry
+  (before the callee loads; `cause:"validation"`), and `#validateInvokeReturn` runs
+  `enforceInvokeReturnDepth` on a typed `Ok` payload before AJV (CIO-3;
+  `cause:"return_validation"`). Verified deterministically:
+  `tests/production-live-resolvers.test.ts` (+3 — depth-6 params → `validation`
+  before callee load, depth-5 within-cap defers, depth-6 typed return →
+  `return_validation`) + the module's `tests/invoke-ceiling-depth.test.ts`. (A live
+  probe is impractical: loom's static schema-subset gate rejects depth-6 *schemas*
+  at parse, and a depth-6 *value* at runtime needs model-produced deep JSON.)
+  **New finding surfaced during investigation (NOT in the audit):** the code-driven
+  tool-args ceiling-#4 analogue `enforceCodeToolArgDepth` (V14e, `tool-call.ts`)
+  is ALSO unwired — same defect class, out of this decision's named scope; flagged
+  for a later decision.
 - **Binder context subsystem (5 modules) unused by the Phase-1 off-session binder.**
   `session-context-walk.ts` (BNDR-10 `bind_context: session` truncation walk —
   a documented frontmatter feature that currently does nothing),

@@ -81,6 +81,10 @@ import {
   extractPromptModeQueryResult,
   mapPromptModeSyncThrow,
 } from "../runtime/prompt-transport-mapping";
+import {
+  enforceInvokeParamsDepth,
+  enforceInvokeReturnDepth,
+} from "../runtime/invoke-ceiling-depth";
 import type {
   ForcedRespondTurn,
   FreePhaseTurn,
@@ -1583,6 +1587,22 @@ class ProductionLoomProducer implements LoomProducerDeps {
     // callee, against the *currently* active roots. An escape fails closed with
     // `Err(InvokeInfraError{cause:"load_failure"})` — the runtime backstop to the
     // load-time `loom/load/invoke-path-escape` guard.
+    // Ceiling #4 (hard-ceilings/ceilings-3-and-4.md#ceiling-4-table, the
+    // `params` / `invoke(...)` row; CIO-3 depth-walk-before-AJV): enforce the
+    // JSON-document depth-≤5 cap at the runtime `invoke(...)` `params` argument
+    // boundary. Each positional arg is a JSON document in its own right, so the
+    // walk runs per-arg (a legitimate depth-5 arg stays valid; walking a wrapper
+    // object would false-trip it); a depth-6+ arg surfaces to the invoke parent
+    // as `Err(InvokeInfraError { cause: "validation" })` — distinct from ceiling
+    // #1 chain-depth. Runs before the containment re-check / callee load so a
+    // caller-side depth breach is reported regardless of callee state.
+    for (const argValue of argValues) {
+      const breach = enforceInvokeParamsDepth(calleePath, argValue);
+      if (breach !== undefined) {
+        return breach.result;
+      }
+    }
+
     const escape = await this.#recheckCalleeContainment(loom, calleePath);
     if (escape !== undefined) {
       return makeErr(escape as unknown as LoomValue);
@@ -1712,6 +1732,15 @@ class ProductionLoomProducer implements LoomProducerDeps {
   ): ResultValue {
     if (returnSchema === null || !result.ok) {
       return result;
+    }
+    // Ceiling #4 (ceilings-3-and-4.md#ceiling-4-table, the `invoke<T>` return-value
+    // row; CIO-3): the loom-owned depth walk is the FIRST sub-check at the
+    // return-value AJV boundary. A depth-6+ `Ok` payload surfaces to the invoke
+    // parent as `Err(InvokeInfraError { cause: "return_validation" })` before AJV
+    // is consulted.
+    const depthBreach = enforceInvokeReturnDepth(calleePath, result.value as unknown);
+    if (depthBreach !== undefined) {
+      return depthBreach.result;
     }
     const lowered = lowerQueryResponseSchema(returnSchema, schemaDeclsOf(loom.body));
     if (lowered === undefined) {
