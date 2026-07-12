@@ -312,6 +312,7 @@ async function bootFactory(
       looms: [makeLoom("foo")],
       registry,
       activeInvocations,
+      forwardingSignals: [],
       clock,
       installHotReload: () => ({ detach: (): void => {} }),
     }),

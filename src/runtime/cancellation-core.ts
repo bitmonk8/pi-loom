@@ -48,19 +48,28 @@ export function createLoomAbort(): AbortController {
  * otherwise attach a one-shot listener. The one-shot guard that makes the first
  * source's reason win is inherent to `AbortController`: a second `abort(...)` on
  * an already-aborted controller is a no-op and does not re-stamp the reason.
+ *
+ * Returns a detach closure so an invocation-scoped forward can be torn down at
+ * `session_shutdown` (sub-step 5) WITHOUT altering the abort/reason semantics:
+ * when a listener was attached the closure removes exactly that named listener;
+ * when the source was already aborted (synchronous forward, no listener) the
+ * closure is an inert no-op. Purely additive — the forwarding behaviour is
+ * byte-identical to the void-returning form.
  */
-function forwardSignalReason(loomAbort: AbortController, source: AbortSignal): void {
+function forwardSignalReason(
+  loomAbort: AbortController,
+  source: AbortSignal,
+): () => void {
   if (source.aborted) {
     loomAbort.abort(source.reason);
-    return;
+    return (): void => {};
   }
-  source.addEventListener(
-    "abort",
-    () => {
-      loomAbort.abort(source.reason);
-    },
-    { once: true },
-  );
+  // Named so the detach closure can remove exactly this listener.
+  const abortListener = (): void => {
+    loomAbort.abort(source.reason);
+  };
+  source.addEventListener("abort", abortListener, { once: true });
+  return (): void => source.removeEventListener("abort", abortListener);
 }
 
 /**
@@ -86,14 +95,15 @@ export const AGENT_END_CANCEL_MESSAGE = "loom cancelled by agent_end";
 export function forwardSlashCommandCancel(
   _loomAbort: AbortController,
   _ctxSignal: AbortSignal | undefined,
-): void {
+): () => void {
   // Pi documents `ctx.signal` as `undefined` in idle, non-turn contexts — which
   // is exactly when the slash-command handler fires — so tolerate it without
-  // depending on its truthiness; there is nothing to forward yet.
+  // depending on its truthiness; there is nothing to forward yet, so the detach
+  // is an inert no-op.
   if (_ctxSignal === undefined) {
-    return;
+    return (): void => {};
   }
-  forwardSignalReason(_loomAbort, _ctxSignal);
+  return forwardSignalReason(_loomAbort, _ctxSignal);
 }
 
 /**
@@ -105,8 +115,8 @@ export function forwardSlashCommandCancel(
 export function forwardToolExposedCancel(
   _loomAbort: AbortController,
   _signal: AbortSignal,
-): void {
-  forwardSignalReason(_loomAbort, _signal);
+): () => void {
+  return forwardSignalReason(_loomAbort, _signal);
 }
 
 /**
@@ -127,13 +137,18 @@ export function abortForAgentEnd(_loomAbort: AbortController): void {
  * parent's signal is already aborted at child-spawn time, the derived controller
  * is returned already-aborted carrying the parent's reason.
  */
-export function deriveChildLoomAbort(_parentSignal: AbortSignal): AbortController {
+export function deriveChildLoomAbort(_parentSignal: AbortSignal): {
+  readonly controller: AbortController;
+  readonly detach: () => void;
+} {
   const child = new AbortController();
   // Downward-only: the child aborts when the parent aborts (carrying the
   // parent's reason — CNCL-4), never the reverse, because `child` is an
-  // independent controller the parent holds no reference to.
-  forwardSignalReason(child, _parentSignal);
-  return child;
+  // independent controller the parent holds no reference to. The returned
+  // `detach` removes the parent-listener at `session_shutdown` (sub-step 5)
+  // without altering the downward-only forwarding.
+  const detach = forwardSignalReason(child, _parentSignal);
+  return { controller: child, detach };
 }
 
 // ---------------------------------------------------------------------------

@@ -111,7 +111,7 @@ describe("V17a-T — forwarding into loomAbort (never ctx.signal directly)", () 
 
   it("invoke-parent: the derived child aborts through its own loomAbort, not the parent signal directly", () => {
     const parent = new AbortController();
-    const child = deriveChildLoomAbort(parent.signal);
+    const { controller: child } = deriveChildLoomAbort(parent.signal);
 
     // The child owns its own loomAbort controller (a distinct signal).
     expect(child.signal).not.toBe(parent.signal);
@@ -155,7 +155,7 @@ describe("V17a-T — CNCL-4 abort-reason propagation through all three paths", (
   it("CNCL-4: invoke-parent path — the derived child's reason === parentSignal.reason", async () => {
     const parent = new AbortController();
     const reason = new Error("parent reason");
-    const child = deriveChildLoomAbort(parent.signal);
+    const { controller: child } = deriveChildLoomAbort(parent.signal);
 
     const checkpoint = new ScriptedCheckpoint(() => parent.abort(reason));
     await checkpoint.before("invoke");
@@ -198,7 +198,7 @@ describe("V17a-T — CNCL-4 abort-reason propagation through all three paths", (
 describe("V17a-T — downward-only propagation (parent → child, never child → parent)", () => {
   it("propagates parent → child: aborting the parent aborts the derived child", () => {
     const parent = new AbortController();
-    const child = deriveChildLoomAbort(parent.signal);
+    const { controller: child } = deriveChildLoomAbort(parent.signal);
     expect(child.signal.aborted).toBe(false);
 
     parent.abort(new Error("parent"));
@@ -207,7 +207,7 @@ describe("V17a-T — downward-only propagation (parent → child, never child �
 
   it("never propagates child → parent: a child cancelling internally leaves the parent's signal untouched", () => {
     const parent = new AbortController();
-    const child = deriveChildLoomAbort(parent.signal);
+    const { controller: child } = deriveChildLoomAbort(parent.signal);
 
     child.abort(new Error("child internal cancel"));
     // Downward-only: the child's internal cancel does not abort the parent.
@@ -219,7 +219,7 @@ describe("V17a-T — downward-only propagation (parent → child, never child �
     const reason = new Error("pre-aborted parent");
     parent.abort(reason);
 
-    const child = deriveChildLoomAbort(parent.signal);
+    const { controller: child } = deriveChildLoomAbort(parent.signal);
     // A parent already aborted at spawn time yields an already-aborted child
     // carrying the parent's reason (the child surfaces cancelled synchronously).
     expect(child.signal.aborted).toBe(true);

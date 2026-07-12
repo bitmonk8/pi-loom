@@ -55,6 +55,7 @@ import type {
   ActiveInvocationEntry,
   ActiveInvocationRegistry,
 } from "../runtime/active-invocation-registry";
+import type { ForwardingSignalSource } from "./session-shutdown";
 import type {
   BinderRunInput,
   BinderRunResult,
@@ -288,6 +289,23 @@ export interface ProductionProducerInput {
    * behaviour.
    */
   readonly activeInvocations?: ActiveInvocationRegistry;
+  /**
+   * Decision 6 / Increment B2 (session-shutdown-semantics.md sub-step 5): the
+   * extension-instance-scoped mutable sink of INVOCATION-SCOPED forwarding
+   * listeners, shared with the factory's `session_shutdown` teardown so
+   * sub-step 5 detaches the listeners still attached for an invocation in-flight
+   * at shutdown time. Each `bindPromptConversation` / `spawnSubagentConversation`
+   * choke point pushes one `ForwardingSignalSource` per invocation-scoped
+   * forward (the bind-time `ctx.signal` forward; the derived-child parent-invoke
+   * listener) and splices+detaches them in `finishInvocation`, so only a
+   * still-in-flight-at-shutdown invocation leaves entries for sub-step 5. Absent
+   * on non-production harnesses, in which case the choke points push nothing
+   * (the `?.` no-ops). PER-TURN forwards (the query-loop `ctx.signal` re-forward)
+   * are deliberately NOT collected — their `{once:true}` listeners sit on
+   * per-turn-transient `ctx.signal` objects that self-clean, so collecting them
+   * would only add per-turn push/splice churn for no lifetime benefit.
+   */
+  readonly forwardingSignals?: ForwardingSignalSource[];
 }
 
 /**
@@ -937,6 +955,35 @@ class ProductionLoomProducer implements LoomProducerDeps {
     );
   }
 
+  /**
+   * Decision 6 / Increment B2: push the invocation-scoped forwarding sources
+   * onto the shared `forwardingSignals` sink and return a teardown closure that
+   * detaches each listener and splices it back off. `finishInvocation` runs the
+   * closure on a NORMAL settle so only a still-in-flight-at-shutdown invocation
+   * leaves entries for `session_shutdown` sub-step 5. No-ops when the sink is
+   * absent (non-production harness) or there are no sources. The detach closures
+   * are `removeEventListener` calls that never throw, so no broad catch is
+   * needed (conventions.md — specific exception types only).
+   */
+  #trackForwardingSources(
+    sources: readonly ForwardingSignalSource[],
+  ): () => void {
+    const sink = this.#input.forwardingSignals;
+    if (sink === undefined || sources.length === 0) {
+      return (): void => {};
+    }
+    sink.push(...sources);
+    return (): void => {
+      for (const source of sources) {
+        source.removeEventListener();
+        const index = sink.indexOf(source);
+        if (index !== -1) {
+          sink.splice(index, 1);
+        }
+      }
+    };
+  }
+
   bindPromptConversation(bindInput: ConversationBindInput): ConversationBinding {
     const { pi, root } = this.#input;
     const { loom, ctx } = bindInput;
@@ -958,11 +1005,31 @@ class ProductionLoomProducer implements LoomProducerDeps {
     // aborts, never the reverse — `deriveChildLoomAbort`). A top-level prompt
     // dispatch (or in-memory harness) carries no `parentSignal` and gets the
     // dispatch-owned controller (or a fresh one).
-    const loomAbort =
-      bindInput.parentSignal !== undefined
-        ? deriveChildLoomAbort(bindInput.parentSignal)
-        : bindInput.loomAbort ?? createLoomAbort();
-    forwardSlashCommandCancel(loomAbort, ctx.signal);
+    // Decision 6 / Increment B2: collect the INVOCATION-SCOPED forwarding
+    // listeners so `session_shutdown` sub-step 5 can detach any still attached
+    // for an invocation in-flight at shutdown. Strictly additive — the abort
+    // forwarding is byte-identical; only the detach handles are now captured.
+    const forwardingSources: ForwardingSignalSource[] = [];
+    let loomAbort: AbortController;
+    if (bindInput.parentSignal !== undefined) {
+      const derived = deriveChildLoomAbort(bindInput.parentSignal);
+      loomAbort = derived.controller;
+      forwardingSources.push({
+        label: "parentInvokeSignal.removeEventListener",
+        removeEventListener: derived.detach,
+      });
+    } else {
+      loomAbort = bindInput.loomAbort ?? createLoomAbort();
+    }
+    // The bind-time `ctx.signal` forward is the ONE invocation-scoped `ctx.signal`
+    // source collected per invocation: the redundant drive-seam forward
+    // (`composeLoomFixture.run`) attaches a second `{once:true}` listener to the
+    // same per-turn-transient `ctx.signal` and is deliberately NOT double-counted
+    // here (it self-cleans like the per-turn listeners).
+    forwardingSources.push({
+      label: "ctx.signal.removeEventListener",
+      removeEventListener: forwardSlashCommandCancel(loomAbort, ctx.signal),
+    });
     const signal = loomAbort.signal;
 
     // The user session's resolved chronological message list — the PIC-53
@@ -1048,12 +1115,19 @@ class ProductionLoomProducer implements LoomProducerDeps {
       invocationId: root.idSource.newInvocationId(),
     };
     activeInvocations?.add(entry);
+    // Publish the invocation-scoped forwarding sources onto the shared sink LAST
+    // (this method is synchronous and cannot throw between here and the return),
+    // so a normal settle removes them via `finishInvocation` and only a
+    // still-in-flight-at-shutdown invocation leaves them for sub-step 5.
+    const detachForwarding = this.#trackForwardingSources(forwardingSources);
     let finished = false;
     // Idempotent: the DRIVE `finally` calls this once; a defensive caller may
-    // call again with no effect.
+    // call again with no effect. A NORMAL settle detaches the forwarding
+    // listeners and splices them off the shared sink (no accumulation).
     const finishInvocation = (): void => {
       if (finished) return;
       finished = true;
+      detachForwarding();
       settleDispose();
       activeInvocations?.remove(entry);
     };
@@ -1122,10 +1196,29 @@ class ProductionLoomProducer implements LoomProducerDeps {
     // subagent dispatch (or an in-memory harness) with no parent gets a fresh
     // controller (shared with the dispatch entry when `bindInput.loomAbort` is
     // present). Both paths honour a per-invocation abort the same way.
-    const loomAbort =
-      bindInput.parentSignal !== undefined
-        ? deriveChildLoomAbort(bindInput.parentSignal)
-        : bindInput.loomAbort ?? createLoomAbort();
+    // Decision 6 / Increment B2: collect the INVOCATION-SCOPED forwarding
+    // listeners for sub-step 5. The subagent bind attaches NO invocation-scoped
+    // `ctx.signal` listener (its `ctx.signal` forward is the drive-seam one in
+    // `composeLoomFixture.run`, a `{once:true}` listener on a per-turn-transient
+    // `ctx.signal` that self-cleans — same rationale as the per-turn forwards).
+    // The one invocation-scoped source a subagent contributes is the
+    // derived-child parent-invoke listener (nested invoke only). The
+    // `attachSubagentAbortForwarding` forward is EXCLUDED here: it forwards
+    // `loomAbort` INTO the spawned session (opposite direction to a
+    // `ForwardingSignalSource` inbound source) and is already detached in
+    // `surface()`.
+    const forwardingSources: ForwardingSignalSource[] = [];
+    let loomAbort: AbortController;
+    if (bindInput.parentSignal !== undefined) {
+      const derived = deriveChildLoomAbort(bindInput.parentSignal);
+      loomAbort = derived.controller;
+      forwardingSources.push({
+        label: "parentInvokeSignal.removeEventListener",
+        removeEventListener: derived.detach,
+      });
+    } else {
+      loomAbort = bindInput.loomAbort ?? createLoomAbort();
+    }
 
     // SUBAG-1: render the loom's `system:` frontmatter into the spawned
     // conversation's system prompt (subagent.md §"Subagent state-isolation
@@ -1430,12 +1523,18 @@ class ProductionLoomProducer implements LoomProducerDeps {
       invocationId: root.idSource.newInvocationId(),
     };
     activeInvocations?.add(entry);
+    // Publish the invocation-scoped forwarding sources onto the shared sink LAST
+    // — after the final awaitable spawn step already resolved, so a spawn
+    // failure rejects BEFORE any source is pushed and never leaves a leak.
+    const detachForwarding = this.#trackForwardingSources(forwardingSources);
     let finished = false;
     // Idempotent: the DRIVE `finally` calls this once; a defensive caller may
-    // call again with no effect.
+    // call again with no effect. A NORMAL settle detaches the forwarding
+    // listeners and splices them off the shared sink (no accumulation).
     const finishInvocation = (): void => {
       if (finished) return;
       finished = true;
+      detachForwarding();
       settleDispose();
       activeInvocations?.remove(entry);
     };
@@ -2360,6 +2459,12 @@ class LivePromptQueryModel implements QueryModelDriver {
       // `@`-query" path. Idempotent: the one-shot guard on `loomAbort.abort()`
       // makes a repeat forward a no-op, and the listener is `{ once: true }` on
       // the per-turn transient `ctx.signal`, so no long-lived controller leaks.
+      // Decision 6 / Increment B2: this PER-TURN forward's detach is deliberately
+      // NOT collected onto the shared `forwardingSignals` sink — the listener sits
+      // on a per-turn-transient `ctx.signal` that self-cleans (`{once:true}` and
+      // GC'd with the turn), so collecting it would add per-turn push/splice
+      // churn for no shutdown-lifetime benefit. Only the invocation-scoped bind
+      // forwards are collected (sub-step 5 detaches those).
       forwardSlashCommandCancel(this.#loomAbort, this.#ctx.signal);
       await this.#pollWhile(() => !this.#ctx.isIdle(), TURN_END_POLL_BOUND);
       await this.#ctx.waitForIdle();

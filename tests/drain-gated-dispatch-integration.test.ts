@@ -158,6 +158,7 @@ async function boot(
       looms,
       registry,
       activeInvocations: new ActiveInvocationRegistry(),
+      forwardingSignals: [],
       clock: new FakeClock(),
       installHotReload: () => ({ detach: (): void => {} }),
     }),

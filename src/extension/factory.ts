@@ -41,6 +41,7 @@ import {
 import {
   runSessionShutdown,
   type SessionShutdownDeps,
+  type ForwardingSignalSource,
 } from "./session-shutdown";
 import { ActiveInvocationRegistry } from "../runtime/active-invocation-registry";
 import type { Clock } from "../seams/clock";
@@ -252,6 +253,11 @@ export function createLoomExtension(
     // falls back to a fresh empty registry (a no-op teardown) when compose never
     // ran, keeping the compose-never-ran path safe.
     let liveActiveInvocations: ActiveInvocationRegistry | undefined;
+    // Decision 6 / Increment B2: the live shared sink of invocation-scoped
+    // forwarding listeners published by compose. `undefined` until compose runs;
+    // the shutdown handler falls back to an empty list (a no-op sub-step 5) when
+    // compose never ran, keeping the compose-never-ran path safe.
+    let liveForwardingSignals: ForwardingSignalSource[] | undefined;
     // Step 1 — `--loom` flag. Synchronous-void; per-call wrapped. A
     // `registerFlag` throw is FATAL to the whole extension: step 1's `--loom`
     // flag is what every subsequent discovery / `resources_discover` walk reads
@@ -475,6 +481,10 @@ export function createLoomExtension(
       // bind choke points register in-flight invocations into, so the teardown's
       // sub-steps 2/3 operate on REAL entries.
       liveActiveInvocations = wiring.activeInvocations;
+      // Decision 6 / Increment B2: publish the shared forwarding-listener sink
+      // the producer's bind choke points push invocation-scoped sources onto, so
+      // the teardown's sub-step 5 detaches REAL still-attached listeners.
+      liveForwardingSignals = wiring.forwardingSignals;
       registerFixtures([...deps.fixtures, ...wiring.looms], wiring.registry);
       try {
         hotReloadHandle = wiring.installHotReload(
@@ -553,8 +563,12 @@ export function createLoomExtension(
             },
             settingsWatcher: { close: (): void => {} },
             debounceHandle: undefined,
-            // Increment A: no forwarding signals threaded yet (Increment B).
-            forwardingSignals: [],
+            // Increment B2: the live shared forwarding-listener sink the producer's
+            // bind choke points push invocation-scoped sources onto, so sub-step 5
+            // detaches the listeners still attached for an invocation in-flight at
+            // shutdown. Falls back to an empty list only when compose never ran
+            // (nothing was ever pushed), keeping that path an instant no-op.
+            forwardingSignals: liveForwardingSignals ?? [],
             inventory: undefined,
             sink: {
               emit: (line: unknown): void => {

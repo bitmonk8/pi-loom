@@ -97,6 +97,7 @@ import {
 } from "./loom-composition-producer";
 import { createProductionProducerDeps } from "./production-loom-producer";
 import { ActiveInvocationRegistry } from "../runtime/active-invocation-registry";
+import type { ForwardingSignalSource } from "./session-shutdown";
 
 /** Seam overrides for test injection — the FAKE FileWatcher / Clock the
  * watcher-hot-reload integration test drives through the real composition. */
@@ -196,6 +197,10 @@ export async function discoverAndComposeFixtures(
     root,
     emitDiagnostic,
     new ActiveInvocationRegistry(),
+    // No `session_shutdown` wiring on this path (that is the `composeInstance`
+    // path), so it composes against a throwaway forwarding sink no teardown
+    // observes.
+    [],
   );
   return pass.looms;
 }
@@ -226,6 +231,12 @@ async function runComposePass(
   // `session_shutdown` teardown reads. A reload pass reuses the same instance so
   // re-composed looms register there too.
   activeInvocations: ActiveInvocationRegistry,
+  // Decision 6 / Increment B2 (session-shutdown-semantics.md sub-step 5): the
+  // extension-instance-scoped mutable sink of invocation-scoped forwarding
+  // listeners, threaded into every composed loom's producer so the bind choke
+  // points push into the SAME array the factory's `session_shutdown` sub-step 5
+  // detaches. A reload pass reuses the same instance.
+  forwardingSignals: ForwardingSignalSource[],
   excludeOwnedNames?: ReadonlySet<string>,
 ): Promise<ComposePassResult> {
   const fileSystem = root.fileSystem;
@@ -317,6 +328,10 @@ async function runComposePass(
     // producer's bind choke points register entries the factory's
     // `session_shutdown` sub-steps 2/3 operate on.
     activeInvocations,
+    // Decision 6 / Increment B2: share the forwarding-listener sink so the
+    // producer's bind choke points push invocation-scoped forwarding sources the
+    // factory's `session_shutdown` sub-step 5 detaches.
+    forwardingSignals,
     // H8b: resolve a code-side Pi-tool name to its `execute` dispatch over the
     // live host `cwd` / `ctx`.
     resolvePiTool: (name: string) => resolvePiTool(name, ctx),
@@ -503,6 +518,17 @@ export interface ExtensionInstanceWiring {
    */
   readonly activeInvocations: ActiveInvocationRegistry;
   /**
+   * Decision 6 / Increment B2 (session-shutdown-semantics.md sub-step 5): the
+   * live extension-instance-scoped sink of invocation-scoped forwarding
+   * listeners, shared with every composed loom's producer. Threaded to the
+   * factory so its `session_shutdown` sub-step 5 detaches the SAME listeners the
+   * bind choke points push — detaching those still attached for an invocation
+   * in-flight at shutdown (a normal settle already spliced+detached its own).
+   * Exposed as the mutable array (not a `readonly` view) because it is a live
+   * sink the producer pushes onto and splices off across the instance lifetime.
+   */
+  readonly forwardingSignals: ForwardingSignalSource[];
+  /**
    * The live `Clock` seam the composition root built once and the step-5
    * watcher / 250 ms debounce measure against. Threaded so the factory's
    * `session_shutdown` teardown reads the SAME clock instance the watcher used
@@ -545,6 +571,15 @@ export async function composeExtensionInstance(
   // choke points register. Reused across hot-reload passes.
   const activeInvocations = new ActiveInvocationRegistry();
 
+  // Decision 6 / Increment B2 (session-shutdown-semantics.md sub-step 5): ONE
+  // extension-instance-scoped sink of invocation-scoped forwarding listeners,
+  // constructed beside `activeInvocations` and shared with (a) every composed
+  // loom's producer via `runComposePass` and (b) the factory's
+  // `session_shutdown` teardown via the returned wiring — so sub-step 5 detaches
+  // the SAME listeners the bind choke points push. Reused across hot-reload
+  // passes.
+  const forwardingSignals: ForwardingSignalSource[] = [];
+
   // The `loom-system-note` delivery channel: carries the informational
   // structural-change note and the ERR-7 watcher-time reload failures
   // (`triggerTurn:false`).
@@ -556,7 +591,14 @@ export async function composeExtensionInstance(
     emitDiagnosticBatch([diagnostic], channel);
   };
 
-  const initial = await runComposePass(pi, ctx, root, emitLoad, activeInvocations);
+  const initial = await runComposePass(
+    pi,
+    ctx,
+    root,
+    emitLoad,
+    activeInvocations,
+    forwardingSignals,
+  );
 
   // The watched set: the active discovery-root union plus the two settings-file
   // paths (project `.pi/settings.json`, global `~/.pi/agent/settings.json`).
@@ -575,6 +617,7 @@ export async function composeExtensionInstance(
     looms: initial.looms,
     registry,
     activeInvocations,
+    forwardingSignals,
     clock: root.clock,
     installHotReload(reRegister): HotReloadHandle {
       return installHotReload({
@@ -591,6 +634,7 @@ export async function composeExtensionInstance(
               root,
               emitErr7,
               activeInvocations,
+              forwardingSignals,
               new Set(registry.snapshot().keys()),
             )
           ).looms,
