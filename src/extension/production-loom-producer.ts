@@ -673,15 +673,6 @@ class ProductionLoomProducer implements LoomProducerDeps {
         ctx.sessionManager.getLeafId(),
       ).messages as unknown as readonly Message[];
 
-    // Only the first query in a dispatch drives a user-visible streamed turn
-    // (SLSH-2); any subsequent query in the same body is a chained follow-up run
-    // off-session (`complete()`, no transcript card, PIC-51-style out-of-band).
-    // This keeps exactly one turn streamed per dispatch so a body's trailing
-    // query cannot interleave its stream with the primary turn's. See the module
-    // header / status DIVERGENCE: a fuller design would stream every prompt-mode
-    // turn, which the shipped acceptance looms do not require.
-    let queryOrdinal = 0;
-
     const hostDeps: EffectfulStatementHostDeps = {
       checkpoint: root.checkpoint,
       signal,
@@ -689,17 +680,17 @@ class ProductionLoomProducer implements LoomProducerDeps {
       file: loom.slashName,
       evaluatePure: (expr, env) => evaluatePureExpression(expr, env),
       resolveQuery: (expr, env) => {
+        // SLSH-2: EVERY non-short-circuit prompt-mode query is a user-visible
+        // streamed turn against the user session — assistant tokens for every
+        // query (not just the first) stream into the transcript in real time.
+        // Prompt→prompt invokes and the body run strictly SEQUENTIALLY (the
+        // executor awaits each query), so there is no stream-interleaving risk.
         // QRY-6/QRY-8: a query whose rendered template is empty short-circuits
-        // to `Err(empty_template)` with NO provider turn, so it must not consume
-        // the single user-visible streamed-turn budget (SLSH-2) — the NEXT real
-        // query is the first user-visible turn. Without this, an empty-template
-        // query at the head of a body would silence the downstream query.
+        // to `Err(empty_template)` with NO provider turn (not user-visible — no
+        // turn is issued at all).
         const shortCircuits =
           renderEmptyShortCircuit(renderQueryText(expr, env)) !== undefined;
-        const userVisible = !shortCircuits && queryOrdinal === 0;
-        if (!shortCircuits) {
-          queryOrdinal += 1;
-        }
+        const userVisible = !shortCircuits;
         return this.#resolvePromptQuery(expr, env, {
           pi,
           ctx,

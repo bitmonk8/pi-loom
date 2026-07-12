@@ -3,24 +3,22 @@
 //
 // The guide promises "a small program that drives a conversation across as many
 // turns as it needs" where "the model's responses flow back as values the code
-// can inspect and branch on." This lens verifies the DATA FLOW is CORRECT — not
-// visibility (prompt-mode chained-query visibility is QTL-1, KNOWN, not
-// re-reported).
+// can inspect and branch on." This lens verifies the DATA FLOW is CORRECT.
+// (Prompt-mode every-query visibility was QTL-1, now FIXED — see
+// cli-findings/queries-toolloop.md and session-promptstream.test.ts.)
 //
 // Methodology note: the harness `toolCalls` channel only captures MODEL-driven
 // tool calls, NOT loom-code-driven `read(...)` calls (an earlier draft that keyed
-// on code-tool args observed nothing). And in prompt mode only the FIRST query is
-// user-visible (QTL-1), so `userTexts` cannot observe a later same-conversation
-// query. The single reliable deterministic channel for a computed value is a
-// parent loom's FIRST (visible) query text. So every model-derived value under
-// test is produced inside a SUBAGENT child (which drives its own multi-turn
-// conversation and returns a FINAL VALUE) and read back by a prompt parent whose
-// one visible query interpolates it. `userTexts` is computed by code BEFORE send,
-// so it deterministically reflects the value the code held.
+// on code-tool args observed nothing). This lens observes VALUE FLOW, not
+// visibility, so every model-derived value under test is produced inside a
+// SUBAGENT child (which drives its own multi-turn conversation and returns a
+// FINAL VALUE) and read back by a prompt parent whose query interpolates it.
+// `userTexts` is computed by code BEFORE send, so it deterministically reflects
+// the value the code held.
 //
 // Findings: see session-findings/convdrive.md (CONV-N).
 //
-// Dedupe: QTL-1 (prompt-mode chained queries invisible) is KNOWN — we observe
+// Dedupe: QTL-1 (prompt-mode chained queries invisible) is FIXED — we observe
 // value flow, not visibility. INVCEIL-3 (untyped invoke -> null), INV-6 (typed
 // return validation), XMODE-* are prior findings and not re-reported.
 

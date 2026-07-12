@@ -2,8 +2,8 @@
 
 Lens: Loom's core query round-trip machinery, driven through the **real `pi` CLI**
 (`pi -ne -e ./extensions --loom <dir> --model claude-haiku-4-5 -p "/<stem>"`).
-Observation channels: the first prompt-mode query streams to stdout (the sole
-user-visible turn — see QTL-1), `--mode json` `agent_end`/`message_end`/tool-use
+Observation channels: prompt-mode queries stream to stdout (every query is a
+user-visible turn as of the QTL-1 fix — see QTL-1), `--mode json` `agent_end`/`message_end`/tool-use
 events, deterministic marker files written by code-driven `bash(...)` calls, and
 registration (a loom that fails to load is sent to the model as literal chat).
 
@@ -20,7 +20,34 @@ Dedupe: distinct from `tests/hardening/findings/queries-schemas.md`
 
 ---
 
-## FINDING QTL-1: prompt-mode drops every query after the first from the user-visible conversation (chained queries run off-session)
+## FINDING QTL-1 [FIXED]: prompt-mode drops every query after the first from the user-visible conversation (chained queries run off-session)
+
+**STATUS: FIXED** (Phase 3a, production-conformance program). The self-acknowledged
+DIVERGENCE is removed: in prompt mode EVERY non-short-circuit query is now a
+real user-visible streamed turn against the user session (SLSH-2). The off-session
+chained-query path (`OffSessionQueryModel` / `offSessionComplete`) is no longer
+routed to for prompt-mode real queries — the `queryOrdinal` gate that limited
+visibility to the first query was deleted; `userVisible = !shortCircuits`. The
+empty-template short-circuit still issues NO provider turn. Each query turn
+installs the loom's callable-set active tools (QTL-4 set). This also resolves the
+off-session empty-reply auth bug (the off-session path resolved no request auth,
+so a chained query could return an empty error-stop reply).
+
+Fix site: `src/extension/production-loom-producer.ts` `bindPromptConversation`
+(`resolveQuery` closure — `userVisible` computation).
+
+Live before/after (probe `tests/hardening/session-promptstream.test.ts`, a
+prompt-mode loom with two sentinel-pinned body queries `Reply with exactly: AAA`
+then `Reply with exactly: BBB`, observing the harness `assistantText` streamed-
+text channel):
+
+- BEFORE (pre-fix source): `assistantText: "AAA"`, `userTexts: ["Reply with
+  exactly: AAA"]` — only the first query streamed; BBB ran off-session and never
+  reached the transcript.
+- AFTER (fix): `assistantText: "AAABBB"`, `userTexts: ["Reply with exactly: AAA",
+  "Reply with exactly: BBB"]` — both replies stream, both are real non-empty turns.
+
+Original finding (retained for provenance):
 
 - repro:
   ```loom
