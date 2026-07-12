@@ -179,8 +179,11 @@ import { fillDefaultsAndRevalidate, type DefaultedField } from "../binder/defaul
 import { matchAvailableModel } from "../binder/binder-model";
 import {
   renderBinderSystemNote,
+  type BinderAttemptOutcome,
   type BinderFailureSurface,
 } from "../binder/retry-taxonomy";
+import { classifyProviderResponse } from "../binder/provider-error-mapping";
+import { coerceUnderlyingString } from "../diagnostics/placeholder";
 import { capSystemNote, classifyModelContent } from "../binder/system-note";
 import {
   renderArgumentEcho,
@@ -464,7 +467,14 @@ class ProductionLoomProducer implements LoomProducerDeps {
       line: 1,
       column: 1,
     };
-    let text = "";
+    // The binder attempt is CLASSIFIED per determinism-cancellation-failure.md
+    // §Failure-class taxonomy so the per-class retry budget (HC3-a transport /
+    // HC3-b malformed, driven by `runBinderCallWithCancellation`) actually
+    // re-drives a transient failure — a provider throw / `stopReason:"error"` /
+    // overflow classifies as `transport` (one retry), an unparseable envelope as
+    // `malformed` (one retry); `ok`/`needs_info`/`ambiguous` are terminal. The
+    // winning `ok` attempt's parsed args are captured for the defaults-merge.
+    let okArgs: Record<string, unknown> = {};
     const phase = await runCheckpointedBinderCall(
       this.#input.root.checkpoint,
       signal,
@@ -474,12 +484,11 @@ class ProductionLoomProducer implements LoomProducerDeps {
           loomName: binderInput.loom.slashName,
           signal,
           attempt: async (_attemptIndex, attemptSignal) => {
-            text = await this.#completeBinderOffSession(model, prompt, attemptSignal);
-            // The parse routing below owns needs_info / ambiguous / malformed;
-            // a reached attempt is terminal here (no retry-taxonomy re-drive),
-            // so the driver's before/after abort checks are the only
-            // cancellation gate over the in-flight call.
-            return { kind: "ok" };
+            const classified = await this.#classifyBinderAttempt(model, prompt, attemptSignal);
+            if (classified.okArgs !== undefined) {
+              okArgs = classified.okArgs;
+            }
+            return classified.outcome;
           },
         }),
     );
@@ -493,13 +502,14 @@ class ProductionLoomProducer implements LoomProducerDeps {
       this.#emitBinderFailureNote(binderInput.loom.slashName, { kind: "cancelled" });
       return { bound: false };
     }
-    // Route on the parsed envelope. The loom body runs only on the `ok` arm; a
-    // `needs_info` / `ambiguous` / non-parse (malformed) reply emits the mapped
+    // Route on the terminal (most-recent, HC3-e) classified outcome. The loom
+    // body runs only on the `ok` arm; every failure arm (`needs_info` /
+    // `ambiguous` / `malformed` / `transport`-budget-exhausted) emits the mapped
     // failure-mode system note and short-circuits (the body never runs). The
-    // envelope text is runtime-internal and is never surfaced verbatim.
-    const reply = await parseBinderEnvelope(text);
-    if (reply.kind !== "ok") {
-      this.#emitBinderFailureNote(binderInput.loom.slashName, reply);
+    // envelope is runtime-internal and is never surfaced verbatim.
+    const outcome = phase.value.outcome;
+    if (outcome.kind !== "ok") {
+      this.#emitBinderFailureNote(binderInput.loom.slashName, outcome);
       return { bound: false };
     }
     // §Defaulting (defaulting-system-note-echo.md#post-default-merge-ajv-validation;
@@ -513,7 +523,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
     // here — a defaulted field forces the `binder` classification (the
     // single-string / no-params bypasses carry no defaults), so the bypass arms
     // above are intentionally left unchanged.
-    const binderArgs = await parseOkEnvelopeArgs(text);
+    const binderArgs = okArgs;
     const mergedArgs = await this.#mergeDeclaredDefaults(binderInput.loom, params, binderArgs);
     // §"Echo policy" (BND-1): on a successful bind the runtime appends the
     // one-line success echo note (`Running /<name>: …`) on the loom-system-note
@@ -580,24 +590,89 @@ class ProductionLoomProducer implements LoomProducerDeps {
   }
 
   /**
-   * Drive the binder turn OFF-session via pi-ai `complete()` against the
-   * resolved binder `Model<Api>`, returning its assistant text. Resolves the
-   * model's request auth (apiKey / headers) off the injected model registry and
-   * passes it as request options; the binder's fixed `context.messages` is the
-   * rendered prompt as a single `user` message. No user-session turn, no
-   * transcript card — the reply is runtime-internal (BND-3).
+   * Classify ONE binder attempt (determinism-cancellation-failure.md
+   * §Failure-class taxonomy) into a `BinderAttemptOutcome` the per-class retry
+   * budget driver consumes. A synchronous/async throw from the provider call, or
+   * a reply carrying `stopReason:"error"`/`"length"`/overflow, classifies as
+   * `transport` (folding ContextOverflow into transport per the taxonomy) with
+   * `provider = Model<Api>.api`; a clean reply is parsed as the envelope and
+   * routed `ok`/`needs_info`/`ambiguous`/`malformed`. The `ok` arm's parsed args
+   * are returned for the defaults-merge. `temperature: 0` is set (spec
+   * Determinism); the FNV-1a seed / forced-tool structured output are NOT used
+   * (the pinned forced-tool mechanism is unrealizable against the available
+   * providers — a top-level `anyOf` envelope is not a valid tool `input_schema`,
+   * yielding empty tool args — so the binder stays a free-text envelope call).
    */
-  async #completeBinderOffSession(
+  async #classifyBinderAttempt(
     model: Model<Api>,
     prompt: string,
     signal: AbortSignal,
-  ): Promise<string> {
+  ): Promise<{ readonly outcome: BinderAttemptOutcome; readonly okArgs?: Record<string, unknown> }> {
+    const provider = String(model.api);
+    let reply: AssistantMessage;
+    try {
+      reply = await this.#completeBinderReply(model, prompt, signal);
+    } catch (thrown: unknown) { // allow-broad-catch: pi-sdk-boundary — a provider transport throw → HC3-a transport class
+      // A cancellation abort is surfaced by the caller's before/after-attempt
+      // signal checks, not misclassified as a retryable transport failure.
+      if (signal.aborted) {
+        return { outcome: { kind: "transport", provider, message: "cancelled" } };
+      }
+      return { outcome: { kind: "transport", provider, message: coerceUnderlyingString(thrown) } };
+    }
+    const stopReason = (reply as { readonly stopReason?: string }).stopReason ?? "";
+    // A non-turn-boundary stop reason (provider error / output-limit overflow)
+    // classifies through the shared provider-error taxonomy; ContextOverflow
+    // folds into the transport class before the retry driver (HC3-a).
+    if (stopReason === "error" || stopReason === "length" || stopReason === "content_filter") {
+      const classified = classifyProviderResponse({
+        api: provider,
+        httpStatus: 200,
+        stopReason,
+        ...(typeof (reply as { errorMessage?: string }).errorMessage === "string"
+          ? { errorMessage: (reply as { errorMessage?: string }).errorMessage }
+          : {}),
+      });
+      const message =
+        classified.kind === "transport" && classified.message !== ""
+          ? classified.message
+          : "provider transport failure";
+      return { outcome: { kind: "transport", provider, message } };
+    }
+    // Clean reply: parse and route the free-text envelope.
+    const routing = await parseBinderEnvelope(assistantText(reply));
+    if (routing.kind === "ok") {
+      const okArgs = await parseOkEnvelopeArgs(assistantText(reply));
+      return { outcome: { kind: "ok" }, okArgs };
+    }
+    return { outcome: routing };
+  }
+
+  /**
+   * Issue ONE OFF-session binder `complete()` against the resolved binder
+   * `Model<Api>` and return the raw reply. Resolves the model's request auth
+   * (apiKey / headers) off the injected model registry and passes it as request
+   * options; the fixed `context.messages` is the rendered prompt as a single
+   * `user` message, at `temperature: 0` (Determinism). No user-session turn, no
+   * transcript card — the reply is runtime-internal (BND-3).
+   */
+  async #completeBinderReply(
+    model: Model<Api>,
+    prompt: string,
+    signal: AbortSignal,
+  ): Promise<AssistantMessage> {
     const auth = await this.#input.modelRegistry.getApiKeyAndHeaders(model);
     const options: Record<string, unknown> = {};
     // CANCEL-4 in-flight forwarding: thread `loomAbort.signal` into the binder
     // provider invocation as `options.signal` (pi-ai `StreamOptions.signal`), so
     // an abort observed during the call propagates to the provider's abort path.
     options["signal"] = signal;
+    // Determinism (determinism-cancellation-failure.md §Determinism): the binder
+    // call is `temperature: 0` (the FNV-1a seed is omitted here — omitted for the
+    // anthropic-messages / amazon-bedrock transports the binder guidance steers
+    // toward, and the forced-tool structured-output call it belongs to is not
+    // realizable against the available providers).
+    options["temperature"] = 0;
     if (auth.ok) {
       if (auth.apiKey !== undefined) {
         options["apiKey"] = auth.apiKey;
@@ -606,12 +681,11 @@ class ProductionLoomProducer implements LoomProducerDeps {
         options["headers"] = auth.headers;
       }
     }
-    const reply: AssistantMessage = await complete(
+    return complete(
       model,
       { messages: [{ role: "user", content: prompt, timestamp: 0 }] },
       options,
     );
-    return assistantText(reply);
   }
 
   /**

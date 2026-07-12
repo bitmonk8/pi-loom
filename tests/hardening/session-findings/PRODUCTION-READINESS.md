@@ -121,6 +121,34 @@ detail + spec anchors + unwired evidence: `dead-code-audit.md` (FLAGGED-UNWIRED)
   tool-args ceiling-#4 analogue `enforceCodeToolArgDepth` (V14e, `tool-call.ts`)
   is ALSO unwired — same defect class, out of this decision's named scope; flagged
   for a later decision.
+- **Binder context subsystem (5 modules). 🔶 PARTIAL (decision 4, sub-phases): b1 NOT realizable; b2 FIXED; b3 pending.**
+  **Corrected spec analysis:** the spec pins the binder call as a forced-tool
+  structured-output `complete()` whose tool `parameters` are the three-arm
+  `anyOf` envelope (BNDR-1). **This is not realizable against the available
+  provider** — live-confirmed: a top-level `anyOf` is not a valid Anthropic tool
+  `input_schema` (must be `type:object`), so claude-haiku force-calls the tool
+  with `arguments: {}` (empty) → every genuine bind fails as malformed.
+  binder-model-and-context.md itself anticipates "runtime envelope-malformed
+  failures surface via the failure-mode template" under the loom-1.0 pin
+  (strict-capability universally absent). So the shipped FREE-TEXT envelope binder
+  is the pragmatically-correct implementation; adopting the forced-tool mechanism
+  (b1) is a regression that breaks all binding — **b1 dropped** (`binder-inference.ts`,
+  `binder-seed.ts`, `binder-system-prompt.ts`'s forced-tool path remain
+  intentionally unwired; recorded as a spec-vs-provider conflict).
+  **b2 FIXED (commit pending):** the provider-error retry taxonomy is now wired —
+  `runBinder`'s attempt callback CLASSIFIES the free-text `complete()` outcome
+  (`#classifyBinderAttempt`): a provider throw / `stopReason:"error"`/`"length"`/
+  overflow → `transport` (folds ContextOverflow in, via `classifyProviderResponse`),
+  an unparseable envelope → `malformed`, driving the already-built
+  `runBinderCallWithCancellation` per-class retry budget (HC3-a transport / HC3-b
+  malformed; one retry each). A transient 429 no longer kills the invocation.
+  `temperature: 0` added (Determinism). Verified: `npm test` 1612 + live
+  `session-binder.test.ts` (10) no-regression (retry loop unit-tested in
+  `binder-retry-taxonomy`/`binder-call-cancellation`; classifier in
+  `binder-inference-provider-mapping`). **b3 pending:** `bind_context: session`
+  (session-context-walk + compact-transcript + binder-system-prompt block —
+  mechanism-independent, works on the free-text prompt).
+
 - **Binder context subsystem (5 modules) unused by the Phase-1 off-session binder.**
   `session-context-walk.ts` (BNDR-10 `bind_context: session` truncation walk —
   a documented frontmatter feature that currently does nothing),
