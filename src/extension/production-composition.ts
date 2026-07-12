@@ -474,6 +474,13 @@ export interface ExtensionInstanceWiring {
    */
   readonly registry: LoomRegistry;
   /**
+   * The live `Clock` seam the composition root built once and the step-5
+   * watcher / 250 ms debounce measure against. Threaded so the factory's
+   * `session_shutdown` teardown reads the SAME clock instance the watcher used
+   * (`runSessionShutdown` sub-step 3 bounds its settle-all against it).
+   */
+  readonly clock: Clock;
+  /**
    * Arm the step-5 watcher + debounced hot-reload. `reRegister` is the
    * factory's own `session_start` registration step (collision pass +
    * `pi.registerCommand`), re-run on each reload against the freshly-composed
@@ -530,6 +537,7 @@ export async function composeExtensionInstance(
   return {
     looms: initial.looms,
     registry,
+    clock: root.clock,
     installHotReload(reRegister): HotReloadHandle {
       return installHotReload({
         watcher: root.fileWatcher,

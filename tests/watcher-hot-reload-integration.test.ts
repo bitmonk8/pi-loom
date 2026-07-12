@@ -66,7 +66,7 @@ interface Harness {
   /** Arm/disarm a `pi.getCommands()` throw (drives the watcher-time swap failure). */
   setGetCommandsThrows(v: boolean): void;
   fireSessionStart(): Promise<void>;
-  fireSessionShutdown(): void;
+  fireSessionShutdown(): Promise<void>;
 }
 
 function makeHarness(cwd: string): Harness {
@@ -134,9 +134,11 @@ function makeHarness(cwd: string): Harness {
       getCommandsThrows = v;
     },
     fireSessionStart: () => fire("session_start"),
-    fireSessionShutdown: () => {
-      void fire("session_shutdown");
-    },
+    // The wired `session_shutdown` handler is genuinely async (sub-step 4's
+    // watcher-detach runs after sub-step 3's bounded await), so the teardown is
+    // awaited before the test advances the clock — otherwise the pending
+    // debounce timer fires ahead of the detach that cancels it.
+    fireSessionShutdown: () => fire("session_shutdown"),
   };
 }
 
@@ -290,7 +292,7 @@ describe("Phase 5 (DISCO-2) — watcher / hot-reload wired through the shipped c
     fakeWatcher.emit({ kind: "change", path: join(loomDir, "second.loom") });
 
     // Tear down: session_shutdown must detach the watcher and cancel the timer.
-    harness.fireSessionShutdown();
+    await harness.fireSessionShutdown();
 
     // Crossing the boundary now fires nothing (the pending timer was cancelled),
     // and a post-teardown watcher event no longer reaches the debouncer.

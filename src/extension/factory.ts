@@ -34,7 +34,16 @@ import { renderUnderlyingError } from "../diagnostics/placeholder";
 import { createSystemNoteRenderer } from "./system-note-renderer";
 import type { RendererGate } from "./system-note-channel";
 import type { LoomRegistry, ParsedLoom } from "./reload-wiring";
-import { resolveSlashDispatchWithReadFailover } from "./drain-state";
+import {
+  resolveSlashDispatchWithReadFailover,
+  evalShutdownShortCircuitWithReadFailover,
+} from "./drain-state";
+import {
+  runSessionShutdown,
+  type SessionShutdownDeps,
+} from "./session-shutdown";
+import { ActiveInvocationRegistry } from "../runtime/active-invocation-registry";
+import type { Clock } from "../seams/clock";
 import type { HotReloadHandle } from "./hot-reload";
 import {
   composeExtensionInstance,
@@ -228,6 +237,16 @@ export function createLoomExtension(
     // compose-instance path and detached by `session_shutdown`. Closed over by
     // both handlers (one extension instance, no module-level state).
     let hotReloadHandle: HotReloadHandle | undefined;
+    // Factory-scoped live resources the `session_shutdown` teardown reads
+    // LAZILY. `wiring` (holding the registry + clock) is a local in
+    // `runComposeInstanceRegistration`, not factory-scoped, and the
+    // `session_shutdown` subscription is installed BEFORE compose runs
+    // (Factory-ordering pin, session-shutdown-semantics.md), so the handler
+    // cannot capture `wiring` directly — it reads these mutables at teardown
+    // time. Both stay `undefined` when compose never ran / failed, which the
+    // handler treats as "nothing to tear down".
+    let liveRegistry: LoomRegistry | undefined;
+    let liveClock: Clock | undefined;
     // Step 1 — `--loom` flag. Synchronous-void; per-call wrapped. A
     // `registerFlag` throw is FATAL to the whole extension: step 1's `--loom`
     // flag is what every subsequent discovery / `resources_discover` walk reads
@@ -444,6 +463,9 @@ export function createLoomExtension(
         registerFixtures(deps.fixtures);
         return;
       }
+      // Publish the live resources for the lazy `session_shutdown` teardown read.
+      liveRegistry = wiring.registry;
+      liveClock = wiring.clock;
       registerFixtures([...deps.fixtures, ...wiring.looms], wiring.registry);
       try {
         hotReloadHandle = wiring.installHotReload(
@@ -457,18 +479,86 @@ export function createLoomExtension(
       }
     }
 
-    // `session_shutdown` (step 4) — detach the step-5 watcher + cancel the
-    // pending debounce timer (registration-steps.md step 4). The teardown body
-    // is per-call wrapped so a watcher-close / timer-clear throw surfaces one
-    // diagnostic rather than propagating into the host teardown dispatch.
+    // `session_shutdown` (step 4) — run the five-sub-step teardown
+    // (session-shutdown-semantics.md). This increment wires the factory half:
+    // sub-step 1 (drain + init drain-state tag) and sub-step 4 (watcher-close +
+    // debounce-cancel) are REAL; the handler-entry short-circuit is REAL; and
+    // sub-steps 2/3/5 are live-but-empty (an empty `ActiveInvocationRegistry`
+    // and an empty `forwardingSignals` list make them instant no-ops until
+    // Increment B threads the real shared registry + signal list). The whole
+    // handler body stays wrapped in the never-throw factory boundary so a throw
+    // surfaces one diagnostic rather than propagating into the host teardown.
+    // `runSessionShutdown` is async and the host awaits a returned promise
+    // (`emitSessionShutdownEvent` → `await handler(...)`), so the handler returns
+    // it inside the try to preserve await-ordering.
     try {
-      pi.on("session_shutdown", () => {
+      pi.on("session_shutdown", (event) => {
         try {
-          hotReloadHandle?.detach();
+          // Read the live resources LAZILY (the subscription fires before compose
+          // runs). No live registry/clock means compose never ran / failed —
+          // there is nothing wired to tear down, so no-op safely.
+          const registry = liveRegistry;
+          const clock = liveClock;
+          if (registry === undefined || clock === undefined) {
+            return;
+          }
+
+          // Handler-entry short-circuit (spec steps I+II, PIC-31 idempotence):
+          // read the live drain state under the read-failover. A prior
+          // `session_shutdown` left the tag set, so a re-delivery short-circuits
+          // here (host-prerequisites clause (b)); a `readDrainState` throw fails
+          // OPEN (returns `false`) → proceed to the full five-sub-step teardown.
+          if (
+            evalShutdownShortCircuitWithReadFailover(() =>
+              registry.readDrainState(),
+            )
+          ) {
+            return;
+          }
+
+          const shutdownDeps: SessionShutdownDeps = {
+            registry,
+            // Increment A: an empty `ActiveInvocationRegistry` drives sub-steps
+            // 2/3 as instant no-ops (`snapshot()` is `[]`); Increment B threads
+            // the real shared registry.
+            activeInvocations: new ActiveInvocationRegistry(),
+            clock,
+            // ClosableWatcher ADAPTER — documented spec-vs-impl drift: the spec
+            // deps model TWO watchers (`discoveryWatcher` + `settingsWatcher`)
+            // plus a raw `clock.clearTimeout(debounceHandle)`; production runs
+            // ONE union `FileWatcher` + a `ReloadDebouncer` behind
+            // `HotReloadHandle.detach()` (which does the unsub AND the
+            // `debouncer.cancel()` — hot-reload.ts). So sub-step 4's
+            // watcher-close + debounce-cancel are BOTH delegated to `detach()`
+            // here; `settingsWatcher` is a no-op (the single union watcher
+            // already covers the settings paths, detached by this adapter) and
+            // `debounceHandle` is `undefined` (the debounce is cancelled inside
+            // `detach()`, not via a raw `TimerHandle`). The adapter reconciles
+            // the two shapes.
+            discoveryWatcher: {
+              close: (): void => {
+                hotReloadHandle?.detach();
+              },
+            },
+            settingsWatcher: { close: (): void => {} },
+            debounceHandle: undefined,
+            // Increment A: no forwarding signals threaded yet (Increment B).
+            forwardingSignals: [],
+            inventory: undefined,
+            sink: {
+              emit: (line: unknown): void => {
+                console.error(line);
+              },
+              serialise: (d: Diagnostic): string => JSON.stringify(d),
+            },
+          };
+
+          return runSessionShutdown({ reason: event.reason }, shutdownDeps);
         } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
           deps.emitDiagnostic?.(
             bootstrapFailedDiagnostic("pi.on", e, { event: "session_shutdown" }),
           );
+          return;
         }
       });
     } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
