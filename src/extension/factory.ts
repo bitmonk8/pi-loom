@@ -34,6 +34,7 @@ import { renderUnderlyingError } from "../diagnostics/placeholder";
 import { createSystemNoteRenderer } from "./system-note-renderer";
 import type { RendererGate } from "./system-note-channel";
 import type { LoomRegistry, ParsedLoom } from "./reload-wiring";
+import { resolveSlashDispatchWithReadFailover } from "./drain-state";
 import type { HotReloadHandle } from "./hot-reload";
 import {
   composeExtensionInstance,
@@ -321,7 +322,10 @@ export function createLoomExtension(
      * `registerCommand` throw drops only that loom — siblings still register —
      * and emits one diagnostic carrying its slash name.
      */
-    function registerFixtures(fixtures: readonly LoomFixture[]): void {
+    function registerFixtures(
+      fixtures: readonly LoomFixture[],
+      registry?: LoomRegistry,
+    ): void {
       try {
         pi.getCommands();
       } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
@@ -334,7 +338,18 @@ export function createLoomExtension(
             // frontmatter-fields-a.md: `description` populates the autocomplete
             // entry. Omitted when the loom declares none (registers untexted).
             ...(fixture.description !== undefined ? { description: fixture.description } : {}),
-            handler: (args, ctx: ExtensionCommandContext) => fixture.run(args, ctx),
+            // PIC-29..32: on the composeInstance path the REGISTERED handler is a
+            // drain-state-gated, registry-backed wrapper — read `readDrainState`
+            // under the PIC-31 slash-site fail-safe, then either dispatch the
+            // registry's CURRENT raw entry (so a post-swap reload is picked up on
+            // the next dispatch) or emit the shutting-down/superseded note. The
+            // registry stores the RAW run (`fixture.run` closures re-registered
+            // per swap) so the wrapper is the ONLY indirection (no recursion).
+            // The static/discovery paths (no registry) keep the raw pass-through.
+            handler:
+              registry !== undefined
+                ? drainGatedHandler(fixture.slashName, registry)
+                : (args, ctx: ExtensionCommandContext) => fixture.run(args, ctx),
           });
         } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
           deps.emitDiagnostic?.(
@@ -344,6 +359,44 @@ export function createLoomExtension(
           );
         }
       }
+    }
+
+    /**
+     * Build the PIC-29..32 drain-state-gated dispatch handler for one slash
+     * name (composeInstance path only). At dispatch time it reads
+     * `readDrainState` under the PIC-31 slash-site fail-safe and routes: arm (a)
+     * dispatches the registry's CURRENT raw entry (so a post-swap reload is
+     * picked up on the next dispatch, and a dropped/superseded entry yields the
+     * superseded note), arm (b) returns the shutting-down note. The note is
+     * delivered on the `loom-system-note` channel with `triggerTurn:false` — the
+     * same envelope as every other loom system note. The registry stores the RAW
+     * run, so this wrapper is the only indirection (no wrapper→wrapper recursion
+     * on re-register).
+     */
+    function drainGatedHandler(
+      name: string,
+      registry: LoomRegistry,
+    ): (args: string, ctx: ExtensionCommandContext) => Promise<void> {
+      return async (args: string, ctx: ExtensionCommandContext) => {
+        const outcome = resolveSlashDispatchWithReadFailover(
+          name,
+          () => registry.readDrainState(),
+          registry,
+        );
+        if (outcome.kind === "note") {
+          pi.sendMessage(
+            {
+              customType: SYSTEM_NOTE_CHANNEL,
+              content: outcome.content,
+              display: true,
+              details: { event: {} },
+            },
+            { triggerTurn: false },
+          );
+          return;
+        }
+        await outcome.loom.run(args, ctx);
+      };
     }
 
     /**
@@ -391,10 +444,11 @@ export function createLoomExtension(
         registerFixtures(deps.fixtures);
         return;
       }
-      registerFixtures([...deps.fixtures, ...wiring.looms]);
+      registerFixtures([...deps.fixtures, ...wiring.looms], wiring.registry);
       try {
         hotReloadHandle = wiring.installHotReload(
-          (looms: readonly ParsedLoom[]) => registerFixtures(looms),
+          (looms: readonly ParsedLoom[]) =>
+            registerFixtures(looms, wiring!.registry),
         );
       } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
         deps.emitDiagnostic?.(

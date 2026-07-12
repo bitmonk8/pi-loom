@@ -171,3 +171,27 @@ export function resolveSlashDispatch(
   }
   return { kind: "dispatch", loom };
 }
+
+/**
+ * The slash-command call-site consumer: read `readDrainState` under the PIC-31
+ * per-call `try`/`catch`, then resolve the outcome through `resolveSlashDispatch`.
+ * On a read-side throw the conservative fail-safe is arm (b): return the
+ * shutting-down system note rather than dispatch the loom (PIC-31 slash-command
+ * clause — distinct from `session_shutdown` step (I), which treats a throw as the
+ * steady-state tuple). The read may throw an arbitrary shape, so the catch is
+ * broad.
+ */
+export function resolveSlashDispatchWithReadFailover(
+  name: string,
+  read: () => DrainStateSnapshot,
+  registry: LoomRegistry,
+): SlashDispatchOutcome {
+  let snapshot: DrainStateSnapshot;
+  try {
+    snapshot = read();
+  } catch (readError: unknown) { // allow-broad-catch: PIC-31 — pi-integration-contract/drain-state-contract.md
+    void readError;
+    return { kind: "note", content: shuttingDownNote(name) };
+  }
+  return resolveSlashDispatch(name, snapshot, registry);
+}

@@ -9,6 +9,7 @@ import {
   routeDrainStateArm,
   shouldShortCircuitShutdown,
   routeSlashDispatchWithReadFailover,
+  resolveSlashDispatchWithReadFailover,
   evalShutdownShortCircuitWithReadFailover,
   resolveSlashDispatch,
   shuttingDownNote,
@@ -206,6 +207,79 @@ describe("V9m-T — superseded-entry dispatch (PIC area)", () => {
     expect(outcome.kind).toBe("dispatch");
     if (outcome.kind === "dispatch") {
       expect(outcome.loom.slashName).toBe("foo");
+    }
+  });
+});
+
+// The slash-command call-site consumer wired into the composeInstance handler
+// (factory.ts `drainGatedHandler`). It performs the PIC-31 slash-site read under
+// its own try/catch, then resolves the outcome through `resolveSlashDispatch`.
+// PIC-31's slash-command clause fails safe onto arm (b) shutting-down (the live
+// two-arm contract, drain-state-contract.md#read-failure-fallback) — distinct
+// from the vestigial arm-only `routeSlashDispatchWithReadFailover` above, which
+// still returns the excised arm (c). See the loom-1.0 partial supersession note.
+describe("V9m — resolveSlashDispatchWithReadFailover (slash-site consumer)", () => {
+  const noopRun = async (): Promise<void> => {};
+  const loom = (slashName: string): ParsedLoom => ({
+    slashName,
+    frontmatter: { mode: "prompt" },
+    body: { statements: [], tail: null },
+    run: noopRun,
+  });
+  const throwingRead = (): DrainStateSnapshot => {
+    throw new Error("readDrainState blew up");
+  };
+
+  it("PIC-31: a slash-site read-failure fails safe onto arm (b) shutting-down (live two-arm contract)", () => {
+    const registry = new LoomRegistry([["foo", loom("foo")]]);
+    const outcome = resolveSlashDispatchWithReadFailover(
+      "foo",
+      throwingRead,
+      registry,
+    );
+    expect(outcome.kind).toBe("note");
+    if (outcome.kind === "note") {
+      expect(outcome.content).toBe(shuttingDownNote("foo"));
+      expect(outcome.content).toBe("loom /foo: extension shutting down");
+    }
+  });
+
+  it("PIC-29/arm-(a): a successful steady-state read with a present entry dispatches the CURRENT registry entry", () => {
+    const registry = new LoomRegistry([["foo", loom("foo")]]);
+    const outcome = resolveSlashDispatchWithReadFailover(
+      "foo",
+      () => snap(false, undefined),
+      registry,
+    );
+    expect(outcome.kind).toBe("dispatch");
+    if (outcome.kind === "dispatch") {
+      expect(outcome.loom.slashName).toBe("foo");
+    }
+  });
+
+  it("superseded: a successful steady-state read with a dropped entry returns the superseded note", () => {
+    const registry = new LoomRegistry();
+    const outcome = resolveSlashDispatchWithReadFailover(
+      "foo",
+      () => snap(false, undefined),
+      registry,
+    );
+    expect(outcome.kind).toBe("note");
+    if (outcome.kind === "note") {
+      expect(outcome.content).toBe(supersededNote("foo"));
+    }
+  });
+
+  it("PIC-29/arm-(b): a successful read of a shutting-down tuple returns the shutting-down note (no dispatch)", () => {
+    const registry = new LoomRegistry([["foo", loom("foo")]]);
+    const outcome = resolveSlashDispatchWithReadFailover(
+      "foo",
+      () => snap(true, undefined),
+      registry,
+    );
+    expect(outcome.kind).toBe("note");
+    if (outcome.kind === "note") {
+      expect(outcome.content).toBe(shuttingDownNote("foo"));
     }
   });
 });
