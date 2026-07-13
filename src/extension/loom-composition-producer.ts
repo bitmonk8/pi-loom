@@ -183,6 +183,23 @@ export interface ConversationBinding {
    * nothing) omit it — a `?.()` caller is then a no-op.
    */
   readonly finishInvocation?: () => void;
+  /**
+   * PIC-9 (pi-integration-contract/subagent.md §lifecycle): idempotent session
+   * teardown — detach the one-shot PIC-41 abort-forwarding listener and dispose
+   * the spawned `AgentSession`. The DRIVE seam (`composeLoomFixture.run` /
+   * `#driveCallee`) calls it in a `finally` BEFORE `finishInvocation`, so
+   * teardown runs on EVERY exit of the invocation drive — normal return,
+   * returned `Err`, AND a genuine throw unwinding past `surface` (e.g. a
+   * `ToolReturnShapeDefectError` / `LoomPanic` defect). `surface` no longer runs
+   * teardown, so a throw before/at `surface` can no longer leak the provider
+   * connection + abort listener. Running BEFORE `finishInvocation` keeps the
+   * `disposeBarrier` settling post-dispose (active-invocation-registry.md
+   * §sub-step 3). Idempotent + non-throwing (a `dispose()` throw is trapped so it
+   * cannot mask an in-flight defect), so a defensive double-call is a no-op.
+   * Optional so non-subagent bindings (prompt mode, non-production harnesses)
+   * omit it — a `?.()` caller is then a no-op.
+   */
+  readonly teardown?: () => void;
 }
 
 /**
@@ -297,6 +314,12 @@ export function composeLoomFixture(
           deps.emitTopLevelErrNote(loom.slashName, terminal.error as unknown as QueryError);
         }
       } finally {
+        // PIC-9: run the (idempotent, non-throwing) session teardown BEFORE
+        // `finishInvocation`, so the spawned session's `dispose()`/abort-listener
+        // detach run on EVERY exit — including a genuine throw unwinding past
+        // `surface` (which would otherwise skip teardown and leak the session +
+        // listener) — and the `disposeBarrier` settles post-dispose.
+        binding.teardown?.();
         binding.finishInvocation?.();
       }
     },

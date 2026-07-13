@@ -1490,11 +1490,11 @@ class ProductionLoomProducer implements LoomProducerDeps {
     // awaitable spawn step (`createAgentSession` / tool lowering) has already
     // resolved — so a spawn failure rejects BEFORE any entry is added and never
     // leaves a leak. Removal is deferred to `finishInvocation`, which the DRIVE
-    // seam calls in a `finally` AFTER `executeBody` + `surface`; because
-    // `surface()` runs the spawned session's `dispose()` before that `finally`,
-    // settling the barrier in `finishInvocation` correctly reflects post-dispose
-    // (sub-step 3 sees a disposed session), and the entry SPANS the real
-    // in-flight window.
+    // seam calls in a `finally` AFTER `executeBody` + `surface`; because the
+    // DRIVE `finally` runs `teardown` (the spawned session's `dispose()`)
+    // immediately BEFORE `finishInvocation`, settling the barrier in
+    // `finishInvocation` correctly reflects post-dispose (sub-step 3 sees a
+    // disposed session), and the entry SPANS the real in-flight window.
     const activeInvocations = this.#input.activeInvocations;
     let settleDispose: () => void = (): void => {};
     const disposeBarrier = new Promise<void>((resolve) => {
@@ -1524,21 +1524,47 @@ class ProductionLoomProducer implements LoomProducerDeps {
       activeInvocations?.remove(entry);
     };
 
+    // PIC-9 session teardown (SINGLE site). Detach the one-shot PIC-41 abort
+    // listener, then dispose the spawned session. Moved OUT of `surface()` so it
+    // runs on EVERY exit of the invocation drive — the DRIVE seam's `finally`
+    // calls it BEFORE `finishInvocation` on the normal-return, returned-`Err`,
+    // AND throw paths. Previously these ran only inside `surface()`, so a genuine
+    // throw unwinding past `surface` (a `ToolReturnShapeDefectError` / `LoomPanic`
+    // defect) skipped them and leaked the provider connection + abort listener.
+    // Idempotent: `dispose` is a `makeIdempotentDispose` latch and
+    // `forwarding.detach` is a `removeEventListener` no-op on a second call, so a
+    // defensive double-call from a caller is inert. The subagent's committed
+    // turns are never mutated by a cancel (ERR-8 / ERR-12) — the executor's
+    // cancel path routes through the inert `NoopConversationMutator`.
+    let toreDown = false;
+    const teardown = (): void => {
+      if (toreDown) return;
+      toreDown = true;
+      forwarding.detach();
+      try {
+        dispose();
+      } catch (disposeError: unknown) { // allow-broad-catch: loom/runtime/subagent-dispose-failure — pi-integration-contract/subagent.md
+        // PIC-9: a `dispose()` throw is advisory only — because `teardown` runs
+        // in the DRIVE `finally`, letting it propagate would MASK an in-flight
+        // body defect (or promote an `Ok`/`Err` value to a throw), disturbing the
+        // ERR-13 value path. The production producer threads no advisory-
+        // diagnostic sink at this seam (a pre-existing gap tracked separately),
+        // so the throw is swallowed rather than surfaced.
+        void disposeError;
+      }
+    };
+
     return {
       drivenAgainst: "subagent-private-session",
       executeDeps,
-      surface: (execution: BodyExecution): ResultValue => {
-        // PIC-9 teardown on the return path: detach the one-shot abort listener
-        // and dispose the spawned session (idempotent). The subagent's committed
-        // turns are never mutated by the cancel (ERR-8 / ERR-12) — the executor's
-        // cancel path routes through the inert `NoopConversationMutator`.
-        forwarding.detach();
-        dispose();
-        // FN-5: surface the subagent body's terminal final value (shared with
-        // the prompt→prompt invoke-attach path — a callee's final value crosses
-        // the boundary the same way in either mode, invocation.md §Final-value).
-        return surfaceCalleeFinalValue(execution);
-      },
+      // FN-5: project the subagent body's terminal final value (shared with the
+      // prompt→prompt invoke-attach path — a callee's final value crosses the
+      // boundary the same way in either mode, invocation.md §Final-value). PIC-9
+      // session teardown is deferred to `teardown`, which the DRIVE `finally`
+      // runs on every exit path (including a throw past `surface`).
+      surface: (execution: BodyExecution): ResultValue =>
+        surfaceCalleeFinalValue(execution),
+      teardown,
       finishInvocation,
     };
   }
@@ -2047,6 +2073,11 @@ class ProductionLoomProducer implements LoomProducerDeps {
       // `Err(InvokeInfraError{cause:"return_validation"})`, aborting the parent.
       return this.#validateInvokeReturn(loom, calleePath, returnSchema, result);
     } finally {
+      // PIC-9: run the (idempotent, non-throwing) session teardown BEFORE
+      // `finishInvocation`, so the spawned session's `dispose()`/abort-listener
+      // detach run on EVERY exit — including a genuine throw unwinding past
+      // `surface` — and the `disposeBarrier` settles post-dispose.
+      binding.teardown?.();
       binding.finishInvocation?.();
     }
   }
