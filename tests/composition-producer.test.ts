@@ -353,6 +353,12 @@ function makeHarness(opts: { bound?: boolean; surfaceErr?: QueryError } = {}): H
     emitTopLevelErrNote(loomName: string, error: QueryError): void {
       state.errNote = { loomName, error };
     },
+    emitPanicNote(): void {
+      // No top-level defect is injected on these value-path harnesses; the
+      // panic-note surface is exercised by composition-producer's own panic
+      // tests and subagent-drive-teardown. Stubbed so the deps satisfy the
+      // widened `LoomProducerDeps` interface.
+    },
   };
 
   return {

@@ -51,6 +51,34 @@ import type { LoomValue, ResultValue } from "../runtime/value";
 import type { InvokeChain } from "../runtime/invoke-depth-cycle";
 import type { QueryError } from "../runtime/query-error";
 import { createLoomAbort, forwardSlashCommandCancel } from "../runtime/cancellation-core";
+import {
+  HostFatal,
+  isLoomPanic,
+  surfaceUnexpectedThrow,
+} from "../runtime/runtime-panics";
+import { ToolReturnShapeDefectError } from "../runtime/tool-call-off-surface";
+import type { Diagnostic, SourceRange } from "../diagnostics/diagnostic";
+
+/**
+ * The `internal error: ` prefix the runtime-defect surface
+ * (`surfaceUnexpectedThrow`) and the `ToolReturnShapeDefectError.diagnostic`
+ * both stamp onto their `message`. The slash-dispatch internal-error framing
+ * (`loom /<name> aborted with internal error: <error.message>`,
+ * code-registry-runtime.md `loom/runtime/internal-error`) carries the BARE
+ * `error.message`, so the prefix is stripped when composing the framing to
+ * avoid a doubled `internal error: internal error: …`.
+ */
+const INTERNAL_ERROR_PREFIX = "internal error: ";
+
+/**
+ * A synthesized zero-length body `SourceRange` for a bare `LoomPanic`, which
+ * carries no `SourceRange` of its own. A `ToolReturnShapeDefectError.diagnostic`
+ * already carries a precise site and is preferred over this synthetic one.
+ */
+const ZERO_BODY_RANGE: SourceRange = {
+  start: { line: 0, column: 0 },
+  end: { line: 0, column: 0 },
+} as const;
 
 /**
  * Project the binder's bound `args` object onto the executor's `paramBindings`
@@ -229,6 +257,20 @@ export interface LoomProducerDeps {
    * a directly-slash-invoked subagent-mode failure (its transcript is private).
    */
   emitTopLevelErrNote(loomName: string, error: QueryError): void;
+  /**
+   * Runtime-defect / panic surface (errors-and-results/error-model.md
+   * §"Runtime panics"). Called by `composeLoomFixture.run`'s top-level outer
+   * catch when a runtime defect is thrown at slash dispatch (a `LoomPanic` from
+   * the closed six-source set, or a catchable interpreter / adapter throw routed
+   * to `loom/runtime/internal-error`), so the defect surfaces as ONE framed
+   * `loom-system-note` (`details: { diagnostics: [Diagnostic] }`, `display:
+   * true`, `triggerTurn: false`, session NOT torn down) rather than escaping
+   * uncaught to the Pi host. Owns the `pi.sendMessage` delivery on the
+   * `loom-system-note` channel (production-loom-producer.ts). It MUST emit
+   * exactly ONE note. `HostFatal` never reaches here — the outer catch re-raises
+   * it (fail-fast, NOCEIL-3) before calling this.
+   */
+  emitPanicNote(framing: string, diagnostic: Diagnostic): void;
 }
 
 /**
@@ -272,55 +314,122 @@ export function composeLoomFixture(
       // no long-lived controller leaks across the Pi session.
       const loomAbort = createLoomAbort();
       forwardSlashCommandCancel(loomAbort, ctx.signal);
-      // 1. Binder before interpreter: bind `args` first. A non-binding envelope
-      //    (needs-info / ambiguous / cancelled) short-circuits — the loom body
-      //    never runs. The binder shares THIS `loomAbort` so the binder-call
-      //    checkpoint (CANCEL-4) observes the same abort the body would.
-      const binderResult = await deps.runBinder({ loom, args, ctx, loomAbort });
-      if (!binderResult.bound) {
-        return;
-      }
-      // 2. Route on mode to the conversation the executor drives against. The
-      //    binder's bound `params:` object is threaded into the executor
-      //    environment as `paramBindings` so top-level `params:` reach body scope.
-      const paramBindings = paramBindingsFrom(binderResult.args);
-      const bindInput: ConversationBindInput = { loom, args, ctx, loomAbort, ...(paramBindings !== undefined ? { paramBindings } : {}) };
-      const binding: ConversationBinding =
-        loom.frontmatter.mode === "subagent"
-          ? await deps.spawnSubagentConversation(bindInput)
-          : deps.bindPromptConversation(bindInput);
-      // 3. Drive `V19d`'s effectful executor against the bound conversation and
-      //    surface the mode's return value. Decision 6 / Increment B1: the
-      //    ActiveInvocationRegistry entry the bind registered SPANS this body
-      //    window — `binding.finishInvocation?.()` in the `finally` settles the
-      //    entry's `disposeBarrier` + removes it AFTER `executeBody` + `surface`
-      //    (and the err-note), so a genuinely in-flight invocation is present in
-      //    the registry when `session_shutdown` fires. The binder short-circuit
-      //    above returns BEFORE `binding` exists, so no entry was added — nothing
-      //    to finish on that path.
+      // TOP-LEVEL runtime-defect / panic surface (error-model.md §"Runtime
+      // panics"): the whole dispatch body (binder + bind + the inner
+      // teardown/finish try/finally) runs inside this OUTER try so a runtime
+      // defect thrown anywhere at slash dispatch is caught and surfaced as ONE
+      // framed `loom-system-note` rather than escaping uncaught to the Pi host.
+      // The inner try/finally stays INSIDE, so `teardown` + `finishInvocation`
+      // still run (leak-free, `disposeBarrier` settled) BEFORE the outer catch
+      // frames the note. This is TOP-LEVEL-ONLY: invoke-reached callees never go
+      // through `run` — they drive through `runInvokeChild`, which already maps a
+      // callee defect to `Err(InvokeInfraError{cause:"panic"|"internal_error"})`
+      // (and re-raises `HostFatal`), so this catch does not double-handle them.
       try {
-        const execution: BodyExecution = await executeBody(loom.body, binding.executeDeps);
-        // 4. SLSH-3: a top-level `Err(QueryError)` returned to THIS boundary (a
-        //    slash caller, no invoke parent — invoke-reached looms never go
-        //    through `run`) gets a one-line `loom-system-note` formatted from the
-        //    error (SLSH-4 SNK templates). A loom that HANDLES its `Err`
-        //    terminates with `outcome === "success"`, so only a
-        //    genuinely-unhandled top-level `Err` surfaces here. `chain: []`
-        //    renders the correct leaf row for every reachable kind; the SLSH-5
-        //    invoke_callee suffix is a deferred refinement (no readily-usable
-        //    invoke provenance at this boundary).
-        const terminal: ResultValue = binding.surface(execution);
-        if (!terminal.ok) {
-          deps.emitTopLevelErrNote(loom.slashName, terminal.error as unknown as QueryError);
+        // 1. Binder before interpreter: bind `args` first. A non-binding envelope
+        //    (needs-info / ambiguous / cancelled) short-circuits — the loom body
+        //    never runs. The binder shares THIS `loomAbort` so the binder-call
+        //    checkpoint (CANCEL-4) observes the same abort the body would.
+        const binderResult = await deps.runBinder({ loom, args, ctx, loomAbort });
+        if (!binderResult.bound) {
+          return;
         }
-      } finally {
-        // PIC-9: run the (idempotent, non-throwing) session teardown BEFORE
-        // `finishInvocation`, so the spawned session's `dispose()`/abort-listener
-        // detach run on EVERY exit — including a genuine throw unwinding past
-        // `surface` (which would otherwise skip teardown and leak the session +
-        // listener) — and the `disposeBarrier` settles post-dispose.
-        binding.teardown?.();
-        binding.finishInvocation?.();
+        // 2. Route on mode to the conversation the executor drives against. The
+        //    binder's bound `params:` object is threaded into the executor
+        //    environment as `paramBindings` so top-level `params:` reach body scope.
+        const paramBindings = paramBindingsFrom(binderResult.args);
+        const bindInput: ConversationBindInput = { loom, args, ctx, loomAbort, ...(paramBindings !== undefined ? { paramBindings } : {}) };
+        const binding: ConversationBinding =
+          loom.frontmatter.mode === "subagent"
+            ? await deps.spawnSubagentConversation(bindInput)
+            : deps.bindPromptConversation(bindInput);
+        // 3. Drive `V19d`'s effectful executor against the bound conversation and
+        //    surface the mode's return value. Decision 6 / Increment B1: the
+        //    ActiveInvocationRegistry entry the bind registered SPANS this body
+        //    window — `binding.finishInvocation?.()` in the `finally` settles the
+        //    entry's `disposeBarrier` + removes it AFTER `executeBody` + `surface`
+        //    (and the err-note), so a genuinely in-flight invocation is present in
+        //    the registry when `session_shutdown` fires. The binder short-circuit
+        //    above returns BEFORE `binding` exists, so no entry was added — nothing
+        //    to finish on that path.
+        try {
+          const execution: BodyExecution = await executeBody(loom.body, binding.executeDeps);
+          // 4. SLSH-3: a top-level `Err(QueryError)` returned to THIS boundary (a
+          //    slash caller, no invoke parent — invoke-reached looms never go
+          //    through `run`) gets a one-line `loom-system-note` formatted from the
+          //    error (SLSH-4 SNK templates). A loom that HANDLES its `Err`
+          //    terminates with `outcome === "success"`, so only a
+          //    genuinely-unhandled top-level `Err` surfaces here. `chain: []`
+          //    renders the correct leaf row for every reachable kind; the SLSH-5
+          //    invoke_callee suffix is a deferred refinement (no readily-usable
+          //    invoke provenance at this boundary). A returned `Err` is a VALUE
+          //    (not a throw) — the outer catch never sees it.
+          const terminal: ResultValue = binding.surface(execution);
+          if (!terminal.ok) {
+            deps.emitTopLevelErrNote(loom.slashName, terminal.error as unknown as QueryError);
+          }
+        } finally {
+          // PIC-9: run the (idempotent, non-throwing) session teardown BEFORE
+          // `finishInvocation`, so the spawned session's `dispose()`/abort-listener
+          // detach run on EVERY exit — including a genuine throw unwinding past
+          // `surface` (which would otherwise skip teardown and leak the session +
+          // listener) — and the `disposeBarrier` settles post-dispose. This inner
+          // finally is INSIDE the outer try, so it runs before the catch frames.
+          binding.teardown?.();
+          binding.finishInvocation?.();
+        }
+      } catch (thrown) { // allow-broad-catch: top-level-slash runtime-defect surface — error-model.md#runtime-panics
+        // A top-level runtime defect (a `LoomPanic` from the closed six-source
+        // set, a `ToolReturnShapeDefectError`, or any other catchable
+        // interpreter / adapter throw incl. `RangeError`) is caught here and
+        // surfaced as ONE framed `loom-system-note` (details:{diagnostics},
+        // display:true, triggerTurn:false, session NOT torn down) instead of
+        // escaping uncaught to the Pi host. Cancellation and normal Ok/Err are
+        // VALUES on the drive path above, so they never reach this catch.
+        if (thrown instanceof HostFatal) {
+          // NOCEIL-3 (hard-ceilings): a host fatal is the ONLY thing that
+          // propagates — re-raise it (fail-fast); it never reaches `emitPanicNote`.
+          throw thrown;
+        }
+        const site = { file: loom.sourcePath ?? loom.slashName, range: ZERO_BODY_RANGE };
+        if (isLoomPanic(thrown)) {
+          // LoomPanic framing (error-model.md §"Runtime panics"): a bare panic
+          // carries no SourceRange, so synthesize the zero body range. The
+          // registered panic message rides both the diagnostic and the framing.
+          const diagnostic: Diagnostic = {
+            severity: "error",
+            code: thrown.code,
+            file: site.file,
+            range: site.range,
+            message: thrown.message,
+          };
+          deps.emitPanicNote(`loom /${loom.slashName} aborted: ${thrown.message}`, diagnostic);
+          return;
+        }
+        // internal-error framing: a `ToolReturnShapeDefectError` already carries a
+        // precise-site `loom/runtime/internal-error` diagnostic (prefer it);
+        // otherwise `surfaceUnexpectedThrow` builds one for the generic throw.
+        // Both stamp the `internal error: <msg>` prefix onto the diagnostic
+        // message; the framing (code-registry-runtime.md `loom/runtime/
+        // internal-error`) carries the BARE `<error.message>`, so the prefix is
+        // stripped before composing `… aborted with internal error: <msg>`.
+        const diagnostic =
+          thrown instanceof ToolReturnShapeDefectError
+            ? thrown.diagnostic
+            : surfaceUnexpectedThrow(thrown, site);
+        if (diagnostic === undefined) {
+          // Defensive (unreachable): `surfaceUnexpectedThrow` returns `undefined`
+          // only for a `LoomPanic` / `HostFatal`, both handled above. Re-raise
+          // rather than fabricate a note, preserving fail-fast.
+          throw thrown;
+        }
+        const detail = diagnostic.message.startsWith(INTERNAL_ERROR_PREFIX)
+          ? diagnostic.message.slice(INTERNAL_ERROR_PREFIX.length)
+          : diagnostic.message;
+        deps.emitPanicNote(
+          `loom /${loom.slashName} aborted with internal error: ${detail}`,
+          diagnostic,
+        );
       }
     },
   };

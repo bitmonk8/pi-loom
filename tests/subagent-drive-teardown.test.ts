@@ -112,6 +112,9 @@ import type {
 } from "../src/runtime/statement-executor";
 import { makeErr, makeOk, type LoomValue, type ResultValue } from "../src/runtime/value";
 import type { QueryError } from "../src/runtime/query-error";
+import { HostFatal, IndexOutOfBoundsPanic } from "../src/runtime/runtime-panics";
+import { ToolReturnShapeDefectError } from "../src/runtime/tool-call-off-surface";
+import type { Diagnostic } from "../src/diagnostics/diagnostic";
 import type { RuntimeRoot } from "../src/runtime-root";
 import type { Checkpoint, CheckpointKind, CheckpointSite } from "../src/seams/checkpoint";
 import type { LoomBody } from "../src/parser/loom-document";
@@ -247,6 +250,8 @@ interface DriveProbe {
   teardownCalls: number;
   finishCalls: number;
   errNote: { loomName: string; error: QueryError } | undefined;
+  panicNote: { framing: string; diagnostic: Diagnostic } | undefined;
+  panicNoteCalls: number;
 }
 
 function makeDriveProbe(surfaceReturn: ResultValue): DriveProbe {
@@ -256,6 +261,8 @@ function makeDriveProbe(surfaceReturn: ResultValue): DriveProbe {
     teardownCalls: 0,
     finishCalls: 0,
     errNote: undefined as { loomName: string; error: QueryError } | undefined,
+    panicNote: undefined as { framing: string; diagnostic: Diagnostic } | undefined,
+    panicNoteCalls: 0,
   };
   const binding: ConversationBinding = {
     drivenAgainst: "subagent-private-session",
@@ -282,6 +289,10 @@ function makeDriveProbe(surfaceReturn: ResultValue): DriveProbe {
     emitTopLevelErrNote: (loomName: string, error: QueryError): void => {
       state.errNote = { loomName, error };
     },
+    emitPanicNote: (framing: string, diagnostic: Diagnostic): void => {
+      state.panicNoteCalls += 1;
+      state.panicNote = { framing, diagnostic };
+    },
   };
   return {
     deps,
@@ -300,6 +311,12 @@ function makeDriveProbe(surfaceReturn: ResultValue): DriveProbe {
     get errNote() {
       return state.errNote;
     },
+    get panicNote() {
+      return state.panicNote;
+    },
+    get panicNoteCalls() {
+      return state.panicNoteCalls;
+    },
   };
 }
 
@@ -316,22 +333,121 @@ afterEach(() => {
 });
 
 describe("PIC-9 — the DRIVE seam runs the subagent teardown on every exit", () => {
-  it("(throw path) executeBody THROWS -> teardown runs once BEFORE finish, surface is skipped, and the defect propagates unmasked", async () => {
+  it("(throw path) executeBody THROWS -> teardown runs once BEFORE finish, surface is skipped, and the defect is caught + framed as ONE internal-error panic-note (error-model.md#runtime-panics)", async () => {
+    // SPEC-CONTRACT REWRITE. This test previously asserted
+    //   `await expect(fixture.run(...)).rejects.toBeInstanceOf(InjectedBodyDefect)`
+    // — i.e. it PINNED the old buggy escape where a top-level runtime defect
+    // thrown at slash dispatch propagated uncaught out of `run()` to the Pi
+    // host. That was a spec violation: error-model.md §"Runtime panics" requires
+    // a top-level defect to be CAUGHT in `composeLoomFixture.run` and surfaced
+    // as ONE framed `loom-system-note`, with the session NOT torn down. The
+    // rewrite is NOT a weakening — the old assertion encoded the bug; this one
+    // encodes the contract. The teardown/finish assertions are unchanged (the
+    // inner finally is INSIDE the outer catch, so teardown + finish still run).
     const probe = makeDriveProbe(makeOk("unused"));
     executorHook.impl = (): Promise<unknown> =>
       Promise.reject(new InjectedBodyDefect("tool-return-shape defect"));
 
     const fixture = composeLoomFixture(subagentLoom(), probe.deps);
 
-    // The original defect propagates unmasked (teardown did NOT replace it).
-    await expect(fixture.run("", driveCtx())).rejects.toBeInstanceOf(InjectedBodyDefect);
+    // run() RESOLVES — the defect no longer escapes to the host.
+    await expect(fixture.run("", driveCtx())).resolves.toBeUndefined();
 
     // surface was skipped (the throw unwound past it); teardown STILL ran
-    // exactly once, before finishInvocation.
+    // exactly once, before finishInvocation (inner finally inside outer catch).
     expect(probe.surfaceCalls).toBe(0);
     expect(probe.teardownCalls).toBe(1);
     expect(probe.finishCalls).toBe(1);
     expect(probe.log).toEqual(["teardown", "finish"]);
+
+    // The defect was framed as exactly ONE internal-error panic-note (a generic
+    // throw is not a `LoomPanic`, so it routes through the runtime-defect
+    // surface with the `aborted with internal error:` framing).
+    expect(probe.panicNoteCalls).toBe(1);
+    expect(probe.panicNote?.framing).toBe(
+      "loom /classify aborted with internal error: tool-return-shape defect",
+    );
+    expect(probe.panicNote?.diagnostic.code).toBe("loom/runtime/internal-error");
+    // The err-note surface (SLSH-3) is for a returned `Err` VALUE, not a throw.
+    expect(probe.errNote).toBeUndefined();
+  });
+
+  it("(top-level LoomPanic) executeBody THROWS a LoomPanic -> run() resolves; ONE panic-note framed `loom /<name> aborted: <message>`", async () => {
+    const probe = makeDriveProbe(makeOk("unused"));
+    const panic = new IndexOutOfBoundsPanic("index out of bounds: 5 not in 0..3");
+    executorHook.impl = (): Promise<unknown> => Promise.reject(panic);
+
+    const fixture = composeLoomFixture(subagentLoom(), probe.deps);
+    await expect(fixture.run("", driveCtx())).resolves.toBeUndefined();
+
+    expect(probe.teardownCalls).toBe(1);
+    expect(probe.finishCalls).toBe(1);
+    expect(probe.panicNoteCalls).toBe(1);
+    expect(probe.panicNote?.framing).toBe(
+      "loom /classify aborted: index out of bounds: 5 not in 0..3",
+    );
+    // The panic's registered `loom/runtime/*` code rides the diagnostic.
+    expect(probe.panicNote?.diagnostic.code).toBe("loom/runtime/index-out-of-bounds");
+    expect(probe.panicNote?.diagnostic.message).toBe("index out of bounds: 5 not in 0..3");
+  });
+
+  it("(top-level ToolReturnShapeDefectError) -> run() resolves; ONE internal-error panic-note carrying the defect's own precise-site diagnostic", async () => {
+    const probe = makeDriveProbe(makeOk("unused"));
+    const diagnostic: Diagnostic = {
+      severity: "error",
+      code: "loom/runtime/internal-error",
+      file: "/looms/classify.loom",
+      range: { start: { line: 4, column: 2 }, end: { line: 4, column: 9 } },
+      message: "internal error: tool grep returned a non-conforming result envelope",
+      details: { kind: "tool-return-shape", tool_name: "grep", shape_check: "content-not-iterable" },
+    };
+    executorHook.impl = (): Promise<unknown> =>
+      Promise.reject(new ToolReturnShapeDefectError(diagnostic));
+
+    const fixture = composeLoomFixture(subagentLoom(), probe.deps);
+    await expect(fixture.run("", driveCtx())).resolves.toBeUndefined();
+
+    expect(probe.teardownCalls).toBe(1);
+    expect(probe.finishCalls).toBe(1);
+    // Exactly ONE note (not two).
+    expect(probe.panicNoteCalls).toBe(1);
+    // The framing carries the BARE message (the `internal error: ` prefix stripped).
+    expect(probe.panicNote?.framing).toBe(
+      "loom /classify aborted with internal error: tool grep returned a non-conforming result envelope",
+    );
+    // The defect's own precise-site diagnostic is preferred verbatim.
+    expect(probe.panicNote?.diagnostic).toBe(diagnostic);
+  });
+
+  it("(top-level RangeError) a catchable generic allocation throw -> run() resolves; ONE internal-error panic-note", async () => {
+    const probe = makeDriveProbe(makeOk("unused"));
+    executorHook.impl = (): Promise<unknown> =>
+      Promise.reject(new RangeError("Invalid string length"));
+
+    const fixture = composeLoomFixture(subagentLoom(), probe.deps);
+    await expect(fixture.run("", driveCtx())).resolves.toBeUndefined();
+
+    expect(probe.panicNoteCalls).toBe(1);
+    expect(probe.panicNote?.framing).toBe(
+      "loom /classify aborted with internal error: Invalid string length",
+    );
+    expect(probe.panicNote?.diagnostic.code).toBe("loom/runtime/internal-error");
+  });
+
+  it("(HostFatal) a host-fatal throw is the ONLY thing that propagates -> run() STILL rejects (re-raised, fail-fast NOCEIL-3); no panic-note", async () => {
+    const probe = makeDriveProbe(makeOk("unused"));
+    const fatal = new HostFatal("heap OOM");
+    executorHook.impl = (): Promise<unknown> => Promise.reject(fatal);
+
+    const fixture = composeLoomFixture(subagentLoom(), probe.deps);
+    await expect(fixture.run("", driveCtx())).rejects.toBe(fatal);
+
+    // Teardown/finish still ran (inner finally) before the outer catch re-raised.
+    expect(probe.teardownCalls).toBe(1);
+    expect(probe.finishCalls).toBe(1);
+    // The runtime-defect surface never framed it — HostFatal is re-raised.
+    expect(probe.panicNoteCalls).toBe(0);
+    expect(probe.panicNote).toBeUndefined();
   });
 
   it("(normal path) a successful completion surfaces the value and tears down exactly once", async () => {
@@ -349,6 +465,8 @@ describe("PIC-9 — the DRIVE seam runs the subagent teardown on every exit", ()
     expect(probe.log).toEqual(["surface", "teardown", "finish"]);
     // Ok surface emits no top-level err-note.
     expect(probe.errNote).toBeUndefined();
+    // A normal completion is a VALUE path — the panic-note surface is untouched.
+    expect(probe.panicNoteCalls).toBe(0);
   });
 
   it("(returned-Err path) a surfaced Err tears down exactly once and still emits the top-level err-note", async () => {
@@ -366,5 +484,8 @@ describe("PIC-9 — the DRIVE seam runs the subagent teardown on every exit", ()
     // The returned Err surfaced the one-line note (SLSH-3) — teardown did not
     // suppress it.
     expect(probe.errNote?.loomName).toBe("classify");
+    // A returned `Err` is a VALUE (not a throw) — the outer catch never sees it,
+    // so the panic-note surface stays untouched (SLSH-3 err-note still emitted).
+    expect(probe.panicNoteCalls).toBe(0);
   });
 });

@@ -224,7 +224,14 @@ describe("Increment B1 — the registry entry SPANS the in-flight body via the D
 
     const fixture = composeLoomFixture(promptLoom(), deps);
 
-    await expect(fixture.run("", driveCtx())).rejects.toThrow("body boom");
+    // run() RESOLVES: a top-level runtime defect is now caught by
+    // `composeLoomFixture.run`'s outer catch and framed as ONE `loom-system-note`
+    // (error-model.md §"Runtime panics"), rather than escaping to the host. (The
+    // prior `.rejects.toThrow("body boom")` encoded the old buggy escape.) The
+    // registry-drain contract this test pins is unaffected — the inner DRIVE
+    // `finally` runs INSIDE the outer catch, so `finishInvocation` still removes
+    // the entry despite the mid-body throw.
+    await expect(fixture.run("", driveCtx())).resolves.toBeUndefined();
 
     // The DRIVE `finally` removed the entry despite the mid-body throw.
     expect(registry.size()).toBe(0);
