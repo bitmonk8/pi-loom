@@ -1,14 +1,9 @@
-# `V13a-T` — Query render and escapes (tests)
+# V13a — retired plan leaf
 
-**Spec.** [`../spec_topics/query.md`](../spec_topics/query.md), [`../spec_topics/query/query-forms.md`](../spec_topics/query/query-forms.md), [`../spec_topics/query/query-escapes-stringification.md`](../spec_topics/query/query-escapes-stringification.md).
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** Failing tests for the paired `V13a` implementation leaf.
-
-**Tests.**
-- The trim → dedent order reproduces the eight normative vectors; `loom/parse/illegal-template-escape` and `loom/parse/unterminated-template` diagnostics fire.
-- Each loom type stringifies per the table; `loom/parse/interpolated-result` fires on a `Result`-valued `${...}` interpolation.
-- A degenerate (empty) template emits the `empty-template` warning and short-circuits to `ValidationError{empty_template, attempts:0}` — not respond-repair.
-
-**Deps.** `V11d`, `V2c`, `V2e`, `V4d`
-
-**Ships when.** The tests above exist, compile, and fail red for the intended reason.
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

@@ -1,15 +1,9 @@
-# `H8b` — Live tool-call / invoke resolvers for the production composition root
+# H8b — retired plan leaf
 
-**Convention.** [`conventions.md`](./conventions.md) (phase categories — end-to-end harness). Narrative spec references for the implementer: [`tool-calls.md`](../spec_topics/tool-calls.md), [`invocation.md`](../spec_topics/invocation.md), [`pi-integration-contract/host-interfaces-core.md`](../spec_topics/pi-integration-contract/host-interfaces-core.md) (§"Tool execution from loom code"), [`frontmatter/frontmatter-fields-a.md`](../spec_topics/frontmatter/frontmatter-fields-a.md) (`tools:` callable set, FRNT-2/FRNT-3), [`functions.md`](../spec_topics/functions.md) (FN-5).
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** The genuinely-missing **Layer-2 live resolvers** the [`H8a`](./H8a-live-production-acceptance.md) composition root left inert. [`V19d`](./V19d-effectful-statement-wiring.md) wired the runner seams (`runCodeSideToolCall`, `runInvokeChild`) and the executor dispatch (`createEffectfulStatementHost` → `runEffect`), but proved them only against test doubles; H8a composed the whole object graph except the real `resolveToolCall`/`resolveInvoke`, wiring the inert doubles `inertToolCall`/`inertInvoke` in both dep blocks. This leaf builds the real constructors of the `dispatch()`/`drive()` boundary in `production-loom-producer.ts` and wires them into BOTH the prompt-mode and subagent-mode dep blocks, so a code-side `<name>(args)` Pi-tool call actually invokes the host tool's `execute(args)` and a `.loom`-callable `<name>(args)` / `invoke(...)` actually spawns and drives the callee, returning its typed final `Result` across the subagent boundary (FN-5). It surfaces the loom's callable set (frontmatter `tools:`) on `ParsedFrontmatter`, and adds an additive call-kind routing seam to `createEffectfulStatementHost` so a `<name>(args)` call bound to a `.loom`-callable routes to the invoke spawn-and-drive path while a name bound to a Pi tool routes to the tool-`execute` dispatch. It closes no new spec REQ-ID; every behaviour is an integration realisation of seams owned on `V14*` / `V15*`.
-
-**Tests.**
-- `Convention:` real-host tool-call wiring — a code-side `<name>(args)` Pi-tool call in the shipped composition dispatches through the real `runCodeSideToolCall` path against the host tool's `execute(...)` and lowers its `AgentToolResultEnvelope` to `Ok(text)` / `Err(CodeToolError{cause:"execution"})` (`tool-calls.md`, `cka-13`/`cka-46` integration witnesses, owned on `V14*`).
-- `Convention:` real-host invoke wiring — a `.loom`-callable `<name>(args)` / `invoke(...)` in the shipped composition spawns/attaches the callee session (V15l cross-mode), runs the callee body via the executor, and returns the callee's top-level typed `Result` as the call value across the subagent boundary (FN-5; INV-1…4, `cka-47` `V15m` facet integration witnesses, owned on `V15*`).
-- `Convention:` failure/cancel surfacing — a failed/absent call surfaces the corresponding `Err`, never a fabricated `Ok(null)`/`Ok("")` (FN-5).
-- `Convention:` (No globals, statics, singletons; No ambient access; Specific exception types only; Sequential by default) the new `src/**` resolver code passes the [`H2a`](./H2a-cross-cutting-gates.md) / [`H3a`](./H3a-di-seam-skeleton.md) gates and the `no-broad-catch` lint.
-
-**Deps.** `H8a`, `V19d`, `V14g`, `V15a`, `V15k`, `V15l`, `V15m`, `V9i`, `V6a` — the composition root and effectful executor this leaf fixes, the tool-call/invoke runner seams it reuses, the invocation-core / arg-binding / cross-mode / cancellation facets it composes, the subagent spawn seam, and the frontmatter parser it widens with the callable set.
-
-**Ships when.** `npm test`, `npm run typecheck`, `npm run lint`, and the `src/**` architectural gates stay green with the inert `resolveToolCall`/`resolveInvoke` doubles removed from `production-loom-producer.ts` and both dep blocks wired to the real resolvers; a production/integration test proves a code-side Pi-tool call runs and lowers its result, a `.loom`-callable invoke drives the callee and returns its typed final value (FN-5), and a failed/cancelled call surfaces `Err` (never `Ok(null)`).
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

@@ -1,16 +1,9 @@
-# `V10a` — Discovery walk, sources, and collisions
+# V10a — retired plan leaf
 
-**Spec.** [`../spec_topics/discovery.md`](../spec_topics/discovery.md), [`../spec_topics/discovery/discovery-sources.md`](../spec_topics/discovery/discovery-sources.md).
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** The five-source discovery union with its priority order, per-source missing/unreadable/wrong-type handling, `~/` expansion via the `FileSystem.homedir()` seam, the slash-name validity regex, and cross-source-shadow vs cross-format-collision resolution (loom always loses).
-
-**Tests.**
-- `DISC-1`: `~/` expands only via `FileSystem.homedir()` — no `~user`/env/platform branch.
-- `DISC-2`: per-source missing/unreadable/wrong-type modes (silent-on-missing for conventional sources, explicit error otherwise); clean-leaf-ENOENT ancestor walk.
-- `DISC-3`: case collisions fire `loom/load/case-collision` (W); non-canonical extension fires `non-canonical-extension` (W); a name failing `^[a-z0-9][a-z0-9_-]*$` fires `invalid-slash-name` (E).
-- `DISC-4`: a slash-name collision (loom-vs-loom same priority, loom-vs-Pi) fires `cross-format-collision` on the final derived name; the loom loses asymmetrically — it does not register, the Pi-owned entry survives.
-- Settings source applies the merged value (cross-leaf integration; no spec REQ-ID): a `loomPaths` entry supplied through `V10c`'s merged settings contributes its `.loom` file(s) through the Settings discovery source — asserting the merged settings value reaches the discovery walk, so an implementation that never plumbed `loomPaths` into the Settings source fails.
-
-**Deps.** `V10a-T`, `V10c`, `V8b`, `V1a`
-
-**Ships when.** `npm test` discovers across the five sources and resolves each collision/validity case.
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

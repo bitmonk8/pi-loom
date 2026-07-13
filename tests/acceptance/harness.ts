@@ -7,7 +7,7 @@
 // discovery — rather than through the H8a programmatic `createAgentSession`
 // harness. It exists only to give the opt-in `npm run test:acceptance` suite a
 // live, black-box `pi -p` driver; it is excluded from the default `npm test`
-// and from the H8a `npm run test:live` suite (see `vitest.acceptance.config.ts`).
+// and from the H8a `npm run test:live` suite (see `config/vitest/vitest.acceptance.config.ts`).
 //
 // INTENDED-REASON RED (current H9a-T state): the fuller feature-loom fixtures
 // this suite drives — one `.loom` per functionality area (a)–(i) — are NOT yet

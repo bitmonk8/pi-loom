@@ -1,13 +1,9 @@
-# `V8e-T` — `FileWatcher` and `TokenEstimator` seams (tests)
+# V8e — retired plan leaf
 
-**Spec.** [`../spec_topics/pi-integration-contract/host-interfaces-core.md`](../spec_topics/pi-integration-contract/host-interfaces-core.md), [`../spec_topics/pi-integration-contract/host-interfaces-services.md`](../spec_topics/pi-integration-contract/host-interfaces-services.md).
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** Failing tests for the paired `V8e` implementation leaf.
-
-**Tests.**
-- `PIC-14`: `FileWatcher.watch` returns an `Unsubscribe` and reports the three change kinds (the delivery contract); the seam also exposes the enumerated terminal-signal channel and a `FakeFileWatcher` injection point that conveys a stopped-delivering observation distinct from the three change kinds.
-- `PIC-16`: `TokenEstimator.estimate` delegates to `estimateTokens` and is per-runtime.
-
-**Deps.** `H3a`
-
-**Ships when.** The tests above exist, compile, and fail red for the intended reason.
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

@@ -1,14 +1,9 @@
-# `V5d-T` — Schema-subset reject gate (tests)
+# V5d — retired plan leaf
 
-**Spec.** [`../spec_topics/schema-subset.md`](../spec_topics/schema-subset.md), [`../spec_topics/schemas.md`](../spec_topics/schemas.md).
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** Failing tests for the paired `V5d` implementation leaf.
-
-**Tests.**
-- The reject gate fires `loom/parse/unsupported-feature` for each rejected JSON-Schema keyword and `loom/parse/result-in-schema-position` for a `Result` in a schema-feeding position, and accepts the permitted subset.
-- A JSON-Schema construct outside the permitted subset but absent from the enumerated unsupported-keyword list is still rejected with `loom/parse/unsupported-feature`, witnessing the allowlist (reject-by-default) semantics and excluding a denylist build.
-- `Result` in schema position is rejected; array element order is preserved.
-
-**Deps.** `V5a`, `V5b`, `V2d`
-
-**Ships when.** The tests above exist, compile, and fail red for the intended reason.
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

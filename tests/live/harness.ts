@@ -5,7 +5,7 @@
 // entry (which re-exports the `src/**` factory), NOT the `H4a` in-memory
 // fixture-supply. It exists only to give the opt-in `npm run test:live` suite a
 // live composition it can drive; it is excluded from the default `npm test`
-// (see `vitest.live.config.ts`).
+// (see `config/vitest/vitest.live.config.ts`).
 //
 // The suite spends real tokens against a live model, so it is deliberately
 // token-bounded: the discovery→registration precondition reds BEFORE any model

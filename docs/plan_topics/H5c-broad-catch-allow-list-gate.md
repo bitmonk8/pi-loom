@@ -1,12 +1,9 @@
-# `H5c` — `no-broad-catch` allow-list closing-gate reconciliation
+# H5c — retired plan leaf
 
-**Convention.** [`conventions.md`](./conventions.md) — *Specific exception types only* (the broad-catch allow-list closing-gate predicate) and the [`coverage-matrix.md`](./coverage-matrix.md) closure obligation.
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** The CI gate arm that reconciles the `no-broad-catch` lint allow-list per [`conventions.md`](./conventions.md) *Specific exception types only* — scanning the `// allow-broad-catch:` comments across `src/**`, which that rule defines as the lint allow-list, as the entries it validates: every such entry's cited token MUST resolve to one of the four arms that rule's predicate admits — a coverage-matrix REQ-ID, a *Code-keyed obligation areas (no numbered REQ-IDs)* row's canonical *code-keyed-area token* (`cka-<n>`, resolving iff it matches exactly one such row's *Token* cell in [`coverage-matrix.md`](./coverage-matrix.md)), a `loom/...` diagnostics-registry code, or the structural `pi-sdk-boundary` token — and an entry resolving to none is a CI failure, on the same seeded-fixture-then-live-corpus footing as the surfaces the [`H5a`](./H5a-closing-gate-automation.md) closing gate owns. This arm runs as part of the unified closing-gate machinery [`H5a`](./H5a-closing-gate-automation.md) establishes; its seeded `// allow-broad-catch:` violation fixtures reside under the same dedicated test-fixtures root [`H5a`](./H5a-closing-gate-automation.md) places its seeded gate fixtures under (permanent by design, outside the live `src/**` and spec corpus), and its live-corpus binding flips to the live `src/**` allow-list at the loom 1.0 release gate alongside [`H5a`](./H5a-closing-gate-automation.md)'s live surfaces — both footings are reconfigured by the single [`H6a`](./H6a-live-corpus-activation.md) gate-machinery flip.
-
-**Tests.**
-- `Convention:` (*Specific exception types only* — broad-catch allow-list) the gate scans the `// allow-broad-catch:` comments in the corpus as its allow-list entries; it fails when a fixture entry cites a token resolving to none of the four admitted arms — including a `loom/...` glob or wildcard family (e.g. `loom/host/session-shutdown-*`), which the `loom/...` arm's "concrete registry code present in the registry" resolver never matches — and passes when every entry cites a coverage-matrix REQ-ID, a *Code-keyed obligation areas* row's canonical `cka-<n>` token (matching exactly one row's *Token* cell), a concrete `loom/...` registry code, or the structural `pi-sdk-boundary` token.
-
-**Deps.** `H5a`
-
-**Ships when.** `npm test` runs the broad-catch allow-list reconciliation green against the seeded no-violation fixture (every `// allow-broad-catch:` entry cites a token the predicate admits) and red against a seeded fixture entry whose cited token resolves to none of the four admitted arms (including a `loom/...` glob/wildcard family the concrete-registry-code resolver rejects).
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

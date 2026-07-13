@@ -1,16 +1,9 @@
-# `V15c-T` — Imports (`.warp` library files) (tests)
+# V15c — retired plan leaf
 
-**Spec.** [`../spec_topics/imports.md`](../spec_topics/imports.md).
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** Failing tests for the paired `V15c` implementation leaf.
-
-**Tests.**
-- `IMP-1`: the `Resolver` signals an unresolvable `.warp` path by throwing → `loom/load/unresolvable-warp-path`, and the file is not registered (unresolvable = non-relative, no byte-exact final-segment entry, or unreadable).
-- `loom/parse/warp-top-level-statement`: a non-permitted top-level form fires.
-- `loom/parse/import-non-warp-extension`: an `import` whose path literal does not end in byte-exact lowercase `.warp` fires the diagnostic, with the offending path rendered per the `<path>` placeholder rule. Cover both a `.loom`-suffixed path and a non-lowercase `.WARP` variant (the extension match is byte-exact lowercase, so `.WARP`/`.Warp` reject on every host regardless of filesystem case-equivalence).
-- `loom/load/import-cycle`: a `.warp` static-graph cycle fires with its path; `import-unknown-symbol` / `import-name-collision` fire.
-- Resolver success path: a resolvable relative `.warp` import binds its symbols successfully (complements the `IMP-1` throw test).
-
-**Deps.** `V1a`, `V15a`
-
-**Ships when.** The tests above exist, compile, and fail red for the intended reason.
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

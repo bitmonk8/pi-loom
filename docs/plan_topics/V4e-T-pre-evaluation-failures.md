@@ -1,18 +1,9 @@
-# `V4e-T` — Pre-evaluation failures (tests)
+# V4e — retired plan leaf
 
-**Spec.** [`../spec_topics/errors-and-results/error-model.md`](../spec_topics/errors-and-results/error-model.md).
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** Failing tests for the paired `V4e` implementation leaf.
-
-**Tests.**
-- `ERR-1`: host-incompatible pre-eval failure routes without firing a turn.
-- `ERR-2`: lex/parse/type failure routes pre-eval.
-- `ERR-3`: frontmatter failure routes pre-eval.
-- `ERR-4`: binder-model resolution failure routes pre-eval.
-- `ERR-5`: binder arg-binding failure (ceiling #3) routes pre-eval.
-- `ERR-6`: `tools:` resolution failure routes pre-eval.
-- `ERR-16`: the slash-load `params` arm of ceiling #4, cross-routed via CIO-1 / ceiling #3 no-retry, routes pre-eval.
-
-**Deps.** `V9a`, `V6a`, `V11f`, `V10a`, `V16a`, `V5e` (`V5e` owns the loom-owned depth walk whose ceiling-#4 slash-load `params` routing decision and depth-6 breach `ERR-16` wraps)
-
-**Ships when.** The tests above exist, compile, and fail red for the intended reason.
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

@@ -1,12 +1,9 @@
-# `V13e` — Typed-query schema-validation integration
+# V13e — retired plan leaf
 
-**Spec.** [`../spec_topics/query/query-failure-and-repair.md`](../spec_topics/query/query-failure-and-repair.md), [`../spec_topics/schema-subset.md`](../spec_topics/schema-subset.md), [`../spec_topics/query/query-schema-inference.md`](../spec_topics/query/query-schema-inference.md), [`../spec_topics/errors-and-results/queryerror-variants.md`](../spec_topics/errors-and-results/queryerror-variants.md).
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** Wires the typed-query schema-validation machinery — schema resolution, lowering, AJV validation, and the respond-repair loop — into the runtime execution path, closing the integration gap the manual real-host smoke surfaced. For a typed `@`-query the execution path (`runTypedQueryLoop` / `runQueryEffect` in `query-tool-loop` / `effectful-statement-host`) MUST resolve the query's declared schema annotation — a named `schema` decl via `resolveSchema` (previously uncalled), or an inline object/type — to its declared shape, lower it to the validating JSON Schema (`V5d` / `SUBS-1`), convey that lowered shape in the forced-respond conveyance (`production-loom-producer`'s typed prompt / forced-respond tool — previously it interpolated only the bare type name), and validate the response with the `AjvSchemaValidator`, routing a non-conforming response through `runRespondRepairLoop` (`V13d`, previously uncalled) and surfacing `Err(QueryError { kind: "validation", cause: "schema_validation" })` on terminal non-conformance. This is the end-to-end obligation `QRY-22` pins: satisfying `V5d` / `V13c` / `V13d` / `QRY-8 … QRY-11` in isolation does not satisfy it unless the execution path invokes them.
-
-**Tests.**
-- `QRY-22` ([query-failure-and-repair.md — typed-query schema-validation integration](../spec_topics/query/query-failure-and-repair.md#qry-22)): `npm test` asserts a typed query's response is validated against its lowered declared schema end-to-end for both a named `schema` decl and an inline object type; a non-conforming response routes through respond-repair and terminal non-conformance surfaces `Err(QueryError { kind: "validation", cause: "schema_validation" })`; `resolveSchema` and `runRespondRepairLoop` are reachable from the runtime execution path (no longer 0-caller).
-
-**Deps.** `V13e-T`, `V13c`, `V13d`, `V5d`, `V5f`, `V5a`, `V5b`, `V13b`, `V19a`, `H8a`, `H4b`
-
-**Ships when.** `npm test` asserts, through the runtime execution path (not the isolated units), that a typed query lowers its declared schema (named and inline), conveys the lowered shape to the model, validates the response against it, and respond-repairs a non-conforming response — and a driving test confirms `resolveSchema` and `runRespondRepairLoop` are invoked from `runTypedQueryLoop` / `runQueryEffect`.
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

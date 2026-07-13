@@ -1,15 +1,9 @@
-# `V4d-T` — `QueryError` variant schema (tests)
+# V4d — retired plan leaf
 
-**Spec.** [`../spec_topics/errors-and-results/queryerror-variants.md`](../spec_topics/errors-and-results/queryerror-variants.md), [`../spec_topics/errors-and-results/error-model.md`](../spec_topics/errors-and-results/error-model.md).
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** Failing tests for the paired `V4d` implementation leaf.
-
-**Tests.**
-- `ERR-14`: `validation_errors` are emitted in stable ascending order on (path, schema_keyword, message) by code point.
-- `ERR-15`: `QueryError.kind` is typed `string` (open seam), not a closed enum.
-- `ERR-17`: forced-respond non-compliance produces one synthesised `ValidationIssue` (path `""`, keyword `"required"`, branch-specific two-arm message).
-- `ERR-19`: the `ToolLoopExhaustedError` shape (`kind: "tool_loop_exhausted"`, `rounds` with `rounds == tool_loop.max_rounds`, `last_tool_name`, `raw_response`).
-
-**Deps.** `V5d`
-
-**Ships when.** The tests above exist, compile, and fail red for the intended reason.
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

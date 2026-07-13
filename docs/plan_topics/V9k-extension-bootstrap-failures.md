@@ -1,13 +1,9 @@
-# `V9k` — Extension-bootstrap SDK-failure abort surfaces
+# V9k — retired plan leaf
 
-**Spec.** [`../spec_topics/pi-integration-contract/extension-bootstrap-and-per-loom.md`](../spec_topics/pi-integration-contract/extension-bootstrap-and-per-loom.md), [`../spec_topics/diagnostics/code-registry-load.md`](../spec_topics/diagnostics/code-registry-load.md), [`../spec_topics/pi-integration-contract/registration-steps.md`](../spec_topics/pi-integration-contract/registration-steps.md), [`../spec_topics/diagnostics/placeholder-rendering-b.md`](../spec_topics/diagnostics/placeholder-rendering-b.md#underlying-error-coercion).
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** The per-call-type granularity contract for the two **whole-extension abort** surfaces of the **Extension-bootstrap SDK failures** rule: the per-surface `try`/`catch` around the `registerFlag` and `pi.on(...)` registration calls in steps 2–5, each mapping to a whole-extension abort (a `registerFlag` failure means registration steps 2–5 do not execute; a `pi.on(...)` failure means no subsequent `pi.register*` / `pi.on` call executes after the failing subscription), each emitting `loom/load/extension-bootstrap-failed` (E, load) with the surface's `details` payload and the underlying-error string. The three non-abort surfaces (renderer-failure degrade, per-loom `registerCommand` drop, `session_start`-time `getCommands()` read-failure drop) are owned by `V9p`. The factory never-throw boundary is owned by `H4a` and the registration mechanics by `V9b`; this leaf closes the per-surface abort granularity on top of them.
-
-**Tests.**
-- `loom/load/extension-bootstrap-failed` ([extension-bootstrap-and-per-loom.md — `pi.registerFlag` failure](../spec_topics/pi-integration-contract/extension-bootstrap-and-per-loom.md), PIC area): a factory-time `pi.registerFlag` failure is fatal to the whole extension — registration steps 2–5 do not execute — and a single diagnostic is emitted with `details.capability = "pi.registerFlag"`.
-- `loom/load/extension-bootstrap-failed` ([extension-bootstrap-and-per-loom.md — `pi.on(...)` failure](../spec_topics/pi-integration-contract/extension-bootstrap-and-per-loom.md), PIC area): a factory-time `pi.on(...)` subscription failure is fatal to the whole extension — no subsequent `pi.register*` / `pi.on` call executes after the failing subscription — and a single diagnostic is emitted with `details.capability = "pi.on"` and `details.event` naming the subscribed Pi event (`"resources_discover" | "session_start" | "session_shutdown"`).
-
-**Deps.** `V9k-T`, `H4a`, `V9b`, `V7d`
-
-**Ships when.** `npm test` exercises both whole-extension abort surfaces (`registerFlag`, `pi.on`) and proves `loom/load/extension-bootstrap-failed` is emitted with the surface's `details` payload and that registration steps 2–5 (for `registerFlag`) and subsequent `pi.register*` / `pi.on` calls (for `pi.on`) do not execute after the failing call.
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

@@ -1,12 +1,9 @@
-# `V2e` — Wire-name translation boundary
+# V2e — retired plan leaf
 
-**Spec.** [`../spec_topics/runtime-value-model.md`](../spec_topics/runtime-value-model.md), [`../spec_topics/schemas.md`](../spec_topics/schemas.md).
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** The inbound/outbound wire-name translation boundary (post-AJV loom-side rebuild with enum-tag reattach via the `V5f`-produced per-schema sidecar; outbound wire-name JSON).
-
-**Tests.**
-- [runtime-value-model.md — Wire-name translation](../spec_topics/runtime-value-model.md) (RVM code-keyed area): inbound translation rebuilds loom-side names so loom code never sees wire names; defaults bypass inbound translation.
-
-**Deps.** `V2e-T`, `V2a`, `V5f`
-
-**Ships when.** `npm test` asserts the wire-translation vectors above.
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

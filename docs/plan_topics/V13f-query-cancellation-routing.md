@@ -1,12 +1,9 @@
-# `V13f` — `@`-query provider swallowing-handler per-site routing
+# V13f — retired plan leaf
 
-**Spec.** [`../spec_topics/cancellation.md`](../spec_topics/cancellation.md).
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** The `@`-query provider abandonable-Promise site's routing through the `Checkpoint`-seam swallowing-handler substrate — the per-site witness that the `@`-query dispatch Promise attaches its swallowing handler at the construction site and suppresses a late settlement along all three side channels. This is the `@`-query entry in the four-site routing set [`V17a`](./V17a-cancellation-core.md) delegates to its owning leaves (`V14f`, `V13f`, `V15h`, `V9o`).
-
-**Tests.**
-- Swallowing-handler attachment at this site ([cancellation.md — *Race semantics — swallowing-handler attachment on every abandonable Promise*](../spec_topics/cancellation.md); the test source cites both the `cka-33` row token and this facet's `V13f` leaf-ID inline so the `H5f` per-facet citing-test gate associates this facet to its test): assert the underlying `@`-query provider Promise attaches its swallowing handler at the Promise-construction site (before the first microtask boundary), and that a late settlement landed via the `Checkpoint` seam (`V8a`) after the checkpoint has surfaced `cause: "cancelled"` is suppressed along all three side channels — no Node `unhandledRejection`, no second `RuntimeEvent`, and no diagnostic of any severity — so a build that bypasses the substrate reddens this leaf's tests.
-
-**Deps.** `V13f-T`, `V9n`, `V8a`, `H4b`
-
-**Ships when.** `npm test` lands a late settlement on the `@`-query provider Promise via the `Checkpoint` seam (`V8a`) after the checkpoint has surfaced `cause: "cancelled"`, and asserts the Promise's three-channel swallowing-handler suppression (no `unhandledRejection`, no second `RuntimeEvent`, no diagnostic) — a build that bypasses the substrate reddens this leaf's tests.
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

@@ -2,7 +2,7 @@
 //
 // An OPT-IN live-host acceptance suite, excluded from the default `npm test`
 // and invoked by the dedicated `npm run test:live` runner (see
-// `vitest.live.config.ts`). It loads the SHIPPED extension through its real
+// `config/vitest/vitest.live.config.ts`). It loads the SHIPPED extension through its real
 // `extensions/index.ts` entry (not the `H4a` in-memory fixture-supply),
 // discovers a real `.loom` from a real on-disk discovery source, and drives it
 // against a LIVE provider/model. It closes no new spec REQ-ID; it verifies the

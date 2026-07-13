@@ -1,14 +1,9 @@
-# `V9p` — Extension-bootstrap SDK-failure non-abort surfaces
+# V9p — retired plan leaf
 
-**Spec.** [`../spec_topics/pi-integration-contract/extension-bootstrap-and-per-loom.md`](../spec_topics/pi-integration-contract/extension-bootstrap-and-per-loom.md), [`../spec_topics/diagnostics/code-registry-load.md`](../spec_topics/diagnostics/code-registry-load.md), [`../spec_topics/pi-integration-contract/registration-steps.md`](../spec_topics/pi-integration-contract/registration-steps.md), [`../spec_topics/pi-integration-contract/drain-state-contract.md`](../spec_topics/pi-integration-contract/drain-state-contract.md), [`../spec_topics/diagnostics/placeholder-rendering-b.md`](../spec_topics/diagnostics/placeholder-rendering-b.md#underlying-error-coercion).
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** The per-call-type granularity contract for the three **non-abort** surfaces of the **Extension-bootstrap SDK failures** rule: the per-surface `try`/`catch` around the `registerMessageRenderer` / `registerCommand` calls and the `session_start`-time `getCommands()` read, mapping each to its distinct observable behaviour (renderer-failure degrade-and-proceed; per-loom `registerCommand` drop; `session_start`-time `getCommands()` read-failure pending-registration list drop with no drain-state write), each emitting `loom/load/extension-bootstrap-failed` (E, load) with the surface's `details` payload and the underlying-error string. The two whole-extension abort surfaces (`registerFlag`, `pi.on`) are owned by `V9k`. The factory never-throw boundary is owned by `H4a` and the registration mechanics by `V9b`; this leaf closes the per-surface non-abort granularity on top of them.
-
-**Tests.**
-- `loom/load/extension-bootstrap-failed` ([extension-bootstrap-and-per-loom.md — `pi.registerMessageRenderer` failure](../spec_topics/pi-integration-contract/extension-bootstrap-and-per-loom.md), PIC area): a factory-time `pi.registerMessageRenderer` rejection drops the renderer registration, the factory completes the remaining steps, this extension instance's system notes permanently degrade to the `ctx.ui.notify` arm of the System-notes fallback chain, and one diagnostic is emitted with `details.capability = "pi.registerMessageRenderer"` and `details.error` carrying the underlying-error string.
-- `loom/load/extension-bootstrap-failed` ([extension-bootstrap-and-per-loom.md — `pi.registerCommand` failure](../spec_topics/pi-integration-contract/extension-bootstrap-and-per-loom.md), PIC area): a `pi.registerCommand` failure (factory-time or `session_start`-time) drops only the failing loom, siblings still register, and one diagnostic is emitted per failing loom with `details.capability = "pi.registerCommand"` and `details.loom` carrying the slash-name.
-- `loom/load/extension-bootstrap-failed` ([extension-bootstrap-and-per-loom.md — `pi.getCommands()` read failure](../spec_topics/pi-integration-contract/extension-bootstrap-and-per-loom.md#getcommands-read-failure), PIC area): a `session_start`-time `pi.getCommands()` read failure drops the pending-registration list for that pass (no `pi.registerCommand` calls issue), the handler swallows the throw and MUST NOT set drain state (drain state is owned by `V9m`'s `LoomRegistry` contract), and a single diagnostic is emitted with `details.capability = "pi.getCommands"` — asserted distinctly from the write-side surfaces.
-
-**Deps.** `V9p-T`, `V9m`, `H4a`, `V9b`, `V7d`
-
-**Ships when.** `npm test` exercises each of the three non-abort bootstrap-failure surfaces and proves `loom/load/extension-bootstrap-failed` is emitted with the surface's `details` payload and the correct degrade/drop behaviour, including that the `session_start`-time `getCommands()` read-failure handler drops the pending-registration list without writing drain state.
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

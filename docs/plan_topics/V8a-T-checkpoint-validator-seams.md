@@ -1,12 +1,9 @@
-# `V8a-T` — `Checkpoint` seam (tests)
+# V8a — retired plan leaf
 
-**Spec.** [`../spec_topics/pi-integration-contract/host-interfaces-services.md`](../spec_topics/pi-integration-contract/host-interfaces-services.md), [`../spec_topics/implementation-notes.md`](../spec_topics/implementation-notes.md).
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** Failing tests for the paired `V8a` implementation leaf.
-
-**Tests.**
-- `PIC-10`: a checkpoint awaits at each defined cancel site with the correct yield kind and adds no extra sites.
-
-**Deps.** `H3a`, `V8d`
-
-**Ships when.** The tests above exist, compile, and fail red for the intended reason.
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

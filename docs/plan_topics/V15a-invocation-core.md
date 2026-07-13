@@ -1,15 +1,9 @@
-# `V15a` — Invocation core
+# V15a — retired plan leaf
 
-**Spec.** [`../spec_topics/invocation.md`](../spec_topics/invocation.md), [`../spec_topics/discovery/discovery-sources.md`](../spec_topics/discovery/discovery-sources.md), [`../spec_topics/return.md`](../spec_topics/return.md), [`../spec_topics/implementation-notes.md`](../spec_topics/implementation-notes.md).
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** The `invoke(...)` load-time/static-resolution core: path + `realpath` discovery-root containment (load-time and invocation-time, `INV-1`) and the static-resolution per-pass parse cache with its transitive parse/lower walk. The post-`realpath` parent loom path this leaf captures for discovery-root containment is the same value the per-frame invocation-record provenance seam consumes. Split per [`conventions.md`](./conventions.md) §smallest-shippable-leaf, the runtime arg/options and final-value facets (`INV-2`, `INV-3`, `FN-5`) are owned by [`V15k`](./V15k-invoke-args-options-final-value.md); the fresh-vs-attach cross-mode matrix selection by [`V15l`](./V15l-invoke-cross-mode-matrix.md); the `invoke`-site cancellation checkpoint (`cka-47`) and completed-callee-finality witness (`ERR-13`) by [`V15m`](./V15m-invoke-cancellation-facets.md). The prompt→prompt parent-suspend with the `setActiveTools` snapshot/restore is owned by [`V15d`](./V15d-prompt-suspend-snapshot.md); the six `invoke` parse/load diagnostic codes by [`V15f`](./V15f-invoke-diagnostics.md); the per-`invoke`-hop invocation-record provenance seam by [`V15g`](./V15g-invoke-provenance.md); and the ceiling-#4 depth surfaces and `invoke`-child swallowing-handler suppression by [`V15h`](./V15h-invoke-ceiling-swallowing.md).
-
-**Tests.**
-- `INV-1`: load-time and invocation-time re-checks use identical `realpath` + segment-boundary containment; an escape surfaces on both channels (diagnostic + `InvokeInfraError{load_failure}`).
-- [implementation-notes.md — Static-resolution load pass](../spec_topics/implementation-notes.md) (IMPL area), via [invocation.md — Static resolution](../spec_topics/invocation.md#static-resolution): the static-resolution pass walks transitively from the entry loom across literal `invoke` paths and `.loom` `tools:` entries, parsing and lowering each visited file exactly once into the static-resolution per-pass parse cache.
-
-The runtime arg/options and final-value facets (`INV-2`, `INV-3`, `FN-5`) are tested on [`V15k`](./V15k-invoke-args-options-final-value.md); the fresh-vs-attach cross-mode matrix on [`V15l`](./V15l-invoke-cross-mode-matrix.md); the `invoke`-site cancellation checkpoint (`cka-47`) and `ERR-13` completed-callee-finality witness on [`V15m`](./V15m-invoke-cancellation-facets.md).
-
-**Deps.** `V15a-T`, `V10a`, `V2b`, `V3d`, `V8b`
-
-**Ships when.** `npm test` asserts `INV-1` load-time and invocation-time `realpath` containment on both channels (diagnostic + `InvokeInfraError{load_failure}`) and drives the static-resolution per-pass parse cache's transitive walk over a multi-file entry loom (each visited file parsed and lowered exactly once). The runtime arg/options + final-value facets, the cross-mode matrix, and the cancellation/finality facets ship on [`V15k`](./V15k-invoke-args-options-final-value.md) / [`V15l`](./V15l-invoke-cross-mode-matrix.md) / [`V15m`](./V15m-invoke-cancellation-facets.md) respectively.
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

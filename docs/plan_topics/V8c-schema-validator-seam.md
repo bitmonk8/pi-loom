@@ -1,12 +1,9 @@
-# `V8c` — `SchemaValidator` seam
+# V8c — retired plan leaf
 
-**Spec.** [`../spec_topics/pi-integration-contract/host-interfaces-services.md`](../spec_topics/pi-integration-contract/host-interfaces-services.md), [`../spec_topics/implementation-notes.md`](../spec_topics/implementation-notes.md).
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** The `SchemaValidator` seam (one-pass multi-error AJV wrapper, no convert/defaults, in-doc `$ref`, silent unknown `format`, deterministic, per-runtime, slug-cache byte-verify).
-
-**Tests.**
-- `PIC-11`: validation returns all errors in one pass, performs no coercion/defaulting, and on a slug-cache byte mismatch fires `validator-cache-collision`.
-
-**Deps.** `V8c-T`, `H3a`
-
-**Ships when.** `npm test` asserts the one-pass multi-error validator contract — no coercion/defaulting and a `validator-cache-collision` on a slug-cache byte mismatch.
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

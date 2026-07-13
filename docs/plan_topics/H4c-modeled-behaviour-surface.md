@@ -1,13 +1,9 @@
-# `H4c` — Modeled-behaviour response-programming surface
+# H4c — retired plan leaf
 
-**Convention.** [`conventions.md`](./conventions.md) (phase categories — end-to-end harness).
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** The **modeled-behaviour** extension of [`H4b`](./H4b-response-programming-surface.md)'s response-programming surface — the two scripted-injection categories whose authoring complexity comes from modelling not-yet-authored slice contracts rather than from a contract that already exists when the harness lands, split out of [`H4b`](./H4b-response-programming-surface.md) so the core categories (a)–(e) the bulk of harness-driven leaves consume can ship without waiting on this modelling: (f) drive a nested `invoke(...)` child to completion — a produced final value from the child invocation — so a test can observe a completed invoke-child outcome through the double rather than the live `V15a` surface — the no-rollback completed-invoke-child contract per [`error-model.md` ERR-13](../spec_topics/errors-and-results/error-model.md#err-13) (the `V4f` ERR-13 completed-invoke-child vector); and (g) script/observe a subagent-mode callee — a private subagent `AgentSession` dispatched per the `V9i` subagent-mode session contract ([`subagent.md`](../spec_topics/pi-integration-contract/subagent.md)), modelled so a test can observe a subagent-loom outcome through the double rather than the live `V9i` surface (the `V4c` ERR-12 subagent-loom vector). The (f) and (g) categories model the `V4f` ERR-13 completed-invoke-child and `V9i` subagent-mode session contracts as **this harness's own scripting contract**: the owning slices (`V4f`, `V9i`) consume this surface rather than redefining it, so the forward-reference to those not-yet-authored slices is resolved by treating the harness contract as authoritative. This modeled-behaviour surface is the single shared scripting contract every (f)/(g)-driven harness leaf consumes — `V4c`, `V4f`, `V9i`, and `V9o` — so each scripts against one API rather than inventing a per-leaf surface; the named injection points above are the content the contract must define, while the API's exact shape is the implementer's to finalise.
-
-**Tests.**
-- `Convention:` (end-to-end harness) the self-check asserts the modeled-behaviour surface drives the double **deterministically** — replaying the same scripted invoke-child completions and subagent-mode callee dispatch yields the same observable transcript on every run.
-- `Convention:` (end-to-end harness) the self-check asserts the **functional effect** of each modeled-behaviour injection-point category — that each scripted input yields its expected observable, not merely a stable one — so the seam contract is verified at this owning leaf rather than only transitively by downstream consumers. The self-check asserts, for the categories `Adds` enumerates: (f) a scripted invoke-child completion surfaces its produced final value as an observable completed-invoke-child outcome in the transcript; and (g) a scripted subagent-mode callee surfaces its outcome as an observable subagent-loom outcome in the transcript, modelled on the `V9i` subagent-mode session contract rather than a plain scripted turn. The assertions are phrased in terms of the observable each scripted input must yield; the surface's API shape stays the implementer's to finalise.
-
-**Deps.** `H4b`
-
-**Ships when.** `npm test` exercises the modeled-behaviour surface through [`H4a`](./H4a-factory-shell-and-harness.md)'s harness and the self-check passes — including the determinism gate and the per-category functional-effect assertions (f)–(g).
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

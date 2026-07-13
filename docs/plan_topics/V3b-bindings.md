@@ -1,16 +1,9 @@
-# `V3b` — Bindings and mutability
+# V3b — retired plan leaf
 
-**Spec.** [`../spec_topics/bindings.md`](../spec_topics/bindings.md).
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** `let` (immutable) and `let mut` bindings with mandatory initialisers, statement-only reassignment (including `+=`), binding-level-only mutation (no member/index assignment), and the immutable-context set (params, `for` var, match binds, `_`).
-
-**Tests.**
-- `loom/parse/immutable-rebinding`: reassignment of a `let` (non-`mut`) binding fires.
-- `loom/parse/assignment-to-member-or-index`: `obj.field = …` / `arr[i] = …` member or index assignment fires.
-- `loom/parse/mut-on-immutable-context`: a `mut` modifier on a function parameter, `for` iteration variable, or `match` binding fires.
-- `loom/parse/increment-decrement`: `++`/`--` are rejected.
-- `loom/parse/let-without-initialiser`: a `let` without an initialiser fires.
-
-**Deps.** `V3b-T`, `V2b`, `V3a`
-
-**Ships when.** `npm test` fires each binding/mutability code and accepts a valid `let mut` reassignment.
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

@@ -1,14 +1,9 @@
-# `V5c-T` — Descriptions (`///`) (tests)
+# V5c — retired plan leaf
 
-**Spec.** [`../spec_topics/descriptions.md`](../spec_topics/descriptions.md).
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** Failing tests for the paired `V5c` implementation leaf.
-
-**Tests.**
-- [descriptions.md — `///` lowering](../spec_topics/descriptions.md) (DESC code-keyed area): `///` above a schema/enum/field/variant lowers byte-for-byte into `description:`; a function `///` stays AST-only.
-- `loom/parse/doc-comment-misplaced`: a `///` not above an eligible target fires.
-- [descriptions.md — multi-line join](../spec_topics/descriptions.md) (DESC code-keyed area): multi-line `///` joins and strips common leading whitespace; `//` is not propagated.
-
-**Deps.** `V5a`
-
-**Ships when.** The tests above exist, compile, and fail red for the intended reason.
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

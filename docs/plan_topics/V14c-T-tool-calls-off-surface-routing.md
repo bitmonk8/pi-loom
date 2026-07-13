@@ -1,12 +1,9 @@
-# `V14c-T` — Code-side tool-call off-surface outcome routing (tests)
+# V14c — retired plan leaf
 
-**Spec.** [`../spec_topics/tool-calls.md`](../spec_topics/tool-calls.md), [`../spec_topics/cancellation.md`](../spec_topics/cancellation.md).
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** Failing tests for the paired `V14c` implementation leaf.
-
-**Tests.**
-- Off-surface outcome routing — the four off-surface outcomes each surface on their own channel, not all on `loom/runtime/internal-error`: a pre-eval setup throw inside the `.loom`-callable parallel-batch adapter (per [`../spec_topics/tool-calls.md`](../spec_topics/tool-calls.md) §Outcome enumeration, "Pre-evaluation setup throw inside the `.loom`-callable adapter") → `{isError:true}` (message carrying the bare callable-set name) + one `loom/runtime/internal-error` diagnostic + one co-emitted `loom-system-note`; a non-conforming return shape → `loom/runtime/internal-error{tool-return-shape}`; a non-settling promise → blocks at its `await` until `loomAbort.signal` fires and surfaces via the `cause:"cancelled"` path (no `internal-error`); a post-cancel late settlement → discarded per CNCL-1/CNCL-2/CNCL-3 (no `internal-error`).
-
-**Deps.** `V14a`, `V14g`, `V8a`, `V4d`
-
-**Ships when.** The tests above exist, compile, and fail red for the intended reason.
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

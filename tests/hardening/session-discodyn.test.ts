@@ -3,7 +3,7 @@
 // probes driven through the SHIPPED extension via `runProbe`.
 //
 // Run:
-//   npx vitest run --config vitest.hardening.config.ts tests/hardening/session-discodyn.test.ts
+//   npx vitest run --config config/vitest/vitest.hardening.config.ts tests/hardening/session-discodyn.test.ts
 
 import { describe, it, expect } from "vitest";
 import { requireLiveProvider, runProbe } from "./probe-harness";

@@ -1,16 +1,9 @@
-# `V19d-T` — Effectful statement wiring: real query/tool/invoke hosts (tests)
+# V19d — retired plan leaf
 
-**Spec.** [`../spec_topics/query.md`](../spec_topics/query.md), [`../spec_topics/query/query-tool-loop.md`](../spec_topics/query/query-tool-loop.md), [`../spec_topics/query/query-forms.md`](../spec_topics/query/query-forms.md), [`../spec_topics/query/query-failure-and-repair.md`](../spec_topics/query/query-failure-and-repair.md), [`../spec_topics/tool-calls.md`](../spec_topics/tool-calls.md), [`../spec_topics/invocation.md`](../spec_topics/invocation.md), [`../spec_topics/pi-integration-contract/conversation-drive.md`](../spec_topics/pi-integration-contract/conversation-drive.md), [`../spec_topics/slash-invocation.md`](../spec_topics/slash-invocation.md) (with their transitive normative closure) — the effectful seams the paired impl leaf realises against the driven conversation.
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** Failing tests for the paired [`V19d`](./V19d-effectful-statement-wiring.md) implementation leaf.
-
-**Tests.** This leaf closes **no** new coverage-matrix row; every bullet is an integration-realisation witness that the existing seams execute against the real driven conversation under the [`V19c`](./V19c-statement-executor.md) executor.
-- `Convention:` real-host query wiring — a body `@`-query executes through the real query-model driver against the driven conversation, servicing the tool-call loop and resolving to the final response ([`query-tool-loop.md` QRY-13](../spec_topics/query/query-tool-loop.md#qry-13)/[QRY-14](../spec_topics/query/query-tool-loop.md#qry-14)/[QRY-15](../spec_topics/query/query-tool-loop.md#qry-15)/[QRY-16](../spec_topics/query/query-tool-loop.md#qry-16) as integration witnesses, not re-closed here — owned on the `V13*` leaves).
-- `Convention:` real-host tool-call wiring — a body `<name>(args)` tool call dispatches through the real code-side tool-call path and lowering sink against the driven conversation ([`tool-calls.md`](../spec_topics/tool-calls.md), [`coverage-matrix.md`](./coverage-matrix.md) code-keyed-area tokens `cka-13` and `cka-46` as integration witnesses, not re-closed here — owned on the `V14*` leaves).
-- `Convention:` real-host invoke wiring — a body `invoke(...)` call executes through the real invoke trampoline against a freshly spawned isolated session, honouring argument binding and the depth bound ([`invocation.md` INV-1](../spec_topics/invocation.md#inv-1)/[INV-2](../spec_topics/invocation.md#inv-2)/[INV-3](../spec_topics/invocation.md#inv-3)/[INV-4](../spec_topics/invocation.md#inv-4) as integration witnesses, not re-closed here — owned on the `V15*` leaves).
-- `Convention:` in-order effectful execution — a body interleaving an `@`-query, a `<name>(args)` tool call, and an `invoke(...)` executes each effect strictly in source order through the real hosts, witnessing that the [`V19c`](./V19c-statement-executor.md) executor drives real effectful hosts and not doubles; adds no coverage-matrix row.
-- `Convention:` invoke-dispatch cancellation checkpoint — a failing test that the invoke-dispatch cancellation checkpoint site (`cka-47`, owned by [`V15m`](./V15m-invoke-cancellation-facets.md)) is honoured on the REAL invoke host the paired impl leaf assembles, so a cancellation at the invoke checkpoint interrupts dispatch through the real trampoline (`cka-47` and `V15m` as integration witnesses, not re-closed here — owned on the `V15m` leaf); adds no coverage-matrix row.
-
-**Deps.** `V19c`, `V13a`, `V13c`, `V13d`, `V13g`, `V13h`, `V14a`, `V14b`, `V14c`, `V14g`, `V15a`, `V15b`, `V15d`, `V15k`, `V15m`, `V9c`, `V9i`, `V12a` — the executor the hosts wire into, the query / tool-call / invoke feature leaves whose real seams it realises (`V15m` the invoke-checkpoint facet), and the conversation-drive and slash-dispatch leaves the driven conversation runs under.
-
-**Ships when.** The tests above exist, compile, and fail red for the intended reason.
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

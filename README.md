@@ -80,11 +80,10 @@ Report issues against the behaviour the [Reference](./docs/reference/) defines.
 - The `.loom` / `.warp` split draws on
   `docs/spec_topics/overview-and-orientation.md` §"file-extension-grammar" and
   `docs/spec_topics/language-and-architecture.md`.
-- The **loom 1.0** language design-scope framing follows `docs/documentation-plan.md`
-  §1 and decision D-6. The package's `0.1.x` version is a separate axis
-  (implementation release maturity), deliberately kept pre-stable. The end-to-end
-  test campaign (`docs/e2e-campaign/`) closed the type-layer-diagnostic and
-  nested-control-form gaps an interim status had enumerated.
+- The **loom 1.0** language design-scope framing follows the specification's
+  versioning governance (`docs/spec_topics/governance/release-version-naming.md`).
+  The package's `0.1.x` version is a separate axis (implementation release
+  maturity), deliberately kept pre-stable.
 - Definition links point into `docs/reference/` (errors-and-results.md,
   frontmatter.md) rather than restating normative detail, per `docs/STYLE.md`.
 </content>

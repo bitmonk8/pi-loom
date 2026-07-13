@@ -1,13 +1,9 @@
-# `V18a` — SDK capability and surface inventory
+# V18a — retired plan leaf
 
-**Spec.** [`../spec_topics/pi-integration-contract/inventory-audit-intro.md`](../spec_topics/pi-integration-contract/inventory-audit-intro.md), [`../spec_topics/pi-integration-contract/capability-inventory-items.md`](../spec_topics/pi-integration-contract/capability-inventory-items.md).
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** The `CAPABILITY_OBLIGATIONS` and `SDK_SURFACE_INVENTORY` pinned constants. `CAPABILITY_OBLIGATIONS` enumerates the seven named SDK capabilities — each entry carrying a partition flag classifying it factory-probed (Step 0) vs verified-otherwise — with the build-time cardinality assertion and the partition assertion that reconciles those flags against the `FACTORY_PROBABLE_CAPABILITIES` constant `V9a` exports. `SDK_SURFACE_INVENTORY` is the full Pi-side surface set — strictly broader than the seven capabilities per [`inventory-audit-intro.md` §SDK capability inventory](../spec_topics/pi-integration-contract/inventory-audit-intro.md#sdk-capability-inventory) — and this leaf populates its non-capability rows as well: the category-(1) `pi.<member>` rows `pi.registerFlag` and `pi.getFlag` (per [§"Non-capability `pi.<member>` surfaces"](../spec_topics/pi-integration-contract/inventory-audit-intro.md#non-capability-pi-members)); the `pi-engines-node` row holding the in-repo pinned Node floor read as operand (ii) of the `engines.node` three-way equality; the `peer-dep-range` row backing the `peerDependencies` literal-read; the `strict-capability-probe` row; and the `api-coverage` row backing the provider seed-field gate. This leaf also owns the inventory's entry-kind taxonomy — the `namespace-function` kind plus the additional non-`namespace-function` kinds the spec leaves implementation-owned — so the V18c version-bump gates and the V18b closure audit resolve against rows this leaf establishes.
-
-**Tests.**
-- `PIC-15`: the seven named SDK capabilities are pinned, each `CAPABILITY_OBLIGATIONS` entry carrying a partition flag classifying it factory-probed (Step 0) vs verified-otherwise — items 1/2/3/4/6 factory-probed, items 5/7 otherwise; `CAPABILITY_OBLIGATIONS.length === 7` asserts the cardinality at build time, and a build-time assertion verifies the set of factory-probed-flagged entries equals the Step-0 factory-probable capability set imported from `V9a`'s exported `FACTORY_PROBABLE_CAPABILITIES` constant (not a literal re-listed here), so a mis-classified entry reddens at build time.
-- `PIC-15`: the non-capability `SDK_SURFACE_INVENTORY` rows this leaf populates resolve — the category-(1) `pi.registerFlag` / `pi.getFlag` members and the `pi-engines-node` / `peer-dep-range` / `strict-capability-probe` / `api-coverage` rows, each tagged with its kind under the leaf-owned entry-kind taxonomy — so the broadened inventory does not ship unasserted. This assertion ranges over the `SDK_SURFACE_INVENTORY` surface set, not the capability subset, and does not redefine the `CAPABILITY_OBLIGATIONS.length === 7` operand the bullet above asserts.
-
-**Deps.** `V18a-T`, `V9a`
-
-**Ships when.** `npm test` asserts `CAPABILITY_OBLIGATIONS.length === 7` and that each entry's factory-probed/verified-otherwise partition flag reconciles against the `FACTORY_PROBABLE_CAPABILITIES` constant `V9a` exports, and that each populated non-capability `SDK_SURFACE_INVENTORY` row (`pi.registerFlag`, `pi.getFlag`, `pi-engines-node`, `peer-dep-range`, `strict-capability-probe`, `api-coverage`) resolves and carries its kind under the leaf-owned entry-kind taxonomy.
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

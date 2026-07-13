@@ -51,7 +51,7 @@ import type { ModelReferenceMatcher } from "../../src/parser/frontmatter";
 // isolated per-module seams. It is the regression net for the meta-failure the
 // hardening campaign exposed: 1539 isolated unit tests stayed green while the
 // shipped dispatch was broken. It runs under a dedicated runner
-// (`npm run test:conformance` / `vitest.conformance.config.ts`) excluded from the
+// (`npm run test:conformance` / `config/vitest/vitest.conformance.config.ts`) excluded from the
 // default `npm test`, a sibling to the H8a `test:live` and H9a `test:acceptance`
 // runners.
 //

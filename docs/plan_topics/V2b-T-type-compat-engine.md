@@ -1,22 +1,9 @@
-# `V2b-T` — Type-compatibility engine (`⊑`) (tests)
+# V2b — retired plan leaf
 
-**Spec.** [`../spec_topics/type-system.md`](../spec_topics/type-system.md), [`../spec_topics/schema-subset.md`](../spec_topics/schema-subset.md).
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** Failing tests for the paired `V2b` implementation leaf.
-
-**Tests.**
-- `TYPE-1`: reflexivity `T ⊑ T` holds.
-- `TYPE-2`: `integer ⊑ number` one-way; the reverse emits `integer-narrowing`.
-- `TYPE-3`: a literal `L ⊑ T` when `L` types as `T`.
-- `TYPE-4`: variant `A ⊑ U` for its declaring union.
-- `TYPE-5`: union widening `T ⊑ T|U`.
-- `TYPE-6`: `T₁|T₂ ⊑ T₃` iff each arm `⊑ T₃`.
-- `TYPE-7`: `array<T₁> ⊑ array<T₂>` iff `T₁ ⊑ T₂`.
-- `TYPE-8`: inline-object field-wise compatibility with exact field-set / `additionalProperties:false`.
-- `TYPE-9`: per-site codes (`let-rhs-type-mismatch`, `fn-arg-type-mismatch`, ternary/array common-type) fire on static mismatch.
-- `TYPE-10`: object-schema named types are nominal — no cross-named structural admission.
-- `TYPE-11`: alias-schema transparency — the alias unfolds to its RHS first, recursing through nested aliases: alias-unfold cases hold (`"low" ⊑ Severity` for `schema Severity = "low" | "medium" | "high"`, and `StringOrNumber ⊑ string | number`); aliasing an object schema (`schema Y = SomeObjectSchema`) unfolds to that object schema, which then re-enters TYPE-10's nominal case.
-
-**Deps.** `V2a`, `V5d`
-
-**Ships when.** The tests above exist, compile, and fail red for the intended reason.
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

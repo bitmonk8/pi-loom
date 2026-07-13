@@ -1,12 +1,9 @@
-# `V14d-T` — Code-tool host-denial surface (tests)
+# V14d — retired plan leaf
 
-**Spec.** [`../spec_topics/pi-integration-contract/trust-boundary.md`](../spec_topics/pi-integration-contract/trust-boundary.md#no-extra-mediation) (the denial-surface MUST under *No additional access channels*).
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** Failing tests for the paired `V14d` implementation leaf.
-
-**Tests.**
-- [trust-boundary.md — No additional access channels (PIC-52)](../spec_topics/pi-integration-contract/trust-boundary.md#pic-52): a host-side denial (thrown or `isError: true` tool return) reaches loom code as `Err(QueryError{kind:"code_tool", cause:"execution"})` and never resolves as a silent `Ok` (silent success on denial is forbidden).
-
-**Deps.** `V14a`, `V14g`
-
-**Ships when.** The tests above exist, compile, and fail red for the intended reason.
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

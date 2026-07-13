@@ -1,15 +1,9 @@
-# `V6a` — Frontmatter field contract
+# V6a — retired plan leaf
 
-**Spec.** [`../spec_topics/frontmatter.md`](../spec_topics/frontmatter.md), [`../spec_topics/frontmatter/frontmatter-fields-a.md`](../spec_topics/frontmatter/frontmatter-fields-a.md), [`../spec_topics/frontmatter/frontmatter-fields-b-and-templates.md`](../spec_topics/frontmatter/frontmatter-fields-b-and-templates.md).
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** The frontmatter parser — parsing YAML via the `yaml` dependency declared in [`H1a`](./H1a-scaffold-and-toolchain.md)'s manifest per [`implementation-notes.md` §"Loom-package implementation dependencies (loom 1.0)"](../spec_topics/implementation-notes.md#loom-package-implementation-dependencies-loom-1-0) — with defaults, required `mode:`, model/`bind_*` resolution hooks, and unknown-key tolerance emitted as a warning (forward-compat seam). The `bind_*` hooks are seams closed downstream: `bind_model` resolution by [`V11a`](./V11a-binder-model-resolution.md)'s `loom/load/binder-model-unresolved`, `bind_context` by [`V11b`](./V11b-bind-context-transcript.md), and `bind_echo`/echo by [`V11h`](./V11h-argument-echo.md). The loom's own `model:` resolution hook closes its present-but-unresolvable load-time error in-leaf (see Tests). `V6a` itself defines the **model-reference-matcher injection seam** — the interface the parser's `model:` resolution hook calls — so the seam is declared in-leaf and the leaf carries no forward `Deps` edge onto the downstream binder-model machinery. The concrete matcher passed through that seam binds the shared resolution contract [`V11a`](./V11a-binder-model-resolution.md) owns: loom's own exact-match resolver run over `ctx.modelRegistry.getAvailable()`, matching a bare `modelId` against each model's [`Model<Api>.id`](../spec_topics/pi-integration-contract/host-interfaces-core.md#binder-model-matcher-inputs) (the model-identity field) and a `provider/modelId` reference against `Model<Api>.provider` (the short provider-id form, not the api-shaped `Model<Api>.api`) plus `Model<Api>.id` (see [`binder-model-and-context.md#binder-model-parse-rule`](../spec_topics/binder/binder-model-and-context.md#binder-model-parse-rule)), so this `model:` resolution and `V11a`'s binder-model resolution cannot decide the same "reference matches no available model" condition differently. The production wiring point that constructs the concrete matcher and injects it into the parser at the load pass is owned by [`V9b`](./V9b-registration-reload-wiring.md).
-
-**Tests.**
-- A missing `mode:` fires `loom/load/missing-mode`; a valid `mode:` resolves.
-- An unknown frontmatter key fires `loom/load/unknown-frontmatter-field` (severity `W`) and is tolerated.
-- `loom/parse/timeout-field-rejected`: a per-call timeout field is rejected (NOCEIL-1 seam).
-- `loom/load/model-unresolved`: a present `model:` value resolving to no available model (a non-string scalar, a malformed reference, a `provider/modelId` reference matching no available model whose `Model<Api>.provider` (not the api-shaped `.api`) and `Model<Api>.id` both match, or a bare `modelId` matching no available model's `Model<Api>.id` or ambiguous across providers) fails the load and the loom is not registered; the parser's model-resolution hook fires the code against the matcher passed through the model-reference-matcher injection seam `V6a` defines (the concrete matcher binds `V11a`'s shared resolution contract — loom's own exact-match resolver over `ctx.modelRegistry.getAvailable()` against the named `Model<Api>.id` / `Model<Api>.provider` fields — see Adds) ([frontmatter-fields-a.md `model` row](../spec_topics/frontmatter/frontmatter-fields-a.md)).
-
-**Deps.** `V6a-T`, `V1a`, `V5a`
-
-**Ships when.** `npm test` parses frontmatter, requires `mode:`, and tolerates unknown keys as warnings.
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

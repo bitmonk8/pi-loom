@@ -1,14 +1,9 @@
-# `V13b-T` — Query schema inference (tests)
+# V13b — retired plan leaf
 
-**Spec.** [`../spec_topics/query.md`](../spec_topics/query.md), [`../spec_topics/query/query-forms.md`](../spec_topics/query/query-forms.md).
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** Failing tests for the paired `V13b` implementation leaf.
-
-**Tests.**
-- The innermost sink wins; the shallow walk's crossed/stopped behaviour matches the normative rules.
-- `loom/parse/explicit-schema-mismatch`: a `@<Schema>` override whose ascription is not `⊑` the annotation fires (one-directional; skipped when unresolvable) — the four vectors.
-- [schema-subset.md — Lowering Algorithm step 4 (per-query `$defs` pruning)](../spec_topics/schema-subset.md#lowering-algorithm) (SUBS code-keyed area): a typed query's request schema document contains only the `$defs` transitively reachable from its response-schema root; unreachable `$defs` are pruned.
-
-**Deps.** `V13a`, `V2b`, `V5d`, `V5f`
-
-**Ships when.** The tests above exist, compile, and fail red for the intended reason.
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

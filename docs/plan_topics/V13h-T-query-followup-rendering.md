@@ -1,14 +1,9 @@
-# `V13h-T` — Query follow-up turn template rendering (tests)
+# V13h — retired plan leaf
 
-**Spec.** [`../spec_topics/query/query-failure-and-repair.md`](../spec_topics/query/query-failure-and-repair.md), [`../spec_topics/errors-and-results/queryerror-variants.md`](../spec_topics/errors-and-results/queryerror-variants.md).
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** Failing tests for the paired `V13h` implementation leaf.
-
-**Tests.**
-- `QRY-12` ([query-failure-and-repair.md — follow-up turn templates (normative)](../spec_topics/query/query-failure-and-repair.md#qry-12)): each non-`none` methodology — `validator_error` and `schema_repeat` — renders its follow-up user turn byte-for-byte for a known input, with only the `<…>` placeholders interpolated and every other character fixed, including the literal U+0060 backticks around `` `__loom_respond_<slug>` `` and the trailing U+000A after the `<schema-json>` interpolation.
-- `QRY-12` ([query-failure-and-repair.md — follow-up turn templates (normative)](../spec_topics/query/query-failure-and-repair.md#qry-12)): `<schema-json>` is `JSON.stringify(schema, null, 2)` over the **lowered** response schema (the JSON Schema handed to AJV), not the source-Loom-type form, and `<slug>` equals the slug of that lowered schema.
-- `QRY-12` ([query-failure-and-repair.md — follow-up turn templates (normative)](../spec_topics/query/query-failure-and-repair.md#qry-12)): on a 2-attempt sequence the second follow-up's `<ajv-summary>` reflects only the most-recent failed attempt's `ValidationIssue` entries, in the canonical `validation_errors` order (`ERR-14`), never a cumulative concatenation across attempts.
-
-**Deps.** `V13c`, `V4d`, `V9j`, `H4b`
-
-**Ships when.** The tests above exist, compile, and fail red for the intended reason.
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

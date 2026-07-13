@@ -1,15 +1,9 @@
-# `V6a-T` — Frontmatter field contract (tests)
+# V6a — retired plan leaf
 
-**Spec.** [`../spec_topics/frontmatter.md`](../spec_topics/frontmatter.md), [`../spec_topics/frontmatter/frontmatter-fields-a.md`](../spec_topics/frontmatter/frontmatter-fields-a.md), [`../spec_topics/frontmatter/frontmatter-fields-b-and-templates.md`](../spec_topics/frontmatter/frontmatter-fields-b-and-templates.md).
+The loom 1.0 implementation plan is complete. This leaf's body has been
+pruned as historical cruft. The file is retained (filename only) because
+`tools/closing-gate/live-corpus.js` derives the release-gate leaf-ID universe
+from `docs/plan_topics/` filenames.
 
-**Adds.** Failing tests for the paired `V6a` implementation leaf.
-
-**Tests.**
-- A missing `mode:` fires `loom/load/missing-mode`; a valid `mode:` resolves.
-- An unknown frontmatter key fires `loom/load/unknown-frontmatter-field` (severity `W`) and is tolerated.
-- `loom/parse/timeout-field-rejected`: a per-call timeout field is rejected (NOCEIL-1 seam).
-- `loom/load/model-unresolved`: a present `model:` value resolving to no available model (a non-string scalar, a malformed reference, a `provider/modelId` reference matching no available model whose `Model<Api>.provider` (not the api-shaped `.api`) and `Model<Api>.id` both match, or a bare `modelId` matching no available model's `Model<Api>.id` or ambiguous across providers) fails the load and the loom is not registered; the test drives the parser's model-resolution hook through the model-reference-matcher injection seam `V6a` defines (the concrete matcher binds `V11a`'s shared resolution contract — loom's own exact-match resolver over `ctx.modelRegistry.getAvailable()` against the named `Model<Api>.id` / `Model<Api>.provider` fields — see `V6a` Adds) ([frontmatter-fields-a.md `model` row](../spec_topics/frontmatter/frontmatter-fields-a.md)).
-
-**Deps.** `V1a`, `V5a`
-
-**Ships when.** The tests above exist, compile, and fail red for the intended reason.
+The retained REQ-ID → closing-leaf mapping lives in
+[`coverage-matrix.md`](./coverage-matrix.md).

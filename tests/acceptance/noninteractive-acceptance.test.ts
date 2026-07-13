@@ -11,7 +11,7 @@
 // emitted `loom-system-note` codes ⊆ the committed permitted-code list. It is
 // Phase 1 of the two-phase loom 1.0 release gate (real-host-smoke-gate.md).
 //
-// It has its own runner (`vitest.acceptance.config.ts` / `npm run
+// It has its own runner (`config/vitest/vitest.acceptance.config.ts` / `npm run
 // test:acceptance`), excluded from the default `npm test` and the H8a
 // `npm run test:live` suite; it spends real tokens and needs a live host. It
 // closes no spec REQ-ID and adds no coverage-matrix row (the live-host
