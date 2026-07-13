@@ -56,14 +56,47 @@ export const EXTENSION_ENTRY = fileURLToPath(
 );
 
 /**
- * The live provider/model the spawned `pi -p` session drives its turns against.
- * Overridable through the environment so a different live host can be pinned
- * without editing the suite; the defaults name a broadly-available structured-
- * output-capable model. `pi -p` inherits `process.env`, so a missing credential
- * surfaces as the live-host precondition failure (never a silent skip).
+ * Resolve the live provider/model the spawned `pi -p` session drives its turns
+ * against. By default this resolves the operator's CONFIGURED default the same
+ * way the H8a live suite (`tests/live/harness.ts` `requireLiveProvider`) does —
+ * `ModelRegistry.getAvailable()`, preferring `opus` — so the acceptance suite
+ * drives the model the operator actually runs (symmetric with
+ * `npm run test:live`) rather than a hardcoded provider/model. Setting BOTH
+ * `PI_LOOM_ACC_PROVIDER` and `PI_LOOM_ACC_MODEL` pins a specific live host
+ * without editing the suite. `pi -p` inherits `process.env`, so a missing
+ * credential surfaces as the live-host precondition failure (never a silent
+ * skip).
  */
-export const ACCEPTANCE_PROVIDER = process.env["PI_LOOM_ACC_PROVIDER"] ?? "unity-messages";
-export const ACCEPTANCE_MODEL = process.env["PI_LOOM_ACC_MODEL"] ?? "claude-haiku-4-5";
+export function resolveAcceptanceHost(): {
+  readonly provider: string;
+  readonly model: string;
+} {
+  const envProvider = process.env["PI_LOOM_ACC_PROVIDER"];
+  const envModel = process.env["PI_LOOM_ACC_MODEL"];
+  if (envProvider !== undefined && envModel !== undefined) {
+    return { provider: envProvider, model: envModel };
+  }
+  const authStorage = AuthStorage.create();
+  const modelRegistry = ModelRegistry.create(authStorage);
+  const available = modelRegistry.getAvailable();
+  if (available.length === 0) {
+    failLoudly(
+      "live-host precondition unmet: no live provider/model configured " +
+        "(ModelRegistry.getAvailable() is empty). Configure a provider and " +
+        "credentials before running `npm run test:acceptance`, or pin one with " +
+        "PI_LOOM_ACC_PROVIDER + PI_LOOM_ACC_MODEL; this suite never silently " +
+        "skips.",
+    );
+  }
+  const idOf = (m: unknown): string => (m as { id?: string }).id ?? "";
+  const providerOf = (m: unknown): string =>
+    (m as { provider?: string }).provider ?? "";
+  const model =
+    available.find((m) => idOf(m) === "claude-opus-4-8") ??
+    available.find((m) => idOf(m).includes("opus")) ??
+    available[0];
+  return { provider: providerOf(model), model: idOf(model) };
+}
 
 /** Directory holding the committed feature-loom fixtures (authored by the paired `H9a`). */
 export const FEATURE_LOOM_DIR = fileURLToPath(
@@ -307,28 +340,14 @@ export function loadPermittedCodes(): readonly string[] {
 
 /**
  * Require a configured, credentialed live provider/model. Fails loudly naming
- * the missing precondition (never a silent skip). Called only AFTER the
- * feature-loom presence assertion, so in the current red state the suite never
- * reaches here — the intended-reason red (fixture absent) fires first.
+ * the missing precondition (never a silent skip) via `resolveAcceptanceHost`.
+ * Called only AFTER the feature-loom presence assertion, so in the current red
+ * state the suite never reaches here — the intended-reason red (fixture absent)
+ * fires first. Returns the resolved model id (the same host `spawnPiPrint`
+ * drives against).
  */
 export function requireLiveHost(): { readonly modelId: string } {
-  const authStorage = AuthStorage.create();
-  const modelRegistry = ModelRegistry.create(authStorage);
-  const available = modelRegistry.getAvailable();
-  if (available.length === 0) {
-    failLoudly(
-      "live-host precondition unmet: no live provider/model configured " +
-        "(ModelRegistry.getAvailable() is empty). Configure a provider and " +
-        "credentials before running `npm run test:acceptance`; this suite " +
-        "never silently skips.",
-    );
-  }
-  const idOf = (m: unknown): string => (m as { id?: string }).id ?? "";
-  const model =
-    available.find((m) => idOf(m) === "claude-opus-4-8") ??
-    available.find((m) => idOf(m).includes("opus")) ??
-    available[0];
-  return { modelId: idOf(model) };
+  return { modelId: resolveAcceptanceHost().model };
 }
 
 // ---------------------------------------------------------------------------
@@ -364,6 +383,9 @@ export interface SpawnPiPrintOptions {
  */
 export function spawnPiPrint(options: SpawnPiPrintOptions): Promise<PiPrintResult> {
   const loomDirs = [options.loomDir, ...(options.extraLoomDirs ?? [])];
+  // Drive the turns against the operator's configured default model (resolved
+  // like the H8a live suite), or an explicit PI_LOOM_ACC_* pin.
+  const host = resolveAcceptanceHost();
   const args = [
     PI_CLI_ENTRY,
     "-p",
@@ -372,11 +394,11 @@ export function spawnPiPrint(options: SpawnPiPrintOptions): Promise<PiPrintResul
     "-ne",
     "-e",
     EXTENSION_ENTRY,
-    // Pin the live provider/model the driven turns run against.
+    // The live provider/model the driven turns run against (see host above).
     "--provider",
-    ACCEPTANCE_PROVIDER,
+    host.provider,
     "--model",
-    ACCEPTANCE_MODEL,
+    host.model,
     ...loomDirs.flatMap((dir) => ["--loom", dir]),
     options.slashInvocation,
   ];
