@@ -79,6 +79,11 @@ import { buildBodyTypeSchemas } from "./body-type-lowering";
 // type/pure-function imports are an established pattern (system-interpolation,
 // type-layer-checks).
 import { checkDiscardedQueryResult } from "../runtime/query-discard";
+// A `@`-query template body is captured verbatim at parse time; its `${…}`
+// interpolations are re-lexed here (the same lexer the render path drives) so
+// the parse-time whole-document walk can reject the forms expressions.md
+// §"Not supported" forbids inside `${…}` (a nested `match` or `@`-query).
+import { lexQueryTemplate } from "../render/query-render";
 
 // --------------------------------------------------------------------------
 // Expression AST (the `Expr` node family; grammar.md §Expression sublanguage)
@@ -2358,6 +2363,13 @@ class BodyParser {
       if (t.text === "@") {
         return this.parseQuery();
       }
+      if (t.text === "`") {
+        // A backtick template with no leading `@` — a QUERY template in value
+        // position. expressions.md §"Not supported" admits query templates only
+        // `@`-prefixed, at statement / `let`-RHS level; a bare backtick used as a
+        // value (a match-arm body, a value-position `let` RHS) is rejected.
+        return this.parseBareTemplate();
+      }
       // Bare object literal `{ field: expr, … }` (grammar.md `BareObjectLit`),
       // unless brace-suppression is active (a control-flow header block opener).
       if (t.text === "{" && !this.suppressBrace) {
@@ -2874,6 +2886,50 @@ class BodyParser {
       elements,
       range: spanRange(open.range, this.prevRange()),
     };
+  }
+
+  /**
+   * Parse (and reject) a backtick template used in value position with no
+   * leading `@`. Query templates are `@`-prefixed and admitted only at
+   * statement / `let`-RHS level (expressions.md §"Not supported"), so a bare
+   * `` `..${..}` `` value is `loom/parse/unsupported-feature`. The whole
+   * template is consumed — up to the matching closing backtick — so a `${…}`
+   * interpolation brace is never re-read as a bare object literal (which would
+   * mis-emit `loom/parse/bare-object-literal`); an inert `null` node keeps
+   * downstream typing stable.
+   */
+  private parseBareTemplate(): Expr {
+    const open = this.advance(); // opening backtick
+    // Consume the whole template up to its matching closing backtick, tracking
+    // `${…}` interpolation brace depth so a backtick nested inside an
+    // interpolation (`` `a${@`x`}` ``) does not prematurely close the template
+    // and leave trailing tokens to be re-parsed into a spurious secondary
+    // diagnostic.
+    let braceDepth = 0;
+    while (!this.atEnd()) {
+      if (braceDepth === 0 && this.isPunct("`")) {
+        break;
+      }
+      if (this.isPunct("{")) {
+        braceDepth += 1;
+      } else if (this.isPunct("}") && braceDepth > 0) {
+        braceDepth -= 1;
+      }
+      this.advance();
+    }
+    if (this.isPunct("`")) {
+      this.advance(); // closing backtick
+    }
+    const range = spanRange(open.range, this.prevRange());
+    this.diagnostics.push({
+      severity: "error",
+      code: "loom/parse/unsupported-feature",
+      file: this.file,
+      range,
+      message:
+        "unsupported syntactic feature: backtick template in value position (query templates must be @-prefixed)",
+    });
+    return nullExpr(range);
   }
 
   private parseQuery(): Expr {
@@ -3820,8 +3876,153 @@ function walkExpr(
         walkExpr(el, refs, file, out);
       }
       return;
-    default:
-      // number / string / bool / null / query — no nested expressions.
+    case "query":
+      // A `@`-query's `${…}` interpolations are captured verbatim, so a `match`
+      // or nested `@`-query inside one is invisible to the whole-document walk
+      // above; re-lex and inspect them here so the forms expressions.md §"Not
+      // supported" forbids inside `${…}` are rejected at load time.
+      checkQueryTemplateInterpolations(e, file, out);
       return;
+    default:
+      // number / string / bool / null — no nested expressions.
+      return;
+  }
+}
+
+/**
+ * Reject the interpolation forms expressions.md §"Not supported" forbids inside
+ * a `@`-query `${…}` — a nested `match` expression or a nested `@`-query
+ * template — with `loom/parse/unsupported-feature`. Both are admitted only at
+ * statement / `let`-RHS level so template evaluation stays code-only and never
+ * silently fires a model turn. Each `${…}` interpolation source is re-lexed
+ * (`lexQueryTemplate`) and parsed as a full expression (`parseExpressionSource`,
+ * the same entry the render path drives), then its subtree is scanned for a
+ * forbidden node. The whole `@`-query range locates the diagnostic — the
+ * verbatim template carries no per-interpolation token span.
+ */
+function checkQueryTemplateInterpolations(
+  e: QueryExpr,
+  file: string,
+  out: Diagnostic[],
+): void {
+  for (const part of lexQueryTemplate(e.template).parts) {
+    if (part.kind !== "interp") {
+      continue;
+    }
+    const parsed = parseExpressionSource(part.exprSource);
+    if (parsed === null) {
+      // A malformed interpolation must still not silently smuggle a forbidden
+      // `match` / nested `@`-query past the AST walk (which is unavailable when
+      // the source does not parse). Both are reserved forms — `match` a
+      // keyword, `@` a punct — so a token-level scan cannot false-positive on
+      // string-literal contents; flag it rather than skipping.
+      const tokenForbidden = firstForbiddenInterpolationToken(part.exprSource);
+      if (tokenForbidden !== null) {
+        out.push({
+          severity: "error",
+          code: "loom/parse/unsupported-feature",
+          file,
+          range: e.range,
+          message:
+            "unsupported syntactic feature: " +
+            tokenForbidden +
+            " inside ${...} interpolation",
+        });
+      }
+      continue;
+    }
+    const forbidden = firstForbiddenInterpolationForm(parsed);
+    if (forbidden !== null) {
+      out.push({
+        severity: "error",
+        code: "loom/parse/unsupported-feature",
+        file,
+        range: e.range,
+        message:
+          "unsupported syntactic feature: " +
+          forbidden +
+          " inside ${...} interpolation",
+      });
+    }
+  }
+}
+
+/**
+ * A forbidden interpolation construct detected at the TOKEN level, for the
+ * malformed-interpolation path where `parseExpressionSource` returns `null` and
+ * the AST walk is unavailable. `match` is a reserved keyword and `@` a punct, so
+ * a token match is unambiguous (never a string-literal false positive). Returns
+ * `"match"` / `"@-query template"` for the first such token, else `null`.
+ */
+function firstForbiddenInterpolationToken(source: string): string | null {
+  const lex = lexLoom(
+    { path: "<interpolation>", bytes: encodeSource(source) },
+    {
+      pi: { sendMessage: () => {} },
+      ui: { notify: () => {} },
+      emitDiagnostic: () => {},
+    },
+  );
+  for (const t of lex.tokens) {
+    if (t.kind === "keyword" && t.text === "match") {
+      return "match";
+    }
+    if (t.kind === "punct" && t.text === "@") {
+      return "@-query template";
+    }
+  }
+  return null;
+}
+
+/**
+ * The construct name of the first `match` or nested `@`-query node in `e`'s
+ * subtree (`"match"` / `"@-query template"`), or `null` when none is present.
+ * Walks the child expressions so a `match` / `@`-query buried in a larger
+ * interpolation expression (`${1 + match … }`) is still caught.
+ */
+function firstForbiddenInterpolationForm(e: Expr): string | null {
+  if (e.kind === "match") {
+    return "match";
+  }
+  if (e.kind === "query") {
+    return "@-query template";
+  }
+  for (const child of interpolationChildExprs(e)) {
+    const found = firstForbiddenInterpolationForm(child);
+    if (found !== null) {
+      return found;
+    }
+  }
+  return null;
+}
+
+/** The direct child expressions of `e` (for the interpolation-form scan). */
+function interpolationChildExprs(e: Expr): readonly Expr[] {
+  switch (e.kind) {
+    case "binary":
+      return [e.left, e.right];
+    case "ternary":
+      return [e.condition, e.consequent, e.alternate];
+    case "try":
+      return [e.operand];
+    case "call":
+    case "invoke":
+      return e.args;
+    case "member":
+      return [e.target];
+    case "index":
+      return [e.target, e.index];
+    case "object":
+      return e.fields.map((f) => f.value);
+    case "match":
+      return [e.scrutinee, ...e.arms.map((arm) => arm.body)];
+    case "result-ctor":
+      return [e.arg];
+    case "method-call":
+      return [e.target, ...e.args];
+    case "array":
+      return e.elements;
+    default:
+      return [];
   }
 }

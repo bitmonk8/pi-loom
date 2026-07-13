@@ -12,10 +12,11 @@
 //     original QueryError). Fix: runInvokeEffect wraps a callee-returned Err via
 //     surfaceLoomCallableCalleeFailure; only invoke_infra / cancelled pass
 //     through unwrapped.
-//   XMODE-2 (borderline) — an interpolating backtick template `\`..${..}\`` used
-//     as a value expression (match-arm body) or a `match` inside `${...}` is
-//     silently accepted and evaluates to null instead of
-//     loom/parse/unsupported-feature.
+//   XMODE-2 (FIXED) — an interpolating backtick template `\`..${..}\`` used as a
+//     value expression (match-arm body) or a `match` inside a `${...}`
+//     interpolation is a non-`@` query template / template-level `match`, which
+//     expressions.md §"Not supported" forbids; both now fail to load with
+//     loom/parse/unsupported-feature (previously silently evaluated to null).
 //
 // Verified-conformant: object/array/enum final values survive the boundary;
 // subagent->subagent and subagent->prompt value flow; typed-return-validation is
@@ -318,9 +319,13 @@ describe("cross-mode invoke value passing", () => {
     }
   });
 
-  // XMODE-2: an interpolating backtick template used as a match-arm value is
-  // silently accepted and evaluates to null (should be loom/parse/unsupported-feature).
-  it("XMODE-2: interpolating-template match-arm evaluates to null", async () => {
+  // XMODE-2 (FIXED): an interpolating backtick template used as a match-arm
+  // value is a non-`@` query template in value position, which expressions.md
+  // §"Not supported" forbids (query templates are `@`-prefixed and admitted only
+  // at statement / `let`-RHS level). The loom now fails to load with
+  // loom/parse/unsupported-feature and un-registers. Registration-only probe
+  // (no drives) — zero tokens, since a rejected loom never reaches a model turn.
+  it("XMODE-2: interpolating-template match-arm un-registers with unsupported-feature", async () => {
     const files = [
       {
         source: "project" as const,
@@ -338,17 +343,22 @@ describe("cross-mode invoke value passing", () => {
         ),
       },
     ];
-    const { text, probe } = await drive(() => runProbe({ provider, files, drives: ["/tmatch"] }));
+    const probe = await runProbe({ provider, files, drives: [] });
     try {
-      // r is null; null + "!" renders "null!".
-      expect(text).toContain("C=null!");
+      expect(probe.registeredNames).not.toContain("tmatch");
+      expect(
+        probe.systemNotes.some((n) => n.includes("unsupported syntactic feature")),
+      ).toBe(true);
     } finally {
       await probe.dispose();
     }
   });
 
-  // XMODE-2: `match` inside ${...} is documented unsupported yet silently yields null.
-  it("XMODE-2: match inside interpolation yields null with no diagnostic", async () => {
+  // XMODE-2 (FIXED): `match` inside a `${...}` interpolation is forbidden by
+  // expressions.md §"Not supported" (a `match` / `@`-query is admitted only at
+  // statement / `let`-RHS level so template evaluation stays code-only). The
+  // loom now fails to load with loom/parse/unsupported-feature and un-registers.
+  it("XMODE-2: match inside interpolation un-registers with unsupported-feature", async () => {
     const files = [
       {
         source: "project" as const,
@@ -356,11 +366,12 @@ describe("cross-mode invoke value passing", () => {
         text: P("prompt", ["@`D=${match Ok(9) { Ok(n) => n, Err(_) => 0 }}`"].join("\n")),
       },
     ];
-    const { text, probe } = await drive(() => runProbe({ provider, files, drives: ["/mdirect"] }));
+    const probe = await runProbe({ provider, files, drives: [] });
     try {
-      expect(probe.registeredNames).toContain("mdirect");
-      expect(probe.diagnostics).toHaveLength(0);
-      expect(text).toContain("D=null");
+      expect(probe.registeredNames).not.toContain("mdirect");
+      expect(
+        probe.systemNotes.some((n) => n.includes("unsupported syntactic feature")),
+      ).toBe(true);
     } finally {
       await probe.dispose();
     }

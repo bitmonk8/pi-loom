@@ -76,3 +76,97 @@ describe("REQ-EXPR-46 — a non-numeric/non-string ordering pair is loom/parse/n
     ).toBe(true);
   });
 });
+
+// Not-supported query-template forms (expressions.md §"Not supported"):
+// backtick templates are `@`-prefixed QUERY templates admitted only at
+// statement / `let`-RHS level, so a bare backtick value and a `match` / nested
+// `@`-query inside a `${…}` interpolation are `loom/parse/unsupported-feature`.
+// Offline regression for the two constructs the LIVE XMODE-2 tests exercise.
+describe("expressions.md §Not supported — non-@ backtick template in value position", () => {
+  it("a bare backtick match-arm body is loom/parse/unsupported-feature (not bare-object-literal)", () => {
+    const src = [
+      "let r = match Ok(9) {",
+      "  Ok(n) => `V${n}`,",
+      '  Err(_) => "E"',
+      "}",
+    ].join("\n");
+    const doc = parseDoc(src);
+    expect(
+      hasCode(doc.diagnostics, "loom/parse/unsupported-feature"),
+      `codes: ${codes(doc.diagnostics).join(",")}`,
+    ).toBe(true);
+    // The old parser mis-emitted bare-object-literal on the `${n}` span.
+    expect(
+      hasCode(doc.diagnostics, "loom/parse/bare-object-literal"),
+      `codes: ${codes(doc.diagnostics).join(",")}`,
+    ).toBe(false);
+  });
+
+  it("a bare backtick value-position let RHS is loom/parse/unsupported-feature", () => {
+    const doc = parseDoc('let s = `hi ${1}`\n');
+    expect(
+      hasCode(doc.diagnostics, "loom/parse/unsupported-feature"),
+      `codes: ${codes(doc.diagnostics).join(",")}`,
+    ).toBe(true);
+  });
+});
+
+describe("expressions.md §Not supported — match inside a `${…}` interpolation", () => {
+  it("a match inside an @-query interpolation is loom/parse/unsupported-feature", () => {
+    const doc = parseDoc("@`D=${match Ok(9) { Ok(n) => n, Err(_) => 0 }}`\n");
+    expect(
+      hasCode(doc.diagnostics, "loom/parse/unsupported-feature"),
+      `codes: ${codes(doc.diagnostics).join(",")}`,
+    ).toBe(true);
+  });
+
+  it("a nested @-query inside an interpolation is loom/parse/unsupported-feature", () => {
+    const doc = parseDoc("@`E=${@`inner`}`\n");
+    expect(
+      hasCode(doc.diagnostics, "loom/parse/unsupported-feature"),
+      `codes: ${codes(doc.diagnostics).join(",")}`,
+    ).toBe(true);
+  });
+});
+
+// Recovery / detection edge cases on already-rejected input.
+describe("expressions.md §Not supported — rejected-template edge cases", () => {
+  it("a nested backtick inside a rejected bare template stays a single unsupported-feature (no spurious trailing diagnostic)", () => {
+    const src = [
+      "let r = match Ok(9) {",
+      "  Ok(n) => `a${@`x`}`,",
+      '  Err(_) => "E"',
+      "}",
+    ].join("\n");
+    const doc = parseDoc(src);
+    // The whole bare template is consumed — the nested backtick does not close
+    // it early and leak `` x`}` `` as trailing tokens re-parsed into noise.
+    expect(
+      codes(doc.diagnostics).filter((c) => c === "loom/parse/unsupported-feature")
+        .length,
+      `codes: ${codes(doc.diagnostics).join(",")}`,
+    ).toBe(1);
+    expect(
+      hasCode(doc.diagnostics, "loom/parse/bare-object-literal"),
+      `codes: ${codes(doc.diagnostics).join(",")}`,
+    ).toBe(false);
+  });
+
+  it("a malformed interpolation embedding a `match` is still loom/parse/unsupported-feature", () => {
+    // `match oops]` does not parse as an expression, but the reserved `match`
+    // keyword token must not be silently skipped.
+    const doc = parseDoc("@`Z=${match oops]}`\n");
+    expect(
+      hasCode(doc.diagnostics, "loom/parse/unsupported-feature"),
+      `codes: ${codes(doc.diagnostics).join(",")}`,
+    ).toBe(true);
+  });
+
+  it("a malformed interpolation embedding a nested @-query is still loom/parse/unsupported-feature", () => {
+    const doc = parseDoc("@`Z=${@`x` +}`\n");
+    expect(
+      hasCode(doc.diagnostics, "loom/parse/unsupported-feature"),
+      `codes: ${codes(doc.diagnostics).join(",")}`,
+    ).toBe(true);
+  });
+});
