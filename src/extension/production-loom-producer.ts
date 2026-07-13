@@ -103,6 +103,7 @@ import type {
   ToolLoweringSink,
 } from "../runtime/tool-call-execute";
 import { filterJoinToolText, lowerToolExecuteThrow } from "../runtime/tool-call-execute";
+import { enforceCodeToolArgDepth } from "../runtime/tool-call";
 import type { CommittedSideEffect } from "../runtime/no-rollback";
 import type { InvokeChild } from "../runtime/invoke-cancellation";
 import type { InvokeInfraError, TransportError } from "../runtime/query-error";
@@ -1732,10 +1733,29 @@ class ProductionLoomProducer implements LoomProducerDeps {
     const toolName = expr.callee;
     const tool = this.#resolvePiToolForLoom(loom, toolName);
     const params = lowerToolCallParams(expr, env);
+    // Ceiling #4 (hard-ceilings/ceilings-3-and-4.md#ceiling-4-table, the
+    // code-driven tool-call args row; schema-subset.md §Depth Enforcement
+    // point #3; CIO-3 depth-walk-before-AJV): enforce the JSON-document
+    // depth-≤5 cap on the CONSTRUCTED argument value — the single object-literal
+    // params object the tool receives — before AJV and before the tool executes.
+    // A depth-6+ argument surfaces to loom code as
+    // `Err(CodeToolError { cause: "validation" })`, carried on the returned
+    // `CodeSideToolCall` so `runCodeSideToolCall` short-circuits without ever
+    // dispatching `execute()`. `params` IS the sole positional argument (a Pi
+    // tool call takes exactly one object literal), so the walk runs over it
+    // directly — walking `expr.args` (an array wrapper) would add a spurious
+    // level and false-trip a legitimately within-cap params object. Mirrors the
+    // invoke `params`-boundary breach `enforceInvokeParamsDepth` surfaces in
+    // `#driveCallee`, differing only in the carrier (`CodeToolError` vs
+    // `InvokeInfraError`) per the per-boundary table.
+    const argDepthBreach = enforceCodeToolArgDepth(toolName, params);
     const toolCallId = `loom-direct:${this.#input.root.idSource.newInvocationId()}`;
     return {
       toolName,
       committed: [],
+      ...(argDepthBreach !== undefined
+        ? { argDepthBreach: { result: argDepthBreach.result, error: argDepthBreach.error } }
+        : {}),
       dispatch: (): Promise<AgentToolResultEnvelope> => {
         if (tool === undefined) {
           return Promise.reject(

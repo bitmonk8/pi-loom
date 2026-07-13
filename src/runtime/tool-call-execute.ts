@@ -241,6 +241,22 @@ export interface CodeSideToolCall {
   readonly toolName: string;
   dispatch(): Promise<AgentToolResultEnvelope>;
   readonly committed: readonly CommittedSideEffect[];
+  /**
+   * A ceiling-#4 (JSON-document depth ≤5) breach on the CONSTRUCTED argument
+   * value, detected by the loom-owned depth walk at the `<name>(args)` binding
+   * site *before* AJV and *before* the tool executes (CIO-3, schema-subset.md
+   * §Depth Enforcement point #3). When present, `runCodeSideToolCall` surfaces
+   * the wrapped `Err(CodeToolError { cause: "validation" })` as the tool-call
+   * outcome and NEVER dispatches — the `dispatch()` closure (and the host
+   * tool's `execute()`) is not called and no side effect is committed. Absent
+   * for a within-cap argument, which defers to the downstream AJV boundary.
+   * Mirrors the invoke `params`-boundary breach that `enforceInvokeParamsDepth`
+   * surfaces at invoke entry (ceilings-3-and-4.md#ceiling-4-table).
+   */
+  readonly argDepthBreach?: {
+    readonly result: ResultValue;
+    readonly error: CodeToolError;
+  };
 }
 
 /**
@@ -261,6 +277,17 @@ export type ToolCallExecOutcome =
     }
   | {
       readonly kind: "execution-error";
+      readonly result: ResultValue;
+      readonly error: CodeToolError;
+      readonly committed: readonly CommittedSideEffect[];
+    }
+  | {
+      // Ceiling #4 (CIO-3): the constructed argument tripped the depth walk
+      // before AJV / before the tool executed; `result` is the wrapped
+      // `Err(CodeToolError { cause: "validation" })` and the tool never ran, so
+      // `committed` is empty. Distinct from `execution-error` (which is an
+      // `execute()` throw, `cause: "execution"`).
+      readonly kind: "arg-depth-error";
       readonly result: ResultValue;
       readonly error: CodeToolError;
       readonly committed: readonly CommittedSideEffect[];
@@ -294,6 +321,24 @@ export async function runCodeSideToolCall(
     // The abort was observed at the pre-dispatch checkpoint: the tool is never
     // dispatched and no side effect is committed.
     return { kind: "cancelled", committed: [] };
+  }
+
+  // Ceiling #4 (hard-ceilings/ceilings-3-and-4.md#ceiling-4-table, the
+  // code-driven tool-call args row; CIO-3 depth-walk-before-AJV): a depth-6+
+  // constructed argument tripped the loom-owned depth walk at the binding site
+  // — surface the wrapped `Err(CodeToolError { cause: "validation" })` and
+  // NEVER dispatch, so the host tool's `execute()` is not called and no side
+  // effect is committed. Ordered after the abort check so cancellation observed
+  // at the checkpoint still preempts (mirroring the invoke path, where the
+  // `params` depth check in `#driveCallee` runs after `runInvokeChild`'s
+  // cancellation checkpoint + abort read).
+  if (call.argDepthBreach !== undefined) {
+    return {
+      kind: "arg-depth-error",
+      result: call.argDepthBreach.result,
+      error: call.argDepthBreach.error,
+      committed: [],
+    };
   }
 
   let envelope: AgentToolResultEnvelope;

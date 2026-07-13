@@ -262,6 +262,12 @@ async function runToolCallEffect(
   switch (outcome.kind) {
     case "value":
     case "execution-error":
+    // A ceiling-#4 code-tool-arg depth breach (CIO-3) surfaces its wrapped
+    // `Err(CodeToolError { cause: "validation" })` as the tool-call
+    // expression's value — the tool never executed. Same shape as the
+    // `execution-error` arm: the `Err` value flows through as the expression
+    // value, not a failed operation.
+    case "arg-depth-error":
       return { ok: true, value: outcome.result };
     case "cancelled":
       return { ok: false, error: makeCancelledError() };

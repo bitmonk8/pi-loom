@@ -50,6 +50,18 @@ function callExpr(callee: string, args: readonly Expr[] = []): CallExpr {
   return { kind: "call", callee, args, range: span() };
 }
 
+/** A bare object-literal expression `{ f0: v0, f1: v1, ... }` — the single
+ * positional argument a code-driven Pi-tool call takes. Its evaluated field map
+ * is the constructed `params` JSON document ceiling #4 walks. */
+function objectExpr(fields: Readonly<Record<string, Expr>>): Expr {
+  return {
+    kind: "object",
+    typeName: null,
+    fields: Object.entries(fields).map(([name, value]) => ({ name, value })),
+    range: span(),
+  };
+}
+
 function body(tail: Expr | null): LoomBody {
   return { statements: [], tail };
 }
@@ -310,5 +322,91 @@ describe("ceiling #4 on invoke boundaries (invoke-ceiling-depth.ts wired)", () =
     const err = (inner as { readonly ok: false; readonly error: { readonly kind?: string; readonly cause?: string } }).error;
     expect(err.kind, "the return-depth breach is an InvokeInfraError").toBe("invoke_infra");
     expect(err.cause, "with cause 'return_validation' (the return boundary)").toBe("return_validation");
+  });
+});
+
+// ===========================================================================
+// Ceiling #4 (JSON-document depth ≤5) on the code-driven `<name>(args)` tool-call
+// argument boundary (hard-ceilings/ceilings-3-and-4.md#ceiling-4-table, the
+// code-driven tool-call args row; schema-subset.md §Depth Enforcement point #3;
+// CIO-3 depth-before-AJV). Proves enforceCodeToolArgDepth (tool-call.ts) is
+// WIRED into the production code-side tool-call path — the code-driven analogue
+// of the invoke-boundary wiring above. Mirror-symmetric: differs only in the
+// carrier (CodeToolError vs InvokeInfraError) per the per-boundary table.
+// ===========================================================================
+
+describe("ceiling #4 on code-driven tool-call args (enforceCodeToolArgDepth wired)", () => {
+  it("a depth-6 `<name>(args)` argument surfaces Err(CodeToolError{cause:'validation'}) BEFORE the tool executes", async () => {
+    let dispatched = false;
+    const resolvePiTool = (name: string): PiToolDispatch => ({
+      toolName: name,
+      execute: (): Promise<AgentToolResultEnvelope> => {
+        dispatched = true;
+        return Promise.resolve({ content: [{ type: "text", text: "tool-out" }] });
+      },
+    });
+    // params `{ deep: [[[[1]]]] }`: object(1) → deep value array(2) → (3) → (4)
+    // → (5) → leaf 1(6) = JSON-document depth 6, one past the cap.
+    const inner = (await runBody(
+      producer({ resolvePiTool }),
+      promptLoom(callExpr("emit", [objectExpr({ deep: nestedArray(4) })])),
+    )) as ResultValue;
+
+    expect(dispatched, "the tool's execute() is NEVER called on a depth-6 argument").toBe(false);
+    expect(inner.ok, "a depth-6 tool-call argument surfaces Err, never binds silently").toBe(false);
+    const err = (inner as { readonly ok: false; readonly error: { readonly kind?: string; readonly cause?: string } }).error;
+    expect(err.kind, "the arg-depth breach is a CodeToolError").toBe("code_tool");
+    expect(err.cause, "with cause 'validation' (the code-driven tool-call args row)").toBe("validation");
+  });
+
+  it("a depth-5 `<name>(args)` argument is within the cap and the tool runs", async () => {
+    let dispatched = false;
+    const resolvePiTool = (name: string): PiToolDispatch => ({
+      toolName: name,
+      execute: (): Promise<AgentToolResultEnvelope> => {
+        dispatched = true;
+        return Promise.resolve({ content: [{ type: "text", text: "tool-out" }] });
+      },
+    });
+    // params `{ deep: [[[1]]] }`: object(1) → array(2) → (3) → (4) → leaf 1(5) =
+    // depth 5, exactly at the cap — the walk defers and the tool dispatches.
+    const inner = (await runBody(
+      producer({ resolvePiTool }),
+      promptLoom(callExpr("emit", [objectExpr({ deep: nestedArray(3) })])),
+    )) as ResultValue;
+
+    expect(dispatched, "a within-cap argument defers past ceiling #4 and the tool runs").toBe(true);
+    expect(inner.ok, "a within-cap tool call lowers to Ok(...)").toBe(true);
+    expect(
+      (inner as { readonly ok: true; readonly value: unknown }).value,
+      "the lowered value is the tool's joined text",
+    ).toBe("tool-out");
+  });
+
+  it("a wrapper object of shallow args each within the cap is NOT false-tripped", async () => {
+    let dispatched = false;
+    const resolvePiTool = (name: string): PiToolDispatch => ({
+      toolName: name,
+      execute: (): Promise<AgentToolResultEnvelope> => {
+        dispatched = true;
+        return Promise.resolve({ content: [{ type: "text", text: "tool-out" }] });
+      },
+    });
+    // params `{ a: [1], b: [1], c: 1 }`: depth is the MAX over fields, not their
+    // sum — object(1) → array(2) → leaf 1(3) = depth 3. Several shallow sibling
+    // fields do not accumulate, and the walk runs over `params` (not an array
+    // wrapper `[params]`, which would add a spurious level), so a legitimate
+    // multi-field argument is not rejected.
+    const inner = (await runBody(
+      producer({ resolvePiTool }),
+      promptLoom(
+        callExpr("emit", [
+          objectExpr({ a: nestedArray(1), b: nestedArray(1), c: numberExpr(1) }),
+        ]),
+      ),
+    )) as ResultValue;
+
+    expect(dispatched, "a wrapper of shallow within-cap args is not false-tripped; the tool runs").toBe(true);
+    expect(inner.ok, "the multi-field within-cap tool call lowers to Ok(...)").toBe(true);
   });
 });

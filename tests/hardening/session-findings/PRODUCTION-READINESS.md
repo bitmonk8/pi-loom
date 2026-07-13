@@ -168,8 +168,16 @@ detail + spec anchors + unwired evidence: `dead-code-audit.md` (FLAGGED-UNWIRED)
   at parse, and a depth-6 *value* at runtime needs model-produced deep JSON.)
   **New finding surfaced during investigation (NOT in the audit):** the code-driven
   tool-args ceiling-#4 analogue `enforceCodeToolArgDepth` (V14e, `tool-call.ts`)
-  is ALSO unwired — same defect class, out of this decision's named scope; flagged
-  for a later decision.
+  is ALSO unwired — same defect class. ✅ FIXED (follow-up phase, commit pending):
+  wired at the `#resolveToolCall` param-bind seam (per constructed argument, before
+  the tool executes + before AJV, CIO-3); a depth-6 arg → `Err(CodeToolError{cause:
+  "validation"})` surfaced as the tool-call value, tool never dispatched
+  (short-circuit ordered after the cancel checkpoint so cancellation still
+  preempts). Reject carrier verified against ceilings-3-and-4.md ceiling-4 table
+  (`CodeToolError`, not `InvokeInfraError`). Tests: `production-live-resolvers.test.ts`
+  +3 (depth-6 rejected pre-execute, depth-5 within-cap dispatches, shallow-wrapper
+  not false-tripped). **Still open (follow-up):** the MODEL-driven tool-args row of
+  the ceiling-#4 table (a separate dispatch seam).
 - **Binder context subsystem (5 modules). 🔶 PARTIAL (decision 4, sub-phases): b1 NOT realizable; b2 FIXED; b3 pending.**
   **Corrected spec analysis:** the spec pins the binder call as a forced-tool
   structured-output `complete()` whose tool `parameters` are the three-arm
