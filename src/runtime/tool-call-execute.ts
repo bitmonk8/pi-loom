@@ -35,7 +35,15 @@
 //
 // The non-conforming-shape (`loom/runtime/internal-error`, `details.kind =
 // "tool-return-shape"`) and non-settling-Promise dispositions routed *off*
-// `CodeToolError` are owned by `V14c`, not this leaf. Per host-interfaces-
+// `CodeToolError` are OWNED by `V14c` (`tool-call-off-surface.ts`) — the shape
+// vocabulary, the diagnostic construction, and the abort-race live there — and
+// this leaf INVOKES that owned routing at the live execution seam:
+// `runCodeSideToolCall` races the `execute()` Promise against the abort signal
+// via `awaitToolSettlementOrAbort` (NOCEIL-1 non-settling handling) and lowers
+// the resolved envelope through `routeToolReturnShape`, surfacing a
+// non-conforming shape on the `return-shape-defect` outcome arm (off the
+// `CodeToolError` surface) rather than binding garbage or throwing a raw
+// `TypeError`. Per host-interfaces-
 // core.md (F-1578, "re-anchor execute() outcome routing on AgentToolResult (no
 // isError); collapse dead Err branch") the code-side `AgentToolResult` type
 // carries NO `isError` field and a cleanly-resolving envelope always lowers to
@@ -70,6 +78,16 @@ import type { RuntimeEvent } from "./runtime-event-channel";
 import type { CommittedSideEffect } from "./no-rollback";
 import type { CodeToolError } from "./query-error";
 import { makeErr, makeOk, type LoomValue, type ResultValue } from "./value";
+// V14c live-seam wiring: this leaf INVOKES the V14c off-surface routings at the
+// live execution surface. `tool-call-off-surface.ts` imports the accepted-path
+// lowering (`lowerResolvedToolEnvelope`) and shared envelope types back from
+// this module; the resulting import cycle is function-level only (both sides are
+// called at runtime, never at module-eval), so the ESM live bindings resolve
+// without a temporal-dead-zone hazard.
+import {
+  awaitToolSettlementOrAbort,
+  routeToolReturnShape,
+} from "./tool-call-off-surface";
 
 // --------------------------------------------------------------------------
 // AgentToolResult content-block shape (loom-load-bearing subset)
@@ -292,16 +310,39 @@ export type ToolCallExecOutcome =
       readonly error: CodeToolError;
       readonly committed: readonly CommittedSideEffect[];
     }
+  | {
+      // V14c non-conforming return shape (host-interfaces-core.md §"Tool
+      // execution from loom code"; tool-calls.md §"Outcome enumeration"): the
+      // resolved `execute()` envelope violated the `{ content }` shape (not an
+      // object, `content` not iterable, an entry missing `type` / `text`, or a
+      // throwing inspection). Routed *off* the `CodeToolError` surface — the
+      // only surface is the `loom/runtime/internal-error` `diagnostic` (carrying
+      // `details.kind = "tool-return-shape"`, `details.tool_name`, and the
+      // closed `details.shape_check` token). NOT observable as an
+      // `Err(QueryError)` a loom author can `match` on; the caller
+      // (`runToolCallEffect`) surfaces it as the internal-error routing per
+      // errors-and-results.md §"Runtime panics". The tool never bound a value,
+      // so `committed` is empty.
+      readonly kind: "return-shape-defect";
+      readonly diagnostic: Diagnostic;
+      readonly committed: readonly CommittedSideEffect[];
+    }
   | { readonly kind: "cancelled"; readonly committed: readonly CommittedSideEffect[] };
 
 /**
  * Drive one code-side `<name>(args)` tool call on the live surface. Await
  * `checkpoint.before("tool-call", site)` immediately before the dispatch
  * (cka-47, V14g facet; cancellation.md §Granularity), read `signal.aborted`, and
- * skip the dispatch when it has fired. Otherwise dispatch `call.dispatch()` and
- * lower the outcome: a clean resolution to `Ok(<joined text>)`, an `execute()`
- * throw to `Err(CodeToolError { cause: "execution", ... })`. The completed
- * callee's `committed` side effects are surfaced on the outcome and remain final
+ * skip the dispatch when it has fired. Otherwise race `call.dispatch()` against
+ * `signal` via the V14c `awaitToolSettlementOrAbort` seam (NOCEIL-1: no internal
+ * timeout) and route the outcome: an abort winning the race → `cancelled`; an
+ * `execute()` throw → `Err(CodeToolError { cause: "execution", ... })`; a
+ * cleanly-resolving envelope through the V14c `routeToolReturnShape` inspection
+ * — a conforming `{ content }` envelope to `Ok(<joined text>)`, a non-conforming
+ * shape to the `return-shape-defect` arm carrying the
+ * `loom/runtime/internal-error{tool-return-shape}` diagnostic (off the
+ * `CodeToolError` surface, NOT a bound value). The completed callee's
+ * `committed` side effects are surfaced on the value outcome and remain final
  * under any downstream terminal event (ERR-13; the runtime holds no compensating
  * path — see `handleNoRollbackTerminalEvent`).
  *
@@ -341,16 +382,31 @@ export async function runCodeSideToolCall(
     };
   }
 
-  let envelope: AgentToolResultEnvelope;
+  // NOCEIL-1 (host-interfaces-core.md §"Outcome routing summary"): loom 1.0
+  // makes no internal timeout attempt. Race the `execute()` Promise against the
+  // abort `signal` through the V14c `awaitToolSettlementOrAbort` seam — a
+  // non-settling Promise blocks at this `await` until the signal fires, at which
+  // point the cancelled path applies (no `internal-error`); a Promise that
+  // settles first yields its envelope. `dispatch` is wrapped in a thunk so the
+  // race constructs the Promise once (its swallowing reject handler attaches
+  // before the first microtask boundary).
+  let settlement;
   try {
-    envelope = await call.dispatch();
+    settlement = await awaitToolSettlementOrAbort(
+      () => call.dispatch(),
+      signal,
+      call.toolName,
+      sink,
+    );
   } catch (thrown: unknown) { // allow-broad-catch: pi-sdk-boundary — Specific exception types only
-    // `call.dispatch()` invokes the Pi tool's `execute(...)`, which signals
-    // failure by throwing an arbitrary value owned by the Pi SDK whose runtime
-    // shape loom cannot statically guarantee. The throw lowers to
+    // A rejection arriving BEFORE cancellation surfaced is an `execute()` throw:
+    // the Pi tool signals failure by throwing an arbitrary value owned by the Pi
+    // SDK whose runtime shape loom cannot statically guarantee. It lowers to
     // `CodeToolError { cause: "execution" }` (host-interfaces-core.md §"Tool
     // execution from loom code"); the completed callee's committed side effects
-    // remain final per ERR-13.
+    // remain final per ERR-13. (A rejection AFTER cancellation is swallowed by
+    // `awaitToolSettlementOrAbort`'s post-cancel discard arm and never reaches
+    // here.)
     const error = lowerToolExecuteThrow(thrown, call.toolName);
     return {
       kind: "execution-error",
@@ -360,13 +416,37 @@ export async function runCodeSideToolCall(
     };
   }
 
-  // Clean resolution: lower the envelope to `Ok(<filtered/joined text>)`
-  // (possibly `Ok("")`). The completed callee's committed side effects ride on
-  // the outcome so the ERR-13 completed-callee-finality witness stays
-  // assertable off this surface.
-  return {
-    kind: "value",
-    result: lowerResolvedToolEnvelope(envelope, sink),
-    committed: call.committed,
-  };
+  if (settlement.kind === "cancelled") {
+    // The abort won the race while the tool was still in flight: surface the
+    // cancelled outcome (cancellation.md §"Race semantics"). The tool did not
+    // complete on this surface, so no side effect is surfaced here; the
+    // abandoned dispatch Promise's late settlement is discarded by
+    // `awaitToolSettlementOrAbort` (CNCL-1/2/3) and any late rejection is
+    // swallowed by its construction-time reject handler.
+    return { kind: "cancelled", committed: [] };
+  }
+
+  // Clean resolution: route the resolved envelope through the V14c
+  // `routeToolReturnShape` inspection BEFORE it binds. A conforming `{ content }`
+  // envelope lowers to `Ok(<filtered/joined text>)` (possibly `Ok("")`) and the
+  // completed callee's committed side effects ride on the outcome so the ERR-13
+  // completed-callee-finality witness stays assertable off this surface. A
+  // non-conforming shape does NOT bind a value: it routes to
+  // `loom/runtime/internal-error` with `details.kind = "tool-return-shape"`,
+  // off the `CodeToolError` surface (host-interfaces-core.md §"Tool execution
+  // from loom code").
+  const shape = routeToolReturnShape(
+    settlement.envelope,
+    call.toolName,
+    { file: site.file, range: { start: { line: site.line, column: site.column }, end: { line: site.line, column: site.column } } },
+    sink,
+  );
+  if (shape.kind === "conforming") {
+    return { kind: "value", result: shape.result, committed: call.committed };
+  }
+  // Emit the runtime-defect diagnostic on the lowering sink (the designated
+  // channel) and surface the defect on its own outcome arm. `runToolCallEffect`
+  // routes it as the internal-error path — NOT a bound `Err(CodeToolError)`.
+  sink.diagnostic(shape.diagnostic);
+  return { kind: "return-shape-defect", diagnostic: shape.diagnostic, committed: [] };
 }

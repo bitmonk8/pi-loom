@@ -56,6 +56,7 @@ import { runTypedQueryLoop, runUntypedQueryLoop } from "./query-tool-loop";
 import { renderEmptyShortCircuit } from "../render/query-render";
 import type { CodeSideToolCall, ToolLoweringSink } from "./tool-call-execute";
 import { runCodeSideToolCall } from "./tool-call-execute";
+import { ToolReturnShapeDefectError } from "./tool-call-off-surface";
 import type { InvokeChild } from "./invoke-cancellation";
 import { runInvokeChild } from "./invoke-cancellation";
 import { surfaceLoomCallableCalleeFailure } from "./tool-call";
@@ -269,6 +270,22 @@ async function runToolCallEffect(
     // value, not a failed operation.
     case "arg-depth-error":
       return { ok: true, value: outcome.result };
+    case "return-shape-defect":
+      // V14c non-conforming return shape (host-interfaces-core.md §"Tool
+      // execution from loom code"; tool-calls.md §"Outcome enumeration"): the
+      // resolved `execute()` envelope violated the `{ content }` shape. This is
+      // routed *off* the `CodeToolError` surface — it is NOT an
+      // `Err(QueryError)` the loom binds and can `match` on. The call site
+      // observes the `loom/runtime/internal-error` routing per
+      // errors-and-results.md §"Runtime panics", so the seam raises the
+      // `ToolReturnShapeDefectError` carrier (a non-`LoomPanic` throw). At the
+      // `invoke` boundary `runInvokeChild` re-wraps it as
+      // `Err(InvokeInfraError { cause: "internal_error" })`; at a top-level
+      // slash dispatch it unwinds as the runtime-defect surface. The diagnostic
+      // (already emitted on the lowering sink by `runCodeSideToolCall`) rides on
+      // the carrier so a catch site owning a live diagnostic channel can surface
+      // it verbatim with its `details.kind = "tool-return-shape"`.
+      throw new ToolReturnShapeDefectError(outcome.diagnostic);
     case "cancelled":
       return { ok: false, error: makeCancelledError() };
   }

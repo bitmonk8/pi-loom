@@ -184,6 +184,26 @@ export type ToolReturnShapeOutcome =
   | { readonly kind: "return-shape-defect"; readonly diagnostic: Diagnostic };
 
 /**
+ * The thrown carrier the live tool-return lowering seam raises when
+ * `routeToolReturnShape` reports a `return-shape-defect`. A non-conforming Pi
+ * tool return is a runtime defect, not a `Result` value a loom author can
+ * `match` on: it surfaces through the `loom/runtime/internal-error` routing per
+ * errors-and-results.md §"Runtime panics", so the seam raises this instead of
+ * binding a value. It is deliberately NOT a `LoomPanic` (it is not one of the
+ * six closed panic sources) — at the `invoke` boundary `runInvokeChild`
+ * classifies a non-`LoomPanic` throw as `Err(InvokeInfraError { cause:
+ * "internal_error" })`, exactly the spec-mandated invoke-parent observation. It
+ * carries the built `diagnostic` (with `details.kind = "tool-return-shape"`) so
+ * a catch site that owns a live diagnostic channel can surface it verbatim.
+ */
+export class ToolReturnShapeDefectError extends Error {
+  constructor(readonly diagnostic: Diagnostic) {
+    super(diagnostic.message);
+    this.name = "ToolReturnShapeDefectError";
+  }
+}
+
+/**
  * Inspect a resolved code-side `execute()` value. A conforming `{ content }`
  * envelope lowers to `Ok(<joined text>)`; a non-conforming shape routes through
  * `loom/runtime/internal-error` with `details.kind = "tool-return-shape"` (plus
