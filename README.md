@@ -30,21 +30,23 @@ failure, or cancellation — defined in
 
 ## Status
 
-pi-loom is at **1.0**, its first release. The core language surface is
-implemented and exercised end-to-end — the binder, typed queries with schema
-validation, code-driven tool calls, `invoke`/subagent value passing, `match`/`?`,
-enums, and user functions all work. Some specified behaviour is **not yet fully
-wired into the shipped runtime**, so the specification is not yet fully
-implemented. Known gaps at this release:
+This package is at **0.1.x** — an early, pre-stable release. The shipped runtime
+carries no public-surface stability guarantee yet and is under active hardening,
+so the `package.json` version stays on a `0.x` line. That version tracks *package
+maturity*, which is a distinct axis from the *language design scope*: the language
+this package implements is at its first major scope, **loom 1.0** — a design-scope
+term defined by the specification's versioning governance
+(`docs/spec_topics/governance/release-version-naming.md`), not a claim that the
+shipped code is stable.
 
-- **Type-layer diagnostics** — static checks that require type inference are
-  partial (e.g. a non-boolean `if` condition, indexing a `string`, a
-  non-array `for` iterand).
-- **Nested control forms in an expression position** — a nested `match` and an
-  effectful expression (a user-`fn` call, a tool-call, an `@`-query) in a `match`
-  arm body now route through the single runtime executor, but the same forms
-  nested deeper inside a wholesale-evaluated pure expression (an object-literal
-  field, an array element) may still not evaluate in every position.
+The full documented language surface is implemented and exercised end-to-end —
+the binder, typed queries with schema validation, code-driven tool calls,
+`invoke`/subagent value passing, `match`/`?`, enums, and user functions all work;
+the load-time diagnostic surface (a non-boolean `if` condition, indexing a
+`string`, a non-array `for` iterand, an unknown identifier or method, a
+mixed-type `+`, and object-construction field errors) diagnoses at load; and
+control/effect forms (a nested `match`, an `@`-query, a tool-call, an `invoke`, a
+user-`fn` call) evaluate correctly in every expression position.
 
 A standing **production-path conformance suite** drives the full documented
 language surface through the shipped composition (discovery/registration, the
@@ -78,8 +80,11 @@ Report issues against the behaviour the [Reference](./docs/reference/) defines.
 - The `.loom` / `.warp` split draws on
   `docs/spec_topics/overview-and-orientation.md` §"file-extension-grammar" and
   `docs/spec_topics/language-and-architecture.md`.
-- Status posture per `docs/documentation-plan.md` §1 and decision D-6 (1.0 first
-  release; spec fully implemented; no enumerated rough edges).
+- The **loom 1.0** language design-scope framing follows `docs/documentation-plan.md`
+  §1 and decision D-6. The package's `0.1.x` version is a separate axis
+  (implementation release maturity), deliberately kept pre-stable. The end-to-end
+  test campaign (`docs/e2e-campaign/`) closed the type-layer-diagnostic and
+  nested-control-form gaps an interim status had enumerated.
 - Definition links point into `docs/reference/` (errors-and-results.md,
   frontmatter.md) rather than restating normative detail, per `docs/STYLE.md`.
 </content>

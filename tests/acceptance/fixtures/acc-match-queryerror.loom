@@ -8,4 +8,4 @@ let outcome = match @`Reply with a short one-line greeting.` {
   Ok(text) => text,
   Err(e) => "handled query error: ${e.message}"
 }
-respond outcome
+outcome

@@ -15,4 +15,4 @@ params:
 // (`anthropic/claude-haiku-4-5`) because the bare id can be ambiguous across
 // configured providers; a non-bypass loom with no resolvable binder model fails
 // to load. The body is a pure-literal `respond`.
-respond "ok"
+"ok"

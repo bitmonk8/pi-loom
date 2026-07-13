@@ -31,6 +31,7 @@
 // errors-and-results/error-model.md (§Terminal outcomes, ERR-8 … ERR-12).
 
 import type {
+  BinaryExpr,
   Block,
   CallExpr,
   Expr,
@@ -50,14 +51,25 @@ import { runCancellableSequence } from "./cancellation-core";
 import { evaluateForLoop, type ForLoopHost } from "./control-flow";
 import { functionResult, type FunctionResult, type TerminalOutcome } from "./function-result";
 import type { LexicalEnvironment } from "./lexical-environment";
-import { evaluateQuestion } from "./runtime-panics";
+import { evaluateIndexAccess, evaluateMemberAccess, evaluateQuestion } from "./runtime-panics";
+import { evaluateStringMember } from "./stdlib-string";
+import { evaluateArrayMember } from "./stdlib-array";
+import { evaluateObjectMember } from "./stdlib-object";
 import { evaluateMatch, type Bindings, type MatchArm, type Pattern } from "./match-result";
 import {
   handlePartialTerminalOutcome,
   type CommittedConversationMutator,
   type DrivenConversationMode,
 } from "./terminal-outcomes";
-import { isResultValue, makeErr, makeOk, type LoomValue, type ResultValue } from "./value";
+import {
+  brandSchemaValue,
+  isResultValue,
+  makeErr,
+  makeOk,
+  valuesEqual,
+  type LoomValue,
+  type ResultValue,
+} from "./value";
 
 /**
  * The checkpoint a checkpointed effect sub-expression gates on (one of the five
@@ -336,6 +348,127 @@ async function evalExpr(expr: Expr, env: LexicalEnvironment, deps: ExecuteBodyDe
       return evalUserFnCall(fn, expr, env, deps);
     }
   }
+  // Composite literals are decomposed on the executor path (not the sync pure
+  // host) so a nested `match` / `?` or an effect (query / tool-call / invoke /
+  // user-`fn` call) in a field value or an array element runs through this same
+  // evaluation path instead of the pure evaluator's `default: return null`
+  // safety net (which would silently corrupt the value to `null`). A genuinely
+  // pure object/array recurses to the same values the pure host would produce
+  // (identical schema branding). Any field/element whose evaluation is a
+  // non-`value` flow (a `?`-propagation, an effect `fail`, or a cancel)
+  // short-circuits and carries that terminal flow verbatim.
+  if (expr.kind === "array") {
+    const values: LoomValue[] = [];
+    for (const element of expr.elements) {
+      const evaluated = await evalExpr(element, env, deps);
+      if (evaluated.flow !== "value") {
+        return evaluated;
+      }
+      values.push(evaluated.value);
+    }
+    return { flow: "value", value: values };
+  }
+  if (expr.kind === "object") {
+    const obj: Record<string, LoomValue> = {};
+    for (const field of expr.fields) {
+      const evaluated = await evalExpr(field.value, env, deps);
+      if (evaluated.flow !== "value") {
+        return evaluated;
+      }
+      obj[field.name] = evaluated.value;
+    }
+    // Brand a schema-constructor value so QRY-18 interpolation can recover the
+    // schema for outbound wire-name translation (mirrors the pure host's
+    // `case "object"`).
+    const value =
+      expr.typeName !== null && env.resolveSchema(expr.typeName) !== undefined
+        ? brandSchemaValue(obj, expr.typeName)
+        : obj;
+    return { flow: "value", value };
+  }
+  // A pure OPERATOR node (`index` / `member` / `binary` / `ternary` /
+  // `method-call`) whose operand subtree holds a control/effect form — typically
+  // an inline composite such as `[<effect>][0]` or `{ f: <effect> }.f` written
+  // with no intervening `let` — must have that operand evaluated through the
+  // async executor. Handed wholesale to the sync pure host, the operand recurses
+  // into `evaluatePureExpression`'s `default: return null` safety net (a silent
+  // `null`, or a coerced derivative such as `"nullx"` for `+`). Each operand
+  // subtree is routed through `evalExpr` (so a nested `match` / `?` / effect
+  // dispatches through the single real path), any non-`value` flow short-circuits
+  // and carries that terminal flow verbatim (identical to tail position), then
+  // the SAME pure-operator primitive the pure host uses is applied to the
+  // resolved operand values (`evaluateIndexAccess` / `evaluateMemberAccess` /
+  // `valuesEqual` + the arithmetic disposition / the stdlib member surface).
+  // Semantics are preserved exactly: `&&` / `||` short-circuit, a ternary
+  // evaluates ONLY the taken branch, and a method-call evaluates receiver-then-
+  // args left-to-right. A genuinely-pure operator produces the identical value
+  // the pure host would (same primitives), so valid pure looms are unaffected.
+  if (expr.kind === "index") {
+    const target = await evalExpr(expr.target, env, deps);
+    if (target.flow !== "value") {
+      return target;
+    }
+    const index = await evalExpr(expr.index, env, deps);
+    if (index.flow !== "value") {
+      return index;
+    }
+    const key = typeof index.value === "number" ? index.value : String(index.value);
+    return { flow: "value", value: evaluateIndexAccess(target.value, key) };
+  }
+  if (expr.kind === "member") {
+    // `Enum.Variant`: a member on a non-local ident naming a registered enum is a
+    // pure enum-value read (runtime-value-model.md), NOT a member access on a
+    // target value — no effect can nest, so short-circuit to the variant
+    // (mirrors the pure host's `case "member"`).
+    if (expr.target.kind === "ident" && env.resolve(expr.target.name).arm !== "local") {
+      const variant = env.resolveEnumVariant(expr.target.name, expr.field);
+      if (variant !== undefined) {
+        return { flow: "value", value: variant };
+      }
+    }
+    const target = await evalExpr(expr.target, env, deps);
+    if (target.flow !== "value") {
+      return target;
+    }
+    return { flow: "value", value: evaluateMemberAccess(target.value, expr.field) };
+  }
+  if (expr.kind === "ternary") {
+    const condition = await evalExpr(expr.condition, env, deps);
+    if (condition.flow !== "value") {
+      return condition;
+    }
+    // Only the taken branch is evaluated — a not-taken effect never dispatches.
+    return evalExpr(condition.value === true ? expr.consequent : expr.alternate, env, deps);
+  }
+  if (expr.kind === "binary") {
+    return evalBinary(expr, env, deps);
+  }
+  if (expr.kind === "method-call") {
+    const receiver = await evalExpr(expr.target, env, deps);
+    if (receiver.flow !== "value") {
+      return receiver;
+    }
+    const args: LoomValue[] = [];
+    for (const arg of expr.args) {
+      const evaluated = await evalExpr(arg, env, deps);
+      if (evaluated.flow !== "value") {
+        return evaluated;
+      }
+      args.push(evaluated.value);
+    }
+    return { flow: "value", value: applyStdlibMethod(receiver.value, expr.method, args) };
+  }
+  // `Ok(arg)` / `Err(arg)`: the constructor argument is the same class of nested
+  // position — an inline composite / effect handed to the sync pure host hits the
+  // `null` safety net. Decompose the argument on the executor and reconstruct the
+  // Result (mirrors the pure host's `case "result-ctor"`).
+  if (expr.kind === "result-ctor") {
+    const arg = await evalExpr(expr.arg, env, deps);
+    if (arg.flow !== "value") {
+      return arg;
+    }
+    return { flow: "value", value: expr.ctor === "Ok" ? makeOk(arg.value) : makeErr(arg.value) };
+  }
 
   const checkpoint = deps.host.checkpointFor(expr);
   if (checkpoint === null) {
@@ -381,6 +514,125 @@ async function evalExpr(expr: Expr, env: LexicalEnvironment, deps: ExecuteBodyDe
 }
 
 /**
+ * Decompose a `binary` node on the executor so an operand subtree holding a
+ * control/effect form dispatches through `evalExpr`. The evaluation order and
+ * short-circuit are the pure host's `evaluateBinaryExpression`
+ * (production-loom-producer.ts) verbatim: `!` / unary `-` (the parser models
+ * both as a binary; unary `-` has a synthetic `null` left) evaluate only the
+ * right operand and are checked before the left is evaluated; `&&` / `||`
+ * evaluate the right operand only when the left does not decide the result (so
+ * a short-circuited operand's effect never dispatches); every other operator
+ * evaluates left-then-right and applies the scalar disposition. Any operand
+ * whose evaluation is a non-`value` flow short-circuits and carries that
+ * terminal flow verbatim.
+ */
+async function evalBinary(expr: BinaryExpr, env: LexicalEnvironment, deps: ExecuteBodyDeps): Promise<EvalResult> {
+  if (expr.op === "!") {
+    const right = await evalExpr(expr.right, env, deps);
+    if (right.flow !== "value") {
+      return right;
+    }
+    return { flow: "value", value: !(right.value as boolean) };
+  }
+  if (expr.op === "-" && expr.left.kind === "null") {
+    const right = await evalExpr(expr.right, env, deps);
+    if (right.flow !== "value") {
+      return right;
+    }
+    return { flow: "value", value: -(right.value as number) };
+  }
+  const left = await evalExpr(expr.left, env, deps);
+  if (left.flow !== "value") {
+    return left;
+  }
+  if (expr.op === "&&") {
+    if (left.value !== true) {
+      return { flow: "value", value: false };
+    }
+    const right = await evalExpr(expr.right, env, deps);
+    if (right.flow !== "value") {
+      return right;
+    }
+    return { flow: "value", value: right.value === true };
+  }
+  if (expr.op === "||") {
+    if (left.value === true) {
+      return { flow: "value", value: true };
+    }
+    const right = await evalExpr(expr.right, env, deps);
+    if (right.flow !== "value") {
+      return right;
+    }
+    return { flow: "value", value: right.value === true };
+  }
+  const right = await evalExpr(expr.right, env, deps);
+  if (right.flow !== "value") {
+    return right;
+  }
+  return { flow: "value", value: applyBinaryScalar(expr.op, left.value, right.value) };
+}
+
+/**
+ * Apply a non-short-circuit binary operator to resolved operands — the exact
+ * disposition of the pure host's `evaluateBinaryExpression` and the V3a
+ * expression-evaluator (`expression-evaluator.ts`): structural `==` / `!=` via
+ * the shared V2c `valuesEqual` relation (a cross-type pair is `false`, never a
+ * panic), string `+` concatenation vs IEEE-754 addition, non-panicking div/mod,
+ * and signed-IEEE-754 / UTF-16 ordering (expressions.md §Equality / §Ordering /
+ * §"Other arithmetic"). Reuses the same `valuesEqual` primitive as the pure host
+ * so the two paths cannot diverge.
+ */
+function applyBinaryScalar(op: string, left: LoomValue, right: LoomValue): LoomValue {
+  switch (op) {
+    case "==":
+      return valuesEqual(left, right);
+    case "!=":
+      return !valuesEqual(left, right);
+    case "+":
+      return typeof left === "string" && typeof right === "string"
+        ? left + right
+        : (left as number) + (right as number);
+    case "-":
+      return (left as number) - (right as number);
+    case "*":
+      return (left as number) * (right as number);
+    case "/":
+      return (left as number) / (right as number);
+    case "%":
+      return (left as number) % (right as number);
+    case "<":
+      return (left as number | string) < (right as number | string);
+    case "<=":
+      return (left as number | string) <= (right as number | string);
+    case ">":
+      return (left as number | string) > (right as number | string);
+    case ">=":
+      return (left as number | string) >= (right as number | string);
+    default:
+      return null;
+  }
+}
+
+/**
+ * Dispatch a stdlib method on resolved operands by the receiver's runtime type —
+ * mirrors the pure host's `evaluateStdlibMethod`, reusing the same exported
+ * member surfaces (`stdlib-string` / `stdlib-array` / `stdlib-object`); a
+ * non-string/array/object receiver yields the inert `null`.
+ */
+function applyStdlibMethod(receiver: LoomValue, method: string, args: readonly LoomValue[]): LoomValue {
+  if (typeof receiver === "string") {
+    return evaluateStringMember(receiver, method, args);
+  }
+  if (Array.isArray(receiver)) {
+    return evaluateArrayMember(receiver, method, args);
+  }
+  if (typeof receiver === "object" && receiver !== null) {
+    return evaluateObjectMember(receiver as { readonly [k: string]: LoomValue }, method, args);
+  }
+  return null;
+}
+
+/**
  * Evaluate an expression *as a loom `Result` value* — the operand of `?` and the
  * scrutinee of `match`, both of which operate on `Result` values. A checkpointed
  * effect (query / tool-call / invoke) is dispatched through the real host (so
@@ -412,6 +664,8 @@ async function evalAsResult(
   if (
     operand.kind === "try" ||
     operand.kind === "match" ||
+    operand.kind === "object" ||
+    operand.kind === "array" ||
     (operand.kind === "call" && resolveUserFn(operand.callee, env) !== undefined)
   ) {
     const inner = await evalExpr(operand, env, deps);
@@ -419,6 +673,25 @@ async function evalAsResult(
       return inner;
     }
     return { flow: "value", value: asResultValue(inner.value) };
+  }
+
+  // A pure OPERATOR expression as the `?`-operand / `match`-scrutinee: evaluate
+  // it through the async executor so a nested inline-composite effect (e.g.
+  // `[someQuery()][0]`) dispatches, and return the RAW resolved value. NO
+  // `asResultValue` wrap — `match` needs the true scrutinee value (wrapping a
+  // non-Result value in `Ok(...)` would break by-value arm matching), and ERR-18
+  // guarantees a `?` operand is already `Result`-typed. `evalExpr` fully handles
+  // these kinds (bullet-2), carrying short-circuit / fail / cancel flows and the
+  // same branding primitives as the pure host, so value/branding cannot diverge.
+  if (
+    operand.kind === "index" ||
+    operand.kind === "member" ||
+    operand.kind === "binary" ||
+    operand.kind === "ternary" ||
+    operand.kind === "method-call" ||
+    operand.kind === "result-ctor"
+  ) {
+    return evalExpr(operand, env, deps);
   }
 
   const checkpoint = deps.host.checkpointFor(operand);

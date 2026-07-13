@@ -73,6 +73,15 @@ export function checkObjectIndex(opts: {
  * stdlib table (`keys()` / `values()` follow the object's key order; `has(k)`
  * returns `false` for an unknown key without panic).
  */
+/**
+ * The `object` standard-library member surface (expressions.md §"Built-in
+ * methods and properties"): the allow-list the `type`-phase
+ * `loom/parse/unknown-method` check consumes. Kept in lockstep with the
+ * `evaluateObjectMember` dispatcher below. Object *field* access (`obj.field`)
+ * is not a stdlib member and is not gated by this set.
+ */
+export const OBJECT_MEMBERS: ReadonlySet<string> = new Set(["keys", "values", "has"]);
+
 export function evaluateObjectMember(
   receiver: { readonly [key: string]: LoomValue },
   member: string,

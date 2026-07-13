@@ -528,9 +528,20 @@ async function runComposePass(
     };
     // Carry the parsed frontmatter + body onto the runnable loom so the
     // hot-reload rebuild can swap the `LoomRegistry` with full `ParsedLoom`
-    // entries; the registration path reads only `slashName` + `run`.
+    // entries; the registration path reads `slashName` + `description` + `run`.
+    // Thread the top-level `description` `composeLoomFixture` computed onto the
+    // pushed loom so factory registration passes it to `pi.registerCommand`
+    // (REQ-PIC-31; frontmatter-fields-a.md autocomplete). Omitted when the loom
+    // declares none. Covers BOTH production paths (composeExtensionInstance and
+    // discoverAndComposeFixtures) — both flow through this pass.
     const fixture = composeLoomFixture(composedInput, producerDeps);
-    looms.push({ ...composedInput, run: fixture.run });
+    looms.push({
+      ...composedInput,
+      ...(fixture.description !== undefined
+        ? { description: fixture.description }
+        : {}),
+      run: fixture.run,
+    });
   }
   return { looms, activeRoots };
 }

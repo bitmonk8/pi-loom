@@ -46,14 +46,20 @@ function promptLoom(sentinel: string): string {
   ].join("\n");
 }
 
-/** A schema-typed `@`-query loom: a single small object schema lowered and validated (V5d). */
+/**
+ * A schema-typed `@`-query loom whose ONLY turn is the typed query (V5d schema
+ * lowering/validation). Single-turn on purpose: `driveSlashCaptureText`
+ * concatenates every streamed `text_delta`, so a trailing prose turn would
+ * append non-JSON after the typed object and break a whole-stream `JSON.parse`
+ * (FIND-S7-3 / D1). With just the typed query, the entire streamed transcript
+ * is the structured JSON object the schema is validated against.
+ */
 function typedQueryLoom(): string {
   return [
     "---",
     "mode: prompt",
     "---",
     "let answer: { ok: bool, label: string } = @`Return an object describing whether the sky is blue.`",
-    "@`${answer.label}`",
     "",
   ].join("\n");
 }

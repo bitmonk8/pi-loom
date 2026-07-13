@@ -69,6 +69,7 @@ import {
   type EnumVariantDecl,
 } from "./schema-declarations";
 import { parseTypeExpression } from "./type-grammar";
+import { checkObjectLiteralFields } from "./literal-sublanguage";
 import { checkTypeLayer } from "./type-layer-checks";
 import { resolveQuerySchemas } from "./query-schema-resolve";
 import { buildBodyTypeSchemas } from "./body-type-lowering";
@@ -652,6 +653,18 @@ export function parseLoomDocument(
     file,
   );
 
+  // REQ-EXPR-7 (expressions.md §"Identifier resolution"): a bare identifier in
+  // call or value position that resolves to nothing in scope is
+  // `loom/parse/unknown-identifier`. The root scope folds in every whole-file
+  // binding source (params, tools, imports, fn / schema / enum names, builtins);
+  // loom-level `let` bindings accumulate as the block walk descends.
+  const identRoots = collectIdentRoots(statements, frontmatter);
+  const unknownIdentDiags = checkUnknownIdentifiers(
+    { statements, tail: resolvedTail },
+    identRoots,
+    file,
+  );
+
   // C-bucket wiring (V20c): run the `type`-phase checkers against the `V20b`
   // per-expression static-type substrate so they fire in production
   // (non-boolean condition, non-array iterand, `?` misuse, array/return LUB,
@@ -675,6 +688,7 @@ export function parseLoomDocument(
     parser.diagnostics,
     docScan.diagnostics,
     structuralDiags,
+    unknownIdentDiags,
     typeLayerDiags,
     warpTopLevelDiags,
     resolvedQuery.diagnostics,
@@ -1152,8 +1166,23 @@ class BodyParser {
       const before = this.pos;
       const form = this.parseForm(sawSep);
       if (form === null) {
-        // No progress possible on this token: drop it to guarantee termination.
+        // No progress possible on this token: it starts no legal statement or
+        // expression form. A stray punctuation token in statement position (a
+        // trailing `;`, a stray non-grammar char) is not part of the grammar
+        // (lexical.md §"Statement terminators": semicolons are not part of the
+        // grammar) — surface a parse error rather than silently dropping it, then
+        // drop it to guarantee termination.
         if (this.pos === before) {
+          const stray = this.peek();
+          if (stray.kind === "punct") {
+            this.diagnostics.push({
+              severity: "error",
+              code: "loom/parse/unsupported-feature",
+              file: this.file,
+              range: stray.range,
+              message: `unsupported syntactic feature: stray '${stray.text}' in statement position`,
+            });
+          }
           this.advance();
         }
         continue;
@@ -1515,6 +1544,20 @@ class BodyParser {
     const kw = this.advance();
     const name = this.advance().text;
     const params: FnParam[] = [];
+    // Grammar: `FnDecl` parameter lists are always parenthesised (`fn f()`,
+    // never `fn f`). A missing `(` after the fn name is a parse error — without
+    // it a bare `fn f x { … }` silently parses `x` as the fn name's trailing
+    // junk and accepts a malformed declaration.
+    if (!this.isPunct("(")) {
+      this.diagnostics.push({
+        severity: "error",
+        code: "loom/parse/unsupported-feature",
+        file: this.file,
+        range: this.peek().range,
+        message:
+          "unsupported syntactic feature: fn parameter list must be parenthesised",
+      });
+    }
     if (this.isPunct("(")) {
       this.advance();
       while (!this.isPunct(")") && !this.atEnd()) {
@@ -1651,14 +1694,37 @@ class BodyParser {
         return null;
       }
       this.advance(); // `:`
-      const typeSource = this.parseType();
+      const typeSource = this.parseType(true);
       fields.push({
         name: nameTok.text,
         typeSource,
         ...(wireName !== undefined ? { wireName } : {}),
       });
+      // Grammar (`SchemaShape ::= "{" Field ("," Field)* ","? "}"`): fields are
+      // comma-separated. Because a newline inside the schema brace body is
+      // swallowed as a continuation (no `stmt-sep`), a comma-missing field body
+      // otherwise coalesces two fields into one malformed field with no
+      // diagnostic (silent data-shape corruption). Require the separator: when a
+      // field is directly followed by the start of another field (an
+      // ident/keyword name token) with no intervening comma, surface a parse
+      // error against that boundary token, then continue parsing so the dropped
+      // field is NOT lost.
       if (this.isPunct(",")) {
         this.advance();
+      } else {
+        const boundary = this.peek();
+        const startsNextField =
+          boundary.kind === "ident" || boundary.kind === "keyword";
+        if (startsNextField) {
+          this.diagnostics.push({
+            severity: "error",
+            code: "loom/parse/unsupported-feature",
+            file: this.file,
+            range: boundary.range,
+            message:
+              "unsupported syntactic feature: schema fields must be comma-separated",
+          });
+        }
       }
     }
     return fields;
@@ -1898,8 +1964,16 @@ class BodyParser {
     } as ImportDecl | ExportDecl;
   }
 
-  /** Consume a type expression, joining its tokens until a delimiter. */
-  private parseType(): string {
+  /**
+   * Consume a type expression, joining its tokens until a delimiter. When
+   * `stopAtFieldBoundary` is set (schema-object-body field types), the scan also
+   * stops at a depth-0 field boundary: a value-ish token (ident/keyword/string/
+   * number) that directly follows a completed type atom with no intervening `|`
+   * union operator marks the start of the next `Field`, so the current field's
+   * type does not greedily swallow it. This is what lets a comma-missing schema
+   * body still recover both fields (see `parseSchemaObjectBody`).
+   */
+  private parseType(stopAtFieldBoundary = false): string {
     const parts: string[] = [];
     let depth = 0;
     // A leading `{` introduces an inline object type (`let x: { a: T, … }`):
@@ -1942,6 +2016,17 @@ class BodyParser {
           t.text === "=")
       ) {
         break;
+      }
+      if (stopAtFieldBoundary && depth === 0 && parts.length > 0) {
+        const isValueTok =
+          t.kind === "ident" ||
+          t.kind === "keyword" ||
+          t.kind === "string" ||
+          t.kind === "number";
+        const prevText = parts[parts.length - 1];
+        if (isValueTok && prevText !== "|") {
+          break;
+        }
       }
       if (t.kind === "punct" && (t.text === "<" || t.text === "(" || t.text === "[")) {
         // Track `[` depth too so an inline `enum["a", "b"]` form is captured
@@ -2914,6 +2999,331 @@ function nullExpr(range: SourceRange): Expr {
 }
 
 // --------------------------------------------------------------------------
+// Identifier-resolution parse checker (`loom/parse/unknown-identifier`)
+// --------------------------------------------------------------------------
+
+/**
+ * Type / value names the loom 1.0 stdlib exposes bare (so they never read as an
+ * unknown identifier). Primitive / generic type names never legally appear in
+ * value position, but folding them in keeps the check false-positive-free if
+ * one is written where the walk sees an identifier. `QueryError` / `Result` are
+ * the error-model names an author may reference.
+ */
+const BUILTIN_VALUE_NAMES: ReadonlySet<string> = new Set([
+  "string",
+  "number",
+  "integer",
+  "boolean",
+  "null",
+  "void",
+  "array",
+  "Result",
+  "QueryError",
+]);
+
+/**
+ * Derive the presented callable name for one `tools:` entry, mirroring
+ * `callable-set.ts`: a bare Pi-tool name is used verbatim; a `.loom` path
+ * contributes its basename (extension stripped, hyphens → underscores); an
+ * `as <name>` rename overrides. Used to seed the identifier root scope so a
+ * `<name>(args)` callable call is not flagged as unknown.
+ */
+function toolCallableName(entry: string): string {
+  const parts = entry.trim().split(/\s+/).filter((p) => p.length > 0);
+  if (parts.length >= 3 && parts[1] === "as") {
+    return parts[2] ?? "";
+  }
+  const spec = parts[0] ?? "";
+  if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(spec)) {
+    return spec;
+  }
+  const basename = spec.slice(spec.lastIndexOf("/") + 1);
+  const stem = basename.endsWith(".loom")
+    ? basename.slice(0, -".loom".length)
+    : basename;
+  return stem.replace(/-/g, "_");
+}
+
+/**
+ * Build the whole-file identifier root scope: every name visible everywhere in
+ * the body regardless of source order — hoisted top-level `fn` names, `schema` /
+ * `enum` names, imported / re-exported symbols, `params:` field names, resolved
+ * `tools:` callable names, and the stdlib builtins. Loom-level `let` bindings are
+ * NOT roots (they bind sequentially and are accumulated as the walk descends).
+ */
+function collectIdentRoots(
+  statements: readonly Stmt[],
+  frontmatter: ParsedFrontmatter | null,
+): Set<string> {
+  const roots = new Set<string>(BUILTIN_VALUE_NAMES);
+  for (const s of statements) {
+    switch (s.kind) {
+      case "fn":
+      case "schema":
+      case "enum":
+        roots.add(s.name);
+        break;
+      case "import":
+      case "export":
+        for (const sym of s.symbols) {
+          roots.add(sym);
+        }
+        break;
+      default:
+        break;
+    }
+  }
+  if (frontmatter !== null) {
+    for (const f of frontmatter.params?.fields ?? []) {
+      roots.add(f.wireName);
+    }
+    for (const entry of frontmatter.tools ?? []) {
+      const name = toolCallableName(entry);
+      if (name.length > 0) {
+        roots.add(name);
+      }
+    }
+  }
+  return roots;
+}
+
+/** Collect every name a `match` pattern binds into `into` (arm-body scope). */
+function collectPatternBindings(p: PatternNode, into: Set<string>): void {
+  switch (p.kind) {
+    case "identifier":
+      into.add(p.name);
+      return;
+    case "constructor":
+      collectPatternBindings(p.inner, into);
+      return;
+    case "object":
+      for (const f of p.fields) {
+        collectPatternBindings(f.pattern, into);
+      }
+      return;
+    case "array":
+      for (const el of p.elements) {
+        collectPatternBindings(el, into);
+      }
+      return;
+    default:
+      // wildcard / literal bind nothing.
+      return;
+  }
+}
+
+/**
+ * Emit `loom/parse/unknown-identifier` (expressions.md §"Identifier resolution";
+ * REQ-EXPR-7) for a bare identifier in call or value position that resolves to
+ * nothing in scope — not a `params:` field, `let` binding, `fn`, imported name,
+ * `schema` / `enum`, resolved `tools:` callable, or builtin. Scope is tracked
+ * block-locally: `let` bindings accumulate in declaration order, nested blocks
+ * inherit a copy, and a `fn` body sees only the whole-file roots plus its own
+ * parameters (loom 1.0 has no closures). Only names the walk actually reaches in
+ * an identifier / call-callee / member-or-method receiver position are checked;
+ * schema-constructor names, member field names, method names, object keys, and
+ * `${…}` template interpolations are not identifier-resolution sites here.
+ */
+function checkUnknownIdentifiers(
+  body: Block,
+  roots: ReadonlySet<string>,
+  file: string,
+): Diagnostic[] {
+  const out: Diagnostic[] = [];
+  walkIdentBlock(body, new Set(roots), roots, file, out);
+  return out;
+}
+
+function emitUnknownIdentifier(
+  name: string,
+  range: SourceRange,
+  scope: ReadonlySet<string>,
+  file: string,
+  out: Diagnostic[],
+): void {
+  if (name.length === 0 || name === "_" || scope.has(name)) {
+    return;
+  }
+  out.push({
+    severity: "error",
+    code: "loom/parse/unknown-identifier",
+    file,
+    range,
+    message: `unknown identifier '${name}'`,
+  });
+}
+
+function walkIdentBlock(
+  block: Block,
+  scope: Set<string>,
+  root: ReadonlySet<string>,
+  file: string,
+  out: Diagnostic[],
+): void {
+  for (const s of block.statements) {
+    walkIdentStmt(s, scope, root, file, out);
+  }
+  if (block.tail !== null) {
+    walkIdentExpr(block.tail, scope, root, file, out);
+  }
+}
+
+function walkIdentStmt(
+  s: Stmt,
+  scope: Set<string>,
+  root: ReadonlySet<string>,
+  file: string,
+  out: Diagnostic[],
+): void {
+  switch (s.kind) {
+    case "let":
+      if (s.init !== null) {
+        walkIdentExpr(s.init, scope, root, file, out);
+      }
+      if (s.name !== "_") {
+        scope.add(s.name);
+      }
+      return;
+    case "reassign":
+      walkIdentExpr(s.value, scope, root, file, out);
+      return;
+    case "if": {
+      walkIdentExpr(s.condition, scope, root, file, out);
+      walkIdentBlock(s.then, new Set(scope), root, file, out);
+      if (s.otherwise !== null) {
+        if ("statements" in s.otherwise) {
+          walkIdentBlock(s.otherwise, new Set(scope), root, file, out);
+        } else {
+          walkIdentStmt(s.otherwise, new Set(scope), root, file, out);
+        }
+      }
+      return;
+    }
+    case "while":
+      walkIdentExpr(s.condition, scope, root, file, out);
+      walkIdentBlock(s.body, new Set(scope), root, file, out);
+      return;
+    case "for": {
+      walkIdentExpr(s.iterand, scope, root, file, out);
+      const inner = new Set(scope);
+      inner.add(s.variable);
+      walkIdentBlock(s.body, inner, root, file, out);
+      return;
+    }
+    case "fn": {
+      // A `fn` body is closure-free: it sees only the whole-file roots plus its
+      // own parameters, NOT the enclosing loom-level `let` bindings.
+      const fnScope = new Set(root);
+      for (const p of s.params) {
+        fnScope.add(p.name);
+      }
+      walkIdentBlock(s.body, fnScope, root, file, out);
+      return;
+    }
+    case "return":
+      if (s.operand !== null) {
+        walkIdentExpr(s.operand, scope, root, file, out);
+      }
+      return;
+    case "query":
+      walkIdentExpr(s.query, scope, root, file, out);
+      return;
+    case "tool-call":
+      walkIdentExpr(s.call, scope, root, file, out);
+      return;
+    case "invoke":
+      walkIdentExpr(s.invoke, scope, root, file, out);
+      return;
+    case "expr":
+      walkIdentExpr(s.expr, scope, root, file, out);
+      return;
+    default:
+      // schema / enum / import / export / break / continue / doc-comment carry
+      // no identifier-resolution sites.
+      return;
+  }
+}
+
+function walkIdentExpr(
+  e: Expr,
+  scope: Set<string>,
+  root: ReadonlySet<string>,
+  file: string,
+  out: Diagnostic[],
+): void {
+  switch (e.kind) {
+    case "ident":
+      emitUnknownIdentifier(e.name, e.range, scope, file, out);
+      return;
+    case "call":
+      // The callee is a bare identifier in call position.
+      emitUnknownIdentifier(e.callee, e.range, scope, file, out);
+      for (const arg of e.args) {
+        walkIdentExpr(arg, scope, root, file, out);
+      }
+      return;
+    case "binary":
+      walkIdentExpr(e.left, scope, root, file, out);
+      walkIdentExpr(e.right, scope, root, file, out);
+      return;
+    case "ternary":
+      walkIdentExpr(e.condition, scope, root, file, out);
+      walkIdentExpr(e.consequent, scope, root, file, out);
+      walkIdentExpr(e.alternate, scope, root, file, out);
+      return;
+    case "try":
+      walkIdentExpr(e.operand, scope, root, file, out);
+      return;
+    case "invoke":
+      // The callee path is a string literal, not an identifier.
+      for (const arg of e.args) {
+        walkIdentExpr(arg, scope, root, file, out);
+      }
+      return;
+    case "member":
+      // The receiver is an identifier-resolution site; the `.field` name is not.
+      walkIdentExpr(e.target, scope, root, file, out);
+      return;
+    case "index":
+      walkIdentExpr(e.target, scope, root, file, out);
+      walkIdentExpr(e.index, scope, root, file, out);
+      return;
+    case "method-call":
+      // The receiver is a resolution site; the method name is A2's concern.
+      walkIdentExpr(e.target, scope, root, file, out);
+      for (const arg of e.args) {
+        walkIdentExpr(arg, scope, root, file, out);
+      }
+      return;
+    case "object":
+      // The constructor / object keys are not value-position identifiers.
+      for (const field of e.fields) {
+        walkIdentExpr(field.value, scope, root, file, out);
+      }
+      return;
+    case "array":
+      for (const el of e.elements) {
+        walkIdentExpr(el, scope, root, file, out);
+      }
+      return;
+    case "result-ctor":
+      walkIdentExpr(e.arg, scope, root, file, out);
+      return;
+    case "match":
+      walkIdentExpr(e.scrutinee, scope, root, file, out);
+      for (const arm of e.arms) {
+        const armScope = new Set(scope);
+        collectPatternBindings(arm.pattern, armScope);
+        walkIdentExpr(arm.body, armScope, root, file, out);
+      }
+      return;
+    default:
+      // number / string / bool / null / query — no identifier sites.
+      return;
+  }
+}
+
+// --------------------------------------------------------------------------
 // Structural (AST-shape) parse checkers (C2a wiring)
 // --------------------------------------------------------------------------
 
@@ -2925,6 +3335,14 @@ function nullExpr(range: SourceRange): Expr {
 interface StructuralRefs {
   readonly fnNames: ReadonlySet<string>;
   readonly enums: ReadonlyMap<string, ReadonlySet<string>>;
+  /**
+   * Declared object-schema field names keyed by schema name (the
+   * `schema X { field: T, … }` object form only). Drives the object-construction
+   * checks: a `X { … }` constructor against a known object schema fires
+   * `loom/parse/extra-object-field` for an undeclared field and
+   * `loom/parse/missing-object-field` for an omitted required field.
+   */
+  readonly schemas: ReadonlyMap<string, readonly string[]>;
 }
 
 /** The lexical context a structural check consults as the walk descends. */
@@ -2956,14 +3374,19 @@ function checkStructural(body: Block, file: string): Diagnostic[] {
   // a variant the enum does not declare is `loom/parse/unknown-variant`
   // (schemas.md §Variant access).
   const enums = new Map<string, ReadonlySet<string>>();
+  // Declared object-schema field name sets, so an object constructor against a
+  // known object schema can be validated (extra / missing field).
+  const schemas = new Map<string, readonly string[]>();
   for (const s of body.statements) {
     if (s.kind === "fn") {
       fnNames.add(s.name);
     } else if (s.kind === "enum" && s.variants !== undefined) {
       enums.set(s.name, new Set(s.variants));
+    } else if (s.kind === "schema" && s.fields !== undefined) {
+      schemas.set(s.name, s.fields.map((f) => f.name));
     }
   }
-  const refs: StructuralRefs = { fnNames, enums };
+  const refs: StructuralRefs = { fnNames, enums, schemas };
   walkStatements(
     body.statements,
     { inLoop: false, topLevel: true, voidReturn: false },
@@ -3235,11 +3658,72 @@ function walkStatement(
   }
 }
 
+/**
+ * Validate an object-construction expression (expressions.md §"Object
+ * construction"). A bare `{ field: expr }` (no schema name) in expression
+ * position outside the two documented carve-outs (`params:` defaults; the single
+ * argument of a Pi-tool call) is `loom/parse/bare-object-literal`; the caller
+ * passes `bareAllowed` for the carve-out positions. A named constructor
+ * `Schema { … }` against a declared object schema fires
+ * `loom/parse/extra-object-field` for a field the schema does not declare and
+ * `loom/parse/missing-object-field` for an omitted required field (every
+ * declared field is required — schemas.md; no `field?:` shorthand).
+ */
+function checkObjectExpr(
+  e: ObjectExpr,
+  refs: StructuralRefs,
+  file: string,
+  out: Diagnostic[],
+  bareAllowed: boolean,
+): void {
+  if (e.typeName === null) {
+    if (!bareAllowed) {
+      out.push({
+        severity: "error",
+        code: "loom/parse/bare-object-literal",
+        file,
+        range: e.range,
+        message:
+          "bare object literal not permitted in this position; name the schema (Schema { ... })",
+      });
+    }
+    return;
+  }
+  const declared = refs.schemas.get(e.typeName);
+  if (declared === undefined) {
+    // Not a statically-declared object schema (an alias / union / enum /
+    // imported / builtin name): the field-set check needs the declared shape, so
+    // defer — do not guess.
+    return;
+  }
+  const declaredSet = new Set(declared);
+  const present = e.fields.map((f) => f.name);
+  for (const field of present) {
+    if (!declaredSet.has(field)) {
+      out.push({
+        severity: "error",
+        code: "loom/parse/extra-object-field",
+        file,
+        range: e.range,
+        message: `extra field '${field}' on schema '${e.typeName}'`,
+      });
+    }
+  }
+  out.push(
+    ...checkObjectLiteralFields(
+      { name: e.typeName, fields: declared },
+      present,
+      { file, range: e.range },
+    ),
+  );
+}
+
 function walkExpr(
   e: Expr,
   refs: StructuralRefs,
   file: string,
   out: Diagnostic[],
+  bareObjectAllowed = false,
 ): void {
   switch (e.kind) {
     case "ident":
@@ -3266,8 +3750,16 @@ function walkExpr(
       walkExpr(e.operand, refs, file, out);
       return;
     case "call":
+      // Carve-out: a bare `{ … }` as the single argument of a Pi-tool call is
+      // permitted (expressions.md §"Object construction"). A sole bare-object
+      // argument is walked with the bare-object check suppressed; its nested
+      // fields are still validated.
       for (const arg of e.args) {
-        walkExpr(arg, refs, file, out);
+        const soleBareObject =
+          e.args.length === 1 &&
+          arg.kind === "object" &&
+          arg.typeName === null;
+        walkExpr(arg, refs, file, out, soleBareObject);
       }
       return;
     case "invoke":
@@ -3303,6 +3795,7 @@ function walkExpr(
       walkExpr(e.index, refs, file, out);
       return;
     case "object":
+      checkObjectExpr(e, refs, file, out, bareObjectAllowed);
       for (const field of e.fields) {
         walkExpr(field.value, refs, file, out);
       }

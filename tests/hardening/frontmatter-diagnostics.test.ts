@@ -4,13 +4,17 @@ import { requireLiveProvider, runProbe, type PlantedFile, type ProbeResult } fro
 // Live bug-hunt probes for FRONTMATTER, TOOLS/CALLABLE SET and PARSE/LOAD
 // DIAGNOSTICS. Every probe here drives NO model turns (drives: []), so they are
 // zero-token: they observe `probe.registeredNames` (did the loom register?) and
-// `probe.diagnostics` (what error-severity ctx.ui.notify messages the load phase
-// emitted). Findings are documented in findings/frontmatter-diagnostics.md.
+// `probe.systemNotes` (the load-phase `loom-system-note` channel entries the
+// shipped V4e load path routes error-severity load/parse diagnostics onto —
+// `probe.diagnostics` (ctx.ui.notify) is empty at load time; see the probe-
+// harness header). Each note is rendered `<[file:line:col:] >code: message`, so
+// the expected registry message is a substring of the note. Findings are
+// documented in findings/frontmatter-diagnostics.md.
 
 const fm = (...frontmatterAndBody: string[]): string => frontmatterAndBody.join("\n");
 
 function hasDiag(probe: ProbeResult, substr: string): boolean {
-  return probe.diagnostics.some((d) => d.message.includes(substr));
+  return probe.systemNotes.some((n) => n.includes(substr));
 }
 
 describe("frontmatter / tools / diagnostics — live hardening", () => {

@@ -34,8 +34,10 @@ describe("INVOKE runtime / ceilings / cross-mode", () => {
     try {
       // Load-time rejection: the escaping loom did not register.
       expect(probe.registeredNames).not.toContain("escparent");
+      // V4e: the error-severity load diagnostic lands on the `loom-system-note`
+      // channel (`probe.systemNotes`), not `probe.diagnostics` (see probe-harness).
       expect(
-        probe.diagnostics.some((d) => d.message.includes("resolves outside every active discovery root")),
+        probe.systemNotes.some((n) => n.includes("resolves outside every active discovery root")),
       ).toBe(true);
       // The parent never continued past the escaping invoke.
       expect(turn.userTexts).not.toContain("x");
@@ -122,9 +124,10 @@ describe("INVOKE runtime / ceilings / cross-mode", () => {
     );
     try {
       expect(probe.registeredNames).not.toContain("dynparent");
+      // V4e: parse diagnostic on the `loom-system-note` channel.
       expect(
-        probe.diagnostics.some(
-          (d) => d.message.includes("unsupported syntactic feature") && d.message.includes("dynamic invoke path"),
+        probe.systemNotes.some(
+          (n) => n.includes("unsupported syntactic feature") && n.includes("dynamic invoke path"),
         ),
       ).toBe(true);
       expect(turn.userTexts).not.toContain("x");
@@ -143,22 +146,25 @@ describe("INVOKE runtime / ceilings / cross-mode", () => {
     );
     try {
       expect(probe.registeredNames).not.toContain("warpinv");
-      expect(probe.diagnostics.some((d) => d.message.includes("does not end in .loom"))).toBe(true);
+      // V4e: parse diagnostic on the `loom-system-note` channel.
+      expect(probe.systemNotes.some((n) => n.includes("does not end in .loom"))).toBe(true);
       expect(turn.userTexts).not.toContain("x");
     } finally {
       await probe.dispose();
     }
   });
 
-  it("INV-9: prompt→subagent isolates (child turn absent) but prompt→prompt child is NOT user-visible", async () => {
-    // EXPECTED (cross-mode matrix): prompt→subagent — only the return value
-    // reaches the caller (child turns isolated); prompt→prompt — the child
+  it("INV-9: prompt→subagent isolates (child turn absent) AND prompt→prompt child IS user-visible", async () => {
+    // EXPECTED (cross-mode matrix, DOC-19): prompt→subagent — only the return
+    // value reaches the caller (child turns isolated); prompt→prompt — the child
     // ATTACHES to the caller's conversation and "Child's queries are
     // user-visible turns".
-    // OBSERVED: prompt→subagent isolation holds (ISOLATEDKID absent — correct).
-    // prompt→prompt does NOT attach: the child's ATTACHEDKID query is neither in
-    // the caller transcript (userTexts) nor streamed on the caller session — the
-    // documented prompt→prompt user-visibility is not delivered.
+    // OBSERVED (D6 / FIND-S7-7): both hold. prompt→subagent isolation holds
+    // (ISOLATEDKID absent — correct); prompt→prompt attaches (ATTACHEDKID IS a
+    // user-visible turn in the caller transcript). The pre-fix assertion here
+    // claimed prompt→prompt did NOT attach; the runtime now delivers the
+    // documented behaviour (the passing `session-invoke-attach.test.ts` asserts
+    // the same, positively). Inverted to match.
     const probe = await runProbe({
       provider,
       files: [
@@ -177,10 +183,10 @@ describe("INVOKE runtime / ceilings / cross-mode", () => {
       // prompt→subagent: child isolated (correct).
       expect(psubAll).toContain("SUBPARENT");
       expect(psubAll).not.toContain("ISOLATEDKID");
-      // prompt→prompt: parent turn present, but child turn NOT user-visible (bug).
+      // prompt→prompt: parent turn present AND the child turn IS user-visible
+      // (attaches to the caller's session — DOC-19).
       expect(pproAll).toContain("PROMPTPARENT");
-      expect(pproAll).not.toContain("ATTACHEDKID");
-      expect(ppro.assistantText).not.toContain("ATTACHEDKID");
+      expect(pproAll).toContain("ATTACHEDKID");
     } finally {
       await probe.dispose();
     }

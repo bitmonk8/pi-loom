@@ -36,6 +36,21 @@ import { valuesEqual, type LoomValue } from "./value";
  * equality; `slice` follows JS semantics).
  *
  */
+/**
+ * The `array<T>` standard-library member surface (expressions.md §"Built-in
+ * methods and properties"): the allow-list the `type`-phase
+ * `loom/parse/unknown-method` check consumes. Kept in lockstep with the
+ * `evaluateArrayMember` dispatcher below.
+ */
+export const ARRAY_MEMBERS: ReadonlySet<string> = new Set([
+  "length",
+  "join",
+  "includes",
+  "indexOf",
+  "slice",
+  "concat",
+]);
+
 export function evaluateArrayMember(
   receiver: readonly LoomValue[],
   member: string,

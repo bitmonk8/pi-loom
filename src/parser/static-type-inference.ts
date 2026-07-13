@@ -271,6 +271,20 @@ export class StaticTypeInferencePass {
     env: TypeEnv,
     bindings: ReadonlyMap<string, CompatType>,
   ): CompatType {
+    // Unary `!` / `-` are modeled by `loom-document` `parseUnary` as a binary
+    // with a synthetic `null` left operand. Mirror the runtime's unary handling
+    // (`evaluateBinaryExpression`: `op === "-" && left.kind === "null"`, and
+    // the `!` case) so the operator types as its result, not as the null-mixed
+    // common type of `{null, operand}` (which otherwise collapses to `null` and
+    // trips the A5 mixed-operand / A6 ordering operand-type checks).
+    if (left.kind === "null") {
+      if (op === "!") {
+        return { kind: "prim", name: "boolean" };
+      }
+      if (op === "-") {
+        return this.#typeExpr(right, env, bindings);
+      }
+    }
     // Comparison and logical operators statically produce a boolean.
     if (BOOLEAN_BINARY_OPS.has(op)) {
       return { kind: "prim", name: "boolean" };

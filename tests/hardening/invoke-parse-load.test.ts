@@ -4,7 +4,9 @@ import { requireLiveProvider, runProbe, type PlantedFile } from "./probe-harness
 // INVOKE — parse/load characterization probes (ZERO model turns).
 //
 // Each probe drives NO invocations, so the only observation channels are
-// `probe.diagnostics` (load-phase ctx.ui.notify) and `probe.registeredNames`.
+// `probe.systemNotes` (the shipped V4e `loom-system-note` load-diagnostic
+// channel; `probe.diagnostics` / ctx.ui.notify is empty at load time — see the
+// probe-harness header) and `probe.registeredNames`.
 // Per invocation.md, the invoke-literal checks (extension, path-separator,
 // arity, cycle, path-escape) run in the calling loom's LOAD pass and are
 // error-severity diagnostics that prevent the loom from registering
@@ -22,7 +24,10 @@ const provider = requireLiveProvider();
 
 async function loadOnly(files: readonly PlantedFile[]) {
   const probe = await runProbe({ provider, files });
-  const msgs = probe.diagnostics.map((d) => `${d.type}:${d.message}`);
+  // V4e: error-severity load/parse diagnostics land on the `loom-system-note`
+  // channel, rendered `<[file:line:col:] >code: message`, so the registry
+  // message is a substring of each note.
+  const msgs = probe.systemNotes;
   return { probe, msgs, names: probe.registeredNames };
 }
 

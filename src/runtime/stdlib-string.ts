@@ -51,6 +51,25 @@ import type { LoomValue } from "./value";
  * the V3a interpreter. Returns the member's loom value per the expressions.md
  * stdlib table and the normative `replace` reference vectors.
  */
+/**
+ * The `string` standard-library member surface (expressions.md §"Built-in
+ * methods and properties"): the allow-list the `type`-phase
+ * `loom/parse/unknown-method` check consumes. Kept in lockstep with the
+ * `evaluateStringMember` dispatcher below — every name the dispatcher accepts
+ * appears here, and no other.
+ */
+export const STRING_MEMBERS: ReadonlySet<string> = new Set([
+  "length",
+  "toLowerCase",
+  "toUpperCase",
+  "trim",
+  "startsWith",
+  "endsWith",
+  "includes",
+  "split",
+  "replace",
+]);
+
 export function evaluateStringMember(
   receiver: string,
   member: string,

@@ -17,7 +17,20 @@
 //   * `loom/parse/array-no-common-type` (V3a), `loom/parse/return-no-common-type` (V3d),
 //   * `loom/parse/integer-narrowing` (V2b), `loom/parse/match-arm-type-mismatch` (V4a),
 //   * `loom/parse/non-indexable-receiver` (V3a), `loom/parse/non-string-object-index` (V3h),
-//   * `loom/parse/non-string-array-join` (V3g).
+//   * `loom/parse/non-string-array-join` (V3g),
+//   * `loom/parse/mixed-plus-operands` (A5) / `loom/parse/non-orderable-operands`
+//     (A6) — the `+` / ordering operand-type checks (expressions.md §"`+`
+//     operator", §"Ordering comparisons"),
+//   * `loom/parse/unknown-method` (A2) — a member / method access on a built-in
+//     receiver type outside the loom 1.0 stdlib surface (expressions.md
+//     §"Built-in methods and properties").
+//
+// A5 / A6 / A2 fire ONLY when the operand / receiver static type is concretely
+// resolvable. An operand past the parser's static view (an unresolved
+// `NamedType`, a sentinel reference) is left unclassified and deferred to the
+// runtime safety net — no `type`-phase diagnostic — mirroring the
+// `let-rhs-type-mismatch` "statically resolvable" guard so no valid loom is
+// wrongly rejected.
 //
 // The wiring is constructor-free and holds no module-level mutable state: it
 // builds a fresh `V20b` pass, type environment, and binding scope per parse.
@@ -39,6 +52,7 @@ import {
   checkCompatible,
   checkCommonType,
   checkLetRhsCompat,
+  displayType,
   type CompatType,
   type NamedDecl,
   type PrimitiveName,
@@ -50,6 +64,9 @@ import {
   checkIndexReceiver,
 } from "../runtime/expression-evaluator";
 import { checkForIterand } from "./control-flow";
+import { STRING_MEMBERS } from "../runtime/stdlib-string";
+import { ARRAY_MEMBERS } from "../runtime/stdlib-array";
+import { OBJECT_MEMBERS } from "../runtime/stdlib-object";
 import {
   checkMatchArmTypes,
   checkQuestionOperand,
@@ -69,6 +86,115 @@ const PRIMITIVE_NAMES: ReadonlySet<string> = new Set([
   "boolean",
   "null",
 ]);
+
+/** The four ordering operators (expressions.md §"Ordering comparisons"). */
+const ORDERING_OPS: ReadonlySet<string> = new Set(["<", "<=", ">", ">="]);
+
+/**
+ * The additive-operand category of a static type, for the `+` (A5) and ordering
+ * (A6) operand-type checks:
+ *
+ *   - `"numeric"` — a `number` / `integer` (prim or literal);
+ *   - `"string"`  — a `string` (prim or literal);
+ *   - `"other"`   — a concretely-resolvable but non-additive/non-orderable type
+ *                   (`boolean`, `null`, an enum/object schema, a union, an
+ *                   inline object, or `array<T>`);
+ *   - `"unknown"` — statically unresolvable past the parser's view (an
+ *                   unresolved `NamedType`): deferred to the runtime safety net.
+ */
+type OperandCategory = "numeric" | "string" | "other" | "unknown";
+
+function classifyOperand(type: CompatType, env: TypeEnv): OperandCategory {
+  switch (type.kind) {
+    case "prim":
+      if (type.name === "number" || type.name === "integer") {
+        return "numeric";
+      }
+      return type.name === "string" ? "string" : "other";
+    case "literal":
+      if (type.typesAs === "number" || type.typesAs === "integer") {
+        return "numeric";
+      }
+      return type.typesAs === "string" ? "string" : "other";
+    case "array":
+    case "object":
+    case "union":
+      return "other";
+    case "named": {
+      const decl = env[type.name];
+      if (decl === undefined) {
+        return "unknown";
+      }
+      if (decl.kind === "object-schema") {
+        return "other";
+      }
+      // A transparent alias (TYPE-11): classify its resolved RHS.
+      return classifyOperand(decl.rhs, env);
+    }
+  }
+}
+
+/**
+ * The built-in receiver classification for the A2 `unknown-method` check. A
+ * receiver whose static type resolves to a concrete built-in (`string`,
+ * `array`, `object`, or a member-less primitive) is gated against the stdlib
+ * surface; a `"unknown"` receiver (an unresolved `NamedType`, a union) is
+ * deferred to the runtime safety net.
+ */
+type BuiltinReceiver =
+  | "string"
+  | "array"
+  | "object"
+  | "number"
+  | "integer"
+  | "boolean"
+  | "null"
+  | "unknown";
+
+function classifyReceiver(type: CompatType, env: TypeEnv): BuiltinReceiver {
+  switch (type.kind) {
+    case "prim":
+      return type.name;
+    case "literal":
+      return type.typesAs;
+    case "array":
+      return "array";
+    case "object":
+      return "object";
+    case "union":
+      return "unknown";
+    case "named": {
+      const decl = env[type.name];
+      if (decl === undefined) {
+        return "unknown";
+      }
+      if (decl.kind === "object-schema") {
+        return "object";
+      }
+      return classifyReceiver(decl.rhs, env);
+    }
+  }
+}
+
+/**
+ * The loom 1.0 stdlib member allow-list for a concrete built-in receiver. A
+ * member-less receiver (`number` / `integer` / `boolean` / `null`) exposes no
+ * members, so any member / method access on it is `loom/parse/unknown-method`.
+ */
+function builtinMembers(kind: BuiltinReceiver): ReadonlySet<string> {
+  switch (kind) {
+    case "string":
+      return STRING_MEMBERS;
+    case "array":
+      return ARRAY_MEMBERS;
+    case "object":
+      return OBJECT_MEMBERS;
+    default:
+      return EMPTY_MEMBERS;
+  }
+}
+
+const EMPTY_MEMBERS: ReadonlySet<string> = new Set();
 
 /**
  * The walk context threaded down each block: the enclosing scope a `?` early-
@@ -506,6 +632,10 @@ class TypeLayerWalk {
               }),
             );
           }
+        } else if (e.op === "+") {
+          this.checkPlusOperands(e, bindings);
+        } else if (ORDERING_OPS.has(e.op)) {
+          this.checkOrderingOperands(e, bindings);
         }
         this.walkExpr(e.left, bindings, flow);
         this.walkExpr(e.right, bindings, flow);
@@ -549,6 +679,7 @@ class TypeLayerWalk {
         }
         return;
       case "member":
+        this.checkMemberAccess(e, bindings);
         this.walkExpr(e.target, bindings, flow);
         return;
       case "call":
@@ -642,25 +773,142 @@ class TypeLayerWalk {
     }
   }
 
-  /** The `array.join` element-type precondition (owned V3g). */
+  /**
+   * The method-call type-layer checks: the `array.join` element-type
+   * precondition (owned V3g) and the A2 `unknown-method` stdlib allow-list
+   * (fired only when the receiver's static type is a concrete built-in).
+   */
   private checkMethodCall(
     e: Expr & { kind: "method-call" },
     bindings: ReadonlyMap<string, CompatType>,
   ): void {
-    if (e.method !== "join") {
-      return;
-    }
     const targetType = this.typeOf(e.target, bindings);
-    if (targetType.kind !== "array") {
+    if (e.method === "join" && targetType.kind === "array") {
+      const diag = checkArrayJoin(targetType.element, {
+        file: this.file,
+        range: e.range,
+      });
+      if (diag !== undefined) {
+        this.diagnostics.push(diag);
+      }
+    }
+    // A2 — a method call on a concrete built-in receiver whose name the loom
+    // 1.0 stdlib does not expose. A statically-unresolvable receiver defers to
+    // the runtime safety net (no diagnostic).
+    const kind = classifyReceiver(targetType, this.env);
+    if (kind === "unknown") {
       return;
     }
-    const diag = checkArrayJoin(targetType.element, {
+    if (!builtinMembers(kind).has(e.method)) {
+      this.pushUnknownMethod(e.method, targetType, e.range);
+    }
+  }
+
+  /**
+   * The A2 `unknown-method` check on a bare member (property) access
+   * `target.member`. Object *field* access (`obj.field`) is legitimate and is
+   * not gated; a member-less primitive (`number` / `integer` / `boolean` /
+   * `null`) or a `string` / `array` property outside the stdlib surface is
+   * `loom/parse/unknown-method`. A statically-unresolvable receiver defers.
+   */
+  private checkMemberAccess(
+    e: Expr & { kind: "member" },
+    bindings: ReadonlyMap<string, CompatType>,
+  ): void {
+    const receiverType = this.typeOf(e.target, bindings);
+    const kind = classifyReceiver(receiverType, this.env);
+    if (kind === "unknown" || kind === "object") {
+      // Unresolved receiver (defer to runtime) or an object field access
+      // (`obj.field` — not a stdlib member surface).
+      return;
+    }
+    if (!builtinMembers(kind).has(e.field)) {
+      this.pushUnknownMethod(e.field, receiverType, e.range);
+    }
+  }
+
+  /** Emit `loom/parse/unknown-method` (message from code-registry-parse.md). */
+  private pushUnknownMethod(
+    name: string,
+    receiverType: CompatType,
+    range: Expr["range"],
+  ): void {
+    this.diagnostics.push({
+      severity: "error",
+      code: "loom/parse/unknown-method",
+      file: this.file,
+      range,
+      message: `unknown method '${name}' on type ${displayType(receiverType)}`,
+    });
+  }
+
+  /**
+   * A5 — the `+` operand-type check. `+` accepts two numeric operands
+   * (addition) or two `string` operands (concatenation); every other concrete
+   * pairing is `loom/parse/mixed-plus-operands` (expressions.md §"`+`
+   * operator"). Fires only when both operands are statically resolvable.
+   */
+  private checkPlusOperands(
+    e: Expr & { kind: "binary" },
+    bindings: ReadonlyMap<string, CompatType>,
+  ): void {
+    const leftType = this.typeOf(e.left, bindings);
+    const rightType = this.typeOf(e.right, bindings);
+    const left = classifyOperand(leftType, this.env);
+    const right = classifyOperand(rightType, this.env);
+    if (left === "unknown" || right === "unknown") {
+      return;
+    }
+    if (
+      (left === "numeric" && right === "numeric") ||
+      (left === "string" && right === "string")
+    ) {
+      return;
+    }
+    this.diagnostics.push({
+      severity: "error",
+      code: "loom/parse/mixed-plus-operands",
       file: this.file,
       range: e.range,
+      message: `'+' has mixed operand types: ${displayType(leftType)} and ${displayType(
+        rightType,
+      )}`,
     });
-    if (diag !== undefined) {
-      this.diagnostics.push(diag);
+  }
+
+  /**
+   * A6 — the ordering-operator (`<` / `<=` / `>` / `>=`) operand-type check.
+   * Ordering accepts two numeric operands or two `string` operands; every other
+   * concrete pairing is `loom/parse/non-orderable-operands` (expressions.md
+   * §"Ordering comparisons"). Fires only when both operands are statically
+   * resolvable.
+   */
+  private checkOrderingOperands(
+    e: Expr & { kind: "binary" },
+    bindings: ReadonlyMap<string, CompatType>,
+  ): void {
+    const leftType = this.typeOf(e.left, bindings);
+    const rightType = this.typeOf(e.right, bindings);
+    const left = classifyOperand(leftType, this.env);
+    const right = classifyOperand(rightType, this.env);
+    if (left === "unknown" || right === "unknown") {
+      return;
     }
+    if (
+      (left === "numeric" && right === "numeric") ||
+      (left === "string" && right === "string")
+    ) {
+      return;
+    }
+    this.diagnostics.push({
+      severity: "error",
+      code: "loom/parse/non-orderable-operands",
+      file: this.file,
+      range: e.range,
+      message: `'${e.op}' requires two numeric or two string operands; got ${displayType(
+        leftType,
+      )} and ${displayType(rightType)}`,
+    });
   }
 }
 

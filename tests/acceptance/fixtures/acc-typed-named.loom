@@ -5,8 +5,8 @@ mode: prompt
 // The declared `Reply` schema is lowered and the model's response is validated
 // against it; the structured JSON streams as the turn's assistant text.
 schema Reply {
-  status: string
+  status: string,
   summary: string
 }
 let r: Reply = @`Report on a hypothetical build. Set status to a single short word and summary to one sentence.`
-respond r
+r

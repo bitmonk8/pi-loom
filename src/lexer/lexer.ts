@@ -669,6 +669,26 @@ function scanTokens(
       continue;
     }
 
+    // Semicolons are not part of the loom grammar (lexical.md §"Statement
+    // terminators": statements are separated by newlines). A stray `;` (a
+    // trailing statement terminator, or one used to pack statements) is
+    // rejected rather than silently tokenised and dropped by the parser. Emit
+    // the generic parser reject and consume it without a token so the
+    // surrounding statements still parse.
+    if (c === ";") {
+      const semiStart = pos();
+      advance();
+      diagnostics.push({
+        severity: "error",
+        code: "loom/parse/unsupported-feature",
+        file,
+        range: { start: semiStart, end: pos() },
+        message:
+          "unsupported syntactic feature: ';' (semicolons are not part of the grammar)",
+      });
+      continue;
+    }
+
     // Operators / punctuation: greedily prefer a recognised two-char operator.
     const start = pos();
     const pair = text.slice(i, i + 2);

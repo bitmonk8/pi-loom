@@ -3,14 +3,20 @@ import { requireLiveProvider, runProbe, type PlantedFile } from "./probe-harness
 
 // Hardening probes — DISCOVERY / CLI / SLASH-NAME VALIDITY / COLLISIONS /
 // SETTINGS. Mostly zero-token: outcomes read off `registeredNames` and the
-// error-severity `diagnostics` the load phase emits through `ctx.ui.notify`.
+// error-severity load diagnostics the load phase routes onto the
+// `loom-system-note` channel (`probe.systemNotes`).
 //
-// NOTE ON OBSERVABILITY: the shipped composition root routes ONLY
-// error-severity diagnostics to `ctx.ui.notify` (production-composition.ts
-// `emitDiagnostic`); warnings (case-collision, cross-source-shadow,
-// non-canonical-extension, settings-unreadable/invalid-json, unreadable) never
-// reach `probe.diagnostics`. Probes therefore assert on error diagnostics and
-// on `registeredNames`.
+// NOTE ON OBSERVABILITY (V4e): the shipped composition root routes ALL
+// error-severity load/parse/settings/binder-model diagnostics through
+// `emitLoadNote` onto the `loom-system-note` channel, so they land on
+// `probe.systemNotes`, NOT `probe.diagnostics` (ctx.ui.notify), which is empty
+// at load time (see the probe-harness header). Load-phase WARNINGS
+// (case-collision, cross-source-shadow, non-canonical-extension,
+// settings-unreadable/invalid-json, unreadable) route to neither surface
+// (`emitLoadNote` is error-only). Probes therefore assert on the error notes
+// (each rendered `<[file:line:col:] >code: message`) and on `registeredNames`;
+// every entry on `systemNotes` is error-severity, so the old per-diagnostic
+// `type === "error"` checks are now implicit.
 //
 // Findings written to tests/hardening/findings/discovery-cli.md.
 
@@ -21,8 +27,8 @@ function loom(source: PlantedFile["source"], path: string): PlantedFile {
   return { source, path, text: FM };
 }
 
-function msgs(probe: { diagnostics: readonly { message: string; type: string }[] }): string[] {
-  return probe.diagnostics.map((d) => `${d.type}: ${d.message}`);
+function msgs(probe: { systemNotes: readonly string[] }): string[] {
+  return [...probe.systemNotes];
 }
 
 // ===========================================================================
@@ -46,11 +52,10 @@ describe("discovery — correct behaviour (baseline guards)", () => {
     });
     try {
       expect(probe.registeredNames).toEqual(["valid"]);
-      const invalid = probe.diagnostics.filter((d) =>
-        d.message.startsWith("slash names must be lowercase"),
+      const invalid = probe.systemNotes.filter((n) =>
+        n.includes("slash names must be lowercase"),
       );
       expect(invalid).toHaveLength(6);
-      expect(invalid.every((d) => d.type === "error")).toBe(true);
     } finally {
       await probe.dispose();
     }
@@ -109,13 +114,12 @@ describe("discovery — correct behaviour (baseline guards)", () => {
     });
     try {
       expect(probe.registeredNames).toEqual([]);
-      const collision = probe.diagnostics.filter((d) =>
-        d.message.includes("collides at the same priority"),
+      const collision = probe.systemNotes.filter((n) =>
+        n.includes("collides at the same priority"),
       );
       expect(collision).toHaveLength(1);
-      expect(collision[0]!.type).toBe("error");
-      expect(collision[0]!.message).toContain("a/dup.loom");
-      expect(collision[0]!.message).toContain("b/dup.loom");
+      expect(collision[0]!).toContain("a/dup.loom");
+      expect(collision[0]!).toContain("b/dup.loom");
     } finally {
       await probe.dispose();
     }
@@ -132,7 +136,6 @@ describe("discovery — correct behaviour (baseline guards)", () => {
       expect(msgs(probe)).toEqual([
         expect.stringContaining("does not end in .loom") as unknown as string,
       ]);
-      expect(probe.diagnostics[0]!.type).toBe("error");
     } finally {
       await probe.dispose();
     }
@@ -151,7 +154,7 @@ describe("discovery — correct behaviour (baseline guards)", () => {
       const probe = await runProbe({ provider, files: [], projectSettings: c.settings });
       try {
         expect(
-          probe.diagnostics.some((d) => d.type === "error" && d.message.includes(c.needle)),
+          probe.systemNotes.some((n) => n.includes(c.needle)),
           `${JSON.stringify(c.settings)} -> ${c.needle}\nGOT ${JSON.stringify(msgs(probe))}`,
         ).toBe(true);
       } finally {
@@ -167,9 +170,8 @@ describe("discovery — correct behaviour (baseline guards)", () => {
       projectSettings: { loomPaths: [123, true, null, "extra"] },
     });
     try {
-      const invalid = probe.diagnostics.filter((d) => d.message.includes("must be a string path"));
+      const invalid = probe.systemNotes.filter((n) => n.includes("must be a string path"));
       expect(invalid).toHaveLength(3);
-      expect(invalid.map((d) => d.type)).toEqual(["error", "error", "error"]);
     } finally {
       await probe.dispose();
     }
@@ -195,7 +197,7 @@ describe("DISC-1 — missing explicit settings path emits loom/load/missing-sour
       // which the shipped error-only `emitDiagnostic` filter then suppresses.
       // This is spec-correct — the DISC-1 bug is the clean-leaf case below.
       expect(probe.registeredNames).toEqual(["p"]);
-      const errors = probe.diagnostics.filter((d) => d.type === "error");
+      const errors = probe.systemNotes;
       expect(
         errors.length,
         `a missing intermediate ancestor is unreadable (warning), not a missing error; got ${JSON.stringify(msgs(probe))}`,
@@ -216,8 +218,8 @@ describe("DISC-1 — missing explicit settings path emits loom/load/missing-sour
       // is a clean leaf (every ancestor — including the drive root on Windows —
       // exists), so DISC-2 mandates one `loom/load/missing-source` ERROR.
       expect(probe.registeredNames).toEqual(["p"]);
-      const missing = probe.diagnostics.filter(
-        (d) => d.type === "error" && d.message.includes("does not exist"),
+      const missing = probe.systemNotes.filter(
+        (n) => n.includes("does not exist"),
       );
       expect(
         missing.length,

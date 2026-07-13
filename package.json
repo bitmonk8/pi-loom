@@ -1,6 +1,6 @@
 {
   "name": "@bitmonk8/pi-loom",
-  "version": "0.0.1",
+  "version": "0.1.3",
   "private": true,
   "description": "Pi extension introducing .loom — a scripting language for parameterized, programmatic conversational injection at the PI/ESI boundary.",
   "keywords": [

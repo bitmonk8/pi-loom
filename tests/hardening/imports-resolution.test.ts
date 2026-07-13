@@ -7,8 +7,10 @@ import { requireLiveProvider, runProbe } from "./probe-harness";
 // slash command `/main`) and a `.warp` alongside (also source:'project', so it
 // lands in the same `.pi/looms/` dir and `./lib.warp` resolves relative to the
 // loom's own directory). Most checks are ZERO-TOKEN: they observe
-// `registeredNames` (did the loom register?) and `diagnostics` (did the load
-// phase emit the spec-mandated import diagnostic?) with no model turn.
+// `registeredNames` (did the loom register?) and `systemNotes` (the shipped V4e
+// `loom-system-note` load-diagnostic channel; `probe.diagnostics` /
+// ctx.ui.notify is empty at load time — see the probe-harness header) with no
+// model turn.
 
 describe("imports & .warp — resolution and diagnostics", () => {
   const provider = requireLiveProvider();
@@ -70,13 +72,13 @@ describe("imports & .warp — resolution and diagnostics", () => {
       ],
     });
     try {
-      const codes = probe.diagnostics.map((d) => d.message);
+      const codes = probe.systemNotes;
       // eslint-disable-next-line no-console
       console.log("IMP-A registered:", JSON.stringify(probe.registeredNames));
       // eslint-disable-next-line no-console
       console.log("IMP-A diagnostics:", JSON.stringify(codes));
-      const hasUnresolvable = probe.diagnostics.some((d) =>
-        /cannot resolve .warp import|unresolvable/i.test(d.message),
+      const hasUnresolvable = probe.systemNotes.some((n) =>
+        /cannot resolve .warp import|unresolvable/i.test(n),
       );
       // Spec expects a diagnostic and no registration. Assert the spec so a
       // pass means the feature works and a fail documents the observed gap.
@@ -118,13 +120,13 @@ describe("imports & .warp — resolution and diagnostics", () => {
       ],
     });
     try {
-      const codes = probe.diagnostics.map((d) => d.message);
+      const codes = probe.systemNotes;
       // eslint-disable-next-line no-console
       console.log("IMP-B registered:", JSON.stringify(probe.registeredNames));
       // eslint-disable-next-line no-console
       console.log("IMP-B diagnostics:", JSON.stringify(codes));
-      const hasExtErr = probe.diagnostics.some((d) =>
-        /does not end in .warp|import-non-warp-extension/i.test(d.message),
+      const hasExtErr = probe.systemNotes.some((n) =>
+        /does not end in .warp|import-non-warp-extension/i.test(n),
       );
       expect(
         hasExtErr || !probe.registeredNames.includes("main"),
@@ -163,13 +165,13 @@ describe("imports & .warp — resolution and diagnostics", () => {
       ],
     });
     try {
-      const codes = probe.diagnostics.map((d) => d.message);
+      const codes = probe.systemNotes;
       // eslint-disable-next-line no-console
       console.log("IMP-C registered:", JSON.stringify(probe.registeredNames));
       // eslint-disable-next-line no-console
       console.log("IMP-C diagnostics:", JSON.stringify(codes));
-      const hasUnknown = probe.diagnostics.some((d) =>
-        /is not declared or re-exported|import-unknown-symbol/i.test(d.message),
+      const hasUnknown = probe.systemNotes.some((n) =>
+        /is not declared or re-exported|import-unknown-symbol/i.test(n),
       );
       expect(
         hasUnknown || !probe.registeredNames.includes("main"),
@@ -216,13 +218,13 @@ describe("imports & .warp — resolution and diagnostics", () => {
       ],
     });
     try {
-      const codes = probe.diagnostics.map((d) => d.message);
+      const codes = probe.systemNotes;
       // eslint-disable-next-line no-console
       console.log("IMP-D registered:", JSON.stringify(probe.registeredNames));
       // eslint-disable-next-line no-console
       console.log("IMP-D diagnostics:", JSON.stringify(codes));
-      const hasWarpTopLevel = probe.diagnostics.some((d) =>
-        /not permitted in .warp|warp-top-level-statement/i.test(d.message),
+      const hasWarpTopLevel = probe.systemNotes.some((n) =>
+        /not permitted in .warp|warp-top-level-statement/i.test(n),
       );
       expect(
         hasWarpTopLevel,
@@ -266,13 +268,13 @@ describe("imports & .warp — resolution and diagnostics", () => {
       ],
     });
     try {
-      const codes = probe.diagnostics.map((d) => d.message);
+      const codes = probe.systemNotes;
       // eslint-disable-next-line no-console
       console.log("IMP-E registered:", JSON.stringify(probe.registeredNames));
       // eslint-disable-next-line no-console
       console.log("IMP-E diagnostics:", JSON.stringify(codes));
-      const hasCycle = probe.diagnostics.some((d) =>
-        /import cycle|import-cycle/i.test(d.message),
+      const hasCycle = probe.systemNotes.some((n) =>
+        /import cycle|import-cycle/i.test(n),
       );
       expect(
         hasCycle,

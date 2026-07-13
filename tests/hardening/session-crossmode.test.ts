@@ -169,7 +169,13 @@ describe("cross-mode invoke value passing", () => {
       {
         source: "project" as const,
         path: "objchild.loom",
-        text: P("subagent", '{ name: "widget", count: 7, tags: ["alpha", "beta"] }'),
+        text: P(
+          "subagent",
+          [
+            "schema Thing { name: string, count: number, tags: array<string> }",
+            'Thing { name: "widget", count: 7, tags: ["alpha", "beta"] }',
+          ].join("\n"),
+        ),
       },
     ];
     const { text, probe } = await drive(() => runProbe({ provider, files, drives: ["/pobj"] }));
@@ -199,7 +205,14 @@ describe("cross-mode invoke value passing", () => {
       {
         source: "project" as const,
         path: "enumchild.loom",
-        text: P("subagent", ["enum Status { Active, Done }", "{ status: Status.Done }"].join("\n")),
+        text: P(
+          "subagent",
+          [
+            "enum Status { Active, Done }",
+            "schema Wrap { status: Status }",
+            "Wrap { status: Status.Done }",
+          ].join("\n"),
+        ),
       },
     ];
     const { text, probe } = await drive(() => runProbe({ provider, files, drives: ["/penum"] }));

@@ -18,7 +18,7 @@ tools:
 // union of every code the Deps slices *can* emit is in `permitted-codes.json`.
 
 schema Report {
-  status: "ok" | "degraded"
+  status: "ok" | "degraded",
   summary: string
 }
 
@@ -29,4 +29,4 @@ schema Report {
 // against `Report` (V5d/V13b) and forces a two-phase respond turn (V13c/V13d).
 let report: Report = @`Inspect the workspace and report its configuration.`
 
-respond report
+report

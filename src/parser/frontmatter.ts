@@ -34,7 +34,10 @@ import {
   type SystemParamType,
   type SystemTemplate,
 } from "./system-interpolation";
-import { type BypassParamsField } from "../binder/binder-envelope";
+import {
+  classifyBinderBypass,
+  type BypassParamsField,
+} from "../binder/binder-envelope";
 
 /** A loom 1.0 invocation mode (`frontmatter-fields-a.md` field contract). */
 export type LoomMode = "prompt" | "subagent";
@@ -257,6 +260,23 @@ const LOOM_1_0_FIELDS: ReadonlySet<string> = new Set([
   "respond_repair",
   "tool_loop",
   "params",
+]);
+
+/**
+ * Frontmatter field names reserved for deferred loom 1.0 features named in
+ * Future Considerations (`frontmatter-fields-a.md` §Field contract; Deferred
+ * appendix Cluster 2). A reserved key is not part of the loom 1.0 vocabulary but
+ * is distinguished from a genuinely-unknown key: it surfaces as the
+ * `loom/load/deferred-frontmatter-field` warning rather than the generic
+ * `loom/load/unknown-frontmatter-field`, so an author who set a knob from a
+ * newer minor gets a reserved-feature signal. Both spellings of the deferred
+ * binder-temperature knob are recognised (the authoritative frontmatter page
+ * names it `binder_temperature`; Future Considerations spells it
+ * `bind_temperature`). Membership is disjoint from `LOOM_1_0_FIELDS`.
+ */
+const DEFERRED_FRONTMATTER_FIELDS: ReadonlySet<string> = new Set([
+  "binder_temperature",
+  "bind_temperature",
 ]);
 
 /** The opening / closing frontmatter fence line. */
@@ -702,6 +722,9 @@ export function parseFrontmatter(
   let descriptionValue: string | undefined;
   let bindModelValue: string | undefined;
   let bindEchoValue: boolean | undefined;
+  let bindEchoRange: SourceRange | undefined;
+  let argumentHintPresent = false;
+  let argumentHintRange: SourceRange | undefined;
   let toolLoopNode: Node | null | undefined;
   let respondRepairNode: Node | null | undefined;
   let paramsNode: Node | null | undefined;
@@ -755,11 +778,23 @@ export function parseFrontmatter(
         descriptionValue = isScalar(item.value) ? String(item.value.value) : undefined;
         continue;
       }
+      if (key === "argument-hint") {
+        // frontmatter-fields-a.md: `argument-hint` is binder-grounding-only in
+        // loom 1.0 (Pi has no `argumentHint` slot for extension commands).
+        // Capture presence + range so the advisory
+        // `loom/load/argument-hint-not-displayed` can fire when no `description:`
+        // accompanies it (an empty autocomplete entry).
+        argumentHintPresent = true;
+        argumentHintRange = keyRange;
+        continue;
+      }
       if (key === "bind_echo") {
         // §"Echo policy": `bind_echo:` (`true` | `false`; default `true`). Only a
         // boolean scalar is captured; a non-boolean value leaves the default-on
-        // behaviour (the dedicated no-params / bypass warnings are out of scope).
+        // behaviour. The key range is retained so the bypass advisories
+        // (`bind-echo-on-bypass` / `bind-echo-without-params`) can locate it.
         bindEchoValue = typeof rawValue === "boolean" ? rawValue : undefined;
+        bindEchoRange = keyRange;
         continue;
       }
       if (key === "params") {
@@ -809,7 +844,18 @@ export function parseFrontmatter(
         });
         continue;
       }
-      if (!LOOM_1_0_FIELDS.has(key)) {
+      if (DEFERRED_FRONTMATTER_FIELDS.has(key)) {
+        // Reserved-for-a-deferred-feature seam: a key reserved for a deferred
+        // loom 1.0 feature warns with the dedicated code (not the generic
+        // unknown-key code) and is tolerated; the loom still registers.
+        diagnostics.push({
+          severity: "warning",
+          code: "loom/load/deferred-frontmatter-field",
+          file,
+          ...(keyRange !== undefined ? { range: keyRange } : {}),
+          message: `frontmatter field '${key}' is reserved for a deferred loom 1.0 feature`,
+        });
+      } else if (!LOOM_1_0_FIELDS.has(key)) {
         // Forward-compat seam: an unrecognised key warns once and is tolerated.
         diagnostics.push({
           severity: "warning",
@@ -842,6 +888,24 @@ export function parseFrontmatter(
       file,
       ...(bindContextRange !== undefined ? { range: bindContextRange } : {}),
       message: "'bind_context: session' has no effect on a mode: subagent loom",
+    });
+  }
+
+  // `argument-hint:` declared without a (non-empty) `description:` renders an
+  // empty autocomplete entry, since Pi's extension-registered commands have no
+  // `argumentHint` slot and only `description` reaches the dropdown. Advisory
+  // only; the loom still registers.
+  if (
+    argumentHintPresent &&
+    (descriptionValue === undefined || descriptionValue === "")
+  ) {
+    diagnostics.push({
+      severity: "warning",
+      code: "loom/load/argument-hint-not-displayed",
+      file,
+      ...(argumentHintRange !== undefined ? { range: argumentHintRange } : {}),
+      message:
+        "'argument-hint:' declared without 'description:'; Pi's autocomplete entry will be empty",
     });
   }
 
@@ -984,6 +1048,34 @@ export function parseFrontmatter(
     diagnostics.push(
       ...parseParams(fieldInputs, bodyTypeDecls, { file }).diagnostics,
     );
+  }
+
+  // An explicit `bind_echo: true` has no effect on either binder-bypass shape:
+  // the bypass skips the binder call entirely, so no success echo is produced.
+  // The two shapes own distinct codes: the single-string bypass is the
+  // parse-phase `loom/parse/bind-echo-on-bypass`; the no-params bypass is the
+  // load-phase `loom/load/bind-echo-without-params`. A defaulted (absent)
+  // `bind_echo` never fires either; only an explicit `true` does.
+  if (bindEchoValue === true) {
+    const bypass = classifyBinderBypass(params?.fields);
+    if (bypass.kind === "single-string-bypass") {
+      diagnostics.push({
+        severity: "warning",
+        code: "loom/parse/bind-echo-on-bypass",
+        file,
+        ...(bindEchoRange !== undefined ? { range: bindEchoRange } : {}),
+        message:
+          "'bind_echo: true' has no effect on a single-string-bypass loom",
+      });
+    } else if (bypass.kind === "no-params-bypass") {
+      diagnostics.push({
+        severity: "warning",
+        code: "loom/load/bind-echo-without-params",
+        file,
+        ...(bindEchoRange !== undefined ? { range: bindEchoRange } : {}),
+        message: "'bind_echo: true' has no effect on a no-params loom",
+      });
+    }
   }
 
   // `system:` subagent-mode-only rule + `${…}` interpolation checks, run against

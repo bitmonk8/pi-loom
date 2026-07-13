@@ -9,4 +9,4 @@ tools:
 let contents = read({ path: "acc-code-tool-loop.loom" })?
 // QRY-19: acknowledge the query `Result` at the call site with `?` (propagate
 // failure) rather than discarding it in bare expression-statement position.
-respond @`Summarise in one short sentence what this file is: ${contents}`?
+@`Summarise in one short sentence what this file is: ${contents}`?

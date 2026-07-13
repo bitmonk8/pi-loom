@@ -204,8 +204,11 @@ describe("H9a-T (c) typed query with an inline object type (QRY-22; Convention: 
 // DECISION (production conformance): the binder runs OFF-session and INVISIBLE
 // — its three-arm `ok | needs_info | ambiguous` envelope MUST NOT reach the user
 // session / `pi -p` stdout (BND-3). The invariant set is therefore: no-error
-// exit + codes ⊆ permitted, the envelope does NOT leak to stdout, and (on a
-// successful bind) the `bind_echo` success note `Running /<stem>: …` surfaces.
+// exit + codes ⊆ permitted, and the envelope does NOT leak to stdout. The
+// `bind_echo` success note is the proof of binding, but it lands on the
+// `loom-system-note` channel — NOT `pi -p` text stdout (DOC-73 / FIND-S7-4) — so
+// it is asserted by the in-process `session-binder` probe, not this black-box
+// stdout capture.
 //
 // WHY the contract changed: the pre-decision runBinder drove the binder as a
 // USER-VISIBLE streamed turn that printed the raw envelope JSON to stdout, and
@@ -252,16 +255,16 @@ describe("H9a-T (d) params loom forcing an OFF-session binder pass (no envelope 
       `${spec.label}: a raw binder envelope discriminator leaked to stdout: ${result.stdout}`,
     ).toBe(false);
 
-    // BND-1: on a successful bind the bind_echo success note surfaces (the
-    // observable proof of binding, replacing the old visible envelope). A
-    // non-binding arm would instead surface a `loom /<stem>: argument binding …`
-    // failure note; either way the raw envelope stays internal.
-    expect(
-      /Running \/acc-params-binder:/.test(result.stdout) ||
-        /loom \/acc-params-binder: argument binding/.test(result.stdout),
-      `${spec.label}: expected a bind_echo success note or a binder failure note ` +
-        `on stdout, got: ${result.stdout}`,
-    ).toBe(true);
+    // BND-1: the `bind_echo` success note is the observable proof of a
+    // successful bind, but it is emitted on the `loom-system-note` channel — NOT
+    // on `pi -p` print-mode text stdout (custom system-note renderer output is
+    // not streamed to print-mode stdout; DOC-73 / FIND-S7-4 / D2). The
+    // black-box acceptance harness captures only stdout/stderr, so it cannot and
+    // must not assert the note on stdout — that channel observation belongs to
+    // the in-process `tests/hardening/session-binder.test.ts` probe, which reads
+    // `turn.systemNotes` for `Running /<stem>: …`. Here the spec-promised stdout
+    // observables are the ones asserted above: no-error exit, permitted codes,
+    // and no envelope leak.
   });
 });
 
