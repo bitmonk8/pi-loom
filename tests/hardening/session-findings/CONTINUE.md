@@ -47,10 +47,7 @@ provider; see the RESUME section's verified facts.
 - **Verify each finding against source before acting.**
 - For any item needing a scope/architecture choice, **present the decision as a
   multiple-choice question (options + a recommendation) and await the maintainer.**
-  Do NOT silently expand or relax scope. **If investigation changes a scope estimate
-  you gave, STOP and re-present the corrected decision** — this has happened several
-  times and always mattered (notably: the binder forced-tool mechanism turned out
-  unrealizable mid-build).
+  Do NOT silently expand or relax scope. 
 - The composition files are shared, so implement **one phase at a time,
   sequentially**. Each phase must be green on `npm run typecheck` + `npm run lint` +
   `npm test` + `npm run test:conformance` + the relevant live probe before you
