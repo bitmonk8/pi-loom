@@ -1,0 +1,21 @@
+---
+description: Improve a draft until a reviewer subagent approves it (bounded)
+mode: subagent
+tools:
+  - ./reviewer.loom
+params:
+  topic: string
+---
+let mut draft = @`Write a one-paragraph explanation of: ${topic}`?
+let mut round = 0
+while round < 5 {
+  round += 1
+  let verdict = reviewer(draft)?
+  if verdict.good_enough {
+    return draft
+  }
+  draft = @`Revise the paragraph to fix this: ${verdict.fix}
+Current draft:
+${draft}`?
+}
+draft

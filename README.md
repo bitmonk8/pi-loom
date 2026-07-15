@@ -28,6 +28,38 @@ goes to the model, the model's replies come back as values, and every run ends i
 one of three ways — success, failure, or cancellation — defined in
 [Errors and Results](./docs/reference/errors-and-results.md#terminal-outcomes-closed-set).
 
+## Example: an agent loop
+
+The pattern people call an *agent loop* (or a *Ralph loop*) is: run the model,
+check the result, then stop or go again. The usual version is a shell loop that
+re-runs the model and hopes it eventually declares itself done. In Loom the loop
+is real code, so your code owns the stop condition and the model just does the
+work inside each round. Each call to a subagent worker starts on a fresh context,
+and the worker hands back a typed result the loop can branch on:
+
+```loom
+---
+description: Re-run the worker on a fresh context until it reports done (a Ralph loop)
+mode: subagent
+tools:
+  - ./ralph-step.loom
+---
+let mut round = 0
+while round < 20 {
+  round += 1
+  let status = ralph_step()?
+  if status.done {
+    return status.summary
+  }
+}
+"stopped at the 20-round ceiling"
+```
+
+The `while` bound, the `done` check, and the round ceiling are ordinary code —
+not a magic "done" string grepped out of the model's prose. See
+[How to write an agent loop](./docs/how-to/write-an-agent-loop.md) for the worker
+file and a second, self-contained example.
+
 ## Status
 
 Loom is at its initial version (**0.1.x**). The whole documented language works and
@@ -42,7 +74,8 @@ Report issues against the behaviour the [Reference](./docs/reference/) defines.
   value.
 - **[Tutorial](./docs/tutorial.md)** — build your first loom, from an empty file
   to a working one.
-- **[How-to guides](./docs/how-to/)** — short recipes for specific tasks.
+- **[How-to guides](./docs/how-to/)** — short recipes for specific tasks, including
+  [writing an agent loop](./docs/how-to/write-an-agent-loop.md).
 - **[Reference](./docs/reference/)** — the full details: grammar, type system,
   frontmatter fields, errors and results, limits, diagnostics, and the CLI.
 </content>

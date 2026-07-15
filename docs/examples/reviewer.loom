@@ -1,0 +1,15 @@
+---
+description: Judge a draft and say whether it is good enough
+mode: subagent
+params:
+  draft: string
+---
+schema Verdict {
+  good_enough: boolean,
+  fix: string
+}
+
+let v: Verdict = @`Is this draft clear and complete? If not, say what to fix.
+Draft:
+${draft}`?
+v

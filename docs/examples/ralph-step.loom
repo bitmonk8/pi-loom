@@ -1,0 +1,16 @@
+---
+description: Do the next task from PLAN.md on a fresh context, then report status
+mode: subagent
+tools:
+  - read
+  - bash
+---
+schema Progress {
+  done: boolean,
+  summary: string
+}
+
+let status: Progress = @`Read PLAN.md, do the single most important unfinished
+task, run the test suite with bash, commit the result, and report whether every
+task is now complete.`?
+status

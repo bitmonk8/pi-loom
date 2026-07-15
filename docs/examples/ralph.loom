@@ -1,0 +1,15 @@
+---
+description: Re-run the worker on a fresh context until it reports done (a Ralph loop)
+mode: subagent
+tools:
+  - ./ralph-step.loom
+---
+let mut round = 0
+while round < 20 {
+  round += 1
+  let status = ralph_step()?
+  if status.done {
+    return status.summary
+  }
+}
+"stopped at the 20-round ceiling"
