@@ -37,15 +37,13 @@ Report issues against the behaviour the [Reference](./docs/reference/) defines.
 
 ## Documentation
 
-- **[Guide](./docs/guide.md)** — the mental model: how code mixes with the text
-  you send to the model, why running a loom adds turns, prompt vs. subagent mode,
-  `.loom` vs. `.warp`, and the final value.
-- **[Tutorial](./docs/tutorial.md)** — one hands-on path that takes a newcomer
-  from an empty file to a working loom.
-- **[How-to guides](./docs/how-to/)** — goal-directed recipes for competent
-  users.
-- **[Reference](./docs/reference/)** — exact, normative behaviour: grammar, type
-  system, frontmatter fields, error and result model, hard ceilings, diagnostics,
-  and the CLI / discovery surface.
+- **[Guide](./docs/guide.md)** — how Loom works: mixing code with the text you
+  send to the model, prompt vs. subagent mode, `.loom` vs. `.warp`, and the final
+  value.
+- **[Tutorial](./docs/tutorial.md)** — build your first loom, from an empty file
+  to a working one.
+- **[How-to guides](./docs/how-to/)** — short recipes for specific tasks.
+- **[Reference](./docs/reference/)** — the full details: grammar, type system,
+  frontmatter fields, errors and results, limits, diagnostics, and the CLI.
 </content>
 </invoke>
