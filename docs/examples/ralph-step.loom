@@ -14,7 +14,7 @@ schema Progress {
 
 let status: Progress = @`Objective: ${objective}
 
-Read PLAN.md, do the single most important unfinished task toward the objective,
-run the test suite with bash, commit the result, and report whether the objective
-is now fully met.`?
+Inspect the current state of the project, do the single most important unfinished
+task toward the objective, run the test suite with bash, commit the result, and
+report whether the objective is now fully met.`?
 status

@@ -54,9 +54,9 @@ schema Progress {
 
 let status: Progress = @`Objective: ${objective}
 
-Read PLAN.md, do the single most important unfinished task toward the objective,
-run the test suite with bash, commit the result, and report whether the objective
-is now fully met.`?
+Inspect the current state of the project, do the single most important unfinished
+task toward the objective, run the test suite with bash, commit the result, and
+report whether the objective is now fully met.`?
 status
 ```
 
@@ -84,8 +84,7 @@ while round < 20 {
 "stopped at the 20-round ceiling"
 ```
 
-Run it against a project that has a `PLAN.md`, passing the objective as the
-argument:
+Run it inside a project, passing the objective as the argument:
 
 ```
 pi --loom docs/examples -p "/ralph get the integration tests passing"
