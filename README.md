@@ -47,22 +47,5 @@ Report issues against the behaviour the [Reference](./docs/reference/) defines.
 - **[Reference](./docs/reference/)** — exact, normative behaviour: grammar, type
   system, frontmatter fields, error and result model, hard ceilings, diagnostics,
   and the CLI / discovery surface.
-
-## Provenance
-
-- Terminology (`Loom`, `.loom`, `.warp`, *prompt mode* / *subagent mode*, *final
-  value*, *callable set*) matches `docs/spec_topics/glossary.md`.
-- "What loom is" and "The problem" draw on `docs/spec_topics/overview.md` §Overview
-  and §Conceptual Model, and `docs/spec_topics/overview-and-orientation.md`
-  §Overview (the success / fail / cancelled trichotomy, the no-file-write effect
-  surface, prompt/subagent conversation targeting).
-- The `.loom` / `.warp` split draws on
-  `docs/spec_topics/overview-and-orientation.md` §"file-extension-grammar" and
-  `docs/spec_topics/language-and-architecture.md`.
-- Versioning follows the specification's governance
-  (`docs/spec_topics/governance/release-version-naming.md`); the package's `0.1.x`
-  version reflects its early, pre-stable release maturity.
-- Definition links point into `docs/reference/` (errors-and-results.md,
-  frontmatter.md) rather than restating normative detail, per `docs/STYLE.md`.
 </content>
 </invoke>
