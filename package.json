@@ -12,9 +12,15 @@
   ],
   "keywords": [
     "pi-package",
+    "pi",
+    "pi-coding-agent",
     "pi-extension",
+    "extension",
     "loom",
+    "scripting-language",
     "dsl",
+    "agent",
+    "subagent",
     "prompt-engineering"
   ],
   "author": "Thomas Andersen <thomas.andersen@gmail.com>",
