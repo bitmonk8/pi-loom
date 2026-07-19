@@ -18,6 +18,7 @@
 | GOV-21 | `8e3ccb4` | GOV-25, GOV-26, GOV-27, GOV-28, GOV-29 | Split per GOV-8 *Split*: one REQ-ID bundled five independently-testable sub-clauses (canonical-arm citation, alias permanence, intensional definition, retirement discharge, cross-page canonical-arm uniqueness), so the per-leaf coverage matrix could cite nothing narrower than the whole. Each sub-clause is now its own peer REQ-ID. |
 | GOV-12 | `pending` | GOV-30, GOV-31 | Split per GOV-8 *Split*: one REQ-ID bundled three independently-testable sub-obligations (the aggregator lock-step convention, the integer-count literal-preservation invariant, and the in-code-constant carve-out exemption), so the per-leaf coverage matrix could cite nothing narrower than the whole. The aggregator-informative framing and lock-step convention are now GOV-30; the integer-count literal-preservation invariant (with its in-code-constant carve-out exemption) is now GOV-31. |
 | GOV-14 | `pending` | — | Both SHOULD-NOT clauses bound reviewer PR-comment posture (what a corpus review may cite or re-raise); per [GOV-18](./corpus-direction-and-scope.md#gov-18), reviewer behaviour is neither the implementation target (arm a) nor the spec corpus itself (arm b), and admits no mechanical witness. Demoted to a non-normative editorial note retained at the former site on `req-id-prefix-table-active-b.md`. |
+| GOV-25, GOV-26, GOV-27, GOV-28, GOV-29 | `pending` | — | Retired wholesale in the Theta rename: the `v1-*` HTML-anchor dual-anchor convention these five peer REQ-IDs defined was removed — every `<a id="v1-…">` alias arm deleted and every inbound `#v1-…` cross-reference repointed to the surviving `theta-1-0-*` canonical arm in the same pass — so the permanence / discharge machinery no longer governs anything. See [release-version-naming.md — Retired HTML-anchor alias convention](./release-version-naming.md#retired-html-anchor-alias-convention). |
 
 The Retired REQ-IDs sub-table is append-only per GOV-8. The `Retired in` column carries either the 7-character abbreviated commit SHA or a release tag. A retired ID's prefix-position number MUST NOT be reused per GOV-8 *Deletion*.
 
@@ -25,14 +26,6 @@ The Retired REQ-IDs sub-table is append-only per GOV-8. The `Retired in` column 
 
 ## Retired anchor aliases
 
-Records the retirement of `<a id="v1-…">` back-compat aliases under [GOV-28 *alias retirement discharge*](./release-version-naming.md#gov-28). Retirement is per-alias: each row retires one `v1-*` alias from one owner heading or paragraph, leaving the heading's surviving `theta-1-0-*` (or `theta-1-0-0-*`) arm intact. The sub-table is append-only on the same terms as the *Retired prefixes* sub-table earlier on this page and the *Retired REQ-IDs* sub-table above; retired alias slugs MUST NOT be re-coined.
+Records the retirement of the `v1-*` HTML-anchor back-compat aliases. In the Theta rename the entire `v1-*` dual-anchor convention (formerly GOV-25 – GOV-29 on [release-version-naming.md](./release-version-naming.md#retired-html-anchor-alias-convention)) was retired **wholesale**: every `<a id="v1-…">` alias arm was removed and every inbound `#v1-…` cross-reference repointed to the surviving `theta-1-0-*` canonical arm in the same pass. No per-alias discharge apparatus remains, and no `v1-*` alias survives in the corpus.
 
-| Retired alias slug | Owner heading or paragraph | Retired in | Reason |
-|---|---|---|---|
-
-- **Retired alias slug** — the kebab-case slug (e.g. `v1-seam-binder-refinement-loop`), without the leading `#`.
-- **Owner heading or paragraph** — the heading text or paragraph reference the alias was attached to, with a markdown cross-link to the heading's surviving `theta-1-0-*` (or `theta-1-0-0-*`) arm.
-- **Retired in** — the 7-character abbreviated commit SHA of the retirement commit, or the release tag of the theta 1.x release that performed the retirement, on the same value-space as the *Retired in* column of the *Retired prefixes* sub-table.
-- **Reason** — one short prose line.
-
-Applicability: alias-only retirements on `docs/spec.md` and `docs/spec_topics/*.md` only. Plan-corpus aliases (none currently exist) and out-of-corpus pages (`README.md`, `CHANGELOG.md` — [GOV-17](./corpus-direction-and-scope.md#gov-17) dependents) are out of scope of this sub-table.
+Applicability: this record covers `docs/spec.md` and `docs/spec_topics/*.md`. Out-of-corpus pages (`README.md`, `CHANGELOG.md` — [GOV-17](./corpus-direction-and-scope.md#gov-17) dependents) are out of scope.
