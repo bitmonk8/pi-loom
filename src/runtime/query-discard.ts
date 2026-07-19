@@ -3,16 +3,16 @@
 // This module owns two coupled obligations from
 // query/query-escapes-stringification.md:
 //
-//   - QRY-19 — the `loom/parse/discarded-query-result` parse error on a bare
+//   - QRY-19 — the `theta/parse/discarded-query-result` parse error on a bare
 //     `@`...`` expression-statement (the `Result` dropped without `?`,
 //     `let _ =`, or an annotation). Only the bare expression-statement position
 //     triggers the error; the `?`-propagate, `let _ =`-discard, and
 //     `let x = ...?`-bind forms are all accepted.
 //   - QRY-20 — the discard-observability contract: `let _ = @`...`` (and the
 //     equivalent `void`-tail form) is a true discard at the user-facing surface
-//     (no user-visible `loom-system-note`, no `Result` to the caller), but an
+//     (no user-visible `theta-system-note`, no `Result` to the caller), but an
 //     `Err` from a discarded query is preserved as an operator-facing runtime
-//     event on the always-log `loom-system-note` channel with `display: false`.
+//     event on the always-log `theta-system-note` channel with `display: false`.
 //     The event fires exactly once per discarded `Err`, preserves the discarded
 //     `Err`'s `kind` / `message` (and `code` / `attempts` / `tokens_used` where
 //     defined), and stamps the `RuntimeEvent` `discard_site` field with the
@@ -44,18 +44,18 @@ import { type SystemNoteChannelDeps } from "../extension/system-note-channel";
 
 // --- QRY-19 — discarded-query parse error ----------------------------------
 
-/** `loom/parse/discarded-query-result` (E). */
-export const DISCARDED_QUERY_RESULT_CODE = "loom/parse/discarded-query-result";
+/** `theta/parse/discarded-query-result` (E). */
+export const DISCARDED_QUERY_RESULT_CODE = "theta/parse/discarded-query-result";
 
 /**
- * Registry Message for `loom/parse/discarded-query-result`, sourced verbatim
+ * Registry Message for `theta/parse/discarded-query-result`, sourced verbatim
  * from diagnostics/code-registry-parse.md per the Diagnostic message anchors
  * rule.
  */
 export const DISCARDED_QUERY_RESULT_MESSAGE =
   "query result discarded; use ? to propagate failure or 'let _ = ...' to discard explicitly";
 
-/** Registry Hint for `loom/parse/discarded-query-result`. */
+/** Registry Hint for `theta/parse/discarded-query-result`. */
 export const DISCARDED_QUERY_RESULT_HINT =
   "Use `?` to propagate failure or `let _ = @`...`` to discard explicitly.";
 
@@ -90,7 +90,7 @@ export interface QueryStatement {
 }
 
 /**
- * QRY-19. Return `loom/parse/discarded-query-result` when a must-use `@`...``
+ * QRY-19. Return `theta/parse/discarded-query-result` when a must-use `@`...``
  * query result sits in bare expression-statement position; `undefined` for the
  * `?`-propagate, `let _ =`-discard, and `let x = ...?`-bind forms (and for any
  * non-query statement).
@@ -151,8 +151,8 @@ export interface DiscardEmitInput {
   readonly form: DiscardForm;
   /** The `discard_site` location (already derived per `form`). */
   readonly discardSite: DiscardSite;
-  /** Slash name of the loom that owned the failure. */
-  readonly loom: string;
+  /** Slash name of the theta that owned the failure. */
+  readonly theta: string;
   /** Per-invocation UUID (canonical lowercase 8-4-4-4-12 hex). */
   readonly invocationId: string;
   /** Unix epoch ms stamped at the originating site via `Clock.wallNow()`. */
@@ -174,11 +174,11 @@ export function buildDiscardEvent(
   // QRY-20: preserve the discarded `Err`'s `kind` and `message`, and (where the
   // variant defines them) its `attempts` (validation) / `tokens_used`
   // (context_overflow), and stamp `discard_site` with the discard location. The
-  // group-A `RuntimeEvent` carries no `loom/runtime/*` code by construction, so
+  // group-A `RuntimeEvent` carries no `theta/runtime/*` code by construction, so
   // `code` is populated only when the error variant surfaces one.
   const event: RuntimeEvent = {
     kind: error.kind,
-    loom: input.loom,
+    theta: input.theta,
     invocation_id: input.invocationId,
     message: error.message,
     discard_site: input.discardSite,
@@ -199,7 +199,7 @@ export function buildDiscardEvent(
 /**
  * QRY-20. Emit the discard-observability runtime event exactly once when — and
  * only when — a discarded query settles to `Err`, routing it through the
- * operator-facing always-log `loom-system-note` channel with `display: false`.
+ * operator-facing always-log `theta-system-note` channel with `display: false`.
  * A discarded `Ok` emits nothing (nothing to observe).
  */
 export function emitDiscardObservability(
@@ -208,7 +208,7 @@ export function emitDiscardObservability(
 ): void {
   // QRY-20: a discarded `Ok` has nothing to observe — emit nothing. A discarded
   // `Err` is preserved as an operator-facing runtime event on the always-log
-  // `loom-system-note` channel. It is author-handled (the `let _ =` / void-tail
+  // `theta-system-note` channel. It is author-handled (the `let _ =` / void-tail
   // discard is a disposition, not a top-level cascade), so it emits with
   // `topLevelCascade: false` — the note carries `display: false` and
   // `content: ""`.

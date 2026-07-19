@@ -1,6 +1,0 @@
----
-mode: subagent
----
-// H9a acceptance area (g) support — a subagent-mode `.loom` callable invoked by
-// acc-imports-invoke.loom (a `.loom` callee must be subagent-mode).
-@`Reply with exactly: CHILD OK`

@@ -1,13 +1,13 @@
 // One-note proof (production-wired) — a top-level tool-return-shape defect
-// surfaces EXACTLY ONE `loom-system-note`.
+// surfaces EXACTLY ONE `theta-system-note`.
 //
 // Regression pin for the double-emit defect: a top-level `<name>(args)` code-side
 // tool call whose resolved envelope is malformed is a `return-shape-defect` that
 // (a) touches the production tool-lowering sink at the REAL lowering seam
 // (`runCodeSideToolCall` → `routeToolReturnShape` → `sink.diagnostic`) and then
 // (b) throws the `ToolReturnShapeDefectError` carrier, which unwinds to
-// `composeLoomFixture.run`'s top-level catch and is framed as ONE
-// `loom /<name> aborted with internal error: <msg>` panic note (error-model.md
+// `composeThetaFixture.run`'s top-level catch and is framed as ONE
+// `theta /<name> aborted with internal error: <msg>` panic note (error-model.md
 // §"Runtime panics"). The carrier — NOT the sink — is the single operator
 // surface: the production code-side lowering sink is `noopSink()`, so the sink
 // touch delivers NO note. This test drives the malformed return through the REAL
@@ -25,7 +25,7 @@
 //
 // Spec: pi-integration-contract/errors-and-results/error-model.md §"Runtime
 // panics"; runtime-event-channel.md §"system-note-details-shapes" (group B);
-// host-interfaces-core.md §"Tool execution from loom code".
+// host-interfaces-core.md §"Tool execution from theta code".
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
@@ -36,7 +36,7 @@ import type {
 
 // The subagent spawn reaches the REAL isolation helpers
 // (`attachSubagentAbortForwarding` + `makeIdempotentDispose`) over a spy
-// session; the loom-suppressing resource loader / in-memory session manager /
+// session; the theta-suppressing resource loader / in-memory session manager /
 // agent dir are inert stubs. Mirrors tests/subagent-drive-teardown.test.ts so
 // the spawn resolves without real provider infra. `executeBody` is DELIBERATELY
 // NOT mocked here — the whole point is to exercise the real tool-lowering seam.
@@ -80,17 +80,17 @@ vi.mock("@earendil-works/pi-coding-agent", async (importOriginal) => {
 import {
   createProductionProducerDeps,
   type PiToolDispatch,
-} from "../src/extension/production-loom-producer";
-import { composeLoomFixture } from "../src/extension/loom-composition-producer";
-import type { LoomCompositionInput } from "../src/extension/loom-composition-producer";
+} from "../src/extension/production-theta-producer";
+import { composeThetaFixture } from "../src/extension/theta-composition-producer";
+import type { ThetaCompositionInput } from "../src/extension/theta-composition-producer";
 import type { AgentToolResultEnvelope } from "../src/runtime/tool-call-execute";
 import type { RuntimeRoot } from "../src/runtime-root";
 import type { Checkpoint, CheckpointKind, CheckpointSite } from "../src/seams/checkpoint";
-import type { CallExpr, LoomBody } from "../src/parser/loom-document";
+import type { CallExpr, ThetaBody } from "../src/parser/theta-document";
 import type { ParsedFrontmatter } from "../src/parser/frontmatter";
 import type { SourceRange } from "../src/diagnostics/diagnostic";
 
-const SYSTEM_NOTE_CHANNEL = "loom-system-note";
+const SYSTEM_NOTE_CHANNEL = "theta-system-note";
 
 // --- scaffolding -------------------------------------------------------------
 
@@ -113,21 +113,21 @@ function span(): SourceRange {
 }
 
 /** A body whose sole tail is a code-side `<callee>()` tool call. */
-function toolCallBody(callee: string): LoomBody {
+function toolCallBody(callee: string): ThetaBody {
   const call: CallExpr = { kind: "call", callee, args: [], range: span() };
-  return { statements: [], tail: call } as unknown as LoomBody;
+  return { statements: [], tail: call } as unknown as ThetaBody;
 }
 
-/** A subagent-mode loom (no `params:`, so the binder binds trivially, no
+/** A subagent-mode theta (no `params:`, so the binder binds trivially, no
  *  overflow note on empty args) whose body is a single code-side tool call. */
-function subagentToolLoom(callee: string): LoomCompositionInput {
+function subagentToolTheta(callee: string): ThetaCompositionInput {
   const frontmatter: ParsedFrontmatter = { mode: "subagent" } as ParsedFrontmatter;
   return {
     slashName: "classify",
-    sourcePath: "/looms/classify.loom",
+    sourcePath: "/theta/classify.theta",
     frontmatter,
     body: toolCallBody(callee),
-  } as unknown as LoomCompositionInput;
+  } as unknown as ThetaCompositionInput;
 }
 
 function driveCtx(): ExtensionCommandContext {
@@ -162,8 +162,8 @@ interface Harness {
 
 /** Assemble the REAL production producer over a spy `pi.sendMessage`, with a
  *  `resolvePiTool` collaborator that resolves `broken`/`good` to a fake tool
- *  whose `execute()` returns `resolved`. The loom carries no `callableSet`, so
- *  `#resolvePiToolForLoom` falls back to this collaborator (production-parity
+ *  whose `execute()` returns `resolved`. The theta carries no `callableSet`, so
+ *  `#resolvePiToolForTheta` falls back to this collaborator (production-parity
  *  for an in-memory fixture). */
 function makeHarness(callee: string, resolved: unknown): Harness {
   const notes: Array<{ customType: unknown; content: unknown; details: unknown }> = [];
@@ -186,7 +186,7 @@ function makeHarness(callee: string, resolved: unknown): Harness {
       name === callee ? fakeTool(name, resolved, dispatched) : undefined,
   });
 
-  const fixture = composeLoomFixture(subagentToolLoom(callee), deps);
+  const fixture = composeThetaFixture(subagentToolTheta(callee), deps);
   return {
     notes,
     dispatched,
@@ -203,10 +203,10 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("one-note proof (production-wired) — a top-level tool-return-shape defect surfaces EXACTLY ONE loom-system-note", () => {
+describe("one-note proof (production-wired) — a top-level tool-return-shape defect surfaces EXACTLY ONE theta-system-note", () => {
   it("a malformed resolved envelope through the REAL tool-lowering seam surfaces exactly ONE framed panic note, and NO second (sink) note", async () => {
     // A non-object envelope is a `resolved-not-object` return-shape defect: the
-    // real `runCodeSideToolCall` seam builds the `loom/runtime/internal-error`
+    // real `runCodeSideToolCall` seam builds the `theta/runtime/internal-error`
     // diagnostic, touches the production lowering sink (`noopSink`, no delivery),
     // and throws the `ToolReturnShapeDefectError` carrier.
     const h = makeHarness("broken", 42);
@@ -220,7 +220,7 @@ describe("one-note proof (production-wired) — a top-level tool-return-shape de
     // in-flight defect.
     expect(sdkHook.disposeCalls).toBe(1);
 
-    // EXACTLY ONE note on the `loom-system-note` channel — the framed panic note.
+    // EXACTLY ONE note on the `theta-system-note` channel — the framed panic note.
     // If the lowering sink still delivered its own group-B note (the reverted
     // 1c1a1d70 `runtimeDefectSink`), this would be 2.
     expect(h.notes).toHaveLength(1);
@@ -230,12 +230,12 @@ describe("one-note proof (production-wired) — a top-level tool-return-shape de
     // The framing carries the BARE message (the `internal error: ` prefix stripped),
     // NOT the raw `renderDiagnosticBatch([d])` a sink note would carry.
     expect(note.content).toBe(
-      "loom /classify aborted with internal error: tool broken returned a non-conforming result envelope",
+      "theta /classify aborted with internal error: tool broken returned a non-conforming result envelope",
     );
     // Group-B diagnostics shape, carrying the single return-shape diagnostic.
     const details = note.details as { diagnostics?: ReadonlyArray<{ code?: string; details?: { kind?: string } }> };
     expect(details.diagnostics).toHaveLength(1);
-    expect(details.diagnostics?.[0]?.code).toBe("loom/runtime/internal-error");
+    expect(details.diagnostics?.[0]?.code).toBe("theta/runtime/internal-error");
     expect(details.diagnostics?.[0]?.details?.kind).toBe("tool-return-shape");
   });
 

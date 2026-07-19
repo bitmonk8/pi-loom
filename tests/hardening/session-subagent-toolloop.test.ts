@@ -20,9 +20,9 @@
 //   * errors-and-results.md ERR-19 `ToolLoopExhaustedError` — `{ kind:
 //     "tool_loop_exhausted", rounds == max_rounds, last_tool_name: string|null,
 //     ... }`.
-//   * discovery-cli.md SLSH-3/SNK-h — a directly-slash-invoked subagent loom
+//   * discovery-cli.md SLSH-3/SNK-h — a directly-slash-invoked subagent theta
 //     whose top-level result is `Err(tool_loop_exhausted)` gets the note
-//     "loom /<name> returned Err: tool-call loop exhausted after <rounds> rounds
+//     "theta /<name> returned Err: tool-call loop exhausted after <rounds> rounds
 //     (last tool: <last_tool_name>)"; `<last_tool_name>` renders literal
 //     `respond` when null.
 //   * invocation.md XMODE-1 — a callee-returned `Err` crossing an `invoke`
@@ -60,7 +60,7 @@ async function driveOnce(make: () => Promise<ProbeResult>): Promise<ProbeResult>
   return probe;
 }
 
-function loom(front: string[], body: string): string {
+function theta(front: string[], body: string): string {
   return ["---", ...front, "---", body].join("\n");
 }
 
@@ -96,17 +96,17 @@ describe("subagent model-driven tool loops + ceiling #2", () => {
           ...CHAIN_FILES,
           {
             source: "project",
-            path: "mrparent.loom",
-            text: loom(
+            path: "mrparent.theta",
+            text: theta(
               ["description: x", "mode: prompt"],
-              ['let r: string = invoke<string>("./mrchild.loom")?', "@`Say ok. MR=${r}`"].join("\n"),
+              ['let r: string = invoke<string>("./mrchild.theta")?', "@`Say ok. MR=${r}`"].join("\n"),
             ),
           },
           {
             source: "project",
-            path: "mrchild.loom",
+            path: "mrchild.theta",
             // default tool_loop (max_rounds: 25) — plenty for the 3-round chain.
-            text: loom(["description: x", "mode: subagent", "tools: read"], "@`" + CHAIN_INSTRUCTION + "`"),
+            text: theta(["description: x", "mode: subagent", "tools: read"], "@`" + CHAIN_INSTRUCTION + "`"),
           },
         ],
         drives: ["/mrparent"],
@@ -142,11 +142,11 @@ describe("subagent model-driven tool loops + ceiling #2", () => {
           ...CHAIN_FILES,
           {
             source: "project",
-            path: "capparent.loom",
-            text: loom(
+            path: "capparent.theta",
+            text: theta(
               ["description: x", "mode: prompt"],
               [
-                'let res = invoke<string>("./capchild.loom")',
+                'let res = invoke<string>("./capchild.theta")',
                 "let outcome = match res {",
                 "  Ok(v) => v,",
                 '  Err(e) => match e.kind { "invoke_callee" => e.inner.kind, _ => e.kind }',
@@ -157,8 +157,8 @@ describe("subagent model-driven tool loops + ceiling #2", () => {
           },
           {
             source: "project",
-            path: "capchild.loom",
-            text: loom(
+            path: "capchild.theta",
+            text: theta(
               ["description: x", "mode: subagent", "tools: read", "tool_loop:", "  max_rounds: 1"],
               "@`" + CHAIN_INSTRUCTION + "`",
             ),
@@ -200,11 +200,11 @@ describe("subagent model-driven tool loops + ceiling #2", () => {
         files: [
           {
             source: "project",
-            path: "tl0parent.loom",
-            text: loom(
+            path: "tl0parent.theta",
+            text: theta(
               ["description: x", "mode: prompt"],
               [
-                'let res = invoke<string>("./tl0child.loom")',
+                'let res = invoke<string>("./tl0child.theta")',
                 'let kind = match res { Ok(_) => "ok", Err(e) => e.kind }',
                 "let inner = match res {",
                 '  Ok(_) => "ok",',
@@ -224,10 +224,10 @@ describe("subagent model-driven tool loops + ceiling #2", () => {
           },
           {
             source: "project",
-            path: "tl0child.loom",
+            path: "tl0child.theta",
             // Untyped query, max_rounds:0 → immediate tool_loop_exhausted, no turn.
             // `?` propagates the Err to the top level (the canonical form).
-            text: loom(
+            text: theta(
               ["description: x", "mode: subagent", "tools: read", "tool_loop:", "  max_rounds: 0"],
               "@`Read the file ch1.txt and reply with its contents.`?",
             ),
@@ -255,7 +255,7 @@ describe("subagent model-driven tool loops + ceiling #2", () => {
 
   // STL-4 — SLSH-3/SNK-h top-level note. Direct slash-dispatch of the same
   // max_rounds:0 subagent (no invoke parent) → top-level Err(tool_loop_exhausted)
-  // → the user session's loom-system-note channel MUST carry the SNK-h template.
+  // → the user session's theta-system-note channel MUST carry the SNK-h template.
   // ZERO tokens (max_rounds:0 short-circuits before any provider turn).
   it("STL-4: a directly-slash-invoked subagent tool_loop_exhausted emits the SNK-h note (0 tokens)", async () => {
     const probe = await driveOnce(() =>
@@ -264,8 +264,8 @@ describe("subagent model-driven tool loops + ceiling #2", () => {
         files: [
           {
             source: "project",
-            path: "tl0direct.loom",
-            text: loom(
+            path: "tl0direct.theta",
+            text: theta(
               ["description: x", "mode: subagent", "tools: read", "tool_loop:", "  max_rounds: 0"],
               "@`Read the file ch1.txt and reply with its contents.`?",
             ),
@@ -280,7 +280,7 @@ describe("subagent model-driven tool loops + ceiling #2", () => {
       // eslint-disable-next-line no-console
       console.log("STL-4 systemNotes:", JSON.stringify(t.systemNotes), "error:", t.error);
       expect(probe.registeredNames).toContain("tl0direct");
-      const snkH = "loom /tl0direct returned Err: tool-call loop exhausted after 0 rounds (last tool: respond)";
+      const snkH = "theta /tl0direct returned Err: tool-call loop exhausted after 0 rounds (last tool: respond)";
       // eslint-disable-next-line no-console
       console.log("STL-4 expected SNK-h present:", notes.includes(snkH));
       expect(t.systemNotes).toContain(snkH);
@@ -305,12 +305,12 @@ describe("subagent model-driven tool loops + ceiling #2", () => {
         files: [
           {
             source: "project",
-            path: "nqparent.loom",
-            text: loom(
+            path: "nqparent.theta",
+            text: theta(
               ["description: x", "mode: prompt"],
               [
-                'let r1 = invoke<string>("./tl0nq.loom")',
-                'let r2 = invoke<string>("./emptynq.loom")',
+                'let r1 = invoke<string>("./tl0nq.theta")',
+                'let r2 = invoke<string>("./emptynq.theta")',
                 'let k1 = match r1 { Ok(_) => "ok", Err(e) => e.kind }',
                 'let k2 = match r2 { Ok(_) => "ok", Err(e) => e.kind }',
                 "@`Repeat verbatim, nothing else: NQ[tl=${k1} empty=${k2}]`",
@@ -319,18 +319,18 @@ describe("subagent model-driven tool loops + ceiling #2", () => {
           },
           {
             source: "project",
-            path: "tl0nq.loom",
+            path: "tl0nq.theta",
             // Bare tail query (NO `?`): unhandled tool_loop_exhausted at max_rounds:0.
-            text: loom(
+            text: theta(
               ["description: x", "mode: subagent", "tools: read", "tool_loop:", "  max_rounds: 0"],
               "@`Read the file ch1.txt and reply with its contents.`",
             ),
           },
           {
             source: "project",
-            path: "emptynq.loom",
+            path: "emptynq.theta",
             // Bare tail empty-template (NO `?`): unhandled validation/empty_template.
-            text: loom(["description: x", "mode: subagent"], "@` `"),
+            text: theta(["description: x", "mode: subagent"], "@` `"),
           },
         ],
         drives: ["/nqparent"],
@@ -368,16 +368,16 @@ describe("subagent model-driven tool loops + ceiling #2", () => {
         files: [
           {
             source: "project",
-            path: "notinparent.loom",
-            text: loom(
+            path: "notinparent.theta",
+            text: theta(
               ["description: x", "mode: prompt"],
-              ['let r: string = invoke<string>("./notinchild.loom")?', "@`Say ok. NIS=${r}`"].join("\n"),
+              ['let r: string = invoke<string>("./notinchild.theta")?', "@`Say ok. NIS=${r}`"].join("\n"),
             ),
           },
           {
             source: "project",
-            path: "notinchild.loom",
-            text: loom(
+            path: "notinchild.theta",
+            text: theta(
               ["description: x", "mode: subagent", "tools: read"],
               "@`Run the shell command: echo LEAKBASH -- using a bash or shell tool, and report its exact output. " +
                 "If you do NOT have any shell/bash tool available, reply with EXACTLY the token NOTOOL and nothing else.`",

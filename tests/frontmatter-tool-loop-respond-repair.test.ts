@@ -13,14 +13,14 @@ import type { Diagnostic } from "../src/diagnostics/diagnostic";
 // `tool_loop.max_rounds` is a non-negative integer bounding free-phase rounds
 // only, `0` disables model tool calls; the `tool_loop` / `respond_repair`
 // field-contract defaults from frontmatter-fields-a.md §Field contract) and the
-// `loom/load/frontmatter-value-out-of-range` load diagnostic (out-of-range
+// `theta/load/frontmatter-value-out-of-range` load diagnostic (out-of-range
 // `max_rounds` / `respond_repair.attempts`).
 //
 // The runtime side of FRNT-1 — free-phase-round accounting, `tool_loop_exhausted`
 // on an untyped query, and the CIO-4 `max_rounds`-final forced-respond
 // terminator on a typed query — is owned by `V13c` / `V13d` and is exercised by
 // their suites; this leaf covers only the frontmatter *parse* side of FRNT-1
-// (the per-loom `max_rounds` / `attempts` values, their non-negative-integer
+// (the per-theta `max_rounds` / `attempts` values, their non-negative-integer
 // range rule, and their field-contract defaults).
 //
 // Diagnostic *Message* strings are sourced from the diagnostics registry
@@ -30,10 +30,10 @@ import type { Diagnostic } from "../src/diagnostics/diagnostic";
 //
 // These tests red because the `V6e` parse of `tool_loop` / `respond_repair` is
 // absent: `parseFrontmatter` recognises the two keys (they are tolerated members
-// of the loom 1.0 field vocabulary) but neither populates `frontmatter.toolLoop`
+// of the theta 1.0 field vocabulary) but neither populates `frontmatter.toolLoop`
 // / `frontmatter.respondRepair` nor validates their scalars. Each test reds on
 // its own primary assertion — an absent parsed field, an absent
-// out-of-range diagnostic, or a wrongly-registered loom — not on a compile
+// out-of-range diagnostic, or a wrongly-registered theta — not on a compile
 // error, missing fixture, or harness throw.
 
 /** The first diagnostic carrying `code`, if any. */
@@ -45,16 +45,16 @@ function withCode(diags: readonly Diagnostic[], code: string): Diagnostic | unde
 const resolvingMatcher: ModelReferenceMatcher = { resolve: () => "resolved" };
 
 /**
- * Parse a `subagent`-mode `.loom` built from the given extra frontmatter lines
+ * Parse a `subagent`-mode `.theta` built from the given extra frontmatter lines
  * (a trivial `mode: subagent` header keeps the only error under test the one
  * the extra lines introduce) under the resolving matcher.
  */
 function parse(...frontmatterLines: string[]): FrontmatterParseResult {
   const source = ["---", "mode: subagent", ...frontmatterLines, "---", "@`hello`"].join("\n");
-  return parseFrontmatter(source, { file: "test.loom", modelMatcher: resolvingMatcher });
+  return parseFrontmatter(source, { file: "test.theta", modelMatcher: resolvingMatcher });
 }
 
-const OOR = "loom/load/frontmatter-value-out-of-range";
+const OOR = "theta/load/frontmatter-value-out-of-range";
 
 // --- FRNT-1 — `tool_loop.max_rounds` parse (non-negative integer) ----------
 
@@ -65,7 +65,7 @@ describe("V6e-T — FRNT-1 `tool_loop.max_rounds` parse", () => {
   it("FRNT-1: `max_rounds: 0` (the model-tool-call disable form) parses, registers, and exposes maxRounds 0", () => {
     const r = parse("tool_loop:", "  max_rounds: 0");
     expect(withCode(r.diagnostics, OOR), "`max_rounds: 0` is in range").toBeUndefined();
-    expect(r.registered, "a `max_rounds: 0` loom registers").toBe(true);
+    expect(r.registered, "a `max_rounds: 0` theta registers").toBe(true);
     expect(r.frontmatter?.toolLoop?.maxRounds, "`max_rounds: 0` parses to 0").toBe(0);
   });
 
@@ -82,7 +82,7 @@ describe("V6e-T — FRNT-1 `tool_loop.max_rounds` parse", () => {
   });
 
   it("FRNT-1: an absent `tool_loop` block defaults to `{ max_rounds: 25 }`", () => {
-    const r = parse("description: a loom with no tool_loop block");
+    const r = parse("description: a theta with no tool_loop block");
     expect(r.registered).toBe(true);
     expect(r.frontmatter?.toolLoop?.maxRounds, "absent `tool_loop` defaults max_rounds to 25").toBe(25);
   });
@@ -105,13 +105,13 @@ describe("V6e-T — `respond_repair.attempts` parse", () => {
   });
 
   it("FRNT-1: an absent `respond_repair` block defaults to `{ attempts: 3 }`", () => {
-    const r = parse("description: a loom with no respond_repair block");
+    const r = parse("description: a theta with no respond_repair block");
     expect(r.registered).toBe(true);
     expect(r.frontmatter?.respondRepair?.attempts, "absent `respond_repair` defaults attempts to 3").toBe(3);
   });
 });
 
-// --- loom/load/frontmatter-value-out-of-range ------------------------------
+// --- theta/load/frontmatter-value-out-of-range ------------------------------
 //
 // Message template (code-registry-load.md):
 //   frontmatter field '<dotted-key>' must be a non-negative integer; got <observed>
@@ -119,8 +119,8 @@ describe("V6e-T — `respond_repair.attempts` parse", () => {
 // numbers render bare, strings double-quoted-when-not-identifier-shaped,
 // booleans as `true`/`false`, `null` as the literal `null`.
 
-describe("V6e-T — loom/load/frontmatter-value-out-of-range (tool_loop.max_rounds)", () => {
-  it("frontmatter-value-out-of-range: a negative `max_rounds` fires and the loom is not registered", () => {
+describe("V6e-T — theta/load/frontmatter-value-out-of-range (tool_loop.max_rounds)", () => {
+  it("frontmatter-value-out-of-range: a negative `max_rounds` fires and the theta is not registered", () => {
     const r = parse("tool_loop:", "  max_rounds: -1");
     const d = withCode(r.diagnostics, OOR);
     expect(d, "out-of-range for a negative `max_rounds`").toBeDefined();
@@ -128,7 +128,7 @@ describe("V6e-T — loom/load/frontmatter-value-out-of-range (tool_loop.max_roun
     expect(d?.message).toBe(
       "frontmatter field 'tool_loop.max_rounds' must be a non-negative integer; got -1",
     );
-    expect(r.registered, "an out-of-range `max_rounds` loom is not registered").toBe(false);
+    expect(r.registered, "an out-of-range `max_rounds` theta is not registered").toBe(false);
   });
 
   it("frontmatter-value-out-of-range: a non-integer number `max_rounds: 25.5` fires with the parsed value rendered bare", () => {
@@ -172,7 +172,7 @@ describe("V6e-T — loom/load/frontmatter-value-out-of-range (tool_loop.max_roun
   });
 });
 
-describe("V6e-T — loom/load/frontmatter-value-out-of-range (respond_repair.attempts)", () => {
+describe("V6e-T — theta/load/frontmatter-value-out-of-range (respond_repair.attempts)", () => {
   it("frontmatter-value-out-of-range: a non-number scalar `attempts: \"25\"` fires with the dotted key naming respond_repair.attempts", () => {
     const r = parse("respond_repair:", '  attempts: "25"');
     const d = withCode(r.diagnostics, OOR);
@@ -181,7 +181,7 @@ describe("V6e-T — loom/load/frontmatter-value-out-of-range (respond_repair.att
     expect(d?.message).toBe(
       'frontmatter field \'respond_repair.attempts\' must be a non-negative integer; got "25"',
     );
-    expect(r.registered, "an out-of-range `attempts` loom is not registered").toBe(false);
+    expect(r.registered, "an out-of-range `attempts` theta is not registered").toBe(false);
   });
 
   it("frontmatter-value-out-of-range: a negative `attempts: -2` fires with the parsed value rendered bare", () => {

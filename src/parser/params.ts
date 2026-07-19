@@ -9,17 +9,17 @@
 //
 // The four behaviour-bearing checks this seam owns:
 //
-//   - `loom/parse/non-trailing-default` — a non-defaulted param placed after a
+//   - `theta/parse/non-trailing-default` — a non-defaulted param placed after a
 //     defaulted param in declaration order; the diagnostic names the first
 //     offending non-defaulted field.
-//   - `loom/parse/default-not-literal` — a default RHS outside the loom literal
+//   - `theta/parse/default-not-literal` — a default RHS outside the theta literal
 //     sublanguage; delegated to the `V2a` literal-sublanguage check, whose
 //     diagnostic names the offending sub-expression.
-//   - `loom/parse/unresolved-named-type` — a `params:` RHS `NamedType` that
-//     resolves to no body `schema`/`enum` declaration or imported `.warp`
+//   - `theta/parse/unresolved-named-type` — a `params:` RHS `NamedType` that
+//     resolves to no body `schema`/`enum` declaration or imported `.thetalib`
 //     symbol. Resolution is whole-file, so a frontmatter-to-body forward
 //     reference is not itself a failure.
-//   - the lowered schema — the per-loom `params:` object document, validated
+//   - the lowered schema — the per-theta `params:` object document, validated
 //     through AJV (the `V8c` `SchemaValidator` seam) at invocation time.
 //
 // V6b-T (tests-task) declares these seam shapes and stubs `parseParams` as an
@@ -39,12 +39,12 @@ import {
 /**
  * One `params:` field as written in source, in declaration order.
  *
- *   - `name`          — the param's loom-side identifier.
+ *   - `name`          — the param's theta-side identifier.
  *   - `typeSource`    — the right-hand-side type expression verbatim, parsed by
- *                       the loom type grammar (a primitive, a generic, or a
+ *                       the theta type grammar (a primitive, a generic, or a
  *                       `NamedType` resolved whole-file against `bodyTypes`).
  *   - `defaultSource` — the default RHS verbatim, present iff the field carries
- *                       a `= <literal>` default; checked against the loom
+ *                       a `= <literal>` default; checked against the theta
  *                       literal sublanguage.
  *   - `range`         — the field's located site, for diagnostics.
  */
@@ -57,7 +57,7 @@ export interface ParamFieldInput {
 
 /**
  * A body-level named type the `params:` RHS may resolve against — a `schema` or
- * `enum` declaration, or a symbol imported from a `.warp` module. Resolution is
+ * `enum` declaration, or a symbol imported from a `.thetalib` module. Resolution is
  * whole-file, so the declaration order relative to the frontmatter does not
  * matter; a forward reference resolves identically to a backward one.
  *
@@ -78,7 +78,7 @@ export interface ParamsParseSite {
 /**
  * The outcome of parsing a `params:` block: every diagnostic raised in source
  * order, plus the lowered AJV-validatable schema document — present iff the
- * block lowered cleanly (no `loom/parse/unresolved-named-type`, no ordering or
+ * block lowered cleanly (no `theta/parse/unresolved-named-type`, no ordering or
  * default-literal error), absent otherwise.
  */
 export interface ParamsParseResult {
@@ -91,13 +91,13 @@ export interface ParamsParseResult {
  * frontmatter/frontmatter-fields-a.md §params and §Defaults, returning every
  * diagnostic raised (in source order) and the lowered AJV-validatable schema:
  *
- *   - `loom/parse/non-trailing-default` — a non-defaulted field after a
+ *   - `theta/parse/non-trailing-default` — a non-defaulted field after a
  *     defaulted field (the diagnostic names the first offending field);
- *   - `loom/parse/default-not-literal` — a default RHS outside the literal
+ *   - `theta/parse/default-not-literal` — a default RHS outside the literal
  *     sublanguage (the diagnostic names the offending sub-expression);
- *   - `loom/parse/unresolved-named-type` — a RHS `NamedType` resolving to no
+ *   - `theta/parse/unresolved-named-type` — a RHS `NamedType` resolving to no
  *     `bodyTypes` entry (whole-file resolution, so forward references resolve);
- *   - `loweredSchema` — the per-loom object schema (non-defaulted fields
+ *   - `loweredSchema` — the per-theta object schema (non-defaulted fields
  *     `required`, named types lowered to in-document `$ref`s against `$defs`),
  *     validated through the `V8c` AJV `SchemaValidator` at invocation time.
  *
@@ -130,7 +130,7 @@ export function parseParams(
     for (const name of lowerCtx.unresolved) {
       diagnostics.push({
         severity: "error",
-        code: "loom/parse/unresolved-named-type",
+        code: "theta/parse/unresolved-named-type",
         file: site.file,
         range: field.range,
         message: `unresolved named type '${name}'`,
@@ -152,7 +152,7 @@ export function parseParams(
     if (seenDefault) {
       diagnostics.push({
         severity: "error",
-        code: "loom/parse/non-trailing-default",
+        code: "theta/parse/non-trailing-default",
         file: site.file,
         range: field.range,
         message: `non-defaulted param '${field.name}' follows a defaulted param; defaulted params must be trailing`,
@@ -161,7 +161,7 @@ export function parseParams(
     }
   }
 
-  // Each default RHS must be a Loom literal-sublanguage form; the is-literal
+  // Each default RHS must be a Theta literal-sublanguage form; the is-literal
   // check (V2a) names the offending sub-expression in its diagnostic.
   for (const field of fields) {
     if (field.defaultSource === undefined) {
@@ -226,7 +226,7 @@ const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
  *   - an identifier-shaped `NamedType` resolves against the body declarations,
  *     lowering to an in-document `{ "$ref": "#/$defs/<name>" }` (and registering
  *     the resolved fragment under `$defs`), or — when it resolves to no
- *     declaration — records the name for the `loom/parse/unresolved-named-type`
+ *     declaration — records the name for the `theta/parse/unresolved-named-type`
  *     diagnostic and lowers permissively.
  *
  * Literal-type and inline-object lowering beyond this subset is owned by the

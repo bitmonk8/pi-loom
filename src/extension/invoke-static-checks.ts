@@ -3,16 +3,16 @@
 // §Cycle detection). Each check reuses an existing, unit-tested checker rather
 // than reimplementing it:
 //
-//   - INV-3 — `checkInvokeArity` over each `invoke("./x.loom", …)` site against
+//   - INV-3 — `checkInvokeArity` over each `invoke("./x.theta", …)` site against
 //     the statically-resolved callee's `params:` counts
-//     (`loom/parse/invoke-arity-too-many` / `-too-few`).
+//     (`theta/parse/invoke-arity-too-many` / `-too-few`).
 //   - INV-4 — `detectInvocationCycle` over the per-load-pass static-resolution
-//     graph (`loom/load/invocation-cycle`); a self-cycle or an A→B→A cycle
-//     un-registers the entry loom, which is what keeps a self-referential loom
+//     graph (`theta/load/invocation-cycle`); a self-cycle or an A→B→A cycle
+//     un-registers the entry theta, which is what keeps a self-referential theta
 //     from driving pure unbounded invoke recursion at runtime.
 //   - INV-5 — `checkInvokePathAtLoad` (the shared realpath + discovery-root
 //     containment check) so a callee resolving outside every active discovery
-//     root is `loom/load/invoke-path-escape` and the parent does not register.
+//     root is `theta/load/invoke-path-escape` and the parent does not register.
 //
 // The invoke-graph is keyed by discovered slash name (unique per registration),
 // so the cycle message renders `invocation cycle: A → B → A` per the spec prose.
@@ -27,9 +27,9 @@ import type {
   Block,
   Expr,
   InvokeExpr,
-  LoomBody,
+  ThetaBody,
   Stmt,
-} from "../parser/loom-document";
+} from "../parser/theta-document";
 import { checkInvokeArity, checkCalleeHasErrors } from "../parser/invoke-diagnostics";
 import {
   detectInvocationCycle,
@@ -37,7 +37,7 @@ import {
 } from "../runtime/invoke-depth-cycle";
 import { checkInvokePathAtLoad } from "../runtime/invocation";
 import type { FileSystem } from "../seams/file-system";
-import type { LoomCompositionInput } from "./loom-composition-producer";
+import type { ThetaCompositionInput } from "./theta-composition-producer";
 
 /** Forward-slash-normalise a host path for byte-stable node identity. */
 function normalizePath(path: string): string {
@@ -45,12 +45,12 @@ function normalizePath(path: string): string {
 }
 
 /**
- * Collect every `invoke(...)` call expression reachable in a loom body, walking
+ * Collect every `invoke(...)` call expression reachable in a theta body, walking
  * the whole statement / expression tree (nested blocks, conditions, arms, and
- * arguments included). `.loom`-callable calls through `tools:` are handled by
+ * arguments included). `.theta`-callable calls through `tools:` are handled by
  * the callable-set resolver, not here.
  */
-export function collectInvokeExprs(body: LoomBody): InvokeExpr[] {
+export function collectInvokeExprs(body: ThetaBody): InvokeExpr[] {
   const out: InvokeExpr[] = [];
   walkBlock({ statements: body.statements, tail: body.tail }, out);
   return out;
@@ -174,14 +174,14 @@ function resolveCalleeAbsolute(callerPath: string, literalPath: string): string 
 
 /**
  * Build the per-load-pass static-resolution invoke graph across the discovered,
- * successfully-parsed looms (invocation.md §Static resolution / §Cycle
+ * successfully-parsed thetas (invocation.md §Static resolution / §Cycle
  * detection). Nodes are discovered slash names; an edge `A → B` exists when
- * `A.loom` has a literal `invoke("./B.loom")` resolving (byte-exact absolute
- * path) to a discovered loom `B`. Edges to non-discovered callees are dropped —
+ * `A.theta` has a literal `invoke("./B.theta")` resolving (byte-exact absolute
+ * path) to a discovered theta `B`. Edges to non-discovered callees are dropped —
  * a cycle routed only through undiscovered files is not detected until they are
  * discovered (the spec's leaf-termination rule).
  */
-export function buildInvokeGraph(inputs: readonly LoomCompositionInput[]): InvokeGraph {
+export function buildInvokeGraph(inputs: readonly ThetaCompositionInput[]): InvokeGraph {
   const byPath = new Map<string, string>();
   for (const input of inputs) {
     if (input.sourcePath !== undefined) {
@@ -193,7 +193,7 @@ export function buildInvokeGraph(inputs: readonly LoomCompositionInput[]): Invok
     if (input.sourcePath === undefined) continue;
     const targets: string[] = [];
     for (const invoke of collectInvokeExprs(input.body)) {
-      if (invoke.path.length === 0 || !invoke.path.endsWith(".loom")) continue;
+      if (invoke.path.length === 0 || !invoke.path.endsWith(".theta")) continue;
       const abs = resolveCalleeAbsolute(input.sourcePath, invoke.path);
       const targetName = byPath.get(abs);
       if (targetName !== undefined) targets.push(targetName);
@@ -212,20 +212,20 @@ export interface CalleeArity {
 }
 
 /**
- * Run the load-time invoke static checks for one discovered loom, returning
- * every diagnostic (error-severity entries un-register the loom):
+ * Run the load-time invoke static checks for one discovered theta, returning
+ * every diagnostic (error-severity entries un-register the theta):
  *
- *   - INV-5 path-escape (`loom/load/invoke-path-escape`) via the shared
+ *   - INV-5 path-escape (`theta/load/invoke-path-escape`) via the shared
  *     realpath + discovery-root containment check;
- *   - INV-3 arity (`loom/parse/invoke-arity-too-{many,few}`) against the
+ *   - INV-3 arity (`theta/parse/invoke-arity-too-{many,few}`) against the
  *     statically-resolved callee's `params:` counts;
- *   - INV-4 invocation cycle (`loom/load/invocation-cycle`) via the graph walk.
+ *   - INV-4 invocation cycle (`theta/load/invocation-cycle`) via the graph walk.
  *
  * The extension / path-separator (INV-1 / INV-2) and dynamic-path (INV-8) checks
  * already fired during the whole-file parse and are not repeated here.
  */
 export async function checkInvokeStaticResolution(
-  input: LoomCompositionInput,
+  input: ThetaCompositionInput,
   deps: {
     readonly fs: Pick<FileSystem, "realpath">;
     readonly activeRoots: readonly string[];
@@ -238,9 +238,9 @@ export async function checkInvokeStaticResolution(
 
   if (callerPath !== undefined) {
     for (const invoke of collectInvokeExprs(input.body)) {
-      // A dynamic path (empty literal) or a non-`.loom` extension already
+      // A dynamic path (empty literal) or a non-`.theta` extension already
       // produced its own parse error; skip to avoid a confusing second report.
-      if (invoke.path.length === 0 || !invoke.path.endsWith(".loom")) {
+      if (invoke.path.length === 0 || !invoke.path.endsWith(".theta")) {
         continue;
       }
       const site = { file: callerPath, range: invoke.range };
@@ -250,13 +250,13 @@ export async function checkInvokeStaticResolution(
       // active discovery root un-registers the parent. The containment check
       // consults `realpath`, which THROWS for a callee that does not exist on
       // disk. Per discovery-cli.md §Static resolution, an unreadable callee
-      // reached by a *literal* `invoke(...)` is `loom/load/callee-has-errors`
+      // reached by a *literal* `invoke(...)` is `theta/load/callee-has-errors`
       // severity WARNING — the parent still registers, static checks against
       // that callee are skipped, and the runtime AJV load is the safety net. So
       // a missing callee must NOT propagate as a throw: an unguarded throw here
       // aborts the whole discovery/compose walk, silently un-registering every
-      // unrelated sibling loom from the same source (INVCEIL-1). Convert it into
-      // a per-loom, non-fatal warning and skip the remaining static checks for
+      // unrelated sibling theta from the same source (INVCEIL-1). Convert it into
+      // a per-theta, non-fatal warning and skip the remaining static checks for
       // this site.
       // A `realpath` rejection (an unreadable / non-existent callee) is handled
       // as `undefined` via the same rejection-to-`undefined` idiom the callee
@@ -309,7 +309,7 @@ export async function checkInvokeStaticResolution(
   }
 
   // INV-4 (invocation.md §Cycle detection): walk the static-resolution graph
-  // from this loom; a back-edge un-registers it.
+  // from this theta; a back-edge un-registers it.
   const cycle = detectInvocationCycle(input.slashName, deps.graph);
   if (cycle !== undefined) {
     diagnostics.push(cycle);

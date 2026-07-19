@@ -4,20 +4,20 @@ import {
   evaluateArrayMember,
 } from "../src/runtime/stdlib-array";
 import type { CompatType, CompatSite } from "../src/parser/type-compat";
-import type { LoomValue } from "../src/runtime/value";
+import type { ThetaValue } from "../src/runtime/value";
 
 // V3g-T — failing tests for the paired `V3g` "expression stdlib members:
 // `array<T>`".
 //
 // Spec: expressions.md §"Built-in methods and properties" (the EXPR code-keyed
 // obligation area — no numbered REQ-IDs), the `array<T>` member table. Each
-// loom-1.0 `array<T>` member reproduces its normative behaviour and return
+// theta-1.0 `array<T>` member reproduces its normative behaviour and return
 // type:
 //
 //   - `length` is the element count;
 //   - `join(sep)` concatenates `string` elements with `sep`, and a non-`string`
-//     element type fires `loom/parse/non-string-array-join` at parse time;
-//   - `includes(x)` / `indexOf(x)` use the V2c `valuesEqual` loom structural
+//     element type fires `theta/parse/non-string-array-join` at parse time;
+//   - `includes(x)` / `indexOf(x)` use the V2c `valuesEqual` theta structural
 //     equality, with `indexOf` returning `-1` when absent;
 //   - `slice(start, end?)` follows JS semantics (negative indices count from
 //     the end, `end` exclusive, omitted `end` slices to length).
@@ -25,7 +25,7 @@ import type { LoomValue } from "../src/runtime/value";
 // These tests red because the V3g `array<T>` stdlib surface is absent:
 // `evaluateArrayMember` returns the inert `null` sentinel (so every member
 // value assertion reds on its own expectation) and `checkArrayJoin` returns
-// `undefined` (so the `loom/parse/non-string-array-join` firing assertion
+// `undefined` (so the `theta/parse/non-string-array-join` firing assertion
 // reds). No test reds on a compile error, a missing fixture, or a harness
 // throw. (`array<T>.concat`'s LUB element type is owned by `V3f-T`.)
 
@@ -38,7 +38,7 @@ function prim(
 }
 
 const SITE: CompatSite = {
-  file: "expr.loom",
+  file: "expr.theta",
   range: {
     start: { line: 1, column: 1 },
     end: { line: 1, column: 2 },
@@ -68,13 +68,13 @@ describe("V3g-T — `array<T>.join` (expressions.md §Built-in methods and prope
     expect(evaluateArrayMember([], "join", [", "])).toBe("");
   });
 
-  it("EXPR `join`: a non-`string` element type fires `loom/parse/non-string-array-join`; a `string` element type raises none", () => {
+  it("EXPR `join`: a non-`string` element type fires `theta/parse/non-string-array-join`; a `string` element type raises none", () => {
     // Parse-time precondition: `arr.join(...)` requires a `string` element
-    // type (no implicit type conversion in loom 1.0). Message anchored to the
+    // type (no implicit type conversion in theta 1.0). Message anchored to the
     // diagnostics registry (code-registry-parse.md): the `<element>` placeholder
     // renders the offending element type.
     const fired = checkArrayJoin(prim("integer"), SITE);
-    expect(fired?.code).toBe("loom/parse/non-string-array-join");
+    expect(fired?.code).toBe("theta/parse/non-string-array-join");
     expect(fired?.message).toBe(
       "array.join requires a string element type; got array<integer>",
     );
@@ -85,13 +85,13 @@ describe("V3g-T — `array<T>.join` (expressions.md §Built-in methods and prope
 });
 
 describe("V3g-T — `array<T>.includes` (expressions.md §Built-in methods and properties, EXPR code-keyed area)", () => {
-  it("EXPR `includes`: membership by loom structural equality", () => {
+  it("EXPR `includes`: membership by theta structural equality", () => {
     // Primitive membership.
     expect(evaluateArrayMember(["a", "b", "c"], "includes", ["b"])).toBe(true);
     expect(evaluateArrayMember(["a", "b", "c"], "includes", ["z"])).toBe(false);
     // Structural (not reference) equality: a fresh, reference-distinct object
     // that is structurally equal to an element is a member.
-    const haystack: readonly LoomValue[] = [{ x: 1 }, { x: 2 }];
+    const haystack: readonly ThetaValue[] = [{ x: 1 }, { x: 2 }];
     expect(evaluateArrayMember(haystack, "includes", [{ x: 2 }])).toBe(true);
     expect(evaluateArrayMember(haystack, "includes", [{ x: 3 }])).toBe(false);
   });
@@ -104,7 +104,7 @@ describe("V3g-T — `array<T>.indexOf` (expressions.md §Built-in methods and pr
     expect(evaluateArrayMember(["a", "b", "c"], "indexOf", ["z"])).toBe(-1);
     // Structural equality finds a reference-distinct but structurally-equal
     // object at its first index.
-    const haystack: readonly LoomValue[] = [{ x: 1 }, { x: 2 }, { x: 2 }];
+    const haystack: readonly ThetaValue[] = [{ x: 1 }, { x: 2 }, { x: 2 }];
     expect(evaluateArrayMember(haystack, "indexOf", [{ x: 2 }])).toBe(1);
     expect(evaluateArrayMember(haystack, "indexOf", [{ x: 9 }])).toBe(-1);
   });

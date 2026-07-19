@@ -3,31 +3,31 @@
 // This module owns the runtime seam the paired `V14c` implementation leaf fills
 // in for the four code-tool execution outcomes deliberately routed *off* the
 // closed `CodeToolError.cause` surface, each onto its own channel rather than
-// all onto `loom/runtime/internal-error` (tool-calls.md §"Outcome enumeration";
-// pi-integration-contract/host-interfaces-core.md §"Tool execution from loom
+// all onto `theta/runtime/internal-error` (tool-calls.md §"Outcome enumeration";
+// pi-integration-contract/host-interfaces-core.md §"Tool execution from theta
 // code" §"Outcome routing summary"; cancellation.md §"Race semantics"):
 //
-//   1. `routeLoomCallableSetupThrow` — a *pre-evaluation setup throw* inside the
-//      `.loom`-callable parallel-batch adapter (one of the dispatch-site setup
-//      steps in active-invocation-registry.md raising before the loom body
+//   1. `routeThetaCallableSetupThrow` — a *pre-evaluation setup throw* inside the
+//      `.theta`-callable parallel-batch adapter (one of the dispatch-site setup
+//      steps in active-invocation-registry.md raising before the theta body
 //      runs). The adapter MUST translate the captured error into a clean
-//      `{ isError: true, content: [{ type: "text", text: "loom <name> aborted
+//      `{ isError: true, content: [{ type: "text", text: "theta <name> aborted
 //      with internal error: <error.message>" }] }` value — where `<name>` is the
 //      bare callable-set entry name (post-`as`, post-hyphen→underscore rewrite),
 //      deliberately **not** the slash-prefixed `/<name>` form — and return it to
 //      Pi normally; in parallel, the runtime emits exactly one
-//      `loom/runtime/internal-error` diagnostic (message carrying `error.message`,
+//      `theta/runtime/internal-error` diagnostic (message carrying `error.message`,
 //      hint carrying `error.stack` or `"<no stack available>"` when falsy) and
-//      exactly one `loom-system-note`.
+//      exactly one `theta-system-note`.
 //   2. `routeToolReturnShape` — a *non-conforming return shape* (the resolved
 //      value is not an object, `content` is not iterable, an entry is missing
-//      `type` / `text`, etc.) routes through `loom/runtime/internal-error` with
+//      `type` / `text`, etc.) routes through `theta/runtime/internal-error` with
 //      `details.kind = "tool-return-shape"` (carrying `details.tool_name` and the
 //      closed-vocabulary `details.shape_check` discriminator), **not** through
 //      `CodeToolError`.
-//   3. `awaitToolSettlementOrAbort` — a *non-settling Promise* makes no loom 1.0
+//   3. `awaitToolSettlementOrAbort` — a *non-settling Promise* makes no theta 1.0
 //      internal timeout attempt (NOCEIL-1): the tool-call expression blocks at
-//      its `await` until `loomAbort.signal` fires, at which point cancellation
+//      its `await` until `thetaAbort.signal` fires, at which point cancellation
 //      surfaces through the existing `cause: "cancelled"` path with **no**
 //      `internal-error`.
 //   4. `discardPostCancelSettlement` — a *post-cancel late settlement* arriving
@@ -37,16 +37,16 @@
 //      no `internal-error` either.
 //
 // V14c fills in each behaviour-bearing function on the live routing surface:
-//   - `routeLoomCallableSetupThrow` translates the captured setup throw into the
+//   - `routeThetaCallableSetupThrow` translates the captured setup throw into the
 //     clean `{ isError: true, content: [ text ] }` value (bare callable-set
 //     name) and emits exactly one `internal-error` diagnostic + one
-//     `loom-system-note`,
+//     `theta-system-note`,
 //   - `routeToolReturnShape` inspects the resolved envelope in the lowering
 //     procedure's inspection order and routes a non-conforming shape to
 //     `internal-error{tool-return-shape}` (off the `CodeToolError` surface),
 //     lowering a conforming envelope to `Ok(<joined text>)`,
 //   - `awaitToolSettlementOrAbort` races the `execute()` Promise against
-//     `loomAbort.signal` (no internal timeout, NOCEIL-1) and surfaces the
+//     `thetaAbort.signal` (no internal timeout, NOCEIL-1) and surfaces the
 //     cancelled path with no `internal-error`, keeping a swallowing rejection
 //     handler attached from construction,
 //   - `discardPostCancelSettlement` is a total no-op — no rebind (CNCL-1), no
@@ -55,13 +55,13 @@
 //
 // Spec: tool-calls.md §"Outcome enumeration", cancellation.md §"Race semantics"
 // (CNCL-1/CNCL-2/CNCL-3); pi-integration-contract/host-interfaces-core.md
-// §"Tool execution from loom code".
+// §"Tool execution from theta code".
 
 import type { Diagnostic, SourceRange } from "../diagnostics/diagnostic";
 import type { RuntimeEvent } from "./runtime-event-channel";
 import type { CodeToolError } from "./query-error";
 import { INTERNAL_ERROR_CODE } from "./runtime-panics";
-import type { LoomValue, ResultValue } from "./value";
+import type { ThetaValue, ResultValue } from "./value";
 import {
   lowerResolvedToolEnvelope,
   type AgentToolResultEnvelope,
@@ -76,43 +76,43 @@ export interface OffSurfaceSite {
 }
 
 // --------------------------------------------------------------------------
-// (1) Pre-evaluation setup throw inside the `.loom`-callable parallel-batch
+// (1) Pre-evaluation setup throw inside the `.theta`-callable parallel-batch
 // adapter → clean `{ isError: true, ... }` return + one `internal-error`
-// diagnostic + one `loom-system-note` (tool-calls.md §"Outcome enumeration").
+// diagnostic + one `theta-system-note` (tool-calls.md §"Outcome enumeration").
 // --------------------------------------------------------------------------
 
 /**
- * The value the `.loom`-callable parallel-batch adapter returns to Pi on a
+ * The value the `.theta`-callable parallel-batch adapter returns to Pi on a
  * pre-evaluation setup throw: a clean `{ isError: true, content: [ text ] }`
  * envelope carrying the bare callable-set name in its message (never the
  * slash-prefixed `/<name>` form).
  */
-export interface LoomCallableAdapterResult {
+export interface ThetaCallableAdapterResult {
   readonly isError: boolean;
   readonly content: readonly ToolTextBlock[];
 }
 
 /**
- * Route a pre-evaluation setup throw inside the `.loom`-callable parallel-batch
+ * Route a pre-evaluation setup throw inside the `.theta`-callable parallel-batch
  * adapter (tool-calls.md §"Outcome enumeration", "Pre-evaluation setup throw
- * inside the `.loom`-callable adapter"). Translate the captured `thrown` into a
- * clean `{ isError: true, content: [{ type: "text", text: "loom <name> aborted
+ * inside the `.theta`-callable adapter"). Translate the captured `thrown` into a
+ * clean `{ isError: true, content: [{ type: "text", text: "theta <name> aborted
  * with internal error: <error.message>" }] }` value returned to Pi normally,
  * where `<name>` is the bare `callableName` (never `/<name>`); in parallel emit
- * exactly one `loom/runtime/internal-error` diagnostic (message carrying
+ * exactly one `theta/runtime/internal-error` diagnostic (message carrying
  * `error.message`, hint carrying `error.stack` or `"<no stack available>"`) and
- * exactly one `loom-system-note` on `sink`.
+ * exactly one `theta-system-note` on `sink`.
  *
  * V14c-T stubs this to an inert non-error empty envelope that emits nothing, so
  * the `{ isError: true }` text, one-diagnostic, and one-system-note assertions
  * red on their own.
  */
-export function routeLoomCallableSetupThrow(
+export function routeThetaCallableSetupThrow(
   thrown: unknown,
   callableName: string,
   site: OffSurfaceSite,
   sink: ToolLoweringSink,
-): LoomCallableAdapterResult {
+): ThetaCallableAdapterResult {
   // The captured setup throw's `.message` / `.stack` are read the same way the
   // runtime-defect surface reads them (runtime-panics.ts `surfaceUnexpectedThrow`):
   // a string `message` is used verbatim, otherwise the value is coerced; a falsy
@@ -130,11 +130,11 @@ export function routeLoomCallableSetupThrow(
   // slash-prefixed `/<name>` form, because this adapter is entered from the
   // model's parallel-tool batch and carries no slash context
   // (tool-calls.md §"Outcome enumeration").
-  const framing = `loom ${callableName} aborted with internal error: ${message}`;
+  const framing = `theta ${callableName} aborted with internal error: ${message}`;
 
   // In parallel with the returned `{ isError: true }` value, the runtime emits
-  // exactly one `loom/runtime/internal-error` diagnostic and exactly one
-  // `loom-system-note` so an operator observes the failure even though the
+  // exactly one `theta/runtime/internal-error` diagnostic and exactly one
+  // `theta-system-note` so an operator observes the failure even though the
   // model's surface is the tool result.
   sink.diagnostic({
     severity: "error",
@@ -153,16 +153,16 @@ export function routeLoomCallableSetupThrow(
 }
 
 // --------------------------------------------------------------------------
-// (2) Non-conforming return shape → `loom/runtime/internal-error` with
+// (2) Non-conforming return shape → `theta/runtime/internal-error` with
 // `details.kind = "tool-return-shape"` (NOT a `CodeToolError`)
-// (host-interfaces-core.md §"Tool execution from loom code").
+// (host-interfaces-core.md §"Tool execution from theta code").
 // --------------------------------------------------------------------------
 
 /**
  * The closed-vocabulary `details.shape_check` discriminator naming which
  * envelope-shape check failed, in the runtime's inspection order (the
  * first-failing token is emitted when a single envelope violates more than one
- * check) — code-registry-runtime.md `loom/runtime/internal-error` *Trigger*.
+ * check) — code-registry-runtime.md `theta/runtime/internal-error` *Trigger*.
  */
 export type ToolReturnShapeCheck =
   | "resolved-not-object"
@@ -176,7 +176,7 @@ export type ToolReturnShapeCheck =
  *   - `conforming` — the `{ content }` envelope is well-formed; `result` is the
  *     lowered `Ok(<joined text>)`;
  *   - `return-shape-defect` — a shape violation threw during lowering; the
- *     `loom/runtime/internal-error` `diagnostic` (with `details.kind =
+ *     `theta/runtime/internal-error` `diagnostic` (with `details.kind =
  *     "tool-return-shape"`) is the *only* surface — no `CodeToolError`.
  */
 export type ToolReturnShapeOutcome =
@@ -186,12 +186,12 @@ export type ToolReturnShapeOutcome =
 /**
  * The thrown carrier the live tool-return lowering seam raises when
  * `routeToolReturnShape` reports a `return-shape-defect`. A non-conforming Pi
- * tool return is a runtime defect, not a `Result` value a loom author can
- * `match` on: it surfaces through the `loom/runtime/internal-error` routing per
+ * tool return is a runtime defect, not a `Result` value a theta author can
+ * `match` on: it surfaces through the `theta/runtime/internal-error` routing per
  * errors-and-results.md §"Runtime panics", so the seam raises this instead of
- * binding a value. It is deliberately NOT a `LoomPanic` (it is not one of the
+ * binding a value. It is deliberately NOT a `ThetaPanic` (it is not one of the
  * six closed panic sources) — at the `invoke` boundary `runInvokeChild`
- * classifies a non-`LoomPanic` throw as `Err(InvokeInfraError { cause:
+ * classifies a non-`ThetaPanic` throw as `Err(InvokeInfraError { cause:
  * "internal_error" })`, exactly the spec-mandated invoke-parent observation. It
  * carries the built `diagnostic` (with `details.kind = "tool-return-shape"`) so
  * a catch site that owns a live diagnostic channel can surface it verbatim.
@@ -206,10 +206,10 @@ export class ToolReturnShapeDefectError extends Error {
 /**
  * Inspect a resolved code-side `execute()` value. A conforming `{ content }`
  * envelope lowers to `Ok(<joined text>)`; a non-conforming shape routes through
- * `loom/runtime/internal-error` with `details.kind = "tool-return-shape"` (plus
+ * `theta/runtime/internal-error` with `details.kind = "tool-return-shape"` (plus
  * `details.tool_name` and the closed `details.shape_check` token), emitted on
  * `sink`, and is **not** observable as a `CodeToolError`
- * (host-interfaces-core.md §"Tool execution from loom code").
+ * (host-interfaces-core.md §"Tool execution from theta code").
  *
  * V14c-T stubs this to an inert `conforming` outcome that emits nothing, so the
  * `return-shape-defect` / `details.kind` / not-`CodeToolError` assertions red.
@@ -230,12 +230,12 @@ export function routeToolReturnShape(
     };
   }
 
-  // A non-conforming shape routes through `loom/runtime/internal-error` with
+  // A non-conforming shape routes through `theta/runtime/internal-error` with
   // `details.kind = "tool-return-shape"` (plus `details.tool_name` and the
   // closed `details.shape_check` token) and is deliberately routed *off* the
   // `CodeToolError` surface — a non-conforming Pi tool is a defect in that
-  // tool, not a value loom authors can usefully `match` on
-  // (host-interfaces-core.md §"Tool execution from loom code").
+  // tool, not a value theta authors can usefully `match` on
+  // (host-interfaces-core.md §"Tool execution from theta code").
   return {
     kind: "return-shape-defect",
     diagnostic: {
@@ -257,8 +257,8 @@ export function routeToolReturnShape(
  * Inspect a resolved code-side `execute()` value in the lowering procedure's
  * inspection order and return the first-failing `details.shape_check` token, or
  * `null` when the `{ content }` envelope is well-formed
- * (host-interfaces-core.md §"Tool execution from loom code";
- * code-registry-runtime.md `loom/runtime/internal-error` *Trigger*). The order —
+ * (host-interfaces-core.md §"Tool execution from theta code";
+ * code-registry-runtime.md `theta/runtime/internal-error` *Trigger*). The order —
  * `resolved-not-object` → `content-not-iterable` → `entry-missing-type` →
  * `entry-missing-text` — is the order the caller emits when a single envelope
  * violates more than one check; any shape violation that throws during
@@ -297,16 +297,16 @@ function inspectReturnShape(resolved: unknown): ToolReturnShapeCheck | null {
 }
 
 // --------------------------------------------------------------------------
-// (3) Non-settling Promise → block at the `await` until `loomAbort.signal`
+// (3) Non-settling Promise → block at the `await` until `thetaAbort.signal`
 // fires, surfacing `cause: "cancelled"` with NO `internal-error`
 // (tool-calls.md §"Outcome enumeration"; NOCEIL-1).
 // --------------------------------------------------------------------------
 
 /**
  * The outcome of awaiting a code-side tool-call `execute()` Promise against the
- * invocation's `loomAbort.signal`:
+ * invocation's `thetaAbort.signal`:
  *   - `settled` — the Promise settled first; `envelope` is the resolved value;
- *   - `cancelled` — `loomAbort.signal` fired first (loom 1.0 makes no internal
+ *   - `cancelled` — `thetaAbort.signal` fired first (theta 1.0 makes no internal
  *     timeout attempt); `error` is the `CodeToolError { cause: "cancelled" }`
  *     surfaced through the existing cancelled path, with no `internal-error`.
  */
@@ -315,11 +315,11 @@ export type ToolSettlementOutcome =
   | { readonly kind: "cancelled"; readonly error: CodeToolError };
 
 /**
- * Await `dispatch()`'s `execute()` Promise against `signal`. loom 1.0 makes no
+ * Await `dispatch()`'s `execute()` Promise against `signal`. theta 1.0 makes no
  * internal timeout attempt (NOCEIL-1): a non-settling Promise blocks at this
  * `await` until `signal` fires, at which point the call surfaces
  * `{ kind: "cancelled", error: CodeToolError { cause: "cancelled", ... } }` —
- * emitting **no** `loom/runtime/internal-error` on `sink`. A settling Promise
+ * emitting **no** `theta/runtime/internal-error` on `sink`. A settling Promise
  * yields `{ kind: "settled", envelope }`.
  *
  * V14c-T stubs this to an inert `settled` sentinel returned *without* awaiting
@@ -332,8 +332,8 @@ export function awaitToolSettlementOrAbort(
   toolName: string,
   sink: ToolLoweringSink,
 ): Promise<ToolSettlementOutcome> {
-  // loom 1.0 makes no internal timeout attempt (NOCEIL-1); the cancelled path
-  // emits NOTHING on `sink` (no `loom/runtime/internal-error`) — cancellation
+  // theta 1.0 makes no internal timeout attempt (NOCEIL-1); the cancelled path
+  // emits NOTHING on `sink` (no `theta/runtime/internal-error`) — cancellation
   // surfaces through the existing `cause: "cancelled"` path.
   void sink;
 
@@ -354,7 +354,7 @@ export function awaitToolSettlementOrAbort(
       }
       settled = true;
       // A non-settling (or still-pending) Promise blocked at its `await` until
-      // `loomAbort.signal` fired: surface `CodeToolError { cause: "cancelled" }`
+      // `thetaAbort.signal` fired: surface `CodeToolError { cause: "cancelled" }`
       // per the cancellation surfacing rule, with no `internal-error`.
       resolve({
         kind: "cancelled",
@@ -419,12 +419,12 @@ export type LateSettlement =
  */
 export interface LateSettlementObserver {
   /** CNCL-1 — the runtime MUST NOT rebind the call site to the late value. */
-  rebind(value: LoomValue): void;
+  rebind(value: ThetaValue): void;
   /** CNCL-2 — the runtime MUST NOT emit a second `Err` for the same invocation. */
-  emitErr(error: LoomValue): void;
+  emitErr(error: ThetaValue): void;
   /** CNCL-3 — the runtime MUST NOT emit a second `RuntimeEvent` for the same invocation. */
   emitRuntimeEvent(event: RuntimeEvent): void;
-  /** No diagnostic of any severity (so no `loom/runtime/internal-error`). */
+  /** No diagnostic of any severity (so no `theta/runtime/internal-error`). */
   diagnostic(diag: Diagnostic): void;
 }
 
@@ -434,7 +434,7 @@ export interface LateSettlementObserver {
  * is total: no rebind (CNCL-1), no second `Err` (CNCL-2), no second
  * `RuntimeEvent` (CNCL-3), and no diagnostic of any severity — a late rejection
  * whose `.message` would otherwise be diagnostic-worthy is still discarded, so
- * no `loom/runtime/internal-error`. The discarded value is not traversed.
+ * no `theta/runtime/internal-error`. The discarded value is not traversed.
  *
  * V14c-T stubs this to the *non-discarding* behaviour CNCL-1/2/3 forbid — it
  * forwards the late settlement to `observer` — so the no-rebind / no-second-`Err`
@@ -450,7 +450,7 @@ export function discardPostCancelSettlement(
   // dropped on the floor — no rebind (CNCL-1), no second `Err` (CNCL-2), no
   // second `RuntimeEvent` (CNCL-3), and no diagnostic of any severity (an
   // `OOMError`-style late reject is still discarded; promoting it to
-  // `loom/runtime/internal-error` would re-introduce the second-event surface
+  // `theta/runtime/internal-error` would re-introduce the second-event surface
   // these rules forbid). The discarded value is not traversed — `late` is not
   // inspected — so cleanup of any handles it carries is the tool's
   // responsibility, not the runtime's (cancellation.md §"Race semantics").

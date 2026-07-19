@@ -7,22 +7,22 @@ import type {
 import {
   createProductionProducerDeps,
   type PiToolDispatch,
-} from "../src/extension/production-loom-producer";
+} from "../src/extension/production-theta-producer";
 import type {
-  LoomCompositionInput,
+  ThetaCompositionInput,
   ConversationBindInput,
-} from "../src/extension/loom-composition-producer";
+} from "../src/extension/theta-composition-producer";
 import { executeBody } from "../src/runtime/statement-executor";
 import type { RuntimeRoot } from "../src/runtime-root";
 import type { Checkpoint } from "../src/seams/checkpoint";
 import type { AgentToolResultEnvelope } from "../src/runtime/tool-call-execute";
-import type { LoomValue, ResultValue } from "../src/runtime/value";
-import type { CallExpr, Expr, LoomBody } from "../src/parser/loom-document";
+import type { ThetaValue, ResultValue } from "../src/runtime/value";
+import type { CallExpr, Expr, ThetaBody } from "../src/parser/theta-document";
 import type { ParsedFrontmatter } from "../src/parser/frontmatter";
 import type { SourceRange } from "../src/diagnostics/diagnostic";
 
 // H8b — the live tool-call / invoke resolvers wired into the production
-// composition root. These tests prove the shipped `ProductionLoomProducer` no
+// composition root. These tests prove the shipped `ProductionThetaProducer` no
 // longer wires the inert `resolveToolCall` / `resolveInvoke` doubles (which
 // fabricated `Ok(null)` / `Ok("")` without executing) but drives the REAL
 // runners:
@@ -30,7 +30,7 @@ import type { SourceRange } from "../src/diagnostics/diagnostic";
 //     tool's `execute(...)` and lowers its envelope (V14g) to `Ok(text)`;
 //   - an `execute()` throw / unknown host tool surfaces
 //     `Err(CodeToolError{cause:"execution"})`, never a fabricated value;
-//   - a `.loom`-callable `<name>(args)` call routes to the invoke path, and a
+//   - a `.theta`-callable `<name>(args)` call routes to the invoke path, and a
 //     callee that cannot be loaded surfaces `Err(InvokeInfraError{cause:
 //     "load_failure"})` across the boundary — never `Ok(null)` (FN-5).
 //
@@ -62,7 +62,7 @@ function objectExpr(fields: Readonly<Record<string, Expr>>): Expr {
   };
 }
 
-function body(tail: Expr | null): LoomBody {
+function body(tail: Expr | null): ThetaBody {
   return { statements: [], tail };
 }
 
@@ -92,7 +92,7 @@ interface ProducerOpts {
   readonly parseCallee?: (
     callerPath: string | undefined,
     calleePath: string,
-  ) => Promise<LoomCompositionInput | undefined>;
+  ) => Promise<ThetaCompositionInput | undefined>;
   /** An `ExtensionAPI` double (default empty). The prompt→prompt attach path
    * reads `getActiveTools`/`setActiveTools`, so a test that drives it supplies
    * stubs. */
@@ -143,27 +143,27 @@ function invokeExpr(
   };
 }
 
-function promptLoom(tail: Expr, tools?: readonly string[]): LoomCompositionInput {
+function promptTheta(tail: Expr, tools?: readonly string[]): ThetaCompositionInput {
   const frontmatter: ParsedFrontmatter = {
     mode: "prompt",
     ...(tools !== undefined ? { tools } : {}),
   };
-  return { slashName: "demo", sourcePath: "/looms/demo.loom", frontmatter, body: body(tail) };
+  return { slashName: "demo", sourcePath: "/theta/demo.theta", frontmatter, body: body(tail) };
 }
 
 /**
- * Drive the loom body through the real prompt-mode binding and return the tail
+ * Drive the theta body through the real prompt-mode binding and return the tail
  * expression's produced value (the call/invoke `ResultValue`). The body succeeds
  * on every path here (a failed call produces an `Err` *value*, not a failed
  * body), so the outer execution result is always `Ok(<tail value>)`.
  */
 async function runBody(
   deps: ReturnType<typeof producer>,
-  loom: LoomCompositionInput,
-): Promise<LoomValue> {
-  const bindInput: ConversationBindInput = { loom, args: "", ctx: ctxDouble() };
+  theta: ThetaCompositionInput,
+): Promise<ThetaValue> {
+  const bindInput: ConversationBindInput = { theta, args: "", ctx: ctxDouble() };
   const binding = deps.bindPromptConversation(bindInput);
-  const execution = await executeBody(loom.body, binding.executeDeps);
+  const execution = await executeBody(theta.body, binding.executeDeps);
   const outer = execution.result;
   if (!outer.present || outer.value === undefined) {
     throw new Error("body produced no final value");
@@ -188,7 +188,7 @@ describe("H8b — real-host code-side tool-call wiring", () => {
 
     const inner = (await runBody(
       producer({ resolvePiTool }),
-      promptLoom(callExpr("emit")),
+      promptTheta(callExpr("emit")),
     )) as ResultValue;
 
     expect(dispatched, "the real code-side tool-call path dispatched the host tool").toBe(true);
@@ -208,7 +208,7 @@ describe("H8b — real-host code-side tool-call wiring", () => {
 
     const inner = (await runBody(
       producer({ resolvePiTool }),
-      promptLoom(callExpr("emit")),
+      promptTheta(callExpr("emit")),
     )) as ResultValue;
     expect(inner.ok, "a failed tool call surfaces Err, never Ok").toBe(false);
     const err = (inner as { readonly ok: false; readonly error: { readonly cause?: string } }).error;
@@ -222,7 +222,7 @@ describe("H8b — real-host code-side tool-call wiring", () => {
     // host tool, so the dispatch throws and lowers to the execution Err.
     const inner = (await runBody(
       producer({}),
-      promptLoom(callExpr("no_such_tool")),
+      promptTheta(callExpr("no_such_tool")),
     )) as ResultValue;
     expect(inner.ok, "an unresolved host tool surfaces Err, never Ok('')").toBe(false);
   });
@@ -232,23 +232,23 @@ describe("H8b — real-host code-side tool-call wiring", () => {
 // Real-host invoke wiring — FN-5 failure surfacing (V15*).
 // ===========================================================================
 
-describe("H8b — `.loom`-callable routing surfaces Err on a load failure (FN-5)", () => {
-  it("a `.loom`-callable `<name>(args)` call whose callee cannot be loaded surfaces Err(InvokeInfraError{cause:'load_failure'}), never Ok(null)", async () => {
+describe("H8b — `.theta`-callable routing surfaces Err on a load failure (FN-5)", () => {
+  it("a `.theta`-callable `<name>(args)` call whose callee cannot be loaded surfaces Err(InvokeInfraError{cause:'load_failure'}), never Ok(null)", async () => {
     let parseAttempted = false;
-    // The callee resolves to `./sentiment.loom` (the callable-set entry) but
+    // The callee resolves to `./sentiment.theta` (the callable-set entry) but
     // fails to load, so the invoke path surfaces the load-failure Err.
     const parseCallee = (
       _callerPath: string | undefined,
       _calleePath: string,
-    ): Promise<LoomCompositionInput | undefined> => {
+    ): Promise<ThetaCompositionInput | undefined> => {
       parseAttempted = true;
       return Promise.resolve(undefined);
     };
 
-    const loom = promptLoom(callExpr("sentiment"), ["./sentiment.loom"]);
-    const inner = (await runBody(producer({ parseCallee }), loom)) as ResultValue;
+    const theta = promptTheta(callExpr("sentiment"), ["./sentiment.theta"]);
+    const inner = (await runBody(producer({ parseCallee }), theta)) as ResultValue;
 
-    expect(parseAttempted, "a `.loom`-callable call routes to the invoke spawn-and-drive path").toBe(
+    expect(parseAttempted, "a `.theta`-callable call routes to the invoke spawn-and-drive path").toBe(
       true,
     );
     expect(inner.ok, "a callee load failure surfaces Err, never a fabricated Ok(null)").toBe(false);
@@ -267,7 +267,7 @@ describe("H8b — `.loom`-callable routing surfaces Err on a load failure (FN-5)
 describe("ceiling #4 on invoke boundaries (invoke-ceiling-depth.ts wired)", () => {
   it("a depth-6 `invoke(...)` params argument surfaces Err(InvokeInfraError{cause:'validation'}) before the callee loads", async () => {
     let parseAttempted = false;
-    const parseCallee = (): Promise<LoomCompositionInput | undefined> => {
+    const parseCallee = (): Promise<ThetaCompositionInput | undefined> => {
       parseAttempted = true;
       return Promise.resolve(undefined);
     };
@@ -275,7 +275,7 @@ describe("ceiling #4 on invoke boundaries (invoke-ceiling-depth.ts wired)", () =
     // depth walk at invoke entry — before the callee is even parsed.
     const inner = (await runBody(
       producer({ parseCallee }),
-      promptLoom(invokeExpr("./child.loom", null, [nestedArray(5)])),
+      promptTheta(invokeExpr("./child.theta", null, [nestedArray(5)])),
     )) as ResultValue;
 
     expect(inner.ok, "a depth-6 params argument surfaces Err, never binds silently").toBe(false);
@@ -291,7 +291,7 @@ describe("ceiling #4 on invoke boundaries (invoke-ceiling-depth.ts wired)", () =
     // depth walk did NOT false-trip a within-cap argument.
     const inner = (await runBody(
       producer({ parseCallee: () => Promise.resolve(undefined) }),
-      promptLoom(invokeExpr("./child.loom", null, [nestedArray(4)])),
+      promptTheta(invokeExpr("./child.theta", null, [nestedArray(4)])),
     )) as ResultValue;
     expect(inner.ok).toBe(false);
     const err = (inner as { readonly ok: false; readonly error: { readonly cause?: string } }).error;
@@ -299,13 +299,13 @@ describe("ceiling #4 on invoke boundaries (invoke-ceiling-depth.ts wired)", () =
   });
 
   it("a depth-6 `invoke<T>` return value surfaces Err(InvokeInfraError{cause:'return_validation'}) before AJV", async () => {
-    // The callee is a prompt-mode loom whose body tail is a depth-6 value; a
+    // The callee is a prompt-mode theta whose body tail is a depth-6 value; a
     // prompt caller invoking it attaches (no live model needed for a query-free
     // body). Its Ok(depth-6) payload trips the return-boundary depth walk before
     // the AJV schema is consulted.
-    const calleeLoom: LoomCompositionInput = {
+    const calleeTheta: ThetaCompositionInput = {
       slashName: "child",
-      sourcePath: "/looms/child.loom",
+      sourcePath: "/theta/child.theta",
       frontmatter: { mode: "prompt" },
       body: body(nestedArray(5)),
     };
@@ -314,8 +314,8 @@ describe("ceiling #4 on invoke boundaries (invoke-ceiling-depth.ts wired)", () =
       setActiveTools: () => {},
     } as unknown as ExtensionAPI;
     const inner = (await runBody(
-      producer({ pi: piDouble, parseCallee: () => Promise.resolve(calleeLoom) }),
-      promptLoom(invokeExpr("./child.loom", "Deep")),
+      producer({ pi: piDouble, parseCallee: () => Promise.resolve(calleeTheta) }),
+      promptTheta(invokeExpr("./child.theta", "Deep")),
     )) as ResultValue;
 
     expect(inner.ok, "a depth-6 typed return surfaces Err, never binds silently").toBe(false);
@@ -349,7 +349,7 @@ describe("ceiling #4 on code-driven tool-call args (enforceCodeToolArgDepth wire
     // → (5) → leaf 1(6) = JSON-document depth 6, one past the cap.
     const inner = (await runBody(
       producer({ resolvePiTool }),
-      promptLoom(callExpr("emit", [objectExpr({ deep: nestedArray(4) })])),
+      promptTheta(callExpr("emit", [objectExpr({ deep: nestedArray(4) })])),
     )) as ResultValue;
 
     expect(dispatched, "the tool's execute() is NEVER called on a depth-6 argument").toBe(false);
@@ -372,7 +372,7 @@ describe("ceiling #4 on code-driven tool-call args (enforceCodeToolArgDepth wire
     // depth 5, exactly at the cap — the walk defers and the tool dispatches.
     const inner = (await runBody(
       producer({ resolvePiTool }),
-      promptLoom(callExpr("emit", [objectExpr({ deep: nestedArray(3) })])),
+      promptTheta(callExpr("emit", [objectExpr({ deep: nestedArray(3) })])),
     )) as ResultValue;
 
     expect(dispatched, "a within-cap argument defers past ceiling #4 and the tool runs").toBe(true);
@@ -399,7 +399,7 @@ describe("ceiling #4 on code-driven tool-call args (enforceCodeToolArgDepth wire
     // multi-field argument is not rejected.
     const inner = (await runBody(
       producer({ resolvePiTool }),
-      promptLoom(
+      promptTheta(
         callExpr("emit", [
           objectExpr({ a: nestedArray(1), b: nestedArray(1), c: numberExpr(1) }),
         ]),

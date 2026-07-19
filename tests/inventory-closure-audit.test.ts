@@ -13,7 +13,7 @@ import {
 // §"Inventory-closure audit", audit-resolution.md, audit-recognised-shapes.md,
 // audit-target-categories.md, audit-failures.md, audit-wire-and-canary.md.
 //
-// The audit is a post-1.0 hardening of the loom-1.0 *surface-set closure* MUST;
+// The audit is a post-1.0 hardening of the theta-1.0 *surface-set closure* MUST;
 // its behaviour is unanchored by a numbered PREFIX-N REQ-ID (the surface it
 // mechanizes is PIC-15 / §"Inventory-closure audit"), so these tests assert the
 // observable Failure-surface contract rather than a coverage-matrix REQ-ID.
@@ -140,7 +140,7 @@ describe("inventory-closure audit — recognised exemptions and typebox allow-li
 });
 
 describe("inventory-closure audit — non-empty-scan canary (fail-closed)", () => {
-  it("a walk that recognises zero in-scope references fails the audit under a canary-class discriminator, disjoint from the loom/typecheck/* prefix", () => {
+  it("a walk that recognises zero in-scope references fails the audit under a canary-class discriminator, disjoint from the theta/typecheck/* prefix", () => {
     // Files are walked, but they carry no in-scope Pi surface, so the
     // recognised-reference counter stays at its zero floor and the canary trips.
     const res = audit({
@@ -158,11 +158,11 @@ describe("inventory-closure audit — non-empty-scan canary (fail-closed)", () =
     expect(res.recognised).toBe(0);
 
     // Every emitted discriminator lives under the `audit/` namespace; the
-    // `loom/typecheck/*` build-time brand-string prefix is disjoint and MUST
+    // `theta/typecheck/*` build-time brand-string prefix is disjoint and MUST
     // never appear as an audit record discriminator.
     for (const rec of res.records) {
       expect(rec.discriminator.startsWith("audit/")).toBe(true);
-      expect(rec.discriminator.startsWith("loom/typecheck/")).toBe(false);
+      expect(rec.discriminator.startsWith("theta/typecheck/")).toBe(false);
     }
   });
 });

@@ -10,7 +10,7 @@ describe("exprflow — control flow & match", () => {
       files: [
         {
           source: "project",
-          path: "ctrl.loom",
+          path: "ctrl.theta",
           text: [
             "---", "description: ctrl", "mode: prompt", "---",
             "let mut sum = 0",

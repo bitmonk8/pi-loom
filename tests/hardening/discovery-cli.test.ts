@@ -4,11 +4,11 @@ import { requireLiveProvider, runProbe, type PlantedFile } from "./probe-harness
 // Hardening probes — DISCOVERY / CLI / SLASH-NAME VALIDITY / COLLISIONS /
 // SETTINGS. Mostly zero-token: outcomes read off `registeredNames` and the
 // error-severity load diagnostics the load phase routes onto the
-// `loom-system-note` channel (`probe.systemNotes`).
+// `theta-system-note` channel (`probe.systemNotes`).
 //
 // NOTE ON OBSERVABILITY (V4e): the shipped composition root routes ALL
 // error-severity load/parse/settings/binder-model diagnostics through
-// `emitLoadNote` onto the `loom-system-note` channel, so they land on
+// `emitLoadNote` onto the `theta-system-note` channel, so they land on
 // `probe.systemNotes`, NOT `probe.diagnostics` (ctx.ui.notify), which is empty
 // at load time (see the probe-harness header). Load-phase WARNINGS
 // (case-collision, cross-source-shadow, non-canonical-extension,
@@ -23,7 +23,7 @@ import { requireLiveProvider, runProbe, type PlantedFile } from "./probe-harness
 const provider = requireLiveProvider();
 const FM = "---\nmode: prompt\nbind_model: claude-opus-4-8\n---\n@`say ok`\n";
 
-function loom(source: PlantedFile["source"], path: string): PlantedFile {
+function theta(source: PlantedFile["source"], path: string): PlantedFile {
   return { source, path, text: FM };
 }
 
@@ -41,13 +41,13 @@ describe("discovery — correct behaviour (baseline guards)", () => {
     const probe = await runProbe({
       provider,
       files: [
-        loom("project", "Foo.loom"),
-        loom("project", "foo bar.loom"),
-        loom("project", "foo!.loom"),
-        loom("project", ".foo.loom"),
-        loom("project", "--help.loom"),
-        loom("project", "café.loom"),
-        loom("project", "valid.loom"),
+        theta("project", "Foo.theta"),
+        theta("project", "foo bar.theta"),
+        theta("project", "foo!.theta"),
+        theta("project", ".foo.theta"),
+        theta("project", "--help.theta"),
+        theta("project", "café.theta"),
+        theta("project", "valid.theta"),
       ],
     });
     try {
@@ -61,15 +61,15 @@ describe("discovery — correct behaviour (baseline guards)", () => {
     }
   });
 
-  it("non-recursive; .warp never a slash command; digit/underscore/hyphen stems ok", async () => {
+  it("non-recursive; .thetalib never a slash command; digit/underscore/hyphen stems ok", async () => {
     const probe = await runProbe({
       provider,
       files: [
-        loom("project", "a.loom"),
-        loom("project", "0.loom"),
-        loom("project", "a-b_c9.loom"),
-        loom("project", "personas.warp"),
-        loom("project", "sub/nested.loom"),
+        theta("project", "a.theta"),
+        theta("project", "0.theta"),
+        theta("project", "a-b_c9.theta"),
+        theta("project", "personas.thetalib"),
+        theta("project", "sub/nested.theta"),
       ],
     });
     try {
@@ -79,10 +79,10 @@ describe("discovery — correct behaviour (baseline guards)", () => {
     }
   });
 
-  it("uppercase extension (Plan.LOOM) does not register", async () => {
+  it("uppercase extension (Plan.THETA) does not register", async () => {
     const probe = await runProbe({
       provider,
-      files: [loom("project", "Plan.LOOM"), loom("project", "ok.loom")],
+      files: [theta("project", "Plan.THETA"), theta("project", "ok.theta")],
     });
     try {
       expect(probe.registeredNames).toEqual(["ok"]);
@@ -94,7 +94,7 @@ describe("discovery — correct behaviour (baseline guards)", () => {
   it("CLI source outranks project for the same slash name (single registration)", async () => {
     const probe = await runProbe({
       provider,
-      files: [loom("cli", "dup.loom"), loom("project", "dup.loom")],
+      files: [theta("cli", "dup.theta"), theta("project", "dup.theta")],
     });
     try {
       expect(probe.registeredNames).toEqual(["dup"]);
@@ -103,14 +103,14 @@ describe("discovery — correct behaviour (baseline guards)", () => {
     }
   });
 
-  it("same-priority loom-vs-loom collision drops both (cross-format-collision error)", async () => {
+  it("same-priority theta-vs-theta collision drops both (cross-format-collision error)", async () => {
     const probe = await runProbe({
       provider,
       files: [
-        { source: "rel", path: ".pi/a/dup.loom", text: FM },
-        { source: "rel", path: ".pi/b/dup.loom", text: FM },
+        { source: "rel", path: ".pi/a/dup.theta", text: FM },
+        { source: "rel", path: ".pi/b/dup.theta", text: FM },
       ],
-      projectSettings: { loomPaths: ["a", "b"] },
+      projectSettings: { thetaPaths: ["a", "b"] },
     });
     try {
       expect(probe.registeredNames).toEqual([]);
@@ -118,23 +118,23 @@ describe("discovery — correct behaviour (baseline guards)", () => {
         n.includes("collides at the same priority"),
       );
       expect(collision).toHaveLength(1);
-      expect(collision[0]!).toContain("a/dup.loom");
-      expect(collision[0]!).toContain("b/dup.loom");
+      expect(collision[0]!).toContain("a/dup.theta");
+      expect(collision[0]!).toContain("b/dup.theta");
     } finally {
       await probe.dispose();
     }
   });
 
-  it("settings loomPaths: non-.loom file entry -> invalid-extension error", async () => {
+  it("settings thetaPaths: non-.theta file entry -> invalid-extension error", async () => {
     const probe = await runProbe({
       provider,
       files: [{ source: "rel", path: ".pi/extra/notes.md", text: "x" }],
-      projectSettings: { loomPaths: ["extra/notes.md"] },
+      projectSettings: { thetaPaths: ["extra/notes.md"] },
     });
     try {
       expect(probe.registeredNames).toEqual([]);
       expect(msgs(probe)).toEqual([
-        expect.stringContaining("does not end in .loom") as unknown as string,
+        expect.stringContaining("does not end in .theta") as unknown as string,
       ]);
     } finally {
       await probe.dispose();
@@ -143,12 +143,12 @@ describe("discovery — correct behaviour (baseline guards)", () => {
 
   it("settings: malformed top-level shapes and scalar ranges are error diagnostics", async () => {
     const cases: { settings: unknown; needle: string }[] = [
-      { settings: { loomPaths: "x" }, needle: "settings key loomPaths value is out of range" },
-      { settings: { loomPaths: null, looms: null }, needle: "value is out of range; got null" },
+      { settings: { thetaPaths: "x" }, needle: "settings key thetaPaths value is out of range" },
+      { settings: { thetaPaths: null, theta: null }, needle: "value is out of range; got null" },
       { settings: [1, 2, 3], needle: "settings key (root) value is out of range; got array" },
-      { settings: { looms: { scanPackagesMaxFiles: 0 } }, needle: "scanPackagesMaxFiles value is out of range" },
-      { settings: { looms: { scanPackagesMaxFiles: 25.5 } }, needle: "scanPackagesMaxFiles value is out of range" },
-      { settings: { looms: { binderModel: "" } }, needle: "binderModel value is out of range" },
+      { settings: { theta: { scanPackagesMaxFiles: 0 } }, needle: "scanPackagesMaxFiles value is out of range" },
+      { settings: { theta: { scanPackagesMaxFiles: 25.5 } }, needle: "scanPackagesMaxFiles value is out of range" },
+      { settings: { theta: { binderModel: "" } }, needle: "binderModel value is out of range" },
     ];
     for (const c of cases) {
       const probe = await runProbe({ provider, files: [], projectSettings: c.settings });
@@ -163,11 +163,11 @@ describe("discovery — correct behaviour (baseline guards)", () => {
     }
   });
 
-  it("settings loomPaths: non-string entries -> settings-invalid-entry (per entry)", async () => {
+  it("settings thetaPaths: non-string entries -> settings-invalid-entry (per entry)", async () => {
     const probe = await runProbe({
       provider,
-      files: [loom("project", "p.loom")],
-      projectSettings: { loomPaths: [123, true, null, "extra"] },
+      files: [theta("project", "p.theta")],
+      projectSettings: { thetaPaths: [123, true, null, "extra"] },
     });
     try {
       const invalid = probe.systemNotes.filter((n) => n.includes("must be a string path"));
@@ -179,16 +179,16 @@ describe("discovery — correct behaviour (baseline guards)", () => {
 });
 
 // ===========================================================================
-// DISC-1 (bug): a MISSING settings loomPaths path emits NO diagnostic — the
-// DISC-2-mandated `loom/load/missing-source` (error) never fires on Windows.
+// DISC-1 (bug): a MISSING settings thetaPaths path emits NO diagnostic — the
+// DISC-2-mandated `theta/load/missing-source` (error) never fires on Windows.
 // ===========================================================================
 
-describe("DISC-1 — missing explicit settings path emits loom/load/missing-source (error)", () => {
+describe("DISC-1 — missing explicit settings path emits theta/load/missing-source (error)", () => {
   it("absolute path with a genuinely-missing intermediate ancestor is unreadable (warning, suppressed), not a clean-leaf missing", async () => {
     const probe = await runProbe({
       provider,
-      files: [loom("project", "p.loom")],
-      projectSettings: { loomPaths: ["/definitely/missing/xyz123/looms"] },
+      files: [theta("project", "p.theta")],
+      projectSettings: { thetaPaths: ["/definitely/missing/xyz123/theta"] },
     });
     try {
       // Registration proceeds. `/definitely` itself does not exist, so this is
@@ -207,16 +207,16 @@ describe("DISC-1 — missing explicit settings path emits loom/load/missing-sour
     }
   });
 
-  it("FIXED: relative missing loomPaths entry on a clean leaf (parent .pi exists) emits one missing-source error", async () => {
+  it("FIXED: relative missing thetaPaths entry on a clean leaf (parent .pi exists) emits one missing-source error", async () => {
     const probe = await runProbe({
       provider,
-      files: [loom("project", "p.loom")],
-      projectSettings: { loomPaths: ["nope-does-not-exist"] },
+      files: [theta("project", "p.theta")],
+      projectSettings: { thetaPaths: ["nope-does-not-exist"] },
     });
     try {
-      // The unrelated project loom still registers; the missing settings entry
+      // The unrelated project theta still registers; the missing settings entry
       // is a clean leaf (every ancestor — including the drive root on Windows —
-      // exists), so DISC-2 mandates one `loom/load/missing-source` ERROR.
+      // exists), so DISC-2 mandates one `theta/load/missing-source` ERROR.
       expect(probe.registeredNames).toEqual(["p"]);
       const missing = probe.systemNotes.filter(
         (n) => n.includes("does not exist"),
@@ -233,19 +233,19 @@ describe("DISC-1 — missing explicit settings path emits loom/load/missing-sour
 
 // ===========================================================================
 // DISC-2 (bug): SLSH-1 no-params overflow note is never emitted by the shipped
-// dispatch (dispatchNoParamsLoom/renderNoParamsOverflowNote are dead code — the
+// dispatch (dispatchNoParamsTheta/renderNoParamsOverflowNote are dead code — the
 // production runBinder no-params bypass emits no note). Extra slash arguments
-// to a no-params loom are silently swallowed. Needs one drive.
+// to a no-params theta are silently swallowed. Needs one drive.
 // ===========================================================================
 
 describe("DISC-2 — SLSH-1 no-params overflow note is never emitted", () => {
-  it("FIXED: a no-params loom with trailing arguments emits one overflow note before running", async () => {
+  it("FIXED: a no-params theta with trailing arguments emits one overflow note before running", async () => {
     const probe = await runProbe({
       provider,
       files: [
         {
           source: "project",
-          path: "greet.loom",
+          path: "greet.theta",
           text: [
             "---",
             "mode: prompt",
@@ -255,7 +255,7 @@ describe("DISC-2 — SLSH-1 no-params overflow note is never emitted", () => {
           ].join("\n"),
         },
       ],
-      drives: ["/greet these are extra arguments the loom takes no params"],
+      drives: ["/greet these are extra arguments the theta takes no params"],
     });
     try {
       expect(probe.registeredNames).toEqual(["greet"]);
@@ -265,11 +265,11 @@ describe("DISC-2 — SLSH-1 no-params overflow note is never emitted", () => {
       expect(allUser).toContain("Reply with exactly the single word: READY");
       expect(turn.error, `unexpected throw: ${turn.error}`).toBeUndefined();
       // FIXED (SLSH-1): exactly one overflow note is emitted on the
-      // `loom-system-note` channel before the body runs.
+      // `theta-system-note` channel before the body runs.
       const notes = turn.systemNotes.filter((n) => n.includes("ignoring extra arguments"));
       expect(notes).toHaveLength(1);
       expect(notes[0]).toBe(
-        "loom /greet: ignoring extra arguments \u2014 this loom takes no parameters",
+        "theta /greet: ignoring extra arguments \u2014 this theta takes no parameters",
       );
     } finally {
       await probe.dispose();

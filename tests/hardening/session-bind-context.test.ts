@@ -6,17 +6,17 @@
 // parameter from prior conversation rather than only the explicit slash args.
 //
 // Harness idiom: identical to session-binder.test.ts — real shipped extension,
-// real live model, deterministic observation via `userTexts` (the loom body's
+// real live model, deterministic observation via `userTexts` (the theta body's
 // computed query) + `systemNotes` (BND-1 success echo). A genuine binder pass
-// needs a resolvable binder model (looms.binderModel). Multiple `drives` in ONE
+// needs a resolvable binder model (theta.binderModel). Multiple `drives` in ONE
 // runProbe share the same in-memory session, so turns accumulate — this is how
 // prior context is established.
 //
-// IMPORTANT — defeating the single-string bypass: a loom whose params are a
+// IMPORTANT — defeating the single-string bypass: a theta whose params are a
 // SINGLE defaultless `string` is classified `single-string-bypass` at LOAD time
 // (src/binder/binder-envelope.ts), which SKIPS the binder entirely (the whole
 // arg string binds verbatim). Since `bind_context: session` grounding lives
-// INSIDE the binder path, such a loom can never exercise the feature. Every loom
+// INSIDE the binder path, such a theta can never exercise the feature. Every theta
 // below therefore carries a SECOND, defaulted param so the binder actually runs.
 //
 // Transport discipline: a 429/overloaded/transport error is a retry, never a
@@ -28,7 +28,7 @@ import { requireLiveProvider, runProbe, type PlantedFile, type ProbeResult } fro
 const provider = requireLiveProvider();
 
 // Pin the provider-qualified binder model (same idiom as session-binder.test.ts).
-const binderModelSettings = { looms: { binderModel: "anthropic/claude-haiku-4-5" } };
+const binderModelSettings = { theta: { binderModel: "anthropic/claude-haiku-4-5" } };
 
 function transportish(s: string | undefined): boolean {
   if (s === undefined) return false;
@@ -45,10 +45,10 @@ async function drive(make: () => Promise<ProbeResult>): Promise<ProbeResult> {
   return probe;
 }
 
-function loom(name: string, body: string, extraFm: readonly string[] = []): PlantedFile {
+function theta(name: string, body: string, extraFm: readonly string[] = []): PlantedFile {
   return {
     source: "project",
-    path: `${name}.loom`,
+    path: `${name}.theta`,
     text: ["---", `description: ${name}`, "mode: prompt", ...extraFm, "---", body].join("\n"),
   };
 }
@@ -70,8 +70,8 @@ describe("bind_context: session — binder grounded in recent session context", 
         runProbe({
           provider,
           files: [
-            loom("setctx", "@`Reply with exactly: The selected city is Zurich.`"),
-            loom("plan", "@`Reply with exactly: PLAN city=${city} detail=${detail}`", [
+            theta("setctx", "@`Reply with exactly: The selected city is Zurich.`"),
+            theta("plan", "@`Reply with exactly: PLAN city=${city} detail=${detail}`", [
               "bind_context: session",
               "params:",
               "  city: string",
@@ -117,7 +117,7 @@ describe("bind_context: session — binder grounded in recent session context", 
         runProbe({
           provider,
           files: [
-            loom("greet", "@`Reply with exactly: HELLO name=${name} punct=${punct}`", [
+            theta("greet", "@`Reply with exactly: HELLO name=${name} punct=${punct}`", [
               "bind_context: session",
               "params:",
               "  name: string",

@@ -1,7 +1,7 @@
-// V19c / V19c-T — the loom tree-walking statement executor.
+// V19c / V19c-T — the theta tree-walking statement executor.
 //
 // This module owns the runtime seam the paired `V19c` implementation leaf fills
-// in: `executeBody(body, deps)` walks `V19a`'s parsed `LoomBody` statement AST
+// in: `executeBody(body, deps)` walks `V19a`'s parsed `ThetaBody` statement AST
 // top-to-bottom against `V19b`'s lexical environment — `let`/reassign,
 // `if`/`while`/`for` (driving the real `ForLoopHost` / `evaluateForLoop` from
 // `V3c`), `break`/`continue`, `return`, and expression-statements — segmenting
@@ -14,7 +14,7 @@
 // The un-anchored driver / top-to-bottom-sequencing obligation this seam closes
 // is the `coverage-matrix.md` code-keyed-area token `cka-50`
 // (implementation-notes.md §Runtime — "drives it turn-by-turn"; "Within a
-// single invocation the interpreter is strictly sequential … the next loom
+// single invocation the interpreter is strictly sequential … the next theta
 // expression cannot run until the awaited Promise resolves"). The five
 // checkpoint sites are owned by `cka-47` (`V17a` / `V17c`); the final-value rule
 // by FN-5 (`V3d`); the mid-stream-cancellation non-mutation obligations by
@@ -38,13 +38,13 @@ import type {
   FnDecl,
   ForStmt,
   IfStmt,
-  LoomBody,
+  ThetaBody,
   MatchExpr,
   PatternNode,
   Stmt,
   TryExpr,
   WhileStmt,
-} from "../parser/loom-document";
+} from "../parser/theta-document";
 import type { Checkpoint, CheckpointKind, CheckpointSite } from "../seams/checkpoint";
 import type { CancellableStatement, OperationResult } from "./cancellation-core";
 import { runCancellableSequence } from "./cancellation-core";
@@ -67,7 +67,7 @@ import {
   makeErr,
   makeOk,
   valuesEqual,
-  type LoomValue,
+  type ThetaValue,
   type ResultValue,
 } from "./value";
 
@@ -102,7 +102,7 @@ export interface CheckpointDescriptor {
  *     `Checkpoint.before(...)` signal read.
  */
 export interface StatementEvalHost {
-  evaluatePure(expr: Expr, env: LexicalEnvironment): LoomValue;
+  evaluatePure(expr: Expr, env: LexicalEnvironment): ThetaValue;
   checkpointFor(expr: Expr): CheckpointDescriptor | null;
   runEffect(expr: Expr, env: LexicalEnvironment): Promise<OperationResult>;
 }
@@ -110,7 +110,7 @@ export interface StatementEvalHost {
 /**
  * The collaborators the executor walks the body against. `env` is `V19b`'s
  * real lexical environment; `host` is the `V19d` effect boundary; `checkpoint`
- * and `signal` are `V17a`'s `Checkpoint` seam substrate and the `loomAbort`
+ * and `signal` are `V17a`'s `Checkpoint` seam substrate and the `thetaAbort`
  * signal (never `ctx.signal` directly) the linear-run `runCancellableSequence`
  * reads through; `mutator` and `mode` are the `V4c` partial-append /
  * non-mutation surface a mid-stream terminal event routes through
@@ -124,7 +124,7 @@ export interface ExecuteBodyDeps {
   readonly mutator: CommittedConversationMutator;
   readonly mode: DrivenConversationMode;
   /**
-   * The loom source file stamped onto the `loop-iter` `CheckpointSite` (the
+   * The theta source file stamped onto the `loop-iter` `CheckpointSite` (the
    * per-iteration cancellation checkpoint of `executeWhile` / `executeFor`);
    * the other four checkpoint sites are stamped by the effect host from the
    * same source file. Matches `EffectfulStatementHostDeps.file`.
@@ -133,7 +133,7 @@ export interface ExecuteBodyDeps {
 }
 
 /**
- * The outcome of driving a `LoomBody` to completion: the `error-model.md`
+ * The outcome of driving a `ThetaBody` to completion: the `error-model.md`
  * terminal outcome (`success` / `fail` / `cancel`) and the FN-5 top-level-block
  * final value (present only on the success path).
  */
@@ -141,17 +141,17 @@ export interface BodyExecution {
   readonly outcome: TerminalOutcome;
   readonly result: FunctionResult;
   /**
-   * The `Err` payload that unwound the body — the loom's terminal `Result` on
+   * The `Err` payload that unwound the body — the theta's terminal `Result` on
    * the fail path is `Err(error)`. Present on the fail outcome for BOTH a
    * `?`-propagation (ERR-18) and an unhandled non-cancel effect `Err` in
    * tail/statement position (ERR-19 — e.g. a `tool_loop_exhausted` breach): the
    * effect's own terminating `QueryError` is carried through so the caller sees
    * the real leaf kind, not a fabricated `cancelled`. Absent for the cancel
-   * outcome (whose surface is `CancelledError`) and for a thrown `LoomPanic`
+   * outcome (whose surface is `CancelledError`) and for a thrown `ThetaPanic`
    * (which never reaches a `fail` outcome). A mode's `surface` projects this
    * onto the caller-visible `Err` (FN-5 fail path).
    */
-  readonly error?: LoomValue;
+  readonly error?: ThetaValue;
 }
 
 // ---------------------------------------------------------------------------
@@ -171,25 +171,25 @@ export interface BodyExecution {
  *     `error-model.md` fail terminal outcome. It carries the effect's own
  *     terminating `QueryError` as `error` so the body's terminal `Result` is
  *     `Err(error)`, exactly as `propagate` carries a `?`-propagated `Err`; no
- *     FN-5 final value flows. (A runtime panic is a thrown `LoomPanic`, not a
+ *     FN-5 final value flows. (A runtime panic is a thrown `ThetaPanic`, not a
  *     `fail` flow, so it never reaches this variant.)
  *   - `cancel`   — a mid-body cancellation surfaced at a checkpoint — the cancel
  *     terminal outcome; no final value flows (FN-5).
  */
 type Flow =
-  | { readonly kind: "normal"; readonly value: LoomValue }
-  | { readonly kind: "return"; readonly value: LoomValue }
+  | { readonly kind: "normal"; readonly value: ThetaValue }
+  | { readonly kind: "return"; readonly value: ThetaValue }
   | { readonly kind: "break" }
   | { readonly kind: "continue" }
-  | { readonly kind: "fail"; readonly error: LoomValue }
-  | { readonly kind: "propagate"; readonly err: LoomValue }
+  | { readonly kind: "fail"; readonly error: ThetaValue }
+  | { readonly kind: "propagate"; readonly err: ThetaValue }
   | { readonly kind: "cancel" };
 
 /** The outcome of evaluating a single sub-expression (pure or checkpointed). */
 type EvalResult =
-  | { readonly flow: "value"; readonly value: LoomValue }
-  | { readonly flow: "fail"; readonly error: LoomValue }
-  | { readonly flow: "propagate"; readonly err: LoomValue }
+  | { readonly flow: "value"; readonly value: ThetaValue }
+  | { readonly flow: "fail"; readonly error: ThetaValue }
+  | { readonly flow: "propagate"; readonly err: ThetaValue }
   | { readonly flow: "cancel" };
 
 /**
@@ -209,13 +209,13 @@ function terminalFlow(result: Exclude<EvalResult, { flow: "value" }>): Flow {
 
 /**
  * A `<name>(args)` call whose arg count does not match the resolved `fn`'s
- * declared parameter count. Arity is a type-phase concern the loom grammar
+ * declared parameter count. Arity is a type-phase concern the theta grammar
  * expects to be well-formed by execution time, so a mismatch reaching the
  * runtime is a defect: it surfaces as a thrown error (routed to the extension's
- * command-execution error surface, `loom/runtime/internal-error`) rather than
+ * command-execution error surface, `theta/runtime/internal-error`) rather than
  * silently binding `null` for a missing arg or crashing the host.
  */
-export class LoomFnArityError extends Error {
+export class ThetaFnArityError extends Error {
   public constructor(name: string, expected: number, actual: number) {
     super(`function '${name}' expects ${expected} argument(s) but received ${actual}`);
   }
@@ -223,8 +223,8 @@ export class LoomFnArityError extends Error {
 
 /**
  * Whether a resolved identifier names an executable user `fn` — a hoisted
- * top-level `fn` (`arm: "fn"`) or an imported `.warp fn` (`arm: "import"`),
- * both carrying the `FnDecl` body. A `.loom`-callable / Pi-tool call (the
+ * top-level `fn` (`arm: "fn"`) or an imported `.thetalib fn` (`arm: "import"`),
+ * both carrying the `FnDecl` body. A `.theta`-callable / Pi-tool call (the
  * `callable` arm) is NOT a user `fn`; it stays on the effect (tool-call /
  * invoke) path.
  */
@@ -253,7 +253,7 @@ async function evalUserFnCall(
   deps: ExecuteBodyDeps,
 ): Promise<EvalResult> {
   if (expr.args.length !== fn.params.length) {
-    throw new LoomFnArityError(fn.name, fn.params.length, expr.args.length);
+    throw new ThetaFnArityError(fn.name, fn.params.length, expr.args.length);
   }
   const scope = env.child();
   for (let i = 0; i < fn.params.length; i += 1) {
@@ -282,17 +282,17 @@ async function evalUserFnCall(
   }
 }
 
-/** A loom condition is a boolean; only the literal `true` steers control flow. */
-function isTruthy(value: LoomValue): boolean {
+/** A theta condition is a boolean; only the literal `true` steers control flow. */
+function isTruthy(value: ThetaValue): boolean {
   return value === true;
 }
 
 /** Apply a compound-assignment operator to two numeric operands. */
 function applyCompound(
   op: "+=" | "-=" | "*=" | "/=" | "%=",
-  current: LoomValue,
-  delta: LoomValue,
-): LoomValue {
+  current: ThetaValue,
+  delta: ThetaValue,
+): ThetaValue {
   const a = typeof current === "number" ? current : 0;
   const b = typeof delta === "number" ? delta : 0;
   switch (op) {
@@ -358,7 +358,7 @@ async function evalExpr(expr: Expr, env: LexicalEnvironment, deps: ExecuteBodyDe
   // non-`value` flow (a `?`-propagation, an effect `fail`, or a cancel)
   // short-circuits and carries that terminal flow verbatim.
   if (expr.kind === "array") {
-    const values: LoomValue[] = [];
+    const values: ThetaValue[] = [];
     for (const element of expr.elements) {
       const evaluated = await evalExpr(element, env, deps);
       if (evaluated.flow !== "value") {
@@ -369,7 +369,7 @@ async function evalExpr(expr: Expr, env: LexicalEnvironment, deps: ExecuteBodyDe
     return { flow: "value", value: values };
   }
   if (expr.kind === "object") {
-    const obj: Record<string, LoomValue> = {};
+    const obj: Record<string, ThetaValue> = {};
     for (const field of expr.fields) {
       const evaluated = await evalExpr(field.value, env, deps);
       if (evaluated.flow !== "value") {
@@ -402,7 +402,7 @@ async function evalExpr(expr: Expr, env: LexicalEnvironment, deps: ExecuteBodyDe
   // Semantics are preserved exactly: `&&` / `||` short-circuit, a ternary
   // evaluates ONLY the taken branch, and a method-call evaluates receiver-then-
   // args left-to-right. A genuinely-pure operator produces the identical value
-  // the pure host would (same primitives), so valid pure looms are unaffected.
+  // the pure host would (same primitives), so valid pure thetas are unaffected.
   if (expr.kind === "index") {
     const target = await evalExpr(expr.target, env, deps);
     if (target.flow !== "value") {
@@ -448,7 +448,7 @@ async function evalExpr(expr: Expr, env: LexicalEnvironment, deps: ExecuteBodyDe
     if (receiver.flow !== "value") {
       return receiver;
     }
-    const args: LoomValue[] = [];
+    const args: ThetaValue[] = [];
     for (const arg of expr.args) {
       const evaluated = await evalExpr(arg, env, deps);
       if (evaluated.flow !== "value") {
@@ -495,7 +495,7 @@ async function evalExpr(expr: Expr, env: LexicalEnvironment, deps: ExecuteBodyDe
   );
   const result = outcome.result;
   if (result.ok) {
-    return { flow: "value", value: result.value as LoomValue };
+    return { flow: "value", value: result.value as ThetaValue };
   }
   if (result.error.kind === "cancelled") {
     // A mid-stream cancellation: turns Pi has committed remain final — the
@@ -510,14 +510,14 @@ async function evalExpr(expr: Expr, env: LexicalEnvironment, deps: ExecuteBodyDe
   // the effect's own terminating `QueryError` through the `fail` flow so the
   // body's terminal `Result` is `Err(error)` (ERR-19), exactly as a
   // `?`-propagation carries its `Err` — not a fabricated `cancelled`.
-  return { flow: "fail", error: result.error as unknown as LoomValue };
+  return { flow: "fail", error: result.error as unknown as ThetaValue };
 }
 
 /**
  * Decompose a `binary` node on the executor so an operand subtree holding a
  * control/effect form dispatches through `evalExpr`. The evaluation order and
  * short-circuit are the pure host's `evaluateBinaryExpression`
- * (production-loom-producer.ts) verbatim: `!` / unary `-` (the parser models
+ * (production-theta-producer.ts) verbatim: `!` / unary `-` (the parser models
  * both as a binary; unary `-` has a synthetic `null` left) evaluate only the
  * right operand and are checked before the left is evaluated; `&&` / `||`
  * evaluate the right operand only when the left does not decide the result (so
@@ -582,7 +582,7 @@ async function evalBinary(expr: BinaryExpr, env: LexicalEnvironment, deps: Execu
  * §"Other arithmetic"). Reuses the same `valuesEqual` primitive as the pure host
  * so the two paths cannot diverge.
  */
-function applyBinaryScalar(op: string, left: LoomValue, right: LoomValue): LoomValue {
+function applyBinaryScalar(op: string, left: ThetaValue, right: ThetaValue): ThetaValue {
   switch (op) {
     case "==":
       return valuesEqual(left, right);
@@ -619,7 +619,7 @@ function applyBinaryScalar(op: string, left: LoomValue, right: LoomValue): LoomV
  * member surfaces (`stdlib-string` / `stdlib-array` / `stdlib-object`); a
  * non-string/array/object receiver yields the inert `null`.
  */
-function applyStdlibMethod(receiver: LoomValue, method: string, args: readonly LoomValue[]): LoomValue {
+function applyStdlibMethod(receiver: ThetaValue, method: string, args: readonly ThetaValue[]): ThetaValue {
   if (typeof receiver === "string") {
     return evaluateStringMember(receiver, method, args);
   }
@@ -627,13 +627,13 @@ function applyStdlibMethod(receiver: LoomValue, method: string, args: readonly L
     return evaluateArrayMember(receiver, method, args);
   }
   if (typeof receiver === "object" && receiver !== null) {
-    return evaluateObjectMember(receiver as { readonly [k: string]: LoomValue }, method, args);
+    return evaluateObjectMember(receiver as { readonly [k: string]: ThetaValue }, method, args);
   }
   return null;
 }
 
 /**
- * Evaluate an expression *as a loom `Result` value* — the operand of `?` and the
+ * Evaluate an expression *as a theta `Result` value* — the operand of `?` and the
  * scrutinee of `match`, both of which operate on `Result` values. A checkpointed
  * effect (query / tool-call / invoke) is dispatched through the real host (so
  * the live resolvers fire for `?`- and `match`-wrapped calls — the "look through
@@ -645,7 +645,7 @@ function applyStdlibMethod(receiver: LoomValue, method: string, args: readonly L
  *     other clean value is wrapped `Ok(value)` (a query's plain terminating
  *     text / typed value);
  *   - a non-cancel effect `Err` (a query exhaustion / validation failure) is
- *     surfaced as the loom `Err(error)` so `?` propagates it and `match` can
+ *     surfaced as the theta `Err(error)` so `?` propagates it and `match` can
  *     catch it;
  *   - a cancellation surfaces the cancel flow (never a `Result`).
  *
@@ -711,19 +711,19 @@ async function evalAsResult(
   );
   const result = outcome.result;
   if (result.ok) {
-    return { flow: "value", value: asResultValue(result.value as LoomValue) };
+    return { flow: "value", value: asResultValue(result.value as ThetaValue) };
   }
   if (result.error.kind === "cancelled") {
     handlePartialTerminalOutcome({ path: "cancelled", mode: deps.mode, committed: [] }, deps.mutator);
     return { flow: "cancel" };
   }
-  // A non-cancel effect failure is the loom `Err(error)` — the `Result` value
+  // A non-cancel effect failure is the theta `Err(error)` — the `Result` value
   // `?` propagates and `match` dispatches on.
-  return { flow: "value", value: makeErr(result.error as unknown as LoomValue) };
+  return { flow: "value", value: makeErr(result.error as unknown as ThetaValue) };
 }
 
 /** Normalise an effect's clean value to a `Result`: a `Result` passes through, else `Ok(value)`. */
-function asResultValue(value: LoomValue): ResultValue {
+function asResultValue(value: ThetaValue): ResultValue {
   return isResultValue(value) ? value : makeOk(value);
 }
 
@@ -843,7 +843,7 @@ async function executeStatement(stmt: Stmt, env: LexicalEnvironment, deps: Execu
       return r.flow === "value" ? { kind: "normal", value: r.value } : terminalFlow(r);
     }
     case "let": {
-      let value: LoomValue = null;
+      let value: ThetaValue = null;
       if (stmt.init !== null) {
         const r = await evalExpr(stmt.init, env, deps);
         if (r.flow !== "value") {
@@ -914,7 +914,7 @@ async function executeBlock(block: Block, env: LexicalEnvironment, deps: Execute
   // executor at the block tail-position yields its value regardless of encoding.
   // A trailing action statement, or any other statement, still terminates the
   // block with the literal `null` (FN-5 statement-terminated body).
-  let trailingExprValue: { readonly value: LoomValue } | undefined;
+  let trailingExprValue: { readonly value: ThetaValue } | undefined;
   for (const stmt of block.statements) {
     const flow = await executeStatement(stmt, env, deps);
     if (flow.kind !== "normal") {
@@ -949,7 +949,7 @@ async function executeIf(stmt: IfStmt, env: LexicalEnvironment, deps: ExecuteBod
 }
 
 /**
- * Build the `loop-iter` `CheckpointSite` for a loop statement from the loom
+ * Build the `loop-iter` `CheckpointSite` for a loop statement from the theta
  * source file (`deps.file`) and the loop's own source span (CTRL-1 loop
  * construct), so a fired checkpoint identifies the loop by file + line.
  */
@@ -982,7 +982,7 @@ async function loopIterCheckpoint(site: CheckpointSite, deps: ExecuteBodyDeps): 
  * reads `signal.aborted` (cancellation.md §Granularity): production wiring
  * yields one macrotask turn there so a compute-bound body with no genuine
  * `await` still lets the Pi-dispatched abort (a macrotask) flip
- * `loomAbort.signal.aborted` and land before the next iteration; an observed
+ * `thetaAbort.signal.aborted` and land before the next iteration; an observed
  * abort unwinds the loop with the cancel terminal outcome.
  */
 async function executeWhile(
@@ -1028,13 +1028,13 @@ async function executeFor(stmt: ForStmt, env: LexicalEnvironment, deps: ExecuteB
   if (iterand.flow !== "value") {
     return terminalFlow(iterand);
   }
-  const snapshot: readonly LoomValue[] = Array.isArray(iterand.value) ? iterand.value : [];
+  const snapshot: readonly ThetaValue[] = Array.isArray(iterand.value) ? iterand.value : [];
 
   // Drive `V3c`'s real `evaluateForLoop` to fix the iteration order over the
   // snapshot (iterand evaluated exactly once — CTRL-1). The body's effects are
   // async, so the synchronous loop host captures each element in order; the
   // async body walk below honours `break` / `continue`.
-  const plan: { readonly element: LoomValue }[] = [];
+  const plan: { readonly element: ThetaValue }[] = [];
   const host: ForLoopHost = {
     evaluateIterand: () => snapshot,
     runIteration: (element) => {
@@ -1063,7 +1063,7 @@ async function executeFor(stmt: ForStmt, env: LexicalEnvironment, deps: ExecuteB
 }
 
 /**
- * Drive a `LoomBody` top-to-bottom, strictly sequentially, against `deps`:
+ * Drive a `ThetaBody` top-to-bottom, strictly sequentially, against `deps`:
  * each statement's effect commits before the next statement is entered (no
  * statement runs ahead of a prior one — `cka-50`); each checkpointed
  * sub-expression is segmented onto `V17a`'s `runCancellableSequence` so the
@@ -1075,7 +1075,7 @@ async function executeFor(stmt: ForStmt, env: LexicalEnvironment, deps: ExecuteB
  * event routes through `V4c`'s `handlePartialTerminalOutcome` so no Pi-committed
  * surface is mutated and no compensating turn is injected (ERR-8 … ERR-12).
  */
-export async function executeBody(body: LoomBody, deps: ExecuteBodyDeps): Promise<BodyExecution> {
+export async function executeBody(body: ThetaBody, deps: ExecuteBodyDeps): Promise<BodyExecution> {
   const flow = await executeBlock(body, deps.env, deps);
   switch (flow.kind) {
     case "return":

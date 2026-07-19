@@ -1,15 +1,15 @@
 // V17a-T — failing tests for the paired `V17a` cancellation core.
 //
 // Spec: cancellation.md (CNCL-1 … CNCL-6, §Signal source, §Forwarding into
-// `loomAbort`, §Propagation, §Race semantics — late-settlement discard,
+// `thetaAbort`, §Propagation, §Race semantics — late-settlement discard,
 // §Race semantics — swallowing-handler attachment on every abandonable
 // Promise); pi-integration-contract/host-interfaces-services.md (§`Checkpoint`
 // seam, PIC-10).
 //
 // These tests red on their own primary assertions while `V17a` is absent:
-//   - the `forward*` helpers / `abortForAgentEnd` are no-ops, so `loomAbort`
+//   - the `forward*` helpers / `abortForAgentEnd` are no-ops, so `thetaAbort`
 //     never fires and forwarding + CNCL-4 reason identity red;
-//   - `deriveChildLoomAbort` returns an unlinked controller, so downward-only
+//   - `deriveChildThetaAbort` returns an unlinked controller, so downward-only
 //     propagation reds;
 //   - `routeToolCallLateSettlement` rebinds/re-emits after cancellation, so
 //     CNCL-1/2/3 red;
@@ -33,8 +33,8 @@ import {
   AGENT_END_CANCEL_MESSAGE,
   abortForAgentEnd,
   attachSwallowingHandler,
-  createLoomAbort,
-  deriveChildLoomAbort,
+  createThetaAbort,
+  deriveChildThetaAbort,
   forwardSlashCommandCancel,
   forwardToolExposedCancel,
   routeAbandonableSettlement,
@@ -48,7 +48,7 @@ import {
   type ToolCallSideChannels,
 } from "../src/runtime/cancellation-core";
 
-const SITE: CheckpointSite = { file: "loom.loom", line: 1, column: 1 };
+const SITE: CheckpointSite = { file: "theta.theta", line: 1, column: 1 };
 
 /**
  * A `Checkpoint` whose `before(...)` invokes an injected callback on each await
@@ -72,48 +72,48 @@ class ScriptedCheckpoint implements Checkpoint {
 }
 
 // ===========================================================================
-// Forwarding into `loomAbort` (cancellation.md §Signal source / §Forwarding).
+// Forwarding into `thetaAbort` (cancellation.md §Signal source / §Forwarding).
 // ===========================================================================
 
-describe("V17a-T — forwarding into loomAbort (never ctx.signal directly)", () => {
-  it("slash-command: an aborted ctx.signal forwards into loomAbort.signal (a distinct signal from ctx.signal)", () => {
-    const loomAbort = createLoomAbort();
+describe("V17a-T — forwarding into thetaAbort (never ctx.signal directly)", () => {
+  it("slash-command: an aborted ctx.signal forwards into thetaAbort.signal (a distinct signal from ctx.signal)", () => {
+    const thetaAbort = createThetaAbort();
     const ctx = new AbortController();
-    forwardSlashCommandCancel(loomAbort, ctx.signal);
+    forwardSlashCommandCancel(thetaAbort, ctx.signal);
 
-    // The single source of truth downstream sees is loomAbort.signal — a
+    // The single source of truth downstream sees is thetaAbort.signal — a
     // distinct AbortSignal from ctx.signal, so downstream never reads ctx.signal
     // directly.
-    expect(loomAbort.signal).not.toBe(ctx.signal);
+    expect(thetaAbort.signal).not.toBe(ctx.signal);
 
     ctx.abort(new Error("esc pressed"));
-    // Forwarding fires loomAbort from the slash-command path.
-    expect(loomAbort.signal.aborted).toBe(true);
+    // Forwarding fires thetaAbort from the slash-command path.
+    expect(thetaAbort.signal.aborted).toBe(true);
   });
 
   it("slash-command: tolerates ctx.signal === undefined (idle non-turn entry) without throwing", () => {
-    const loomAbort = createLoomAbort();
+    const thetaAbort = createThetaAbort();
     // Pi documents ctx.signal as undefined in idle, non-turn contexts — exactly
     // when the slash-command handler fires. Forwarding must not depend on its
     // truthiness.
-    expect(() => forwardSlashCommandCancel(loomAbort, undefined)).not.toThrow();
+    expect(() => forwardSlashCommandCancel(thetaAbort, undefined)).not.toThrow();
   });
 
-  it("tool-exposed: an aborted execute() signal forwards into loomAbort.signal", () => {
-    const loomAbort = createLoomAbort();
+  it("tool-exposed: an aborted execute() signal forwards into thetaAbort.signal", () => {
+    const thetaAbort = createThetaAbort();
     const toolSignal = new AbortController();
-    forwardToolExposedCancel(loomAbort, toolSignal.signal);
+    forwardToolExposedCancel(thetaAbort, toolSignal.signal);
 
-    expect(loomAbort.signal).not.toBe(toolSignal.signal);
+    expect(thetaAbort.signal).not.toBe(toolSignal.signal);
     toolSignal.abort(new Error("tool cancelled"));
-    expect(loomAbort.signal.aborted).toBe(true);
+    expect(thetaAbort.signal.aborted).toBe(true);
   });
 
-  it("invoke-parent: the derived child aborts through its own loomAbort, not the parent signal directly", () => {
+  it("invoke-parent: the derived child aborts through its own thetaAbort, not the parent signal directly", () => {
     const parent = new AbortController();
-    const { controller: child } = deriveChildLoomAbort(parent.signal);
+    const { controller: child } = deriveChildThetaAbort(parent.signal);
 
-    // The child owns its own loomAbort controller (a distinct signal).
+    // The child owns its own thetaAbort controller (a distinct signal).
     expect(child.signal).not.toBe(parent.signal);
     parent.abort(new Error("parent cancelled"));
     expect(child.signal.aborted).toBe(true);
@@ -125,11 +125,11 @@ describe("V17a-T — forwarding into loomAbort (never ctx.signal directly)", () 
 // ===========================================================================
 
 describe("V17a-T — CNCL-4 abort-reason propagation through all three paths", () => {
-  it("CNCL-4: slash-command path — loomAbort.signal.reason === ctx.signal.reason at the downstream checkpoint", async () => {
-    const loomAbort = createLoomAbort();
+  it("CNCL-4: slash-command path — thetaAbort.signal.reason === ctx.signal.reason at the downstream checkpoint", async () => {
+    const thetaAbort = createThetaAbort();
     const ctx = new AbortController();
     const reason = new Error("esc reason");
-    forwardSlashCommandCancel(loomAbort, ctx.signal);
+    forwardSlashCommandCancel(thetaAbort, ctx.signal);
 
     // Land the abort via the Checkpoint seam: on the checkpoint await, the
     // slash-command source aborts with `reason`.
@@ -137,25 +137,25 @@ describe("V17a-T — CNCL-4 abort-reason propagation through all three paths", (
     await checkpoint.before("tool-call");
 
     // CNCL-4: reason identity (not merely aborted) at the downstream checkpoint.
-    expect(loomAbort.signal.reason).toBe(reason);
+    expect(thetaAbort.signal.reason).toBe(reason);
   });
 
-  it("CNCL-4: tool-exposed path — loomAbort.signal.reason === signal.reason", async () => {
-    const loomAbort = createLoomAbort();
+  it("CNCL-4: tool-exposed path — thetaAbort.signal.reason === signal.reason", async () => {
+    const thetaAbort = createThetaAbort();
     const toolSignal = new AbortController();
     const reason = new Error("tool reason");
-    forwardToolExposedCancel(loomAbort, toolSignal.signal);
+    forwardToolExposedCancel(thetaAbort, toolSignal.signal);
 
     const checkpoint = new ScriptedCheckpoint(() => toolSignal.abort(reason));
     await checkpoint.before("tool-call");
 
-    expect(loomAbort.signal.reason).toBe(reason);
+    expect(thetaAbort.signal.reason).toBe(reason);
   });
 
   it("CNCL-4: invoke-parent path — the derived child's reason === parentSignal.reason", async () => {
     const parent = new AbortController();
     const reason = new Error("parent reason");
-    const { controller: child } = deriveChildLoomAbort(parent.signal);
+    const { controller: child } = deriveChildThetaAbort(parent.signal);
 
     const checkpoint = new ScriptedCheckpoint(() => parent.abort(reason));
     await checkpoint.before("invoke");
@@ -163,31 +163,31 @@ describe("V17a-T — CNCL-4 abort-reason propagation through all three paths", (
     expect(child.signal.reason).toBe(reason);
   });
 
-  it("CNCL-4: the reason-less agent_end trigger synthesises Error.message byte-exact 'loom cancelled by agent_end'", () => {
-    const loomAbort = createLoomAbort();
-    abortForAgentEnd(loomAbort);
+  it("CNCL-4: the reason-less agent_end trigger synthesises Error.message byte-exact 'theta cancelled by agent_end'", () => {
+    const thetaAbort = createThetaAbort();
+    abortForAgentEnd(thetaAbort);
 
-    expect(loomAbort.signal.aborted).toBe(true);
-    const reason = loomAbort.signal.reason as Error | undefined;
+    expect(thetaAbort.signal.aborted).toBe(true);
+    const reason = thetaAbort.signal.reason as Error | undefined;
     // Byte-exact synthesised message per CNCL-4.
     expect(reason?.message).toBe(AGENT_END_CANCEL_MESSAGE);
-    expect(reason?.message).toBe("loom cancelled by agent_end");
+    expect(reason?.message).toBe("theta cancelled by agent_end");
   });
 
   it("CNCL-4: the first source's reason wins under the one-shot guard (a later forwarder does not re-stamp)", () => {
-    const loomAbort = createLoomAbort();
+    const thetaAbort = createThetaAbort();
     const first = new AbortController();
     const second = new AbortController();
     const firstReason = new Error("first");
     const secondReason = new Error("second");
-    forwardSlashCommandCancel(loomAbort, first.signal);
-    forwardToolExposedCancel(loomAbort, second.signal);
+    forwardSlashCommandCancel(thetaAbort, first.signal);
+    forwardToolExposedCancel(thetaAbort, second.signal);
 
     first.abort(firstReason);
     second.abort(secondReason);
 
     // The one-shot guard means the second forwarder does not re-stamp the reason.
-    expect(loomAbort.signal.reason).toBe(firstReason);
+    expect(thetaAbort.signal.reason).toBe(firstReason);
   });
 });
 
@@ -198,7 +198,7 @@ describe("V17a-T — CNCL-4 abort-reason propagation through all three paths", (
 describe("V17a-T — downward-only propagation (parent → child, never child → parent)", () => {
   it("propagates parent → child: aborting the parent aborts the derived child", () => {
     const parent = new AbortController();
-    const { controller: child } = deriveChildLoomAbort(parent.signal);
+    const { controller: child } = deriveChildThetaAbort(parent.signal);
     expect(child.signal.aborted).toBe(false);
 
     parent.abort(new Error("parent"));
@@ -207,7 +207,7 @@ describe("V17a-T — downward-only propagation (parent → child, never child �
 
   it("never propagates child → parent: a child cancelling internally leaves the parent's signal untouched", () => {
     const parent = new AbortController();
-    const { controller: child } = deriveChildLoomAbort(parent.signal);
+    const { controller: child } = deriveChildThetaAbort(parent.signal);
 
     child.abort(new Error("child internal cancel"));
     // Downward-only: the child's internal cancel does not abort the parent.
@@ -219,7 +219,7 @@ describe("V17a-T — downward-only propagation (parent → child, never child �
     const reason = new Error("pre-aborted parent");
     parent.abort(reason);
 
-    const { controller: child } = deriveChildLoomAbort(parent.signal);
+    const { controller: child } = deriveChildThetaAbort(parent.signal);
     // A parent already aborted at spawn time yields an already-aborted child
     // carrying the parent's reason (the child surfaces cancelled synchronously).
     expect(child.signal.aborted).toBe(true);
@@ -364,7 +364,7 @@ describe("V17a-T — swallowing-handler substrate suppression (cka-33 / V17a)", 
     const guard: SubstrateCancellationGuard = { cancellationSurfaced: true };
 
     // A diagnostic-worthy OOM-style late rejection — still discarded; promotion
-    // to loom/runtime/internal-error would re-introduce the second-event surface
+    // to theta/runtime/internal-error would re-introduce the second-event surface
     // the rule forbids.
     const disposition = routeAbandonableSettlement(
       { kind: "rejected", error: new Error("host OOM after cancellation") },
@@ -414,14 +414,14 @@ describe("V17a-T — swallowing-handler substrate suppression (cka-33 / V17a)", 
 
 describe("V17a-T — CNCL-5 no retroactive rewrite of a completed Ok", () => {
   it("CNCL-5: a completed Ok(v) is retained (not rewritten to Err cancelled) when an abort lands at the next checkpoint", async () => {
-    const loomAbort = createLoomAbort();
+    const thetaAbort = createThetaAbort();
     const okValue = { computed: 42 };
 
     // Land the abort at the SECOND checkpoint (statement `y`), after `x`
     // completed Ok(v) at the first checkpoint.
     const checkpoint = new ScriptedCheckpoint((call) => {
       if (call === 2) {
-        loomAbort.abort(new Error("abort at next checkpoint"));
+        thetaAbort.abort(new Error("abort at next checkpoint"));
       }
     });
 
@@ -443,7 +443,7 @@ describe("V17a-T — CNCL-5 no retroactive rewrite of a completed Ok", () => {
     ];
 
     const outcome = await runCancellableSequence(
-      { checkpoint, signal: loomAbort.signal },
+      { checkpoint, signal: thetaAbort.signal },
       statements,
     );
 
@@ -459,7 +459,7 @@ describe("V17a-T — CNCL-5 no retroactive rewrite of a completed Ok", () => {
 
 describe("V17a-T — CNCL-6 no top-level synthesis on tail abort", () => {
   it("CNCL-6: an abort in a pure tail after the final cancellable operation leaves the produced value and synthesises no top-level cancelled", async () => {
-    const loomAbort = createLoomAbort();
+    const thetaAbort = createThetaAbort();
     const tailValue = { result: "done" };
 
     // The single statement's checkpoint fires normally; the abort lands in the
@@ -477,14 +477,14 @@ describe("V17a-T — CNCL-6 no top-level synthesis on tail abort", () => {
         run: (): Promise<OperationResult> => {
           // The abort fires right after the final operation completes — a pure
           // tail with no further checkpoint to observe it.
-          loomAbort.abort(new Error("tail abort"));
+          thetaAbort.abort(new Error("tail abort"));
           return Promise.resolve({ ok: true, value: tailValue });
         },
       },
     ];
 
     const outcome = await runCancellableSequence(
-      { checkpoint, signal: loomAbort.signal },
+      { checkpoint, signal: thetaAbort.signal },
       statements,
     );
 

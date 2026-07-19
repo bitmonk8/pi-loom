@@ -1,8 +1,8 @@
 // V4b / V4b-T — the runtime-panic surface seam.
 //
-// This module owns the closed loom 1.0 runtime-panic set, the `?`-operator
+// This module owns the closed theta 1.0 runtime-panic set, the `?`-operator
 // runtime propagation seam that panics bypass, and the runtime-defect surface
-// (`loom/runtime/internal-error`) for unexpected interpreter / adapter throws
+// (`theta/runtime/internal-error`) for unexpected interpreter / adapter throws
 // (errors-and-results/error-model.md §"Runtime panics"; the registered message
 // templates live in diagnostics/code-registry-runtime.md).
 //
@@ -12,18 +12,18 @@
 // `MatchError` panic owned by ./match-result.ts. A panic is a thrown JS
 // exception, never a `Result` value, so it bypasses `?` and `match` (which
 // operate on `Result` values) — the bypass is intrinsic to representing panics
-// as thrown `LoomPanic` instances rather than as values.
+// as thrown `ThetaPanic` instances rather than as values.
 //
 // The runtime-defect surface routes an *unexpected* throw (one that is not a
-// panic source) to `loom/runtime/internal-error`. The NOCEIL-3 carve-out
+// panic source) to `theta/runtime/internal-error`. The NOCEIL-3 carve-out
 // (errors-and-results/error-model.md §"Runtime panics";
 // hard-ceilings/ceiling-invariants-and-audit.md §"No additional ceilings"):
 // an *uncatchable* host fatal (V8 heap-OOM via the `OOMErrorCallback` /
 // `abort()` path) terminates the host process before any wrap can observe it,
-// so it delivers no throw to a catch site and `loom/runtime/internal-error`
+// so it delivers no throw to a catch site and `theta/runtime/internal-error`
 // emits no diagnostic for it.
 //
-// V4b-T (tests-task) declares the seam — the `LoomPanic` base and the five
+// V4b-T (tests-task) declares the seam — the `ThetaPanic` base and the five
 // panic classes, the `evaluateIndexAccess` / `evaluateMemberAccess` /
 // `enterInvokeFrame` accessor seams, the `evaluateQuestion` `?`-propagation
 // seam, the `HostFatal` NOCEIL-3 marker, and the `surfaceUnexpectedThrow`
@@ -35,33 +35,33 @@
 
 import type { Diagnostic, SourceRange } from "../diagnostics/diagnostic";
 import { renderInteger } from "../diagnostics/placeholder";
-import type { LoomValue, ResultValue } from "./value";
+import type { ThetaValue, ResultValue } from "./value";
 
 /** The registry codes carried by the five panic sources this module owns. */
-export const INDEX_OUT_OF_BOUNDS_CODE = "loom/runtime/index-out-of-bounds";
-export const MISSING_OBJECT_KEY_CODE = "loom/runtime/missing-object-key";
-export const NULL_INDEX_ACCESS_CODE = "loom/runtime/null-index-access";
-export const NULL_MEMBER_ACCESS_CODE = "loom/runtime/null-member-access";
-export const INVOKE_DEPTH_EXCEEDED_CODE = "loom/runtime/invoke-depth-exceeded";
+export const INDEX_OUT_OF_BOUNDS_CODE = "theta/runtime/index-out-of-bounds";
+export const MISSING_OBJECT_KEY_CODE = "theta/runtime/missing-object-key";
+export const NULL_INDEX_ACCESS_CODE = "theta/runtime/null-index-access";
+export const NULL_MEMBER_ACCESS_CODE = "theta/runtime/null-member-access";
+export const INVOKE_DEPTH_EXCEEDED_CODE = "theta/runtime/invoke-depth-exceeded";
 
 /** The runtime-defect-surface code for an unexpected interpreter / adapter throw. */
-export const INTERNAL_ERROR_CODE = "loom/runtime/internal-error";
+export const INTERNAL_ERROR_CODE = "theta/runtime/internal-error";
 
 /** The `invoke`-chain depth cap (INV-4 / invocation.md §"Invocation depth bound"). */
 export const INVOKE_DEPTH_CAP = 32;
 
 /**
- * Base class for the closed loom 1.0 runtime panics this module owns. A panic
+ * Base class for the closed theta 1.0 runtime panics this module owns. A panic
  * is a thrown JS exception, never a `Result` value, so `?` and `match` (which
  * operate on `Result` values) cannot intercept it — it bypasses them by
- * construction. Each subclass carries its registered `loom/runtime/*` code.
+ * construction. Each subclass carries its registered `theta/runtime/*` code.
  */
-export abstract class LoomPanic extends Error {
+export abstract class ThetaPanic extends Error {
   abstract readonly code: string;
 }
 
-/** `arr[i]` with `i < 0` or `i >= arr.length` (`loom/runtime/index-out-of-bounds`). */
-export class IndexOutOfBoundsPanic extends LoomPanic {
+/** `arr[i]` with `i < 0` or `i >= arr.length` (`theta/runtime/index-out-of-bounds`). */
+export class IndexOutOfBoundsPanic extends ThetaPanic {
   readonly code = INDEX_OUT_OF_BOUNDS_CODE;
   constructor(message: string) {
     super(message);
@@ -69,8 +69,8 @@ export class IndexOutOfBoundsPanic extends LoomPanic {
   }
 }
 
-/** `obj[k]` where `k` is not a present loom-side key (`loom/runtime/missing-object-key`). */
-export class MissingObjectKeyPanic extends LoomPanic {
+/** `obj[k]` where `k` is not a present theta-side key (`theta/runtime/missing-object-key`). */
+export class MissingObjectKeyPanic extends ThetaPanic {
   readonly code = MISSING_OBJECT_KEY_CODE;
   constructor(message: string) {
     super(message);
@@ -78,8 +78,8 @@ export class MissingObjectKeyPanic extends LoomPanic {
   }
 }
 
-/** `[i]` access on `null` (`loom/runtime/null-index-access`). */
-export class NullIndexAccessPanic extends LoomPanic {
+/** `[i]` access on `null` (`theta/runtime/null-index-access`). */
+export class NullIndexAccessPanic extends ThetaPanic {
   readonly code = NULL_INDEX_ACCESS_CODE;
   constructor(message: string) {
     super(message);
@@ -87,8 +87,8 @@ export class NullIndexAccessPanic extends LoomPanic {
   }
 }
 
-/** `.field` access on `null` (`loom/runtime/null-member-access`). */
-export class NullMemberAccessPanic extends LoomPanic {
+/** `.field` access on `null` (`theta/runtime/null-member-access`). */
+export class NullMemberAccessPanic extends ThetaPanic {
   readonly code = NULL_MEMBER_ACCESS_CODE;
   constructor(message: string) {
     super(message);
@@ -96,8 +96,8 @@ export class NullMemberAccessPanic extends LoomPanic {
   }
 }
 
-/** `invoke` chain depth exceeded (`loom/runtime/invoke-depth-exceeded`). */
-export class InvokeDepthExceededPanic extends LoomPanic {
+/** `invoke` chain depth exceeded (`theta/runtime/invoke-depth-exceeded`). */
+export class InvokeDepthExceededPanic extends ThetaPanic {
   readonly code = INVOKE_DEPTH_EXCEEDED_CODE;
   constructor(message: string) {
     super(message);
@@ -110,7 +110,7 @@ export class InvokeDepthExceededPanic extends LoomPanic {
  * panics"). `target[index]`:
  *   - `null` target               → `NullIndexAccessPanic` (`[<i>]`);
  *   - array, `i < 0 || i >= len`  → `IndexOutOfBoundsPanic` (`<i> not in 0..<length>`);
- *   - object, missing loom-side key → `MissingObjectKeyPanic` (`<key>`);
+ *   - object, missing theta-side key → `MissingObjectKeyPanic` (`<key>`);
  *   - otherwise                    → the indexed element / member value.
  *
  * The registered message templates are sourced from
@@ -119,45 +119,45 @@ export class InvokeDepthExceededPanic extends LoomPanic {
  * a category-5 source-derived identifier).
  */
 export function evaluateIndexAccess(
-  target: LoomValue,
+  target: ThetaValue,
   index: number | string,
-): LoomValue {
+): ThetaValue {
   if (target === null) {
-    // `[i]` access on `null` (`loom/runtime/null-index-access`). `<i>`.
+    // `[i]` access on `null` (`theta/runtime/null-index-access`). `<i>`.
     const rendered = typeof index === "number" ? renderInteger(index) : index;
     throw new NullIndexAccessPanic(`null index access: [${rendered}]`);
   }
   if (Array.isArray(target)) {
     // Array indexing: bounds-check `i < 0 || i >= arr.length`
-    // (`loom/runtime/index-out-of-bounds`). `<i> not in 0..<length>`.
+    // (`theta/runtime/index-out-of-bounds`). `<i> not in 0..<length>`.
     const i = index as number;
     if (typeof i !== "number" || i < 0 || i >= target.length) {
       throw new IndexOutOfBoundsPanic(
         `index out of bounds: ${renderInteger(i)} not in 0..${renderInteger(target.length)}`,
       );
     }
-    return target[i] as LoomValue;
+    return target[i] as ThetaValue;
   }
   // A primitive receiver (`string` / `number` / `integer` / `boolean`) is not
   // indexable: the type layer rejects `s[0]` at parse time
-  // (`loom/parse/non-indexable-receiver`). Reaching here means the static check
+  // (`theta/parse/non-indexable-receiver`). Reaching here means the static check
   // was bypassed; surface it as a runtime defect rather than silently returning
   // a character (the pre-V20c behaviour, which returned `"h"` for `"hi"[0]`).
-  // A non-panic throw is reclassified to `loom/runtime/internal-error` by the
+  // A non-panic throw is reclassified to `theta/runtime/internal-error` by the
   // runtime-defect surface.
   if (typeof target !== "object") {
     throw new Error(
       `indexed access requires an array<T> or object receiver; got ${typeof target}`,
     );
   }
-  // Object indexing: a key that is not a present loom-side name on the object
-  // is the missing-object-key panic (`loom/runtime/missing-object-key`).
+  // Object indexing: a key that is not a present theta-side name on the object
+  // is the missing-object-key panic (`theta/runtime/missing-object-key`).
   const key = index as string;
-  const obj = target as { readonly [k: string]: LoomValue };
+  const obj = target as { readonly [k: string]: ThetaValue };
   if (!Object.prototype.hasOwnProperty.call(obj, key)) {
     throw new MissingObjectKeyPanic(`missing object key: ${key}`);
   }
-  return obj[key] as LoomValue;
+  return obj[key] as ThetaValue;
 }
 
 /**
@@ -169,11 +169,11 @@ export function evaluateIndexAccess(
  * diagnostics/code-registry-runtime.md (`<field>` is a category-5 source-
  * derived identifier rendered bare).
  */
-export function evaluateMemberAccess(target: LoomValue, field: string): LoomValue {
+export function evaluateMemberAccess(target: ThetaValue, field: string): ThetaValue {
   if (target === null) {
     throw new NullMemberAccessPanic(`null member access: .${field}`);
   }
-  return (target as { readonly [k: string]: LoomValue })[field] as LoomValue;
+  return (target as { readonly [k: string]: ThetaValue })[field] as ThetaValue;
 }
 
 /**
@@ -201,12 +201,12 @@ export function enterInvokeFrame(nextDepth: number): void {
  *   - `propagate` — the operand was `Err(e)`; the enclosing function early-
  *                   returns `Err(e)`.
  * A panic thrown while *producing* the operand is **not** captured here — it
- * propagates past `?` as a thrown `LoomPanic`, never becoming a `propagate`
+ * propagates past `?` as a thrown `ThetaPanic`, never becoming a `propagate`
  * outcome.
  */
 export type QuestionResult =
-  | { readonly kind: "value"; readonly value: LoomValue }
-  | { readonly kind: "propagate"; readonly err: LoomValue };
+  | { readonly kind: "value"; readonly value: ThetaValue }
+  | { readonly kind: "propagate"; readonly err: ThetaValue };
 
 /**
  * Evaluate `operand?`: invoke `operand` (a thunk producing the `?` operand's
@@ -216,10 +216,10 @@ export type QuestionResult =
  * panic bypasses `?`.
  *
  * Invoking `operand` *outside* any surrounding catch is the mechanism by which
- * a panic bypasses `?`: a thrown `LoomPanic` (or `MatchError`) propagates from
+ * a panic bypasses `?`: a thrown `ThetaPanic` (or `MatchError`) propagates from
  * this call unchanged, never becoming a `propagate` outcome.
  */
-export function evaluateQuestion(operand: () => LoomValue): QuestionResult {
+export function evaluateQuestion(operand: () => ThetaValue): QuestionResult {
   // A panic thrown while producing the operand propagates past this call
   // unchanged (no catch surrounds it), so `?` is bypassed.
   const result = operand() as ResultValue;
@@ -232,7 +232,7 @@ export function evaluateQuestion(operand: () => LoomValue): QuestionResult {
  * A marker for a host-fatal *uncatchable* condition (NOCEIL-3): a V8 heap-OOM
  * via the `OOMErrorCallback` / `abort()` path terminates the host process
  * before any wrap can observe it, so it never reaches a runtime catch site. The
- * runtime-defect surface emits **no** `loom/runtime/internal-error` for it.
+ * runtime-defect surface emits **no** `theta/runtime/internal-error` for it.
  * Modelled as a distinct marker so the carve-out is testable without crashing
  * the test process.
  */
@@ -243,10 +243,10 @@ export class HostFatal {
 /**
  * The runtime-defect surface (errors-and-results/error-model.md §"Runtime
  * panics"). Classify a value reaching a runtime catch site:
- *   - a `LoomPanic` → `undefined` (already a panic; not a runtime defect, not
+ *   - a `ThetaPanic` → `undefined` (already a panic; not a runtime defect, not
  *     reclassified — the caller rethrows it so it bypasses `?`/`match`);
  *   - a `HostFatal` → `undefined` (NOCEIL-3 carve-out: no diagnostic at all);
- *   - any other thrown value → a `loom/runtime/internal-error` `Diagnostic`
+ *   - any other thrown value → a `theta/runtime/internal-error` `Diagnostic`
  *     whose `message` is the underlying `error.message` and whose `hint` is the
  *     underlying `error.stack` (or `"<no stack available>"` when falsy).
  *
@@ -260,7 +260,7 @@ export function surfaceUnexpectedThrow(
 ): Diagnostic | undefined {
   // Already a panic (one of the six closed sources): not a runtime defect, not
   // reclassified — the caller rethrows it so it bypasses `?`/`match`.
-  if (isLoomPanic(thrown)) {
+  if (isThetaPanic(thrown)) {
     return undefined;
   }
   // NOCEIL-3 carve-out: an uncatchable host fatal terminates the host process
@@ -287,6 +287,6 @@ export function surfaceUnexpectedThrow(
 }
 
 /** Whether `error` is one of the runtime panics this module owns. */
-export function isLoomPanic(error: unknown): error is LoomPanic {
-  return error instanceof LoomPanic;
+export function isThetaPanic(error: unknown): error is ThetaPanic {
+  return error instanceof ThetaPanic;
 }

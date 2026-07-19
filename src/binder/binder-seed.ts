@@ -1,12 +1,12 @@
 // V11e / V11e-T — the binder determinism seed derivation seam.
 //
 // This module owns the FNV-1a seed derivation of
-// binder/determinism-cancellation-failure.md §Determinism: the per-loom binder
+// binder/determinism-cancellation-failure.md §Determinism: the per-theta binder
 // seed is the 32-bit FNV-1a hash (offset basis `0x811c9dc5`, prime
-// `0x01000193`) of the loom's bare command name (the slash-registry name
+// `0x01000193`) of the theta's bare command name (the slash-registry name
 // without the leading `/`), over the UTF-8 encoding of that name (no BOM, no
-// NUL terminator), masked to 32-bit unsigned. The same loom therefore derives
-// the same seed value on every binder call across processes and runs — loom's
+// NUL terminator), masked to 32-bit unsigned. The same theta therefore derives
+// the same seed value on every binder call across processes and runs — theta's
 // deterministic input to the provider call, whose `temperature: 0` pin is set
 // by the V9j `buildBinderCompleteCall` and carried into the provider request.
 //
@@ -32,7 +32,7 @@ const FNV_PRIME = 0x01000193;
 const UTF8 = new TextEncoder();
 
 /**
- * Derive the deterministic per-loom binder seed from the loom's bare command
+ * Derive the deterministic per-theta binder seed from the theta's bare command
  * name via 32-bit FNV-1a (offset basis `0x811c9dc5`, prime `0x01000193`) over
  * the UTF-8 bytes of the name, masked to 32-bit unsigned.
  *

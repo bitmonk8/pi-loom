@@ -18,7 +18,7 @@ const span: SourceRange = {
   start: { line: 1, column: 1 },
   end: { line: 1, column: 2 },
 };
-const site = { file: "test.loom", range: span };
+const site = { file: "test.theta", range: span };
 
 describe("REQ-GRAM-2 — the literal sublanguage admits unary-minus numerics and Enum.Variant", () => {
   const pos: LiteralPosition = "default";
@@ -26,7 +26,7 @@ describe("REQ-GRAM-2 — the literal sublanguage admits unary-minus numerics and
   it("`-5` (unary minus on a numeric literal) is a literal (no default-not-literal)", () => {
     const diags = checkLiteralSublanguage("-5", pos, site);
     expect(
-      hasCode(diags, "loom/parse/default-not-literal"),
+      hasCode(diags, "theta/parse/default-not-literal"),
       `codes: ${codes(diags).join(",")}`,
     ).toBe(false);
   });
@@ -34,7 +34,7 @@ describe("REQ-GRAM-2 — the literal sublanguage admits unary-minus numerics and
   it("`Enum.Variant` member access is a literal (no default-not-literal)", () => {
     const diags = checkLiteralSublanguage("Severity.High", pos, site);
     expect(
-      hasCode(diags, "loom/parse/default-not-literal"),
+      hasCode(diags, "theta/parse/default-not-literal"),
       `codes: ${codes(diags).join(",")}`,
     ).toBe(false);
   });
@@ -43,7 +43,7 @@ describe("REQ-GRAM-2 — the literal sublanguage admits unary-minus numerics and
     // `a.b.c` is more than one `.` hop — outside the NamedValueLit carve-out.
     const diags = checkLiteralSublanguage("a.b.c", pos, site);
     expect(
-      hasCode(diags, "loom/parse/default-not-literal"),
+      hasCode(diags, "theta/parse/default-not-literal"),
       `codes: ${codes(diags).join(",")}`,
     ).toBe(true);
   });
@@ -62,7 +62,7 @@ describe("REQ-GRAM-16 — FnDecl parameter lists are always parenthesised", () =
     const doc = parseDoc(["fn f(a: integer,) {", "  a", "}"].join("\n"));
     // No structural parse error about the parameter list / trailing comma.
     expect(
-      hasCode(doc.diagnostics, "loom/parse/nested-fn"),
+      hasCode(doc.diagnostics, "theta/parse/nested-fn"),
       "trailing comma must not be misparsed",
     ).toBe(false);
     const fnErrs = errors(doc.diagnostics);

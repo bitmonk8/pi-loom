@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lexLoom, type LexResult, type Token } from "../src/lexer/lexer";
+import { lexTheta, type LexResult, type Token } from "../src/lexer/lexer";
 import {
   checkIntegerNarrowing,
   validatePathLiteral,
@@ -19,11 +19,11 @@ import {
 // integer/number typing, the safe-integer / finite-double range checks, and the
 // reserved hex/octal/binary/underscore forms), §"Path literals" and
 // §"Extension matching" (forward-slash-only separators and the byte-exact
-// lowercase `.loom`/`.warp` final segment), and grammar.md.
+// lowercase `.theta`/`.thetalib` final segment), and grammar.md.
 //
 // The string and number behaviours are lexer-surfaced, so they are asserted
-// through `lexLoom` and the V7d producer-facing diagnostic-emission seam (a
-// recording channel double captures the batched `loom-system-note`
+// through `lexTheta` and the V7d producer-facing diagnostic-emission seam (a
+// recording channel double captures the batched `theta-system-note`
 // `details.diagnostics`, never a direct out-of-band `pi.sendMessage`). The path
 // and narrowing rules need a parse / type context the tokeniser does not have,
 // so they are asserted against the standalone `validatePathLiteral` /
@@ -33,7 +33,7 @@ import {
 // (code-registry-parse.md) per the *Diagnostic message anchors* rule.
 //
 // These tests red because the V1b escape-decoder / number-range checks /
-// path-literal validator / narrowing check are absent: `lexLoom` does not yet
+// path-literal validator / narrowing check are absent: `lexTheta` does not yet
 // decode `Token.value`, classify `Token.numericType`, or raise the numeric
 // codes, and the two literals.ts seams are inert stubs. Each test reds on its
 // own primary assertion (a missing decoded value, a missing numeric type, or an
@@ -67,8 +67,8 @@ function seam(): SeamFixture {
 /** Lex a UTF-8 string source; return the lex result and the seam fixture. */
 function lex(src: string): { result: LexResult; fixture: SeamFixture } {
   const fixture = seam();
-  const result = lexLoom(
-    { path: "test.loom", bytes: new TextEncoder().encode(src) },
+  const result = lexTheta(
+    { path: "test.theta", bytes: new TextEncoder().encode(src) },
     fixture.deps,
   );
   return { result, fixture };
@@ -114,36 +114,36 @@ describe("V1b-T — string escape decoding (LEX code-keyed area)", () => {
   });
 });
 
-// --- §"String literals" — loom/parse/illegal-escape ----------------------
+// --- §"String literals" — theta/parse/illegal-escape ----------------------
 
 describe("V1b-T — illegal escape sequences", () => {
-  it("loom/parse/illegal-escape: a backslash followed by an unrecognised character fires (via V7d seam)", () => {
+  it("theta/parse/illegal-escape: a backslash followed by an unrecognised character fires (via V7d seam)", () => {
     // \x is not in the escape table (\\\", \\', \\\\, \\n, \\t, \\r, \\u{...}).
     const { fixture } = lex('"bad\\xescape"');
-    const d = deliveredCode(fixture, "loom/parse/illegal-escape");
-    expect(d, "loom/parse/illegal-escape").toBeDefined();
+    const d = deliveredCode(fixture, "theta/parse/illegal-escape");
+    expect(d, "theta/parse/illegal-escape").toBeDefined();
     // Message template `illegal escape sequence: \\<char>` from code-registry-parse.md.
     expect(d?.message).toBe("illegal escape sequence: \\x");
   });
 });
 
-// --- §"String literals" — loom/parse/invalid-unicode-escape --------------
+// --- §"String literals" — theta/parse/invalid-unicode-escape --------------
 
 describe("V1b-T — invalid Unicode escapes", () => {
-  it("loom/parse/invalid-unicode-escape: a \\u{...} value above U+10FFFF fires (via V7d seam)", () => {
+  it("theta/parse/invalid-unicode-escape: a \\u{...} value above U+10FFFF fires (via V7d seam)", () => {
     const { fixture } = lex('"\\u{110000}"');
-    const d = deliveredCode(fixture, "loom/parse/invalid-unicode-escape");
-    expect(d, "loom/parse/invalid-unicode-escape (out of range)").toBeDefined();
+    const d = deliveredCode(fixture, "theta/parse/invalid-unicode-escape");
+    expect(d, "theta/parse/invalid-unicode-escape (out of range)").toBeDefined();
     expect(d?.message).toBe(
       "invalid Unicode escape: value is not a Unicode scalar value",
     );
   });
 
-  it("loom/parse/invalid-unicode-escape: a \\u{...} value naming a UTF-16 surrogate fires (via V7d seam)", () => {
+  it("theta/parse/invalid-unicode-escape: a \\u{...} value naming a UTF-16 surrogate fires (via V7d seam)", () => {
     // U+D800 is the low end of the surrogate range D800–DFFF.
     const { fixture } = lex('"\\u{D800}"');
-    const d = deliveredCode(fixture, "loom/parse/invalid-unicode-escape");
-    expect(d, "loom/parse/invalid-unicode-escape (surrogate)").toBeDefined();
+    const d = deliveredCode(fixture, "theta/parse/invalid-unicode-escape");
+    expect(d, "theta/parse/invalid-unicode-escape (surrogate)").toBeDefined();
     expect(d?.message).toBe(
       "invalid Unicode escape: value is not a Unicode scalar value",
     );
@@ -153,19 +153,19 @@ describe("V1b-T — invalid Unicode escapes", () => {
 // --- §"Number literals" — range / type violations ------------------------
 
 describe("V1b-T — numeric range and type violations", () => {
-  it("loom/parse/integer-literal-out-of-range: an integer literal above 2^53-1 fires (via V7d seam)", () => {
+  it("theta/parse/integer-literal-out-of-range: an integer literal above 2^53-1 fires (via V7d seam)", () => {
     // 12345678901234567890 > 2^53 - 1 (9007199254740991), judged per-token.
     const { fixture } = lex("12345678901234567890");
-    const d = deliveredCode(fixture, "loom/parse/integer-literal-out-of-range");
-    expect(d, "loom/parse/integer-literal-out-of-range").toBeDefined();
+    const d = deliveredCode(fixture, "theta/parse/integer-literal-out-of-range");
+    expect(d, "theta/parse/integer-literal-out-of-range").toBeDefined();
     expect(d?.message).toBe("integer literal exceeds the safe-integer range");
   });
 
-  it("loom/parse/number-literal-not-finite: a number literal parsing to Infinity fires (via V7d seam)", () => {
+  it("theta/parse/number-literal-not-finite: a number literal parsing to Infinity fires (via V7d seam)", () => {
     // 1e400 overflows IEEE-754 double to Infinity.
     const { fixture } = lex("1e400");
-    const d = deliveredCode(fixture, "loom/parse/number-literal-not-finite");
-    expect(d, "loom/parse/number-literal-not-finite").toBeDefined();
+    const d = deliveredCode(fixture, "theta/parse/number-literal-not-finite");
+    expect(d, "theta/parse/number-literal-not-finite").toBeDefined();
     expect(d?.message).toBe("number literal is not a finite IEEE-754 double");
   });
 
@@ -179,20 +179,20 @@ describe("V1b-T — numeric range and type violations", () => {
     expect(int?.numericType).toBe("integer");
   });
 
-  it("loom/parse/integer-narrowing: a number value reaching an integer position fires; integer→number widening does not", () => {
+  it("theta/parse/integer-narrowing: a number value reaching an integer position fires; integer→number widening does not", () => {
     // number used where integer is expected — the reverse of the one-way
     // integer→number widening (lexical.md §"Number literals").
     const narrow = checkIntegerNarrowing("number", "integer", {
-      file: "test.loom",
+      file: "test.theta",
       range: span(),
     });
-    expect(narrow, "loom/parse/integer-narrowing").toBeDefined();
-    expect(narrow?.code).toBe("loom/parse/integer-narrowing");
+    expect(narrow, "theta/parse/integer-narrowing").toBeDefined();
+    expect(narrow?.code).toBe("theta/parse/integer-narrowing");
     expect(narrow?.message).toBe("cannot narrow number to integer");
 
     // integer widens implicitly to number — no diagnostic.
     const widen = checkIntegerNarrowing("integer", "number", {
-      file: "test.loom",
+      file: "test.theta",
       range: span(),
     });
     expect(widen, "integer→number widening is permitted").toBeUndefined();
@@ -201,7 +201,7 @@ describe("V1b-T — numeric range and type violations", () => {
 
 // --- §"Number literals" — reserved hex/octal/binary/underscore forms ------
 
-describe("V1b-T — reserved numeric forms (loom/parse/unsupported-feature)", () => {
+describe("V1b-T — reserved numeric forms (theta/parse/unsupported-feature)", () => {
   const reserved: ReadonlyArray<readonly [string, string]> = [
     ["hexadecimal", "0xFF"],
     ["octal", "0o17"],
@@ -209,10 +209,10 @@ describe("V1b-T — reserved numeric forms (loom/parse/unsupported-feature)", ()
     ["underscore separator", "1_000"],
   ];
   for (const [label, src] of reserved) {
-    it(`loom/parse/unsupported-feature: a ${label} numeric form (${src}) fires (via V7d seam)`, () => {
+    it(`theta/parse/unsupported-feature: a ${label} numeric form (${src}) fires (via V7d seam)`, () => {
       const { fixture } = lex(src);
-      const d = deliveredCode(fixture, "loom/parse/unsupported-feature");
-      expect(d, `loom/parse/unsupported-feature for ${src}`).toBeDefined();
+      const d = deliveredCode(fixture, "theta/parse/unsupported-feature");
+      expect(d, `theta/parse/unsupported-feature for ${src}`).toBeDefined();
     });
   }
 });
@@ -220,33 +220,33 @@ describe("V1b-T — reserved numeric forms (loom/parse/unsupported-feature)", ()
 // --- §"Path literals" / §"Extension matching" ----------------------------
 
 describe("V1b-T — path-literal validation", () => {
-  it("loom/parse/invalid-path-separator: a backslash path separator fires at the offending span", () => {
+  it("theta/parse/invalid-path-separator: a backslash path separator fires at the offending span", () => {
     const diags = validatePathLiteral(
-      { value: "lib\\mod.loom", range: span() },
+      { value: "lib\\mod.theta", range: span() },
       "invoke",
-      "test.loom",
+      "test.theta",
     );
-    const d = diags.find((x) => x.code === "loom/parse/invalid-path-separator");
-    expect(d, "loom/parse/invalid-path-separator").toBeDefined();
+    const d = diags.find((x) => x.code === "theta/parse/invalid-path-separator");
+    expect(d, "theta/parse/invalid-path-separator").toBeDefined();
     expect(d?.message).toBe(
       "invalid path separator: backslash in path literal",
     );
     expect(d?.range, "the diagnostic is located at the offending span").toBeDefined();
   });
 
-  it("loom/parse/invoke-non-loom-extension: a .LOOM invoke path is rejected byte-exact (cross-OS)", () => {
-    // .LOOM is not byte-exact lowercase .loom, so it is rejected identically on
+  it("theta/parse/invoke-non-theta-extension: a .THETA invoke path is rejected byte-exact (cross-OS)", () => {
+    // .THETA is not byte-exact lowercase .theta, so it is rejected identically on
     // case-sensitive and case-insensitive hosts (lexical.md §"Extension matching").
     const diags = validatePathLiteral(
-      { value: "./mod.LOOM", range: span() },
+      { value: "./mod.THETA", range: span() },
       "invoke",
-      "test.loom",
+      "test.theta",
     );
     const d = diags.find(
-      (x) => x.code === "loom/parse/invoke-non-loom-extension",
+      (x) => x.code === "theta/parse/invoke-non-theta-extension",
     );
-    expect(d, "loom/parse/invoke-non-loom-extension").toBeDefined();
-    expect(d?.message).toBe("invoke path './mod.LOOM' does not end in .loom");
+    expect(d, "theta/parse/invoke-non-theta-extension").toBeDefined();
+    expect(d?.message).toBe("invoke path './mod.THETA' does not end in .theta");
   });
 });
 

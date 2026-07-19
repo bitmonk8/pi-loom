@@ -115,7 +115,7 @@ function invokeInfra(
   return { kind: "invoke_infra", message: "infra failed", callee_path, cause };
 }
 
-/** A catch-all leaf: a `kind` outside the nine loom 1.0.0 tags (ERR-15 openness). */
+/** A catch-all leaf: a `kind` outside the nine theta 1.0.0 tags (ERR-15 openness). */
 function unlistedKind(kind: string, message: string): QueryError {
   // `kind` is typed `string` (ERR-15), so a `{ kind, message }` shape satisfies
   // the union structurally (matching `CancelledError`'s field set) with an
@@ -137,7 +137,7 @@ function hop(calleePath: string, parentPath: string, callSiteLine: number): Chai
 
 /** Render a leaf error at the boundary with no chain (the SLSH-3 non-cascade path). */
 function boundary(name: string, error: QueryError): string {
-  return renderTopLevelErrNote({ loomName: name, error, chain: [] });
+  return renderTopLevelErrNote({ thetaName: name, error, chain: [] });
 }
 
 // ===========================================================================
@@ -146,7 +146,7 @@ function boundary(name: string, error: QueryError): string {
 
 describe("V12b-T — SLSH-3 top-level Err at the slash-dispatch boundary", () => {
   it("SLSH-3: a top-level Err renders exactly one line (the sole subagent-mode surface)", () => {
-    // SLSH-3: for a directly-slash-invoked subagent-mode loom this single line
+    // SLSH-3: for a directly-slash-invoked subagent-mode theta this single line
     // is the ONLY user-facing surface for the failure — the renderer returns one
     // string, and it summarises the failure category, never dumping the full
     // QueryError JSON.
@@ -154,7 +154,7 @@ describe("V12b-T — SLSH-3 top-level Err at the slash-dispatch boundary", () =>
 
     // Primary assertion: the rendered summary is the SNK-c one-liner, not the
     // stub sentinel and not a multi-line JSON dump.
-    expect(note).toBe(`loom /demo returned Err: transport ${DASH} connection reset`);
+    expect(note).toBe(`theta /demo returned Err: transport ${DASH} connection reset`);
     // One line: no embedded newline (a single system-note line, SLSH-3).
     expect(note.split("\n")).toHaveLength(1);
     // Never the raw JSON dump: the literal QueryError fields are not spilled.
@@ -170,7 +170,7 @@ describe("V12b-T — SLSH-3 top-level Err at the slash-dispatch boundary", () =>
 describe("V12b-T — SLSH-4 per-kind note templates (SNK-a…SNK-k)", () => {
   it("SLSH-4 / SNK-a: validation (schema_validation) renders the respond-repair-attempts template verbatim", () => {
     const err = validation("schema_validation", 3);
-    const expected = "loom /demo returned Err: model failed schema after 3 respond-repair attempts";
+    const expected = "theta /demo returned Err: model failed schema after 3 respond-repair attempts";
     // Both the isolated per-kind renderer and the boundary surface render it.
     expect(renderLeafKindNote("demo", err)).toBe(expected);
     expect(boundary("demo", err)).toBe(expected);
@@ -178,66 +178,66 @@ describe("V12b-T — SLSH-4 per-kind note templates (SNK-a…SNK-k)", () => {
 
   it("SLSH-4 / SNK-b: validation (empty_template) renders the empty-template template verbatim", () => {
     const err = validation("empty_template", 0);
-    const expected = `loom /demo returned Err: rendered query template was empty ${DASH} no provider turn was issued`;
+    const expected = `theta /demo returned Err: rendered query template was empty ${DASH} no provider turn was issued`;
     expect(renderLeafKindNote("demo", err)).toBe(expected);
     expect(boundary("demo", err)).toBe(expected);
   });
 
   it("SLSH-4 / SNK-c: transport renders the transport template verbatim", () => {
     const err = transport("connection reset");
-    const expected = `loom /demo returned Err: transport ${DASH} connection reset`;
+    const expected = `theta /demo returned Err: transport ${DASH} connection reset`;
     expect(renderLeafKindNote("demo", err)).toBe(expected);
     expect(boundary("demo", err)).toBe(expected);
   });
 
   it("SLSH-4 / SNK-d: model_tool renders the tool-failed template verbatim", () => {
     const err = modelTool("search", "bad arg");
-    const expected = `loom /demo returned Err: tool search failed ${DASH} bad arg`;
+    const expected = `theta /demo returned Err: tool search failed ${DASH} bad arg`;
     expect(renderLeafKindNote("demo", err)).toBe(expected);
     expect(boundary("demo", err)).toBe(expected);
   });
 
   it("SLSH-4 / SNK-e: context_overflow renders the context-overflow template verbatim", () => {
     const err = contextOverflow();
-    const expected = "loom /demo returned Err: context overflow";
+    const expected = "theta /demo returned Err: context overflow";
     expect(renderLeafKindNote("demo", err)).toBe(expected);
     expect(boundary("demo", err)).toBe(expected);
   });
 
   it("SLSH-4 / SNK-f: cancelled renders the cancelled template verbatim", () => {
     const err = cancelled();
-    const expected = "loom /demo cancelled";
+    const expected = "theta /demo cancelled";
     expect(renderLeafKindNote("demo", err)).toBe(expected);
     expect(boundary("demo", err)).toBe(expected);
   });
 
   it("SLSH-4 / SNK-g: code_tool renders the code-tool-call-failed template verbatim (with cause)", () => {
     const err = codeTool("fmt", "execution", "threw");
-    const expected = `loom /demo returned Err: tool fmt call failed (execution) ${DASH} threw`;
+    const expected = `theta /demo returned Err: tool fmt call failed (execution) ${DASH} threw`;
     expect(renderLeafKindNote("demo", err)).toBe(expected);
     expect(boundary("demo", err)).toBe(expected);
   });
 
   it("SLSH-4 / SNK-h: tool_loop_exhausted renders the exhaustion template verbatim", () => {
     const err = toolLoopExhausted(5, "grep");
-    const expected = "loom /demo returned Err: tool-call loop exhausted after 5 rounds (last tool: grep)";
+    const expected = "theta /demo returned Err: tool-call loop exhausted after 5 rounds (last tool: grep)";
     expect(renderLeafKindNote("demo", err)).toBe(expected);
     expect(boundary("demo", err)).toBe(expected);
   });
 
   it("SLSH-4 / SNK-h: tool_loop_exhausted renders the literal 'respond' when last_tool_name is null", () => {
     // SLSH-4: <last_tool_name> is rendered as the literal string `respond` when
-    // last_tool_name is null (a defensive rendering with no loom 1.0-reachable
+    // last_tool_name is null (a defensive rendering with no theta 1.0-reachable
     // case, retained for forward compatibility).
     const err = toolLoopExhausted(2, null);
-    const expected = "loom /demo returned Err: tool-call loop exhausted after 2 rounds (last tool: respond)";
+    const expected = "theta /demo returned Err: tool-call loop exhausted after 2 rounds (last tool: respond)";
     expect(renderLeafKindNote("demo", err)).toBe(expected);
     expect(boundary("demo", err)).toBe(expected);
   });
 
   it("SLSH-4 / SNK-i: invoke_infra renders the invoke-failed template verbatim (with cause)", () => {
-    const err = invokeInfra("/abs/c.loom", "load_failure");
-    const expected = "loom /demo returned Err: invoke of /abs/c.loom failed (load_failure)";
+    const err = invokeInfra("/abs/c.theta", "load_failure");
+    const expected = "theta /demo returned Err: invoke of /abs/c.theta failed (load_failure)";
     expect(renderLeafKindNote("demo", err)).toBe(expected);
     expect(boundary("demo", err)).toBe(expected);
   });
@@ -247,13 +247,13 @@ describe("V12b-T — SLSH-4 per-kind note templates (SNK-a…SNK-k)", () => {
     // `<kind> — <message>`; the renderer is total — it produces defined output
     // and never throws for any well-formed QueryError with an unlisted tag.
     const err = unlistedKind("binder", "boom");
-    const expected = `loom /demo returned Err: binder ${DASH} boom`;
+    const expected = `theta /demo returned Err: binder ${DASH} boom`;
     expect(renderLeafKindNote("demo", err)).toBe(expected);
     expect(boundary("demo", err)).toBe(expected);
     // Totality over a second arbitrary unlisted kind — no throw, catch-all form.
     expect(() => boundary("demo", unlistedKind("future_variant", "x"))).not.toThrow();
     expect(boundary("demo", unlistedKind("future_variant", "x"))).toBe(
-      `loom /demo returned Err: future_variant ${DASH} x`,
+      `theta /demo returned Err: future_variant ${DASH} x`,
     );
   });
 });
@@ -264,27 +264,27 @@ describe("V12b-T — SLSH-4 per-kind note templates (SNK-a…SNK-k)", () => {
 
 describe("V12b-T — SLSH-5 chain attribution", () => {
   it("SLSH-5: a single invoke_callee hop appends one ` from <callee> invoked at <parent>:<line>` suffix (leaf kind drives the row)", () => {
-    // A `transport` failure inside child.loom cascaded out of parent.loom at the
+    // A `transport` failure inside child.theta cascaded out of parent.theta at the
     // `invoke(` token on line 42 (SLSH-5 worked example — single-hop).
-    const err = calleeWrap("/abs/path/to/child.loom", transport("connection reset"));
-    const chain = [hop("/abs/path/to/child.loom", "/abs/path/to/parent.loom", 42)];
-    expect(renderTopLevelErrNote({ loomName: "entry", error: err, chain })).toBe(
-      `loom /entry returned Err: transport ${DASH} connection reset` +
-        " from /abs/path/to/child.loom invoked at /abs/path/to/parent.loom:42",
+    const err = calleeWrap("/abs/path/to/child.theta", transport("connection reset"));
+    const chain = [hop("/abs/path/to/child.theta", "/abs/path/to/parent.theta", 42)];
+    expect(renderTopLevelErrNote({ thetaName: "entry", error: err, chain })).toBe(
+      `theta /entry returned Err: transport ${DASH} connection reset` +
+        " from /abs/path/to/child.theta invoked at /abs/path/to/parent.theta:42",
     );
   });
 
-  it("SLSH-5: a .loom-callable bare-identifier parent renders the identical suffix (line from the callee-name identifier)", () => {
-    // A `transport` failure inside a `.loom` callable registered as `summarise`
-    // (resolving to ./summariser.loom), called by `summarise(doc)` on line 18 of
-    // parent.loom (SLSH-5 worked example — .loom-callable parent). The suffix is
+  it("SLSH-5: a .theta-callable bare-identifier parent renders the identical suffix (line from the callee-name identifier)", () => {
+    // A `transport` failure inside a `.theta` callable registered as `summarise`
+    // (resolving to ./summariser.theta), called by `summarise(doc)` on line 18 of
+    // parent.theta (SLSH-5 worked example — .theta-callable parent). The suffix is
     // identical to the literal invoke(...) form; the provenance line is consumed
     // from V15g's record (the callee-name identifier's line), not derived here.
-    const err = calleeWrap("/abs/path/to/summariser.loom", transport("connection reset"));
-    const chain = [hop("/abs/path/to/summariser.loom", "/abs/path/to/parent.loom", 18)];
-    expect(renderTopLevelErrNote({ loomName: "entry", error: err, chain })).toBe(
-      `loom /entry returned Err: transport ${DASH} connection reset` +
-        " from /abs/path/to/summariser.loom invoked at /abs/path/to/parent.loom:18",
+    const err = calleeWrap("/abs/path/to/summariser.theta", transport("connection reset"));
+    const chain = [hop("/abs/path/to/summariser.theta", "/abs/path/to/parent.theta", 18)];
+    expect(renderTopLevelErrNote({ thetaName: "entry", error: err, chain })).toBe(
+      `theta /entry returned Err: transport ${DASH} connection reset` +
+        " from /abs/path/to/summariser.theta invoked at /abs/path/to/parent.theta:18",
     );
   });
 
@@ -294,21 +294,21 @@ describe("V12b-T — SLSH-5 chain attribution", () => {
     // (grandchild invoked at child:7) precedes the outer hop (child invoked at
     // parent:42).
     const leaf = modelTool("foo", "bad arg");
-    const err = calleeWrap("/abs/child.loom", calleeWrap("/abs/grandchild.loom", leaf));
+    const err = calleeWrap("/abs/child.theta", calleeWrap("/abs/grandchild.theta", leaf));
     // Chain in OUTER-to-inner encounter order (matching the nesting walk).
     const chain = [
-      hop("/abs/child.loom", "/abs/parent.loom", 42),
-      hop("/abs/grandchild.loom", "/abs/child.loom", 7),
+      hop("/abs/child.theta", "/abs/parent.theta", 42),
+      hop("/abs/grandchild.theta", "/abs/child.theta", 7),
     ];
-    const note = renderTopLevelErrNote({ loomName: "entry", error: err, chain });
+    const note = renderTopLevelErrNote({ thetaName: "entry", error: err, chain });
     expect(note).toBe(
-      `loom /entry returned Err: tool foo failed ${DASH} bad arg` +
-        " from /abs/grandchild.loom invoked at /abs/child.loom:7" +
-        " from /abs/child.loom invoked at /abs/parent.loom:42",
+      `theta /entry returned Err: tool foo failed ${DASH} bad arg` +
+        " from /abs/grandchild.theta invoked at /abs/child.theta:7" +
+        " from /abs/child.theta invoked at /abs/parent.theta:42",
     );
     // Leaf-first ordering: the innermost hop's suffix precedes the outer hop's.
-    expect(note.indexOf("invoked at /abs/child.loom:7")).toBeLessThan(
-      note.indexOf("invoked at /abs/parent.loom:42"),
+    expect(note.indexOf("invoked at /abs/child.theta:7")).toBeLessThan(
+      note.indexOf("invoked at /abs/parent.theta:42"),
     );
     // The leaf `kind` (model_tool), not the invoke_callee wrapper, drives the row.
     expect(note).toContain(`tool foo failed ${DASH} bad arg`);
@@ -319,11 +319,11 @@ describe("V12b-T — SLSH-5 chain attribution", () => {
     // SLSH-5 worked example — catch-all interaction: the catch-all row renders
     // first (`<kind> — <message>` with leaf values), then the chain suffix
     // appends in the same form.
-    const err = calleeWrap("/abs/c.loom", unlistedKind("binder", "boom"));
-    const chain = [hop("/abs/c.loom", "/abs/p.loom", 9)];
-    expect(renderTopLevelErrNote({ loomName: "entry", error: err, chain })).toBe(
-      `loom /entry returned Err: binder ${DASH} boom` +
-        " from /abs/c.loom invoked at /abs/p.loom:9",
+    const err = calleeWrap("/abs/c.theta", unlistedKind("binder", "boom"));
+    const chain = [hop("/abs/c.theta", "/abs/p.theta", 9)];
+    expect(renderTopLevelErrNote({ thetaName: "entry", error: err, chain })).toBe(
+      `theta /entry returned Err: binder ${DASH} boom` +
+        " from /abs/c.theta invoked at /abs/p.theta:9",
     );
   });
 });

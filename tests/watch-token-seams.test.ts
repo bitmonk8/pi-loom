@@ -103,7 +103,7 @@ describe("V8e-T — PiFileWatcher production adapter (PIC-14)", () => {
   let dir: string;
 
   beforeEach(() => {
-    dir = mkdtempSync(path.join(os.tmpdir(), "loom-watch-"));
+    dir = mkdtempSync(path.join(os.tmpdir(), "theta-watch-"));
   });
 
   afterEach(() => {
@@ -142,7 +142,7 @@ describe("V8e-T — PiFileWatcher production adapter (PIC-14)", () => {
 describe("V8e-T — PiTokenEstimator production adapter (PIC-16)", () => {
   it("PIC-16: estimate(message) delegates to the estimateTokens named import, returning its result unchanged", () => {
     const estimator = new PiTokenEstimator();
-    const message = userMsg("hello world from loom");
+    const message = userMsg("hello world from theta");
     // Delegation: the adapter returns exactly what estimateTokens returns for
     // the same message, redefining none of Pi's estimation algorithm.
     expect(estimator.estimate(message)).toBe(estimateTokens(message));

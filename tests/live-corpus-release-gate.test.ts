@@ -6,7 +6,7 @@ import { assembleLiveCorpus, warnOnlyFindings, CANARY_GAP_KINDS } from "../tools
 // @ts-expect-error — JS closing-gate module, no type declarations.
 import { parsePrefixTable, parseRetiredReqIds, parseCoverageMatrix, extractReqIds, extractCitingReqIds, parseFacetRows, deriveFacetPartition, citesTokenInline } from "../tools/closing-gate/index.js";
 
-// H6a — LIVE-CORPUS closing-gate activation (loom 1.0 release gate). These
+// H6a — LIVE-CORPUS closing-gate activation (theta 1.0 release gate). These
 // assertions flip H5a's closing gate from its seeded-fixture footing to its
 // HARD-FAIL live-corpus footing: they run H5a's identical gate machinery over
 // the LIVE spec corpus, the live test corpus, and the live coverage-matrix.md,

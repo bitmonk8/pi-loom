@@ -67,11 +67,11 @@ import {
 } from "../src/runtime/effectful-statement-host";
 import type {
   Expr,
-  LoomBody,
+  ThetaBody,
   QueryExpr,
   SchemaDecl,
-} from "../src/parser/loom-document";
-import type { LoomValue } from "../src/runtime/value";
+} from "../src/parser/theta-document";
+import type { ThetaValue } from "../src/runtime/value";
 import type { CodeSideToolCall, ToolLoweringSink } from "../src/runtime/tool-call-execute";
 import type { InvokeChild } from "../src/runtime/invoke-cancellation";
 import type { SourceRange } from "../src/diagnostics/diagnostic";
@@ -82,7 +82,7 @@ function span(): SourceRange {
   return { start: { line: 1, column: 1 }, end: { line: 1, column: 2 } };
 }
 
-const QUERY_SITE: CheckpointSite = { file: "report.loom", line: 3, column: 5 };
+const QUERY_SITE: CheckpointSite = { file: "report.theta", line: 3, column: 5 };
 
 function config(): QueryToolLoopConfig {
   // A typed query dispatches only the forced-respond terminator (no free-phase
@@ -91,7 +91,7 @@ function config(): QueryToolLoopConfig {
   return {
     maxRounds: 0,
     querySite: QUERY_SITE,
-    loomSlashName: "/report",
+    thetaSlashName: "/report",
     invocationId: "00000000-0000-4000-8000-000000000000",
     occurredAt: 1_700_000_000_000,
   };
@@ -126,7 +126,7 @@ class RespondingModel implements QueryModelDriver {
 // The lowered response schema `V5d`/`SUBS-1` produces for the declared shape
 // `{ status: "ok" | "degraded"; summary: string }`. This is the LOWERED JSON
 // Schema — the only form the model has seen during the original turn (per the
-// forced-respond conveyance) — not the source-Loom-type form.
+// forced-respond conveyance) — not the source-Theta-type form.
 const LOWERED: LoweredSchema = {
   type: "object",
   properties: {
@@ -236,7 +236,7 @@ class SpyValidation implements TypedQuerySchemaValidation {
 /** A root environment registering a top-level `schema Report` decl. */
 function envWithReportSchema(): LexicalEnvironment {
   const decl: SchemaDecl = { kind: "schema", name: "Report", range: span() };
-  const body: LoomBody = { statements: [decl], tail: null };
+  const body: ThetaBody = { statements: [decl], tail: null };
   return buildEnvironment({ body });
 }
 
@@ -433,8 +433,8 @@ describe("V13e-T — QRY-22 execution-path wiring (drives the path, not the unit
       checkpoint: NOOP_CHECKPOINT,
       signal: liveSignal(),
       sink,
-      file: "report.loom",
-      evaluatePure(_expr: Expr): LoomValue {
+      file: "report.theta",
+      evaluatePure(_expr: Expr): ThetaValue {
         return null;
       },
       resolveQuery(): QueryHostDispatch {

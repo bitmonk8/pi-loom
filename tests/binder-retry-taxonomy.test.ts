@@ -130,7 +130,7 @@ describe("V11f-T — binder per-class retry budget (ceilings-3-and-4.md §HC3)",
     // The surfaced system note is the malformed-envelope row (most recent), not
     // the transport row that fired earlier.
     expect(renderBinderSystemNote("code-review", { kind: "malformed" })).toBe(
-      "loom /code-review: argument binding failed \u2014 could not parse arguments",
+      "theta /code-review: argument binding failed \u2014 could not parse arguments",
     );
   });
 });
@@ -151,7 +151,7 @@ describe("V11f-T — the six failure-mode templates render verbatim (determinism
         message: "which repository?",
       }),
     ).toBe(
-      `loom /code-review: argument binding needs more info ${EM_DASH} which repository?`,
+      `theta /code-review: argument binding needs more info ${EM_DASH} which repository?`,
     );
     expect(
       renderBinderSystemNote("code-review", {
@@ -159,7 +159,7 @@ describe("V11f-T — the six failure-mode templates render verbatim (determinism
         message: "be more explicit",
       }),
     ).toBe(
-      `loom /code-review: ambiguous arguments ${EM_DASH} be more explicit`,
+      `theta /code-review: ambiguous arguments ${EM_DASH} be more explicit`,
     );
   });
 
@@ -174,18 +174,18 @@ describe("V11f-T — the six failure-mode templates render verbatim (determinism
         message: "503 upstream unavailable",
       }),
     ).toBe(
-      "loom /code-review: argument binder unavailable (anthropic-messages: 503 upstream unavailable)",
+      "theta /code-review: argument binder unavailable (anthropic-messages: 503 upstream unavailable)",
     );
   });
 
   it("renders the malformed-envelope and cancelled rows (fixed suffixes)", () => {
     // ContextOverflow folds into the transport class, so it has no row of its
-    // own; the malformed and cancelled rows carry fixed, loom-controlled text.
+    // own; the malformed and cancelled rows carry fixed, theta-controlled text.
     expect(renderBinderSystemNote("code-review", { kind: "malformed" })).toBe(
-      `loom /code-review: argument binding failed ${EM_DASH} could not parse arguments`,
+      `theta /code-review: argument binding failed ${EM_DASH} could not parse arguments`,
     );
     expect(renderBinderSystemNote("code-review", { kind: "cancelled" })).toBe(
-      "loom /code-review: argument binding cancelled",
+      "theta /code-review: argument binding cancelled",
     );
   });
 
@@ -205,7 +205,7 @@ describe("V11f-T — the six failure-mode templates render verbatim (determinism
     expect(
       renderBinderSystemNote("code-review", { kind: "ajv_args", ajvSummary: summary }),
     ).toBe(
-      `loom /code-review: argument binding produced invalid args ${EM_DASH} ${summary}`,
+      `theta /code-review: argument binding produced invalid args ${EM_DASH} ${summary}`,
     );
     // An empty issue list renders the empty string (no separator, no residue) —
     // the property the depth-walk sub-case below relies on.
@@ -266,7 +266,7 @@ describe("V11f-T — depth-walk fast-fail at the params boundary (CIO-1 cross-ce
         ajvSummary: classified.ajvSummary,
       }),
     ).toBe(
-      "loom /code-review: argument binding produced invalid args \u2014 /a/b/c/d/e JSON document depth exceeds 5",
+      "theta /code-review: argument binding produced invalid args \u2014 /a/b/c/d/e JSON document depth exceeds 5",
     );
   });
 });

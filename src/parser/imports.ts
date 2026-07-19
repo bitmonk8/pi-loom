@@ -1,7 +1,7 @@
-// V15c / V15c-T — `.warp` import resolution and diagnostics.
+// V15c / V15c-T — `.thetalib` import resolution and diagnostics.
 //
-// This module owns the `.warp` import path: the permitted top-level forms
-// (`import`/`export`/`schema`/`enum`/`fn`), relative `.warp`-only resolution
+// This module owns the `.thetalib` import path: the permitted top-level forms
+// (`import`/`export`/`schema`/`enum`/`fn`), relative `.thetalib`-only resolution
 // through the named `Resolver` seam, and the import-cycle / unknown-symbol /
 // name-collision / unresolvable-path diagnostics (per imports.md, incl. the
 // IMP-1 resolver failure contract).
@@ -28,20 +28,20 @@ export interface ImportSite {
   readonly range: SourceRange;
 }
 
-// ── loom/parse/warp-top-level-statement ─────────────────────────────────────
+// ── theta/parse/thetalib-top-level-statement ─────────────────────────────────────
 
-export const WARP_TOP_LEVEL_STATEMENT_CODE = "loom/parse/warp-top-level-statement";
-export const WARP_TOP_LEVEL_STATEMENT_MESSAGE =
-  "top-level statement not permitted in .warp file; move into a fn body";
-export const WARP_TOP_LEVEL_STATEMENT_HINT = "Move the code into a fn body.";
+export const THETALIB_TOP_LEVEL_STATEMENT_CODE = "theta/parse/thetalib-top-level-statement";
+export const THETALIB_TOP_LEVEL_STATEMENT_MESSAGE =
+  "top-level statement not permitted in .thetalib file; move into a fn body";
+export const THETALIB_TOP_LEVEL_STATEMENT_HINT = "Move the code into a fn body.";
 
 /**
- * A `.warp` top-level form. The permitted forms are `import`, `export`,
+ * A `.thetalib` top-level form. The permitted forms are `import`, `export`,
  * `schema`, `enum`, and `fn`; any other top-level form — a bare statement, a
- * `let` binding, or a query — is `loom/parse/warp-top-level-statement`
- * (imports.md §"`.warp` file rules").
+ * `let` binding, or a query — is `theta/parse/thetalib-top-level-statement`
+ * (imports.md §"`.thetalib` file rules").
  */
-export type WarpTopLevelForm =
+export type ThetaLibTopLevelForm =
   | "import"
   | "export"
   | "schema"
@@ -51,8 +51,8 @@ export type WarpTopLevelForm =
   | "statement"
   | "query";
 
-/** The five forms a `.warp` top level may contain (imports.md §"`.warp` file rules"). */
-const PERMITTED_WARP_TOP_LEVEL_FORMS: ReadonlySet<WarpTopLevelForm> = new Set([
+/** The five forms a `.thetalib` top level may contain (imports.md §"`.thetalib` file rules"). */
+const PERMITTED_THETALIB_TOP_LEVEL_FORMS: ReadonlySet<ThetaLibTopLevelForm> = new Set([
   "import",
   "export",
   "schema",
@@ -61,100 +61,100 @@ const PERMITTED_WARP_TOP_LEVEL_FORMS: ReadonlySet<WarpTopLevelForm> = new Set([
 ]);
 
 /**
- * Check a `.warp` file's top-level form, returning
- * `loom/parse/warp-top-level-statement` for a non-permitted form and
+ * Check a `.thetalib` file's top-level form, returning
+ * `theta/parse/thetalib-top-level-statement` for a non-permitted form and
  * `undefined` for a permitted one.
  *
  * V15c-T stubs this inert (always `undefined`), so the non-permitted-form test
  * reds on its own primary assertion. The paired V15c leaf fills it in.
  */
-export function checkWarpTopLevelForm(
-  form: WarpTopLevelForm,
+export function checkThetaLibTopLevelForm(
+  form: ThetaLibTopLevelForm,
   site: ImportSite,
 ): Diagnostic | undefined {
-  if (PERMITTED_WARP_TOP_LEVEL_FORMS.has(form)) {
+  if (PERMITTED_THETALIB_TOP_LEVEL_FORMS.has(form)) {
     return undefined;
   }
   return {
     severity: "error",
-    code: WARP_TOP_LEVEL_STATEMENT_CODE,
+    code: THETALIB_TOP_LEVEL_STATEMENT_CODE,
     file: site.file,
     range: site.range,
-    message: WARP_TOP_LEVEL_STATEMENT_MESSAGE,
-    hint: WARP_TOP_LEVEL_STATEMENT_HINT,
+    message: THETALIB_TOP_LEVEL_STATEMENT_MESSAGE,
+    hint: THETALIB_TOP_LEVEL_STATEMENT_HINT,
   };
 }
 
-// ── loom/parse/import-non-warp-extension ────────────────────────────────────
+// ── theta/parse/import-non-thetalib-extension ────────────────────────────────────
 
-export const IMPORT_NON_WARP_EXTENSION_CODE = "loom/parse/import-non-warp-extension";
-export const IMPORT_NON_WARP_EXTENSION_HINT =
-  "import paths must end in `.warp`; `.loom` files are not importable — use `invoke(...)` instead.";
+export const IMPORT_NON_THETALIB_EXTENSION_CODE = "theta/parse/import-non-thetalib-extension";
+export const IMPORT_NON_THETALIB_EXTENSION_HINT =
+  "import paths must end in `.thetalib`; `.theta` files are not importable — use `invoke(...)` instead.";
 
-/** `loom/parse/import-non-warp-extension` message (`<path>` as written). */
-export function importNonWarpExtensionMessage(path: string): string {
-  return `import path '${path}' does not end in .warp`;
+/** `theta/parse/import-non-thetalib-extension` message (`<path>` as written). */
+export function importNonThetaLibExtensionMessage(path: string): string {
+  return `import path '${path}' does not end in .thetalib`;
 }
 
 /**
  * Check an `import` path literal's extension (`parse` phase), returning
- * `loom/parse/import-non-warp-extension` when the literal does not end in a
- * byte-exact lowercase `.warp` — including a `.loom`-suffixed path or a
- * non-lowercase `.WARP` / `.Warp` variant, which reject on every host
+ * `theta/parse/import-non-thetalib-extension` when the literal does not end in a
+ * byte-exact lowercase `.thetalib` — including a `.theta`-suffixed path or a
+ * non-lowercase `.THETALIB` / `.ThetaLib` variant, which reject on every host
  * regardless of the filesystem's case-equivalence model (imports.md §"Path
  * resolution"; lexical.md §"Extension matching"). Returns `undefined` for a
- * byte-exact `.warp` path.
+ * byte-exact `.thetalib` path.
  *
- * V15c-T stubs this inert (always `undefined`), so both the `.loom` and the
- * `.WARP` variant tests red on their own primary assertions. The paired V15c
+ * V15c-T stubs this inert (always `undefined`), so both the `.theta` and the
+ * `.THETALIB` variant tests red on their own primary assertions. The paired V15c
  * leaf fills it in.
  */
 export function checkImportExtension(
   pathLiteral: string,
   site: ImportSite,
 ): Diagnostic | undefined {
-  // Byte-exact lowercase `.warp`: `.WARP` / `.Warp` / `.loom` all reject, on
+  // Byte-exact lowercase `.thetalib`: `.THETALIB` / `.ThetaLib` / `.theta` all reject, on
   // every host regardless of the filesystem's case-equivalence model.
-  if (pathLiteral.endsWith(".warp")) {
+  if (pathLiteral.endsWith(".thetalib")) {
     return undefined;
   }
   return {
     severity: "error",
-    code: IMPORT_NON_WARP_EXTENSION_CODE,
+    code: IMPORT_NON_THETALIB_EXTENSION_CODE,
     file: site.file,
     range: site.range,
-    message: importNonWarpExtensionMessage(pathLiteral),
-    hint: IMPORT_NON_WARP_EXTENSION_HINT,
+    message: importNonThetaLibExtensionMessage(pathLiteral),
+    hint: IMPORT_NON_THETALIB_EXTENSION_HINT,
   };
 }
 
-// ── loom/load/unresolvable-warp-path + the Resolver seam (IMP-1) ─────────────
+// ── theta/load/unresolvable-thetalib-path + the Resolver seam (IMP-1) ─────────────
 
-export const UNRESOLVABLE_WARP_PATH_CODE = "loom/load/unresolvable-warp-path";
-export const UNRESOLVABLE_WARP_PATH_HINT =
-  "Use a relative `./` or `../` path ending in `.warp` that points at an existing, readable file.";
+export const UNRESOLVABLE_THETALIB_PATH_CODE = "theta/load/unresolvable-thetalib-path";
+export const UNRESOLVABLE_THETALIB_PATH_HINT =
+  "Use a relative `./` or `../` path ending in `.thetalib` that points at an existing, readable file.";
 
-/** `loom/load/unresolvable-warp-path` message (`<path>` as written). */
-export function unresolvableWarpPathMessage(path: string): string {
-  return `cannot resolve .warp import '${path}'`;
+/** `theta/load/unresolvable-thetalib-path` message (`<path>` as written). */
+export function unresolvableThetaLibPathMessage(path: string): string {
+  return `cannot resolve .thetalib import '${path}'`;
 }
 
 /**
  * The exception a `Resolver` throws to signal an unresolvable spec (IMP-1). The
  * load pipeline treats a throw from `resolve` as a resolution failure.
  */
-export class UnresolvableWarpPathError extends Error {
+export class UnresolvableThetaLibPathError extends Error {
   readonly spec: string;
   constructor(spec: string) {
-    super(unresolvableWarpPathMessage(spec));
-    this.name = "UnresolvableWarpPathError";
+    super(unresolvableThetaLibPathMessage(spec));
+    this.name = "UnresolvableThetaLibPathError";
     this.spec = spec;
   }
 }
 
 /**
- * Import-path resolution seam (imports.md §"Resolver interface"). loom 1.0.0
- * ships exactly one implementation (`RelativeWarpResolver`); the seam is what
+ * Import-path resolution seam (imports.md §"Resolver interface"). theta 1.0.0
+ * ships exactly one implementation (`RelativeThetaLibResolver`); the seam is what
  * lets the deferred package-style / project-rooted extensions land by
  * registering additional implementations rather than rewriting import sites.
  */
@@ -167,10 +167,10 @@ export interface Resolver {
  * A byte-for-byte directory probe the relative resolver enumerates to satisfy
  * the byte-exact final-segment match rule (IMP-1). Enumerating the resolved
  * parent directory once is what lets the resolver reject a case-variant entry
- * (`Personas.warp` for a `personas.warp` literal) on a case-insensitive host,
+ * (`Personas.thetalib` for a `personas.thetalib` literal) on a case-insensitive host,
  * which a single `exists` / `readText` could not.
  */
-export interface WarpDirectoryProbe {
+export interface ThetaLibDirectoryProbe {
   /** Entry names in `dir`, byte-for-byte as `FileSystem.readdir` returns them; throws if `dir` is unreadable. */
   entries(dir: string): readonly string[];
   /** Whether the byte-exact entry `dir`/`name` is readable (`EACCES` / `EPERM` / broken symlink → `false`). */
@@ -178,37 +178,37 @@ export interface WarpDirectoryProbe {
 }
 
 /**
- * The single loom 1.0.0 `Resolver`: a relative-path resolver that joins `spec`
- * against the directory of `fromFile` and requires the `.warp` extension.
- * Non-relative specs (`@scope/pkg`, `/looms/...`), a missing byte-exact
+ * The single theta 1.0.0 `Resolver`: a relative-path resolver that joins `spec`
+ * against the directory of `fromFile` and requires the `.thetalib` extension.
+ * Non-relative specs (`@scope/pkg`, `/theta/...`), a missing byte-exact
  * final-segment directory entry, and a byte-exact-but-unreadable entry are all
- * unresolvable and throw `UnresolvableWarpPathError` (IMP-1).
+ * unresolvable and throw `UnresolvableThetaLibPathError` (IMP-1).
  *
  * V15c-T stubs `resolve` inert (returns the empty string), so the IMP-1 throw
  * test reds (no throw is raised) and the success-path test reds (`""` is not
  * the resolved path). The paired V15c leaf fills it in.
  */
-export class RelativeWarpResolver implements Resolver {
-  constructor(private readonly probe: WarpDirectoryProbe) {}
+export class RelativeThetaLibResolver implements Resolver {
+  constructor(private readonly probe: ThetaLibDirectoryProbe) {}
 
   resolve(spec: string, fromFile: string): string {
-    // Only relative `./` / `../` specs are in scope for loom 1.0; a
-    // package-style (`@scope/pkg`) or project-rooted (`/looms/...`) spec is
+    // Only relative `./` / `../` specs are in scope for theta 1.0; a
+    // package-style (`@scope/pkg`) or project-rooted (`/theta/...`) spec is
     // unresolvable and signalled by throwing (IMP-1).
     if (!spec.startsWith("./") && !spec.startsWith("../")) {
-      throw new UnresolvableWarpPathError(spec);
+      throw new UnresolvableThetaLibPathError(spec);
     }
-    // The relative resolver requires the `.warp` extension (byte-exact
-    // lowercase); a non-`.warp` spec is unresolvable through this resolver.
-    if (!spec.endsWith(".warp")) {
-      throw new UnresolvableWarpPathError(spec);
+    // The relative resolver requires the `.thetalib` extension (byte-exact
+    // lowercase); a non-`.thetalib` spec is unresolvable through this resolver.
+    if (!spec.endsWith(".thetalib")) {
+      throw new UnresolvableThetaLibPathError(spec);
     }
 
     // Join the spec against the importing file's directory, then match the
     // final segment byte-for-byte against the resolved parent directory's
     // entries — enumerating once via the probe rather than a single
-    // `exists`/`readText`, so a case-variant entry (`Personas.warp` for a
-    // `personas.warp` literal) rejects on a case-insensitive host (IMP-1).
+    // `exists`/`readText`, so a case-variant entry (`Personas.thetalib` for a
+    // `personas.thetalib` literal) rejects on a case-insensitive host (IMP-1).
     const resolved = posix.join(posix.dirname(fromFile), spec);
     const parent = posix.dirname(resolved);
     const finalSegment = posix.basename(resolved);
@@ -217,18 +217,18 @@ export class RelativeWarpResolver implements Resolver {
     // throw is the resolution-failure signal, so it propagates unchanged.
     const names = this.probe.entries(parent);
     if (!names.includes(finalSegment)) {
-      throw new UnresolvableWarpPathError(spec);
+      throw new UnresolvableThetaLibPathError(spec);
     }
     if (!this.probe.entryReadable(parent, finalSegment)) {
-      throw new UnresolvableWarpPathError(spec);
+      throw new UnresolvableThetaLibPathError(spec);
     }
     return resolved;
   }
 }
 
 /** The outcome of running an `import` spec through the load pipeline (IMP-1). */
-export interface WarpImportLoad {
-  /** The resolved `.warp` path — present only when resolution succeeded. */
+export interface ThetaLibImportLoad {
+  /** The resolved `.thetalib` path — present only when resolution succeeded. */
   readonly resolvedPath?: string;
   /** Whether the importing file is registered (a resolution failure does not register it). */
   readonly registered: boolean;
@@ -237,8 +237,8 @@ export interface WarpImportLoad {
 
 /**
  * Run an `import` spec through the load pipeline (IMP-1): call
- * `resolver.resolve` and, on an `UnresolvableWarpPathError` throw, emit
- * `loom/load/unresolvable-warp-path` against the importing file and do NOT
+ * `resolver.resolve` and, on an `UnresolvableThetaLibPathError` throw, emit
+ * `theta/load/unresolvable-thetalib-path` against the importing file and do NOT
  * register it; on success, register the file and carry the resolved path.
  *
  * V15c-T stubs this inert — it reports the file as registered with no resolved
@@ -246,18 +246,18 @@ export interface WarpImportLoad {
  * `registered` not `false`) and the success test reds (no `resolvedPath`). The
  * paired V15c leaf fills it in.
  */
-export function loadWarpImport(
+export function loadThetaLibImport(
   resolver: Resolver,
   spec: string,
   fromFile: string,
   site: ImportSite,
-): WarpImportLoad {
+): ThetaLibImportLoad {
   let resolvedPath: string;
   try {
     resolvedPath = resolver.resolve(spec, fromFile);
-  } catch (resolveError: unknown) { // allow-broad-catch: loom/load/unresolvable-warp-path — spec_topics/imports.md (IMP-1: the load pipeline treats *any* throw from `resolve` as a resolution failure)
+  } catch (resolveError: unknown) { // allow-broad-catch: theta/load/unresolvable-thetalib-path — spec_topics/imports.md (IMP-1: the load pipeline treats *any* throw from `resolve` as a resolution failure)
     // IMP-1 mandates treating a throw from `resolve` as a resolution failure —
-    // any throw, not only `UnresolvableWarpPathError` — so this does not
+    // any throw, not only `UnresolvableThetaLibPathError` — so this does not
     // rethrow. The diagnostic renders the spec path as written (`<path>`), not
     // the thrown error's message.
     void resolveError;
@@ -266,11 +266,11 @@ export function loadWarpImport(
       diagnostics: [
         {
           severity: "error",
-          code: UNRESOLVABLE_WARP_PATH_CODE,
+          code: UNRESOLVABLE_THETALIB_PATH_CODE,
           file: site.file,
           range: site.range,
-          message: unresolvableWarpPathMessage(spec),
-          hint: UNRESOLVABLE_WARP_PATH_HINT,
+          message: unresolvableThetaLibPathMessage(spec),
+          hint: UNRESOLVABLE_THETALIB_PATH_HINT,
         },
       ],
     };
@@ -278,25 +278,25 @@ export function loadWarpImport(
   return { resolvedPath, registered: true, diagnostics: [] };
 }
 
-// ── loom/parse/import-unknown-symbol + loom/parse/import-name-collision ──────
+// ── theta/parse/import-unknown-symbol + theta/parse/import-name-collision ──────
 
-export const IMPORT_UNKNOWN_SYMBOL_CODE = "loom/parse/import-unknown-symbol";
-export const IMPORT_NAME_COLLISION_CODE = "loom/parse/import-name-collision";
+export const IMPORT_UNKNOWN_SYMBOL_CODE = "theta/parse/import-unknown-symbol";
+export const IMPORT_NAME_COLLISION_CODE = "theta/parse/import-name-collision";
 export const IMPORT_NAME_COLLISION_HINT = "Resolve with `as`-aliasing.";
 
-/** `loom/parse/import-unknown-symbol` message (`<name>` is the source symbol, not the alias). */
+/** `theta/parse/import-unknown-symbol` message (`<name>` is the source symbol, not the alias). */
 export function importUnknownSymbolMessage(name: string, path: string): string {
   return `imported symbol '${name}' is not declared or re-exported by '${path}'`;
 }
 
-/** `loom/parse/import-name-collision` message (`<name>` as written). */
+/** `theta/parse/import-name-collision` message (`<name>` as written). */
 export function importNameCollisionMessage(name: string): string {
   return `imported symbol '${name}' collides with another import or top-level declaration`;
 }
 
 /** A single `import { … }` / `export { … } from` specifier. */
 export interface ImportSpecifier {
-  /** The symbol as named in the resolved `.warp` file (the source symbol). */
+  /** The symbol as named in the resolved `.thetalib` file (the source symbol). */
   readonly source: string;
   /** The local binding — the `as` alias, or the source name when unaliased. */
   readonly local: string;
@@ -309,7 +309,7 @@ export interface ImportCheckInput {
   /** The import path literal as written (rendered as `<path>` in the unknown-symbol message). */
   readonly specPath: string;
   readonly specifiers: readonly ImportSpecifier[];
-  /** Top-level declarations + transitive `export … from` re-exports of the resolved `.warp` file. */
+  /** Top-level declarations + transitive `export … from` re-exports of the resolved `.thetalib` file. */
   readonly resolvedExports: readonly string[];
   /** Top-level declaration names in the importing file (for the same-file collision arm). */
   readonly localTopLevelNames: readonly string[];
@@ -318,7 +318,7 @@ export interface ImportCheckInput {
 /**
  * Unknown-symbol arm (`parse` phase): a specifier whose SOURCE symbol is
  * neither a top-level declaration nor a transitive re-export of the resolved
- * `.warp` file is `loom/parse/import-unknown-symbol`. The message names the
+ * `.thetalib` file is `theta/parse/import-unknown-symbol`. The message names the
  * source symbol, not the `as` alias. No fast-fail — every offending specifier is
  * collected (multi-error batching rule). Scoped to a single `import … from`
  * decl because the export set is per-resolved-file.
@@ -347,9 +347,9 @@ export function checkImportUnknownSymbols(
 
 /**
  * Name-collision arm (`parse` phase): a LOCAL binding shared by two imports —
- * whether from two different `.warp` files or the same file imported twice — or
+ * whether from two different `.thetalib` files or the same file imported twice — or
  * colliding with a same-file top-level declaration is
- * `loom/parse/import-name-collision` (imports.md §"Name collisions": no implicit
+ * `theta/parse/import-name-collision` (imports.md §"Name collisions": no implicit
  * shadowing; resolve with `as`-aliasing). The message names the local name; each
  * colliding name is reported once. `specifiers` is the union of EVERY importing
  * `import … from` decl's specifiers for the file, so an import-vs-import collision
@@ -386,10 +386,10 @@ export function checkImportNameCollisions(
 
 /**
  * Check an importing file's specifiers (`parse` phase), returning
- * `loom/parse/import-unknown-symbol` for a specifier whose source symbol is
+ * `theta/parse/import-unknown-symbol` for a specifier whose source symbol is
  * neither a top-level declaration nor a transitive re-export of the resolved
  * file (the message names the source symbol, not the alias), and
- * `loom/parse/import-name-collision` for a local binding shared by two imports
+ * `theta/parse/import-name-collision` for a local binding shared by two imports
  * or colliding with a top-level declaration in the same file. Participates in
  * the multi-error batching rule (returns every diagnostic, no fast-fail).
  *
@@ -417,31 +417,31 @@ export function checkImportedSymbols(
   ];
 }
 
-// ── loom/load/import-cycle ──────────────────────────────────────────────────
+// ── theta/load/import-cycle ──────────────────────────────────────────────────
 
-export const IMPORT_CYCLE_CODE = "loom/load/import-cycle";
+export const IMPORT_CYCLE_CODE = "theta/load/import-cycle";
 
 /**
- * `loom/load/import-cycle` message. `stems` is the cycle path as file-path
+ * `theta/load/import-cycle` message. `stems` is the cycle path as file-path
  * stems (the first stem repeated at the end); rendered as
- * `import cycle: a.warp → b.warp → a.warp` (each stem suffixed `.warp`, joined
+ * `import cycle: a.thetalib → b.thetalib → a.thetalib` (each stem suffixed `.thetalib`, joined
  * by ` → `), per diagnostics/placeholder-rendering-b.md.
  */
 export function importCycleMessage(stems: readonly string[]): string {
-  return `import cycle: ${stems.map((s) => `${s}.warp`).join(" → ")}`;
+  return `import cycle: ${stems.map((s) => `${s}.thetalib`).join(" → ")}`;
 }
 
 /**
- * The static `.warp` import graph: `edges` maps each file stem to the stems it
+ * The static `.thetalib` import graph: `edges` maps each file stem to the stems it
  * imports.
  */
-export interface WarpImportGraph {
+export interface ThetaLibImportGraph {
   readonly edges: ReadonlyMap<string, readonly string[]>;
 }
 
 /**
- * Walk the static `.warp` import graph from `entry`, returning
- * `loom/load/import-cycle` with the cycle path printed when a cycle is
+ * Walk the static `.thetalib` import graph from `entry`, returning
+ * `theta/load/import-cycle` with the cycle path printed when a cycle is
  * discovered, and `undefined` for an acyclic graph (imports.md §"Cycles").
  *
  * V15c-T stubs this inert (always `undefined`), so the cycle test reds on its
@@ -449,7 +449,7 @@ export interface WarpImportGraph {
  */
 export function detectImportCycle(
   entry: string,
-  graph: WarpImportGraph,
+  graph: ThetaLibImportGraph,
   site: ImportSite,
 ): Diagnostic | undefined {
   const stack: string[] = [];
@@ -498,7 +498,7 @@ export function detectImportCycle(
 
 // ── V15i / V15i-T — export visibility and re-exports ─────────────────────────
 //
-// The `.warp` export-visibility semantics layered on V15c's resolution
+// The `.thetalib` export-visibility semantics layered on V15c's resolution
 // (imports.md §"Visibility" + §"Re-exports", coverage-matrix code-keyed-area
 // token `cka-48`): every top-level `schema`/`enum`/`fn` is implicitly exported
 // (no `export` keyword, no privacy modifier); an aliased `export … from` re-export
@@ -507,52 +507,52 @@ export function detectImportCycle(
 //
 // V15i-T (tests-task) declares these two seams and stubs each inert-but-wrong so
 // the failing visibility tests compile and red on their own primary assertions.
-// `computeWarpExports` returns the WRONG set — the plain-import locals, which
+// `computeThetaLibExports` returns the WRONG set — the plain-import locals, which
 // are precisely the names that are NOT downstream-visible — and omits the
 // auto-exported declarations and the `export … from` re-exports that ARE, so
 // every positive/negative visibility assertion reds for the intended reason
-// (implementation absent). `warpLocalBindings` symmetrically returns the
+// (implementation absent). `thetalibLocalBindings` symmetrically returns the
 // re-export SOURCE names, which create no local binding, so the "no local
 // binding for the re-exported symbol" assertion reds. The paired V15i leaf
 // fills both in.
 
-/** A top-level `.warp` declaration kind — each is implicitly exported (imports.md §Visibility). */
-export type WarpDeclarationKind = "schema" | "enum" | "fn";
+/** A top-level `.thetalib` declaration kind — each is implicitly exported (imports.md §Visibility). */
+export type ThetaLibDeclarationKind = "schema" | "enum" | "fn";
 
-/** A top-level `schema`/`enum`/`fn` declaration in a `.warp` file (auto-exported). */
-export interface WarpDeclaration {
-  readonly kind: WarpDeclarationKind;
+/** A top-level `schema`/`enum`/`fn` declaration in a `.thetalib` file (auto-exported). */
+export interface ThetaLibDeclaration {
+  readonly kind: ThetaLibDeclarationKind;
   readonly name: string;
 }
 
 /**
- * An `export { A as B } from "./x.warp"` re-export form. Visible downstream as
+ * An `export { A as B } from "./x.thetalib"` re-export form. Visible downstream as
  * `exported` (the `as` alias, or `source` when unaliased) and creating NO local
  * binding for `source` in the re-exporting file (imports.md §Re-exports).
  */
 export interface ReExportSpecifier {
-  /** The symbol as named in the re-exported-from `.warp` file (the source symbol). */
+  /** The symbol as named in the re-exported-from `.thetalib` file (the source symbol). */
   readonly source: string;
   /** The downstream-visible name — the `as` alias, or `source` when unaliased. */
   readonly exported: string;
-  /** The `.warp` path being re-exported from (as written). */
+  /** The `.thetalib` path being re-exported from (as written). */
   readonly fromPath: string;
   readonly range: SourceRange;
 }
 
 /**
- * The top-level forms of one `.warp` module that bear on downstream visibility:
+ * The top-level forms of one `.thetalib` module that bear on downstream visibility:
  * its auto-exported declarations, its `export … from` re-exports, and its plain
  * `import` specifiers (which bind locally but are NOT re-exported).
  */
-export interface WarpModuleForms {
-  readonly declarations: readonly WarpDeclaration[];
+export interface ThetaLibModuleForms {
+  readonly declarations: readonly ThetaLibDeclaration[];
   readonly reExports: readonly ReExportSpecifier[];
   readonly plainImports: readonly ImportSpecifier[];
 }
 
 /**
- * Compute the set of names a `.warp` module makes visible to a downstream
+ * Compute the set of names a `.thetalib` module makes visible to a downstream
  * importer (imports.md §Visibility + §Re-exports): every top-level declaration
  * name (auto-exported) plus every `export … from` re-export's downstream name
  * (`exported`); a plain `import` local is NOT included. This is exactly the
@@ -564,7 +564,7 @@ export interface WarpModuleForms {
  * name (`exported`); a plain `import` local is excluded — a plain import is not
  * re-exported downstream (imports.md §Re-exports, negative half).
  */
-export function computeWarpExports(forms: WarpModuleForms): readonly string[] {
+export function computeThetaLibExports(forms: ThetaLibModuleForms): readonly string[] {
   return [
     ...forms.declarations.map((declaration) => declaration.name),
     ...forms.reExports.map((reExport) => reExport.exported),
@@ -572,7 +572,7 @@ export function computeWarpExports(forms: WarpModuleForms): readonly string[] {
 }
 
 /**
- * The names a `.warp` module binds locally: its top-level declarations plus its
+ * The names a `.thetalib` module binds locally: its top-level declarations plus its
  * plain `import` locals. An `export … from` re-export creates NO local binding
  * for its source symbol, so re-export sources are excluded (imports.md
  * §Re-exports — "a dedicated form that creates no local binding").
@@ -582,7 +582,7 @@ export function computeWarpExports(forms: WarpModuleForms): readonly string[] {
  * local binding for its source symbol (imports.md §Re-exports — "a dedicated
  * form that creates no local binding"), so re-export sources are excluded.
  */
-export function warpLocalBindings(forms: WarpModuleForms): readonly string[] {
+export function thetalibLocalBindings(forms: ThetaLibModuleForms): readonly string[] {
   return [
     ...forms.declarations.map((declaration) => declaration.name),
     ...forms.plainImports.map((specifier) => specifier.local),

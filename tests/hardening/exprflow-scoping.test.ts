@@ -14,7 +14,7 @@ describe("exprflow — escapes, compound assignment, bindings", () => {
     const probe = await runProbe({
       provider,
       files: [
-        L("misc.loom", [
+        L("misc.theta", [
           "let esc = '\\u{48}\\u{49}'",       // "HI"
           "let tabs = 'x\\ty'.length",         // 3
           "let bs = 'a\\\\b'.length",          // "a\b" -> 3

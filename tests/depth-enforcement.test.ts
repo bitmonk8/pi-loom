@@ -43,7 +43,7 @@ describe("V5e-T — depth walk fires the canonical maxDepth breach (cka-10)", ()
     // schema-subset.md §Depth Enforcement / §Error shape: a breach always
     // carries `schema_keyword: "maxDepth"`, the canonical message
     // `"JSON document depth exceeds 5"`, and `cause: "schema_validation"` even
-    // though the walk short-circuits before AJV. Driven through the loom-owned
+    // though the walk short-circuits before AJV. Driven through the theta-owned
     // walk in isolation (mirroring V16a's seam pattern); the live AJV-boundary
     // sites are built downstream.
     const result = depthWalk(DEPTH_6_VALUE);
@@ -62,8 +62,8 @@ describe("V5e-T — depth walk fires the canonical maxDepth breach (cka-10)", ()
 });
 
 describe("V5e-T — per-boundary routing decision (ceiling-4-table, CIO-3, cka-10)", () => {
-  it("ceiling-4-table / cka-10: the three loom-code Err rows route to ValidationError / CodeToolError / InvokeInfraError", () => {
-    // ceilings-3-and-4.md#ceiling-4-table: typed-query response → loom-code
+  it("ceiling-4-table / cka-10: the three theta-code Err rows route to ValidationError / CodeToolError / InvokeInfraError", () => {
+    // ceilings-3-and-4.md#ceiling-4-table: typed-query response → theta-code
     // `ValidationError` (wrapped at V13c); code-driven tool args → `CodeToolError`
     // (wrapped at V14e); `params` via `invoke(...)` and the `invoke<T>` return
     // value → `InvokeInfraError` (wrapped at V15j). The wrapping into each
@@ -77,12 +77,12 @@ describe("V5e-T — per-boundary routing decision (ceiling-4-table, CIO-3, cka-1
 
   it("ceiling-4-table / cka-10: the two non-`Err` rows are decision-only — model-driven → model feedback, slash-load `params` → ceiling-#3 cross-route", () => {
     // ceilings-3-and-4.md#ceiling-4-table + #ceiling-4-table-reconciliation: the
-    // model-driven tool-args row produces no loom-code `Err` (the depth
+    // model-driven tool-args row produces no theta-code `Err` (the depth
     // violation feeds back to the model as a tool-result; the round counts
     // against `tool_loop.max_rounds`), and the slash-load `params` row
     // cross-routes into ceiling #3's load-time system-note classification (CIO-1)
     // rather than ceiling #4's recoverable-`Err` path (surfaced at V4e). Neither
-    // produces a loom-code `Err` at this seam.
+    // produces a theta-code `Err` at this seam.
     expect(routeDepthBoundary("tool-args-model-driven")).toBe("model-feedback");
     expect(routeDepthBoundary("params-slash-load")).toBe("ceiling-3-cross-route");
   });

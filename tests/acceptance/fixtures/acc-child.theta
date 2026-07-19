@@ -1,0 +1,6 @@
+---
+mode: subagent
+---
+// H9a acceptance area (g) support — a subagent-mode `.theta` callable invoked by
+// acc-imports-invoke.theta (a `.theta` callee must be subagent-mode).
+@`Reply with exactly: CHILD OK`

@@ -10,7 +10,7 @@
 //     on the tuple (path, schema_keyword, message), each field compared by
 //     Unicode code point).
 //   - ERR-15 — the discriminator type-openness seam: `kind` is typed `string`
-//     at the type-system level, not a closed enum of the nine loom 1.0.0 tags;
+//     at the type-system level, not a closed enum of the nine theta 1.0.0 tags;
 //     the runtime never emits an unlisted `kind`, exposed here as the closed
 //     conformance set.
 //   - ERR-17 — the forced-respond non-compliance synthesised `ValidationIssue`
@@ -100,7 +100,7 @@ export interface ToolLoopExhaustedError {
   rounds: number;
   /**
    * Most recent tool the model called on the loop's terminal free-phase round;
-   * the `| null` branch has no loom 1.0-reachable case and is retained for
+   * the `| null` branch has no theta 1.0-reachable case and is retained for
    * forward compatibility.
    */
   last_tool_name: string | null;
@@ -213,16 +213,16 @@ function compareByCodePoint(a: string, b: string): number {
 // --- ERR-15 — discriminator type-openness seam -----------------------------
 
 /**
- * ERR-15. The closed set of loom 1.0.0 `QueryError.kind` wire tags. The runtime
+ * ERR-15. The closed set of theta 1.0.0 `QueryError.kind` wire tags. The runtime
  * never emits a `kind` outside this set, even though the *type* of `kind` is the
  * open `string`. Order matches the union declaration.
  *
  */
-export function loom10QueryErrorKinds(): readonly string[] {
-  return LOOM_10_QUERY_ERROR_KINDS;
+export function theta10QueryErrorKinds(): readonly string[] {
+  return THETA_10_QUERY_ERROR_KINDS;
 }
 
-const LOOM_10_QUERY_ERROR_KINDS = [
+const THETA_10_QUERY_ERROR_KINDS = [
   "validation",
   "transport",
   "model_tool",
@@ -235,13 +235,13 @@ const LOOM_10_QUERY_ERROR_KINDS = [
 ] as const;
 
 /**
- * ERR-15. Whether `kind` is one of the nine loom 1.0.0 wire tags. The *type* of
+ * ERR-15. Whether `kind` is one of the nine theta 1.0.0 wire tags. The *type* of
  * `QueryError["kind"]` stays open (`string`); this runtime predicate is the
  * closed-conformance counterpart.
  *
  */
-export function isLoom10QueryErrorKind(kind: string): boolean {
-  return (LOOM_10_QUERY_ERROR_KINDS as readonly string[]).includes(kind);
+export function isTheta10QueryErrorKind(kind: string): boolean {
+  return (THETA_10_QUERY_ERROR_KINDS as readonly string[]).includes(kind);
 }
 
 // --- ERR-17 — forced-respond non-compliance synthesised issue --------------
@@ -257,7 +257,7 @@ export type ForcedRespondBranch =
       kind: "wrong_tool";
       /** The `name` field of the provider's first wrong `tool_use` block. */
       providerToolName: string;
-      /** The synthesised respond tool name, `__loom_respond_<slug>`. */
+      /** The synthesised respond tool name, `__theta_respond_<slug>`. */
       respondToolName: string;
     };
 

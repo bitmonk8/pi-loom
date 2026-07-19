@@ -1,7 +1,7 @@
 // Hardening lens: prompt→prompt INVOKE ATTACH (cross-mode semantics).
 //
-// Verifies the just-landed fix to the shipped loom extension: a prompt-mode
-// loom that `invoke(...)`s another prompt-mode loom now ATTACHES the callee to
+// Verifies the just-landed fix to the shipped theta extension: a prompt-mode
+// theta that `invoke(...)`s another prompt-mode theta now ATTACHES the callee to
 // the caller's CURRENT user session. The callee's `@`-queries stream as
 // user-visible turns in the SAME conversation and the parent suspends until the
 // callee returns. Before the fix, every invoke callee (regardless of mode) was
@@ -53,18 +53,18 @@ describe("prompt->prompt invoke attach (cross-mode)", () => {
     const files = [
       {
         source: "project" as const,
-        path: "ppparent.loom",
+        path: "ppparent.theta",
         text: P(
           "prompt",
           [
-            'let v = invoke("./ppchild.loom")?',
+            'let v = invoke("./ppchild.theta")?',
             "@`PARENT_TURN_SENTINEL reply with exactly: OK`",
           ].join("\n"),
         ),
       },
       {
         source: "project" as const,
-        path: "ppchild.loom",
+        path: "ppchild.theta",
         text: P(
           "prompt",
           ["let _ = @`CHILD_TURN_SENTINEL reply with exactly: OK`", "1"].join("\n"),
@@ -88,18 +88,18 @@ describe("prompt->prompt invoke attach (cross-mode)", () => {
     const files = [
       {
         source: "project" as const,
-        path: "ppret.loom",
+        path: "ppret.theta",
         text: P(
           "prompt",
           [
-            'let v: number = invoke<number>("./ppnum.loom")?',
+            'let v: number = invoke<number>("./ppnum.theta")?',
             "@`RET=${v}|reply with exactly: OK`",
           ].join("\n"),
         ),
       },
       {
         source: "project" as const,
-        path: "ppnum.loom",
+        path: "ppnum.theta",
         text: P(
           "prompt",
           ["let n = @`NUMCHILD_SENTINEL reply with exactly: OK`", "42"].join("\n"),

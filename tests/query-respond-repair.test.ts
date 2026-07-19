@@ -361,7 +361,7 @@ describe("V13d-T — ERR-17 forced-respond non-compliance into the respond-repai
   });
 
   it("ERR-17: a wrong-tool non-compliance on each follow-up feeds the synthesised issue into the loop; on exhaustion only the last attempt's synthesised issue survives", async () => {
-    const respondTool = "__loom_respond_r1";
+    const respondTool = "__theta_respond_r1";
     const lastBranch: ForcedRespondBranch = {
       kind: "wrong_tool",
       providerToolName: "fetch",
@@ -395,7 +395,7 @@ describe("V13d-T — ERR-17 forced-respond non-compliance into the respond-repai
       path: "",
       schema_keyword: "required",
       message:
-        "model invoked tool 'fetch' instead of the forced respond tool '__loom_respond_r1'",
+        "model invoked tool 'fetch' instead of the forced respond tool '__theta_respond_r1'",
     });
     expect(outcome.error.message).toBe(NONCOMPLIANCE_TERMINAL_MESSAGE);
     // Wrong-tool turn carried no plain text: `raw_response` is null.
@@ -403,7 +403,7 @@ describe("V13d-T — ERR-17 forced-respond non-compliance into the respond-repai
   });
 
   it("ERR-17: a non-compliant follow-up consumes exactly one attempts slot (same accounting as an AJV failure)", async () => {
-    const respondTool = "__loom_respond_r1";
+    const respondTool = "__theta_respond_r1";
     // Attempt 1 non-compliant (one slot), attempt 2 re-validates OK.
     const driver = new ScriptedRepairDriver([
       followNoncompliance({ kind: "plain_text" }, "prose"),
@@ -473,7 +473,7 @@ describe("V13d — query failure contract (query-failure-and-repair.md QRY-8/9/1
     const branch: ForcedRespondBranch = {
       kind: "wrong_tool",
       providerToolName: "search",
-      respondToolName: "__loom_respond_triage",
+      respondToolName: "__theta_respond_triage",
     };
     const driver = new ScriptedRepairDriver([
       followNoncompliance(branch, "prose-1"),

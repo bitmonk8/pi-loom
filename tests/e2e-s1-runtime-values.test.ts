@@ -3,7 +3,7 @@ import {
   evaluateSource,
   type EvalHost,
 } from "../src/runtime/expression-evaluator";
-import type { LoomValue } from "../src/runtime/value";
+import type { ThetaValue } from "../src/runtime/value";
 
 // e2e S1 — runtime value-behaviour coverage gap-fill (EXPR area, conformance).
 //
@@ -15,15 +15,15 @@ import type { LoomValue } from "../src/runtime/value";
 
 /** A host that fails loudly on any identifier / call (pure-arithmetic tests). */
 const pureHost: EvalHost = {
-  resolveIdentifier(name: string): LoomValue {
+  resolveIdentifier(name: string): ThetaValue {
     throw new Error(`unexpected identifier read '${name}'`);
   },
-  callFunction(name: string): LoomValue {
+  callFunction(name: string): ThetaValue {
     throw new Error(`unexpected call '${name}'`);
   },
 };
 
-const evalv = (src: string): LoomValue => evaluateSource(src, pureHost);
+const evalv = (src: string): ThetaValue => evaluateSource(src, pureHost);
 
 describe("REQ-EXPR-47 — string ordering is lexicographic by UTF-16 code unit", () => {
   it('"a" < "b" is true', () => {

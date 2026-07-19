@@ -40,7 +40,7 @@ Each scenario directory uses the conventional closing-gate corpus layout the
 Scenarios:
 
 - `no-violation/` — every arm green. Includes a mapped numbered REQ-ID whose
-  citing test is present, and a `loom/typecheck/*` brand whose absence of an
+  citing test is present, and a `theta/typecheck/*` brand whose absence of an
   asserting test must NOT fire (the registry-reconciliation carve-out).
 - `unmapped-req-id/` — a spec REQ-ID with no coverage-matrix row.
 - `terminology-req-id-excluded/` — a page whose `FRNT` prefix anchors BOTH a
@@ -53,8 +53,8 @@ Scenarios:
 - `asserted-code-not-in-registry/` — a test asserts a code absent from registry.
 - `broad-catch-no-violation/` — (H5c) every `// allow-broad-catch:` entry cites
   an admitted token: a coverage-matrix REQ-ID, an exactly-one `cka-<n>` Token
-  cell, a concrete `loom/...` registry code, and `pi-sdk-boundary`.
-- `broad-catch-unresolved/` — (H5c) an entry cites a `loom/...` glob/wildcard
+  cell, a concrete `theta/...` registry code, and `pi-sdk-boundary`.
+- `broad-catch-unresolved/` — (H5c) an entry cites a `theta/...` glob/wildcard
   family the concrete-registry-code resolver never matches.
 - `transitive-no-violation/` — (H5d) every coverage-matrix closing-leaf cell has
   at least one listed leaf in the seeded `h5b-deps.md`, including a multi-leaf

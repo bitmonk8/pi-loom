@@ -14,7 +14,7 @@
 //     walk. Both cap-equality boundaries are inclusive.
 //   - the BNDR-10 subagent-mode skip
 //     (binder/binder-model-and-context.md#bndr-10): a `bind_context: session`
-//     declaration on a `mode: subagent` loom is treated as `bind_context: none`
+//     declaration on a `mode: subagent` theta is treated as `bind_context: none`
 //     for binder-input construction — the walk is skipped and no *Recent session
 //     context* block is emitted.
 //
@@ -26,7 +26,7 @@
 // (`bind_context: session`)", BNDR-10).
 
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
-import type { LoomMode } from "../parser/frontmatter";
+import type { ThetaMode } from "../parser/frontmatter";
 import type { TokenEstimator } from "../seams/token-estimator";
 
 /** The inclusive running-token-total cap of the truncation walk (8000 tokens). */
@@ -48,9 +48,9 @@ export interface SessionContextWalkInput {
   readonly messages: readonly AgentMessage[];
   /** The injected per-message token-count seam (PIC-16). */
   readonly estimator: TokenEstimator;
-  /** The loom's resolved `mode:` — drives the BNDR-10 subagent-mode skip. */
-  readonly mode: LoomMode;
-  /** The loom's `bind_context:` value. */
+  /** The theta's resolved `mode:` — drives the BNDR-10 subagent-mode skip. */
+  readonly mode: ThetaMode;
+  /** The theta's `bind_context:` value. */
   readonly bindContext: BindContext;
 }
 
@@ -92,9 +92,9 @@ export function walkSessionContext(
   input: SessionContextWalkInput,
 ): SessionContextWalkResult {
   // BNDR-10: at slash-invocation time a `bind_context: session` declaration on a
-  // `mode: subagent` loom is treated as `bind_context: none` — the walk is
+  // `mode: subagent` theta is treated as `bind_context: none` — the walk is
   // skipped and no *Recent session context* block is emitted. The walk applies
-  // only when session context is requested on a prompt-mode loom.
+  // only when session context is requested on a prompt-mode theta.
   const applies = input.bindContext === "session" && input.mode === "prompt";
   if (!applies) {
     return {

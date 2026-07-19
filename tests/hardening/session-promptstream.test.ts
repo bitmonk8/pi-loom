@@ -8,9 +8,9 @@
 // in the transcript (and the off-session path resolved no auth, so a chained
 // query could return an empty error-stop reply).
 //
-// Method: a single prompt-mode loom issues TWO queries in its body. Each
+// Method: a single prompt-mode theta issues TWO queries in its body. Each
 // dispatches as a real user-visible turn in the SAME session, so the exact
-// loom-computed query prompt appears in the deterministic `userTexts` channel;
+// theta-computed query prompt appears in the deterministic `userTexts` channel;
 // the streamed reply accumulates in `assistantText`. Sequential execution (the
 // executor awaits each query) means there is no stream-interleaving risk — the
 // original DIVERGENCE rationale does not hold.
@@ -22,8 +22,8 @@
 // checked non-empty to confirm each turn streamed.
 //
 // NOTE (QRY-19): the FIRST query must NOT be a bare non-tail `@`-query — that is
-// a `loom/parse/discarded-query-result` (must-use Result discarded) ERROR that
-// un-registers the loom, after which `/twostream` falls through to the model as
+// a `theta/parse/discarded-query-result` (must-use Result discarded) ERROR that
+// un-registers the theta, after which `/twostream` falls through to the model as
 // literal text. It is bound to `_` (explicit discard) so it still dispatches a
 // user-visible turn without tripping QRY-19; the second stays the void tail.
 //
@@ -49,7 +49,7 @@ describe("prompt-mode user-visible streaming for every query (SLSH-2 / QTL-1)", 
       const probe = await runProbe({
         provider,
         files: [
-          F("twostream.loom", [
+          F("twostream.theta", [
             "---",
             "description: twostream",
             "mode: prompt",
@@ -65,10 +65,10 @@ describe("prompt-mode user-visible streaming for every query (SLSH-2 / QTL-1)", 
         console.log("QTL-1 assistantText:", JSON.stringify(t.assistantText));
         console.log("QTL-1 userTexts:", JSON.stringify(t.userTexts));
         console.log("QTL-1 error:", t.error);
-        // The loom registered (QRY-19 did not drop it) — zero model tokens.
+        // The theta registered (QRY-19 did not drop it) — zero model tokens.
         expect(probe.registeredNames).toContain("twostream");
         // BOTH queries dispatched a real user-visible turn (deterministic,
-        // model-independent): the exact loom-computed prompt text appears as a
+        // model-independent): the exact theta-computed prompt text appears as a
         // user turn. Pre-fix, the trailing query ran off-session (no turn).
         expect(t.userTexts.join("\n")).toContain("Reply with exactly: AAA");
         expect(t.userTexts.join("\n")).toContain("Reply with exactly: BBB");

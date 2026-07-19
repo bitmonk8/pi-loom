@@ -1,10 +1,10 @@
 // Phase 3b — production cancellation wiring (CANCEL-2/3/4/5).
 //
 // These tests pin the PRODUCTION wiring of the previously-unwired cancellation
-// seams into `production-loom-producer.ts` / `loom-composition-producer.ts`:
+// seams into `production-theta-producer.ts` / `theta-composition-producer.ts`:
 //
 //   - CANCEL-2 — `bindPromptConversation` gates every checkpoint on a fresh
-//     per-invocation `loomAbort.signal` (never `ctx.signal` directly, never a
+//     per-invocation `thetaAbort.signal` (never `ctx.signal` directly, never a
 //     pinned never-aborting fallback); an aborted `ctx.signal` is forwarded INTO
 //     it (`forwardSlashCommandCancel`, CNCL-4 reason identity) and the
 //     `agent_end` user-cancel trigger (`abortForAgentEnd`) flips the SAME
@@ -13,7 +13,7 @@
 //     behind the pre-call `binder-call` checkpoint (`runCheckpointedBinderCall`)
 //     + the in-flight forwarding driver (`runBinderCallWithCancellation`); a
 //     pre-call abort skips the `complete()` call, synthesises the
-//     cancelled-binder system note, and returns `{ bound: false }` (the loom
+//     cancelled-binder system note, and returns `{ bound: false }` (the theta
 //     does not run).
 //   - CANCEL-3 — the code-side `execute()` dispatch attaches the construction-
 //     site swallowing handler (`guardToolExecutePromise`), so a rejecting tool
@@ -38,12 +38,12 @@ import type {
 import {
   createProductionProducerDeps,
   type PiToolDispatch,
-} from "../src/extension/production-loom-producer";
+} from "../src/extension/production-theta-producer";
 import type {
   BinderRunInput,
   ConversationBindInput,
-  LoomCompositionInput,
-} from "../src/extension/loom-composition-producer";
+  ThetaCompositionInput,
+} from "../src/extension/theta-composition-producer";
 import { abortForAgentEnd } from "../src/runtime/cancellation-core";
 import { executeBody } from "../src/runtime/statement-executor";
 import type { RuntimeRoot } from "../src/runtime-root";
@@ -52,12 +52,12 @@ import type { AgentToolResultEnvelope } from "../src/runtime/tool-call-execute";
 import type {
   CallExpr,
   Expr,
-  LoomBody,
+  ThetaBody,
   ObjectFieldNode,
   Stmt,
-} from "../src/parser/loom-document";
+} from "../src/parser/theta-document";
 import type { ParsedFrontmatter } from "../src/parser/frontmatter";
-import type { LoomValue } from "../src/runtime/value";
+import type { ThetaValue } from "../src/runtime/value";
 import type { SourceRange } from "../src/diagnostics/diagnostic";
 
 // --- AST helpers ------------------------------------------------------------
@@ -83,7 +83,7 @@ function stringExpr(value: string): Expr {
 function letStmt(name: string, init: Expr): Stmt {
   return { kind: "let", name, mutable: false, annotation: null, init, range: span() };
 }
-function body(statements: readonly Stmt[], tail: Expr | null): LoomBody {
+function body(statements: readonly Stmt[], tail: Expr | null): ThetaBody {
   return { statements, tail };
 }
 
@@ -127,44 +127,44 @@ function ctxWithSignal(signal: AbortSignal | undefined): ExtensionCommandContext
   return { signal } as unknown as ExtensionCommandContext;
 }
 
-function promptLoom(loomBody: LoomBody, tools?: readonly string[]): LoomCompositionInput {
+function promptTheta(thetaBody: ThetaBody, tools?: readonly string[]): ThetaCompositionInput {
   const frontmatter: ParsedFrontmatter = {
     mode: "prompt",
     ...(tools !== undefined ? { tools } : {}),
   };
-  return { slashName: "demo", sourcePath: "/looms/demo.loom", frontmatter, body: loomBody };
+  return { slashName: "demo", sourcePath: "/theta/demo.theta", frontmatter, body: thetaBody };
 }
 
 // ===========================================================================
-// CANCEL-2 — prompt-mode signal source + forwarding into loomAbort.
+// CANCEL-2 — prompt-mode signal source + forwarding into thetaAbort.
 // ===========================================================================
 
-describe("CANCEL-2 — prompt binding gates on a fresh loomAbort (never ctx.signal directly)", () => {
-  it("CANCEL-2: an aborted ctx.signal at bind time forwards INTO loomAbort (the executor signal IS loomAbort.signal, and carries the source reason)", () => {
+describe("CANCEL-2 — prompt binding gates on a fresh thetaAbort (never ctx.signal directly)", () => {
+  it("CANCEL-2: an aborted ctx.signal at bind time forwards INTO thetaAbort (the executor signal IS thetaAbort.signal, and carries the source reason)", () => {
     const { pi } = sentNotes();
     const deps = createProductionProducerDeps({
       pi,
       root: rootWith(new RecordingCheckpoint()),
       modelRegistry: {} as unknown as ModelRegistry,
     });
-    const loom = promptLoom(body([], null));
-    const loomAbort = new AbortController();
+    const theta = promptTheta(body([], null));
+    const thetaAbort = new AbortController();
     const escReason = new Error("esc pressed");
     const bindInput: ConversationBindInput = {
-      loom,
+      theta,
       args: "",
       ctx: ctxWithSignal(AbortSignal.abort(escReason)),
-      loomAbort,
+      thetaAbort,
     };
 
     const binding = deps.bindPromptConversation(bindInput);
 
-    // The executor / every checkpoint gate on loomAbort.signal — NOT ctx.signal
+    // The executor / every checkpoint gate on thetaAbort.signal — NOT ctx.signal
     // directly, and NOT a pinned never-aborting fallback controller.
-    expect(binding.executeDeps.signal).toBe(loomAbort.signal);
-    // forwardSlashCommandCancel forwarded the aborted ctx.signal into loomAbort.
+    expect(binding.executeDeps.signal).toBe(thetaAbort.signal);
+    // forwardSlashCommandCancel forwarded the aborted ctx.signal into thetaAbort.
     expect(binding.executeDeps.signal.aborted).toBe(true);
-    // CNCL-4 reason identity: loomAbort.signal.reason === source.reason.
+    // CNCL-4 reason identity: thetaAbort.signal.reason === source.reason.
     expect(binding.executeDeps.signal.reason).toBe(escReason);
   });
 
@@ -175,31 +175,31 @@ describe("CANCEL-2 — prompt binding gates on a fresh loomAbort (never ctx.sign
       root: rootWith(new RecordingCheckpoint()),
       modelRegistry: {} as unknown as ModelRegistry,
     });
-    const loom = promptLoom(body([], null));
-    const loomAbort = new AbortController();
+    const theta = promptTheta(body([], null));
+    const thetaAbort = new AbortController();
     // Pi documents ctx.signal as `undefined` in idle, non-turn contexts — which
     // is exactly when the slash-command handler fires.
     const bindInput: ConversationBindInput = {
-      loom,
+      theta,
       args: "",
       ctx: ctxWithSignal(undefined),
-      loomAbort,
+      thetaAbort,
     };
 
     const binding = deps.bindPromptConversation(bindInput);
 
     // No never-aborting fallback and no spurious abort at idle entry.
-    expect(binding.executeDeps.signal).toBe(loomAbort.signal);
+    expect(binding.executeDeps.signal).toBe(thetaAbort.signal);
     expect(binding.executeDeps.signal.aborted).toBe(false);
 
     // The agent_end user-cancel trigger flips the SAME controller the executor's
     // checkpoints gate on (the old single-shot `ctx.signal ?? new
-    // AbortController().signal` capture pinned a controller loom did not hold, so
+    // AbortController().signal` capture pinned a controller theta did not hold, so
     // an agent_end abort could never land — CANCEL-2).
-    abortForAgentEnd(loomAbort);
+    abortForAgentEnd(thetaAbort);
     expect(binding.executeDeps.signal.aborted).toBe(true);
     expect((binding.executeDeps.signal.reason as Error).message).toBe(
-      "loom cancelled by agent_end",
+      "theta cancelled by agent_end",
     );
   });
 });
@@ -208,8 +208,8 @@ describe("CANCEL-2 — prompt binding gates on a fresh loomAbort (never ctx.sign
 // CANCEL-4 — binder-call checkpoint + pre-call abort → cancelled note.
 // ===========================================================================
 
-/** A genuine-binder loom (two string params force the "binder" classification). */
-function binderLoom(): LoomCompositionInput {
+/** A genuine-binder theta (two string params force the "binder" classification). */
+function binderTheta(): ThetaCompositionInput {
   const frontmatter = {
     mode: "prompt",
     params: {
@@ -227,15 +227,15 @@ function binderLoom(): LoomCompositionInput {
   } as unknown as ParsedFrontmatter;
   return {
     slashName: "demo",
-    sourcePath: "/looms/demo.loom",
+    sourcePath: "/theta/demo.theta",
     frontmatter,
     body: body([], null),
     binderModel: "test-model",
-  } as unknown as LoomCompositionInput;
+  } as unknown as ThetaCompositionInput;
 }
 
 describe("CANCEL-4 — binder-call checkpoint gates the binder LLM call", () => {
-  it("CANCEL-4: a pre-call abort fires the binder-call checkpoint, skips the LLM call, synthesises the cancelled-binder note, and does not run the loom", async () => {
+  it("CANCEL-4: a pre-call abort fires the binder-call checkpoint, skips the LLM call, synthesises the cancelled-binder note, and does not run the theta", async () => {
     const checkpoint = new RecordingCheckpoint();
     const { notes, pi } = sentNotes();
     // A model registry that resolves the binder model but whose `complete()`
@@ -254,27 +254,27 @@ describe("CANCEL-4 — binder-call checkpoint gates the binder LLM call", () => 
       modelRegistry,
     });
 
-    // A loomAbort already aborted at binder entry (models an Esc landing before
+    // A thetaAbort already aborted at binder entry (models an Esc landing before
     // the binder call is issued).
-    const loomAbort = new AbortController();
-    loomAbort.abort(new Error("esc before binder"));
+    const thetaAbort = new AbortController();
+    thetaAbort.abort(new Error("esc before binder"));
     const binderInput: BinderRunInput = {
-      loom: binderLoom(),
+      theta: binderTheta(),
       args: "one two",
       ctx: ctxWithSignal(undefined),
-      loomAbort,
+      thetaAbort,
     };
 
     const result = await deps.runBinder(binderInput);
 
     // The pre-call binder-call checkpoint fired at the binder site.
     expect(checkpoint.kinds).toContain("binder-call");
-    // The loom does not run: no bound args flow to loom code.
+    // The theta does not run: no bound args flow to theta code.
     expect(result.bound).toBe(false);
     // The cancelled-binder system note was synthesised (§Surfacing cancelled-
     // binder arm; binder failure-modes `cancelled` row).
     const contents = notes.map((n) => n.content);
-    expect(contents).toContain("loom /demo: argument binding cancelled");
+    expect(contents).toContain("theta /demo: argument binding cancelled");
   });
 });
 
@@ -329,15 +329,15 @@ describe("CANCEL-3 — code-side execute() dispatch attaches a construction-site
     const grep = callExpr("grep", [
       objectExpr(null, [{ name: "pattern", value: stringExpr("TODO") }]),
     ]);
-    const loom = promptLoom(body([letStmt("hits", tryExpr(grep))], identExpr("hits")), ["grep"]);
+    const theta = promptTheta(body([letStmt("hits", tryExpr(grep))], identExpr("hits")), ["grep"]);
     const binding = deps.bindPromptConversation({
-      loom,
+      theta,
       args: "",
       ctx: ctxWithSignal(undefined),
-      loomAbort: new AbortController(),
+      thetaAbort: new AbortController(),
     });
 
-    const execution = await executeBody(loom.body, binding.executeDeps);
+    const execution = await executeBody(theta.body, binding.executeDeps);
     await settleAndObserve();
 
     // The rejecting execute() surfaced as the code-tool Err (the `?` propagated

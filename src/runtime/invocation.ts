@@ -8,12 +8,12 @@
 //     registration check and the invocation-time runtime re-check, so both
 //     apply the identical segment-boundary within-root predicate. An escape
 //     (a resolved callee path outside every active discovery root) surfaces on
-//     both channels at runtime: a `loom/load/invoke-path-escape` diagnostic and
+//     both channels at runtime: a `theta/load/invoke-path-escape` diagnostic and
 //     `Err(InvokeInfraError { cause: "load_failure", callee_path, ... })`.
 //
 //   - The static-resolution per-pass parse cache. A single per-load-pass walk
-//     from the entry loom, transitively across literal `invoke("./x.loom")`
-//     paths and `.loom` `tools:` entries, parsing and lowering each visited
+//     from the entry theta, transitively across literal `invoke("./x.theta")`
+//     paths and `.theta` `tools:` entries, parsing and lowering each visited
 //     file exactly once into the cache (implementation-notes.md
 //     "Static-resolution load pass", invocation.md §Static resolution).
 //
@@ -43,14 +43,14 @@ import type { InvokeInfraError } from "./query-error";
 // --------------------------------------------------------------------------
 
 /**
- * The `loom/load/invoke-path-escape` diagnostic code (code-registry-load.md).
+ * The `theta/load/invoke-path-escape` diagnostic code (code-registry-load.md).
  * Fires at both the load-time containment check and the runtime open re-check
  * when a resolved callee path lies outside every active discovery root.
  */
-export const INVOKE_PATH_ESCAPE_CODE = "loom/load/invoke-path-escape";
+export const INVOKE_PATH_ESCAPE_CODE = "theta/load/invoke-path-escape";
 
 /**
- * The rendered author-facing message for `loom/load/invoke-path-escape`, sourced
+ * The rendered author-facing message for `theta/load/invoke-path-escape`, sourced
  * from the *Message* column of code-registry-load.md. `<path>` is the literal
  * path text as written (no realpath normalisation) per placeholder-rendering-b.md.
  */
@@ -58,9 +58,9 @@ export function invokePathEscapeMessage(literalPath: string): string {
   return `invoke path '${literalPath}' resolves outside every active discovery root`;
 }
 
-/** The normative author-facing hint for `loom/load/invoke-path-escape`. */
+/** The normative author-facing hint for `theta/load/invoke-path-escape`. */
 export const INVOKE_PATH_ESCAPE_HINT =
-  "Move the callee under one of the active discovery roots (see Directory Convention — Discovery roots), or add the callee's directory as a settings loomPaths entry.";
+  "Move the callee under one of the active discovery roots (see Directory Convention — Discovery roots), or add the callee's directory as a settings thetaPaths entry.";
 
 /** Host dependencies the shared containment check needs. */
 export interface InvokePathCheckDeps {
@@ -136,7 +136,7 @@ function normalizePath(path: string): string {
  * per the Lexical "Path literals" rule; no independent case-folding — the
  * canonical form is whatever `realpath` returns on the host. This is the one
  * function that mints the canonical path identity the containment check, the
- * static-resolution per-pass parse cache key, and the `.warp` import-edge-graph
+ * static-resolution per-pass parse cache key, and the `.thetalib` import-edge-graph
  * node identity all compare under; consumers reuse it rather than restating it.
  */
 export async function canonicalizePath(
@@ -156,7 +156,7 @@ export interface InvokePathSurfaceInput {
   readonly deps: InvokePathCheckDeps;
   /**
    * The parse-time resolved callee path (resolved relative to the calling
-   * loom's directory), fed into the shared containment check.
+   * theta's directory), fed into the shared containment check.
    */
   readonly resolvedPath: string;
   /**
@@ -178,8 +178,8 @@ export type LoadTimeInvokePathResult =
     };
 
 /**
- * The load-time containment check (parent-loom registration / `tools:` `.loom`
- * entry registration). On escape it yields a `loom/load/invoke-path-escape`
+ * The load-time containment check (parent-theta registration / `tools:` `.theta`
+ * entry registration). On escape it yields a `theta/load/invoke-path-escape`
  * diagnostic; the parent does not register the call site.
  */
 export async function checkInvokePathAtLoad(
@@ -201,7 +201,7 @@ export async function checkInvokePathAtLoad(
 }
 
 /**
- * Build the `loom/load/invoke-path-escape` diagnostic. The `<path>` placeholder
+ * Build the `theta/load/invoke-path-escape` diagnostic. The `<path>` placeholder
  * carries the literal path as written (no realpath normalisation) per the
  * registry *Message* column; the hint is the registry *Hint* column verbatim.
  */
@@ -216,7 +216,7 @@ function invokePathEscapeDiagnostic(literalPath: string): Diagnostic {
 
 /**
  * Runtime containment verdict for the invocation-time open re-check. On escape
- * it surfaces on *both* channels: the `loom/load/invoke-path-escape` diagnostic
+ * it surfaces on *both* channels: the `theta/load/invoke-path-escape` diagnostic
  * on the drain and `Err(InvokeInfraError { cause: "load_failure", ... })` to
  * the parent.
  */
@@ -248,7 +248,7 @@ export async function recheckInvokePathAtRuntime(
     return { kind: "within", canonicalPath };
   }
   // An escape surfaces on both channels (invocation.md §Resolution / INV-1): the
-  // `loom/load/invoke-path-escape` diagnostic on the drain AND
+  // `theta/load/invoke-path-escape` diagnostic on the drain AND
   // `Err(InvokeInfraError { cause: "load_failure", callee_path, ... })` to the
   // parent.
   return {
@@ -272,15 +272,15 @@ export async function recheckInvokePathAtRuntime(
  * A single visited file's parsed+lowered shape, as returned by the
  * `parseAndLower` callback and stored in the per-pass parse cache. Its outbound
  * edges are the canonical paths reached from this file's literal `invoke`
- * paths and `.loom` `tools:` entries; the transitive walk follows them.
+ * paths and `.theta` `tools:` entries; the transitive walk follows them.
  */
 export interface ParsedCallee {
   /** The canonical (`realpath`) path of this file — the parse-cache key. */
   readonly path: string;
-  /** Canonical paths referenced by this file's literal `invoke("./x.loom")`. */
+  /** Canonical paths referenced by this file's literal `invoke("./x.theta")`. */
   readonly invokePaths: readonly string[];
-  /** Canonical paths of this file's `.loom` `tools:` entries. */
-  readonly toolLoomPaths: readonly string[];
+  /** Canonical paths of this file's `.theta` `tools:` entries. */
+  readonly toolThetaPaths: readonly string[];
 }
 
 /** Host dependencies and the parse/lower callback the walk drives. */
@@ -304,7 +304,7 @@ export interface StaticResolutionResult {
 
 /**
  * Run the static-resolution load pass from `entryPath`, walking transitively
- * across literal `invoke` paths and `.loom` `tools:` entries, parsing and
+ * across literal `invoke` paths and `.theta` `tools:` entries, parsing and
  * lowering each visited file exactly once into the per-pass parse cache.
  */
 export async function runStaticResolutionPass(
@@ -327,9 +327,9 @@ export async function runStaticResolutionPass(
     const parsed = deps.parseAndLower(canonicalPath, source);
     cache.set(canonicalPath, parsed);
 
-    // Walk transitively across literal `invoke` paths and `.loom` `tools:`
+    // Walk transitively across literal `invoke` paths and `.theta` `tools:`
     // entries, canonicalising each edge before enqueueing it.
-    for (const edge of [...parsed.invokePaths, ...parsed.toolLoomPaths]) {
+    for (const edge of [...parsed.invokePaths, ...parsed.toolThetaPaths]) {
       const canonicalEdge = normalizePath(await deps.fs.realpath(edge));
       if (!cache.has(canonicalEdge)) {
         frontier.push(canonicalEdge);

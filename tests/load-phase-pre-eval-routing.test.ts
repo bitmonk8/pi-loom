@@ -7,8 +7,8 @@ import type {
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import {
-  createLoomExtension,
-  type LoomExtensionDeps,
+  createThetaExtension,
+  type ThetaExtensionDeps,
 } from "../src/extension/factory";
 import { composeExtensionInstance } from "../src/extension/production-composition";
 import type { Diagnostic } from "../src/diagnostics/diagnostic";
@@ -20,24 +20,24 @@ import { FakeFileWatcher } from "./helpers/fake-file-watcher";
 // Mirrors the wired RELOAD-path note tests in
 // tests/watcher-hot-reload-integration.test.ts, but for the LOAD phase: boots
 // the SHIPPED composition (`composeExtensionInstance`) through the real
-// extension factory (`createLoomExtension`) over a real temp-dir workspace and
-// asserts that a load-phase FAILURE surfaces one `loom-system-note` on the
+// extension factory (`createThetaExtension`) over a real temp-dir workspace and
+// asserts that a load-phase FAILURE surfaces one `theta-system-note` on the
 // channel with `triggerTurn:false` (the ERR-1…ERR-6/ERR-16 pre-eval surface),
 // while a clean load emits NO error note and `session_start` is never aborted.
 //
 // Spec: errors-and-results/error-model.md — every pre-evaluation failure
-// "surfaces per Diagnostics on the loom-system-note channel, does not fire a
+// "surfaces per Diagnostics on the theta-system-note channel, does not fire a
 // new turn (triggerTurn:false) and produces no final value". Previously the
 // shipped LOAD path surfaced load errors via a transient `ctx.ui.notify` toast
 // (notes.md "known load-phase routing gap"), inconsistent with the RELOAD path.
 
-const GOOD_LOOM = ["---", "mode: prompt", "tools: read", "---", "@`hi`", ""].join(
+const GOOD_THETA = ["---", "mode: prompt", "tools: read", "---", "@`hi`", ""].join(
   "\n",
 );
 // A load FAILURE: `tools:` names a Pi tool absent from the threaded registry →
-// `loom/load/unknown-tool` (an error-severity ERR-6 pre-eval failure). The loom
+// `theta/load/unknown-tool` (an error-severity ERR-6 pre-eval failure). The theta
 // is dropped (un-registered); the failure MUST route onto the note channel.
-const BAD_LOOM = [
+const BAD_THETA = [
   "---",
   "mode: prompt",
   "tools: totally_unknown_xyz",
@@ -46,7 +46,7 @@ const BAD_LOOM = [
   "",
 ].join("\n");
 
-/** A recorded `pi.sendMessage` call (the `loom-system-note` channel). */
+/** A recorded `pi.sendMessage` call (the `theta-system-note` channel). */
 interface RecordedNote {
   readonly customType: string;
   readonly content: string;
@@ -121,7 +121,7 @@ function makeHarness(cwd: string): Harness {
     },
   } as unknown as ExtensionContext;
 
-  const deps: LoomExtensionDeps = {
+  const deps: ThetaExtensionDeps = {
     fixtures: [],
     composeInstance: (composePi, composeCtx) =>
       composeExtensionInstance(composePi, composeCtx, {
@@ -129,7 +129,7 @@ function makeHarness(cwd: string): Harness {
         clock: new FakeClock(),
       }),
   };
-  createLoomExtension(deps)(pi);
+  createThetaExtension(deps)(pi);
 
   return {
     pi,
@@ -151,46 +151,46 @@ function loadErrorNotes(notes: readonly RecordedNote[]): RecordedNote[] {
   );
 }
 
-describe("V4e — load-phase pre-evaluation failures route onto the loom-system-note channel", () => {
+describe("V4e — load-phase pre-evaluation failures route onto the theta-system-note channel", () => {
   let workspace: string;
-  let loomDir: string;
+  let thetaDir: string;
 
   beforeEach(() => {
-    workspace = mkdtempSync(join(tmpdir(), "loom-v4e-load-"));
-    loomDir = join(workspace, ".pi", "looms");
-    mkdirSync(loomDir, { recursive: true });
+    workspace = mkdtempSync(join(tmpdir(), "theta-v4e-load-"));
+    thetaDir = join(workspace, ".pi", "theta");
+    mkdirSync(thetaDir, { recursive: true });
   });
 
   afterEach(() => {
     rmSync(workspace, { recursive: true, force: true });
   });
 
-  it("a load failure surfaces one loom-system-note (triggerTurn:false) and does not abort session_start", async () => {
-    // A clean control loom AND a failing loom, so the assertion distinguishes
+  it("a load failure surfaces one theta-system-note (triggerTurn:false) and does not abort session_start", async () => {
+    // A clean control theta AND a failing theta, so the assertion distinguishes
     // "routes the failure" from "drops everything".
-    writeFileSync(join(loomDir, "goodtool.loom"), GOOD_LOOM, "utf8");
-    writeFileSync(join(loomDir, "unknowntool.loom"), BAD_LOOM, "utf8");
+    writeFileSync(join(thetaDir, "goodtool.theta"), GOOD_THETA, "utf8");
+    writeFileSync(join(thetaDir, "unknowntool.theta"), BAD_THETA, "utf8");
 
     const harness = makeHarness(workspace);
     await harness.fireSessionStart();
 
-    // session_start not aborted: the clean loom still registered.
+    // session_start not aborted: the clean theta still registered.
     expect(harness.commands.has("goodtool")).toBe(true);
-    // The failing loom was dropped (un-registered).
+    // The failing theta was dropped (un-registered).
     expect(harness.commands.has("unknowntool")).toBe(false);
 
-    // The load failure routed onto the `loom-system-note` channel with the
-    // error-severity `loom/load/unknown-tool` diagnostic and triggerTurn:false —
+    // The load failure routed onto the `theta-system-note` channel with the
+    // error-severity `theta/load/unknown-tool` diagnostic and triggerTurn:false —
     // the SAME envelope shape as the reload path's ERR-7 note.
     const errorNotes = loadErrorNotes(harness.notes);
     expect(errorNotes.length).toBeGreaterThanOrEqual(1);
     const note = errorNotes.find((n) =>
       (n.details.diagnostics ?? []).some(
-        (d) => d.code === "loom/load/unknown-tool",
+        (d) => d.code === "theta/load/unknown-tool",
       ),
     );
     expect(note).toBeDefined();
-    expect(note?.customType).toBe("loom-system-note");
+    expect(note?.customType).toBe("theta-system-note");
     expect(note?.triggerTurn).toBe(false);
 
     // The failure routed onto the channel, NOT the transient toast (the closed
@@ -198,8 +198,8 @@ describe("V4e — load-phase pre-evaluation failures route onto the loom-system-
     expect(harness.notifications).toHaveLength(0);
   });
 
-  it("a clean load emits no error note on the loom-system-note channel", async () => {
-    writeFileSync(join(loomDir, "goodtool.loom"), GOOD_LOOM, "utf8");
+  it("a clean load emits no error note on the theta-system-note channel", async () => {
+    writeFileSync(join(thetaDir, "goodtool.theta"), GOOD_THETA, "utf8");
 
     const harness = makeHarness(workspace);
     await harness.fireSessionStart();

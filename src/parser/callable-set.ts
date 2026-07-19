@@ -1,19 +1,19 @@
 // V6c / V6c-T — the `tools:` callable set and resolution snapshot seam.
 //
-// This module owns the loom-load-time resolution of the frontmatter `tools:`
-// field into the frozen per-loom **callable set** described by
+// This module owns the theta-load-time resolution of the frontmatter `tools:`
+// field into the frozen per-theta **callable set** described by
 // frontmatter/frontmatter-fields-a.md §`tools` and its resolution-snapshot
 // prose in frontmatter/frontmatter-fields-b-and-templates.md:
 //
 //   - the two interchangeable YAML spellings (comma-separated short form and
 //     YAML list form) parsed by one per-entry grammar;
-//   - Pi-tool entries (resolved against the host tool registry) and `.loom`-path
+//   - Pi-tool entries (resolved against the host tool registry) and `.theta`-path
 //     entries (resolved against the per-load-pass parse cache);
-//   - the default name derivation (Pi-tool name verbatim; `.loom` basename with
+//   - the default name derivation (Pi-tool name verbatim; `.theta` basename with
 //     hyphens replaced by underscores) and the `as <name>` rename override;
-//   - the five load-time rejections — `loom/load/unknown-tool`,
-//     `loom/load/unresolvable-loom-path`, `loom/load/prompt-mode-callable`,
-//     `loom/load/invalid-tool-rename`, `loom/load/tool-name-collision`;
+//   - the five load-time rejections — `theta/load/unknown-tool`,
+//     `theta/load/unresolvable-theta-path`, `theta/load/prompt-mode-callable`,
+//     `theta/load/invalid-tool-rename`, `theta/load/tool-name-collision`;
 //   - the frozen resolution snapshot (no ambient inheritance): only the
 //     explicitly-listed callables appear, and an absent / empty `tools:` yields
 //     the empty callable set.
@@ -30,7 +30,7 @@
 // lexical.md (§Extension matching, §Path literals).
 
 import type { Diagnostic } from "../diagnostics/diagnostic";
-import type { LoomMode } from "./frontmatter";
+import type { ThetaMode } from "./frontmatter";
 
 /**
  * The raw `tools:` frontmatter value in either accepted YAML spelling
@@ -58,16 +58,16 @@ export interface ResolvedPiTool {
 }
 
 /**
- * A `.loom` callee resolved against the per-load-pass parse cache — the
+ * A `.theta` callee resolved against the per-load-pass parse cache — the
  * resolution snapshot holds a strong reference to the parsed callee plus its
- * lowered tool spec. `mode` gates the `loom/load/prompt-mode-callable` check.
+ * lowered tool spec. `mode` gates the `theta/load/prompt-mode-callable` check.
  */
-export interface ResolvedLoomCallee {
-  readonly kind: "loom";
-  /** The callee loom file's declared `mode:`. */
-  readonly mode: LoomMode;
+export interface ResolvedThetaCallee {
+  readonly kind: "theta";
+  /** The callee theta file's declared `mode:`. */
+  readonly mode: ThetaMode;
   /**
-   * The callee `.loom` path literal AS WRITTEN in `tools:` (relative to the
+   * The callee `.theta` path literal AS WRITTEN in `tools:` (relative to the
    * caller's directory), carried onto the frozen snapshot so the runtime
    * resolves the callee by its presented (post-`as` / post-hyphen→underscore)
    * name rather than re-deriving it from the basename — which would drop both
@@ -80,10 +80,10 @@ export interface ResolvedLoomCallee {
 }
 
 /** One resolved callable in the snapshot. */
-export type ResolvedCallable = ResolvedPiTool | ResolvedLoomCallee;
+export type ResolvedCallable = ResolvedPiTool | ResolvedThetaCallee;
 
 /**
- * The frozen per-loom resolution snapshot: a `{ post-rename name → resolved
+ * The frozen per-theta resolution snapshot: a `{ post-rename name → resolved
  * callable }` table (frontmatter-fields-b-and-templates.md §Resolution
  * snapshot). Frozen so no ambient inheritance or post-load mutation can widen
  * the callable set; subsequent calls dispatch through the held references.
@@ -97,20 +97,20 @@ export interface CallableSetDeps {
   /**
    * Resolve a Pi tool name against the host tool registry, returning a strong
    * reference to its `ToolDefinition`, or `undefined` when the name is absent
-   * from the registry (drives `loom/load/unknown-tool`).
+   * from the registry (drives `theta/load/unknown-tool`).
    */
   readonly resolvePiTool: (name: string) => ResolvedPiTool | undefined;
   /**
-   * Resolve a `.loom` path (relative to the calling loom's directory) through
+   * Resolve a `.theta` path (relative to the calling theta's directory) through
    * the per-load-pass parse cache, returning the parsed callee (carrying its
    * declared `mode:`), or `undefined` when the path does not exist or is not
-   * readable (drives `loom/load/unresolvable-loom-path`).
+   * readable (drives `theta/load/unresolvable-theta-path`).
    */
-  readonly resolveLoomCallee: (loomPath: string) => ResolvedLoomCallee | undefined;
+  readonly resolveThetaCallee: (thetaPath: string) => ResolvedThetaCallee | undefined;
   /**
-   * Names already bound at the loom's top level — top-level `fn` declarations
+   * Names already bound at the theta's top level — top-level `fn` declarations
    * and imported symbols — that a callable-set name must not collide with
-   * (drives the top-level arm of `loom/load/tool-name-collision`).
+   * (drives the top-level arm of `theta/load/tool-name-collision`).
    */
   readonly reservedNames: ReadonlySet<string>;
 }
@@ -128,8 +128,8 @@ export interface ResolveCallableSetInput {
 /** The outcome of a callable-set resolution: registration decision + diagnostics. */
 export interface CallableSetResult {
   /**
-   * Whether the loom is registered. `false` when any load-time rejection fired
-   * (unknown tool, unresolvable / prompt-mode `.loom`, invalid rename, name
+   * Whether the theta is registered. `false` when any load-time rejection fired
+   * (unknown tool, unresolvable / prompt-mode `.theta`, invalid rename, name
    * collision); `true` when the callable set resolved cleanly.
    */
   readonly registered: boolean;
@@ -140,21 +140,21 @@ export interface CallableSetResult {
 }
 
 /**
- * Resolve a loom's `tools:` field into its frozen callable set
+ * Resolve a theta's `tools:` field into its frozen callable set
  * (frontmatter-fields-a.md §`tools`, frontmatter-fields-b-and-templates.md
  * §Resolution snapshot):
  *
  *   - parse both YAML spellings by one per-entry grammar;
- *   - resolve each Pi-tool / `.loom` entry, applying the default-name / `as`
+ *   - resolve each Pi-tool / `.theta` entry, applying the default-name / `as`
  *     rename rules;
- *   - reject an unknown Pi tool (`loom/load/unknown-tool`), an unresolvable
- *     `.loom` path (`loom/load/unresolvable-loom-path`), a prompt-mode `.loom`
- *     callee (`loom/load/prompt-mode-callable`), an invalid `as` rename target
- *     (`loom/load/invalid-tool-rename`), and a name collision
- *     (`loom/load/tool-name-collision`);
+ *   - reject an unknown Pi tool (`theta/load/unknown-tool`), an unresolvable
+ *     `.theta` path (`theta/load/unresolvable-theta-path`), a prompt-mode `.theta`
+ *     callee (`theta/load/prompt-mode-callable`), an invalid `as` rename target
+ *     (`theta/load/invalid-tool-rename`), and a name collision
+ *     (`theta/load/tool-name-collision`);
  *   - freeze the resulting snapshot (no ambient inheritance).
  *
- * The loom registers iff no error-severity diagnostic was raised.
+ * The theta registers iff no error-severity diagnostic was raised.
  */
 export function resolveCallableSet(
   input: ResolveCallableSetInput,
@@ -167,12 +167,12 @@ export function resolveCallableSet(
     const parsed = parseEntry(raw);
 
     // Validate an `as` rename target before resolving the underlying callable:
-    // a rename target that is not loom-identifier-shaped is rejected outright
+    // a rename target that is not theta-identifier-shaped is rejected outright
     // (frontmatter-fields-a.md §`tools` — the `as` rename rule).
     if (parsed.rename !== undefined && !isLowercaseFirstIdentifier(parsed.rename)) {
       diagnostics.push({
         severity: "error",
-        code: "loom/load/invalid-tool-rename",
+        code: "theta/load/invalid-tool-rename",
         file,
         message: `'as ${parsed.rename}' rename target must be lowercase-first; got '${parsed.rename}'`,
       });
@@ -193,7 +193,7 @@ export function resolveCallableSet(
     if (entries.has(name) || deps.reservedNames.has(name)) {
       diagnostics.push({
         severity: "error",
-        code: "loom/load/tool-name-collision",
+        code: "theta/load/tool-name-collision",
         file,
         message: `tool name '${name}' collides with another 'tools:' entry, top-level fn, or import`,
       });
@@ -203,7 +203,7 @@ export function resolveCallableSet(
     entries.set(name, resolution.callable);
   }
 
-  // The loom registers iff no error-severity diagnostic was raised. On any
+  // The theta registers iff no error-severity diagnostic was raised. On any
   // rejection there is no resolution snapshot.
   const registered = !diagnostics.some((d) => d.severity === "error");
   if (!registered) {
@@ -219,7 +219,7 @@ export function resolveCallableSet(
 
 /** A parsed `tools:` entry: the callable spec plus an optional `as` rename. */
 interface ParsedEntry {
-  /** The Pi-tool name or `.loom` path literal as written. */
+  /** The Pi-tool name or `.theta` path literal as written. */
   readonly spec: string;
   /** The `as <name>` rename target, if present. */
   readonly rename?: string;
@@ -258,7 +258,7 @@ function splitEntries(tools: ToolsField): readonly string[] {
 
 /**
  * Parse one trimmed entry into its callable spec and optional `as` rename. The
- * grammar is `<spec> ('as' <name>)?`; neither a `.loom` path nor an `as` target
+ * grammar is `<spec> ('as' <name>)?`; neither a `.theta` path nor an `as` target
  * contains whitespace, so a whitespace split disambiguates.
  */
 function parseEntry(raw: string): ParsedEntry {
@@ -270,7 +270,7 @@ function parseEntry(raw: string): ParsedEntry {
 /**
  * Resolve one entry's spec to a callable, or produce the rejection diagnostic.
  * A bare identifier is a Pi-tool name (resolved against the host registry);
- * anything else is a `.loom` path literal (resolved against the parse cache,
+ * anything else is a `.theta` path literal (resolved against the parse cache,
  * then gated on subagent-mode).
  */
 function resolveEntry(
@@ -286,7 +286,7 @@ function resolveEntry(
         defaultName: spec,
         diagnostic: {
           severity: "error",
-          code: "loom/load/unknown-tool",
+          code: "theta/load/unknown-tool",
           file,
           message: `unknown Pi tool '${spec}'`,
         },
@@ -296,18 +296,18 @@ function resolveEntry(
     return { callable: resolved, defaultName: spec };
   }
 
-  // `.loom` path entry.
-  const resolved = deps.resolveLoomCallee(spec);
-  const defaultName = loomDefaultName(spec);
+  // `.theta` path entry.
+  const resolved = deps.resolveThetaCallee(spec);
+  const defaultName = thetaDefaultName(spec);
   if (resolved === undefined) {
     return {
-      callable: { kind: "loom", mode: "subagent", callee: undefined, calleePath: spec },
+      callable: { kind: "theta", mode: "subagent", callee: undefined, calleePath: spec },
       defaultName,
       diagnostic: {
         severity: "error",
-        code: "loom/load/unresolvable-loom-path",
+        code: "theta/load/unresolvable-theta-path",
         file,
-        message: `cannot resolve .loom path '${spec}'`,
+        message: `cannot resolve .theta path '${spec}'`,
       },
     };
   }
@@ -315,16 +315,16 @@ function resolveEntry(
   // onto the snapshot entry. The deps lookup is keyed by that same literal, so
   // this is the single source of truth for how the runtime later reopens the
   // callee — independent of the presented name's hyphen/rename rewrites.
-  const withPath: ResolvedLoomCallee = { ...resolved, calleePath: spec };
+  const withPath: ResolvedThetaCallee = { ...resolved, calleePath: spec };
   if (resolved.mode === "prompt") {
     return {
       callable: withPath,
       defaultName,
       diagnostic: {
         severity: "error",
-        code: "loom/load/prompt-mode-callable",
+        code: "theta/load/prompt-mode-callable",
         file,
-        message: `'tools:' entry '${spec}' points at a prompt-mode loom; only subagent-mode looms are permitted`,
+        message: `'tools:' entry '${spec}' points at a prompt-mode theta; only subagent-mode thetas are permitted`,
       },
     };
   }
@@ -332,27 +332,27 @@ function resolveEntry(
 }
 
 /**
- * The default name for a `.loom` path entry: the file's basename without the
- * `.loom` extension, with hyphens replaced by underscores
- * (`./code-review.loom` → `code_review`).
+ * The default name for a `.theta` path entry: the file's basename without the
+ * `.theta` extension, with hyphens replaced by underscores
+ * (`./code-review.theta` → `code_review`).
  */
-function loomDefaultName(loomPath: string): string {
-  const basename = loomPath.slice(loomPath.lastIndexOf("/") + 1);
-  const stem = basename.endsWith(".loom") ? basename.slice(0, -".loom".length) : basename;
+function thetaDefaultName(thetaPath: string): string {
+  const basename = thetaPath.slice(thetaPath.lastIndexOf("/") + 1);
+  const stem = basename.endsWith(".theta") ? basename.slice(0, -".theta".length) : basename;
   return stem.replace(/-/g, "_");
 }
 
 /**
- * A bare loom identifier `[A-Za-z_][A-Za-z0-9_]*` with no path separator or
+ * A bare theta identifier `[A-Za-z_][A-Za-z0-9_]*` with no path separator or
  * extension — the shape that marks a `tools:` entry as a Pi-tool name rather
- * than a `.loom` path literal.
+ * than a `.theta` path literal.
  */
 function isBareIdentifier(spec: string): boolean {
   return /^[A-Za-z_][A-Za-z0-9_]*$/.test(spec);
 }
 
 /**
- * The loom lowercase-first identifier rule (lexical.md §Identifiers): a
+ * The theta lowercase-first identifier rule (lexical.md §Identifiers): a
  * lowercase letter or `_` first, then identifier characters. The `as` rename
  * target must satisfy this.
  */

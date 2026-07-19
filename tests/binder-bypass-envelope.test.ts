@@ -208,7 +208,7 @@ describe("V11c-T — binder bypass path (skips the LLM call)", () => {
   });
 
   it("no-params check runs before single-string: a zero-field params classifies no-params", () => {
-    // A params:{} loom (zero fields) must classify no-params, not single-string
+    // A params:{} theta (zero fields) must classify no-params, not single-string
     // and not binder.
     expect(classifyBinderBypass([]).kind).toBe("no-params-bypass");
   });
@@ -252,12 +252,12 @@ describe("V11c-T — BNDR-3: needs_info and ambiguous template prefixes stay dis
     expect(binderFailureRowPrefix("needs_info")).not.toBe(binderFailureRowPrefix("ambiguous"));
   });
 
-  it("BNDR-3: the rendered rows keep the distinct `loom /<name>:` prefixes", () => {
+  it("BNDR-3: the rendered rows keep the distinct `theta /<name>:` prefixes", () => {
     expect(renderBinderFailureRow("code-review", "needs_info", "which language?")).toBe(
-      "loom /code-review: argument binding needs more info — which language?",
+      "theta /code-review: argument binding needs more info — which language?",
     );
     expect(renderBinderFailureRow("code-review", "ambiguous", "two authors match")).toBe(
-      "loom /code-review: ambiguous arguments — two authors match",
+      "theta /code-review: ambiguous arguments — two authors match",
     );
   });
 });

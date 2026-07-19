@@ -5,7 +5,7 @@
 // obligation area — no numbered REQ-IDs), evaluated on top of the V3a
 // expression interpreter and the V2c runtime value model:
 //
-//   - the runtime `array<T>` members of the loom-1.0 stdlib table — the
+//   - the runtime `array<T>` members of the theta-1.0 stdlib table — the
 //     `length` property (the element count), `join(sep)` (concatenates `string`
 //     elements with `sep`), `includes(x)` / `indexOf(x)` (membership / first
 //     index by the V2c `valuesEqual` structural equality, with `indexOf`
@@ -14,7 +14,7 @@
 //     slices to length);
 //   - the parse-time `join` element-type precondition — `arr.join(...)` on an
 //     array whose element type is not `string` is the `type`-phase diagnostic
-//     `loom/parse/non-string-array-join` (no implicit type conversion in loom
+//     `theta/parse/non-string-array-join` (no implicit type conversion in theta
 //     1.0).
 //
 // The `array<T>.concat(array<U>)` LUB element type is owned by V3f
@@ -25,13 +25,13 @@
 
 import { displayType, type CompatType, type CompatSite } from "../parser/type-compat";
 import { type Diagnostic } from "../diagnostics/diagnostic";
-import { valuesEqual, type LoomValue } from "./value";
+import { valuesEqual, type ThetaValue } from "./value";
 
 /**
  * Evaluate an `array<T>` standard-library member on `receiver`: the `length`
  * property (called with `args === []`) or one of the method calls (`join` /
  * `includes` / `indexOf` / `slice` / `concat`), with the arguments already evaluated by
- * the V3a interpreter. Returns the member's loom value per the expressions.md
+ * the V3a interpreter. Returns the member's theta value per the expressions.md
  * stdlib table (`includes` / `indexOf` use the V2c `valuesEqual` structural
  * equality; `slice` follows JS semantics).
  *
@@ -39,7 +39,7 @@ import { valuesEqual, type LoomValue } from "./value";
 /**
  * The `array<T>` standard-library member surface (expressions.md §"Built-in
  * methods and properties"): the allow-list the `type`-phase
- * `loom/parse/unknown-method` check consumes. Kept in lockstep with the
+ * `theta/parse/unknown-method` check consumes. Kept in lockstep with the
  * `evaluateArrayMember` dispatcher below.
  */
 export const ARRAY_MEMBERS: ReadonlySet<string> = new Set([
@@ -52,10 +52,10 @@ export const ARRAY_MEMBERS: ReadonlySet<string> = new Set([
 ]);
 
 export function evaluateArrayMember(
-  receiver: readonly LoomValue[],
+  receiver: readonly ThetaValue[],
   member: string,
-  args: readonly LoomValue[],
-): LoomValue {
+  args: readonly ThetaValue[],
+): ThetaValue {
   switch (member) {
     // `length` — the element count.
     case "length":
@@ -65,12 +65,12 @@ export function evaluateArrayMember(
     // no implicit conversion happens here.
     case "join":
       return receiver.join(args[0] as string);
-    // `includes(x)` — membership test using loom structural equality (V2c).
+    // `includes(x)` — membership test using theta structural equality (V2c).
     case "includes":
-      return receiver.some((element) => valuesEqual(element, args[0] as LoomValue));
+      return receiver.some((element) => valuesEqual(element, args[0] as ThetaValue));
     // `indexOf(x)` — first index by structural equality, or `-1` if absent.
     case "indexOf":
-      return receiver.findIndex((element) => valuesEqual(element, args[0] as LoomValue));
+      return receiver.findIndex((element) => valuesEqual(element, args[0] as ThetaValue));
     // `slice(start, end?)` — JS semantics: negative indices count from the end,
     // `end` is exclusive, an omitted `end` slices to length. `Array.prototype.
     // slice` already implements all three; an omitted optional argument is
@@ -80,11 +80,11 @@ export function evaluateArrayMember(
     // `concat(other)` — a new array: the receiver's elements followed by the
     // argument array's elements. The V3f type layer (`concatElementType`) has
     // already resolved the result element type to the LUB `T ⊔ U`; at runtime
-    // the values are structurally uniform loom values, so a plain positional
+    // the values are structurally uniform theta values, so a plain positional
     // append is faithful. `Array.prototype.concat` copies rather than mutating
     // the receiver, matching the immutable-value discipline of the other cases.
     case "concat":
-      return receiver.concat(args[0] as readonly LoomValue[]);
+      return receiver.concat(args[0] as readonly ThetaValue[]);
     default:
       throw new Error(`unknown array stdlib member: ${member}`);
   }
@@ -92,7 +92,7 @@ export function evaluateArrayMember(
 
 /**
  * Check the parse-time `join` element-type precondition: `arr.join(...)` on an
- * array whose element type is not `string` is `loom/parse/non-string-array-join`
+ * array whose element type is not `string` is `theta/parse/non-string-array-join`
  * (a `type`-phase diagnostic). Returns `undefined` for a `string` element type
  * (expressions.md §"Built-in methods and properties", `array<T>` `join` row).
  *
@@ -101,7 +101,7 @@ export function checkArrayJoin(
   elementType: CompatType,
   site: CompatSite,
 ): Diagnostic | undefined {
-  // The element type must be `string` (no implicit type conversion in loom
+  // The element type must be `string` (no implicit type conversion in theta
   // 1.0). A `string`-typed literal element (e.g. `array<"a">`) types as
   // `string` in expression position and is equally admissible.
   const isString =
@@ -114,7 +114,7 @@ export function checkArrayJoin(
   // `<element>` placeholder renders the offending element type.
   return {
     severity: "error",
-    code: "loom/parse/non-string-array-join",
+    code: "theta/parse/non-string-array-join",
     file: site.file,
     range: site.range,
     message: `array.join requires a string element type; got array<${displayType(

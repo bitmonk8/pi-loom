@@ -1,7 +1,7 @@
 // H4a — in-process Pi session double.
 //
 // A reusable, in-memory double of the pinned `@earendil-works/pi-coding-agent`
-// SDK surface the loom extension factory and the prompt-mode driver touch:
+// SDK surface the theta extension factory and the prompt-mode driver touch:
 // the `ExtensionAPI` registration/subscription/drive surface (`pi`) and the
 // `ExtensionCommandContext` a slash handler receives (`ctx`). It captures
 // registrations (flags, the renderer, slash commands, `pi.on` subscriptions),
@@ -16,7 +16,7 @@
 // behaviour model (conversation-drive.md / cancellation.md), and the self-check
 // asserts the double against THAT model — it runs no live Pi session and so
 // cannot detect the double diverging from real Pi (no mechanical real-host
-// fidelity gate exists in loom 1.0).
+// fidelity gate exists in theta 1.0).
 
 import type {
   ExtensionAPI,
@@ -56,7 +56,7 @@ interface DrivenTurn {
 }
 
 /**
- * In-process double of the Pi session surfaces the loom extension consumes.
+ * In-process double of the Pi session surfaces the theta extension consumes.
  *
  * Behaviour model (faithful to the cited spec axes):
  *  - `sendUserMessage` begins a single prompt-mode driven turn: one `user`
@@ -70,7 +70,7 @@ interface DrivenTurn {
  *    models a Pi/user-initiated cancel (the CNCL-4 source), aborting that
  *    signal with `reason` and firing the terminal `agent_end` so the
  *    subscribed `pi.on` handlers observe the aborted signal and `waitForIdle()`
- *    resolves. `ctx.abort()` models the loom→Pi teardown direction.
+ *    resolves. `ctx.abort()` models the theta→Pi teardown direction.
  */
 export class SessionDouble {
   readonly flags = new Map<string, boolean | string>();
@@ -82,8 +82,8 @@ export class SessionDouble {
   readonly events: string[] = [];
   /**
    * Custom messages sent via `pi.sendMessage` — the diagnostics channel the
-   * `loom-system-note` renderer surfaces. The `M-T` happy-path assertion that
-   * a dispatch produces "no diagnostic" reads this log; a `loom-system-note`
+   * `theta-system-note` renderer surfaces. The `M-T` happy-path assertion that
+   * a dispatch produces "no diagnostic" reads this log; a `theta-system-note`
    * here is a surfaced diagnostic.
    */
   readonly systemNotes: SentMessage[] = [];
@@ -140,7 +140,7 @@ export class SessionDouble {
     return this.#ctx as unknown as ExtensionCommandContext;
   }
 
-  /** Fire the `session_start` subscribers (drives per-loom command registration). */
+  /** Fire the `session_start` subscribers (drives per-theta command registration). */
   fireSessionStart(): void {
     this.#fire("session_start", { type: "session_start" });
   }
@@ -254,7 +254,7 @@ export class SessionDouble {
       display?: boolean;
     }): void => {
       // Log a lifecycle marker so an ordering assertion can witness where a
-      // `pi.sendMessage` (`loom-system-note`) emission falls relative to the
+      // `pi.sendMessage` (`theta-system-note`) emission falls relative to the
       // streamed tokens / `agent_end` of an in-flight turn — the SLSH-2
       // note-after-prefix ordering the session-double fidelity contract models.
       this.events.push("system-note");
@@ -276,8 +276,8 @@ export class SessionDouble {
     },
     isIdle: (): boolean => this.#turn === undefined || this.#turn.ended,
     abort: (): void => {
-      // loom→Pi teardown direction: tears down the in-flight user run.
-      this.#turn?.controller.abort(new Error("loom cancelled by ctx.abort"));
+      // theta→Pi teardown direction: tears down the in-flight user run.
+      this.#turn?.controller.abort(new Error("theta cancelled by ctx.abort"));
     },
   };
 

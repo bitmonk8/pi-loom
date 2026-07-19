@@ -12,7 +12,7 @@
 //     branch dispatches — it is NOT counted against `max_rounds`.
 //   - QRY-14 typed two-phase loop: a free phase (any frontmatter tool, serviced
 //     and looped) followed by the forced respond turn that forces the provider
-//     to the synthesised `__loom_respond_<slug>` tool. The `max_rounds: 0`
+//     to the synthesised `__theta_respond_<slug>` tool. The `max_rounds: 0`
 //     boundary takes the `max_rounds`-final branch at typed-query start
 //     (`slot_count == max_rounds` holds at initialisation, 0 == 0): no
 //     free-phase provider call is issued and the forced respond turn is the only
@@ -22,8 +22,8 @@
 //     `Err(QueryError { kind: "tool_loop_exhausted", ... })` (`ToolLoopExhaustedError`),
 //     with no `masked` field (omitted, never `[]`).
 //   - QRY-16 typed depth-6 co-fire: a depth-6 typed-query response trips the
-//     loom-owned depth walk (`V5e`) *before* AJV (CIO-3) and ceiling #4 surfaces
-//     in loom code as `Err(QueryError { kind: "validation", cause:
+//     theta-owned depth walk (`V5e`) *before* AJV (CIO-3) and ceiling #4 surfaces
+//     in theta code as `Err(QueryError { kind: "validation", cause:
 //     "schema_validation" })` (`schema_keyword: "maxDepth"`); the co-satisfied
 //     ceiling #2 is enumerated on the operator-facing `RuntimeEvent` at
 //     `details.event.masked` as `["ceiling#2"]` (CIO-4/CIO-6), never on the
@@ -96,7 +96,7 @@ export type FreePhaseTurn =
 
 /**
  * The forced respond turn a typed query issues after the free phase: the model
- * invokes the synthesised `__loom_respond_<slug>` tool with `payload` (the
+ * invokes the synthesised `__theta_respond_<slug>` tool with `payload` (the
  * candidate structured value the respond tool's `execute` depth-walks and
  * AJV-validates against the lowered response schema).
  */
@@ -138,8 +138,8 @@ export interface QueryToolLoopConfig {
   readonly maxRounds: number;
   /** The `@`-query source site the cancellation checkpoint carries. */
   readonly querySite: CheckpointSite;
-  /** Slash name of the owning loom (for the operator-facing `RuntimeEvent`). */
-  readonly loomSlashName: string;
+  /** Slash name of the owning theta (for the operator-facing `RuntimeEvent`). */
+  readonly thetaSlashName: string;
   /** Per-invocation UUID (for the operator-facing `RuntimeEvent`). */
   readonly invocationId: string;
   /** The wall-clock epoch-ms the surfacing `RuntimeEvent` is stamped with. */
@@ -497,9 +497,9 @@ export async function runTypedQueryLoop(
     return { kind: "transport", error: forced.error, rounds, forcedRespond, committed };
   }
 
-  // CIO-3: the loom-owned depth walk (`V5e`) runs at the typed-query response
+  // CIO-3: the theta-owned depth walk (`V5e`) runs at the typed-query response
   // AJV boundary *before* AJV. A depth-6 payload trips ceiling #4 and surfaces
-  // in loom code as `Err(QueryError { kind: "validation", cause:
+  // in theta code as `Err(QueryError { kind: "validation", cause:
   // "schema_validation" })` with `schema_keyword: "maxDepth"`.
   const walk = depthWalk(forced.payload);
   if (!walk.ok) {
@@ -526,7 +526,7 @@ export async function runTypedQueryLoop(
     });
     const event: RuntimeEvent = {
       kind: "validation",
-      loom: config.loomSlashName,
+      theta: config.thetaSlashName,
       invocation_id: config.invocationId,
       query_site: {
         file: config.querySite.file,
@@ -606,7 +606,7 @@ function buildValidationEvent(
   });
   return {
     kind: "validation",
-    loom: config.loomSlashName,
+    theta: config.thetaSlashName,
     invocation_id: config.invocationId,
     query_site: {
       file: config.querySite.file,

@@ -4,19 +4,19 @@
 
 The registry's *Message* column carries `<…>` placeholders that the renderer interpolates at the diagnostic site (rule 4 above). This subsection groups every placeholder used by V1 messages into eight categories and fixes one rendering rule per category, so two conformant implementations produce byte-identical strings (or byte-identical surround around an implementation-defined-tail interpolation, for category 8) for the same source defect. Throughout this subsection, *byte-identical* means equal as UTF-8 byte sequences, the comparison basis pinned by [Governance — GOV-15](../governance/source-language-stability.md#gov-15). Each rule below carries normative test vectors; conformance tests asserting on a rendered message MUST match these vectors and SHOULD include the boundary cases called out in *Edge cases* at the end of this subsection. The closed token-name table in category 3 and the closed value tables in category 7 carry the same GOV-7 / GOV-8 governance posture as the category-to-placeholder map itself.
 
-**Closure.** The eight categories below form the closed loom 1.0.0 placeholder-rendering surface. Every `<…>` token appearing in the *Message* column of any row across the four [Code registry](./code-registry-parse.md#code-registry) pages — the `loom/parse/*` table on that page and its [`loom/load/*`](./code-registry-load.md), [`loom/runtime/*`](./code-registry-runtime.md), and [`loom/host/*`](./code-registry-host.md) continuation tables — is either (a) a placeholder enumerated in categories 1–7 (rendered byte-identically per its category's rule), (b) a §8 placeholder (rendered as a byte-identical prefix and suffix around an implementation-defined-tail interpolation per §8's rule), other than the parsed-scalar `<observed>` usage carved out in clause (e) below, (c) the bespoke `<list>` placeholder in `loom/runtime/reload-teardown-timeout` (whose row carries an inline rendering rule that decomposes into the §7 sub-rules for `<slash-name>`, `<invocation-id>`, and the comma-space join), (d) the `<failure>` carve-out documented in §8 below (a loom-internally-constructed discriminator whose grammar is pinned at the diagnostic-construction site, not by §8's host-derived rule), or (e) the `<observed>` carve-out for the parsed-scalar out-of-range codes documented in §8 below (`loom/load/frontmatter-value-out-of-range` and `loom/load/settings-value-out-of-range`, rendered fully byte-identically by the offending scalar's kind, not by §8's host-derived first-line-truncation rule). No other placeholders are admitted; this closure is enforced at build time. Introducing a new placeholder, retiring one, or moving a placeholder between categories is a spec-versioned breaking change governed by **GOV-7** and **GOV-8** in [`spec.md` — Governance](../../spec.md), exactly as the registry rows themselves are.
+**Closure.** The eight categories below form the closed theta 1.0.0 placeholder-rendering surface. Every `<…>` token appearing in the *Message* column of any row across the four [Code registry](./code-registry-parse.md#code-registry) pages — the `theta/parse/*` table on that page and its [`theta/load/*`](./code-registry-load.md), [`theta/runtime/*`](./code-registry-runtime.md), and [`theta/host/*`](./code-registry-host.md) continuation tables — is either (a) a placeholder enumerated in categories 1–7 (rendered byte-identically per its category's rule), (b) a §8 placeholder (rendered as a byte-identical prefix and suffix around an implementation-defined-tail interpolation per §8's rule), other than the parsed-scalar `<observed>` usage carved out in clause (e) below, (c) the bespoke `<list>` placeholder in `theta/runtime/reload-teardown-timeout` (whose row carries an inline rendering rule that decomposes into the §7 sub-rules for `<slash-name>`, `<invocation-id>`, and the comma-space join), (d) the `<failure>` carve-out documented in §8 below (a theta-internally-constructed discriminator whose grammar is pinned at the diagnostic-construction site, not by §8's host-derived rule), or (e) the `<observed>` carve-out for the parsed-scalar out-of-range codes documented in §8 below (`theta/load/frontmatter-value-out-of-range` and `theta/load/settings-value-out-of-range`, rendered fully byte-identically by the offending scalar's kind, not by §8's host-derived first-line-truncation rule). No other placeholders are admitted; this closure is enforced at build time. Introducing a new placeholder, retiring one, or moving a placeholder between categories is a spec-versioned breaking change governed by **GOV-7** and **GOV-8** in [`spec.md` — Governance](../../spec.md), exactly as the registry rows themselves are.
 
 ### 1. Static-type placeholders
 
 **Placeholders.** `<type>`, `<expected>`, `<actual>`, `<left>`, `<right>`, `<element>`.
 
-**Rule.** Render the Loom static type by re-serialising it in the source-grammar form defined in [Type System](../type-system.md):
+**Rule.** Render the Theta static type by re-serialising it in the source-grammar form defined in [Type System](../type-system.md):
 
 - Primitive type names lowercase: `string`, `integer`, `number`, `boolean`, `null`.
 - Literal types as their literal source: `"foo"`, `42`, `true`.
 - Unions joined by ` | ` (space-pipe-space) with no surrounding parentheses.
 - Arrays as `array<T>` (the angle-bracket form; never `T[]`, never `[T]`).
-- Named schemas, enums, and type aliases by their loom-side identifier (no wire-name translation; the identifier shape is fixed by [Lexical — Identifiers](../lexical.md)).
+- Named schemas, enums, and type aliases by their theta-side identifier (no wire-name translation; the identifier shape is fixed by [Lexical — Identifiers](../lexical.md)).
 - `Result<T, E>` rendered as written, with the inner types recursing this rule.
 - Inline anonymous object types as `{ f₁: T₁, f₂: T₂ }`, fields in declaration order, single space after each `:` and after each `,`.
 
@@ -42,12 +42,12 @@ The registry's *Message* column carries `<…>` placeholders that the renderer i
 
 ### 3. Syntactic-construct placeholder
 
-**Placeholders.** `<construct>` in `loom/parse/unsupported-feature`; `<expr>` in `loom/parse/default-not-literal` and `loom/parse/tool-arg-not-literal`.
+**Placeholders.** `<construct>` in `theta/parse/unsupported-feature`; `<expr>` in `theta/parse/default-not-literal` and `theta/parse/tool-arg-not-literal`.
 
 **Rule.**
 
 - For `<expr>` in the two literal-sublanguage codes, render the offending source span verbatim, copied byte-for-byte from the source file between the offending sub-expression's start and end token positions (post-newline-normalisation per [Lexical — Encoding](../lexical.md)), with internal whitespace preserved.
-- For `<construct>` in `loom/parse/unsupported-feature`, the offending site is a whole node category with no single source-span anchor (e.g. `=>` lambdas span the entire arrow form, including the body). Use the closed token-name table below.
+- For `<construct>` in `theta/parse/unsupported-feature`, the offending site is a whole node category with no single source-span anchor (e.g. `=>` lambdas span the entire arrow form, including the body). Use the closed token-name table below.
 
 | Construct | Token name |
 |---|---|
@@ -69,16 +69,16 @@ The registry's *Message* column carries `<…>` placeholders that the renderer i
 
 **Test vectors.**
 
-- A loom containing `let f = (x) => x + 1` renders `unsupported syntactic feature: arrow function`.
+- A theta containing `let f = (x) => x + 1` renders `unsupported syntactic feature: arrow function`.
 - A `params:` default whose RHS is `a + b` renders `params default RHS must be a literal-sublanguage form; offending sub-expression: a + b`.
 
 ### 4. Numeric placeholders
 
 **Placeholders.** `<i>`, `<length>`, `<depth>`, `<offset>`, `<count>`, `<index>`, `<required>`, `<provided>`, `<max>`.
 
-**Rule.** Render as the shortest decimal representation per the `integer` row of the canonical stringification table in [Query — Stringification of interpolated values](../query.md): no scientific notation, no leading zeros, leading `-` for negatives, `0` for the value `-0` (signed zero is normalised at the rendering boundary). `Infinity` and `NaN` are unreachable for these placeholders by construction (every emitting site is bounded — array length is non-negative, invoke depth is bounded by 32, etc.); a renderer that nonetheless encounters one MUST surface it through `loom/runtime/internal-error` rather than emitting `Infinity` or `NaN` into a panic message.
+**Rule.** Render as the shortest decimal representation per the `integer` row of the canonical stringification table in [Query — Stringification of interpolated values](../query.md): no scientific notation, no leading zeros, leading `-` for negatives, `0` for the value `-0` (signed zero is normalised at the rendering boundary). `Infinity` and `NaN` are unreachable for these placeholders by construction (every emitting site is bounded — array length is non-negative, invoke depth is bounded by 32, etc.); a renderer that nonetheless encounters one MUST surface it through `theta/runtime/internal-error` rather than emitting `Infinity` or `NaN` into a panic message.
 
-**Scope of `<required>` / `<provided>`.** This category-4 numeric rule governs `<required>` and `<provided>` at the arity-diagnostic emitting sites `loom/parse/invoke-arity-too-few` and `loom/parse/invoke-arity-too-many`, where both render integer argument counts. The `loom/load/host-incompatible` row's `<required>` is **not** numeric — depending on `kind` it renders a SemVer range, a tilde-range pin, or a closed literal such as `"function"` — and is pinned per `kind` at [the `loom/load/host-incompatible` per-`kind` `<observed>` / `<required>` enumeration](./placeholder-rendering-b.md#host-incompatible-observed-required) rather than by this rule.
+**Scope of `<required>` / `<provided>`.** This category-4 numeric rule governs `<required>` and `<provided>` at the arity-diagnostic emitting sites `theta/parse/invoke-arity-too-few` and `theta/parse/invoke-arity-too-many`, where both render integer argument counts. The `theta/load/host-incompatible` row's `<required>` is **not** numeric — depending on `kind` it renders a SemVer range, a tilde-range pin, or a closed literal such as `"function"` — and is pinned per `kind` at [the `theta/load/host-incompatible` per-`kind` `<observed>` / `<required>` enumeration](./placeholder-rendering-b.md#host-incompatible-observed-required) rather than by this rule.
 
 **Test vectors.**
 

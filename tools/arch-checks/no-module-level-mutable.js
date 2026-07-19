@@ -12,7 +12,7 @@
 // initializer shape, not on runtime reuse: the closure-captured, lazy
 // module-cache, and DI-container singleton forms are NOT mechanically
 // detected here — that residue is owned by the conventions.md Per-phase TDD
-// ritual self-review step and the loom 1.0 release-time residue inspection.
+// ritual self-review step and the theta 1.0 release-time residue inspection.
 //
 // A top-level immutable `const` (primitive, `as const`, frozen, function
 // call result, arrow function, etc.) is allowed: only the directly-observable

@@ -1,30 +1,30 @@
 import { describe, expect, it } from "vitest";
 import {
-  parseLoomDocument,
+  parseThetaDocument,
   type Block,
   type Expr,
-  type LoomDocument,
-  type ParseLoomDocumentDeps,
+  type ThetaDocument,
+  type ParseThetaDocumentDeps,
   type QueryExpr,
   type SchemaDecl,
   type Stmt,
-} from "../src/parser/loom-document";
+} from "../src/parser/theta-document";
 import type { SystemNoteChannelDeps } from "../src/extension/system-note-channel";
 import type { ModelReferenceMatcher } from "../src/parser/frontmatter";
 import { lowerQueryResponseSchema } from "../src/runtime/query-schema-lowering";
-import type { LoomSource } from "../src/lexer/lexer";
+import type { ThetaSource } from "../src/lexer/lexer";
 
 // V13b integration — parser-level tests for the whole-body query-schema resolve
-// pass (`resolveQuerySchemas`, wired into `parseLoomDocument`): the QRY-2
+// pass (`resolveQuerySchemas`, wired into `parseThetaDocument`): the QRY-2
 // INDIRECT response-schema inference at the four spec-backed sink positions, the
-// QRY-3 explicit override, the QRY-4 `loom/parse/explicit-schema-mismatch`
+// QRY-3 explicit override, the QRY-4 `theta/parse/explicit-schema-mismatch`
 // warning, and the schema-subset.md step-4 per-query `$defs` pruning wired into
 // `lowerQueryResponseSchema`.
 //
 // These are deterministic PARSE-time transform tests: a query's response schema
 // is resolved from surrounding type context by a pure AST pass, so no live model
 // probe is involved (a model probe would test the runtime respond loop, not this
-// parse-time inference). Each test parses real `.loom`/`.fn` source, locates the
+// parse-time inference). Each test parses real `.theta`/`.fn` source, locates the
 // `QueryExpr`, and asserts its resolved `.schema`.
 //
 // Spec: query/query-forms.md (QRY-2/3/4), schema-subset.md §"Lowering Algorithm"
@@ -32,7 +32,7 @@ import type { LoomSource } from "../src/lexer/lexer";
 
 // --- harness ---------------------------------------------------------------
 
-function makeDeps(): ParseLoomDocumentDeps {
+function makeDeps(): ParseThetaDocumentDeps {
   const systemNote: SystemNoteChannelDeps = {
     pi: { sendMessage: (): void => {} },
     ui: { notify: (): void => {} },
@@ -44,18 +44,18 @@ function makeDeps(): ParseLoomDocumentDeps {
   return { systemNote, modelMatcher };
 }
 
-function parse(src: string, path = "resolve.loom"): LoomDocument {
-  const source: LoomSource = { path, bytes: new TextEncoder().encode(src) };
-  return parseLoomDocument(source, makeDeps());
+function parse(src: string, path = "resolve.theta"): ThetaDocument {
+  const source: ThetaSource = { path, bytes: new TextEncoder().encode(src) };
+  return parseThetaDocument(source, makeDeps());
 }
 
 /** The `schema` declarations of a parsed body (for the lowering helper). */
-function schemaDeclsOf(doc: LoomDocument): readonly SchemaDecl[] {
+function schemaDeclsOf(doc: ThetaDocument): readonly SchemaDecl[] {
   return doc.body.statements.filter((s): s is SchemaDecl => s.kind === "schema");
 }
 
 /** Every `QueryExpr` in a parsed body, in source order (depth-first). */
-function queriesOf(doc: LoomDocument): QueryExpr[] {
+function queriesOf(doc: ThetaDocument): QueryExpr[] {
   const found: QueryExpr[] = [];
   const visitExpr = (e: Expr): void => {
     if (e.kind === "query") {
@@ -160,7 +160,7 @@ function onlyQuery(src: string): QueryExpr {
   return queries[0] as QueryExpr;
 }
 
-const MISMATCH_CODE = "loom/parse/explicit-schema-mismatch";
+const MISMATCH_CODE = "theta/parse/explicit-schema-mismatch";
 
 // ===========================================================================
 // QRY-2 — call-argument sink
@@ -205,7 +205,7 @@ describe("V13b — fn-return sink (indirect position 2)", () => {
     expect(queries.map((q) => q.schema)).toEqual(["Score", "Score"]);
   });
 
-  it("a .loom top-level tail is NOT a return sink (stays null)", () => {
+  it("a .theta top-level tail is NOT a return sink (stays null)", () => {
     const q = onlyQuery("@`hi`\n");
     expect(q.schema).toBeNull();
   });

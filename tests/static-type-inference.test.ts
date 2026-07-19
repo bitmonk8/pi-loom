@@ -4,7 +4,7 @@ import {
   type StaticTypeInferenceDeps,
 } from "../src/parser/static-type-inference";
 import { checkCompatible, type TypeEnv } from "../src/parser/type-compat";
-import type { Expr, LoomBody, Stmt } from "../src/parser/loom-document";
+import type { Expr, ThetaBody, Stmt } from "../src/parser/theta-document";
 import type { SourceRange } from "../src/diagnostics/diagnostic";
 import {
   executeBody,
@@ -21,7 +21,7 @@ import type {
   CommittedConversationMutator,
   CommittedSurface,
 } from "../src/runtime/terminal-outcomes";
-import type { LoomValue } from "../src/runtime/value";
+import type { ThetaValue } from "../src/runtime/value";
 
 // V20b-T — failing tests for the paired `V20b` static type-inference substrate.
 //
@@ -33,7 +33,7 @@ import type { LoomValue } from "../src/runtime/value";
 // (`checkCompatible`, the `⊑` relation) but no whole-program pass that assigns
 // a static type to every expression node, so the `V20c` type-phase checkers
 // have nothing to run against in production. These tests exercise the new
-// whole-program static-type-assignment pass over a parsed `V19a` `LoomBody`:
+// whole-program static-type-assignment pass over a parsed `V19a` `ThetaBody`:
 //
 //   1. the pass assigns a static type to every expression node kind via the
 //      `V2b` `⊑` engine, exposing a per-node inferred-type lookup keyed by node
@@ -57,7 +57,7 @@ function exprStmt(expr: Expr): Stmt {
   return { kind: "expr", expr, range: span() };
 }
 
-function loomBody(statements: readonly Stmt[], tail: Expr | null = null): LoomBody {
+function thetaBody(statements: readonly Stmt[], tail: Expr | null = null): ThetaBody {
   return { statements, tail };
 }
 
@@ -121,9 +121,9 @@ const NODE_KINDS: ReadonlyArray<readonly [string, Expr]> = [
   ["Err constructor", errCtor],
 ];
 
-/** A parsed loom body carrying one expression statement of every kind above. */
-function everyKindBody(): LoomBody {
-  return loomBody(NODE_KINDS.map(([, node]) => exprStmt(node)));
+/** A parsed theta body carrying one expression statement of every kind above. */
+function everyKindBody(): ThetaBody {
+  return thetaBody(NODE_KINDS.map(([, node]) => exprStmt(node)));
 }
 
 /** A trivially-empty type environment (no named-schema resolution needed here). */
@@ -181,7 +181,7 @@ class NoopMutator implements CommittedConversationMutator {
 
 /** A bounded pure-expression host: every node in the read-only body is pure. */
 class PureHost implements StatementEvalHost {
-  evaluatePure(expr: Expr, env: LexicalEnvironment): LoomValue {
+  evaluatePure(expr: Expr, env: LexicalEnvironment): ThetaValue {
     return this.#eval(expr, env);
   }
   checkpointFor(_expr: Expr): CheckpointDescriptor | null {
@@ -190,7 +190,7 @@ class PureHost implements StatementEvalHost {
   runEffect(): Promise<never> {
     throw new Error("read-only body has no checkpointed effects");
   }
-  #eval(expr: Expr, env: LexicalEnvironment): LoomValue {
+  #eval(expr: Expr, env: LexicalEnvironment): ThetaValue {
     switch (expr.kind) {
       case "number":
         return Number(expr.text);
@@ -211,7 +211,7 @@ class PureHost implements StatementEvalHost {
   }
 }
 
-function execDeps(body: LoomBody): ExecuteBodyDeps {
+function execDeps(body: ThetaBody): ExecuteBodyDeps {
   return {
     env: buildEnvironment({ body }),
     host: new PureHost(),
@@ -219,16 +219,16 @@ function execDeps(body: LoomBody): ExecuteBodyDeps {
     signal: new AbortController().signal,
     mutator: new NoopMutator(),
     mode: "prompt",
-    file: "test.loom",
+    file: "test.theta",
   };
 }
 
 /** A pure, deterministic body: two discarded literal statements + a `2 + 3` tail. */
-function readOnlyBody(): LoomBody {
+function readOnlyBody(): ThetaBody {
   const two: Expr = { kind: "number", text: "2", numericType: "integer", range: span() };
   const three: Expr = { kind: "number", text: "3", numericType: "integer", range: span() };
   const tail: Expr = { kind: "binary", op: "+", left: two, right: three, range: span() };
-  return loomBody([exprStmt(intLiteral), exprStmt(stringLiteral)], tail);
+  return thetaBody([exprStmt(intLiteral), exprStmt(stringLiteral)], tail);
 }
 
 describe("V20b-T — static type-inference substrate: read-only composition", () => {

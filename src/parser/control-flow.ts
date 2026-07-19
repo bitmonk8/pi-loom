@@ -5,16 +5,16 @@
 //
 //   - `for ... in` iterand   — the expression after `in` must have type
 //     `array<T>`:
-//       * `loom/parse/non-array-iterand` — `for x in expr` where `expr` is not
+//       * `theta/parse/non-array-iterand` — `for x in expr` where `expr` is not
 //         `array<T>` (iterating a string, object, or number). `type` phase
 //         (control-flow.md §`for` / `in`).
 //   - `break` / `continue`   — bare statements, legal only inside a `for` /
-//     `while` body, carrying no value in loom 1.0:
-//       * `loom/parse/break-outside-loop` — `break` outside any loop body
+//     `while` body, carrying no value in theta 1.0:
+//       * `theta/parse/break-outside-loop` — `break` outside any loop body
 //         (`parse` phase).
-//       * `loom/parse/continue-outside-loop` — `continue` outside any loop body
+//       * `theta/parse/continue-outside-loop` — `continue` outside any loop body
 //         (`parse` phase).
-//       * `loom/parse/break-with-value` — `break expr` (loom 1.0 `break` takes
+//       * `theta/parse/break-with-value` — `break expr` (theta 1.0 `break` takes
 //         no value) (`parse` phase).
 //
 // V3c-T (tests-task) declares these seam shapes and stubs the behaviour-bearing
@@ -41,7 +41,7 @@ export interface ForIterand {
 }
 
 /**
- * Check a `for ... in` iterand, returning `loom/parse/non-array-iterand` (a
+ * Check a `for ... in` iterand, returning `theta/parse/non-array-iterand` (a
  * `type`-phase diagnostic) when the iterand's static type is not `array<T>`
  * (iterating a string, object, or number). Returns `undefined` for an
  * `array<T>` iterand (control-flow.md §`for` / `in`).
@@ -58,7 +58,7 @@ export function checkForIterand(
   // Message from diagnostics/code-registry-parse.md.
   return {
     severity: "error",
-    code: "loom/parse/non-array-iterand",
+    code: "theta/parse/non-array-iterand",
     file: site.file,
     range: site.range,
     message: `'for' expects array<T> after 'in'; got ${displayType(iterand.type)}`,
@@ -68,7 +68,7 @@ export function checkForIterand(
 /**
  * A `break` statement occurrence. `insideLoop` is whether the statement sits
  * lexically inside a `for` / `while` body; `hasValue` is whether it carries an
- * operand (`break expr`), which loom 1.0 forbids.
+ * operand (`break expr`), which theta 1.0 forbids.
  */
 export interface BreakStatement {
   readonly insideLoop: boolean;
@@ -77,8 +77,8 @@ export interface BreakStatement {
 
 /**
  * Check a `break` statement (`parse` phase), returning:
- *   - `loom/parse/break-outside-loop` when `break` sits outside any loop body;
- *   - `loom/parse/break-with-value` when `break` carries an operand (loom 1.0
+ *   - `theta/parse/break-outside-loop` when `break` sits outside any loop body;
+ *   - `theta/parse/break-with-value` when `break` carries an operand (theta 1.0
  *     `break` takes no value).
  * Returns `undefined` for a valueless `break` inside a loop body
  * (control-flow.md §`break` / `continue`).
@@ -93,7 +93,7 @@ export function checkBreakStatement(
     // Message from diagnostics/code-registry-parse.md.
     return {
       severity: "error",
-      code: "loom/parse/break-outside-loop",
+      code: "theta/parse/break-outside-loop",
       file: site.file,
       range: site.range,
       message: "'break' outside of a loop",
@@ -103,10 +103,10 @@ export function checkBreakStatement(
     // Message from diagnostics/code-registry-parse.md.
     return {
       severity: "error",
-      code: "loom/parse/break-with-value",
+      code: "theta/parse/break-with-value",
       file: site.file,
       range: site.range,
-      message: "'break' takes no value in loom 1.0",
+      message: "'break' takes no value in theta 1.0",
     };
   }
   return undefined;
@@ -122,7 +122,7 @@ export interface ContinueStatement {
 
 /**
  * Check a `continue` statement (`parse` phase), returning
- * `loom/parse/continue-outside-loop` when `continue` sits outside any loop
+ * `theta/parse/continue-outside-loop` when `continue` sits outside any loop
  * body. Returns `undefined` for a `continue` inside a loop body
  * (control-flow.md §`break` / `continue`).
  *
@@ -136,7 +136,7 @@ export function checkContinueStatement(
     // Message from diagnostics/code-registry-parse.md.
     return {
       severity: "error",
-      code: "loom/parse/continue-outside-loop",
+      code: "theta/parse/continue-outside-loop",
       file: site.file,
       range: site.range,
       message: "'continue' outside of a loop",

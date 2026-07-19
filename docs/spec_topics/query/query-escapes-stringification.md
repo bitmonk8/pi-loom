@@ -9,13 +9,13 @@ Inside a query template:
 - `\\`    — literal backslash
 - `\n`, `\t`, `\r` — standard string escapes (rarely needed; literal newlines in the template body work directly)
 
-<a id="qry-17"></a> **QRY-17.** No other escapes are recognised; a backslash followed by any other character is `loom/parse/illegal-template-escape`. EOF inside an unterminated template body surfaces as `loom/parse/unterminated-template`. Curly braces `{` and `}` need no escape — they are ordinary text content. Only the sequence `${` (and the `}` that closes a corresponding `${...}`) has special meaning.
+<a id="qry-17"></a> **QRY-17.** No other escapes are recognised; a backslash followed by any other character is `theta/parse/illegal-template-escape`. EOF inside an unterminated template body surfaces as `theta/parse/unterminated-template`. Curly braces `{` and `}` need no escape — they are ordinary text content. Only the sequence `${` (and the `}` that closes a corresponding `${...}`) has special meaning.
 
 ## Stringification of interpolated values
 
-<a id="qry-18"></a> **QRY-18.** A `${expr}` interpolation evaluates `expr` per the [Expression Sublanguage](../expressions.md) and renders the result into the prompt text by the **Loom static type** of the expression — *not* by JavaScript's default `String(...)`, whose `[object Object]` and comma-joined-array defaults would silently corrupt prompts without any diagnostic for the author. The same rule applies to the bare-path `${param}` / `${param.field}` form in the frontmatter `system:` field (see [Parameters and Frontmatter — `system` Interpolation](../frontmatter.md)); the `system:` slot's grammar restricts only the *expression* shape (to bare identifier paths), not the *stringification* of the resolved value.
+<a id="qry-18"></a> **QRY-18.** A `${expr}` interpolation evaluates `expr` per the [Expression Sublanguage](../expressions.md) and renders the result into the prompt text by the **Theta static type** of the expression — *not* by JavaScript's default `String(...)`, whose `[object Object]` and comma-joined-array defaults would silently corrupt prompts without any diagnostic for the author. The same rule applies to the bare-path `${param}` / `${param.field}` form in the frontmatter `system:` field (see [Parameters and Frontmatter — `system` Interpolation](../frontmatter.md)); the `system:` slot's grammar restricts only the *expression* shape (to bare identifier paths), not the *stringification* of the resolved value.
 
-| Loom static type | Rendered as |
+| Theta static type | Rendered as |
 |---|---|
 | `string` | the value itself, no quoting, no escaping |
 | `integer` | per [BNDR-4](../binder/defaulting-system-note-echo.md#bndr-4) (canonical decimal `42`, `-7`; never scientific notation; `-0` → `0`) |
@@ -25,21 +25,21 @@ Inside a query template:
 | Enum variant | the variant's **wire** value, unquoted (the enum brand from [Runtime Value Model](../runtime-value-model.md) is dropped — the model only ever sees wire forms) |
 | `array<T>` | `JSON.stringify` of the value, **compact** (no pretty-printing), with [wire-name translation](../runtime-value-model.md) applied recursively |
 | Schema-typed object | `JSON.stringify` of the value, **compact** (no pretty-printing), with [wire-name translation](../runtime-value-model.md) applied recursively |
-| `Result<T, E>` | parse error `loom/parse/interpolated-result` — *"`Result` value cannot be interpolated; unwrap with `?` or `match` first"* |
+| `Result<T, E>` | parse error `theta/parse/interpolated-result` — *"`Result` value cannot be interpolated; unwrap with `?` or `match` first"* |
 
 Notes:
 
-- The `Result` rejection is **static**, resolved from the expression's type, and fires even when the `Result`-valued expression sits behind a function call whose return type the parser can resolve. When the type is unresolvable (e.g. an inferred binding that widens past the parser's view), the runtime renderer falls back to a panic carrying the same `loom/parse/interpolated-result` diagnostic code — the same "static where possible, runtime where not" posture used elsewhere for tool-call argument typing.
-- Wire-name translation for objects and arrays uses the **outbound** translation pass defined in [Runtime Value Model — Wire-name translation](../runtime-value-model.md). There is no second translation map for interpolation: the loom-side names an author writes never appear in the rendered prompt.
+- The `Result` rejection is **static**, resolved from the expression's type, and fires even when the `Result`-valued expression sits behind a function call whose return type the parser can resolve. When the type is unresolvable (e.g. an inferred binding that widens past the parser's view), the runtime renderer falls back to a panic carrying the same `theta/parse/interpolated-result` diagnostic code — the same "static where possible, runtime where not" posture used elsewhere for tool-call argument typing.
+- Wire-name translation for objects and arrays uses the **outbound** translation pass defined in [Runtime Value Model — Wire-name translation](../runtime-value-model.md). There is no second translation map for interpolation: the theta-side names an author writes never appear in the rendered prompt.
 - Stringification runs **after** expression evaluation but **before** newline-trim and dedent, so the multi-line text that an object or array interpolation introduces participates in the dedent computation like any other content. Authors who need a particular layout interpolate a pre-formatted `string`.
 - Whitespace-only and empty renderings get no special treatment at the per-slot level here; whether a *fully-rendered* template is degenerate is pinned earlier in this file under [Degenerate rendered templates](./query-forms.md#degenerate-rendered-templates).
 - Interpolation is the spec's blessed escape hatch for value-to-text conversion: the `+`-operator advice in [Expressions](../expressions.md) ("interpolate inside a string" in place of mixed-type `+`) relies on this rule existing.
 
-## Discarded query results are a parse error (`loom/parse/discarded-query-result`)
+## Discarded query results are a parse error (`theta/parse/discarded-query-result`)
 
 <a id="qry-19"></a> **QRY-19.** The author must pick one of:
 
-```loom
+```theta
 @`Summarise the discussion above.`?      // propagate failure via early-return
 let _ = @`Summarise the discussion above.`  // discard both Ok and Err explicitly
 let summary = @`Summarise the discussion above.`?  // bind the success value
@@ -51,7 +51,7 @@ The diagnostic on a bare `@`...`` expression-statement reads: *"discarded query 
 
 ## Observability of discarded results
 
-<a id="qry-20"></a> **QRY-20.** `let _ = @`...`` (and the equivalent `void`-tail form) is a true discard at the *user-facing* surface: no `loom-system-note` is rendered to the user's transcript, no `Result` flows to the caller, and the loom continues. On the *operator-facing* surface, an `Err` from a discarded query is preserved as a runtime event on the always-log set defined in [Pi Integration Contract — Runtime event channel](../pi-integration-contract.md). The event carries the same `kind`, `code`, `message`, and (where defined) `attempts` / `tokens_used` fields the user-facing note would have carried, plus the source location carried in the `RuntimeEvent` `discard_site` field — the location of the discarding `let _ =` binding for the expression-statement form, and the location of the tail `@`...`` expression (its start, for a tail expression spanning multiple source lines) for the void-tail-function form; it is delivered through the same `loom-system-note` channel as user-facing notes but with `display: false` so log scrapers, replay tools, and `/tree` navigation can recover it without rendering it inline. The runtime event fires exactly once per discarded `Err`, regardless of how many tool-call rounds or respond-repair follow-ups the underlying query consumed. `Ok` discards produce no event (nothing to observe).
+<a id="qry-20"></a> **QRY-20.** `let _ = @`...`` (and the equivalent `void`-tail form) is a true discard at the *user-facing* surface: no `theta-system-note` is rendered to the user's transcript, no `Result` flows to the caller, and the theta continues. On the *operator-facing* surface, an `Err` from a discarded query is preserved as a runtime event on the always-log set defined in [Pi Integration Contract — Runtime event channel](../pi-integration-contract.md). The event carries the same `kind`, `code`, `message`, and (where defined) `attempts` / `tokens_used` fields the user-facing note would have carried, plus the source location carried in the `RuntimeEvent` `discard_site` field — the location of the discarding `let _ =` binding for the expression-statement form, and the location of the tail `@`...`` expression (its start, for a tail expression spanning multiple source lines) for the void-tail-function form; it is delivered through the same `theta-system-note` channel as user-facing notes but with `display: false` so log scrapers, replay tools, and `/tree` navigation can recover it without rendering it inline. The runtime event fires exactly once per discarded `Err`, regardless of how many tool-call rounds or respond-repair follow-ups the underlying query consumed. `Ok` discards produce no event (nothing to observe).
 
 ### Panics during interpolation are not caught by `let _ =`
 

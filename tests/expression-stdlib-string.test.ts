@@ -4,7 +4,7 @@ import {
   evaluateStringMember,
 } from "../src/runtime/stdlib-string";
 import type { CompatType } from "../src/parser/type-compat";
-import type { LoomValue } from "../src/runtime/value";
+import type { ThetaValue } from "../src/runtime/value";
 
 // V3f-T — failing tests for the paired `V3f` "expression stdlib members:
 // `string`".
@@ -14,7 +14,7 @@ import type { LoomValue } from "../src/runtime/value";
 //
 //   - the five normative `String.replace` reference vectors reproduce exactly,
 //     and `array<T>.concat(array<U>)` returns the LUB element type `T ⊔ U`;
-//   - each loom-1.0 `string` stdlib member reproduces its normative behaviour
+//   - each theta-1.0 `string` stdlib member reproduces its normative behaviour
 //     and return type: `length` (UTF-16 code-unit count), `toLowerCase()` /
 //     `toUpperCase()` / `trim()` (locale-independent transforms), `startsWith`
 //     / `endsWith` / `includes` (`boolean`), and `split(sep)` (`array<string>`,
@@ -48,7 +48,7 @@ describe("V3f-T — `String.replace` reference vectors (expressions.md §Built-i
   // semantics (all-occurrences, literal `$&` / `$$` / `$n`, empty `from`,
   // left-to-right non-overlapping scan).
   it("EXPR `replace`: vector 1 — all-occurrences + literal `$&` (not the matched substring)", () => {
-    // A host `replaceAll` interpreting `$&` would yield "a[X]b[X]c"; loom
+    // A host `replaceAll` interpreting `$&` would yield "a[X]b[X]c"; theta
     // inserts `$&` literally.
     expect(evaluateStringMember("aXbXc", "replace", ["X", "[$&]"])).toBe(
       "a[$&]b[$&]c",
@@ -56,7 +56,7 @@ describe("V3f-T — `String.replace` reference vectors (expressions.md §Built-i
   });
 
   it("EXPR `replace`: vector 2 — literal `$$` (not the host `$$`→`$` escape)", () => {
-    // A host `$$`→`$` escape would yield "1$$"; loom inserts `$$` literally.
+    // A host `$$`→`$` escape would yield "1$$"; theta inserts `$$` literally.
     expect(evaluateStringMember("100", "replace", ["0", "$$"])).toBe("1$$$$");
   });
 
@@ -166,7 +166,7 @@ describe("V3f-T — `string` stdlib members (expressions.md §Built-in methods a
     expect(evaluateStringMember("abc", "split", [""])).toEqual(["a", "b", "c"]);
     // A surrogate pair decomposes into its two lone-surrogate code-unit strings
     // (one string per code unit, not per code point), so "a💩" → 3 elements.
-    const parts = evaluateStringMember("a💩", "split", [""]) as readonly LoomValue[];
+    const parts = evaluateStringMember("a💩", "split", [""]) as readonly ThetaValue[];
     expect(parts).toEqual(["a", "\ud83d", "\udca9"]);
   });
 });

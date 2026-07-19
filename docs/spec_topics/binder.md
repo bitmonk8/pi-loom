@@ -1,8 +1,8 @@
 # Slash-Command Argument Binding
 
-When a loom is invoked from a slash command, the runtime translates the user's free-form argument string into the loom's typed `params:` via an LLM call — the **binder**. The binder runs once per slash invocation, before any of the loom's own queries. It does not apply to `invoke(...)` calls or to looms invoked as registered tools (both of those pass already-typed values).
+When a theta is invoked from a slash command, the runtime translates the user's free-form argument string into the theta's typed `params:` via an LLM call — the **binder**. The binder runs once per slash invocation, before any of the theta's own queries. It does not apply to `invoke(...)` calls or to thetas invoked as registered tools (both of those pass already-typed values).
 
-The binder is positioned as runtime infrastructure, not as part of the loom's conversation: it never adds turns to the user's session (in prompt mode) or to the loom's spawned conversation (in subagent mode), and the loom code never sees the binder's intermediate envelope. Authors interact with the *result* of binding (their `params` are populated, or the loom doesn't run) the same way they would with any typed `invoke(...)` call.
+The binder is positioned as runtime infrastructure, not as part of the theta's conversation: it never adds turns to the user's session (in prompt mode) or to the theta's spawned conversation (in subagent mode), and the theta code never sees the binder's intermediate envelope. Authors interact with the *result* of binding (their `params` are populated, or the theta doesn't run) the same way they would with any typed `invoke(...)` call.
 
 ## Contents
 

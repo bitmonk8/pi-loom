@@ -1,5 +1,0 @@
----
-description: "Minimal discovered loom for the host-integration recipe"
-mode: prompt
----
-@`Say hello and confirm the loom extension is wired up.`

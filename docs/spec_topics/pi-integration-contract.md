@@ -1,6 +1,6 @@
 # Pi Integration Contract
 
-The runtime depends on a small, named surface from `@earendil-works/pi-coding-agent`. Each item below is the loom 1.0 contract; behaviour outside this surface is non-load-bearing and may be revised without spec changes. The loom 1.0 contract is anchored to `@earendil-works/pi-coding-agent` at the range declared by [*Host prerequisites — Pi SDK pin*](./pi-integration-contract/host-prerequisites.md#pi-sdk-pin) below (the single source of truth for the supported Pi minor in the spec corpus); the lock-step pin requiring `@earendil-works/pi-agent-core`, `@earendil-works/pi-ai`, and `@earendil-works/pi-tui` to resolve to the same minor-version line as the installed `@earendil-works/pi-coding-agent`, the provenance for that lock-step, and the re-validation obligation on a Pi minor bump are owned by *Host prerequisites — Pi SDK pin* below. The contributor checklist that gates any such bump — the artefacts produced and the build-time tests that must be green before the `peerDependencies` range moves — is owned by [Pi version bump procedure](./pi-integration-contract/version-bump-intro.md#pi-version-bump-procedure) at the end of this page.
+The runtime depends on a small, named surface from `@earendil-works/pi-coding-agent`. Each item below is the theta 1.0 contract; behaviour outside this surface is non-load-bearing and may be revised without spec changes. The theta 1.0 contract is anchored to `@earendil-works/pi-coding-agent` at the range declared by [*Host prerequisites — Pi SDK pin*](./pi-integration-contract/host-prerequisites.md#pi-sdk-pin) below (the single source of truth for the supported Pi minor in the spec corpus); the lock-step pin requiring `@earendil-works/pi-agent-core`, `@earendil-works/pi-ai`, and `@earendil-works/pi-tui` to resolve to the same minor-version line as the installed `@earendil-works/pi-coding-agent`, the provenance for that lock-step, and the re-validation obligation on a Pi minor bump are owned by *Host prerequisites — Pi SDK pin* below. The contributor checklist that gates any such bump — the artefacts produced and the build-time tests that must be green before the `peerDependencies` range moves — is owned by [Pi version bump procedure](./pi-integration-contract/version-bump-intro.md#pi-version-bump-procedure) at the end of this page.
 
 ## Contents
 
@@ -15,7 +15,7 @@ The runtime depends on a small, named surface from `@earendil-works/pi-coding-ag
 - [Diagnostic emission isolation](./pi-integration-contract/diagnostic-emission-isolation.md)
 - [Session-only degraded state](./pi-integration-contract/session-only-degraded-state.md)
 - [Session shutdown semantics](./pi-integration-contract/session-shutdown-semantics.md)
-- [Extension bootstrap and per loom](./pi-integration-contract/extension-bootstrap-and-per-loom.md)
+- [Extension bootstrap and per theta](./pi-integration-contract/extension-bootstrap-and-per-theta.md)
 - [Tool registration lifetime](./pi-integration-contract/tool-registration-lifetime.md)
 - [Conversation drive](./pi-integration-contract/conversation-drive.md)
 - [Provider error and seed-field mapping](./pi-integration-contract/provider-error-mapping.md)

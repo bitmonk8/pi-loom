@@ -2,7 +2,7 @@
 description: Improve a draft until a reviewer subagent approves it (bounded)
 mode: subagent
 tools:
-  - ./reviewer.loom
+  - ./reviewer.theta
 params:
   topic: string
 ---

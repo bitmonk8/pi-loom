@@ -31,7 +31,7 @@ export interface DefaultedField {
 export interface FillDefaultsInput {
   /** The binder-returned `args` (the `ok` arm's `args`), before defaulting. */
   readonly binderArgs: Readonly<Record<string, unknown>>;
-  /** The loom's defaulted `params:` fields (wire name + declared default). */
+  /** The theta's defaulted `params:` fields (wire name + declared default). */
   readonly defaults: readonly DefaultedField[];
   /**
    * The compiled validator for the lowered `params` schema (from

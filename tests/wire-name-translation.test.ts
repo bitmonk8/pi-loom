@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { type SchemaSidecar } from "../src/parser/schema-lowering";
-import { makeEnumValue, valuesEqual, type LoomValue } from "../src/runtime/value";
+import { makeEnumValue, valuesEqual, type ThetaValue } from "../src/runtime/value";
 import {
   translateInbound,
   translateOutbound,
@@ -12,15 +12,15 @@ import {
 // Spec: runtime-value-model.md §"Wire-name translation" (the RVM code-keyed
 // obligation area — no numbered REQ-IDs) and schemas.md §"Wire-name renaming".
 // Wire-name translation happens in exactly two places — *inbound* (model output
-// → loom value, after AJV validation) and *outbound* (loom value → JSON). The
-// inbound pass (a) rebuilds loom-side names using the V5f wire-name sidecar so
-// loom code never sees wire names, and (b) reattaches each named-enum position's
+// → theta value, after AJV validation) and *outbound* (theta value → JSON). The
+// inbound pass (a) rebuilds theta-side names using the V5f wire-name sidecar so
+// theta code never sees wire names, and (b) reattaches each named-enum position's
 // declaring-enum tag (V2c representation) so the result compares equal to a
 // locally constructed variant; anonymous string-literal-union positions are
 // absent from the sidecar and receive no tag. Frontmatter `params:` defaults
-// BYPASS the inbound pass — they arrive already branded and loom-side-named.
+// BYPASS the inbound pass — they arrive already branded and theta-side-named.
 //
-// These tests red because the V2e loom-side rebuild and enum-tag reattach are
+// These tests red because the V2e theta-side rebuild and enum-tag reattach are
 // absent: `translateInbound` / `translateOutbound` are inert identity stubs, so
 // wire names survive inbound, named-enum positions stay plain strings, and
 // outbound never produces wire names. Each test reds on its own primary
@@ -32,27 +32,27 @@ import {
 // fields only) and the named-enum-position map (named `enum` positions only).
 function externalUserSidecar(): ReadonlyMap<string, SchemaSidecar> {
   const sidecar: SchemaSidecar = {
-    wireNames: [{ loom: "first_name", wire: "FirstName" }],
+    wireNames: [{ theta: "first_name", wire: "FirstName" }],
     namedEnumPositions: [{ pointer: "/properties/severity", enumName: "Severity" }],
   };
   return new Map([["ExternalUser", sidecar]]);
 }
 
 describe("V2e-T — inbound wire-name translation (runtime-value-model.md §Wire-name translation, RVM code-keyed area)", () => {
-  it("inbound translation rebuilds loom-side names so loom code never sees wire names", () => {
+  it("inbound translation rebuilds theta-side names so theta code never sees wire names", () => {
     // RVM §Wire-name translation, inbound (a): after AJV validation the runtime
-    // rebuilds the value with loom-side names using the schema's translation
-    // map. The validated JSON is wire-named (`FirstName`); the loom-side value
-    // is keyed by the loom identifier (`first_name`) and the wire key is gone.
+    // rebuilds the value with theta-side names using the schema's translation
+    // map. The validated JSON is wire-named (`FirstName`); the theta-side value
+    // is keyed by the theta identifier (`first_name`) and the wire key is gone.
     const result = translateInbound({
       validated: { FirstName: "Ada", age: 36 },
       sidecars: externalUserSidecar(),
       rootDef: "ExternalUser",
-    }) as { readonly [k: string]: LoomValue };
+    }) as { readonly [k: string]: ThetaValue };
 
     expect(result.first_name).toBe("Ada");
     expect(Object.prototype.hasOwnProperty.call(result, "FirstName")).toBe(false);
-    // The un-renamed field keeps its name (wire name equals loom name).
+    // The un-renamed field keeps its name (wire name equals theta name).
     expect(result.age).toBe(36);
   });
 
@@ -66,7 +66,7 @@ describe("V2e-T — inbound wire-name translation (runtime-value-model.md §Wire
       validated: { FirstName: "Ada", age: 36, severity: "high" },
       sidecars: externalUserSidecar(),
       rootDef: "ExternalUser",
-    }) as { readonly severity: LoomValue };
+    }) as { readonly severity: ThetaValue };
 
     expect(valuesEqual(result.severity, makeEnumValue("Severity", "high"))).toBe(true);
     expect(JSON.stringify(result.severity)).toBe('"high"');
@@ -94,7 +94,7 @@ describe("V2e-T — inbound wire-name translation (runtime-value-model.md §Wire
       validated: { graded: "low", freeform: "low" },
       sidecars: mixedSidecar,
       rootDef: "Report",
-    }) as { readonly graded: LoomValue; readonly freeform: LoomValue };
+    }) as { readonly graded: ThetaValue; readonly freeform: ThetaValue };
 
     // The named-enum position is tagged — compares equal to a constructed variant.
     expect(valuesEqual(result.graded, makeEnumValue("Severity", "low"))).toBe(true);
@@ -106,19 +106,19 @@ describe("V2e-T — inbound wire-name translation (runtime-value-model.md §Wire
   it("inbound translation recurses through nested object fields", () => {
     // RVM §Wire-name translation: the inbound walk recurses through nested
     // object fields; a wire name nested one level deep is still rebuilt to its
-    // loom-side name (loom code never sees a wire name at any depth).
+    // theta-side name (theta code never sees a wire name at any depth).
     const nestedSidecar: ReadonlyMap<string, SchemaSidecar> = new Map([
       [
         "Outer",
         {
-          wireNames: [{ loom: "inner", wire: "Inner" }],
+          wireNames: [{ theta: "inner", wire: "Inner" }],
           namedEnumPositions: [],
         } satisfies SchemaSidecar,
       ],
       [
         "Inner",
         {
-          wireNames: [{ loom: "first_name", wire: "FirstName" }],
+          wireNames: [{ theta: "first_name", wire: "FirstName" }],
           namedEnumPositions: [],
         } satisfies SchemaSidecar,
       ],
@@ -127,7 +127,7 @@ describe("V2e-T — inbound wire-name translation (runtime-value-model.md §Wire
       validated: { Inner: { FirstName: "Ada" } },
       sidecars: nestedSidecar,
       rootDef: "Outer",
-    }) as { readonly inner: { readonly [k: string]: LoomValue } };
+    }) as { readonly inner: { readonly [k: string]: ThetaValue } };
 
     expect(result.inner.first_name).toBe("Ada");
     expect(Object.prototype.hasOwnProperty.call(result.inner, "FirstName")).toBe(false);
@@ -135,10 +135,10 @@ describe("V2e-T — inbound wire-name translation (runtime-value-model.md §Wire
 });
 
 describe("V2e-T — defaults bypass inbound translation (runtime-value-model.md §Wire-name translation)", () => {
-  it("a frontmatter default arrives already branded and loom-side-named, bypassing the inbound pass", () => {
+  it("a frontmatter default arrives already branded and theta-side-named, bypassing the inbound pass", () => {
     // RVM §Wire-name translation, defaults clause: a default authored as
-    // `Severity.High` is parsed as an ordinary Loom value and arrives already
-    // branded (V2c `makeEnumValue`) and loom-side-named — it does NOT pass
+    // `Severity.High` is parsed as an ordinary Theta value and arrives already
+    // branded (V2c `makeEnumValue`) and theta-side-named — it does NOT pass
     // through `translateInbound`. Proof of the bypass: the same wire string
     // arriving as *model output* needs the inbound pass to brand it into a value
     // equal to the default; the default (built with no translation) is already
@@ -148,7 +148,7 @@ describe("V2e-T — defaults bypass inbound translation (runtime-value-model.md 
       validated: { severity: "high" },
       sidecars: externalUserSidecar(),
       rootDef: "ExternalUser",
-    }) as { readonly severity: LoomValue };
+    }) as { readonly severity: ThetaValue };
 
     // Model output, once translated, equals the default — so the default's
     // untranslated branded value is exactly what the inbound pass produces,
@@ -160,11 +160,11 @@ describe("V2e-T — defaults bypass inbound translation (runtime-value-model.md 
 });
 
 describe("V2e-T — outbound wire-name translation (runtime-value-model.md §Wire-name translation)", () => {
-  it("outbound translation produces wire-named JSON from a loom-side value", () => {
+  it("outbound translation produces wire-named JSON from a theta-side value", () => {
     // RVM §Wire-name translation, outbound: when constructing tool input / query
-    // response payloads / `invoke` arguments, the runtime walks the loom-side
-    // value and produces wire-named JSON — the loom-side name (`first_name`) is
-    // rewritten to its wire name (`FirstName`) and the loom-side key is gone.
+    // response payloads / `invoke` arguments, the runtime walks the theta-side
+    // value and produces wire-named JSON — the theta-side name (`first_name`) is
+    // rewritten to its wire name (`FirstName`) and the theta-side key is gone.
     const wire = translateOutbound({
       value: { first_name: "Ada", age: 36 },
       sidecars: externalUserSidecar(),

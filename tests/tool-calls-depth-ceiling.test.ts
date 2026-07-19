@@ -37,9 +37,9 @@ const TOOL_NAME = "read";
 // code-driven-tool-args facet closes on V14e (live-carrier witness); the
 // assertions in this file witness that facet against the shipped depth walk.
 describe("V14e-T — depth-6 code-driven tool-call args live carrier (ceiling-4-table code-driven row)", () => {
-  it("ceiling-4-table (code-driven row) / CIO-3: a depth-6 code-driven arg trips the loom-owned depth walk before AJV and surfaces as Err(CodeToolError { cause: 'validation' }) carrying schema_keyword `maxDepth`", () => {
+  it("ceiling-4-table (code-driven row) / CIO-3: a depth-6 code-driven arg trips the theta-owned depth walk before AJV and surfaces as Err(CodeToolError { cause: 'validation' }) carrying schema_keyword `maxDepth`", () => {
     // ceilings-3-and-4.md#ceiling-4-table, code-driven `<name>(args)` row: the
-    // loom-owned depth walk (`V5e`) runs before AJV (CIO-3) and a depth-6
+    // theta-owned depth walk (`V5e`) runs before AJV (CIO-3) and a depth-6
     // argument surfaces wrapped as `Err(CodeToolError { cause: "validation",
     // ... })`. No AJV schema is consulted here — the depth walk trips purely on
     // the materialised argument value, proving the depth-walk-before-AJV
@@ -52,7 +52,7 @@ describe("V14e-T — depth-6 code-driven tool-call args live carrier (ceiling-4-
       throw new Error("unreachable: a depth-6 code-driven argument must breach the depth ceiling");
     }
 
-    // The breach surfaces wrapped as an `Err` carrier to loom code.
+    // The breach surfaces wrapped as an `Err` carrier to theta code.
     expect(breach.result.ok, "the depth-6 breach surfaces as an Err").toBe(false);
 
     // The carrier is a `CodeToolError` with `cause: "validation"` (V14a carrier;
@@ -98,13 +98,13 @@ describe("V14e-T — depth-6 code-driven tool-call args live carrier (ceiling-4-
 
 // ceilings-3-and-4.md#ceiling-4-table (MODEL-DRIVEN row) / schema-subset.md
 // §Depth Enforcement point #2 / CIO-3: the model-driven `tool_use` args row
-// routes to *the model*, not to loom code — a depth-6 model-produced argument
+// routes to *the model*, not to theta code — a depth-6 model-produced argument
 // is materialised as a tool-error result fed back to the model (the loop
-// continues; the round counts against `tool_loop.max_rounds`), never as a loom
+// continues; the round counts against `tool_loop.max_rounds`), never as a theta
 // `Err` and never as `ModelToolError`. The helper produces the model-facing
 // carrier (canonical depth issue + feedback message) and no `Result`.
 describe("depth-6 MODEL-DRIVEN tool-call args carrier (ceiling-4-table model-driven row)", () => {
-  it("ceiling-4-table (model-driven row) / CIO-3: a depth-6 model arg trips the loom-owned depth walk before the tool body and yields the canonical maxDepth issue with a model-facing feedback message — no loom Err", () => {
+  it("ceiling-4-table (model-driven row) / CIO-3: a depth-6 model arg trips the theta-owned depth walk before the tool body and yields the canonical maxDepth issue with a model-facing feedback message — no theta Err", () => {
     const breach = enforceModelToolArgDepth(DEPTH_6_ARG);
 
     // Primary: a depth-6 model-produced argument trips ceiling #4 at this site.
@@ -125,10 +125,10 @@ describe("depth-6 MODEL-DRIVEN tool-call args carrier (ceiling-4-table model-dri
     expect(breach.message).toContain("JSON document depth exceeds 5");
 
     // The carrier is model-facing only: it exposes NO `Result`/`CodeToolError`/
-    // `ModelToolError` shape (the model-driven row does not surface to loom
+    // `ModelToolError` shape (the model-driven row does not surface to theta
     // code). `issue` + `message` are the only members.
     expect(Object.keys(breach).sort()).toEqual(["issue", "message"]);
-    expect("result" in breach, "the model-driven row surfaces no loom Result").toBe(false);
+    expect("result" in breach, "the model-driven row surfaces no theta Result").toBe(false);
     expect("error" in breach, "the model-driven row surfaces no CodeToolError/ModelToolError").toBe(false);
   });
 

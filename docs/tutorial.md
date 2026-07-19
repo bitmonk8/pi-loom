@@ -1,12 +1,12 @@
-# Tutorial: your first loom
+# Tutorial: your first theta
 
-This is one continuous path from an empty session to a loom that invokes a
+This is one continuous path from an empty session to a theta that invokes a
 subagent and reads a typed value back across the boundary. Work the steps in
 order — each builds on the last. You write nothing from scratch: every step runs
 a real, checked-in file under [`docs/examples/`](./examples/), so you can
 reproduce every result on your own machine.
 
-For *why* looms are shaped this way, read the [Guide](./guide.md). For exact
+For *why* thetas are shaped this way, read the [Guide](./guide.md). For exact
 behaviour, the [Reference](./reference/) holds the normative detail; this tutorial
 links into it rather than restating it.
 
@@ -19,28 +19,28 @@ links into it rather than restating it.
   `docs/examples/`.
 
 Every example is invoked the same way — by its filename stem, as a slash command,
-with the example directory placed on the discovery path via `--loom`:
+with the example directory placed on the discovery path via `--theta`:
 
 ```
-pi --loom docs/examples -p "/<stem> <arguments>"
+pi --theta docs/examples -p "/<stem> <arguments>"
 ```
 
-`--loom <path>` is one of the [five discovery
+`--theta <path>` is one of the [five discovery
 sources](./reference/discovery-cli.md#the-five-discovery-sources); it registers
-every `*.loom` in the directory as a slash command for that run.
+every `*.theta` in the directory as a slash command for that run.
 
 ### One fact to carry through the tutorial
 
-Looms run under one of two [execution
+Thetas run under one of two [execution
 modes](./spec_topics/glossary.md), set by frontmatter `mode:`, and the mode
 governs what you can observe on `pi -p` stdout:
 
 - **[Prompt mode](./reference/discovery-cli.md#slash-command-invocation)** drives
   your existing session. Assistant tokens stream into the transcript, so a
-  prompt-mode loom's trailing turn is visible on stdout.
+  prompt-mode theta's trailing turn is visible on stdout.
 - **[Subagent mode](./reference/discovery-cli.md#slash-command-invocation)**
   spawns a fresh, isolated conversation whose transcript is private and discarded
-  when the loom returns. A subagent loom's [final
+  when the theta returns. A subagent theta's [final
   value](./reference/errors-and-results.md#final-value-fn-5) reaches programmatic
   callers and propagates across the subagent boundary, but it is **not** printed
   on the `pi -p` text channel. A successful subagent run surfaces as exit 0 with
@@ -51,17 +51,17 @@ they complete successfully (exit 0), and the tutorial is explicit about where th
 value lives when stdout is empty. Every step below records its actual observed
 runtime status — no transcript is imagined.
 
-## Step 1 — Run your first loom (prompt mode)
+## Step 1 — Run your first theta (prompt mode)
 
-The smallest useful loom is a single model turn. Here is the whole file,
-[`docs/examples/hello.loom`](./examples/hello.loom):
+The smallest useful theta is a single model turn. Here is the whole file,
+[`docs/examples/hello.theta`](./examples/hello.theta):
 
-```loom
+```theta
 ---
-description: "Minimal discovered loom for the host-integration recipe"
+description: "Minimal discovered theta for the host-integration recipe"
 mode: prompt
 ---
-@`Say hello and confirm the loom extension is wired up.`
+@`Say hello and confirm the theta extension is wired up.`
 ```
 
 Two parts. The YAML frontmatter declares `mode: prompt`. The body is a single
@@ -73,7 +73,7 @@ sublanguage](./reference/grammar.md#expression-sublanguage).
 Run it:
 
 ```
-pi --loom docs/examples -p "/hello"
+pi --theta docs/examples -p "/hello"
 ```
 
 Observed: exit 0, a [success terminal
@@ -86,11 +86,11 @@ completed assistant turn, exit 0, no error.
 ## Step 2 — Interpolate values into a query with the `@` operator
 
 A query template is more than a fixed string. Inside a template, `${...}` splices
-a value into the text sent to the model. To get a value to splice, a loom takes
+a value into the text sent to the model. To get a value to splice, a theta takes
 typed parameters. Here is
-[`docs/examples/arg-binding.loom`](./examples/arg-binding.loom):
+[`docs/examples/arg-binding.theta`](./examples/arg-binding.theta):
 
-```loom
+```theta
 ---
 description: "Summarise a file for a given audience"
 argument-hint: "<path> for <audience>"
@@ -109,22 +109,22 @@ New pieces:
   argument string is mapped onto these typed parameters by the
   [binder](./reference/frontmatter.md#params).
 - `${path}` and `${audience}` interpolate those parameters into the query text.
-  The interpoland renders by its Loom static type per the [template
+  The interpoland renders by its Theta static type per the [template
   interpolation](./reference/frontmatter.md#template-interpolation) rules.
-- `bind_model: claude-haiku` selects the model the binder runs against. A loom
+- `bind_model: claude-haiku` selects the model the binder runs against. A theta
   with a multi-field `params:` block is **not** bypass-eligible, so it needs a
   resolvable binder model — `bind_model:` here, or the project-wide
-  `looms.binderModel` setting. With neither resolvable the loom fails to load
-  with `loom/load/binder-model-unresolved` and its slash command is not
+  `theta.binderModel` setting. With neither resolvable the theta fails to load
+  with `theta/load/binder-model-unresolved` and its slash command is not
   registered.
 - `bind_echo: true` (the default) emits a one-line **success echo note** showing
-  what the binder resolved, on the loom's system-note channel, immediately
-  before the loom runs.
+  what the binder resolved, on the theta's system-note channel, immediately
+  before the theta runs.
 
 Run it with an argument string:
 
 ```
-pi --loom docs/examples -p "/arg-binding README.md for new hires"
+pi --theta docs/examples -p "/arg-binding README.md for new hires"
 ```
 
 Observed: exit 0. The binder runs **off-session and invisibly** — it dispatches
@@ -141,18 +141,18 @@ That note is the observable proof that the binder mapped the free-form string
 onto the two typed `params`; the raw envelope JSON stays runtime-internal. If the
 binder cannot bind (a missing required parameter, or a genuinely ambiguous
 argument string), it instead emits a one-line failure note
-(`loom /arg-binding: argument binding needs more info — …`) and the loom does not
-run. This loom is `mode: subagent`, so its trailing query also runs inside an
+(`theta /arg-binding: argument binding needs more info — …`) and the theta does not
+run. This theta is `mode: subagent`, so its trailing query also runs inside an
 isolated conversation; the query's own turn is not on stdout, and the run ends at
 exit 0.
 
 ## Step 3 — Return a typed value with a schema
 
-So far the model's reply has been free text. A loom can instead demand structured
+So far the model's reply has been free text. A theta can instead demand structured
 output that conforms to a declared schema, and bind the parsed result to a
-variable. Here is [`docs/examples/sentiment.loom`](./examples/sentiment.loom):
+variable. Here is [`docs/examples/sentiment.theta`](./examples/sentiment.theta):
 
-```loom
+```theta
 ---
 description: Classify text sentiment
 mode: subagent
@@ -171,7 +171,7 @@ result
 What is new:
 
 - `schema Sentiment { ... }` declares an object schema in the [schema
-  subset](./reference/schema-subset.md#the-subset) Loom lowers to JSON Schema.
+  subset](./reference/schema-subset.md#the-subset) Theta lowers to JSON Schema.
   `label` is a literal-union type; `confidence` is a number.
 - `let result: Sentiment = @\`...\`` makes this a **typed query**. The annotation
   `: Sentiment` is a [type sink](./spec_topics/glossary.md): it supplies the
@@ -180,31 +180,31 @@ What is new:
   if unrecovered, returns an `Err`.
 - The trailing `?` is the [error-propagation
   operator](./reference/grammar.md#-operator): on `Ok` it unwraps to the inner
-  value; on `Err` it early-returns the `Err` from the top-level loom.
-- The final line, `result`, is the loom's tail expression — its [final
+  value; on `Err` it early-returns the `Err` from the top-level theta.
+- The final line, `result`, is the theta's tail expression — its [final
   value](./reference/errors-and-results.md#final-value-fn-5).
 
 `text` is a single `string` parameter with no default, so the binder is bypassed
 and the whole argument string becomes `text`. Run it:
 
 ```
-pi --loom docs/examples -p "/sentiment I love this new build"
+pi --theta docs/examples -p "/sentiment I love this new build"
 ```
 
 Observed: exit 0, a success terminal outcome. This is subagent mode, so stdout is
-empty on success — the typed `Sentiment` value is the loom's final value, which
+empty on success — the typed `Sentiment` value is the theta's final value, which
 propagates across the subagent boundary to a programmatic caller but is not
 printed on the `pi -p` text channel. Step 5 consumes exactly such a value in code,
 where you can act on it.
 
-## Step 4 — Call a tool from loom code
+## Step 4 — Call a tool from theta code
 
-Loom code can call a tool directly, not only through the model. A loom declares
+Theta code can call a tool directly, not only through the model. A theta declares
 its [callable set](./reference/frontmatter.md#tools-callable-set) in `tools:`, and
 calls an entry by its bare name. Here is
-[`docs/examples/call-tool.loom`](./examples/call-tool.loom):
+[`docs/examples/call-tool.theta`](./examples/call-tool.theta):
 
-```loom
+```theta
 ---
 description: Count TODO markers under src
 mode: subagent
@@ -216,8 +216,8 @@ let hits = grep({ pattern: "TODO", path: "src" })?
 
 What is new:
 
-- `tools: grep` puts the `grep` Pi tool in this loom's callable set. The host
-  session's ambient tools are not inherited; a loom sees only what its `tools:`
+- `tools: grep` puts the `grep` Pi tool in this theta's callable set. The host
+  session's ambient tools are not inherited; a theta sees only what its `tools:`
   declares.
 - `grep({ pattern: "TODO", path: "src" })` is a code-driven tool call. The single
   object argument matches the tool's input schema. The call returns a
@@ -225,10 +225,10 @@ What is new:
 - `hits` — the tool's output — is then interpolated into a query, so the model
   reasons over a value that deterministic code produced.
 
-This loom takes no parameters. Run it:
+This theta takes no parameters. Run it:
 
 ```
-pi --loom docs/examples -p "/call-tool"
+pi --theta docs/examples -p "/call-tool"
 ```
 
 Observed: exit 0, a success terminal outcome. Subagent mode again: stdout is
@@ -237,16 +237,16 @@ its result flowing into a query — which complete without error.
 
 ## Step 5 — Invoke a subagent and read its typed final value
 
-The last step composes the previous two: one subagent loom invokes another and
+The last step composes the previous two: one subagent theta invokes another and
 consumes the typed value the callee returns across the subagent boundary. Here is
-[`docs/examples/typed-return.loom`](./examples/typed-return.loom):
+[`docs/examples/typed-return.theta`](./examples/typed-return.theta):
 
-```loom
+```theta
 ---
 description: Invoke a subagent classifier and branch on its typed result
 mode: subagent
 tools:
-  - ./sentiment.loom
+  - ./sentiment.theta
 params:
   text: string
 ---
@@ -259,8 +259,8 @@ if s.confidence < 0.5 {
 
 What is new:
 
-- The `tools:` entry `./sentiment.loom` is a **`.loom`
-  callable** — a path to the subagent loom from Step 3, wrapped as a callable and
+- The `tools:` entry `./sentiment.theta` is a **`.theta`
+  callable** — a path to the subagent theta from Step 3, wrapped as a callable and
   called by its bare stem name, `sentiment`. See [`invoke`
   invocation](./reference/discovery-cli.md#invoke-invocation) for resolution and
   cross-mode rules.
@@ -268,33 +268,33 @@ What is new:
   order. The callee runs in its own isolated subagent conversation and returns its
   final value — the typed `Sentiment` from Step 3 — across the boundary. The `?`
   unwraps that into `s`.
-- `s` is a real typed value in this loom's code: `s.confidence` and `s.label` are
+- `s` is a real typed value in this theta's code: `s.confidence` and `s.label` are
   read to branch. This is the [final value](./reference/errors-and-results.md#final-value-fn-5)
   contract in action — an invoke parent receives the callee's final value as the
   `Ok` payload.
-- The tail query is this loom's own final value.
+- The tail query is this theta's own final value.
 
 `text` is again a single-string parameter, so pass the text directly:
 
 ```
-pi --loom docs/examples -p "/typed-return I love this new build"
+pi --theta docs/examples -p "/typed-return I love this new build"
 ```
 
 Observed: exit 0, a success terminal outcome. The callee's typed value crosses the
-subagent boundary and drives the `if` branch in code. This loom is itself in
+subagent boundary and drives the `if` branch in code. This theta is itself in
 subagent mode, so its own final value is not printed on the `pi -p` text channel;
 success is exit 0 with empty stdout. The value you learned to produce in Step 3 is
-now consumed programmatically in Step 5 — which is where a subagent loom's typed
+now consumed programmatically in Step 5 — which is where a subagent theta's typed
 final value is meant to be read.
 
 ## Where to go next
 
-You have run a loom end-to-end through five constructs: a prompt-mode query, `${}`
+You have run a theta end-to-end through five constructs: a prompt-mode query, `${}`
 interpolation with typed params, a typed return with a schema, a code-driven tool
 call, and a subagent invoke that returns a typed final value across the boundary.
 
 For single-goal recipes past this path — recovering from a `QueryError`,
-configuring the tool-call round budget, sharing a schema from a `.warp` module —
+configuring the tool-call round budget, sharing a schema from a `.thetalib` module —
 see the [How-to guides](./how-to/). For the model behind it all, read the
 [Guide](./guide.md). For exact behaviour, the [Reference](./reference/) is
 normative.
@@ -304,7 +304,7 @@ normative.
 Every step runs a checked-in example under [`docs/examples/`](./examples/).
 Runtime validation used provider `unity-messages` / model `claude-haiku-4-5`,
 loading the working-tree build via
-`pi -ne -e ./extensions --loom docs/examples -p "/<stem> ..."`. All five steps
+`pi -ne -e ./extensions --theta docs/examples -p "/<stem> ..."`. All five steps
 reach a success terminal outcome (exit 0, no runtime panic).
 
 | Step | Example stem | Mode | Observable on stdout | Runtime status |
@@ -313,9 +313,9 @@ reach a success terminal outcome (exit 0, no runtime panic).
 | 2 | `arg-binding` | subagent | Bind echo note `Running /arg-binding: path=README.md, audience="new hires"` (the off-session binder's envelope is never surfaced) | pass (exit 0) |
 | 3 | `sentiment` | subagent | None on success (typed final value not on the `pi -p` text channel) | pass (exit 0) |
 | 4 | `call-tool` | subagent | None on success | pass (exit 0) |
-| 5 | `typed-return` | subagent (invokes `sentiment.loom`) | None on success (typed final value propagated across the subagent boundary, not to stdout) | pass (exit 0) |
+| 5 | `typed-return` | subagent (invokes `sentiment.theta`) | None on success (typed final value propagated across the subagent boundary, not to stdout) | pass (exit 0) |
 
-Constraint recorded (not a defect): subagent-mode looms run an isolated,
+Constraint recorded (not a defect): subagent-mode thetas run an isolated,
 discarded conversation; their final value reaches programmatic callers and
 propagates across the subagent boundary but is not observable on `pi -p` stdout.
 Prompt mode (Step 1) surfaces its trailing turn on stdout. See
@@ -331,7 +331,7 @@ rules.
 - Schema subset (typed return): `docs/reference/schema-subset.md`.
 - Discovery, slash/prompt/subagent invocation, `invoke`:
   `docs/reference/discovery-cli.md`.
-- Terminology (prompt mode, subagent mode, callable set, `.loom` callable, type
+- Terminology (prompt mode, subagent mode, callable set, `.theta` callable, type
   sink, final value): `docs/spec_topics/glossary.md`.
 </content>
 </invoke>

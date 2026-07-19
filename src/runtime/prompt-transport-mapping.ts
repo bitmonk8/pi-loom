@@ -14,8 +14,8 @@
 //      http_status: null, provider: <resolved provider>, retryable: false })`;
 //     when `errorMessage` is absent, `message` is the fixed string
 //     `"provider transport failure"`. The runtime never classifies it as
-//     `loom/runtime/internal-error` and never extracts it as `Ok(string)`.
-//   - PIC-51 cancellation short-circuit: when `loomAbort.signal.aborted` is
+//     `theta/runtime/internal-error` and never extracts it as `Ok(string)`.
+//   - PIC-51 cancellation short-circuit: when `thetaAbort.signal.aborted` is
 //     true the runtime synthesises `Err(QueryError { kind: "cancelled" })` and
 //     takes precedence over both the `stopReason: "error"` probe and the
 //     `Ok(string)` extraction — even when `waitForIdle()` resolved cleanly with
@@ -24,7 +24,7 @@
 //     `pi.sendUserMessage` maps to
 //     `Err(QueryError { kind: "transport", message: <coerced caught-throw>,
 //      http_status: null, provider: <resolved provider>, retryable: false })`,
-//     NOT to `loom/runtime/internal-error`. The `message` is derived through the
+//     NOT to `theta/runtime/internal-error`. The `message` is derived through the
 //     underlying-error coercion rule so a non-Error throw yields a deterministic
 //     non-null string.
 //
@@ -58,12 +58,12 @@ export type PromptModeQueryResult =
 
 /**
  * The live context the post-`waitForIdle()` probe reads its short-circuits
- * from: the `loomAbort.signal.aborted` cancellation flag and the resolved
+ * from: the `thetaAbort.signal.aborted` cancellation flag and the resolved
  * `Model<Api>.api` provider string (supplied by the caller from V9j's
  * provider-error-mapping surface, per the leaf's `Adds.`).
  */
 export interface PromptModeProbeCtx {
-  /** `loomAbort.signal.aborted` — the PIC-51 cancellation short-circuit. */
+  /** `thetaAbort.signal.aborted` — the PIC-51 cancellation short-circuit. */
   readonly aborted: boolean;
   /** The resolved `Model<Api>.api` provider for the transport-failure `Err`. */
   readonly provider: string;
@@ -82,7 +82,7 @@ export function extractPromptModeQueryResult(
   probeCtx: PromptModeProbeCtx,
 ): PromptModeQueryResult {
   // PIC-51 cancellation short-circuit: the post-`waitForIdle` error-state probe
-  // runs unconditionally on resolution, but when `loomAbort.signal.aborted` is
+  // runs unconditionally on resolution, but when `thetaAbort.signal.aborted` is
   // true the runtime synthesises `Err(cancelled)` instead of reading session
   // error state — even when Pi tore down cleanly and `waitForIdle()` resolved
   // without any error written. This precedes both the `stopReason: "error"`
@@ -94,7 +94,7 @@ export function extractPromptModeQueryResult(
 
   // PIC-51 `stopReason: "error"` transport probe: read the driven turn's final
   // `assistant` message and, when its `stopReason` is `"error"`, map it to a
-  // `kind: "transport"` `QueryError` — never `loom/runtime/internal-error`, and
+  // `kind: "transport"` `QueryError` — never `theta/runtime/internal-error`, and
   // never the `Ok(string)` extraction. The `message` is the turn's
   // `errorMessage`, or the fixed fallback when it is absent.
   const trailing = trailingTurnFinalAssistant(messages);
@@ -116,7 +116,7 @@ export function extractPromptModeQueryResult(
 
 /**
  * The final `assistant` message of the driven turn — the last `user` message
- * (the loom-issued `pi.sendUserMessage` turn) plus every subsequent message —
+ * (the theta-issued `pi.sendUserMessage` turn) plus every subsequent message —
  * matching the trailing-turn boundary V9c's `extractTrailingTurnText` uses.
  * `undefined` when the trailing turn carries no `assistant` message at all.
  */
@@ -146,7 +146,7 @@ function trailingTurnFinalAssistant(
  * derived from the caught thrown value through the underlying-error coercion
  * rule (object `.message` when string, else `String(v)`, else `<unreadable>`),
  * NOT a raw `.message` read. The throw is never wrapped as
- * `loom/runtime/internal-error`.
+ * `theta/runtime/internal-error`.
  */
 export function mapPromptModeSyncThrow(
   caught: unknown,
@@ -158,7 +158,7 @@ export function mapPromptModeSyncThrow(
   // `.message` read — so a non-Error throw (a thrown string, a thrown
   // `null`/`undefined`) yields a deterministic non-null string rather than
   // `undefined` or a synchronous TypeError. The throw is never wrapped as
-  // `loom/runtime/internal-error`, never allowed to propagate, and never
+  // `theta/runtime/internal-error`, never allowed to propagate, and never
   // swallowed as a successful `Ok("")`.
   return {
     kind: "transport",

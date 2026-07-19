@@ -2,5 +2,5 @@
 // obligation and is exercised only by the unmapped-executable-REQ-ID arm.
 
 export function checks(): void {
-  expect(diag.code).toBe("loom/parse/foo-bad");
+  expect(diag.code).toBe("theta/parse/foo-bad");
 }

@@ -2,23 +2,23 @@ import { describe, expect, it } from "vitest";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { Diagnostic } from "../src/diagnostics/diagnostic";
 import {
-  createLoomExtension,
+  createThetaExtension,
   EXTENSION_BOOTSTRAP_FAILED_CODE,
 } from "../src/extension/factory";
 
 // V9k-T — failing tests for the extension-bootstrap SDK-failure abort surfaces
 // (paired V9k implementation leaf).
 //
-// Spec: pi-integration-contract/extension-bootstrap-and-per-loom.md
+// Spec: pi-integration-contract/extension-bootstrap-and-per-theta.md
 // ("Extension-bootstrap SDK failures" — the `pi.registerFlag` and `pi.on(...)`
 // fatal-abort rules), diagnostics/code-registry-load.md (the
-// `loom/load/extension-bootstrap-failed` registry row + its `details` payload),
+// `theta/load/extension-bootstrap-failed` registry row + its `details` payload),
 // pi-integration-contract/registration-steps.md (the step ordering the abort
 // truncates), diagnostics/placeholder-rendering-b.md#underlying-error-coercion
 // (the `details.error` / `<error>` coercion).
 //
 // This is a code-keyed obligation area (PIC, no numbered REQ-IDs): each test
-// cites the `loom/load/extension-bootstrap-failed` diagnostics-registry code
+// cites the `theta/load/extension-bootstrap-failed` diagnostics-registry code
 // inline per the conventions.md *Diagnostic message anchors* rule.
 //
 // The factory is driven through a recording `ExtensionAPI` double whose chosen
@@ -29,7 +29,7 @@ import {
 // diagnostic; until then these tests red on those primary assertions.
 
 // The canonical factory-time `pi.on` subscription order (steps 1/3/4 of
-// registration-steps.md): `resources_discover` (step 1, after the `--loom`
+// registration-steps.md): `resources_discover` (step 1, after the `--theta`
 // flag), `session_start` (step 3), `session_shutdown` (step 4).
 const SUBSCRIPTION_ORDER = [
   "resources_discover",
@@ -94,15 +94,15 @@ function exactlyOne(diagnostics: readonly Diagnostic[]): Diagnostic {
 // cka-16 / V9k: the extension-bootstrap SDK-failure code-keyed obligation area
 // closes across V9k (the two whole-extension abort surfaces) and V9p; the
 // assertions in this file witness the V9k facet against the shipped bootstrap.
-describe("V9k extension bootstrap — pi.registerFlag failure (loom/load/extension-bootstrap-failed)", () => {
-  it("loom/load/extension-bootstrap-failed: a factory-time pi.registerFlag throw is fatal — steps 2–5 do not execute", () => {
+describe("V9k extension bootstrap — pi.registerFlag failure (theta/load/extension-bootstrap-failed)", () => {
+  it("theta/load/extension-bootstrap-failed: a factory-time pi.registerFlag throw is fatal — steps 2–5 do not execute", () => {
     const rec = makeRecordingPi(new Set(["registerFlag"]));
     const diagnostics: Diagnostic[] = [];
 
     // The factory MUST NOT throw out of its body even when a registration call
     // faults (per-call boundary), but the registerFlag failure is fatal.
     expect(() =>
-      createLoomExtension({
+      createThetaExtension({
         fixtures: [],
         emitDiagnostic: (d) => diagnostics.push(d),
       })(rec.pi),
@@ -116,10 +116,10 @@ describe("V9k extension bootstrap — pi.registerFlag failure (loom/load/extensi
     expect(rec.calls).not.toContain("on:session_shutdown");
   });
 
-  it("loom/load/extension-bootstrap-failed: emits a single diagnostic with details.capability = 'pi.registerFlag'", () => {
+  it("theta/load/extension-bootstrap-failed: emits a single diagnostic with details.capability = 'pi.registerFlag'", () => {
     const rec = makeRecordingPi(new Set(["registerFlag"]));
     const diagnostics: Diagnostic[] = [];
-    createLoomExtension({
+    createThetaExtension({
       fixtures: [],
       emitDiagnostic: (d) => diagnostics.push(d),
     })(rec.pi);
@@ -141,7 +141,7 @@ describe("V9k extension bootstrap — pi.registerFlag failure (loom/load/extensi
 
 // ── `pi.on(...)` subscription failure — fatal to the whole extension ────────
 
-describe("V9k extension bootstrap — pi.on(...) subscription failure (loom/load/extension-bootstrap-failed)", () => {
+describe("V9k extension bootstrap — pi.on(...) subscription failure (theta/load/extension-bootstrap-failed)", () => {
   // The fatal-truncation and the single-diagnostic facets describe one
   // indivisible "fatal abort + single diagnostic" behaviour per failing event
   // and are asserted together: for the last subscription (`session_shutdown`)
@@ -154,12 +154,12 @@ describe("V9k extension bootstrap — pi.on(...) subscription failure (loom/load
       SUBSCRIPTION_ORDER.indexOf(failingEvent),
     );
 
-    it(`loom/load/extension-bootstrap-failed: a pi.on('${failingEvent}') throw is fatal (no subsequent register*/on call) and emits one diagnostic with details.capability='pi.on', details.event='${failingEvent}'`, () => {
+    it(`theta/load/extension-bootstrap-failed: a pi.on('${failingEvent}') throw is fatal (no subsequent register*/on call) and emits one diagnostic with details.capability='pi.on', details.event='${failingEvent}'`, () => {
       const rec = makeRecordingPi(new Set([failKey]));
       const diagnostics: Diagnostic[] = [];
 
       expect(() =>
-        createLoomExtension({
+        createThetaExtension({
           fixtures: [],
           emitDiagnostic: (d) => diagnostics.push(d),
         })(rec.pi),

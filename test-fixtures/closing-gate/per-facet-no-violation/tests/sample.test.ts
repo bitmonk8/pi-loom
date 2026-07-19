@@ -24,5 +24,5 @@ export function checks(): void {
   // cka-1 facet V5b.
   expect("cka-1 facet V5b").toBeTruthy();
   // BAR-1 single-leaf row V8d — out of per-facet scope; registry code asserted.
-  expect(diag.code).toBe("loom/parse/foo-bad");
+  expect(diag.code).toBe("theta/parse/foo-bad");
 }

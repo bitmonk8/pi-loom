@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lexLoom, type LexResult, type Token } from "../src/lexer/lexer";
+import { lexTheta, type LexResult, type Token } from "../src/lexer/lexer";
 import type { Diagnostic } from "../src/diagnostics/diagnostic";
 import {
   SYSTEM_NOTE_CHANNEL,
@@ -16,14 +16,14 @@ import {
 //
 // Every lexer-surfaced diagnostic is asserted to fire through the V7d
 // producer-facing diagnostic-emission seam (the `Deps. V7d` edge): the
-// recording channel below captures the `loom-system-note` `details.diagnostics`
+// recording channel below captures the `theta-system-note` `details.diagnostics`
 // the lexer delivers through `emitDiagnosticBatch` → `pi.sendMessage`, never a
 // direct/out-of-band `pi.sendMessage` call. The diagnostic *Message* strings
 // are sourced from the diagnostics registry (code-registry-load.md /
 // code-registry-parse.md) per the *Diagnostic message anchors* rule.
 //
 // These tests red because the V1a tokeniser / encoding-validator / continuation
-// engine is absent — `lexLoom` is an inert no-op returning an empty token
+// engine is absent — `lexTheta` is an inert no-op returning an empty token
 // stream and no diagnostics — so each test reds on its own primary assertion
 // (empty token stream, wrong statement count, or no delivered diagnostic), not
 // on a compile error, missing fixture, or harness throw.
@@ -32,7 +32,7 @@ import {
 
 interface SeamFixture {
   readonly deps: SystemNoteChannelDeps;
-  /** Every batch the lexer delivered through the V7d `loom-system-note` seam. */
+  /** Every batch the lexer delivered through the V7d `theta-system-note` seam. */
   readonly delivered: Diagnostic[][];
   /** Raw `sendMessage` envelopes, to pin batched single-send delivery. */
   readonly sent: Array<{ customType: string; details: SystemNoteDetails }>;
@@ -60,8 +60,8 @@ function seam(): SeamFixture {
 /** Lex a UTF-8 string source; return the lex result and the seam fixture. */
 function lex(src: string): { result: LexResult; fixture: SeamFixture } {
   const fixture = seam();
-  const result = lexLoom(
-    { path: "test.loom", bytes: new TextEncoder().encode(src) },
+  const result = lexTheta(
+    { path: "test.theta", bytes: new TextEncoder().encode(src) },
     fixture.deps,
   );
   return { result, fixture };
@@ -73,7 +73,7 @@ function lexBytes(bytes: Uint8Array): {
   fixture: SeamFixture;
 } {
   const fixture = seam();
-  const result = lexLoom({ path: "test.loom", bytes }, fixture.deps);
+  const result = lexTheta({ path: "test.theta", bytes }, fixture.deps);
   return { result, fixture };
 }
 
@@ -112,10 +112,10 @@ function project(tokens: readonly Token[]): unknown[] {
   return tokens.map((t) => ({ kind: t.kind, text: t.text, range: t.range }));
 }
 
-// --- §Encoding — loom/load/invalid-encoding ------------------------------
+// --- §Encoding — theta/load/invalid-encoding ------------------------------
 
 describe("V1a-T — encoding validation", () => {
-  it("loom/load/invalid-encoding: a non-UTF-8 byte fails load with this code at the byte offset, delivered through the V7d seam", () => {
+  it("theta/load/invalid-encoding: a non-UTF-8 byte fails load with this code at the byte offset, delivered through the V7d seam", () => {
     // "hi" (0x68 0x69) then a lone 0xFF at zero-based byte offset 2.
     const { result, fixture } = lexBytes(new Uint8Array([0x68, 0x69, 0xff]));
 
@@ -123,24 +123,24 @@ describe("V1a-T — encoding validation", () => {
 
     const diags = deliveredDiagnostics(fixture);
     const encoding = diags.find(
-      (d) => d.code === "loom/load/invalid-encoding",
+      (d) => d.code === "theta/load/invalid-encoding",
     );
-    expect(encoding, "loom/load/invalid-encoding delivered via V7d seam").toBeDefined();
+    expect(encoding, "theta/load/invalid-encoding delivered via V7d seam").toBeDefined();
     // Message + offset sourced from code-registry-load.md (`<offset>` = 2).
     expect(encoding?.message).toBe("invalid UTF-8 encoding at byte offset 2");
   });
 
-  it("loom/load/invalid-encoding fires through the V7d seam (a batched loom-system-note), not a direct out-of-band pi.sendMessage", () => {
+  it("theta/load/invalid-encoding fires through the V7d seam (a batched theta-system-note), not a direct out-of-band pi.sendMessage", () => {
     const { fixture } = lexBytes(new Uint8Array([0xff]));
     // Delivery is via the producer-facing emitDiagnosticBatch → one
-    // loom-system-note carrying the Diagnostic[] in details.diagnostics.
+    // theta-system-note carrying the Diagnostic[] in details.diagnostics.
     expect(fixture.sent.length).toBeGreaterThan(0);
     for (const envelope of fixture.sent) {
       expect(envelope.customType).toBe(SYSTEM_NOTE_CHANNEL);
       expect("diagnostics" in envelope.details).toBe(true);
     }
     const diags = deliveredDiagnostics(fixture);
-    expect(diags.some((d) => d.code === "loom/load/invalid-encoding")).toBe(true);
+    expect(diags.some((d) => d.code === "theta/load/invalid-encoding")).toBe(true);
   });
 });
 
@@ -161,49 +161,49 @@ describe("V1a-T — newline normalisation (CRLF→LF)", () => {
 // --- §Reserved keywords / §Identifiers — parse-time case + keyword rules --
 
 describe("V1a-T — identifier and keyword rules", () => {
-  it("loom/parse/reserved-keyword-as-identifier: a reserved word in identifier position fires (via V7d seam)", () => {
+  it("theta/parse/reserved-keyword-as-identifier: a reserved word in identifier position fires (via V7d seam)", () => {
     // `match` is a reserved keyword used here in binding (identifier) position.
     const { fixture } = lex("let match = 1");
     const d = deliveredDiagnostics(fixture).find(
-      (x) => x.code === "loom/parse/reserved-keyword-as-identifier",
+      (x) => x.code === "theta/parse/reserved-keyword-as-identifier",
     );
-    expect(d, "loom/parse/reserved-keyword-as-identifier").toBeDefined();
+    expect(d, "theta/parse/reserved-keyword-as-identifier").toBeDefined();
     // Message template `reserved keyword '<keyword>' …` from code-registry-parse.md.
     expect(d?.message).toBe(
       "reserved keyword 'match' cannot be used as an identifier",
     );
   });
 
-  it("loom/parse/schema-case-mismatch: a lowercase-first schema name fires (via V7d seam)", () => {
+  it("theta/parse/schema-case-mismatch: a lowercase-first schema name fires (via V7d seam)", () => {
     const { fixture } = lex("schema animal = Foo | Bar");
     const d = deliveredDiagnostics(fixture).find(
-      (x) => x.code === "loom/parse/schema-case-mismatch",
+      (x) => x.code === "theta/parse/schema-case-mismatch",
     );
-    expect(d, "loom/parse/schema-case-mismatch").toBeDefined();
+    expect(d, "theta/parse/schema-case-mismatch").toBeDefined();
     expect(d?.message).toBe("schema name must start with an uppercase letter");
   });
 
-  it("loom/parse/binding-case-mismatch: an uppercase-first binding name fires (via V7d seam)", () => {
+  it("theta/parse/binding-case-mismatch: an uppercase-first binding name fires (via V7d seam)", () => {
     const { fixture } = lex("let Foo = 1");
     const d = deliveredDiagnostics(fixture).find(
-      (x) => x.code === "loom/parse/binding-case-mismatch",
+      (x) => x.code === "theta/parse/binding-case-mismatch",
     );
-    expect(d, "loom/parse/binding-case-mismatch").toBeDefined();
+    expect(d, "theta/parse/binding-case-mismatch").toBeDefined();
     expect(d?.message).toBe(
       "binding name must start with a lowercase letter or _",
     );
   });
 });
 
-// --- §Comments — loom/parse/block-comment --------------------------------
+// --- §Comments — theta/parse/block-comment --------------------------------
 
 describe("V1a-T — block comments rejected", () => {
-  it("loom/parse/block-comment: a /* … */ block comment is rejected (via V7d seam)", () => {
+  it("theta/parse/block-comment: a /* … */ block comment is rejected (via V7d seam)", () => {
     const { fixture } = lex("/* not supported */");
     const d = deliveredDiagnostics(fixture).find(
-      (x) => x.code === "loom/parse/block-comment",
+      (x) => x.code === "theta/parse/block-comment",
     );
-    expect(d, "loom/parse/block-comment").toBeDefined();
+    expect(d, "theta/parse/block-comment").toBeDefined();
     expect(d?.message).toBe("block comments are not supported");
   });
 });
@@ -211,22 +211,22 @@ describe("V1a-T — block comments rejected", () => {
 // --- §Statement terminators / §Stray backslash ---------------------------
 
 describe("V1a-T — termination and continuation violations", () => {
-  it("loom/parse/single-line-if: a single-line `if (x) stmt` body fires (via V7d seam)", () => {
+  it("theta/parse/single-line-if: a single-line `if (x) stmt` body fires (via V7d seam)", () => {
     const { fixture } = lex("if (x) doThing()");
     const d = deliveredDiagnostics(fixture).find(
-      (x) => x.code === "loom/parse/single-line-if",
+      (x) => x.code === "theta/parse/single-line-if",
     );
-    expect(d, "loom/parse/single-line-if").toBeDefined();
+    expect(d, "theta/parse/single-line-if").toBeDefined();
     expect(d?.message).toBe("single-line body not permitted; wrap in { ... }");
   });
 
-  it("loom/parse/stray-backslash: a backslash outside any literal fires (via V7d seam)", () => {
-    // A lone backslash at top level — loom has no line-continuation marker.
+  it("theta/parse/stray-backslash: a backslash outside any literal fires (via V7d seam)", () => {
+    // A lone backslash at top level — theta has no line-continuation marker.
     const { fixture } = lex("\\");
     const d = deliveredDiagnostics(fixture).find(
-      (x) => x.code === "loom/parse/stray-backslash",
+      (x) => x.code === "theta/parse/stray-backslash",
     );
-    expect(d, "loom/parse/stray-backslash").toBeDefined();
+    expect(d, "theta/parse/stray-backslash").toBeDefined();
     expect(d?.message).toBe("stray backslash in source");
   });
 });

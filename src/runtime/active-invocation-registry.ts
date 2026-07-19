@@ -1,9 +1,9 @@
 // V9e / V9e-T — the `ActiveInvocationRegistry` seam.
 //
-// This module owns the extension-instance-scoped registry of in-flight loom
+// This module owns the extension-instance-scoped registry of in-flight theta
 // invocations (active-invocation-registry.md §"Active invocation registry"):
 //
-//   - the five-field entry `{ loomAbort, disposeBarrier, shutdownReason, loom,
+//   - the five-field entry `{ thetaAbort, disposeBarrier, shutdownReason, theta,
 //     invocationId }` (the `disposeBarrier` resolver is closure-scoped, not a
 //     sixth field);
 //   - the `Set`-backed registry whose iteration is **insertion order** (the V8
@@ -17,9 +17,9 @@
 //     adds the entry to the `Set`, attaches the inbound-signal forwarding
 //     listener, and (subagent mode) awaits `createAgentSession(...)`; on a
 //     throw or rejection it routes the captured error through the runtime-defect
-//     surface (`loom/runtime/internal-error` / `InvokeInfraError { cause:
+//     surface (`theta/runtime/internal-error` / `InvokeInfraError { cause:
 //     "internal_error" }`), leaks no entry when the throw precedes `Set.add`,
-//     and drops a cleanup `loomAbort.abort()` throw without masking the original;
+//     and drops a cleanup `thetaAbort.abort()` throw without masking the original;
 //   - the per-invocation `finally` that settles a single entry's
 //     `disposeBarrier` after `AgentSession.dispose()` returns (subagent mode) /
 //     immediately (prompt mode) and removes the entry.
@@ -48,10 +48,10 @@ export type InvocationMode = "prompt" | "subagent";
  * the sole mutable member (populated by `session_shutdown` sub-step 2).
  */
 export interface ActiveInvocationEntry {
-  readonly loomAbort: AbortController;
+  readonly thetaAbort: AbortController;
   readonly disposeBarrier: Promise<void>;
   shutdownReason: string | undefined;
-  readonly loom: string;
+  readonly theta: string;
   readonly invocationId: string;
 }
 
@@ -59,7 +59,7 @@ export interface ActiveInvocationEntry {
  * The minimal inbound Pi-side `AbortSignal` surface a setup wrap attaches its
  * forwarding listener to (`ctx.signal`, the tool adapter's `signal`, or the
  * `invoke`-parent's parent-signal — cancellation.md §"Forwarding into
- * `loomAbort`").
+ * `thetaAbort`").
  */
 export interface AbortSourceLike {
   addEventListener(type: "abort", listener: () => void): void;
@@ -108,7 +108,7 @@ export interface DispatchSetupRequest {
   readonly registry: ActiveInvocationRegistry;
   readonly idSource: IdSource;
   /** Canonical-key slash name (final derived form, no leading `/`). */
-  readonly loom: string;
+  readonly theta: string;
   readonly mode: InvocationMode;
   /** Inbound Pi-side abort signal the forwarding listener attaches to. */
   readonly source: AbortSourceLike;
@@ -144,7 +144,7 @@ export type DispatchSetupOutcome = DispatchSetupOk | DispatchSetupDefect;
  * contract → Dispatch-site setup wrap"). Runs the pre-evaluation setup sequence
  * inside a `try`/`catch`; on a throw or rejection it routes the captured error
  * through the runtime-defect surface, leaks no entry when the throw precedes
- * `Set.add`, and drops a cleanup `loomAbort.abort()` throw without masking the
+ * `Set.add`, and drops a cleanup `thetaAbort.abort()` throw without masking the
  * original setup throw.
  */
 export async function dispatchSiteSetup(
@@ -153,9 +153,9 @@ export async function dispatchSiteSetup(
   const makeAbortController =
     request.makeAbortController ?? ((): AbortController => new AbortController());
 
-  // The `loomAbort` controller is created first so it is in scope for the
+  // The `thetaAbort` controller is created first so it is in scope for the
   // `catch`-arm cleanup `abort()` even when a later setup step throws.
-  const loomAbort = makeAbortController();
+  const thetaAbort = makeAbortController();
   let added: ActiveInvocationEntry | undefined;
   let settle: (() => void) | undefined;
 
@@ -173,10 +173,10 @@ export async function dispatchSiteSetup(
     settle = resolveBarrier;
 
     const entry: ActiveInvocationEntry = {
-      loomAbort,
+      thetaAbort,
       disposeBarrier,
       shutdownReason: undefined,
-      loom: request.loom,
+      theta: request.theta,
       invocationId,
     };
 
@@ -184,10 +184,10 @@ export async function dispatchSiteSetup(
     request.registry.add(entry);
     added = entry;
 
-    // Forward the inbound Pi-side abort into `loomAbort`
-    // (cancellation.md §"Forwarding into `loomAbort`").
+    // Forward the inbound Pi-side abort into `thetaAbort`
+    // (cancellation.md §"Forwarding into `thetaAbort`").
     request.source.addEventListener("abort", () => {
-      loomAbort.abort();
+      thetaAbort.abort();
     });
 
     let session: AgentSessionLike | undefined;
@@ -196,9 +196,9 @@ export async function dispatchSiteSetup(
         throw new Error("subagent mode requires createAgentSession");
       }
       session = await request.createAgentSession();
-      // Wire the one-shot `AgentSession.abort()` to `loomAbort`.
+      // Wire the one-shot `AgentSession.abort()` to `thetaAbort`.
       const resolvedSession = session;
-      loomAbort.signal.addEventListener(
+      thetaAbort.signal.addEventListener(
         "abort",
         () => {
           resolvedSession.abort();
@@ -215,10 +215,10 @@ export async function dispatchSiteSetup(
     };
   } catch (setupError: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
     // Tear down the half-constructed entry without masking the original throw:
-    // the cleanup `loomAbort.abort()` is wrapped in its own nested try/catch and
+    // the cleanup `thetaAbort.abort()` is wrapped in its own nested try/catch and
     // any throw from it is dropped.
     try {
-      loomAbort.abort();
+      thetaAbort.abort();
     } catch (abortCleanupError: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
       void abortCleanupError;
     }
@@ -232,14 +232,14 @@ export async function dispatchSiteSetup(
     }
 
     // Route the captured setup throw through the runtime-defect surface
-    // (`loom/runtime/internal-error`). `surfaceUnexpectedThrow` returns
-    // `undefined` only for a `LoomPanic` / `HostFatal`; a setup throw is
+    // (`theta/runtime/internal-error`). `surfaceUnexpectedThrow` returns
+    // `undefined` only for a `ThetaPanic` / `HostFatal`; a setup throw is
     // neither, so the diagnostic is always present here.
     const diagnostic =
       surfaceUnexpectedThrow(setupError, request.site) ??
       {
         severity: "error" as const,
-        code: "loom/runtime/internal-error",
+        code: "theta/runtime/internal-error",
         file: request.site.file,
         range: request.site.range,
         message: "internal error: dispatch-site setup failed",
@@ -249,7 +249,7 @@ export async function dispatchSiteSetup(
     const error: InvokeInfraError = {
       kind: "invoke_infra",
       message,
-      callee_path: request.loom,
+      callee_path: request.theta,
       cause: "internal_error",
     };
     return { kind: "defect", diagnostic, error };

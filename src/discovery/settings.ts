@@ -1,7 +1,7 @@
 // V10c / V10c-T — Settings-source reads, validation, and merge.
 //
-// The loom extension owns its own `settings.json` keys (`loomPaths` plus the
-// four `looms.*` scalars); Pi does not surface them. The extension reads the
+// The theta extension owns its own `settings.json` keys (`thetaPaths` plus the
+// four `thetas.*` scalars); Pi does not surface them. The extension reads the
 // same two files Pi uses for its own settings, through the injected
 // `FileSystem` seam, and merges them with Pi's precedence rule (project over
 // global; deep-merge objects, replace arrays/scalars — DISC-7).
@@ -16,7 +16,7 @@
 // produced). The paired V10c implementation leaf fills these in.
 //
 // Spec: discovery/package-and-settings.md (DISC-7, the settings file reads,
-// the top-level / scalar-key validation surface, and the `loomPaths` entry
+// the top-level / scalar-key validation surface, and the `thetaPaths` entry
 // schema), with diagnostic codes/messages sourced from
 // diagnostics/code-registry-load.md.
 
@@ -27,43 +27,43 @@ import { renderCanonicalNumber } from "../render/canonical-number";
 /** A parsed JSON object (the on-disk shape of one settings file's root). */
 export type JsonObject = Record<string, unknown>;
 
-/** The four recognised `looms.*` scalar keys (post-validation, cleaned view). */
-export interface LoomsSettings {
-  /** `looms.binderModel` — a non-empty model identifier; no built-in default. */
+/** The four recognised `theta.*` scalar keys (post-validation, cleaned view). */
+export interface ThetasSettings {
+  /** `theta.binderModel` — a non-empty model identifier; no built-in default. */
   readonly binderModel?: string;
-  /** `looms.scanPackages` — boolean (default `true` when absent). */
+  /** `theta.scanPackages` — boolean (default `true` when absent). */
   readonly scanPackages?: boolean;
-  /** `looms.scanPackagesMaxFiles` — integer ≥ 1 (default `2000`). */
+  /** `theta.scanPackagesMaxFiles` — integer ≥ 1 (default `2000`). */
   readonly scanPackagesMaxFiles?: number;
-  /** `looms.scanPackagesTimeoutMs` — integer ≥ 1 (default `2000`). */
+  /** `theta.scanPackagesTimeoutMs` — integer ≥ 1 (default `2000`). */
   readonly scanPackagesTimeoutMs?: number;
 }
 
 /**
- * The merged, validated loom-extension settings view. A recognised key whose
+ * The merged, validated theta-extension settings view. A recognised key whose
  * value failed validation, or that no file supplied, is absent here (the
  * consumer applies the built-in default).
  */
-export interface LoomSettings {
-  /** `loomPaths` — the validated string entries (non-string entries dropped). */
-  readonly loomPaths?: readonly string[];
+export interface ThetaSettings {
+  /** `thetaPaths` — the validated string entries (non-string entries dropped). */
+  readonly thetaPaths?: readonly string[];
   /**
-   * The settings-file directory the `loomPaths` entries resolve relative to
-   * (DISC-7 `loomPaths` resolution): the origin dir of whichever file supplied
+   * The settings-file directory the `thetaPaths` entries resolve relative to
+   * (DISC-7 `thetaPaths` resolution): the origin dir of whichever file supplied
    * the surviving array — project `<cwd>/.pi` or global `<homedir>/.pi/agent`.
-   * Absent when no file supplied `loomPaths`. Absolute and `~/` entries ignore
+   * Absent when no file supplied `thetaPaths`. Absolute and `~/` entries ignore
    * it; relative entries join it. The project array replaces the global array
    * wholesale (no concat), so the surviving array is wholly from one file and
    * carries exactly one origin dir.
    */
-  readonly loomPathsBaseDir?: string;
-  /** The `looms.*` scalar namespace. */
-  readonly looms?: LoomsSettings;
+  readonly thetaPathsBaseDir?: string;
+  /** The `theta.*` scalar namespace. */
+  readonly theta?: ThetasSettings;
 }
 
 /** The result of reading and merging the two settings files. */
 export interface SettingsLoadResult {
-  readonly settings: LoomSettings;
+  readonly settings: ThetaSettings;
   readonly diagnostics: readonly Diagnostic[];
 }
 
@@ -109,7 +109,7 @@ function jsonKind(
 }
 
 /**
- * Render the `<observed>` substring for `loom/load/settings-value-out-of-range`
+ * Render the `<observed>` substring for `theta/load/settings-value-out-of-range`
  * per the parsed-scalar carve-out (placeholder-rendering-b.md §"`<observed>` on
  * the parsed-scalar out-of-range codes"): a number canonically, a boolean as
  * `true`/`false`, `null` as the literal text `null`, a string bare when
@@ -136,21 +136,21 @@ function renderObserved(value: unknown): string {
   }
 }
 
-const SETTINGS_VALUE_OUT_OF_RANGE = "loom/load/settings-value-out-of-range";
-const SETTINGS_INVALID_ENTRY = "loom/load/settings-invalid-entry";
-const SETTINGS_INVALID_JSON = "loom/load/settings-invalid-json";
-const SETTINGS_UNREADABLE = "loom/load/settings-unreadable";
+const SETTINGS_VALUE_OUT_OF_RANGE = "theta/load/settings-value-out-of-range";
+const SETTINGS_INVALID_ENTRY = "theta/load/settings-invalid-entry";
+const SETTINGS_INVALID_JSON = "theta/load/settings-invalid-json";
+const SETTINGS_UNREADABLE = "theta/load/settings-unreadable";
 
-/** The four recognised `looms.*` scalar keys, in their fixed inspection order. */
-const LOOMS_SCALAR_KEYS = [
+/** The four recognised `thetas.*` scalar keys, in their fixed inspection order. */
+const THETAS_SCALAR_KEYS = [
   "binderModel",
   "scanPackages",
   "scanPackagesMaxFiles",
   "scanPackagesTimeoutMs",
 ] as const;
 
-/** Validate one `looms.*` scalar value against its declared type/range. */
-function isScalarKeyValid(key: (typeof LOOMS_SCALAR_KEYS)[number], value: unknown): boolean {
+/** Validate one `thetas.*` scalar value against its declared type/range. */
+function isScalarKeyValid(key: (typeof THETAS_SCALAR_KEYS)[number], value: unknown): boolean {
   switch (key) {
     case "binderModel":
       return typeof value === "string" && value.length > 0;
@@ -205,8 +205,8 @@ async function readSettingsFile(fs: FileSystem, path: string): Promise<FileReadO
 }
 
 /**
- * Validate and clean one parsed settings file: top-level shape, `loomPaths`
- * entries, and `looms.*` scalar keys. Returns the cleaned object (only valid
+ * Validate and clean one parsed settings file: top-level shape, `thetaPaths`
+ * entries, and `thetas.*` scalar keys. Returns the cleaned object (only valid
  * recognised keys survive) plus the per-file diagnostics. Each malformed key /
  * entry is treated as absent and contributes exactly one diagnostic per file.
  */
@@ -229,10 +229,10 @@ function cleanSettingsFile(root: unknown, path: string): {
     return { cleaned, diagnostics };
   }
 
-  // Top-level `loomPaths` — must be a JSON array; non-string entries rejected
+  // Top-level `thetaPaths` — must be a JSON array; non-string entries rejected
   // per-entry.
-  if (Object.prototype.hasOwnProperty.call(root, "loomPaths")) {
-    const value = root["loomPaths"];
+  if (Object.prototype.hasOwnProperty.call(root, "thetaPaths")) {
+    const value = root["thetaPaths"];
     if (Array.isArray(value)) {
       const kept: string[] = [];
       value.forEach((entry, index) => {
@@ -243,51 +243,51 @@ function cleanSettingsFile(root: unknown, path: string): {
             severity: "error",
             code: SETTINGS_INVALID_ENTRY,
             file: path,
-            message: `settings 'loomPaths[${index}]' must be a string path; got ${jsonKind(entry)}`,
+            message: `settings 'thetaPaths[${index}]' must be a string path; got ${jsonKind(entry)}`,
           });
         }
       });
-      cleaned["loomPaths"] = kept;
+      cleaned["thetaPaths"] = kept;
     } else {
       diagnostics.push({
         severity: "error",
         code: SETTINGS_VALUE_OUT_OF_RANGE,
         file: path,
-        message: `settings key loomPaths value is out of range; got ${renderObserved(value)}`,
+        message: `settings key thetaPaths value is out of range; got ${renderObserved(value)}`,
       });
     }
   }
 
-  // Top-level `looms` — must be a JSON object; a malformed `looms` logs once and
+  // Top-level `theta` — must be a JSON object; a malformed `theta` logs once and
   // suppresses the nested cascade.
-  if (Object.prototype.hasOwnProperty.call(root, "looms")) {
-    const value = root["looms"];
+  if (Object.prototype.hasOwnProperty.call(root, "theta")) {
+    const value = root["theta"];
     if (isPlainObject(value)) {
-      const cleanedLooms: JsonObject = {};
-      for (const key of LOOMS_SCALAR_KEYS) {
+      const cleanedThetas: JsonObject = {};
+      for (const key of THETAS_SCALAR_KEYS) {
         if (!Object.prototype.hasOwnProperty.call(value, key)) {
           continue;
         }
         const scalar = value[key];
         if (isScalarKeyValid(key, scalar)) {
-          cleanedLooms[key] = scalar;
+          cleanedThetas[key] = scalar;
         } else {
           diagnostics.push({
             severity: "error",
             code: SETTINGS_VALUE_OUT_OF_RANGE,
             file: path,
-            message: `settings key looms.${key} value is out of range; got ${renderObserved(scalar)}`,
+            message: `settings key thetas.${key} value is out of range; got ${renderObserved(scalar)}`,
           });
         }
       }
-      // Unknown `looms.*` keys are ignored without diagnostic (forward-compat).
-      cleaned["looms"] = cleanedLooms;
+      // Unknown `thetas.*` keys are ignored without diagnostic (forward-compat).
+      cleaned["theta"] = cleanedThetas;
     } else {
       diagnostics.push({
         severity: "error",
         code: SETTINGS_VALUE_OUT_OF_RANGE,
         file: path,
-        message: `settings key looms value is out of range; got ${renderObserved(value)}`,
+        message: `settings key thetas value is out of range; got ${renderObserved(value)}`,
       });
     }
   }
@@ -332,7 +332,7 @@ async function loadOneFile(
 
 /**
  * Read both settings files through the `FileSystem` seam, validate each file
- * independently (top-level shape, scalar-key type/range, `loomPaths` entries),
+ * independently (top-level shape, scalar-key type/range, `thetaPaths` entries),
  * emit one load-phase diagnostic per offending key/entry per file, then merge
  * the two cleaned objects per `mergeSettings`.
  *
@@ -351,24 +351,24 @@ export async function loadSettings(fs: FileSystem): Promise<SettingsLoadResult> 
   const merged = mergeSettings(global.cleaned, project.cleaned);
 
   const settings: {
-    loomPaths?: readonly string[];
-    loomPathsBaseDir?: string;
-    looms?: LoomsSettings;
+    thetaPaths?: readonly string[];
+    thetaPathsBaseDir?: string;
+    theta?: ThetasSettings;
   } = {};
-  if (Array.isArray(merged["loomPaths"])) {
-    settings.loomPaths = merged["loomPaths"] as readonly string[];
+  if (Array.isArray(merged["thetaPaths"])) {
+    settings.thetaPaths = merged["thetaPaths"] as readonly string[];
     // The project array replaces the global array wholesale (DISC-7), so the
     // surviving array is wholly from one file: its origin dir is that file's
-    // directory. Project wins when it supplied `loomPaths`, else global.
-    settings.loomPathsBaseDir = Object.prototype.hasOwnProperty.call(
+    // directory. Project wins when it supplied `thetaPaths`, else global.
+    settings.thetaPathsBaseDir = Object.prototype.hasOwnProperty.call(
       project.cleaned,
-      "loomPaths",
+      "thetaPaths",
     )
       ? posixJoin(fs.cwd(), ".pi")
       : posixJoin(fs.homedir(), ".pi/agent");
   }
-  if (isPlainObject(merged["looms"])) {
-    settings.looms = merged["looms"] as LoomsSettings;
+  if (isPlainObject(merged["theta"])) {
+    settings.theta = merged["theta"] as ThetasSettings;
   }
 
   return {

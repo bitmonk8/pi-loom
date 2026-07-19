@@ -24,5 +24,5 @@ export function checks(): void {
   expect("cka-1 facet V5a").toBeTruthy();
   // (The cka-1 row's second facet deliberately has NO facet-naming citing test.)
   // BAR-1 single-leaf row V8d — out of per-facet scope; registry code asserted.
-  expect(diag.code).toBe("loom/parse/foo-bad");
+  expect(diag.code).toBe("theta/parse/foo-bad");
 }

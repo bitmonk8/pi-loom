@@ -1,7 +1,7 @@
-# pi-loom — repository cleanup record
+# pi-theta — repository cleanup record
 
 Record of the cleanup pass that removed build-to-release process cruft.
-Package: `@bitmonk8/pi-loom` (unreleased, `private: true`).
+Package: `@bitmonk8/pi-theta` (unreleased, `private: true`).
 
 ## Removed (git rm)
 
@@ -40,7 +40,7 @@ Package: `@bitmonk8/pi-loom` (unreleased, `private: true`).
 ## Reference fixes
 
 - `README.md` provenance — dropped the pointers to the deleted
-  `documentation-plan.md` / `e2e-campaign/`; the loom-1.0 framing now cites
+  `documentation-plan.md` / `e2e-campaign/`; the theta-1.0 framing now cites
   `docs/spec_topics/governance/release-version-naming.md`.
 - `docs/spec_topics/pi-integration-contract/session-only-degraded-state.md` —
   de-linked the NFR-2.1 reference that pointed into `plan_topics/conventions.md`

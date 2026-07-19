@@ -1,0 +1,5 @@
+// H9a acceptance area (g) support — a shared `.thetalib` library imported by
+// acc-imports-invoke.theta. Every top-level `fn` is implicitly exported.
+fn tagline(): string {
+  return "acc imports invoke ok"
+}

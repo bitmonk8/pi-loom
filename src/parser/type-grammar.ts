@@ -9,18 +9,18 @@
 // The position-sensitive checks need the surrounding annotation context the
 // tokeniser does not carry, so the seam takes an explicit `TypePosition`:
 //
-//   - `loom/parse/generic-arity-mismatch` — a closed-set generic constructor
+//   - `theta/parse/generic-arity-mismatch` — a closed-set generic constructor
 //     (`array`/`Result`) applied with the wrong type-argument count; position-
 //     independent.
-//   - `loom/parse/void-in-non-return-position` — `void` in any `Type` position
-//     other than a function/loom return type.
-//   - `loom/parse/result-in-schema-position` — a `Result<T, E>` application in a
+//   - `theta/parse/void-in-non-return-position` — `void` in any `Type` position
+//     other than a function/theta return type.
+//   - `theta/parse/result-in-schema-position` — a `Result<T, E>` application in a
 //     lowered-schema position (a schema field type, a `params:` field type, or
 //     any type reachable transitively from those, including `array<T>` element
 //     types and union arms).
 //
 // The `array<T>` literal type-sink rule of grammar.md fires
-// `loom/parse/array-no-common-type` when an `[]` / `[expr, ...]` literal has no
+// `theta/parse/array-no-common-type` when an `[]` / `[expr, ...]` literal has no
 // resolving sink and its elements alone cannot determine a common type. The
 // sink set is exhaustive (binding annotation, function parameter, surrounding
 // constructor field, enclosing array element); the `for x in expr` iterand is
@@ -37,7 +37,7 @@ import { type Diagnostic, type SourceRange } from "../diagnostics/diagnostic";
  * The annotation position a type expression occupies, which governs the
  * `void` and `Result` position rules of grammar.md §"Type grammar":
  *
- *   - `return`         — a function / loom return type: `void` is admitted here
+ *   - `return`         — a function / theta return type: `void` is admitted here
  *                        and `Result` is admitted (not a lowered-schema site).
  *   - `value`          — a non-schema value position (`let` annotation, `fn`
  *                        parameter type, generic argument outside a lowered
@@ -60,8 +60,8 @@ export interface TypeCheckSite {
  * Parse a single type expression as written in source and apply the
  * position-sensitive type-grammar checks, returning every diagnostic raised
  * (in source order). The closed `GenericType` arity check
- * (`loom/parse/generic-arity-mismatch`) is position-independent; the
- * `loom/parse/void-in-non-return-position` and `loom/parse/result-in-schema-position`
+ * (`theta/parse/generic-arity-mismatch`) is position-independent; the
+ * `theta/parse/void-in-non-return-position` and `theta/parse/result-in-schema-position`
  * checks consult `position`.
  */
 export function parseTypeExpression(
@@ -311,13 +311,13 @@ class TypeParser {
 /**
  * Walk a type AST in source order, applying the position-sensitive checks:
  *
- *   - `loom/parse/void-in-non-return-position` — `void` anywhere other than the
+ *   - `theta/parse/void-in-non-return-position` — `void` anywhere other than the
  *     top-level return-type annotation in a `return` position. A `void` nested
  *     in a generic argument, an inline-object field, or a union arm is never
  *     the top-level return type and always fires.
- *   - `loom/parse/generic-arity-mismatch` — a closed-set generic constructor
+ *   - `theta/parse/generic-arity-mismatch` — a closed-set generic constructor
  *     applied with a type-argument count other than its declared arity.
- *   - `loom/parse/result-in-schema-position` — a `Result` application anywhere
+ *   - `theta/parse/result-in-schema-position` — a `Result` application anywhere
  *     within a `schema-feeding` type (the whole tree is lowered-schema
  *     reachable, including `array<T>` element types and union arms).
  */
@@ -334,10 +334,10 @@ function walkType(
       if (!admitted) {
         out.push({
           severity: "error",
-          code: "loom/parse/void-in-non-return-position",
+          code: "theta/parse/void-in-non-return-position",
           file: site.file,
           range: site.range,
-          message: "'void' is only permitted as a function or loom return type",
+          message: "'void' is only permitted as a function or theta return type",
           hint: "`void` is a return-only annotation; use a value type (or `null`) in this position.",
         });
       }
@@ -348,7 +348,7 @@ function walkType(
       if (expected !== undefined && node.args.length !== expected) {
         out.push({
           severity: "error",
-          code: "loom/parse/generic-arity-mismatch",
+          code: "theta/parse/generic-arity-mismatch",
           file: site.file,
           range: site.range,
           message: `generic type '${node.ctor}' expects ${expected} type argument(s); got ${node.args.length}`,
@@ -357,7 +357,7 @@ function walkType(
       if (position === "schema-feeding" && node.ctor === "Result") {
         out.push({
           severity: "error",
-          code: "loom/parse/result-in-schema-position",
+          code: "theta/parse/result-in-schema-position",
           file: site.file,
           range: site.range,
           message:
@@ -417,7 +417,7 @@ export interface ArrayLiteralSite {
 
 /**
  * Resolve an array literal's element type against its surrounding sink.
- * Returns `loom/parse/array-no-common-type` when the literal's elements alone
+ * Returns `theta/parse/array-no-common-type` when the literal's elements alone
  * cannot determine a common type (an empty literal, or heterogeneous elements
  * with no shared type) and the surrounding `context` supplies no sink — the
  * `for-iterand` and `none` contexts both leave the literal unsunk, so an `[]`
@@ -453,7 +453,7 @@ export function checkArrayCommonType(
   }
   return {
     severity: "error",
-    code: "loom/parse/array-no-common-type",
+    code: "theta/parse/array-no-common-type",
     file: site.file,
     range: site.range,
     message:

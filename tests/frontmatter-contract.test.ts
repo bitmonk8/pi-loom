@@ -21,7 +21,7 @@ import type { Diagnostic } from "../src/diagnostics/diagnostic";
 // These tests red because the V6a frontmatter parser is absent: `parseFrontmatter`
 // is an inert stub returning `{ registered: false, diagnostics: [] }`. Each test
 // reds on its own primary assertion (an absent expected diagnostic, an
-// un-registered loom, or an undefined parsed field) — not on a compile error,
+// un-registered theta, or an undefined parsed field) — not on a compile error,
 // missing fixture, or harness throw.
 
 /** The first diagnostic carrying `code`, if any. */
@@ -37,16 +37,16 @@ function fixedMatcher(outcome: ModelMatchOutcome): ModelReferenceMatcher {
   return { resolve: () => outcome };
 }
 
-/** Parse a full `.loom` source under the given (default resolving) matcher. */
+/** Parse a full `.theta` source under the given (default resolving) matcher. */
 function parse(
   source: string,
   matcher: ModelReferenceMatcher = resolvingMatcher,
 ): FrontmatterParseResult {
-  return parseFrontmatter(source, { file: "test.loom", modelMatcher: matcher });
+  return parseFrontmatter(source, { file: "test.theta", modelMatcher: matcher });
 }
 
-/** Build a `.loom` source from frontmatter lines plus a trivial body. */
-function loom(...frontmatterLines: string[]): string {
+/** Build a `.theta` source from frontmatter lines plus a trivial body. */
+function theta(...frontmatterLines: string[]): string {
   return ["---", ...frontmatterLines, "---", "@`hello`"].join("\n");
 }
 
@@ -55,66 +55,66 @@ function loom(...frontmatterLines: string[]): string {
 // cka-11 / V6a: the FRNT code-keyed obligation area (frontmatter fields a/b)
 // closes across V6a (this field contract), V6b, V6c, V6d, V6e; the assertions in
 // this file witness the V6a facet against the shipped frontmatter parser.
-describe("V6a-T — required `mode:` (loom/load/missing-mode)", () => {
-  it("loom/load/missing-mode: frontmatter omitting `mode:` fires the load error and the loom is not registered", () => {
-    const r = parse(loom("description: a review loom"));
-    const d = withCode(r.diagnostics, "loom/load/missing-mode");
-    expect(d, "loom/load/missing-mode for frontmatter with no `mode:`").toBeDefined();
+describe("V6a-T — required `mode:` (theta/load/missing-mode)", () => {
+  it("theta/load/missing-mode: frontmatter omitting `mode:` fires the load error and the theta is not registered", () => {
+    const r = parse(theta("description: a review theta"));
+    const d = withCode(r.diagnostics, "theta/load/missing-mode");
+    expect(d, "theta/load/missing-mode for frontmatter with no `mode:`").toBeDefined();
     // Message from code-registry-load.md.
     expect(d?.message).toBe("frontmatter is missing required field 'mode:'");
     expect(d?.severity).toBe("error");
-    expect(r.registered, "a `mode:`-less loom is not registered").toBe(false);
+    expect(r.registered, "a `mode:`-less theta is not registered").toBe(false);
   });
 
-  it("loom/load/missing-mode: a valid `mode:` resolves — no error, the loom registers, and `mode` is parsed", () => {
-    const r = parse(loom("mode: subagent"));
+  it("theta/load/missing-mode: a valid `mode:` resolves — no error, the theta registers, and `mode` is parsed", () => {
+    const r = parse(theta("mode: subagent"));
     expect(
-      withCode(r.diagnostics, "loom/load/missing-mode"),
+      withCode(r.diagnostics, "theta/load/missing-mode"),
       "a present `mode:` raises no missing-mode error",
     ).toBeUndefined();
-    expect(r.registered, "a valid-`mode:` loom registers").toBe(true);
+    expect(r.registered, "a valid-`mode:` theta registers").toBe(true);
     expect(r.frontmatter?.mode).toBe("subagent");
   });
 });
 
 // --- frontmatter-fields-a.md §Unknown-key policy --------------------------
 
-describe("V6a-T — unknown-key tolerance (loom/load/unknown-frontmatter-field)", () => {
-  it("loom/load/unknown-frontmatter-field: an unknown top-level key warns (W) and the loom still loads", () => {
-    const r = parse(loom("mode: prompt", "bogus_field: 1"));
-    const d = withCode(r.diagnostics, "loom/load/unknown-frontmatter-field");
-    expect(d, "loom/load/unknown-frontmatter-field for an unknown key").toBeDefined();
+describe("V6a-T — unknown-key tolerance (theta/load/unknown-frontmatter-field)", () => {
+  it("theta/load/unknown-frontmatter-field: an unknown top-level key warns (W) and the theta still loads", () => {
+    const r = parse(theta("mode: prompt", "bogus_field: 1"));
+    const d = withCode(r.diagnostics, "theta/load/unknown-frontmatter-field");
+    expect(d, "theta/load/unknown-frontmatter-field for an unknown key").toBeDefined();
     expect(d?.severity, "unknown-frontmatter-field is severity W").toBe("warning");
     // Message from code-registry-load.md (`unknown frontmatter field '<field>'`).
     expect(d?.message).toBe("unknown frontmatter field 'bogus_field'");
-    expect(r.registered, "an unknown key is tolerated — the loom still registers").toBe(true);
+    expect(r.registered, "an unknown key is tolerated — the theta still registers").toBe(true);
   });
 });
 
 // --- cancellation.md / code-registry-parse.md — NOCEIL-1 seam -------------
 
-describe("V6a-T — per-call timeout rejected (loom/parse/timeout-field-rejected, NOCEIL-1 seam)", () => {
-  it("loom/parse/timeout-field-rejected: a `timeout:` field is rejected (NOCEIL-1 seam)", () => {
-    const r = parse(loom("mode: prompt", "timeout: 30"));
-    const d = withCode(r.diagnostics, "loom/parse/timeout-field-rejected");
-    expect(d, "loom/parse/timeout-field-rejected for a `timeout:` field").toBeDefined();
+describe("V6a-T — per-call timeout rejected (theta/parse/timeout-field-rejected, NOCEIL-1 seam)", () => {
+  it("theta/parse/timeout-field-rejected: a `timeout:` field is rejected (NOCEIL-1 seam)", () => {
+    const r = parse(theta("mode: prompt", "timeout: 30"));
+    const d = withCode(r.diagnostics, "theta/parse/timeout-field-rejected");
+    expect(d, "theta/parse/timeout-field-rejected for a `timeout:` field").toBeDefined();
     // Message from code-registry-parse.md.
-    expect(d?.message).toBe("'timeout:' field is not supported in loom 1.0");
+    expect(d?.message).toBe("'timeout:' field is not supported in theta 1.0");
   });
 });
 
 // --- frontmatter-fields-a.md §`model` — present-but-unresolvable ----------
 
-describe("V6a-T — present `model:` resolution (loom/load/model-unresolved)", () => {
-  it("loom/load/model-unresolved: a non-string scalar `model:` fails the load and the loom is not registered", () => {
-    const r = parse(loom("mode: prompt", "model: 42"), fixedMatcher("no-match"));
-    const d = withCode(r.diagnostics, "loom/load/model-unresolved");
-    expect(d, "loom/load/model-unresolved for a non-string scalar `model:`").toBeDefined();
+describe("V6a-T — present `model:` resolution (theta/load/model-unresolved)", () => {
+  it("theta/load/model-unresolved: a non-string scalar `model:` fails the load and the theta is not registered", () => {
+    const r = parse(theta("mode: prompt", "model: 42"), fixedMatcher("no-match"));
+    const d = withCode(r.diagnostics, "theta/load/model-unresolved");
+    expect(d, "theta/load/model-unresolved for a non-string scalar `model:`").toBeDefined();
     expect(d?.severity).toBe("error");
-    expect(r.registered, "an unresolvable-`model:` loom is not registered").toBe(false);
+    expect(r.registered, "an unresolvable-`model:` theta is not registered").toBe(false);
   });
 
-  it("loom/load/model-unresolved: a `provider/modelId` reference matching no available model fires through the matcher seam", () => {
+  it("theta/load/model-unresolved: a `provider/modelId` reference matching no available model fires through the matcher seam", () => {
     // Drive the parser's model-resolution hook through the model-reference-matcher
     // injection seam V6a defines, recording the reference the hook hands it.
     let seen: unknown = undefined;
@@ -124,34 +124,34 @@ describe("V6a-T — present `model:` resolution (loom/load/model-unresolved)", (
         return "no-match";
       },
     };
-    const r = parse(loom("mode: prompt", "model: bogus/model"), recording);
+    const r = parse(theta("mode: prompt", "model: bogus/model"), recording);
     expect(seen, "the model-resolution hook consults the injected matcher").toBe("bogus/model");
-    const d = withCode(r.diagnostics, "loom/load/model-unresolved");
-    expect(d, "loom/load/model-unresolved for a non-matching provider/modelId reference").toBeDefined();
+    const d = withCode(r.diagnostics, "theta/load/model-unresolved");
+    expect(d, "theta/load/model-unresolved for a non-matching provider/modelId reference").toBeDefined();
     // Message from code-registry-load.md; `<value>` renders the unquoted YAML scalar.
     expect(d?.message).toBe(
-      "loom 'model:' value 'bogus/model' resolves to no available model, or is ambiguous across providers",
+      "theta 'model:' value 'bogus/model' resolves to no available model, or is ambiguous across providers",
     );
     expect(r.registered).toBe(false);
   });
 
-  it("loom/load/model-unresolved: a bare `modelId` ambiguous across providers fails the load", () => {
-    const r = parse(loom("mode: prompt", "model: claude-haiku"), fixedMatcher("ambiguous"));
-    const d = withCode(r.diagnostics, "loom/load/model-unresolved");
-    expect(d, "loom/load/model-unresolved for a provider-ambiguous bare modelId").toBeDefined();
+  it("theta/load/model-unresolved: a bare `modelId` ambiguous across providers fails the load", () => {
+    const r = parse(theta("mode: prompt", "model: claude-haiku"), fixedMatcher("ambiguous"));
+    const d = withCode(r.diagnostics, "theta/load/model-unresolved");
+    expect(d, "theta/load/model-unresolved for a provider-ambiguous bare modelId").toBeDefined();
     expect(r.registered).toBe(false);
   });
 
-  it("loom/load/model-unresolved: a resolving `model:` reference does not fire the code and the loom registers", () => {
+  it("theta/load/model-unresolved: a resolving `model:` reference does not fire the code and the theta registers", () => {
     const r = parse(
-      loom("mode: prompt", "model: anthropic/claude-sonnet-4-5"),
+      theta("mode: prompt", "model: anthropic/claude-sonnet-4-5"),
       fixedMatcher("resolved"),
     );
     expect(
-      withCode(r.diagnostics, "loom/load/model-unresolved"),
+      withCode(r.diagnostics, "theta/load/model-unresolved"),
       "a resolving `model:` raises no model-unresolved error",
     ).toBeUndefined();
-    expect(r.registered, "a resolving-`model:` loom registers").toBe(true);
+    expect(r.registered, "a resolving-`model:` theta registers").toBe(true);
     expect(r.frontmatter?.model).toBe("anthropic/claude-sonnet-4-5");
   });
 });
@@ -159,27 +159,27 @@ describe("V6a-T — present `model:` resolution (loom/load/model-unresolved)", (
 // --- BNDR-10 `bind_context:` retention (binder/binder-model-and-context.md) ---
 
 describe("BNDR-10 — `bind_context:` retention on ParsedFrontmatter", () => {
-  it("a prompt-mode `bind_context: session` loom retains bindContext: 'session'", () => {
-    const r = parse(loom("mode: prompt", "bind_context: session"));
+  it("a prompt-mode `bind_context: session` theta retains bindContext: 'session'", () => {
+    const r = parse(theta("mode: prompt", "bind_context: session"));
     expect(r.registered).toBe(true);
     expect(r.frontmatter?.bindContext).toBe("session");
   });
 
   it("an absent `bind_context:` leaves bindContext undefined (defaults to none)", () => {
-    const r = parse(loom("mode: prompt"));
+    const r = parse(theta("mode: prompt"));
     expect(r.registered).toBe(true);
     expect(r.frontmatter?.bindContext).toBeUndefined();
   });
 
   it("an explicit `bind_context: none` is not retained as session (undefined)", () => {
-    const r = parse(loom("mode: prompt", "bind_context: none"));
+    const r = parse(theta("mode: prompt", "bind_context: none"));
     expect(r.registered).toBe(true);
     expect(r.frontmatter?.bindContext).toBeUndefined();
   });
 
-  it("BNDR-10: `bind_context: session` on a subagent-mode loom is inert (not retained) + warns", () => {
-    const r = parse(loom("mode: subagent", "bind_context: session"));
-    expect(r.registered, "the loom still registers (session is inert on subagent, a warning)").toBe(true);
+  it("BNDR-10: `bind_context: session` on a subagent-mode theta is inert (not retained) + warns", () => {
+    const r = parse(theta("mode: subagent", "bind_context: session"));
+    expect(r.registered, "the theta still registers (session is inert on subagent, a warning)").toBe(true);
     expect(r.frontmatter?.bindContext, "subagent-mode session is normalised away").toBeUndefined();
   });
 });
@@ -188,13 +188,13 @@ describe("BNDR-10 — `bind_context:` retention on ParsedFrontmatter", () => {
 
 describe("frontmatter `description` retention", () => {
   it("retains a non-empty `description` for the slash-command autocomplete entry", () => {
-    const r = parse(loom("mode: prompt", "description: Programmatic code review"));
+    const r = parse(theta("mode: prompt", "description: Programmatic code review"));
     expect(r.registered).toBe(true);
     expect(r.frontmatter?.description).toBe("Programmatic code review");
   });
 
   it("an absent `description` leaves it undefined (command registers untexted)", () => {
-    const r = parse(loom("mode: prompt"));
+    const r = parse(theta("mode: prompt"));
     expect(r.registered).toBe(true);
     expect(r.frontmatter?.description).toBeUndefined();
   });

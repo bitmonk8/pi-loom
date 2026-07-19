@@ -24,7 +24,7 @@ import {
 //            invocation; the step-1 snapshot is NOT unioned in),
 //   - PIC-44 cache-hit schema byte-equality verification (byte-equal reuses;
 //            byte-mismatch fires `registration-cache-collision` + disambiguates);
-// extension-bootstrap-and-per-loom.md §Per-loom registration `ToolDefinition.label`
+// extension-bootstrap-and-per-theta.md §Per-theta registration `ToolDefinition.label`
 //   derivation (GOV-22 un-anchored residue).
 //
 // These tests red because the V9f bodies are absent: `deriveToolLabel` returns
@@ -37,8 +37,8 @@ import {
 
 // Diagnostic codes sourced from the runtime diagnostics registry
 // (diagnostics/code-registry-runtime.md).
-const ACTIVE_SET_RESTORE_FAILED = "loom/runtime/active-set-restore-failed";
-const REGISTRATION_CACHE_COLLISION = "loom/runtime/registration-cache-collision";
+const ACTIVE_SET_RESTORE_FAILED = "theta/runtime/active-set-restore-failed";
+const REGISTRATION_CACHE_COLLISION = "theta/runtime/registration-cache-collision";
 
 // --- test doubles ----------------------------------------------------------
 
@@ -89,12 +89,12 @@ interface Recorders {
 function makeGateDeps(
   pi: ActiveSetPi,
   installVector: readonly string[],
-  loomName: string,
+  thetaName: string,
 ): { deps: ActiveSetGateDeps; rec: Recorders } {
   const rec: Recorders = { diagnostics: [], notes: [], internalErrors: [] };
   const deps: ActiveSetGateDeps = {
     pi,
-    loomName,
+    thetaName,
     installVector,
     emitDiagnostic: (d) => rec.diagnostics.push(d),
     emitSystemNote: (n) => rec.notes.push(n),
@@ -113,7 +113,7 @@ describe("V9f-T — PIC-17 active-set allowlist gating", () => {
 
     await withActiveSetGate(deps, async () => "ok");
 
-    // PIC-17 step 2: the install vector is exactly `[]`, the loom's empty
+    // PIC-17 step 2: the install vector is exactly `[]`, the theta's empty
     // declared callable set; the non-empty step-1 snapshot is NOT unioned in.
     expect(pi.installVectorSeen).toEqual([]);
     for (const name of pi.snapshot) {
@@ -122,13 +122,13 @@ describe("V9f-T — PIC-17 active-set allowlist gating", () => {
   });
 
   it("PIC-17(b): a forced-respond turn installs exactly [respondToolName]", async () => {
-    const respondName = "__loom_respond_abc123def4567890";
+    const respondName = "__theta_respond_abc123def4567890";
     const pi = new FakeActiveSetPi(["user_tool_a"]);
     const { deps } = makeGateDeps(pi, [respondName], "code-review");
 
     await withActiveSetGate(deps, async () => "ok");
 
-    // PIC-17 step 2: `[...loomCallableSetNames, respondToolName]` = `[respondName]`
+    // PIC-17 step 2: `[...thetaCallableSetNames, respondToolName]` = `[respondName]`
     // for an empty callable set; no snapshot member is unioned in.
     expect(pi.installVectorSeen).toEqual([respondName]);
     expect(pi.installVectorSeen).not.toContain("user_tool_a");
@@ -136,12 +136,12 @@ describe("V9f-T — PIC-17 active-set allowlist gating", () => {
 
   it("PIC-17 step 4: the callable set's visibility tracks the invocation — the snapshot is restored after the body", async () => {
     const pi = new FakeActiveSetPi(["user_tool_a", "user_tool_b"]);
-    const { deps } = makeGateDeps(pi, ["__loom_callee_slug__review"], "code-review");
+    const { deps } = makeGateDeps(pi, ["__theta_callee_slug__review"], "code-review");
 
     await withActiveSetGate(deps, async () => "ok");
 
     // PIC-17 step 4: the `finally` restores the user session's prior active set,
-    // so visibility tracks the loom invocation rather than the process lifetime.
+    // so visibility tracks the theta invocation rather than the process lifetime.
     expect(pi.setCalls.at(-1)).toEqual(pi.snapshot);
   });
 });
@@ -171,7 +171,7 @@ describe("V9f-T — PIC-8 restore-failure protocol", () => {
       expect(attempt).toEqual(pi.snapshot);
     }
 
-    // PIC-8(b): emit `loom/runtime/active-set-restore-failed` (E) with the
+    // PIC-8(b): emit `theta/runtime/active-set-restore-failed` (E) with the
     // snapshot tool names in `hint`.
     const diag = rec.diagnostics.find((d) => d.code === ACTIVE_SET_RESTORE_FAILED);
     expect(diag).toBeDefined();
@@ -184,7 +184,7 @@ describe("V9f-T — PIC-8 restore-failure protocol", () => {
     // `<name>` substituted).
     const note = rec.notes.find((n) => n.display === true);
     expect(note?.content).toBe(
-      "loom: failed to restore tool active-set after /code-review; the user session may have unexpected tools active. Run /reload to reset.",
+      "theta: failed to restore tool active-set after /code-review; the user session may have unexpected tools active. Run /reload to reset.",
     );
 
     // PIC-8(d): the original exception the `finally` was protecting propagates
@@ -199,13 +199,13 @@ describe("V9f-T — PIC-19 snapshot/swap-install-failure protocol", () => {
   it("PIC-19: a step-1 snapshot throw surfaces as internal-error with no restore owed", async () => {
     const pi = new FakeActiveSetPi(["user_tool_a"]);
     pi.throwOnGet = true;
-    const { deps, rec } = makeGateDeps(pi, ["__loom_respond_x"], "code-review");
+    const { deps, rec } = makeGateDeps(pi, ["__theta_respond_x"], "code-review");
 
     await expect(
       withActiveSetGate(deps, async () => "body-must-not-run"),
     ).rejects.toThrow();
 
-    // PIC-19: the failure routes onto `loom/runtime/internal-error`; a step-1
+    // PIC-19: the failure routes onto `theta/runtime/internal-error`; a step-1
     // throw has committed no active-set change, so no restore is owed and no
     // `setActiveTools` (install or restore) is ever called.
     expect(rec.internalErrors.length).toBe(1);
@@ -218,7 +218,7 @@ describe("V9f-T — PIC-19 snapshot/swap-install-failure protocol", () => {
   it("PIC-19: a step-2 swap-install throw surfaces as internal-error with no restore owed", async () => {
     const pi = new FakeActiveSetPi(["user_tool_a"]);
     pi.throwOnInstall = true;
-    const { deps, rec } = makeGateDeps(pi, ["__loom_respond_x"], "code-review");
+    const { deps, rec } = makeGateDeps(pi, ["__theta_respond_x"], "code-review");
 
     await expect(
       withActiveSetGate(deps, async () => "body-must-not-run"),
@@ -267,9 +267,9 @@ describe("V9f-T — PIC-44 cache-hit schema byte-equality verification", () => {
 
     // PIC-44: byte-equality holds, so the second use reuses the first
     // registration — `pi.registerTool` runs once and no collision fires.
-    expect(first).toBe("__loom_callee_0011223344556677__review");
+    expect(first).toBe("__theta_callee_0011223344556677__review");
     expect(second).toBe(first);
-    expect(registered).toEqual(["__loom_callee_0011223344556677__review"]);
+    expect(registered).toEqual(["__theta_callee_0011223344556677__review"]);
     expect(
       diagnostics.some((d) => d.code === REGISTRATION_CACHE_COLLISION),
     ).toBe(false);
@@ -291,11 +291,11 @@ describe("V9f-T — PIC-44 cache-hit schema byte-equality verification", () => {
       deps,
     );
 
-    // PIC-44: byte-mismatch → fire `loom/runtime/registration-cache-collision`,
+    // PIC-44: byte-mismatch → fire `theta/runtime/registration-cache-collision`,
     // refuse to dedup, and register the second schema under the disambiguated
-    // per-slug-counter name `__loom_callee_<slug>_2__<post-rename-name>`.
-    expect(first).toBe(`__loom_callee_${slug}__review`);
-    expect(second).toBe(`__loom_callee_${slug}_2__review`);
+    // per-slug-counter name `__theta_callee_<slug>_2__<post-rename-name>`.
+    expect(first).toBe(`__theta_callee_${slug}__review`);
+    expect(second).toBe(`__theta_callee_${slug}_2__review`);
     expect(registered).toEqual([first, second]);
     const collision = diagnostics.find(
       (d) => d.code === REGISTRATION_CACHE_COLLISION,
@@ -304,7 +304,7 @@ describe("V9f-T — PIC-44 cache-hit schema byte-equality verification", () => {
     expect(collision?.severity).toBe("error");
   });
 
-  it("PIC-44: a byte-mismatch on a typed-query respond slug disambiguates as __loom_respond_<slug>_2", () => {
+  it("PIC-44: a byte-mismatch on a typed-query respond slug disambiguates as __theta_respond_<slug>_2", () => {
     const cache = createRegistrationCache();
     const { deps } = makeCacheDeps();
     const slug = "aabbccddeeff0011";
@@ -321,24 +321,24 @@ describe("V9f-T — PIC-44 cache-hit schema byte-equality verification", () => {
     );
 
     // PIC-44: typed-query one-shot disambiguation starts at `n = 2`.
-    expect(first).toBe(`__loom_respond_${slug}`);
-    expect(second).toBe(`__loom_respond_${slug}_2`);
+    expect(first).toBe(`__theta_respond_${slug}`);
+    expect(second).toBe(`__theta_respond_${slug}_2`);
   });
 });
 
-// --- ToolDefinition.label derivation (extension-bootstrap-and-per-loom.md
-//     §Per-loom registration — GOV-22 un-anchored residue) -----------------
+// --- ToolDefinition.label derivation (extension-bootstrap-and-per-theta.md
+//     §Per-theta registration — GOV-22 un-anchored residue) -----------------
 
 describe("V9f-T — ToolDefinition.label derivation", () => {
-  it("derives a loom callee label from the basename: interior hyphen preserved, leading character capitalised (code-review.loom → \"Code-review\")", () => {
-    expect(deriveToolLabel({ kind: "loom-file", basename: "code-review" })).toBe(
+  it("derives a theta callee label from the basename: interior hyphen preserved, leading character capitalised (code-review.theta → \"Code-review\")", () => {
+    expect(deriveToolLabel({ kind: "theta-file", basename: "code-review" })).toBe(
       "Code-review",
     );
   });
 
-  it("synthesises the typed-query one-shot tool label as the literal \"Loom typed-query response\"", () => {
+  it("synthesises the typed-query one-shot tool label as the literal \"Theta typed-query response\"", () => {
     expect(deriveToolLabel({ kind: "typed-query-respond" })).toBe(
-      "Loom typed-query response",
+      "Theta typed-query response",
     );
   });
 });

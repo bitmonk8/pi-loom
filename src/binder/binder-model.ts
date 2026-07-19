@@ -1,12 +1,12 @@
 // V11a / V11a-T — Binder-model resolution and the strict-capability probe.
 //
-// Resolved at loom-load time from a two-step chain (binder-model-and-context.md
-// §"Binder model"): the `bind_model:` frontmatter field, then the loom-extension
-// setting `looms.binderModel`. There is NO further fallback — the loom's own
-// `model:` is never consulted. When neither source resolves and the loom is not
-// bypass-eligible, the loom fails to load with `loom/load/binder-model-unresolved`.
+// Resolved at theta-load time from a two-step chain (binder-model-and-context.md
+// §"Binder model"): the `bind_model:` frontmatter field, then the theta-extension
+// setting `theta.binderModel`. There is NO further fallback — the theta's own
+// `model:` is never consulted. When neither source resolves and the theta is not
+// bypass-eligible, the theta fails to load with `theta/load/binder-model-unresolved`.
 //
-// The binder-model value is a single free-form string resolved through loom's
+// The binder-model value is a single free-form string resolved through theta's
 // own exact-match resolver over `ctx.modelRegistry.getAvailable()` — the SAME
 // shared `ModelReferenceMatcher` instance V6a's `model:` resolution binds, so
 // the two paths cannot diverge on the "reference matches no available model"
@@ -14,14 +14,14 @@
 // the runtime then probes the concrete `Model<Api>` for a duck-typed
 // `strictCapable` field, a three-valued check:
 //   - `true`      → admit the model (no diagnostic);
-//   - `false`     → `loom/load/binder-model-not-strict-capable` (E), refuse;
-//   - `undefined` → `loom/load/binder-model-strict-capability-unknown` (W), admit.
+//   - `false`     → `theta/load/binder-model-not-strict-capable` (E), refuse;
+//   - `undefined` → `theta/load/binder-model-strict-capability-unknown` (W), admit.
 //
 // A hot reload that recovers a previously-unresolved binder model emits a single
-// consolidated informational recovery `loom-system-note` (no `loom/load/*` code)
+// consolidated informational recovery `theta-system-note` (no `theta/load/*` code)
 // (binder-model-and-context.md#binder-model-hot-reload). Per BNDR-11 a
-// `looms.binderModel`-only settings edit does NOT re-run resolution or the probe
-// for any already-loaded loom — each retains its previously-resolved handle
+// `theta.binderModel`-only settings edit does NOT re-run resolution or the probe
+// for any already-loaded theta — each retains its previously-resolved handle
 // until its next load.
 //
 // Spec: binder/binder-model-and-context.md (§Binder model,
@@ -45,33 +45,33 @@ import {
   createModelReferenceMatcher,
   type ModelRegistrySurface,
 } from "../extension/reload-wiring";
-import type { LoomSettings } from "../discovery/settings";
+import type { ThetaSettings } from "../discovery/settings";
 import { buildRecoveryNote } from "../runtime/runtime-event-channel";
 import type { SystemNote } from "../extension/system-note-channel";
 
 // --- diagnostic code + message constants (registry-anchored) ---------------
 
 /** The load-phase code emitted when no binder-model reference resolves. */
-export const BINDER_MODEL_UNRESOLVED_CODE = "loom/load/binder-model-unresolved";
+export const BINDER_MODEL_UNRESOLVED_CODE = "theta/load/binder-model-unresolved";
 /** The load-phase code emitted when the probed model is explicitly not strict-capable. */
 export const BINDER_MODEL_NOT_STRICT_CAPABLE_CODE =
-  "loom/load/binder-model-not-strict-capable";
+  "theta/load/binder-model-not-strict-capable";
 /** The load-phase warning code emitted when the strict-capability indicator is absent. */
 export const BINDER_MODEL_STRICT_CAPABILITY_UNKNOWN_CODE =
-  "loom/load/binder-model-strict-capability-unknown";
+  "theta/load/binder-model-strict-capability-unknown";
 
 /**
- * The stable, location-less message the `loom/load/binder-model-unresolved`
+ * The stable, location-less message the `theta/load/binder-model-unresolved`
  * diagnostic carries, sourced verbatim from the *Message* column of the load
  * diagnostics registry (diagnostics/code-registry-load.md). Tests source the
  * expected string from the registry rather than this constant, per the
  * *Diagnostic message anchors* rule.
  */
 export const BINDER_MODEL_UNRESOLVED_MESSAGE =
-  "binder model unresolved: set 'bind_model:' in frontmatter or 'looms.binderModel' in settings";
+  "binder model unresolved: set 'bind_model:' in frontmatter or 'theta.binderModel' in settings";
 
 /**
- * The `loom/load/binder-model-not-strict-capable` message template. `<model>`
+ * The `theta/load/binder-model-not-strict-capable` message template. `<model>`
  * substitutes the resolved binder-model reference.
  */
 export function binderModelNotStrictCapableMessage(model: string): string {
@@ -79,7 +79,7 @@ export function binderModelNotStrictCapableMessage(model: string): string {
 }
 
 /**
- * The `loom/load/binder-model-strict-capability-unknown` message template.
+ * The `theta/load/binder-model-strict-capability-unknown` message template.
  * `<model>` substitutes the resolved binder-model reference.
  */
 export function binderModelStrictCapabilityUnknownMessage(model: string): string {
@@ -91,7 +91,7 @@ export function binderModelStrictCapabilityUnknownMessage(model: string): string
 /**
  * The duck-typed strict-capability probe target
  * (binder-model-and-context.md#strict-capability-requirement): the runtime reads
- * `(model as { strictCapable?: boolean }).strictCapable`. Under the loom 1.0
+ * `(model as { strictCapable?: boolean }).strictCapable`. Under the theta 1.0
  * Pi-SDK pin the field is absent (`undefined`), so production is the universal-W
  * branch.
  */
@@ -129,18 +129,18 @@ export function matchAvailableModel<M extends { readonly id: string; readonly pr
   return matches.length === 1 ? matches[0] : undefined;
 }
 
-// --- single-loom binder-model resolution ------------------------------------
+// --- single-theta binder-model resolution ------------------------------------
 
-/** Inputs to binder-model resolution for a single loom load. */
+/** Inputs to binder-model resolution for a single theta load. */
 export interface BinderModelResolutionInput {
   /** The source file path, for located diagnostics. */
   readonly file: string;
   /** The frontmatter `bind_model:` reference (chain step 1), when present. */
   readonly bindModel?: string;
-  /** The merged `looms.binderModel` setting (chain step 2), when present. */
+  /** The merged `theta.binderModel` setting (chain step 2), when present. */
   readonly settingsBinderModel?: string;
   /**
-   * Bypass-eligible looms (no-params / single-string bypass) never call the
+   * Bypass-eligible thetas (no-params / single-string bypass) never call the
    * binder, so they skip both resolution and the probe entirely.
    */
   readonly bypassEligible: boolean;
@@ -157,10 +157,10 @@ export interface BinderModelResolutionInput {
   readonly probeStrictCapable: (reference: string) => StrictCapableProbe | undefined;
 }
 
-/** The outcome of resolving a single loom's binder model. */
+/** The outcome of resolving a single theta's binder model. */
 export interface BinderModelResolution {
   /**
-   * Whether the loom's binder model resolved (and, when resolved, passed or
+   * Whether the theta's binder model resolved (and, when resolved, passed or
    * warned through the strict-capability probe). `false` when the chain resolves
    * to no model, or when the probe observed `false`.
    */
@@ -172,21 +172,21 @@ export interface BinderModelResolution {
 }
 
 /**
- * Resolve a single loom's binder model via the two-step chain
- * (`bind_model:` → `looms.binderModel`) over the shared matcher, then run the
- * three-valued `strictCapable` probe. Bypass-eligible looms skip both checks.
+ * Resolve a single theta's binder model via the two-step chain
+ * (`bind_model:` → `theta.binderModel`) over the shared matcher, then run the
+ * three-valued `strictCapable` probe. Bypass-eligible thetas skip both checks.
  */
 export function resolveBinderModel(
   input: BinderModelResolutionInput,
 ): BinderModelResolution {
-  // Bypass-eligible looms (no-params / single-string bypass) never call the
+  // Bypass-eligible thetas (no-params / single-string bypass) never call the
   // binder, so they skip both binder-model resolution and the strict-capability
   // probe entirely (binder-model-and-context.md §Binder model).
   if (input.bypassEligible) {
     return { resolved: true, diagnostics: [] };
   }
 
-  // Two-step chain (`bind_model:` → `looms.binderModel`) resolved through the
+  // Two-step chain (`bind_model:` → `theta.binderModel`) resolved through the
   // shared exact-match matcher. A reference that matches no available model — or
   // is ambiguous across providers — resolves to no model.
   const reference = resolveChainReference(input);
@@ -224,7 +224,7 @@ export function resolveBinderModel(
   }
   if (strictCapable === undefined) {
     // The pinned production branch: the field is absent on `Model<Api>`. W-level
-    // — the loom still registers.
+    // — the theta still registers.
     return {
       resolved: true,
       binderModel: reference,
@@ -244,7 +244,7 @@ export function resolveBinderModel(
 
 /**
  * Resolve the two-step binder-model chain (`bind_model:` frontmatter →
- * `looms.binderModel` setting) to a single model reference, then match it
+ * `theta.binderModel` setting) to a single model reference, then match it
  * against the available models through the shared exact-match matcher. Returns
  * the matched reference string when exactly one available model matches, or
  * `null` when the chain is empty, matches no available model, or is ambiguous
@@ -264,36 +264,36 @@ function resolveChainReference(
 
 // --- hot-reload recovery note -----------------------------------------------
 
-/** One previously binder-model-unresolved loom, re-evaluated on a settings change. */
-export interface PreviouslyUnresolvedLoom {
-  /** The loom's final derived slash name (no leading `/`). */
+/** One previously binder-model-unresolved theta, re-evaluated on a settings change. */
+export interface PreviouslyUnresolvedTheta {
+  /** The theta's final derived slash name (no leading `/`). */
   readonly slashName: string;
-  /** The re-evaluation inputs for this loom under the changed setting. */
+  /** The re-evaluation inputs for this theta under the changed setting. */
   readonly resolution: BinderModelResolutionInput;
 }
 
 /**
- * Compute the consolidated binder-model hot-reload recovery `loom-system-note`
+ * Compute the consolidated binder-model hot-reload recovery `theta-system-note`
  * (binder-model-and-context.md#binder-model-hot-reload). Re-runs binder-model
  * resolution alone (no other load-pass step) for each previously-unresolved
- * loom; those that now resolve are listed in `recovery.looms` in ascending
+ * theta; those that now resolve are listed in `recovery.thetas` in ascending
  * Unicode code-point order. Returns `null` when none re-resolve (the note MUST
- * NOT be emitted when `recovery.looms.length === 0`).
+ * NOT be emitted when `recovery.thetas.length === 0`).
  */
 export function computeBinderModelRecoveryNote(
-  previouslyUnresolved: readonly PreviouslyUnresolvedLoom[],
+  previouslyUnresolved: readonly PreviouslyUnresolvedTheta[],
 ): SystemNote | null {
   // Re-run binder-model resolution alone (matcher step only; no strict-capability
-  // gate) for each previously-unresolved loom. Membership is exactly the looms
+  // gate) for each previously-unresolved theta. Membership is exactly the thetas
   // whose binder model now re-resolves to a model under the changed setting; a
-  // listed loom's next `/reload` may still fail for an independent reason.
+  // listed theta's next `/reload` may still fail for an independent reason.
   const recovered = previouslyUnresolved
-    .filter((loom) => resolveChainReference(loom.resolution) !== null)
-    .map((loom) => loom.slashName)
+    .filter((theta) => resolveChainReference(theta.resolution) !== null)
+    .map((theta) => theta.slashName)
     // Ascending Unicode code-point order (the default string sort compares by
     // code unit, equivalent over the ASCII slash-name domain).
     .sort();
-  // The note MUST NOT be emitted when no previously-unresolved loom re-resolves.
+  // The note MUST NOT be emitted when no previously-unresolved theta re-resolves.
   if (recovered.length === 0) {
     return null;
   }
@@ -307,59 +307,59 @@ export function computeBinderModelRecoveryNote(
  * Render the consolidated recovery-note `content` from the ascending-ordered
  * recovered slash names, per the fixed substitution rule
  * (binder-model-and-context.md#binder-model-hot-reload): only `<N>` (base-10
- * `looms.length`) and `<names>` (each prefixed `/`, comma-and-space joined) are
- * substituted; every other character — including the literal `loom(s)` token,
- * the literal `looms.binderModel` key, and the literal `/reload` command — ships
+ * `thetas.length`) and `<names>` (each prefixed `/`, comma-and-space joined) are
+ * substituted; every other character — including the literal `theta(s)` token,
+ * the literal `theta.binderModel` key, and the literal `/reload` command — ships
  * verbatim.
  */
 export function renderBinderModelRecoveryContent(
-  looms: readonly string[],
+  thetas: readonly string[],
 ): string {
-  const n = looms.length;
-  const names = looms.map((name) => `/${name}`).join(", ");
-  return `loom watcher: looms.binderModel changed; ${n} previously-failed loom(s) now resolve a binder model; run /reload to retry: ${names}`;
+  const n = thetas.length;
+  const names = thetas.map((name) => `/${name}`).join(", ");
+  return `theta watcher: theta.binderModel changed; ${n} previously-failed theta(s) now resolve a binder model; run /reload to retry: ${names}`;
 }
 
 // --- BNDR-11: settings-only edit reconciliation -----------------------------
 
-/** An already-loaded loom carrying its previously-resolved binder-model handle. */
-export interface LoadedLoom {
-  /** The loom's slash name. */
+/** An already-loaded theta carrying its previously-resolved binder-model handle. */
+export interface LoadedTheta {
+  /** The theta's slash name. */
   readonly slashName: string;
   /**
    * The previously-resolved binder-model handle (the resolved reference), or
-   * `undefined` for a loom whose load did not resolve a binder model.
+   * `undefined` for a theta whose load did not resolve a binder model.
    */
   readonly binderModelHandle: string | undefined;
 }
 
-/** Dependencies for a `looms.binderModel`-only settings-edit reconciliation. */
+/** Dependencies for a `theta.binderModel`-only settings-edit reconciliation. */
 export interface BinderModelSettingsEditDeps {
   /**
    * The binder-model resolver. Per BNDR-11 this MUST NOT be invoked for any
-   * already-loaded loom on a settings-only edit; it is present so a test can
+   * already-loaded theta on a settings-only edit; it is present so a test can
    * assert it was never called.
    */
   readonly resolve: (input: BinderModelResolutionInput) => BinderModelResolution;
 }
 
 /**
- * Reconcile a `looms.binderModel`-only settings edit against the already-loaded
- * looms (BNDR-11). The edit MUST NOT re-run binder-model resolution or the
- * `strictCapable` probe for any already-loaded loom — each retains its
+ * Reconcile a `theta.binderModel`-only settings edit against the already-loaded
+ * thetas (BNDR-11). The edit MUST NOT re-run binder-model resolution or the
+ * `strictCapable` probe for any already-loaded theta — each retains its
  * previously-resolved binder-model handle until its next load. Returns the
- * unchanged loaded-loom set.
+ * unchanged loaded-theta set.
  */
 export function reconcileBinderModelSettingsEdit(
-  loadedLooms: readonly LoadedLoom[],
+  loadedThetas: readonly LoadedTheta[],
   deps: BinderModelSettingsEditDeps,
-): readonly LoadedLoom[] {
-  // BNDR-11: a `looms.binderModel`-only settings edit MUST NOT re-run binder-
-  // model resolution or the strict-capability probe for any already-loaded loom.
-  // `deps.resolve` is deliberately never invoked; each loom retains its
+): readonly LoadedTheta[] {
+  // BNDR-11: a `theta.binderModel`-only settings edit MUST NOT re-run binder-
+  // model resolution or the strict-capability probe for any already-loaded theta.
+  // `deps.resolve` is deliberately never invoked; each theta retains its
   // previously-resolved binder-model handle until its next load.
   void deps;
-  return loadedLooms;
+  return loadedThetas;
 }
 
 // --- load-pass cross-resolution wiring (single shared matcher) --------------
@@ -374,19 +374,19 @@ export interface BinderModelLoadPassDeps {
   readonly resolveBinderModel: (
     input: BinderModelResolutionInput,
   ) => BinderModelResolution;
-  /** The merged loom-extension settings (supplies `looms.binderModel`). */
-  readonly settings: LoomSettings;
+  /** The merged theta-extension settings (supplies `theta.binderModel`). */
+  readonly settings: ThetaSettings;
   /** The strict-capability probe over the resolved concrete model. */
   readonly probeStrictCapable: (reference: string) => StrictCapableProbe | undefined;
 }
 
-/** One `.loom` file processed in the binder-model load pass. */
+/** One `.theta` file processed in the binder-model load pass. */
 export interface BinderModelLoadPassFile {
   /** The source file path, for located diagnostics. */
   readonly file: string;
-  /** The loom's frontmatter `bind_model:` reference, when present. */
+  /** The theta's frontmatter `bind_model:` reference, when present. */
   readonly bindModel?: string;
-  /** Whether the loom is bypass-eligible. */
+  /** Whether the theta is bypass-eligible. */
   readonly bypassEligible: boolean;
 }
 
@@ -400,7 +400,7 @@ export interface BinderModelLoadPassResult {
 /**
  * The load pass: construct the model-reference matcher ONCE over
  * `modelRegistry.getAvailable()` and thread that single instance into BOTH V6a's
- * `parse({ modelMatcher })` (the `model:` resolution) and each loom's
+ * `parse({ modelMatcher })` (the `model:` resolution) and each theta's
  * `resolveBinderModel({ matcher })` (the binder-model resolution), so the two
  * resolution paths bind the same instance (single-source-of-construction,
  * instance identity) and cannot diverge on the "reference matches no available
@@ -412,11 +412,11 @@ export function loadPassResolveBinderModels(
 ): readonly BinderModelLoadPassResult[] {
   // Single source of construction: build the matcher ONCE over
   // `modelRegistry.getAvailable()`, then thread that one instance into BOTH V6a's
-  // `parse({ modelMatcher })` and each loom's `resolveBinderModel({ matcher })`,
+  // `parse({ modelMatcher })` and each theta's `resolveBinderModel({ matcher })`,
   // so the two resolution paths bind the same instance (instance identity) and
   // cannot diverge on the "reference matches no available model" condition.
   const matcher = createModelReferenceMatcher(deps.modelRegistry);
-  const settingsBinderModel = deps.settings.looms?.binderModel;
+  const settingsBinderModel = deps.settings.theta?.binderModel;
   return files.map((f) => {
     const parse = deps.parse({ file: f.file, modelMatcher: matcher });
     // `exactOptionalPropertyTypes` forbids an explicit `undefined` on the

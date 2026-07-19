@@ -13,7 +13,7 @@
 //
 // Each vector drives a completed callee, modelled through the H4a session double
 // (the invoke-child vectors via its completed-invoke-child scripting point) and
-// the V17a side-effect seam (`loomAbort`, late-settlement discard) together with
+// the V17a side-effect seam (`thetaAbort`, late-settlement discard) together with
 // the V17c checkpoint set — NOT the live V14a / V13c / V15a surfaces.
 //
 // These tests red on their own primary no-rollback assertions while `V4f` is
@@ -34,7 +34,7 @@ import {
   type RollbackCompensator,
 } from "../src/runtime/no-rollback";
 import {
-  createLoomAbort,
+  createThetaAbort,
   makeCancelledError,
   routeToolCallLateSettlement,
   runCancellableSequence,
@@ -46,7 +46,7 @@ import {
 import { runCheckpointedForLoop } from "../src/runtime/checkpoint-granularity";
 import {
   IndexOutOfBoundsPanic,
-  isLoomPanic,
+  isThetaPanic,
 } from "../src/runtime/runtime-panics";
 import type { InvokeInfraError } from "../src/runtime/query-error";
 import type {
@@ -54,10 +54,10 @@ import type {
   CheckpointKind,
   CheckpointSite,
 } from "../src/seams/checkpoint";
-import type { LoomValue } from "../src/runtime/value";
+import type { ThetaValue } from "../src/runtime/value";
 import { loadExtension, type ResponseEvent } from "./harness/index";
 
-const SITE: CheckpointSite = { file: "no-rollback.loom", line: 1, column: 1 };
+const SITE: CheckpointSite = { file: "no-rollback.theta", line: 1, column: 1 };
 
 /**
  * A `Checkpoint` whose `before(...)` invokes an injected callback on each await —
@@ -141,11 +141,11 @@ describe("V4f-T — ERR-13 vector (1): `?`-early-return inside a function", () =
 });
 
 // ===========================================================================
-// Vector 2 — a `?`-early-return at the top of a loom block.
+// Vector 2 — a `?`-early-return at the top of a theta block.
 // ===========================================================================
 
-describe("V4f-T — ERR-13 vector (2): `?`-early-return at the top of a loom block", () => {
-  it("ERR-13: a `?`-early-return at the top of a loom block unwinds no prior side effect and appends no compensating turn", () => {
+describe("V4f-T — ERR-13 vector (2): `?`-early-return at the top of a theta block", () => {
+  it("ERR-13: a `?`-early-return at the top of a theta block unwinds no prior side effect and appends no compensating turn", () => {
     const committed: readonly CommittedSideEffect[] = [
       { kind: "query", id: "block-query-1", description: "@ appended turn" },
     ];
@@ -153,7 +153,7 @@ describe("V4f-T — ERR-13 vector (2): `?`-early-return at the top of a loom blo
 
     handleNoRollbackTerminalEvent(
       {
-        site: "question-early-return-loom-block",
+        site: "question-early-return-theta-block",
         event: "question",
         committed,
       },
@@ -168,15 +168,15 @@ describe("V4f-T — ERR-13 vector (2): `?`-early-return at the top of a loom blo
 });
 
 // ===========================================================================
-// Vector 3 — a panic in a slash-command loom.
+// Vector 3 — a panic in a slash-command theta.
 // ===========================================================================
 
-describe("V4f-T — ERR-13 vector (3): a panic in a slash-command loom", () => {
-  it("ERR-13: a panic in a slash-command loom leaves a completed callee's side effect final and appends no compensating turn", () => {
-    // The panic surface (V4b): a thrown `LoomPanic` bypasses `?`/`match`; here it
+describe("V4f-T — ERR-13 vector (3): a panic in a slash-command theta", () => {
+  it("ERR-13: a panic in a slash-command theta leaves a completed callee's side effect final and appends no compensating turn", () => {
+    // The panic surface (V4b): a thrown `ThetaPanic` bypasses `?`/`match`; here it
     // is the downstream terminal event after a tool call already committed.
     const panic = new IndexOutOfBoundsPanic("index out of bounds: 5 not in 0..3");
-    expect(isLoomPanic(panic)).toBe(true); // context: it is a runtime panic
+    expect(isThetaPanic(panic)).toBe(true); // context: it is a runtime panic
 
     const committed: readonly CommittedSideEffect[] = [
       { kind: "tool-call", id: "slash-edit-1", description: "edit(src/x.ts)" },
@@ -209,7 +209,7 @@ describe("V4f-T — ERR-13 vector (4): a panic in an `invoke` child", () => {
     // completion (committing a side effect) before it panicked.
     const double = loadExtension({ fixtures: [] }).double;
     double.responses.scriptInvokeChild({
-      childName: "child.loom",
+      childName: "child.theta",
       finalValue: "child-committed-a-write",
     });
     const transcript = double.driveResponses();
@@ -218,13 +218,13 @@ describe("V4f-T — ERR-13 vector (4): a panic in an `invoke` child", () => {
         e.kind === "completed-invoke-child",
     );
     // Context: the harness modelled a completed invoke-child (its committed work).
-    expect(completed?.childName).toBe("child.loom");
+    expect(completed?.childName).toBe("child.theta");
 
     // The parent observes only the failure envelope for the panicking child.
     const parentSurface: InvokeInfraError = {
       kind: "invoke_infra",
       message: "index out of bounds: 5 not in 0..3",
-      callee_path: "child.loom",
+      callee_path: "child.theta",
       cause: "panic",
     };
     // Context: the parent-observed envelope is exactly `cause: "panic"`.
@@ -232,7 +232,7 @@ describe("V4f-T — ERR-13 vector (4): a panic in an `invoke` child", () => {
 
     // The child's already-committed tool call (its completed side effect).
     const committed: readonly CommittedSideEffect[] = [
-      { kind: "invoke-child", id: "child.loom", description: "child ran to completion" },
+      { kind: "invoke-child", id: "child.theta", description: "child ran to completion" },
       { kind: "tool-call", id: "child-write-1", description: "child write(out.md)" },
     ];
     const rec = makeRecordingCompensator();
@@ -256,12 +256,12 @@ describe("V4f-T — ERR-13 vector (4): a panic in an `invoke` child", () => {
 
 // ===========================================================================
 // Vector 5 — mid-execution cancellation, modelled through the V17a side-effect
-// seam (`loomAbort`, late-settlement discard) and the V17c checkpoint set.
+// seam (`thetaAbort`, late-settlement discard) and the V17c checkpoint set.
 // ===========================================================================
 
 describe("V4f-T — ERR-13 vector (5): mid-execution cancellation", () => {
   it("ERR-13: a mid-execution cancellation leaves a completed callee's side effect final (a completed loop iteration persists) and appends no compensating turn", async () => {
-    const loomAbort = createLoomAbort();
+    const thetaAbort = createThetaAbort();
     const sideEffects: string[] = [];
 
     // V17c checkpoint set: a compute-bound loop where iteration 0 commits a side
@@ -269,11 +269,11 @@ describe("V4f-T — ERR-13 vector (5): mid-execution cancellation", () => {
     // iteration 1 never runs. Iteration 0's side effect must persist (no rollback).
     const checkpoint = new ScriptedCheckpoint((call) => {
       if (call === 2) {
-        loomAbort.abort(new Error("esc during loop"));
+        thetaAbort.abort(new Error("esc during loop"));
       }
     });
-    const snapshot: readonly LoomValue[] = ["a", "b"];
-    await runCheckpointedForLoop(checkpoint, loomAbort.signal, SITE, {
+    const snapshot: readonly ThetaValue[] = ["a", "b"];
+    await runCheckpointedForLoop(checkpoint, thetaAbort.signal, SITE, {
       snapshot,
       runIteration: (element): void => {
         sideEffects.push(`committed:${String(element)}`);
@@ -336,7 +336,7 @@ describe("V4f-T — ERR-13 vector (6): completed-callee finality", () => {
     // (a) Drive a tool call to COMPLETION via the V17a checkpoint runner: the
     // statement returns Ok(v) at its checkpoint; the completed binding is retained
     // verbatim (CNCL-5, no retroactive rewrite) — the completed callee.
-    const loomAbort = createLoomAbort();
+    const thetaAbort = createThetaAbort();
     const okValue = { wrote: "out.md" };
     const noAbort = new ScriptedCheckpoint(() => {
       /* no abort at any checkpoint — the tool call runs to completion */
@@ -351,7 +351,7 @@ describe("V4f-T — ERR-13 vector (6): completed-callee finality", () => {
       },
     ];
     const outcome = await runCancellableSequence(
-      { checkpoint: noAbort, signal: loomAbort.signal },
+      { checkpoint: noAbort, signal: thetaAbort.signal },
       statements,
     );
     // Context: the tool call completed and its Ok(v) is retained (the completed
@@ -362,7 +362,7 @@ describe("V4f-T — ERR-13 vector (6): completed-callee finality", () => {
     // scripting point (category (f)) — NOT the live V15a surface.
     const double = loadExtension({ fixtures: [] }).double;
     double.responses.scriptInvokeChild({
-      childName: "child.loom",
+      childName: "child.theta",
       finalValue: "child-final",
     });
     const childTranscript = double.driveResponses();
@@ -380,7 +380,7 @@ describe("V4f-T — ERR-13 vector (6): completed-callee finality", () => {
     const ledger = new Set<string>([toolEffectId, invokeEffectId]);
     const committed: readonly CommittedSideEffect[] = [
       { kind: "tool-call", id: toolEffectId, description: "write(out.md)" },
-      { kind: "invoke-child", id: invokeEffectId, description: "child.loom side effect" },
+      { kind: "invoke-child", id: invokeEffectId, description: "child.theta side effect" },
     ];
     const rec = makeRecordingCompensator(ledger);
 
@@ -431,7 +431,7 @@ describe("V4f-T — ERR-13 enumerated authoring sites", () => {
   it("ERR-13: the seam enumerates exactly the six §No rollback authoring sites the guarantee is witnessed on", () => {
     expect([...NO_ROLLBACK_AUTHORING_SITES]).toEqual([
       "question-early-return-in-function",
-      "question-early-return-loom-block",
+      "question-early-return-theta-block",
       "panic-slash-command",
       "panic-invoke-child",
       "mid-execution-cancellation",

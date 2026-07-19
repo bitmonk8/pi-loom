@@ -8,35 +8,35 @@ import type {
   ExtensionCommandContext,
   ModelRegistry,
 } from "@earendil-works/pi-coding-agent";
-import type { LoomFixture } from "../../src/extension/factory";
+import type { ThetaFixture } from "../../src/extension/factory";
 import { discoverAndComposeFixtures } from "../../src/extension/production-composition";
 import {
   createProductionProducerDeps,
   type PiToolDispatch,
-} from "../../src/extension/production-loom-producer";
+} from "../../src/extension/production-theta-producer";
 import type {
   ConversationBindInput,
-  LoomCompositionInput,
-} from "../../src/extension/loom-composition-producer";
+  ThetaCompositionInput,
+} from "../../src/extension/theta-composition-producer";
 import { executeBody } from "../../src/runtime/statement-executor";
 import { evaluateIndexAccess } from "../../src/runtime/runtime-panics";
 import {
   isResultValue,
-  type LoomValue,
+  type ThetaValue,
   type ResultValue,
 } from "../../src/runtime/value";
-import { discoverLooms } from "../../src/discovery/discovery-walk";
+import { discoverThetas } from "../../src/discovery/discovery-walk";
 import { FakeFileSystem } from "../helpers/fake-file-system";
-import type { LoomSettings } from "../../src/discovery/settings";
+import type { ThetaSettings } from "../../src/discovery/settings";
 import type { RuntimeRoot } from "../../src/runtime-root";
 import type { Checkpoint } from "../../src/seams/checkpoint";
 import type { AgentToolResultEnvelope } from "../../src/runtime/tool-call-execute";
 import {
-  parseLoomDocument,
-  type LoomDocument,
-  type ParseLoomDocumentDeps,
-} from "../../src/parser/loom-document";
-import type { LoomSource } from "../../src/lexer/lexer";
+  parseThetaDocument,
+  type ThetaDocument,
+  type ParseThetaDocumentDeps,
+} from "../../src/parser/theta-document";
+import type { ThetaSource } from "../../src/lexer/lexer";
 import type { Diagnostic } from "../../src/diagnostics/diagnostic";
 import type { SystemNoteChannelDeps } from "../../src/extension/system-note-channel";
 import type { ModelReferenceMatcher } from "../../src/parser/frontmatter";
@@ -46,8 +46,8 @@ import type { ModelReferenceMatcher } from "../../src/parser/frontmatter";
 // A standing acceptance suite that drives the FULL documented language surface
 // THROUGH the production composition — the shipped `session_start` composition
 // root (`discoverAndComposeFixtures`, re-exported by `extensions/index.ts`), the
-// production `LoomProducerDeps` (`createProductionProducerDeps` + `executeBody`),
-// and the real whole-file parser (`parseLoomDocument`) — rather than through the
+// production `ThetaProducerDeps` (`createProductionProducerDeps` + `executeBody`),
+// and the real whole-file parser (`parseThetaDocument`) — rather than through the
 // isolated per-module seams. It is the regression net for the meta-failure the
 // hardening campaign exposed: 1539 isolated unit tests stayed green while the
 // shipped dispatch was broken. It runs under a dedicated runner
@@ -57,7 +57,7 @@ import type { ModelReferenceMatcher } from "../../src/parser/frontmatter";
 //
 // Convention: conventions.md (phase categories — end-to-end harness; the
 // live-host acceptance pair exception). Narrative spec references:
-// extension-bootstrap-and-per-loom.md, expressions.md, runtime-value-model.md.
+// extension-bootstrap-and-per-theta.md, expressions.md, runtime-value-model.md.
 // Closes no new spec REQ-ID.
 //
 // STATUS DIVERGENCE (see notes.md / decisions.jsonl). The leaf presumed this
@@ -76,7 +76,7 @@ import type { ModelReferenceMatcher } from "../../src/parser/frontmatter";
 // ===========================================================================
 
 /** A trivially-wired diagnostic sink + resolving `model:` matcher for the parse. */
-function parseDeps(): ParseLoomDocumentDeps {
+function parseDeps(): ParseThetaDocumentDeps {
   const systemNote: SystemNoteChannelDeps = {
     pi: { sendMessage: (): void => {} },
     ui: { notify: (): void => {} },
@@ -88,10 +88,10 @@ function parseDeps(): ParseLoomDocumentDeps {
   return { systemNote, modelMatcher };
 }
 
-/** Parse a UTF-8 `.loom` source string through the production whole-file parser. */
-function parse(src: string, path = "conformance.loom"): LoomDocument {
-  const source: LoomSource = { path, bytes: new TextEncoder().encode(src) };
-  return parseLoomDocument(source, parseDeps());
+/** Parse a UTF-8 `.theta` source string through the production whole-file parser. */
+function parse(src: string, path = "conformance.theta"): ThetaDocument {
+  const source: ThetaSource = { path, bytes: new TextEncoder().encode(src) };
+  return parseThetaDocument(source, parseDeps());
 }
 
 /** The set of diagnostic codes the production parse aggregated for `src`. */
@@ -140,14 +140,14 @@ function producer(resolvePiTool?: (name: string) => PiToolDispatch | undefined) 
 
 interface RunResult {
   readonly outcome: string;
-  readonly value: LoomValue | undefined;
+  readonly value: ThetaValue | undefined;
 }
 
 /**
- * Drive `.loom` SOURCE TEXT through the production composition: parse it with
+ * Drive `.theta` SOURCE TEXT through the production composition: parse it with
  * the real whole-file parser, assert it carries no error-severity diagnostic
  * (so a red below is a behavioural red, never a parse-setup red), compose the
- * prompt-mode conversation binding through the production `LoomProducerDeps`,
+ * prompt-mode conversation binding through the production `ThetaProducerDeps`,
  * and run the body through the real `V19d` effectful executor. Returns the
  * body's terminal outcome + final value.
  */
@@ -161,24 +161,24 @@ async function runSource(
     .map((d) => d.code);
   expect(
     errorCodes,
-    "the conformance loom must parse cleanly through the production parser " +
+    "the conformance theta must parse cleanly through the production parser " +
       "before it is driven; error diagnostics: " + JSON.stringify(errorCodes),
   ).toEqual([]);
-  expect(document.frontmatter, "the conformance loom must carry parseable frontmatter").not.toBeNull();
-  const loom: LoomCompositionInput = {
+  expect(document.frontmatter, "the conformance theta must carry parseable frontmatter").not.toBeNull();
+  const theta: ThetaCompositionInput = {
     slashName: "conformance",
-    sourcePath: "/looms/conformance.loom",
+    sourcePath: "/theta/conformance.theta",
     frontmatter: document.frontmatter!,
     body: document.body,
   };
-  const bindInput: ConversationBindInput = { loom, args: "", ctx: ctxDouble() };
+  const bindInput: ConversationBindInput = { theta, args: "", ctx: ctxDouble() };
   const binding = producer(resolvePiTool).bindPromptConversation(bindInput);
-  const execution = await executeBody(loom.body, binding.executeDeps);
+  const execution = await executeBody(theta.body, binding.executeDeps);
   return { outcome: execution.outcome, value: execution.result.value };
 }
 
 /** Narrow a produced value to a `Result`, failing loudly (never silently) otherwise. */
-function asResult(value: LoomValue | undefined): ResultValue {
+function asResult(value: ThetaValue | undefined): ResultValue {
   if (value === undefined || !isResultValue(value)) {
     expect.unreachable(
       "expected a Result runtime value; got " + JSON.stringify(value),
@@ -192,39 +192,39 @@ function asResult(value: LoomValue | undefined): ResultValue {
 // (`discoverAndComposeFixtures`) over a real on-disk project discovery source.
 // ===========================================================================
 
-function loom(...lines: readonly string[]): string {
+function theta(...lines: readonly string[]): string {
   return lines.join("\n") + "\n";
 }
 
-interface PlantedLoom {
+interface PlantedTheta {
   readonly stem: string;
   readonly text: string;
 }
 
 /**
- * The `.loom` files planted under the project discovery source for the
- * load-time drive. Each malformed loom pairs its rejection with a positive
+ * The `.theta` files planted under the project discovery source for the
+ * load-time drive. Each malformed theta pairs its rejection with a positive
  * control that MUST still register, so a red distinguishes "the shipped load
- * path rejects the bad loom" from "the load path rejects everything".
+ * path rejects the bad theta" from "the load path rejects everything".
  */
-const LOAD_LOOMS: readonly PlantedLoom[] = [
-  // Clean control: a well-formed prompt loom whose `tools:` resolves — always
+const LOAD_THETAS: readonly PlantedTheta[] = [
+  // Clean control: a well-formed prompt theta whose `tools:` resolves — always
   // registers (proves the discovery walk found the workspace at all).
-  { stem: "goodloom", text: loom("---", "mode: prompt", "tools: read", "---", "@`hi`") },
+  { stem: "goodtheta", text: theta("---", "mode: prompt", "tools: read", "---", "@`hi`") },
 
   // gap #1 (V20a) — `tools:` load-time resolution: an unknown Pi tool.
-  { stem: "unknowntool", text: loom("---", "mode: prompt", "tools: totally_unknown_xyz", "---", "@`hi`") },
+  { stem: "unknowntool", text: theta("---", "mode: prompt", "tools: totally_unknown_xyz", "---", "@`hi`") },
   // gap #1 (V20a) — a `tools:` name collision.
-  { stem: "collision", text: loom("---", "mode: prompt", "tools:", "  - read as dup", "  - grep as dup", "---", "@`hi`") },
+  { stem: "collision", text: theta("---", "mode: prompt", "tools:", "  - read as dup", "  - grep as dup", "---", "@`hi`") },
 
   // frontmatter/param/system load-time validation: an unresolved `params:`
   // named type is an error-severity load/parse diagnostic that un-registers.
-  { stem: "badparam", text: loom("---", "mode: subagent", "params:", "  x: NoSuchType", "---", "@`hi`") },
+  { stem: "badparam", text: theta("---", "mode: subagent", "params:", "  x: NoSuchType", "---", "@`hi`") },
 
   // structural parser rejection at load time: an unterminated string literal
-  // aggregates an error-severity `loom/parse/*` diagnostic, so the loom must
+  // aggregates an error-severity `theta/parse/*` diagnostic, so the theta must
   // not register.
-  { stem: "badparse", text: loom("---", "mode: prompt", "---", 'let x = "abc') },
+  { stem: "badparse", text: theta("---", "mode: prompt", "---", 'let x = "abc') },
 ];
 
 interface LoadOutcome {
@@ -255,16 +255,16 @@ async function runProductionLoad(cwd: string): Promise<LoadOutcome> {
     },
   } as unknown as ExtensionContext;
 
-  const fixtures: readonly LoomFixture[] = await discoverAndComposeFixtures(pi, ctx);
+  const fixtures: readonly ThetaFixture[] = await discoverAndComposeFixtures(pi, ctx);
   return { registered: fixtures.map((f) => f.slashName), notifications };
 }
 
 beforeAll(async () => {
-  workspaceDir = mkdtempSync(join(tmpdir(), "loom-v20g-"));
-  const projectLoomDir = join(workspaceDir, ".pi", "looms");
-  mkdirSync(projectLoomDir, { recursive: true });
-  for (const l of LOAD_LOOMS) {
-    writeFileSync(join(projectLoomDir, `${l.stem}.loom`), l.text, "utf8");
+  workspaceDir = mkdtempSync(join(tmpdir(), "theta-v20g-"));
+  const projectThetaDir = join(workspaceDir, ".pi", "theta");
+  mkdirSync(projectThetaDir, { recursive: true });
+  for (const l of LOAD_THETAS) {
+    writeFileSync(join(projectThetaDir, `${l.stem}.theta`), l.text, "utf8");
   }
   loadOutcome = await runProductionLoad(workspaceDir);
 });
@@ -276,47 +276,47 @@ afterAll(() => {
 });
 
 describe("V20g-T conformance — load-time surface through the shipped composition root", () => {
-  it("the clean control loom registers (the discovery walk found the workspace)", () => {
+  it("the clean control theta registers (the discovery walk found the workspace)", () => {
     expect(
       loadOutcome.registered,
-      "the project `.pi/looms/` discovery walk did not register the clean control loom. Registered: " +
+      "the project `.pi/theta/` discovery walk did not register the clean control theta. Registered: " +
         JSON.stringify(loadOutcome.registered),
-    ).toContain("goodloom");
+    ).toContain("goodtheta");
   });
 
-  it("gap #1 (V20a): a `tools:` entry naming an unknown Pi tool un-registers the loom", () => {
-    // loom/load/unknown-tool — resolveCallableSet wired into the shipped load path.
+  it("gap #1 (V20a): a `tools:` entry naming an unknown Pi tool un-registers the theta", () => {
+    // theta/load/unknown-tool — resolveCallableSet wired into the shipped load path.
     expect(
       loadOutcome.registered,
-      "the loom whose `tools:` names an unknown Pi tool must not register. Registered: " +
+      "the theta whose `tools:` names an unknown Pi tool must not register. Registered: " +
         JSON.stringify(loadOutcome.registered),
     ).not.toContain("unknowntool");
   });
 
-  it("gap #1 (V20a): a `tools:` name collision un-registers the loom", () => {
-    // loom/load/tool-name-collision — the collision resolves at production load time.
+  it("gap #1 (V20a): a `tools:` name collision un-registers the theta", () => {
+    // theta/load/tool-name-collision — the collision resolves at production load time.
     expect(
       loadOutcome.registered,
-      "the loom whose two `tools:` entries collide on one name must not register. Registered: " +
+      "the theta whose two `tools:` entries collide on one name must not register. Registered: " +
         JSON.stringify(loadOutcome.registered),
     ).not.toContain("collision");
   });
 
-  it("frontmatter/param load-time validation: an unresolved `params:` named type un-registers the loom", () => {
-    // loom/parse/unresolved-named-type — an error-severity load/parse diagnostic
+  it("frontmatter/param load-time validation: an unresolved `params:` named type un-registers the theta", () => {
+    // theta/parse/unresolved-named-type — an error-severity load/parse diagnostic
     // blocks registration through the shipped composition root.
     expect(
       loadOutcome.registered,
-      "the loom whose `params:` names an unresolved type must not register. Registered: " +
+      "the theta whose `params:` names an unresolved type must not register. Registered: " +
         JSON.stringify(loadOutcome.registered),
     ).not.toContain("badparam");
   });
 
-  it("structural parser rejection: an unterminated string literal un-registers the loom", () => {
-    // loom/parse/unterminated-string — a structural parse error blocks registration.
+  it("structural parser rejection: an unterminated string literal un-registers the theta", () => {
+    // theta/parse/unterminated-string — a structural parse error blocks registration.
     expect(
       loadOutcome.registered,
-      "the loom carrying an unterminated string literal must not register. Registered: " +
+      "the theta carrying an unterminated string literal must not register. Registered: " +
         JSON.stringify(loadOutcome.registered),
     ).not.toContain("badparse");
   });
@@ -324,55 +324,55 @@ describe("V20g-T conformance — load-time surface through the shipped compositi
 
 // ===========================================================================
 // Parse / lex / type surface — driven through the real whole-file parser
-// (`parseLoomDocument`), the production parse path.
+// (`parseThetaDocument`), the production parse path.
 // ===========================================================================
 
 describe("V20g-T conformance — structural parser rejections (campaign + gap #3 V20d)", () => {
-  it("loom/parse/comparison-chaining: a chained comparison `a < b < c` is rejected", () => {
-    expect(codesOf("let x = 1 < 2 < 3")).toContain("loom/parse/comparison-chaining");
+  it("theta/parse/comparison-chaining: a chained comparison `a < b < c` is rejected", () => {
+    expect(codesOf("let x = 1 < 2 < 3")).toContain("theta/parse/comparison-chaining");
   });
 
-  it("loom/parse/statement-in-arm-body: a bare `if` statement in a match arm body is rejected", () => {
+  it("theta/parse/statement-in-arm-body: a bare `if` statement in a match arm body is rejected", () => {
     const codes = codesOf(
       ["let y = 1", "let z = match y {", "  0 => if true { 1 } else { 2 },", "  _ => 3,", "}"].join("\n"),
     );
-    expect(codes).toContain("loom/parse/statement-in-arm-body");
+    expect(codes).toContain("theta/parse/statement-in-arm-body");
   });
 
-  it("loom/parse/unterminated-string: a string literal with no closing quote is rejected", () => {
-    expect(codesOf('let x = "abc')).toContain("loom/parse/unterminated-string");
+  it("theta/parse/unterminated-string: a string literal with no closing quote is rejected", () => {
+    expect(codesOf('let x = "abc')).toContain("theta/parse/unterminated-string");
   });
 
-  it("loom/parse/assignment-as-expression: an assignment in expression position is rejected", () => {
+  it("theta/parse/assignment-as-expression: an assignment in expression position is rejected", () => {
     const codes = codesOf(["let mut x = 0", "if (x = 1) {", "  let a = 1", "}"].join("\n"));
-    expect(codes).toContain("loom/parse/assignment-as-expression");
+    expect(codes).toContain("theta/parse/assignment-as-expression");
   });
 });
 
 describe("V20g-T conformance — type-layer diagnostics (gap #2 V20c over the V20b substrate)", () => {
-  it("loom/parse/non-boolean-condition: a non-boolean `if` condition is rejected", () => {
+  it("theta/parse/non-boolean-condition: a non-boolean `if` condition is rejected", () => {
     expect(codesOf(["if 1 {", "  let a = 1", "}"].join("\n"))).toContain(
-      "loom/parse/non-boolean-condition",
+      "theta/parse/non-boolean-condition",
     );
   });
 
-  it("loom/parse/non-array-iterand: a non-array `for … in` iterand is rejected", () => {
+  it("theta/parse/non-array-iterand: a non-array `for … in` iterand is rejected", () => {
     expect(codesOf(["for x in 5 {", "  let a = x", "}"].join("\n"))).toContain(
-      "loom/parse/non-array-iterand",
+      "theta/parse/non-array-iterand",
     );
   });
 
-  it("loom/parse/question-on-non-result: `?` on a non-Result static type is rejected", () => {
-    expect(codesOf("let x = 5?")).toContain("loom/parse/question-on-non-result");
+  it("theta/parse/question-on-non-result: `?` on a non-Result static type is rejected", () => {
+    expect(codesOf("let x = 5?")).toContain("theta/parse/question-on-non-result");
   });
 
-  it("loom/parse/array-no-common-type: an array literal whose elements share no common type is rejected", () => {
-    expect(codesOf('let xs = [1, "a"]')).toContain("loom/parse/array-no-common-type");
+  it("theta/parse/array-no-common-type: an array literal whose elements share no common type is rejected", () => {
+    expect(codesOf('let xs = [1, "a"]')).toContain("theta/parse/array-no-common-type");
   });
 
-  it("loom/parse/non-indexable-receiver: indexing a `string` receiver is rejected", () => {
+  it("theta/parse/non-indexable-receiver: indexing a `string` receiver is rejected", () => {
     expect(codesOf(['let s = "hi"', "let c = s[0]"].join("\n"))).toContain(
-      "loom/parse/non-indexable-receiver",
+      "theta/parse/non-indexable-receiver",
     );
   });
 });
@@ -445,7 +445,7 @@ describe("V20g-T conformance — runtime / pure surface through the production d
     expect(r.outcome).toBe("success");
     const result = asResult(r.value);
     expect(result.ok, "`?` unwrapped Ok(41) and the fn returned Ok(42)").toBe(true);
-    expect((result as { ok: true; value: LoomValue }).value).toBe(42);
+    expect((result as { ok: true; value: ThetaValue }).value).toBe(42);
   });
 
   it("Enum.Variant: `Color.Green` resolves to the declared enum variant", async () => {
@@ -568,24 +568,24 @@ describe("V20g-T conformance — runtime / pure surface through the production d
 });
 
 // ===========================================================================
-// gap #6 (V20f) — `--loom` / settings non-`.loom` file entry → invalid-extension.
-// Driven through the real production discovery walk (`discoverLooms`).
+// gap #6 (V20f) — `--theta` / settings non-`.theta` file entry → invalid-extension.
+// Driven through the real production discovery walk (`discoverThetas`).
 // ===========================================================================
 
-const DISCOVERY_HOME = "/home/loom";
+const DISCOVERY_HOME = "/home/theta";
 const DISCOVERY_CWD = "/project";
 
 function discoveryFs(files: Record<string, string>, dirs: Record<string, readonly string[]>): FakeFileSystem {
   const ancestors: Record<string, string[]> = {
     "/": [],
     "/home": [],
-    "/home/loom": [],
-    "/home/loom/.pi": [],
-    "/home/loom/.pi/agent": [],
-    "/home/loom/.pi/agent/looms": [],
+    "/home/theta": [],
+    "/home/theta/.pi": [],
+    "/home/theta/.pi/agent": [],
+    "/home/theta/.pi/agent/theta": [],
     "/project": [],
     "/project/.pi": [],
-    "/project/.pi/looms": [],
+    "/project/.pi/theta": [],
   };
   const merged: Record<string, readonly string[]> = { ...ancestors };
   for (const [k, v] of Object.entries(dirs)) {
@@ -601,21 +601,21 @@ function discoveryFs(files: Record<string, string>, dirs: Record<string, readonl
   });
 }
 
-const NO_SETTINGS: LoomSettings = {};
+const NO_SETTINGS: ThetaSettings = {};
 
-describe("V20g-T conformance — non-`.loom` CLI/settings file entry → invalid-extension (gap #6 V20f)", () => {
-  it("loom/load/invalid-extension: a `--loom <file>` entry naming a non-`.loom` file emits invalid-extension, not wrong-type-source", async () => {
+describe("V20g-T conformance — non-`.theta` CLI/settings file entry → invalid-extension (gap #6 V20f)", () => {
+  it("theta/load/invalid-extension: a `--theta <file>` entry naming a non-`.theta` file emits invalid-extension, not wrong-type-source", async () => {
     const fs = discoveryFs(
-      { "/x/foo.md": "not a loom" },
+      { "/x/foo.md": "not a theta" },
       { "/x": ["foo.md"] },
     );
-    const { diagnostics } = await discoverLooms({ fs, settings: NO_SETTINGS, cliPaths: ["/x/foo.md"] });
-    const invalid = diagnostics.filter((d: Diagnostic) => d.code === "loom/load/invalid-extension");
-    const wrongType = diagnostics.filter((d: Diagnostic) => d.code === "loom/load/wrong-type-source");
+    const { diagnostics } = await discoverThetas({ fs, settings: NO_SETTINGS, cliPaths: ["/x/foo.md"] });
+    const invalid = diagnostics.filter((d: Diagnostic) => d.code === "theta/load/invalid-extension");
+    const wrongType = diagnostics.filter((d: Diagnostic) => d.code === "theta/load/wrong-type-source");
     expect(invalid).toHaveLength(1);
     expect(wrongType).toHaveLength(0);
     expect(invalid[0]!.message, "the message carries the registry Message tail").toContain(
-      "does not end in .loom",
+      "does not end in .theta",
     );
   });
 });

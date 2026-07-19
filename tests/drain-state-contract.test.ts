@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  LoomRegistry,
+  ThetaRegistry,
   type DrainStateSnapshot,
   type DrainStateTag,
-  type ParsedLoom,
+  type ParsedTheta,
 } from "../src/extension/reload-wiring";
 import {
   routeDrainStateArm,
@@ -18,7 +18,7 @@ import {
   type DispatchArm,
 } from "../src/extension/drain-state";
 
-// V9m-T — failing tests for the `LoomRegistry` drain-state contract (paired
+// V9m-T — failing tests for the `ThetaRegistry` drain-state contract (paired
 // V9m implementation leaf).
 //
 // Spec: pi-integration-contract/drain-state-contract.md (PIC-29 closed
@@ -77,9 +77,9 @@ describe("V9m-T — three-arm drain-state dispatch (PIC-29)", () => {
   it("PIC-29: the non-dispatch arms return their fixed system notes", () => {
     // Arm (b) and arm (c) note templates are fixed; `<name>` is the only
     // substitution (drain-state-contract.md *Methods* arms (b)/(c)).
-    expect(shuttingDownNote("foo")).toBe("loom /foo: extension shutting down");
+    expect(shuttingDownNote("foo")).toBe("theta /foo: extension shutting down");
     expect(degradedNote("foo")).toBe(
-      "loom /foo: extension degraded; /reload to recover",
+      "theta /foo: extension degraded; /reload to recover",
     );
   });
 });
@@ -98,7 +98,7 @@ describe("V9m-T — drain-state shape constraints (PIC-30)", () => {
   });
 
   it("PIC-30: the readDrainState snapshot exposes exactly the two fields `drained` and `tag` — no third boolean drain-state field", () => {
-    const registry = new LoomRegistry();
+    const registry = new ThetaRegistry();
     const snapshot = registry.readDrainState();
     expect(Object.keys(snapshot).sort()).toEqual(["drained", "tag"]);
   });
@@ -153,15 +153,15 @@ describe("V9m-T — readDrainState read-failure fail-safe (PIC-31)", () => {
 // --- PIC-32 — drain() sets drained = true; predicate idempotence ---
 
 describe("V9m-T — drain() and predicate idempotence (PIC-32)", () => {
-  it("PIC-32: LoomRegistry.drain() flips `drained` to true", () => {
-    const registry = new LoomRegistry();
+  it("PIC-32: ThetaRegistry.drain() flips `drained` to true", () => {
+    const registry = new ThetaRegistry();
     expect(registry.readDrainState().drained).toBe(false);
     registry.drain();
     expect(registry.readDrainState().drained).toBe(true);
   });
 
   it("PIC-32: the short-circuit predicate `drained === true || tag !== undefined` is idempotent — re-evaluation yields the same result and mutates nothing", () => {
-    const registry = new LoomRegistry();
+    const registry = new ThetaRegistry();
     registry.drain();
     const first = registry.readDrainState();
     const a = shouldShortCircuitShutdown(first);
@@ -178,10 +178,10 @@ describe("V9m-T — drain() and predicate idempotence (PIC-32)", () => {
 
 // DISC-4 / V9m: the DISC-4 discovery obligation closes across V10a (collision
 // detection) and V9m (superseded-entry dispatch); the assertion below witnesses
-// the V9m superseded-entry-dispatch facet against the shipped LoomRegistry.
+// the V9m superseded-entry-dispatch facet against the shipped ThetaRegistry.
 describe("V9m-T — superseded-entry dispatch (PIC area)", () => {
   const noopRun = async (): Promise<void> => {};
-  const loom = (slashName: string): ParsedLoom => ({
+  const theta = (slashName: string): ParsedTheta => ({
     slashName,
     frontmatter: { mode: "prompt" },
     body: { statements: [], tail: null },
@@ -192,21 +192,21 @@ describe("V9m-T — superseded-entry dispatch (PIC area)", () => {
     // The entry was dropped (empty table); `readDrainState` returns the
     // steady-state tuple, so arm (a) is selected, the lookup misses, and the
     // handler returns the fixed superseded note rather than dispatching.
-    const registry = new LoomRegistry();
+    const registry = new ThetaRegistry();
     const outcome = resolveSlashDispatch("foo", snap(false, undefined), registry);
     expect(outcome.kind).toBe("note");
     if (outcome.kind === "note") {
-      expect(outcome.content).toBe("loom /foo: superseded; /reload to refresh");
+      expect(outcome.content).toBe("theta /foo: superseded; /reload to refresh");
       expect(outcome.content).toBe(supersededNote("foo"));
     }
   });
 
-  it("PIC area: a present entry on the steady-state tuple dispatches the loom (the miss path is a sub-case of arm (a))", () => {
-    const registry = new LoomRegistry([["foo", loom("foo")]]);
+  it("PIC area: a present entry on the steady-state tuple dispatches the theta (the miss path is a sub-case of arm (a))", () => {
+    const registry = new ThetaRegistry([["foo", theta("foo")]]);
     const outcome = resolveSlashDispatch("foo", snap(false, undefined), registry);
     expect(outcome.kind).toBe("dispatch");
     if (outcome.kind === "dispatch") {
-      expect(outcome.loom.slashName).toBe("foo");
+      expect(outcome.theta.slashName).toBe("foo");
     }
   });
 });
@@ -217,10 +217,10 @@ describe("V9m-T — superseded-entry dispatch (PIC area)", () => {
 // PIC-31's slash-command clause fails safe onto arm (b) shutting-down (the live
 // two-arm contract, drain-state-contract.md#read-failure-fallback) — distinct
 // from the vestigial arm-only `routeSlashDispatchWithReadFailover` above, which
-// still returns the excised arm (c). See the loom-1.0 partial supersession note.
+// still returns the excised arm (c). See the theta-1.0 partial supersession note.
 describe("V9m — resolveSlashDispatchWithReadFailover (slash-site consumer)", () => {
   const noopRun = async (): Promise<void> => {};
-  const loom = (slashName: string): ParsedLoom => ({
+  const theta = (slashName: string): ParsedTheta => ({
     slashName,
     frontmatter: { mode: "prompt" },
     body: { statements: [], tail: null },
@@ -231,7 +231,7 @@ describe("V9m — resolveSlashDispatchWithReadFailover (slash-site consumer)", (
   };
 
   it("PIC-31: a slash-site read-failure fails safe onto arm (b) shutting-down (live two-arm contract)", () => {
-    const registry = new LoomRegistry([["foo", loom("foo")]]);
+    const registry = new ThetaRegistry([["foo", theta("foo")]]);
     const outcome = resolveSlashDispatchWithReadFailover(
       "foo",
       throwingRead,
@@ -240,12 +240,12 @@ describe("V9m — resolveSlashDispatchWithReadFailover (slash-site consumer)", (
     expect(outcome.kind).toBe("note");
     if (outcome.kind === "note") {
       expect(outcome.content).toBe(shuttingDownNote("foo"));
-      expect(outcome.content).toBe("loom /foo: extension shutting down");
+      expect(outcome.content).toBe("theta /foo: extension shutting down");
     }
   });
 
   it("PIC-29/arm-(a): a successful steady-state read with a present entry dispatches the CURRENT registry entry", () => {
-    const registry = new LoomRegistry([["foo", loom("foo")]]);
+    const registry = new ThetaRegistry([["foo", theta("foo")]]);
     const outcome = resolveSlashDispatchWithReadFailover(
       "foo",
       () => snap(false, undefined),
@@ -253,12 +253,12 @@ describe("V9m — resolveSlashDispatchWithReadFailover (slash-site consumer)", (
     );
     expect(outcome.kind).toBe("dispatch");
     if (outcome.kind === "dispatch") {
-      expect(outcome.loom.slashName).toBe("foo");
+      expect(outcome.theta.slashName).toBe("foo");
     }
   });
 
   it("superseded: a successful steady-state read with a dropped entry returns the superseded note", () => {
-    const registry = new LoomRegistry();
+    const registry = new ThetaRegistry();
     const outcome = resolveSlashDispatchWithReadFailover(
       "foo",
       () => snap(false, undefined),
@@ -271,7 +271,7 @@ describe("V9m — resolveSlashDispatchWithReadFailover (slash-site consumer)", (
   });
 
   it("PIC-29/arm-(b): a successful read of a shutting-down tuple returns the shutting-down note (no dispatch)", () => {
-    const registry = new LoomRegistry([["foo", loom("foo")]]);
+    const registry = new ThetaRegistry([["foo", theta("foo")]]);
     const outcome = resolveSlashDispatchWithReadFailover(
       "foo",
       () => snap(true, undefined),

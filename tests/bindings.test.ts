@@ -12,11 +12,11 @@ import type { SourceRange } from "../src/diagnostics/diagnostic";
 // implementation.
 //
 // Spec: bindings.md
-//   - §`let` requires an initialiser           → loom/parse/let-without-initialiser
-//   - §`let` vs `let mut`                       → loom/parse/immutable-rebinding
-//   - §Mutability is binding-level only         → loom/parse/assignment-to-member-or-index
-//   - §Immutable contexts                       → loom/parse/mut-on-immutable-context
-//   - §Increment / decrement                    → loom/parse/increment-decrement
+//   - §`let` requires an initialiser           → theta/parse/let-without-initialiser
+//   - §`let` vs `let mut`                       → theta/parse/immutable-rebinding
+//   - §Mutability is binding-level only         → theta/parse/assignment-to-member-or-index
+//   - §Immutable contexts                       → theta/parse/mut-on-immutable-context
+//   - §Increment / decrement                    → theta/parse/increment-decrement
 //
 // The binding/mutability checks need the resolved binding model (the target
 // binding's `mut`-ness, the assignment target's shape, the binding position a
@@ -42,20 +42,20 @@ function span(): SourceRange {
 
 /** A located site at the throwaway span. */
 function site(): { file: string; range: SourceRange } {
-  return { file: "test.loom", range: span() };
+  return { file: "test.theta", range: span() };
 }
 
 // --- bindings.md §`let` vs `let mut` --------------------------------------
 
-describe("V3b-T — immutable rebinding (loom/parse/immutable-rebinding)", () => {
-  it("loom/parse/immutable-rebinding: reassigning a `let` (non-`mut`) binding fires", () => {
+describe("V3b-T — immutable rebinding (theta/parse/immutable-rebinding)", () => {
+  it("theta/parse/immutable-rebinding: reassigning a `let` (non-`mut`) binding fires", () => {
     // `let x = 0; x = 1` — `x` is immutable.
     const d = checkReassignment({ name: "x", mutable: false }, site());
     expect(
       d,
-      "loom/parse/immutable-rebinding for reassignment of an immutable binding",
+      "theta/parse/immutable-rebinding for reassignment of an immutable binding",
     ).toBeDefined();
-    expect(d?.code).toBe("loom/parse/immutable-rebinding");
+    expect(d?.code).toBe("theta/parse/immutable-rebinding");
     // Message from code-registry-parse.md (`cannot reassign immutable binding '<name>'`).
     expect(d?.message).toBe("cannot reassign immutable binding 'x'");
   });
@@ -73,27 +73,27 @@ describe("V3b-T — immutable rebinding (loom/parse/immutable-rebinding)", () =>
 
 // --- bindings.md §Mutability is binding-level only -------------------------
 
-describe("V3b-T — member/index assignment (loom/parse/assignment-to-member-or-index)", () => {
-  it("loom/parse/assignment-to-member-or-index: `obj.field = …` fires", () => {
+describe("V3b-T — member/index assignment (theta/parse/assignment-to-member-or-index)", () => {
+  it("theta/parse/assignment-to-member-or-index: `obj.field = …` fires", () => {
     const d = checkAssignmentTarget({ kind: "member" }, site());
     expect(
       d,
-      "loom/parse/assignment-to-member-or-index for a member assignment target",
+      "theta/parse/assignment-to-member-or-index for a member assignment target",
     ).toBeDefined();
-    expect(d?.code).toBe("loom/parse/assignment-to-member-or-index");
+    expect(d?.code).toBe("theta/parse/assignment-to-member-or-index");
     // Message from code-registry-parse.md.
     expect(d?.message).toBe(
       "cannot assign to member or index; mutability is binding-level only",
     );
   });
 
-  it("loom/parse/assignment-to-member-or-index: `arr[i] = …` fires", () => {
+  it("theta/parse/assignment-to-member-or-index: `arr[i] = …` fires", () => {
     const d = checkAssignmentTarget({ kind: "index" }, site());
     expect(
       d,
-      "loom/parse/assignment-to-member-or-index for an index assignment target",
+      "theta/parse/assignment-to-member-or-index for an index assignment target",
     ).toBeDefined();
-    expect(d?.code).toBe("loom/parse/assignment-to-member-or-index");
+    expect(d?.code).toBe("theta/parse/assignment-to-member-or-index");
   });
 
   it("a plain identifier assignment target raises no member/index diagnostic", () => {
@@ -107,34 +107,34 @@ describe("V3b-T — member/index assignment (loom/parse/assignment-to-member-or-
 
 // --- bindings.md §Immutable contexts --------------------------------------
 
-describe("V3b-T — `mut` on an immutable context (loom/parse/mut-on-immutable-context)", () => {
-  it("loom/parse/mut-on-immutable-context: `mut` on a function parameter fires", () => {
+describe("V3b-T — `mut` on an immutable context (theta/parse/mut-on-immutable-context)", () => {
+  it("theta/parse/mut-on-immutable-context: `mut` on a function parameter fires", () => {
     const d = checkMutModifier({ position: "fn-param" }, site());
     expect(
       d,
-      "loom/parse/mut-on-immutable-context for `mut` on a function parameter",
+      "theta/parse/mut-on-immutable-context for `mut` on a function parameter",
     ).toBeDefined();
-    expect(d?.code).toBe("loom/parse/mut-on-immutable-context");
+    expect(d?.code).toBe("theta/parse/mut-on-immutable-context");
     // Message from code-registry-parse.md.
     expect(d?.message).toBe("'mut' is not permitted in this binding position");
   });
 
-  it("loom/parse/mut-on-immutable-context: `mut` on a `for` iteration variable fires", () => {
+  it("theta/parse/mut-on-immutable-context: `mut` on a `for` iteration variable fires", () => {
     const d = checkMutModifier({ position: "for-var" }, site());
     expect(
       d,
-      "loom/parse/mut-on-immutable-context for `mut` on a `for` iteration variable",
+      "theta/parse/mut-on-immutable-context for `mut` on a `for` iteration variable",
     ).toBeDefined();
-    expect(d?.code).toBe("loom/parse/mut-on-immutable-context");
+    expect(d?.code).toBe("theta/parse/mut-on-immutable-context");
   });
 
-  it("loom/parse/mut-on-immutable-context: `mut` on a `match` pattern binding fires", () => {
+  it("theta/parse/mut-on-immutable-context: `mut` on a `match` pattern binding fires", () => {
     const d = checkMutModifier({ position: "match-bind" }, site());
     expect(
       d,
-      "loom/parse/mut-on-immutable-context for `mut` on a `match` pattern binding",
+      "theta/parse/mut-on-immutable-context for `mut` on a `match` pattern binding",
     ).toBeDefined();
-    expect(d?.code).toBe("loom/parse/mut-on-immutable-context");
+    expect(d?.code).toBe("theta/parse/mut-on-immutable-context");
   });
 
   it("`mut` on a `let` binding raises no immutable-context diagnostic", () => {
@@ -148,36 +148,36 @@ describe("V3b-T — `mut` on an immutable context (loom/parse/mut-on-immutable-c
 
 // --- bindings.md §Increment / decrement -----------------------------------
 
-describe("V3b-T — increment / decrement (loom/parse/increment-decrement)", () => {
-  it("loom/parse/increment-decrement: `++` is rejected", () => {
+describe("V3b-T — increment / decrement (theta/parse/increment-decrement)", () => {
+  it("theta/parse/increment-decrement: `++` is rejected", () => {
     const d = checkIncrementDecrement({ op: "++" }, site());
-    expect(d, "loom/parse/increment-decrement for `++`").toBeDefined();
-    expect(d?.code).toBe("loom/parse/increment-decrement");
+    expect(d, "theta/parse/increment-decrement for `++`").toBeDefined();
+    expect(d?.code).toBe("theta/parse/increment-decrement");
     // Message from code-registry-parse.md; `<op>` is the source token verbatim.
     expect(d?.message).toBe("'++' operator is not supported");
   });
 
-  it("loom/parse/increment-decrement: `--` is rejected", () => {
+  it("theta/parse/increment-decrement: `--` is rejected", () => {
     const d = checkIncrementDecrement({ op: "--" }, site());
-    expect(d, "loom/parse/increment-decrement for `--`").toBeDefined();
-    expect(d?.code).toBe("loom/parse/increment-decrement");
+    expect(d, "theta/parse/increment-decrement for `--`").toBeDefined();
+    expect(d?.code).toBe("theta/parse/increment-decrement");
     expect(d?.message).toBe("'--' operator is not supported");
   });
 });
 
 // --- bindings.md §`let` requires an initialiser ---------------------------
 
-describe("V3b-T — `let` without an initialiser (loom/parse/let-without-initialiser)", () => {
-  it("loom/parse/let-without-initialiser: `let x: T` (no initialiser) fires", () => {
+describe("V3b-T — `let` without an initialiser (theta/parse/let-without-initialiser)", () => {
+  it("theta/parse/let-without-initialiser: `let x: T` (no initialiser) fires", () => {
     const d = checkLetBinding(
       { name: "x", mutable: false, hasInitialiser: false },
       site(),
     );
     expect(
       d,
-      "loom/parse/let-without-initialiser for an initialiser-less `let`",
+      "theta/parse/let-without-initialiser for an initialiser-less `let`",
     ).toBeDefined();
-    expect(d?.code).toBe("loom/parse/let-without-initialiser");
+    expect(d?.code).toBe("theta/parse/let-without-initialiser");
     // Message from code-registry-parse.md.
     expect(d?.message).toBe("let binding 'x' has no initialiser");
   });

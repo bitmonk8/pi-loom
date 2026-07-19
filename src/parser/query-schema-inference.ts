@@ -16,7 +16,7 @@
 //     indexed access, the `match` scrutinee, and the `if` / `while` condition).
 //     The innermost sink wins; a walk that reaches a stop without a sink is
 //     untyped.
-//   - QRY-4 §"Explicit form" — the one-directional `loom/parse/explicit-schema-mismatch`
+//   - QRY-4 §"Explicit form" — the one-directional `theta/parse/explicit-schema-mismatch`
 //     warning that fires when an explicit `@<Schema>` ascription is not
 //     compatible with the binding annotation (`ascription ⋢ annotation` under
 //     type-system.md §"Type compatibility"), skipped when either side is past
@@ -84,7 +84,7 @@ export type InferredSchema =
  *     does not continue past it, so an untyped parameter yields no sink).
  *   - `fn-return`    — the tail expression or `return` operand of an enclosing
  *     function with a declared return type; the sink is that return type. A
- *     `.loom` file has no declared return type, so it supplies no sink here.
+ *     `.theta` file has no declared return type, so it supplies no sink here.
  *   - `stop`         — an opaque construct (binary / unary operator, member or
  *     indexed access, `match` scrutinee, `if` / `while` condition). Stopped; the
  *     `label` names the construct for diagnostics.
@@ -144,7 +144,7 @@ function unwrapArrayLevels(schema: InferredSchema, depth: number): InferredSchem
  *   - `let` — the binding annotation is the sink (innermost wins).
  *   - `call-arg` — a call boundary: a typed parameter is the sink; an untyped
  *     parameter yields no sink and the walk does NOT continue past it (untyped).
- *   - `fn-return` — a declared return type is the sink; a `.loom` (no declared
+ *   - `fn-return` — a declared return type is the sink; a `.theta` (no declared
  *     return type) supplies none and the walk continues outward.
  *   - `stop` — opaque; the walk halts with no sink (untyped).
  */
@@ -180,7 +180,7 @@ export function inferQuerySchema(
           ? undefined
           : unwrapArrayLevels(frame.paramType, arrayDepth);
       case "fn-return":
-        // A declared return type is the sink; a `.loom` supplies none, so the
+        // A declared return type is the sink; a `.theta` supplies none, so the
         // walk continues outward.
         if (frame.returnType !== undefined) {
           return unwrapArrayLevels(frame.returnType, arrayDepth);
@@ -197,11 +197,11 @@ export function inferQuerySchema(
 
 // --- Explicit-schema-mismatch (QRY-4 §"Explicit form") ---------------------
 
-/** `loom/parse/explicit-schema-mismatch` (W). */
-export const EXPLICIT_SCHEMA_MISMATCH_CODE = "loom/parse/explicit-schema-mismatch";
+/** `theta/parse/explicit-schema-mismatch` (W). */
+export const EXPLICIT_SCHEMA_MISMATCH_CODE = "theta/parse/explicit-schema-mismatch";
 
 /**
- * Registry Message for `loom/parse/explicit-schema-mismatch`, sourced verbatim
+ * Registry Message for `theta/parse/explicit-schema-mismatch`, sourced verbatim
  * from diagnostics/code-registry-parse.md per the Diagnostic message anchors
  * rule.
  */
@@ -209,7 +209,7 @@ export const EXPLICIT_SCHEMA_MISMATCH_MESSAGE =
   "explicit @<Schema> ascription is not compatible with binding annotation";
 
 /**
- * QRY-4 §"Explicit form" — the one-directional `loom/parse/explicit-schema-mismatch`
+ * QRY-4 §"Explicit form" — the one-directional `theta/parse/explicit-schema-mismatch`
  * warning. When both a binding annotation and an explicit `@<Schema>` ascription
  * are present, the explicit one is used, with the warning emitted iff
  * `ascription ⋢ annotation` under type-system.md §"Type compatibility". The check

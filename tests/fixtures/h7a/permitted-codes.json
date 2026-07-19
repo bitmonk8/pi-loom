@@ -1,11 +1,11 @@
 [
-  "loom/load/binder-model-not-strict-capable",
-  "loom/load/binder-model-strict-capability-unknown",
-  "loom/load/binder-model-unresolved",
-  "loom/load/typed-query-unsupported-provider",
-  "loom/load/schema-slug-collision",
-  "loom/runtime/custom-type-unsafe",
-  "loom/runtime/internal-error",
-  "loom/runtime/registration-cache-collision",
-  "loom/runtime/validator-cache-collision"
+  "theta/load/binder-model-not-strict-capable",
+  "theta/load/binder-model-strict-capability-unknown",
+  "theta/load/binder-model-unresolved",
+  "theta/load/typed-query-unsupported-provider",
+  "theta/load/schema-slug-collision",
+  "theta/runtime/custom-type-unsafe",
+  "theta/runtime/internal-error",
+  "theta/runtime/registration-cache-collision",
+  "theta/runtime/validator-cache-collision"
 ]

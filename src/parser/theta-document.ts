@@ -1,9 +1,9 @@
-// V19a / V19a-T — the whole-`.loom`/`.warp` program-parser seam.
+// V19a / V19a-T — the whole-`.theta`/`.thetalib` program-parser seam.
 //
 // This module owns the parser seam the paired `V19a` implementation leaf fills
-// in: `parseLoomDocument(source, deps)` parses the *entire* `.loom` / `.warp`
+// in: `parseThetaDocument(source, deps)` parses the *entire* `.theta` / `.thetalib`
 // file into an executable body statement-list AST — the grammar.md
-// §"Block expressions" `LoomBody ::= Stmt* Expr?` production — alongside the
+// §"Block expressions" `ThetaBody ::= Stmt* Expr?` production — alongside the
 // parsed frontmatter, and aggregates the whole-file multi-error diagnostic set
 // by delegating each top-level statement / declaration to the existing V-slice
 // parse-checkers over the real AST (`cka-49`,
@@ -13,7 +13,7 @@
 // executor walks and `V19e`'s composition producer parses; the AST node types
 // declared here are that cross-leaf contract.
 //
-// V19a-T (tests-task) declares the AST node shapes and stubs `parseLoomDocument`
+// V19a-T (tests-task) declares the AST node shapes and stubs `parseThetaDocument`
 // inertly: it returns `{ frontmatter: null, body: { statements: [], tail: null },
 // diagnostics: [] }` regardless of input. Every paired V19a-T test therefore
 // reds on its own primary assertion — an empty body where a `LetStmt` /
@@ -32,12 +32,12 @@
 
 import type { Diagnostic, Position, SourceRange } from "../diagnostics/diagnostic";
 import { assembleDiagnostics } from "../diagnostics/diagnostic";
-import { lexLoom, type LoomSource, type Token } from "../lexer/lexer";
+import { lexTheta, type ThetaSource, type Token } from "../lexer/lexer";
 import { validatePathLiteral } from "../lexer/literals";
 import {
-  checkWarpTopLevelForm,
+  checkThetaLibTopLevelForm,
   type ImportSpecifier,
-  type WarpTopLevelForm,
+  type ThetaLibTopLevelForm,
 } from "./imports";
 import type { SystemNoteChannelDeps } from "../extension/system-note-channel";
 import {
@@ -162,7 +162,7 @@ export interface CallExpr extends NodeBase {
 /** An `invoke(...)` / `invoke<T>(...)` call expression (invocation.md). */
 export interface InvokeExpr extends NodeBase {
   readonly kind: "invoke";
-  /** The literal callee path (`invoke("./x.loom", ...)`). */
+  /** The literal callee path (`invoke("./x.theta", ...)`). */
   readonly path: string;
   /**
    * The `invoke<Schema>` return-type annotation text (`"number"`, `"Plan"`, …),
@@ -203,7 +203,7 @@ export interface ObjectFieldNode {
 }
 
 /**
- * An object-literal / schema-constructor expression (grammar.md §"Loom literal
+ * An object-literal / schema-constructor expression (grammar.md §"Theta literal
  * sublanguage" `BareObjectLit` / `NamedObjectLit`; expressions.md §"Object
  * construction"). `typeName` is the schema constructor name for `Ident { … }`,
  * or `null` for a bare `{ … }` object literal.
@@ -215,8 +215,8 @@ export interface ObjectExpr extends NodeBase {
 }
 
 /**
- * One of the six loom 1.0 `match` pattern forms (expressions.md §"Pattern
- * grammar (loom 1.0)"). Mirrors the runtime `Pattern` model of
+ * One of the six theta 1.0 `match` pattern forms (expressions.md §"Pattern
+ * grammar (theta 1.0)"). Mirrors the runtime `Pattern` model of
  * `../runtime/match-result.ts`; the executor maps this parse-shape onto that
  * runtime shape. A literal pattern carries the primitive literal value; an
  * object pattern's `typeName` (the schema constructor name) is retained for
@@ -276,7 +276,7 @@ export interface MethodCallExpr extends NodeBase {
 }
 
 /**
- * The `Expr` node family. A tail `Expr` of a `LoomBody` / block, a `let`
+ * The `Expr` node family. A tail `Expr` of a `ThetaBody` / block, a `let`
  * initialiser, a condition, etc. all use this union.
  */
 export type Expr =
@@ -350,8 +350,8 @@ export interface BreakStmt extends NodeBase {
   readonly kind: "break";
   /**
    * `true` when the `break` is followed by a value operand on the same logical
-   * line (`break expr`), which loom 1.0 forbids. Marked at parse time so the
-   * structural checker can raise `loom/parse/break-with-value`.
+   * line (`break expr`), which theta 1.0 forbids. Marked at parse time so the
+   * structural checker can raise `theta/parse/break-with-value`.
    */
   readonly hasValue?: boolean;
 }
@@ -418,7 +418,7 @@ export interface SchemaFieldSource {
   readonly typeSource: string;
   /**
    * The explicit `as "WireName"` rename when present (schemas.md §Wire-name
-   * renaming). Absent means the wire name equals the loom-side `name`. Retained
+   * renaming). Absent means the wire name equals the theta-side `name`. Retained
    * so the runtime can apply outbound wire-name translation when an object of
    * this schema is interpolated into a query template (QRY-18).
    */
@@ -499,7 +499,7 @@ export interface DocComment extends NodeBase {
 
 /**
  * The `Stmt` node family: every top-level statement and declaration kind a
- * `LoomBody` admits.
+ * `ThetaBody` admits.
  */
 export type Stmt =
   | LetStmt
@@ -522,7 +522,7 @@ export type Stmt =
   | DocComment;
 
 /**
- * A statement-list block (`LoomBody ::= Stmt* Expr?` and the `StmtBlock`
+ * A statement-list block (`ThetaBody ::= Stmt* Expr?` and the `StmtBlock`
  * production alike): zero or more statements plus an optional tail `Expr`.
  */
 export interface Block {
@@ -530,15 +530,15 @@ export interface Block {
   readonly tail: Expr | null;
 }
 
-/** The `LoomBody` top-level of a `.loom` / `.warp` file. */
-export type LoomBody = Block;
+/** The `ThetaBody` top-level of a `.theta` / `.thetalib` file. */
+export type ThetaBody = Block;
 
 /** The result of a whole-file parse. */
-export interface LoomDocument {
+export interface ThetaDocument {
   /** The parsed frontmatter, or `null` when the file carries none. */
   readonly frontmatter: ParsedFrontmatter | null;
   /** The whole-file body statement-list AST the interpreter walks. */
-  readonly body: LoomBody;
+  readonly body: ThetaBody;
   /**
    * Every diagnostic aggregated across the whole file in one pass (no
    * fast-fail), sorted `(file, line, col)` per
@@ -548,7 +548,7 @@ export interface LoomDocument {
 }
 
 /** Construction dependencies the whole-file parser consumes. */
-export interface ParseLoomDocumentDeps {
+export interface ParseThetaDocumentDeps {
   /** The V7d producer-facing diagnostic-emission channel. */
   readonly systemNote: SystemNoteChannelDeps;
   /** The `model:` reference matcher the frontmatter parse consults (V6a). */
@@ -556,20 +556,20 @@ export interface ParseLoomDocumentDeps {
 }
 
 /**
- * Parse an entire `.loom` / `.warp` source into `{ frontmatter, body,
+ * Parse an entire `.theta` / `.thetalib` source into `{ frontmatter, body,
  * diagnostics }`: the whole file — not a single expression — is walked into the
- * executable `LoomBody` statement-list AST, and the delegated V-slice
+ * executable `ThetaBody` statement-list AST, and the delegated V-slice
  * parse-checkers' diagnostics are aggregated in one pass, sorted `(file, line,
  * col)`, per implementation-notes.md §Parser *Contract* (`cka-49`).
  *
  * The whole file — not a single expression — is walked into the executable
- * `LoomBody` statement-list AST; the delegated V-slice parse-checkers'
+ * `ThetaBody` statement-list AST; the delegated V-slice parse-checkers'
  * diagnostics are aggregated in one pass and sorted `(file, line, col)`.
  */
-export function parseLoomDocument(
-  source: LoomSource,
-  deps: ParseLoomDocumentDeps,
-): LoomDocument {
+export function parseThetaDocument(
+  source: ThetaSource,
+  deps: ParseThetaDocumentDeps,
+): ThetaDocument {
   const file = source.path;
   const text = decodeSource(source.bytes);
 
@@ -595,7 +595,7 @@ export function parseLoomDocument(
   // interpolation field checks, both of which resolve a `NamedType` whole-file
   // (a frontmatter → body forward reference resolves). The body parse does not
   // depend on the frontmatter, so the reorder is behaviour-preserving.
-  const lex = lexLoom({ path: file, bytes: encodeSource(split.bodyText) }, deps.systemNote);
+  const lex = lexTheta({ path: file, bytes: encodeSource(split.bodyText) }, deps.systemNote);
 
   const parser = new BodyParser(lex.tokens, file, split.bodyText);
   const body = parser.parseBody();
@@ -632,8 +632,8 @@ export function parseLoomDocument(
     // stripped, but `parseFrontmatter` re-requires them (its
     // `extractFrontmatterBlock` matches a leading/closing `---` fence). Re-wrap
     // the block in fences so the frontmatter fields (`mode:` / `model:` / …)
-    // actually parse; without this every fenced `.loom` yields `frontmatter:
-    // null` and a spurious `loom/load/missing-mode`. See notes.md (the
+    // actually parse; without this every fenced `.theta` yields `frontmatter:
+    // null` and a spurious `theta/load/missing-mode`. See notes.md (the
     // frontmatter line numbers are block-relative for a fence at file line 0 —
     // the common case; a fence preceded by blank lines shifts them by the
     // blank-line count, which no current obligation asserts).
@@ -660,9 +660,9 @@ export function parseLoomDocument(
 
   // REQ-EXPR-7 (expressions.md §"Identifier resolution"): a bare identifier in
   // call or value position that resolves to nothing in scope is
-  // `loom/parse/unknown-identifier`. The root scope folds in every whole-file
+  // `theta/parse/unknown-identifier`. The root scope folds in every whole-file
   // binding source (params, tools, imports, fn / schema / enum names, builtins);
-  // loom-level `let` bindings accumulate as the block walk descends.
+  // theta-level `let` bindings accumulate as the block walk descends.
   const identRoots = collectIdentRoots(statements, frontmatter);
   const unknownIdentDiags = checkUnknownIdentifiers(
     { statements, tail: resolvedTail },
@@ -677,14 +677,14 @@ export function parseLoomDocument(
   // array-join).
   const typeLayerDiags = checkTypeLayer({ statements, tail: resolvedTail }, file);
 
-  // imports.md §"`.warp` file rules": a `.warp` top level may contain only
+  // imports.md §"`.thetalib` file rules": a `.thetalib` top level may contain only
   // `import` / `export` / `schema` / `enum` / `fn` declarations; a bare
   // statement, a `let` binding, or a top-level query is
-  // `loom/parse/warp-top-level-statement`. The check keys off the file's
-  // `.warp` extension (byte-exact lowercase), so it never fires for a `.loom`
+  // `theta/parse/thetalib-top-level-statement`. The check keys off the file's
+  // `.thetalib` extension (byte-exact lowercase), so it never fires for a `.theta`
   // (IMP-4).
-  const warpTopLevelDiags = file.endsWith(".warp")
-    ? checkWarpTopLevel({ statements, tail: resolvedTail }, file)
+  const thetalibTopLevelDiags = file.endsWith(".thetalib")
+    ? checkThetaLibTopLevel({ statements, tail: resolvedTail }, file)
     : [];
 
   const diagnostics = assembleDiagnostics([
@@ -695,7 +695,7 @@ export function parseLoomDocument(
     structuralDiags,
     unknownIdentDiags,
     typeLayerDiags,
-    warpTopLevelDiags,
+    thetalibTopLevelDiags,
     resolvedQuery.diagnostics,
   ]);
 
@@ -707,13 +707,13 @@ export function parseLoomDocument(
 }
 
 /**
- * Map a top-level `.warp` statement AST kind to its `WarpTopLevelForm` for the
- * permitted-form check (imports.md §"`.warp` file rules"). `import` / `export` /
+ * Map a top-level `.thetalib` statement AST kind to its `ThetaLibTopLevelForm` for the
+ * permitted-form check (imports.md §"`.thetalib` file rules"). `import` / `export` /
  * `schema` / `enum` / `fn` are the permitted forms; a `let` binding, a bare
  * query, and any other statement are non-permitted. A `///` doc-comment carries
  * no executable form and is not checked.
  */
-function warpFormOf(stmt: Stmt): WarpTopLevelForm | null {
+function thetalibFormOf(stmt: Stmt): ThetaLibTopLevelForm | null {
   switch (stmt.kind) {
     case "import":
       return "import";
@@ -737,25 +737,25 @@ function warpFormOf(stmt: Stmt): WarpTopLevelForm | null {
 }
 
 /**
- * Check a `.warp` file's top-level forms, emitting
- * `loom/parse/warp-top-level-statement` for every non-permitted top-level form
- * (imports.md §"`.warp` file rules"). A trailing tail expression at the top
+ * Check a `.thetalib` file's top-level forms, emitting
+ * `theta/parse/thetalib-top-level-statement` for every non-permitted top-level form
+ * (imports.md §"`.thetalib` file rules"). A trailing tail expression at the top
  * level is a bare statement and is likewise non-permitted.
  */
-function checkWarpTopLevel(block: Block, file: string): Diagnostic[] {
+function checkThetaLibTopLevel(block: Block, file: string): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
   for (const stmt of block.statements) {
-    const form = warpFormOf(stmt);
+    const form = thetalibFormOf(stmt);
     if (form === null) {
       continue;
     }
-    const diag = checkWarpTopLevelForm(form, { file, range: stmt.range });
+    const diag = checkThetaLibTopLevelForm(form, { file, range: stmt.range });
     if (diag !== undefined) {
       diagnostics.push(diag);
     }
   }
   if (block.tail !== null) {
-    const diag = checkWarpTopLevelForm("statement", {
+    const diag = checkThetaLibTopLevelForm("statement", {
       file,
       range: block.tail.range,
     });
@@ -772,13 +772,13 @@ function checkWarpTopLevel(block: Block, file: string): Diagnostic[] {
  * (e.g. a `@`...`` template's `${…}` interpolation, expressions.md
  * §"Supported forms") honours the full expression sublanguage rather than a
  * dotted-path subset. Returns `null` when the source does not parse as a single
- * expression. Lex diagnostics are discarded here: a well-formed loom's
+ * expression. Lex diagnostics are discarded here: a well-formed theta's
  * interpolation already lexed as part of the whole-file body, and a malformed
  * one degrades to `null` at the call site (the inline no-op channel keeps this
  * helper free of shared state — no module-level mutable channel).
  */
 export function parseExpressionSource(source: string): Expr | null {
-  const lex = lexLoom(
+  const lex = lexTheta(
     { path: "<interpolation>", bytes: encodeSource(source) },
     {
       pi: { sendMessage: () => {} },
@@ -795,7 +795,7 @@ export function parseExpressionSource(source: string): Expr | null {
  * value-validations resolve a `NamedType` against: body `schema` declarations
  * (with their object field sources when present), body `enum` declarations, and
  * the symbols pulled in by body `import` declarations. Supplying the names is
- * sufficient to decide `loom/parse/unresolved-named-type`; the schema field
+ * sufficient to decide `theta/parse/unresolved-named-type`; the schema field
  * sources let the `system:` surface descend `.Ident` steps.
  */
 function collectBodyTypes(statements: readonly Stmt[]): FrontmatterBodyTypes {
@@ -823,7 +823,7 @@ function collectBodyTypes(statements: readonly Stmt[]): FrontmatterBodyTypes {
   // resolves to (BIND-1): schema object bodies and enum wire-value sets lower
   // concretely; a schema without an object body (alias / discriminated union)
   // and an imported symbol lower permissively to `{}` — the name still resolves,
-  // so `loom/parse/unresolved-named-type` does not fire, and the `params:`
+  // so `theta/parse/unresolved-named-type` does not fire, and the `params:`
   // schema is present (not mis-classified as no-params).
   const lowered = buildBodyTypeSchemas(schemaDecls, enumDecls);
   for (const decl of schemaDecls) {
@@ -896,9 +896,9 @@ function splitFrontmatter(text: string): {
     // frontmatter fence. frontmatter.md delimits the block with a closing
     // fence; an unclosed block is not a valid frontmatter mapping. Rather than
     // swallow the whole file as frontmatter and silently register a do-nothing
-    // empty-body loom (dropping the author's query), yield an EMPTY frontmatter
-    // block so `parseFrontmatter` produces `loom/load/missing-mode` and the
-    // loom un-registers with author feedback. The closed diagnostics registry
+    // empty-body theta (dropping the author's query), yield an EMPTY frontmatter
+    // block so `parseFrontmatter` produces `theta/load/missing-mode` and the
+    // theta un-registers with author feedback. The closed diagnostics registry
     // (docs/reference/diagnostics.md) has no dedicated unterminated-fence code;
     // missing-mode is the documented "no recognised frontmatter mapping"
     // surface (see `extractFrontmatterBlock` in frontmatter.ts).
@@ -956,7 +956,7 @@ function scanDocComments(
     // The anchored production is the next non-blank, non-comment line's leading
     // word. `schema` / `enum` / `fn` are eligible anchors; every other
     // production (`let`, `import`, `export`, expression / control-flow
-    // statements) is `loom/parse/doc-comment-misplaced`.
+    // statements) is `theta/parse/doc-comment-misplaced`.
     let production = "";
     for (let j = i; j < lines.length; j += 1) {
       const raw = lines[j] ?? "";
@@ -1182,7 +1182,7 @@ class BodyParser {
           if (stray.kind === "punct") {
             this.diagnostics.push({
               severity: "error",
-              code: "loom/parse/unsupported-feature",
+              code: "theta/parse/unsupported-feature",
               file: this.file,
               range: stray.range,
               message: `unsupported syntactic feature: stray '${stray.text}' in statement position`,
@@ -1209,9 +1209,9 @@ class BodyParser {
         (lastTok.text === "?" || lastTok.text === "}");
     }
 
-    // LoomBody ::= Stmt* Expr? — the final form is promoted to the tail iff it
+    // ThetaBody ::= Stmt* Expr? — the final form is promoted to the tail iff it
     // is a line-start expression form. Its value is the body's final value
-    // (functions.md FN-5: a fn/loom body's value is its tail expression),
+    // (functions.md FN-5: a fn/theta body's value is its tail expression),
     // including a lone or trailing call/invoke/query — `fn f(n){ g(n) }` MUST
     // return `g(n)` (FN-5), so a bare-call tail is the final value, not a
     // discarded action. The V19a-T continuation witness `f(a,\n b)` is about
@@ -1277,7 +1277,7 @@ class BodyParser {
       return null;
     }
     // A member / index expression at statement head followed by an assignment
-    // operator is `obj.field = …` / `arr[i] = …` — loom 1.0 mutability is
+    // operator is `obj.field = …` / `arr[i] = …` — theta 1.0 mutability is
     // binding-level only (bindings.md §Mutability is binding-level only). Detect
     // it here (the AST carries no member/index reassignment form) and consume
     // the RHS so the assignment does not mis-parse into stray forms.
@@ -1332,7 +1332,7 @@ class BodyParser {
     const t = this.advance();
     if (kind === "break") {
       // A value operand on the same logical line (`break expr`) is forbidden in
-      // loom 1.0. Peek (do not consume) so the residual expression still parses
+      // theta 1.0. Peek (do not consume) so the residual expression still parses
       // as its own statement; the structural checker reads `hasValue`.
       const next = this.peek();
       const hasValue =
@@ -1358,7 +1358,7 @@ class BodyParser {
       // meaningless on it (bindings.md §"Immutable contexts").
       this.diagnostics.push({
         severity: "error",
-        code: "loom/parse/mut-on-discard",
+        code: "theta/parse/mut-on-discard",
         file: this.file,
         range: nameTok.range,
         message: "'mut' is not permitted on discard binding '_'",
@@ -1556,7 +1556,7 @@ class BodyParser {
     if (!this.isPunct("(")) {
       this.diagnostics.push({
         severity: "error",
-        code: "loom/parse/unsupported-feature",
+        code: "theta/parse/unsupported-feature",
         file: this.file,
         range: this.peek().range,
         message:
@@ -1723,7 +1723,7 @@ class BodyParser {
         if (startsNextField) {
           this.diagnostics.push({
             severity: "error",
-            code: "loom/parse/unsupported-feature",
+            code: "theta/parse/unsupported-feature",
             file: this.file,
             range: boundary.range,
             message:
@@ -1947,10 +1947,10 @@ class BodyParser {
     if (pathTok.kind === "string") {
       path = pathTok.value ?? pathTok.text;
       // imports.md §"Path resolution": an `import` / `export … from` path
-      // literal must end in a byte-exact lowercase `.warp` and use forward-slash
-      // separators; a `.loom` path (or any non-`.warp` variant) is
-      // `loom/parse/import-non-warp-extension`. Validate the literal as written
-      // at parse time so a wrong-extension import un-registers the loom (IMP-2).
+      // literal must end in a byte-exact lowercase `.thetalib` and use forward-slash
+      // separators; a `.theta` path (or any non-`.thetalib` variant) is
+      // `theta/parse/import-non-thetalib-extension`. Validate the literal as written
+      // at parse time so a wrong-extension import un-registers the theta (IMP-2).
       this.diagnostics.push(
         ...validatePathLiteral(
           { value: path, range: pathTok.range },
@@ -2036,7 +2036,7 @@ class BodyParser {
       if (t.kind === "punct" && (t.text === "<" || t.text === "(" || t.text === "[")) {
         // Track `[` depth too so an inline `enum["a", "b"]` form is captured
         // whole (its interior comma must not terminate the type source),
-        // reaching `checkInlineEnumForm` for `loom/parse/inline-enum` rather
+        // reaching `checkInlineEnumForm` for `theta/parse/inline-enum` rather
         // than truncating the field to `enum["a"` and discarding the field list.
         depth += 1;
       } else if (t.kind === "punct" && (t.text === ">" || t.text === ")" || t.text === "]")) {
@@ -2134,7 +2134,7 @@ class BodyParser {
     }
     const ops = this.tiers[tier] ?? [];
     // Comparison and equality operators are non-associative and do not chain:
-    // `a < b < c` (and `a == b == c`) is `loom/parse/comparison-chaining`
+    // `a < b < c` (and `a == b == c`) is `theta/parse/comparison-chaining`
     // (expressions.md §"Operator precedence"). Every other tier is
     // left-associative.
     const nonAssociative = this.nonAssociativeTiers.has(tier);
@@ -2147,7 +2147,7 @@ class BodyParser {
       if (nonAssociative && matched) {
         this.diagnostics.push({
           severity: "error",
-          code: "loom/parse/comparison-chaining",
+          code: "theta/parse/comparison-chaining",
           file: this.file,
           range: t.range,
           message: "comparison operators do not chain; use &&",
@@ -2179,7 +2179,7 @@ class BodyParser {
         return null;
       }
       // Model unary as a binary with a synthetic `null` left so the AST union
-      // stays closed; loom 1.0 tests exercise no unary form directly.
+      // stays closed; theta 1.0 tests exercise no unary form directly.
       return {
         kind: "binary",
         op: op.text,
@@ -2443,17 +2443,17 @@ class BodyParser {
         }
         const before = this.pos;
         const pattern = this.parsePattern();
-        // A guarded arm `Pattern if cond => …` is not supported in loom 1.0
+        // A guarded arm `Pattern if cond => …` is not supported in theta 1.0
         // (expressions.md §"Pattern grammar"). Consume and discard the guard
         // condition so the `=>` arrow still parses.
         if (this.isKeyword("if")) {
           const ifTok = this.advance();
           this.diagnostics.push({
             severity: "error",
-            code: "loom/parse/match-guard-not-supported",
+            code: "theta/parse/match-guard-not-supported",
             file: this.file,
             range: ifTok.range,
-            message: "match guards are not supported in loom 1.0",
+            message: "match guards are not supported in theta 1.0",
           });
           this.parseExpression(); // consume + discard the guard condition
         }
@@ -2491,7 +2491,7 @@ class BodyParser {
   }
 
   /**
-   * Parse one `match` pattern (expressions.md §"Pattern grammar (loom 1.0)"):
+   * Parse one `match` pattern (expressions.md §"Pattern grammar (theta 1.0)"):
    * wildcard `_`, `Ok(p)` / `Err(p)` constructors, a named/bare object pattern
    * `Ident { field: p, … }`, an array pattern `[p, …]`, a literal
    * (`"s"` / `42` / `true` / `null`), or an identifier binding.
@@ -2500,7 +2500,7 @@ class BodyParser {
    * If the cursor begins a bare statement in `match`-arm-body position
    * (a leading `if` / `for` / `while` / `let` / `break` / `continue` /
    * `return` keyword, or a bare assignment), emit
-   * `loom/parse/statement-in-arm-body`, consume the statement, and return
+   * `theta/parse/statement-in-arm-body`, consume the statement, and return
    * true; otherwise return false. Arm bodies are expressions; statements are
    * wrapped in a block expression `{ ... }` (grammar.md §"match arm body").
    */
@@ -2527,7 +2527,7 @@ class BodyParser {
     }
     this.diagnostics.push({
       severity: "error",
-      code: "loom/parse/statement-in-arm-body",
+      code: "theta/parse/statement-in-arm-body",
       file: this.file,
       range: t.range,
       message:
@@ -2563,8 +2563,8 @@ class BodyParser {
   /**
    * If the cursor begins a rest pattern (`...rest`, lexed as three `.` puncts
    * optionally followed by a binding name), emit
-   * `loom/parse/rest-pattern-not-supported`, consume it, and return true; rest
-   * patterns are not in loom 1.0 (expressions.md §"Pattern grammar").
+   * `theta/parse/rest-pattern-not-supported`, consume it, and return true; rest
+   * patterns are not in theta 1.0 (expressions.md §"Pattern grammar").
    */
   private tryConsumeRestPattern(): boolean {
     if (
@@ -2581,17 +2581,17 @@ class BodyParser {
     }
     this.diagnostics.push({
       severity: "error",
-      code: "loom/parse/rest-pattern-not-supported",
+      code: "theta/parse/rest-pattern-not-supported",
       file: this.file,
       range: dotTok.range,
-      message: "rest patterns are not supported in loom 1.0",
+      message: "rest patterns are not supported in theta 1.0",
     });
     return true;
   }
 
   /**
    * Assignment is statement-only; used in expression position it is
-   * `loom/parse/assignment-as-expression` (bindings.md §"Reassignment is a
+   * `theta/parse/assignment-as-expression` (bindings.md §"Reassignment is a
    * statement"). If a simple `=` (not `==`) or compound-assign operator trails
    * the just-parsed value expression, emit the diagnostic and consume the RHS
    * so the surrounding parse recovers.
@@ -2608,7 +2608,7 @@ class BodyParser {
     }
     this.diagnostics.push({
       severity: "error",
-      code: "loom/parse/assignment-as-expression",
+      code: "theta/parse/assignment-as-expression",
       file: this.file,
       range: opTok.range,
       message: "assignment is not an expression",
@@ -2802,9 +2802,9 @@ class BodyParser {
     const path = first !== undefined && first.kind === "string" ? first.value : "";
     // INV-1 / INV-2 (invocation.md §Resolution; lexical.md §"Path literals" /
     // §"Extension matching"): the callee path is a string literal — validate its
-    // byte-exact-lowercase `.loom` suffix and forward-slash-only rule at parse
+    // byte-exact-lowercase `.theta` suffix and forward-slash-only rule at parse
     // time. INV-8: a non-literal (runtime-computed) path is not supported in
-    // loom 1.0, so surface it as a parse error rather than degrading to a silent
+    // theta 1.0, so surface it as a parse error rather than degrading to a silent
     // empty-path no-op at runtime.
     if (first !== undefined) {
       if (first.kind === "string") {
@@ -2818,7 +2818,7 @@ class BodyParser {
       } else {
         this.diagnostics.push({
           severity: "error",
-          code: "loom/parse/unsupported-feature",
+          code: "theta/parse/unsupported-feature",
           file: this.file,
           range: first.range,
           message:
@@ -2892,10 +2892,10 @@ class BodyParser {
    * Parse (and reject) a backtick template used in value position with no
    * leading `@`. Query templates are `@`-prefixed and admitted only at
    * statement / `let`-RHS level (expressions.md §"Not supported"), so a bare
-   * `` `..${..}` `` value is `loom/parse/unsupported-feature`. The whole
+   * `` `..${..}` `` value is `theta/parse/unsupported-feature`. The whole
    * template is consumed — up to the matching closing backtick — so a `${…}`
    * interpolation brace is never re-read as a bare object literal (which would
-   * mis-emit `loom/parse/bare-object-literal`); an inert `null` node keeps
+   * mis-emit `theta/parse/bare-object-literal`); an inert `null` node keeps
    * downstream typing stable.
    */
   private parseBareTemplate(): Expr {
@@ -2923,7 +2923,7 @@ class BodyParser {
     const range = spanRange(open.range, this.prevRange());
     this.diagnostics.push({
       severity: "error",
-      code: "loom/parse/unsupported-feature",
+      code: "theta/parse/unsupported-feature",
       file: this.file,
       range,
       message:
@@ -3055,11 +3055,11 @@ function nullExpr(range: SourceRange): Expr {
 }
 
 // --------------------------------------------------------------------------
-// Identifier-resolution parse checker (`loom/parse/unknown-identifier`)
+// Identifier-resolution parse checker (`theta/parse/unknown-identifier`)
 // --------------------------------------------------------------------------
 
 /**
- * Type / value names the loom 1.0 stdlib exposes bare (so they never read as an
+ * Type / value names the theta 1.0 stdlib exposes bare (so they never read as an
  * unknown identifier). Primitive / generic type names never legally appear in
  * value position, but folding them in keeps the check false-positive-free if
  * one is written where the walk sees an identifier. `QueryError` / `Result` are
@@ -3079,7 +3079,7 @@ const BUILTIN_VALUE_NAMES: ReadonlySet<string> = new Set([
 
 /**
  * Derive the presented callable name for one `tools:` entry, mirroring
- * `callable-set.ts`: a bare Pi-tool name is used verbatim; a `.loom` path
+ * `callable-set.ts`: a bare Pi-tool name is used verbatim; a `.theta` path
  * contributes its basename (extension stripped, hyphens → underscores); an
  * `as <name>` rename overrides. Used to seed the identifier root scope so a
  * `<name>(args)` callable call is not flagged as unknown.
@@ -3094,8 +3094,8 @@ function toolCallableName(entry: string): string {
     return spec;
   }
   const basename = spec.slice(spec.lastIndexOf("/") + 1);
-  const stem = basename.endsWith(".loom")
-    ? basename.slice(0, -".loom".length)
+  const stem = basename.endsWith(".theta")
+    ? basename.slice(0, -".theta".length)
     : basename;
   return stem.replace(/-/g, "_");
 }
@@ -3104,7 +3104,7 @@ function toolCallableName(entry: string): string {
  * Build the whole-file identifier root scope: every name visible everywhere in
  * the body regardless of source order — hoisted top-level `fn` names, `schema` /
  * `enum` names, imported / re-exported symbols, `params:` field names, resolved
- * `tools:` callable names, and the stdlib builtins. Loom-level `let` bindings are
+ * `tools:` callable names, and the stdlib builtins. Theta-level `let` bindings are
  * NOT roots (they bind sequentially and are accumulated as the walk descends).
  */
 function collectIdentRoots(
@@ -3169,13 +3169,13 @@ function collectPatternBindings(p: PatternNode, into: Set<string>): void {
 }
 
 /**
- * Emit `loom/parse/unknown-identifier` (expressions.md §"Identifier resolution";
+ * Emit `theta/parse/unknown-identifier` (expressions.md §"Identifier resolution";
  * REQ-EXPR-7) for a bare identifier in call or value position that resolves to
  * nothing in scope — not a `params:` field, `let` binding, `fn`, imported name,
  * `schema` / `enum`, resolved `tools:` callable, or builtin. Scope is tracked
  * block-locally: `let` bindings accumulate in declaration order, nested blocks
  * inherit a copy, and a `fn` body sees only the whole-file roots plus its own
- * parameters (loom 1.0 has no closures). Only names the walk actually reaches in
+ * parameters (theta 1.0 has no closures). Only names the walk actually reaches in
  * an identifier / call-callee / member-or-method receiver position are checked;
  * schema-constructor names, member field names, method names, object keys, and
  * `${…}` template interpolations are not identifier-resolution sites here.
@@ -3202,7 +3202,7 @@ function emitUnknownIdentifier(
   }
   out.push({
     severity: "error",
-    code: "loom/parse/unknown-identifier",
+    code: "theta/parse/unknown-identifier",
     file,
     range,
     message: `unknown identifier '${name}'`,
@@ -3268,7 +3268,7 @@ function walkIdentStmt(
     }
     case "fn": {
       // A `fn` body is closure-free: it sees only the whole-file roots plus its
-      // own parameters, NOT the enclosing loom-level `let` bindings.
+      // own parameters, NOT the enclosing theta-level `let` bindings.
       const fnScope = new Set(root);
       for (const p of s.params) {
         fnScope.add(p.name);
@@ -3395,8 +3395,8 @@ interface StructuralRefs {
    * Declared object-schema field names keyed by schema name (the
    * `schema X { field: T, … }` object form only). Drives the object-construction
    * checks: a `X { … }` constructor against a known object schema fires
-   * `loom/parse/extra-object-field` for an undeclared field and
-   * `loom/parse/missing-object-field` for an omitted required field.
+   * `theta/parse/extra-object-field` for an undeclared field and
+   * `theta/parse/missing-object-field` for an omitted required field.
    */
   readonly schemas: ReadonlyMap<string, readonly string[]>;
 }
@@ -3405,7 +3405,7 @@ interface StructuralRefs {
 interface WalkCtx {
   /** Whether the current statements sit inside a `for` / `while` body. */
   readonly inLoop: boolean;
-  /** Whether the current statements are the loom's top level (for `fn` placement). */
+  /** Whether the current statements are the theta's top level (for `fn` placement). */
   readonly topLevel: boolean;
   /** Whether the enclosing `fn` is `void`-annotated (for bare `return`). */
   readonly voidReturn: boolean;
@@ -3424,10 +3424,10 @@ interface WalkCtx {
 function checkStructural(body: Block, file: string): Diagnostic[] {
   const out: Diagnostic[] = [];
   // Hoisted top-level `fn` names, so a bare reference to one in value position
-  // is `loom/parse/function-as-value` (functions.md FN-1).
+  // is `theta/parse/function-as-value` (functions.md FN-1).
   const fnNames = new Set<string>();
   // Hoisted top-level `enum` declarations, so a `Enum.Variant` member access to
-  // a variant the enum does not declare is `loom/parse/unknown-variant`
+  // a variant the enum does not declare is `theta/parse/unknown-variant`
   // (schemas.md §Variant access).
   const enums = new Map<string, ReadonlySet<string>>();
   // Declared object-schema field name sets, so an object constructor against a
@@ -3670,7 +3670,7 @@ function walkStatement(
             {
               name: s.name,
               fields: s.fields.map((f) => ({
-                loomName: f.name,
+                thetaName: f.name,
                 ...(f.wireName !== undefined ? { wireName: f.wireName } : {}),
               })),
             },
@@ -3678,7 +3678,7 @@ function walkStatement(
           ),
         );
         for (const f of s.fields) {
-          // An inline `enum[...]` in a schema field type is `loom/parse/inline-enum`
+          // An inline `enum[...]` in a schema field type is `theta/parse/inline-enum`
           // — `enum` is top-level only (schemas.md §Enum declarations).
           pushDiag(
             out,
@@ -3718,11 +3718,11 @@ function walkStatement(
  * Validate an object-construction expression (expressions.md §"Object
  * construction"). A bare `{ field: expr }` (no schema name) in expression
  * position outside the two documented carve-outs (`params:` defaults; the single
- * argument of a Pi-tool call) is `loom/parse/bare-object-literal`; the caller
+ * argument of a Pi-tool call) is `theta/parse/bare-object-literal`; the caller
  * passes `bareAllowed` for the carve-out positions. A named constructor
  * `Schema { … }` against a declared object schema fires
- * `loom/parse/extra-object-field` for a field the schema does not declare and
- * `loom/parse/missing-object-field` for an omitted required field (every
+ * `theta/parse/extra-object-field` for a field the schema does not declare and
+ * `theta/parse/missing-object-field` for an omitted required field (every
  * declared field is required — schemas.md; no `field?:` shorthand).
  */
 function checkObjectExpr(
@@ -3736,7 +3736,7 @@ function checkObjectExpr(
     if (!bareAllowed) {
       out.push({
         severity: "error",
-        code: "loom/parse/bare-object-literal",
+        code: "theta/parse/bare-object-literal",
         file,
         range: e.range,
         message:
@@ -3758,7 +3758,7 @@ function checkObjectExpr(
     if (!declaredSet.has(field)) {
       out.push({
         severity: "error",
-        code: "loom/parse/extra-object-field",
+        code: "theta/parse/extra-object-field",
         file,
         range: e.range,
         message: `extra field '${field}' on schema '${e.typeName}'`,
@@ -3825,7 +3825,7 @@ function walkExpr(
       return;
     case "member": {
       // A `Enum.Variant` member access (target is a bare enum name) to a variant
-      // the enum does not declare is `loom/parse/unknown-variant` at parse time
+      // the enum does not declare is `theta/parse/unknown-variant` at parse time
       // (schemas.md §Variant access).
       if (e.target.kind === "ident") {
         const variants = refs.enums.get(e.target.name);
@@ -3892,7 +3892,7 @@ function walkExpr(
 /**
  * Reject the interpolation forms expressions.md §"Not supported" forbids inside
  * a `@`-query `${…}` — a nested `match` expression or a nested `@`-query
- * template — with `loom/parse/unsupported-feature`. Both are admitted only at
+ * template — with `theta/parse/unsupported-feature`. Both are admitted only at
  * statement / `let`-RHS level so template evaluation stays code-only and never
  * silently fires a model turn. Each `${…}` interpolation source is re-lexed
  * (`lexQueryTemplate`) and parsed as a full expression (`parseExpressionSource`,
@@ -3920,7 +3920,7 @@ function checkQueryTemplateInterpolations(
       if (tokenForbidden !== null) {
         out.push({
           severity: "error",
-          code: "loom/parse/unsupported-feature",
+          code: "theta/parse/unsupported-feature",
           file,
           range: e.range,
           message:
@@ -3935,7 +3935,7 @@ function checkQueryTemplateInterpolations(
     if (forbidden !== null) {
       out.push({
         severity: "error",
-        code: "loom/parse/unsupported-feature",
+        code: "theta/parse/unsupported-feature",
         file,
         range: e.range,
         message:
@@ -3955,7 +3955,7 @@ function checkQueryTemplateInterpolations(
  * `"match"` / `"@-query template"` for the first such token, else `null`.
  */
 function firstForbiddenInterpolationToken(source: string): string | null {
-  const lex = lexLoom(
+  const lex = lexTheta(
     { path: "<interpolation>", bytes: encodeSource(source) },
     {
       pi: { sendMessage: () => {} },

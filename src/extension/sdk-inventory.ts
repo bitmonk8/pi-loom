@@ -90,7 +90,7 @@ export type SurfaceEntryKind =
  * categories). The non-`namespace-function` operand rows populate it: the
  * `engines-pin` row's `literal` (operand (ii) of the `engines.node` three-way
  * equality per version-bump-steps-3-4.md step 3), the `peer-dep-range` row's
- * `range`, the `strict-capability-probe` row's `probedName` (the loom-side probe
+ * `range`, the `strict-capability-probe` row's `probedName` (the theta-side probe
  * constant name the two-arm strict-capability gate consumes per
  * inventory-audit-intro.md #strict-capability-absence-under-probed-name and
  * version-bump-triggers.md step 7), and the `api-coverage` row's pinned `Api`
@@ -211,17 +211,17 @@ export const SDK_SURFACE_INVENTORY: readonly SurfaceInventoryEntry[] =
     // toast surface discovery / parse diagnostics route through (`ctx.ui`), and
     // the UI-availability flag (`ctx.hasUI`) that gates the headless-mode stderr
     // mirror of error diagnostics (in print / RPC mode `ctx.ui.notify` is the
-    // runner no-op, so a dropped-loom diagnostic is additionally written to
+    // runner no-op, so a dropped-theta diagnostic is additionally written to
     // stderr — FMC-1 / DISCLI-2 / IMPORTS-3).
     { id: "ctx.cwd", kind: "ctx-member" },
     { id: "ctx.modelRegistry", kind: "ctx-member" },
     { id: "ctx.ui", kind: "ctx-member" },
     { id: "ctx.hasUI", kind: "ctx-member" },
-    // The H8a per-loom run-drive resolves a chained (non-first) query off-session
+    // The H8a per-theta run-drive resolves a chained (non-first) query off-session
     // through pi-ai's `complete()` against the dispatch context's current model.
     { id: "ctx.model", kind: "ctx-member" },
-    // The H8a per-loom prompt-mode run-drive reads the dispatch context's
-    // cancellation signal (the `loomAbort`-equivalent every checkpoint gates on)
+    // The H8a per-theta prompt-mode run-drive reads the dispatch context's
+    // cancellation signal (the `thetaAbort`-equivalent every checkpoint gates on)
     // and the read-only session manager (the PIC-53 trailing-turn message list,
     // via `buildSessionContext(getEntries(), getLeafId())`).
     { id: "ctx.signal", kind: "ctx-member" },
@@ -240,16 +240,16 @@ export const SDK_SURFACE_INVENTORY: readonly SurfaceInventoryEntry[] =
     // The H8a production composition root imports the host `ModelRegistry` type
     // (binder-model resolution + structured-output turns).
     { id: "ModelRegistry", kind: "peer-named-import" },
-    // The H8a per-loom prompt-mode run-drive resolves the driven user session's
+    // The H8a per-theta prompt-mode run-drive resolves the driven user session's
     // chronological message list through the `buildSessionContext` free function.
     { id: "buildSessionContext", kind: "peer-named-import" },
-    // The H8a per-loom run-drive resolves a chained (non-first) query off-session
+    // The H8a per-theta run-drive resolves a chained (non-first) query off-session
     // through pi-ai's `complete()` free function.
     { id: "complete", kind: "peer-named-import" },
     // The H9a subagent-mode drive spawns an isolated in-memory `AgentSession`
     // (`createAgentSession`) whose spawn consumes three further peer surfaces:
     // the fresh in-memory transcript manager (`SessionManager.inMemory`), the
-    // loom-suppressing resource loader that prevents the spawned session from
+    // theta-suppressing resource loader that prevents the spawned session from
     // re-loading this extension (`DefaultResourceLoader` with `noExtensions`),
     // and the global config directory the loader/session resolve against
     // (`getAgentDir`).
@@ -277,7 +277,7 @@ export const SDK_SURFACE_INVENTORY: readonly SurfaceInventoryEntry[] =
     // The H8b live tool-call resolver constructs the host built-in tool
     // definitions by name so a code-side `<name>(args)` call can drive the
     // host tool's `execute(...)` directly (host-interfaces-core.md §"Tool
-    // execution from loom code").
+    // execution from theta code").
     { id: "createGrepToolDefinition", kind: "peer-named-import" },
     { id: "createReadToolDefinition", kind: "peer-named-import" },
     { id: "createFindToolDefinition", kind: "peer-named-import" },
@@ -285,23 +285,23 @@ export const SDK_SURFACE_INVENTORY: readonly SurfaceInventoryEntry[] =
     { id: "createBashToolDefinition", kind: "peer-named-import" },
     { id: "createEditToolDefinition", kind: "peer-named-import" },
     { id: "createWriteToolDefinition", kind: "peer-named-import" },
-    // SUBAG-2: the subagent spawn installs the loom's callable-set Pi tools as
+    // SUBAG-2: the subagent spawn installs the theta's callable-set Pi tools as
     // `customTools` on `createAgentSession`, and the composition root lowers each
     // built-in name to its full `ToolDefinition` for that channel.
     { id: "ToolDefinition", kind: "peer-named-import" },
-    // SUBAG-2 (model-callable `.loom`): the subagent spawn materialises each
-    // `.loom`-callable in the loom's callable set as a `defineTool`-wrapped
-    // `customTool` (extension-bootstrap-and-per-loom.md §Per-loom registration),
-    // so the SDK-visible surface matches the loom-owned `complete()` loop's
-    // `.loom` tool schemas.
+    // SUBAG-2 (model-callable `.theta`): the subagent spawn materialises each
+    // `.theta`-callable in the theta's callable set as a `defineTool`-wrapped
+    // `customTool` (extension-bootstrap-and-per-theta.md §Per-theta registration),
+    // so the SDK-visible surface matches the theta-owned `complete()` loop's
+    // `.theta` tool schemas.
     { id: "defineTool", kind: "peer-named-import" },
-    // SUBAG-2: the `defineTool` `.loom` adapter returns an `AgentToolResult`
+    // SUBAG-2: the `defineTool` `.theta` adapter returns an `AgentToolResult`
     // envelope from its `execute` — the SDK tool-result shape.
     { id: "AgentToolResult", kind: "peer-named-import" },
     // The non-`namespace-function` operand rows the version-bump gates (`V18c`)
     // read. Each carries the pinned operand its gate reconciles against the
     // pinned SDK: the in-repo Node floor (operand (ii) of the `engines.node`
-    // three-way equality), the `peerDependencies` tilde range, the loom-side
+    // three-way equality), the `peerDependencies` tilde range, the theta-side
     // strict-capability probe field name, and the pinned pi-ai `Api`
     // literal-union snapshot the seed-field `Api`-coverage gate enumerates.
     {
@@ -324,7 +324,7 @@ export const SDK_SURFACE_INVENTORY: readonly SurfaceInventoryEntry[] =
       kind: "api-coverage",
       payload: {
         // The pinned pi-ai `Api` literal-union snapshot (the `KnownApi` members
-        // at the loom 1.0 Pi-SDK pin). `Api = KnownApi | (string & {})` is not
+        // at the theta 1.0 Pi-SDK pin). `Api = KnownApi | (string & {})` is not
         // runtime-enumerable, so the seed-field `Api`-coverage gate enumerates
         // this pinned snapshot; a new pi-ai `Api` value lands here on a bump.
         apiUnionSnapshot: [

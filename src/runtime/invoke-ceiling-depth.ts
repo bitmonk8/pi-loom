@@ -5,7 +5,7 @@
 // the `InvokeInfraError` carrier at the two `invoke`-boundary ceiling-#4
 // enforcement points — the runtime `invoke(...)` `params` argument boundary and
 // the `invoke<T>` return-value boundary — building on the `V15a` invoke core and
-// consulting `V5e`'s loom-owned depth walk. It is the delegated live-carrier
+// consulting `V5e`'s theta-owned depth walk. It is the delegated live-carrier
 // witness for `V5e`'s `params` / `invoke<T>`-return routing rows: `V5e` proves
 // the routing *decision* (`params-invoke` → `InvokeInfraError`, `invoke-return`
 // → `InvokeInfraError`) in isolation, and this leaf proves the wrapping of a
@@ -46,7 +46,7 @@
 
 import { depthWalk, type DepthViolationIssue } from "./depth-walk";
 import type { InvokeInfraError } from "./query-error";
-import { makeErr, type LoomValue, type ResultValue } from "./value";
+import { makeErr, type ThetaValue, type ResultValue } from "./value";
 
 /**
  * A depth-6 `invoke`-boundary ceiling-#4 breach, materialised at one of the two
@@ -57,7 +57,7 @@ import { makeErr, type LoomValue, type ResultValue } from "./value";
  *     the invoke parent, matching the per-boundary table's row;
  *   - `error`  — the `InvokeInfraError` carrier itself (`kind: "invoke_infra"`,
  *     the boundary-specific `cause`, canonical depth `message`, `callee_path`);
- *   - `issue`  — the loom-owned depth walk's `ValidationIssue`, carrying
+ *   - `issue`  — the theta-owned depth walk's `ValidationIssue`, carrying
  *     `schema_keyword: "maxDepth"` and the canonical
  *     `"JSON document depth exceeds 5"` message (sourced via `V5e`).
  */
@@ -69,7 +69,7 @@ export interface InvokeDepthBreach {
 
 /**
  * Enforce ceiling #4 at the runtime `invoke(...)` `params` argument boundary:
- * run `V5e`'s loom-owned depth walk over the materialised `params` value
+ * run `V5e`'s theta-owned depth walk over the materialised `params` value
  * *before* AJV (CIO-3), and — on a depth-6+ breach — surface it wrapped as
  * `Err(InvokeInfraError { cause: "validation", ... })` per the `params` /
  * `invoke(...)` row of the ceiling-#4 per-boundary table
@@ -89,7 +89,7 @@ export function enforceInvokeParamsDepth(
 
 /**
  * Enforce ceiling #4 at the `invoke<T>` return-value boundary: run `V5e`'s
- * loom-owned depth walk over the materialised return value *before* AJV
+ * theta-owned depth walk over the materialised return value *before* AJV
  * (CIO-3), and — on a depth-6+ breach — surface it wrapped as
  * `Err(InvokeInfraError { cause: "return_validation", ... })` per the
  * `invoke<T>` return-value row of the ceiling-#4 per-boundary table
@@ -105,7 +105,7 @@ export function enforceInvokeReturnDepth(
 
 /**
  * The shared depth-walk-before-AJV enforcement both `invoke`-boundary sites run
- * (CIO-3). Runs `V5e`'s loom-owned depth walk over the materialised value; a
+ * (CIO-3). Runs `V5e`'s theta-owned depth walk over the materialised value; a
  * within-cap value returns `undefined` (deferring to the downstream AJV
  * boundary), and a depth-6+ breach is wrapped into the boundary-specific
  * `InvokeInfraError` carrier (`cause: "validation"` at the `params` argument
@@ -134,7 +134,7 @@ function enforceInvokeDepth(
     cause,
   };
   return {
-    result: makeErr(error as unknown as LoomValue),
+    result: makeErr(error as unknown as ThetaValue),
     error,
     issue: walk.issue,
   };

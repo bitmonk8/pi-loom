@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  discoverLooms,
-  type DiscoveredLoom,
+  discoverThetas,
+  type DiscoveredTheta,
   type DiscoveryInput,
   type PiOwnedCommand,
 } from "../src/discovery/discovery-walk";
-import { loadSettings, type LoomSettings } from "../src/discovery/settings";
+import { loadSettings, type ThetaSettings } from "../src/discovery/settings";
 import type { Diagnostic } from "../src/diagnostics/diagnostic";
 import { FakeFileSystem } from "./helpers/fake-file-system";
 
@@ -13,17 +13,17 @@ import { FakeFileSystem } from "./helpers/fake-file-system";
 // (`src/discovery/discovery-walk.ts`). The bullets trace to DISC-1…DISC-4 in
 // discovery/discovery-sources.md, with diagnostic codes/messages sourced from
 // the diagnostics/code-registry-load.md *Message* column, plus a cross-leaf
-// integration bullet proving V10c's merged `loomPaths` reaches the walk.
+// integration bullet proving V10c's merged `thetaPaths` reaches the walk.
 //
-// These tests red because the V10a `discoverLooms` body is absent — the stub
-// returns an empty looms/diagnostics result, so each assertion reds on the
-// missing loom or the missing diagnostic, not on a compile error, fixture, or
+// These tests red because the V10a `discoverThetas` body is absent — the stub
+// returns an empty theta/diagnostics result, so each assertion reds on the
+// missing theta or the missing diagnostic, not on a compile error, fixture, or
 // harness throw.
 
-const HOME = "/home/loom";
+const HOME = "/home/theta";
 const CWD = "/project";
-const GLOBAL_ROOT = "/home/loom/.pi/agent/looms";
-const PROJECT_ROOT = "/project/.pi/looms";
+const GLOBAL_ROOT = "/home/theta/.pi/agent/theta";
+const PROJECT_ROOT = "/project/.pi/theta";
 
 /** Proper-ancestor directories of `leaf` (so a clean-leaf ENOENT lstats every
  *  ancestor as an enterable directory). The leaf itself is NOT registered. */
@@ -77,8 +77,8 @@ function build(spec: FakeSpec): FakeFileSystem {
   });
 }
 
-/** An empty merged-settings view (no settings-sourced loomPaths). */
-const NO_SETTINGS: LoomSettings = {};
+/** An empty merged-settings view (no settings-sourced thetaPaths). */
+const NO_SETTINGS: ThetaSettings = {};
 
 function input(fs: FakeFileSystem, extra: Partial<DiscoveryInput> = {}): DiscoveryInput {
   return { fs, settings: NO_SETTINGS, ...extra };
@@ -88,8 +88,8 @@ function byCode(diagnostics: readonly Diagnostic[], code: string): readonly Diag
   return diagnostics.filter((d) => d.code === code);
 }
 
-function named(looms: readonly DiscoveredLoom[], name: string): DiscoveredLoom | undefined {
-  return looms.find((l) => l.name === name);
+function named(thetas: readonly DiscoveredTheta[], name: string): DiscoveredTheta | undefined {
+  return thetas.find((l) => l.name === name);
 }
 
 // --------------------------------------------------------------------------
@@ -98,18 +98,18 @@ function named(looms: readonly DiscoveredLoom[], name: string): DiscoveredLoom |
 
 describe("V10a-T — DISC-1 home-directory expansion", () => {
   it("DISC-1: a bare `~/` prefix expands via the FileSystem.homedir() seam", async () => {
-    // Settings entry `~/extra` must resolve under homedir() = /home/loom.
+    // Settings entry `~/extra` must resolve under homedir() = /home/theta.
     const fs = build({
-      dirs: { ...ancestors("/home/loom/extra"), "/home/loom/extra": ["foo.loom"] },
-      files: { "/home/loom/extra/foo.loom": "mode: prompt\n---\n" },
+      dirs: { ...ancestors("/home/theta/extra"), "/home/theta/extra": ["foo.theta"] },
+      files: { "/home/theta/extra/foo.theta": "mode: prompt\n---\n" },
     });
-    const { looms } = await discoverLooms(
-      input(fs, { settings: { loomPaths: ["~/extra"] } }),
+    const { thetas } = await discoverThetas(
+      input(fs, { settings: { thetaPaths: ["~/extra"] } }),
     );
-    const foo = named(looms, "foo");
+    const foo = named(thetas, "foo");
     expect(foo).toBeDefined();
     // Pins the expansion source: the path is the homedir()-joined absolute path.
-    expect(foo?.path).toBe("/home/loom/extra/foo.loom");
+    expect(foo?.path).toBe("/home/theta/extra/foo.theta");
   });
 
   it("DISC-1: the `~user` form is not honoured (no env/platform branch) — it is taken literally", async () => {
@@ -118,21 +118,21 @@ describe("V10a-T — DISC-1 home-directory expansion", () => {
     const fs = build({
       dirs: {
         ...ancestors("~bob/extra"),
-        "~bob/extra": ["lit.loom"],
-        ...ancestors("/home/loom/bob/extra"),
-        "/home/loom/bob/extra": ["wrong.loom"],
+        "~bob/extra": ["lit.theta"],
+        ...ancestors("/home/theta/bob/extra"),
+        "/home/theta/bob/extra": ["wrong.theta"],
       },
       files: {
-        "~bob/extra/lit.loom": "mode: prompt\n---\n",
-        "/home/loom/bob/extra/wrong.loom": "mode: prompt\n---\n",
+        "~bob/extra/lit.theta": "mode: prompt\n---\n",
+        "/home/theta/bob/extra/wrong.theta": "mode: prompt\n---\n",
       },
     });
-    const { looms } = await discoverLooms(
-      input(fs, { settings: { loomPaths: ["~bob/extra"] } }),
+    const { thetas } = await discoverThetas(
+      input(fs, { settings: { thetaPaths: ["~bob/extra"] } }),
     );
-    // Taken literally: the literal-path loom is found, the ~user-expanded one is not.
-    expect(named(looms, "lit")).toBeDefined();
-    expect(named(looms, "wrong")).toBeUndefined();
+    // Taken literally: the literal-path theta is found, the ~user-expanded one is not.
+    expect(named(thetas, "lit")).toBeDefined();
+    expect(named(thetas, "wrong")).toBeUndefined();
   });
 });
 
@@ -146,21 +146,21 @@ describe("V10a-T — DISC-2 failure modes", () => {
     // Global + project roots absent (clean leaves, silent); one settings entry
     // names a missing path (explicit → error).
     const fs = build({ dirs: { ...ancestors("/abs/missing") } });
-    const { diagnostics } = await discoverLooms(
-      input(fs, { settings: { loomPaths: ["/abs/missing"] } }),
+    const { diagnostics } = await discoverThetas(
+      input(fs, { settings: { thetaPaths: ["/abs/missing"] } }),
     );
-    const missing = byCode(diagnostics, "loom/load/missing-source");
+    const missing = byCode(diagnostics, "theta/load/missing-source");
     expect(missing).toHaveLength(1); // only the explicit settings entry
     expect(missing[0]!.severity).toBe("error");
     expect(missing[0]!.message).toContain("settings"); // descriptor names the source
   });
 
-  it("DISC-2: a missing CLI `--loom` path is an error", async () => {
+  it("DISC-2: a missing CLI `--theta` path is an error", async () => {
     const fs = build({ dirs: { ...ancestors("/cli/missing") } });
-    const { diagnostics } = await discoverLooms(
+    const { diagnostics } = await discoverThetas(
       input(fs, { cliPaths: ["/cli/missing"] }),
     );
-    const missing = byCode(diagnostics, "loom/load/missing-source");
+    const missing = byCode(diagnostics, "theta/load/missing-source");
     expect(missing).toHaveLength(1);
     expect(missing[0]!.severity).toBe("error"); // explicit user intent
   });
@@ -172,10 +172,10 @@ describe("V10a-T — DISC-2 failure modes", () => {
       dirs: { [GLOBAL_ROOT]: [], "/cli/denied": [] },
       errors: { [GLOBAL_ROOT]: "EACCES", "/cli/denied": "EACCES" },
     });
-    const { diagnostics } = await discoverLooms(
+    const { diagnostics } = await discoverThetas(
       input(fs, { cliPaths: ["/cli/denied"] }),
     );
-    const unreadable = byCode(diagnostics, "loom/load/unreadable-source");
+    const unreadable = byCode(diagnostics, "theta/load/unreadable-source");
     expect(unreadable).toHaveLength(2);
     const bySeverity = (s: string) => unreadable.filter((d) => d.severity === s).length;
     expect(bySeverity("warning")).toBe(1); // conventional global root
@@ -185,8 +185,8 @@ describe("V10a-T — DISC-2 failure modes", () => {
   it("DISC-2: a conventional root that resolves to a regular file (wrong type) is a warning", async () => {
     // Global root path is a file, not a directory → wrong-type, severity warning.
     const fs = build({ files: { [GLOBAL_ROOT]: "not a directory" } });
-    const { diagnostics } = await discoverLooms(input(fs));
-    const wrongType = byCode(diagnostics, "loom/load/wrong-type-source");
+    const { diagnostics } = await discoverThetas(input(fs));
+    const wrongType = byCode(diagnostics, "theta/load/wrong-type-source");
     expect(wrongType).toHaveLength(1);
     expect(wrongType[0]!.severity).toBe("warning");
   });
@@ -195,30 +195,30 @@ describe("V10a-T — DISC-2 failure modes", () => {
     // Settings entry [0]: candidate ENOENT, every ancestor lstats ok → missing (error).
     // Settings entry [1]: an ancestor lstats EACCES → unreadable (warning).
     const fs = build({
-      dirs: { ...ancestors("/clean/leaf/looms"), ...ancestors("/blocked/leaf/looms") },
+      dirs: { ...ancestors("/clean/leaf/theta"), ...ancestors("/blocked/leaf/theta") },
       errors: { "/blocked/leaf": "EACCES" },
     });
-    const { diagnostics } = await discoverLooms(
-      input(fs, { settings: { loomPaths: ["/clean/leaf/looms", "/blocked/leaf/looms"] } }),
+    const { diagnostics } = await discoverThetas(
+      input(fs, { settings: { thetaPaths: ["/clean/leaf/theta", "/blocked/leaf/theta"] } }),
     );
-    expect(byCode(diagnostics, "loom/load/missing-source")).toHaveLength(1); // clean leaf
-    const unreadable = byCode(diagnostics, "loom/load/unreadable-source");
+    expect(byCode(diagnostics, "theta/load/missing-source")).toHaveLength(1); // clean leaf
+    const unreadable = byCode(diagnostics, "theta/load/unreadable-source");
     expect(unreadable).toHaveLength(1); // blocked ancestor
     expect(unreadable[0]!.severity).toBe("warning"); // settings source
   });
 
-  it("DISC-2: a discovered `.loom` file that is itself unreadable warns and is skipped; siblings still register", async () => {
+  it("DISC-2: a discovered `.theta` file that is itself unreadable warns and is skipped; siblings still register", async () => {
     const fs = build({
-      dirs: { [PROJECT_ROOT]: ["good.loom", "bad.loom"] },
-      files: { [`${PROJECT_ROOT}/good.loom`]: "mode: prompt\n---\n" },
-      errors: { [`${PROJECT_ROOT}/bad.loom`]: "EACCES" },
+      dirs: { [PROJECT_ROOT]: ["good.theta", "bad.theta"] },
+      files: { [`${PROJECT_ROOT}/good.theta`]: "mode: prompt\n---\n" },
+      errors: { [`${PROJECT_ROOT}/bad.theta`]: "EACCES" },
     });
-    const { looms, diagnostics } = await discoverLooms(input(fs));
-    const unreadable = byCode(diagnostics, "loom/load/unreadable");
+    const { thetas, diagnostics } = await discoverThetas(input(fs));
+    const unreadable = byCode(diagnostics, "theta/load/unreadable");
     expect(unreadable).toHaveLength(1);
     expect(unreadable[0]!.severity).toBe("warning");
-    expect(named(looms, "good")).toBeDefined(); // scan continues past the bad file
-    expect(named(looms, "bad")).toBeUndefined();
+    expect(named(thetas, "good")).toBeDefined(); // scan continues past the bad file
+    expect(named(thetas, "bad")).toBeUndefined();
   });
 });
 
@@ -227,128 +227,128 @@ describe("V10a-T — DISC-2 failure modes", () => {
 // --------------------------------------------------------------------------
 
 describe("V10a-T — DISC-3 collisions and validity", () => {
-  it("DISC-3: two case-variant `*.loom` entries in one source fire loom/load/case-collision (warning)", async () => {
-    // Case-sensitive filesystem: `plan.loom` and `Plan.loom` coexist as distinct
+  it("DISC-3: two case-variant `*.theta` entries in one source fire theta/load/case-collision (warning)", async () => {
+    // Case-sensitive filesystem: `plan.theta` and `Plan.theta` coexist as distinct
     // entries and collide case-insensitively per source.
     const fs = build({
       caseInsensitive: false,
-      dirs: { [PROJECT_ROOT]: ["plan.loom", "Plan.loom"] },
+      dirs: { [PROJECT_ROOT]: ["plan.theta", "Plan.theta"] },
       files: {
-        [`${PROJECT_ROOT}/plan.loom`]: "mode: prompt\n---\n",
-        [`${PROJECT_ROOT}/Plan.loom`]: "mode: prompt\n---\n",
+        [`${PROJECT_ROOT}/plan.theta`]: "mode: prompt\n---\n",
+        [`${PROJECT_ROOT}/Plan.theta`]: "mode: prompt\n---\n",
       },
     });
-    const { diagnostics } = await discoverLooms(input(fs));
-    const hits = byCode(diagnostics, "loom/load/case-collision");
+    const { diagnostics } = await discoverThetas(input(fs));
+    const hits = byCode(diagnostics, "theta/load/case-collision");
     expect(hits).toHaveLength(1);
     expect(hits[0]!.severity).toBe("warning");
     // Both colliding paths are named in the rendered message.
-    expect(hits[0]!.message).toContain("plan.loom");
-    expect(hits[0]!.message).toContain("Plan.loom");
+    expect(hits[0]!.message).toContain("plan.theta");
+    expect(hits[0]!.message).toContain("Plan.theta");
   });
 
-  it("DISC-3: a valid stem with a non-canonical extension case fires loom/load/non-canonical-extension (warning); invalid-stem files stay silent", async () => {
+  it("DISC-3: a valid stem with a non-canonical extension case fires theta/load/non-canonical-extension (warning); invalid-stem files stay silent", async () => {
     const fs = build({
       caseInsensitive: false,
-      dirs: { [PROJECT_ROOT]: ["helper.LOOM", "notes.txt.LOOM", "Foo.LOOM"] },
+      dirs: { [PROJECT_ROOT]: ["helper.THETA", "notes.txt.THETA", "Foo.THETA"] },
       files: {
-        [`${PROJECT_ROOT}/helper.LOOM`]: "x",
-        [`${PROJECT_ROOT}/notes.txt.LOOM`]: "x",
-        [`${PROJECT_ROOT}/Foo.LOOM`]: "x",
+        [`${PROJECT_ROOT}/helper.THETA`]: "x",
+        [`${PROJECT_ROOT}/notes.txt.THETA`]: "x",
+        [`${PROJECT_ROOT}/Foo.THETA`]: "x",
       },
     });
-    const { diagnostics } = await discoverLooms(input(fs));
-    const hits = byCode(diagnostics, "loom/load/non-canonical-extension");
-    // Only `helper.LOOM` (valid stem, case-variant ext) warns; `notes.txt.LOOM`
-    // and `Foo.LOOM` have invalid stems and stay silent.
+    const { diagnostics } = await discoverThetas(input(fs));
+    const hits = byCode(diagnostics, "theta/load/non-canonical-extension");
+    // Only `helper.THETA` (valid stem, case-variant ext) warns; `notes.txt.THETA`
+    // and `Foo.THETA` have invalid stems and stay silent.
     expect(hits).toHaveLength(1);
     expect(hits[0]!.severity).toBe("warning");
-    expect(hits[0]!.message).toContain("helper.LOOM");
+    expect(hits[0]!.message).toContain("helper.THETA");
   });
 
-  it("DISC-3: a `.loom` stem failing `^[a-z0-9][a-z0-9_-]*$` fires loom/load/invalid-slash-name (error) and does not register", async () => {
+  it("DISC-3: a `.theta` stem failing `^[a-z0-9][a-z0-9_-]*$` fires theta/load/invalid-slash-name (error) and does not register", async () => {
     const fs = build({
-      dirs: { [PROJECT_ROOT]: ["Foo.loom", "valid.loom"] },
+      dirs: { [PROJECT_ROOT]: ["Foo.theta", "valid.theta"] },
       files: {
-        [`${PROJECT_ROOT}/Foo.loom`]: "mode: prompt\n---\n",
-        [`${PROJECT_ROOT}/valid.loom`]: "mode: prompt\n---\n",
+        [`${PROJECT_ROOT}/Foo.theta`]: "mode: prompt\n---\n",
+        [`${PROJECT_ROOT}/valid.theta`]: "mode: prompt\n---\n",
       },
     });
-    const { looms, diagnostics } = await discoverLooms(input(fs));
-    const hits = byCode(diagnostics, "loom/load/invalid-slash-name");
+    const { thetas, diagnostics } = await discoverThetas(input(fs));
+    const hits = byCode(diagnostics, "theta/load/invalid-slash-name");
     expect(hits).toHaveLength(1);
     expect(hits[0]!.severity).toBe("error");
-    expect(named(looms, "Foo")).toBeUndefined(); // rejected before registration
-    expect(named(looms, "valid")).toBeDefined(); // the valid sibling still registers
+    expect(named(thetas, "Foo")).toBeUndefined(); // rejected before registration
+    expect(named(thetas, "valid")).toBeDefined(); // the valid sibling still registers
   });
 });
 
 // --------------------------------------------------------------------------
-// DISC-4 — slash-name collision on the final derived name; the loom always
+// DISC-4 — slash-name collision on the final derived name; the theta always
 // loses asymmetrically.
 // --------------------------------------------------------------------------
 
 describe("V10a-T — DISC-4 cross-format collision", () => {
-  it("DISC-4: two same-priority looms deriving one slash name fire loom/load/cross-format-collision (error); none register", async () => {
-    // Two settings directory entries (same priority) each ship `dup.loom`.
+  it("DISC-4: two same-priority thetas deriving one slash name fire theta/load/cross-format-collision (error); none register", async () => {
+    // Two settings directory entries (same priority) each ship `dup.theta`.
     const fs = build({
       dirs: {
-        ...ancestors("/a/looms"),
-        "/a/looms": ["dup.loom"],
-        ...ancestors("/b/looms"),
-        "/b/looms": ["dup.loom"],
+        ...ancestors("/a/theta"),
+        "/a/theta": ["dup.theta"],
+        ...ancestors("/b/theta"),
+        "/b/theta": ["dup.theta"],
       },
       files: {
-        "/a/looms/dup.loom": "mode: prompt\n---\n",
-        "/b/looms/dup.loom": "mode: prompt\n---\n",
+        "/a/theta/dup.theta": "mode: prompt\n---\n",
+        "/b/theta/dup.theta": "mode: prompt\n---\n",
       },
     });
-    const { looms, diagnostics } = await discoverLooms(
-      input(fs, { settings: { loomPaths: ["/a/looms", "/b/looms"] } }),
+    const { thetas, diagnostics } = await discoverThetas(
+      input(fs, { settings: { thetaPaths: ["/a/theta", "/b/theta"] } }),
     );
-    const hits = byCode(diagnostics, "loom/load/cross-format-collision");
+    const hits = byCode(diagnostics, "theta/load/cross-format-collision");
     expect(hits).toHaveLength(1);
     expect(hits[0]!.severity).toBe("error");
-    expect(named(looms, "dup")).toBeUndefined(); // every colliding loom drops
+    expect(named(thetas, "dup")).toBeUndefined(); // every colliding theta drops
   });
 
-  it("DISC-4: a loom colliding with a Pi-owned command fires loom/load/cross-format-collision (error); the loom loses, the Pi-owned entry survives", async () => {
+  it("DISC-4: a theta colliding with a Pi-owned command fires theta/load/cross-format-collision (error); the theta loses, the Pi-owned entry survives", async () => {
     const fs = build({
-      dirs: { [PROJECT_ROOT]: ["code-review.loom"] },
-      files: { [`${PROJECT_ROOT}/code-review.loom`]: "mode: prompt\n---\n" },
+      dirs: { [PROJECT_ROOT]: ["code-review.theta"] },
+      files: { [`${PROJECT_ROOT}/code-review.theta`]: "mode: prompt\n---\n" },
     });
     const piOwned: readonly PiOwnedCommand[] = [{ name: "code-review", source: "prompt" }];
-    const { looms, diagnostics } = await discoverLooms(
+    const { thetas, diagnostics } = await discoverThetas(
       input(fs, { piOwnedNames: piOwned }),
     );
-    const hits = byCode(diagnostics, "loom/load/cross-format-collision");
+    const hits = byCode(diagnostics, "theta/load/cross-format-collision");
     expect(hits).toHaveLength(1);
     expect(hits[0]!.severity).toBe("error");
-    // Asymmetric loss: the loom drops; the Pi-owned `code-review` is untouched.
-    expect(named(looms, "code-review")).toBeUndefined();
+    // Asymmetric loss: the theta drops; the Pi-owned `code-review` is untouched.
+    expect(named(thetas, "code-review")).toBeUndefined();
   });
 });
 
 // --------------------------------------------------------------------------
 // Settings source (cross-leaf integration; no spec REQ-ID): the merged
-// `loomPaths` value from V10c reaches the discovery walk.
+// `thetaPaths` value from V10c reaches the discovery walk.
 // --------------------------------------------------------------------------
 
 describe("V10a-T — Settings discovery source plumbing", () => {
-  it("a loomPaths entry supplied through V10c's merged settings contributes its .loom file via the Settings source", async () => {
+  it("a thetaPaths entry supplied through V10c's merged settings contributes its .theta file via the Settings source", async () => {
     const fs = build({
-      dirs: { ...ancestors("/extra/looms"), "/extra/looms": ["settings-loom.loom"] },
+      dirs: { ...ancestors("/extra/theta"), "/extra/theta": ["settings-theta.theta"] },
       files: {
-        // Project settings.json names an extra loom directory.
-        "/project/.pi/settings.json": JSON.stringify({ loomPaths: ["/extra/looms"] }),
-        "/extra/looms/settings-loom.loom": "mode: prompt\n---\n",
+        // Project settings.json names an extra theta directory.
+        "/project/.pi/settings.json": JSON.stringify({ thetaPaths: ["/extra/theta"] }),
+        "/extra/theta/settings-theta.theta": "mode: prompt\n---\n",
       },
     });
     // The merged settings value is produced by V10c and threaded into the walk.
     const { settings } = await loadSettings(fs);
-    expect(settings.loomPaths).toEqual(["/extra/looms"]); // V10c plumbing precondition
-    const { looms } = await discoverLooms(input(fs, { settings }));
-    const discovered = named(looms, "settings-loom");
+    expect(settings.thetaPaths).toEqual(["/extra/theta"]); // V10c plumbing precondition
+    const { thetas } = await discoverThetas(input(fs, { settings }));
+    const discovered = named(thetas, "settings-theta");
     expect(discovered).toBeDefined();
     expect(discovered?.source).toBe("settings"); // reached the walk via the Settings source
   });

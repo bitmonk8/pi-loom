@@ -27,7 +27,7 @@
 // their own primary assertions (the format-rule renderer is absent). The paired
 // V11h implementation leaf fills these in.
 
-import type { LoomValue } from "../runtime/value";
+import type { ThetaValue } from "../runtime/value";
 import { renderCanonicalNumber } from "./canonical-number";
 
 /**
@@ -48,9 +48,9 @@ export type EchoType =
   | { readonly kind: "array"; readonly element: EchoType }
   | { readonly kind: "object"; readonly fields: readonly EchoField[] };
 
-/** One object field: its loom-side name (declaration order) and its type. */
+/** One object field: its theta-side name (declaration order) and its type. */
 export interface EchoField {
-  /** The field's loom-side name, in the declaring schema block's source order. */
+  /** The field's theta-side name, in the declaring schema block's source order. */
   readonly name: string;
   /** The field's static type, used to render the field value recursively. */
   readonly type: EchoType;
@@ -58,10 +58,10 @@ export interface EchoField {
 
 /** One top-level `params:` field to echo, in declaration order. */
 export interface EchoParam {
-  /** The field's loom-side name, shown as `name=` in the echo. */
+  /** The field's theta-side name, shown as `name=` in the echo. */
   readonly name: string;
   /** The bound value (a runtime value from the value model). */
-  readonly value: LoomValue;
+  readonly value: ThetaValue;
   /** The field's static type, selecting its per-value rendering rule. */
   readonly type: EchoType;
   /**
@@ -75,8 +75,8 @@ export interface EchoParam {
 
 /** Inputs to the whole-line argument echo `Running /<name>: <formatted-args>`. */
 export interface ArgumentEchoInput {
-  /** The loom's `/<name>` (shown after `Running /`). */
-  readonly loomName: string;
+  /** The theta's `/<name>` (shown after `Running /`). */
+  readonly thetaName: string;
   /** The top-level `params:` fields, in declaration order. */
   readonly params: readonly EchoParam[];
 }
@@ -111,7 +111,7 @@ function renderString(value: string): string {
  * where the prefix is the first three elements and `N = total − 3`; an empty
  * array as `[]`. Each element is rendered recursively by the element type.
  */
-function renderArray(elements: readonly LoomValue[], element: EchoType): string {
+function renderArray(elements: readonly ThetaValue[], element: EchoType): string {
   const rendered = elements.map((el) => renderEchoValue(el, element));
   if (rendered.length <= 3) {
     return `[${rendered.join(", ")}]`;
@@ -128,7 +128,7 @@ function renderArray(elements: readonly LoomValue[], element: EchoType): string 
  * fixed text rendered for every object value, including single-field objects.
  */
 function renderObject(
-  value: { readonly [key: string]: LoomValue },
+  value: { readonly [key: string]: ThetaValue },
   fields: readonly EchoField[],
 ): string {
   const first = fields[0];
@@ -139,7 +139,7 @@ function renderObject(
       "renderObject: object EchoType carries no fields; the object rule needs a first field",
     );
   }
-  return `{${renderEchoValue(value[first.name] as LoomValue, first.type)}, …}`;
+  return `{${renderEchoValue(value[first.name] as ThetaValue, first.type)}, …}`;
 }
 
 /**
@@ -149,7 +149,7 @@ function renderObject(
  * through the quote predicate; the array and object rules, recursively). The
  * BNDR-6 reference-rendering table (rows 6a–6x) pins the observable byte output.
  */
-export function renderEchoValue(value: LoomValue, type: EchoType): string {
+export function renderEchoValue(value: ThetaValue, type: EchoType): string {
   switch (type.kind) {
     case "string":
       return renderString(value as string);
@@ -166,10 +166,10 @@ export function renderEchoValue(value: LoomValue, type: EchoType): string {
       // same quote predicate as a top-level string value.
       return renderString(String(value));
     case "array":
-      return renderArray(value as readonly LoomValue[], type.element);
+      return renderArray(value as readonly ThetaValue[], type.element);
     case "object":
       return renderObject(
-        value as { readonly [key: string]: LoomValue },
+        value as { readonly [key: string]: ThetaValue },
         type.fields,
       );
   }
@@ -191,5 +191,5 @@ export function renderArgumentEcho(input: ArgumentEchoInput): string {
       ? `${param.name}=${rendered} (default)`
       : `${param.name}=${rendered}`;
   });
-  return `Running /${input.loomName}: ${fields.join(", ")}`;
+  return `Running /${input.thetaName}: ${fields.join(", ")}`;
 }

@@ -18,40 +18,40 @@ import type { Diagnostic } from "../src/diagnostics/diagnostic";
 // registry Message column pins).
 //
 // Requirements exercised:
-//   REQ-FRNT-2  loom/load/unknown-mode-value   (spec-requirements.md:307)
-//   REQ-FRNT-14 loom/load/unknown-bind-context-value (spec-requirements.md:319)
-//   REQ-FRNT-21 loom/load/params-null          (spec-requirements.md:326)
-//   REQ-FRNT-68 loom/load/unknown-methodology-value (spec-requirements.md:373)
+//   REQ-FRNT-2  theta/load/unknown-mode-value   (spec-requirements.md:307)
+//   REQ-FRNT-14 theta/load/unknown-bind-context-value (spec-requirements.md:319)
+//   REQ-FRNT-21 theta/load/params-null          (spec-requirements.md:326)
+//   REQ-FRNT-68 theta/load/unknown-methodology-value (spec-requirements.md:373)
 //   REQ-FRNT-26 argument_hint (underscore) → unknown-frontmatter-field (spec-requirements.md:331)
 
 const resolvingMatcher: ModelReferenceMatcher = { resolve: () => "resolved" };
 
 function parse(...frontmatterLines: string[]): FrontmatterParseResult {
   const source = ["---", ...frontmatterLines, "---", "@`hello`"].join("\n");
-  return parseFrontmatter(source, { file: "test.loom", modelMatcher: resolvingMatcher });
+  return parseFrontmatter(source, { file: "test.theta", modelMatcher: resolvingMatcher });
 }
 
 function withCode(diags: readonly Diagnostic[], code: string): Diagnostic | undefined {
   return diags.find((d) => d.code === code);
 }
 
-describe("S2/FRNT-2 — unrecognised `mode:` value (loom/load/unknown-mode-value)", () => {
-  it("distinct from missing-mode: `mode: agent` fires unknown-mode-value and the loom is not registered", () => {
+describe("S2/FRNT-2 — unrecognised `mode:` value (theta/load/unknown-mode-value)", () => {
+  it("distinct from missing-mode: `mode: agent` fires unknown-mode-value and the theta is not registered", () => {
     const r = parse("mode: agent");
-    const d = withCode(r.diagnostics, "loom/load/unknown-mode-value");
+    const d = withCode(r.diagnostics, "theta/load/unknown-mode-value");
     expect(d, "unknown-mode-value for an unrecognised `mode:`").toBeDefined();
     expect(d?.severity).toBe("error");
     expect(d?.message).toBe("unknown 'mode:' value 'agent'; expected 'prompt' or 'subagent'");
     // The missing-mode code (present-vs-absent) does not collapse into this one.
-    expect(withCode(r.diagnostics, "loom/load/missing-mode")).toBeUndefined();
+    expect(withCode(r.diagnostics, "theta/load/missing-mode")).toBeUndefined();
     expect(r.registered).toBe(false);
   });
 });
 
-describe("S2/FRNT-14 — bad `bind_context:` value (loom/load/unknown-bind-context-value)", () => {
-  it("a `bind_context:` value other than none/session fires and the loom is not registered", () => {
+describe("S2/FRNT-14 — bad `bind_context:` value (theta/load/unknown-bind-context-value)", () => {
+  it("a `bind_context:` value other than none/session fires and the theta is not registered", () => {
     const r = parse("mode: prompt", "bind_context: elsewhere");
-    const d = withCode(r.diagnostics, "loom/load/unknown-bind-context-value");
+    const d = withCode(r.diagnostics, "theta/load/unknown-bind-context-value");
     expect(d, "unknown-bind-context-value for a bad value").toBeDefined();
     expect(d?.severity).toBe("error");
     expect(d?.message).toBe(
@@ -63,17 +63,17 @@ describe("S2/FRNT-14 — bad `bind_context:` value (loom/load/unknown-bind-conte
   it("a non-string scalar `bind_context: 3` is likewise unknown-bind-context-value", () => {
     const r = parse("mode: prompt", "bind_context: 3");
     expect(
-      withCode(r.diagnostics, "loom/load/unknown-bind-context-value"),
+      withCode(r.diagnostics, "theta/load/unknown-bind-context-value"),
       "a non-string scalar bind_context value is rejected",
     ).toBeDefined();
     expect(r.registered).toBe(false);
   });
 });
 
-describe("S2/FRNT-21 — redundant `params: null` (loom/load/params-null)", () => {
+describe("S2/FRNT-21 — redundant `params: null` (theta/load/params-null)", () => {
   it("`params: null` fires params-null (omit or use `params: {}`)", () => {
     const r = parse("mode: prompt", "params: null");
-    const d = withCode(r.diagnostics, "loom/load/params-null");
+    const d = withCode(r.diagnostics, "theta/load/params-null");
     expect(d, "params-null for the redundant `params: null`").toBeDefined();
     expect(d?.message).toBe(
       "'params: null' is not permitted; omit 'params:' or use 'params: {}'",
@@ -81,10 +81,10 @@ describe("S2/FRNT-21 — redundant `params: null` (loom/load/params-null)", () =
   });
 });
 
-describe("S2/FRNT-68 — bad `respond_repair.methodology:` value (loom/load/unknown-methodology-value)", () => {
-  it("a value outside {validator_error,schema_repeat,none} fires and the loom is not registered", () => {
+describe("S2/FRNT-68 — bad `respond_repair.methodology:` value (theta/load/unknown-methodology-value)", () => {
+  it("a value outside {validator_error,schema_repeat,none} fires and the theta is not registered", () => {
     const r = parse("mode: subagent", "respond_repair:", "  methodology: shout");
-    const d = withCode(r.diagnostics, "loom/load/unknown-methodology-value");
+    const d = withCode(r.diagnostics, "theta/load/unknown-methodology-value");
     expect(d, "unknown-methodology-value for a bad methodology").toBeDefined();
     expect(d?.severity).toBe("error");
     expect(d?.message).toBe(
@@ -97,7 +97,7 @@ describe("S2/FRNT-68 — bad `respond_repair.methodology:` value (loom/load/unkn
     for (const m of ["validator_error", "schema_repeat", "none"]) {
       const r = parse("mode: subagent", "respond_repair:", `  methodology: ${m}`);
       expect(
-        withCode(r.diagnostics, "loom/load/unknown-methodology-value"),
+        withCode(r.diagnostics, "theta/load/unknown-methodology-value"),
         `methodology: ${m} is recognised`,
       ).toBeUndefined();
       expect(r.registered, `methodology: ${m} registers`).toBe(true);
@@ -106,21 +106,21 @@ describe("S2/FRNT-68 — bad `respond_repair.methodology:` value (loom/load/unkn
 });
 
 describe("S2/FRNT-26 — `argument_hint:` (underscore) is unrecognised", () => {
-  it("the underscore spelling surfaces unknown-frontmatter-field and the loom still registers", () => {
+  it("the underscore spelling surfaces unknown-frontmatter-field and the theta still registers", () => {
     // FRNT-25/26: `argument-hint` retains Pi's hyphenated spelling; the
     // underscore form is not the recognised key.
     const r = parse("mode: prompt", "argument_hint: foo");
-    const d = withCode(r.diagnostics, "loom/load/unknown-frontmatter-field");
+    const d = withCode(r.diagnostics, "theta/load/unknown-frontmatter-field");
     expect(d, "argument_hint (underscore) is an unknown key").toBeDefined();
     expect(d?.severity).toBe("warning");
     expect(d?.message).toBe("unknown frontmatter field 'argument_hint'");
-    expect(r.registered, "an unknown key is tolerated — the loom still registers").toBe(true);
+    expect(r.registered, "an unknown key is tolerated — the theta still registers").toBe(true);
   });
 
   it("the hyphenated `argument-hint:` is recognised (no unknown-frontmatter-field)", () => {
     const r = parse("mode: prompt", "argument-hint: foo");
     expect(
-      withCode(r.diagnostics, "loom/load/unknown-frontmatter-field"),
+      withCode(r.diagnostics, "theta/load/unknown-frontmatter-field"),
       "the hyphenated argument-hint is a recognised key",
     ).toBeUndefined();
     expect(r.registered).toBe(true);

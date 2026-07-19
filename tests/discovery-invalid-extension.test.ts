@@ -1,27 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { discoverLooms, type DiscoveryInput } from "../src/discovery/discovery-walk";
-import type { LoomSettings } from "../src/discovery/settings";
+import { discoverThetas, type DiscoveryInput } from "../src/discovery/discovery-walk";
+import type { ThetaSettings } from "../src/discovery/settings";
 import type { Diagnostic } from "../src/diagnostics/diagnostic";
 import { FakeFileSystem } from "./helpers/fake-file-system";
 
 // V20f-T — failing tests for the paired `V20f` production-wiring fix (Bucket C:
-// implemented wrongly). A `--loom <file>` / settings `loomPaths` entry naming a
-// non-`.loom` file MUST emit `loom/load/invalid-extension` per Lexical
+// implemented wrongly). A `--theta <file>` / settings `thetaPaths` entry naming a
+// non-`.theta` file MUST emit `theta/load/invalid-extension` per Lexical
 // §"Extension matching" ("the settings/CLI extension check") and the
-// `loomPaths` entry schema in discovery/package-and-settings.md, with the
+// `thetaPaths` entry schema in discovery/package-and-settings.md, with the
 // message sourced from the diagnostics/code-registry-load.md *Message* column.
 //
-// These tests red today because the CLI `--loom` path reclassifies a non-`.loom`
-// regular file to `loom/load/wrong-type-source` (the currently-dead
+// These tests red today because the CLI `--theta` path reclassifies a non-`.theta`
+// regular file to `theta/load/wrong-type-source` (the currently-dead
 // `invalid-extension` path is never reached on the CLI source), so the
 // assertions red on the wrong emitted code — the discovery walk runs and
 // classifies, it is the emitted diagnostic that is wrong, not a compile error,
 // fixture, or harness throw.
 
-const HOME = "/home/loom";
+const HOME = "/home/theta";
 const CWD = "/project";
-const GLOBAL_ROOT = "/home/loom/.pi/agent/looms";
-const PROJECT_ROOT = "/project/.pi/looms";
+const GLOBAL_ROOT = "/home/theta/.pi/agent/theta";
+const PROJECT_ROOT = "/project/.pi/theta";
 
 /** Proper-ancestor directories of `leaf`, each an enterable empty directory, so
  *  an ENOENT candidate lstats every ancestor cleanly (clean-leaf ENOENT walk). */
@@ -67,7 +67,7 @@ function build(spec: FakeSpec): FakeFileSystem {
   });
 }
 
-const NO_SETTINGS: LoomSettings = {};
+const NO_SETTINGS: ThetaSettings = {};
 
 function input(fs: FakeFileSystem, extra: Partial<DiscoveryInput> = {}): DiscoveryInput {
   return { fs, settings: NO_SETTINGS, ...extra };
@@ -78,30 +78,30 @@ function byCode(diagnostics: readonly Diagnostic[], code: string): readonly Diag
 }
 
 // --------------------------------------------------------------------------
-// loom/load/invalid-extension — a CLI/settings non-`.loom` file entry (Lexical
-// §"Extension matching"; discovery/package-and-settings.md `loomPaths` schema).
+// theta/load/invalid-extension — a CLI/settings non-`.theta` file entry (Lexical
+// §"Extension matching"; discovery/package-and-settings.md `thetaPaths` schema).
 // --------------------------------------------------------------------------
 
-describe("V20f-T — non-`.loom` file entry → loom/load/invalid-extension", () => {
-  it("loom/load/invalid-extension: a `--loom <file>` entry naming a non-`.loom` file emits invalid-extension, not wrong-type-source", async () => {
+describe("V20f-T — non-`.theta` file entry → theta/load/invalid-extension", () => {
+  it("theta/load/invalid-extension: a `--theta <file>` entry naming a non-`.theta` file emits invalid-extension, not wrong-type-source", async () => {
     // A regular file with a `.md` extension named on the CLI. Lexical
     // §"Extension matching" routes the settings/CLI extension check to
-    // `loom/load/invalid-extension`; today the CLI source reclassifies it to
-    // `loom/load/wrong-type-source`, so this reds.
+    // `theta/load/invalid-extension`; today the CLI source reclassifies it to
+    // `theta/load/wrong-type-source`, so this reds.
     const fs = build({
       dirs: { ...ancestors("/x/foo.md"), "/x": ["foo.md"] },
-      files: { "/x/foo.md": "not a loom" },
+      files: { "/x/foo.md": "not a theta" },
     });
-    const { diagnostics } = await discoverLooms(input(fs, { cliPaths: ["/x/foo.md"] }));
+    const { diagnostics } = await discoverThetas(input(fs, { cliPaths: ["/x/foo.md"] }));
 
-    expect(byCode(diagnostics, "loom/load/invalid-extension")).toHaveLength(1);
-    expect(byCode(diagnostics, "loom/load/wrong-type-source")).toHaveLength(0);
+    expect(byCode(diagnostics, "theta/load/invalid-extension")).toHaveLength(1);
+    expect(byCode(diagnostics, "theta/load/wrong-type-source")).toHaveLength(0);
   });
 
-  it("loom/load/invalid-extension: both a `--loom <file>` and a settings `loomPaths` non-`.loom` file entry emit invalid-extension, never wrong-type-source", async () => {
+  it("theta/load/invalid-extension: both a `--theta <file>` and a settings `thetaPaths` non-`.theta` file entry emit invalid-extension, never wrong-type-source", async () => {
     // One CLI entry (`/x/foo.md`) and one settings entry (`/y/bar.md`), both
-    // non-`.loom` regular files. Per Lexical §"Extension matching" both sides
-    // of the "settings/CLI extension check" emit `loom/load/invalid-extension`.
+    // non-`.theta` regular files. Per Lexical §"Extension matching" both sides
+    // of the "settings/CLI extension check" emit `theta/load/invalid-extension`.
     const fs = build({
       dirs: {
         ...ancestors("/x/foo.md"),
@@ -109,24 +109,24 @@ describe("V20f-T — non-`.loom` file entry → loom/load/invalid-extension", ()
         ...ancestors("/y/bar.md"),
         "/y": ["bar.md"],
       },
-      files: { "/x/foo.md": "not a loom", "/y/bar.md": "not a loom" },
+      files: { "/x/foo.md": "not a theta", "/y/bar.md": "not a theta" },
     });
-    const { diagnostics } = await discoverLooms(
-      input(fs, { cliPaths: ["/x/foo.md"], settings: { loomPaths: ["/y/bar.md"] } }),
+    const { diagnostics } = await discoverThetas(
+      input(fs, { cliPaths: ["/x/foo.md"], settings: { thetaPaths: ["/y/bar.md"] } }),
     );
 
     // Both entries must surface invalid-extension; none may surface
     // wrong-type-source. Today the CLI entry emits wrong-type-source, so the
     // count is 1/1 rather than the required 2/0.
-    expect(byCode(diagnostics, "loom/load/invalid-extension")).toHaveLength(2);
-    expect(byCode(diagnostics, "loom/load/wrong-type-source")).toHaveLength(0);
+    expect(byCode(diagnostics, "theta/load/invalid-extension")).toHaveLength(2);
+    expect(byCode(diagnostics, "theta/load/wrong-type-source")).toHaveLength(0);
 
     // Message anchor: the diagnostics carry the registry *Message* tail for
-    // `loom/load/invalid-extension` (code-registry-load.md:
-    // `'loomPaths[<index>]' resolves to '<path>' which does not end in .loom`).
-    for (const d of byCode(diagnostics, "loom/load/invalid-extension")) {
+    // `theta/load/invalid-extension` (code-registry-load.md:
+    // `'thetaPaths[<index>]' resolves to '<path>' which does not end in .theta`).
+    for (const d of byCode(diagnostics, "theta/load/invalid-extension")) {
       expect(d.severity).toBe("error");
-      expect(d.message).toContain("does not end in .loom");
+      expect(d.message).toContain("does not end in .theta");
     }
   });
 });

@@ -17,7 +17,7 @@ import type { SourceRange } from "../src/diagnostics/diagnostic";
 
 // V3d-T — failing tests for the paired `V3d` "functions and return".
 //
-// Spec: functions.md (FN-1 Placement, FN-2 Documentation, FN-3 Loom return
+// Spec: functions.md (FN-1 Placement, FN-2 Documentation, FN-3 Theta return
 // type, FN-4 Empty-tail body, FN-5 Final value) and return.md (RET-1 return
 // type-check, RET-2 bare-return-in-non-void, RET-3 unreachable code).
 //
@@ -47,7 +47,7 @@ function span(): SourceRange {
 
 /** A located site at the throwaway span. */
 function site(): { file: string; range: SourceRange } {
-  return { file: "test.loom", range: span() };
+  return { file: "test.theta", range: span() };
 }
 
 function prim(name: "string" | "number" | "integer" | "boolean" | "null"): CompatType {
@@ -57,13 +57,13 @@ function prim(name: "string" | "number" | "integer" | "boolean" | "null"): Compa
 // --- functions.md FN-1 — Placement -----------------------------------------
 
 describe("V3d-T — `fn` placement (FN-1)", () => {
-  it("FN-1: a nested `fn` fires loom/parse/nested-fn (parse phase)", () => {
+  it("FN-1: a nested `fn` fires theta/parse/nested-fn (parse phase)", () => {
     const d = checkFnPlacement({ nested: true }, site());
-    expect(d, "FN-1: loom/parse/nested-fn for a nested `fn`").toBeDefined();
-    expect(d?.code).toBe("loom/parse/nested-fn");
+    expect(d, "FN-1: theta/parse/nested-fn for a nested `fn`").toBeDefined();
+    expect(d?.code).toBe("theta/parse/nested-fn");
     // Message from diagnostics/code-registry-parse.md.
     expect(d?.message).toBe(
-      "nested 'fn' declarations are not supported in loom 1.0",
+      "nested 'fn' declarations are not supported in theta 1.0",
     );
   });
 
@@ -72,16 +72,16 @@ describe("V3d-T — `fn` placement (FN-1)", () => {
     expect(d, "FN-1: a top-level `fn` is the legal placement").toBeUndefined();
   });
 
-  it("FN-1: a function name used as a value fires loom/parse/function-as-value (parse phase)", () => {
+  it("FN-1: a function name used as a value fires theta/parse/function-as-value (parse phase)", () => {
     const d = checkFunctionReference({ name: "rate_strictness", position: "value" }, site());
     expect(
       d,
-      "FN-1: loom/parse/function-as-value for a function used as a value",
+      "FN-1: theta/parse/function-as-value for a function used as a value",
     ).toBeDefined();
-    expect(d?.code).toBe("loom/parse/function-as-value");
+    expect(d?.code).toBe("theta/parse/function-as-value");
     // Message from diagnostics/code-registry-parse.md (interpolates the name).
     expect(d?.message).toBe(
-      "function 'rate_strictness' used outside call position; functions are not first-class in loom 1.0",
+      "function 'rate_strictness' used outside call position; functions are not first-class in theta 1.0",
     );
   });
 
@@ -215,7 +215,7 @@ describe("V3d-T — return-type inference (FN-3, RET-1)", () => {
     ).toBe("number");
   });
 
-  it("loom/parse/return-no-common-type: contributions sharing no common upper bound fire (type phase)", () => {
+  it("theta/parse/return-no-common-type: contributions sharing no common upper bound fire (type phase)", () => {
     // `string` and `number` share no common upper bound and no sink narrows them.
     const contributions: ReturnContribution[] = [
       { kind: "plain", type: prim("string") },
@@ -232,7 +232,7 @@ describe("V3d-T — return-type inference (FN-3, RET-1)", () => {
       "FN-3: contributions with no common upper bound have no inferred type",
     ).toBe("inference-no-common-type");
     if (r.kind !== "inference-no-common-type") return;
-    expect(r.diagnostic.code).toBe("loom/parse/return-no-common-type");
+    expect(r.diagnostic.code).toBe("theta/parse/return-no-common-type");
     // Message from diagnostics/code-registry-parse.md.
     expect(r.diagnostic.message).toBe(
       "return operands have no common type; annotate the function return type or reconcile the operands",
@@ -336,26 +336,26 @@ describe("V3d-T — empty-tail body (FN-4)", () => {
 // --- return.md RET-2 / RET-3 — bare return and unreachable code -------------
 
 describe("V3d-T — bare `return` (RET-2)", () => {
-  it("loom/parse/bare-return-in-non-void: a bare `return` in a non-`void` function fires (type phase)", () => {
+  it("theta/parse/bare-return-in-non-void: a bare `return` in a non-`void` function fires (type phase)", () => {
     const d = checkBareReturn({ returnTypeIsVoid: false }, site());
     expect(
       d,
-      "RET-2: loom/parse/bare-return-in-non-void for a non-`void` scope",
+      "RET-2: theta/parse/bare-return-in-non-void for a non-`void` scope",
     ).toBeDefined();
-    expect(d?.code).toBe("loom/parse/bare-return-in-non-void");
+    expect(d?.code).toBe("theta/parse/bare-return-in-non-void");
     // Message from diagnostics/code-registry-parse.md.
     expect(d?.message).toBe("missing return value");
   });
 
-  it("loom/parse/bare-return-in-non-void: a bare `return` at the top level fires (no annotation ⇒ non-void)", () => {
-    // A top-level loom has no return annotation, so a bare `return` there is
-    // also loom/parse/bare-return-in-non-void (RET-2).
+  it("theta/parse/bare-return-in-non-void: a bare `return` at the top level fires (no annotation ⇒ non-void)", () => {
+    // A top-level theta has no return annotation, so a bare `return` there is
+    // also theta/parse/bare-return-in-non-void (RET-2).
     const d = checkBareReturn({ returnTypeIsVoid: false }, site());
     expect(
       d,
       "RET-2: a top-level bare `return` is bare-return-in-non-void",
     ).toBeDefined();
-    expect(d?.code).toBe("loom/parse/bare-return-in-non-void");
+    expect(d?.code).toBe("theta/parse/bare-return-in-non-void");
   });
 
   it("RET-2: a bare `return` inside a `void` function raises no diagnostic", () => {
@@ -368,13 +368,13 @@ describe("V3d-T — bare `return` (RET-2)", () => {
 });
 
 describe("V3d-T — unreachable code after `return` (RET-3)", () => {
-  it("loom/parse/unreachable-code: a statement after a `return` in the same block warns (parse phase)", () => {
+  it("theta/parse/unreachable-code: a statement after a `return` in the same block warns (parse phase)", () => {
     const d = checkUnreachableCode({ hasCodeAfterReturn: true }, site());
     expect(
       d,
-      "RET-3: loom/parse/unreachable-code for code after a `return`",
+      "RET-3: theta/parse/unreachable-code for code after a `return`",
     ).toBeDefined();
-    expect(d?.code).toBe("loom/parse/unreachable-code");
+    expect(d?.code).toBe("theta/parse/unreachable-code");
     expect(d?.severity, "RET-3: unreachable code is a warning, not an error").toBe(
       "warning",
     );

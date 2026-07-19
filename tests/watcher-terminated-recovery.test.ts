@@ -8,8 +8,8 @@ import {
   WATCHER_TERMINATED_CODE,
 } from "../src/extension/watcher-recovery";
 import {
-  LoomRegistry,
-  type ParsedLoom,
+  ThetaRegistry,
+  type ParsedTheta,
 } from "../src/extension/reload-wiring";
 import {
   resolveSlashDispatch,
@@ -32,16 +32,16 @@ import { FakeFileWatcher } from "./helpers/fake-file-watcher";
 // Spec: pi-integration-contract/registration-steps.md (PIC-55),
 // pi-integration-contract/host-interfaces-services.md (PIC-14 FileWatcher seam),
 // diagnostics.md, diagnostics/code-registry-runtime.md
-// (`loom/runtime/watcher-terminated`).
+// (`theta/runtime/watcher-terminated`).
 //
 // The stopped-delivering — terminal case is driven deterministically through
 // the V8e `FakeFileWatcher.terminate()` terminal-signal injection point, which
 // mirrors the production chokidar adapter→runtime channel. On that signal the
 // runtime MUST: leave the watcher torn down rather than re-armed; emit exactly
-// ONE persistent `loom/runtime/watcher-terminated` `loom-system-note` prompting
-// `/reload` through the `loom-system-note` channel as its primary sink (NEVER
-// `ctx.ui.notify`); keep the `LoomRegistry` live and dispatchable through arm
-// (a) of `readDrainState`; and write NO `LoomRegistry` drain-state tag.
+// ONE persistent `theta/runtime/watcher-terminated` `theta-system-note` prompting
+// `/reload` through the `theta-system-note` channel as its primary sink (NEVER
+// `ctx.ui.notify`); keep the `ThetaRegistry` live and dispatchable through arm
+// (a) of `readDrainState`; and write NO `ThetaRegistry` drain-state tag.
 //
 // These tests red because the V9q terminal recovery posture is absent: the
 // `armWatcherWithTerminalRecovery` seam wires an inert `onTerminate` callback,
@@ -51,7 +51,7 @@ import { FakeFileWatcher } from "./helpers/fake-file-watcher";
 //
 // Per the *Diagnostic message anchors* rule the expected message string is
 // sourced from the diagnostics registry's *Message* column (via
-// `registryMessage`) and the `loom/runtime/watcher-terminated` code is cited
+// `registryMessage`) and the `theta/runtime/watcher-terminated` code is cited
 // inline.
 
 // The live four-page sharded diagnostics registry, read from the spec corpus —
@@ -78,14 +78,14 @@ interface RegistryRow {
 const REGISTRY = parseRegistry(REGISTRY_TEXT) as RegistryRow[];
 
 const NOOP_RUN = async (): Promise<void> => {};
-const loom = (slashName: string): ParsedLoom => ({
+const theta = (slashName: string): ParsedTheta => ({
   slashName,
   frontmatter: { mode: "prompt" },
   body: { statements: [], tail: null },
   run: NOOP_RUN,
 });
 
-/** A captured `pi.sendMessage` call for the `loom-system-note` channel. */
+/** A captured `pi.sendMessage` call for the `theta-system-note` channel. */
 interface SentMessage {
   readonly customType: string;
   readonly content: string;
@@ -96,7 +96,7 @@ interface SentMessage {
 /**
  * Build a `SystemNoteChannelDeps` whose `pi.sendMessage` succeeds and records
  * every sent message, so the primary-sink assertions observe the persistent
- * `loom-system-note` route and can prove `ctx.ui.notify` is never reached.
+ * `theta-system-note` route and can prove `ctx.ui.notify` is never reached.
  */
 function channelHarness(): {
   readonly channel: SystemNoteChannelDeps;
@@ -121,8 +121,8 @@ function channelHarness(): {
 // ---------------------------------------------------------------------------
 
 describe("V9q-T — watcher terminal recovery posture (PIC-55)", () => {
-  it("PIC-55: a stopped-delivering terminal signal emits exactly one persistent watcher-terminated system note, leaves the watcher torn down, keeps LoomRegistry live and dispatchable, and writes no drain-state tag", () => {
-    const registry = new LoomRegistry([["greet", loom("greet")]]);
+  it("PIC-55: a stopped-delivering terminal signal emits exactly one persistent watcher-terminated system note, leaves the watcher torn down, keeps ThetaRegistry live and dispatchable, and writes no drain-state tag", () => {
+    const registry = new ThetaRegistry([["greet", theta("greet")]]);
     const { channel, sent, notify } = channelHarness();
     const fw = new FakeFileWatcher();
     const watchSpy = vi.spyOn(fw, "watch");
@@ -139,8 +139,8 @@ describe("V9q-T — watcher terminal recovery posture (PIC-55)", () => {
     // Terminal-signal injection point (V8e): one or more roots stop delivering.
     fw.terminate({ roots: ["/root"] });
 
-    // Primary assertion — exactly one persistent `loom-system-note` is emitted
-    // through the `loom-system-note` channel (its primary sink), never
+    // Primary assertion — exactly one persistent `theta-system-note` is emitted
+    // through the `theta-system-note` channel (its primary sink), never
     // `ctx.ui.notify`.
     expect(sent).toHaveLength(1);
     expect(sent[0]?.customType).toBe(SYSTEM_NOTE_CHANNEL);
@@ -150,10 +150,10 @@ describe("V9q-T — watcher terminal recovery posture (PIC-55)", () => {
     // Torn down rather than re-armed: the watcher is not re-armed (a single
     // `watch` call), and a subsequent change no longer reaches the handler.
     expect(watchSpy).toHaveBeenCalledTimes(1);
-    fw.emit({ kind: "change", path: "/root/greet.loom" });
+    fw.emit({ kind: "change", path: "/root/greet.theta" });
     expect(changes).toEqual([]);
 
-    // `LoomRegistry` stays live and dispatchable through arm (a): no drain-state
+    // `ThetaRegistry` stays live and dispatchable through arm (a): no drain-state
     // tag is written, so `readDrainState` reports the steady-state tuple and the
     // published `/greet` entry still dispatches.
     const snapshot = registry.readDrainState();
@@ -161,12 +161,12 @@ describe("V9q-T — watcher terminal recovery posture (PIC-55)", () => {
     expect(routeDrainStateArm(snapshot)).toBe("dispatch");
     expect(resolveSlashDispatch("greet", snapshot, registry)).toEqual({
       kind: "dispatch",
-      loom: loom("greet"),
+      theta: theta("greet"),
     });
   });
 
-  it("loom/runtime/watcher-terminated: the emitted note's rendered message is sourced from the registry Message column and routes through the loom-system-note channel as its primary sink", () => {
-    const registry = new LoomRegistry();
+  it("theta/runtime/watcher-terminated: the emitted note's rendered message is sourced from the registry Message column and routes through the theta-system-note channel as its primary sink", () => {
+    const registry = new ThetaRegistry();
     const { channel, sent, notify, emitDiagnostic } = channelHarness();
     const fw = new FakeFileWatcher();
 
@@ -187,10 +187,10 @@ describe("V9q-T — watcher terminal recovery posture (PIC-55)", () => {
       WATCHER_TERMINATED_CODE,
     ) as string;
     expect(expectedMessage).toBe(
-      "loom watcher terminated; hot-reload halted until /reload",
+      "theta watcher terminated; hot-reload halted until /reload",
     );
 
-    // Exactly one note, delivered through the `loom-system-note` channel
+    // Exactly one note, delivered through the `theta-system-note` channel
     // (primary sink), carrying the registry-sourced message and the
     // `watcher-terminated` diagnostic — the delivery-failed fallback never
     // fires (the transient-toast route is never taken).
@@ -202,7 +202,7 @@ describe("V9q-T — watcher terminal recovery posture (PIC-55)", () => {
     const details = sent[0]?.details as { diagnostics?: readonly Diagnostic[] };
     expect(details.diagnostics).toHaveLength(1);
     expect(details.diagnostics?.[0]?.code).toBe(WATCHER_TERMINATED_CODE);
-    expect(details.diagnostics?.[0]?.code).toBe("loom/runtime/watcher-terminated");
+    expect(details.diagnostics?.[0]?.code).toBe("theta/runtime/watcher-terminated");
     expect(details.diagnostics?.[0]?.message).toBe(expectedMessage);
   });
 });

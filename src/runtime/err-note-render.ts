@@ -2,12 +2,12 @@
 // slash-dispatch boundary.
 //
 // This module owns the renderer that turns a top-level `QueryError` — returned
-// to the slash-dispatch boundary by a directly-slash-invoked loom (prompt OR
-// subagent mode) — into the single-line `loom-system-note` string Pi appends to
+// to the slash-dispatch boundary by a directly-slash-invoked theta (prompt OR
+// subagent mode) — into the single-line `theta-system-note` string Pi appends to
 // the user's session:
 //
 //   - SLSH-3 — a top-level `Err` at the slash-dispatch boundary renders ONE
-//     line; for a directly-slash-invoked subagent-mode loom it is the sole
+//     line; for a directly-slash-invoked subagent-mode theta it is the sole
 //     user-facing surface for the failure (the transcript stays private).
 //   - SLSH-4 — the per-kind note templates (SNK-a … SNK-k) render verbatim; the
 //     renderer is total over any unlisted `kind` in the `QueryError` union via
@@ -66,7 +66,7 @@ export interface ChainHop {
    */
   readonly calleePath: string;
   /**
-   * V15g's per-frame invocation record for this hop: the parent loom's
+   * V15g's per-frame invocation record for this hop: the parent theta's
    * post-`realpath` path and the 1-indexed call-site line (SLSH-5
    * `<parent_path>` and `<line>`).
    */
@@ -77,8 +77,8 @@ export interface ChainHop {
  * Inputs to the top-level `Err`-note renderer (SLSH-3/SLSH-4/SLSH-5).
  */
 export interface ErrNoteInput {
-  /** The loom's slash name (its filename stem), e.g. `entry`. SLSH `<name>`. */
-  readonly loomName: string;
+  /** The theta's slash name (its filename stem), e.g. `entry`. SLSH `<name>`. */
+  readonly thetaName: string;
   /**
    * The top-level `QueryError` returned to the slash-dispatch boundary. May be
    * an `invoke_callee` wrapper (possibly nested); the renderer recurses through
@@ -102,11 +102,11 @@ export interface ErrNoteInput {
  *
  * The V12b-T stub returns the sentinel so the per-kind string assertions red.
  */
-export function renderLeafKindNote(loomName: string, leaf: QueryError): string {
-  const prefix = `loom /${loomName}`;
+export function renderLeafKindNote(thetaName: string, leaf: QueryError): string {
+  const prefix = `theta /${thetaName}`;
   // `kind` is typed `string` (ERR-15 discriminator openness), so the union
   // members are not TS-discriminable by tag; each branch casts to the variant
-  // whose fields it reads. Any tag outside the loom 1.0.0 set falls to SNK-k,
+  // whose fields it reads. Any tag outside the theta 1.0.0 set falls to SNK-k,
   // making the renderer total over the open discriminator.
   switch (leaf.kind) {
     case "validation": {
@@ -146,7 +146,7 @@ export function renderLeafKindNote(loomName: string, leaf: QueryError): string {
     }
     case "tool_loop_exhausted": {
       // SNK-h — `last_tool_name` renders as the literal `respond` when null
-      // (defensive forward-compat rendering; no loom 1.0-reachable null case).
+      // (defensive forward-compat rendering; no theta 1.0-reachable null case).
       const e = leaf as ToolLoopExhaustedError;
       const lastTool = e.last_tool_name ?? "respond";
       return `${prefix} returned Err: tool-call loop exhausted after ${e.rounds} rounds (last tool: ${lastTool})`;
@@ -164,7 +164,7 @@ export function renderLeafKindNote(loomName: string, leaf: QueryError): string {
 }
 
 /**
- * SLSH-3/SLSH-4/SLSH-5 top-level renderer: render the one-line `loom-system-note`
+ * SLSH-3/SLSH-4/SLSH-5 top-level renderer: render the one-line `theta-system-note`
  * string for a top-level `Err` at the slash-dispatch boundary. Recurses through
  * any `invoke_callee` wrapper to the leaf variant (which drives the per-kind
  * row), then appends the SLSH-5 chain suffix leaf-first.
@@ -179,7 +179,7 @@ export function renderTopLevelErrNote(input: ErrNoteInput): string {
   while (isInvokeCalleeError(leaf)) {
     leaf = leaf.inner;
   }
-  const row = renderLeafKindNote(input.loomName, leaf);
+  const row = renderLeafKindNote(input.thetaName, leaf);
 
   // SLSH-5 chain suffix: one ` from <calleePath> invoked at <parentPath>:<line>`
   // per hop, emitted leaf-first (innermost hop first). `input.chain` is supplied

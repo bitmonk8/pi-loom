@@ -41,7 +41,7 @@ import {
 // The code-side `execute()` Promise's cancellation surfaces at the `tool-call`
 // checkpoint (cancellation.md Granularity: "immediately before each tool call").
 const TOOL_CALL_SITE: CheckpointSite = {
-  file: "review.loom",
+  file: "review.theta",
   line: 27,
   column: 11,
 };
@@ -149,7 +149,7 @@ describe("V14f-T — code-side execute() late-settlement three-channel suppressi
 
     // A late rejection whose `.message` would otherwise be diagnostic-worthy
     // (an OOM-style host failure). It MUST still be discarded — promotion to
-    // `loom/runtime/internal-error` would re-introduce the second-event surface
+    // `theta/runtime/internal-error` would re-introduce the second-event surface
     // the rule forbids.
     const disposition = routeToolExecuteLateSettlement(
       { kind: "rejected", error: new Error("host OOM after cancellation") },

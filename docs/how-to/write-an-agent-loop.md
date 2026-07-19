@@ -3,14 +3,14 @@
 You want an agent to keep working until a job is done — the pattern people call
 an *agent loop* or a *Ralph loop*: run the model, check the result, and either
 stop or go again. The usual version is a shell `while` loop that re-runs the
-model and hopes it eventually declares itself finished. Loom lets you write the
+model and hopes it eventually declares itself finished. Theta lets you write the
 same loop as real code, where **your code owns the stop condition** and the model
 only does the open-ended work inside each round.
 
-Loom fits this pattern well because two of its features line up with what the
+Theta fits this pattern well because two of its features line up with what the
 loop needs:
 
-- **A fresh context each round.** Calling a `mode: subagent` loom spawns a fresh,
+- **A fresh context each round.** Calling a `mode: subagent` theta spawns a fresh,
   isolated conversation, so each round starts clean instead of dragging the whole
   history along.
 - **A typed result to branch on.** The worker returns a typed
@@ -20,9 +20,9 @@ loop needs:
 
 ## Steps
 
-1. Write the per-round work as a `mode: subagent` worker loom. End it with a
+1. Write the per-round work as a `mode: subagent` worker theta. End it with a
    typed value that says whether the job is complete.
-2. Write the loop as a parent loom. Register the worker in `tools:` and call it by
+2. Write the loop as a parent theta. Register the worker in `tools:` and call it by
    name (its file stem, hyphens → underscores).
 3. Drive the loop with a `while` and a `let mut` counter. Each round: call the
    worker, then branch on its typed result — `return` on success, otherwise let
@@ -32,12 +32,12 @@ loop needs:
 
 ## Working example — a Ralph loop
 
-The worker [`docs/examples/ralph-step.loom`](../examples/ralph-step.loom) takes an
+The worker [`docs/examples/ralph-step.theta`](../examples/ralph-step.theta) takes an
 `objective`, does one task toward it, and reports whether the objective is met.
 State lives on disk (the files it edits, the commits it makes), not in the
 conversation:
 
-```loom
+```theta
 ---
 description: Do the next task toward the objective on a fresh context, then report status
 mode: subagent
@@ -60,18 +60,18 @@ report whether the objective is now fully met.`?
 status
 ```
 
-The loop [`docs/examples/ralph.loom`](../examples/ralph.loom) takes the same
+The loop [`docs/examples/ralph.theta`](../examples/ralph.theta) takes the same
 `objective`, passes it to the worker, and re-runs the worker on a fresh context
 until it reports `done`, or until it hits the ceiling:
 
-```loom
+```theta
 ---
 description: Re-run the worker on a fresh context until the objective is met (a Ralph loop)
 mode: subagent
 params:
   objective: string
 tools:
-  - ./ralph-step.loom
+  - ./ralph-step.theta
 ---
 let mut round = 0
 while round < 20 {
@@ -87,13 +87,13 @@ while round < 20 {
 Run it inside a project, passing the objective as the argument:
 
 ```
-pi --loom docs/examples -p "/ralph get the integration tests passing"
+pi --theta docs/examples -p "/ralph get the integration tests passing"
 ```
 
 Each `ralph_step(objective)` call is a fresh subagent conversation — the worker
 never sees the previous round's turns, only the objective it is handed and what it
 reads back off disk. The `while` bound, the completion check, and the ceiling are
-all ordinary code: the model does the work, your loom decides whether to keep
+all ordinary code: the model does the work, your theta decides whether to keep
 going.
 
 ## Variant — refine until approved
@@ -103,9 +103,9 @@ a reviewer subagent judges the draft, and the loop revises until the reviewer
 approves or the round budget runs out. It uses only queries and a subagent, so it
 runs without any external tools.
 
-Reviewer [`docs/examples/reviewer.loom`](../examples/reviewer.loom):
+Reviewer [`docs/examples/reviewer.theta`](../examples/reviewer.theta):
 
-```loom
+```theta
 ---
 description: Judge a draft and say whether it is good enough
 mode: subagent
@@ -123,14 +123,14 @@ ${draft}`?
 v
 ```
 
-Loop [`docs/examples/refine.loom`](../examples/refine.loom):
+Loop [`docs/examples/refine.theta`](../examples/refine.theta):
 
-```loom
+```theta
 ---
 description: Improve a draft until a reviewer subagent approves it (bounded)
 mode: subagent
 tools:
-  - ./reviewer.loom
+  - ./reviewer.theta
 params:
   topic: string
 ---
@@ -152,7 +152,7 @@ draft
 Run it:
 
 ```
-pi --loom docs/examples -p "/refine how a Ralph loop works"
+pi --theta docs/examples -p "/refine how a Ralph loop works"
 ```
 
 The reviewer runs in its own fresh context each round, so its judgement is not

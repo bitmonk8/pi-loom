@@ -18,7 +18,7 @@ import { loadExtension, type ResponseEvent } from "./harness/index";
 //   (g) subagent-mode callee — a private subagent AgentSession dispatched per the
 //       V9i subagent-mode session contract (subagent.md; PIC-43 terminal
 //       agent_end extraction), the V4c vector: the callee's outcome surfaces as
-//       an observable subagent-loom outcome, modelled on the subagent-mode
+//       an observable subagent-theta outcome, modelled on the subagent-mode
 //       session contract rather than a plain scripted turn.
 //
 // The surface is reached through H4a's harness: `loadExtension(...).double`
@@ -45,7 +45,7 @@ describe("H4c — modeled-behaviour surface determinism (Convention: end-to-end 
       // (g) a subagent callee: an interim willRetry:true event (ignored) then
       // the terminal willRetry:false event the outcome resolves from
       .scriptSubagentCallee({
-        loomName: "sub.loom",
+        thetaName: "sub.theta",
         agentEnds: [
           { value: "interim", willRetry: true },
           { value: "final", willRetry: false },
@@ -112,21 +112,21 @@ describe("H4c — (g) subagent-mode callee outcome (Convention: end-to-end harne
   // subagent.md V9i: a private in-memory AgentSession is spawned
   // (createAgentSession) and the outcome is extracted from the TERMINAL
   // agent_end event, ignoring willRetry:true events (PIC-43).
-  it("surfaces a scripted subagent-mode callee's outcome as a subagent-loom outcome", () => {
+  it("surfaces a scripted subagent-mode callee's outcome as a subagent-theta outcome", () => {
     const double = harnessDouble();
     double.responses.scriptSubagentCallee({
-      loomName: "reviewer.loom",
+      thetaName: "reviewer.theta",
       agentEnds: [{ value: "approved", willRetry: false }],
     });
     const t = double.driveResponses();
 
     // Modelled on the V9i session contract: a private session is spawned, then
-    // the outcome surfaces as a subagent-loom outcome — not a plain (a) turn.
+    // the outcome surfaces as a subagent-theta outcome — not a plain (a) turn.
     expect(t).toEqual([
-      { kind: "subagent-spawn", loomName: "reviewer.loom" },
-      { kind: "subagent-loom", loomName: "reviewer.loom", finalValue: "approved" },
+      { kind: "subagent-spawn", thetaName: "reviewer.theta" },
+      { kind: "subagent-theta", thetaName: "reviewer.theta", finalValue: "approved" },
     ]);
-    // The outcome is a subagent-loom outcome, not an ordinary assistant turn:
+    // The outcome is a subagent-theta outcome, not an ordinary assistant turn:
     // no fragment / turn-end events are emitted for the private session.
     expect(t.some((e) => e.kind === "fragment" || e.kind === "turn-end")).toBe(false);
   });
@@ -134,7 +134,7 @@ describe("H4c — (g) subagent-mode callee outcome (Convention: end-to-end harne
   it("resolves the outcome from the terminal agent_end, ignoring willRetry:true events (PIC-43)", () => {
     const double = harnessDouble();
     double.responses.scriptSubagentCallee({
-      loomName: "sub.loom",
+      thetaName: "sub.theta",
       agentEnds: [
         { value: "decoy-1", willRetry: true },
         { value: "decoy-2", willRetry: true },
@@ -144,8 +144,8 @@ describe("H4c — (g) subagent-mode callee outcome (Convention: end-to-end harne
     const t = double.driveResponses();
 
     const outcome = t.find(
-      (e): e is Extract<ResponseEvent, { kind: "subagent-loom" }> =>
-        e.kind === "subagent-loom",
+      (e): e is Extract<ResponseEvent, { kind: "subagent-theta" }> =>
+        e.kind === "subagent-theta",
     );
     // The willRetry:true decoys do NOT resolve the query; only the terminal
     // willRetry:false event's value surfaces.
@@ -155,7 +155,7 @@ describe("H4c — (g) subagent-mode callee outcome (Convention: end-to-end harne
   it("fails loudly when a scripted subagent callee never reaches a terminal agent_end", () => {
     const double = harnessDouble();
     double.responses.scriptSubagentCallee({
-      loomName: "never.loom",
+      thetaName: "never.theta",
       agentEnds: [{ value: "x", willRetry: true }],
     });
     // A subagent query with no terminal agent_end is a scripting error and is

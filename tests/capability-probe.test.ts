@@ -11,7 +11,7 @@ import {
 //
 // Spec: pi-integration-contract/capability-probe.md (canonical source of truth
 // for every probe rule) + host-prerequisites.md. The probe-wide invariants
-// PIC-3/4/5/6 and the closed `loom/load/host-incompatible` `details.kind`
+// PIC-3/4/5/6 and the closed `theta/load/host-incompatible` `details.kind`
 // discriminator set are exercised below. Each test cites its `PREFIX-N` inline.
 //
 // The probe is a pure function over an injected host snapshot: tests build both
@@ -288,7 +288,7 @@ describe("V9a capability probe — PIC-6 (never throws)", () => {
 });
 
 // ── Closed `details.kind` discriminator set ─────────────────────────────────
-// The failure outcome is the structured `loom/load/host-incompatible` payload
+// The failure outcome is the structured `theta/load/host-incompatible` payload
 // (diagnostics/code-registry-load.md). Observed/required substrings are sourced
 // from the per-`kind` enumeration in diagnostics/placeholder-rendering-b.md
 // (#host-incompatible-observed-required).

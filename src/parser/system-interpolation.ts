@@ -3,17 +3,17 @@
 // This module owns the `system:` frontmatter field's interpolation surface of
 // frontmatter/frontmatter-fields-b-and-templates.md §`system` Interpolation:
 //
-//   - the **subagent-mode-only** rule — `system:` on a `mode: prompt` loom is
-//     `loom/parse/system-on-prompt-mode` (the prompt-mode session's system
-//     prompt belongs to Pi, not the loom);
+//   - the **subagent-mode-only** rule — `system:` on a `mode: prompt` theta is
+//     `theta/parse/system-on-prompt-mode` (the prompt-mode session's system
+//     prompt belongs to Pi, not the theta);
 //   - the restricted `${…}` grammar — only a bare identifier `Path`
 //     (`Ident ('.' Ident)*`) is accepted; any other body fires one of the four
-//     `loom/parse/system-interp-*` diagnostics:
+//     `theta/parse/system-interp-*` diagnostics:
 //       * `system-interp-not-path`      — body is not a `Path`
 //         (`${arr[0]}`, `${a + b}`, `${f(x)}`, `${a?.b}`, `${"x"}`);
 //       * `system-interp-unknown-param` — head `Ident` names no declared param;
 //       * `system-interp-bad-field`     — a `.Ident` step names no reachable
-//         loom-side object field (or descends into an array / un-narrowed
+//         theta-side object field (or descends into an array / un-narrowed
 //         discriminated union);
 //       * `system-interp-unterminated`  — `${` is not closed by a matching `}`;
 //   - the `\${` escape — a literal `${` suppresses interpolation;
@@ -37,8 +37,8 @@
 // query/query-escapes-stringification.md.
 
 import { type Diagnostic, type SourceRange } from "../diagnostics/diagnostic";
-import { type LoomMode } from "./frontmatter";
-import { type LoomValue } from "../runtime/value";
+import { type ThetaMode } from "./frontmatter";
+import { type ThetaValue } from "../runtime/value";
 import {
   stringifyInterpolatedValue,
   type InterpolationType,
@@ -50,34 +50,34 @@ import {
 // (diagnostics/code-registry-parse.md) per the *Diagnostic message anchors*
 // rule.
 
-/** `loom/parse/system-on-prompt-mode` (E). */
-export const SYSTEM_ON_PROMPT_MODE_CODE = "loom/parse/system-on-prompt-mode";
-/** `loom/parse/system-interp-not-path` (E). */
-export const SYSTEM_INTERP_NOT_PATH_CODE = "loom/parse/system-interp-not-path";
-/** `loom/parse/system-interp-unknown-param` (E). */
+/** `theta/parse/system-on-prompt-mode` (E). */
+export const SYSTEM_ON_PROMPT_MODE_CODE = "theta/parse/system-on-prompt-mode";
+/** `theta/parse/system-interp-not-path` (E). */
+export const SYSTEM_INTERP_NOT_PATH_CODE = "theta/parse/system-interp-not-path";
+/** `theta/parse/system-interp-unknown-param` (E). */
 export const SYSTEM_INTERP_UNKNOWN_PARAM_CODE =
-  "loom/parse/system-interp-unknown-param";
-/** `loom/parse/system-interp-bad-field` (E). */
-export const SYSTEM_INTERP_BAD_FIELD_CODE = "loom/parse/system-interp-bad-field";
-/** `loom/parse/system-interp-unterminated` (E). */
+  "theta/parse/system-interp-unknown-param";
+/** `theta/parse/system-interp-bad-field` (E). */
+export const SYSTEM_INTERP_BAD_FIELD_CODE = "theta/parse/system-interp-bad-field";
+/** `theta/parse/system-interp-unterminated` (E). */
 export const SYSTEM_INTERP_UNTERMINATED_CODE =
-  "loom/parse/system-interp-unterminated";
+  "theta/parse/system-interp-unterminated";
 
-/** Registry Message for `loom/parse/system-on-prompt-mode`. */
+/** Registry Message for `theta/parse/system-on-prompt-mode`. */
 export const SYSTEM_ON_PROMPT_MODE_MESSAGE =
-  "'system:' is not permitted on a mode: prompt loom";
-/** Registry Message for `loom/parse/system-interp-not-path`. */
+  "'system:' is not permitted on a mode: prompt theta";
+/** Registry Message for `theta/parse/system-interp-not-path`. */
 export const SYSTEM_INTERP_NOT_PATH_MESSAGE =
   "'system:' interpolation body must be a bare identifier path";
-/** Registry Message for `loom/parse/system-interp-unknown-param`. */
+/** Registry Message for `theta/parse/system-interp-unknown-param`. */
 export function systemInterpUnknownParamMessage(name: string): string {
   return `'system:' interpolation references unknown param '${name}'`;
 }
-/** Registry Message for `loom/parse/system-interp-bad-field`. */
+/** Registry Message for `theta/parse/system-interp-bad-field`. */
 export function systemInterpBadFieldMessage(field: string, path: string): string {
   return `'system:' interpolation '.${field}' does not name a reachable object field on ${path}`;
 }
-/** Registry Message for `loom/parse/system-interp-unterminated`. */
+/** Registry Message for `theta/parse/system-interp-unterminated`. */
 export const SYSTEM_INTERP_UNTERMINATED_MESSAGE =
   "'system:' interpolation '${' is not closed by a matching '}'";
 
@@ -96,7 +96,7 @@ export const SYSTEM_INTERP_UNTERMINATED_MESSAGE =
  *   - `object` carries its reachable fields, so a `.Ident` step is validated
  *     against `fields`;
  *   - `discriminated-union` terminates a path: a `.Ident` step into an arm
- *     without a discriminator narrowing is rejected (loom 1.0 has no narrowing
+ *     without a discriminator narrowing is rejected (theta 1.0 has no narrowing
  *     in this slot);
  *   - `array` / `object` optionally carry the wire-name-translation sidecars so
  *     the compact `JSON.stringify` rendering applies outbound translation.
@@ -148,9 +148,9 @@ export interface SystemTemplate {
 export interface CheckSystemInterpolationInput {
   /** The raw `system:` scalar value (block-scalar contents, YAML-unescaped). */
   readonly systemValue: string;
-  /** The loom's `mode:` — `system:` on `prompt` is rejected. */
-  readonly mode: LoomMode;
-  /** The declared `params`, keyed by loom-side field name. */
+  /** The theta's `mode:` — `system:` on `prompt` is rejected. */
+  readonly mode: ThetaMode;
+  /** The declared `params`, keyed by theta-side field name. */
   readonly params: ReadonlyMap<string, SystemParamType>;
   /** The source file, for located diagnostics. */
   readonly file: string;
@@ -170,12 +170,12 @@ export interface CheckSystemInterpolationResult {
  * Validate a `system:` field at frontmatter-parse time
  * (frontmatter/frontmatter-fields-b-and-templates.md §`system` Interpolation):
  *
- *   - `loom/parse/system-on-prompt-mode` when the loom is `mode: prompt`;
+ *   - `theta/parse/system-on-prompt-mode` when the theta is `mode: prompt`;
  *   - each `${…}` body restricted to the `Path` production —
- *     `loom/parse/system-interp-not-path` for any other body,
- *     `loom/parse/system-interp-unknown-param` for an undeclared head `Ident`,
- *     `loom/parse/system-interp-bad-field` for a `.Ident` step that names no
- *     reachable object field, and `loom/parse/system-interp-unterminated` for
+ *     `theta/parse/system-interp-not-path` for any other body,
+ *     `theta/parse/system-interp-unknown-param` for an undeclared head `Ident`,
+ *     `theta/parse/system-interp-bad-field` for a `.Ident` step that names no
+ *     reachable object field, and `theta/parse/system-interp-unterminated` for
  *     an unclosed `${`;
  *   - `\${` resolved to a literal `${` text run (interpolation suppressed).
  *
@@ -191,8 +191,8 @@ export function checkSystemInterpolation(
 ): CheckSystemInterpolationResult {
   const { systemValue, mode, params, file } = input;
 
-  // Subagent-mode-only: `system:` on a `mode: prompt` loom belongs to Pi, not
-  // the loom, and is rejected outright — no template is produced.
+  // Subagent-mode-only: `system:` on a `mode: prompt` theta belongs to Pi, not
+  // the theta, and is rejected outright — no template is produced.
   if (mode === "prompt") {
     return {
       diagnostics: [
@@ -317,7 +317,7 @@ function splitPathSegments(body: string): readonly string[] | undefined {
 
 /**
  * Parse one interpolation body into a validated path part, pushing the relevant
- * `loom/parse/system-interp-*` diagnostic and returning `undefined` on any
+ * `theta/parse/system-interp-*` diagnostic and returning `undefined` on any
  * violation: not-path, unknown head param, or a `.Ident` step that names no
  * reachable object field (or descends into an array / un-narrowed union).
  */
@@ -441,13 +441,13 @@ export interface RenderSystemPromptInput {
   /** The parsed template produced by {@link checkSystemInterpolation}. */
   readonly template: SystemTemplate;
   /** The validated `params` object the paths resolve against. */
-  readonly params: Readonly<Record<string, LoomValue>>;
+  readonly params: Readonly<Record<string, ThetaValue>>;
 }
 
 /**
  * The outcome of rendering a `system:` template. `ok: false` carries a
  * diagnostic for the runtime fallback the shared renderer defines; this arm
- * cannot carry `loom/parse/interpolated-result` from the `system:` surface
+ * cannot carry `theta/parse/interpolated-result` from the `system:` surface
  * because `params:` types never include `Result`.
  */
 export type RenderSystemPromptResult =
@@ -488,14 +488,14 @@ export function renderSystemPrompt(
 
 /** Resolve a validated `Ident ('.' Ident)*` path against the params object. */
 function resolvePath(
-  params: Readonly<Record<string, LoomValue>>,
+  params: Readonly<Record<string, ThetaValue>>,
   segments: readonly string[],
-): LoomValue {
-  let current: LoomValue = params[segments[0] as string] as LoomValue;
+): ThetaValue {
+  let current: ThetaValue = params[segments[0] as string] as ThetaValue;
   for (let s = 1; s < segments.length; s++) {
-    current = (current as { readonly [key: string]: LoomValue })[
+    current = (current as { readonly [key: string]: ThetaValue })[
       segments[s] as string
-    ] as LoomValue;
+    ] as ThetaValue;
   }
   return current;
 }

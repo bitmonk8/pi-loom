@@ -1,29 +1,29 @@
-# pi-loom
+# pi-theta
 
-`pi-loom` is a [Pi Coding Agent](https://github.com/earendil-works/pi-mono)
-extension that adds **Loom**, a scripting language for Pi agents. Write the
+`pi-theta` is a [Pi Coding Agent](https://github.com/earendil-works/pi-mono)
+extension that adds **Theta**, a scripting language for Pi agents. Write the
 predictable parts of an agent task as code and leave only the genuinely fuzzy
 parts to the model — no custom extension required.
 
-A `.loom` file mixes ordinary code — variables, loops, conditionals, functions —
-with the text you send to the model. Running a loom adds turns to a conversation:
+A `.theta` file mixes ordinary code — variables, loops, conditionals, functions —
+with the text you send to the model. Running a theta adds turns to a conversation:
 either the caller's current one (*prompt mode*) or a fresh, isolated one
 (*subagent mode*). When it succeeds it can also return a
 [*final value*](./docs/reference/errors-and-results.md#final-value-fn-5) — the
-loom's last expression, or the value you `return` — which callers can use and pass
-back across the subagent boundary. Looms can't write files, use the network, or
+theta's last expression, or the value you `return` — which callers can use and pass
+back across the subagent boundary. Thetas can't write files, use the network, or
 spawn processes on their own; those effects happen only through the Pi tools a
-loom is allowed to call (its
+theta is allowed to call (its
 [callable set](./docs/reference/frontmatter.md#tools-callable-set)).
-`.warp` files are library modules that share Loom's grammar and types and are
-imported by `.loom` files; they are never run directly.
+`.thetalib` files are library modules that share Theta's grammar and types and are
+imported by `.theta` files; they are never run directly.
 
 ## The problem
 
 Pi's built-in `prompt` and `subagent` features are just Markdown with some
 fill-in-the-blanks — static text with YAML frontmatter. They can't branch, loop,
 read a model's response, carry a conversation across several turns, or hand a
-typed value back to the caller. Loom does all of that: your code decides what text
+typed value back to the caller. Theta does all of that: your code decides what text
 goes to the model, the model's replies come back as values, and every run ends in
 one of three ways — success, failure, or cancellation — defined in
 [Errors and Results](./docs/reference/errors-and-results.md#terminal-outcomes-closed-set).
@@ -32,15 +32,15 @@ one of three ways — success, failure, or cancellation — defined in
 
 The pattern people call an *agent loop* (or a *Ralph loop*) is: run the model,
 check the result, then stop or go again. The usual version is a shell loop that
-re-runs the model and hopes it eventually declares itself done. In Loom the loop
+re-runs the model and hopes it eventually declares itself done. In Theta the loop
 is real code, so your code owns the stop condition and the model just does the
 work inside each round.
 
-The worker [`docs/examples/ralph-step.loom`](./docs/examples/ralph-step.loom) does
+The worker [`docs/examples/ralph-step.theta`](./docs/examples/ralph-step.theta) does
 one round of work on a fresh context and hands back a typed result. State lives on
 disk — the files it edits, the commits it makes — not in the conversation:
 
-```loom
+```theta
 ---
 description: Do the next task toward the objective on a fresh context, then report status
 mode: subagent
@@ -63,18 +63,18 @@ report whether the objective is now fully met.`?
 status
 ```
 
-The loop [`docs/examples/ralph.loom`](./docs/examples/ralph.loom) takes an
+The loop [`docs/examples/ralph.theta`](./docs/examples/ralph.theta) takes an
 objective, passes it to the worker, and re-runs the worker on a fresh context
 until it reports `done` — or hits the round ceiling:
 
-```loom
+```theta
 ---
 description: Re-run the worker on a fresh context until the objective is met (a Ralph loop)
 mode: subagent
 params:
   objective: string
 tools:
-  - ./ralph-step.loom
+  - ./ralph-step.theta
 ---
 let mut round = 0
 while round < 20 {
@@ -87,14 +87,14 @@ while round < 20 {
 "stopped at the 20-round ceiling"
 ```
 
-Put both files on the discovery path with `--loom`, and `ralph.loom` is available
+Put both files on the discovery path with `--theta`, and `ralph.theta` is available
 as the `/ralph` slash command — the argument becomes its `objective`:
 
 ```
-pi --loom docs/examples -p "/ralph get the integration tests passing"
+pi --theta docs/examples -p "/ralph get the integration tests passing"
 ```
 
-Or, from inside a running `pi` session (once the directory is on your loom
+Or, from inside a running `pi` session (once the directory is on your theta
 discovery path), just type the slash command:
 
 ```
@@ -108,17 +108,17 @@ self-contained example you can run without any external tools.
 
 ## Status
 
-Loom is at its initial version (**0.1.x**). The whole documented language works and
+Theta is at its initial version (**0.1.x**). The whole documented language works and
 is tested end-to-end, but this is an early release and may still contain bugs.
 
 Report issues against the behaviour the [Reference](./docs/reference/) defines.
 
 ## Documentation
 
-- **[Guide](./docs/guide.md)** — how Loom works: mixing code with the text you
-  send to the model, prompt vs. subagent mode, `.loom` vs. `.warp`, and the final
+- **[Guide](./docs/guide.md)** — how Theta works: mixing code with the text you
+  send to the model, prompt vs. subagent mode, `.theta` vs. `.thetalib`, and the final
   value.
-- **[Tutorial](./docs/tutorial.md)** — build your first loom, from an empty file
+- **[Tutorial](./docs/tutorial.md)** — build your first theta, from an empty file
   to a working one.
 - **[How-to guides](./docs/how-to/)** — short recipes for specific tasks, including
   [writing an agent loop](./docs/how-to/write-an-agent-loop.md).

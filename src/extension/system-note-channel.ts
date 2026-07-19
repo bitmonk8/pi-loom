@@ -1,10 +1,10 @@
-// V7d / V7d-T — the `loom-system-note` delivery channel.
+// V7d / V7d-T — the `theta-system-note` delivery channel.
 //
-// This module owns the delivery-side `loom-system-note` `sendMessage`
-// envelope, the multi-error batching (one `sendMessage` per `.loom` carrying
+// This module owns the delivery-side `theta-system-note` `sendMessage`
+// envelope, the multi-error batching (one `sendMessage` per `.theta` carrying
 // the full `Diagnostic[]` assembled by V7a), the producer-facing
 // diagnostic-emission seam, and the best-effort fallback chain
-// (`sendSystemNote` → `ctx.ui.notify` → `loom/runtime/system-note-delivery-failed`
+// (`sendSystemNote` → `ctx.ui.notify` → `theta/runtime/system-note-delivery-failed`
 // → terminal `console.error`) per
 // pi-integration-contract/runtime-event-channel.md §"System notes" and PIC-54.
 //
@@ -18,19 +18,19 @@ function throwMessage(thrown: unknown): string {
   return thrown instanceof Error ? thrown.message : String(thrown);
 }
 
-/** The loom-internal system-note renderer channel `customType`. */
-export const SYSTEM_NOTE_CHANNEL = "loom-system-note";
+/** The theta-internal system-note renderer channel `customType`. */
+export const SYSTEM_NOTE_CHANNEL = "theta-system-note";
 
 /**
  * The diagnostics-registry code the delivery-failure fallback emits, per the
- * `loom/runtime/system-note-delivery-failed` row in
+ * `theta/runtime/system-note-delivery-failed` row in
  * diagnostics/code-registry-runtime.md.
  */
 export const SYSTEM_NOTE_DELIVERY_FAILED_CODE =
-  "loom/runtime/system-note-delivery-failed";
+  "theta/runtime/system-note-delivery-failed";
 
 /**
- * The four normative `details` payload shapes the `loom-system-note` channel
+ * The four normative `details` payload shapes the `theta-system-note` channel
  * carries, distinguished by which key is present (runtime-event-channel.md
  * §"system-note-details-shapes"). The shapes are disjoint by key.
  */
@@ -43,9 +43,9 @@ export type SystemNoteDetails =
         readonly removed: readonly string[];
       };
     }
-  | { readonly recovery: { readonly looms: readonly string[] } };
+  | { readonly recovery: { readonly thetas: readonly string[] } };
 
-/** A `loom-system-note` to deliver through the best-effort channel. */
+/** A `theta-system-note` to deliver through the best-effort channel. */
 export interface SystemNote {
   readonly content: string;
   readonly display: boolean;
@@ -71,7 +71,7 @@ export interface SystemNoteSender {
 
 /**
  * The transient toast surface (`ctx.ui`) the fallback chain calls — the only
- * member loom touches is `notify(message, "error")` (synchronous, may throw).
+ * member theta touches is `notify(message, "error")` (synchronous, may throw).
  */
 export interface UiNotifier {
   notify(message: string, type: "error"): void;
@@ -81,8 +81,8 @@ export interface UiNotifier {
  * The renderer-availability gate shared between the extension factory and the
  * System-notes fallback chain. The factory degrades it once, permanently, when
  * the factory-time `pi.registerMessageRenderer` registration fails
- * (extension-bootstrap-and-per-loom.md §"`pi.registerMessageRenderer` failure"):
- * the persistent-transcript surface (the `loom-system-note` renderer) is then
+ * (extension-bootstrap-and-per-theta.md §"`pi.registerMessageRenderer` failure"):
+ * the persistent-transcript surface (the `theta-system-note` renderer) is then
  * unavailable, so the System-notes fallback chain degrades to the
  * `ctx.ui.notify` arm — `sendSystemNote` skips the `pi.sendMessage` arm and
  * routes through `ctx.ui.notify` for the remaining lifetime of this extension
@@ -111,7 +111,7 @@ export class RendererGate {
 
 /** Construction dependencies for the delivery channel. */
 export interface SystemNoteChannelDeps {
-  /** The `loom-system-note` send seam (adapts `pi.sendMessage`). */
+  /** The `theta-system-note` send seam (adapts `pi.sendMessage`). */
   readonly pi: SystemNoteSender;
   /** The transient toast surface (`ctx.ui`). */
   readonly ui: UiNotifier;
@@ -121,7 +121,7 @@ export interface SystemNoteChannelDeps {
    * The renderer-availability gate (V9p). When present and degraded
    * (`available() === false`), the persistent-transcript `pi.sendMessage` arm
    * is skipped and the note routes straight through the `ctx.ui.notify` arm —
-   * the renderer that would render a `loom-system-note` failed to register, so
+   * the renderer that would render a `theta-system-note` failed to register, so
    * delivering to the transcript would render nothing. Absent (or available)
    * means the steady-state `pi.sendMessage`-first path. Consumed by the paired
    * V9p implementation.
@@ -130,8 +130,8 @@ export interface SystemNoteChannelDeps {
 }
 
 /**
- * Deliver a single `loom-system-note` best-effort, falling back through
- * `ctx.ui.notify` → `loom/runtime/system-note-delivery-failed` → terminal
+ * Deliver a single `theta-system-note` best-effort, falling back through
+ * `ctx.ui.notify` → `theta/runtime/system-note-delivery-failed` → terminal
  * `console.error` (PIC-54) when `pi.sendMessage` throws.
  */
 export function sendSystemNote(
@@ -144,9 +144,9 @@ export function sendSystemNote(
   // persistent-transcript renderer is unavailable and delivering to the
   // transcript via `pi.sendMessage` would render nothing. Skip the transcript
   // arm entirely and route straight through the `ctx.ui.notify` arm of the
-  // System-notes fallback chain (extension-bootstrap-and-per-loom.md
+  // System-notes fallback chain (extension-bootstrap-and-per-theta.md
   // §"`pi.registerMessageRenderer` failure"). The renderer failure already
-  // emitted one `loom/load/extension-bootstrap-failed` diagnostic at factory
+  // emitted one `theta/load/extension-bootstrap-failed` diagnostic at factory
   // time, so no per-note delivery-failed diagnostic fires for this expected
   // degraded route; only a throwing toast falls to the terminal
   // `console.error` (PIC-54).
@@ -195,7 +195,7 @@ export function sendSystemNote(
       }
     }
 
-    // Fallback step 2 — a `loom/runtime/system-note-delivery-failed`
+    // Fallback step 2 — a `theta/runtime/system-note-delivery-failed`
     // diagnostic: `message` = the original note's content, `hint` = the
     // underlying throw's message. Itself best-effort: a throw here routes to
     // the terminal `console.error`.
@@ -228,7 +228,7 @@ export function sendSystemNote(
 
 /**
  * The producer-facing diagnostic-emission seam: submit a scan-time batch of
- * `Diagnostic`s for delivery as exactly one `loom-system-note` `sendMessage`
+ * `Diagnostic`s for delivery as exactly one `theta-system-note` `sendMessage`
  * (no per-error fan-out). Producers hand `Diagnostic`s here and never call
  * `pi.sendMessage` directly.
  */
@@ -236,7 +236,7 @@ export function emitDiagnosticBatch(
   diagnostics: readonly Diagnostic[],
   deps: SystemNoteChannelDeps,
 ): void {
-  // One `loom-system-note` per `.loom` scan carrying the full batch — no
+  // One `theta-system-note` per `.theta` scan carrying the full batch — no
   // per-error fan-out. Content is the serialised batch; `details.diagnostics`
   // carries the full `Diagnostic[]`. A re-scan re-emits with no dedup /
   // supersede (a second call is a second `sendMessage`).

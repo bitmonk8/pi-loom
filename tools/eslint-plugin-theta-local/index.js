@@ -1,6 +1,6 @@
 "use strict";
 
-// Loom's bespoke local ESLint rules, wired by H2a's eslint.config.js over
+// Theta's bespoke local ESLint rules, wired by H2a's eslint.config.js over
 // `src/**` (the single production-code root). All three rules are
 // comment-keyed: a flagged construct is permitted only where its own source
 // line carries the matching `// allow-...:` comment. The set of those
@@ -31,7 +31,7 @@ function hasSameLineComment(context, node, regex) {
 
 // A `// allow-broad-catch: <token> — <spec-page>` comment. The H2a lint
 // verifies only that such a comment with a non-empty cited token is present;
-// resolving the token against coverage-matrix.md is the loom 1.0 closing
+// resolving the token against coverage-matrix.md is the theta 1.0 closing
 // gate's job (H5c), not this rule's.
 const ALLOW_BROAD_CATCH = /allow-broad-catch:\s*\S+/;
 // A `// allow: <REQ-ID-or-cka-token> — <spec-page>` comment for a permitted
@@ -174,7 +174,7 @@ const noBlockingSync = {
 
 module.exports = {
   meta: {
-    name: "eslint-plugin-loom-local",
+    name: "eslint-plugin-theta-local",
     version: "0.1.0",
   },
   rules: {

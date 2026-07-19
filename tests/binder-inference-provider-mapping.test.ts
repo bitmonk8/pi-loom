@@ -26,7 +26,7 @@ import type { BinderEnvelopeSchema } from "../src/binder/binder-envelope";
 // (binder-inference.md §Binder inference call) and `cka-35`
 // (provider-error-mapping.md §Provider error mapping / seed-field mapping), and
 // supplies the asserting test for the load warning code
-// `loom/load/typed-query-unsupported-provider`.
+// `theta/load/typed-query-unsupported-provider`.
 //
 // Each test reds on its own primary assertion because the V9j behaviour is
 // absent: `classifyProviderResponse` returns a sentinel `CancelledError` (never
@@ -372,7 +372,7 @@ describe("V9j-T — complete() binder envelope (cka-34)", () => {
     expect(call.options.temperature).toBe(0);
   });
 
-  it("cka-34: options.signal is the supplied loomAbort signal", () => {
+  it("cka-34: options.signal is the supplied thetaAbort signal", () => {
     const input = callInput("anthropic-messages", 7);
     const call = buildBinderCompleteCall(input);
     expect(call.options.signal).toBe(input.signal);
@@ -423,17 +423,17 @@ describe("V9j-T — complete() binder envelope (cka-34)", () => {
 // Bullet 3 — the typed-query unsupported-provider load warning + runtime guard
 // ============================================================================
 
-describe("V9j-T — typed-query unsupported provider (loom/load/typed-query-unsupported-provider)", () => {
+describe("V9j-T — typed-query unsupported provider (theta/load/typed-query-unsupported-provider)", () => {
   // The expected message is sourced from the *Message* column of the load
   // diagnostics registry (diagnostics/code-registry-load.md) for the code
-  // `loom/load/typed-query-unsupported-provider`, per the *Diagnostic message
+  // `theta/load/typed-query-unsupported-provider`, per the *Diagnostic message
   // anchors* rule.
   const registryMessage = (provider: string, model: string): string =>
-    `provider '${provider}' (model '${model}') is outside the loom 1.0 typed-query supported set; typed queries will fail at runtime`;
+    `provider '${provider}' (model '${model}') is outside the theta 1.0 typed-query supported set; typed queries will fail at runtime`;
 
-  it("loom/load/typed-query-unsupported-provider: surfaced (W) for a typed query on an unsupported provider", () => {
+  it("theta/load/typed-query-unsupported-provider: surfaced (W) for a typed query on an unsupported provider", () => {
     const diagnostic = checkTypedQueryProviderSupport({
-      file: "/looms/triage.loom",
+      file: "/theta/triage.theta",
       hasTypedQuery: true,
       api: "google-generative-ai",
       modelReference: "gemini-pro",
@@ -446,9 +446,9 @@ describe("V9j-T — typed-query unsupported provider (loom/load/typed-query-unsu
     );
   });
 
-  it("loom/load/typed-query-unsupported-provider: NOT surfaced for a supported provider", () => {
+  it("theta/load/typed-query-unsupported-provider: NOT surfaced for a supported provider", () => {
     const diagnostic = checkTypedQueryProviderSupport({
-      file: "/looms/triage.loom",
+      file: "/theta/triage.theta",
       hasTypedQuery: true,
       api: "anthropic-messages",
       modelReference: "claude-sonnet",
@@ -456,9 +456,9 @@ describe("V9j-T — typed-query unsupported provider (loom/load/typed-query-unsu
     expect(diagnostic).toBeNull();
   });
 
-  it("loom/load/typed-query-unsupported-provider: NOT surfaced when the loom carries no typed query", () => {
+  it("theta/load/typed-query-unsupported-provider: NOT surfaced when the theta carries no typed query", () => {
     const diagnostic = checkTypedQueryProviderSupport({
-      file: "/looms/triage.loom",
+      file: "/theta/triage.theta",
       hasTypedQuery: false,
       api: "google-generative-ai",
       modelReference: "gemini-pro",

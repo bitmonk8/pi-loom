@@ -57,12 +57,12 @@ describe("V11e-T — System-note rendering (defaulting-system-note-echo.md #syst
     // The full reference note composed through the failure-arm grammar.
     expect(
       renderFailureNote({
-        loomName: "code-review",
+        thetaName: "code-review",
         fixedPhrase: "argument binding needs more info",
         suffix: "binding\tfailed   here",
       }),
     ).toBe(
-      `loom /code-review: argument binding needs more info ${EM_DASH} binding failed here`,
+      `theta /code-review: argument binding needs more info ${EM_DASH} binding failed here`,
     );
   });
 
@@ -84,28 +84,28 @@ describe("V11e-T — System-note rendering (defaulting-system-note-echo.md #syst
     expect(cappedAstral.endsWith("\u2026")).toBe(true);
 
     // A note ≤120 code points gets no `…` and is returned unchanged.
-    const short = "loom /a: argument binding cancelled";
+    const short = "theta /a: argument binding cancelled";
     expect(capSystemNote(short)).toBe(short);
   });
 
-  it("rule 3 (cka-41): the failure grammar `loom /<name>: <fixed-phrase> — <suffix>` and the success echo `Running /<name>: <args>` mark the prefix↔suffix boundary", () => {
-    // Failure-arm note: `loom /<name>: <fixed-phrase> — <sanitised-suffix>`; the
-    // em-dash marks the loom-controlled-prefix ↔ model/runtime-suffix boundary.
+  it("rule 3 (cka-41): the failure grammar `theta /<name>: <fixed-phrase> — <suffix>` and the success echo `Running /<name>: <args>` mark the prefix↔suffix boundary", () => {
+    // Failure-arm note: `theta /<name>: <fixed-phrase> — <sanitised-suffix>`; the
+    // em-dash marks the theta-controlled-prefix ↔ model/runtime-suffix boundary.
     const failure = renderFailureNote({
-      loomName: "code-review",
+      thetaName: "code-review",
       fixedPhrase: "ambiguous arguments",
       suffix: "be more explicit",
     });
     expect(failure).toBe(
-      `loom /code-review: ambiguous arguments ${EM_DASH} be more explicit`,
+      `theta /code-review: ambiguous arguments ${EM_DASH} be more explicit`,
     );
-    expect(failure.startsWith("loom /code-review: ")).toBe(true);
+    expect(failure.startsWith("theta /code-review: ")).toBe(true);
     expect(failure.includes(` ${EM_DASH} `)).toBe(true);
 
     // Success echo: `Running /<name>: <formatted-args>`; the `:` marks the
     // prefix↔suffix boundary (the echo formatter is owned by V11h).
     const echo = renderArgumentEcho({
-      loomName: "code-review",
+      thetaName: "code-review",
       params: [
         {
           name: "language",
@@ -140,7 +140,7 @@ describe("V11e-T — System-note rendering (defaulting-system-note-echo.md #syst
     });
     // The suffix is the rule-1-sanitised `message` only.
     expect(suffix).toBe("focusing on Ada is unclear");
-    // `candidates` are never surfaced on the loom 1.0 user-facing note.
+    // `candidates` are never surfaced on the theta 1.0 user-facing note.
     expect(suffix.includes("focus_areas")).toBe(false);
     expect(suffix.includes("author")).toBe(false);
   });
@@ -183,7 +183,7 @@ describe("V11e-T — Binder determinism (determinism-cancellation-failure.md §D
     expect(deriveBinderSeed("hello")).toBe(0x4f9f2cab);
     expect(deriveBinderSeed("a")).toBe(0xe40c292c);
 
-    // Determinism: the same loom name derives the same seed on every call.
+    // Determinism: the same theta name derives the same seed on every call.
     expect(deriveBinderSeed("code-review")).toBe(deriveBinderSeed("code-review"));
 
     // `temperature: 0` is set on every binder call; the FNV-derived seed flows

@@ -20,21 +20,21 @@ async function drive(files: readonly PlantedFile[], invocation: string, timeoutN
 describe("INVOKE runtime / ceilings / cross-mode", () => {
   it("INV-5r: a callee OUTSIDE every discovery root is NOT invoked (sandbox enforced)", async () => {
     // invocation.md §Resolution / INV-1: the escaping callee is rejected. The
-    // load-time containment check (`loom/load/invoke-path-escape`) un-registers
+    // load-time containment check (`theta/load/invoke-path-escape`) un-registers
     // `escparent`, and the runtime open-time re-check is the backstop
     // (`Err(InvokeInfraError{cause:"load_failure"})`). Either way the parent body
     // never proceeds to run @`x` against the out-of-root callee.
     const { probe, turn } = await drive(
       [
-        { source: "project", path: "escparent.loom", text: ["---", "mode: prompt", "---", 'let _ = invoke("../../evil.loom")?', "@`x`"].join("\n") },
-        { source: "rel", path: "evil.loom", text: ["---", "mode: subagent", "---", "42"].join("\n") },
+        { source: "project", path: "escparent.theta", text: ["---", "mode: prompt", "---", 'let _ = invoke("../../evil.theta")?', "@`x`"].join("\n") },
+        { source: "rel", path: "evil.theta", text: ["---", "mode: subagent", "---", "42"].join("\n") },
       ],
       "/escparent",
     );
     try {
-      // Load-time rejection: the escaping loom did not register.
+      // Load-time rejection: the escaping theta did not register.
       expect(probe.registeredNames).not.toContain("escparent");
-      // V4e: the error-severity load diagnostic lands on the `loom-system-note`
+      // V4e: the error-severity load diagnostic lands on the `theta-system-note`
       // channel (`probe.systemNotes`), not `probe.diagnostics` (see probe-harness).
       expect(
         probe.systemNotes.some((n) => n.includes("resolves outside every active discovery root")),
@@ -53,8 +53,8 @@ describe("INVOKE runtime / ceilings / cross-mode", () => {
     // "return_validation"}), aborting the parent via `?` before @`got ${n}`.
     const { probe, turn } = await drive(
       [
-        { source: "project", path: "retparent.loom", text: ["---", "mode: prompt", "---", 'let n: number = invoke<number>("./retstr.loom")?', "@`got ${n}`"].join("\n") },
-        { source: "project", path: "retstr.loom", text: ["---", "mode: subagent", "---", '"a-string"'].join("\n") },
+        { source: "project", path: "retparent.theta", text: ["---", "mode: prompt", "---", 'let n: number = invoke<number>("./retstr.theta")?', "@`got ${n}`"].join("\n") },
+        { source: "project", path: "retstr.theta", text: ["---", "mode: subagent", "---", '"a-string"'].join("\n") },
       ],
       "/retparent",
     );
@@ -74,8 +74,8 @@ describe("INVOKE runtime / ceilings / cross-mode", () => {
     // (Shares the retparent shape; kept as an explicit positive assertion.)
     const { probe, turn } = await drive(
       [
-        { source: "project", path: "fvparent.loom", text: ["---", "mode: prompt", "---", 'let s = invoke<string>("./fvchild.loom")?', "@`GOT=${s}`"].join("\n") },
-        { source: "project", path: "fvchild.loom", text: ["---", "mode: subagent", "---", '"payload-42"'].join("\n") },
+        { source: "project", path: "fvparent.theta", text: ["---", "mode: prompt", "---", 'let s = invoke<string>("./fvchild.theta")?', "@`GOT=${s}`"].join("\n") },
+        { source: "project", path: "fvchild.theta", text: ["---", "mode: subagent", "---", '"payload-42"'].join("\n") },
       ],
       "/fvparent",
     );
@@ -89,19 +89,19 @@ describe("INVOKE runtime / ceilings / cross-mode", () => {
 
   it("INV-7: a bounded 40-deep invoke chain (>32) ABORTS at the depth ceiling #1 (cap 32)", async () => {
     // INV-4 / ceiling #1: the interpreter caps invoke-chain nesting at 32; frame
-    // 33 raises loom/runtime/invoke-depth-exceeded. A chain of 40 query-less
+    // 33 raises theta/runtime/invoke-depth-exceeded. A chain of 40 query-less
     // links aborts ~frame 33, so the prompt head aborts BEFORE its
     // @`REACHED-TAIL` sentinel → userTexts does NOT contain "REACHED-TAIL". The
     // links carry no @-query, so this probe drives ZERO model turns and always
     // terminates (bounded 40 subagent spawns, aborted at frame 33).
     const files: PlantedFile[] = [
-      { source: "project", path: "head.loom", text: ["---", "mode: prompt", "---", 'let _ = invoke("./link1.loom")?', "@`REACHED-TAIL`"].join("\n") },
+      { source: "project", path: "head.theta", text: ["---", "mode: prompt", "---", 'let _ = invoke("./link1.theta")?', "@`REACHED-TAIL`"].join("\n") },
     ];
     const N = 40;
     for (let i = 1; i < N; i++) {
-      files.push({ source: "project", path: `link${i}.loom`, text: ["---", "mode: subagent", "---", `let _ = invoke("./link${i + 1}.loom")?`, "42"].join("\n") });
+      files.push({ source: "project", path: `link${i}.theta`, text: ["---", "mode: subagent", "---", `let _ = invoke("./link${i + 1}.theta")?`, "42"].join("\n") });
     }
-    files.push({ source: "project", path: `link${N}.loom`, text: ["---", "mode: subagent", "---", "42"].join("\n") });
+    files.push({ source: "project", path: `link${N}.theta`, text: ["---", "mode: subagent", "---", "42"].join("\n") });
 
     const { probe, turn } = await drive(files, "/head");
     try {
@@ -111,20 +111,20 @@ describe("INVOKE runtime / ceilings / cross-mode", () => {
     }
   });
 
-  it("INV-8: a dynamic (non-literal) invoke path is a surfaced parse error that un-registers the loom", async () => {
+  it("INV-8: a dynamic (non-literal) invoke path is a surfaced parse error that un-registers the theta", async () => {
     // invocation.md §Resolution: "Dynamic dispatch (a runtime-computed path) is
-    // not supported in loom 1.0" — surfaced as `loom/parse/unsupported-feature`
-    // rather than degrading to a silent empty-path no-op. The loom un-registers.
+    // not supported in theta 1.0" — surfaced as `theta/parse/unsupported-feature`
+    // rather than degrading to a silent empty-path no-op. The theta un-registers.
     const { probe, turn } = await drive(
       [
-        { source: "project", path: "dynparent.loom", text: ["---", "mode: prompt", "---", 'let p = "./noq.loom"', "let _ = invoke(p)?", "@`x`"].join("\n") },
-        { source: "project", path: "noq.loom", text: ["---", "mode: subagent", "---", "42"].join("\n") },
+        { source: "project", path: "dynparent.theta", text: ["---", "mode: prompt", "---", 'let p = "./noq.theta"', "let _ = invoke(p)?", "@`x`"].join("\n") },
+        { source: "project", path: "noq.theta", text: ["---", "mode: subagent", "---", "42"].join("\n") },
       ],
       "/dynparent",
     );
     try {
       expect(probe.registeredNames).not.toContain("dynparent");
-      // V4e: parse diagnostic on the `loom-system-note` channel.
+      // V4e: parse diagnostic on the `theta-system-note` channel.
       expect(
         probe.systemNotes.some(
           (n) => n.includes("unsupported syntactic feature") && n.includes("dynamic invoke path"),
@@ -136,18 +136,18 @@ describe("INVOKE runtime / ceilings / cross-mode", () => {
     }
   });
 
-  it("INV-1r: invoke of a .warp path is a surfaced parse error that un-registers the loom", async () => {
-    // Corrected consequence of INV-1: the .warp invoke path is rejected at parse
-    // time (`loom/parse/invoke-non-loom-extension`), so `warpinv` never registers
+  it("INV-1r: invoke of a .thetalib path is a surfaced parse error that un-registers the theta", async () => {
+    // Corrected consequence of INV-1: the .thetalib invoke path is rejected at parse
+    // time (`theta/parse/invoke-non-theta-extension`), so `thetalibinv` never registers
     // and its body is never driven into a silent no-op.
     const { probe, turn } = await drive(
-      [{ source: "project", path: "warpinv.loom", text: ["---", "mode: prompt", "---", 'let _ = invoke("./lib.warp")?', "@`x`"].join("\n") }],
-      "/warpinv",
+      [{ source: "project", path: "thetalibinv.theta", text: ["---", "mode: prompt", "---", 'let _ = invoke("./lib.thetalib")?', "@`x`"].join("\n") }],
+      "/thetalibinv",
     );
     try {
-      expect(probe.registeredNames).not.toContain("warpinv");
-      // V4e: parse diagnostic on the `loom-system-note` channel.
-      expect(probe.systemNotes.some((n) => n.includes("does not end in .loom"))).toBe(true);
+      expect(probe.registeredNames).not.toContain("thetalibinv");
+      // V4e: parse diagnostic on the `theta-system-note` channel.
+      expect(probe.systemNotes.some((n) => n.includes("does not end in .theta"))).toBe(true);
       expect(turn.userTexts).not.toContain("x");
     } finally {
       await probe.dispose();
@@ -168,10 +168,10 @@ describe("INVOKE runtime / ceilings / cross-mode", () => {
     const probe = await runProbe({
       provider,
       files: [
-        { source: "project", path: "psub.loom", text: ["---", "mode: prompt", "---", 'let _ = invoke("./subkid.loom")?', "@`Say SUBPARENT once`"].join("\n") },
-        { source: "project", path: "subkid.loom", text: ["---", "mode: subagent", "---", "@`Say ISOLATEDKID once`"].join("\n") },
-        { source: "project", path: "ppro.loom", text: ["---", "mode: prompt", "---", 'let _ = invoke("./prokid.loom")?', "@`Say PROMPTPARENT once`"].join("\n") },
-        { source: "project", path: "prokid.loom", text: ["---", "mode: prompt", "---", "@`Say ATTACHEDKID once`"].join("\n") },
+        { source: "project", path: "psub.theta", text: ["---", "mode: prompt", "---", 'let _ = invoke("./subkid.theta")?', "@`Say SUBPARENT once`"].join("\n") },
+        { source: "project", path: "subkid.theta", text: ["---", "mode: subagent", "---", "@`Say ISOLATEDKID once`"].join("\n") },
+        { source: "project", path: "ppro.theta", text: ["---", "mode: prompt", "---", 'let _ = invoke("./prokid.theta")?', "@`Say PROMPTPARENT once`"].join("\n") },
+        { source: "project", path: "prokid.theta", text: ["---", "mode: prompt", "---", "@`Say ATTACHEDKID once`"].join("\n") },
       ],
       drives: ["/psub", "/ppro"],
     });

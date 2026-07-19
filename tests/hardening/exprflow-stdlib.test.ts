@@ -15,7 +15,7 @@ describe("exprflow — stdlib string/array/object", () => {
       files: [
         {
           source: "project",
-          path: "strs.loom",
+          path: "strs.theta",
           text: [
             "---",
             "description: strs",
@@ -76,7 +76,7 @@ describe("exprflow — stdlib string/array/object", () => {
       files: [
         {
           source: "project",
-          path: "coll.loom",
+          path: "coll.theta",
           text: [
             "---",
             "description: coll",
@@ -133,7 +133,7 @@ describe("exprflow — stdlib string/array/object", () => {
       files: [
         {
           source: "project",
-          path: "concat.loom",
+          path: "concat.theta",
           text: [
             "---", "description: concat", "mode: prompt", "---",
             "let xs = [1, 2]",
@@ -146,7 +146,7 @@ describe("exprflow — stdlib string/array/object", () => {
     });
     try {
       // Parse/type accept `.concat`, and the runtime member dispatch now has a
-      // `concat` case, so the loom completes and produces the interpolated
+      // `concat` case, so the theta completes and produces the interpolated
       // user turn with the appended result `[1,2,3,4]`.
       expect(probe.registeredNames).toContain("concat");
       const u = probe.turns[0].userTexts.join("\n");

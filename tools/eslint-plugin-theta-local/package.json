@@ -1,0 +1,8 @@
+{
+  "name": "eslint-plugin-theta-local",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local ESLint plugin for theta's bespoke rules: no-broad-catch, no-unguarded-promise-combinator, no-blocking-sync. Wired by H2a's eslint.config.js over src/**.",
+  "main": "index.js",
+  "license": "MIT OR Apache-2.0"
+}

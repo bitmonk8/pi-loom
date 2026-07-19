@@ -5,13 +5,13 @@ import type {
   SessionShutdownEvent,
 } from "@earendil-works/pi-coding-agent";
 import {
-  createLoomExtension,
-  type LoomExtensionDeps,
+  createThetaExtension,
+  type ThetaExtensionDeps,
 } from "../src/extension/factory";
 import type { ExtensionInstanceWiring } from "../src/extension/production-composition";
 import {
-  LoomRegistry,
-  type ParsedLoom,
+  ThetaRegistry,
+  type ParsedTheta,
 } from "../src/extension/reload-wiring";
 import { FakeClock } from "./helpers/fake-clock";
 import { ActiveInvocationRegistry } from "../src/runtime/active-invocation-registry";
@@ -19,7 +19,7 @@ import { ActiveInvocationRegistry } from "../src/runtime/active-invocation-regis
 // Increment A/B1 — the factory-level `session_shutdown` wiring integration.
 //
 // Proves the wiring in `factory.ts`: the `session_shutdown` handler reads the
-// live `LoomRegistry` + `Clock` + `ActiveInvocationRegistry` lazily (threaded
+// live `ThetaRegistry` + `Clock` + `ActiveInvocationRegistry` lazily (threaded
 // from the `composeInstance` path), runs the handler-entry short-circuit under
 // the PIC-31 read-failover, and delegates to `runSessionShutdown`. Sub-step 1
 // (drain + init-tag) and sub-step 4 (watcher-close via the
@@ -34,7 +34,7 @@ import { ActiveInvocationRegistry } from "../src/runtime/active-invocation-regis
 // `tests/drain-gated-dispatch-integration.test.ts` /
 // `tests/watcher-hot-reload-integration.test.ts`: a fake `pi` capturing the
 // `pi.on` subscription table, a `composeInstance` stub returning a
-// caller-controlled `LoomRegistry` + `FakeClock` + a spyable
+// caller-controlled `ThetaRegistry` + `FakeClock` + a spyable
 // `installHotReload().detach`, and a `fireSessionShutdown(reason)` that invokes
 // the registered handler and awaits its returned promise. NO filesystem, NO
 // real watcher, NO live model.
@@ -99,19 +99,19 @@ function makeHarness(): Harness {
   };
 }
 
-/** A minimal `ParsedLoom` (only `slashName` + `run` are ever read here). */
-function makeLoom(slashName: string): ParsedLoom {
+/** A minimal `ParsedTheta` (only `slashName` + `run` are ever read here). */
+function makeTheta(slashName: string): ParsedTheta {
   return {
     slashName,
-    frontmatter: { mode: "prompt" } as unknown as ParsedLoom["frontmatter"],
-    body: { statements: [] } as unknown as ParsedLoom["body"],
+    frontmatter: { mode: "prompt" } as unknown as ParsedTheta["frontmatter"],
+    body: { statements: [] } as unknown as ParsedTheta["body"],
     run: async (): Promise<void> => {},
   };
 }
 
 interface Booted {
   readonly harness: Harness;
-  readonly registry: LoomRegistry;
+  readonly registry: ThetaRegistry;
   readonly detach: ReturnType<typeof vi.fn>;
   readonly activeInvocations: ActiveInvocationRegistry;
 }
@@ -123,16 +123,16 @@ interface Booted {
  * are threaded onto the factory-scoped mutables the shutdown handler reads.
  */
 async function boot(
-  registry: LoomRegistry,
+  registry: ThetaRegistry,
   activeInvocations: ActiveInvocationRegistry = new ActiveInvocationRegistry(),
 ): Promise<Booted> {
   const harness = makeHarness();
   const detach = vi.fn();
-  const looms = [makeLoom("foo")];
-  const deps: LoomExtensionDeps = {
+  const thetas = [makeTheta("foo")];
+  const deps: ThetaExtensionDeps = {
     fixtures: [],
     composeInstance: async (): Promise<ExtensionInstanceWiring> => ({
-      looms,
+      thetas,
       registry,
       activeInvocations,
       forwardingSignals: [],
@@ -140,14 +140,14 @@ async function boot(
       installHotReload: () => ({ detach }),
     }),
   };
-  createLoomExtension(deps)(harness.pi);
+  createThetaExtension(deps)(harness.pi);
   await harness.fireSessionStart();
   return { harness, registry, detach, activeInvocations };
 }
 
 describe("Increment A — session_shutdown wired through the real factory", () => {
   it("(sub-step 1 real) drains and inits the drain-state tag exactly once", async () => {
-    const registry = new LoomRegistry([["foo", makeLoom("foo")]]);
+    const registry = new ThetaRegistry([["foo", makeTheta("foo")]]);
     const drainSpy = vi.spyOn(registry, "drain");
     const { harness } = await boot(registry);
 
@@ -165,7 +165,7 @@ describe("Increment A — session_shutdown wired through the real factory", () =
   });
 
   it("(sub-step 4) detaches the watcher via the HotReloadHandle.detach adapter exactly once", async () => {
-    const registry = new LoomRegistry([["foo", makeLoom("foo")]]);
+    const registry = new ThetaRegistry([["foo", makeTheta("foo")]]);
     const { harness, detach } = await boot(registry);
 
     await harness.fireSessionShutdown("reload");
@@ -176,7 +176,7 @@ describe("Increment A — session_shutdown wired through the real factory", () =
   });
 
   it("(idempotent re-entry) a second session_shutdown short-circuits — drain stays once, no throw", async () => {
-    const registry = new LoomRegistry([["foo", makeLoom("foo")]]);
+    const registry = new ThetaRegistry([["foo", makeTheta("foo")]]);
     const drainSpy = vi.spyOn(registry, "drain");
     const { harness, detach } = await boot(registry);
 
@@ -190,7 +190,7 @@ describe("Increment A — session_shutdown wired through the real factory", () =
   });
 
   it("(read-failover proceeds) a readDrainState throw at handler entry fails OPEN into the full teardown", async () => {
-    const registry = new LoomRegistry([["foo", makeLoom("foo")]]);
+    const registry = new ThetaRegistry([["foo", makeTheta("foo")]]);
     const drainSpy = vi.spyOn(registry, "drain");
 
     // Make the FIRST handler-entry `readDrainState` throw, then restore the real
@@ -224,7 +224,7 @@ describe("Increment A — session_shutdown wired through the real factory", () =
     // No `composeInstance` → `liveRegistry`/`liveClock` stay undefined; the
     // handler must no-op safely (nothing wired to tear down).
     const harness = makeHarness();
-    createLoomExtension({ fixtures: [] })(harness.pi);
+    createThetaExtension({ fixtures: [] })(harness.pi);
     await harness.fireSessionStart();
 
     await expect(harness.fireSessionShutdown("quit")).resolves.toBeUndefined();

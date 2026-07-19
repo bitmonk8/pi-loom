@@ -1,13 +1,13 @@
 # RFCs
 
-Design proposals for changes to the Loom language or the pi-loom runtime.
+Design proposals for changes to the Theta language or the pi-theta runtime.
 
 An RFC captures a proposed change before it is specified or implemented: the
 problem, the motivation, the concrete proposal, the alternatives considered, and
 the open questions. It is a discussion artefact, not normative documentation —
 the [Reference](../reference/) remains the authority for shipped behaviour.
 
-Language-surface RFCs describe a loom 1.x language-scope change under the
+Language-surface RFCs describe a theta 1.x language-scope change under the
 specification's versioning governance
 (`../spec_topics/governance/release-version-naming.md`); they do not change
 shipped behaviour until specified and implemented.

@@ -2,7 +2,7 @@
 //
 // Proves B2 (forwarding listeners only): the shipped composition constructs ONE
 // `forwardingSignals` sink beside the runtime root and threads it (a) into every
-// composed loom's producer, so the two bind choke points push one invocation-
+// composed theta's producer, so the two bind choke points push one invocation-
 // scoped `ForwardingSignalSource` per invocation (the bind-time `ctx.signal`
 // forward; the derived-child parent-invoke listener) and splice+detach them in
 // `finishInvocation`, and (b) into the factory's `session_shutdown` teardown, so
@@ -18,7 +18,7 @@
 //      DRIVE seam leaves the shared list EMPTY (finishInvocation spliced it), so
 //      a later shutdown detaches nothing stale.
 //   3. detach handle is real — after `forwardSlashCommandCancel`'s returned
-//      detach runs, aborting the source no longer aborts `loomAbort` (proving
+//      detach runs, aborting the source no longer aborts `thetaAbort` (proving
 //      Step-1's detach works and the forwarding is intact before detach).
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -53,30 +53,30 @@ vi.mock("../src/runtime/statement-executor", async (importOriginal) => {
   };
 });
 
-import { createProductionProducerDeps } from "../src/extension/production-loom-producer";
-import { composeLoomFixture } from "../src/extension/loom-composition-producer";
-import type { LoomCompositionInput } from "../src/extension/loom-composition-producer";
+import { createProductionProducerDeps } from "../src/extension/production-theta-producer";
+import { composeThetaFixture } from "../src/extension/theta-composition-producer";
+import type { ThetaCompositionInput } from "../src/extension/theta-composition-producer";
 import type { BodyExecution } from "../src/runtime/statement-executor";
 import {
-  createLoomExtension,
-  type LoomExtensionDeps,
+  createThetaExtension,
+  type ThetaExtensionDeps,
 } from "../src/extension/factory";
 import type { ExtensionInstanceWiring } from "../src/extension/production-composition";
-import { LoomRegistry, type ParsedLoom } from "../src/extension/reload-wiring";
+import { ThetaRegistry, type ParsedTheta } from "../src/extension/reload-wiring";
 import { ActiveInvocationRegistry } from "../src/runtime/active-invocation-registry";
 import {
   TEARDOWN_STEP_FAILED_CODE,
   type ForwardingSignalSource,
 } from "../src/extension/session-shutdown";
 import {
-  createLoomAbort,
+  createThetaAbort,
   forwardSlashCommandCancel,
 } from "../src/runtime/cancellation-core";
 import { FakeClock } from "./helpers/fake-clock";
 import type { Clock } from "../src/seams/clock";
 import type { RuntimeRoot } from "../src/runtime-root";
 import type { Checkpoint, CheckpointKind, CheckpointSite } from "../src/seams/checkpoint";
-import type { LoomBody } from "../src/parser/loom-document";
+import type { ThetaBody } from "../src/parser/theta-document";
 import type { ParsedFrontmatter } from "../src/parser/frontmatter";
 
 // --- producer-level scaffolding (mirrors active-invocation-wiring) -----------
@@ -98,15 +98,15 @@ function noopPi(): ExtensionAPI {
   return { sendMessage: (): void => {} } as unknown as ExtensionAPI;
 }
 
-function emptyBody(): LoomBody {
-  return { statements: [], tail: null } as unknown as LoomBody;
+function emptyBody(): ThetaBody {
+  return { statements: [], tail: null } as unknown as ThetaBody;
 }
 
-function promptLoom(): LoomCompositionInput {
+function promptTheta(): ThetaCompositionInput {
   const frontmatter: ParsedFrontmatter = { mode: "prompt" } as ParsedFrontmatter;
   return {
     slashName: "demo",
-    sourcePath: "/looms/demo.loom",
+    sourcePath: "/theta/demo.theta",
     frontmatter,
     body: emptyBody(),
   };
@@ -177,11 +177,11 @@ function makeFactoryHarness(): FactoryHarness {
   };
 }
 
-function makeLoom(slashName: string): ParsedLoom {
+function makeTheta(slashName: string): ParsedTheta {
   return {
     slashName,
-    frontmatter: { mode: "prompt" } as unknown as ParsedLoom["frontmatter"],
-    body: { statements: [] } as unknown as ParsedLoom["body"],
+    frontmatter: { mode: "prompt" } as unknown as ParsedTheta["frontmatter"],
+    body: { statements: [] } as unknown as ParsedTheta["body"],
     run: async (): Promise<void> => {},
   };
 }
@@ -198,11 +198,11 @@ async function bootFactory(
   clock: Clock,
 ): Promise<FactoryBoot> {
   const harness = makeFactoryHarness();
-  const registry = new LoomRegistry([["foo", makeLoom("foo")]]);
-  const deps: LoomExtensionDeps = {
+  const registry = new ThetaRegistry([["foo", makeTheta("foo")]]);
+  const deps: ThetaExtensionDeps = {
     fixtures: [],
     composeInstance: async (): Promise<ExtensionInstanceWiring> => ({
-      looms: [makeLoom("foo")],
+      thetas: [makeTheta("foo")],
       registry,
       activeInvocations: new ActiveInvocationRegistry(),
       forwardingSignals,
@@ -210,7 +210,7 @@ async function bootFactory(
       installHotReload: () => ({ detach: (): void => {} }),
     }),
   };
-  createLoomExtension(deps)(harness.pi);
+  createThetaExtension(deps)(harness.pi);
   await harness.fireSessionStart();
   return { harness, forwardingSignals };
 }
@@ -302,7 +302,7 @@ describe("Increment B2 — a normal settle removes the sources (no accumulation)
       return { outcome: "fail", error: null } as unknown as BodyExecution;
     };
 
-    const fixture = composeLoomFixture(promptLoom(), deps);
+    const fixture = composeThetaFixture(promptTheta(), deps);
     const runPromise = fixture.run("", driveCtx());
 
     // Mid-flight: the prompt bind pushed exactly the invocation-scoped
@@ -319,22 +319,22 @@ describe("Increment B2 — a normal settle removes the sources (no accumulation)
 });
 
 describe("Increment B2 — the Step-1 detach handle is real", () => {
-  it("(detach removes the listener) after forwardSlashCommandCancel's detach runs, aborting the source no longer aborts loomAbort", () => {
+  it("(detach removes the listener) after forwardSlashCommandCancel's detach runs, aborting the source no longer aborts thetaAbort", () => {
     // Control: WITHOUT detach the forwarding is intact — aborting the source
-    // aborts loomAbort (CNCL-4), proving the listener was really attached.
-    const intactAbort = createLoomAbort();
+    // aborts thetaAbort (CNCL-4), proving the listener was really attached.
+    const intactAbort = createThetaAbort();
     const intactSource = new AbortController();
     forwardSlashCommandCancel(intactAbort, intactSource.signal);
     intactSource.abort(new Error("esc-intact"));
     expect(intactAbort.signal.aborted).toBe(true);
 
     // With detach: after running the returned detach, aborting the source is a
-    // no-op on loomAbort — the listener was removed.
-    const loomAbort = createLoomAbort();
+    // no-op on thetaAbort — the listener was removed.
+    const thetaAbort = createThetaAbort();
     const source = new AbortController();
-    const detach = forwardSlashCommandCancel(loomAbort, source.signal);
+    const detach = forwardSlashCommandCancel(thetaAbort, source.signal);
     detach();
     source.abort(new Error("esc-detached"));
-    expect(loomAbort.signal.aborted).toBe(false);
+    expect(thetaAbort.signal.aborted).toBe(false);
   });
 });

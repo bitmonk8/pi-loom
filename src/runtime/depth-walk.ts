@@ -1,4 +1,4 @@
-// V5e / V5e-T — the loom-owned JSON-document depth walk (hard ceiling #4).
+// V5e / V5e-T — the theta-owned JSON-document depth walk (hard ceiling #4).
 //
 // Spec: schema-subset.md §"Depth Enforcement" (the counting algorithm, the
 // `depth ≤ 5` cap, the canonical `schema_keyword: "maxDepth"` /
@@ -36,12 +36,12 @@
 // `V5e` implementation leaf fills in the counting algorithm, the fast-fail
 // short-circuit, the canonical issue shape, and the routing table.
 
-/** The JSON-document depth cap loom fixes for itself (schema-subset.md §Depth). */
+/** The JSON-document depth cap theta fixes for itself (schema-subset.md §Depth). */
 export const MAX_JSON_DEPTH = 5;
 
 /**
  * The canonical depth-violation `schema_keyword` value — the only
- * `schema_keyword` loom emits that is not a literal AJV keyword
+ * `schema_keyword` theta emits that is not a literal AJV keyword
  * (schema-subset.md §Depth Enforcement, §Error shape).
  */
 export const DEPTH_VIOLATION_SCHEMA_KEYWORD = "maxDepth";
@@ -96,7 +96,7 @@ export type DepthBoundarySite =
 /**
  * The destination surface class each enforcement point routes a depth breach
  * to (ceiling-4-table). `"model-feedback"` and `"ceiling-3-cross-route"`
- * produce no loom-code `Err` at this seam (decision-only): the model-driven row
+ * produce no theta-code `Err` at this seam (decision-only): the model-driven row
  * feeds a tool-result back to the model, and the slash-load `params` row
  * cross-routes into ceiling #3's load-time system-note classification.
  */
@@ -211,9 +211,9 @@ export function depthWalk(value: unknown): DepthWalkResult {
 /**
  * The per-boundary routing decision (ceiling-4-table): which destination
  * surface class each of ceiling #4's five enforcement points maps a depth
- * breach to. Three rows produce a loom-code `Err` carrier at their site owner
+ * breach to. Three rows produce a theta-code `Err` carrier at their site owner
  * (`ValidationError`/`CodeToolError`/`InvokeInfraError`); the model-driven and
- * slash-load `params` rows produce no loom-code `Err` at this seam.
+ * slash-load `params` rows produce no theta-code `Err` at this seam.
  */
 export function routeDepthBoundary(site: DepthBoundarySite): DepthDestination {
   const routing: Record<DepthBoundarySite, DepthDestination> = {

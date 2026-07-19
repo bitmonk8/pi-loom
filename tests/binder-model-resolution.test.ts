@@ -13,7 +13,7 @@ import {
   binderModelStrictCapabilityUnknownMessage,
   type BinderModelResolutionInput,
   type StrictCapableProbe,
-  type LoadedLoom,
+  type LoadedTheta,
 } from "../src/binder/binder-model";
 import {
   createModelReferenceMatcher,
@@ -25,7 +25,7 @@ import type {
   ParseFrontmatterOptions,
   FrontmatterParseResult,
 } from "../src/parser/frontmatter";
-import type { LoomSettings } from "../src/discovery/settings";
+import type { ThetaSettings } from "../src/discovery/settings";
 
 // V11a-T — binder-model resolution and the strict-capability probe (tests).
 // Written against the seams the paired V11a implementation leaf fills in; every
@@ -51,9 +51,9 @@ const registryOf = (models: readonly AvailableModel[]): ModelRegistrySurface => 
 /** A probe that never runs (the reference resolves to no model). */
 const noProbe = (): StrictCapableProbe | undefined => undefined;
 
-// --- loom/load/binder-model-unresolved -------------------------------------
+// --- theta/load/binder-model-unresolved -------------------------------------
 
-describe("V11a-T — binder-model unresolved (loom/load/binder-model-unresolved)", () => {
+describe("V11a-T — binder-model unresolved (theta/load/binder-model-unresolved)", () => {
   it("fires for a bare modelId matched against Model<Api>.id that matches no available model", () => {
     // The registry has a differently-named model, so the bare `claude-haiku`
     // reference resolves to no model.
@@ -61,7 +61,7 @@ describe("V11a-T — binder-model unresolved (loom/load/binder-model-unresolved)
       registryOf([model("gpt-9", "openai", "openai-responses")]),
     );
     const input: BinderModelResolutionInput = {
-      file: "/x/a.loom",
+      file: "/x/a.theta",
       bindModel: "claude-haiku",
       bypassEligible: false,
       matcher,
@@ -89,7 +89,7 @@ describe("V11a-T — binder-model unresolved (loom/load/binder-model-unresolved)
       registryOf([model("claude-haiku", "openai", "anthropic-messages")]),
     );
     const input: BinderModelResolutionInput = {
-      file: "/x/a.loom",
+      file: "/x/a.theta",
       bindModel: "anthropic/claude-haiku",
       bypassEligible: false,
       matcher,
@@ -106,12 +106,12 @@ describe("V11a-T — binder-model unresolved (loom/load/binder-model-unresolved)
     expect(result.resolved).toBe(false);
   });
 
-  it("does not fire for a bypass-eligible loom — both checks are skipped", () => {
-    // A bypass-eligible loom never calls the binder, so an absent chain produces
-    // no `loom/load/binder-model-unresolved` and no probe diagnostic.
+  it("does not fire for a bypass-eligible theta — both checks are skipped", () => {
+    // A bypass-eligible theta never calls the binder, so an absent chain produces
+    // no `theta/load/binder-model-unresolved` and no probe diagnostic.
     const matcher = createModelReferenceMatcher(registryOf([]));
     const result = resolveBinderModel({
-      file: "/x/a.loom",
+      file: "/x/a.theta",
       bypassEligible: true,
       matcher,
       probeStrictCapable: noProbe,
@@ -132,9 +132,9 @@ describe("V11a-T — strictCapable probe (binder-model-and-context.md#strict-cap
       registryOf([model("claude-haiku", "anthropic", "anthropic-messages")]),
     );
 
-  it("strictCapable false → loom/load/binder-model-not-strict-capable (E), loom refused", () => {
+  it("strictCapable false → theta/load/binder-model-not-strict-capable (E), theta refused", () => {
     const result = resolveBinderModel({
-      file: "/x/a.loom",
+      file: "/x/a.theta",
       bindModel: "claude-haiku",
       bypassEligible: false,
       matcher: resolvableMatcher(),
@@ -152,9 +152,9 @@ describe("V11a-T — strictCapable probe (binder-model-and-context.md#strict-cap
     expect(result.resolved).toBe(false);
   });
 
-  it("strictCapable undefined → loom/load/binder-model-strict-capability-unknown (W), loom registered", () => {
+  it("strictCapable undefined → theta/load/binder-model-strict-capability-unknown (W), theta registered", () => {
     const result = resolveBinderModel({
-      file: "/x/a.loom",
+      file: "/x/a.theta",
       bindModel: "claude-haiku",
       bypassEligible: false,
       matcher: resolvableMatcher(),
@@ -170,13 +170,13 @@ describe("V11a-T — strictCapable probe (binder-model-and-context.md#strict-cap
     expect(diag?.message).toBe(
       binderModelStrictCapabilityUnknownMessage("claude-haiku"),
     );
-    // W-level: the loom still registers.
+    // W-level: the theta still registers.
     expect(result.resolved).toBe(true);
   });
 
   it("strictCapable true → resolves with no diagnostic", () => {
     const result = resolveBinderModel({
-      file: "/x/a.loom",
+      file: "/x/a.theta",
       bindModel: "claude-haiku",
       bypassEligible: false,
       matcher: resolvableMatcher(),
@@ -189,19 +189,19 @@ describe("V11a-T — strictCapable probe (binder-model-and-context.md#strict-cap
   });
 });
 
-// --- two-step chain: fallback to looms.binderModel -------------------------
+// --- two-step chain: fallback to theta.binderModel -------------------------
 
 describe("V11a-T — binder-model two-step chain (binder-model-and-context.md#binder-model)", () => {
-  it("falls back to looms.binderModel when frontmatter bind_model: is omitted", () => {
+  it("falls back to theta.binderModel when frontmatter bind_model: is omitted", () => {
     // The merged setting supplies the reference; the frontmatter omits bind_model.
-    const settings: LoomSettings = { looms: { binderModel: "claude-haiku" } };
+    const settings: ThetaSettings = { theta: { binderModel: "claude-haiku" } };
     const matcher = createModelReferenceMatcher(
       registryOf([model("claude-haiku", "anthropic", "anthropic-messages")]),
     );
 
-    const merged = settings.looms?.binderModel ?? "";
+    const merged = settings.theta?.binderModel ?? "";
     const result = resolveBinderModel({
-      file: "/x/a.loom",
+      file: "/x/a.theta",
       // bind_model omitted — the chain falls through to the merged setting.
       settingsBinderModel: merged,
       bypassEligible: false,
@@ -223,13 +223,13 @@ describe("V11a-T — binder-model two-step chain (binder-model-and-context.md#bi
 // --- hot-reload recovery note (binder-model-and-context.md#binder-model-hot-reload) ---
 
 describe("V11a-T — binder-model hot-reload recovery note", () => {
-  it("emits the consolidated recovery loom-system-note when a previously-unresolved model now resolves", () => {
+  it("emits the consolidated recovery theta-system-note when a previously-unresolved model now resolves", () => {
     // Under the changed setting, `alpha`'s binder model now re-resolves.
     const matcher = createModelReferenceMatcher(
       registryOf([model("claude-haiku", "anthropic", "anthropic-messages")]),
     );
     const resolution: BinderModelResolutionInput = {
-      file: "/x/alpha.loom",
+      file: "/x/alpha.theta",
       settingsBinderModel: "claude-haiku",
       bypassEligible: false,
       matcher,
@@ -240,10 +240,10 @@ describe("V11a-T — binder-model hot-reload recovery note", () => {
       { slashName: "alpha", resolution },
     ]);
 
-    // Primary assertion: a recovery note is emitted (informational; no loom/load/* code).
+    // Primary assertion: a recovery note is emitted (informational; no theta/load/* code).
     expect(note).not.toBeNull();
     expect(note?.display).toBe(true);
-    expect(note?.details).toEqual({ recovery: { looms: ["alpha"] } });
+    expect(note?.details).toEqual({ recovery: { thetas: ["alpha"] } });
     // The content is the verbatim template with `<N>` and `<names>` substituted.
     expect(note?.content).toBe(renderBinderModelRecoveryContent(["alpha"]));
   });
@@ -252,8 +252,8 @@ describe("V11a-T — binder-model hot-reload recovery note", () => {
 // --- BNDR-11: settings-only edit does not re-run resolution ----------------
 
 describe("V11a-T — BNDR-11 (binder-model-and-context.md#bndr-11)", () => {
-  it("a looms.binderModel-only edit does not re-run resolution or the probe; each loaded loom retains its handle", () => {
-    const loaded: readonly LoadedLoom[] = [
+  it("a theta.binderModel-only edit does not re-run resolution or the probe; each loaded theta retains its handle", () => {
+    const loaded: readonly LoadedTheta[] = [
       { slashName: "alpha", binderModelHandle: "claude-haiku" },
       { slashName: "beta", binderModelHandle: "gpt-9" },
     ];
@@ -261,9 +261,9 @@ describe("V11a-T — BNDR-11 (binder-model-and-context.md#bndr-11)", () => {
 
     const after = reconcileBinderModelSettingsEdit(loaded, { resolve });
 
-    // BNDR-11: no re-resolution or probe is run for any already-loaded loom.
+    // BNDR-11: no re-resolution or probe is run for any already-loaded theta.
     expect(resolve).not.toHaveBeenCalled();
-    // Each loom retains its previously-resolved binder-model handle.
+    // Each theta retains its previously-resolved binder-model handle.
     expect(after).toEqual(loaded);
   });
 });
@@ -290,10 +290,10 @@ describe("V11a-T — single-matcher cross-resolution reconciliation (host-interf
       return { resolved: true, binderModel: "claude-haiku", diagnostics: [] };
     };
 
-    const settings: LoomSettings = { looms: { binderModel: "claude-haiku" } };
+    const settings: ThetaSettings = { theta: { binderModel: "claude-haiku" } };
 
     loadPassResolveBinderModels(
-      [{ file: "/x/a.loom", bypassEligible: false }],
+      [{ file: "/x/a.theta", bypassEligible: false }],
       {
         modelRegistry: registry,
         parse,

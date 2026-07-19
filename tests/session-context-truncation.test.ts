@@ -213,10 +213,10 @@ describe("session-context truncation walk (bind_context: session)", () => {
 // BNDR-10 — subagent-mode session-context skip
 // binder/binder-model-and-context.md#bndr-10
 
-describe("BNDR-10 — bind_context: session on a mode: subagent loom is treated as bind_context: none", () => {
-  it("skips the truncation walk and emits no Recent session context block on a subagent-mode loom", () => {
+describe("BNDR-10 — bind_context: session on a mode: subagent theta is treated as bind_context: none", () => {
+  it("skips the truncation walk and emits no Recent session context block on a subagent-mode theta", () => {
     // binder-model-and-context.md#bndr-10 — at slash-invocation time the runtime
-    // MUST treat `bind_context: session` on a `mode: subagent` loom as
+    // MUST treat `bind_context: session` on a `mode: subagent` theta as
     // `bind_context: none` for binder-input construction: the walk is skipped
     // and no *Recent session context* block is emitted (binder input as for
     // `bind_context: none` — slash text plus frontmatter only). The two turns
@@ -240,7 +240,7 @@ describe("BNDR-10 — bind_context: session on a mode: subagent loom is treated 
     expect(subagent.includedTurnCount).toBe(0);
     expect(subagent.includedMessages).toEqual([]);
 
-    // Contrast: the identical session on a prompt-mode loom runs the walk and
+    // Contrast: the identical session on a prompt-mode theta runs the walk and
     // includes both turns (200 tokens, 2 turns — both under the caps).
     const prompt = walk(messages, counts, {
       mode: "prompt",

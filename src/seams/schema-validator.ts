@@ -75,7 +75,7 @@ export type SchemaSlugFn = (schema: LoweredSchema) => SchemaSlug;
 
 /** Constructor dependencies for the production `SchemaValidator`. */
 export interface AjvSchemaValidatorDeps {
-  /** Sink for the per-query cache's `loom/runtime/validator-cache-collision`. */
+  /** Sink for the per-query cache's `theta/runtime/validator-cache-collision`. */
   readonly emit: (diagnostic: Diagnostic) => void;
   /** Content-addressing function keying the compiled-validator cache. */
   readonly slugOf: SchemaSlugFn;
@@ -129,7 +129,7 @@ export class AjvSchemaValidator implements SchemaValidator {
       // diagnostic does not abort the query.
       this.#deps.emit({
         severity: "error",
-        code: "loom/runtime/validator-cache-collision",
+        code: "theta/runtime/validator-cache-collision",
         message: `validator-cache collision on slug ${slug}: two distinct schema documents hash alike`,
         hint: `cached document canonical bytes: ${cached.canonicalBytes}; new document canonical bytes: ${canonicalBytes}`,
       });

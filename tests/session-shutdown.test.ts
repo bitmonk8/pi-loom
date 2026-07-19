@@ -18,8 +18,8 @@
 //     session per instance; the reason union pinned to
 //     `SessionShutdownEvent['reason']`);
 //   cancellation.md CNCL-4 (the session-shutdown synthesised-reason facet:
-//     `loomAbort.abort(reason)` with a synthesised `Error` whose `message` is
-//     byte-exact `"loom cancelled by session shutdown"`, observable as
+//     `thetaAbort.abort(reason)` with a synthesised `Error` whose `message` is
+//     byte-exact `"theta cancelled by session shutdown"`, observable as
 //     `signal.reason === source.reason` at a downstream checkpoint);
 //   diagnostics/code-registry-host.md, -runtime.md (the *Message* column
 //     strings the message-anchor assertions source).
@@ -27,7 +27,7 @@
 // Each test cites its REQ-ID / code-keyed-area token inline per the
 // conventions.md REQ-ID-discipline and Diagnostic-message-anchor rules. Every
 // assertion is on an observable side effect (a spy on an injected seam, an
-// emitted diagnostic's fields, or `loomAbort.signal.reason`), and reds on its
+// emitted diagnostic's fields, or `thetaAbort.signal.reason`), and reds on its
 // own primary assertion while the V9g implementation is absent (the V9g-T seam
 // stubs are inert), per the per-phase TDD ritual's "fail red for the intended
 // reason".
@@ -38,7 +38,7 @@ import {
   ActiveInvocationRegistry,
   type ActiveInvocationEntry,
 } from "../src/runtime/active-invocation-registry";
-import { LoomRegistry } from "../src/extension/reload-wiring";
+import { ThetaRegistry } from "../src/extension/reload-wiring";
 import { SESSION_SHUTDOWN_REASON_SNAPSHOT } from "../src/extension/version-bump-gates";
 import {
   cancelledBySessionShutdownDiagnostic,
@@ -71,7 +71,7 @@ const teardownStepFailedMessage = (step: number, call: string, error: string): s
 const reloadTeardownTimeoutMessage = (ms: number, n: number, list: string): string =>
   `reload teardown timed out after ${ms}ms; ${n} invocation(s) still in flight: ${list}`;
 const cancelledMessage = (name: string, reason: string): string =>
-  `loom /${name} cancelled by session shutdown (${reason})`;
+  `theta /${name} cancelled by session shutdown (${reason})`;
 
 // --- helpers ----------------------------------------------------------------
 
@@ -82,7 +82,7 @@ interface ControllableEntry {
 }
 
 function makeEntry(
-  loom: string,
+  theta: string,
   invocationId: string,
   options: { settleable?: boolean } = {},
 ): ControllableEntry {
@@ -95,10 +95,10 @@ function makeEntry(
       : // A never-settling barrier so sub-step 3's bounded await is exercised.
         new Promise<void>(() => {});
   const entry: ActiveInvocationEntry = {
-    loomAbort: new AbortController(),
+    thetaAbort: new AbortController(),
     disposeBarrier,
     shutdownReason: undefined,
-    loom,
+    theta,
     invocationId,
   };
   return { entry, settle };
@@ -155,7 +155,7 @@ interface HarnessOverrides {
 
 interface Harness {
   readonly deps: SessionShutdownDeps;
-  readonly registry: LoomRegistry;
+  readonly registry: ThetaRegistry;
   readonly activeInvocations: ActiveInvocationRegistry;
   readonly clock: FakeClock;
   readonly discoveryWatcher: ReturnType<typeof watcherSpy>;
@@ -165,7 +165,7 @@ interface Harness {
 }
 
 function makeHarness(overrides: HarnessOverrides = {}): Harness {
-  const registry = new LoomRegistry();
+  const registry = new ThetaRegistry();
   const activeInvocations = new ActiveInvocationRegistry();
   for (const { entry } of overrides.entries ?? []) {
     activeInvocations.add(entry);
@@ -250,11 +250,11 @@ describe("PIC-7 — session-binding contract", () => {
 });
 
 // ============================================================================
-// Sub-step 1 — LoomRegistry.drain then initDrainStateTag, in fixed order
+// Sub-step 1 — ThetaRegistry.drain then initDrainStateTag, in fixed order
 // ============================================================================
 
 describe("session_shutdown sub-step 1 — drain then init-tag", () => {
-  it("calls loomRegistry.drain before loomRegistry.initDrainStateTag (fixed order)", async () => {
+  it("calls thetaRegistry.drain before thetaRegistry.initDrainStateTag (fixed order)", async () => {
     const harness = makeHarness();
     const order: string[] = [];
     vi.spyOn(harness.registry, "drain").mockImplementation(() => {
@@ -273,15 +273,15 @@ describe("session_shutdown sub-step 1 — drain then init-tag", () => {
 // ============================================================================
 
 describe("CNCL-4 — session-shutdown synthesised abort reason", () => {
-  it("synthesises an Error whose message is byte-exact \"loom cancelled by session shutdown\" (CNCL-4)", () => {
+  it("synthesises an Error whose message is byte-exact \"theta cancelled by session shutdown\" (CNCL-4)", () => {
     const reason = synthesiseSessionShutdownReason();
     expect(reason).toBeInstanceOf(Error);
-    expect(reason.message).toBe("loom cancelled by session shutdown");
+    expect(reason.message).toBe("theta cancelled by session shutdown");
     // The exported constant is the single source of truth for the message.
     expect(reason.message).toBe(SESSION_SHUTDOWN_ABORT_MESSAGE);
   });
 
-  it("aborts each in-flight loomAbort with the synthesised Error itself, observable as signal.reason (CNCL-4)", async () => {
+  it("aborts each in-flight thetaAbort with the synthesised Error itself, observable as signal.reason (CNCL-4)", async () => {
     const a = makeEntry("plan", "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", { settleable: true });
     const b = makeEntry("review", "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", { settleable: true });
     const harness = makeHarness({ entries: [a, b] });
@@ -290,10 +290,10 @@ describe("CNCL-4 — session-shutdown synthesised abort reason", () => {
     await driveShutdown(eventWith("reload"), harness);
     for (const { entry } of [a, b]) {
       // signal.reason === source.reason: the synthesised Error object itself.
-      expect(entry.loomAbort.signal.aborted).toBe(true);
-      const observed = entry.loomAbort.signal.reason as unknown;
+      expect(entry.thetaAbort.signal.aborted).toBe(true);
+      const observed = entry.thetaAbort.signal.reason as unknown;
       expect(observed).toBeInstanceOf(Error);
-      expect((observed as Error).message).toBe("loom cancelled by session shutdown");
+      expect((observed as Error).message).toBe("theta cancelled by session shutdown");
     }
   });
 
@@ -367,10 +367,10 @@ describe("session_shutdown sub-step 3 — bounded settle-all (cka-31)", () => {
 });
 
 // ============================================================================
-// loom/runtime/cancelled-by-session-shutdown — per in-flight invocation
+// theta/runtime/cancelled-by-session-shutdown — per in-flight invocation
 // ============================================================================
 
-describe("loom/runtime/cancelled-by-session-shutdown — per-invocation note", () => {
+describe("theta/runtime/cancelled-by-session-shutdown — per-invocation note", () => {
   it("builds the note with display-false semantics and the nested details.event shape", () => {
     const a = makeEntry("plan", "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     a.entry.shutdownReason = "reload";
@@ -378,10 +378,10 @@ describe("loom/runtime/cancelled-by-session-shutdown — per-invocation note", (
     expect(diagnostic.code).toBe(CANCELLED_BY_SESSION_SHUTDOWN_CODE);
     expect(diagnostic.severity).toBe("error");
     expect(diagnostic.message).toBe(cancelledMessage("plan", "reload"));
-    // `details.event` is the runtime-constructed { reason, loom, invocation_id }.
+    // `details.event` is the runtime-constructed { reason, theta, invocation_id }.
     const event = diagnostic.details?.event as Record<string, unknown> | undefined;
     expect(event?.reason).toBe("reload");
-    expect(event?.loom).toBe("plan");
+    expect(event?.theta).toBe("plan");
     expect(event?.invocation_id).toBe("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
   });
 
@@ -404,14 +404,14 @@ describe("loom/runtime/cancelled-by-session-shutdown — per-invocation note", (
 
 describe("DIAG-1 (host rows) — teardown-step-failed", () => {
   it("builds the (W, runtime) diagnostic with details { step, call, error } (DIAG-1)", () => {
-    const diagnostic = teardownStepFailedDiagnostic(1, "loomRegistry.drain", new Error("drain boom"));
+    const diagnostic = teardownStepFailedDiagnostic(1, "thetaRegistry.drain", new Error("drain boom"));
     expect(diagnostic.code).toBe(TEARDOWN_STEP_FAILED_CODE);
     expect(diagnostic.severity).toBe("warning");
     expect(diagnostic.details?.step).toBe(1);
-    expect(diagnostic.details?.call).toBe("loomRegistry.drain");
+    expect(diagnostic.details?.call).toBe("thetaRegistry.drain");
     expect(diagnostic.details?.error).toBe("drain boom");
     expect(diagnostic.message).toBe(
-      teardownStepFailedMessage(1, "loomRegistry.drain", "drain boom"),
+      teardownStepFailedMessage(1, "thetaRegistry.drain", "drain boom"),
     );
   });
 
@@ -431,8 +431,8 @@ describe("DIAG-1 (host rows) — teardown-step-failed", () => {
     );
     // Exactly one emission for the single failing call site (PIC-28).
     expect(failedEmits.length).toBe(1);
-    expect(String(failedEmits[0]?.[0])).toContain("loomRegistry.drain");
-    expect(TEARDOWN_STEP_CALL_LABELS[1]).toContain("loomRegistry.drain");
+    expect(String(failedEmits[0]?.[0])).toContain("thetaRegistry.drain");
+    expect(TEARDOWN_STEP_CALL_LABELS[1]).toContain("thetaRegistry.drain");
     // Per-step isolation: sub-step 1's second act still ran after the first threw.
     // (drain threw; initDrainStateTag is a distinct call site.)
   });
@@ -492,7 +492,7 @@ describe("session_shutdown per-step isolation", () => {
 describe("PIC-24 — wrapped serialisation-and-emission", () => {
   it("emits the serialised structured payload as the single console.error argument (PIC-24)", () => {
     const sink = sinkSpy();
-    const diagnostic = teardownStepFailedDiagnostic(1, "loomRegistry.drain", new Error("boom"));
+    const diagnostic = teardownStepFailedDiagnostic(1, "thetaRegistry.drain", new Error("boom"));
     emitTeardownDiagnostic(sink, diagnostic);
     expect(sink.serialise).toHaveBeenCalledTimes(1);
     expect(sink.emit).toHaveBeenCalledTimes(1);
@@ -508,7 +508,7 @@ describe("PIC-24 — wrapped serialisation-and-emission", () => {
 describe("PIC-25 — serialiser-throw fallback forms", () => {
   it("falls back to the bare-code string on a serialiser throw for a flat-details code (PIC-25)", () => {
     const sink = sinkSpy({ serialiseThrows: true });
-    const diagnostic = teardownStepFailedDiagnostic(1, "loomRegistry.drain", new Error("boom"));
+    const diagnostic = teardownStepFailedDiagnostic(1, "thetaRegistry.drain", new Error("boom"));
     emitTeardownDiagnostic(sink, diagnostic);
     // The catch arm emits the bare diagnostic code so it stays grep-able.
     expect(sink.emit).toHaveBeenLastCalledWith(TEARDOWN_STEP_FAILED_CODE);
@@ -525,12 +525,12 @@ describe("PIC-25 — serialiser-throw fallback forms", () => {
     expect(sink.emit).toHaveBeenLastCalledWith(`${RUNTIME_DEGRADED_CODE} new`);
   });
 
-  it("falls back to the three-token `${code} ${loom} <unreadable>` form on a serialiser throw for the per-invocation note (PIC-25)", () => {
+  it("falls back to the three-token `${code} ${theta} <unreadable>` form on a serialiser throw for the per-invocation note (PIC-25)", () => {
     const sink = sinkSpy({ serialiseThrows: true });
     const entry = makeEntry("plan", "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa").entry;
     const emission: NestedShapeEmission = {
       code: CANCELLED_BY_SESSION_SHUTDOWN_CODE,
-      diagnostic: { severity: "error", code: CANCELLED_BY_SESSION_SHUTDOWN_CODE, message: "x", details: { event: { reason: "reload", loom: "plan" } } },
+      diagnostic: { severity: "error", code: CANCELLED_BY_SESSION_SHUTDOWN_CODE, message: "x", details: { event: { reason: "reload", theta: "plan" } } },
       detailsEventReason: "reload",
       entry,
     };
@@ -557,7 +557,7 @@ describe("PIC-26 — construction-site catch-arm self-wrap", () => {
     expect(sink.emit).toHaveBeenLastCalledWith(`${RUNTIME_DEGRADED_CODE} <unreadable>`);
   });
 
-  it("emits the three-token `${code} ${entry.loom} <unreadable>` form on a construction-site throw for the per-invocation note (PIC-26 (b))", () => {
+  it("emits the three-token `${code} ${entry.theta} <unreadable>` form on a construction-site throw for the per-invocation note (PIC-26 (b))", () => {
     const sink = sinkSpy();
     const entry = makeEntry("plan", "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa").entry;
     const emission: NestedShapeEmission = {
@@ -595,7 +595,7 @@ describe("PIC-26 — construction-site catch-arm self-wrap", () => {
 describe("PIC-27 — handler-isolation swallow", () => {
   it("swallows a console.error throw and still attempts the emission (PIC-27)", () => {
     const sink = sinkSpy({ emitThrows: true });
-    const diagnostic = teardownStepFailedDiagnostic(1, "loomRegistry.drain", new Error("boom"));
+    const diagnostic = teardownStepFailedDiagnostic(1, "thetaRegistry.drain", new Error("boom"));
     expect(() => emitTeardownDiagnostic(sink, diagnostic)).not.toThrow();
     // The emission was attempted (the throw came from the sink, not from a
     // missing attempt).

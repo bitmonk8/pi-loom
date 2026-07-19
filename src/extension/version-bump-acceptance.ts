@@ -2,7 +2,7 @@
 // revert / rollback verification (pi-integration-contract/version-bump-*.md).
 //
 // The version-bump procedure's output (c) is *green end-to-end runtime evidence
-// at the new pin*: an integrated `.loom` exercised through the `H4a` end-to-end
+// at the new pin*: an integrated `.theta` exercised through the `H4a` end-to-end
 // harness against the bumped Pi-SDK pin, driving all six surfaces (typed query,
 // tool loop, invoke, schema validation, binder, cancellation). The
 // build-time surface-inventory assertions of output (a) alone DO NOT satisfy
@@ -27,7 +27,7 @@
 /**
  * The six integrated surfaces the runtime-evidence acceptance run MUST drive
  * through the `H4a` end-to-end harness against the bumped pin, per
- * `version-bump-triggers.md` output (c). The `.loom` the gate runs is selected
+ * `version-bump-triggers.md` output (c). The `.theta` the gate runs is selected
  * solely by this six-surface coverage requirement.
  */
 export type AcceptanceSurface =
@@ -84,7 +84,7 @@ export function runtimeEvidenceAcceptanceFailures(
   harnessRun: HarnessRunOutcome,
   surfaceInventory: SurfaceInventoryOutcome,
 ): readonly string[] {
-  // A green surface inventory (output (a)) does not exercise the loom against
+  // A green surface inventory (output (a)) does not exercise the theta against
   // the bumped SDK at runtime, so it is deliberately not consulted here.
   void surfaceInventory;
 

@@ -37,7 +37,7 @@ function span(): SourceRange {
 
 /** A located site at the throwaway span. */
 function site(): { file: string; range: SourceRange } {
-  return { file: "test.loom", range: span() };
+  return { file: "test.theta", range: span() };
 }
 
 // --- schema-subset.md §Canonical schema hash — SHA-256 over the canonical form,
@@ -184,35 +184,35 @@ describe("V5f-T — per-schema sidecar (schema-subset.md §Lowering Algorithm st
   it("captures a wire-name translation map (one entry per renamed field; un-renamed fields absent)", () => {
     const fields: SidecarFieldInput[] = [
       {
-        loomName: "first_name",
+        thetaName: "first_name",
         wireName: "FirstName",
         pointer: "/properties/FirstName",
         type: { kind: "other" },
       },
       {
-        // No rename — wire name equals the loom name; absent from the map.
-        loomName: "age",
+        // No rename — wire name equals the theta name; absent from the map.
+        thetaName: "age",
         pointer: "/properties/age",
         type: { kind: "other" },
       },
     ];
     const sidecar = buildSidecar(fields);
     expect(sidecar.wireNames).toContainEqual({
-      loom: "first_name",
+      theta: "first_name",
       wire: "FirstName",
     });
-    expect(sidecar.wireNames.some((e) => e.loom === "age")).toBe(false);
+    expect(sidecar.wireNames.some((e) => e.theta === "age")).toBe(false);
   });
 
   it("captures a named-enum position iff the source type was a named `enum`; anonymous string-literal-union positions are absent", () => {
     const fields: SidecarFieldInput[] = [
       {
-        loomName: "severity",
+        thetaName: "severity",
         pointer: "/properties/severity",
         type: { kind: "named-enum", enumName: "Severity" },
       },
       {
-        loomName: "mode",
+        thetaName: "mode",
         pointer: "/properties/mode",
         type: { kind: "anonymous-string-literal-union" },
       },
@@ -233,10 +233,10 @@ describe("V5f-T — per-schema sidecar (schema-subset.md §Lowering Algorithm st
 });
 
 // --- schema-subset.md §Lowering step 2 + §Schema-slug collision posture ------
-//     loom/load/schema-slug-collision -------------------------------------
+//     theta/load/schema-slug-collision -------------------------------------
 
-describe("V5f-T — loom/load/schema-slug-collision (schema-subset.md §Schema-slug collision posture)", () => {
-  it("loom/load/schema-slug-collision: two non-byte-identical inline schemas sharing a slug fire", () => {
+describe("V5f-T — theta/load/schema-slug-collision (schema-subset.md §Schema-slug collision posture)", () => {
+  it("theta/load/schema-slug-collision: two non-byte-identical inline schemas sharing a slug fire", () => {
     // Same slug, DIFFERENT canonical-form bytes — a genuine 64-bit slug
     // collision. The lowering pass refuses to merge them and raises the
     // load-time diagnostic per the byte-equality check.
@@ -246,11 +246,11 @@ describe("V5f-T — loom/load/schema-slug-collision (schema-subset.md §Schema-s
     ];
     const result = dedupInlineSchemas(colliding, site());
     const d = result.diagnostics.find(
-      (x) => x.code === "loom/load/schema-slug-collision",
+      (x) => x.code === "theta/load/schema-slug-collision",
     );
     expect(
       d,
-      "loom/load/schema-slug-collision for two distinct inline schemas sharing a slug",
+      "theta/load/schema-slug-collision for two distinct inline schemas sharing a slug",
     ).toBeDefined();
     expect(d?.severity).toBe("error");
     // Message anchored to the diagnostics registry (code-registry-load.md)
@@ -275,7 +275,7 @@ describe("V5f-T — loom/load/schema-slug-collision (schema-subset.md §Schema-s
     ).toBe(1);
     expect(
       result.diagnostics.some(
-        (x) => x.code === "loom/load/schema-slug-collision",
+        (x) => x.code === "theta/load/schema-slug-collision",
       ),
       "byte-identical dedup raises no collision diagnostic",
     ).toBe(false);
@@ -299,7 +299,7 @@ describe("V5f-T — loom/load/schema-slug-collision (schema-subset.md §Schema-s
     ).toBe(2);
     expect(
       result.diagnostics.some(
-        (x) => x.code === "loom/load/schema-slug-collision",
+        (x) => x.code === "theta/load/schema-slug-collision",
       ),
     ).toBe(false);
   });

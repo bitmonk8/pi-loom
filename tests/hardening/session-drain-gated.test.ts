@@ -5,17 +5,17 @@
 // (`drainGatedHandler`) on the composeInstance production path instead of a raw
 // pass-through. At dispatch time the wrapper reads `registry.readDrainState()`
 // and either dispatches the registry's current raw entry (arm (a)) or emits a
-// `loom-system-note` (shutting-down / superseded).
+// `theta-system-note` (shutting-down / superseded).
 //
 // RISK guarded here: a false positive where a NORMAL, steady-state dispatch is
-// misrouted into a drain-state note — which would break every loom slash
+// misrouted into a drain-state note — which would break every theta slash
 // command. With the wrapper LIVE this probe proves the steady-state path still
-// runs end-to-end and emits NO spurious drain-state note: the loom's
+// runs end-to-end and emits NO spurious drain-state note: the theta's
 // user-visible echo appears on `userTexts`, and `systemNotes` contains NEITHER
 // "extension shutting down" NOR "superseded".
 //
 // Method: sentinel-pinned, token-bounded prompt query driven against the real
-// live model. `userTexts` is the exact turn text the loom CODE computed (deterministic).
+// live model. `userTexts` is the exact turn text the theta CODE computed (deterministic).
 // A 429 / transport failure is a retry (not a finding); harmless teardown stderr
 // (`stale ctx` / `registry-swap-failed`) is ignored.
 
@@ -56,7 +56,7 @@ describe("drain-gated dispatch wrapper — steady-state slash path unregressed (
           files: [
             {
               source: "project",
-              path: "dgok.loom",
+              path: "dgok.theta",
               text: [
                 "---",
                 "description: dgok",
@@ -79,9 +79,9 @@ describe("drain-gated dispatch wrapper — steady-state slash path unregressed (
         // eslint-disable-next-line no-console
         console.log("DRAIN-GATED error:", turn?.error);
 
-        // The loom registered and dispatched through the wrapper (arm (a)).
+        // The theta registered and dispatched through the wrapper (arm (a)).
         expect(probe.registeredNames).toContain("dgok");
-        // The loom's user-visible turn text was computed and sent (the wrapper
+        // The theta's user-visible turn text was computed and sent (the wrapper
         // dispatched the registry's raw run, not a drain-state note).
         expect(userTexts.join("\n")).toContain("DRAIN_PROBE");
         // No spurious drain-state note leaked onto the user-facing channel.

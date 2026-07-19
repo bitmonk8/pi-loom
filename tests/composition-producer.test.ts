@@ -2,16 +2,16 @@ import { describe, expect, it } from "vitest";
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import type { AssistantMessage, Message, UserMessage } from "@earendil-works/pi-ai";
 import {
-  composeLoomFixture,
+  composeThetaFixture,
   type ConversationBinding,
   type ConversationBindInput,
   type BinderRunInput,
   type BinderRunResult,
   type DrivenConversation,
-  type LoomCompositionInput,
-  type LoomProducerDeps,
-} from "../src/extension/loom-composition-producer";
-import type { ParsedLoom } from "../src/extension/reload-wiring";
+  type ThetaCompositionInput,
+  type ThetaProducerDeps,
+} from "../src/extension/theta-composition-producer";
+import type { ParsedTheta } from "../src/extension/reload-wiring";
 import {
   createEffectfulStatementHost,
   type EffectfulStatementHostDeps,
@@ -25,7 +25,7 @@ import type {
   CommittedSurface,
   DrivenConversationMode,
 } from "../src/runtime/terminal-outcomes";
-import { makeErr, makeOk, type LoomValue, type ResultValue } from "../src/runtime/value";
+import { makeErr, makeOk, type ThetaValue, type ResultValue } from "../src/runtime/value";
 import type { QueryError } from "../src/runtime/query-error";
 import type {
   ForcedRespondTurn,
@@ -41,28 +41,28 @@ import type {
 } from "../src/runtime/tool-call-execute";
 import type { InvokeChild } from "../src/runtime/invoke-cancellation";
 import type { CommittedSideEffect } from "../src/runtime/no-rollback";
-import type { Expr, LoomBody, QueryExpr } from "../src/parser/loom-document";
-import type { LoomMode, ParsedFrontmatter } from "../src/parser/frontmatter";
+import type { Expr, ThetaBody, QueryExpr } from "../src/parser/theta-document";
+import type { ThetaMode, ParsedFrontmatter } from "../src/parser/frontmatter";
 import type { SourceRange } from "../src/diagnostics/diagnostic";
 
-// V19e-T — failing tests for the paired `V19e` per-loom runnable composition
+// V19e-T — failing tests for the paired `V19e` per-theta runnable composition
 // producer.
 //
-// `V19e` maps a parsed `.loom` (`V19a` frontmatter + body AST under a slash
-// name) to a `H4a` `LoomFixture` (`{ slashName, run }`) whose `run` composes the
+// `V19e` maps a parsed `.theta` (`V19a` frontmatter + body AST under a slash
+// name) to a `H4a` `ThetaFixture` (`{ slashName, run }`) whose `run` composes the
 // existing runtime seams: it runs the `V11a` frontmatter binder (when
-// applicable) BEFORE the loom interpreter, routes on the loom's `mode:` and
+// applicable) BEFORE the theta interpreter, routes on the theta's `mode:` and
 // drives `V19d`'s effectful executor (`executeBody`) against the appropriate
 // conversation — prompt-mode against the user session (`V12a`/`V9c`),
 // subagent-mode against a freshly spawned isolated `AgentSession` (`V9i`) — and
 // surfaces the mode's return value (prompt-mode extracts the trailing-turn
 // `Ok(string)`, `PIC-53`).
 //
-// The per-loom runnable-producer obligation is phrased declaratively in
-// extension-bootstrap-and-per-loom.md §"Per-loom registration" ("the
-// slash-command `handler` runs the binder (when applicable) and then the loom
+// The per-theta runnable-producer obligation is phrased declaratively in
+// extension-bootstrap-and-per-theta.md §"Per-theta registration" ("the
+// slash-command `handler` runs the binder (when applicable) and then the theta
 // interpreter against the appropriate conversation") and carries NO `PREFIX-N`
-// REQ-ID / `loom/...` code — a GOV-22 un-anchored obligation routed to
+// REQ-ID / `theta/...` code — a GOV-22 un-anchored obligation routed to
 // release-time residue-inspection item 5, so this leaf closes NO
 // coverage-matrix row. The prompt-mode / subagent-mode drive bullets are
 // integration witnesses (SLSH-2 / PIC-53 owned by `V12a`/`V9c`; PIC-40…43 owned
@@ -90,7 +90,7 @@ function queryExpr(template: string): QueryExpr {
   return { kind: "query", schema: null, template, range: span() };
 }
 
-function body(statements: readonly [] = [], tail: Expr | null = null): LoomBody {
+function body(statements: readonly [] = [], tail: Expr | null = null): ThetaBody {
   return { statements, tail };
 }
 
@@ -118,7 +118,7 @@ function assistantMessage(text: string): AssistantMessage {
   } as AssistantMessage;
 }
 
-const SITE: CheckpointSite = { file: "loom.loom", line: 1, column: 1 };
+const SITE: CheckpointSite = { file: "theta.theta", line: 1, column: 1 };
 
 /** A no-op `Checkpoint` (an already-resolved promise). */
 const NOOP_CHECKPOINT: Checkpoint = {
@@ -145,7 +145,7 @@ function queryConfig(): QueryToolLoopConfig {
   return {
     maxRounds: 3,
     querySite: SITE,
-    loomSlashName: "demo",
+    thetaSlashName: "demo",
     invocationId: "inv-1",
     occurredAt: 0,
   };
@@ -227,7 +227,7 @@ const INERT_TOOL_CALL: CodeSideToolCall = {
   },
 };
 const INERT_INVOKE: InvokeChild = {
-  calleePath: "./unused.loom",
+  calleePath: "./unused.theta",
   committed: [],
   drive(): Promise<ResultValue> {
     return Promise.resolve(makeOk(null));
@@ -250,8 +250,8 @@ function boundExecuteDeps(
     checkpoint: NOOP_CHECKPOINT,
     signal: new AbortController().signal,
     sink: NOOP_SINK,
-    file: "loom.loom",
-    evaluatePure(expr: Expr): LoomValue {
+    file: "theta.theta",
+    evaluatePure(expr: Expr): ThetaValue {
       void expr;
       return null;
     },
@@ -272,7 +272,7 @@ function boundExecuteDeps(
     signal: new AbortController().signal,
     mutator: new RecordingMutator(),
     mode,
-    file: "test.loom",
+    file: "test.theta",
   };
 }
 
@@ -284,11 +284,11 @@ interface ProducerProbe {
   subagentSpawned: boolean;
   drivenAgainst: DrivenConversation | undefined;
   surfaced: ResultValue | undefined;
-  errNote: { loomName: string; error: QueryError } | undefined;
+  errNote: { thetaName: string; error: QueryError } | undefined;
 }
 
 interface Harness {
-  readonly deps: LoomProducerDeps;
+  readonly deps: ThetaProducerDeps;
   readonly order: string[];
   readonly userSession: RecordingUserSession;
   readonly subagentSession: RecordingSubagentSession;
@@ -328,7 +328,7 @@ function makeHarness(opts: { bound?: boolean; surfaceErr?: QueryError } = {}): H
       surface(): ResultValue {
         const r: ResultValue =
           opts.surfaceErr !== undefined
-            ? makeErr(opts.surfaceErr as unknown as LoomValue)
+            ? makeErr(opts.surfaceErr as unknown as ThetaValue)
             : makeOk(extractTrailingTurnText(messages));
         state.surfaced = r;
         return r;
@@ -336,7 +336,7 @@ function makeHarness(opts: { bound?: boolean; surfaceErr?: QueryError } = {}): H
     };
   }
 
-  const deps: LoomProducerDeps = {
+  const deps: ThetaProducerDeps = {
     runBinder(_input: BinderRunInput): Promise<BinderRunResult> {
       state.binderCalled = true;
       order.push("bind");
@@ -350,14 +350,14 @@ function makeHarness(opts: { bound?: boolean; surfaceErr?: QueryError } = {}): H
       state.subagentSpawned = true;
       return Promise.resolve(bindingOver(subagentSession, "subagent", "subagent-private-session"));
     },
-    emitTopLevelErrNote(loomName: string, error: QueryError): void {
-      state.errNote = { loomName, error };
+    emitTopLevelErrNote(thetaName: string, error: QueryError): void {
+      state.errNote = { thetaName, error };
     },
     emitPanicNote(): void {
       // No top-level defect is injected on these value-path harnesses; the
       // panic-note surface is exercised by composition-producer's own panic
       // tests and subagent-drive-teardown. Stubbed so the deps satisfy the
-      // widened `LoomProducerDeps` interface.
+      // widened `ThetaProducerDeps` interface.
     },
   };
 
@@ -370,21 +370,21 @@ function makeHarness(opts: { bound?: boolean; surfaceErr?: QueryError } = {}): H
   };
 }
 
-function loomInput(slashName: string, mode: LoomMode): LoomCompositionInput {
+function thetaInput(slashName: string, mode: ThetaMode): ThetaCompositionInput {
   const frontmatter: ParsedFrontmatter = { mode };
   return { slashName, frontmatter, body: body([], queryExpr("what is the answer?")) };
 }
 
 // ===========================================================================
-// Parsed .loom → registered LoomFixture mapping (GOV-22 declarative MUST).
+// Parsed .theta → registered ThetaFixture mapping (GOV-22 declarative MUST).
 // ===========================================================================
 
-describe("V19e-T — parsed .loom → runnable LoomFixture mapping", () => {
-  it("Convention (per-loom runnable producer, residue-inspection item 5): a parsed .loom maps to a registered LoomFixture with the correct slashName whose run runs the binder then the loom interpreter against the appropriate conversation", async () => {
+describe("V19e-T — parsed .theta → runnable ThetaFixture mapping", () => {
+  it("Convention (per-theta runnable producer, residue-inspection item 5): a parsed .theta maps to a registered ThetaFixture with the correct slashName whose run runs the binder then the theta interpreter against the appropriate conversation", async () => {
     const h = makeHarness();
-    const fixture = composeLoomFixture(loomInput("summarise", "prompt"), h.deps);
+    const fixture = composeThetaFixture(thetaInput("summarise", "prompt"), h.deps);
 
-    expect(fixture.slashName, "the fixture registers under the parsed loom's slash name").toBe(
+    expect(fixture.slashName, "the fixture registers under the parsed theta's slash name").toBe(
       "summarise",
     );
 
@@ -396,7 +396,7 @@ describe("V19e-T — parsed .loom → runnable LoomFixture mapping", () => {
     ).toBe(true);
     expect(
       h.userSession.calls.length,
-      "the composed run drives the loom interpreter — one prompt turn against the appropriate (user) conversation",
+      "the composed run drives the theta interpreter — one prompt turn against the appropriate (user) conversation",
     ).toBe(1);
   });
 });
@@ -406,10 +406,10 @@ describe("V19e-T — parsed .loom → runnable LoomFixture mapping", () => {
 // ===========================================================================
 
 describe("V19e-T — prompt-mode drive (SLSH-2 / PIC-53 integration witness)", () => {
-  it("the run of a prompt-mode parsed .loom drives exactly one real prompt turn via V19d's executor against the user conversation and extracts the trailing-turn Ok(string), leaving one appended turn", async () => {
+  it("the run of a prompt-mode parsed .theta drives exactly one real prompt turn via V19d's executor against the user conversation and extracts the trailing-turn Ok(string), leaving one appended turn", async () => {
     const h = makeHarness();
 
-    await composeLoomFixture(loomInput("summarise", "prompt"), h.deps).run("", ctxDouble());
+    await composeThetaFixture(thetaInput("summarise", "prompt"), h.deps).run("", ctxDouble());
 
     const p = h.probe();
     expect(
@@ -422,7 +422,7 @@ describe("V19e-T — prompt-mode drive (SLSH-2 / PIC-53 integration witness)", (
     ).toBe(1);
     expect(p.surfaced?.ok, "the prompt-mode run surfaces the trailing-turn Ok(string)").toBe(true);
     expect(
-      (p.surfaced as { readonly ok: true; readonly value: LoomValue }).value,
+      (p.surfaced as { readonly ok: true; readonly value: ThetaValue }).value,
       "PIC-53: the surfaced Ok value is the trailing-turn assistant text",
     ).toBe("final answer");
   });
@@ -433,10 +433,10 @@ describe("V19e-T — prompt-mode drive (SLSH-2 / PIC-53 integration witness)", (
 // ===========================================================================
 
 describe("V19e-T — subagent-mode drive (PIC-40…43 integration witness)", () => {
-  it("the run of a subagent-mode parsed .loom spawns an isolated AgentSession through V9i's spawn seam and drives the executor against that private session rather than the user conversation", async () => {
+  it("the run of a subagent-mode parsed .theta spawns an isolated AgentSession through V9i's spawn seam and drives the executor against that private session rather than the user conversation", async () => {
     const h = makeHarness();
 
-    await composeLoomFixture(loomInput("classify", "subagent"), h.deps).run("", ctxDouble());
+    await composeThetaFixture(thetaInput("classify", "subagent"), h.deps).run("", ctxDouble());
 
     const p = h.probe();
     expect(
@@ -453,7 +453,7 @@ describe("V19e-T — subagent-mode drive (PIC-40…43 integration witness)", () 
     ).toBe(1);
     expect(
       h.userSession.calls.length,
-      "a subagent-mode loom does NOT drive the user conversation",
+      "a subagent-mode theta does NOT drive the user conversation",
     ).toBe(0);
   });
 });
@@ -463,10 +463,10 @@ describe("V19e-T — subagent-mode drive (PIC-40…43 integration witness)", () 
 // ===========================================================================
 
 describe("V19e-T — binder-before-interpreter ordering (V11a seam witness)", () => {
-  it("run binds the frontmatter binder before entering the loom interpreter — the bind step commits ahead of the executor's first statement", async () => {
+  it("run binds the frontmatter binder before entering the theta interpreter — the bind step commits ahead of the executor's first statement", async () => {
     const h = makeHarness();
 
-    await composeLoomFixture(loomInput("summarise", "prompt"), h.deps).run("", ctxDouble());
+    await composeThetaFixture(thetaInput("summarise", "prompt"), h.deps).run("", ctxDouble());
 
     expect(
       h.order,
@@ -474,10 +474,10 @@ describe("V19e-T — binder-before-interpreter ordering (V11a seam witness)", ()
     ).toEqual(["bind", "stmt:query"]);
   });
 
-  it("a non-binding binder envelope (needs-info / ambiguous / cancelled) short-circuits — the loom interpreter never runs", async () => {
+  it("a non-binding binder envelope (needs-info / ambiguous / cancelled) short-circuits — the theta interpreter never runs", async () => {
     const h = makeHarness({ bound: false });
 
-    await composeLoomFixture(loomInput("summarise", "prompt"), h.deps).run("", ctxDouble());
+    await composeThetaFixture(thetaInput("summarise", "prompt"), h.deps).run("", ctxDouble());
 
     expect(h.probe().binderCalled, "the binder still runs").toBe(true);
     expect(
@@ -501,13 +501,13 @@ describe("V19e-T — SLSH-3 top-level Err at the slash-dispatch boundary", () =>
     } as unknown as QueryError;
     const h = makeHarness({ surfaceErr: err });
 
-    await composeLoomFixture(loomInput("snkb", "prompt"), h.deps).run("", ctxDouble());
+    await composeThetaFixture(thetaInput("snkb", "prompt"), h.deps).run("", ctxDouble());
 
     const p = h.probe();
     expect(p.surfaced?.ok, "the failed run surfaces an Err, not a masking Ok").toBe(false);
     expect(
-      p.errNote?.loomName,
-      "run routes the top-level Err to emitTopLevelErrNote under the loom's slash name",
+      p.errNote?.thetaName,
+      "run routes the top-level Err to emitTopLevelErrNote under the theta's slash name",
     ).toBe("snkb");
     expect(
       p.errNote?.error,
@@ -518,7 +518,7 @@ describe("V19e-T — SLSH-3 top-level Err at the slash-dispatch boundary", () =>
   it("a successful top-level run emits NO boundary note (no over-emission)", async () => {
     const h = makeHarness();
 
-    await composeLoomFixture(loomInput("summarise", "prompt"), h.deps).run("", ctxDouble());
+    await composeThetaFixture(thetaInput("summarise", "prompt"), h.deps).run("", ctxDouble());
 
     expect(h.probe().errNote, "a successful run does not emit a top-level Err note").toBe(
       undefined,
@@ -527,33 +527,33 @@ describe("V19e-T — SLSH-3 top-level Err at the slash-dispatch boundary", () =>
 });
 
 // ===========================================================================
-// ParsedLoom widening — Class-2 cross-leaf seam consumed by H8a.
+// ParsedTheta widening — Class-2 cross-leaf seam consumed by H8a.
 // ===========================================================================
 
-describe("V19e-T — ParsedLoom widening (Class-2 seam consumed by H8a)", () => {
-  it("reload-wiring.ts ParsedLoom carries the V19a frontmatter + body AST + the producer run the H8a session_start registration consumes", async () => {
+describe("V19e-T — ParsedTheta widening (Class-2 seam consumed by H8a)", () => {
+  it("reload-wiring.ts ParsedTheta carries the V19a frontmatter + body AST + the producer run the H8a session_start registration consumes", async () => {
     const h = makeHarness();
-    const input = loomInput("summarise", "prompt");
-    const fixture = composeLoomFixture(input, h.deps);
+    const input = thetaInput("summarise", "prompt");
+    const fixture = composeThetaFixture(input, h.deps);
 
-    // The widened ParsedLoom carries the V19a frontmatter + body AST + the
+    // The widened ParsedTheta carries the V19a frontmatter + body AST + the
     // producer run — the seam H8a's session_start registration consumes. This
     // object literal compiles only against the widened seam.
-    const parsed: ParsedLoom = {
+    const parsed: ParsedTheta = {
       slashName: input.slashName,
       frontmatter: input.frontmatter,
       body: input.body,
       run: fixture.run,
     };
 
-    expect(parsed.frontmatter, "ParsedLoom carries the V19a frontmatter").toBe(input.frontmatter);
-    expect(parsed.body, "ParsedLoom carries the V19a body AST").toBe(input.body);
+    expect(parsed.frontmatter, "ParsedTheta carries the V19a frontmatter").toBe(input.frontmatter);
+    expect(parsed.body, "ParsedTheta carries the V19a body AST").toBe(input.body);
 
     await parsed.run("", ctxDouble());
 
     expect(
       h.probe().binderCalled,
-      "the ParsedLoom-carried run is the live producer run — it drives the binder + interpreter",
+      "the ParsedTheta-carried run is the live producer run — it drives the binder + interpreter",
     ).toBe(true);
   });
 });

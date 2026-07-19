@@ -11,25 +11,25 @@
 //
 // It closes no new spec REQ-ID: each diagnostic is an integration realisation of
 // a code-keyed area owned on its original leaf —
-//   * `loom/parse/non-boolean-condition` (cka-4, V3a),
-//   * `loom/parse/non-array-iterand` (cka-5, V3c),
-//   * `loom/parse/question-on-non-result` / `loom/parse/question-outside-result-fn` (V4a),
-//   * `loom/parse/array-no-common-type` (V3a), `loom/parse/return-no-common-type` (V3d),
-//   * `loom/parse/integer-narrowing` (V2b), `loom/parse/match-arm-type-mismatch` (V4a),
-//   * `loom/parse/non-indexable-receiver` (V3a), `loom/parse/non-string-object-index` (V3h),
-//   * `loom/parse/non-string-array-join` (V3g),
-//   * `loom/parse/mixed-plus-operands` (A5) / `loom/parse/non-orderable-operands`
+//   * `theta/parse/non-boolean-condition` (cka-4, V3a),
+//   * `theta/parse/non-array-iterand` (cka-5, V3c),
+//   * `theta/parse/question-on-non-result` / `theta/parse/question-outside-result-fn` (V4a),
+//   * `theta/parse/array-no-common-type` (V3a), `theta/parse/return-no-common-type` (V3d),
+//   * `theta/parse/integer-narrowing` (V2b), `theta/parse/match-arm-type-mismatch` (V4a),
+//   * `theta/parse/non-indexable-receiver` (V3a), `theta/parse/non-string-object-index` (V3h),
+//   * `theta/parse/non-string-array-join` (V3g),
+//   * `theta/parse/mixed-plus-operands` (A5) / `theta/parse/non-orderable-operands`
 //     (A6) — the `+` / ordering operand-type checks (expressions.md §"`+`
 //     operator", §"Ordering comparisons"),
-//   * `loom/parse/unknown-method` (A2) — a member / method access on a built-in
-//     receiver type outside the loom 1.0 stdlib surface (expressions.md
+//   * `theta/parse/unknown-method` (A2) — a member / method access on a built-in
+//     receiver type outside the theta 1.0 stdlib surface (expressions.md
 //     §"Built-in methods and properties").
 //
 // A5 / A6 / A2 fire ONLY when the operand / receiver static type is concretely
 // resolvable. An operand past the parser's static view (an unresolved
 // `NamedType`, a sentinel reference) is left unclassified and deferred to the
 // runtime safety net — no `type`-phase diagnostic — mirroring the
-// `let-rhs-type-mismatch` "statically resolvable" guard so no valid loom is
+// `let-rhs-type-mismatch` "statically resolvable" guard so no valid theta is
 // wrongly rejected.
 //
 // The wiring is constructor-free and holds no module-level mutable state: it
@@ -45,9 +45,9 @@ import type {
   Expr,
   FnDecl,
   IfStmt,
-  LoomBody,
+  ThetaBody,
   Stmt,
-} from "./loom-document";
+} from "./theta-document";
 import {
   checkCompatible,
   checkCommonType,
@@ -177,9 +177,9 @@ function classifyReceiver(type: CompatType, env: TypeEnv): BuiltinReceiver {
 }
 
 /**
- * The loom 1.0 stdlib member allow-list for a concrete built-in receiver. A
+ * The theta 1.0 stdlib member allow-list for a concrete built-in receiver. A
  * member-less receiver (`number` / `integer` / `boolean` / `null`) exposes no
- * members, so any member / method access on it is `loom/parse/unknown-method`.
+ * members, so any member / method access on it is `theta/parse/unknown-method`.
  */
 function builtinMembers(kind: BuiltinReceiver): ReadonlySet<string> {
   switch (kind) {
@@ -198,7 +198,7 @@ const EMPTY_MEMBERS: ReadonlySet<string> = new Set();
 
 /**
  * The walk context threaded down each block: the enclosing scope a `?` early-
- * returns from, for the `loom/parse/question-outside-result-fn` scope check.
+ * returns from, for the `theta/parse/question-outside-result-fn` scope check.
  */
 interface WalkCtx {
   readonly returnScope: EnclosingReturnScope;
@@ -209,7 +209,7 @@ interface WalkCtx {
  * aggregated (unsorted; the caller sorts through `assembleDiagnostics`) type-
  * layer diagnostics. Consumes the `V20b` per-expression static-type lookup.
  */
-export function checkTypeLayer(body: LoomBody, file: string): Diagnostic[] {
+export function checkTypeLayer(body: ThetaBody, file: string): Diagnostic[] {
   const pass = new StaticTypeInferencePass({ checkCompatible });
   const env = collectTypeEnv(body.statements);
   // Run the `V20b` read-only whole-program pass in production: it types every
@@ -336,7 +336,7 @@ class TypeLayerWalk {
             const annotation = annotationToCompatType(stmt.annotation);
             if (annotation !== undefined) {
               // The typed-binding RHS narrowing / mismatch check (surfaces
-              // `loom/parse/integer-narrowing` for a `number → integer` RHS).
+              // `theta/parse/integer-narrowing` for a `number → integer` RHS).
               this.diagnostics.push(
                 ...checkLetRhsCompat({
                   name: stmt.name,
@@ -445,7 +445,7 @@ class TypeLayerWalk {
 
     // An annotation-less `fn` infers its return type as the LUB of its
     // contributions; contributions sharing no common upper bound surface
-    // `loom/parse/return-no-common-type` (owned V3d).
+    // `theta/parse/return-no-common-type` (owned V3d).
     if (fn.returnType === null) {
       const contributions = this.collectReturnContributions(fn.body, fnScope);
       const resolved = resolveReturnType({
@@ -792,7 +792,7 @@ class TypeLayerWalk {
         this.diagnostics.push(diag);
       }
     }
-    // A2 — a method call on a concrete built-in receiver whose name the loom
+    // A2 — a method call on a concrete built-in receiver whose name the theta
     // 1.0 stdlib does not expose. A statically-unresolvable receiver defers to
     // the runtime safety net (no diagnostic).
     const kind = classifyReceiver(targetType, this.env);
@@ -809,7 +809,7 @@ class TypeLayerWalk {
    * `target.member`. Object *field* access (`obj.field`) is legitimate and is
    * not gated; a member-less primitive (`number` / `integer` / `boolean` /
    * `null`) or a `string` / `array` property outside the stdlib surface is
-   * `loom/parse/unknown-method`. A statically-unresolvable receiver defers.
+   * `theta/parse/unknown-method`. A statically-unresolvable receiver defers.
    */
   private checkMemberAccess(
     e: Expr & { kind: "member" },
@@ -827,7 +827,7 @@ class TypeLayerWalk {
     }
   }
 
-  /** Emit `loom/parse/unknown-method` (message from code-registry-parse.md). */
+  /** Emit `theta/parse/unknown-method` (message from code-registry-parse.md). */
   private pushUnknownMethod(
     name: string,
     receiverType: CompatType,
@@ -835,7 +835,7 @@ class TypeLayerWalk {
   ): void {
     this.diagnostics.push({
       severity: "error",
-      code: "loom/parse/unknown-method",
+      code: "theta/parse/unknown-method",
       file: this.file,
       range,
       message: `unknown method '${name}' on type ${displayType(receiverType)}`,
@@ -845,7 +845,7 @@ class TypeLayerWalk {
   /**
    * A5 — the `+` operand-type check. `+` accepts two numeric operands
    * (addition) or two `string` operands (concatenation); every other concrete
-   * pairing is `loom/parse/mixed-plus-operands` (expressions.md §"`+`
+   * pairing is `theta/parse/mixed-plus-operands` (expressions.md §"`+`
    * operator"). Fires only when both operands are statically resolvable.
    */
   private checkPlusOperands(
@@ -867,7 +867,7 @@ class TypeLayerWalk {
     }
     this.diagnostics.push({
       severity: "error",
-      code: "loom/parse/mixed-plus-operands",
+      code: "theta/parse/mixed-plus-operands",
       file: this.file,
       range: e.range,
       message: `'+' has mixed operand types: ${displayType(leftType)} and ${displayType(
@@ -879,7 +879,7 @@ class TypeLayerWalk {
   /**
    * A6 — the ordering-operator (`<` / `<=` / `>` / `>=`) operand-type check.
    * Ordering accepts two numeric operands or two `string` operands; every other
-   * concrete pairing is `loom/parse/non-orderable-operands` (expressions.md
+   * concrete pairing is `theta/parse/non-orderable-operands` (expressions.md
    * §"Ordering comparisons"). Fires only when both operands are statically
    * resolvable.
    */
@@ -902,7 +902,7 @@ class TypeLayerWalk {
     }
     this.diagnostics.push({
       severity: "error",
-      code: "loom/parse/non-orderable-operands",
+      code: "theta/parse/non-orderable-operands",
       file: this.file,
       range: e.range,
       message: `'${e.op}' requires two numeric or two string operands; got ${displayType(

@@ -15,7 +15,7 @@
 //     restore; PIC-2 cross-body non-overlap detects the still-open window);
 //   - `subscribePromptModeCancelForwarding` registers per-session-marked event
 //     names (PIC-18 process-global / no-marker) and never forwards the captured
-//     abort into `loomAbort` (PIC-18 cancel-forwarding role);
+//     abort into `thetaAbort` (PIC-18 cancel-forwarding role);
 //   - `extractTrailingTurnText` returns a fixed sentinel (PIC-53).
 // No test reds on a compile error, a missing fixture, or a harness throw.
 
@@ -135,33 +135,33 @@ function assistantMessage(
 // ===========================================================================
 
 describe("V9c-T — PIC-17 active-set allowlist gating", () => {
-  it("PIC-17: the step-2 install vector is exactly the loom callable set — the ambient snapshot is not inherited", async () => {
+  it("PIC-17: the step-2 install vector is exactly the theta callable set — the ambient snapshot is not inherited", async () => {
     const { gate, setCalls } = makeRecordingGate(["ambient-a", "ambient-b"]);
 
     await withActiveSetGating(
       gate,
-      { loomCallableSetNames: ["loom-x", "loom-y"] },
+      { thetaCallableSetNames: ["theta-x", "theta-y"] },
       async () => "ok",
     );
 
-    // PIC-17: step-2 install is exactly `[...loomCallableSetNames]` (no respond
+    // PIC-17: step-2 install is exactly `[...thetaCallableSetNames]` (no respond
     // tool on an untyped/free turn) and contains no member of the step-1
     // snapshot — "ambient tools are deliberately not inherited".
-    expect(setCalls[0]).toEqual(["loom-x", "loom-y"]);
+    expect(setCalls[0]).toEqual(["theta-x", "theta-y"]);
     expect(setCalls[0]?.some((n) => n === "ambient-a" || n === "ambient-b")).toBe(false);
   });
 
-  it("PIC-17: the forced-respond turn installs exactly [...loomCallableSetNames, respondToolName]", async () => {
+  it("PIC-17: the forced-respond turn installs exactly [...thetaCallableSetNames, respondToolName]", async () => {
     const { gate, setCalls } = makeRecordingGate(["ambient-a"]);
 
     await withActiveSetGating(
       gate,
-      { loomCallableSetNames: ["loom-x"], respondToolName: "__loom_respond_abc" },
+      { thetaCallableSetNames: ["theta-x"], respondToolName: "__theta_respond_abc" },
       async () => "ok",
     );
 
     // PIC-17 acceptance criterion (b): the respond tool is appended last.
-    expect(setCalls[0]).toEqual(["loom-x", "__loom_respond_abc"]);
+    expect(setCalls[0]).toEqual(["theta-x", "__theta_respond_abc"]);
     expect(setCalls[0]?.includes("ambient-a")).toBe(false);
   });
 
@@ -170,19 +170,19 @@ describe("V9c-T — PIC-17 active-set allowlist gating", () => {
 
     await withActiveSetGating(
       gate,
-      { loomCallableSetNames: [], respondToolName: "__loom_respond_abc" },
+      { thetaCallableSetNames: [], respondToolName: "__theta_respond_abc" },
       async () => "ok",
     );
 
     // PIC-17 acceptance criterion (b), empty-set case.
-    expect(setCalls[0]).toEqual(["__loom_respond_abc"]);
+    expect(setCalls[0]).toEqual(["__theta_respond_abc"]);
   });
 
   it("PIC-17: the snapshot is restored in a finally even when the query throws", async () => {
     const { gate, setCalls } = makeRecordingGate(["ambient-a", "ambient-b"]);
 
     await expect(
-      withActiveSetGating(gate, { loomCallableSetNames: ["loom-x"] }, async () => {
+      withActiveSetGating(gate, { thetaCallableSetNames: ["theta-x"] }, async () => {
         throw new QueryFailure();
       }),
     ).rejects.toBeInstanceOf(QueryFailure);
@@ -205,11 +205,11 @@ describe("V9c-T — PIC-2 prompt-mode sequential execution (cross-body non-overl
     // Parent body: run a query (opens + closes its own window), then — between
     // queries — invoke a prompt-mode child that runs its own query. The child's
     // window must open only after the parent's is restored.
-    await withActiveSetGating(gate, { loomCallableSetNames: ["parent-tool"] }, async () => {
+    await withActiveSetGating(gate, { thetaCallableSetNames: ["parent-tool"] }, async () => {
       /* parent's query turn — the body itself issues no active-set call */
     });
     // ...parent body resumes and invokes the child (a distinct prompt-mode body)...
-    await withActiveSetGating(gate, { loomCallableSetNames: ["child-tool"] }, async () => {
+    await withActiveSetGating(gate, { thetaCallableSetNames: ["child-tool"] }, async () => {
       /* child's query turn */
     });
 
@@ -249,29 +249,29 @@ describe("V9c-T — PIC-18 prompt-mode turn-lifecycle event subscription", () =>
     expect(events).toEqual([...PROMPT_MODE_LIFECYCLE_EVENTS].sort());
   });
 
-  it("PIC-18: the handlers forward the captured abort into loomAbort (cancel-forward only, never completion)", () => {
+  it("PIC-18: the handlers forward the captured abort into thetaAbort (cancel-forward only, never completion)", () => {
     const { pi, fireAll } = makeRecordingEventApi();
 
     const captured = new AbortController();
-    const loomAbort = new AbortController();
+    const thetaAbort = new AbortController();
     const invocation: ActiveInvocationSignals = {
       capturedSignal: captured.signal,
-      loomAbort,
+      thetaAbort,
     };
     subscribePromptModeCancelForwarding(pi, () => invocation);
 
     // A cross-fire while the captured signal is NOT aborted only re-checks it —
     // it must not spuriously abort (nor resolve completion).
     fireAll();
-    expect(loomAbort.signal.aborted).toBe(false);
+    expect(thetaAbort.signal.aborted).toBe(false);
 
     // PIC-18 primary assertion: once the captured `ctx.signal` is aborted, a
-    // lifecycle event forwards that abort into the V17a `loomAbort` controller.
+    // lifecycle event forwards that abort into the V17a `thetaAbort` controller.
     const reason = new Error("cancelled by ctx.signal");
     captured.abort(reason);
     fireAll();
-    expect(loomAbort.signal.aborted).toBe(true);
-    expect(loomAbort.signal.reason).toBe(reason);
+    expect(thetaAbort.signal.aborted).toBe(true);
+    expect(thetaAbort.signal.reason).toBe(reason);
   });
 });
 
@@ -301,7 +301,7 @@ describe("V9c-T — PIC-53 untyped-query trailing-turn Ok(string) extraction", (
     const messages: Message[] = [
       userMessage("earlier invocation"),
       assistantMessage([{ text: "earlier answer" }]),
-      userMessage("this loom-issued turn"),
+      userMessage("this theta-issued turn"),
       assistantMessage([{ text: "trailing answer" }]),
     ];
     // PIC-53: only the trailing turn (after the last `user` message) contributes.

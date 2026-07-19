@@ -25,14 +25,14 @@ The Retired REQ-IDs sub-table is append-only per GOV-8. The `Retired in` column 
 
 ## Retired anchor aliases
 
-Records the retirement of `<a id="v1-…">` back-compat aliases under [GOV-28 *alias retirement discharge*](./release-version-naming.md#gov-28). Retirement is per-alias: each row retires one `v1-*` alias from one owner heading or paragraph, leaving the heading's surviving `loom-1-0-*` (or `loom-1-0-0-*`) arm intact. The sub-table is append-only on the same terms as the *Retired prefixes* sub-table earlier on this page and the *Retired REQ-IDs* sub-table above; retired alias slugs MUST NOT be re-coined.
+Records the retirement of `<a id="v1-…">` back-compat aliases under [GOV-28 *alias retirement discharge*](./release-version-naming.md#gov-28). Retirement is per-alias: each row retires one `v1-*` alias from one owner heading or paragraph, leaving the heading's surviving `theta-1-0-*` (or `theta-1-0-0-*`) arm intact. The sub-table is append-only on the same terms as the *Retired prefixes* sub-table earlier on this page and the *Retired REQ-IDs* sub-table above; retired alias slugs MUST NOT be re-coined.
 
 | Retired alias slug | Owner heading or paragraph | Retired in | Reason |
 |---|---|---|---|
 
 - **Retired alias slug** — the kebab-case slug (e.g. `v1-seam-binder-refinement-loop`), without the leading `#`.
-- **Owner heading or paragraph** — the heading text or paragraph reference the alias was attached to, with a markdown cross-link to the heading's surviving `loom-1-0-*` (or `loom-1-0-0-*`) arm.
-- **Retired in** — the 7-character abbreviated commit SHA of the retirement commit, or the release tag of the loom 1.x release that performed the retirement, on the same value-space as the *Retired in* column of the *Retired prefixes* sub-table.
+- **Owner heading or paragraph** — the heading text or paragraph reference the alias was attached to, with a markdown cross-link to the heading's surviving `theta-1-0-*` (or `theta-1-0-0-*`) arm.
+- **Retired in** — the 7-character abbreviated commit SHA of the retirement commit, or the release tag of the theta 1.x release that performed the retirement, on the same value-space as the *Retired in* column of the *Retired prefixes* sub-table.
 - **Reason** — one short prose line.
 
 Applicability: alias-only retirements on `docs/spec.md` and `docs/spec_topics/*.md` only. Plan-corpus aliases (none currently exist) and out-of-corpus pages (`README.md`, `CHANGELOG.md` — [GOV-17](./corpus-direction-and-scope.md#gov-17) dependents) are out of scope of this sub-table.

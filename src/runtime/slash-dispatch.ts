@@ -5,14 +5,14 @@
 // (user-visible streaming: streamed tokens observable before the interpreter
 // resumes; the forced-respond turn runs off-session with no transcript card; on
 // an `Err` propagated by `?` after partial assistant text, and on mid-stream
-// cancellation, the streamed prefix is retained and the `loom-system-note` is
+// cancellation, the streamed prefix is retained and the `theta-system-note` is
 // appended AFTER the prefix, never interleaved).
 //
 // V12a-T (tests-task) declares the seam shapes and stubs every behaviour-bearing
 // function inertly / non-compliantly, so the failing V12a-T tests red on their
 // own primary assertions:
 //   - `renderNoParamsOverflowNote` returns a sentinel, not the SLSH-1 template;
-//   - `dispatchNoParamsLoom` emits the overflow note UNCONDITIONALLY (ignoring
+//   - `dispatchNoParamsTheta` emits the overflow note UNCONDITIONALLY (ignoring
 //     the trim-to-empty rule and the slash-path-only rule);
 //   - `rendersTranscriptCard` reports EVERY turn kind as card-rendering,
 //     including the off-session forced-respond turn (SLSH-2);
@@ -34,18 +34,18 @@ import { trimSlashArgumentWhitespace } from "../binder/binder-envelope";
 
 /**
  * SLSH-1 no-params overflow note (slash-invocation.md#slsh-1): the exact
- * template `loom /<name>: ignoring extra arguments — this loom takes no
+ * template `theta /<name>: ignoring extra arguments — this theta takes no
  * parameters`, with `<name>` interpolated. The V12a-T stub returns a sentinel
  * so the exact-string assertion reds.
  */
 export function renderNoParamsOverflowNote(name: string): string {
   // SLSH-1 normative template (slash-invocation.md#slsh-1), em-dash (U+2014)
   // separator, `<name>` interpolated.
-  return `loom /${name}: ignoring extra arguments \u2014 this loom takes no parameters`;
+  return `theta /${name}: ignoring extra arguments \u2014 this theta takes no parameters`;
 }
 
 /**
- * How the loom was reached. SLSH-1 fires the overflow note only on the
+ * How the theta was reached. SLSH-1 fires the overflow note only on the
  * slash-invocation path; `invoke(...)` and registered-tool callers skip the
  * slash parser entirely and have no notion of "extra text".
  */
@@ -53,31 +53,31 @@ export type SlashCallerKind = "slash" | "invoke" | "tool";
 
 /** Inputs to a no-params dispatch. */
 export interface NoParamsDispatchInput {
-  /** The loom's slash name (its filename stem), e.g. `greet`. */
+  /** The theta's slash name (its filename stem), e.g. `greet`. */
   readonly name: string;
   /** The raw slash-argument text after the command name (untrimmed). */
   readonly rawArgs: string;
-  /** Which invocation path reached the loom. */
+  /** Which invocation path reached the theta. */
   readonly caller: SlashCallerKind;
 }
 
 /** Collaborators for a no-params dispatch. */
 export interface NoParamsDispatchDeps {
-  /** Emit the overflow `loom-system-note` (before the loom runs). */
+  /** Emit the overflow `theta-system-note` (before the theta runs). */
   readonly emitOverflowNote: (note: string) => void;
-  /** Run the loom body (always invoked — the note never blocks execution). */
+  /** Run the theta body (always invoked — the note never blocks execution). */
   readonly run: () => Promise<void>;
 }
 
 /**
- * Dispatch a no-params loom (SLSH-1). On the slash path the runtime trims
+ * Dispatch a no-params theta (SLSH-1). On the slash path the runtime trims
  * leading/trailing slash-argument whitespace from `rawArgs`; if the trimmed
  * remainder is non-empty it emits exactly one overflow note BEFORE running,
  * then runs. A whitespace-only remainder trims to empty and emits no note. The
- * note is slash-path-only — `invoke`/`tool` callers never emit it. The loom
+ * note is slash-path-only — `invoke`/`tool` callers never emit it. The theta
  * always runs (the note is informational and never blocks execution).
  */
-export async function dispatchNoParamsLoom(
+export async function dispatchNoParamsTheta(
   input: NoParamsDispatchInput,
   deps: NoParamsDispatchDeps,
 ): Promise<void> {
@@ -85,7 +85,7 @@ export async function dispatchNoParamsLoom(
   // the slash parser and have no notion of "extra text". On the slash path,
   // trim leading/trailing slash-argument whitespace; emit exactly one note only
   // when the trimmed remainder is non-empty. The note never blocks execution —
-  // the loom always runs, and after the note.
+  // the theta always runs, and after the note.
   if (input.caller === "slash") {
     const trimmed = trimSlashArgumentWhitespace(input.rawArgs);
     if (trimmed.length > 0) {
@@ -122,9 +122,9 @@ export function rendersTranscriptCard(kind: PromptTurnKind): boolean {
 }
 
 /**
- * The terminal outcome of the driven prompt-mode turn, from the loom's
+ * The terminal outcome of the driven prompt-mode turn, from the theta's
  * perspective. `ok` appends no note; `err` (an `Err` propagated by `?`) and
- * `cancelled` (mid-stream cancellation) each append a single `loom-system-note`
+ * `cancelled` (mid-stream cancellation) each append a single `theta-system-note`
  * AFTER the streamed prefix.
  */
 export type SlashTurnOutcome =
@@ -136,7 +136,7 @@ export type SlashTurnOutcome =
 export interface SlashPromptPi {
   /** Issue the rendered query text as one streamed user-visible prompt turn. */
   sendUserMessage(content: string): void;
-  /** Append a `loom-system-note` (the failure / cancellation surface). */
+  /** Append a `theta-system-note` (the failure / cancellation surface). */
   sendMessage(message: {
     readonly customType: string;
     readonly content: string;
@@ -164,7 +164,7 @@ export interface SlashPromptDriveDeps {
  * streamed user turn (tokens observable in the transcript before the
  * interpreter resumes), await `ctx.waitForIdle()` so the streamed prefix is
  * committed, and — on `err`/`cancelled` — append the failure/cancellation
- * `loom-system-note` AFTER the committed prefix (never interleaved with it).
+ * `theta-system-note` AFTER the committed prefix (never interleaved with it).
  */
 export async function driveSlashPromptTurn(
   queryText: string,
@@ -174,7 +174,7 @@ export async function driveSlashPromptTurn(
   // tokens are observable in the transcript before the interpreter resumes,
   // then await `ctx.waitForIdle()` so the streamed prefix is fully committed.
   // Only after the prefix has committed — never interleaved with it — is the
-  // failure / cancellation `loom-system-note` appended (SLSH-2 edge cases). On
+  // failure / cancellation `theta-system-note` appended (SLSH-2 edge cases). On
   // `ok` no note is appended. The retained partial prefix is Pi's committed
   // conversation surface and is not rolled back.
   deps.pi.sendUserMessage(queryText);

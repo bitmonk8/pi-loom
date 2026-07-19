@@ -1,7 +1,7 @@
 // V4e / V4e-T — load-time pre-evaluation failure routing (ERR-1…ERR-6, ERR-16).
 //
 // Owns the load-time pre-evaluation failure routing surface: each of the seven
-// load-time pre-eval failure causes is routed onto the `loom-system-note`
+// load-time pre-eval failure causes is routed onto the `theta-system-note`
 // channel with `triggerTurn:false`, never becoming an evaluation outcome and
 // producing no final value. This is the surface the watcher-time reload cause
 // (ERR-7, `V4g`) reuses.
@@ -17,15 +17,15 @@
 //   - ERR-16 slash-load `params` arm of ceiling #4, cross-routed through
 //            ceiling #3's no-retry classification per CIO-1 (`V5e`/`V16a`)
 //
-// The producing subsystems assemble the failure's `loom-system-note`; V4e only
-// *routes* it pre-eval, over the V7d `loom-system-note` delivery channel, so
+// The producing subsystems assemble the failure's `theta-system-note`; V4e only
+// *routes* it pre-eval, over the V7d `theta-system-note` delivery channel, so
 // that `sendSystemNote`'s fixed `triggerTurn:false` option is applied and the
 // failure never fires a turn.
 //
 // The ERR-16 cross-route additionally CONSULTS `V16a`'s cross-ceiling
 // arbitration seam at slash-load per CIO-1 — a load-time cross-route that
 // differs in kind from the four runtime first-enforcement sites — and its
-// depth-6 breach is detected by `V5e`'s live loom-owned depth walk.
+// depth-6 breach is detected by `V5e`'s live theta-owned depth walk.
 //
 // V4e-T (tests-task) declares this seam and stubs the routing so the failing
 // ERR-1…ERR-6/ERR-16 tests compile and red on their own primary assertions
@@ -67,7 +67,7 @@ export type PreEvalFailureCause =
 /** Construction dependencies for the load-time pre-eval failure router. */
 export interface LoadPreEvalDeps {
   /**
-   * The `loom-system-note` delivery channel (V7d) each pre-eval failure routes
+   * The `theta-system-note` delivery channel (V7d) each pre-eval failure routes
    * onto — its `pi.sendMessage` seam carries the fixed `triggerTurn:false`
    * option, so a routed failure never fires a turn.
    */
@@ -82,20 +82,20 @@ export interface SlashLoadParamsCrossRoute {
    * (the JSON-depth breach) is masked (CIO-1).
    */
   readonly arbitration: ArbitrationResult;
-  /** The ceiling-#3-templated `loom-system-note` the cross-route routes pre-eval. */
+  /** The ceiling-#3-templated `theta-system-note` the cross-route routes pre-eval. */
   readonly note: SystemNote;
 }
 
 /**
  * The load-time pre-evaluation failure router: route an assembled pre-eval
- * failure `loom-system-note` onto the `loom-system-note` channel with
+ * failure `theta-system-note` onto the `theta-system-note` channel with
  * `triggerTurn:false` (never an evaluation outcome), and the ERR-16 slash-load
  * `params` cross-route helper that consults `V16a`/`V5e`.
  */
 export interface LoadFailurePreEvalRouter {
   /**
-   * Route one assembled pre-eval failure `loom-system-note` (from any of the
-   * seven load-time causes) onto the `loom-system-note` channel. Delivery
+   * Route one assembled pre-eval failure `theta-system-note` (from any of the
+   * seven load-time causes) onto the `theta-system-note` channel. Delivery
    * applies the fixed `triggerTurn:false` option, so the failure never fires a
    * turn and never becomes an evaluation outcome.
    */
@@ -108,14 +108,14 @@ export interface LoadFailurePreEvalRouter {
    * defines), and route it pre-eval via `routePreEvalFailure`.
    */
   crossRouteSlashLoadParams(
-    loomName: string,
+    thetaName: string,
     paramsValue: unknown,
   ): SlashLoadParamsCrossRoute;
 }
 
 /**
  * Construct the load-time pre-eval failure router. Its `routePreEvalFailure`
- * delivers over the V7d `loom-system-note` channel so `sendSystemNote`'s fixed
+ * delivers over the V7d `theta-system-note` channel so `sendSystemNote`'s fixed
  * `triggerTurn:false` option is applied to every routed failure.
  */
 export function createLoadFailurePreEvalRouter(
@@ -123,8 +123,8 @@ export function createLoadFailurePreEvalRouter(
 ): LoadFailurePreEvalRouter {
   return {
     routePreEvalFailure(cause: PreEvalFailureCause, note: SystemNote): void {
-      // Route the assembled pre-eval failure `loom-system-note` onto the V7d
-      // `loom-system-note` delivery channel. `sendSystemNote` applies the fixed
+      // Route the assembled pre-eval failure `theta-system-note` onto the V7d
+      // `theta-system-note` delivery channel. `sendSystemNote` applies the fixed
       // `triggerTurn:false` option (SystemNoteSender), so the failure never
       // fires a turn and never becomes an evaluation outcome — this is the
       // single routing surface all seven load-time causes (ERR-1…ERR-6,
@@ -136,10 +136,10 @@ export function createLoadFailurePreEvalRouter(
       sendSystemNote(note, deps.channel);
     },
     crossRouteSlashLoadParams(
-      loomName: string,
+      thetaName: string,
       paramsValue: unknown,
     ): SlashLoadParamsCrossRoute {
-      // Detect the depth-6 breach with V5e's live loom-owned depth walk (not a
+      // Detect the depth-6 breach with V5e's live theta-owned depth walk (not a
       // synthetic load-time signal).
       const walk = depthWalk(paramsValue);
       const ajvSummary =
@@ -156,7 +156,7 @@ export function createLoadFailurePreEvalRouter(
       // The ceiling-#3 no-retry surface (the same disposition HC3-c defines for
       // AJV-on-`args` failures): render the binder `ajv_args` failure template
       // from the depth-walk AJV summary.
-      const content = renderBinderSystemNote(loomName, {
+      const content = renderBinderSystemNote(thetaName, {
         kind: "ajv_args",
         ajvSummary,
       });

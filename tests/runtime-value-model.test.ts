@@ -60,7 +60,7 @@ describe("V2c-T — value representation (runtime-value-model.md, value-represen
 
 describe("V2c-T — structural equality (runtime-value-model.md #equality)", () => {
   it("structural deep equality: equal arrays / objects / nested values compare true", () => {
-    // Arrays compare element-wise at equal length; objects compare loom-side
+    // Arrays compare element-wise at equal length; objects compare theta-side
     // key set and per-key value (declaration order irrelevant).
     expect(valuesEqual([1, 2, 3], [1, 2, 3])).toBe(true);
     expect(valuesEqual({ a: 1, b: 2 }, { b: 2, a: 1 })).toBe(true);

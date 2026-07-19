@@ -3,7 +3,7 @@ import { requireLiveProvider, runProbe } from "./probe-harness";
 
 // Area: QUERIES / RESULT-ERROR MODEL — empty-template short-circuit (QRY-6).
 //
-// Harness note: only the FIRST provider turn a loom issues is observable via
+// Harness note: only the FIRST provider turn a theta issues is observable via
 // `userTexts` (verified against controls). Probes are therefore shaped so the
 // assertion target is the first turn issued.
 //
@@ -18,7 +18,7 @@ describe("query — empty-template short-circuit", () => {
       files: [
         {
           source: "project",
-          path: "errctl.loom",
+          path: "errctl.theta",
           text: [
             "---",
             "description: errctl",
@@ -41,13 +41,13 @@ describe("query — empty-template short-circuit", () => {
     }
   });
 
-  it("QRY-1 FIXED: empty-template short-circuit yields a catchable Err and the loom continues", async () => {
+  it("QRY-1 FIXED: empty-template short-circuit yields a catchable Err and the theta continues", async () => {
     const probe = await runProbe({
       provider,
       files: [
         {
           source: "project",
-          path: "emptytmpl.loom",
+          path: "emptytmpl.theta",
           text: [
             "---",
             "description: emptytmpl",
@@ -71,7 +71,7 @@ describe("query — empty-template short-circuit", () => {
       // FIXED per QRY-6/QRY-8: the empty-template short-circuit is the query's
       // RESULT VALUE `Err(empty_template)`, so `r` binds to that Err, `match`
       // sees `Err(_)` → tag = "err", and the downstream query issues
-      // "FIRST tag=err" (== the errctl control). The loom never aborts and the
+      // "FIRST tag=err" (== the errctl control). The theta never aborts and the
       // query never throws.
       expect(probe.turns[0]?.userTexts).toEqual(["FIRST tag=err"]);
       expect(probe.turns[0]?.error).toBeUndefined();
@@ -86,7 +86,7 @@ describe("query — empty-template short-circuit", () => {
       files: [
         {
           source: "project",
-          path: "nbsp.loom",
+          path: "nbsp.theta",
           text: [
             "---",
             "description: nbsp",

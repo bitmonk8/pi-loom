@@ -25,18 +25,18 @@
 // ── Category 1 — static-type placeholders ──────────────────────────────────
 // `<type>`, `<expected>`, `<actual>`, `<left>`, `<right>`, `<element>`.
 
-/** A Loom static type, re-serialised in source-grammar form (type-system.md). */
-export type LoomType =
+/** A Theta static type, re-serialised in source-grammar form (type-system.md). */
+export type ThetaType =
   | { readonly kind: "primitive"; readonly name: "string" | "integer" | "number" | "boolean" | "null" }
   | { readonly kind: "literal"; readonly value: string | number | boolean }
-  | { readonly kind: "union"; readonly members: readonly LoomType[] }
-  | { readonly kind: "array"; readonly element: LoomType }
+  | { readonly kind: "union"; readonly members: readonly ThetaType[] }
+  | { readonly kind: "array"; readonly element: ThetaType }
   | { readonly kind: "named"; readonly name: string }
-  | { readonly kind: "result"; readonly ok: LoomType; readonly err: LoomType }
-  | { readonly kind: "object"; readonly fields: readonly { readonly name: string; readonly type: LoomType }[] };
+  | { readonly kind: "result"; readonly ok: ThetaType; readonly err: ThetaType }
+  | { readonly kind: "object"; readonly fields: readonly { readonly name: string; readonly type: ThetaType }[] };
 
-/** Render a Loom static type by re-serialising it in source-grammar form. */
-export function renderType(type: LoomType): string {
+/** Render a Theta static type by re-serialising it in source-grammar form. */
+export function renderType(type: ThetaType): string {
   switch (type.kind) {
     case "primitive":
       // Primitive type names lowercase (already in canonical lowercase form).
@@ -53,7 +53,7 @@ export function renderType(type: LoomType): string {
       // Arrays as `array<T>` (the angle-bracket form).
       return `array<${renderType(type.element)}>`;
     case "named":
-      // Named schemas/enums/aliases by their loom-side identifier.
+      // Named schemas/enums/aliases by their theta-side identifier.
       return type.name;
     case "result":
       // `Result<T, E>`, inner types recursing this rule.
@@ -265,7 +265,7 @@ export function coerceUnderlyingString(v: unknown): string {
   } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — Specific exception types only
     // `v` is a caught thrown value owned by the Pi SDK (a `pi.sendMessage`
     // throw, an `AgentSession.dispose()` rejection, an extension-bootstrap
-    // throw) whose runtime shape loom cannot statically guarantee — a hostile
+    // throw) whose runtime shape theta cannot statically guarantee — a hostile
     // `toString`/`valueOf`/`Symbol.toPrimitive` may throw during the `String(v)`
     // coercion. The §6 coercion pins the literal `<unreadable>` fallback for
     // exactly this case: any throw maps to the sentinel (the caught value is
@@ -353,7 +353,7 @@ export function renderHostDerivedTail(hostString: string): string {
   return firstLineTruncate(hostString);
 }
 
-/** The `loom/load/host-incompatible` payload the renderer interpolates. */
+/** The `theta/load/host-incompatible` payload the renderer interpolates. */
 export interface HostIncompatibleDetails {
   readonly kind: string;
   /** The raw `<observed>` input (host-derived for `node-floor`). */
@@ -363,7 +363,7 @@ export interface HostIncompatibleDetails {
 }
 
 /**
- * Render the full `loom/load/host-incompatible` *Message* string by
+ * Render the full `theta/load/host-incompatible` *Message* string by
  * interpolating its template `host incompatible (<kind>): observed <observed>,
  * required <required>`, applying category 8's first-line truncation to a
  * host-derived `<observed>`. The prefix and suffix bytes are byte-identical

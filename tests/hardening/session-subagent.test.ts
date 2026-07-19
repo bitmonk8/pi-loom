@@ -1,24 +1,24 @@
 // Hardening lens: SUBAGENT MODE end-to-end (direct slash dispatch).
 //
-// Probes the runtime behaviour of a `mode: subagent` loom reached DIRECTLY by a
+// Probes the runtime behaviour of a `mode: subagent` theta reached DIRECTLY by a
 // slash command (no invoke parent), the surface the sibling `session-crossmode`
-// file does NOT cover (it drives subagent looms only via `invoke(...)`).
+// file does NOT cover (it drives subagent thetas only via `invoke(...)`).
 //
 // Spec anchors:
 //   * slash-invocation.md SLSH-2 — in subagent mode nothing (assistant tokens,
 //     tool-call cards, system notes) surfaces to any ancestor transcript; only
 //     the return value crosses back.
 //   * slash-invocation.md SLSH-3 + SNK-a…SNK-k — a directly-slash-invoked
-//     subagent loom whose top-level result is `Err(QueryError)` MUST get ONE
-//     one-line `loom-system-note` at the slash-dispatch boundary, formatted from
+//     subagent theta whose top-level result is `Err(QueryError)` MUST get ONE
+//     one-line `theta-system-note` at the slash-dispatch boundary, formatted from
 //     the leaf `kind` per the SNK table (this note is the ONLY user-facing
 //     surface for the failure, since the subagent transcript is private).
 //   * runtime-event-channel.md success-side null-policy + SLSH-1 — an `Ok(v)`
-//     termination emits NO `loom-system-note` keyed on the outcome; the value is
+//     termination emits NO `theta-system-note` keyed on the outcome; the value is
 //     not surfaced to the user on a direct slash dispatch.
 //   * frontmatter.md `system:` — subagent-only; injected as the spawned
 //     conversation's system prompt (with `${param}` interpolation);
-//     `loom/parse/system-on-prompt-mode` when present on a prompt loom.
+//     `theta/parse/system-on-prompt-mode` when present on a prompt theta.
 //   * invocation.md "Tools and model" — the child uses its OWN frontmatter
 //     model/tools/system; the caller's are not inherited.
 //
@@ -27,7 +27,7 @@
 //   * `turn.systemNotes` — the SLSH-3 boundary note / SLSH-1 overflow / any note
 //     landing in the user (parent) session — read off the parent SessionManager.
 //   * `turn.userTexts` / `turn.assistantText` — the PARENT session's turns; for a
-//     directly-slash-invoked subagent loom these MUST stay empty (SLSH-2). For a
+//     directly-slash-invoked subagent theta these MUST stay empty (SLSH-2). For a
 //     prompt parent that `invoke`s a subagent, the parent's own final `@` query
 //     text (which interpolates the subagent's returned value) is observable and
 //     reveals whether `system:`/tools took effect inside the private session.
@@ -59,7 +59,7 @@ async function driveOnce(make: () => Promise<ProbeResult>): Promise<ProbeResult>
 }
 
 /** Frontmatter helper (mode + optional extra frontmatter lines). */
-function loom(front: string[], body: string): string {
+function theta(front: string[], body: string): string {
   return ["---", ...front, "---", body].join("\n");
 }
 
@@ -72,21 +72,21 @@ describe("subagent mode — direct slash dispatch", () => {
       files: [
         {
           source: "project",
-          path: "sysok.loom",
-          text: loom(
+          path: "sysok.theta",
+          text: theta(
             ["description: x", "mode: subagent", "system: |", "  You are ${topic} expert.", "params:", "  topic: string"],
             '@`hi`',
           ),
         },
         {
           source: "project",
-          path: "sysprompt.loom",
-          text: loom(["description: x", "mode: prompt", "system: |", "  You are helpful."], '@`hi`'),
+          path: "sysprompt.theta",
+          text: theta(["description: x", "mode: prompt", "system: |", "  You are helpful."], '@`hi`'),
         },
         {
           source: "project",
-          path: "sysbad.loom",
-          text: loom(
+          path: "sysbad.theta",
+          text: theta(
             ["description: x", "mode: subagent", "system: |", "  You are ${nope} expert.", "params:", "  topic: string"],
             '@`hi`',
           ),
@@ -104,7 +104,7 @@ describe("subagent mode — direct slash dispatch", () => {
       );
       // Valid subagent system: registers.
       expect(probe.registeredNames).toContain("sysok");
-      // system: on a prompt loom is a parse error → not registered.
+      // system: on a prompt theta is a parse error → not registered.
       expect(probe.registeredNames).not.toContain("sysprompt");
       // system: interpolating an unknown param → parse error → not registered.
       expect(probe.registeredNames).not.toContain("sysbad");
@@ -114,7 +114,7 @@ describe("subagent mode — direct slash dispatch", () => {
   });
 
   // #3 — the final Ok value is NOT surfaced to the user on a direct slash
-  // dispatch, and no loom-system-note is keyed on the Ok outcome (null-policy).
+  // dispatch, and no theta-system-note is keyed on the Ok outcome (null-policy).
   // Literal tail, no query → 0 tokens.
   it("SUBAG-ok: Ok(v) is not surfaced and emits no system note (0 tokens)", async () => {
     const probe = await driveOnce(() =>
@@ -123,8 +123,8 @@ describe("subagent mode — direct slash dispatch", () => {
         files: [
           {
             source: "project",
-            path: "oksub.loom",
-            text: loom(["description: x", "mode: subagent"], '"SUBAGENT-RETURN-VALUE-42"'),
+            path: "oksub.theta",
+            text: theta(["description: x", "mode: subagent"], '"SUBAGENT-RETURN-VALUE-42"'),
           },
         ],
         drives: ["/oksub"],
@@ -154,11 +154,11 @@ describe("subagent mode — direct slash dispatch", () => {
     }
   });
 
-  // #4 — SLSH-3: a directly-slash-invoked subagent loom that returns
-  // Err(QueryError) to the slash boundary MUST emit ONE loom-system-note
+  // #4 — SLSH-3: a directly-slash-invoked subagent theta that returns
+  // Err(QueryError) to the slash boundary MUST emit ONE theta-system-note
   // matching the SNK template. Empty-template short-circuit → deterministic
   // Err(validation, cause=empty_template) with 0 model turns → SNK-b:
-  //   "loom /errsub returned Err: rendered query template was empty — no
+  //   "theta /errsub returned Err: rendered query template was empty — no
   //    provider turn was issued"
   it("SUBAG-slsh3: top-level Err at slash boundary emits the SNK note (0 tokens)", async () => {
     const probe = await driveOnce(() =>
@@ -167,9 +167,9 @@ describe("subagent mode — direct slash dispatch", () => {
         files: [
           {
             source: "project",
-            path: "errsub.loom",
+            path: "errsub.theta",
             // empty template propagated with `?` → top-level Err
-            text: loom(["description: x", "mode: subagent"], "@` `?"),
+            text: theta(["description: x", "mode: subagent"], "@` `?"),
           },
         ],
         drives: ["/errsub"],
@@ -192,11 +192,11 @@ describe("subagent mode — direct slash dispatch", () => {
       const notes = t.systemNotes.join("\n");
       // SLSH-3/SNK-b normative template. Recorded as an assertion so the probe
       // pins the spec expectation; the finding md documents the observed reality.
-      const snkB = "loom /errsub returned Err: rendered query template was empty \u2014 no provider turn was issued";
+      const snkB = "theta /errsub returned Err: rendered query template was empty \u2014 no provider turn was issued";
       // eslint-disable-next-line no-console
       console.log("SUBAG-slsh3 expected-note:", JSON.stringify(snkB), "present:", notes.includes(snkB));
       // SUBAG-3 FIXED: SLSH-3 requires this note in the USER session for a
-      // directly-slash-invoked subagent loom — its transcript stays private, so
+      // directly-slash-invoked subagent theta — its transcript stays private, so
       // the boundary note is the ONLY user-facing surface for the failure.
       expect(t.systemNotes).toContain(snkB);
       expect(t.systemNotes).toEqual([snkB]);
@@ -217,8 +217,8 @@ describe("subagent mode — direct slash dispatch", () => {
         files: [
           {
             source: "project",
-            path: "leaksub.loom",
-            text: loom(
+            path: "leaksub.theta",
+            text: theta(
               ["description: x", "mode: subagent"],
               "@`Reply with exactly this token and nothing else: LEAKSENTINEL777`",
             ),
@@ -262,16 +262,16 @@ describe("subagent mode — direct slash dispatch", () => {
         files: [
           {
             source: "project",
-            path: "sysparent.loom",
-            text: loom(
+            path: "sysparent.theta",
+            text: theta(
               ["description: x", "mode: prompt"],
-              ['let r: string = invoke<string>("./syschild.loom")?', "@`Say ok. CODE=${r}`"].join("\n"),
+              ['let r: string = invoke<string>("./syschild.theta")?', "@`Say ok. CODE=${r}`"].join("\n"),
             ),
           },
           {
             source: "project",
-            path: "syschild.loom",
-            text: loom(
+            path: "syschild.theta",
+            text: theta(
               [
                 "description: x",
                 "mode: subagent",
@@ -322,16 +322,16 @@ describe("subagent mode — direct slash dispatch", () => {
           },
           {
             source: "project",
-            path: "toolsparent.loom",
-            text: loom(
+            path: "toolsparent.theta",
+            text: theta(
               ["description: x", "mode: prompt"],
-              ['let r: string = invoke<string>("./toolschild.loom")?', "@`Say ok. DOC=${r}`"].join("\n"),
+              ['let r: string = invoke<string>("./toolschild.theta")?', "@`Say ok. DOC=${r}`"].join("\n"),
             ),
           },
           {
             source: "project",
-            path: "toolschild.loom",
-            text: loom(
+            path: "toolschild.theta",
+            text: theta(
               ["description: x", "mode: subagent", "tools: read"],
               "@`Read the file secret-doc.txt and reply with EXACTLY the marker token it contains and nothing else.`",
             ),

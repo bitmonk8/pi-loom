@@ -10,7 +10,7 @@
 //     joined text byte-for-byte into the anchor's `description:`; a `///` above
 //     a top-level `fn` lowers nowhere (functions have no JSON Schema) and is
 //     preserved on the AST as human-facing documentation only.
-//   - `loom/parse/doc-comment-misplaced` — a `///` above any other production
+//   - `theta/parse/doc-comment-misplaced` — a `///` above any other production
 //     (`let`, `import`, `export`, expression / control-flow statements).
 //   - Consecutive `///` lines join with newlines; common leading whitespace is
 //     stripped (same algorithm as query-template dedent); empty `///` lines
@@ -129,7 +129,7 @@ export function lowerDescription(
 
 /**
  * Check a `///` doc comment's placement, returning
- * `loom/parse/doc-comment-misplaced` when the production the `///` sits above is
+ * `theta/parse/doc-comment-misplaced` when the production the `///` sits above is
  * not one of `schema` / `enum` / schema field / enum variant / top-level `fn`.
  * Returns `undefined` for an eligible anchor production.
  */
@@ -139,7 +139,7 @@ export function checkDocCommentPlacement(
 ): Diagnostic | undefined {
   // The eligible anchor productions per descriptions.md §Placement and
   // grammar.md §`///` placement. A `///` above any other production fires
-  // `loom/parse/doc-comment-misplaced`.
+  // `theta/parse/doc-comment-misplaced`.
   const eligible: ReadonlySet<string> = new Set<DocAnchorKind>([
     "schema",
     "enum",
@@ -154,7 +154,7 @@ export function checkDocCommentPlacement(
   // rule.
   return {
     severity: "error",
-    code: "loom/parse/doc-comment-misplaced",
+    code: "theta/parse/doc-comment-misplaced",
     file: site.file,
     range: site.range,
     message: "'///' doc comment is not legal above this production",

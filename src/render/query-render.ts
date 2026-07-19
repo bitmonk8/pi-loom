@@ -8,13 +8,13 @@
 //     splitting, {U+0020, U+0009} dedent alphabet, whitespace-only-line
 //     normalisation).
 //   - QRY-17 — template escapes (`` \` ``, `\$`, `\\`, `\n`, `\t`, `\r`) with
-//     `loom/parse/illegal-template-escape` for any other backslash pair and
-//     `loom/parse/unterminated-template` at EOF inside a body.
-//   - QRY-18 — stringification of a `${expr}` interpolation by the Loom static
-//     type of `expr`, and the static `loom/parse/interpolated-result` rejection
+//     `theta/parse/illegal-template-escape` for any other backslash pair and
+//     `theta/parse/unterminated-template` at EOF inside a body.
+//   - QRY-18 — stringification of a `${expr}` interpolation by the Theta static
+//     type of `expr`, and the static `theta/parse/interpolated-result` rejection
 //     of a `Result`-valued interpolation.
 //   - QRY-6 — the degenerate-template defences: the parse-time
-//     `loom/parse/empty-template` warning (static body, escapes NOT applied),
+//     `theta/parse/empty-template` warning (static body, escapes NOT applied),
 //     and the runtime short-circuit to
 //     `ValidationError{cause: "empty_template", attempts: 0}` (never the
 //     respond-repair path).
@@ -30,7 +30,7 @@
 
 import { type Diagnostic, type SourceRange } from "../diagnostics/diagnostic";
 import { type ValidationError } from "../runtime/query-error";
-import { type LoomValue } from "../runtime/value";
+import { type ThetaValue } from "../runtime/value";
 import { renderCanonicalNumber } from "./canonical-number";
 import {
   translateOutbound,
@@ -69,28 +69,28 @@ function isAsciiWhitespaceOnly(text: string): boolean {
 // Message strings are sourced verbatim from the diagnostics registry
 // (diagnostics/code-registry-parse.md) per the Diagnostic message anchors rule.
 
-/** `loom/parse/illegal-template-escape` (E). */
-export const ILLEGAL_TEMPLATE_ESCAPE_CODE = "loom/parse/illegal-template-escape";
-/** `loom/parse/unterminated-template` (E). */
-export const UNTERMINATED_TEMPLATE_CODE = "loom/parse/unterminated-template";
-/** `loom/parse/empty-template` (W). */
-export const EMPTY_TEMPLATE_CODE = "loom/parse/empty-template";
-/** `loom/parse/interpolated-result` (E). */
-export const INTERPOLATED_RESULT_CODE = "loom/parse/interpolated-result";
+/** `theta/parse/illegal-template-escape` (E). */
+export const ILLEGAL_TEMPLATE_ESCAPE_CODE = "theta/parse/illegal-template-escape";
+/** `theta/parse/unterminated-template` (E). */
+export const UNTERMINATED_TEMPLATE_CODE = "theta/parse/unterminated-template";
+/** `theta/parse/empty-template` (W). */
+export const EMPTY_TEMPLATE_CODE = "theta/parse/empty-template";
+/** `theta/parse/interpolated-result` (E). */
+export const INTERPOLATED_RESULT_CODE = "theta/parse/interpolated-result";
 
 /**
- * Registry Message for `loom/parse/illegal-template-escape`:
+ * Registry Message for `theta/parse/illegal-template-escape`:
  * `illegal escape sequence in @`...` template: \<char>`.
  */
 export function illegalTemplateEscapeMessage(char: string): string {
   return `illegal escape sequence in @\`...\` template: \\${char}`;
 }
-/** Registry Message for `loom/parse/unterminated-template`. */
+/** Registry Message for `theta/parse/unterminated-template`. */
 export const UNTERMINATED_TEMPLATE_MESSAGE = "unterminated @`...` query template";
-/** Registry Message for `loom/parse/empty-template`. */
+/** Registry Message for `theta/parse/empty-template`. */
 export const EMPTY_TEMPLATE_MESSAGE =
   "query template body is empty after newline-trim and dedent";
-/** Registry Message for `loom/parse/interpolated-result`. */
+/** Registry Message for `theta/parse/interpolated-result`. */
 export const INTERPOLATED_RESULT_MESSAGE =
   "Result value cannot be interpolated; unwrap with ? or match first";
 
@@ -115,7 +115,7 @@ export type QueryTemplatePart =
 /**
  * The result of lexing a `@`...`` template literal: the ordered parts, any
  * escape / termination diagnostics, and whether a closing backtick was found
- * (`false` ⇒ EOF inside the body ⇒ `loom/parse/unterminated-template`).
+ * (`false` ⇒ EOF inside the body ⇒ `theta/parse/unterminated-template`).
  */
 export interface QueryTemplateLexResult {
   readonly parts: readonly QueryTemplatePart[];
@@ -128,9 +128,9 @@ export interface QueryTemplateLexResult {
  * opening backtick and, when terminated, ends at the matching unescaped closing
  * backtick. Recognised escapes are `` \` `` (literal backtick), `\$` (literal
  * `$`, suppressing interpolation), `\\` (literal backslash), and `\n` / `\t` /
- * `\r`; any other backslash pair emits `loom/parse/illegal-template-escape`.
+ * `\r`; any other backslash pair emits `theta/parse/illegal-template-escape`.
  * Reaching EOF before a closing backtick sets `terminated: false` and emits
- * `loom/parse/unterminated-template`. Curly braces are ordinary text; only the
+ * `theta/parse/unterminated-template`. Curly braces are ordinary text; only the
  * `${` / `}` pair delimits an interpolation.
  */
 export function lexQueryTemplate(source: string): QueryTemplateLexResult {
@@ -180,7 +180,7 @@ export function lexQueryTemplate(source: string): QueryTemplateLexResult {
           break;
         default:
           // No other escapes are recognised (QRY-17): a backslash before any
-          // other character is `loom/parse/illegal-template-escape`. Recovery
+          // other character is `theta/parse/illegal-template-escape`. Recovery
           // renders the offending character as literal content so the rest of
           // the body still lexes.
           diagnostics.push({
@@ -331,7 +331,7 @@ function dedent(text: string): string {
 // --- Stringification of interpolated values (QRY-18) -----------------------
 
 /**
- * The Loom static type of a `${expr}` interpolation, selecting its
+ * The Theta static type of a `${expr}` interpolation, selecting its
  * stringification rule (QRY-18 table). `array` / `object` carry the sidecars +
  * root `$defs` so the compact `JSON.stringify` output applies outbound
  * wire-name translation recursively; `result` is the statically-rejected arm.
@@ -357,7 +357,7 @@ export type InterpolationType =
 
 /**
  * The outcome of stringifying one interpolation: the rendered text, or the
- * `loom/parse/interpolated-result` diagnostic when `expr`'s static type is
+ * `theta/parse/interpolated-result` diagnostic when `expr`'s static type is
  * `Result<T, E>` (QRY-18, `Result` row).
  */
 export type StringifyResult =
@@ -365,15 +365,15 @@ export type StringifyResult =
   | { readonly ok: false; readonly diagnostic: Diagnostic };
 
 /**
- * Stringify one `${expr}` interpolation by the Loom static type of `expr`
+ * Stringify one `${expr}` interpolation by the Theta static type of `expr`
  * (QRY-18). `string` renders verbatim; `integer` / `number` via the canonical
  * decimal renderer; `boolean` / `null` as their literals; an enum as its bare
  * wire value unquoted; `array` / `object` as compact `JSON.stringify` with
  * outbound wire-name translation applied; a `Result`-typed expr is rejected
- * with `loom/parse/interpolated-result`.
+ * with `theta/parse/interpolated-result`.
  */
 export function stringifyInterpolatedValue(
-  value: LoomValue,
+  value: ThetaValue,
   type: InterpolationType,
 ): StringifyResult {
   switch (type.kind) {
@@ -395,7 +395,7 @@ export function stringifyInterpolatedValue(
     case "object": {
       // Compact `JSON.stringify` (no pretty-printing) with outbound wire-name
       // translation applied recursively. When the sidecars / root `$defs` are
-      // supplied, lower loom-side names to wire before serialising; otherwise
+      // supplied, lower theta-side names to wire before serialising; otherwise
       // `JSON.stringify` already collapses enum values to their bare wire form.
       const lowered =
         type.sidecars !== undefined && type.rootDef !== undefined
@@ -424,7 +424,7 @@ export function stringifyInterpolatedValue(
 // --- Degenerate rendered templates (QRY-6) ---------------------------------
 
 /**
- * The parse-time `loom/parse/empty-template` warning (QRY-6). The predicate is
+ * The parse-time `theta/parse/empty-template` warning (QRY-6). The predicate is
  * evaluated over the *static* body — every literal segment between
  * interpolations, newline-trim and dedent notionally applied, the escape
  * rewrites notionally **not** applied — so a whitespace-only static body warns

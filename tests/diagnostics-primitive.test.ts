@@ -13,10 +13,10 @@ import {
 //     diagnostic carries a registry code and renders in the serialised
 //     content-line format; a location-less code renders without a span.
 //   * Multi-error assembly (implementation-notes.md "Static-resolution load
-//     pass"): a file with several parse errors plus transitive `.warp` import
+//     pass"): a file with several parse errors plus transitive `.thetalib` import
 //     errors assembles into a single `Diagnostic[]` with no fast-fail and no
-//     per-error loss, ordered by `(file, line, col)` across the entry `.loom`
-//     and >=2 transitively-imported `.warp` modules.
+//     per-error loss, ordered by `(file, line, col)` across the entry `.theta`
+//     and >=2 transitively-imported `.thetalib` modules.
 //
 // Rendered-message strings are sourced from the *Message* column of the
 // diagnostics registry per the *Diagnostic message anchors* rule, with the
@@ -26,52 +26,52 @@ describe("V7a-T — diagnostics primitive", () => {
   // DIAG-1 — a located diagnostic carries its registry code and renders in the
   // full `<file>:<line>:<col>: <code>: <message>` content-line format.
   it("DIAG-1: a located diagnostic renders in the content-line format with its registry code", () => {
-    // loom/parse/unterminated-string — Message column: "unterminated string literal".
+    // theta/parse/unterminated-string — Message column: "unterminated string literal".
     const diagnostic: Diagnostic = {
       severity: "error",
-      code: "loom/parse/unterminated-string",
-      file: "entry.loom",
+      code: "theta/parse/unterminated-string",
+      file: "entry.theta",
       range: { start: { line: 3, column: 5 }, end: { line: 3, column: 6 } },
       message: "unterminated string literal",
     };
 
-    expect(diagnostic.code).toBe("loom/parse/unterminated-string");
+    expect(diagnostic.code).toBe("theta/parse/unterminated-string");
     expect(renderDiagnosticLine(diagnostic)).toBe(
-      "entry.loom:3:5: loom/parse/unterminated-string: unterminated string literal",
+      "entry.theta:3:5: theta/parse/unterminated-string: unterminated string literal",
     );
   });
 
   // DIAG-1 — the optional hint continuation renders on its own two-space-indented line.
   it("DIAG-1: a hint renders as an indented continuation line under the content line", () => {
-    // loom/parse/illegal-escape — Hint absent; use loom/parse/invalid-path-separator,
+    // theta/parse/illegal-escape — Hint absent; use theta/parse/invalid-path-separator,
     // Message "invalid path separator: backslash in path literal", Hint "Use / separators only."
     const diagnostic: Diagnostic = {
       severity: "error",
-      code: "loom/parse/invalid-path-separator",
-      file: "entry.loom",
+      code: "theta/parse/invalid-path-separator",
+      file: "entry.theta",
       range: { start: { line: 7, column: 12 }, end: { line: 7, column: 13 } },
       message: "invalid path separator: backslash in path literal",
       hint: "Use / separators only.",
     };
 
     expect(renderDiagnosticLine(diagnostic)).toBe(
-      "entry.loom:7:12: loom/parse/invalid-path-separator: invalid path separator: backslash in path literal\n" +
+      "entry.theta:7:12: theta/parse/invalid-path-separator: invalid path separator: backslash in path literal\n" +
         "  hint: Use / separators only.",
     );
   });
 
   // DIAG-1 — a related site appends a code-less `<file>:<line>:<col>: <message>` line.
   it("DIAG-1: a related site renders as an indented code-less location line", () => {
-    // loom/parse/wire-name-collision — Message "wire name '<name>' collides with another field on schema '<schema>'".
+    // theta/parse/wire-name-collision — Message "wire name '<name>' collides with another field on schema '<schema>'".
     const diagnostic: Diagnostic = {
       severity: "error",
-      code: "loom/parse/wire-name-collision",
-      file: "entry.loom",
+      code: "theta/parse/wire-name-collision",
+      file: "entry.theta",
       range: { start: { line: 4, column: 3 }, end: { line: 4, column: 8 } },
       message: "wire name 'id' collides with another field on schema 'User'",
       related: [
         {
-          file: "entry.loom",
+          file: "entry.theta",
           range: { start: { line: 2, column: 3 }, end: { line: 2, column: 8 } },
           message: "first declaration here",
         },
@@ -79,53 +79,53 @@ describe("V7a-T — diagnostics primitive", () => {
     };
 
     expect(renderDiagnosticLine(diagnostic)).toBe(
-      "entry.loom:4:3: loom/parse/wire-name-collision: wire name 'id' collides with another field on schema 'User'\n" +
-        "  entry.loom:2:3: first declaration here",
+      "entry.theta:4:3: theta/parse/wire-name-collision: wire name 'id' collides with another field on schema 'User'\n" +
+        "  entry.theta:2:3: first declaration here",
     );
   });
 
   // DIAG-1 — a location-less code renders without a span (drops the leading
   // `<file>:<line>:<col>:` segment entirely).
   it("DIAG-1: a location-less diagnostic renders without a span", () => {
-    // loom/load/missing-source — Message column: "discovery source path does not exist: <descriptor>".
+    // theta/load/missing-source — Message column: "discovery source path does not exist: <descriptor>".
     const diagnostic: Diagnostic = {
       severity: "error",
-      code: "loom/load/missing-source",
-      message: "discovery source path does not exist: pi.looms[0]",
+      code: "theta/load/missing-source",
+      message: "discovery source path does not exist: pi.theta[0]",
     };
 
     expect(diagnostic.file).toBeUndefined();
     expect(diagnostic.range).toBeUndefined();
     expect(renderDiagnosticLine(diagnostic)).toBe(
-      "loom/load/missing-source: discovery source path does not exist: pi.looms[0]",
+      "theta/load/missing-source: discovery source path does not exist: pi.theta[0]",
     );
   });
 
   // DIAG-1 — a file-only code (file present, no token span) drops only the
   // `:<line>:<col>` portion.
   it("DIAG-1: a file-only diagnostic renders with file but no span", () => {
-    // loom/load/invalid-encoding — file-only category per the located-site classification.
+    // theta/load/invalid-encoding — file-only category per the located-site classification.
     const diagnostic: Diagnostic = {
       severity: "error",
-      code: "loom/load/invalid-encoding",
-      file: "broken.loom",
+      code: "theta/load/invalid-encoding",
+      file: "broken.theta",
       message: "invalid UTF-8 encoding at byte offset 12",
     };
 
     expect(diagnostic.range).toBeUndefined();
     expect(renderDiagnosticLine(diagnostic)).toBe(
-      "broken.loom: loom/load/invalid-encoding: invalid UTF-8 encoding at byte offset 12",
+      "broken.theta: theta/load/invalid-encoding: invalid UTF-8 encoding at byte offset 12",
     );
   });
 
   // Multi-error assembly — no fast-fail, no per-error loss, ordered by
-  // (file, line, col) across an entry `.loom` and >=2 transitive `.warp` modules.
+  // (file, line, col) across an entry `.theta` and >=2 transitive `.thetalib` modules.
   //
   // cka-44 / V7a: the IMPL code-keyed obligation area (implementation-notes.md
   // §Runtime Static-resolution load pass) closes its cross-file (file, line, col)
   // diagnostic aggregation-order facet on V7a; this assertion witnesses that
   // facet against the shipped `assembleDiagnostics` ordering.
-  it("Multi-error assembly: aggregates entry .loom + transitive .warp errors into one ordered Diagnostic[] with no loss", () => {
+  it("Multi-error assembly: aggregates entry .theta + transitive .thetalib errors into one ordered Diagnostic[] with no loss", () => {
     const located = (
       code: string,
       file: string,
@@ -143,48 +143,48 @@ describe("V7a-T — diagnostics primitive", () => {
       message,
     });
 
-    // Entry .loom — two parse errors (out of line order within the group).
+    // Entry .theta — two parse errors (out of line order within the group).
     const entryGroup: Diagnostic[] = [
       located(
-        "loom/parse/binding-case-mismatch",
-        "/proj/entry.loom",
+        "theta/parse/binding-case-mismatch",
+        "/proj/entry.theta",
         5,
         1,
         "binding name must start with a lowercase letter or _",
       ),
       located(
-        "loom/parse/unterminated-string",
-        "/proj/entry.loom",
+        "theta/parse/unterminated-string",
+        "/proj/entry.theta",
         2,
         9,
         "unterminated string literal",
       ),
     ];
 
-    // First transitively-imported .warp module — two errors incl. a transitive
+    // First transitively-imported .thetalib module — two errors incl. a transitive
     // import error.
     const libAGroup: Diagnostic[] = [
       located(
-        "loom/parse/import-unknown-symbol",
-        "/proj/lib_a.warp",
+        "theta/parse/import-unknown-symbol",
+        "/proj/lib_a.thetalib",
         4,
         3,
-        "imported symbol 'foo' is not declared or re-exported by '/proj/lib_b.warp'",
+        "imported symbol 'foo' is not declared or re-exported by '/proj/lib_b.thetalib'",
       ),
       located(
-        "loom/parse/warp-top-level-statement",
-        "/proj/lib_a.warp",
+        "theta/parse/thetalib-top-level-statement",
+        "/proj/lib_a.thetalib",
         1,
         1,
-        "top-level statement not permitted in .warp file; move into a fn body",
+        "top-level statement not permitted in .thetalib file; move into a fn body",
       ),
     ];
 
-    // Second transitively-imported .warp module — one error.
+    // Second transitively-imported .thetalib module — one error.
     const libBGroup: Diagnostic[] = [
       located(
-        "loom/parse/illegal-escape",
-        "/proj/lib_b.warp",
+        "theta/parse/illegal-escape",
+        "/proj/lib_b.thetalib",
         3,
         7,
         "illegal escape sequence: \\q",
@@ -199,24 +199,24 @@ describe("V7a-T — diagnostics primitive", () => {
     // No per-error loss: all five diagnostics across the three files survive.
     expect(assembled).toHaveLength(5);
 
-    // Ordered by (file, line, col): entry.loom < lib_a.warp < lib_b.warp
+    // Ordered by (file, line, col): entry.theta < lib_a.thetalib < lib_b.thetalib
     // lexicographically, then ascending line then column within each file.
     expect(assembled.map((d) => [d.file, d.range?.start.line, d.range?.start.column])).toEqual([
-      ["/proj/entry.loom", 2, 9],
-      ["/proj/entry.loom", 5, 1],
-      ["/proj/lib_a.warp", 1, 1],
-      ["/proj/lib_a.warp", 4, 3],
-      ["/proj/lib_b.warp", 3, 7],
+      ["/proj/entry.theta", 2, 9],
+      ["/proj/entry.theta", 5, 1],
+      ["/proj/lib_a.thetalib", 1, 1],
+      ["/proj/lib_a.thetalib", 4, 3],
+      ["/proj/lib_b.thetalib", 3, 7],
     ]);
 
     // The codes ride along in the same order (no code dropped or reordered
     // independently of its location).
     expect(assembled.map((d) => d.code)).toEqual([
-      "loom/parse/unterminated-string",
-      "loom/parse/binding-case-mismatch",
-      "loom/parse/warp-top-level-statement",
-      "loom/parse/import-unknown-symbol",
-      "loom/parse/illegal-escape",
+      "theta/parse/unterminated-string",
+      "theta/parse/binding-case-mismatch",
+      "theta/parse/thetalib-top-level-statement",
+      "theta/parse/import-unknown-symbol",
+      "theta/parse/illegal-escape",
     ]);
   });
 
@@ -226,24 +226,24 @@ describe("V7a-T — diagnostics primitive", () => {
     const batch: Diagnostic[] = [
       {
         severity: "error",
-        code: "loom/parse/unterminated-string",
-        file: "/proj/entry.loom",
+        code: "theta/parse/unterminated-string",
+        file: "/proj/entry.theta",
         range: { start: { line: 2, column: 9 }, end: { line: 2, column: 10 } },
         message: "unterminated string literal",
       },
       {
         severity: "error",
-        code: "loom/parse/illegal-escape",
-        file: "/proj/lib_b.warp",
+        code: "theta/parse/illegal-escape",
+        file: "/proj/lib_b.thetalib",
         range: { start: { line: 3, column: 7 }, end: { line: 3, column: 8 } },
         message: "illegal escape sequence: \\q",
       },
     ];
 
     expect(renderDiagnosticBatch(batch)).toBe(
-      "/proj/entry.loom:2:9: loom/parse/unterminated-string: unterminated string literal\n" +
+      "/proj/entry.theta:2:9: theta/parse/unterminated-string: unterminated string literal\n" +
         "\n" +
-        "/proj/lib_b.warp:3:7: loom/parse/illegal-escape: illegal escape sequence: \\q",
+        "/proj/lib_b.thetalib:3:7: theta/parse/illegal-escape: illegal escape sequence: \\q",
     );
   });
 });

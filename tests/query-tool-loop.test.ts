@@ -42,13 +42,13 @@ import {
 import { computeMasked } from "../src/runtime/runtime-event-channel";
 import { jsonDepth } from "../src/runtime/depth-walk";
 
-const QUERY_SITE: CheckpointSite = { file: "review.loom", line: 7, column: 3 };
+const QUERY_SITE: CheckpointSite = { file: "review.theta", line: 7, column: 3 };
 
 function config(maxRounds: number): QueryToolLoopConfig {
   return {
     maxRounds,
     querySite: QUERY_SITE,
-    loomSlashName: "/depth-6-co-fire",
+    thetaSlashName: "/depth-6-co-fire",
     invocationId: "00000000-0000-4000-8000-000000000000",
     occurredAt: 1_700_000_000_000,
   };
@@ -286,12 +286,12 @@ describe("V13c-T — QRY-16 untyped tool-loop exhaustion (query-tool-loop.md#qry
 
 // ===========================================================================
 // QRY-16 — typed depth-6 co-fire vector (query-tool-loop.md worked example):
-// ceiling #4 surfaces in loom code as the validation `Err`; the co-satisfied
+// ceiling #4 surfaces in theta code as the validation `Err`; the co-satisfied
 // ceiling #2 is enumerated on the operator-facing RuntimeEvent's `masked` only.
 // ===========================================================================
 
 describe("V13c-T — QRY-16 typed depth-6 co-fire vector (query-tool-loop.md#qry-16)", () => {
-  it("QRY-16: a depth-6 typed response surfaces validation/maxDepth in loom code and enumerates ['ceiling#2'] on details.event.masked, never on the QueryError", async () => {
+  it("QRY-16: a depth-6 typed response surfaces validation/maxDepth in theta code and enumerates ['ceiling#2'] on details.event.masked, never on the QueryError", async () => {
     const log: string[] = [];
     // The depth-6 payload from the worked example: five nested object levels
     // terminating in a string scalar → depth 6 under the counting algorithm.
@@ -317,7 +317,7 @@ describe("V13c-T — QRY-16 typed depth-6 co-fire vector (query-tool-loop.md#qry
     );
 
     // CIO-3: ceiling #4's depth walk (V5e) runs before AJV and surfaces the
-    // validation `Err` in loom code.
+    // validation `Err` in theta code.
     expect(outcome.kind).toBe("validation");
     if (outcome.kind !== "validation") return;
     expect(outcome.error.kind).toBe("validation");

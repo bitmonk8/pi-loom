@@ -16,7 +16,7 @@ import type { Diagnostic, SourceRange } from "../src/diagnostics/diagnostic";
 // schema-subset.md (the lowering/`additionalProperties:false` exact-field-set
 // property TYPE-8 relies on). The relation `T₁ ⊑ T₂` is the single normative
 // compatibility relation; the structural cases the parser must recognise
-// without falling back to AJV are closed for loom 1.0.
+// without falling back to AJV are closed for theta 1.0.
 //
 // The engine is asserted against the standalone `checkCompatible` relation seam
 // and the three per-site diagnostic seams (`checkLetRhsCompat`,
@@ -65,7 +65,7 @@ function span(): SourceRange {
   return { start: { line: 1, column: 1 }, end: { line: 1, column: 2 } };
 }
 function site(): { file: string; range: SourceRange } {
-  return { file: "test.loom", range: span() };
+  return { file: "test.theta", range: span() };
 }
 function withCode(diags: readonly Diagnostic[], code: string): Diagnostic | undefined {
   return diags.find((d) => d.code === code);
@@ -97,7 +97,7 @@ describe("V2b-T — TYPE-2 integer/number widening", () => {
     );
   });
 
-  it("TYPE-2 (loom/parse/integer-narrowing): a `number` RHS under an `integer` annotation fires", () => {
+  it("TYPE-2 (theta/parse/integer-narrowing): a `number` RHS under an `integer` annotation fires", () => {
     const diags = checkLetRhsCompat({
       name: "x",
       annotation: prim("integer"),
@@ -105,8 +105,8 @@ describe("V2b-T — TYPE-2 integer/number widening", () => {
       env: EMPTY_ENV,
       site: site(),
     });
-    const d = withCode(diags, "loom/parse/integer-narrowing");
-    expect(d, "loom/parse/integer-narrowing for number-under-integer").toBeDefined();
+    const d = withCode(diags, "theta/parse/integer-narrowing");
+    expect(d, "theta/parse/integer-narrowing for number-under-integer").toBeDefined();
     // Message from code-registry-parse.md.
     expect(d?.message).toBe("cannot narrow number to integer");
   });
@@ -235,7 +235,7 @@ describe("V2b-T — TYPE-8 inline-object field-wise compatibility", () => {
 // --- TYPE-9 — per-site parse-time mismatch codes --------------------------
 
 describe("V2b-T — TYPE-9 per-site mismatch codes", () => {
-  it("TYPE-9 (loom/parse/let-rhs-type-mismatch): a typed `let` RHS mismatch fires", () => {
+  it("TYPE-9 (theta/parse/let-rhs-type-mismatch): a typed `let` RHS mismatch fires", () => {
     const diags = checkLetRhsCompat({
       name: "x",
       annotation: prim("integer"),
@@ -243,8 +243,8 @@ describe("V2b-T — TYPE-9 per-site mismatch codes", () => {
       env: EMPTY_ENV,
       site: site(),
     });
-    const d = withCode(diags, "loom/parse/let-rhs-type-mismatch");
-    expect(d, "loom/parse/let-rhs-type-mismatch for string-under-integer").toBeDefined();
+    const d = withCode(diags, "theta/parse/let-rhs-type-mismatch");
+    expect(d, "theta/parse/let-rhs-type-mismatch for string-under-integer").toBeDefined();
     // Message from code-registry-parse.md.
     expect(d?.message).toBe(
       "let binding 'x' initialiser type mismatch: expected integer, got string",
@@ -259,12 +259,12 @@ describe("V2b-T — TYPE-9 per-site mismatch codes", () => {
       site: site(),
     });
     expect(
-      withCode(ok, "loom/parse/let-rhs-type-mismatch"),
+      withCode(ok, "theta/parse/let-rhs-type-mismatch"),
       "a compatible RHS raises no let-rhs mismatch",
     ).toBeUndefined();
   });
 
-  it("TYPE-9 (loom/parse/fn-arg-type-mismatch): a plain `fn` argument mismatch fires", () => {
+  it("TYPE-9 (theta/parse/fn-arg-type-mismatch): a plain `fn` argument mismatch fires", () => {
     const diags = checkFnArgCompat({
       fnName: "f",
       index: 0,
@@ -274,15 +274,15 @@ describe("V2b-T — TYPE-9 per-site mismatch codes", () => {
       env: EMPTY_ENV,
       site: site(),
     });
-    const d = withCode(diags, "loom/parse/fn-arg-type-mismatch");
-    expect(d, "loom/parse/fn-arg-type-mismatch for string-under-number").toBeDefined();
+    const d = withCode(diags, "theta/parse/fn-arg-type-mismatch");
+    expect(d, "theta/parse/fn-arg-type-mismatch for string-under-number").toBeDefined();
     // Message from code-registry-parse.md.
     expect(d?.message).toBe(
       "fn 'f' argument 0 ('n') type mismatch: expected number, got string",
     );
   });
 
-  it("TYPE-9 (loom/parse/array-element-type-mismatch): a branch fails against an in-scope sink", () => {
+  it("TYPE-9 (theta/parse/array-element-type-mismatch): a branch fails against an in-scope sink", () => {
     // Ternary/array common-type against a sink: a `string` branch under a
     // `number` element sink fails at its index.
     const diags = checkCommonType({
@@ -291,23 +291,23 @@ describe("V2b-T — TYPE-9 per-site mismatch codes", () => {
       env: EMPTY_ENV,
       site: site(),
     });
-    const d = withCode(diags, "loom/parse/array-element-type-mismatch");
-    expect(d, "loom/parse/array-element-type-mismatch at the failing branch").toBeDefined();
+    const d = withCode(diags, "theta/parse/array-element-type-mismatch");
+    expect(d, "theta/parse/array-element-type-mismatch at the failing branch").toBeDefined();
     // Message from code-registry-parse.md.
     expect(d?.message).toBe(
       "array element type mismatch at index 1: expected number, got string",
     );
   });
 
-  it("TYPE-9 (loom/parse/array-no-common-type): no sink and no common type fires", () => {
+  it("TYPE-9 (theta/parse/array-no-common-type): no sink and no common type fires", () => {
     const diags = checkCommonType({
       branches: [prim("string"), prim("boolean")],
       sink: undefined,
       env: EMPTY_ENV,
       site: site(),
     });
-    const d = withCode(diags, "loom/parse/array-no-common-type");
-    expect(d, "loom/parse/array-no-common-type for two unrelated branches").toBeDefined();
+    const d = withCode(diags, "theta/parse/array-no-common-type");
+    expect(d, "theta/parse/array-no-common-type for two unrelated branches").toBeDefined();
     // Message from code-registry-parse.md.
     expect(d?.message).toBe(
       "array elements have no common type; annotate the binding with array<A | B> or use a single schema",

@@ -27,12 +27,12 @@ import {
 
 // --- helpers --------------------------------------------------------------
 
-function makeEntry(loom: string, invocationId: string): ActiveInvocationEntry {
+function makeEntry(theta: string, invocationId: string): ActiveInvocationEntry {
   return {
-    loomAbort: new AbortController(),
+    thetaAbort: new AbortController(),
     disposeBarrier: Promise.resolve(),
     shutdownReason: undefined,
-    loom,
+    theta,
     invocationId,
   };
 }
@@ -58,7 +58,7 @@ function inertSource(): AbortSourceLike {
 }
 
 function makeSite(): { readonly file: string; readonly range: ReturnType<typeof range> } {
-  return { file: "test.loom", range: range() };
+  return { file: "test.theta", range: range() };
 }
 
 function range(): {
@@ -118,7 +118,7 @@ describe("ActiveInvocationRegistry — disposeBarrier (PIC area)", () => {
     const out = await dispatchSiteSetup({
       registry,
       idSource: fixedIdSource("id-subagent"),
-      loom: "child",
+      theta: "child",
       mode: "subagent",
       source: inertSource(),
       site: makeSite(),
@@ -131,7 +131,7 @@ describe("ActiveInvocationRegistry — disposeBarrier (PIC area)", () => {
     const sibling = await dispatchSiteSetup({
       registry,
       idSource: fixedIdSource("id-sibling"),
-      loom: "other",
+      theta: "other",
       mode: "prompt",
       source: inertSource(),
       site: makeSite(),
@@ -165,7 +165,7 @@ describe("ActiveInvocationRegistry — disposeBarrier (PIC area)", () => {
     const out = await dispatchSiteSetup({
       registry,
       idSource: fixedIdSource("id-prompt"),
-      loom: "prompt-loom",
+      theta: "prompt-theta",
       mode: "prompt",
       source: inertSource(),
       site: makeSite(),
@@ -208,7 +208,7 @@ describe("ActiveInvocationRegistry — invocationId allocation (PIC area)", () =
     const out = await dispatchSiteSetup({
       registry,
       idSource,
-      loom: "x",
+      theta: "x",
       mode: "prompt",
       source: inertSource(),
       site: makeSite(),
@@ -229,14 +229,14 @@ describe("ActiveInvocationRegistry — Dispatch-site setup wrap failure path (PI
       registry,
       // `newInvocationId()` throws — a throw before the registry `Set.add`.
       idSource: throwingIdSource(),
-      loom: "x",
+      theta: "x",
       mode: "prompt",
       source: inertSource(),
       site: makeSite(),
     });
 
     assert(out.kind === "defect");
-    expect(out.diagnostic.code).toBe("loom/runtime/internal-error");
+    expect(out.diagnostic.code).toBe("theta/runtime/internal-error");
     expect(out.error.kind).toBe("invoke_infra");
     expect(out.error.cause).toBe("internal_error");
 
@@ -249,7 +249,7 @@ describe("ActiveInvocationRegistry — Dispatch-site setup wrap failure path (PI
     const out = await dispatchSiteSetup({
       registry,
       idSource: fixedIdSource("id"),
-      loom: "x",
+      theta: "x",
       mode: "subagent",
       source: inertSource(),
       site: makeSite(),
@@ -259,11 +259,11 @@ describe("ActiveInvocationRegistry — Dispatch-site setup wrap failure path (PI
     });
 
     assert(out.kind === "defect");
-    expect(out.diagnostic.code).toBe("loom/runtime/internal-error");
+    expect(out.diagnostic.code).toBe("theta/runtime/internal-error");
     expect(out.error.cause).toBe("internal_error");
   });
 
-  it("drops a catch-arm cleanup loomAbort.abort() throw without masking the original setup throw", async () => {
+  it("drops a catch-arm cleanup thetaAbort.abort() throw without masking the original setup throw", async () => {
     const registry = new ActiveInvocationRegistry();
     const real = new AbortController();
     const throwingController = {
@@ -276,7 +276,7 @@ describe("ActiveInvocationRegistry — Dispatch-site setup wrap failure path (PI
     const out = await dispatchSiteSetup({
       registry,
       idSource: fixedIdSource("id"),
-      loom: "x",
+      theta: "x",
       mode: "subagent",
       source: inertSource(),
       site: makeSite(),
@@ -287,7 +287,7 @@ describe("ActiveInvocationRegistry — Dispatch-site setup wrap failure path (PI
     });
 
     assert(out.kind === "defect");
-    expect(out.diagnostic.code).toBe("loom/runtime/internal-error");
+    expect(out.diagnostic.code).toBe("theta/runtime/internal-error");
     // The surfaced error reflects the ORIGINAL setup throw, not the cleanup throw.
     expect(out.diagnostic.message).toContain("original setup boom");
     expect(out.diagnostic.message).not.toContain("abort cleanup boom");

@@ -61,7 +61,7 @@ function makeRecordingMutator(): {
 const COMMITTED: readonly CommittedSurface[] = [
   { kind: "assistant-tokens", id: "asst-1", content: "partial assistant tok" },
   { kind: "tool-call-card", id: "tool-1", content: "search(...)" },
-  { kind: "system-note", id: "note-1", content: "loom-system-note" },
+  { kind: "system-note", id: "note-1", content: "theta-system-note" },
 ];
 
 // ===========================================================================
@@ -167,18 +167,18 @@ describe("V4c-T — ERR-11 non-mutation window scope [cancelled-turn, next-drive
 });
 
 // ===========================================================================
-// ERR-12 — ERR-8 holds inside a subagent loom, exercised via the H4a harness
+// ERR-12 — ERR-8 holds inside a subagent theta, exercised via the H4a harness
 // modelling a subagent-mode callee — not the live V9i surface.
 // ===========================================================================
 
-describe("V4c-T — ERR-12 non-mutation inside a subagent loom (via the H4a harness)", () => {
+describe("V4c-T — ERR-12 non-mutation inside a subagent theta (via the H4a harness)", () => {
   it("ERR-12: with the H4a harness modelling a subagent-mode callee, the runtime mutates none of the subagent conversation's committed surfaces on cancellation", () => {
     // Model the subagent-mode callee through the H4a / H4c harness surface
     // (category (g)), NOT the live V9i surface: a private in-memory session is
-    // spawned and its outcome surfaces as a subagent-loom outcome.
+    // spawned and its outcome surfaces as a subagent-theta outcome.
     const double = loadExtension({ fixtures: [] }).double;
     double.responses.scriptSubagentCallee({
-      loomName: "reviewer.loom",
+      thetaName: "reviewer.theta",
       agentEnds: [{ value: "approved", willRetry: false }],
     });
     const transcript = double.driveResponses();
@@ -186,12 +186,12 @@ describe("V4c-T — ERR-12 non-mutation inside a subagent loom (via the H4a harn
     // Confirm the harness modelled a subagent-mode callee (the ERR-12 context)
     // rather than a plain prompt-mode turn.
     const subagentOutcome = transcript.find(
-      (e: ResponseEvent): e is Extract<ResponseEvent, { kind: "subagent-loom" }> =>
-        e.kind === "subagent-loom",
+      (e: ResponseEvent): e is Extract<ResponseEvent, { kind: "subagent-theta" }> =>
+        e.kind === "subagent-theta",
     );
-    expect(subagentOutcome?.loomName).toBe("reviewer.loom");
+    expect(subagentOutcome?.thetaName).toBe("reviewer.theta");
 
-    // The subagent loom's own committed surfaces, interrupted mid-stream by a
+    // The subagent theta's own committed surfaces, interrupted mid-stream by a
     // cancellation inside the subagent.
     const subagentCommitted: readonly CommittedSurface[] = [
       { kind: "assistant-tokens", id: "sub-asst-1", content: "partial subagent tok" },
@@ -204,7 +204,7 @@ describe("V4c-T — ERR-12 non-mutation inside a subagent loom (via the H4a harn
       mutator,
     );
 
-    // ERR-12: ERR-8 holds inside the subagent loom too — no mutation and no
+    // ERR-12: ERR-8 holds inside the subagent theta too — no mutation and no
     // compensating injection of the subagent conversation's committed surfaces.
     expect(calls).toEqual([]);
   });

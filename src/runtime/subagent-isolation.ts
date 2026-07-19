@@ -6,14 +6,14 @@
 //
 //   - PIC-40 pre-spawn model guard: refuse `createAgentSession` when the
 //     resolved `model` is `undefined`, failing with
-//     `loom/runtime/subagent-model-unresolved`.
+//     `theta/runtime/subagent-model-unresolved`.
 //   - PIC-23 / PIC-41 spawn-options construction: the spawn passes a
-//     loom-constructed `ResourceLoader` adapter (never the
+//     theta-constructed `ResourceLoader` adapter (never the
 //     `DefaultResourceLoader.systemPromptOverride` construction channel), a
 //     fresh `SessionManager.inMemory(cwd)`, a `tools` allowlist derived from the
 //     lowered `customTools`, and NO `signal` field.
 //   - PIC-41 abort forwarding: cancellation reaches the spawned session solely
-//     via a one-shot `loomAbort.signal` listener calling `AgentSession.abort()`
+//     via a one-shot `thetaAbort.signal` listener calling `AgentSession.abort()`
 //     (with the synchronous already-aborted pre-registration path).
 //   - PIC-42 completion await: session-local `session.subscribe`, unsubscribing
 //     before resolving each query and attaching a fresh subscription per query,
@@ -24,7 +24,7 @@
 //     assistant-text concatenation.
 //   - PIC-9 lifecycle: mandatory `dispose()` in `finally` on every exit path,
 //     idempotent dispose, one-shot abort-listener detach, advisory
-//     `loom/runtime/subagent-dispose-failure` on a `dispose()` throw that never
+//     `theta/runtime/subagent-dispose-failure` on a `dispose()` throw that never
 //     masks the original `Err`/`Ok`; disposal bounded by `SHUTDOWN_AWAIT_CAP_MS`.
 //   - PIC-22 parallel spawn: for N≥2 parallel subagent tool calls, initiate
 //     `createAgentSession` for all N and enter each `sendUserMessage` before any
@@ -64,7 +64,7 @@ import { SHUTDOWN_AWAIT_CAP_MS } from "../extension/capability-probe";
 import { extractTrailingTurnText } from "./conversation-drive";
 import { makeCancelledError } from "./cancellation-core";
 import { functionResult, type FunctionResult } from "./function-result";
-import type { LoomValue } from "./value";
+import type { ThetaValue } from "./value";
 import type { QueryError } from "./query-error";
 
 // ---------------------------------------------------------------------------
@@ -85,11 +85,11 @@ export const SUBAGENT_DISPOSE_BUDGET_MS = SHUTDOWN_AWAIT_CAP_MS;
 // ---------------------------------------------------------------------------
 
 /** PIC-40 diagnostic code emitted when the resolved subagent `model` is `undefined`. */
-export const SUBAGENT_MODEL_UNRESOLVED_CODE = "loom/runtime/subagent-model-unresolved";
+export const SUBAGENT_MODEL_UNRESOLVED_CODE = "theta/runtime/subagent-model-unresolved";
 
 /**
  * PIC-40 diagnostic message (diagnostics registry Message column, code
- * `loom/runtime/subagent-model-unresolved`).
+ * `theta/runtime/subagent-model-unresolved`).
  */
 export const SUBAGENT_MODEL_UNRESOLVED_MESSAGE =
   "subagent invocation has no resolved model: frontmatter 'model:' is absent and the inherited session model is undefined";
@@ -103,9 +103,9 @@ export interface ModelGuardOutcome {
 }
 
 /**
- * PIC-40. Decide whether the spawn may proceed given the loom's resolved model.
+ * PIC-40. Decide whether the spawn may proceed given the theta's resolved model.
  * A resolved `undefined` refuses the spawn with the
- * `loom/runtime/subagent-model-unresolved` diagnostic.
+ * `theta/runtime/subagent-model-unresolved` diagnostic.
  */
 export function preSpawnModelGuard(model: string | undefined): ModelGuardOutcome {
   // PIC-40: `model === undefined` MUST NOT proceed to `createAgentSession`.
@@ -156,13 +156,13 @@ export async function guardedSubagentSpawn(
 // PIC-23 / PIC-41 / isolation — spawn-options construction.
 // ---------------------------------------------------------------------------
 
-/** The loom-load-bearing subset of a lowered `ToolDefinition` the spawn reads. */
+/** The theta-load-bearing subset of a lowered `ToolDefinition` the spawn reads. */
 export interface LoweredTool {
   readonly name: string;
 }
 
 /**
- * The loom-owned `ResourceLoader` adapter surface the spawn constructs (PIC-23
+ * The theta-owned `ResourceLoader` adapter surface the spawn constructs (PIC-23
  * rule 4). `getSystemPrompt()` is the sole `system:` delivery channel; the rest
  * return empty/defaults.
  */
@@ -174,15 +174,15 @@ export interface SubagentResourceLoader {
 /** Inputs the spawn-options builder reads. */
 export interface SpawnInputs {
   readonly customTools: readonly LoweredTool[];
-  readonly loomSystemPrompt: string;
+  readonly thetaSystemPrompt: string;
   readonly model: string;
   readonly cwd: string;
-  readonly loomAbort: AbortController;
+  readonly thetaAbort: AbortController;
 }
 
 /** Injected host factories the spawn consumes by name (satellite type pins). */
 export interface SpawnDeps {
-  /** `SessionManager.inMemory(cwd)` — the loom-spawned in-memory manager. */
+  /** `SessionManager.inMemory(cwd)` — the theta-spawned in-memory manager. */
   readonly makeInMemorySessionManager: (cwd: string) => object;
   /**
    * `DefaultResourceLoader` construction channel — the compliant path MUST NOT
@@ -196,7 +196,7 @@ export interface SpawnDeps {
 /**
  * The `CreateAgentSessionOptions` subset the spawn populates. Per PIC-41 there is
  * no `signal` field: cancellation is forwarded solely via the one-shot
- * `loomAbort.signal` listener, never through a spawn option.
+ * `thetaAbort.signal` listener, never through a spawn option.
  */
 export interface SubagentSpawnOptions {
   readonly customTools: readonly LoweredTool[];
@@ -208,17 +208,17 @@ export interface SubagentSpawnOptions {
 
 /**
  * PIC-23 / PIC-41 / isolation. Build the `createAgentSession` options: a
- * loom-constructed `ResourceLoader` adapter (never the
+ * theta-constructed `ResourceLoader` adapter (never the
  * `DefaultResourceLoader.systemPromptOverride` channel), the `tools` allowlist
  * derived from the lowered `customTools`, a fresh `SessionManager.inMemory(cwd)`,
  * and NO `signal` field.
  */
 export function buildSpawnOptions(inputs: SpawnInputs, deps: SpawnDeps): SubagentSpawnOptions {
-  // PIC-23: the loom-constructed adapter delivers the resolved `system:` verbatim
+  // PIC-23: the theta-constructed adapter delivers the resolved `system:` verbatim
   // via `getSystemPrompt()` and appends nothing; the
   // `DefaultResourceLoader.systemPromptOverride` construction channel is NOT used.
   const resourceLoader: SubagentResourceLoader = {
-    getSystemPrompt: (): string => inputs.loomSystemPrompt,
+    getSystemPrompt: (): string => inputs.thetaSystemPrompt,
     getAppendSystemPrompt: (): string[] => [],
   };
   // Isolation: a fresh in-memory session manager for this cwd (no shared
@@ -231,7 +231,7 @@ export function buildSpawnOptions(inputs: SpawnInputs, deps: SpawnDeps): Subagen
     sessionManager: deps.makeInMemorySessionManager(inputs.cwd),
     resourceLoader,
     // PIC-41: NO `signal` field — the key is omitted entirely; cancellation is
-    // forwarded solely via the one-shot `loomAbort.signal` listener below.
+    // forwarded solely via the one-shot `thetaAbort.signal` listener below.
   };
 }
 
@@ -246,19 +246,19 @@ export interface AbortableSubagentSession {
 
 /** The one-shot abort-forwarding registration, detached in the teardown `finally`. */
 export interface AbortForwardingRegistration {
-  /** Detach the one-shot `loomAbort.signal` listener (PIC-9 teardown). */
+  /** Detach the one-shot `thetaAbort.signal` listener (PIC-9 teardown). */
   readonly detach: () => void;
 }
 
 /**
  * PIC-41. Forward cancellation into the spawned session: register a one-shot
- * `loomAbort.signal` listener calling `session.abort()`; if `loomAbort` is
+ * `thetaAbort.signal` listener calling `session.abort()`; if `thetaAbort` is
  * already aborted at attach time, call `session.abort()` synchronously before
  * registering the listener (the spawn-then-immediate-cancel path). The returned
  * promise is deliberately not awaited from the listener.
  */
 export function attachSubagentAbortForwarding(
-  loomAbort: AbortController,
+  thetaAbort: AbortController,
   session: AbortableSubagentSession,
 ): AbortForwardingRegistration {
   // PIC-41: the returned `abort()` Promise is deliberately not awaited from the
@@ -268,23 +268,23 @@ export function attachSubagentAbortForwarding(
     void session.abort().catch(() => {});
   };
 
-  // PIC-41: the spawn-then-immediate-cancel path — if `loomAbort` is already
+  // PIC-41: the spawn-then-immediate-cancel path — if `thetaAbort` is already
   // aborted at attach time, `abort()` fires synchronously before the listener is
   // registered, so correctness does not depend on microtask ordering.
-  if (loomAbort.signal.aborted) {
+  if (thetaAbort.signal.aborted) {
     fireAbort();
     return { detach: (): void => {} };
   }
 
-  // PIC-41: a one-shot `loomAbort.signal` listener is the sole cancellation-
+  // PIC-41: a one-shot `thetaAbort.signal` listener is the sole cancellation-
   // forwarding mechanism; it is detached in the per-invocation teardown `finally`.
   const listener = (): void => {
     fireAbort();
   };
-  loomAbort.signal.addEventListener("abort", listener, { once: true });
+  thetaAbort.signal.addEventListener("abort", listener, { once: true });
   return {
     detach: (): void => {
-      loomAbort.signal.removeEventListener("abort", listener);
+      thetaAbort.signal.removeEventListener("abort", listener);
     },
   };
 }
@@ -357,7 +357,7 @@ export type SubagentQueryResult =
 
 /** Live context the extraction reads its two short-circuits from. */
 export interface SubagentExtractionCtx {
-  /** `loomAbort.signal.aborted` — the cancellation short-circuit. */
+  /** `thetaAbort.signal.aborted` — the cancellation short-circuit. */
   readonly aborted: boolean;
   /** The resolved-model provider for the transport-failure `Err`. */
   readonly provider: string;
@@ -436,11 +436,11 @@ export function makeIdempotentDispose(session: DisposableSubagentSession): () =>
 }
 
 /** PIC-9 advisory diagnostic code emitted when `AgentSession.dispose()` throws. */
-export const SUBAGENT_DISPOSE_FAILURE_CODE = "loom/runtime/subagent-dispose-failure";
+export const SUBAGENT_DISPOSE_FAILURE_CODE = "theta/runtime/subagent-dispose-failure";
 
 /**
  * PIC-9 advisory diagnostic message (diagnostics registry Message column, code
- * `loom/runtime/subagent-dispose-failure`): `subagent dispose failed: <dispose
+ * `theta/runtime/subagent-dispose-failure`): `subagent dispose failed: <dispose
  * error first line>`.
  */
 export function renderSubagentDisposeFailureMessage(disposeError: unknown): string {
@@ -453,7 +453,7 @@ export function renderSubagentDisposeFailureMessage(disposeError: unknown): stri
 export interface SubagentTeardown {
   /** The idempotent `dispose()` (from `makeIdempotentDispose`). */
   dispose(): void;
-  /** Detach the one-shot `loomAbort.signal` abort-forwarding listener. */
+  /** Detach the one-shot `thetaAbort.signal` abort-forwarding listener. */
   detachAbortListener(): void;
 }
 
@@ -467,7 +467,7 @@ export interface SubagentTeardownDeps {
  * teardown in a `finally` on every exit path (normal return, `Err`, panic, any
  * unexpected throw): detach the one-shot abort-forwarding listener, then call
  * the idempotent `dispose()`. A `dispose()` throw is trapped and logged via the
- * advisory `loom/runtime/subagent-dispose-failure` diagnostic; it never masks
+ * advisory `theta/runtime/subagent-dispose-failure` diagnostic; it never masks
  * the original `Err`/`Ok` and never promotes an `Ok` to an `Err`.
  */
 export async function runWithSubagentTeardown<T>(
@@ -484,7 +484,7 @@ export async function runWithSubagentTeardown<T>(
     teardown.detachAbortListener();
     try {
       teardown.dispose();
-    } catch (disposeError: unknown) { // allow-broad-catch: loom/runtime/subagent-dispose-failure — pi-integration-contract/subagent.md
+    } catch (disposeError: unknown) { // allow-broad-catch: theta/runtime/subagent-dispose-failure — pi-integration-contract/subagent.md
       // PIC-9: a `dispose()` throw is trapped and logged as advisory only; it
       // never masks the original `Err`/`Ok` and never promotes an `Ok` to an
       // `Err`. `hint` carries the underlying dispose error's message.
@@ -539,7 +539,7 @@ export async function spawnSubagentsInParallel(
 
 /** The terminal outcome of a subagent-mode invocation, as seen by the caller. */
 export type SubagentInvocationOutcome =
-  | { readonly kind: "success"; readonly value: LoomValue }
+  | { readonly kind: "success"; readonly value: ThetaValue }
   | { readonly kind: "fail"; readonly error: QueryError }
   | { readonly kind: "cancel" };
 

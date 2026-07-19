@@ -1,4 +1,4 @@
-# pi-loom — Extension Specification
+# pi-theta — Extension Specification
 
 <a id="overview"></a>
 

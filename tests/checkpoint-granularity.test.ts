@@ -28,7 +28,7 @@ import type {
   CheckpointKind,
   CheckpointSite,
 } from "../src/seams/checkpoint";
-import type { LoomValue } from "../src/runtime/value";
+import type { ThetaValue } from "../src/runtime/value";
 import {
   runCheckpointedBinderCall,
   runCheckpointedForLoop,
@@ -37,8 +37,8 @@ import {
 import { ProductionCheckpoint } from "../src/seams/production-checkpoint";
 import { FakeClock } from "./helpers/fake-clock";
 
-const LOOP_SITE: CheckpointSite = { file: "loom.loom", line: 3, column: 1 };
-const BINDER_SITE: CheckpointSite = { file: "loom.loom", line: 1, column: 1 };
+const LOOP_SITE: CheckpointSite = { file: "theta.theta", line: 3, column: 1 };
+const BINDER_SITE: CheckpointSite = { file: "theta.theta", line: 1, column: 1 };
 
 /**
  * A `Checkpoint` that records an ordered event log so a test can assert a
@@ -77,7 +77,7 @@ describe("V17c-T — loop-iteration checkpoint site (cka-47 / V17c)", () => {
   it("cka-47 / V17c: a loop-iter checkpoint fires immediately before each for/while iteration, at the loop site", async () => {
     const log: string[] = [];
     const checkpoint = new RecordingCheckpoint(log);
-    const snapshot: readonly LoomValue[] = ["a", "b", "c"];
+    const snapshot: readonly ThetaValue[] = ["a", "b", "c"];
     const host: CheckpointedLoopHost = {
       snapshot,
       runIteration(element, index): void {
@@ -161,7 +161,7 @@ describe("V17c-T — no checkpoint at non-checkpoint node kinds (cka-47 / V17c)"
   it("cka-47 / V17c: primitive operations and straight-line statements inside the loop body fire no checkpoint (only the per-iteration loop-iter)", async () => {
     const log: string[] = [];
     const checkpoint = new RecordingCheckpoint(log);
-    const snapshot: readonly LoomValue[] = [10, 20];
+    const snapshot: readonly ThetaValue[] = [10, 20];
     const host: CheckpointedLoopHost = {
       snapshot,
       runIteration(element, index): void {
@@ -253,7 +253,7 @@ describe("V17c-T — loop-iteration macrotask yield (cka-47 / V17c)", () => {
     const controller = new AbortController();
 
     const ran: number[] = [];
-    const snapshot: readonly LoomValue[] = [0, 1, 2, 3];
+    const snapshot: readonly ThetaValue[] = [0, 1, 2, 3];
     const host: CheckpointedLoopHost = {
       snapshot,
       runIteration(_element, index): void {

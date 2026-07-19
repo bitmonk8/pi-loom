@@ -9,13 +9,13 @@
 //
 // RISK guarded here: a false positive where a NORMAL, successful prompt turn
 // (stopReason "end_turn"/"stop") is misclassified as a transport error, which
-// would break every prompt loom. A real transport error cannot be forced
+// would break every prompt theta. A real transport error cannot be forced
 // deterministically, so this probe only proves the SUCCESS path is unregressed:
 // a successful query must still bind a value and let the body continue, and no
 // transport error must escape the drive.
 //
 // Method: sentinel-pinned, token-bounded queries. We assert on the deterministic
-// per-drive `userTexts` channel (the exact turn text the loom CODE computed):
+// per-drive `userTexts` channel (the exact turn text the theta CODE computed):
 // the presence of the SECOND query's text proves the FIRST query returned and
 // the body continued (not aborted / not thrown). `turn.error` undefined proves
 // no transport error escaped.
@@ -56,7 +56,7 @@ describe("prompt-mode @-query transport classification — success path unregres
       const files = [
         {
           source: "project" as const,
-          path: "ptu.loom",
+          path: "ptu.theta",
           text: P(
             "prompt",
             [
@@ -90,7 +90,7 @@ describe("prompt-mode @-query transport classification — success path unregres
       const files = [
         {
           source: "project" as const,
-          path: "ptt.loom",
+          path: "ptt.theta",
           text: P(
             "prompt",
             [

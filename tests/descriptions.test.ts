@@ -12,7 +12,7 @@ import type { Diagnostic, SourceRange } from "../src/diagnostics/diagnostic";
 // implementation.
 //
 // Spec: descriptions.md (§Placement — the eligible anchor list and the
-// `loom/parse/doc-comment-misplaced` production; §Multi-line — newline-join +
+// `theta/parse/doc-comment-misplaced` production; §Multi-line — newline-join +
 // common-leading-whitespace strip + empty-line handling; §No transformation —
 // byte-for-byte lowering; §`//` is a regular code comment — not propagated) and
 // the normative anchor list at grammar.md §`///` placement.
@@ -38,7 +38,7 @@ function span(): SourceRange {
 
 /** A located site at the throwaway span. */
 function site(): { file: string; range: SourceRange } {
-  return { file: "test.loom", range: span() };
+  return { file: "test.theta", range: span() };
 }
 
 /** The first diagnostic carrying `code`, if any. */
@@ -50,7 +50,7 @@ function withCode(diags: readonly Diagnostic[], code: string): Diagnostic | unde
 
 describe("V5c-T — `///` lowering into `description:` (DESC code-keyed area)", () => {
   it("a `///` above a schema/enum/field/variant lowers byte-for-byte into `description:`; a `fn` `///` stays AST-only", () => {
-    // descriptions.md §No transformation: "Loom emits description text
+    // descriptions.md §No transformation: "Theta emits description text
     // byte-for-byte into the lowered schema; no escaping, dedenting, or
     // wrapping is performed beyond the multi-line join and common-leading-
     // whitespace strip." The four schema-bearing anchors all lower the text
@@ -89,19 +89,19 @@ describe("V5c-T — `///` lowering into `description:` (DESC code-keyed area)", 
 
 // --- descriptions.md §Placement / grammar.md §`///` placement ---------------
 
-describe("V5c-T — doc-comment placement (loom/parse/doc-comment-misplaced)", () => {
-  it("loom/parse/doc-comment-misplaced: a `///` not above an eligible target fires; an eligible anchor does not", () => {
+describe("V5c-T — doc-comment placement (theta/parse/doc-comment-misplaced)", () => {
+  it("theta/parse/doc-comment-misplaced: a `///` not above an eligible target fires; an eligible anchor does not", () => {
     // descriptions.md §Placement + grammar.md §`///` placement: a `///` above
     // any production other than schema/enum/field/variant/fn fires
-    // `loom/parse/doc-comment-misplaced`.
+    // `theta/parse/doc-comment-misplaced`.
     const ineligible = ["let", "import", "export", "expression", "control-flow"];
     for (const production of ineligible) {
       const d = checkDocCommentPlacement(production, site());
       expect(
         d,
-        `loom/parse/doc-comment-misplaced fires above '${production}'`,
+        `theta/parse/doc-comment-misplaced fires above '${production}'`,
       ).toBeDefined();
-      expect(d?.code).toBe("loom/parse/doc-comment-misplaced");
+      expect(d?.code).toBe("theta/parse/doc-comment-misplaced");
       // Message from code-registry-parse.md.
       expect(d?.message).toBe(
         "'///' doc comment is not legal above this production",

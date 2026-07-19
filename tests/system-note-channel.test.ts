@@ -1,9 +1,9 @@
-// V7d-T — failing tests for the `loom-system-note` delivery channel (V7d).
+// V7d-T — failing tests for the `theta-system-note` delivery channel (V7d).
 //
 // Spec: pi-integration-contract/runtime-event-channel.md §"System notes",
-// PIC-21 (extension-bootstrap-and-per-loom.md), PIC-54
+// PIC-21 (extension-bootstrap-and-per-theta.md), PIC-54
 // (runtime-event-channel.md#pic-54), diagnostics/code-registry-runtime.md
-// (`loom/runtime/system-note-delivery-failed`).
+// (`theta/runtime/system-note-delivery-failed`).
 //
 // These tests red on their own primary assertions while the V7d delivery /
 // fallback implementation is absent (the V7d-T stub is a no-op), per the
@@ -86,7 +86,7 @@ function makeChannel(opts?: {
 function diag(file: string, line: number, column: number): Diagnostic {
   return {
     severity: "error",
-    code: "loom/parse/unexpected-token",
+    code: "theta/parse/unexpected-token",
     file,
     range: { start: { line, column }, end: { line, column: column + 1 } },
     message: `unexpected token at ${file}:${line}`,
@@ -102,8 +102,8 @@ afterEach(() => {
 describe("V7d-T — multi-error batch delivery", () => {
   it("delivers the assembled Diagnostic[] as exactly one sendMessage carrying the full batch (no per-error fan-out)", () => {
     const batch = assembleDiagnostics([
-      [diag("a.loom", 3, 1), diag("a.loom", 1, 1)],
-      [diag("b.warp", 2, 1)],
+      [diag("a.theta", 3, 1), diag("a.theta", 1, 1)],
+      [diag("b.thetalib", 2, 1)],
     ]);
     expect(batch.length).toBe(3);
 
@@ -127,7 +127,7 @@ describe("V7d-T — multi-error batch delivery", () => {
   });
 
   it("re-scan re-emits the batch with no dedup/supersede (a second emit is a second sendMessage)", () => {
-    const batch = assembleDiagnostics([[diag("a.loom", 1, 1)]]);
+    const batch = assembleDiagnostics([[diag("a.theta", 1, 1)]]);
     const { deps, sent } = makeChannel();
 
     emitDiagnosticBatch(batch, deps);
@@ -185,13 +185,13 @@ describe("V7d-T — PIC-21 renderer exception safety", () => {
       );
     }).not.toThrow();
     expect(hidden).toBeUndefined();
-    // No `loom/runtime/*` diagnostic surface exists on the renderer (PIC-21:
+    // No `theta/runtime/*` diagnostic surface exists on the renderer (PIC-21:
     // a caught render-time failure emits no diagnostic) — the renderer factory
     // takes no diagnostics sink, so the property holds by construction.
   });
 });
 
-// --- loom/runtime/system-note-delivery-failed fallback chain -------------
+// --- theta/runtime/system-note-delivery-failed fallback chain -------------
 
 describe("V7d-T — renderer honours the TUI render width (no over-wide line)", () => {
   const opts = { expanded: false } as never;
@@ -201,7 +201,7 @@ describe("V7d-T — renderer honours the TUI render width (no over-wide line)", 
     // The real over-wide load diagnostic that crashed Pi's TUI on the manual
     // real-host smoke: a single 122-column line on an 80-column terminal.
     const content =
-      "tests/fixtures/h7a/acceptance.loom:12:58: loom/parse/schema-case-mismatch: schema name must start with an uppercase letter";
+      "tests/fixtures/h7a/acceptance.theta:12:58: theta/parse/schema-case-mismatch: schema name must start with an uppercase letter";
     const width = 80;
     const renderer = createSystemNoteRenderer();
     const component = renderer(
@@ -237,7 +237,7 @@ describe("V7d-T — renderer honours the TUI render width (no over-wide line)", 
 
 // --- PIC-56 — system-note renderer render-width contract -----------------
 
-describe("V7e-T — loom-system-note renderer render-width contract (PIC-56)", () => {
+describe("V7e-T — theta-system-note renderer render-width contract (PIC-56)", () => {
   const opts = { expanded: false } as never;
   const theme = {} as never;
 
@@ -294,17 +294,17 @@ describe("V7e-T — loom-system-note renderer render-width contract (PIC-56)", (
   });
 });
 
-describe("V7d-T — loom/runtime/system-note-delivery-failed fallback chain", () => {
+describe("V7d-T — theta/runtime/system-note-delivery-failed fallback chain", () => {
   function note(overrides?: Partial<SystemNote>): SystemNote {
     return {
-      content: "loom /demo aborted: boom",
+      content: "theta /demo aborted: boom",
       display: true,
-      details: { event: { kind: "transport", loom: "/demo" } },
+      details: { event: { kind: "transport", theta: "/demo" } },
       ...overrides,
     };
   }
 
-  it("loom/runtime/system-note-delivery-failed: on a sendMessage throw, falls back to ctx.ui.notify(content,'error') then the diagnostic (message=content, hint=throw message), without aborting", () => {
+  it("theta/runtime/system-note-delivery-failed: on a sendMessage throw, falls back to ctx.ui.notify(content,'error') then the diagnostic (message=content, hint=throw message), without aborting", () => {
     const thrown = new Error("sendMessage host dead");
     const { deps, notified, emitted } = makeChannel({ sendThrows: thrown });
     const n = note();
@@ -315,7 +315,7 @@ describe("V7d-T — loom/runtime/system-note-delivery-failed fallback chain", ()
     expect(notified).toHaveLength(1);
     expect(notified[0]).toEqual([n.content, "error"]);
 
-    // Step 2 — `loom/runtime/system-note-delivery-failed` diagnostic.
+    // Step 2 — `theta/runtime/system-note-delivery-failed` diagnostic.
     expect(emitted).toHaveLength(1);
     const d = emitted[0]!;
     expect(d.code).toBe(SYSTEM_NOTE_DELIVERY_FAILED_CODE);

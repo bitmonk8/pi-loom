@@ -59,7 +59,7 @@ const PROMPT_TO_PROMPT: CrossModeCell = { callerMode: "prompt", calleeMode: "pro
 // The user session's ambient active set before the invoke (the snapshot), the
 // child's declared callable set (the install vector), and a distinct "foreign"
 // set standing in for a mid-window active-set mutation the restore must
-// overwrite (invocation.md §Cross-mode semantics: the loom's restore overwrites
+// overwrite (invocation.md §Cross-mode semantics: the theta's restore overwrites
 // an intervening change with no diagnostic). All three are pairwise disjoint so
 // each stage is observable.
 const AMBIENT_SNAPSHOT = ["read", "bash"] as const;

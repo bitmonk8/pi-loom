@@ -2,11 +2,11 @@
 //
 // This module owns the code-keyed obligation area `cka-45`
 // (binder/binder-bypass-and-envelope.md §"System-prompt structure (normative)"):
-// the runtime constructs a system prompt conveying the loom's binding context to
+// the runtime constructs a system prompt conveying the theta's binding context to
 // the binder model. The exact wording is non-normative; the structural
 // obligations are the contract:
 //
-//   1. Loom identity line — `Loom: /<name>` (exactly one).
+//   1. Theta identity line — `Theta: /<name>` (exactly one).
 //   2. Description line — `Description: <description>` iff frontmatter
 //      `description:` is non-empty; omitted entirely otherwise.
 //   3. Argument-hint line — `Argument hint: <value>` iff `argument-hint:` is
@@ -28,10 +28,10 @@
 //   8. No-invent-defaults instruction — one line containing the literal
 //      substring `defaulted` and at least one of `Do not` / `omit` / `skip`.
 //
-//   *Type display* — the per-field `<type>` is the declared Loom type in the
+//   *Type display* — the per-field `<type>` is the declared Theta type in the
 //   surface syntax of Type System, not the JSON-Schema lowering.
 //   *Default-literal rendering* — the `<literal>` in `default=<literal>` is the
-//   field default in the Loom literal sublanguage surface syntax.
+//   field default in the Theta literal sublanguage surface syntax.
 //   *Parameter-line reference renderings* — the four reference per-field lines
 //   are reproduced byte-exact, including the description-omitted form
 //   (`  language (string) required`, no trailing space or em-dash).
@@ -57,7 +57,7 @@ import { trimSlashArgumentWhitespace } from "./binder-envelope";
  *
  *   - `{ kind: "required" }` — a required-without-default field.
  *   - `{ kind: "default"; literal }` — a defaulted field; `literal` is the
- *     field's default already rendered in the Loom literal sublanguage surface
+ *     field's default already rendered in the Theta literal sublanguage surface
  *     syntax (the *Default-literal rendering* rule: `Severity.High`, `"hello"`,
  *     `[1, 2, 3]`, `[]`), emitted verbatim after `default=`.
  */
@@ -70,7 +70,7 @@ export interface SystemPromptParamField {
   /** The field's wire name (the leading token of the per-field line). */
   readonly wireName: string;
   /**
-   * The field's declared Loom type in the *surface syntax* of Type System
+   * The field's declared Theta type in the *surface syntax* of Type System
    * (e.g. `string`, `array<integer>`, `string | null`, `Author`) — never the
    * JSON-Schema lowering. Emitted verbatim inside the `(<type>)` parentheses.
    */
@@ -110,12 +110,12 @@ export interface BuildBinderSystemPromptInput {
   /** The bare slash command name (no leading `/`) — item 1. */
   readonly name: string;
   /**
-   * The loom's frontmatter `description:`. When absent or empty the Description
+   * The theta's frontmatter `description:`. When absent or empty the Description
    * line (item 2) is omitted entirely.
    */
   readonly description?: string;
   /**
-   * The loom's frontmatter `argument-hint:`. When absent or empty the
+   * The theta's frontmatter `argument-hint:`. When absent or empty the
    * Argument-hint line (item 3) is omitted entirely.
    */
   readonly argumentHint?: string;
@@ -181,11 +181,11 @@ export function buildBinderSystemPrompt(input: BuildBinderSystemPromptInput): st
     out += `${value}\n`;
   };
 
-  line("You bind free-form slash-command arguments to typed loom parameters.");
+  line("You bind free-form slash-command arguments to typed theta parameters.");
   line("");
 
-  // Item 1 — Loom identity line (exactly one).
-  line(`Loom: /${input.name}`);
+  // Item 1 — Theta identity line (exactly one).
+  line(`Theta: /${input.name}`);
 
   // Item 2 — Description line (only when non-empty).
   if (input.description !== undefined && input.description !== "") {

@@ -6,7 +6,7 @@ import {
 } from "../src/parser/control-flow";
 import { evaluateForLoop, type ForLoopHost } from "../src/runtime/control-flow";
 import type { CompatType } from "../src/parser/type-compat";
-import type { LoomValue } from "../src/runtime/value";
+import type { ThetaValue } from "../src/runtime/value";
 import type { SourceRange } from "../src/diagnostics/diagnostic";
 
 // V3c-T — failing tests for the paired `V3c` "control flow" implementation.
@@ -17,10 +17,10 @@ import type { SourceRange } from "../src/diagnostics/diagnostic";
 //     is skipped; a mid-body `let mut` reassignment does not alter the snapshot
 //     (asserted against the runtime `evaluateForLoop` seam,
 //     src/runtime/control-flow.ts).
-//   - §`for` / `in`        → loom/parse/non-array-iterand   (type phase)
-//   - §`break` / `continue`→ loom/parse/break-outside-loop  (parse phase)
-//                          → loom/parse/continue-outside-loop (parse phase)
-//                          → loom/parse/break-with-value    (parse phase)
+//   - §`for` / `in`        → theta/parse/non-array-iterand   (type phase)
+//   - §`break` / `continue`→ theta/parse/break-outside-loop  (parse phase)
+//                          → theta/parse/continue-outside-loop (parse phase)
+//                          → theta/parse/break-with-value    (parse phase)
 //
 // The parse/type checks need the resolved iterand type and the lexical
 // in-loop / carries-a-value context the tokeniser does not carry, so they are
@@ -45,7 +45,7 @@ function span(): SourceRange {
 
 /** A located site at the throwaway span. */
 function site(): { file: string; range: SourceRange } {
-  return { file: "test.loom", range: span() };
+  return { file: "test.theta", range: span() };
 }
 
 // --- control-flow.md CTRL-1 — `for ... in` snapshot semantics --------------
@@ -53,7 +53,7 @@ function site(): { file: string; range: SourceRange } {
 describe("V3c-T — `for ... in` iterand snapshot (CTRL-1)", () => {
   it("CTRL-1: the iterand is evaluated exactly once at loop entry, before the first iteration", () => {
     let iterandEvals = 0;
-    const seen: LoomValue[] = [];
+    const seen: ThetaValue[] = [];
     const host: ForLoopHost = {
       evaluateIterand() {
         // The iterand's observable effect: it commits once per loop entry.
@@ -106,8 +106,8 @@ describe("V3c-T — `for ... in` iterand snapshot (CTRL-1)", () => {
     // A `let mut` cell the iterand reads from once at loop entry; the body
     // reassigns it. CTRL-1 fixes the snapshot before iteration, so the iterated
     // sequence is the entry-time value, not the reassigned one.
-    const cell: { items: readonly LoomValue[] } = { items: [1, 2, 3] };
-    const seen: LoomValue[] = [];
+    const cell: { items: readonly ThetaValue[] } = { items: [1, 2, 3] };
+    const seen: ThetaValue[] = [];
     const host: ForLoopHost = {
       evaluateIterand() {
         return cell.items;
@@ -130,37 +130,37 @@ describe("V3c-T — `for ... in` iterand snapshot (CTRL-1)", () => {
 
 // --- control-flow.md §`for` / `in` -----------------------------------------
 
-describe("V3c-T — non-array iterand (loom/parse/non-array-iterand)", () => {
-  it("loom/parse/non-array-iterand: `for x in <string>` fires (type phase)", () => {
+describe("V3c-T — non-array iterand (theta/parse/non-array-iterand)", () => {
+  it("theta/parse/non-array-iterand: `for x in <string>` fires (type phase)", () => {
     const stringType: CompatType = { kind: "prim", name: "string" };
     const d = checkForIterand({ type: stringType }, site());
     expect(
       d,
-      "loom/parse/non-array-iterand for a string iterand",
+      "theta/parse/non-array-iterand for a string iterand",
     ).toBeDefined();
-    expect(d?.code).toBe("loom/parse/non-array-iterand");
+    expect(d?.code).toBe("theta/parse/non-array-iterand");
     // Message from code-registry-parse.md (`'for' expects array<T> after 'in'; got <type>`).
     expect(d?.message).toBe("'for' expects array<T> after 'in'; got string");
   });
 
-  it("loom/parse/non-array-iterand: `for x in <number>` fires (type phase)", () => {
+  it("theta/parse/non-array-iterand: `for x in <number>` fires (type phase)", () => {
     const numberType: CompatType = { kind: "prim", name: "number" };
     const d = checkForIterand({ type: numberType }, site());
     expect(
       d,
-      "loom/parse/non-array-iterand for a number iterand",
+      "theta/parse/non-array-iterand for a number iterand",
     ).toBeDefined();
-    expect(d?.code).toBe("loom/parse/non-array-iterand");
+    expect(d?.code).toBe("theta/parse/non-array-iterand");
   });
 
-  it("loom/parse/non-array-iterand: `for x in <object>` fires (type phase)", () => {
+  it("theta/parse/non-array-iterand: `for x in <object>` fires (type phase)", () => {
     const objectType: CompatType = { kind: "object", fields: [] };
     const d = checkForIterand({ type: objectType }, site());
     expect(
       d,
-      "loom/parse/non-array-iterand for an object iterand",
+      "theta/parse/non-array-iterand for an object iterand",
     ).toBeDefined();
-    expect(d?.code).toBe("loom/parse/non-array-iterand");
+    expect(d?.code).toBe("theta/parse/non-array-iterand");
   });
 
   it("an `array<T>` iterand raises no non-array-iterand diagnostic", () => {
@@ -178,14 +178,14 @@ describe("V3c-T — non-array iterand (loom/parse/non-array-iterand)", () => {
 
 // --- control-flow.md §`break` / `continue` ---------------------------------
 
-describe("V3c-T — `break` outside a loop (loom/parse/break-outside-loop)", () => {
-  it("loom/parse/break-outside-loop: a `break` outside any loop body fires (parse phase)", () => {
+describe("V3c-T — `break` outside a loop (theta/parse/break-outside-loop)", () => {
+  it("theta/parse/break-outside-loop: a `break` outside any loop body fires (parse phase)", () => {
     const d = checkBreakStatement({ insideLoop: false, hasValue: false }, site());
     expect(
       d,
-      "loom/parse/break-outside-loop for a `break` outside any loop",
+      "theta/parse/break-outside-loop for a `break` outside any loop",
     ).toBeDefined();
-    expect(d?.code).toBe("loom/parse/break-outside-loop");
+    expect(d?.code).toBe("theta/parse/break-outside-loop");
     // Message from code-registry-parse.md.
     expect(d?.message).toBe("'break' outside of a loop");
   });
@@ -199,14 +199,14 @@ describe("V3c-T — `break` outside a loop (loom/parse/break-outside-loop)", () 
   });
 });
 
-describe("V3c-T — `continue` outside a loop (loom/parse/continue-outside-loop)", () => {
-  it("loom/parse/continue-outside-loop: a `continue` outside any loop body fires (parse phase)", () => {
+describe("V3c-T — `continue` outside a loop (theta/parse/continue-outside-loop)", () => {
+  it("theta/parse/continue-outside-loop: a `continue` outside any loop body fires (parse phase)", () => {
     const d = checkContinueStatement({ insideLoop: false }, site());
     expect(
       d,
-      "loom/parse/continue-outside-loop for a `continue` outside any loop",
+      "theta/parse/continue-outside-loop for a `continue` outside any loop",
     ).toBeDefined();
-    expect(d?.code).toBe("loom/parse/continue-outside-loop");
+    expect(d?.code).toBe("theta/parse/continue-outside-loop");
     // Message from code-registry-parse.md.
     expect(d?.message).toBe("'continue' outside of a loop");
   });
@@ -220,15 +220,15 @@ describe("V3c-T — `continue` outside a loop (loom/parse/continue-outside-loop)
   });
 });
 
-describe("V3c-T — `break` with a value (loom/parse/break-with-value)", () => {
-  it("loom/parse/break-with-value: a `break expr` fires (parse phase; loom 1.0 `break` carries no value)", () => {
+describe("V3c-T — `break` with a value (theta/parse/break-with-value)", () => {
+  it("theta/parse/break-with-value: a `break expr` fires (parse phase; theta 1.0 `break` carries no value)", () => {
     const d = checkBreakStatement({ insideLoop: true, hasValue: true }, site());
     expect(
       d,
-      "loom/parse/break-with-value for a `break expr`",
+      "theta/parse/break-with-value for a `break expr`",
     ).toBeDefined();
-    expect(d?.code).toBe("loom/parse/break-with-value");
+    expect(d?.code).toBe("theta/parse/break-with-value");
     // Message from code-registry-parse.md.
-    expect(d?.message).toBe("'break' takes no value in loom 1.0");
+    expect(d?.message).toBe("'break' takes no value in theta 1.0");
   });
 });

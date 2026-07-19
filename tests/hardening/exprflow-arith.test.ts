@@ -17,7 +17,7 @@ describe("exprflow — arithmetic & precedence", () => {
       files: [
         {
           source: "project",
-          path: "arith.loom",
+          path: "arith.theta",
           text: [
             "---",
             "description: arith",

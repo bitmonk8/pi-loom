@@ -2,13 +2,13 @@
 //
 // This module owns the parse-time JSON-Schema-subset reject gate of
 // schema-subset.md. The gate is an **allowlist / reject-by-default** gate: it
-// accepts only the fixed, loom-defined permitted subset (Draft 2020-12;
+// accepts only the fixed, theta-defined permitted subset (Draft 2020-12;
 // `anyOf` only; objects all-required + `additionalProperties:false`; single
 // `items`; null via union) and rejects *every* construct outside that subset —
 // including constructs that are neither in the permitted subset nor in the
 // spec's enumerated unsupported-keyword list — with
-// `loom/parse/unsupported-feature`. A `Result` in a schema-feeding position is
-// rejected with `loom/parse/result-in-schema-position` (schema-subset.md
+// `theta/parse/unsupported-feature`. A `Result` in a schema-feeding position is
+// rejected with `theta/parse/result-in-schema-position` (schema-subset.md
 // §Lowering Algorithm; grammar.md §Type grammar).
 //
 // The lowering pass and the canonical-hash recipe that operate on the accepted
@@ -25,7 +25,7 @@ export interface SchemaSubsetSite {
   readonly range: SourceRange;
 }
 
-// The fixed, loom-defined permitted JSON-Schema-keyword subset
+// The fixed, theta-defined permitted JSON-Schema-keyword subset
 // (schema-subset.md): composition (`anyOf` only), validation (`enum`, `const`),
 // objects (`properties`, `required`, `additionalProperties` — always emitted
 // `false`), arrays (`items`, a single subschema), reuse (`$defs`, `$ref`), and
@@ -48,8 +48,8 @@ const PERMITTED_SUBSET_KEYWORDS: ReadonlySet<string> = new Set<string>([
 
 /**
  * Check a single candidate JSON-Schema keyword against the permitted-subset
- * allowlist (schema-subset.md). Returns `loom/parse/unsupported-feature` for
- * any keyword the loom-defined subset does not permit — whether or not it is
+ * allowlist (schema-subset.md). Returns `theta/parse/unsupported-feature` for
+ * any keyword the theta-defined subset does not permit — whether or not it is
  * one of the spec's enumerated unsupported keywords (the gate is
  * reject-by-default / allowlist, not a denylist) — and `undefined` for a
  * permitted keyword.
@@ -71,7 +71,7 @@ export function checkSubsetKeyword(
   // interpolated construct.
   return {
     severity: "error",
-    code: "loom/parse/unsupported-feature",
+    code: "theta/parse/unsupported-feature",
     file: site.file,
     range: site.range,
     message: `unsupported syntactic feature: ${keyword}`,
@@ -106,14 +106,14 @@ export function checkSubsetKeywords(
  * field type, a `params:` field type, or any type reachable transitively from
  * those, including `array<T>` element types and union arms), returning every
  * diagnostic raised. A `Result<T, E>` application anywhere in the type fires
- * `loom/parse/result-in-schema-position` (schema-subset.md §Lowering Algorithm;
+ * `theta/parse/result-in-schema-position` (schema-subset.md §Lowering Algorithm;
  * grammar.md §Type grammar); the recursion into `array<T>` element types and
  * union arms preserves array element order. A lowerable subset type raises no
  * diagnostic.
  *
  * Delegates to the V2a type-grammar parser at the `schema-feeding` position,
  * which walks the whole type tree (including `array<T>` element types and
- * union arms in source order) and raises `loom/parse/result-in-schema-position`
+ * union arms in source order) and raises `theta/parse/result-in-schema-position`
  * for any `Result` application reachable there.
  */
 export function checkSchemaFeedingType(

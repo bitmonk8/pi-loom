@@ -1,8 +1,8 @@
 // V3a / V3a-T — the expression-evaluator seam.
 //
-// This module owns the loom expression interpreter and the one type-phase
+// This module owns the theta expression interpreter and the one type-phase
 // boolean-position check the expression sublanguage needs (expressions.md — the
-// EXPR code-keyed obligation area, plus the `loom/parse/non-boolean-condition`
+// EXPR code-keyed obligation area, plus the `theta/parse/non-boolean-condition`
 // diagnostic of expressions.md §Truthiness). The interpreter is the bounded
 // TypeScript-subset evaluator described in expressions.md §"Supported forms":
 //
@@ -28,8 +28,8 @@
 //     comparisons").
 //
 // Boolean position: `&&` / `||` operands, the ternary condition, and the `if` /
-// `while` scrutinees accept only `boolean`; loom performs no truthiness
-// coercion, so a non-`boolean` there is `loom/parse/non-boolean-condition`, a
+// `while` scrutinees accept only `boolean`; theta performs no truthiness
+// coercion, so a non-`boolean` there is `theta/parse/non-boolean-condition`, a
 // `type`-phase parse diagnostic (expressions.md §Truthiness). `checkBooleanPosition`
 // is the per-site checker that reports it, mirroring the V2b per-site checkers.
 //
@@ -44,7 +44,7 @@
 //     short-circuit observability assertion reds because the must-run operand's
 //     call is never recorded;
 //   - `checkBooleanPosition` returns no diagnostics, so the
-//     `loom/parse/non-boolean-condition` assertion reds on its absent
+//     `theta/parse/non-boolean-condition` assertion reds on its absent
 //     diagnostic.
 //
 // No test reds on a compile error, a missing fixture, or a harness throw. The
@@ -58,7 +58,7 @@ import {
   type CompatType,
   type TypeEnv,
 } from "../parser/type-compat";
-import { valuesEqual, type LoomValue } from "./value";
+import { valuesEqual, type ThetaValue } from "./value";
 
 /**
  * The host the expression interpreter resolves names and effects through. Kept
@@ -74,12 +74,12 @@ import { valuesEqual, type LoomValue } from "./value";
  *     skip: a short-circuited / not-taken call is never invoked.
  */
 export interface EvalHost {
-  resolveIdentifier(name: string): LoomValue;
-  callFunction(name: string, args: readonly LoomValue[]): LoomValue;
+  resolveIdentifier(name: string): ThetaValue;
+  callFunction(name: string, args: readonly ThetaValue[]): ThetaValue;
 }
 
 /**
- * Parse and evaluate a single loom expression `source` against `host`, per the
+ * Parse and evaluate a single theta expression `source` against `host`, per the
  * expressions.md operator-precedence table, left-to-right short-circuit /
  * ternary evaluation order, structural equality, and the arithmetic / ordering
  * rules. Never panics on div/mod-by-zero (it yields `±Infinity` / `NaN`).
@@ -89,7 +89,7 @@ export interface EvalHost {
  * its own primary expectation and the short-circuit must-run assertion reds
  * because the host call is never recorded. The paired V3a leaf implements it.
  */
-export function evaluateSource(source: string, host: EvalHost): LoomValue {
+export function evaluateSource(source: string, host: EvalHost): ThetaValue {
   const tokens = tokenize(source);
   const parser = new ExprParser(tokens);
   const ast = parser.parseProgram();
@@ -233,7 +233,7 @@ class ExprSyntaxError extends Error {}
 // --- AST -------------------------------------------------------------------
 
 type Node =
-  | { readonly kind: "lit"; readonly value: LoomValue }
+  | { readonly kind: "lit"; readonly value: ThetaValue }
   | { readonly kind: "ident"; readonly name: string }
   | { readonly kind: "call"; readonly name: string; readonly args: readonly Node[] }
   | { readonly kind: "unary"; readonly op: "!" | "-"; readonly operand: Node }
@@ -439,7 +439,7 @@ class ExprParser {
 // `NaN` and ordering against `NaN` yields `false`, neither panicking
 // (expressions.md §"Other arithmetic" / §"Ordering comparisons").
 
-function evaluateNode(node: Node, host: EvalHost): LoomValue {
+function evaluateNode(node: Node, host: EvalHost): ThetaValue {
   switch (node.kind) {
     case "lit":
       return node.value;
@@ -476,7 +476,7 @@ function evaluateNode(node: Node, host: EvalHost): LoomValue {
 function evaluateLogical(
   node: { readonly op: "&&" | "||"; readonly left: Node; readonly right: Node },
   host: EvalHost,
-): LoomValue {
+): ThetaValue {
   const left = evaluateNode(node.left, host) as boolean;
   if (node.op === "&&") {
     // `&&` evaluates the right operand only when the left is `true`; both
@@ -494,7 +494,7 @@ function evaluateBinary(
     readonly right: Node;
   },
   host: EvalHost,
-): LoomValue {
+): ThetaValue {
   // Operands evaluate left-to-right (expressions.md §"Evaluation order").
   const a = evaluateNode(node.left, host);
   const b = evaluateNode(node.right, host);
@@ -538,8 +538,8 @@ function evaluateBinary(
 
 function compareOrdered(
   op: "<" | "<=" | ">" | ">=",
-  a: LoomValue,
-  b: LoomValue,
+  a: ThetaValue,
+  b: ThetaValue,
 ): boolean {
   // Both operands are either numeric or string by the parse-time orderable
   // check; the host relational operators carry the signed-numeric / code-unit
@@ -561,15 +561,15 @@ function compareOrdered(
 /**
  * The boolean positions of expressions.md §Truthiness: the `if` / `while`
  * scrutinees, the ternary condition, and the `&&` / `||` operands. Each accepts
- * only `boolean`; a non-`boolean` there is `loom/parse/non-boolean-condition`.
+ * only `boolean`; a non-`boolean` there is `theta/parse/non-boolean-condition`.
  */
 export type BooleanPosition = "if" | "while" | "ternary-condition" | "&&" | "||";
 
 /**
  * The type-phase boolean-position check. Reports
- * `loom/parse/non-boolean-condition` when the value used in an `if` / `while` /
+ * `theta/parse/non-boolean-condition` when the value used in an `if` / `while` /
  * ternary condition or as a `&&` / `||` operand has a static type other than
- * `boolean` — loom performs no truthiness coercion (expressions.md §Truthiness).
+ * `boolean` — theta performs no truthiness coercion (expressions.md §Truthiness).
  * Returns no diagnostic for a `boolean`-typed operand.
  *
  * V3a-T stubs this inert (no diagnostics); the paired V3a leaf fills it in.
@@ -581,7 +581,7 @@ export function checkBooleanPosition(opts: {
 }): Diagnostic[] {
   const { operandType, site } = opts;
 
-  // Only `boolean` is admissible in boolean position; loom performs no
+  // Only `boolean` is admissible in boolean position; theta performs no
   // truthiness coercion. Routed through the V2b `⊑` relation against `boolean`:
   // a `boolean` (or a boolean literal) is `compatible`; a statically
   // unresolvable operand is `unknown` and deferred to the runtime safety net
@@ -592,11 +592,11 @@ export function checkBooleanPosition(opts: {
     return [];
   }
 
-  // Message from diagnostics/code-registry-parse.md (`loom/parse/non-boolean-condition`).
+  // Message from diagnostics/code-registry-parse.md (`theta/parse/non-boolean-condition`).
   return [
     {
       severity: "error",
-      code: "loom/parse/non-boolean-condition",
+      code: "theta/parse/non-boolean-condition",
       file: site.file,
       range: site.range,
       message: `condition must be boolean; got ${displayCompatType(operandType)}`,
@@ -606,7 +606,7 @@ export function checkBooleanPosition(opts: {
 
 /**
  * The type-phase indexed-access receiver check (expressions.md §"Supported
- * forms"). Reports `loom/parse/non-indexable-receiver` when the receiver `a` of
+ * forms"). Reports `theta/parse/non-indexable-receiver` when the receiver `a` of
  * an `a[k]` index expression is neither `array<T>` nor an object value — e.g.
  * `s[i]` on a `string`. Returns no diagnostic for an `array<T>` or object
  * receiver, or a statically-unresolvable one (deferred to the runtime safety
@@ -621,10 +621,10 @@ export function checkIndexReceiver(opts: {
   if (classifyIndexReceiver(receiverType, env) !== "primitive") {
     return undefined;
   }
-  // Message from diagnostics/code-registry-parse.md (`loom/parse/non-indexable-receiver`).
+  // Message from diagnostics/code-registry-parse.md (`theta/parse/non-indexable-receiver`).
   return {
     severity: "error",
-    code: "loom/parse/non-indexable-receiver",
+    code: "theta/parse/non-indexable-receiver",
     file: site.file,
     range: site.range,
     message: `indexed access requires an array<T> or object receiver; got ${displayCompatType(
@@ -634,7 +634,7 @@ export function checkIndexReceiver(opts: {
 }
 
 /**
- * Render a `CompatType` to the display name the `loom/parse/non-boolean-condition`
+ * Render a `CompatType` to the display name the `theta/parse/non-boolean-condition`
  * *Message* string interpolates (`condition must be boolean; got <type>`).
  */
 function displayCompatType(type: CompatType): string {

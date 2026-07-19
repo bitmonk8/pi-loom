@@ -3,7 +3,7 @@ import { lexBytes, lexSrc, codes, hasCode } from "./helpers/e2e-s1";
 
 // e2e S1 — lexical intake coverage gap-fill (LEX area).
 //
-// Drives the shipped lexer (`src/lexer/lexer.ts`, via `lexLoom`) to cover
+// Drives the shipped lexer (`src/lexer/lexer.ts`, via `lexTheta`) to cover
 // REQ-LEX rows the existing suite leaves UNCOVERED per the coverage map:
 //   - REQ-LEX-1  leading UTF-8 BOM consumed and ignored (spec-requirements.md:96)
 //   - REQ-LEX-3  no transcoding; a UTF-16 save fails fast (spec-requirements.md:98)
@@ -21,7 +21,7 @@ describe("REQ-LEX-1 — leading UTF-8 BOM is consumed and ignored", () => {
     const withBom = lexBytes(bom);
     const noBom = lexBytes(plain);
 
-    expect(hasCode(withBom.diagnostics, "loom/load/invalid-encoding")).toBe(false);
+    expect(hasCode(withBom.diagnostics, "theta/load/invalid-encoding")).toBe(false);
     expect(withBom.ok).toBe(true);
     // Token streams must match kind+text+value (the BOM leaves no trace).
     const project = (r: typeof withBom) =>
@@ -31,12 +31,12 @@ describe("REQ-LEX-1 — leading UTF-8 BOM is consumed and ignored", () => {
 });
 
 describe("REQ-LEX-3 — no transcoding; UTF-16 fails fast", () => {
-  it("a UTF-16LE (BOM-led) source is loom/load/invalid-encoding at byte offset 0, not mojibake", () => {
+  it("a UTF-16LE (BOM-led) source is theta/load/invalid-encoding at byte offset 0, not mojibake", () => {
     // UTF-16LE BOM 0xFF 0xFE then 'l','\0','e','\0','t','\0' — 0xFF is not a
     // valid UTF-8 lead byte, so validation faults on its own leading byte.
     const utf16 = new Uint8Array([0xff, 0xfe, 0x6c, 0x00, 0x65, 0x00, 0x74, 0x00]);
     const r = lexBytes(utf16);
-    const diag = r.diagnostics.find((d) => d.code === "loom/load/invalid-encoding");
+    const diag = r.diagnostics.find((d) => d.code === "theta/load/invalid-encoding");
     expect(diag, `expected invalid-encoding; got ${codes(r.diagnostics).join(",")}`).toBeDefined();
     expect(diag?.message).toContain("byte offset 0");
     expect(r.ok).toBe(false);
@@ -48,7 +48,7 @@ describe("REQ-LEX-3 — no transcoding; UTF-16 fails fast", () => {
 describe("REQ-LEX-26 — regular strings perform no interpolation", () => {
   it('a double-quoted "${x}" lexes as literal text, not an interpolation', () => {
     const r = lexSrc('let s = "${x}"\n');
-    expect(hasCode(r.diagnostics, "loom/load/invalid-encoding")).toBe(false);
+    expect(hasCode(r.diagnostics, "theta/load/invalid-encoding")).toBe(false);
     const strTok = r.tokens.find((t) => t.kind === "string");
     expect(strTok, "a string token").toBeDefined();
     // The decoded value contains the literal `${x}` characters.

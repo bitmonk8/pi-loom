@@ -1,8 +1,8 @@
 # Reference — Grammar & lexical structure
 
-Normative surface syntax for Loom (`.loom` and `.warp`). Facts only. See
+Normative surface syntax for Theta (`.theta` and `.thetalib`). Facts only. See
 [Type system](./type-system.md) for the type relation, [Diagnostics](./diagnostics.md)
-for every `loom/parse/*` code named here.
+for every `theta/parse/*` code named here.
 
 Notation: `::=` defines a production; `|` alternatives; `?` optional; `*`
 zero-or-more; `+` one-or-more; quoted strings are terminals.
@@ -11,20 +11,20 @@ zero-or-more; `+` one-or-more; quoted strings are terminals.
 
 - **Encoding.** UTF-8. A leading UTF-8 BOM (`EF BB BF`) is consumed and ignored.
   Any other BOM, or any non-UTF-8 byte sequence (including lone surrogates), is
-  `loom/load/invalid-encoding` with the zero-based byte offset of the first
+  `theta/load/invalid-encoding` with the zero-based byte offset of the first
   invalid byte (offset `0` for a non-UTF-8 BOM). No transcoding is performed.
 - **Newline normalisation.** Before lexing, `\r\n` → `\n` and bare `\r` → `\n`.
   Every "newline" rule operates on the normalised stream. CRLF and LF sources
   tokenise byte-identically.
 - **Diagnostic spans.** BOM consumption and newline normalisation happen before
   span recording; line/column numbers are 1-indexed on the normalised stream.
-- **Path literals** (`import "..."`, `invoke("...", ...)`, `.loom` entries in
+- **Path literals** (`import "..."`, `invoke("...", ...)`, `.theta` entries in
   `tools:`) use forward-slash separators only. A backslash is
-  `loom/parse/invalid-path-separator`.
+  `theta/parse/invalid-path-separator`.
 - **Stray backslash** outside any string literal, path literal, or `@`...``
-  query-template body is `loom/parse/stray-backslash`. There is no
+  query-template body is `theta/parse/stray-backslash`. There is no
   line-continuation marker.
-- **Extension matching.** `.loom` and `.warp` are matched **byte-exact lowercase
+- **Extension matching.** `.theta` and `.thetalib` are matched **byte-exact lowercase
   ASCII** everywhere (discovery glob, `import`, `invoke`, `tools:` entries,
   settings/CLI). No case-folding at any site.
 
@@ -34,17 +34,17 @@ zero-or-more; `+` one-or-more; quoted strings are terminals.
 
 - **PascalCase** (uppercase first): `schema` names, `enum` names, `enum` variant
   names, type-like bindings; the built-ins `Ok`, `Err`, `Result`. Violation:
-  `loom/parse/schema-case-mismatch`.
+  `theta/parse/schema-case-mismatch`.
 - **lowercase-first** (lowercase letter or `_`): `let` / `let mut` bindings,
   function parameters, function names, schema field names. Both `snake_case` and
-  `lowerCamelCase` accepted. Violation: `loom/parse/binding-case-mismatch`.
+  `lowerCamelCase` accepted. Violation: `theta/parse/binding-case-mismatch`.
 
 Casing is the only enforced naming constraint. The lowercase-first rule applies
-to the loom-side field name; the wire name (`as "WireName"`) may be any string.
+to the theta-side field name; the wire name (`as "WireName"`) may be any string.
 
 ## Reserved keywords
 
-Cannot be used as identifiers (`loom/parse/reserved-keyword-as-identifier`):
+Cannot be used as identifiers (`theta/parse/reserved-keyword-as-identifier`):
 
 ```
 let mut fn if else for in while break continue return match schema enum
@@ -58,7 +58,7 @@ closed set of generic-type constructor keywords in type position.
 ## Comments
 
 Line comments only. `//` regular; `///` doc comment (lowers to JSON Schema
-`description:`). Block comments `/* ... */` are `loom/parse/block-comment`. Text
+`description:`). Block comments `/* ... */` are `theta/parse/block-comment`. Text
 inside a `@`...`` query template is not a comment. Comments inside `${...}`
 behave as in any expression position.
 
@@ -66,10 +66,10 @@ behave as in any expression position.
 
 Single (`'...'`) and double (`"..."`) forms are equivalent. Escapes: `\"`, `\'`,
 `\\`, `\n`, `\t`, `\r`, `\u{XXXX}` (1–6 hex, Unicode scalar value). A `\u{...}`
-out of range or naming a surrogate is `loom/parse/invalid-unicode-escape`; a
-backslash before any other character is `loom/parse/illegal-escape`; EOF in an
-unterminated literal is `loom/parse/unterminated-string`. Single-line only — a
-literal newline is `loom/parse/literal-newline-in-string`. No interpolation
+out of range or naming a surrogate is `theta/parse/invalid-unicode-escape`; a
+backslash before any other character is `theta/parse/illegal-escape`; EOF in an
+unterminated literal is `theta/parse/unterminated-string`. Single-line only — a
+literal newline is `theta/parse/literal-newline-in-string`. No interpolation
 (`${` is plain text). Multi-line text and interpolation belong in `@`...``
 templates.
 
@@ -77,12 +77,12 @@ templates.
 
 Decimal only: `42`, `3.14`, `1e10`, `1.5e-3`, `0`, `0.5`. No sign (negation is
 unary `-` at parse time). No hex/octal/binary and no underscore separators (→
-`loom/parse/unsupported-feature`). A literal with no fractional/exponent part is
+`theta/parse/unsupported-feature`). A literal with no fractional/exponent part is
 `integer`; otherwise `number`. `integer` widens to `number`; the reverse is
-`loom/parse/integer-narrowing`. Per-token magnitude: an `integer` token with
-`|value| > 2^53 - 1` is `loom/parse/integer-literal-out-of-range`; a `number`
+`theta/parse/integer-narrowing`. Per-token magnitude: an `integer` token with
+`|value| > 2^53 - 1` is `theta/parse/integer-literal-out-of-range`; a `number`
 token whose parsed value is not a finite IEEE-754 double (e.g. `1e400`) is
-`loom/parse/number-literal-not-finite`. The bound is per-token, so
+`theta/parse/number-literal-not-finite`. The bound is per-token, so
 `-12345678901234567890` is rejected.
 
 ## Statement termination & newline continuation
@@ -104,7 +104,7 @@ trigger set is closed:
 - Blank lines do not break a continuation: `let x =\n\n  foo` is one statement.
 - No trigger closes the statement. Single-line `if (x) stmt` does not exist;
   `if`/`for`/`while`/`fn` bodies are always braced blocks
-  (`loom/parse/single-line-if`).
+  (`theta/parse/single-line-if`).
 
 ## `let` form
 
@@ -113,7 +113,7 @@ LetStmt ::= "let" "mut"? Pattern (":" Type)? "=" Expr
 ```
 
 `let` requires an initialiser; `let x: T` with no initialiser is
-`loom/parse/let-without-initialiser`. `Pattern` here is the discard `_` or an
+`theta/parse/let-without-initialiser`. `Pattern` here is the discard `_` or an
 identifier (full destructuring appears only in `match` arms). Immutable by
 default; `let mut` opts into reassignment. Reassignment is a statement (`=`, `+=`,
 `-=`, `*=`, `/=`, `%=`); see [Bindings](#bindings-mutability).
@@ -121,7 +121,7 @@ default; `let mut` opts into reassignment. Reassignment is a statement (`=`, `+=
 ## Type grammar
 
 ```
-ReturnType    ::= Type | "void"                    // function/loom-return position only
+ReturnType    ::= Type | "void"                    // function/theta-return position only
 Type          ::= PrimitiveType
                | NamedType
                | GenericType
@@ -137,16 +137,16 @@ LiteralType   ::= STRING | NUMBER | BOOLEAN | NULL
 ```
 
 - `void` is admitted **only** as `ReturnType`. In any other type position:
-  `loom/parse/void-in-non-return-position`. `void` does not participate in the
+  `theta/parse/void-in-non-return-position`. `void` does not participate in the
   compatibility relation.
-- `GenericType` is closed in loom 1.0: `array` (arity 1), `Result` (arity 2).
-  Wrong arity is `loom/parse/generic-arity-mismatch`. Nested generics parse.
+- `GenericType` is closed in theta 1.0: `array` (arity 1), `Result` (arity 2).
+  Wrong arity is `theta/parse/generic-arity-mismatch`. Nested generics parse.
 - `Result` in a lowered-schema position (schema field type, `params:` field type,
-  or any type reachable transitively) is `loom/parse/result-in-schema-position`.
+  or any type reachable transitively) is `theta/parse/result-in-schema-position`.
   `Result` remains admitted elsewhere (`fn` params/returns, `let` annotations,
   `invoke<Type>`, type ascription).
 - `ObjectType` fields reuse the object-schema `Field` form; empty `{}` is
-  `loom/parse/empty-schema-body`. At lowering, hoisted into `$defs` under
+  `theta/parse/empty-schema-body`. At lowering, hoisted into `$defs` under
   `__inline_<slug>` (see [Schema subset](./schema-subset.md)).
 - Nullability is written `T | null`.
 
@@ -155,7 +155,7 @@ LiteralType   ::= STRING | NUMBER | BOOLEAN | NULL
 ```
 BlockExpr ::= "{" Stmt* Expr "}"        // expression-position; tail Expr required
 FnBody    ::= "{" Stmt* Expr? "}"       // function body; tail Expr optional
-LoomBody  ::= Stmt* Expr?               // top level of a .loom file; tail Expr optional
+ThetaBody  ::= Stmt* Expr?               // top level of a .theta file; tail Expr optional
 StmtBlock ::= "{" Stmt* Expr? "}"       // statement-form control-flow body; value discarded
 
 IfStmt    ::= "if" Expr StmtBlock ElseClause?
@@ -165,8 +165,8 @@ ForStmt   ::= "for" Ident "in" Expr StmtBlock
 ```
 
 - Expression-position blocks require a trailing tail `Expr`. Function bodies, the
-  top level of `.loom`, and statement-form control-flow bodies do not.
-- A `FnBody`/`LoomBody` with no tail expression has inferred return type `null`
+  top level of `.theta`, and statement-form control-flow bodies do not.
+- A `FnBody`/`ThetaBody` with no tail expression has inferred return type `null`
   (the literal type) and final value literal `null` (see [Type system — final
   value](./type-system.md)). `void` is the only explicit "produces no value"
   signal; absent tail does **not** imply `void`.
@@ -183,11 +183,11 @@ FnParams ::= FnParam ("," FnParam)* ","?
 FnParam  ::= Ident ":" Type
 ```
 
-Top-level only (nested is `loom/parse/nested-fn`). Parameter list always
+Top-level only (nested is `theta/parse/nested-fn`). Parameter list always
 parenthesised (`fn f()`, never `fn f`); trailing comma admitted. `fn` parameters
 carry no default and are immutable — `mut` on one is
-`loom/parse/mut-on-immutable-context`. Functions are not first-class; a name used
-outside call position is `loom/parse/function-as-value`. `: ReturnType` optional;
+`theta/parse/mut-on-immutable-context`. Functions are not first-class; a name used
+outside call position is `theta/parse/function-as-value`. `: ReturnType` optional;
 absent → return type inferred (see [Type system](./type-system.md)).
 
 ## `match` arm body
@@ -199,10 +199,10 @@ ArmBody  ::= Expr | BlockExpr
 
 An arm body is a single expression. A bare statement (`if`, `for`, `while`,
 `let`, assignment, `break`, `continue`, `return`) as an arm body is
-`loom/parse/statement-in-arm-body`; wrap statements in a block expression. The
+`theta/parse/statement-in-arm-body`; wrap statements in a block expression. The
 ternary is admissible directly.
 
-Pattern grammar (loom 1.0):
+Pattern grammar (theta 1.0):
 
 | Pattern | Example | Matches |
 |---|---|---|
@@ -214,10 +214,10 @@ Pattern grammar (loom 1.0):
 | Array | `[a, b]`, `[first, _, _]` | exact-length array |
 
 Lowercase identifiers bind; capitalised refer to constructors/schema names.
-Guards (`loom/parse/match-guard-not-supported`) and rest patterns
-(`loom/parse/rest-pattern-not-supported`) are not in loom 1.0. Exhaustiveness is
+Guards (`theta/parse/match-guard-not-supported`) and rest patterns
+(`theta/parse/rest-pattern-not-supported`) are not in theta 1.0. Exhaustiveness is
 **not** statically checked; a non-exhaustive `match` panics at runtime
-(`loom/runtime/match-error`).
+(`theta/runtime/match-error`).
 
 ## `schema X by <field>`
 
@@ -231,7 +231,7 @@ UnionRhs    ::= Type ("|" Type)+
 ```
 
 `by <field>` is admitted **only** on the union (`=`) form. `schema X by f { ... }`
-with an object body is `loom/parse/by-on-object-schema`. Object/union declaration
+with an object body is `theta/parse/by-on-object-schema`. Object/union declaration
 detail lives in [Schema subset](./schema-subset.md).
 
 ## `///` placement
@@ -242,7 +242,7 @@ DocComment ::= ("///" RestOfLine "\n")+
 
 A maximal run of consecutive `///` lines, admitted immediately above (never
 inline with): `SchemaDecl` (all forms), `EnumDecl`, an object-schema field, an
-`enum` variant, `FnDecl`. Anywhere else: `loom/parse/doc-comment-misplaced`. A
+`enum` variant, `FnDecl`. Anywhere else: `theta/parse/doc-comment-misplaced`. A
 `///` on a `fn` lowers nowhere; on an alias schema it lowers as that named type's
 description.
 
@@ -250,20 +250,20 @@ description.
 
 Supported forms: literals; identifiers; member access `a.b`; indexed access
 `a[k]` (receiver must be `array<T>` or object — otherwise
-`loom/parse/non-indexable-receiver`; object index must be `string` —
-`loom/parse/non-string-object-index`); calls `f(x)`, `obj.method(x)`,
+`theta/parse/non-indexable-receiver`; object index must be `string` —
+`theta/parse/non-string-object-index`); calls `f(x)`, `obj.method(x)`,
 `<name>(args)`; unary `!` / `-`; arithmetic `+ - * / %`; comparison
 `== != < <= > >=`; logical `&& ||`; ternary `cond ? a : b`; postfix `?`;
 parenthesisation; `@`...`` query templates; array literals `[]` / `[a, b]`;
 schema constructors `Schema { field: expr }`; enum access `Enum.Variant`;
 `Result` constructors `Ok(e)` / `Err(e)`.
 
-Not supported (→ `loom/parse/unsupported-feature` unless a more specific code
+Not supported (→ `theta/parse/unsupported-feature` unless a more specific code
 applies): assignment in expression position; field/index mutation
-(`loom/parse/assignment-to-member-or-index`); arrow functions and higher-order
+(`theta/parse/assignment-to-member-or-index`); arrow functions and higher-order
 methods (`map`/`filter`/`reduce`); spread/rest; `new`/`typeof`/`instanceof`/
 `delete`/`void`/`yield`/`await`; optional chaining `?.` and `??`; `===`/`!==`;
-bitwise; `++`/`--` (`loom/parse/increment-decrement`); comma operator; nested
+bitwise; `++`/`--` (`theta/parse/increment-decrement`); comma operator; nested
 template strings inside `${...}`; `@`...`` and `match` inside `${...}`.
 
 ### Operator precedence
@@ -282,13 +282,13 @@ Highest to lowest:
 | 8 | `\|\|` | left |
 | 9 | `?:` ternary | right |
 
-Chained comparison (`a < b < c`) is `loom/parse/comparison-chaining`. The
+Chained comparison (`a < b < c`) is `theta/parse/comparison-chaining`. The
 type-position `|` is not in the value-expression grammar.
 
 ### Truthiness & short-circuiting
 
 Only `true`/`false` are accepted in boolean position (`if`, `while`, `&&`, `||`,
-ternary condition). A non-boolean is `loom/parse/non-boolean-condition`. Operands
+ternary condition). A non-boolean is `theta/parse/non-boolean-condition`. Operands
 evaluate left-to-right; `&&`/`||` short-circuit (a skipped right operand runs no
 queries/tools/invokes and spends no tokens); both always produce `boolean`.
 `cond ? a : b` evaluates `cond` then only the taken branch.
@@ -296,15 +296,15 @@ queries/tools/invokes and spends no tokens); both always produce `boolean`.
 ### Object & array construction
 
 - `Schema { field: expr, ... }`: every declared field required
-  (`loom/parse/missing-object-field`); extra fields `loom/parse/extra-object-field`;
+  (`theta/parse/missing-object-field`); extra fields `theta/parse/extra-object-field`;
   order irrelevant. A bare `{ field: expr }` (no schema name) is
-  `loom/parse/bare-object-literal` except in two carve-outs (both restricted to
-  the [literal sublanguage](#loom-literal-sublanguage)): `params:` defaults, and
+  `theta/parse/bare-object-literal` except in two carve-outs (both restricted to
+  the [literal sublanguage](#theta-literal-sublanguage)): `params:` defaults, and
   the single positional argument of a Pi-tool call. Construct a discriminated-union
   value via the variant name (`Cat { ... }`).
 - `[]` element type inferred from a type sink; `[a, b, c]` element type is the
   common type of its elements narrowed by any sink. No sink and no common type is
-  `loom/parse/array-no-common-type`. See [Type system](./type-system.md) for the
+  `theta/parse/array-no-common-type`. See [Type system](./type-system.md) for the
   LUB rules.
 
 ### `array<T>` literal type-sink rule
@@ -314,20 +314,20 @@ insufficient. The exhaustive sink set: a binding annotation
 (`let xs: array<T> = ...`); a function parameter type at a call site; the declared
 type of a surrounding constructor field; the element type of an array-typed sink
 this literal is an element of (recursive). The `for x in expr` iterand is **not**
-a sink: `for x in []` with no other sink is `loom/parse/array-no-common-type`.
+a sink: `for x in []` with no other sink is `theta/parse/array-no-common-type`.
 
 ### `?` operator
 
 Unwraps `Ok` to the inner value; on `Err`, early-returns the `Err` from the
-enclosing function or top-level loom. The operand must have static type
-`Result<T, QueryError>` for some `T` — otherwise `loom/parse/question-on-non-result`
+enclosing function or top-level theta. The operand must have static type
+`Result<T, QueryError>` for some `T` — otherwise `theta/parse/question-on-non-result`
 (a static, load-fail check). The enclosing scope's return type must be compatible
-with `Result<U, QueryError>` — otherwise `loom/parse/question-outside-result-fn`.
+with `Result<U, QueryError>` — otherwise `theta/parse/question-outside-result-fn`.
 `?` desugars to `return Err(e)`.
 
 ## Built-in methods & properties
 
-No user-defined methods, no `this`. loom 1.0 set:
+No user-defined methods, no `this`. theta 1.0 set:
 
 `string`: `length: integer` (UTF-16 code units); `toLowerCase()`; `toUpperCase()`;
 `trim()`; `startsWith(s)`; `endsWith(s)`; `includes(s)`; `split(sep): array<string>`
@@ -345,42 +345,42 @@ unchanged). `string` is not indexable. `replace` normative reference vectors:
 | `"aaaaa".replace("aa", "x")` | `"xxa"` |
 
 `array<T>`: `length: integer`; `join(sep): string` (element type must be
-`string` — else `loom/parse/non-string-array-join`); `includes(x): boolean`
+`string` — else `theta/parse/non-string-array-join`); `includes(x): boolean`
 (structural equality); `indexOf(x): integer` (`-1` if absent); `slice(start, end?)`;
 `concat(other): array<T ⊔ U>` (result element type is the LUB under the
 compatibility relation).
 
-`object` (any object value): `keys(): array<string>` (loom-side names, schema
+`object` (any object value): `keys(): array<string>` (theta-side names, schema
 declaration order for named schemas); `values(): array<T>` (union of field types,
 same order as `keys()`); `has(k): boolean` (false for unknown keys, no panic).
 
-Anything not on this list is `loom/parse/unknown-method`.
+Anything not on this list is `theta/parse/unknown-method`.
 
 ## Control flow
 
 - **`if` / `else`** — statement form. Braced blocks only.
 - **`for x in expr`** — iterates an `array<T>`; a non-array iterand is
-  `loom/parse/non-array-iterand`. The iterand is evaluated **exactly once** at
+  `theta/parse/non-array-iterand`. The iterand is evaluated **exactly once** at
   loop entry (CTRL-1), before the first iteration, including when the array is
   empty. The iteration variable is a fresh immutable local per iteration.
 - **`while expr`** — condition must be `boolean` (no coercion).
 - **`break` / `continue`** — bare statements, legal only inside a loop
-  (`loom/parse/break-outside-loop`, `loom/parse/continue-outside-loop`). Carry no
-  value: `break expr` is `loom/parse/break-with-value`. `break` exits the
+  (`theta/parse/break-outside-loop`, `theta/parse/continue-outside-loop`). Carry no
+  value: `break expr` is `theta/parse/break-with-value`. `break` exits the
   innermost loop; `continue` skips to the next iteration.
 
 ## `return`
 
-`return expr` exits the enclosing function or top-level loom immediately. It is a
+`return expr` exits the enclosing function or top-level theta immediately. It is a
 statement, not an expression.
 
 - Type-checked against the declared return type when present; when absent (a
-  top-level loom, or an annotation-less `fn`), its operand participates in the
+  top-level theta, or an annotation-less `fn`), its operand participates in the
   inferred return type alongside the tail expression (RET-1).
 - Bare `return` (no argument) is legal only in a `void`-annotated function;
-  elsewhere (including top-level loom) it is `loom/parse/bare-return-in-non-void`
+  elsewhere (including top-level theta) it is `theta/parse/bare-return-in-non-void`
   (RET-2).
-- Code after a `return` in the same block is `loom/parse/unreachable-code`
+- Code after a `return` in the same block is `theta/parse/unreachable-code`
   (warning) (RET-3). This warning is editorial, not an inference input — an
   unreachable `return expr` still contributes to return-type inference.
 - The `?` operator's `Err`-arm desugars literally to `return Err(e)`.
@@ -390,23 +390,23 @@ statement, not an expression.
 ## Bindings & mutability
 
 Immutable-by-default. `let x` is immutable (rebinding is
-`loom/parse/immutable-rebinding`); `let mut x` is reassignable. Reassignment is a
-statement (`loom/parse/assignment-as-expression` in expression position); RHS must
+`theta/parse/immutable-rebinding`); `let mut x` is reassignable. Reassignment is a
+statement (`theta/parse/assignment-as-expression` in expression position); RHS must
 be compatible with the binding's type. Mutability is **binding-level only** —
-`obj.field = ...` / `arr[i] = ...` is `loom/parse/assignment-to-member-or-index`;
+`obj.field = ...` / `arr[i] = ...` is `theta/parse/assignment-to-member-or-index`;
 rebind the whole value. Always-immutable contexts (`mut` →
-`loom/parse/mut-on-immutable-context`): function parameters, `for` iteration
+`theta/parse/mut-on-immutable-context`): function parameters, `for` iteration
 variables, `match` pattern bindings, the discard `let _` (also
-`loom/parse/mut-on-discard`).
+`theta/parse/mut-on-discard`).
 
-<a id="loom-literal-sublanguage"></a>
+<a id="theta-literal-sublanguage"></a>
 
-## Loom literal sublanguage
+## Theta literal sublanguage
 
 A strict subset of the expression grammar admitted in two positions: the RHS of a
 `params:` default, and the single positional argument of a Pi-tool call. An
-is-literal check runs at parse time; failures are `loom/parse/default-not-literal`
-(defaults) or `loom/parse/tool-arg-not-literal` (Pi-tool argument), naming the
+is-literal check runs at parse time; failures are `theta/parse/default-not-literal`
+(defaults) or `theta/parse/tool-arg-not-literal` (Pi-tool argument), naming the
 offending sub-expression.
 
 ```
@@ -425,7 +425,7 @@ NamedObjectLit::= Ident "{" (FieldEntry ("," FieldEntry)* ","?)? "}"
   discriminated-union variants (`Cat { name: "x" }`, never
   `Animal { species: "cat", ... }`).
 - Every declared field of the LHS schema must be present
-  (`loom/parse/missing-object-field`); field order is free; discriminator fields
+  (`theta/parse/missing-object-field`); field order is free; discriminator fields
   are implicit.
 - Forbidden inside a literal (each rejected by the is-literal check): identifier
   references other than `Enum.Variant`; operators other than unary `-` on a

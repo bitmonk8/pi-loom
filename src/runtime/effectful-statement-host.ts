@@ -39,13 +39,13 @@
 // query/query-failure-and-repair.md, tool-calls.md, invocation.md,
 // pi-integration-contract/conversation-drive.md, slash-invocation.md.
 
-import type { CallExpr, Expr, InvokeExpr, QueryExpr } from "../parser/loom-document";
+import type { CallExpr, Expr, InvokeExpr, QueryExpr } from "../parser/theta-document";
 import type { Checkpoint, CheckpointSite } from "../seams/checkpoint";
 import type { OperationResult } from "./cancellation-core";
 import { makeCancelledError } from "./cancellation-core";
 import type { CheckpointDescriptor, StatementEvalHost } from "./statement-executor";
 import type { LexicalEnvironment } from "./lexical-environment";
-import type { LoomValue } from "./value";
+import type { ThetaValue } from "./value";
 import { makeErr, makeOk } from "./value";
 import type {
   QueryModelDriver,
@@ -59,7 +59,7 @@ import { runCodeSideToolCall } from "./tool-call-execute";
 import { ToolReturnShapeDefectError } from "./tool-call-off-surface";
 import type { InvokeChild } from "./invoke-cancellation";
 import { runInvokeChild } from "./invoke-cancellation";
-import { surfaceLoomCallableCalleeFailure } from "./tool-call";
+import { surfaceThetaCallableCalleeFailure } from "./tool-call";
 import type { QueryError } from "./query-error";
 
 /**
@@ -107,27 +107,27 @@ export interface EffectfulStatementHostDeps {
   readonly checkpoint: Checkpoint;
   readonly signal: AbortSignal;
   readonly sink: ToolLoweringSink;
-  /** The loom source file the checkpoint site is stamped with. */
+  /** The theta source file the checkpoint site is stamped with. */
   readonly file: string;
-  evaluatePure(expr: Expr, env: LexicalEnvironment): LoomValue;
+  evaluatePure(expr: Expr, env: LexicalEnvironment): ThetaValue;
   resolveQuery(expr: QueryExpr, env: LexicalEnvironment): QueryHostDispatch;
   resolveToolCall(expr: CallExpr, env: LexicalEnvironment): CodeSideToolCall;
   resolveInvoke(expr: InvokeExpr, env: LexicalEnvironment): InvokeChild;
   /**
    * H8b live-resolver routing. Classify a `<name>(args)` call by its resolved
-   * callee against the loom's callable set (frontmatter `tools:`): a name bound
+   * callee against the theta's callable set (frontmatter `tools:`): a name bound
    * to a Pi tool routes to the tool-`execute` dispatch (`resolveToolCall`), a
-   * name bound to a `.loom`-callable routes to the invoke spawn-and-drive path
+   * name bound to a `.theta`-callable routes to the invoke spawn-and-drive path
    * (`resolveCallAsInvoke`). Absent ⇒ every `<name>(args)` call is treated as a
    * Pi tool, preserving the `V19d`-double runner behaviour.
    */
-  classifyCall?(expr: CallExpr, env: LexicalEnvironment): "pi-tool" | "loom-callable";
+  classifyCall?(expr: CallExpr, env: LexicalEnvironment): "pi-tool" | "theta-callable";
   /**
-   * H8b live-resolver. Resolve a `<name>(args)` call bound to a `.loom`-callable
+   * H8b live-resolver. Resolve a `<name>(args)` call bound to a `.theta`-callable
    * to its invoke child — the same `InvokeChild` boundary `resolveInvoke`
    * returns — so it drives through the real `runInvokeChild` trampoline and
    * returns the callee's typed top-level `Result` across the boundary (FN-5).
-   * Consulted only when `classifyCall` returns `"loom-callable"`.
+   * Consulted only when `classifyCall` returns `"theta-callable"`.
    */
   resolveCallAsInvoke?(expr: CallExpr, env: LexicalEnvironment): InvokeChild;
 }
@@ -169,10 +169,10 @@ async function runQueryEffect(
     // return a `Result`. The empty-template short-circuit is the query's RESULT
     // VALUE `Err(ValidationError{cause:"empty_template"})`, not an effect
     // failure that aborts the body: `let r = @`\n`` must bind `r` to that `Err`
-    // (a `match`/`?` then observes it) and the loom continues (query-forms.md
+    // (a `match`/`?` then observes it) and the theta continues (query-forms.md
     // QRY-6). Surfaced as `ok: true` carrying the `Err` value so `evalExpr`
     // binds it and `evalAsResult` passes the already-`Result` value through.
-    return { ok: true, value: makeErr(emptyTemplate as unknown as LoomValue) };
+    return { ok: true, value: makeErr(emptyTemplate as unknown as ThetaValue) };
   }
   if (dispatch.typed) {
     const outcome = await runTypedQueryLoop(
@@ -229,13 +229,13 @@ async function runToolCallEffect(
   env: LexicalEnvironment,
   deps: EffectfulStatementHostDeps,
 ): Promise<OperationResult> {
-  // A `<name>(args)` call bound to a `.loom`-callable (frontmatter `tools:`) is
+  // A `<name>(args)` call bound to a `.theta`-callable (frontmatter `tools:`) is
   // semantically an invoke: drive it through the real invoke trampoline and
   // return the callee's typed top-level `Result` directly (FN-5), NOT the
   // string-lowered tool-call value. A name bound to a Pi tool falls through to
   // the code-side `execute` dispatch below.
   if (
-    deps.classifyCall?.(expr, env) === "loom-callable" &&
+    deps.classifyCall?.(expr, env) === "theta-callable" &&
     deps.resolveCallAsInvoke !== undefined
   ) {
     const child = deps.resolveCallAsInvoke(expr, env);
@@ -272,13 +272,13 @@ async function runToolCallEffect(
       return { ok: true, value: outcome.result };
     case "return-shape-defect":
       // V14c non-conforming return shape (host-interfaces-core.md §"Tool
-      // execution from loom code"; tool-calls.md §"Outcome enumeration"): the
+      // execution from theta code"; tool-calls.md §"Outcome enumeration"): the
       // resolved `execute()` envelope violated the `{ content }` shape. This is
       // routed *off* the `CodeToolError` surface — it is NOT an
-      // `Err(QueryError)` the loom binds and can `match` on. The call site
-      // observes the `loom/runtime/internal-error` routing per
+      // `Err(QueryError)` the theta binds and can `match` on. The call site
+      // observes the `theta/runtime/internal-error` routing per
       // errors-and-results.md §"Runtime panics", so the seam raises the
-      // `ToolReturnShapeDefectError` carrier (a non-`LoomPanic` throw). At the
+      // `ToolReturnShapeDefectError` carrier (a non-`ThetaPanic` throw). At the
       // `invoke` boundary `runInvokeChild` re-wraps it as
       // `Err(InvokeInfraError { cause: "internal_error" })`; at a top-level
       // slash dispatch it unwinds as the runtime-defect surface. The diagnostic
@@ -344,12 +344,12 @@ async function runInvokeEffect(
       if (innerKind === "invoke_infra" || innerKind === "cancelled") {
         return { ok: true, value: result };
       }
-      const wrapped = surfaceLoomCallableCalleeFailure(
+      const wrapped = surfaceThetaCallableCalleeFailure(
         child.calleePath,
         result.error as unknown as QueryError,
         `invoke of ${child.calleePath} callee returned Err(${String(innerKind)})`,
       );
-      return { ok: true, value: makeErr(wrapped as unknown as LoomValue) };
+      return { ok: true, value: makeErr(wrapped as unknown as ThetaValue) };
     }
     case "cancelled":
       return { ok: false, error: makeCancelledError() };
@@ -369,7 +369,7 @@ async function runInvokeEffect(
  */
 export function createEffectfulStatementHost(deps: EffectfulStatementHostDeps): StatementEvalHost {
   return {
-    evaluatePure(expr: Expr, env: LexicalEnvironment): LoomValue {
+    evaluatePure(expr: Expr, env: LexicalEnvironment): ThetaValue {
       return deps.evaluatePure(expr, env);
     },
     checkpointFor(expr: Expr): CheckpointDescriptor | null {

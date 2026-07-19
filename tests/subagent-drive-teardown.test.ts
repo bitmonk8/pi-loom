@@ -3,7 +3,7 @@
 // Regression pin for the Decision-6 B1 leak: on the subagent invocation drive,
 // the spawned session's `dispose()` and the one-shot PIC-41 abort-forwarding
 // `detach()` used to run ONLY inside `surface()`. When `executeBody` THREW a
-// genuine defect (a `ToolReturnShapeDefectError` / `LoomPanic`) before `surface`
+// genuine defect (a `ToolReturnShapeDefectError` / `ThetaPanic`) before `surface`
 // was reached, `surface` was skipped, so `dispose()`/`detach()` never ran —
 // leaking the provider connection + the abort listener. (The B1 `finally` runs
 // `finishInvocation`, which settles the barrier + removes the registry entry,
@@ -17,7 +17,7 @@
 //      `teardown` that disposes exactly once + detaches the abort listener
 //      exactly once (idempotent on a second call), a `dispose()` throw is
 //      swallowed, and `surface()` no longer disposes;
-//   2. the DRIVE seam (`composeLoomFixture.run`) runs `binding.teardown()` on
+//   2. the DRIVE seam (`composeThetaFixture.run`) runs `binding.teardown()` on
 //      the throw / normal / returned-`Err` paths — before `finishInvocation`,
 //      surface skipped on the throw path — without masking the in-flight throw.
 
@@ -31,7 +31,7 @@ import type {
 // --- (1) REAL subagent binding: mock only the SDK spawn surface -------------
 // The spawned session is a spy double (abort/dispose counters); the rest of the
 // SDK module is preserved (spread). `createAgentSession` yields the spy session,
-// and the loom-suppressing resource loader / in-memory session manager / agent
+// and the theta-suppressing resource loader / in-memory session manager / agent
 // dir are inert stubs — the spawn reaches `attachSubagentAbortForwarding` +
 // `makeIdempotentDispose` (the REAL isolation helpers) over the spy session.
 const sdkHook = vi.hoisted(() => ({
@@ -98,26 +98,26 @@ vi.mock("../src/runtime/statement-executor", async (importOriginal) => {
   };
 });
 
-import { createProductionProducerDeps } from "../src/extension/production-loom-producer";
-import { composeLoomFixture } from "../src/extension/loom-composition-producer";
+import { createProductionProducerDeps } from "../src/extension/production-theta-producer";
+import { composeThetaFixture } from "../src/extension/theta-composition-producer";
 import type {
   ConversationBinding,
   ConversationBindInput,
-  LoomCompositionInput,
-  LoomProducerDeps,
-} from "../src/extension/loom-composition-producer";
+  ThetaCompositionInput,
+  ThetaProducerDeps,
+} from "../src/extension/theta-composition-producer";
 import type {
   BodyExecution,
   ExecuteBodyDeps,
 } from "../src/runtime/statement-executor";
-import { makeErr, makeOk, type LoomValue, type ResultValue } from "../src/runtime/value";
+import { makeErr, makeOk, type ThetaValue, type ResultValue } from "../src/runtime/value";
 import type { QueryError } from "../src/runtime/query-error";
 import { HostFatal, IndexOutOfBoundsPanic } from "../src/runtime/runtime-panics";
 import { ToolReturnShapeDefectError } from "../src/runtime/tool-call-off-surface";
 import type { Diagnostic } from "../src/diagnostics/diagnostic";
 import type { RuntimeRoot } from "../src/runtime-root";
 import type { Checkpoint, CheckpointKind, CheckpointSite } from "../src/seams/checkpoint";
-import type { LoomBody } from "../src/parser/loom-document";
+import type { ThetaBody } from "../src/parser/theta-document";
 import type { ParsedFrontmatter } from "../src/parser/frontmatter";
 
 // --- shared scaffolding ------------------------------------------------------
@@ -140,18 +140,18 @@ function noopPi(): ExtensionAPI {
   return { sendMessage: (): void => {} } as unknown as ExtensionAPI;
 }
 
-function emptyBody(): LoomBody {
-  return { statements: [], tail: null } as unknown as LoomBody;
+function emptyBody(): ThetaBody {
+  return { statements: [], tail: null } as unknown as ThetaBody;
 }
 
-function subagentLoom(): LoomCompositionInput {
+function subagentTheta(): ThetaCompositionInput {
   const frontmatter: ParsedFrontmatter = { mode: "subagent" } as ParsedFrontmatter;
   return {
     slashName: "classify",
-    sourcePath: "/looms/classify.loom",
+    sourcePath: "/theta/classify.theta",
     frontmatter,
     body: emptyBody(),
-  } as unknown as LoomCompositionInput;
+  } as unknown as ThetaCompositionInput;
 }
 
 // =============================================================================
@@ -167,32 +167,32 @@ describe("PIC-9 — the subagent binding's teardown (real spawnSubagentConversat
   });
 
   /** Spawn a REAL subagent binding over the SDK spy session, threading a
-   *  test-owned `loomAbort` so the abort-listener detach is observable. */
+   *  test-owned `thetaAbort` so the abort-listener detach is observable. */
   async function makeRealBinding(): Promise<{
     binding: ConversationBinding;
-    loomAbort: AbortController;
+    thetaAbort: AbortController;
     removeSpy: ReturnType<typeof vi.spyOn>;
   }> {
-    const deps: LoomProducerDeps = createProductionProducerDeps({
+    const deps: ThetaProducerDeps = createProductionProducerDeps({
       pi: noopPi(),
       root: rootDouble(),
       modelRegistry: {} as unknown as ModelRegistry,
     });
-    const loomAbort = new AbortController();
-    const removeSpy = vi.spyOn(loomAbort.signal, "removeEventListener");
+    const thetaAbort = new AbortController();
+    const removeSpy = vi.spyOn(thetaAbort.signal, "removeEventListener");
     const ctx = {
       model: "claude-test",
       cwd: "/tmp",
       signal: undefined,
     } as unknown as ExtensionCommandContext;
     const bindInput: ConversationBindInput = {
-      loom: subagentLoom(),
+      theta: subagentTheta(),
       args: "",
       ctx,
-      loomAbort,
+      thetaAbort,
     };
     const binding = await deps.spawnSubagentConversation(bindInput);
-    return { binding, loomAbort, removeSpy };
+    return { binding, thetaAbort, removeSpy };
   }
 
   it("exposes a teardown, and surface() does NOT dispose (teardown moved out of surface)", async () => {
@@ -206,7 +206,7 @@ describe("PIC-9 — the subagent binding's teardown (real spawnSubagentConversat
   });
 
   it("teardown() disposes exactly once AND detaches the abort listener exactly once; a second call is a no-op", async () => {
-    const { binding, loomAbort, removeSpy } = await makeRealBinding();
+    const { binding, thetaAbort, removeSpy } = await makeRealBinding();
 
     binding.teardown?.();
     expect(sdkHook.disposeCalls).toBe(1);
@@ -214,9 +214,9 @@ describe("PIC-9 — the subagent binding's teardown (real spawnSubagentConversat
     expect(removeSpy).toHaveBeenCalledTimes(1);
     expect(removeSpy).toHaveBeenCalledWith("abort", expect.any(Function));
 
-    // Detach is real: after teardown, aborting loomAbort no longer forwards into
+    // Detach is real: after teardown, aborting thetaAbort no longer forwards into
     // the spawned session's abort().
-    loomAbort.abort(new Error("late"));
+    thetaAbort.abort(new Error("late"));
     expect(sdkHook.abortCalls).toBe(0);
 
     // Idempotent: a defensive second call disposes/detaches nothing further.
@@ -244,12 +244,12 @@ describe("PIC-9 — the subagent binding's teardown (real spawnSubagentConversat
  *  and a shared order log proving teardown runs before finishInvocation and
  *  surface is skipped on the throw path. */
 interface DriveProbe {
-  readonly deps: LoomProducerDeps;
+  readonly deps: ThetaProducerDeps;
   readonly log: string[];
   surfaceCalls: number;
   teardownCalls: number;
   finishCalls: number;
-  errNote: { loomName: string; error: QueryError } | undefined;
+  errNote: { thetaName: string; error: QueryError } | undefined;
   panicNote: { framing: string; diagnostic: Diagnostic } | undefined;
   panicNoteCalls: number;
 }
@@ -260,7 +260,7 @@ function makeDriveProbe(surfaceReturn: ResultValue): DriveProbe {
     surfaceCalls: 0,
     teardownCalls: 0,
     finishCalls: 0,
-    errNote: undefined as { loomName: string; error: QueryError } | undefined,
+    errNote: undefined as { thetaName: string; error: QueryError } | undefined,
     panicNote: undefined as { framing: string; diagnostic: Diagnostic } | undefined,
     panicNoteCalls: 0,
   };
@@ -281,13 +281,13 @@ function makeDriveProbe(surfaceReturn: ResultValue): DriveProbe {
       state.log.push("finish");
     },
   };
-  const deps: LoomProducerDeps = {
+  const deps: ThetaProducerDeps = {
     runBinder: (): Promise<{ bound: true }> => Promise.resolve({ bound: true }),
     bindPromptConversation: (): ConversationBinding => binding,
     spawnSubagentConversation: (): Promise<ConversationBinding> =>
       Promise.resolve(binding),
-    emitTopLevelErrNote: (loomName: string, error: QueryError): void => {
-      state.errNote = { loomName, error };
+    emitTopLevelErrNote: (thetaName: string, error: QueryError): void => {
+      state.errNote = { thetaName, error };
     },
     emitPanicNote: (framing: string, diagnostic: Diagnostic): void => {
       state.panicNoteCalls += 1;
@@ -325,7 +325,7 @@ function driveCtx(): ExtensionCommandContext {
 }
 
 /** A genuine runtime defect standing in for a `ToolReturnShapeDefectError` /
- *  `LoomPanic` unwinding the body past `surface`. */
+ *  `ThetaPanic` unwinding the body past `surface`. */
 class InjectedBodyDefect extends Error {}
 
 afterEach(() => {
@@ -339,8 +339,8 @@ describe("PIC-9 — the DRIVE seam runs the subagent teardown on every exit", ()
     // — i.e. it PINNED the old buggy escape where a top-level runtime defect
     // thrown at slash dispatch propagated uncaught out of `run()` to the Pi
     // host. That was a spec violation: error-model.md §"Runtime panics" requires
-    // a top-level defect to be CAUGHT in `composeLoomFixture.run` and surfaced
-    // as ONE framed `loom-system-note`, with the session NOT torn down. The
+    // a top-level defect to be CAUGHT in `composeThetaFixture.run` and surfaced
+    // as ONE framed `theta-system-note`, with the session NOT torn down. The
     // rewrite is NOT a weakening — the old assertion encoded the bug; this one
     // encodes the contract. The teardown/finish assertions are unchanged (the
     // inner finally is INSIDE the outer catch, so teardown + finish still run).
@@ -348,7 +348,7 @@ describe("PIC-9 — the DRIVE seam runs the subagent teardown on every exit", ()
     executorHook.impl = (): Promise<unknown> =>
       Promise.reject(new InjectedBodyDefect("tool-return-shape defect"));
 
-    const fixture = composeLoomFixture(subagentLoom(), probe.deps);
+    const fixture = composeThetaFixture(subagentTheta(), probe.deps);
 
     // run() RESOLVES — the defect no longer escapes to the host.
     await expect(fixture.run("", driveCtx())).resolves.toBeUndefined();
@@ -361,33 +361,33 @@ describe("PIC-9 — the DRIVE seam runs the subagent teardown on every exit", ()
     expect(probe.log).toEqual(["teardown", "finish"]);
 
     // The defect was framed as exactly ONE internal-error panic-note (a generic
-    // throw is not a `LoomPanic`, so it routes through the runtime-defect
+    // throw is not a `ThetaPanic`, so it routes through the runtime-defect
     // surface with the `aborted with internal error:` framing).
     expect(probe.panicNoteCalls).toBe(1);
     expect(probe.panicNote?.framing).toBe(
-      "loom /classify aborted with internal error: tool-return-shape defect",
+      "theta /classify aborted with internal error: tool-return-shape defect",
     );
-    expect(probe.panicNote?.diagnostic.code).toBe("loom/runtime/internal-error");
+    expect(probe.panicNote?.diagnostic.code).toBe("theta/runtime/internal-error");
     // The err-note surface (SLSH-3) is for a returned `Err` VALUE, not a throw.
     expect(probe.errNote).toBeUndefined();
   });
 
-  it("(top-level LoomPanic) executeBody THROWS a LoomPanic -> run() resolves; ONE panic-note framed `loom /<name> aborted: <message>`", async () => {
+  it("(top-level ThetaPanic) executeBody THROWS a ThetaPanic -> run() resolves; ONE panic-note framed `theta /<name> aborted: <message>`", async () => {
     const probe = makeDriveProbe(makeOk("unused"));
     const panic = new IndexOutOfBoundsPanic("index out of bounds: 5 not in 0..3");
     executorHook.impl = (): Promise<unknown> => Promise.reject(panic);
 
-    const fixture = composeLoomFixture(subagentLoom(), probe.deps);
+    const fixture = composeThetaFixture(subagentTheta(), probe.deps);
     await expect(fixture.run("", driveCtx())).resolves.toBeUndefined();
 
     expect(probe.teardownCalls).toBe(1);
     expect(probe.finishCalls).toBe(1);
     expect(probe.panicNoteCalls).toBe(1);
     expect(probe.panicNote?.framing).toBe(
-      "loom /classify aborted: index out of bounds: 5 not in 0..3",
+      "theta /classify aborted: index out of bounds: 5 not in 0..3",
     );
-    // The panic's registered `loom/runtime/*` code rides the diagnostic.
-    expect(probe.panicNote?.diagnostic.code).toBe("loom/runtime/index-out-of-bounds");
+    // The panic's registered `theta/runtime/*` code rides the diagnostic.
+    expect(probe.panicNote?.diagnostic.code).toBe("theta/runtime/index-out-of-bounds");
     expect(probe.panicNote?.diagnostic.message).toBe("index out of bounds: 5 not in 0..3");
   });
 
@@ -395,8 +395,8 @@ describe("PIC-9 — the DRIVE seam runs the subagent teardown on every exit", ()
     const probe = makeDriveProbe(makeOk("unused"));
     const diagnostic: Diagnostic = {
       severity: "error",
-      code: "loom/runtime/internal-error",
-      file: "/looms/classify.loom",
+      code: "theta/runtime/internal-error",
+      file: "/theta/classify.theta",
       range: { start: { line: 4, column: 2 }, end: { line: 4, column: 9 } },
       message: "internal error: tool grep returned a non-conforming result envelope",
       details: { kind: "tool-return-shape", tool_name: "grep", shape_check: "content-not-iterable" },
@@ -404,7 +404,7 @@ describe("PIC-9 — the DRIVE seam runs the subagent teardown on every exit", ()
     executorHook.impl = (): Promise<unknown> =>
       Promise.reject(new ToolReturnShapeDefectError(diagnostic));
 
-    const fixture = composeLoomFixture(subagentLoom(), probe.deps);
+    const fixture = composeThetaFixture(subagentTheta(), probe.deps);
     await expect(fixture.run("", driveCtx())).resolves.toBeUndefined();
 
     expect(probe.teardownCalls).toBe(1);
@@ -413,7 +413,7 @@ describe("PIC-9 — the DRIVE seam runs the subagent teardown on every exit", ()
     expect(probe.panicNoteCalls).toBe(1);
     // The framing carries the BARE message (the `internal error: ` prefix stripped).
     expect(probe.panicNote?.framing).toBe(
-      "loom /classify aborted with internal error: tool grep returned a non-conforming result envelope",
+      "theta /classify aborted with internal error: tool grep returned a non-conforming result envelope",
     );
     // The defect's own precise-site diagnostic is preferred verbatim.
     expect(probe.panicNote?.diagnostic).toBe(diagnostic);
@@ -424,14 +424,14 @@ describe("PIC-9 — the DRIVE seam runs the subagent teardown on every exit", ()
     executorHook.impl = (): Promise<unknown> =>
       Promise.reject(new RangeError("Invalid string length"));
 
-    const fixture = composeLoomFixture(subagentLoom(), probe.deps);
+    const fixture = composeThetaFixture(subagentTheta(), probe.deps);
     await expect(fixture.run("", driveCtx())).resolves.toBeUndefined();
 
     expect(probe.panicNoteCalls).toBe(1);
     expect(probe.panicNote?.framing).toBe(
-      "loom /classify aborted with internal error: Invalid string length",
+      "theta /classify aborted with internal error: Invalid string length",
     );
-    expect(probe.panicNote?.diagnostic.code).toBe("loom/runtime/internal-error");
+    expect(probe.panicNote?.diagnostic.code).toBe("theta/runtime/internal-error");
   });
 
   it("(HostFatal) a host-fatal throw is the ONLY thing that propagates -> run() STILL rejects (re-raised, fail-fast NOCEIL-3); no panic-note", async () => {
@@ -439,7 +439,7 @@ describe("PIC-9 — the DRIVE seam runs the subagent teardown on every exit", ()
     const fatal = new HostFatal("heap OOM");
     executorHook.impl = (): Promise<unknown> => Promise.reject(fatal);
 
-    const fixture = composeLoomFixture(subagentLoom(), probe.deps);
+    const fixture = composeThetaFixture(subagentTheta(), probe.deps);
     await expect(fixture.run("", driveCtx())).rejects.toBe(fatal);
 
     // Teardown/finish still ran (inner finally) before the outer catch re-raised.
@@ -455,7 +455,7 @@ describe("PIC-9 — the DRIVE seam runs the subagent teardown on every exit", ()
     executorHook.impl = (): Promise<unknown> =>
       Promise.resolve({ outcome: "success", result: { value: "final answer" } } as unknown as BodyExecution);
 
-    const fixture = composeLoomFixture(subagentLoom(), probe.deps);
+    const fixture = composeThetaFixture(subagentTheta(), probe.deps);
     await fixture.run("", driveCtx());
 
     expect(probe.surfaceCalls).toBe(1);
@@ -471,11 +471,11 @@ describe("PIC-9 — the DRIVE seam runs the subagent teardown on every exit", ()
 
   it("(returned-Err path) a surfaced Err tears down exactly once and still emits the top-level err-note", async () => {
     const qerror = { kind: "transport" } as unknown as QueryError;
-    const probe = makeDriveProbe(makeErr(qerror as unknown as LoomValue));
+    const probe = makeDriveProbe(makeErr(qerror as unknown as ThetaValue));
     executorHook.impl = (): Promise<unknown> =>
       Promise.resolve({ outcome: "fail", error: null } as unknown as BodyExecution);
 
-    const fixture = composeLoomFixture(subagentLoom(), probe.deps);
+    const fixture = composeThetaFixture(subagentTheta(), probe.deps);
     await fixture.run("", driveCtx());
 
     expect(probe.surfaceCalls).toBe(1);
@@ -483,7 +483,7 @@ describe("PIC-9 — the DRIVE seam runs the subagent teardown on every exit", ()
     expect(probe.finishCalls).toBe(1);
     // The returned Err surfaced the one-line note (SLSH-3) — teardown did not
     // suppress it.
-    expect(probe.errNote?.loomName).toBe("classify");
+    expect(probe.errNote?.thetaName).toBe("classify");
     // A returned `Err` is a VALUE (not a throw) — the outer catch never sees it,
     // so the panic-note surface stays untouched (SLSH-3 err-note still emitted).
     expect(probe.panicNoteCalls).toBe(0);

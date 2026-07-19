@@ -5,13 +5,13 @@ import {
   type EvalHost,
 } from "../src/runtime/expression-evaluator";
 import type { CompatType } from "../src/parser/type-compat";
-import type { LoomValue } from "../src/runtime/value";
+import type { ThetaValue } from "../src/runtime/value";
 import type { Diagnostic, SourceRange } from "../src/diagnostics/diagnostic";
 
 // V3a-T — failing tests for the paired `V3a` "expression evaluator".
 //
 // Spec: expressions.md (the EXPR code-keyed obligation area — no numbered
-// REQ-IDs) and the `loom/parse/non-boolean-condition` diagnostic of
+// REQ-IDs) and the `theta/parse/non-boolean-condition` diagnostic of
 // expressions.md §Truthiness. Four obligations:
 //
 //   - Operator precedence / associativity match expressions.md §"Operator
@@ -23,7 +23,7 @@ import type { Diagnostic, SourceRange } from "../src/diagnostics/diagnostic";
 //     `integer ⊑ number` widening; `/` always `number`; div/mod-by-zero yields
 //     `±Infinity` / `NaN` without panic; ordering against `NaN` is `false`
 //     (expressions.md §Equality / §"Ordering comparisons" / §"Other arithmetic").
-//   - `loom/parse/non-boolean-condition`: a non-`boolean` in an `if` / `while` /
+//   - `theta/parse/non-boolean-condition`: a non-`boolean` in an `if` / `while` /
 //     ternary condition or `&&` / `||` operand fires the diagnostic at the
 //     `type` phase (expressions.md §Truthiness).
 //
@@ -32,7 +32,7 @@ import type { Diagnostic, SourceRange } from "../src/diagnostics/diagnostic";
 // or calling the host (so every value assertion reds on its own expectation and
 // the short-circuit must-run assertion reds because the call is never recorded),
 // and `checkBooleanPosition` returns no diagnostic (so the
-// `loom/parse/non-boolean-condition` assertion reds on its absent diagnostic).
+// `theta/parse/non-boolean-condition` assertion reds on its absent diagnostic).
 // No test reds on a compile error, a missing fixture, or a harness throw.
 
 // --- Test host -------------------------------------------------------------
@@ -44,20 +44,20 @@ import type { Diagnostic, SourceRange } from "../src/diagnostics/diagnostic";
  * (`&&` / `||` operands are `boolean`-typed).
  */
 function makeHost(opts?: {
-  vars?: Record<string, LoomValue>;
-  onCall?: (name: string) => LoomValue;
+  vars?: Record<string, ThetaValue>;
+  onCall?: (name: string) => ThetaValue;
 }): { host: EvalHost; calls: string[] } {
   const calls: string[] = [];
   const vars = opts?.vars ?? {};
   const host: EvalHost = {
-    resolveIdentifier(name: string): LoomValue {
+    resolveIdentifier(name: string): ThetaValue {
       if (Object.prototype.hasOwnProperty.call(vars, name)) {
-        return vars[name] as LoomValue;
+        return vars[name] as ThetaValue;
       }
       // No silent skip: an unbound identifier in a test is a fixture defect.
       throw new Error(`test host: unbound identifier '${name}'`);
     },
-    callFunction(name: string, _args: readonly LoomValue[]): LoomValue {
+    callFunction(name: string, _args: readonly ThetaValue[]): ThetaValue {
       calls.push(name);
       return opts?.onCall ? opts.onCall(name) : true;
     },
@@ -65,7 +65,7 @@ function makeHost(opts?: {
   return { host, calls };
 }
 
-function evalExpr(source: string, host?: EvalHost): LoomValue {
+function evalExpr(source: string, host?: EvalHost): ThetaValue {
   return evaluateSource(source, host ?? makeHost().host);
 }
 
@@ -80,7 +80,7 @@ function span(): SourceRange {
   return { start: { line: 1, column: 1 }, end: { line: 1, column: 2 } };
 }
 function site(): { file: string; range: SourceRange } {
-  return { file: "test.loom", range: span() };
+  return { file: "test.theta", range: span() };
 }
 function withCode(diags: readonly Diagnostic[], code: string): Diagnostic | undefined {
   return diags.find((d) => d.code === code);
@@ -224,32 +224,32 @@ describe("V3a-T — equality, ordering, and arithmetic widening (expressions.md 
   });
 });
 
-// --- expressions.md §Truthiness — loom/parse/non-boolean-condition ---------
+// --- expressions.md §Truthiness — theta/parse/non-boolean-condition ---------
 
 describe("V3a-T — non-boolean condition (expressions.md §Truthiness)", () => {
-  it("loom/parse/non-boolean-condition: a non-boolean ternary condition fires", () => {
+  it("theta/parse/non-boolean-condition: a non-boolean ternary condition fires", () => {
     const diags = checkBooleanPosition({
       position: "ternary-condition",
       operandType: prim("string"),
       site: site(),
     });
-    const d = withCode(diags, "loom/parse/non-boolean-condition");
-    expect(d, "loom/parse/non-boolean-condition for a string ternary condition").toBeDefined();
+    const d = withCode(diags, "theta/parse/non-boolean-condition");
+    expect(d, "theta/parse/non-boolean-condition for a string ternary condition").toBeDefined();
     // Message from diagnostics/code-registry-parse.md.
     expect(d?.message).toBe("condition must be boolean; got string");
   });
 
-  it("loom/parse/non-boolean-condition: a non-boolean `&&` operand fires; a boolean operand does not", () => {
+  it("theta/parse/non-boolean-condition: a non-boolean `&&` operand fires; a boolean operand does not", () => {
     const diags = checkBooleanPosition({
       position: "&&",
       operandType: prim("number"),
       site: site(),
     });
-    const d = withCode(diags, "loom/parse/non-boolean-condition");
-    expect(d, "loom/parse/non-boolean-condition for a number && operand").toBeDefined();
+    const d = withCode(diags, "theta/parse/non-boolean-condition");
+    expect(d, "theta/parse/non-boolean-condition for a number && operand").toBeDefined();
     expect(d?.message).toBe("condition must be boolean; got number");
 
-    // A `boolean` operand is admissible — the rule is not over-applied (loom
+    // A `boolean` operand is admissible — the rule is not over-applied (theta
     // performs no truthiness coercion, but it also raises nothing on `boolean`).
     const ok = checkBooleanPosition({
       position: "||",
@@ -257,20 +257,20 @@ describe("V3a-T — non-boolean condition (expressions.md §Truthiness)", () => 
       site: site(),
     });
     expect(
-      withCode(ok, "loom/parse/non-boolean-condition"),
+      withCode(ok, "theta/parse/non-boolean-condition"),
       "a boolean operand is admissible in boolean position",
     ).toBeUndefined();
   });
 
-  it("loom/parse/non-boolean-condition: a non-boolean `if` / `while` condition fires", () => {
+  it("theta/parse/non-boolean-condition: a non-boolean `if` / `while` condition fires", () => {
     const ifDiags = checkBooleanPosition({
       position: "if",
       operandType: prim("integer"),
       site: site(),
     });
     expect(
-      withCode(ifDiags, "loom/parse/non-boolean-condition"),
-      "loom/parse/non-boolean-condition for an integer if condition",
+      withCode(ifDiags, "theta/parse/non-boolean-condition"),
+      "theta/parse/non-boolean-condition for an integer if condition",
     ).toBeDefined();
 
     const whileDiags = checkBooleanPosition({
@@ -279,8 +279,8 @@ describe("V3a-T — non-boolean condition (expressions.md §Truthiness)", () => 
       site: site(),
     });
     expect(
-      withCode(whileDiags, "loom/parse/non-boolean-condition"),
-      "loom/parse/non-boolean-condition for a null while condition",
+      withCode(whileDiags, "theta/parse/non-boolean-condition"),
+      "theta/parse/non-boolean-condition for a null while condition",
     ).toBeDefined();
   });
 });

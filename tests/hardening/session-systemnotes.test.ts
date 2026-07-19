@@ -6,7 +6,7 @@ import type { ProbeResult } from "./probe-harness";
 // the SLSH-1 overflow note (positive control only; already verified).
 //
 // Method: force each QueryError KIND to be returned (via unhandled `?`) to the
-// slash-dispatch boundary and read the `loom-system-note` channel deterministically
+// slash-dispatch boundary and read the `theta-system-note` channel deterministically
 // off the in-memory SessionManager (`turn.systemNotes`). Compare emitted notes to
 // the SLSH-4 SNK templates VERBATIM (only <...> placeholders interpolated,
 // em-dash = U+2014).
@@ -36,7 +36,7 @@ describe("system-note rendering fidelity — top-level Err at the slash boundary
       files: [
         {
           source: "project",
-          path: "ctlnoparams.loom",
+          path: "ctlnoparams.theta",
           text: [
             "---",
             "description: ctlnoparams",
@@ -53,7 +53,7 @@ describe("system-note rendering fidelity — top-level Err at the slash boundary
       // eslint-disable-next-line no-console
       console.log("CONTROL SLSH-1 notes:", JSON.stringify(notes));
       expect(notes).toContain(
-        `loom /ctlnoparams: ignoring extra arguments ${DASH} this loom takes no parameters`,
+        `theta /ctlnoparams: ignoring extra arguments ${DASH} this theta takes no parameters`,
       );
     } finally {
       await probe.dispose();
@@ -63,7 +63,7 @@ describe("system-note rendering fidelity — top-level Err at the slash boundary
   // -------------------------------------------------------------------------
   // SNK-b — validation(empty_template). ZERO provider turns.
   // Expected (SLSH-3 + SNK-b):
-  //   loom /snkb returned Err: rendered query template was empty — no provider turn was issued
+  //   theta /snkb returned Err: rendered query template was empty — no provider turn was issued
   // -------------------------------------------------------------------------
   it("SNK-b: empty_template top-level Err note", async () => {
     const probe = await runProbe({
@@ -71,9 +71,9 @@ describe("system-note rendering fidelity — top-level Err at the slash boundary
       files: [
         {
           source: "project",
-          path: "snkb.loom",
+          path: "snkb.theta",
           // Rendered body is a single newline -> "" -> empty_template Err;
-          // the top-of-loom `?` propagates it to the slash-dispatch boundary.
+          // the top-of-theta `?` propagates it to the slash-dispatch boundary.
           text: ["---", "description: snkb", "mode: prompt", "---", "@`", "`?"].join("\n"),
         },
       ],
@@ -83,7 +83,7 @@ describe("system-note rendering fidelity — top-level Err at the slash boundary
       const notes = notesOf(probe);
       // eslint-disable-next-line no-console
       console.log("SNK-b notes:", JSON.stringify(notes), "err:", probe.turns[0]?.error);
-      const expected = `loom /snkb returned Err: rendered query template was empty ${DASH} no provider turn was issued`;
+      const expected = `theta /snkb returned Err: rendered query template was empty ${DASH} no provider turn was issued`;
       // SNOTE-1 FIXED: the SLSH-3/SNK-b note is now emitted verbatim on the
       // slash-dispatch boundary. Clean `?` propagation, no throw.
       expect(notes).toContain(expected);
@@ -97,7 +97,7 @@ describe("system-note rendering fidelity — top-level Err at the slash boundary
   // -------------------------------------------------------------------------
   // SNK-g — code_tool. ZERO provider turns (code-driven tool executes directly).
   // Expected (SLSH-3 + SNK-g):
-  //   loom /snkg returned Err: tool read call failed (execution) — <message>
+  //   theta /snkg returned Err: tool read call failed (execution) — <message>
   // -------------------------------------------------------------------------
   it("SNK-g: code_tool top-level Err note", async () => {
     const probe = await runProbe({
@@ -105,14 +105,14 @@ describe("system-note rendering fidelity — top-level Err at the slash boundary
       files: [
         {
           source: "project",
-          path: "snkg.loom",
+          path: "snkg.theta",
           text: [
             "---",
             "description: snkg",
             "mode: prompt",
             "tools: read",
             "---",
-            'let _ = read({ path: "/no/such/loom/path/xyzzy.txt" })?',
+            'let _ = read({ path: "/no/such/theta/path/xyzzy.txt" })?',
             "@`unreached`",
           ].join("\n"),
         },
@@ -123,7 +123,7 @@ describe("system-note rendering fidelity — top-level Err at the slash boundary
       const notes = notesOf(probe);
       // eslint-disable-next-line no-console
       console.log("SNK-g notes:", JSON.stringify(notes), "err:", probe.turns[0]?.error);
-      const prefix = `loom /snkg returned Err: tool read call failed (execution) ${DASH} `;
+      const prefix = `theta /snkg returned Err: tool read call failed (execution) ${DASH} `;
       // SNOTE-1 FIXED: the SLSH-3/SNK-g note is emitted; the <message> tail is
       // the model-external tool-error text (non-deterministic per SLSH-4, so
       // only the surrounding template is asserted).
@@ -139,7 +139,7 @@ describe("system-note rendering fidelity — top-level Err at the slash boundary
   // SNK-i — invoke_infra. ZERO provider turns. A literal invoke of a callee that
   // fails to parse -> InvokeInfraError, propagated by `?` to the boundary.
   // Expected (SLSH-3 + SNK-i):
-  //   loom /snki returned Err: invoke of <callee_path> failed (<cause>)
+  //   theta /snki returned Err: invoke of <callee_path> failed (<cause>)
   // -------------------------------------------------------------------------
   it("SNK-i: invoke_infra top-level Err note", async () => {
     const probe = await runProbe({
@@ -147,19 +147,19 @@ describe("system-note rendering fidelity — top-level Err at the slash boundary
       files: [
         {
           source: "project",
-          path: "snki.loom",
+          path: "snki.theta",
           text: [
             "---",
             "description: snki",
             "mode: prompt",
             "---",
-            'let _ = invoke("./snki_broken.loom")?',
+            'let _ = invoke("./snki_broken.theta")?',
             "@`unreached`",
           ].join("\n"),
         },
         {
           source: "project",
-          path: "snki_broken.loom",
+          path: "snki_broken.theta",
           // Valid frontmatter, body syntax error -> parse_failure at invoke open.
           text: ["---", "description: broken", "mode: prompt", "---", "let x = = ="].join("\n"),
         },
@@ -177,7 +177,7 @@ describe("system-note rendering fidelity — top-level Err at the slash boundary
         "registered:",
         JSON.stringify(probe.registeredNames),
       );
-      const prefix = `loom /snki returned Err: invoke of `;
+      const prefix = `theta /snki returned Err: invoke of `;
       // SNOTE-1 FIXED: the SLSH-3/SNK-i note is emitted (parent registered+ran).
       expect(probe.registeredNames).toContain("snki");
       expect(notes.some((n) => n.startsWith(prefix))).toBe(true);
@@ -191,8 +191,8 @@ describe("system-note rendering fidelity — top-level Err at the slash boundary
   // SLSH-5 chain suffix. ZERO provider turns. A subagent child returns Err
   // (empty_template); the parent's `invoke(...)?` cascades it as invoke_callee.
   // Expected leaf-first:
-  //   loom /snkchain returned Err: rendered query template was empty — no provider turn was issued from <child_abs> invoked at <parent_abs>:5
-  // (invoke line in snkchain.loom is line 5)
+  //   theta /snkchain returned Err: rendered query template was empty — no provider turn was issued from <child_abs> invoked at <parent_abs>:5
+  // (invoke line in snkchain.theta is line 5)
   // -------------------------------------------------------------------------
   it("SLSH-5: chain suffix on a cascaded invoke_callee", async () => {
     const probe = await runProbe({
@@ -200,19 +200,19 @@ describe("system-note rendering fidelity — top-level Err at the slash boundary
       files: [
         {
           source: "project",
-          path: "snkchain.loom",
+          path: "snkchain.theta",
           text: [
             "---",
             "description: snkchain",
             "mode: prompt",
             "---",
-            'let _ = invoke("./snkchain_child.loom")?',
+            'let _ = invoke("./snkchain_child.theta")?',
             "@`unreached`",
           ].join("\n"),
         },
         {
           source: "project",
-          path: "snkchain_child.loom",
+          path: "snkchain_child.theta",
           text: ["---", "description: child", "mode: subagent", "---", "@`", "`?"].join("\n"),
         },
       ],
@@ -222,7 +222,7 @@ describe("system-note rendering fidelity — top-level Err at the slash boundary
       const notes = notesOf(probe);
       // eslint-disable-next-line no-console
       console.log("SLSH-5 notes:", JSON.stringify(notes), "err:", probe.turns[0]?.error);
-      const leaf = `loom /snkchain returned Err: rendered query template was empty ${DASH} no provider turn was issued`;
+      const leaf = `theta /snkchain returned Err: rendered query template was empty ${DASH} no provider turn was issued`;
       // SNOTE-1 FIXED: the SLSH-3 note is emitted and renders the correct LEAF
       // row (the renderer walks the invoke_callee wrapper to its leaf). The
       // SLSH-5 chain suffix (' from <child> invoked at <parent>:<line>') is a
@@ -239,7 +239,7 @@ describe("system-note rendering fidelity — top-level Err at the slash boundary
 
   // -------------------------------------------------------------------------
   // SLSH-3 subagent-mode direct dispatch. ZERO provider turns. A directly
-  // slash-invoked subagent loom that returns a top-level Err must surface the
+  // slash-invoked subagent theta that returns a top-level Err must surface the
   // note in the USER session (transcript stays private).
   // -------------------------------------------------------------------------
   it("SLSH-3 (subagent): direct subagent-mode top-level Err note in user session", async () => {
@@ -248,7 +248,7 @@ describe("system-note rendering fidelity — top-level Err at the slash boundary
       files: [
         {
           source: "project",
-          path: "snksub.loom",
+          path: "snksub.theta",
           text: ["---", "description: snksub", "mode: subagent", "---", "@`", "`?"].join("\n"),
         },
       ],
@@ -258,9 +258,9 @@ describe("system-note rendering fidelity — top-level Err at the slash boundary
       const notes = notesOf(probe);
       // eslint-disable-next-line no-console
       console.log("SLSH-3 subagent notes:", JSON.stringify(notes), "err:", probe.turns[0]?.error);
-      const expected = `loom /snksub returned Err: rendered query template was empty ${DASH} no provider turn was issued`;
+      const expected = `theta /snksub returned Err: rendered query template was empty ${DASH} no provider turn was issued`;
       // SNOTE-1 FIXED: SLSH-3 requires this note in the USER session for a
-      // directly-slash-invoked subagent loom (sole user-facing surface). The
+      // directly-slash-invoked subagent theta (sole user-facing surface). The
       // subagent transcript stays private; the note surfaces at the boundary.
       expect(notes).toContain(expected);
       expect(notes).toEqual([expected]);
@@ -272,7 +272,7 @@ describe("system-note rendering fidelity — top-level Err at the slash boundary
   // -------------------------------------------------------------------------
   // SNK-a — validation(schema_validation). ONE live model turn (depth-6 trick).
   // Expected (SLSH-3 + SNK-a):
-  //   loom /snka returned Err: model failed schema after <n> respond-repair attempts
+  //   theta /snka returned Err: model failed schema after <n> respond-repair attempts
   // -------------------------------------------------------------------------
   it("SNK-a: schema_validation top-level Err note (depth-6, 1 model turn)", async () => {
     const probe = await runProbe({
@@ -280,7 +280,7 @@ describe("system-note rendering fidelity — top-level Err at the slash boundary
       files: [
         {
           source: "project",
-          path: "snka.loom",
+          path: "snka.theta",
           text: [
             "---",
             "description: snka",
@@ -302,7 +302,7 @@ describe("system-note rendering fidelity — top-level Err at the slash boundary
       const notes = notesOf(probe);
       // eslint-disable-next-line no-console
       console.log("SNK-a notes:", JSON.stringify(notes), "err:", probe.turns[0]?.error);
-      const re = /^loom \/snka returned Err: model failed schema after \d+ respond-repair attempts$/;
+      const re = /^theta \/snka returned Err: model failed schema after \d+ respond-repair attempts$/;
       // SNOTE-1 FIXED: the SLSH-3/SNK-a note is emitted after the real model
       // turn(s); <n> is the interpolated attempt count.
       expect(notes.some((n) => re.test(n))).toBe(true);

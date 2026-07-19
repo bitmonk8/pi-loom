@@ -10,7 +10,7 @@
 // run and a compute-only `for`-loop run to completion with NO spurious
 // cancellation — no `cancelled` system note, deterministic user-turn text — so
 // the never-aborting fallback signal (`ctx.signal ?? new AbortController().signal`,
-// production-loom-producer.ts:529) never spuriously flips a checkpoint.
+// production-theta-producer.ts:529) never spuriously flips a checkpoint.
 
 import { describe, it, expect } from "vitest";
 import { requireLiveProvider, runProbe } from "./probe-harness";
@@ -24,7 +24,7 @@ describe("cancellation lens — no spurious cancel on the live surface", () => {
       files: [
         {
           source: "project",
-          path: "nocancel.loom",
+          path: "nocancel.theta",
           text: [
             "---",
             "description: cancel negative probe",

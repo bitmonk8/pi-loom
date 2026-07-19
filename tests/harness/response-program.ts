@@ -59,7 +59,7 @@ export type AbortPoint = "pre-call" | "in-flight" | "during-retry";
 //       `willRetry: true` events that precede an automatic SDK retry (PIC-43).
 //       The session's transcript is private and discarded, so its internal
 //       turns are NOT surfaced as ordinary assistant fragments — the outcome is
-//       a subagent-loom outcome, not a plain scripted (a) turn (the V4c vector).
+//       a subagent-theta outcome, not a plain scripted (a) turn (the V4c vector).
 
 /**
  * A scripted nested `invoke(...)` child run to completion (category f). The
@@ -75,7 +75,7 @@ export interface InvokeChildScript {
  * One `agent_end` event a scripted subagent-mode callee's private session
  * emits. `willRetry: true` precedes an automatic SDK retry and does NOT resolve
  * the query (its `value` is a decoy the runtime ignores, per PIC-43); only the
- * terminal `willRetry: false` event resolves the subagent-loom outcome.
+ * terminal `willRetry: false` event resolves the subagent-theta outcome.
  */
 export interface SubagentAgentEnd {
   readonly value: string;
@@ -89,7 +89,7 @@ export interface SubagentAgentEnd {
  * terminal `agent_end` event walking the `agentEnds` sequence in order.
  */
 export interface SubagentCalleeScript {
-  readonly loomName: string;
+  readonly thetaName: string;
   readonly agentEnds: readonly SubagentAgentEnd[];
 }
 
@@ -169,13 +169,13 @@ export type ResponseEvent =
       // (g) V9i subagent-mode callee: a private AgentSession was spawned
       // (createAgentSession) to dispatch the callee.
       readonly kind: "subagent-spawn";
-      readonly loomName: string;
+      readonly thetaName: string;
     }
   | {
       // (g) V9i subagent-mode outcome: the final value extracted from the
       // terminal `agent_end` event of the private session.
-      readonly kind: "subagent-loom";
-      readonly loomName: string;
+      readonly kind: "subagent-theta";
+      readonly thetaName: string;
       readonly finalValue: string;
     };
 
@@ -271,7 +271,7 @@ export class ResponseProgrammer {
    */
   scriptSubagentCallee(callee: SubagentCalleeScript): this {
     this.#subagentCallees.push({
-      loomName: callee.loomName,
+      thetaName: callee.thetaName,
       agentEnds: callee.agentEnds.map((e) => ({ ...e })),
     });
     return this;
@@ -289,7 +289,7 @@ export class ResponseProgrammer {
     const events: ResponseEvent[] = [];
     if (this.#binderAttempts.length > 0 || this.#abortAt !== undefined) {
       this.#driveBinder(events);
-      // A binder abort surfaces the cancellation observable and the loom does
+      // A binder abort surfaces the cancellation observable and the theta does
       // not run; short-circuit the remaining phases deterministically.
       if (this.#abortAt !== undefined) return events;
     }
@@ -437,21 +437,21 @@ export class ResponseProgrammer {
    * outcome from the TERMINAL `agent_end` event (`willRetry: false`), ignoring
    * any preceding `willRetry: true` events (PIC-43). The private session's
    * internal turns are not surfaced as ordinary assistant fragments — the
-   * observable is a subagent-loom outcome, not a plain scripted (a) turn.
+   * observable is a subagent-theta outcome, not a plain scripted (a) turn.
    */
   #driveSubagentCallee(callee: SubagentCalleeScript, out: ResponseEvent[]): void {
-    out.push({ kind: "subagent-spawn", loomName: callee.loomName });
+    out.push({ kind: "subagent-spawn", thetaName: callee.thetaName });
     const terminal = callee.agentEnds.find((e) => !e.willRetry);
     if (terminal === undefined) {
       // A subagent query that never reaches a terminal `agent_end` is a
       // scripting error: model it deterministically rather than hanging.
       throw new Error(
-        `subagent callee "${callee.loomName}" has no terminal agent_end (willRetry:false)`,
+        `subagent callee "${callee.thetaName}" has no terminal agent_end (willRetry:false)`,
       );
     }
     out.push({
-      kind: "subagent-loom",
-      loomName: callee.loomName,
+      kind: "subagent-theta",
+      thetaName: callee.thetaName,
       finalValue: terminal.value,
     });
   }

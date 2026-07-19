@@ -29,7 +29,7 @@ import {
 // envelope-lowering (runtime surface)" implementation leaf.
 //
 // Spec: pi-integration-contract/host-interfaces-core.md §"Tool execution from
-// loom code" (post-F-1578 AgentToolResult shape — no code-side `isError`);
+// theta code" (post-F-1578 AgentToolResult shape — no code-side `isError`);
 // cancellation.md §Granularity (coverage-matrix.md code-keyed-area token
 // `cka-47`, `V14g` tool-call checkpoint facet); errors-and-results/
 // queryerror-variants.md §"Code-side tool-call variant";
@@ -42,7 +42,7 @@ import {
 // fires no checkpoint and dispatches nothing. No test reds on a compile error, a
 // missing fixture, or a harness throw.
 
-const TOOL_SITE: CheckpointSite = { file: "call.loom", line: 4, column: 7 };
+const TOOL_SITE: CheckpointSite = { file: "call.theta", line: 4, column: 7 };
 
 const utf8Len = (s: string): number => new TextEncoder().encode(s).length;
 
@@ -118,11 +118,11 @@ function resolvingCall(
 
 // ===========================================================================
 // (1) content-block filtering / joining — text kept, joined with a single
-// "\n", non-text discarded (host-interfaces-core.md §"Tool execution from loom
+// "\n", non-text discarded (host-interfaces-core.md §"Tool execution from theta
 // code").
 // ===========================================================================
 
-describe("V14g-T — execute() envelope content filter/join (host-interfaces-core.md §Tool execution from loom code)", () => {
+describe("V14g-T — execute() envelope content filter/join (host-interfaces-core.md §Tool execution from theta code)", () => {
   it("filters content to type==='text' and joins .text with a single '\\n' (no leading/trailing separator)", () => {
     const joined = filterJoinToolText([text("first"), text("second"), text("third")]);
     // Single line-feed between blocks; nothing before the first or after the last.
@@ -148,7 +148,7 @@ describe("V14g-T — execute() envelope content filter/join (host-interfaces-cor
 // non-text discard path.
 // ===========================================================================
 
-describe("V14g-T — accepted-path envelope lowering to Ok (host-interfaces-core.md §Tool execution from loom code)", () => {
+describe("V14g-T — accepted-path envelope lowering to Ok (host-interfaces-core.md §Tool execution from theta code)", () => {
   it("a cleanly-resolving envelope lowers to Ok(<filtered/joined text>)", () => {
     const sink = new RecordingSink();
     const result = lowerResolvedToolEnvelope(
@@ -179,7 +179,7 @@ describe("V14g-T — accepted-path envelope lowering to Ok (host-interfaces-core
     }
   });
 
-  it("emits NO RuntimeEvent / loom-system-note / diagnostic on the non-text discard path", () => {
+  it("emits NO RuntimeEvent / theta-system-note / diagnostic on the non-text discard path", () => {
     const sink = new RecordingSink();
     const result = lowerResolvedToolEnvelope(
       { content: [text("kept"), image(), text("also kept")] },
@@ -197,10 +197,10 @@ describe("V14g-T — accepted-path envelope lowering to Ok (host-interfaces-core
 
 // ===========================================================================
 // (5a) 4096-byte code-point-boundary truncation (host-interfaces-core.md
-// §"Tool execution from loom code" — worked example).
+// §"Tool execution from theta code" — worked example).
 // ===========================================================================
 
-describe("V14g-T — 4096-byte code-point-boundary truncation (host-interfaces-core.md §Tool execution from loom code)", () => {
+describe("V14g-T — 4096-byte code-point-boundary truncation (host-interfaces-core.md §Tool execution from theta code)", () => {
   it("truncates a pure-ASCII over-limit string to exactly maxBytes bytes", () => {
     const s = "a".repeat(5000);
     const out = truncateUtf8CodePointBoundary(s, CODE_TOOL_MESSAGE_MAX_BYTES);
@@ -240,10 +240,10 @@ describe("V14g-T — 4096-byte code-point-boundary truncation (host-interfaces-c
 // (5b) execute()-throw lowering — Err(CodeToolError { cause: "execution" })
 // whose message is the thrown value coerced to the underlying-error string and
 // truncated under the 4096-byte rule (host-interfaces-core.md §"Tool execution
-// from loom code").
+// from theta code").
 // ===========================================================================
 
-describe("V14g-T — execute()-throw lowering to CodeToolError (host-interfaces-core.md §Tool execution from loom code)", () => {
+describe("V14g-T — execute()-throw lowering to CodeToolError (host-interfaces-core.md §Tool execution from theta code)", () => {
   it("an Error throw lowers to CodeToolError { cause: 'execution' } carrying the Error's .message", () => {
     const err = lowerToolExecuteThrow(new Error("disk write failed"), "write");
     expect(err.kind).toBe("code_tool");
@@ -378,7 +378,7 @@ describe("V14g-T — tool-call cancellation checkpoint (cka-47 / V14g)", () => {
 describe("V14g-T — ERR-13 completed-callee finality on the live V14g surface (error-model.md#err-13)", () => {
   it("ERR-13 (V14g): a code-side tool call driven to completion keeps its committed side effect after a downstream cancel, with no compensating turn injected", async () => {
     const committed: readonly CommittedSideEffect[] = [
-      { kind: "tool-call", id: "loom-direct:call-0", description: "write committed" },
+      { kind: "tool-call", id: "theta-direct:call-0", description: "write committed" },
     ];
     const call = resolvingCall("write", [text("done")], committed);
 

@@ -1,41 +1,41 @@
 import { describe, it, expect } from "vitest";
 import { requireLiveProvider, runProbe } from "./probe-harness";
 
-// IMPORTS & .warp MODULES — live probes against the shipped extension.
+// IMPORTS & .thetalib MODULES — live probes against the shipped extension.
 //
-// Each probe plants a `.loom` under source:'project' (path 'main.loom' → the
-// slash command `/main`) and a `.warp` alongside (also source:'project', so it
-// lands in the same `.pi/looms/` dir and `./lib.warp` resolves relative to the
-// loom's own directory). Most checks are ZERO-TOKEN: they observe
-// `registeredNames` (did the loom register?) and `systemNotes` (the shipped V4e
-// `loom-system-note` load-diagnostic channel; `probe.diagnostics` /
+// Each probe plants a `.theta` under source:'project' (path 'main.theta' → the
+// slash command `/main`) and a `.thetalib` alongside (also source:'project', so it
+// lands in the same `.pi/theta/` dir and `./lib.thetalib` resolves relative to the
+// theta's own directory). Most checks are ZERO-TOKEN: they observe
+// `registeredNames` (did the theta register?) and `systemNotes` (the shipped V4e
+// `theta-system-note` load-diagnostic channel; `probe.diagnostics` /
 // ctx.ui.notify is empty at load time — see the probe-harness header) with no
 // model turn.
 
-describe("imports & .warp — resolution and diagnostics", () => {
+describe("imports & .thetalib — resolution and diagnostics", () => {
   const provider = requireLiveProvider();
 
-  // Control: a well-formed `.loom` importing an existing symbol from an
-  // existing `.warp` should register cleanly (baseline for the rest).
-  it("IMP-control: a valid .warp import registers with no error diagnostics", async () => {
+  // Control: a well-formed `.theta` importing an existing symbol from an
+  // existing `.thetalib` should register cleanly (baseline for the rest).
+  it("IMP-control: a valid .thetalib import registers with no error diagnostics", async () => {
     const probe = await runProbe({
       provider,
       files: [
         {
           source: "project",
-          path: "main.loom",
+          path: "main.theta",
           text: [
             "---",
             "description: control",
             "mode: prompt",
             "---",
-            'import { Author } from "./lib.warp"',
+            'import { Author } from "./lib.thetalib"',
             "@`say ok`",
           ].join("\n"),
         },
         {
           source: "project",
-          path: "lib.warp",
+          path: "lib.thetalib",
           text: "schema Author {\n  name: string\n}\n",
         },
       ],
@@ -52,20 +52,20 @@ describe("imports & .warp — resolution and diagnostics", () => {
   });
 
   // IMP-A — missing module file. Spec imports.md IMP-1: an unresolvable spec
-  // MUST emit `loom/load/unresolvable-warp-path` and NOT register the file.
-  it("IMP-A: import from a nonexistent .warp is not diagnosed / does not un-register", async () => {
+  // MUST emit `theta/load/unresolvable-thetalib-path` and NOT register the file.
+  it("IMP-A: import from a nonexistent .thetalib is not diagnosed / does not un-register", async () => {
     const probe = await runProbe({
       provider,
       files: [
         {
           source: "project",
-          path: "main.loom",
+          path: "main.theta",
           text: [
             "---",
             "description: missing module",
             "mode: prompt",
             "---",
-            'import { Author } from "./does-not-exist.warp"',
+            'import { Author } from "./does-not-exist.thetalib"',
             "@`say ok`",
           ].join("\n"),
         },
@@ -78,13 +78,13 @@ describe("imports & .warp — resolution and diagnostics", () => {
       // eslint-disable-next-line no-console
       console.log("IMP-A diagnostics:", JSON.stringify(codes));
       const hasUnresolvable = probe.systemNotes.some((n) =>
-        /cannot resolve .warp import|unresolvable/i.test(n),
+        /cannot resolve .thetalib import|unresolvable/i.test(n),
       );
       // Spec expects a diagnostic and no registration. Assert the spec so a
       // pass means the feature works and a fail documents the observed gap.
       expect(
         hasUnresolvable || !probe.registeredNames.includes("main"),
-        `expected loom/load/unresolvable-warp-path OR /main un-registered; got registered=${JSON.stringify(
+        `expected theta/load/unresolvable-thetalib-path OR /main un-registered; got registered=${JSON.stringify(
           probe.registeredNames,
         )} diagnostics=${JSON.stringify(codes)}`,
       ).toBe(true);
@@ -93,28 +93,28 @@ describe("imports & .warp — resolution and diagnostics", () => {
     }
   });
 
-  // IMP-B — import path pointing at a .loom (wrong extension). Spec imports.md
-  // §Path resolution + lexical §Extension matching: a non-`.warp` import path is
-  // `loom/parse/import-non-warp-extension`.
-  it("IMP-B: import from a .loom path is not rejected", async () => {
+  // IMP-B — import path pointing at a .theta (wrong extension). Spec imports.md
+  // §Path resolution + lexical §Extension matching: a non-`.thetalib` import path is
+  // `theta/parse/import-non-thetalib-extension`.
+  it("IMP-B: import from a .theta path is not rejected", async () => {
     const probe = await runProbe({
       provider,
       files: [
         {
           source: "project",
-          path: "main.loom",
+          path: "main.theta",
           text: [
             "---",
-            "description: import from loom",
+            "description: import from theta",
             "mode: prompt",
             "---",
-            'import { Author } from "./other.loom"',
+            'import { Author } from "./other.theta"',
             "@`say ok`",
           ].join("\n"),
         },
         {
           source: "project",
-          path: "other.loom",
+          path: "other.theta",
           text: ["---", "description: o", "mode: prompt", "---", "@`ok`"].join("\n"),
         },
       ],
@@ -126,11 +126,11 @@ describe("imports & .warp — resolution and diagnostics", () => {
       // eslint-disable-next-line no-console
       console.log("IMP-B diagnostics:", JSON.stringify(codes));
       const hasExtErr = probe.systemNotes.some((n) =>
-        /does not end in .warp|import-non-warp-extension/i.test(n),
+        /does not end in .thetalib|import-non-thetalib-extension/i.test(n),
       );
       expect(
         hasExtErr || !probe.registeredNames.includes("main"),
-        `expected loom/parse/import-non-warp-extension OR /main un-registered; got registered=${JSON.stringify(
+        `expected theta/parse/import-non-thetalib-extension OR /main un-registered; got registered=${JSON.stringify(
           probe.registeredNames,
         )} diagnostics=${JSON.stringify(codes)}`,
       ).toBe(true);
@@ -139,27 +139,27 @@ describe("imports & .warp — resolution and diagnostics", () => {
     }
   });
 
-  // IMP-C — importing a symbol that isn't exported by the resolved .warp.
-  // Spec imports.md §Unknown imported symbol: `loom/parse/import-unknown-symbol`.
+  // IMP-C — importing a symbol that isn't exported by the resolved .thetalib.
+  // Spec imports.md §Unknown imported symbol: `theta/parse/import-unknown-symbol`.
   it("IMP-C: importing an undeclared symbol is not diagnosed", async () => {
     const probe = await runProbe({
       provider,
       files: [
         {
           source: "project",
-          path: "main.loom",
+          path: "main.theta",
           text: [
             "---",
             "description: unknown symbol",
             "mode: prompt",
             "---",
-            'import { NotExported } from "./lib.warp"',
+            'import { NotExported } from "./lib.thetalib"',
             "@`say ok`",
           ].join("\n"),
         },
         {
           source: "project",
-          path: "lib.warp",
+          path: "lib.thetalib",
           text: "schema Author {\n  name: string\n}\n",
         },
       ],
@@ -175,7 +175,7 @@ describe("imports & .warp — resolution and diagnostics", () => {
       );
       expect(
         hasUnknown || !probe.registeredNames.includes("main"),
-        `expected loom/parse/import-unknown-symbol OR /main un-registered; got registered=${JSON.stringify(
+        `expected theta/parse/import-unknown-symbol OR /main un-registered; got registered=${JSON.stringify(
           probe.registeredNames,
         )} diagnostics=${JSON.stringify(codes)}`,
       ).toBe(true);
@@ -184,35 +184,35 @@ describe("imports & .warp — resolution and diagnostics", () => {
     }
   });
 
-  // IMP-D — a `.warp` top-level statement/query. Spec imports.md §.warp file
-  // rules: a top-level statement/query in a .warp is
-  // `loom/parse/warp-top-level-statement`.
-  it("IMP-D: a .warp top-level query/statement is not diagnosed", async () => {
+  // IMP-D — a `.thetalib` top-level statement/query. Spec imports.md §.thetalib file
+  // rules: a top-level statement/query in a .thetalib is
+  // `theta/parse/thetalib-top-level-statement`.
+  it("IMP-D: a .thetalib top-level query/statement is not diagnosed", async () => {
     const probe = await runProbe({
       provider,
       files: [
         {
           source: "project",
-          path: "main.loom",
+          path: "main.theta",
           text: [
             "---",
-            "description: warp toplevel",
+            "description: thetalib toplevel",
             "mode: prompt",
             "---",
-            'import { Author } from "./lib.warp"',
+            'import { Author } from "./lib.thetalib"',
             "@`say ok`",
           ].join("\n"),
         },
         {
           source: "project",
-          path: "lib.warp",
+          path: "lib.thetalib",
           // Illegal per spec: a top-level `let` binding and a top-level query.
           text: [
             "schema Author {",
             "  name: string",
             "}",
             "let leaked = 5",
-            "@`this is a top-level query in a .warp`",
+            "@`this is a top-level query in a .thetalib`",
           ].join("\n"),
         },
       ],
@@ -223,12 +223,12 @@ describe("imports & .warp — resolution and diagnostics", () => {
       console.log("IMP-D registered:", JSON.stringify(probe.registeredNames));
       // eslint-disable-next-line no-console
       console.log("IMP-D diagnostics:", JSON.stringify(codes));
-      const hasWarpTopLevel = probe.systemNotes.some((n) =>
-        /not permitted in .warp|warp-top-level-statement/i.test(n),
+      const hasThetaLibTopLevel = probe.systemNotes.some((n) =>
+        /not permitted in .thetalib|thetalib-top-level-statement/i.test(n),
       );
       expect(
-        hasWarpTopLevel,
-        `expected loom/parse/warp-top-level-statement; got registered=${JSON.stringify(
+        hasThetaLibTopLevel,
+        `expected theta/parse/thetalib-top-level-statement; got registered=${JSON.stringify(
           probe.registeredNames,
         )} diagnostics=${JSON.stringify(codes)}`,
       ).toBe(true);
@@ -237,33 +237,33 @@ describe("imports & .warp — resolution and diagnostics", () => {
     }
   });
 
-  // IMP-E — a circular import between .warp modules. Spec imports.md §Cycles:
-  // `loom/load/import-cycle`.
-  it("IMP-E: a circular .warp import is not detected", async () => {
+  // IMP-E — a circular import between .thetalib modules. Spec imports.md §Cycles:
+  // `theta/load/import-cycle`.
+  it("IMP-E: a circular .thetalib import is not detected", async () => {
     const probe = await runProbe({
       provider,
       files: [
         {
           source: "project",
-          path: "main.loom",
+          path: "main.theta",
           text: [
             "---",
             "description: cycle",
             "mode: prompt",
             "---",
-            'import { A } from "./a.warp"',
+            'import { A } from "./a.thetalib"',
             "@`say ok`",
           ].join("\n"),
         },
         {
           source: "project",
-          path: "a.warp",
-          text: ['import { B } from "./b.warp"', "schema A {\n  x: string\n}\n"].join("\n"),
+          path: "a.thetalib",
+          text: ['import { B } from "./b.thetalib"', "schema A {\n  x: string\n}\n"].join("\n"),
         },
         {
           source: "project",
-          path: "b.warp",
-          text: ['import { A } from "./a.warp"', "schema B {\n  y: string\n}\n"].join("\n"),
+          path: "b.thetalib",
+          text: ['import { A } from "./a.thetalib"', "schema B {\n  y: string\n}\n"].join("\n"),
         },
       ],
     });
@@ -278,7 +278,7 @@ describe("imports & .warp — resolution and diagnostics", () => {
       );
       expect(
         hasCycle,
-        `expected loom/load/import-cycle; got registered=${JSON.stringify(
+        `expected theta/load/import-cycle; got registered=${JSON.stringify(
           probe.registeredNames,
         )} diagnostics=${JSON.stringify(codes)}`,
       ).toBe(true);

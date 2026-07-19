@@ -2,7 +2,7 @@
 // conformance (QRY-22 / QRY-11 / REQ-QRY-36; the CAND-1 reduction).
 //
 // This suite drives a typed `@<Schema>` query end-to-end through the REAL
-// production collaborators — the whole-file parser (`parseLoomDocument`, which
+// production collaborators — the whole-file parser (`parseThetaDocument`, which
 // retains `schema X { … }` object-body fields), `lowerQueryResponseSchema`
 // (declared-schema → lowered JSON Schema, SUBS-1), the real `AjvSchemaValidator`,
 // and `buildTypedQueryValidation` (the QRY-22 seam over the `V13d` respond-repair
@@ -11,16 +11,16 @@
 //
 // It exists to answer the campaign's CAND-1 question (`status.md`): the live
 // H8a "typed-query lowering, bounded" bullet and the acceptance (b)/(c) typed
-// looms fail schema validation with the AJV message `"must be object"`. These
-// tests pin the CORRECT loom behaviour deterministically so we can classify
-// CAND-1 as a loom-defect vs a provider-capability / test-artifact issue:
+// thetas fail schema validation with the AJV message `"must be object"`. These
+// tests pin the CORRECT theta behaviour deterministically so we can classify
+// CAND-1 as a theta-defect vs a provider-capability / test-artifact issue:
 //
 //   - A CONFORMING object reply binds `Ok(value)`.
 //   - A NON-OBJECT reply (`null`, prose string, number) is NOT bound — it
 //     surfaces `Err(QueryError { kind: "validation", cause: "schema_validation" })`
 //     whose leading `ValidationIssue` is exactly the AJV `type` / `"must be
 //     object"` the live suites observe. That is REQ-QRY-36's "never bind an
-//     unvalidated response", so the live `"must be object"` is loom doing the
+//     unvalidated response", so the live `"must be object"` is theta doing the
 //     right thing, not a lowering defect.
 //   - A NON-CONFORMING object reply routes through the QRY-11 respond-repair
 //     loop; a follow-up that re-validates binds the corrected value.
@@ -49,11 +49,11 @@ import {
   type SchemaSlug,
 } from "../src/seams/schema-validator";
 import {
-  parseLoomDocument,
-  type ParseLoomDocumentDeps,
+  parseThetaDocument,
+  type ParseThetaDocumentDeps,
   type SchemaDecl,
-} from "../src/parser/loom-document";
-import type { LoomSource } from "../src/lexer/lexer";
+} from "../src/parser/theta-document";
+import type { ThetaSource } from "../src/lexer/lexer";
 import type { Checkpoint } from "../src/seams/checkpoint";
 
 // --- Substrate -------------------------------------------------------------
@@ -74,8 +74,8 @@ function config(): QueryToolLoopConfig {
   // supplies only the forced-respond payload.
   return {
     maxRounds: 0,
-    querySite: { file: "triage.loom", line: 1, column: 1 },
-    loomSlashName: "/triage",
+    querySite: { file: "triage.theta", line: 1, column: 1 },
+    thetaSlashName: "/triage",
     invocationId: "inv-s3",
     occurredAt: 0,
   };
@@ -95,7 +95,7 @@ class RespondingModel implements QueryModelDriver {
   }
 }
 
-/** Parse a `.loom` source and return its body's `schema` declarations. */
+/** Parse a `.theta` source and return its body's `schema` declarations. */
 function schemaDeclsOf(src: string): readonly SchemaDecl[] {
   const deps = {
     systemNote: {
@@ -104,13 +104,13 @@ function schemaDeclsOf(src: string): readonly SchemaDecl[] {
       emitDiagnostic: () => {},
     },
     modelMatcher: { resolve: () => "resolved" as const },
-  } as unknown as ParseLoomDocumentDeps;
-  const source: LoomSource = { path: "triage.loom", bytes: new TextEncoder().encode(src) };
-  const doc = parseLoomDocument(source, deps);
+  } as unknown as ParseThetaDocumentDeps;
+  const source: ThetaSource = { path: "triage.theta", bytes: new TextEncoder().encode(src) };
+  const doc = parseThetaDocument(source, deps);
   return doc.body.statements.filter((s): s is SchemaDecl => s.kind === "schema");
 }
 
-/** The shipped-shape triage schema (mirrors docs/examples/handle-error.loom). */
+/** The shipped-shape triage schema (mirrors docs/examples/handle-error.theta). */
 const TRIAGE_SOURCE = [
   "schema Triage {",
   '  category: "bug" | "feature" | "question",',
@@ -209,8 +209,8 @@ describe("e2e-S3 — CAND-1: a non-object reply surfaces Err(validation/schema_v
       expect(outcome.error.kind).toBe("validation");
       expect(outcome.error.cause).toBe("schema_validation");
       // The leading ValidationIssue is exactly the AJV `type` / "must be object"
-      // the live suites report as CAND-1 — proving the loom lowering is correct
-      // and the message is loom rejecting a non-object, not a lowering defect.
+      // the live suites report as CAND-1 — proving the theta lowering is correct
+      // and the message is theta rejecting a non-object, not a lowering defect.
       const first = outcome.error.validation_errors[0];
       expect(first?.schema_keyword).toBe("type");
       expect(first?.message).toBe("must be object");

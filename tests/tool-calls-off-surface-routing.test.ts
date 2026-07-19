@@ -3,23 +3,23 @@
 //
 // Spec: tool-calls.md §"Outcome enumeration" (the four off-surface outcomes),
 // cancellation.md §"Race semantics" (CNCL-1/CNCL-2/CNCL-3);
-// pi-integration-contract/host-interfaces-core.md §"Tool execution from loom
+// pi-integration-contract/host-interfaces-core.md §"Tool execution from theta
 // code" §"Outcome routing summary".
 //
 // The four off-surface code-tool outcomes each surface on their own channel,
-// **not** all on `loom/runtime/internal-error`:
-//   1. a pre-eval setup throw inside the `.loom`-callable parallel-batch adapter
+// **not** all on `theta/runtime/internal-error`:
+//   1. a pre-eval setup throw inside the `.theta`-callable parallel-batch adapter
 //      → `{ isError: true }` (message carrying the bare callable-set name) + one
-//      `loom/runtime/internal-error` diagnostic + one co-emitted `loom-system-note`;
-//   2. a non-conforming return shape → `loom/runtime/internal-error`
+//      `theta/runtime/internal-error` diagnostic + one co-emitted `theta-system-note`;
+//   2. a non-conforming return shape → `theta/runtime/internal-error`
 //      {tool-return-shape} (NOT a `CodeToolError`);
-//   3. a non-settling Promise → blocks at its `await` until `loomAbort.signal`
+//   3. a non-settling Promise → blocks at its `await` until `thetaAbort.signal`
 //      fires and surfaces via the `cause: "cancelled"` path (no `internal-error`);
 //   4. a post-cancel late settlement → discarded per CNCL-1/CNCL-2/CNCL-3 (no
 //      `internal-error`).
 //
 // Each test reds on its own primary assertion because the V14c behaviour is
-// absent: `routeLoomCallableSetupThrow` returns an inert non-error empty
+// absent: `routeThetaCallableSetupThrow` returns an inert non-error empty
 // envelope and emits nothing; `routeToolReturnShape` returns an inert
 // `conforming` outcome; `awaitToolSettlementOrAbort` returns an inert `settled`
 // sentinel (without awaiting a never-settling dispatch, so nothing hangs); and
@@ -30,7 +30,7 @@
 import { describe, expect, it } from "vitest";
 import type { Diagnostic, SourceRange } from "../src/diagnostics/diagnostic";
 import type { RuntimeEvent } from "../src/runtime/runtime-event-channel";
-import type { LoomValue } from "../src/runtime/value";
+import type { ThetaValue } from "../src/runtime/value";
 import type {
   AgentToolResultEnvelope,
   ToolLoweringSink,
@@ -38,13 +38,13 @@ import type {
 import {
   awaitToolSettlementOrAbort,
   discardPostCancelSettlement,
-  routeLoomCallableSetupThrow,
+  routeThetaCallableSetupThrow,
   routeToolReturnShape,
   type LateSettlementObserver,
 } from "../src/runtime/tool-call-off-surface";
 
 const SITE: { file: string; range: SourceRange } = {
-  file: "call.loom",
+  file: "call.theta",
   range: { start: { line: 3, column: 5 }, end: { line: 3, column: 9 } },
 };
 
@@ -70,14 +70,14 @@ class RecordingSink implements ToolLoweringSink {
 
 /** A `LateSettlementObserver` spy recording any forbidden post-cancel side effect. */
 class SpyObserver implements LateSettlementObserver {
-  readonly rebinds: LoomValue[] = [];
-  readonly errs: LoomValue[] = [];
+  readonly rebinds: ThetaValue[] = [];
+  readonly errs: ThetaValue[] = [];
   readonly runtimeEvents: RuntimeEvent[] = [];
   readonly diagnostics: Diagnostic[] = [];
-  rebind(value: LoomValue): void {
+  rebind(value: ThetaValue): void {
     this.rebinds.push(value);
   }
-  emitErr(error: LoomValue): void {
+  emitErr(error: ThetaValue): void {
     this.errs.push(error);
   }
   emitRuntimeEvent(event: RuntimeEvent): void {
@@ -89,18 +89,18 @@ class SpyObserver implements LateSettlementObserver {
 }
 
 // ===========================================================================
-// (1) Pre-eval setup throw inside the `.loom`-callable parallel-batch adapter →
-// `{ isError: true }` (bare callable-set name) + one `loom/runtime/internal-error`
-// diagnostic + one `loom-system-note` (tool-calls.md §"Outcome enumeration").
+// (1) Pre-eval setup throw inside the `.theta`-callable parallel-batch adapter →
+// `{ isError: true }` (bare callable-set name) + one `theta/runtime/internal-error`
+// diagnostic + one `theta-system-note` (tool-calls.md §"Outcome enumeration").
 // ===========================================================================
 
 // cka-13 / V14c: the TOOL code-keyed obligation area's off-surface outcome-routing
 // facet closes on V14c; the assertions in this file witness that facet — each of
 // the four off-surface outcomes on its own channel — against the shipped router.
-describe("V14c-T — pre-eval setup throw inside the `.loom`-callable adapter (tool-calls.md §Outcome enumeration)", () => {
+describe("V14c-T — pre-eval setup throw inside the `.theta`-callable adapter (tool-calls.md §Outcome enumeration)", () => {
   it("translates the captured setup throw into a clean { isError: true } value carrying the bare callable-set name", () => {
     const sink = new RecordingSink();
-    const result = routeLoomCallableSetupThrow(
+    const result = routeThetaCallableSetupThrow(
       new Error("boom"),
       "summarise",
       SITE,
@@ -114,28 +114,28 @@ describe("V14c-T — pre-eval setup throw inside the `.loom`-callable adapter (t
     expect(result.content).toHaveLength(1);
     expect(result.content[0]?.type).toBe("text");
     expect(result.content[0]?.text).toBe(
-      "loom summarise aborted with internal error: boom",
+      "theta summarise aborted with internal error: boom",
     );
     // Not the slash-prefixed user-facing framing.
-    expect(result.content[0]?.text).not.toContain("loom /summarise");
+    expect(result.content[0]?.text).not.toContain("theta /summarise");
   });
 
-  it("emits exactly one loom/runtime/internal-error diagnostic and exactly one loom-system-note in parallel", () => {
+  it("emits exactly one theta/runtime/internal-error diagnostic and exactly one theta-system-note in parallel", () => {
     const sink = new RecordingSink();
     const thrown = new Error("boom");
-    thrown.stack = "Error: boom\n    at adapter (call.loom:3:5)";
-    routeLoomCallableSetupThrow(thrown, "summarise", SITE, sink);
+    thrown.stack = "Error: boom\n    at adapter (call.theta:3:5)";
+    routeThetaCallableSetupThrow(thrown, "summarise", SITE, sink);
 
     // Exactly one internal-error diagnostic so an operator observes the failure
     // even though the model's surface is the tool result.
     expect(sink.diagnostics).toHaveLength(1);
     const diag = sink.diagnostics[0]!;
-    expect(diag.code).toBe("loom/runtime/internal-error");
+    expect(diag.code).toBe("theta/runtime/internal-error");
     // Message template from code-registry-runtime.md: `internal error: <error.message>`.
     expect(diag.message).toBe("internal error: boom");
     // Hint carries the underlying error.stack for operator triage.
-    expect(diag.hint).toBe("Error: boom\n    at adapter (call.loom:3:5)");
-    // Exactly one co-emitted loom-system-note.
+    expect(diag.hint).toBe("Error: boom\n    at adapter (call.theta:3:5)");
+    // Exactly one co-emitted theta-system-note.
     expect(sink.systemNotes).toHaveLength(1);
   });
 
@@ -143,7 +143,7 @@ describe("V14c-T — pre-eval setup throw inside the `.loom`-callable adapter (t
     const sink = new RecordingSink();
     const thrown = new Error("boom");
     thrown.stack = "";
-    routeLoomCallableSetupThrow(thrown, "summarise", SITE, sink);
+    routeThetaCallableSetupThrow(thrown, "summarise", SITE, sink);
 
     expect(sink.diagnostics).toHaveLength(1);
     expect(sink.diagnostics[0]?.hint).toBe("<no stack available>");
@@ -151,12 +151,12 @@ describe("V14c-T — pre-eval setup throw inside the `.loom`-callable adapter (t
 });
 
 // ===========================================================================
-// (2) Non-conforming return shape → `loom/runtime/internal-error`
+// (2) Non-conforming return shape → `theta/runtime/internal-error`
 // {tool-return-shape}, NOT a `CodeToolError` (host-interfaces-core.md §"Tool
-// execution from loom code").
+// execution from theta code").
 // ===========================================================================
 
-describe("V14c-T — non-conforming return shape routes to internal-error{tool-return-shape} (host-interfaces-core.md §Tool execution from loom code)", () => {
+describe("V14c-T — non-conforming return shape routes to internal-error{tool-return-shape} (host-interfaces-core.md §Tool execution from theta code)", () => {
   it("a resolved value that is not an object routes to internal-error with details.kind = 'tool-return-shape'", () => {
     const sink = new RecordingSink();
     const outcome = routeToolReturnShape(42, "read", SITE, sink);
@@ -165,7 +165,7 @@ describe("V14c-T — non-conforming return shape routes to internal-error{tool-r
       "return-shape-defect",
     );
     if (outcome.kind === "return-shape-defect") {
-      expect(outcome.diagnostic.code).toBe("loom/runtime/internal-error");
+      expect(outcome.diagnostic.code).toBe("theta/runtime/internal-error");
       expect(outcome.diagnostic.details?.kind).toBe("tool-return-shape");
       expect(outcome.diagnostic.details?.tool_name).toBe("read");
       // First-failing check in inspection order: the resolved value is not an object.
@@ -219,11 +219,11 @@ describe("V14c-T — non-conforming return shape routes to internal-error{tool-r
     const outcome = routeToolReturnShape("not an object", "read", SITE, sink);
 
     // The disposition is the runtime-defect surface, never a CodeToolError value
-    // loom code could `match` on.
+    // theta code could `match` on.
     expect(outcome.kind).not.toBe("conforming");
     if (outcome.kind === "return-shape-defect") {
       // The only surface is the internal-error diagnostic — carrying no code_tool tag.
-      expect(outcome.diagnostic.code).toBe("loom/runtime/internal-error");
+      expect(outcome.diagnostic.code).toBe("theta/runtime/internal-error");
       expect((outcome.diagnostic as { kind?: string }).kind).not.toBe("code_tool");
     }
   });
@@ -250,22 +250,22 @@ describe("V14c-T — non-conforming return shape routes to internal-error{tool-r
 });
 
 // ===========================================================================
-// (3) Non-settling Promise → blocks at its `await` until `loomAbort.signal`
+// (3) Non-settling Promise → blocks at its `await` until `thetaAbort.signal`
 // fires and surfaces via the `cause: "cancelled"` path, with NO internal-error
 // (tool-calls.md §"Outcome enumeration"; NOCEIL-1).
 // ===========================================================================
 
 describe("V14c-T — non-settling Promise surfaces via the cancelled path (tool-calls.md §Outcome enumeration)", () => {
-  it("a never-settling execute() Promise blocks until loomAbort fires, then surfaces cause: 'cancelled' with no internal-error", async () => {
+  it("a never-settling execute() Promise blocks until thetaAbort fires, then surfaces cause: 'cancelled' with no internal-error", async () => {
     const sink = new RecordingSink();
     const controller = new AbortController();
-    // A Promise that never settles — loom 1.0 makes no internal timeout attempt.
+    // A Promise that never settles — theta 1.0 makes no internal timeout attempt.
     const neverSettles = (): Promise<AgentToolResultEnvelope> =>
       new Promise<AgentToolResultEnvelope>(() => {
         // deliberately never resolve or reject
       });
 
-    // Start the call, then fire loomAbort so the blocked `await` observes it.
+    // Start the call, then fire thetaAbort so the blocked `await` observes it.
     const pending = awaitToolSettlementOrAbort(neverSettles, controller.signal, "read", sink);
     controller.abort();
     const outcome = await pending;
@@ -280,7 +280,7 @@ describe("V14c-T — non-settling Promise surfaces via the cancelled path (tool-
     }
     // No internal-error is emitted on the cancelled path.
     expect(
-      sink.diagnostics.filter((d) => d.code === "loom/runtime/internal-error"),
+      sink.diagnostics.filter((d) => d.code === "theta/runtime/internal-error"),
       "no internal-error on the cancelled path",
     ).toEqual([]);
   });
@@ -340,13 +340,13 @@ describe("V14c-T — post-cancel late settlement is discarded (cancellation.md �
   it("CNCL-2/CNCL-3: an OOM-style late reject is still discarded — no internal-error of any severity", () => {
     const observer = new SpyObserver();
     // A late rejection whose .message would otherwise be diagnostic-worthy — promotion
-    // to loom/runtime/internal-error would re-introduce the second-event surface CNCL-2/3 forbid.
+    // to theta/runtime/internal-error would re-introduce the second-event surface CNCL-2/3 forbid.
     discardPostCancelSettlement(
       { kind: "reject", reason: new Error("JavaScript heap out of memory") },
       observer,
     );
     expect(
-      observer.diagnostics.filter((d) => d.code === "loom/runtime/internal-error"),
+      observer.diagnostics.filter((d) => d.code === "theta/runtime/internal-error"),
       "no internal-error promoted from a discarded late reject",
     ).toEqual([]);
   });

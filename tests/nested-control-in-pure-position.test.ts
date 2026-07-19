@@ -7,25 +7,25 @@ import type {
 import {
   createProductionProducerDeps,
   type PiToolDispatch,
-} from "../src/extension/production-loom-producer";
+} from "../src/extension/production-theta-producer";
 import type {
-  LoomCompositionInput,
+  ThetaCompositionInput,
   ConversationBindInput,
-} from "../src/extension/loom-composition-producer";
+} from "../src/extension/theta-composition-producer";
 import { executeBody } from "../src/runtime/statement-executor";
 import type { RuntimeRoot } from "../src/runtime-root";
 import type { Checkpoint } from "../src/seams/checkpoint";
 import type { AgentToolResultEnvelope } from "../src/runtime/tool-call-execute";
-import { isResultValue, type LoomValue, type ResultValue } from "../src/runtime/value";
+import { isResultValue, type ThetaValue, type ResultValue } from "../src/runtime/value";
 import type {
   CallExpr,
   Expr,
-  LoomBody,
+  ThetaBody,
   MatchExpr,
   ObjectFieldNode,
   PatternNode,
   Stmt,
-} from "../src/parser/loom-document";
+} from "../src/parser/theta-document";
 import type { ParsedFrontmatter } from "../src/parser/frontmatter";
 import type { SourceRange } from "../src/diagnostics/diagnostic";
 
@@ -137,7 +137,7 @@ function letStmt(name: string, init: Expr): Stmt {
   return { kind: "let", name, mutable: false, annotation: null, init, range: span() };
 }
 
-function body(statements: readonly Stmt[], tail: Expr | null): LoomBody {
+function body(statements: readonly Stmt[], tail: Expr | null): ThetaBody {
   return { statements, tail };
 }
 
@@ -171,27 +171,27 @@ function producer(opts: ProducerOpts) {
   });
 }
 
-function promptLoom(loomBody: LoomBody, tools?: readonly string[]): LoomCompositionInput {
+function promptTheta(thetaBody: ThetaBody, tools?: readonly string[]): ThetaCompositionInput {
   const frontmatter: ParsedFrontmatter = {
     mode: "prompt",
     ...(tools !== undefined ? { tools } : {}),
   };
-  return { slashName: "demo", sourcePath: "/looms/demo.loom", frontmatter, body: loomBody };
+  return { slashName: "demo", sourcePath: "/theta/demo.theta", frontmatter, body: thetaBody };
 }
 
 async function runBody(
   deps: ReturnType<typeof producer>,
-  loom: LoomCompositionInput,
-  paramBindings?: ReadonlyMap<string, LoomValue>,
-): Promise<{ readonly outcome: string; readonly value: LoomValue | undefined }> {
+  theta: ThetaCompositionInput,
+  paramBindings?: ReadonlyMap<string, ThetaValue>,
+): Promise<{ readonly outcome: string; readonly value: ThetaValue | undefined }> {
   const bindInput: ConversationBindInput = {
-    loom,
+    theta,
     args: "",
     ctx: ctxDouble(),
     ...(paramBindings !== undefined ? { paramBindings } : {}),
   };
   const binding = deps.bindPromptConversation(bindInput);
-  const execution = await executeBody(loom.body, binding.executeDeps);
+  const execution = await executeBody(theta.body, binding.executeDeps);
   return { outcome: execution.outcome, value: execution.result.value };
 }
 
@@ -238,14 +238,14 @@ function grepCall(): CallExpr {
 describe("bullet-2 — nested `match` as an object-field / array-element value", () => {
   it("object field `{ f: match Ok(1) { Ok(v) => v, _ => 0 } }` evaluates the match (not null)", async () => {
     // let p = { f: match Ok(1) { Ok(v) => v, _ => 0 } }; tail p.f
-    const loom = promptLoom(
+    const theta = promptTheta(
       body(
         [letStmt("p", objectExpr(null, [{ name: "f", value: unwrapOrMatch(okCtor(numberExpr("1")), numberExpr("0")) }]))],
         memberExpr(identExpr("p"), "f"),
       ),
     );
 
-    const r = await runBody(producer({}), loom);
+    const r = await runBody(producer({}), theta);
 
     expect(r.outcome).toBe("success");
     expect(r.value, "the nested match in the field value evaluated to Ok(1)'s payload, not null").toBe(1);
@@ -253,14 +253,14 @@ describe("bullet-2 — nested `match` as an object-field / array-element value",
 
   it("array element `let a = [ match Ok(2) { Ok(v) => v, _ => 0 } ]; a[0]` evaluates the match (not null)", async () => {
     // let a = [ match Ok(2) { Ok(v) => v, _ => 0 } ]; tail a[0]
-    const loom = promptLoom(
+    const theta = promptTheta(
       body(
         [letStmt("a", arrayExpr([unwrapOrMatch(okCtor(numberExpr("2")), numberExpr("0"))]))],
         indexExpr(identExpr("a"), numberExpr("0")),
       ),
     );
 
-    const r = await runBody(producer({}), loom);
+    const r = await runBody(producer({}), theta);
 
     expect(r.outcome).toBe("success");
     expect(r.value, "the nested match in the array element evaluated, not null").toBe(2);
@@ -275,35 +275,35 @@ describe("bullet-2 — effectful tool-call as an object-field / array-element va
   it("object field `{ hits: grep({...}) }` dispatches the tool and binds its Result (not null)", async () => {
     const tool = okGrep();
     // let o = { hits: grep({ pattern, path }) }; tail o.hits
-    const loom = promptLoom(
+    const theta = promptTheta(
       body([letStmt("o", objectExpr(null, [{ name: "hits", value: grepCall() }]))], memberExpr(identExpr("o"), "hits")),
       ["grep"],
     );
 
-    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), loom);
+    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), theta);
 
     expect(tool.received(), "the tool dispatched with the real lowered params").toEqual({ pattern: "TODO", path: "src" });
     expect(r.outcome).toBe("success");
-    expect(isResultValue(r.value as LoomValue), "the field holds the dispatched tool Result, not null").toBe(true);
+    expect(isResultValue(r.value as ThetaValue), "the field holds the dispatched tool Result, not null").toBe(true);
     const rv = r.value as ResultValue;
     expect(rv.ok).toBe(true);
-    expect((rv as { value: LoomValue }).value).toBe("42 matches");
+    expect((rv as { value: ThetaValue }).value).toBe("42 matches");
   });
 
   it("array element `let a = [ grep({...}) ]; a[0]` dispatches the tool and binds its Result (not null)", async () => {
     const tool = okGrep();
     // let a = [ grep({ pattern, path }) ]; tail a[0]
-    const loom = promptLoom(
+    const theta = promptTheta(
       body([letStmt("a", arrayExpr([grepCall()]))], indexExpr(identExpr("a"), numberExpr("0"))),
       ["grep"],
     );
 
-    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), loom);
+    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), theta);
 
     expect(r.outcome).toBe("success");
-    expect(isResultValue(r.value as LoomValue), "the element holds the dispatched tool Result, not null").toBe(true);
+    expect(isResultValue(r.value as ThetaValue), "the element holds the dispatched tool Result, not null").toBe(true);
     expect((r.value as ResultValue).ok).toBe(true);
-    expect((r.value as { value: LoomValue }).value).toBe("42 matches");
+    expect((r.value as { value: ThetaValue }).value).toBe("42 matches");
   });
 });
 
@@ -315,12 +315,12 @@ describe("bullet-2 — effectful tool-call as an object-field / array-element va
 describe("bullet-2 — a failing nested effectful form propagates (does not swallow to null)", () => {
   it("`[ grep({...})? ]` propagates the tool Err identically to `grep({...})?` in tail position", async () => {
     // Baseline: the same `?`-wrapped failing tool-call in tail position.
-    const tailLoom = promptLoom(body([], tryExpr(grepCall())), ["grep"]);
-    const tail = await runBody(producer({ resolvePiTool: failingGrep() }), tailLoom);
+    const tailTheta = promptTheta(body([], tryExpr(grepCall())), ["grep"]);
+    const tail = await runBody(producer({ resolvePiTool: failingGrep() }), tailTheta);
 
     // Nested: the SAME form as the sole element of an array literal.
-    const nestedLoom = promptLoom(body([], arrayExpr([tryExpr(grepCall())])), ["grep"]);
-    const nested = await runBody(producer({ resolvePiTool: failingGrep() }), nestedLoom);
+    const nestedTheta = promptTheta(body([], arrayExpr([tryExpr(grepCall())])), ["grep"]);
+    const nested = await runBody(producer({ resolvePiTool: failingGrep() }), nestedTheta);
 
     expect(tail.outcome, "tail-position `?` over a failing tool-call fails").toBe("fail");
     expect(nested.outcome, "the nested-position form propagates the SAME failure, not success/null").toBe(
@@ -342,60 +342,60 @@ describe("bullet-2 — a failing nested effectful form propagates (does not swal
 
 describe("bullet-2 residual — control/effect under a pure operator on an inline composite", () => {
   it("index over an inline array holding a `match`: `[ match Ok(7){...} ][0]` evaluates (not null)", async () => {
-    const loom = promptLoom(
+    const theta = promptTheta(
       body([], indexExpr(arrayExpr([unwrapOrMatch(okCtor(numberExpr("7")), numberExpr("0"))]), numberExpr("0"))),
     );
-    const r = await runBody(producer({}), loom);
+    const r = await runBody(producer({}), theta);
     expect(r.outcome).toBe("success");
     expect(r.value, "the nested match under an inline-array index evaluated, not null").toBe(7);
   });
 
   it("member over an inline object holding a `match`: `{ f: match Ok(8){...} }.f` evaluates (not null)", async () => {
-    const loom = promptLoom(
+    const theta = promptTheta(
       body([], memberExpr(objectExpr(null, [{ name: "f", value: unwrapOrMatch(okCtor(numberExpr("8")), numberExpr("0")) }]), "f")),
     );
-    const r = await runBody(producer({}), loom);
+    const r = await runBody(producer({}), theta);
     expect(r.outcome).toBe("success");
     expect(r.value, "the nested match under an inline-object member evaluated, not null").toBe(8);
   });
 
   it("index over an inline array holding an effect: `[ grep() ][0]` dispatches the tool (not null)", async () => {
     const tool = okGrep();
-    const loom = promptLoom(body([], indexExpr(arrayExpr([grepCall()]), numberExpr("0"))), ["grep"]);
-    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), loom);
+    const theta = promptTheta(body([], indexExpr(arrayExpr([grepCall()]), numberExpr("0"))), ["grep"]);
+    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), theta);
     expect(tool.received(), "the tool dispatched with the real lowered params").toEqual({ pattern: "TODO", path: "src" });
     expect(r.outcome).toBe("success");
-    expect(isResultValue(r.value as LoomValue), "the index holds the dispatched tool Result, not null").toBe(true);
-    expect((r.value as { value: LoomValue }).value).toBe("42 matches");
+    expect(isResultValue(r.value as ThetaValue), "the index holds the dispatched tool Result, not null").toBe(true);
+    expect((r.value as { value: ThetaValue }).value).toBe("42 matches");
   });
 
   it("member over an inline object holding an effect: `{ hits: grep() }.hits` dispatches (not null)", async () => {
     const tool = okGrep();
-    const loom = promptLoom(
+    const theta = promptTheta(
       body([], memberExpr(objectExpr(null, [{ name: "hits", value: grepCall() }]), "hits")),
       ["grep"],
     );
-    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), loom);
+    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), theta);
     expect(tool.received()).toEqual({ pattern: "TODO", path: "src" });
     expect(r.outcome).toBe("success");
-    expect(isResultValue(r.value as LoomValue), "the member holds the dispatched tool Result, not null").toBe(true);
-    expect((r.value as { value: LoomValue }).value).toBe("42 matches");
+    expect(isResultValue(r.value as ThetaValue), "the member holds the dispatched tool Result, not null").toBe(true);
+    expect((r.value as { value: ThetaValue }).value).toBe("42 matches");
   });
 
   it("binary `+` over an index over an inline array: does not coerce a silent null to `\"nullx\"`", async () => {
     // `[ match Ok("hi") { Ok(v)=>v, _=>"" } ][0] + "!"` — pre-fix the index was a
     // silent `null` coerced to `"null!"`; post-fix it is `"hi!"`.
     const indexed = indexExpr(arrayExpr([unwrapOrMatch(okCtor(stringExpr("hi")), stringExpr(""))]), numberExpr("0"));
-    const loom = promptLoom(body([], binaryExpr("+", indexed, stringExpr("!"))));
-    const r = await runBody(producer({}), loom);
+    const theta = promptTheta(body([], binaryExpr("+", indexed, stringExpr("!"))));
+    const r = await runBody(producer({}), theta);
     expect(r.outcome).toBe("success");
     expect(r.value, "binary `+` operated on the evaluated control value, not a coerced null").toBe("hi!");
   });
 
   it("ternary evaluates ONLY the taken branch: `true ? [ match Ok(9){...} ][0] : 0` -> 9", async () => {
     const indexed = indexExpr(arrayExpr([unwrapOrMatch(okCtor(numberExpr("9")), numberExpr("0"))]), numberExpr("0"));
-    const loom = promptLoom(body([], ternaryExpr(boolExpr(true), indexed, numberExpr("0"))));
-    const r = await runBody(producer({}), loom);
+    const theta = promptTheta(body([], ternaryExpr(boolExpr(true), indexed, numberExpr("0"))));
+    const r = await runBody(producer({}), theta);
     expect(r.outcome).toBe("success");
     expect(r.value).toBe(9);
   });
@@ -403,8 +403,8 @@ describe("bullet-2 residual — control/effect under a pure operator on an inlin
   it("ternary does NOT dispatch an effect in the not-taken branch: `false ? [ grep() ][0] : 5` -> 5, no dispatch", async () => {
     const tool = okGrep();
     const indexed = indexExpr(arrayExpr([grepCall()]), numberExpr("0"));
-    const loom = promptLoom(body([], ternaryExpr(boolExpr(false), indexed, numberExpr("5"))), ["grep"]);
-    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), loom);
+    const theta = promptTheta(body([], ternaryExpr(boolExpr(false), indexed, numberExpr("5"))), ["grep"]);
+    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), theta);
     expect(r.outcome).toBe("success");
     expect(r.value).toBe(5);
     expect(tool.received(), "the not-taken branch's effect must NOT dispatch").toBeUndefined();
@@ -413,8 +413,8 @@ describe("bullet-2 residual — control/effect under a pure operator on an inlin
   it("`&&` short-circuits: `false && ([ grep() ].length > 0)` -> false, no dispatch", async () => {
     const tool = okGrep();
     const rhs = binaryExpr(">", methodCallExpr(arrayExpr([grepCall()]), "length"), numberExpr("0"));
-    const loom = promptLoom(body([], binaryExpr("&&", boolExpr(false), rhs)), ["grep"]);
-    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), loom);
+    const theta = promptTheta(body([], binaryExpr("&&", boolExpr(false), rhs)), ["grep"]);
+    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), theta);
     expect(r.outcome).toBe("success");
     expect(r.value).toBe(false);
     expect(tool.received(), "the short-circuited right operand's effect must NOT dispatch").toBeUndefined();
@@ -422,19 +422,19 @@ describe("bullet-2 residual — control/effect under a pure operator on an inlin
 
   it("method-call over an inline array holding an effect: `[ grep() ].length` dispatches -> 1", async () => {
     const tool = okGrep();
-    const loom = promptLoom(body([], methodCallExpr(arrayExpr([grepCall()]), "length")), ["grep"]);
-    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), loom);
+    const theta = promptTheta(body([], methodCallExpr(arrayExpr([grepCall()]), "length")), ["grep"]);
+    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), theta);
     expect(tool.received(), "the receiver's effect dispatched").toEqual({ pattern: "TODO", path: "src" });
     expect(r.outcome).toBe("success");
     expect(r.value).toBe(1);
   });
 
   it("result-ctor over a `match`: `Ok(match Ok(5){...})` evaluates the arg (not Ok(null))", async () => {
-    const loom = promptLoom(body([], okCtor(unwrapOrMatch(okCtor(numberExpr("5")), numberExpr("0")))));
-    const r = await runBody(producer({}), loom);
+    const theta = promptTheta(body([], okCtor(unwrapOrMatch(okCtor(numberExpr("5")), numberExpr("0")))));
+    const r = await runBody(producer({}), theta);
     expect(r.outcome).toBe("success");
-    expect(isResultValue(r.value as LoomValue)).toBe(true);
-    expect((r.value as { value: LoomValue }).value).toBe(5);
+    expect(isResultValue(r.value as ThetaValue)).toBe(true);
+    expect((r.value as { value: ThetaValue }).value).toBe(5);
   });
 });
 
@@ -442,12 +442,12 @@ describe("bullet-2 residual — a failing effect under a pure operator propagate
   // Baseline terminal outcome: the same `?`-wrapped failing tool-call in tail
   // position. Every inline-operator shape below must match it exactly.
   async function tailBaseline(): Promise<string> {
-    const tailLoom = promptLoom(body([], tryExpr(grepCall())), ["grep"]);
-    return (await runBody(producer({ resolvePiTool: failingGrep() }), tailLoom)).outcome;
+    const tailTheta = promptTheta(body([], tryExpr(grepCall())), ["grep"]);
+    return (await runBody(producer({ resolvePiTool: failingGrep() }), tailTheta)).outcome;
   }
 
-  async function nestedOutcome(tail: Expr): Promise<{ readonly outcome: string; readonly value: LoomValue | undefined }> {
-    return runBody(producer({ resolvePiTool: failingGrep() }), promptLoom(body([], tail), ["grep"]));
+  async function nestedOutcome(tail: Expr): Promise<{ readonly outcome: string; readonly value: ThetaValue | undefined }> {
+    return runBody(producer({ resolvePiTool: failingGrep() }), promptTheta(body([], tail), ["grep"]));
   }
 
   it("index `[ grep()? ][0]`, member `{ f: grep()? }.f`, binary, ternary, method-call, result-ctor all fail identically", async () => {
@@ -482,7 +482,7 @@ describe("bullet-2 residual — a failing effect under a pure operator propagate
 // bypassed the async executor (`evalAsResult`'s delegate predicate excluded the
 // pure-operator kinds), fell to the sync pure host, and either silently yielded
 // a `null` scrutinee (→ wildcard arm, wrong `success` value) or threw a raw
-// `TypeError` on `null.ok` (→ `loom/runtime/internal-error` abort). Post-fix the
+// `TypeError` on `null.ok` (→ `theta/runtime/internal-error` abort). Post-fix the
 // operator node routes through `evalExpr` RAW (no `asResultValue` wrap) so the
 // nested effect dispatches and the TRUE value reaches `evaluateMatch` /
 // `evaluateQuestion`.
@@ -492,8 +492,8 @@ describe("bullet-2 final residual — control/effect operator expr as the `match
   it("`match [grep()][0] { Ok(v)=>v, _=>0 }` dispatches the effect and matches its Result payload", async () => {
     const tool = okGrep();
     const scrutinee = indexExpr(arrayExpr([grepCall()]), numberExpr("0"));
-    const loom = promptLoom(body([], unwrapOrMatch(scrutinee, numberExpr("0"))), ["grep"]);
-    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), loom);
+    const theta = promptTheta(body([], unwrapOrMatch(scrutinee, numberExpr("0"))), ["grep"]);
+    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), theta);
     expect(tool.received(), "the scrutinee's nested effect dispatched (not silent-null → wildcard arm)").toEqual({
       pattern: "TODO",
       path: "src",
@@ -505,8 +505,8 @@ describe("bullet-2 final residual — control/effect operator expr as the `match
   it("`[grep()][0]?` dispatches the effect and unwraps its Ok payload", async () => {
     const tool = okGrep();
     const operand = tryExpr(indexExpr(arrayExpr([grepCall()]), numberExpr("0")));
-    const loom = promptLoom(body([], operand), ["grep"]);
-    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), loom);
+    const theta = promptTheta(body([], operand), ["grep"]);
+    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), theta);
     expect(tool.received(), "the `?`-operand's nested effect dispatched (not silent-null → TypeError)").toEqual({
       pattern: "TODO",
       path: "src",
@@ -518,8 +518,8 @@ describe("bullet-2 final residual — control/effect operator expr as the `match
   it("`match { f: grep() }.f { Ok(v)=>v, _=>0 }` (member scrutinee) dispatches and matches", async () => {
     const tool = okGrep();
     const scrutinee = memberExpr(objectExpr(null, [{ name: "f", value: grepCall() }]), "f");
-    const loom = promptLoom(body([], unwrapOrMatch(scrutinee, numberExpr("0"))), ["grep"]);
-    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), loom);
+    const theta = promptTheta(body([], unwrapOrMatch(scrutinee, numberExpr("0"))), ["grep"]);
+    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), theta);
     expect(tool.received()).toEqual({ pattern: "TODO", path: "src" });
     expect(r.outcome).toBe("success");
     expect(r.value).toBe("42 matches");
@@ -529,8 +529,8 @@ describe("bullet-2 final residual — control/effect operator expr as the `match
     const tool = okGrep();
     const taken = indexExpr(arrayExpr([grepCall()]), numberExpr("0"));
     const operand = tryExpr(ternaryExpr(boolExpr(true), taken, okCtor(stringExpr(""))));
-    const loom = promptLoom(body([], operand), ["grep"]);
-    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), loom);
+    const theta = promptTheta(body([], operand), ["grep"]);
+    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), theta);
     expect(tool.received()).toEqual({ pattern: "TODO", path: "src" });
     expect(r.outcome).toBe("success");
     expect(r.value).toBe("42 matches");
@@ -539,22 +539,22 @@ describe("bullet-2 final residual — control/effect operator expr as the `match
   it("`Ok(grep())?` (result-ctor operand) unwraps the outer Ok to the dispatched inner Result", async () => {
     const tool = okGrep();
     const operand = tryExpr(okCtor(grepCall()));
-    const loom = promptLoom(body([], operand), ["grep"]);
-    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), loom);
+    const theta = promptTheta(body([], operand), ["grep"]);
+    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), theta);
     expect(tool.received()).toEqual({ pattern: "TODO", path: "src" });
     expect(r.outcome).toBe("success");
     // `Ok(grep())` = Ok(Ok("42 matches")); `?` unwraps the outer Ok to the inner Result.
-    expect(isResultValue(r.value as LoomValue), "`?` unwrapped to the inner dispatched Result").toBe(true);
+    expect(isResultValue(r.value as ThetaValue), "`?` unwrapped to the inner dispatched Result").toBe(true);
     expect((r.value as ResultValue).ok).toBe(true);
-    expect((r.value as { value: LoomValue }).value).toBe("42 matches");
+    expect((r.value as { value: ThetaValue }).value).toBe("42 matches");
   });
 });
 
 describe("bullet-2 final residual — a NON-Result `match`-scrutinee still matches by-value (no Ok-wrapping regression)", () => {
   it("`match [1][0] { 1 => 100, _ => 0 }` (index scrutinee) matches the literal `1`, not `Ok(1)`", async () => {
     const scrutinee = indexExpr(arrayExpr([numberExpr("1")]), numberExpr("0"));
-    const loom = promptLoom(body([], matchLiteral(scrutinee, [{ lit: 1, body: numberExpr("100") }], numberExpr("0"))));
-    const r = await runBody(producer({}), loom);
+    const theta = promptTheta(body([], matchLiteral(scrutinee, [{ lit: 1, body: numberExpr("100") }], numberExpr("0"))));
+    const r = await runBody(producer({}), theta);
     expect(r.outcome).toBe("success");
     expect(r.value, "the resolved scrutinee 1 matched the literal arm (would be wildcard if wrapped in Ok(1))").toBe(
       100,
@@ -563,8 +563,8 @@ describe("bullet-2 final residual — a NON-Result `match`-scrutinee still match
 
   it('`match ("a"+"b") { "ab" => 200, _ => 0 }` (binary scrutinee) matches the literal string, not `Ok("ab")`', async () => {
     const scrutinee = binaryExpr("+", stringExpr("a"), stringExpr("b"));
-    const loom = promptLoom(body([], matchLiteral(scrutinee, [{ lit: "ab", body: numberExpr("200") }], numberExpr("0"))));
-    const r = await runBody(producer({}), loom);
+    const theta = promptTheta(body([], matchLiteral(scrutinee, [{ lit: "ab", body: numberExpr("200") }], numberExpr("0"))));
+    const r = await runBody(producer({}), theta);
     expect(r.outcome).toBe("success");
     expect(r.value).toBe(200);
   });
@@ -572,10 +572,10 @@ describe("bullet-2 final residual — a NON-Result `match`-scrutinee still match
   it("`match [grep()].length { 1 => 300, _ => 0 }` (method-call scrutinee) dispatches, matches the number 1", async () => {
     const tool = okGrep();
     const scrutinee = methodCallExpr(arrayExpr([grepCall()]), "length");
-    const loom = promptLoom(body([], matchLiteral(scrutinee, [{ lit: 1, body: numberExpr("300") }], numberExpr("0"))), [
+    const theta = promptTheta(body([], matchLiteral(scrutinee, [{ lit: 1, body: numberExpr("300") }], numberExpr("0"))), [
       "grep",
     ]);
-    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), loom);
+    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), theta);
     expect(tool.received(), "the method-call receiver's effect dispatched").toEqual({ pattern: "TODO", path: "src" });
     expect(r.outcome).toBe("success");
     expect(r.value, "the resolved length 1 matched by value, not Ok-wrapped").toBe(300);
@@ -586,8 +586,8 @@ describe("bullet-2 final residual — short-circuit / not-taken branch does NOT 
   it("`match (false ? [grep()][0] : Ok(\"x\")) { Ok(v)=>v, _=>0 }` takes the untaken-effect-free branch, no dispatch", async () => {
     const tool = okGrep();
     const scrutinee = ternaryExpr(boolExpr(false), indexExpr(arrayExpr([grepCall()]), numberExpr("0")), okCtor(stringExpr("x")));
-    const loom = promptLoom(body([], unwrapOrMatch(scrutinee, numberExpr("0"))), ["grep"]);
-    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), loom);
+    const theta = promptTheta(body([], unwrapOrMatch(scrutinee, numberExpr("0"))), ["grep"]);
+    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), theta);
     expect(r.outcome).toBe("success");
     expect(r.value).toBe("x");
     expect(tool.received(), "the not-taken ternary branch's effect must NOT dispatch").toBeUndefined();
@@ -597,10 +597,10 @@ describe("bullet-2 final residual — short-circuit / not-taken branch does NOT 
     const tool = okGrep();
     const rhs = binaryExpr(">", methodCallExpr(arrayExpr([grepCall()]), "length"), numberExpr("0"));
     const scrutinee = binaryExpr("&&", boolExpr(false), rhs);
-    const loom = promptLoom(body([], matchLiteral(scrutinee, [{ lit: false, body: numberExpr("42") }], numberExpr("0"))), [
+    const theta = promptTheta(body([], matchLiteral(scrutinee, [{ lit: false, body: numberExpr("42") }], numberExpr("0"))), [
       "grep",
     ]);
-    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), loom);
+    const r = await runBody(producer({ resolvePiTool: tool.resolvePiTool }), theta);
     expect(r.outcome).toBe("success");
     expect(r.value, "the resolved scrutinee false matched by value (not Ok-wrapped)").toBe(42);
     expect(tool.received(), "the short-circuited `&&` right operand's effect must NOT dispatch").toBeUndefined();
@@ -609,16 +609,16 @@ describe("bullet-2 final residual — short-circuit / not-taken branch does NOT 
 
 describe("bullet-2 final residual — a failing effect under a `?`-operand / `match`-scrutinee propagates (not internal-error, not silent-null)", () => {
   async function tailBaseline(): Promise<string> {
-    const tailLoom = promptLoom(body([], tryExpr(grepCall())), ["grep"]);
-    return (await runBody(producer({ resolvePiTool: failingGrep() }), tailLoom)).outcome;
+    const tailTheta = promptTheta(body([], tryExpr(grepCall())), ["grep"]);
+    return (await runBody(producer({ resolvePiTool: failingGrep() }), tailTheta)).outcome;
   }
 
   it("`[grep()][0]?` over a failing tool-call propagates the SAME failure as tail position (no `internal-error`, no silent null)", async () => {
     const baseline = await tailBaseline();
     expect(baseline, "tail-position `?` over a failing tool-call fails").toBe("fail");
     const operand = tryExpr(indexExpr(arrayExpr([grepCall()]), numberExpr("0")));
-    const loom = promptLoom(body([], operand), ["grep"]);
-    const r = await runBody(producer({ resolvePiTool: failingGrep() }), loom);
+    const theta = promptTheta(body([], operand), ["grep"]);
+    const r = await runBody(producer({ resolvePiTool: failingGrep() }), theta);
     expect(r.outcome, "the operator `?`-operand propagates the failure, not a silent-null internal-error").toBe(baseline);
     expect(r.value, "a failing nested effect under `?` does not yield a bound null value").not.toBe(null);
   });

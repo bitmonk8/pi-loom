@@ -1,4 +1,4 @@
-// V9m / V9m-T — `LoomRegistry` drain-state contract: the closed three-arm
+// V9m / V9m-T — `ThetaRegistry` drain-state contract: the closed three-arm
 // slash-dispatch routing, the `session_shutdown` handler-entry short-circuit
 // predicate, the read-failure fail-safe at both `readDrainState` call sites,
 // and the superseded-entry dispatch sub-case of arm (a).
@@ -12,8 +12,8 @@
 
 import type {
   DrainStateSnapshot,
-  LoomRegistry,
-  ParsedLoom,
+  ThetaRegistry,
+  ParsedTheta,
 } from "./reload-wiring";
 
 /**
@@ -27,7 +27,7 @@ export type DispatchArm = "dispatch" | "shutting-down" | "degraded-needs-reload"
 
 /** Arm-(b) system note (drain-state-contract.md *Methods* arm (b)). */
 export function shuttingDownNote(name: string): string {
-  return `loom /${name}: extension shutting down`;
+  return `theta /${name}: extension shutting down`;
 }
 
 /**
@@ -35,7 +35,7 @@ export function shuttingDownNote(name: string): string {
  * PIC-31 slash-site read-failure fail-safe note).
  */
 export function degradedNote(name: string): string {
-  return `loom /${name}: extension degraded; /reload to recover`;
+  return `theta /${name}: extension degraded; /reload to recover`;
 }
 
 /**
@@ -43,7 +43,7 @@ export function degradedNote(name: string): string {
  * (registration-steps.md#superseded-entry-dispatch).
  */
 export function supersededNote(name: string): string {
-  return `loom /${name}: superseded; /reload to refresh`;
+  return `theta /${name}: superseded; /reload to refresh`;
 }
 
 /**
@@ -137,15 +137,15 @@ export function evalShutdownShortCircuitWithReadFailover(
   return shouldShortCircuitShutdown(snapshot);
 }
 
-/** The outcome of a slash dispatch: dispatch the loom, or return a system note. */
+/** The outcome of a slash dispatch: dispatch the theta, or return a system note. */
 export type SlashDispatchOutcome =
-  | { readonly kind: "dispatch"; readonly loom: ParsedLoom }
+  | { readonly kind: "dispatch"; readonly theta: ParsedTheta }
   | { readonly kind: "note"; readonly content: string };
 
 /**
  * Resolve a `/<name>` dispatch through the drain-state contract: route the
  * snapshot through the three-arm enumeration, then — on arm (a) — look the slash
- * name up in the registry entry table. A hit dispatches the loom; a miss returns
+ * name up in the registry entry table. A hit dispatches the theta; a miss returns
  * the fixed superseded note (registration-steps.md#superseded-entry-dispatch), a
  * sub-case of arm (a) that introduces no fourth `readDrainState` arm.
  *
@@ -153,7 +153,7 @@ export type SlashDispatchOutcome =
 export function resolveSlashDispatch(
   name: string,
   snapshot: DrainStateSnapshot,
-  registry: LoomRegistry,
+  registry: ThetaRegistry,
 ): SlashDispatchOutcome {
   const arm = routeDrainStateArm(snapshot);
   if (arm === "shutting-down") {
@@ -163,20 +163,20 @@ export function resolveSlashDispatch(
     return { kind: "note", content: degradedNote(name) };
   }
   // Arm (a) dispatch: look the slash name up in the registry entry table. A hit
-  // dispatches the loom; a miss (a dropped, superseded entry) returns the fixed
+  // dispatches the theta; a miss (a dropped, superseded entry) returns the fixed
   // superseded note — a sub-case of arm (a), not a fourth arm (PIC-30).
-  const loom = registry.get(name);
-  if (loom === undefined) {
+  const theta = registry.get(name);
+  if (theta === undefined) {
     return { kind: "note", content: supersededNote(name) };
   }
-  return { kind: "dispatch", loom };
+  return { kind: "dispatch", theta };
 }
 
 /**
  * The slash-command call-site consumer: read `readDrainState` under the PIC-31
  * per-call `try`/`catch`, then resolve the outcome through `resolveSlashDispatch`.
  * On a read-side throw the conservative fail-safe is arm (b): return the
- * shutting-down system note rather than dispatch the loom (PIC-31 slash-command
+ * shutting-down system note rather than dispatch the theta (PIC-31 slash-command
  * clause — distinct from `session_shutdown` step (I), which treats a throw as the
  * steady-state tuple). The read may throw an arbitrary shape, so the catch is
  * broad.
@@ -184,7 +184,7 @@ export function resolveSlashDispatch(
 export function resolveSlashDispatchWithReadFailover(
   name: string,
   read: () => DrainStateSnapshot,
-  registry: LoomRegistry,
+  registry: ThetaRegistry,
 ): SlashDispatchOutcome {
   let snapshot: DrainStateSnapshot;
   try {

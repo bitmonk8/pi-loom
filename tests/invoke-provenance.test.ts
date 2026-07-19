@@ -18,7 +18,7 @@ import { FakeFileSystem } from "./helpers/fake-file-system";
 // `callSiteLine` is `0` (never the call-site token's 1-indexed line). No test
 // reds on a compile error, a missing fixture, or a harness throw.
 
-const ROOT = "/proj/.pi/looms";
+const ROOT = "/proj/.pi/theta";
 
 function fsWith(
   files: Record<string, string>,
@@ -38,13 +38,13 @@ function fsWith(
 // --------------------------------------------------------------------------
 
 describe("SLSH-5 — invocation-record parent path is the post-realpath parent path (slash-invocation.md §SLSH-5)", () => {
-  it("SLSH-5: records the parent loom's realpath-resolved path, not the literal symlink path", async () => {
-    // The parent loom is reached via a symlink inside the root; the record must
+  it("SLSH-5: records the parent theta's realpath-resolved path, not the literal symlink path", async () => {
+    // The parent theta is reached via a symlink inside the root; the record must
     // carry the realpath target (the same realpath-normalised parent path V15a
     // captures for discovery-root containment), not the literal link path.
-    const link = `${ROOT}/parent-link.loom`;
-    const target = `${ROOT}/parent.loom`;
-    const fs = fsWith({ [target]: "loom", [ROOT]: "" }, { [link]: target });
+    const link = `${ROOT}/parent-link.theta`;
+    const target = `${ROOT}/parent.theta`;
+    const fs = fsWith({ [target]: "theta", [ROOT]: "" }, { [link]: target });
 
     const callSite: InvokeCallSite = {
       style: "literal_invoke",
@@ -60,8 +60,8 @@ describe("SLSH-5 — invocation-record parent path is the post-realpath parent p
   });
 
   it("SLSH-5: records an already-canonical parent path unchanged (byte-exact realpath output)", async () => {
-    const parent = `${ROOT}/parent.loom`;
-    const fs = fsWith({ [parent]: "loom", [ROOT]: "" });
+    const parent = `${ROOT}/parent.theta`;
+    const fs = fsWith({ [parent]: "theta", [ROOT]: "" });
 
     const callSite: InvokeCallSite = {
       style: "literal_invoke",
@@ -82,8 +82,8 @@ describe("SLSH-5 — invocation-record parent path is the post-realpath parent p
 
 describe("SLSH-5 — invocation-record call-site line is the call-site token's 1-indexed line (slash-invocation.md §SLSH-5)", () => {
   it("SLSH-5: a literal invoke(...) call records the invoke( token line", async () => {
-    const parent = `${ROOT}/parent.loom`;
-    const fs = fsWith({ [parent]: "loom", [ROOT]: "" });
+    const parent = `${ROOT}/parent.theta`;
+    const fs = fsWith({ [parent]: "theta", [ROOT]: "" });
 
     // The `invoke(` token sits on line 42 (the single-hop worked example).
     const callSite: InvokeCallSite = {
@@ -98,15 +98,15 @@ describe("SLSH-5 — invocation-record call-site line is the call-site token's 1
     expect(record.callSiteLine).toBe(42);
   });
 
-  it("SLSH-5: a .loom-callable bare-identifier call records the callee-name identifier line", async () => {
-    // `summarise(doc)` where `./summariser.loom` is a `tools:` entry — the line
-    // is that of the `summarise` callee-name identifier (the `.loom`-callable
+  it("SLSH-5: a .theta-callable bare-identifier call records the callee-name identifier line", async () => {
+    // `summarise(doc)` where `./summariser.theta` is a `tools:` entry — the line
+    // is that of the `summarise` callee-name identifier (the `.theta`-callable
     // worked example on line 18).
-    const parent = `${ROOT}/parent.loom`;
-    const fs = fsWith({ [parent]: "loom", [ROOT]: "" });
+    const parent = `${ROOT}/parent.theta`;
+    const fs = fsWith({ [parent]: "theta", [ROOT]: "" });
 
     const callSite: InvokeCallSite = {
-      style: "loom_callable_bare",
+      style: "theta_callable_bare",
       calleeNameToken: { line: 18, column: 9 },
     };
     const record = await recordInvocationProvenance(
@@ -121,12 +121,12 @@ describe("SLSH-5 — invocation-record call-site line is the call-site token's 1
     // Source shape (receiving binding on line 10, invoke( token on line 11):
     //   10: let plan: Plan =
     //   11:   invoke<Plan>(
-    //   12:     "./plan.loom",
+    //   12:     "./plan.theta",
     //   13:     topic,
     //   14:   )?
     // The recorded line MUST be the call-site token's (11), not the binding's (10).
-    const parent = `${ROOT}/parent.loom`;
-    const fs = fsWith({ [parent]: "loom", [ROOT]: "" });
+    const parent = `${ROOT}/parent.theta`;
+    const fs = fsWith({ [parent]: "theta", [ROOT]: "" });
 
     const RECEIVING_BINDING_LINE = 10;
     const INVOKE_TOKEN_LINE = 11;
@@ -143,19 +143,19 @@ describe("SLSH-5 — invocation-record call-site line is the call-site token's 1
     expect(record.callSiteLine).not.toBe(RECEIVING_BINDING_LINE);
   });
 
-  it("SLSH-5: a multi-line .loom-callable bare call records the callee-name identifier line, NOT the receiving binding's line", async () => {
+  it("SLSH-5: a multi-line .theta-callable bare call records the callee-name identifier line, NOT the receiving binding's line", async () => {
     // Source shape (receiving binding on line 20, callee-name identifier on 21):
     //   20: let s: Summary =
     //   21:   summarise(
     //   22:     doc,
     //   23:   )?
-    const parent = `${ROOT}/parent.loom`;
-    const fs = fsWith({ [parent]: "loom", [ROOT]: "" });
+    const parent = `${ROOT}/parent.theta`;
+    const fs = fsWith({ [parent]: "theta", [ROOT]: "" });
 
     const RECEIVING_BINDING_LINE = 20;
     const CALLEE_NAME_LINE = 21;
     const callSite: InvokeCallSite = {
-      style: "loom_callable_bare",
+      style: "theta_callable_bare",
       calleeNameToken: { line: CALLEE_NAME_LINE, column: 3 },
     };
     const record = await recordInvocationProvenance(

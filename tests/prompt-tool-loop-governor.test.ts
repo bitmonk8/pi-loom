@@ -206,7 +206,7 @@ describe("PromptToolLoopGovernor — round-counting & block logic (ceiling #2)",
 // ===========================================================================
 // Ceiling #4 (ceilings-3-and-4.md#ceiling-4-table, MODEL-DRIVEN row;
 // schema-subset.md §Depth Enforcement point #2; CIO-3 depth-walk-before-AJV) —
-// the prompt-mode `tool_call` hook is the loom-owned pre-execution enforcement
+// the prompt-mode `tool_call` hook is the theta-owned pre-execution enforcement
 // point for the model-driven depth cap. `event.input` carries the
 // MODEL-produced arguments; a depth-6+ document is blocked with the canonical
 // depth message as the `reason` (fed back to the model as a tool-error result),

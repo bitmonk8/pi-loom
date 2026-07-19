@@ -6,14 +6,14 @@
 //
 //   - INV-4 — the per-chain `invoke`-depth counter. A single per-chain counter,
 //     incremented BEFORE the child frame begins executing, counting all three
-//     countable frame classes — a direct `invoke(...)` frame, a `.loom`
+//     countable frame classes — a direct `invoke(...)` frame, a `.theta`
 //     callable frame dispatched through a `tools:` entry, and a *cross-file*
-//     `.warp` `fn` frame (caller and callee residing in different source
-//     files). An intra-file `.warp` `fn` call is NOT countable. The counter is
+//     `.thetalib` `fn` frame (caller and callee residing in different source
+//     files). An intra-file `.thetalib` `fn` call is NOT countable. The counter is
 //     per-chain, not per-process: sibling invokes do not share budget, and the
 //     counter crosses subagent-mode boundaries UNCHANGED (a subagent invocation
 //     does not reset it). The cap is 32; the breach fires
-//     `InvokeDepthExceededPanic` (`loom/runtime/invoke-depth-exceeded`) when the
+//     `InvokeDepthExceededPanic` (`theta/runtime/invoke-depth-exceeded`) when the
 //     runtime is about to push the 33rd frame (`invoke chain depth exceeded:
 //     33 > 32`). The panic routes in two separately-required modes: a top-level
 //     overflow surfaces as a Pi system note, a nested overflow surfaces to the
@@ -21,14 +21,14 @@
 //
 //   - The parse-time invocation-cycle detector over the per-load-pass
 //     static-resolution graph (invocation.md §"Cycle detection"). A back-edge
-//     fires `loom/load/invocation-cycle`; an unresolvable callee (one that
-//     produced `loom/load/callee-has-errors`) is treated as a LEAF — the walk
+//     fires `theta/load/invocation-cycle`; an unresolvable callee (one that
+//     produced `theta/load/callee-has-errors`) is treated as a LEAF — the walk
 //     arm terminates there and a cycle routed through it is not detected until
 //     the underlying file is fixed.
 //
 // V15b fills these in: `pushCountableFrame` increments the shared per-chain
-// counter and enters the cap guard (via `enterInvokeFrame`); `warpFnFrameKind`
-// classifies a `.warp` `fn` call by comparing the caller's source file against
+// counter and enters the cap guard (via `enterInvokeFrame`); `thetalibFnFrameKind`
+// classifies a `.thetalib` `fn` call by comparing the caller's source file against
 // the callee's resolved declaration residence; `crossSubagentBoundary` passes
 // the chain through unchanged; `surfaceDepthOverflow` routes the panic to its
 // top-level (Pi system note) or nested (`InvokeInfraError`) surface; and
@@ -37,8 +37,8 @@
 //
 // Spec: invocation.md (§INV-4, §Static resolution, §Cycle detection),
 // hard-ceilings/ceilings-3-and-4.md (CIO-2), diagnostics/code-registry-runtime.md
-// (`loom/runtime/invoke-depth-exceeded`), diagnostics/code-registry-load.md
-// (`loom/load/invocation-cycle`), errors-and-results/queryerror-variants.md
+// (`theta/runtime/invoke-depth-exceeded`), diagnostics/code-registry-load.md
+// (`theta/load/invocation-cycle`), errors-and-results/queryerror-variants.md
 // (`InvokeInfraError`).
 
 import type { Diagnostic } from "../diagnostics/diagnostic";
@@ -60,30 +60,30 @@ export {
  * The three countable frame classes that each contribute +1 to the single
  * shared per-chain depth counter (invocation.md §INV-4):
  *   - `"direct-invoke"`       — a literal `invoke(...)` / `invoke<Schema>(...)` call;
- *   - `"loom-tools-callable"` — a `.loom` callable call dispatched through a `tools:` entry;
- *   - `"warp-fn-cross-file"`  — a *cross-file* `.warp` `fn` call (an intra-file
+ *   - `"theta-tools-callable"` — a `.theta` callable call dispatched through a `tools:` entry;
+ *   - `"thetalib-fn-cross-file"`  — a *cross-file* `.thetalib` `fn` call (an intra-file
  *                               `fn` call is NOT countable).
  */
 export type CountableFrameKind =
   | "direct-invoke"
-  | "loom-tools-callable"
-  | "warp-fn-cross-file";
+  | "theta-tools-callable"
+  | "thetalib-fn-cross-file";
 
 // --------------------------------------------------------------------------
-// `.warp` `fn` residence classification (INV-4 cross-file test)
+// `.thetalib` `fn` residence classification (INV-4 cross-file test)
 // --------------------------------------------------------------------------
 
 /**
- * A `.warp` `fn` call, classified for countability by residence. A `fn`'s
- * *residence* is its declaration site — the `.warp` file it is declared in — so
+ * A `.thetalib` `fn` call, classified for countability by residence. A `fn`'s
+ * *residence* is its declaration site — the `.thetalib` file it is declared in — so
  * re-exports and `as`-aliased imports (resolved through V15c/V15i) do not change
  * residence; `calleeResidence` is that already-resolved declaration-site path.
  */
-export interface WarpFnCall {
-  /** The source file the call is written in (`.warp` or `.loom`). */
+export interface ThetaLibFnCall {
+  /** The source file the call is written in (`.thetalib` or `.theta`). */
   readonly callerFile: string;
   /**
-   * The `.warp` file the callee `fn` is DECLARED in — after V15c/V15i re-export
+   * The `.thetalib` file the callee `fn` is DECLARED in — after V15c/V15i re-export
    * and aliased-import resolution. The cross-file test compares this against
    * `callerFile`.
    */
@@ -91,9 +91,9 @@ export interface WarpFnCall {
 }
 
 /**
- * Classify a `.warp` `fn` call for the depth counter (invocation.md §INV-4): a
+ * Classify a `.thetalib` `fn` call for the depth counter (invocation.md §INV-4): a
  * *cross-file* call (caller and callee in different source files) contributes a
- * countable `"warp-fn-cross-file"` frame; an *intra-file* call (same source
+ * countable `"thetalib-fn-cross-file"` frame; an *intra-file* call (same source
  * file) is NOT countable and returns `undefined`.
  *
  * A cross-file call compares `callerFile` against the already-resolved
@@ -101,8 +101,8 @@ export interface WarpFnCall {
  * re-exports and aliased imports); equal paths are intra-file and contribute no
  * countable frame.
  */
-export function warpFnFrameKind(call: WarpFnCall): CountableFrameKind | undefined {
-  return call.callerFile === call.calleeResidence ? undefined : "warp-fn-cross-file";
+export function thetalibFnFrameKind(call: ThetaLibFnCall): CountableFrameKind | undefined {
+  return call.callerFile === call.calleeResidence ? undefined : "thetalib-fn-cross-file";
 }
 
 // --------------------------------------------------------------------------
@@ -112,7 +112,7 @@ export function warpFnFrameKind(call: WarpFnCall): CountableFrameKind | undefine
 /**
  * The per-chain `invoke`-depth counter (invocation.md §INV-4). `depth` is the
  * count of countable frames on the active call chain; the slash-invoked
- * top-level loom is depth 0 and the first frame nested inside it is depth 1.
+ * top-level theta is depth 0 and the first frame nested inside it is depth 1.
  * Modelled as an immutable value so sibling chains derived from the same parent
  * are independent by construction ("sibling invokes do not share budget").
  */
@@ -120,7 +120,7 @@ export interface InvokeChain {
   readonly depth: number;
 }
 
-/** The starting chain for a slash-invoked top-level loom (depth 0). */
+/** The starting chain for a slash-invoked top-level theta (depth 0). */
 export function newInvokeChain(): InvokeChain {
   return { depth: 0 };
 }
@@ -170,7 +170,7 @@ export function crossSubagentBoundary(chain: InvokeChain): InvokeChain {
 /**
  * The two separately-required surfacing modes of a depth-overflow panic
  * (invocation.md §INV-4): a top-level overflow surfaces as a Pi system note
- * (carrying the `loom/runtime/invoke-depth-exceeded` diagnostic), a nested
+ * (carrying the `theta/runtime/invoke-depth-exceeded` diagnostic), a nested
  * overflow surfaces to the parent as `Err(InvokeInfraError { cause: "panic" })`.
  */
 export type DepthOverflowSurface =
@@ -179,7 +179,7 @@ export type DepthOverflowSurface =
 
 /** Where the overflowing frame sat: at the slash-invoked top level, or nested inside an invoke chain. */
 export interface DepthOverflowContext {
-  /** True when the overflow occurred at the slash-invoked top-level loom (no invoke parent). */
+  /** True when the overflow occurred at the slash-invoked top-level theta (no invoke parent). */
   readonly topLevel: boolean;
   /** The callee path carried onto the parent's `InvokeInfraError` in the nested case. */
   readonly calleePath: string;
@@ -189,12 +189,12 @@ export interface DepthOverflowContext {
  * Route a depth-overflow panic to its surface (invocation.md §INV-4, the
  * panic-routing rules in errors-and-results.md): a top-level overflow yields a
  * `{ mode: "top-level" }` surface carrying the
- * `loom/runtime/invoke-depth-exceeded` diagnostic (delivered as a Pi system
+ * `theta/runtime/invoke-depth-exceeded` diagnostic (delivered as a Pi system
  * note by the V7d channel); a nested overflow yields a `{ mode: "nested" }`
  * surface carrying `InvokeInfraError { kind: "invoke_infra", cause: "panic" }`.
  *
  * A top-level overflow (no invoke parent) yields the location-less
- * `loom/runtime/invoke-depth-exceeded` diagnostic delivered as a Pi system
+ * `theta/runtime/invoke-depth-exceeded` diagnostic delivered as a Pi system
  * note; a nested overflow yields `InvokeInfraError { kind: "invoke_infra",
  * cause: "panic" }` returned to the invoke parent, carrying the callee path.
  */
@@ -224,11 +224,11 @@ export function surfaceDepthOverflow(
 }
 
 // --------------------------------------------------------------------------
-// Invocation-cycle detection (loom/load/invocation-cycle)
+// Invocation-cycle detection (theta/load/invocation-cycle)
 // --------------------------------------------------------------------------
 
-/** The `loom/load/invocation-cycle` diagnostic code (code-registry-load.md). */
-export const INVOCATION_CYCLE_CODE = "loom/load/invocation-cycle";
+/** The `theta/load/invocation-cycle` diagnostic code (code-registry-load.md). */
+export const INVOCATION_CYCLE_CODE = "theta/load/invocation-cycle";
 
 /**
  * The registered `invocation cycle: <A> → <B> → <A>` message
@@ -244,9 +244,9 @@ export function invocationCycleMessage(stems: readonly string[]): string {
 /**
  * The per-load-pass static-resolution graph the cycle walk runs over
  * (invocation.md §Static resolution). `edges` maps each node (a file-path stem)
- * to the nodes reached from its literal `invoke("./x.loom")` paths and its
- * `.loom` `tools:` entries; `unresolvable` names the nodes that produced
- * `loom/load/callee-has-errors` — those are treated as LEAVES.
+ * to the nodes reached from its literal `invoke("./x.theta")` paths and its
+ * `.theta` `tools:` entries; `unresolvable` names the nodes that produced
+ * `theta/load/callee-has-errors` — those are treated as LEAVES.
  */
 export interface InvokeGraph {
   readonly edges: ReadonlyMap<string, readonly string[]>;
@@ -255,7 +255,7 @@ export interface InvokeGraph {
 
 /**
  * Walk the static-resolution graph from `entry` and return
- * `loom/load/invocation-cycle` (with the cycle path printed) on the first
+ * `theta/load/invocation-cycle` (with the cycle path printed) on the first
  * back-edge, or `undefined` for an acyclic graph (invocation.md §"Cycle
  * detection"). An `unresolvable` node terminates its own walk arm — it is a
  * leaf, so a cycle routed through it is NOT detected until the underlying file

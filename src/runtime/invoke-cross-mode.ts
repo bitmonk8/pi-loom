@@ -46,8 +46,8 @@
 // propagation across callees), pi-integration-contract/subagent.md (Subagent
 // state-isolation matrix).
 
-/** A loom file's conversation mode. */
-export type LoomMode = "prompt" | "subagent";
+/** A theta file's conversation mode. */
+export type ThetaMode = "prompt" | "subagent";
 
 /**
  * The callee's context selection: a **fresh** isolated conversation, or
@@ -75,8 +75,8 @@ export interface ConversationMessage {
 
 /** One cell of the cross-mode matrix: the caller's and callee's modes. */
 export interface CrossModeCell {
-  readonly callerMode: LoomMode;
-  readonly calleeMode: LoomMode;
+  readonly callerMode: ThetaMode;
+  readonly calleeMode: ThetaMode;
 }
 
 /** The caller's current conversation state at the `invoke(...)` call site. */
@@ -128,7 +128,7 @@ export interface CalleeSessionComposition {
  * caller's current conversation (subagent→prompt). Selection is by the callee
  * mode alone — the caller mode does not change the decision.
  */
-export function selectCalleeContext(calleeMode: LoomMode): CalleeContext {
+export function selectCalleeContext(calleeMode: ThetaMode): CalleeContext {
   return calleeMode === "subagent" ? "fresh" : "attach";
 }
 

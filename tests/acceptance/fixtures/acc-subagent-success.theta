@@ -2,12 +2,12 @@
 mode: subagent
 ---
 // H9a acceptance area (e) — subagent spawn drives to a SUCCESS terminal.
-// A `mode: subagent` loom whose one untyped query drives a real turn against a
+// A `mode: subagent` theta whose one untyped query drives a real turn against a
 // freshly spawned isolated `AgentSession` and completes normally. The H8a
 // production subagent driver (V9i's awaitTerminalAgentEnd + extractSubagentQueryResult)
 // drives the turn to completion and extracts its result — no self-cancel — so the
 // run reaches a success terminal outcome: a no-error exit with permitted codes
 // only and NO `cancelled` marker. Genuine mid-stream cancellation (a real
-// loomAbort fire at a scripted cancel point) is locked in-process by
+// thetaAbort fire at a scripted cancel point) is locked in-process by
 // tests/production-subagent-query-model.test.ts, not by this black-box run.
 @`Reply with a short one-line greeting.`

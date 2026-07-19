@@ -1,11 +1,11 @@
 // V4a / V4a-T — the runtime `match`-evaluation seam.
 //
 // This module owns the runtime dispatch of a `match` expression over the six
-// loom 1.0 pattern forms of expressions.md §"Pattern grammar (loom 1.0)" —
+// theta 1.0 pattern forms of expressions.md §"Pattern grammar (theta 1.0)" —
 // wildcard, identifier, literal, constructor, object/schema, and array — and
-// the `loom/runtime/match-error` panic (the implementation refers to it as
+// the `theta/runtime/match-error` panic (the implementation refers to it as
 // `MatchError`) that fires when a scrutinee value matches none of a `match`'s
-// arms (errors-and-results/error-model.md §"Runtime panics"; loom 1.0 does not
+// arms (errors-and-results/error-model.md §"Runtime panics"; theta 1.0 does not
 // statically check exhaustiveness, per expressions.md §"Exhaustiveness").
 //
 // V4a-T (tests-task) declares the seam — the `Pattern` model, the `MatchArm`
@@ -13,7 +13,7 @@
 // and asserts only the raise-versus-bind exhaustion behaviour: a scrutinee
 // matching one of the six pattern forms binds and evaluates the selected arm,
 // while a scrutinee matching none raises `MatchError`. The panic's `?`/`match`
-// bypass and its registered `loom/runtime/match-error` message template are
+// bypass and its registered `theta/runtime/match-error` message template are
 // deferred to and closed by V4b-T, so V4a-T does not assert the message string.
 //
 // `evaluateMatch` is stubbed inert (it matches no arm and raises no panic), so
@@ -22,22 +22,22 @@
 // value), not on a compile error, a missing fixture, or a harness throw. The
 // paired V4a implementation leaf fills it in.
 
-import { type LoomValue, type ResultValue, valuesEqual } from "./value";
-import { LoomPanic } from "./runtime-panics";
+import { type ThetaValue, type ResultValue, valuesEqual } from "./value";
+import { ThetaPanic } from "./runtime-panics";
 
 /** The registry code carried by the non-exhaustive-`match` runtime panic. */
-export const MATCH_ERROR_CODE = "loom/runtime/match-error";
+export const MATCH_ERROR_CODE = "theta/runtime/match-error";
 
 /**
  * The non-exhaustive-`match` runtime panic (errors-and-results/error-model.md
  * §"Runtime panics"; the implementation refers to it as `MatchError`). Carries
- * the `loom/runtime/match-error` registry code. The registered message-template
+ * the `theta/runtime/match-error` registry code. The registered message-template
  * formatting and the `?`/`match` bypass routing are closed by V4b. It is a
- * `LoomPanic` so the runtime-defect surface (`surfaceUnexpectedThrow`)
+ * `ThetaPanic` so the runtime-defect surface (`surfaceUnexpectedThrow`)
  * recognises it as one of the six closed panic sources rather than
- * reclassifying it as `loom/runtime/internal-error`.
+ * reclassifying it as `theta/runtime/internal-error`.
  */
-export class MatchError extends LoomPanic {
+export class MatchError extends ThetaPanic {
   readonly code = MATCH_ERROR_CODE;
 
   constructor(message: string) {
@@ -55,7 +55,7 @@ export class MatchError extends LoomPanic {
  * `Result` values as `Ok(<inner>)` / `Err(<inner>)`, and arrays / schema-typed
  * objects as compact `JSON.stringify` (the schema name does not surface).
  */
-function summariseScrutinee(value: LoomValue): string {
+function summariseScrutinee(value: ThetaValue): string {
   if (value === null) {
     return "null";
   }
@@ -89,8 +89,8 @@ function summariseScrutinee(value: LoomValue): string {
 }
 
 /**
- * One of the six loom 1.0 `match` pattern forms (expressions.md §"Pattern
- * grammar (loom 1.0)"):
+ * One of the six theta 1.0 `match` pattern forms (expressions.md §"Pattern
+ * grammar (theta 1.0)"):
  *
  *   - `wildcard`    — `_`: matches anything, binds nothing.
  *   - `identifier`  — `x`: matches anything, binds the value to `name`.
@@ -107,7 +107,7 @@ function summariseScrutinee(value: LoomValue): string {
 export type Pattern =
   | { readonly kind: "wildcard" }
   | { readonly kind: "identifier"; readonly name: string }
-  | { readonly kind: "literal"; readonly value: LoomValue }
+  | { readonly kind: "literal"; readonly value: ThetaValue }
   | { readonly kind: "constructor"; readonly ctor: "Ok" | "Err"; readonly inner: Pattern }
   | {
       readonly kind: "object";
@@ -116,7 +116,7 @@ export type Pattern =
   | { readonly kind: "array"; readonly elements: readonly Pattern[] };
 
 /** The bindings a matched pattern introduces (identifier name → bound value). */
-export type Bindings = Readonly<Record<string, LoomValue>>;
+export type Bindings = Readonly<Record<string, ThetaValue>>;
 
 /**
  * One `match` arm: a `pattern` and a `body` evaluated with the bindings the
@@ -125,14 +125,14 @@ export type Bindings = Readonly<Record<string, LoomValue>>;
  */
 export interface MatchArm {
   readonly pattern: Pattern;
-  readonly body: (bindings: Bindings) => LoomValue;
+  readonly body: (bindings: Bindings) => ThetaValue;
 }
 
 /**
  * Evaluate a `match` expression: dispatch `scrutinee` against `arms` in order,
  * first matching arm wins, and evaluate the selected arm's `body` with the
  * bindings its pattern introduces. When `scrutinee` matches none of the arms,
- * raise `MatchError` (`loom/runtime/match-error`) — loom 1.0 performs no static
+ * raise `MatchError` (`theta/runtime/match-error`) — theta 1.0 performs no static
  * exhaustiveness check, so non-exhaustion surfaces at runtime
  * (expressions.md §"Exhaustiveness").
  *
@@ -141,12 +141,12 @@ export interface MatchArm {
  * `MatchError` raise.
  */
 export function evaluateMatch(
-  scrutinee: LoomValue,
+  scrutinee: ThetaValue,
   arms: readonly MatchArm[],
-): LoomValue {
+): ThetaValue {
   // First matching arm wins; a non-selected arm's body is never evaluated.
   for (const arm of arms) {
-    const bindings: Record<string, LoomValue> = {};
+    const bindings: Record<string, ThetaValue> = {};
     if (matchPattern(arm.pattern, scrutinee, bindings)) {
       return arm.body(bindings);
     }
@@ -154,7 +154,7 @@ export function evaluateMatch(
   // The scrutinee matched none of the six pattern forms: raise the runtime
   // non-exhaustive-`match` panic carrying its registered message template
   // (`MatchError: no arm matched <scrutinee summary>`,
-  // diagnostics/code-registry-runtime.md). loom 1.0 performs no static
+  // diagnostics/code-registry-runtime.md). theta 1.0 performs no static
   // exhaustiveness check (expressions.md §"Exhaustiveness").
   throw new MatchError(`MatchError: no arm matched ${summariseScrutinee(scrutinee)}`);
 }
@@ -167,8 +167,8 @@ export function evaluateMatch(
  */
 function matchPattern(
   pattern: Pattern,
-  value: LoomValue,
-  bindings: Record<string, LoomValue>,
+  value: ThetaValue,
+  bindings: Record<string, ThetaValue>,
 ): boolean {
   switch (pattern.kind) {
     case "wildcard":
@@ -189,17 +189,17 @@ function matchPattern(
       ) {
         return false;
       }
-      const result = value as { ok: boolean; value?: LoomValue; error?: LoomValue };
+      const result = value as { ok: boolean; value?: ThetaValue; error?: ThetaValue };
       if (pattern.ctor === "Ok") {
         if (!result.ok) {
           return false;
         }
-        return matchPattern(pattern.inner, result.value as LoomValue, bindings);
+        return matchPattern(pattern.inner, result.value as ThetaValue, bindings);
       }
       if (result.ok) {
         return false;
       }
-      return matchPattern(pattern.inner, result.error as LoomValue, bindings);
+      return matchPattern(pattern.inner, result.error as ThetaValue, bindings);
     }
     case "object": {
       // An object/schema pattern matches an object whose listed fields match
@@ -211,12 +211,12 @@ function matchPattern(
       ) {
         return false;
       }
-      const obj = value as { readonly [key: string]: LoomValue };
+      const obj = value as { readonly [key: string]: ThetaValue };
       for (const field of pattern.fields) {
         if (!Object.prototype.hasOwnProperty.call(obj, field.name)) {
           return false;
         }
-        if (!matchPattern(field.pattern, obj[field.name] as LoomValue, bindings)) {
+        if (!matchPattern(field.pattern, obj[field.name] as ThetaValue, bindings)) {
           return false;
         }
       }
@@ -229,7 +229,7 @@ function matchPattern(
         return false;
       }
       for (let i = 0; i < pattern.elements.length; i++) {
-        if (!matchPattern(pattern.elements[i] as Pattern, value[i] as LoomValue, bindings)) {
+        if (!matchPattern(pattern.elements[i] as Pattern, value[i] as ThetaValue, bindings)) {
           return false;
         }
       }

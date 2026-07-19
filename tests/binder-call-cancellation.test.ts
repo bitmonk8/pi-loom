@@ -5,12 +5,12 @@
 // Spec: cancellation.md §Granularity (the binder-call clause: the signal is
 // forwarded to the binder model's provider invocation, so an abort observed
 // *during* the binder call also surfaces) and §Surfacing (the cancelled-binder
-// arm: a cancelled binder never surfaces a `Result` to loom code — the loom
+// arm: a cancelled binder never surfaces a `Result` to theta code — the theta
 // never starts — and instead produces the cancelled-binder system note);
 // binder/determinism-cancellation-failure.md §Cancellation (`ctx.signal`
 // forwarded into the binder inference call as `options.signal` on the initial
 // attempt and every budgeted retry) and §Failure modes (the cancelled-binder
-// row `loom /<name>: argument binding cancelled`, and the per-invocation-budget
+// row `theta /<name>: argument binding cancelled`, and the per-invocation-budget
 // clause "an abort observed during any retry permitted by the budget suppresses
 // that retry and surfaces the cancelled-binder note immediately").
 //
@@ -27,7 +27,7 @@
 // absent: `runBinderCallWithCancellation` issues no attempt, forwards no signal,
 // and never surfaces cancellation (it returns a zero-call `completed`/`ok`
 // sentinel) — so the cancelled-outcome, note-string, forwarding, and
-// loom-does-not-run expectations red rather than a compile error, a missing
+// theta-does-not-run expectations red rather than a compile error, a missing
 // fixture, or a harness throw.
 
 import { describe, expect, it } from "vitest";
@@ -42,13 +42,13 @@ import {
   type BinderCallResult,
 } from "../src/binder/binder-cancellation";
 
-const LOOM_NAME = "demo";
-const BINDER_SITE: CheckpointSite = { file: "loom.loom", line: 1, column: 1 };
+const THETA_NAME = "demo";
+const BINDER_SITE: CheckpointSite = { file: "theta.theta", line: 1, column: 1 };
 
 // The cancelled-binder system note, sourced verbatim from the failure-modes
-// table row "`loomAbort.signal` aborted before or during the binder call" in
+// table row "`thetaAbort.signal` aborted before or during the binder call" in
 // binder/determinism-cancellation-failure.md §Failure modes.
-const CANCELLED_BINDER_NOTE = `loom /${LOOM_NAME}: argument binding cancelled`;
+const CANCELLED_BINDER_NOTE = `theta /${THETA_NAME}: argument binding cancelled`;
 
 /** A transport-shaped provider outcome (the provider's abort path surfaces here). */
 const TRANSPORT_ABORTED: BinderAttemptOutcome = {
@@ -124,21 +124,21 @@ type BinderAttemptScript = (
 // ===========================================================================
 
 describe("V11j-T — in-flight binder-call cancellation, initial attempt (cka-43 / V11j)", () => {
-  it("cka-43 / V11j: an abort during the in-flight binder call surfaces the cancelled-binder note and the loom does not run", async () => {
+  it("cka-43 / V11j: an abort during the in-flight binder call surfaces the cancelled-binder note and the theta does not run", async () => {
     const controller = new AbortController();
     // Abort during the first (index 0) in-flight call.
     const checkpoint = new MidFlightAbortCheckpoint(controller, 0);
     const { attempt } = providerAttempt(checkpoint, [{ kind: "ok" }]);
 
     const result: BinderCallResult = await runBinderCallWithCancellation({
-      loomName: LOOM_NAME,
+      thetaName: THETA_NAME,
       signal: controller.signal,
       attempt,
     });
 
     // Primary: the abort observed during the call surfaces the cancelled-binder
-    // system note; the loom does not run (a `cancelled` result carries no
-    // outcome that could reach loom code).
+    // system note; the theta does not run (a `cancelled` result carries no
+    // outcome that could reach theta code).
     expect(result.kind).toBe("cancelled");
     if (result.kind !== "cancelled") {
       expect.unreachable("expected a cancelled binder result");
@@ -146,7 +146,7 @@ describe("V11j-T — in-flight binder-call cancellation, initial attempt (cka-43
     expect(result.note).toBe(CANCELLED_BINDER_NOTE);
   });
 
-  it("cka-43 / V11j: loomAbort.signal is forwarded into the binder provider invocation as options.signal", async () => {
+  it("cka-43 / V11j: thetaAbort.signal is forwarded into the binder provider invocation as options.signal", async () => {
     const controller = new AbortController();
     // Never abort — assert the forwarded signal identity on a clean initial call.
     const checkpoint = new MidFlightAbortCheckpoint(controller, -1);
@@ -155,14 +155,14 @@ describe("V11j-T — in-flight binder-call cancellation, initial attempt (cka-43
     ]);
 
     await runBinderCallWithCancellation({
-      loomName: LOOM_NAME,
+      thetaName: THETA_NAME,
       signal: controller.signal,
       attempt,
     });
 
-    // Primary: the driver forwarded `input.signal` (loomAbort.signal) into the
+    // Primary: the driver forwarded `input.signal` (thetaAbort.signal) into the
     // attempt — one forwarded signal for the single initial call, and it is the
-    // loom signal itself, not a fresh or `undefined` signal.
+    // theta signal itself, not a fresh or `undefined` signal.
     const forwarded = receivedSignals();
     expect(forwarded.length).toBe(1);
     expect(forwarded[0]).toBe(controller.signal);
@@ -185,13 +185,13 @@ describe("V11j-T — in-flight binder-call cancellation, budgeted retry (cka-43 
     ]);
 
     const result = await runBinderCallWithCancellation({
-      loomName: LOOM_NAME,
+      thetaName: THETA_NAME,
       signal: controller.signal,
       attempt,
     });
 
     // Primary: an abort observed during the retry surfaces the cancelled-binder
-    // note immediately, irrespective of the remaining budget; the loom does not
+    // note immediately, irrespective of the remaining budget; the theta does not
     // run.
     expect(result.kind).toBe("cancelled");
     if (result.kind !== "cancelled") {
@@ -200,7 +200,7 @@ describe("V11j-T — in-flight binder-call cancellation, budgeted retry (cka-43 
     expect(result.note).toBe(CANCELLED_BINDER_NOTE);
 
     // The signal was forwarded on both the initial attempt and the budgeted
-    // retry, and is the same loomAbort.signal each time.
+    // retry, and is the same thetaAbort.signal each time.
     const forwarded = receivedSignals();
     expect(forwarded.length).toBe(2);
     expect(forwarded.every((s) => s === controller.signal)).toBe(true);

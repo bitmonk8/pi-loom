@@ -4,7 +4,7 @@
 // type-system.md §"Type compatibility" (TYPE-1…TYPE-11) and the per-site
 // parse-time diagnostics that report a static mismatch (TYPE-9). The relation
 // is the structural-cases engine the parser must decide without falling back
-// to AJV; the cases it recognises are closed for loom 1.0 (type-system.md
+// to AJV; the cases it recognises are closed for theta 1.0 (type-system.md
 // §"Structural cases the parser must recognise").
 //
 // The engine operates over a small `CompatType` model — the resolved shape of
@@ -88,7 +88,7 @@ export type TypeEnv = Readonly<Record<string, NamedDecl>>;
  *   - `"integer-narrowing"` — a static mismatch specifically because a `number`
  *                             appears where an `integer` is expected; the
  *                             `integer → number` widening is one-way (TYPE-2),
- *                             and the reverse is the `loom/parse/integer-narrowing`
+ *                             and the reverse is the `theta/parse/integer-narrowing`
  *                             case.
  *   - `"unknown"`           — the V2b-T stub sentinel. The paired V2b engine
  *                             never returns this; it exists only so every
@@ -129,7 +129,7 @@ export function checkCompatible(
 function unfoldAlias(type: CompatType, env: TypeEnv): CompatType {
   let current = type;
   // Bounded by the alias chain length; alias cycles are rejected upstream
-  // (`loom/parse/type-alias-cycle`) before any compatibility question arises.
+  // (`theta/parse/type-alias-cycle`) before any compatibility question arises.
   while (current.kind === "named") {
     const decl = env[current.name];
     if (decl === undefined || decl.kind !== "alias") {
@@ -315,10 +315,10 @@ export interface CompatSite {
  *   - `"array"`     — an `array<T>`, indexable by integer position;
  *   - `"object"`    — an object value (a nominal `object-schema` `NamedType`,
  *                     an alias transparently resolving to one, or an inline
- *                     object type), indexable by `string` loom-side name;
+ *                     object type), indexable by `string` theta-side name;
  *   - `"primitive"` — a `string` / `number` / `integer` / `boolean` / `null`
  *                     receiver, which is not indexable
- *                     (`loom/parse/non-indexable-receiver`);
+ *                     (`theta/parse/non-indexable-receiver`);
  *   - `"unknown"`   — statically unresolvable past the parser's view (an
  *                     unresolved `NamedType`, a union): deferred to the runtime
  *                     safety net, raising no `type`-phase diagnostic.
@@ -362,8 +362,8 @@ export function classifyIndexReceiver(
 
 /**
  * TYPE-9 — the RHS of a typed binding `let x: T = expr`. Reports
- * `loom/parse/let-rhs-type-mismatch` when the RHS static type is not `⊑` the
- * annotation `T` (both statically resolvable), or `loom/parse/integer-narrowing`
+ * `theta/parse/let-rhs-type-mismatch` when the RHS static type is not `⊑` the
+ * annotation `T` (both statically resolvable), or `theta/parse/integer-narrowing`
  * when the failure is specifically a `number` RHS under an `integer` annotation
  * (TYPE-2's one-way widening). Returns no diagnostic when the relation holds.
  *
@@ -389,7 +389,7 @@ export function checkLetRhsCompat(opts: {
     return [
       {
         severity: "error",
-        code: "loom/parse/integer-narrowing",
+        code: "theta/parse/integer-narrowing",
         file: site.file,
         range: site.range,
         message: "cannot narrow number to integer",
@@ -400,7 +400,7 @@ export function checkLetRhsCompat(opts: {
   return [
     {
       severity: "error",
-      code: "loom/parse/let-rhs-type-mismatch",
+      code: "theta/parse/let-rhs-type-mismatch",
       file: site.file,
       range: site.range,
       message: `let binding '${name}' initialiser type mismatch: expected ${displayType(
@@ -412,7 +412,7 @@ export function checkLetRhsCompat(opts: {
 
 /**
  * TYPE-9 — a plain top-level `fn` argument slot. Reports
- * `loom/parse/fn-arg-type-mismatch` when the argument's static type is not `⊑`
+ * `theta/parse/fn-arg-type-mismatch` when the argument's static type is not `⊑`
  * the matched parameter's declared type (both statically resolvable). Returns
  * no diagnostic when the relation holds.
  *
@@ -438,7 +438,7 @@ export function checkFnArgCompat(opts: {
   return [
     {
       severity: "error",
-      code: "loom/parse/fn-arg-type-mismatch",
+      code: "theta/parse/fn-arg-type-mismatch",
       file: site.file,
       range: site.range,
       message: `fn '${fnName}' argument ${index} ('${paramName}') type mismatch: expected ${displayType(
@@ -453,9 +453,9 @@ export function checkFnArgCompat(opts: {
  * element types (ternary branches or array-literal elements) and an optional
  * in-scope element `sink`:
  *
- *   - with a `sink`: reports `loom/parse/array-element-type-mismatch` at the
+ *   - with a `sink`: reports `theta/parse/array-element-type-mismatch` at the
  *     first branch whose type is not `⊑` the sink's element type;
- *   - without a `sink`: reports `loom/parse/array-no-common-type` when the
+ *   - without a `sink`: reports `theta/parse/array-no-common-type` when the
  *     branches share no common type that narrows them.
  *
  * Returns no diagnostic when the branches resolve against the sink (or share a
@@ -484,7 +484,7 @@ export function checkCommonType(opts: {
       return [
         {
           severity: "error",
-          code: "loom/parse/array-element-type-mismatch",
+          code: "theta/parse/array-element-type-mismatch",
           file: site.file,
           range: site.range,
           message: `array element type mismatch at index ${i}: expected ${displayType(
@@ -506,7 +506,7 @@ export function checkCommonType(opts: {
   return [
     {
       severity: "error",
-      code: "loom/parse/array-no-common-type",
+      code: "theta/parse/array-no-common-type",
       file: site.file,
       range: site.range,
       message:

@@ -16,9 +16,9 @@ import type { Diagnostic, SourceRange } from "../src/diagnostics/diagnostic";
 //
 // Spec: frontmatter/frontmatter-fields-a.md §params (type-expression RHS with
 // whole-file forward references; whole-file `NamedType` resolution →
-// `loom/parse/unresolved-named-type`) and §Defaults (literal-sublanguage
-// defaults → `loom/parse/default-not-literal`; no-non-defaulted-after-defaulted
-// ordering → `loom/parse/non-trailing-default`; AJV validation against the
+// `theta/parse/unresolved-named-type`) and §Defaults (literal-sublanguage
+// defaults → `theta/parse/default-not-literal`; no-non-defaulted-after-defaulted
+// ordering → `theta/parse/non-trailing-default`; AJV validation against the
 // lowered schema).
 //
 // Diagnostic *Message* strings are sourced from the diagnostics registry
@@ -31,7 +31,7 @@ import type { Diagnostic, SourceRange } from "../src/diagnostics/diagnostic";
 // schema the AJV validation cannot exercise) — not on a compile error, missing
 // fixture, or harness throw.
 
-const SITE = { file: "test.loom" } as const;
+const SITE = { file: "test.theta" } as const;
 
 /** A throwaway located range (the contract's checks are order/shape-driven). */
 function range(line: number): SourceRange {
@@ -77,8 +77,8 @@ function makeValidator(): AjvSchemaValidator {
 // cka-11 / V6b: the FRNT code-keyed obligation area's `params`/defaults facet
 // closes on V6b; the assertions in this file witness that facet against the
 // shipped params contract.
-describe("V6b-T — default ordering (loom/parse/non-trailing-default)", () => {
-  it("loom/parse/non-trailing-default: a non-defaulted param after a defaulted one fires, naming the offending field", () => {
+describe("V6b-T — default ordering (theta/parse/non-trailing-default)", () => {
+  it("theta/parse/non-trailing-default: a non-defaulted param after a defaulted one fires, naming the offending field", () => {
     // `language` defaults; `focus_areas` does not and follows it — illegal.
     const r = parseParams(
       [
@@ -88,8 +88,8 @@ describe("V6b-T — default ordering (loom/parse/non-trailing-default)", () => {
       [],
       SITE,
     );
-    const d = withCode(r.diagnostics, "loom/parse/non-trailing-default");
-    expect(d, "loom/parse/non-trailing-default for a non-defaulted field after a defaulted one").toBeDefined();
+    const d = withCode(r.diagnostics, "theta/parse/non-trailing-default");
+    expect(d, "theta/parse/non-trailing-default for a non-defaulted field after a defaulted one").toBeDefined();
     expect(d?.severity).toBe("error");
     // Message from code-registry-parse.md; `<field>` names the first offender.
     expect(d?.message).toBe(
@@ -97,7 +97,7 @@ describe("V6b-T — default ordering (loom/parse/non-trailing-default)", () => {
     );
   });
 
-  it("loom/parse/non-trailing-default: all-trailing defaults raise no ordering error", () => {
+  it("theta/parse/non-trailing-default: all-trailing defaults raise no ordering error", () => {
     const r = parseParams(
       [
         field("language", "string", 1),
@@ -107,7 +107,7 @@ describe("V6b-T — default ordering (loom/parse/non-trailing-default)", () => {
       SITE,
     );
     expect(
-      withCode(r.diagnostics, "loom/parse/non-trailing-default"),
+      withCode(r.diagnostics, "theta/parse/non-trailing-default"),
       "a defaulted field trailing a non-defaulted field raises no ordering error",
     ).toBeUndefined();
   });
@@ -115,16 +115,16 @@ describe("V6b-T — default ordering (loom/parse/non-trailing-default)", () => {
 
 // --- §Defaults — the default RHS must be a literal-sublanguage form --------
 
-describe("V6b-T — non-literal defaults (loom/parse/default-not-literal)", () => {
-  it("loom/parse/default-not-literal: a default that is not a loom literal fires, naming the offending sub-expression", () => {
+describe("V6b-T — non-literal defaults (theta/parse/default-not-literal)", () => {
+  it("theta/parse/default-not-literal: a default that is not a theta literal fires, naming the offending sub-expression", () => {
     // `compute()` is a function call — outside the literal sublanguage.
     const r = parseParams(
       [defaulted("language", "string", "compute()", 1)],
       [],
       SITE,
     );
-    const d = withCode(r.diagnostics, "loom/parse/default-not-literal");
-    expect(d, "loom/parse/default-not-literal for a function-call default RHS").toBeDefined();
+    const d = withCode(r.diagnostics, "theta/parse/default-not-literal");
+    expect(d, "theta/parse/default-not-literal for a function-call default RHS").toBeDefined();
     expect(d?.severity).toBe("error");
     // Message from code-registry-parse.md; `<expr>` names the offending form.
     expect(d?.message).toBe(
@@ -132,14 +132,14 @@ describe("V6b-T — non-literal defaults (loom/parse/default-not-literal)", () =
     );
   });
 
-  it("loom/parse/default-not-literal: a primitive-literal default raises no diagnostic", () => {
+  it("theta/parse/default-not-literal: a primitive-literal default raises no diagnostic", () => {
     const r = parseParams(
       [defaulted("language", "string", '"TypeScript"', 1)],
       [],
       SITE,
     );
     expect(
-      withCode(r.diagnostics, "loom/parse/default-not-literal"),
+      withCode(r.diagnostics, "theta/parse/default-not-literal"),
       "a primitive-literal default RHS is admitted",
     ).toBeUndefined();
   });
@@ -161,7 +161,7 @@ describe("V6b-T — params validated through AJV against their lowered schema", 
 
 // --- §params — whole-file forward reference to a body type -----------------
 
-describe("V6b-T — forward-referenced named type resolves and validates (loom/parse/unresolved-named-type)", () => {
+describe("V6b-T — forward-referenced named type resolves and validates (theta/parse/unresolved-named-type)", () => {
   it("a params RHS forward-referencing a body `schema` resolves (no unresolved-named-type) and validates correctly", () => {
     // `author: Author`, where `schema Author { ... }` appears LATER in the body.
     // Resolution is whole-file, so the forward reference resolves.
@@ -176,7 +176,7 @@ describe("V6b-T — forward-referenced named type resolves and validates (loom/p
     };
     const r = parseParams([field("author", "Author", 1)], [authorDecl], SITE);
     expect(
-      withCode(r.diagnostics, "loom/parse/unresolved-named-type"),
+      withCode(r.diagnostics, "theta/parse/unresolved-named-type"),
       "a forward-referenced body type resolves whole-file — no unresolved-named-type",
     ).toBeUndefined();
     const schema = r.loweredSchema;
@@ -189,12 +189,12 @@ describe("V6b-T — forward-referenced named type resolves and validates (loom/p
 
 // --- §params — a named type that resolves to no declaration ----------------
 
-describe("V6b-T — unresolved named type (loom/parse/unresolved-named-type)", () => {
-  it("loom/parse/unresolved-named-type: a params named type with no body declaration fires, naming the type", () => {
+describe("V6b-T — unresolved named type (theta/parse/unresolved-named-type)", () => {
+  it("theta/parse/unresolved-named-type: a params named type with no body declaration fires, naming the type", () => {
     // `reviewer: Reviewer`, but no `schema`/`enum Reviewer` exists anywhere.
     const r = parseParams([field("reviewer", "Reviewer", 1)], [], SITE);
-    const d = withCode(r.diagnostics, "loom/parse/unresolved-named-type");
-    expect(d, "loom/parse/unresolved-named-type for a named type with no body declaration").toBeDefined();
+    const d = withCode(r.diagnostics, "theta/parse/unresolved-named-type");
+    expect(d, "theta/parse/unresolved-named-type for a named type with no body declaration").toBeDefined();
     expect(d?.severity).toBe("error");
     // Message from code-registry-parse.md; `<name>` names the unresolved type.
     expect(d?.message).toBe("unresolved named type 'Reviewer'");

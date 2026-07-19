@@ -2,14 +2,14 @@
 //
 // This module owns two mechanisms of binder/binder-bypass-and-envelope.md:
 //
-//   - The binder-bypass decision (§Binder bypass): computed at loom-load time
+//   - The binder-bypass decision (§Binder bypass): computed at theta-load time
 //     from the static `params:` schema. Two shapes skip the binder call (and the
 //     LLM inference) entirely — the no-params bypass (`params:` absent or `{}`)
 //     and the single-string bypass (exactly one field, type `string`, no
 //     default, not optional/nullable). The no-params check runs before the
 //     single-string check. All other shapes go through the binder.
 //   - The dynamic envelope schema (§Binder envelope): the runtime constructs one
-//     envelope schema per loom at load time — a three-arm discriminated union
+//     envelope schema per theta at load time — a three-arm discriminated union
 //     over `kind` (`ok | needs_info | ambiguous`, BNDR-1) whose `ambiguous` arm
 //     keeps `candidates` (`array<string> | null`, BNDR-2). The `ok` arm's `args`
 //     is a relaxed copy of the lowered `params` schema with each defaulted field
@@ -49,10 +49,10 @@ export const BINDER_ENVELOPE_MESSAGE_MAX_LENGTH = 500;
 
 // --- dynamic envelope schema (§Binder envelope) -----------------------------
 
-/** Inputs to envelope-schema construction for a single loom load. */
+/** Inputs to envelope-schema construction for a single theta load. */
 export interface BuildBinderEnvelopeSchemaInput {
   /**
-   * The loom's lowered `params` object schema (Schema Subset — Lowering
+   * The theta's lowered `params` object schema (Schema Subset — Lowering
    * Algorithm). The relaxed copy embedded in the `ok` arm's `args` is derived
    * from this by removing each defaulted field from `required`.
    */
@@ -69,7 +69,7 @@ export interface BuildBinderEnvelopeSchemaInput {
 export type BinderEnvelopeSchema = Readonly<Record<string, unknown>>;
 
 /**
- * Construct the per-loom binder envelope schema (§Binder envelope): a three-arm
+ * Construct the per-theta binder envelope schema (§Binder envelope): a three-arm
  * `anyOf` over `kind` (`ok | needs_info | ambiguous`), with the `ok` arm
  * embedding the relaxed params copy and the `needs_info` / `ambiguous` arms
  * carrying the `maxLength: 500` message budget (and, on `ambiguous`, the
@@ -167,16 +167,16 @@ export type BinderBypassDecision =
   | { readonly kind: "binder" };
 
 /**
- * Classify a loom's bypass eligibility from its static `params:` schema
+ * Classify a theta's bypass eligibility from its static `params:` schema
  * (§Binder bypass). The no-params check (`params:` absent or `{}`) runs BEFORE
  * the single-string check (exactly one field, type `string`, no default, not
- * optional/nullable), so a `params: {}` loom cannot match the single-string
+ * optional/nullable), so a `params: {}` theta cannot match the single-string
  * branch. All other shapes go through the binder.
  */
 export function classifyBinderBypass(
   fields: readonly BypassParamsField[] | undefined,
 ): BinderBypassDecision {
-  // No-params check runs BEFORE single-string, so a `params: {}` loom (zero
+  // No-params check runs BEFORE single-string, so a `params: {}` theta (zero
   // fields) cannot match the single-string branch.
   if (fields === undefined || fields.length === 0) {
     return { kind: "no-params-bypass" };
@@ -270,12 +270,12 @@ export function binderFailureRowPrefix(kind: "needs_info" | "ambiguous"): string
 
 /**
  * Render the full failure-mode template row for a terminating binder failure arm
- * (BNDR-3): `loom /<name>: <prefix> — <message>`.
+ * (BNDR-3): `theta /<name>: <prefix> — <message>`.
  */
 export function renderBinderFailureRow(
   name: string,
   kind: "needs_info" | "ambiguous",
   message: string,
 ): string {
-  return `loom /${name}: ${binderFailureRowPrefix(kind)} \u2014 ${message}`;
+  return `theta /${name}: ${binderFailureRowPrefix(kind)} \u2014 ${message}`;
 }

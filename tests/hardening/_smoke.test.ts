@@ -4,13 +4,13 @@ import { requireLiveProvider, runProbe } from "./probe-harness";
 describe("hardening harness smoke", () => {
   const provider = requireLiveProvider();
 
-  it("registers a project loom and captures the deterministic user turn text", async () => {
+  it("registers a project theta and captures the deterministic user turn text", async () => {
     const probe = await runProbe({
       provider,
       files: [
         {
           source: "project",
-          path: "smoke.loom",
+          path: "smoke.theta",
           text: [
             "---",
             "description: smoke",
@@ -25,7 +25,7 @@ describe("hardening harness smoke", () => {
     });
     try {
       expect(probe.registeredNames).toContain("smoke");
-      // Deterministic: the user-turn text the loom code computed.
+      // Deterministic: the user-turn text the theta code computed.
       const allUser = probe.turns[0].userTexts.join("\n");
       expect(allUser).toContain("COMPUTED=5");
     } finally {

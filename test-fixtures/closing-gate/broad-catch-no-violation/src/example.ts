@@ -1,6 +1,6 @@
 // Seeded broad-catch allow-list fixture (H5c): every exemption comment cites a
 // token the predicate admits — one entry per admitted arm: a coverage-matrix
-// REQ-ID, an exactly-one cka-<n> Token cell, a concrete loom/... registry code,
+// REQ-ID, an exactly-one cka-<n> Token cell, a concrete theta/... registry code,
 // and the structural pi-sdk-boundary token.
 //
 // These are fixture data outside the gated src tree; the broad `catch` clauses
@@ -35,5 +35,5 @@ export function registryCodeArm(): void {
     work();
   } catch (e: unknown) {
     handle(e);
-  } // allow-broad-catch: loom/parse/foo-bad — spec/foo.md
+  } // allow-broad-catch: theta/parse/foo-bad — spec/foo.md
 }

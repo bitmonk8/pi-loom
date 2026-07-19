@@ -1,15 +1,15 @@
 // V14a / V14a-T — the code-side `<name>(args)` tool-call dispatch/lowering seam.
 //
 // This module owns the interpreter-side seam the paired `V14a` implementation
-// leaf fills in for a code-side tool call over the loom's *callable set*
+// leaf fills in for a code-side tool call over the theta's *callable set*
 // (tool-calls.md; pi-integration-contract/host-interfaces-core.md
-// §"Tool execution from loom code"):
+// §"Tool execution from theta code"):
 //
 //   - The parse-time argument checks with the arity-before-type ordering:
-//     `loom/parse/tool-arg-arity` (a multi-argument Pi-tool call), then
-//     `loom/parse/tool-arg-not-literal` (the single positional argument is not
-//     a literal-sublanguage form), then `loom/parse/tool-arg-type-mismatch`
-//     (a statically-resolvable `.loom`-callable argument that does not match
+//     `theta/parse/tool-arg-arity` (a multi-argument Pi-tool call), then
+//     `theta/parse/tool-arg-not-literal` (the single positional argument is not
+//     a literal-sublanguage form), then `theta/parse/tool-arg-type-mismatch`
+//     (a statically-resolvable `.theta`-callable argument that does not match
 //     the callee's `params:`). Arity is checked before type: a call that both
 //     over-supplies positional arguments and type-mismatches fires only the
 //     arity code.
@@ -19,9 +19,9 @@
 //     different `kind` wire tags (`"code_tool"` vs `"model_tool"`).
 //   - The accepted-path return lowering: a conforming Pi-tool return lowers to
 //     `Ok(string)` (the tool's final output as a single string); a conforming
-//     subagent-mode `.loom`-callable return lowers to `Ok(T)` (the callee's
+//     subagent-mode `.theta`-callable return lowers to `Ok(T)` (the callee's
 //     inferred / AJV-enforced return payload).
-//   - The `.loom`-callable failure surface: failures cascade through
+//   - The `.theta`-callable failure surface: failures cascade through
 //     `InvokeCalleeError` / `InvokeInfraError`, with an input-validation
 //     failure surfacing as `InvokeInfraError { cause: "validation", ... }`
 //     (the same `invoke`-shaped arm), never as a `CodeToolError`.
@@ -38,21 +38,21 @@
 //   - `codeToolErrorCauses` returns the empty set and `codeToolErrorKind` /
 //     `modelToolErrorKind` return `""` (so the closed-enum and distinctness
 //     assertions red),
-//   - `lowerAcceptedPiToolReturn` / `lowerAcceptedLoomCallableReturn` return an
+//   - `lowerAcceptedPiToolReturn` / `lowerAcceptedThetaCallableReturn` return an
 //     inert `Err(null)` (so both accepted-path `Ok` assertions red),
-//   - `surfaceLoomCallableInputValidationFailure` /
-//     `surfaceLoomCallableCalleeFailure` return inert `kind: ""` values (so the
+//   - `surfaceThetaCallableInputValidationFailure` /
+//     `surfaceThetaCallableCalleeFailure` return inert `kind: ""` values (so the
 //     `Invoke*Error` surfacing assertions red).
 // Each paired V14a-T test reds on its own primary assertion, not on a compile
 // error, a missing fixture, or a harness throw. The paired V14a implementation
 // leaf fills these in.
 //
 // Spec: tool-calls.md, pi-integration-contract/host-interfaces-core.md
-// (§"Tool execution from loom code"), errors-and-results/queryerror-variants.md.
+// (§"Tool execution from theta code"), errors-and-results/queryerror-variants.md.
 
 import type { Diagnostic, SourceRange } from "../diagnostics/diagnostic";
 import { checkLiteralSublanguage } from "../parser/literal-sublanguage";
-import { makeErr, makeOk, type LoomValue, type ResultValue } from "./value";
+import { makeErr, makeOk, type ThetaValue, type ResultValue } from "./value";
 import {
   depthWalk,
   DEPTH_VIOLATION_MESSAGE,
@@ -71,17 +71,17 @@ import type {
 // --------------------------------------------------------------------------
 
 /** Which callee kind a code-side `<name>(args)` call resolves to. */
-export type ToolCallCalleeKind = "pi-tool" | "loom-callable";
+export type ToolCallCalleeKind = "pi-tool" | "theta-callable";
 
 /**
- * The static-resolution facts a `.loom`-callable argument type-mismatch check
+ * The static-resolution facts a `.theta`-callable argument type-mismatch check
  * consumes (tool-calls.md §"Argument shape"). Type-mismatch is a parse error
- * only for a `.loom` callee that is *statically resolvable*; a Pi-tool argument
+ * only for a `.theta` callee that is *statically resolvable*; a Pi-tool argument
  * mismatch is never a parse error (it surfaces at runtime as
  * `Err(CodeToolError { cause: "validation", ... })`).
  */
 export interface ToolCallStaticResolution {
-  /** Whether the `.loom` callee is statically resolvable per invocation.md. */
+  /** Whether the `.theta` callee is statically resolvable per invocation.md. */
   readonly resolvable: boolean;
   /** Whether the argument type-checks against the callee's `params:`. */
   readonly matches: boolean;
@@ -104,10 +104,10 @@ export interface ToolCallArgCheckInput {
   /**
    * Source text of the single positional argument (the bare object literal),
    * checked against the literal sublanguage for a Pi-tool call. Absent when
-   * arity already failed or the call is a `.loom`-callable call.
+   * arity already failed or the call is a `.theta`-callable call.
    */
   readonly argumentSource?: string;
-  /** Static-resolution facts for a `.loom`-callable type-mismatch check. */
+  /** Static-resolution facts for a `.theta`-callable type-mismatch check. */
   readonly staticResolution?: ToolCallStaticResolution;
   readonly file: string;
   readonly range: SourceRange;
@@ -118,7 +118,7 @@ export interface ToolCallArgCheckInput {
  * returning every diagnostic raised. The checks run in order — arity, then
  * not-literal, then type-mismatch — and **arity is checked before type**: a
  * call that both over-supplies positional arguments and type-mismatches fires
- * only `loom/parse/tool-arg-arity`, not `loom/parse/tool-arg-type-mismatch`.
+ * only `theta/parse/tool-arg-arity`, not `theta/parse/tool-arg-type-mismatch`.
  *
  * V14a-T stubs this as an inert no-op (returns no diagnostics), so every
  * argument-check assertion reds on its own primary assertion. The paired V14a
@@ -130,7 +130,7 @@ export function checkToolCallArguments(
   // (1) Arity — checked before type. A code-side call site carries at most one
   // positional argument surface: a Pi tool takes a single object argument
   // (tool-calls.md §"Argument shape": `read({...}, {...})` is
-  // `loom/parse/tool-arg-arity` regardless of the argument shapes). An
+  // `theta/parse/tool-arg-arity` regardless of the argument shapes). An
   // over-supplied positional count short-circuits before any type check, so a
   // call that both over-supplies arguments and type-mismatches fires only the
   // arity code.
@@ -138,7 +138,7 @@ export function checkToolCallArguments(
     return [
       {
         severity: "error",
-        code: "loom/parse/tool-arg-arity",
+        code: "theta/parse/tool-arg-arity",
         file: input.file,
         range: input.range,
         message: `Pi tool '${input.toolName}' takes a single object argument; got ${input.positionalCount}`,
@@ -148,7 +148,7 @@ export function checkToolCallArguments(
 
   // (2) Not-literal — the single positional Pi-tool argument must be a
   // literal-sublanguage form (tool-calls.md §"Argument shape"). Reuse the
-  // shared is-literal check (V2a), which reports `loom/parse/tool-arg-not-literal`
+  // shared is-literal check (V2a), which reports `theta/parse/tool-arg-not-literal`
   // at the `tool-arg` position and names the offending sub-expression.
   if (input.calleeKind === "pi-tool" && input.argumentSource !== undefined) {
     const litDiags = checkLiteralSublanguage(input.argumentSource, "tool-arg", {
@@ -160,14 +160,14 @@ export function checkToolCallArguments(
     }
   }
 
-  // (3) Type-mismatch — a `.loom`-callable argument that does not type-check
+  // (3) Type-mismatch — a `.theta`-callable argument that does not type-check
   // against the callee `params:` is a parse error only when the callee is
   // statically resolvable (tool-calls.md §"Argument shape"); the
   // non-statically-resolvable arm falls to the runtime AJV check. A Pi-tool
   // argument mismatch is never a parse error.
   const resolution = input.staticResolution;
   if (
-    input.calleeKind === "loom-callable" &&
+    input.calleeKind === "theta-callable" &&
     resolution !== undefined &&
     resolution.resolvable &&
     !resolution.matches
@@ -175,7 +175,7 @@ export function checkToolCallArguments(
     return [
       {
         severity: "error",
-        code: "loom/parse/tool-arg-type-mismatch",
+        code: "theta/parse/tool-arg-type-mismatch",
         file: input.file,
         range: input.range,
         message: `tool '${input.toolName}' argument type mismatch: expected ${resolution.expected}, got ${resolution.actual}`,
@@ -193,7 +193,7 @@ export function checkToolCallArguments(
 /**
  * The closed `CodeToolError.cause` enum, in declaration order
  * (queryerror-variants.md): `validation` / `execution` / `cancelled` /
- * `unknown_tool`. This is the contract surface for loom authors — it is **not**
+ * `unknown_tool`. This is the contract surface for theta authors — it is **not**
  * widened to cover every observable `execute()` disposition.
  *
  * V14a-T stubs this to the empty set so the closed-enum assertion reds.
@@ -224,11 +224,11 @@ export function modelToolErrorKind(): string {
 }
 
 // --------------------------------------------------------------------------
-// Accepted-path return lowering (Pi tool → Ok(string); `.loom` → Ok(T))
+// Accepted-path return lowering (Pi tool → Ok(string); `.theta` → Ok(T))
 // --------------------------------------------------------------------------
 
 /**
- * Lower a conforming Pi-tool return to the loom 1.0 `Result<string, QueryError>`
+ * Lower a conforming Pi-tool return to the theta 1.0 `Result<string, QueryError>`
  * accepted value: `Ok(<final output>)`, carrying the tool's final output as a
  * single `string` (tool-calls.md §"Return type", Pi-tool row). The
  * content-block filtering / joining that *produces* `finalOutput` from the
@@ -242,15 +242,15 @@ export function lowerAcceptedPiToolReturn(finalOutput: string): ResultValue {
 }
 
 /**
- * Lower a conforming subagent-mode `.loom`-callable return to the loom 1.0
+ * Lower a conforming subagent-mode `.theta`-callable return to the theta 1.0
  * `Result<T, QueryError>` accepted value: `Ok(<payload>)`, carrying the
  * callee's inferred (statically resolved) or AJV-enforced return payload
- * (tool-calls.md §"Return type", registered-loom row).
+ * (tool-calls.md §"Return type", registered-theta row).
  *
  * V14a-T stubs this to an inert `Err(null)` so the accepted-path `Ok(T)`
  * assertion reds.
  */
-export function lowerAcceptedLoomCallableReturn(payload: LoomValue): ResultValue {
+export function lowerAcceptedThetaCallableReturn(payload: ThetaValue): ResultValue {
   return makeOk(payload);
 }
 
@@ -259,7 +259,7 @@ export function lowerAcceptedLoomCallableReturn(payload: LoomValue): ResultValue
 //
 // The delegated live-carrier witness for `V5e`'s code-driven-tool-args
 // ceiling-#4 routing row (ceilings-3-and-4.md#ceiling-4-table). A depth-6
-// code-driven `<name>(args)` argument trips the loom-owned depth walk (`V5e`,
+// code-driven `<name>(args)` argument trips the theta-owned depth walk (`V5e`,
 // `depthWalk`) *before* AJV runs (CIO-3) and surfaces wrapped as
 // `Err(CodeToolError { cause: "validation", ... })`, building on the `V14a`
 // `CodeToolError` carrier. A within-cap argument produces no depth breach and
@@ -271,10 +271,10 @@ export function lowerAcceptedLoomCallableReturn(payload: LoomValue): ResultValue
  * `<name>(args)` site (ceilings-3-and-4.md#ceiling-4-table, code-driven row):
  *
  *   - `result` — the wrapped `Err(CodeToolError { cause: "validation", ... })`
- *     surfaced to loom code, matching the per-boundary table's code-driven row;
+ *     surfaced to theta code, matching the per-boundary table's code-driven row;
  *   - `error`  — the `CodeToolError` carrier itself (`kind: "code_tool"`,
  *     `cause: "validation"`, canonical depth `message`, post-rename `tool_name`);
- *   - `issue`  — the loom-owned depth walk's `ValidationIssue`, carrying
+ *   - `issue`  — the theta-owned depth walk's `ValidationIssue`, carrying
  *     `schema_keyword: "maxDepth"` and the canonical
  *     `"JSON document depth exceeds 5"` message.
  */
@@ -286,7 +286,7 @@ export interface CodeToolArgDepthBreach {
 
 /**
  * Enforce ceiling #4 at the code-driven `<name>(args)` argument boundary: run
- * `V5e`'s loom-owned depth walk over the materialised argument value *before*
+ * `V5e`'s theta-owned depth walk over the materialised argument value *before*
  * AJV (CIO-3), and — on a depth-6+ breach — surface it wrapped as
  * `Err(CodeToolError { cause: "validation", ... })` per the code-driven row of
  * the ceiling-#4 per-boundary table (ceilings-3-and-4.md#ceiling-4-table).
@@ -298,7 +298,7 @@ export interface CodeToolArgDepthBreach {
  * check; a depth-6+ value yields the canonical depth-violation issue
  * (`schema_keyword: "maxDepth"`, message `"JSON document depth exceeds 5"`),
  * which is wrapped into the `CodeToolError` carrier (`V14a`) with
- * `cause: "validation"` and surfaced as `Err(CodeToolError)` to loom code, per
+ * `cause: "validation"` and surfaced as `Err(CodeToolError)` to theta code, per
  * the code-driven row of the ceiling-#4 per-boundary table
  * (ceilings-3-and-4.md#ceiling-4-table).
  */
@@ -324,7 +324,7 @@ export function enforceCodeToolArgDepth(
     cause: "validation",
   };
   return {
-    result: makeErr(error as unknown as LoomValue),
+    result: makeErr(error as unknown as ThetaValue),
     error,
     issue: walk.issue,
   };
@@ -337,18 +337,18 @@ export function enforceCodeToolArgDepth(
 // Distinct from the code-driven carrier above: the model-driven row of the
 // ceiling-#4 per-boundary table (ceilings-3-and-4.md#ceiling-4-table;
 // schema-subset.md §Depth Enforcement point #2) routes to *the model*, NOT to
-// loom code. A depth-6 model-produced argument does NOT surface as a loom
+// theta code. A depth-6 model-produced argument does NOT surface as a theta
 // `Err` and specifically NOT as `ModelToolError` (reserved for non-recoverable
 // adapter-layer failures); it is materialised as a tool-error result fed back
 // to the model as the next turn, the round still counts against
 // `tool_loop.max_rounds`, and the loop continues (re-trying naturally on the
-// model's next turn). No `QueryError` reaches loom code unless the loop later
+// model's next turn). No `QueryError` reaches theta code unless the loop later
 // exhausts under ceiling #2.
 //
 // AJV against the presented tool schema cannot catch this: JSON Schema 2020-12
 // has no `maxDepth` keyword, so the lowered/presented schema carries no depth
 // bound (schema-subset.md §Depth Enforcement) — the same reason the code-driven
-// and invoke paths need an explicit walk. Hence this loom-owned walk runs
+// and invoke paths need an explicit walk. Hence this theta-owned walk runs
 // *before* the tool body (CIO-3) at the model-driven dispatch seam.
 // --------------------------------------------------------------------------
 
@@ -357,7 +357,7 @@ export function enforceCodeToolArgDepth(
  * model-driven `tool_use` dispatch seam (ceilings-3-and-4.md#ceiling-4-table,
  * model-driven row):
  *
- *   - `issue`   — the loom-owned depth walk's `ValidationIssue`, carrying
+ *   - `issue`   — the theta-owned depth walk's `ValidationIssue`, carrying
  *     `schema_keyword: "maxDepth"` and the canonical
  *     `"JSON document depth exceeds 5"` message with the RFC-6901 JSON Pointer
  *     to the first too-deep node;
@@ -367,7 +367,7 @@ export function enforceCodeToolArgDepth(
  *     locate and shrink the over-deep argument on its natural in-loop retry.
  *
  * Deliberately carries NO `Err`/`CodeToolError`/`ModelToolError` — the surface
- * is a model-facing tool-result, not a loom-code `Result`.
+ * is a model-facing tool-result, not a theta-code `Result`.
  */
 export interface ModelToolArgDepthBreach {
   readonly issue: DepthViolationIssue;
@@ -376,7 +376,7 @@ export interface ModelToolArgDepthBreach {
 
 /**
  * Enforce ceiling #4 at the MODEL-DRIVEN `tool_use` argument boundary: run
- * `V5e`'s loom-owned depth walk over the model-produced argument value *before*
+ * `V5e`'s theta-owned depth walk over the model-produced argument value *before*
  * the tool body runs (CIO-3), and — on a depth-6+ breach — return the
  * model-facing carrier the dispatch seam feeds back to the model as a
  * tool-error result per the model-driven row of the ceiling-#4 per-boundary
@@ -384,7 +384,7 @@ export interface ModelToolArgDepthBreach {
  * within-cap argument, deferring to the tool body / downstream provider
  * validation.
  *
- * Unlike `enforceCodeToolArgDepth`, this produces no loom `Err`: the model-
+ * Unlike `enforceCodeToolArgDepth`, this produces no theta `Err`: the model-
  * driven row's destination is the model (the loop continues, the round counts
  * against `tool_loop.max_rounds`), so the breach carries only the model-facing
  * feedback text and the canonical depth issue.
@@ -412,13 +412,13 @@ export function enforceModelToolArgDepth(
 }
 
 // --------------------------------------------------------------------------
-// `.loom`-callable failure surface (Invoke*Error, never CodeToolError)
+// `.theta`-callable failure surface (Invoke*Error, never CodeToolError)
 // --------------------------------------------------------------------------
 
 /**
- * Surface an input-side argument-validation failure of a `.loom`-callable call
+ * Surface an input-side argument-validation failure of a `.theta`-callable call
  * (when the callee is not statically resolvable, so the parse-time
- * `loom/parse/tool-arg-type-mismatch` check did not fire) as
+ * `theta/parse/tool-arg-type-mismatch` check did not fire) as
  * `Err(InvokeInfraError { cause: "validation", ... })` — the same `invoke`-shaped
  * arm `invoke(...)` uses for input validation, and **distinct** from a
  * `CodeToolError` (tool-calls.md §"Failures").
@@ -427,7 +427,7 @@ export function enforceModelToolArgDepth(
  * `"load_failure"`, so the `InvokeInfraError { cause: "validation" }` assertion
  * reds.
  */
-export function surfaceLoomCallableInputValidationFailure(
+export function surfaceThetaCallableInputValidationFailure(
   calleePath: string,
   message: string,
 ): InvokeInfraError {
@@ -440,17 +440,17 @@ export function surfaceLoomCallableInputValidationFailure(
 }
 
 /**
- * Surface a failure the `.loom` callee itself returned as
+ * Surface a failure the `.theta` callee itself returned as
  * `Err(InvokeCalleeError { inner, ... })` — the call is semantically an
  * `invoke`, so a callee-returned `Err` cascades through `InvokeCalleeError`
  * carrying the callee's original `QueryError` as `inner` (tool-calls.md
- * §"Failures"). `CodeToolError` arises for a `.loom` callable only in the
+ * §"Failures"). `CodeToolError` arises for a `.theta` callable only in the
  * `"unknown_tool"` safety-net case.
  *
  * V14a-T stubs this to an inert value whose `kind` is `""`, so the
  * `InvokeCalleeError` surfacing assertion reds.
  */
-export function surfaceLoomCallableCalleeFailure(
+export function surfaceThetaCallableCalleeFailure(
   calleePath: string,
   inner: QueryError,
   message: string,

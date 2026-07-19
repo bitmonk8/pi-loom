@@ -5,7 +5,7 @@
 // active-set gating window's snapshot/restore protocol (PIC-17 install vector,
 // PIC-8 restore-failure protocol, PIC-19 snapshot/swap-install-failure
 // protocol), and the materialised `ToolDefinition.label` derivation
-// (extension-bootstrap-and-per-loom.md §Per-loom registration — a GOV-22
+// (extension-bootstrap-and-per-theta.md §Per-theta registration — a GOV-22
 // un-anchored residue), per
 // pi-integration-contract/tool-registration-lifetime.md.
 //
@@ -29,8 +29,8 @@ import type { SystemNote } from "../extension/system-note-channel";
 
 // Runtime diagnostics-registry codes this module emits
 // (diagnostics/code-registry-runtime.md).
-const ACTIVE_SET_RESTORE_FAILED = "loom/runtime/active-set-restore-failed";
-const REGISTRATION_CACHE_COLLISION = "loom/runtime/registration-cache-collision";
+const ACTIVE_SET_RESTORE_FAILED = "theta/runtime/active-set-restore-failed";
+const REGISTRATION_CACHE_COLLISION = "theta/runtime/registration-cache-collision";
 
 /** Coerce a caught (post-probe SDK-shape-drift) throw to an `Error`. */
 function asError(thrown: unknown): Error {
@@ -41,16 +41,16 @@ function asError(thrown: unknown): Error {
 
 /**
  * Input to the materialised `ToolDefinition.label` derivation
- * (extension-bootstrap-and-per-loom.md §Per-loom registration).
+ * (extension-bootstrap-and-per-theta.md §Per-theta registration).
  *
- * `loom-file` carries the loom file's basename (without the `.loom` extension);
+ * `theta-file` carries the theta file's basename (without the `.theta` extension);
  * the label is that basename with interior hyphens preserved and only the
  * leading character capitalised (`code-review` → `"Code-review"`).
  * `typed-query-respond` synthesises the one-shot tool whose label is the fixed
- * literal `"Loom typed-query response"`.
+ * literal `"Theta typed-query response"`.
  */
 export type ToolLabelInput =
-  | { readonly kind: "loom-file"; readonly basename: string }
+  | { readonly kind: "theta-file"; readonly basename: string }
   | { readonly kind: "typed-query-respond" };
 
 /**
@@ -62,7 +62,7 @@ export type ToolLabelInput =
  */
 export function deriveToolLabel(input: ToolLabelInput): string {
   if (input.kind === "typed-query-respond") {
-    return "Loom typed-query response";
+    return "Theta typed-query response";
   }
   // Interior hyphens preserved; only the leading character capitalised
   // (`code-review` → `Code-review`).
@@ -84,21 +84,21 @@ export interface ActiveSetPi {
 export interface ActiveSetGateDeps {
   /** The `pi.getActiveTools` / `pi.setActiveTools` snapshot/restore surface. */
   readonly pi: ActiveSetPi;
-  /** The bare loom name substituted into `/<name>` in the PIC-8 note template. */
-  readonly loomName: string;
+  /** The bare theta name substituted into `/<name>` in the PIC-8 note template. */
+  readonly thetaName: string;
   /**
-   * The exact step-2 install vector: `[...loomCallableSetNames, respondToolName?]`.
+   * The exact step-2 install vector: `[...thetaCallableSetNames, respondToolName?]`.
    * The step-1 snapshot is deliberately NOT unioned into this set, so the
    * "ambient tools are deliberately not inherited" invariant holds.
    */
   readonly installVector: readonly string[];
   /** Submit a constructed `Diagnostic` through the standard diagnostics channel. */
   readonly emitDiagnostic: (diagnostic: Diagnostic) => void;
-  /** Deliver a `loom-system-note` (the PIC-8 `display: true` advisory). */
+  /** Deliver a `theta-system-note` (the PIC-8 `display: true` advisory). */
   readonly emitSystemNote: (note: SystemNote) => void;
   /**
    * Route a setup-side (step-1/step-2) failure onto the
-   * `loom/runtime/internal-error` runtime-defect channel (PIC-19); the routing
+   * `theta/runtime/internal-error` runtime-defect channel (PIC-19); the routing
    * owner is capability-probe's Post-probe SDK-shape drift.
    */
   readonly routeInternalError: (error: Error) => void;
@@ -124,7 +124,7 @@ export async function withActiveSetGate<T>(
 
   // Step 1 — snapshot the user session's active set. A throw here is a
   // setup-side (PIC-19) failure: no active-set change has committed, so no
-  // restore is owed; route it to `loom/runtime/internal-error` and propagate.
+  // restore is owed; route it to `theta/runtime/internal-error` and propagate.
   let snapshot: string[];
   try {
     snapshot = pi.getActiveTools();
@@ -156,7 +156,7 @@ export async function withActiveSetGate<T>(
 /**
  * Step-4 restore with the PIC-8 single-re-attempt protocol: restore the
  * snapshot; on a throw, re-attempt exactly once with the same snapshot; on a
- * second failure, emit `loom/runtime/active-set-restore-failed` (E) plus a
+ * second failure, emit `theta/runtime/active-set-restore-failed` (E) plus a
  * `display: true` advisory note. The restore failure is swallowed here so the
  * original error the `finally` protects propagates unmasked.
  */
@@ -174,19 +174,19 @@ function restoreActiveSet(deps: ActiveSetGateDeps, snapshot: string[]): void {
     deps.pi.setActiveTools([...snapshot]);
     return;
   } catch (secondError: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
-    // PIC-8(b): emit `loom/runtime/active-set-restore-failed` (E). `message`
+    // PIC-8(b): emit `theta/runtime/active-set-restore-failed` (E). `message`
     // carries the underlying restore error; `hint` lists the snapshot tool
     // names so an operator can manually restore via `/tools`.
     deps.emitDiagnostic({
       severity: "error",
       code: ACTIVE_SET_RESTORE_FAILED,
-      message: `failed to restore tool active-set after /${deps.loomName}: ${renderUnderlyingError(secondError)}`,
+      message: `failed to restore tool active-set after /${deps.thetaName}: ${renderUnderlyingError(secondError)}`,
       hint: snapshot.join(", "),
     });
     // PIC-8(c): a `display: true` note carrying the verbatim template — only
     // `<name>` is substituted; every other character ships verbatim.
     deps.emitSystemNote({
-      content: `loom: failed to restore tool active-set after /${deps.loomName}; the user session may have unexpected tools active. Run /reload to reset.`,
+      content: `theta: failed to restore tool active-set after /${deps.thetaName}; the user session may have unexpected tools active. Run /reload to reset.`,
       display: true,
       details: { event: { code: ACTIVE_SET_RESTORE_FAILED } },
     });
@@ -245,7 +245,7 @@ export function createRegistrationCache(): RegistrationCache {
  * registered name. On first encounter of a unique slug, registers once with the
  * content-addressed name. On a cache hit, verifies byte-equality of the cached
  * canonical-form bytes against the new entry's (PIC-44): byte-equal reuses the
- * registration; a byte-mismatch fires `loom/runtime/registration-cache-collision`,
+ * registration; a byte-mismatch fires `theta/runtime/registration-cache-collision`,
  * refuses to dedup, and registers under a disambiguated per-slug-counter name.
  *
  * V9f-T stub: always mints the base content-addressed name and calls
@@ -283,7 +283,7 @@ export function registerToolInCache(
   }
 
   // Byte-mismatch: a slug collision between two distinct lowered schemas. Fire
-  // `loom/runtime/registration-cache-collision`, refuse to dedup, and register
+  // `theta/runtime/registration-cache-collision`, refuse to dedup, and register
   // under a disambiguated per-slug-counter name (`n` starts at 2).
   const n = existing.nextCounter;
   existing.nextCounter = n + 1;
@@ -303,11 +303,11 @@ export function registerToolInCache(
 /**
  * The content-addressed registration name for a lowered tool. With no counter,
  * the base name; with a per-slug disambiguation counter `n`, the collision form
- * (`__loom_callee_<slug>_<n>__<post-rename-name>` / `__loom_respond_<slug>_<n>`).
+ * (`__theta_callee_<slug>_<n>__<post-rename-name>` / `__theta_respond_<slug>_<n>`).
  */
 function contentAddressedName(entry: RegistrationEntry, n?: number): string {
   const counter = n === undefined ? "" : `_${n}`;
   return entry.kind === "callee"
-    ? `__loom_callee_${entry.slug}${counter}__${entry.postRenameName}`
-    : `__loom_respond_${entry.slug}${counter}`;
+    ? `__theta_callee_${entry.slug}${counter}__${entry.postRenameName}`
+    : `__theta_respond_${entry.slug}${counter}`;
 }

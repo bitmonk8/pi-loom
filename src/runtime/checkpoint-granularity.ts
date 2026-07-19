@@ -36,7 +36,7 @@
 // Spec: cancellation.md §Granularity; host-interfaces-services.md PIC-10.
 
 import type { Checkpoint, CheckpointSite } from "../seams/checkpoint";
-import type { LoomValue } from "./value";
+import type { ThetaValue } from "./value";
 
 /**
  * The host a checkpointed `for`/`while` loop iterates through.
@@ -48,8 +48,8 @@ import type { LoomValue } from "./value";
  *     be synchronous (a compute-bound body with no genuine `await`) or async.
  */
 export interface CheckpointedLoopHost {
-  readonly snapshot: readonly LoomValue[];
-  runIteration(element: LoomValue, index: number): void | Promise<void>;
+  readonly snapshot: readonly ThetaValue[];
+  runIteration(element: ThetaValue, index: number): void | Promise<void>;
 }
 
 /**
@@ -77,7 +77,7 @@ export async function runCheckpointedForLoop(
 ): Promise<void> {
   const snapshot = host.snapshot;
   for (let index = 0; index < snapshot.length; index += 1) {
-    const element = snapshot[index] as LoomValue;
+    const element = snapshot[index] as ThetaValue;
     // The `loop-iter` checkpoint fires immediately before each iteration's
     // signal read; production wiring yields one macrotask turn here so a
     // Pi-dispatched abort flipped during a compute-bound body lands before the
@@ -107,7 +107,7 @@ export async function runCheckpointedBinderCall<T>(
   binderCall: () => Promise<T>,
 ): Promise<CheckpointedBinderOutcome<T>> {
   // The `binder-call` checkpoint fires immediately before the binder's LLM
-  // call's signal read; an abort observed here skips the call and the loom
+  // call's signal read; an abort observed here skips the call and the theta
   // never starts (cancellation.md §Granularity, §Surfacing).
   await checkpoint.before("binder-call", site);
   if (signal.aborted) {

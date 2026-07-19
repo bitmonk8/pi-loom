@@ -1,4 +1,4 @@
-// H2a — loom's flat ESLint config. Wires the bespoke `eslint-plugin-loom-local`
+// H2a — theta's flat ESLint config. Wires the bespoke `eslint-plugin-theta-local`
 // rules over `src/**`, the single production-code root, per the conventions.md
 // cross-cutting rules ("Specific exception types only", "Sequential by
 // default"). Test sources (`**/*.test.ts`) are unrestricted for the
@@ -11,7 +11,7 @@
 // behaviour are one wiring.
 
 import tsParser from "@typescript-eslint/parser";
-import loomLocal from "eslint-plugin-loom-local";
+import thetaLocal from "eslint-plugin-theta-local";
 
 const languageOptions = {
   parser: tsParser,
@@ -25,11 +25,11 @@ export default [
     files: ["src/**/*.ts"],
     ignores: ["src/**/*.test.ts"],
     languageOptions,
-    plugins: { "loom-local": loomLocal },
+    plugins: { "theta-local": thetaLocal },
     rules: {
-      "loom-local/no-broad-catch": "error",
-      "loom-local/no-unguarded-promise-combinator": "error",
-      "loom-local/no-blocking-sync": "error",
+      "theta-local/no-broad-catch": "error",
+      "theta-local/no-unguarded-promise-combinator": "error",
+      "theta-local/no-blocking-sync": "error",
     },
   },
 ];

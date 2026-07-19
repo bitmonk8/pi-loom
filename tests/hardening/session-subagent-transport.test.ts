@@ -10,7 +10,7 @@
 //
 // RISK guarded here: a false positive where a NORMAL, successful subagent turn
 // (stopReason "end_turn"/"stop") is misclassified as a transport error, which
-// would break every subagent loom. A real transport error cannot be forced
+// would break every subagent theta. A real transport error cannot be forced
 // deterministically (that path is proven by the deterministic unit tests in
 // tests/production-subagent-query-model.test.ts), so this probe only proves the
 // SUCCESS path is unregressed: a successful subagent query must still bind Ok
@@ -20,7 +20,7 @@
 // Method: a prompt PARENT `invoke`s a subagent-mode child whose `@`-query echoes
 // a sentinel; the child returns that value and the parent interpolates it into
 // its OWN observable final query text (the deterministic per-drive `userTexts`
-// channel — computed by loom CODE before send). The subagent transcript is
+// channel — computed by theta CODE before send). The subagent transcript is
 // private (SLSH-2), so this parent-interpolation is the only deterministic
 // observation of the child's bound value. The sentinel's presence proves the
 // subagent query bound Ok and the `invoke(...)?` did NOT abort on a spurious
@@ -51,7 +51,7 @@ async function drive(
   return { turn, text: (turn?.userTexts ?? []).join("\n"), probe };
 }
 
-const loom = (front: string[], body: string): string => ["---", ...front, "---", body].join("\n");
+const theta = (front: string[], body: string): string => ["---", ...front, "---", body].join("\n");
 
 describe("subagent-mode @-query transport classification — success path unregressed (PIC-50 / PIC-51)", () => {
   it(
@@ -61,19 +61,19 @@ describe("subagent-mode @-query transport classification — success path unregr
       const files = [
         {
           source: "project" as const,
-          path: "stu-parent.loom",
-          text: loom(
+          path: "stu-parent.theta",
+          text: theta(
             ["description: x", "mode: prompt"],
             [
-              'let r: string = invoke<string>("./stu-child.loom")?',
+              'let r: string = invoke<string>("./stu-child.theta")?',
               "@`SUBTU r=${r}|reply with exactly: OK`",
             ].join("\n"),
           ),
         },
         {
           source: "project" as const,
-          path: "stu-child.loom",
-          text: loom(
+          path: "stu-child.theta",
+          text: theta(
             ["description: x", "mode: subagent"],
             "@`Reply with exactly the token and nothing else: SUBPONG777`",
           ),
@@ -108,19 +108,19 @@ describe("subagent-mode @-query transport classification — success path unregr
       const files = [
         {
           source: "project" as const,
-          path: "stt-parent.loom",
-          text: loom(
+          path: "stt-parent.theta",
+          text: theta(
             ["description: x", "mode: prompt"],
             [
-              'let r: string = invoke<string>("./stt-child.loom")?',
+              'let r: string = invoke<string>("./stt-child.theta")?',
               "@`SUBTT token=${r}|reply with exactly: OK`",
             ].join("\n"),
           ),
         },
         {
           source: "project" as const,
-          path: "stt-child.loom",
-          text: loom(
+          path: "stt-child.theta",
+          text: theta(
             ["description: x", "mode: subagent"],
             [
               "schema Ans { token: string }",

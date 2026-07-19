@@ -1,43 +1,43 @@
 import { describe, it, expect } from "vitest";
 import { requireLiveProvider, runProbe } from "./probe-harness";
 
-// IMPORTS & .warp MODULES — using imported functions.
+// IMPORTS & .thetalib MODULES — using imported functions.
 //
-// Spec guide.md §".loom versus .warp" + imports.md §.warp file rules: an
-// imported `fn` is callable from the importing `.loom`, and a query inside an
-// imported warp function executes against the *calling* `.loom`'s conversation.
+// Spec guide.md §".theta versus .thetalib" + imports.md §.thetalib file rules: an
+// imported `fn` is callable from the importing `.theta`, and a query inside an
+// imported thetalib function executes against the *calling* `.theta`'s conversation.
 // These probes drive the shipped extension; the fn-usage checks are effectively
 // zero-token if the symbol is unresolved (evaluation throws before any model
 // turn), and pinned deterministically via `turn.userTexts` otherwise.
 
-describe("imports & .warp — imported functions", () => {
+describe("imports & .thetalib — imported functions", () => {
   const provider = requireLiveProvider();
 
-  // IMP-F — call an imported (pure) warp fn and interpolate its return value
+  // IMP-F — call an imported (pure) thetalib fn and interpolate its return value
   // into a query. Deterministic observation: the computed user-turn text should
   // contain the fn's return value.
-  it("IMP-F: an imported pure warp fn is callable / usable in a query", async () => {
+  it("IMP-F: an imported pure thetalib fn is callable / usable in a query", async () => {
     const probe = await runProbe({
       provider,
       files: [
         {
           source: "project",
-          path: "main.loom",
+          path: "main.theta",
           text: [
             "---",
             "description: use imported fn",
             "mode: prompt",
             "---",
-            'import { greeting } from "./lib.warp"',
+            'import { greeting } from "./lib.thetalib"',
             "@`MARK ${greeting()} say ok`",
           ].join("\n"),
         },
         {
           source: "project",
-          path: "lib.warp",
+          path: "lib.thetalib",
           text: [
             "fn greeting(): string {",
-            '  "HELLO_FROM_WARP"',
+            '  "HELLO_FROM_THETALIB"',
             "}",
           ].join("\n"),
         },
@@ -56,7 +56,7 @@ describe("imports & .warp — imported functions", () => {
       console.log("IMP-F diagnostics:", JSON.stringify(probe.diagnostics.map((d) => d.message)));
       const allUser = (turn?.userTexts ?? []).join("\n");
       expect(
-        allUser.includes("HELLO_FROM_WARP"),
+        allUser.includes("HELLO_FROM_THETALIB"),
         `expected imported fn return in user turn; userTexts=${JSON.stringify(
           turn?.userTexts,
         )} error=${turn?.error}`,
@@ -66,32 +66,32 @@ describe("imports & .warp — imported functions", () => {
     }
   });
 
-  // IMP-G — a warp fn that itself issues a `@`-query. Spec: that query executes
-  // against the CALLING .loom's conversation. Deterministic check: the warp
+  // IMP-G — a thetalib fn that itself issues a `@`-query. Spec: that query executes
+  // against the CALLING .theta's conversation. Deterministic check: the thetalib
   // fn's query text appears in the caller's user-turn texts.
-  it("IMP-G: a warp fn's @-query attaches to the caller conversation", async () => {
+  it("IMP-G: a thetalib fn's @-query attaches to the caller conversation", async () => {
     const probe = await runProbe({
       provider,
       files: [
         {
           source: "project",
-          path: "main.loom",
+          path: "main.theta",
           text: [
             "---",
-            "description: warp fn query",
+            "description: thetalib fn query",
             "mode: prompt",
             "---",
-            'import { ask } from "./lib.warp"',
+            'import { ask } from "./lib.thetalib"',
             "let answer = ask()?",
             "@`caller done ${answer}`",
           ].join("\n"),
         },
         {
           source: "project",
-          path: "lib.warp",
+          path: "lib.thetalib",
           text: [
             "fn ask(): Result<string, QueryError> {",
-            "  @`WARP_FN_QUERY_SENTINEL respond with the single word ok`",
+            "  @`THETALIB_FN_QUERY_SENTINEL respond with the single word ok`",
             "}",
           ].join("\n"),
         },
@@ -110,8 +110,8 @@ describe("imports & .warp — imported functions", () => {
       console.log("IMP-G diagnostics:", JSON.stringify(probe.diagnostics.map((d) => d.message)));
       const allUser = (turn?.userTexts ?? []).join("\n");
       expect(
-        allUser.includes("WARP_FN_QUERY_SENTINEL"),
-        `expected warp fn query text in caller user turns; userTexts=${JSON.stringify(
+        allUser.includes("THETALIB_FN_QUERY_SENTINEL"),
+        `expected thetalib fn query text in caller user turns; userTexts=${JSON.stringify(
           turn?.userTexts,
         )} error=${turn?.error}`,
       ).toBe(true);

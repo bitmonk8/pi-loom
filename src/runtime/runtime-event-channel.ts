@@ -31,12 +31,12 @@ import {
  * `{ event: Record<string, unknown> }` detail arm.
  */
 export type RuntimeEvent = {
-  /** A group-A `QueryError.kind` value or binder failure cause; never a `loom/runtime/*` panic code. */
+  /** A group-A `QueryError.kind` value or binder failure cause; never a `theta/runtime/*` panic code. */
   kind: string;
-  /** Diagnostic code when one applies (`loom/runtime/*`, `loom/load/*`, …). */
+  /** Diagnostic code when one applies (`theta/runtime/*`, `theta/load/*`, …). */
   code?: string;
-  /** Slash name of the loom that owned the failure (e.g. `/code-review`). */
-  loom: string;
+  /** Slash name of the theta that owned the failure (e.g. `/code-review`). */
+  theta: string;
   /** Per-invocation UUID (canonical lowercase 8-4-4-4-12 hex). */
   invocation_id: string;
   /** Source location of the `@`-template / tool call / invoke; absent for binder failures. */
@@ -111,7 +111,7 @@ export interface MaskedPredicateInput {
 }
 
 /**
- * PIC-1 clauses (c)/(d): compute the per-site reachable `masked` value. In loom
+ * PIC-1 clauses (c)/(d): compute the per-site reachable `masked` value. In theta
  * 1.0 the only non-empty reachable mask is `["ceiling#2"]`, on a `validation`
  * event whose `cause` is `"schema_validation"` raised at the typed-query
  * response boundary, on a forced respond turn whose post-increment slot count
@@ -124,7 +124,7 @@ export interface MaskedPredicateInput {
 export function computeMasked(
   input: MaskedPredicateInput,
 ): readonly string[] | undefined {
-  // The only loom-1.0 non-empty reachable mask (clause d): a `validation` event
+  // The only theta-1.0 non-empty reachable mask (clause d): a `validation` event
   // whose underlying cause is `schema_validation`, raised at the typed-query
   // response AJV boundary, on a forced respond turn whose post-increment
   // `tool_loop` slot count equals `max_rounds` (the final permitted slot). A
@@ -192,19 +192,19 @@ export function isAlwaysLogKind(kind: string): boolean {
 
 /**
  * Group-A/B routing: a group-A `QueryError.kind` or binder failure cause routes
- * to `"A"` (the `details: { event }` shape); a `loom/runtime/*` panic code
+ * to `"A"` (the `details: { event }` shape); a `theta/runtime/*` panic code
  * routes to `"B"` (the `details: { diagnostics }` shape). A given failure routes
  * through exactly one shape — no fan-out.
  */
 export function alwaysLogGroup(
   failure: { readonly kind?: string; readonly code?: string },
 ): "A" | "B" {
-  // A `loom/runtime/*` panic code routes group B (`details: { diagnostics }`);
+  // A `theta/runtime/*` panic code routes group B (`details: { diagnostics }`);
   // a group-A `QueryError.kind` or binder failure cause routes group A
-  // (`details: { event }`). Group-A events never carry a `loom/runtime/*` code
+  // (`details: { event }`). Group-A events never carry a `theta/runtime/*` code
   // (panics construct no `RuntimeEvent`), so the panic check is unambiguous. A
   // given failure routes through exactly one shape — no fan-out.
-  if (failure.code !== undefined && failure.code.startsWith("loom/runtime/")) {
+  if (failure.code !== undefined && failure.code.startsWith("theta/runtime/")) {
     return "B";
   }
   if (failure.kind !== undefined) {
@@ -260,7 +260,7 @@ export function buildDiagnosticsBatchNote(
 
 /**
  * Matrix row: `details: { diagnostics: [Diagnostic] }`, runtime panic.
- * `display: true`; `content` is the `"loom /<name> aborted: <message>"` framing.
+ * `display: true`; `content` is the `"theta /<name> aborted: <message>"` framing.
  */
 export function buildPanicNote(
   diagnostic: Diagnostic,
@@ -285,24 +285,24 @@ export function buildStructuralNote(
 }
 
 /**
- * Matrix row: `details: { recovery: { looms } }`. `display: true` always;
+ * Matrix row: `details: { recovery: { thetas } }`. `display: true` always;
  * `content` is the verbatim binder-model hot-reload template.
  */
 export function buildRecoveryNote(
-  looms: readonly string[],
+  thetas: readonly string[],
   content: string,
 ): SystemNote {
   return {
     content,
     display: true,
-    details: { recovery: { looms } },
+    details: { recovery: { thetas } },
   };
 }
 
 // --- emission entry points -------------------------------------------------
 
 /**
- * Emit a group-A runtime event exactly once through the `loom-system-note`
+ * Emit a group-A runtime event exactly once through the `theta-system-note`
  * channel, attaching `masked` per the V1 reachable predicate at the originating
  * site. An occurrence produces exactly one always-log emission at its origin.
  */
@@ -319,7 +319,7 @@ export function emitRuntimeEvent(
 }
 
 /**
- * Emit a group-B runtime panic exactly once through the `loom-system-note`
+ * Emit a group-B runtime panic exactly once through the `theta-system-note`
  * channel as a single-element `details: { diagnostics }` batch.
  */
 export function emitPanic(
@@ -327,15 +327,15 @@ export function emitPanic(
   framing: string,
   deps: SystemNoteChannelDeps,
 ): void {
-  // Exactly one `loom-system-note` per top-level panic, routed through the
+  // Exactly one `theta-system-note` per top-level panic, routed through the
   // single-element `details: { diagnostics: [Diagnostic] }` group-B shape. The
   // cascade-twin dedup key does not apply to group B.
   sendSystemNote(buildPanicNote(diagnostic, framing), deps);
 }
 
 /**
- * Success-side null-policy: a loom terminating with `Ok(v)` emits no
- * `loom-system-note` keyed on the `Ok(v)` outcome. Returns `null` — there is no
+ * Success-side null-policy: a theta terminating with `Ok(v)` emits no
+ * `theta-system-note` keyed on the `Ok(v)` outcome. Returns `null` — there is no
  * always-log entry whose emission predicate is satisfied by a success.
  */
 export function successSideNote(): SystemNote | null {

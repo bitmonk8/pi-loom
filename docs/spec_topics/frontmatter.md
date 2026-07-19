@@ -1,6 +1,6 @@
 # Parameters and Frontmatter
 
-Like Pi prompts and subagents, loom files declare metadata in YAML frontmatter:
+Like Pi prompts and subagents, theta files declare metadata in YAML frontmatter:
 
 ## Contents
 

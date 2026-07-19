@@ -4,9 +4,9 @@ import type {
   ExtensionCommandContext,
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
-import loomExtension, {
-  createLoomExtension,
-  type LoomFixture,
+import thetaExtension, {
+  createThetaExtension,
+  type ThetaFixture,
 } from "../src/extension/factory";
 import { loadExtension, SessionDouble } from "./harness/index";
 import { createSystemNoteRenderer } from "../src/extension/system-note-renderer";
@@ -61,11 +61,11 @@ function makeAbsentSeamPi(absent: ReadonlySet<string>): {
 describe("H4a — factory shell (Convention: Pi-extension shell)", () => {
   it("completes its side-effect registrations on the injected pi handle", () => {
     const double = new SessionDouble();
-    createLoomExtension({ fixtures: [] })(double.pi);
+    createThetaExtension({ fixtures: [] })(double.pi);
 
     // Factory-body synchronous-arm registrations all took effect.
-    expect(double.flags.has("loom")).toBe(true);
-    expect(double.renderers.has("loom-system-note")).toBe(true);
+    expect(double.flags.has("theta")).toBe(true);
+    expect(double.renderers.has("theta-system-note")).toBe(true);
     expect([...double.subscriptions.keys()].sort()).toEqual([
       "resources_discover",
       "session_shutdown",
@@ -82,7 +82,7 @@ describe("H4a — factory shell (Convention: Pi-extension shell)", () => {
     const { pi, calls, subscriptions } = makeAbsentSeamPi(
       new Set(["registerMessageRenderer"]),
     );
-    expect(() => createLoomExtension({ fixtures: [] })(pi)).not.toThrow();
+    expect(() => createThetaExtension({ fixtures: [] })(pi)).not.toThrow();
 
     expect(calls).toContain("registerFlag");
     expect(calls).toContain("registerMessageRenderer");
@@ -104,32 +104,32 @@ describe("H4a — factory shell (Convention: Pi-extension shell)", () => {
         "on:session_shutdown",
       ]),
     );
-    expect(() => createLoomExtension({ fixtures: [] })(pi)).not.toThrow();
+    expect(() => createThetaExtension({ fixtures: [] })(pi)).not.toThrow();
   });
 
   it("returns synchronously — the return value is undefined, not a thenable (synchronous-arm pin)", () => {
     const double = new SessionDouble();
-    const ret: void = createLoomExtension({ fixtures: [] })(double.pi);
+    const ret: void = createThetaExtension({ fixtures: [] })(double.pi);
     expect(ret).toBeUndefined();
     // Not a Promise: no thenable returned-value arm exists to reject.
     expect((ret as unknown as { then?: unknown } | undefined)?.then).toBeUndefined();
 
     // The production default export is the same synchronous-arm factory.
-    const prod: void = loomExtension(new SessionDouble().pi);
+    const prod: void = thetaExtension(new SessionDouble().pi);
     expect(prod).toBeUndefined();
   });
 });
 
-// --- Convention: phase categories — the loom-system-note renderer shape ---
+// --- Convention: phase categories — the theta-system-note renderer shape ---
 
-describe("H4a — loom-system-note renderer (Convention: Pi-extension shell)", () => {
+describe("H4a — theta-system-note renderer (Convention: Pi-extension shell)", () => {
   const renderer = createSystemNoteRenderer();
   const opts = { expanded: false } as never;
   const theme = {} as never;
 
   it("returns a pi-tui Component (not a bare string) rendering the message content", () => {
     const component = renderer(
-      { customType: "loom-system-note", content: "line one\nline two", display: true } as never,
+      { customType: "theta-system-note", content: "line one\nline two", display: true } as never,
       opts,
       theme,
     );
@@ -141,7 +141,7 @@ describe("H4a — loom-system-note renderer (Convention: Pi-extension shell)", (
 
   it("returns undefined when display === false (Pi skips rendering)", () => {
     const component = renderer(
-      { customType: "loom-system-note", content: "hidden", display: false } as never,
+      { customType: "theta-system-note", content: "hidden", display: false } as never,
       opts,
       theme,
     );
@@ -154,7 +154,7 @@ describe("H4a — loom-system-note renderer (Convention: Pi-extension shell)", (
 describe("H4a — end-to-end harness (Convention: end-to-end harness)", () => {
   it("loads the extension and dispatches a registered no-op command end-to-end", async () => {
     let ran = false;
-    const noop: LoomFixture = {
+    const noop: ThetaFixture = {
       slashName: "noop",
       run: async (_args, _ctx) => {
         ran = true;
@@ -162,26 +162,26 @@ describe("H4a — end-to-end harness (Convention: end-to-end harness)", () => {
     };
     const loaded = loadExtension({ fixtures: [noop] });
 
-    // `session_start` (fired by the harness) registered the per-loom command.
+    // `session_start` (fired by the harness) registered the per-theta command.
     expect(loaded.double.commands.has("noop")).toBe(true);
 
     await loaded.dispatch("noop", "");
     expect(ran).toBe(true);
   });
 
-  it("passes the loom's `description` to pi.registerCommand (autocomplete entry; frontmatter-fields-a.md)", () => {
-    const described: LoomFixture = {
+  it("passes the theta's `description` to pi.registerCommand (autocomplete entry; frontmatter-fields-a.md)", () => {
+    const described: ThetaFixture = {
       slashName: "review",
       description: "Programmatic, parameterised code review",
       run: async () => {},
     };
-    const undescribed: LoomFixture = { slashName: "bare", run: async () => {} };
+    const undescribed: ThetaFixture = { slashName: "bare", run: async () => {} };
     const loaded = loadExtension({ fixtures: [described, undescribed] });
-    // The described loom's autocomplete text reaches the registration seam...
+    // The described theta's autocomplete text reaches the registration seam...
     expect(loaded.double.commands.get("review")?.description).toBe(
       "Programmatic, parameterised code review",
     );
-    // ...and a loom with no description registers untexted (no fabricated text).
+    // ...and a theta with no description registers untexted (no fabricated text).
     expect(loaded.double.commands.get("bare")?.description).toBeUndefined();
   });
 
@@ -190,7 +190,7 @@ describe("H4a — end-to-end harness (Convention: end-to-end harness)", () => {
       fixtures: [{ slashName: "a", run: async () => {} }],
     });
     // The slash name is the in-memory fixture's, proving the discovery source
-    // is the harness-provided fixture rather than any on-disk `.loom`.
+    // is the harness-provided fixture rather than any on-disk `.theta`.
     expect([...loaded.double.commands.keys()]).toEqual(["a"]);
   });
 });
@@ -203,7 +203,7 @@ describe("H4a — session-double fidelity contract self-check (Convention: end-t
     // (SLSH-2) — tokens stream into the transcript before the terminal
     // `agent_end` that settles `waitForIdle()`.
     const double = new SessionDouble();
-    createLoomExtension({ fixtures: [] })(double.pi);
+    createThetaExtension({ fixtures: [] })(double.pi);
     double.programResponse(["Hel", "lo"]);
 
     double.pi.sendUserMessage("hi");
@@ -224,7 +224,7 @@ describe("H4a — session-double fidelity contract self-check (Convention: end-t
     // — the driven turn commits exactly one trailing assistant message
     // carrying the accumulated streamed text.
     const double = new SessionDouble();
-    createLoomExtension({ fixtures: [] })(double.pi);
+    createThetaExtension({ fixtures: [] })(double.pi);
     double.programResponse(["Hel", "lo"]);
 
     double.pi.sendUserMessage("hi");
@@ -243,23 +243,23 @@ describe("H4a — session-double fidelity contract self-check (Convention: end-t
 
   it("(iii) the pi.on cancel-forward subscription observes an aborted ctx.signal, and (iv) cancellation propagates the source reason (CNCL-4)", async () => {
     // Axis (iii): conversation-drive.md PIC-18 + cancellation.md §"Forwarding
-    // into loomAbort" — a `pi.on` turn-lifecycle handler forwards the aborted
-    // `ctx.signal` into `loomAbort`. Axis (iv): cancellation.md CNCL-4 —
-    // `loomAbort.signal.reason === source.reason` after forwarding.
+    // into thetaAbort" — a `pi.on` turn-lifecycle handler forwards the aborted
+    // `ctx.signal` into `thetaAbort`. Axis (iv): cancellation.md CNCL-4 —
+    // `thetaAbort.signal.reason === source.reason` after forwarding.
     const double = new SessionDouble();
-    createLoomExtension({ fixtures: [] })(double.pi);
+    createThetaExtension({ fixtures: [] })(double.pi);
 
-    const loomAbort = new AbortController();
+    const thetaAbort = new AbortController();
     let observedAbortedSignal = false;
     double.pi.on("agent_end", (_event: unknown, ctx: ExtensionContext) => {
       const sig = ctx.signal;
       if (sig?.aborted === true) {
         observedAbortedSignal = true;
-        loomAbort.abort(sig.reason);
+        thetaAbort.abort(sig.reason);
       }
     });
 
-    const reason = new Error("loom cancelled by agent_end");
+    const reason = new Error("theta cancelled by agent_end");
     double.programResponse(["x", "y", "z"]);
     double.pi.sendUserMessage("hi");
     // Pi/user-initiated cancel (the CNCL-4 source) while the turn is in flight.
@@ -268,14 +268,14 @@ describe("H4a — session-double fidelity contract self-check (Convention: end-t
 
     // (iii) the cancel-forward subscription fired with an aborted ctx.signal.
     expect(observedAbortedSignal).toBe(true);
-    // (iv) the abort propagated into loomAbort, mirroring the source reason.
-    expect(loomAbort.signal.aborted).toBe(true);
-    expect(loomAbort.signal.reason).toBe(reason);
+    // (iv) the abort propagated into thetaAbort, mirroring the source reason.
+    expect(thetaAbort.signal.aborted).toBe(true);
+    expect(thetaAbort.signal.reason).toBe(reason);
   });
 
   it("(iii) ctx.signal is undefined once the turn has settled (idle, non-turn context)", async () => {
     const double = new SessionDouble();
-    createLoomExtension({ fixtures: [] })(double.pi);
+    createThetaExtension({ fixtures: [] })(double.pi);
     // Before any turn, the agent is idle: ctx.signal is undefined.
     const idleCtx: ExtensionCommandContext = double.ctx;
     expect(idleCtx.signal).toBeUndefined();

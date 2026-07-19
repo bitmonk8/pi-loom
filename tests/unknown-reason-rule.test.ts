@@ -35,9 +35,9 @@ import { SDK_SURFACE_INVENTORY } from "../src/extension/sdk-inventory";
 
 // --- anchor-stable contract-surface literals (PIC-48), sourced verbatim from
 //     unknown-reason-rule.md #pic-48 and diagnostics/code-registry-host.md ---
-const REASON_UNKNOWN_CODE = "loom/host/session-shutdown-reason-unknown";
+const REASON_UNKNOWN_CODE = "theta/host/session-shutdown-reason-unknown";
 const PINNED_CONSTANT_UNREADABLE_CODE =
-  "loom/host/session-shutdown-pinned-constant-unreadable";
+  "theta/host/session-shutdown-pinned-constant-unreadable";
 // The (c) brace-form closed-set literal `{"quit", "reload", "new", "resume", "fork"}`.
 const CLOSED_SET = ["quit", "reload", "new", "resume", "fork"] as const;
 // Registry *Message* column templates (with the placeholder filled).
@@ -375,13 +375,13 @@ describe("PIC-47 — throw-discriminator grammar", () => {
 describe("PIC-48 — anchor-stable contract surface", () => {
   it("emits the byte-exact reason-unknown code substring (PIC-48 (a))", () => {
     const result = classifyShutdownReason(eventWith("bogus"), healthyInventory());
-    expect(result.diagnostic?.code).toBe("loom/host/session-shutdown-reason-unknown");
+    expect(result.diagnostic?.code).toBe("theta/host/session-shutdown-reason-unknown");
   });
 
   it("emits the byte-exact pinned-constant-unreadable code substring (PIC-48 (b))", () => {
     const result = classifyShutdownReason(eventWith("new"), undefined);
     expect(result.diagnostic?.code).toBe(
-      "loom/host/session-shutdown-pinned-constant-unreadable",
+      "theta/host/session-shutdown-pinned-constant-unreadable",
     );
   });
 

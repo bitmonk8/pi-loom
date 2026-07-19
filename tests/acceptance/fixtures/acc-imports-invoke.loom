@@ -1,9 +1,0 @@
----
-mode: prompt
----
-// H9a acceptance area (g) — imports / invoke across looms.
-// Imports a fn from a sibling `.warp` and invokes a sibling subagent-mode
-// `.loom`; invariant set: no-error exit + permitted codes only.
-import { tagline } from "./acc-lib.warp"
-invoke("./acc-child.loom")
-tagline()

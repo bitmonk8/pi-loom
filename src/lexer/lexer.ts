@@ -1,14 +1,14 @@
 // V1a / V1a-T — the lexer core seam.
 //
 // This module owns the load-time encoding validation, newline normalisation,
-// and tokenisation of a `.loom` / `.warp` source, plus the closed
+// and tokenisation of a `.theta` / `.thetalib` source, plus the closed
 // continuation-trigger statement-joining rule, per
 // spec_topics/lexical.md and spec_topics/grammar.md §"Newline continuation".
-// Lexer-surfaced diagnostics (`loom/load/invalid-encoding`, `loom/parse/*`)
+// Lexer-surfaced diagnostics (`theta/load/invalid-encoding`, `theta/parse/*`)
 // are delivered through the V7d producer-facing diagnostic-emission seam
 // (`emitDiagnosticBatch`), never via a direct `pi.sendMessage` call.
 //
-// V1a-T (tests-task) declares this seam shape and stubs `lexLoom` as an inert
+// V1a-T (tests-task) declares this seam shape and stubs `lexTheta` as an inert
 // no-op so the failing tests compile and red on their own primary assertions
 // (the tokeniser / validator / continuation logic is absent). The paired V1a
 // implementation leaf fills it in.
@@ -59,7 +59,7 @@ export interface Token {
 }
 
 /** A raw, pre-decode source obtained via the PIC-13 `FileSystem.readBytes` seam. */
-export interface LoomSource {
+export interface ThetaSource {
   /** The source file path, used in diagnostic locations. */
   readonly path: string;
   /** The raw, pre-normalisation bytes (UTF-8-validated by the lexer). */
@@ -77,20 +77,20 @@ export interface LexResult {
 }
 
 /**
- * Lex a single `.loom` / `.warp` source: UTF-8-validate the raw bytes
- * (`loom/load/invalid-encoding`), normalise `\r\n` / `\r` → `\n`, then
+ * Lex a single `.theta` / `.thetalib` source: UTF-8-validate the raw bytes
+ * (`theta/load/invalid-encoding`), normalise `\r\n` / `\r` → `\n`, then
  * tokenise — enforcing the identifier first-letter case rule
- * (`loom/parse/schema-case-mismatch`, `loom/parse/binding-case-mismatch`),
+ * (`theta/parse/schema-case-mismatch`, `theta/parse/binding-case-mismatch`),
  * the reserved-keyword-as-identifier rule, the block-comment rejection, the
  * stray-backslash rule, the single-line-body rule, and the closed
  * continuation-trigger statement-joining rule.
  *
  * Any diagnostic produced is delivered through the V7d producer-facing
  * diagnostic-emission seam (`emitDiagnosticBatch`) as exactly one batched
- * `loom-system-note` — never via a direct `pi.sendMessage` call.
+ * `theta-system-note` — never via a direct `pi.sendMessage` call.
  */
-export function lexLoom(
-  source: LoomSource,
+export function lexTheta(
+  source: ThetaSource,
   deps: SystemNoteChannelDeps,
 ): LexResult {
   const file = source.path;
@@ -102,7 +102,7 @@ export function lexLoom(
   if (invalidOffset >= 0) {
     const encodingDiag: Diagnostic = {
       severity: "error",
-      code: "loom/load/invalid-encoding",
+      code: "theta/load/invalid-encoding",
       file,
       message: `invalid UTF-8 encoding at byte offset ${invalidOffset}`,
     };
@@ -287,8 +287,8 @@ function normaliseNewlines(text: string): string {
 /**
  * Tokenise the normalised stream into raw tokens (newlines preserved as
  * `newline` markers for the continuation pass) and the lexical diagnostics that
- * surface during scanning (`loom/parse/block-comment`,
- * `loom/parse/stray-backslash`). A block comment aborts scanning after its
+ * surface during scanning (`theta/parse/block-comment`,
+ * `theta/parse/stray-backslash`). A block comment aborts scanning after its
  * diagnostic, since the rest of the stream is not lexable as line comments.
  */
 function scanTokens(
@@ -338,7 +338,7 @@ function scanTokens(
     }
 
     // Template PROSE region: consume verbatim. The parser recovers the template
-    // by slicing the raw body between the backtick TOKENS (loom-document.ts
+    // by slicing the raw body between the backtick TOKENS (theta-document.ts
     // parseQuery) and re-lexes `${...}` from that slice (query-render.ts
     // lexQueryTemplate), so prose needs no interior tokens — only the backtick
     // delimiters and interpolation `${` must still tokenise. Advancing keeps
@@ -405,7 +405,7 @@ function scanTokens(
       const start = pos();
       diagnostics.push({
         severity: "error",
-        code: "loom/parse/block-comment",
+        code: "theta/parse/block-comment",
         file,
         range: { start, end: { line: start.line, column: start.column + 2 } },
         message: "block comments are not supported",
@@ -416,8 +416,8 @@ function scanTokens(
     // String literals: single- or double-quoted, single-line. The escape table
     // (`\"`, `\'`, `\\`, `\n`, `\t`, `\r`, `\u{XXXX}`) is decoded into the
     // token's `value`; `text` keeps the verbatim source slice. An unrecognised
-    // escape is `loom/parse/illegal-escape`; a `\u{...}` whose scalar value is
-    // out of range or names a surrogate is `loom/parse/invalid-unicode-escape`
+    // escape is `theta/parse/illegal-escape`; a `\u{...}` whose scalar value is
+    // out of range or names a surrogate is `theta/parse/invalid-unicode-escape`
     // (lexical.md §"String literals").
     if (c === '"' || c === "'") {
       const quote = c;
@@ -443,7 +443,7 @@ function scanTokens(
             // Dangling backslash at end of line / EOF: an unrecognised escape.
             diagnostics.push({
               severity: "error",
-              code: "loom/parse/illegal-escape",
+              code: "theta/parse/illegal-escape",
               file,
               range: { start: escStart, end: pos() },
               message: "illegal escape sequence: \\",
@@ -485,7 +485,7 @@ function scanTokens(
             } else {
               diagnostics.push({
                 severity: "error",
-                code: "loom/parse/invalid-unicode-escape",
+                code: "theta/parse/invalid-unicode-escape",
                 file,
                 range: { start: escStart, end: pos() },
                 message:
@@ -495,7 +495,7 @@ function scanTokens(
           } else {
             diagnostics.push({
               severity: "error",
-              code: "loom/parse/illegal-escape",
+              code: "theta/parse/illegal-escape",
               file,
               range: { start: escStart, end: { line: pos().line, column: pos().column + 1 } },
               message: `illegal escape sequence: \\${e}`,
@@ -514,7 +514,7 @@ function scanTokens(
         if (text[i] === "\n") {
           diagnostics.push({
             severity: "error",
-            code: "loom/parse/literal-newline-in-string",
+            code: "theta/parse/literal-newline-in-string",
             file,
             range: { start, end: pos() },
             message: "literal newline in string literal",
@@ -522,7 +522,7 @@ function scanTokens(
         } else {
           diagnostics.push({
             severity: "error",
-            code: "loom/parse/unterminated-string",
+            code: "theta/parse/unterminated-string",
             file,
             range: { start, end: pos() },
             message: "unterminated string literal",
@@ -538,14 +538,14 @@ function scanTokens(
       continue;
     }
 
-    // A backslash outside any literal is a stray backslash (loom has no
+    // A backslash outside any literal is a stray backslash (theta has no
     // line-continuation marker).
     if (c === "\\") {
       const start = pos();
       advance();
       diagnostics.push({
         severity: "error",
-        code: "loom/parse/stray-backslash",
+        code: "theta/parse/stray-backslash",
         file,
         range: { start, end: pos() },
         message: "stray backslash in source",
@@ -591,9 +591,9 @@ function scanTokens(
       }
 
       // A digit/letter/underscore abutting the decimal literal is a reserved or
-      // malformed numeric form — the loom 1.0-deferred hex (`0x`), octal (`0o`),
+      // malformed numeric form — the theta 1.0-deferred hex (`0x`), octal (`0o`),
       // binary (`0b`), and underscore-separator (`1_000`) syntaxes all surface
-      // here as `loom/parse/unsupported-feature` (lexical.md §"Number literals").
+      // here as `theta/parse/unsupported-feature` (lexical.md §"Number literals").
       const tail = text[i];
       if (tail !== undefined && isIdentPart(tail)) {
         let extra = "";
@@ -607,7 +607,7 @@ function scanTokens(
         const fullText = value + extra;
         diagnostics.push({
           severity: "error",
-          code: "loom/parse/unsupported-feature",
+          code: "theta/parse/unsupported-feature",
           file,
           range: { start, end: pos() },
           message: `unsupported syntactic feature: ${fullText}`,
@@ -628,7 +628,7 @@ function scanTokens(
       if (numericType === "integer" && parsed > Number.MAX_SAFE_INTEGER) {
         diagnostics.push({
           severity: "error",
-          code: "loom/parse/integer-literal-out-of-range",
+          code: "theta/parse/integer-literal-out-of-range",
           file,
           range: { start, end: pos() },
           message: "integer literal exceeds the safe-integer range",
@@ -636,7 +636,7 @@ function scanTokens(
       } else if (numericType === "number" && !Number.isFinite(parsed)) {
         diagnostics.push({
           severity: "error",
-          code: "loom/parse/number-literal-not-finite",
+          code: "theta/parse/number-literal-not-finite",
           file,
           range: { start, end: pos() },
           message: "number literal is not a finite IEEE-754 double",
@@ -669,7 +669,7 @@ function scanTokens(
       continue;
     }
 
-    // Semicolons are not part of the loom grammar (lexical.md §"Statement
+    // Semicolons are not part of the theta grammar (lexical.md §"Statement
     // terminators": statements are separated by newlines). A stray `;` (a
     // trailing statement terminator, or one used to pack statements) is
     // rejected rather than silently tokenised and dropped by the parser. Emit
@@ -680,7 +680,7 @@ function scanTokens(
       advance();
       diagnostics.push({
         severity: "error",
-        code: "loom/parse/unsupported-feature",
+        code: "theta/parse/unsupported-feature",
         file,
         range: { start: semiStart, end: pos() },
         message:
@@ -807,7 +807,7 @@ function contextualDiagnostics(tokens: readonly Token[], file: string): Diagnost
     if (name.kind === "keyword") {
       diagnostics.push({
         severity: "error",
-        code: "loom/parse/reserved-keyword-as-identifier",
+        code: "theta/parse/reserved-keyword-as-identifier",
         file,
         range: name.range,
         message: `reserved keyword '${name.text}' cannot be used as an identifier`,
@@ -822,7 +822,7 @@ function contextualDiagnostics(tokens: readonly Token[], file: string): Diagnost
     if (kind === "binding" && isUpper) {
       diagnostics.push({
         severity: "error",
-        code: "loom/parse/binding-case-mismatch",
+        code: "theta/parse/binding-case-mismatch",
         file,
         range: name.range,
         message: "binding name must start with a lowercase letter or _",
@@ -830,7 +830,7 @@ function contextualDiagnostics(tokens: readonly Token[], file: string): Diagnost
     } else if (kind === "type" && !isUpper) {
       diagnostics.push({
         severity: "error",
-        code: "loom/parse/schema-case-mismatch",
+        code: "theta/parse/schema-case-mismatch",
         file,
         range: name.range,
         message: "schema name must start with an uppercase letter",
@@ -891,7 +891,7 @@ function contextualDiagnostics(tokens: readonly Token[], file: string): Diagnost
       if (!braced) {
         diagnostics.push({
           severity: "error",
-          code: "loom/parse/single-line-if",
+          code: "theta/parse/single-line-if",
           file,
           range: t.range,
           message: "single-line body not permitted; wrap in { ... }",

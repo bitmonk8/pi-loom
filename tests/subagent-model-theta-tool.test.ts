@@ -1,25 +1,25 @@
-// SUBAG-2 (model-callable `.loom`) — the model-driven `.loom`-callable dispatch.
+// SUBAG-2 (model-callable `.theta`) — the model-driven `.theta`-callable dispatch.
 //
-// Wires the residual SUBAG-2 gap: a subagent-mode loom that lists another
-// `.loom` in its `tools:` now exposes that callable TO THE MODEL, not only to
+// Wires the residual SUBAG-2 gap: a subagent-mode theta that lists another
+// `.theta` in its `tools:` now exposes that callable TO THE MODEL, not only to
 // code-driven `<name>(args)`. This file pins both halves of the fix:
 //
-//   (A) the extracted, deterministic model-driven core `lowerModelDrivenLoomCall`
+//   (A) the extracted, deterministic model-driven core `lowerModelDrivenThetaCall`
 //       — the object-arg → positional mapping in `params:` DECLARATION ORDER,
 //       the ceiling-#4 model-arg depth block (before any spawn), the `Result`
 //       lowering (Ok → text, Err → `isError`), the tool-calls.md:30 setup-throw
 //       translation, the `HostFatal` re-raise (NOCEIL-3), and re-entrancy
 //       (two concurrent calls dispatch through independent collaborators);
 //   (B) the integration surface through the REAL `spawnSubagentConversation`
-//       (SDK spawn mocked): the `.loom` is installed as a `defineTool`
+//       (SDK spawn mocked): the `.theta` is installed as a `defineTool`
 //       `customTool` + allowlisted in `tools` on `createAgentSession`
 //       (tool-registration-lifetime.md §"Subagent mode"), it appears in the
-//       loom-owned `complete()` loop's `tools` (the model-facing tool schemas),
+//       theta-owned `complete()` loop's `tools` (the model-facing tool schemas),
 //       and a model `tool_use` for it drives the callee through `#driveCallee`
 //       (a fresh child `AgentSession` spawns).
 //
 // Spec: tool-calls.md (SHARED callable set; §Concurrency; :30 setup-throw),
-// pi-integration-contract/extension-bootstrap-and-per-loom.md §Per-loom
+// pi-integration-contract/extension-bootstrap-and-per-theta.md §Per-theta
 // registration, tool-registration-lifetime.md §"Subagent mode",
 // hard-ceilings ceiling #4 (model-driven row).
 
@@ -68,7 +68,7 @@ vi.mock("@earendil-works/pi-coding-agent", async (importOriginal) => {
 const aiHook = vi.hoisted(() => ({
   toolsSeen: [] as unknown[],
   // The full `context.messages` captured per `complete()` turn (Gap-1: the
-  // tool-result turn fed back after a `.loom` call rides on the NEXT turn's
+  // tool-result turn fed back after a `.theta` call rides on the NEXT turn's
   // messages).
   messagesSeen: [] as unknown[],
   replies: [] as unknown[],
@@ -100,36 +100,36 @@ import type {
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import {
   createProductionProducerDeps,
-  lowerModelDrivenLoomCall,
-  type ModelDrivenLoomCall,
-} from "../src/extension/production-loom-producer";
+  lowerModelDrivenThetaCall,
+  type ModelDrivenThetaCall,
+} from "../src/extension/production-theta-producer";
 import type {
   ConversationBindInput,
-  LoomCompositionInput,
-  LoomProducerDeps,
-} from "../src/extension/loom-composition-producer";
+  ThetaCompositionInput,
+  ThetaProducerDeps,
+} from "../src/extension/theta-composition-producer";
 import { executeBody } from "../src/runtime/statement-executor";
-import { parseExpressionSource } from "../src/parser/loom-document";
-import { makeErr, makeOk, type LoomValue, type ResultValue } from "../src/runtime/value";
+import { parseExpressionSource } from "../src/parser/theta-document";
+import { makeErr, makeOk, type ThetaValue, type ResultValue } from "../src/runtime/value";
 import { HostFatal } from "../src/runtime/runtime-panics";
 import type { RuntimeRoot } from "../src/runtime-root";
 import type { Checkpoint, CheckpointKind, CheckpointSite } from "../src/seams/checkpoint";
 import type { CallableSetSnapshot } from "../src/parser/callable-set";
-import type { LoomBody } from "../src/parser/loom-document";
+import type { ThetaBody } from "../src/parser/theta-document";
 import type { ParsedFrontmatter } from "../src/parser/frontmatter";
 
 // =============================================================================
 // (A) The deterministic model-driven core — scripted collaborators, no SDK.
 // =============================================================================
 
-/** A `ModelDrivenLoomCall` recording the positional `argValues` it was driven with. */
+/** A `ModelDrivenThetaCall` recording the positional `argValues` it was driven with. */
 function recordingSpec(
   paramOrder: readonly string[],
-  drive: (argValues: readonly LoomValue[]) => Promise<ResultValue>,
-): { spec: ModelDrivenLoomCall; driven: { argValues: readonly LoomValue[] }[]; setupThrows: unknown[] } {
-  const driven: { argValues: readonly LoomValue[] }[] = [];
+  drive: (argValues: readonly ThetaValue[]) => Promise<ResultValue>,
+): { spec: ModelDrivenThetaCall; driven: { argValues: readonly ThetaValue[] }[]; setupThrows: unknown[] } {
+  const driven: { argValues: readonly ThetaValue[] }[] = [];
   const setupThrows: unknown[] = [];
-  const spec: ModelDrivenLoomCall = {
+  const spec: ModelDrivenThetaCall = {
     paramOrder,
     driveCallee: (argValues) => {
       driven.push({ argValues });
@@ -139,7 +139,7 @@ function recordingSpec(
       setupThrows.push(thrown);
       const message = (thrown as { message?: unknown }).message;
       return {
-        text: `loom callee aborted with internal error: ${String(message)}`,
+        text: `theta callee aborted with internal error: ${String(message)}`,
         isError: true,
       };
     },
@@ -147,7 +147,7 @@ function recordingSpec(
   return { spec, driven, setupThrows };
 }
 
-describe("SUBAG-2 (A) — lowerModelDrivenLoomCall model-driven core", () => {
+describe("SUBAG-2 (A) — lowerModelDrivenThetaCall model-driven core", () => {
   const signal = new AbortController().signal;
 
   it("maps the model's object arguments to positional argValues in params DECLARATION ORDER (Ok → text)", async () => {
@@ -155,7 +155,7 @@ describe("SUBAG-2 (A) — lowerModelDrivenLoomCall model-driven core", () => {
       Promise.resolve(makeOk("DONE")),
     );
     // The model emits the fields in a DIFFERENT order than declared.
-    const lowered = await lowerModelDrivenLoomCall(
+    const lowered = await lowerModelDrivenThetaCall(
       { third: "C", first: "A", second: "B" },
       spec,
       signal,
@@ -167,20 +167,20 @@ describe("SUBAG-2 (A) — lowerModelDrivenLoomCall model-driven core", () => {
 
   it("binds a missing model argument to null (declaration order preserved)", async () => {
     const { spec, driven } = recordingSpec(["a", "b"], () => Promise.resolve(makeOk("X")));
-    await lowerModelDrivenLoomCall({ a: "A" }, spec, signal);
+    await lowerModelDrivenThetaCall({ a: "A" }, spec, signal);
     expect(driven[0]!.argValues).toEqual(["A", null]);
   });
 
   it("lowers an Ok(non-string) value to its JSON form", async () => {
     const { spec } = recordingSpec(["p"], () => Promise.resolve(makeOk({ k: 1, v: [true] })));
-    const lowered = await lowerModelDrivenLoomCall({ p: 0 }, spec, signal);
+    const lowered = await lowerModelDrivenThetaCall({ p: 0 }, spec, signal);
     expect(lowered).toEqual({ text: '{"k":1,"v":[true]}', isError: false });
   });
 
   it("lowers an Err(Result) to an isError tool-result carrying the error message", async () => {
-    const err = makeErr({ kind: "invoke_callee", message: "callee said no" } as unknown as LoomValue);
+    const err = makeErr({ kind: "invoke_callee", message: "callee said no" } as unknown as ThetaValue);
     const { spec } = recordingSpec(["p"], () => Promise.resolve(err));
-    const lowered = await lowerModelDrivenLoomCall({ p: 1 }, spec, signal);
+    const lowered = await lowerModelDrivenThetaCall({ p: 1 }, spec, signal);
     expect(lowered.isError).toBe(true);
     expect(lowered.text).toBe("callee said no");
   });
@@ -190,7 +190,7 @@ describe("SUBAG-2 (A) — lowerModelDrivenLoomCall model-driven core", () => {
     // `{ deep: { a: { b: { c: { d: { e: 1 } } } } } }` — the argument document is
     // depth 6 (object → deep → a → b → c → d), exceeding the ≤5 cap.
     const depth6 = { deep: { a: { b: { c: { d: { e: 1 } } } } } };
-    const lowered = await lowerModelDrivenLoomCall(depth6, spec, signal);
+    const lowered = await lowerModelDrivenThetaCall(depth6, spec, signal);
     expect(lowered.isError).toBe(true);
     expect(lowered.text).toContain("depth");
     // CIO-3: the callee is NEVER driven on a depth breach.
@@ -201,7 +201,7 @@ describe("SUBAG-2 (A) — lowerModelDrivenLoomCall model-driven core", () => {
     const { spec, setupThrows } = recordingSpec(["p"], () =>
       Promise.reject(new Error("spawn setup exploded")),
     );
-    const lowered = await lowerModelDrivenLoomCall({ p: 1 }, spec, signal);
+    const lowered = await lowerModelDrivenThetaCall({ p: 1 }, spec, signal);
     expect(setupThrows).toHaveLength(1);
     expect((setupThrows[0] as Error).message).toBe("spawn setup exploded");
     expect(lowered.isError).toBe(true);
@@ -212,7 +212,7 @@ describe("SUBAG-2 (A) — lowerModelDrivenLoomCall model-driven core", () => {
     const { spec, setupThrows } = recordingSpec(["p"], () =>
       Promise.reject(new HostFatal("fatal host condition")),
     );
-    await expect(lowerModelDrivenLoomCall({ p: 1 }, spec, signal)).rejects.toBeInstanceOf(
+    await expect(lowerModelDrivenThetaCall({ p: 1 }, spec, signal)).rejects.toBeInstanceOf(
       HostFatal,
     );
     expect(setupThrows).toHaveLength(0);
@@ -228,8 +228,8 @@ describe("SUBAG-2 (A) — lowerModelDrivenLoomCall model-driven core", () => {
       Promise.resolve().then(() => makeOk(`B:${String(args[0])}`)),
     );
     const [a, b] = await Promise.all([
-      lowerModelDrivenLoomCall({ x: "1" }, specA.spec, signal),
-      lowerModelDrivenLoomCall({ x: "2" }, specB.spec, signal),
+      lowerModelDrivenThetaCall({ x: "1" }, specA.spec, signal),
+      lowerModelDrivenThetaCall({ x: "2" }, specB.spec, signal),
     ]);
     expect(a).toEqual({ text: "A:1", isError: false });
     expect(b).toEqual({ text: "B:2", isError: false });
@@ -296,23 +296,23 @@ function toolCallReply(name: string, id: string, args: Record<string, unknown>):
 }
 
 /**
- * A parent subagent loom whose callable set exposes one `.loom` callee. Defaults
- * to a bare-basename `child` → `./child.loom`; pass `presentedName` / `calleePath`
- * to model a renamed (`as foo`) or hyphenated (`./my-tool.loom` → `my_tool`)
+ * A parent subagent theta whose callable set exposes one `.theta` callee. Defaults
+ * to a bare-basename `child` → `./child.theta`; pass `presentedName` / `calleePath`
+ * to model a renamed (`as foo`) or hyphenated (`./my-tool.theta` → `my_tool`)
  * entry (Gap-2). The frozen entry carries the authoritative `calleePath` exactly
  * as `resolveCallableSet` records it from the `tools:` `spec`.
  */
-function parentLoom(
-  body: LoomBody,
+function parentTheta(
+  body: ThetaBody,
   opts?: { readonly presentedName?: string; readonly calleePath?: string },
-): LoomCompositionInput {
+): ThetaCompositionInput {
   const presentedName = opts?.presentedName ?? "child";
-  const calleePath = opts?.calleePath ?? "./child.loom";
+  const calleePath = opts?.calleePath ?? "./child.theta";
   const entries = new Map([
     [
       presentedName,
       {
-        kind: "loom" as const,
+        kind: "theta" as const,
         mode: "subagent" as const,
         calleePath,
         callee: undefined,
@@ -322,24 +322,24 @@ function parentLoom(
   const callableSet: CallableSetSnapshot = { entries };
   const frontmatter = {
     mode: "subagent",
-    tools: [calleePath === `./${presentedName}.loom` ? calleePath : `${calleePath} as ${presentedName}`],
+    tools: [calleePath === `./${presentedName}.theta` ? calleePath : `${calleePath} as ${presentedName}`],
   } as unknown as ParsedFrontmatter;
   return {
     slashName: "parent",
-    sourcePath: "/looms/parent.loom",
+    sourcePath: "/theta/parent.theta",
     frontmatter,
     body,
     callableSet,
-  } as unknown as LoomCompositionInput;
+  } as unknown as ThetaCompositionInput;
 }
 
 /**
  * The child subagent callee `parseCallee` resolves — params (a, b) + a body. The
  * default body is the literal `"CHILD-DONE"` (an `Ok` final value); pass
  * `tailSource` to inject a panicking body (Gap-1), e.g. `"[][0]"` (an index
- * out-of-bounds `LoomPanic` in the callee subtree).
+ * out-of-bounds `ThetaPanic` in the callee subtree).
  */
-function childCallee(opts?: { readonly tailSource?: string }): LoomCompositionInput {
+function childCallee(opts?: { readonly tailSource?: string }): ThetaCompositionInput {
   const frontmatter = {
     mode: "subagent",
     description: "Echo child",
@@ -358,16 +358,16 @@ function childCallee(opts?: { readonly tailSource?: string }): LoomCompositionIn
   } as unknown as ParsedFrontmatter;
   return {
     slashName: "child",
-    sourcePath: "/looms/child.loom",
+    sourcePath: "/theta/child.theta",
     frontmatter,
     body: {
       statements: [],
       tail: parseExpressionSource(opts?.tailSource ?? '"CHILD-DONE"'),
     },
-  } as unknown as LoomCompositionInput;
+  } as unknown as ThetaCompositionInput;
 }
 
-function queryBody(): LoomBody {
+function queryBody(): ThetaBody {
   return {
     statements: [],
     tail: {
@@ -376,7 +376,7 @@ function queryBody(): LoomBody {
       template: "do the thing",
       range: { start: { line: 1, column: 1 }, end: { line: 1, column: 12 } },
     },
-  } as unknown as LoomBody;
+  } as unknown as ThetaBody;
 }
 
 function makeParentDeps(
@@ -386,7 +386,7 @@ function makeParentDeps(
     readonly checkpoint?: Checkpoint;
     readonly childTailSource?: string;
   },
-): LoomProducerDeps {
+): ThetaProducerDeps {
   return createProductionProducerDeps({
     pi: opts?.pi ?? noopPi(),
     root: rootDouble(opts?.checkpoint),
@@ -430,8 +430,8 @@ function recordingPi(): { pi: ExtensionAPI; messages: { customType?: string; con
   return { pi, messages };
 }
 
-/** The loom-system-note channel a framed setup-throw note is delivered on. */
-const SYSTEM_NOTE_CHANNEL = "loom-system-note";
+/** The theta-system-note channel a framed setup-throw note is delivered on. */
+const SYSTEM_NOTE_CHANNEL = "theta-system-note";
 
 /** The tool-result turns (role `toolResult`) fed back across every captured turn. */
 function toolResultsIn(
@@ -448,16 +448,16 @@ function toolResultsIn(
   return out;
 }
 
-function parentBindInput(loom: LoomCompositionInput): ConversationBindInput {
+function parentBindInput(theta: ThetaCompositionInput): ConversationBindInput {
   const ctx = {
     model: "claude-test",
     cwd: "/tmp",
     signal: undefined,
   } as unknown as ExtensionCommandContext;
-  return { loom, args: "", ctx, loomAbort: new AbortController() };
+  return { theta, args: "", ctx, thetaAbort: new AbortController() };
 }
 
-describe("SUBAG-2 (B) — spawnSubagentConversation exposes the `.loom` to the model", () => {
+describe("SUBAG-2 (B) — spawnSubagentConversation exposes the `.theta` to the model", () => {
   beforeEach(() => {
     sdkHook.sessions = [];
     aiHook.toolsSeen = [];
@@ -469,9 +469,9 @@ describe("SUBAG-2 (B) — spawnSubagentConversation exposes the `.loom` to the m
     vi.restoreAllMocks();
   });
 
-  it("installs the `.loom` as a defineTool customTool AND allowlists it in `tools` on createAgentSession", async () => {
+  it("installs the `.theta` as a defineTool customTool AND allowlists it in `tools` on createAgentSession", async () => {
     const deps = makeParentDeps({ calls: [] });
-    await deps.spawnSubagentConversation(parentBindInput(parentLoom(queryBody())));
+    await deps.spawnSubagentConversation(parentBindInput(parentTheta(queryBody())));
 
     expect(sdkHook.sessions).toHaveLength(1);
     const spawned = sdkHook.sessions[0]!;
@@ -482,7 +482,7 @@ describe("SUBAG-2 (B) — spawnSubagentConversation exposes the `.loom` to the m
     // tool-registration-lifetime.md §"Subagent mode": the allowlist gates the
     // active set to exactly the callable-set names.
     expect(spawned.tools as string[]).toContain("child");
-    // extension-bootstrap-and-per-loom.md §Per-loom registration: label +
+    // extension-bootstrap-and-per-theta.md §Per-theta registration: label +
     // description derivations.
     const childDef = (spawned.customTools as { name: string; label: string; description: string }[]).find(
       (t) => t.name === "child",
@@ -491,12 +491,12 @@ describe("SUBAG-2 (B) — spawnSubagentConversation exposes the `.loom` to the m
     expect(childDef.description).toBe("Echo child");
   });
 
-  it("presents the `.loom` in the loom-owned complete() loop's tool schemas (SHARED callable set)", async () => {
+  it("presents the `.theta` in the theta-owned complete() loop's tool schemas (SHARED callable set)", async () => {
     const deps = makeParentDeps({ calls: [] });
     // One plain-text turn terminates the query immediately; we only need the
     // tools captured on that turn.
     aiHook.replies = [textReply("OK")];
-    const binding = await deps.spawnSubagentConversation(parentBindInput(parentLoom(queryBody())));
+    const binding = await deps.spawnSubagentConversation(parentBindInput(parentTheta(queryBody())));
 
     const execution = await executeBody(queryBody(), binding.executeDeps);
     expect(execution.outcome).toBe("success");
@@ -507,7 +507,7 @@ describe("SUBAG-2 (B) — spawnSubagentConversation exposes the `.loom` to the m
     expect(tools.map((t) => t.name)).toContain("child");
   });
 
-  it("drives a model tool_use for the `.loom` through #driveCallee — a fresh child AgentSession spawns", async () => {
+  it("drives a model tool_use for the `.theta` through #driveCallee — a fresh child AgentSession spawns", async () => {
     const parseCalleeSpy = { calls: [] as string[] };
     const deps = makeParentDeps(parseCalleeSpy);
     // Round 1: the model calls `child`; round 2: it terminates with text.
@@ -515,15 +515,15 @@ describe("SUBAG-2 (B) — spawnSubagentConversation exposes the `.loom` to the m
       toolCallReply("child", "call-1", { a: "A", b: "B" }),
       textReply("FINISHED"),
     ];
-    const binding = await deps.spawnSubagentConversation(parentBindInput(parentLoom(queryBody())));
+    const binding = await deps.spawnSubagentConversation(parentBindInput(parentTheta(queryBody())));
 
     const execution = await executeBody(queryBody(), binding.executeDeps);
     expect(execution.outcome).toBe("success");
 
-    // The model's `.loom` call routed through `#driveCallee` → `parseCallee` for
+    // The model's `.theta` call routed through `#driveCallee` → `parseCallee` for
     // the child, and the child spawned its own `AgentSession` (a SECOND
     // createAgentSession beyond the parent's).
-    expect(parseCalleeSpy.calls).toContain("./child.loom");
+    expect(parseCalleeSpy.calls).toContain("./child.theta");
     expect(sdkHook.sessions.length).toBeGreaterThanOrEqual(2);
   });
 });
@@ -531,10 +531,10 @@ describe("SUBAG-2 (B) — spawnSubagentConversation exposes the `.loom` to the m
 // =============================================================================
 // Gap-1 — a callee-BODY panic cascades as Err(InvokeInfraError{cause:"panic"})
 // (plain isError, NO operator note); only a GENUINE pre-dispatch setup throw
-// gets the framed isError + one loom-system-note. HostFatal re-raises.
+// gets the framed isError + one theta-system-note. HostFatal re-raises.
 // =============================================================================
 
-describe("Gap-1 (B) — body-panic vs setup-throw at the model `.loom` invoke boundary", () => {
+describe("Gap-1 (B) — body-panic vs setup-throw at the model `.theta` invoke boundary", () => {
   beforeEach(() => {
     sdkHook.sessions = [];
     aiHook.toolsSeen = [];
@@ -549,7 +549,7 @@ describe("Gap-1 (B) — body-panic vs setup-throw at the model `.loom` invoke bo
   it("a callee-BODY panic lowers as a plain isError (from Err(cause:panic)) with NO note/diagnostic", async () => {
     const rp = recordingPi();
     const parseCalleeSpy = { calls: [] as string[] };
-    // The child callee's body is `[][0]` — an index-out-of-bounds `LoomPanic`
+    // The child callee's body is `[][0]` — an index-out-of-bounds `ThetaPanic`
     // in the callee subtree (NOT the depth-overflow panic `.drive()` alone
     // converts). `runInvokeChild` MUST turn it into an `Err` VALUE.
     const deps = makeParentDeps(parseCalleeSpy, { pi: rp.pi, childTailSource: "[][0]" });
@@ -557,7 +557,7 @@ describe("Gap-1 (B) — body-panic vs setup-throw at the model `.loom` invoke bo
       toolCallReply("child", "call-1", { a: "A", b: "B" }),
       textReply("FINISHED"),
     ];
-    const binding = await deps.spawnSubagentConversation(parentBindInput(parentLoom(queryBody())));
+    const binding = await deps.spawnSubagentConversation(parentBindInput(parentTheta(queryBody())));
     const execution = await executeBody(queryBody(), binding.executeDeps);
 
     // The query loop CONTINUED (the model observed the failure as a tool-result
@@ -576,8 +576,8 @@ describe("Gap-1 (B) — body-panic vs setup-throw at the model `.loom` invoke bo
       "aborted with internal error",
     );
 
-    // NO emitPanicNote / loom/runtime/internal-error diagnostic fired: the
-    // panic-note carries `details.diagnostics` on the loom-system-note channel.
+    // NO emitPanicNote / theta/runtime/internal-error diagnostic fired: the
+    // panic-note carries `details.diagnostics` on the theta-system-note channel.
     const panicNotes = rp.messages.filter(
       (m) =>
         m.customType === SYSTEM_NOTE_CHANNEL &&
@@ -586,7 +586,7 @@ describe("Gap-1 (B) — body-panic vs setup-throw at the model `.loom` invoke bo
     expect(panicNotes, "a body panic emits NO framed operator note").toHaveLength(0);
   });
 
-  it("a GENUINE pre-dispatch setup throw yields the framed isError + EXACTLY ONE loom-system-note", async () => {
+  it("a GENUINE pre-dispatch setup throw yields the framed isError + EXACTLY ONE theta-system-note", async () => {
     const rp = recordingPi();
     const parseCalleeSpy = { calls: [] as string[] };
     // The `invoke` checkpoint throws a non-HostFatal BEFORE `child.drive()` — a
@@ -599,7 +599,7 @@ describe("Gap-1 (B) — body-panic vs setup-throw at the model `.loom` invoke bo
       toolCallReply("child", "call-1", { a: "A", b: "B" }),
       textReply("FINISHED"),
     ];
-    const binding = await deps.spawnSubagentConversation(parentBindInput(parentLoom(queryBody())));
+    const binding = await deps.spawnSubagentConversation(parentBindInput(parentTheta(queryBody())));
     const execution = await executeBody(queryBody(), binding.executeDeps);
     expect(execution.outcome).toBe("success");
 
@@ -609,7 +609,7 @@ describe("Gap-1 (B) — body-panic vs setup-throw at the model `.loom` invoke bo
     // time by `#driveCallee` (the drive never started).
     expect(sdkHook.sessions, "no child session spawns on a pre-dispatch throw").toHaveLength(1);
     expect(
-      parseCalleeSpy.calls.filter((p) => p === "./child.loom"),
+      parseCalleeSpy.calls.filter((p) => p === "./child.theta"),
       "parseCallee ran once (schema build), not again for a drive that never started",
     ).toHaveLength(1);
 
@@ -636,7 +636,7 @@ describe("Gap-1 (B) — body-panic vs setup-throw at the model `.loom` invoke bo
       checkpoint: new ThrowingInvokeCheckpoint(() => new HostFatal("fatal host condition")),
     });
     aiHook.replies = [toolCallReply("child", "call-1", { a: "A", b: "B" }), textReply("UNREACHED")];
-    const binding = await deps.spawnSubagentConversation(parentBindInput(parentLoom(queryBody())));
+    const binding = await deps.spawnSubagentConversation(parentBindInput(parentTheta(queryBody())));
 
     await expect(executeBody(queryBody(), binding.executeDeps)).rejects.toBeInstanceOf(HostFatal);
 
@@ -650,13 +650,13 @@ describe("Gap-1 (B) — body-panic vs setup-throw at the model `.loom` invoke bo
 });
 
 // =============================================================================
-// Gap-2 — a RENAMED (`as`) and a HYPHENATED (`code_review`) `.loom` callee are
+// Gap-2 — a RENAMED (`as`) and a HYPHENATED (`code_review`) `.theta` callee are
 // presented to the model AND dispatchable (the frozen snapshot carries the
 // authoritative calleePath; the model-driven adapter no longer re-derives it
 // from the basename). Mirrors the bare-basename `child` test above.
 // =============================================================================
 
-describe("Gap-2 (B) — renamed / hyphenated `.loom` callees are presented + dispatchable", () => {
+describe("Gap-2 (B) — renamed / hyphenated `.theta` callees are presented + dispatchable", () => {
   beforeEach(() => {
     sdkHook.sessions = [];
     aiHook.toolsSeen = [];
@@ -668,12 +668,12 @@ describe("Gap-2 (B) — renamed / hyphenated `.loom` callees are presented + dis
     vi.restoreAllMocks();
   });
 
-  it("a RENAMED entry `./child.loom as helper` is presented as `helper` AND dispatchable to `./child.loom`", async () => {
+  it("a RENAMED entry `./child.theta as helper` is presented as `helper` AND dispatchable to `./child.theta`", async () => {
     const parseCalleeSpy = { calls: [] as string[] };
     const deps = makeParentDeps(parseCalleeSpy);
-    const loom = parentLoom(queryBody(), { presentedName: "helper", calleePath: "./child.loom" });
+    const theta = parentTheta(queryBody(), { presentedName: "helper", calleePath: "./child.theta" });
     aiHook.replies = [toolCallReply("helper", "call-1", { a: "A", b: "B" }), textReply("DONE")];
-    const binding = await deps.spawnSubagentConversation(parentBindInput(loom));
+    const binding = await deps.spawnSubagentConversation(parentBindInput(theta));
 
     // Presented under the renamed name on BOTH surfaces.
     const spawned = sdkHook.sessions[0]!;
@@ -684,18 +684,18 @@ describe("Gap-2 (B) — renamed / hyphenated `.loom` callees are presented + dis
     const execution = await executeBody(queryBody(), binding.executeDeps);
     expect(execution.outcome).toBe("success");
     // The model-facing tool schemas presented it, and the dispatch resolved the
-    // renamed name to the REAL callee path (never dropped, never `./helper.loom`).
+    // renamed name to the REAL callee path (never dropped, never `./helper.theta`).
     expect((aiHook.toolsSeen[0] as { name: string }[]).map((t) => t.name)).toContain("helper");
-    expect(parseCalleeSpy.calls).toContain("./child.loom");
-    expect(parseCalleeSpy.calls).not.toContain("./helper.loom");
+    expect(parseCalleeSpy.calls).toContain("./child.theta");
+    expect(parseCalleeSpy.calls).not.toContain("./helper.theta");
   });
 
-  it("a HYPHENATED entry `./my-tool.loom` is presented as `my_tool` AND dispatchable to `./my-tool.loom`", async () => {
+  it("a HYPHENATED entry `./my-tool.theta` is presented as `my_tool` AND dispatchable to `./my-tool.theta`", async () => {
     const parseCalleeSpy = { calls: [] as string[] };
     const deps = makeParentDeps(parseCalleeSpy);
-    const loom = parentLoom(queryBody(), { presentedName: "my_tool", calleePath: "./my-tool.loom" });
+    const theta = parentTheta(queryBody(), { presentedName: "my_tool", calleePath: "./my-tool.theta" });
     aiHook.replies = [toolCallReply("my_tool", "call-1", { a: "A", b: "B" }), textReply("DONE")];
-    const binding = await deps.spawnSubagentConversation(parentBindInput(loom));
+    const binding = await deps.spawnSubagentConversation(parentBindInput(theta));
 
     const spawned = sdkHook.sessions[0]!;
     expect((spawned.customTools as { name: string }[]).map((t) => t.name)).toContain("my_tool");
@@ -705,8 +705,8 @@ describe("Gap-2 (B) — renamed / hyphenated `.loom` callees are presented + dis
     expect(execution.outcome).toBe("success");
     expect((aiHook.toolsSeen[0] as { name: string }[]).map((t) => t.name)).toContain("my_tool");
     // The hyphenated real path is resolved from the snapshot, NOT the basename
-    // re-derivation `./my_tool.loom`.
-    expect(parseCalleeSpy.calls).toContain("./my-tool.loom");
-    expect(parseCalleeSpy.calls).not.toContain("./my_tool.loom");
+    // re-derivation `./my_tool.theta`.
+    expect(parseCalleeSpy.calls).toContain("./my-tool.theta");
+    expect(parseCalleeSpy.calls).not.toContain("./my_tool.theta");
   });
 });

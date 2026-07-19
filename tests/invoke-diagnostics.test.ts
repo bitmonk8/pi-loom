@@ -7,7 +7,7 @@ import {
   INVOKE_ARG_TYPE_MISMATCH_CODE,
   INVOKE_ARITY_TOO_FEW_CODE,
   INVOKE_ARITY_TOO_MANY_CODE,
-  INVOKE_NON_LOOM_EXTENSION_CODE,
+  INVOKE_NON_THETA_EXTENSION_CODE,
   INVOKE_RETURN_TYPE_MISMATCH_CODE,
   calleeHasErrorsMessage,
   checkCalleeHasErrors,
@@ -19,7 +19,7 @@ import {
   invokeArgTypeMismatchMessage,
   invokeArityTooFewMessage,
   invokeArityTooManyMessage,
-  invokeNonLoomExtensionMessage,
+  invokeNonThetaExtensionMessage,
   invokeReturnTypeMismatchMessage,
 } from "../src/parser/invoke-diagnostics";
 
@@ -28,7 +28,7 @@ import {
 // Spec: invocation.md (§Argument binding, §Typed return, §Argument arity,
 // §Resolution, §Static resolution), implementation-notes.md
 // ("Static-resolution load pass"). Each diagnostic is keyed to the INV
-// parse/load code-keyed obligation area; every test cites its `loom/...` code
+// parse/load code-keyed obligation area; every test cites its `theta/...` code
 // inline and sources the expected message from the registry-anchored message
 // builder (per the *Diagnostic message anchors* rule).
 //
@@ -39,7 +39,7 @@ import {
 // a harness throw.
 
 const SITE: CompatSite = {
-  file: "/proj/.pi/looms/entry.loom",
+  file: "/proj/.pi/theta/entry.theta",
   range: { start: { line: 3, column: 5 }, end: { line: 3, column: 40 } },
 };
 
@@ -70,11 +70,11 @@ function withCode(diags: readonly Diagnostic[], code: string): Diagnostic | unde
 }
 
 // --------------------------------------------------------------------------
-// loom/parse/invoke-arg-type-mismatch (invocation.md §Argument binding)
+// theta/parse/invoke-arg-type-mismatch (invocation.md §Argument binding)
 // --------------------------------------------------------------------------
 
-describe("loom/parse/invoke-arg-type-mismatch (invocation.md §Argument binding)", () => {
-  it("loom/parse/invoke-arg-type-mismatch: a mismatched positional arg fires when the callee is statically resolvable", () => {
+describe("theta/parse/invoke-arg-type-mismatch (invocation.md §Argument binding)", () => {
+  it("theta/parse/invoke-arg-type-mismatch: a mismatched positional arg fires when the callee is statically resolvable", () => {
     const diags = checkInvokeArgTypes({
       staticallyResolvable: true,
       args: [{ paramName: "n", paramType: NUMBER, argType: STRING }],
@@ -82,14 +82,14 @@ describe("loom/parse/invoke-arg-type-mismatch (invocation.md §Argument binding)
       site: SITE,
     });
     const d = withCode(diags, INVOKE_ARG_TYPE_MISMATCH_CODE);
-    expect(d, "loom/parse/invoke-arg-type-mismatch for string-under-number").toBeDefined();
+    expect(d, "theta/parse/invoke-arg-type-mismatch for string-under-number").toBeDefined();
     expect(d?.severity).toBe("error");
     expect(d?.message).toBe(
       invokeArgTypeMismatchMessage(0, "n", "number", "string"),
     );
   });
 
-  it("loom/parse/invoke-arg-type-mismatch: the check is skipped (no parse error) when the callee is NOT statically resolvable — runtime AJV is the net", () => {
+  it("theta/parse/invoke-arg-type-mismatch: the check is skipped (no parse error) when the callee is NOT statically resolvable — runtime AJV is the net", () => {
     const diags = checkInvokeArgTypes({
       staticallyResolvable: false,
       args: [{ paramName: "n", paramType: NUMBER, argType: STRING }],
@@ -103,11 +103,11 @@ describe("loom/parse/invoke-arg-type-mismatch (invocation.md §Argument binding)
 });
 
 // --------------------------------------------------------------------------
-// loom/parse/invoke-return-type-mismatch (invocation.md §Typed return)
+// theta/parse/invoke-return-type-mismatch (invocation.md §Typed return)
 // --------------------------------------------------------------------------
 
-describe("loom/parse/invoke-return-type-mismatch (invocation.md §Typed return)", () => {
-  it("loom/parse/invoke-return-type-mismatch: a narrower callee return under a wider annotation (Cat ⊑ Animal) is ACCEPTED — compatibility, not equality", () => {
+describe("theta/parse/invoke-return-type-mismatch (invocation.md §Typed return)", () => {
+  it("theta/parse/invoke-return-type-mismatch: a narrower callee return under a wider annotation (Cat ⊑ Animal) is ACCEPTED — compatibility, not equality", () => {
     const diags = checkInvokeReturnType({
       callee: "planner",
       calleeResolvable: true,
@@ -120,7 +120,7 @@ describe("loom/parse/invoke-return-type-mismatch (invocation.md §Typed return)"
     expect(diags).toHaveLength(0);
   });
 
-  it("loom/parse/invoke-return-type-mismatch: an incompatible callee return under the annotation fires when both sides are statically resolvable", () => {
+  it("theta/parse/invoke-return-type-mismatch: an incompatible callee return under the annotation fires when both sides are statically resolvable", () => {
     const diags = checkInvokeReturnType({
       callee: "planner",
       calleeResolvable: true,
@@ -130,12 +130,12 @@ describe("loom/parse/invoke-return-type-mismatch (invocation.md §Typed return)"
       site: SITE,
     });
     const d = withCode(diags, INVOKE_RETURN_TYPE_MISMATCH_CODE);
-    expect(d, "loom/parse/invoke-return-type-mismatch for string-under-number").toBeDefined();
+    expect(d, "theta/parse/invoke-return-type-mismatch for string-under-number").toBeDefined();
     expect(d?.severity).toBe("error");
     expect(d?.message).toBe(invokeReturnTypeMismatchMessage("planner", "string"));
   });
 
-  it("loom/parse/invoke-return-type-mismatch: no parse error fires when the callee is NOT statically resolvable — runtime AJV is the net", () => {
+  it("theta/parse/invoke-return-type-mismatch: no parse error fires when the callee is NOT statically resolvable — runtime AJV is the net", () => {
     const diags = checkInvokeReturnType({
       callee: "planner",
       calleeResolvable: false,
@@ -149,11 +149,11 @@ describe("loom/parse/invoke-return-type-mismatch (invocation.md §Typed return)"
 });
 
 // --------------------------------------------------------------------------
-// loom/parse/invoke-arity-too-few / -too-many (invocation.md §Argument arity)
+// theta/parse/invoke-arity-too-few / -too-many (invocation.md §Argument arity)
 // --------------------------------------------------------------------------
 
-describe("loom/parse/invoke-arity-* (invocation.md §Argument arity)", () => {
-  it("loom/parse/invoke-arity-too-few: fewer than the non-defaulted params count fires when statically resolvable", () => {
+describe("theta/parse/invoke-arity-* (invocation.md §Argument arity)", () => {
+  it("theta/parse/invoke-arity-too-few: fewer than the non-defaulted params count fires when statically resolvable", () => {
     const diags = checkInvokeArity({
       callee: "planner",
       staticallyResolvable: true,
@@ -163,12 +163,12 @@ describe("loom/parse/invoke-arity-* (invocation.md §Argument arity)", () => {
       site: SITE,
     });
     const d = withCode(diags, INVOKE_ARITY_TOO_FEW_CODE);
-    expect(d, "loom/parse/invoke-arity-too-few for 1<2 required").toBeDefined();
+    expect(d, "theta/parse/invoke-arity-too-few for 1<2 required").toBeDefined();
     expect(d?.severity).toBe("error");
     expect(d?.message).toBe(invokeArityTooFewMessage("planner", 2, 1));
   });
 
-  it("loom/parse/invoke-arity-too-few: too-few falls back to the runtime AJV check (no parse error) when NOT statically resolvable", () => {
+  it("theta/parse/invoke-arity-too-few: too-few falls back to the runtime AJV check (no parse error) when NOT statically resolvable", () => {
     const diags = checkInvokeArity({
       callee: "planner",
       staticallyResolvable: false,
@@ -182,7 +182,7 @@ describe("loom/parse/invoke-arity-* (invocation.md §Argument arity)", () => {
     expect(diags).toHaveLength(0);
   });
 
-  it("loom/parse/invoke-arity-too-many: more than the total params count is ALWAYS a parse error, even when NOT statically resolvable", () => {
+  it("theta/parse/invoke-arity-too-many: more than the total params count is ALWAYS a parse error, even when NOT statically resolvable", () => {
     const diags = checkInvokeArity({
       callee: "planner",
       staticallyResolvable: false,
@@ -192,12 +192,12 @@ describe("loom/parse/invoke-arity-* (invocation.md §Argument arity)", () => {
       site: SITE,
     });
     const d = withCode(diags, INVOKE_ARITY_TOO_MANY_CODE);
-    expect(d, "loom/parse/invoke-arity-too-many fires regardless of static resolvability").toBeDefined();
+    expect(d, "theta/parse/invoke-arity-too-many fires regardless of static resolvability").toBeDefined();
     expect(d?.severity).toBe("error");
     expect(d?.message).toBe(invokeArityTooManyMessage("planner", 2, 3));
   });
 
-  it("loom/parse/invoke-arity-*: an in-range arity (defaulted-tail slot omitted) fires neither arity code", () => {
+  it("theta/parse/invoke-arity-*: an in-range arity (defaulted-tail slot omitted) fires neither arity code", () => {
     const diags = checkInvokeArity({
       callee: "planner",
       staticallyResolvable: true,
@@ -209,7 +209,7 @@ describe("loom/parse/invoke-arity-* (invocation.md §Argument arity)", () => {
     expect(diags).toHaveLength(0);
   });
 
-  it("loom/parse/invoke-arity-too-many: arity is checked BEFORE per-argument type — a too-many + mistyped call reports arity, not invoke-arg-type-mismatch", () => {
+  it("theta/parse/invoke-arity-too-many: arity is checked BEFORE per-argument type — a too-many + mistyped call reports arity, not invoke-arg-type-mismatch", () => {
     const diags = checkInvokeCall({
       callee: "planner",
       staticallyResolvable: true,
@@ -237,47 +237,47 @@ describe("loom/parse/invoke-arity-* (invocation.md §Argument arity)", () => {
 });
 
 // --------------------------------------------------------------------------
-// loom/parse/invoke-non-loom-extension (invocation.md §Resolution)
+// theta/parse/invoke-non-theta-extension (invocation.md §Resolution)
 // --------------------------------------------------------------------------
 
-describe("loom/parse/invoke-non-loom-extension (invocation.md §Resolution)", () => {
-  it("loom/parse/invoke-non-loom-extension: an invoke(...) .warp path fires", () => {
+describe("theta/parse/invoke-non-theta-extension (invocation.md §Resolution)", () => {
+  it("theta/parse/invoke-non-theta-extension: an invoke(...) .thetalib path fires", () => {
     const diags = checkInvokeExtension({
-      literalPath: "./lib.warp",
+      literalPath: "./lib.thetalib",
       surface: "invoke",
       site: SITE,
     });
-    const d = withCode(diags, INVOKE_NON_LOOM_EXTENSION_CODE);
-    expect(d, "loom/parse/invoke-non-loom-extension for .warp path").toBeDefined();
+    const d = withCode(diags, INVOKE_NON_THETA_EXTENSION_CODE);
+    expect(d, "theta/parse/invoke-non-theta-extension for .thetalib path").toBeDefined();
     expect(d?.severity).toBe("error");
-    expect(d?.message).toBe(invokeNonLoomExtensionMessage("./lib.warp"));
+    expect(d?.message).toBe(invokeNonThetaExtensionMessage("./lib.thetalib"));
   });
 
-  it("loom/parse/invoke-non-loom-extension: a non-lowercase .LOOM variant fires (byte-exact lowercase match)", () => {
+  it("theta/parse/invoke-non-theta-extension: a non-lowercase .THETA variant fires (byte-exact lowercase match)", () => {
     const diags = checkInvokeExtension({
-      literalPath: "./mod.LOOM",
+      literalPath: "./mod.THETA",
       surface: "invoke",
       site: SITE,
     });
-    const d = withCode(diags, INVOKE_NON_LOOM_EXTENSION_CODE);
-    expect(d, "loom/parse/invoke-non-loom-extension for .LOOM variant").toBeDefined();
-    expect(d?.message).toBe(invokeNonLoomExtensionMessage("./mod.LOOM"));
+    const d = withCode(diags, INVOKE_NON_THETA_EXTENSION_CODE);
+    expect(d, "theta/parse/invoke-non-theta-extension for .THETA variant").toBeDefined();
+    expect(d?.message).toBe(invokeNonThetaExtensionMessage("./mod.THETA"));
   });
 
-  it("loom/parse/invoke-non-loom-extension: the same code fires for a tools: entry whose path does not end in .loom", () => {
+  it("theta/parse/invoke-non-theta-extension: the same code fires for a tools: entry whose path does not end in .theta", () => {
     const diags = checkInvokeExtension({
-      literalPath: "./helper.LOOM",
+      literalPath: "./helper.THETA",
       surface: "tools",
       site: SITE,
     });
-    const d = withCode(diags, INVOKE_NON_LOOM_EXTENSION_CODE);
-    expect(d, "loom/parse/invoke-non-loom-extension for tools: entry").toBeDefined();
-    expect(d?.message).toBe(invokeNonLoomExtensionMessage("./helper.LOOM"));
+    const d = withCode(diags, INVOKE_NON_THETA_EXTENSION_CODE);
+    expect(d, "theta/parse/invoke-non-theta-extension for tools: entry").toBeDefined();
+    expect(d?.message).toBe(invokeNonThetaExtensionMessage("./helper.THETA"));
   });
 
-  it("loom/parse/invoke-non-loom-extension: a byte-exact-lowercase .loom path fires nothing", () => {
+  it("theta/parse/invoke-non-theta-extension: a byte-exact-lowercase .theta path fires nothing", () => {
     const diags = checkInvokeExtension({
-      literalPath: "./ok.loom",
+      literalPath: "./ok.theta",
       surface: "invoke",
       site: SITE,
     });
@@ -286,52 +286,52 @@ describe("loom/parse/invoke-non-loom-extension (invocation.md §Resolution)", ()
 });
 
 // --------------------------------------------------------------------------
-// loom/load/callee-has-errors (invocation.md §Static resolution)
+// theta/load/callee-has-errors (invocation.md §Static resolution)
 // --------------------------------------------------------------------------
 
-describe("loom/load/callee-has-errors (invocation.md §Static resolution)", () => {
+describe("theta/load/callee-has-errors (invocation.md §Static resolution)", () => {
   const RELATED = [
     {
-      file: "/proj/.pi/looms/plan.loom",
+      file: "/proj/.pi/theta/plan.theta",
       range: { start: { line: 5, column: 1 }, end: { line: 5, column: 12 } },
       message: "unexpected token",
     },
   ];
 
-  it("loom/load/callee-has-errors: a tools: .loom entry pointing at a broken callee is severity ERROR (callable cannot be created; parent does not register)", () => {
+  it("theta/load/callee-has-errors: a tools: .theta entry pointing at a broken callee is severity ERROR (callable cannot be created; parent does not register)", () => {
     const diags = checkCalleeHasErrors({
-      calleePath: "./plan.loom",
+      calleePath: "./plan.theta",
       surface: "tools",
       hasErrors: true,
       relatedSites: RELATED,
       site: SITE,
     });
     const d = withCode(diags, CALLEE_HAS_ERRORS_CODE);
-    expect(d, "loom/load/callee-has-errors for a tools: entry").toBeDefined();
+    expect(d, "theta/load/callee-has-errors for a tools: entry").toBeDefined();
     expect(d?.severity).toBe("error");
-    expect(d?.message).toBe(calleeHasErrorsMessage("./plan.loom"));
+    expect(d?.message).toBe(calleeHasErrorsMessage("./plan.theta"));
     expect(d?.hint).toBe(CALLEE_HAS_ERRORS_HINT);
     // The underlying error sites are listed via `related`.
     expect(d?.related).toEqual(RELATED);
   });
 
-  it("loom/load/callee-has-errors: a literal invoke(...) callee that is broken is severity WARNING (parent registers; static checks skipped; runtime AJV is the net)", () => {
+  it("theta/load/callee-has-errors: a literal invoke(...) callee that is broken is severity WARNING (parent registers; static checks skipped; runtime AJV is the net)", () => {
     const diags = checkCalleeHasErrors({
-      calleePath: "./plan.loom",
+      calleePath: "./plan.theta",
       surface: "invoke",
       hasErrors: true,
       relatedSites: RELATED,
       site: SITE,
     });
     const d = withCode(diags, CALLEE_HAS_ERRORS_CODE);
-    expect(d, "loom/load/callee-has-errors for an invoke(...) literal").toBeDefined();
+    expect(d, "theta/load/callee-has-errors for an invoke(...) literal").toBeDefined();
     expect(d?.severity).toBe("warning");
-    expect(d?.message).toBe(calleeHasErrorsMessage("./plan.loom"));
+    expect(d?.message).toBe(calleeHasErrorsMessage("./plan.theta"));
   });
 
-  it("loom/load/callee-has-errors: a callee that resolves cleanly fires nothing", () => {
+  it("theta/load/callee-has-errors: a callee that resolves cleanly fires nothing", () => {
     const diags = checkCalleeHasErrors({
-      calleePath: "./plan.loom",
+      calleePath: "./plan.theta",
       surface: "tools",
       hasErrors: false,
       relatedSites: [],

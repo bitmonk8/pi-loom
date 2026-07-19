@@ -12,7 +12,7 @@ import type {
   CommittedSurface,
   DrivenConversationMode,
 } from "../src/runtime/terminal-outcomes";
-import { makeOk, type LoomValue, type ResultValue } from "../src/runtime/value";
+import { makeOk, type ThetaValue, type ResultValue } from "../src/runtime/value";
 import type {
   FreePhaseTurn,
   ForcedRespondTurn,
@@ -31,12 +31,12 @@ import type {
   Expr,
   InvokeExpr,
   InvokeStmt,
-  LoomBody,
+  ThetaBody,
   QueryExpr,
   QueryStmt,
   Stmt,
   ToolCallStmt,
-} from "../src/parser/loom-document";
+} from "../src/parser/theta-document";
 import type { SourceRange } from "../src/diagnostics/diagnostic";
 
 // V19d-T — failing tests for the paired `V19d` effectful statement wiring.
@@ -101,7 +101,7 @@ function invokeStmt(path: string, args: readonly Expr[] = []): InvokeStmt {
   return { kind: "invoke", invoke: invokeExpr(path, args), range: span() };
 }
 
-function body(statements: readonly Stmt[], tail: Expr | null = null): LoomBody {
+function body(statements: readonly Stmt[], tail: Expr | null = null): ThetaBody {
   return { statements, tail };
 }
 
@@ -110,7 +110,7 @@ function realEnv(): LexicalEnvironment {
   return buildEnvironment({ body: { statements: [], tail: null } });
 }
 
-const SITE: CheckpointSite = { file: "loom.loom", line: 1, column: 1 };
+const SITE: CheckpointSite = { file: "theta.theta", line: 1, column: 1 };
 
 // --- Checkpoint substrate (PIC-10) -----------------------------------------
 
@@ -225,7 +225,7 @@ class RecordingInvokeChild implements InvokeChild {
   readonly #onDrive: (() => void) | undefined;
   constructor(
     readonly calleePath: string,
-    readonly value: LoomValue,
+    readonly value: ThetaValue,
     onDrive?: () => void,
   ) {
     this.#onDrive = onDrive;
@@ -247,7 +247,7 @@ function queryConfig(): QueryToolLoopConfig {
   return {
     maxRounds: 3,
     querySite: SITE,
-    loomSlashName: "demo",
+    thetaSlashName: "demo",
     invocationId: "inv-1",
     occurredAt: 0,
   };
@@ -271,13 +271,13 @@ function harness(opts: {
   const signal = opts.signal ?? new AbortController().signal;
   const model = opts.model ?? new RecordingQueryModel([{ kind: "text", text: "" }]);
   const toolCall = opts.toolCall ?? new RecordingToolCall("noop", "");
-  const invoke = opts.invoke ?? new RecordingInvokeChild("./noop.loom", null);
+  const invoke = opts.invoke ?? new RecordingInvokeChild("./noop.theta", null);
   const hostDeps: EffectfulStatementHostDeps = {
     checkpoint,
     signal,
     sink: NOOP_SINK,
-    file: "loom.loom",
-    evaluatePure(expr: Expr): LoomValue {
+    file: "theta.theta",
+    evaluatePure(expr: Expr): ThetaValue {
       if (expr.kind === "number") {
         return Number(expr.text);
       }
@@ -300,7 +300,7 @@ function harness(opts: {
     signal,
     mutator: opts.mutator ?? new RecordingMutator(),
     mode: "prompt" as DrivenConversationMode,
-    file: "test.loom",
+    file: "test.theta",
   };
 }
 
@@ -361,8 +361,8 @@ describe("V19d-T — real-host tool-call wiring (cka-13 / cka-46 integration wit
 
 describe("V19d-T — real-host invoke wiring (INV-1…4 integration witness)", () => {
   it("INV-1/INV-2/INV-3/INV-4: a body `invoke(...)` executes through the real invoke trampoline against a freshly spawned isolated session", async () => {
-    const invoke = new RecordingInvokeChild("./child.loom", "child-value");
-    const program = body([], invokeExpr("./child.loom"));
+    const invoke = new RecordingInvokeChild("./child.theta", "child-value");
+    const program = body([], invokeExpr("./child.theta"));
 
     const r = await executeBody(program, harness({ invoke }));
 
@@ -393,9 +393,9 @@ describe("V19d-T — in-order effectful execution through the real hosts", () =>
       return origTurn(round);
     };
     const toolCall = new RecordingToolCall("emit", "t", () => order.push("tool"));
-    const invoke = new RecordingInvokeChild("./child.loom", null, () => order.push("invoke"));
+    const invoke = new RecordingInvokeChild("./child.theta", null, () => order.push("invoke"));
 
-    const program = body([queryStmt("q"), toolCallStmt("emit"), invokeStmt("./child.loom")]);
+    const program = body([queryStmt("q"), toolCallStmt("emit"), invokeStmt("./child.theta")]);
 
     await executeBody(program, harness({ model, toolCall, invoke }));
 
@@ -426,8 +426,8 @@ describe("V19d-T — invoke-dispatch cancellation checkpoint on the real trampol
         }
       }
     });
-    const invoke = new RecordingInvokeChild("./child.loom", "child-value");
-    const program = body([invokeStmt("./child.loom")]);
+    const invoke = new RecordingInvokeChild("./child.theta", "child-value");
+    const program = body([invokeStmt("./child.theta")]);
 
     const r = await executeBody(
       program,

@@ -1,8 +1,8 @@
 // V17a — the cancellation core (implementation).
 //
-// This module owns the `loomAbort` controller and the cancellation contract
+// This module owns the `thetaAbort` controller and the cancellation contract
 // (cancellation.md): forwarding Pi's per-handler `ctx.signal`, the tool-exposed
-// `signal`, and the parent-`invoke` signal into `loomAbort` (never `ctx.signal`
+// `signal`, and the parent-`invoke` signal into `thetaAbort` (never `ctx.signal`
 // directly); abort-reason propagation (synthesised for `agent_end`); downward-
 // only propagation; the tool-call late-settlement discard rules (CNCL-1/2/3);
 // the race semantics against a completed `Ok` (CNCL-5) and a tail abort
@@ -10,14 +10,14 @@
 // `Checkpoint`-seam substrate.
 //
 // This module fills in the behaviour the paired V17a-T tests-task stubbed:
-// forwarding each source signal into `loomAbort` via a one-shot listener that
+// forwarding each source signal into `thetaAbort` via a one-shot listener that
 // carries the source's `reason` (CNCL-4), a downward-only derived child
 // controller, the tool-call late-settlement discard (CNCL-1/2/3), the
 // swallowing-handler three-side-channel suppression at the Checkpoint-seam
 // substrate, and the cancellable-sequence runner honouring CNCL-5/CNCL-6.
 //
 // Spec: cancellation.md (CNCL-1 … CNCL-6, §Signal source, §Forwarding into
-// `loomAbort`, §Propagation, §Race semantics — late-settlement discard,
+// `thetaAbort`, §Propagation, §Race semantics — late-settlement discard,
 // §Race semantics — swallowing-handler attachment on every abandonable
 // Promise); pi-integration-contract/host-interfaces-services.md (§`Checkpoint`
 // seam, PIC-10); errors-and-results/queryerror-variants.md (`CancelledError`).
@@ -28,22 +28,22 @@ import type { RuntimeEvent } from "./runtime-event-channel";
 import type { Diagnostic } from "../diagnostics/diagnostic";
 
 // ---------------------------------------------------------------------------
-// Signal source — the per-invocation `loomAbort` controller.
+// Signal source — the per-invocation `thetaAbort` controller.
 // ---------------------------------------------------------------------------
 
 /**
- * Construct a fresh `AbortController` (`loomAbort`) at invocation start. Its
- * `loomAbort.signal` — never `ctx.signal` directly — is the single source of
+ * Construct a fresh `AbortController` (`thetaAbort`) at invocation start. Its
+ * `thetaAbort.signal` — never `ctx.signal` directly — is the single source of
  * truth every downstream component (checkpoints, forwarded tool signals, child
  * invokes) sees (cancellation.md §Signal source).
  */
-export function createLoomAbort(): AbortController {
+export function createThetaAbort(): AbortController {
   return new AbortController();
 }
 
 /**
- * Forward one source signal into `loomAbort`, carrying the source's `reason` so
- * `loomAbort.signal.reason === source.reason` is observable downstream (CNCL-4).
+ * Forward one source signal into `thetaAbort`, carrying the source's `reason` so
+ * `thetaAbort.signal.reason === source.reason` is observable downstream (CNCL-4).
  * If the source is already aborted at attach time, forward synchronously;
  * otherwise attach a one-shot listener. The one-shot guard that makes the first
  * source's reason win is inherent to `AbortController`: a second `abort(...)` on
@@ -57,16 +57,16 @@ export function createLoomAbort(): AbortController {
  * byte-identical to the void-returning form.
  */
 function forwardSignalReason(
-  loomAbort: AbortController,
+  thetaAbort: AbortController,
   source: AbortSignal,
 ): () => void {
   if (source.aborted) {
-    loomAbort.abort(source.reason);
+    thetaAbort.abort(source.reason);
     return (): void => {};
   }
   // Named so the detach closure can remove exactly this listener.
   const abortListener = (): void => {
-    loomAbort.abort(source.reason);
+    thetaAbort.abort(source.reason);
   };
   source.addEventListener("abort", abortListener, { once: true });
   return (): void => source.removeEventListener("abort", abortListener);
@@ -75,25 +75,25 @@ function forwardSignalReason(
 /**
  * The synthesised reason for the reason-less `agent_end` slash-command trigger
  * (cancellation.md CNCL-4): a JavaScript `Error` whose `message` is exactly this
- * literal. (`V9g` owns the sibling `"loom cancelled by session shutdown"`
+ * literal. (`V9g` owns the sibling `"theta cancelled by session shutdown"`
  * facet.)
  */
-export const AGENT_END_CANCEL_MESSAGE = "loom cancelled by agent_end";
+export const AGENT_END_CANCEL_MESSAGE = "theta cancelled by agent_end";
 
 // ---------------------------------------------------------------------------
-// Forwarding into `loomAbort` — the three steady-state entry points.
+// Forwarding into `thetaAbort` — the three steady-state entry points.
 // ---------------------------------------------------------------------------
 
 /**
- * Slash-command entry (cancellation.md §Forwarding into `loomAbort`). Subscribe
- * so that an aborted `ctx.signal` triggers `loomAbort.abort(ctx.signal.reason)`
+ * Slash-command entry (cancellation.md §Forwarding into `thetaAbort`). Subscribe
+ * so that an aborted `ctx.signal` triggers `thetaAbort.abort(ctx.signal.reason)`
  * via a one-shot listener (CNCL-4 reason identity). MUST tolerate `ctxSignal`
  * being `undefined` — Pi documents `ctx.signal` as `undefined` in idle,
  * non-turn contexts, which is exactly when the slash-command handler fires — and
  * MUST NOT depend on its truthiness.
  */
 export function forwardSlashCommandCancel(
-  _loomAbort: AbortController,
+  _thetaAbort: AbortController,
   _ctxSignal: AbortSignal | undefined,
 ): () => void {
   // Pi documents `ctx.signal` as `undefined` in idle, non-turn contexts — which
@@ -103,41 +103,41 @@ export function forwardSlashCommandCancel(
   if (_ctxSignal === undefined) {
     return (): void => {};
   }
-  return forwardSignalReason(_loomAbort, _ctxSignal);
+  return forwardSignalReason(_thetaAbort, _ctxSignal);
 }
 
 /**
- * Tool-exposed entry — a loom registered into another loom's `tools:`
- * (cancellation.md §Forwarding into `loomAbort`). Wire the `signal` passed to
- * `execute(...)` so that `signal.aborted` triggers `loomAbort.abort(signal.reason)`
+ * Tool-exposed entry — a theta registered into another theta's `tools:`
+ * (cancellation.md §Forwarding into `thetaAbort`). Wire the `signal` passed to
+ * `execute(...)` so that `signal.aborted` triggers `thetaAbort.abort(signal.reason)`
  * via a one-shot listener (CNCL-4 reason identity).
  */
 export function forwardToolExposedCancel(
-  _loomAbort: AbortController,
+  _thetaAbort: AbortController,
   _signal: AbortSignal,
 ): () => void {
-  return forwardSignalReason(_loomAbort, _signal);
+  return forwardSignalReason(_thetaAbort, _signal);
 }
 
 /**
  * `agent_end` slash-command trigger (cancellation.md CNCL-4). This path has no
  * source `AbortSignal` — there is no `reason` to forward — so the runtime
  * synthesises a reason (a JavaScript `Error` whose `message` is exactly
- * `AGENT_END_CANCEL_MESSAGE`) and calls `loomAbort.abort(reason)` with it.
+ * `AGENT_END_CANCEL_MESSAGE`) and calls `thetaAbort.abort(reason)` with it.
  */
-export function abortForAgentEnd(_loomAbort: AbortController): void {
-  _loomAbort.abort(new Error(AGENT_END_CANCEL_MESSAGE));
+export function abortForAgentEnd(_thetaAbort: AbortController): void {
+  _thetaAbort.abort(new Error(AGENT_END_CANCEL_MESSAGE));
 }
 
 /**
- * `invoke(...)` entry (cancellation.md §Forwarding into `loomAbort` /
- * §Propagation). The child constructs its own `loomAbort` as a *derived*
+ * `invoke(...)` entry (cancellation.md §Forwarding into `thetaAbort` /
+ * §Propagation). The child constructs its own `thetaAbort` as a *derived*
  * controller that aborts when the parent's signal aborts — forwarding the
  * parent's `reason` (CNCL-4) — but never the reverse (downward-only). If the
  * parent's signal is already aborted at child-spawn time, the derived controller
  * is returned already-aborted carrying the parent's reason.
  */
-export function deriveChildLoomAbort(_parentSignal: AbortSignal): {
+export function deriveChildThetaAbort(_parentSignal: AbortSignal): {
   readonly controller: AbortController;
   readonly detach: () => void;
 } {
@@ -282,7 +282,7 @@ export function attachSwallowingHandler<T>(
  * `guard.cancellationSurfaced` is true the settlement is discarded on both emit
  * channels (this function emits nothing) — no second `RuntimeEvent` and no
  * diagnostic of any severity (a diagnostic-worthy OOM-style rejection is still
- * discarded; promotion to `loom/runtime/internal-error` would re-introduce the
+ * discarded; promotion to `theta/runtime/internal-error` would re-introduce the
  * second-event surface the rule forbids). Otherwise the settlement is surfaced
  * to its owning site's normal path.
  */
@@ -294,7 +294,7 @@ export function routeAbandonableSettlement(
   // Once cancellation has surfaced the settlement is discarded on BOTH emit
   // channels — no second `RuntimeEvent` and no diagnostic of any severity (a
   // diagnostic-worthy OOM-style rejection is still discarded; promotion to
-  // `loom/runtime/internal-error` would re-introduce the second-event surface
+  // `theta/runtime/internal-error` would re-introduce the second-event surface
   // the rule forbids). When cancellation has NOT surfaced the settlement is the
   // timely one already handled by the owning site's primary `await`; this
   // secondary swallowing handler emits nothing so it does not double-emit.
@@ -327,7 +327,7 @@ export interface CancellableStatement {
 /** Inputs the cancellable-sequence runner reads the abort through. */
 export interface CancellableSequenceDeps {
   readonly checkpoint: Checkpoint;
-  /** `loomAbort.signal` — the single source of truth (never `ctx.signal`). */
+  /** `thetaAbort.signal` — the single source of truth (never `ctx.signal`). */
   readonly signal: AbortSignal;
 }
 

@@ -9,7 +9,7 @@ import type { Diagnostic, SourceRange } from "../src/diagnostics/diagnostic";
 // V5d-T — failing tests for the paired `V5d` "schema-subset reject gate"
 // implementation.
 //
-// Spec: schema-subset.md (the fixed loom-defined permitted subset — Draft
+// Spec: schema-subset.md (the fixed theta-defined permitted subset — Draft
 // 2020-12, `anyOf` only, objects all-required + `additionalProperties:false`,
 // single `items`, null via union — and the explicit "rejected at parse time"
 // enumeration; §Lowering Algorithm's `Result`-is-not-a-lowerable-form rule and
@@ -18,16 +18,16 @@ import type { Diagnostic, SourceRange } from "../src/diagnostics/diagnostic";
 // The reject gate is an ALLOWLIST / reject-by-default gate: it accepts only the
 // permitted subset and rejects every construct outside it — including
 // constructs that are in neither the permitted subset nor the spec's
-// enumerated unsupported-keyword list — with `loom/parse/unsupported-feature`;
+// enumerated unsupported-keyword list — with `theta/parse/unsupported-feature`;
 // a `Result` in a schema-feeding position is rejected with
-// `loom/parse/result-in-schema-position`. The gate is asserted against the
+// `theta/parse/result-in-schema-position`. The gate is asserted against the
 // standalone `checkSubsetKeyword` / `checkSubsetKeywords` / `checkSchemaFeedingType`
 // seams (src/parser/schema-subset-gate.ts).
 //
 // Diagnostic *Message* strings are sourced from the diagnostics registry
 // (diagnostics/code-registry-parse.md) per the *Diagnostic message anchors*
-// rule: `loom/parse/unsupported-feature` → `unsupported syntactic feature:
-// <construct>`; `loom/parse/result-in-schema-position` → `'Result' has no
+// rule: `theta/parse/unsupported-feature` → `unsupported syntactic feature:
+// <construct>`; `theta/parse/result-in-schema-position` → `'Result' has no
 // lowered-schema form and is not permitted in a schema-feeding position`.
 //
 // These tests red because the V5d allowlist reject gate is absent: every seam
@@ -42,7 +42,7 @@ function span(): SourceRange {
 
 /** A located site at the throwaway span. */
 function site(): { file: string; range: SourceRange } {
-  return { file: "test.loom", range: span() };
+  return { file: "test.theta", range: span() };
 }
 
 /** The first diagnostic carrying `code`, if any. */
@@ -50,7 +50,7 @@ function withCode(diags: readonly Diagnostic[], code: string): Diagnostic | unde
   return diags.find((d) => d.code === code);
 }
 
-// The registry *Message*-column template prefix for `loom/parse/unsupported-feature`
+// The registry *Message*-column template prefix for `theta/parse/unsupported-feature`
 // (`unsupported syntactic feature: <construct>`), used to anchor the rendered
 // message per the *Diagnostic message anchors* rule.
 const UNSUPPORTED_PREFIX = "unsupported syntactic feature: ";
@@ -91,7 +91,7 @@ const REJECTED_KEYWORDS: readonly string[] = [
   "nullable",
 ];
 
-// The permitted loom-defined subset keywords schema-subset.md accepts: the
+// The permitted theta-defined subset keywords schema-subset.md accepts: the
 // composition (`anyOf`), validation (`enum`, `const`), object (`properties`,
 // `required`, `additionalProperties`), array (`items`), reuse (`$defs`, `$ref`),
 // and the `type` keyword (incl. the multi-type-array null form).
@@ -113,15 +113,15 @@ const PERMITTED_KEYWORDS: readonly string[] = [
 // cka-10 / V5d: the SUBS code-keyed obligation area (schema-subset.md) closes
 // across V5d (this allowlist reject gate), V5e, and V5f; the assertions in this
 // file witness the V5d facet against the shipped reject gate.
-describe("V5d-T — reject gate fires loom/parse/unsupported-feature per rejected keyword", () => {
+describe("V5d-T — reject gate fires theta/parse/unsupported-feature per rejected keyword", () => {
   for (const keyword of REJECTED_KEYWORDS) {
-    it(`loom/parse/unsupported-feature: rejects the out-of-subset keyword '${keyword}'`, () => {
+    it(`theta/parse/unsupported-feature: rejects the out-of-subset keyword '${keyword}'`, () => {
       const d = checkSubsetKeyword(keyword, site());
       expect(
         d,
-        `loom/parse/unsupported-feature for out-of-subset keyword '${keyword}'`,
+        `theta/parse/unsupported-feature for out-of-subset keyword '${keyword}'`,
       ).toBeDefined();
-      expect(d?.code).toBe("loom/parse/unsupported-feature");
+      expect(d?.code).toBe("theta/parse/unsupported-feature");
       expect(d?.severity).toBe("error");
       // Message anchored to the registry *Message* column
       // (`unsupported syntactic feature: <construct>`); the offending keyword is
@@ -144,7 +144,7 @@ describe("V5d-T — reject gate fires loom/parse/unsupported-feature per rejecte
     // A rejected keyword must still fire — pins that "accept" is the allowlist
     // partition, not a blanket accept-all.
     expect(checkSubsetKeyword("pattern", site())?.code).toBe(
-      "loom/parse/unsupported-feature",
+      "theta/parse/unsupported-feature",
     );
   });
 });
@@ -168,7 +168,7 @@ describe("V5d-T — reject-by-default semantics (allowlist, excludes a denylist 
   ];
 
   for (const keyword of NOT_ENUMERATED_OUT_OF_SUBSET) {
-    it(`loom/parse/unsupported-feature: rejects out-of-subset, non-enumerated keyword '${keyword}'`, () => {
+    it(`theta/parse/unsupported-feature: rejects out-of-subset, non-enumerated keyword '${keyword}'`, () => {
       expect(
         REJECTED_KEYWORDS.includes(keyword),
         `'${keyword}' is intentionally absent from the enumerated unsupported list`,
@@ -180,22 +180,22 @@ describe("V5d-T — reject-by-default semantics (allowlist, excludes a denylist 
       const d = checkSubsetKeyword(keyword, site());
       expect(
         d,
-        `loom/parse/unsupported-feature for out-of-subset non-enumerated keyword '${keyword}' (reject-by-default)`,
+        `theta/parse/unsupported-feature for out-of-subset non-enumerated keyword '${keyword}' (reject-by-default)`,
       ).toBeDefined();
-      expect(d?.code).toBe("loom/parse/unsupported-feature");
+      expect(d?.code).toBe("theta/parse/unsupported-feature");
     });
   }
 });
 
 // --- schema-subset.md §Lowering Algorithm — Result in schema position -------
 
-describe("V5d-T — reject gate fires loom/parse/result-in-schema-position for Result", () => {
-  it("loom/parse/result-in-schema-position: a bare `Result<T, E>` in a schema-feeding position is rejected", () => {
+describe("V5d-T — reject gate fires theta/parse/result-in-schema-position for Result", () => {
+  it("theta/parse/result-in-schema-position: a bare `Result<T, E>` in a schema-feeding position is rejected", () => {
     const diags = checkSchemaFeedingType("Result<string, string>", site());
-    const d = withCode(diags, "loom/parse/result-in-schema-position");
+    const d = withCode(diags, "theta/parse/result-in-schema-position");
     expect(
       d,
-      "loom/parse/result-in-schema-position for a schema-feeding `Result<T, E>`",
+      "theta/parse/result-in-schema-position for a schema-feeding `Result<T, E>`",
     ).toBeDefined();
     expect(d?.severity).toBe("error");
     // Message from code-registry-parse.md.
@@ -204,7 +204,7 @@ describe("V5d-T — reject gate fires loom/parse/result-in-schema-position for R
     );
   });
 
-  it("loom/parse/result-in-schema-position: a `Result` nested in an `array<T>` element is rejected; array element order is preserved", () => {
+  it("theta/parse/result-in-schema-position: a `Result` nested in an `array<T>` element is rejected; array element order is preserved", () => {
     // The gate recurses into `array<T>` element types and union arms, in source
     // (array element) order. A `Result` reachable only through the array
     // element type is still rejected (schema-subset.md §Lowering Algorithm:
@@ -212,8 +212,8 @@ describe("V5d-T — reject gate fires loom/parse/result-in-schema-position for R
     // types and union arms").
     const diags = checkSchemaFeedingType("array<Result<string, string>>", site());
     expect(
-      withCode(diags, "loom/parse/result-in-schema-position"),
-      "loom/parse/result-in-schema-position for a `Result` inside an `array<T>` element",
+      withCode(diags, "theta/parse/result-in-schema-position"),
+      "theta/parse/result-in-schema-position for a `Result` inside an `array<T>` element",
     ).toBeDefined();
   });
 
@@ -223,11 +223,11 @@ describe("V5d-T — reject gate fires loom/parse/result-in-schema-position for R
     // `Result` so the assertion reds on the absent gate rather than passing
     // vacuously against an accept-all stub.
     expect(
-      withCode(checkSchemaFeedingType("string | null", site()), "loom/parse/result-in-schema-position"),
+      withCode(checkSchemaFeedingType("string | null", site()), "theta/parse/result-in-schema-position"),
       "a lowerable `string | null` must not be rejected",
     ).toBeUndefined();
     expect(
-      withCode(checkSchemaFeedingType("Result<string, string>", site()), "loom/parse/result-in-schema-position"),
+      withCode(checkSchemaFeedingType("Result<string, string>", site()), "theta/parse/result-in-schema-position"),
       "a schema-feeding `Result` must still be rejected",
     ).toBeDefined();
   });
@@ -245,9 +245,9 @@ describe("V5d-T — array element order is preserved across the reject gate", ()
     // Every diagnostic is the unsupported-feature rejection.
     expect(
       diags.length,
-      "one loom/parse/unsupported-feature per rejected keyword (pattern, minLength, format)",
+      "one theta/parse/unsupported-feature per rejected keyword (pattern, minLength, format)",
     ).toBe(3);
-    expect(diags.every((d) => d.code === "loom/parse/unsupported-feature")).toBe(true);
+    expect(diags.every((d) => d.code === "theta/parse/unsupported-feature")).toBe(true);
     // The rejected keywords surface in their input order: pattern, minLength,
     // format (the permitted properties/items/anyOf contribute nothing).
     expect(diags[0]?.message).toContain("pattern");

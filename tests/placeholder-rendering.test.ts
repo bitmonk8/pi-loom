@@ -47,7 +47,7 @@ const REGISTRY_TEXT = [
 ).join("\n");
 
 describe("V7c-T — placeholder rendering, eight categories (DIAG-4)", () => {
-  // DIAG-4 — category 1 (static-type placeholders): a Loom static type
+  // DIAG-4 — category 1 (static-type placeholders): a Theta static type
   // re-serialises in source-grammar form. Normative vectors: an array of a
   // union renders `array<integer | string>`; a named-or-null union renders
   // `Foo | null`.
@@ -106,7 +106,7 @@ describe("V7c-T — placeholder rendering, eight categories (DIAG-4)", () => {
   });
 
   // DIAG-4 — category 5 (source-derived placeholders): identifier bare
-  // (`wibble`); descriptor as `<kind>:"<value>"` (`settings:"~/work/looms"`);
+  // (`wibble`); descriptor as `<kind>:"<value>"` (`settings:"~/work/theta"`);
   // `<key>` quoted only when not identifier-shaped (`my-key` → `"my-key"`,
   // `kind` → `kind`).
   it("DIAG-4: category 5 — source-derived placeholders render byte-identically", () => {
@@ -117,9 +117,9 @@ describe("V7c-T — placeholder rendering, eight categories (DIAG-4)", () => {
       renderSourceDerived({
         kind: "descriptor",
         descriptorKind: "settings",
-        value: "~/work/looms",
+        value: "~/work/theta",
       }),
-    ).toBe('settings:"~/work/looms"');
+    ).toBe('settings:"~/work/theta"');
     expect(renderSourceDerived({ kind: "key", text: "my-key" })).toBe('"my-key"');
     expect(renderSourceDerived({ kind: "key", text: "kind" })).toBe("kind");
   });
@@ -171,7 +171,7 @@ describe("V7c-T — category 2 string-truncation boundary (DIAG-4)", () => {
 });
 
 describe("V7c-T — category 8 host-derived freeform tail (DIAG-4, §8 anchored match)", () => {
-  // DIAG-4 / §8 — `loom/load/host-incompatible` (`node-floor`). With the host
+  // DIAG-4 / §8 — `theta/load/host-incompatible` (`node-floor`). With the host
   // version mocked to `v18.19.0`, the implementation-defined `<observed>`
   // segment is interpolated between a byte-identical prefix and a byte-identical
   // suffix sourced from the registry *Message* template. The test asserts via
@@ -181,7 +181,7 @@ describe("V7c-T — category 8 host-derived freeform tail (DIAG-4, §8 anchored 
     const registry = parseRegistry(REGISTRY_TEXT) as RegistryRow[];
     // The byte-identical surround is sourced from the registry template
     // `host incompatible (<kind>): observed <observed>, required <required>`.
-    const template = registryMessage(registry, "loom/load/host-incompatible") as string;
+    const template = registryMessage(registry, "theta/load/host-incompatible") as string;
     expect(template).toBe(
       "host incompatible (<kind>): observed <observed>, required <required>",
     );

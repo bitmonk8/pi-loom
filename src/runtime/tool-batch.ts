@@ -4,7 +4,7 @@
 // This module owns the runtime seam the paired `V14b` implementation leaf fills
 // in for Pi's model-driven "parallel tool mode": when the model emits multiple
 // `tool_use` blocks in one assistant message, Pi runs them concurrently and
-// loom must await *every* sibling in the batch to settle before it constructs
+// theta must await *every* sibling in the batch to settle before it constructs
 // the next user turn, then lower each sibling's outcome independently into its
 // own `tool_use` result block (tool-calls.md §Concurrency; coverage-matrix.md
 // code-keyed-area token `cka-13`):
@@ -24,7 +24,7 @@
 //
 // The concurrent-execution, settle-all-before-next-turn, and independent-per-
 // sibling-lowering shape this leaf models is a real-Pi parallel-tool-mode
-// consumption posture, not a loom-side guarantee (tool-calls.md §"Parallel-tool-
+// consumption posture, not a theta-side guarantee (tool-calls.md §"Parallel-tool-
 // mode batch delivery").
 //
 // V14b-T (tests-task) declares this surface and stubs `settleModelToolBatch`
@@ -36,7 +36,7 @@
 //
 // Spec: tool-calls.md §Concurrency (cka-13); query/query-tool-loop.md §"Tool
 // calls during a query"; pi-integration-contract/host-interfaces-core.md §"Tool
-// execution from loom code" (per-sibling lowering, shared with code-side calls).
+// execution from theta code" (per-sibling lowering, shared with code-side calls).
 
 import { coerceUnderlyingString } from "../diagnostics/placeholder";
 import type { ToolContentBlock } from "./tool-call-execute";
@@ -88,8 +88,8 @@ export interface LoweredToolResult {
  * `{ content, isError: true }`) to that block's `isError: true` tool-result.
  *
  * The concurrent-execution and settle-all-before-next-turn shape are a real-Pi
- * parallel-tool-mode consumption posture, not a loom-side guarantee
- * (tool-calls.md §"Parallel-tool-mode batch delivery"): loom performs no
+ * parallel-tool-mode consumption posture, not a theta-side guarantee
+ * (tool-calls.md §"Parallel-tool-mode batch delivery"): theta performs no
  * batching of its own — it only awaits the batch Pi already dispatched.
  */
 export async function settleModelToolBatch(

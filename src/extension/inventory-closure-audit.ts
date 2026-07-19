@@ -2,7 +2,7 @@
 //
 // This module owns the negative-direction *inventory-closure audit* the
 // pi-integration-contract audit shards specify (a post-1.0 hardening that
-// mechanizes the loom-1.0 *surface-set closure* MUST):
+// mechanizes the theta-1.0 *surface-set closure* MUST):
 //
 //   • inventory-audit-intro.md §"Inventory-closure audit"
 //   • audit-resolution.md   (scope, per-category join keys, exemption /
@@ -96,9 +96,9 @@ export interface AuditInput {
   readonly files: ReadonlyMap<string, string>;
   /** The `SDK_SURFACE_INVENTORY` rows (V18a). */
   readonly inventory: readonly SurfaceInventoryEntry[];
-  /** typebox named-import allow-list (loom 1.0: `{ Type }`). */
+  /** typebox named-import allow-list (theta 1.0: `{ Type }`). */
   readonly typeboxNamedImportAllowList: readonly string[];
-  /** typebox member-access allow-list (loom 1.0: `{ Unsafe }`). */
+  /** typebox member-access allow-list (theta 1.0: `{ Unsafe }`). */
   readonly typeboxMemberAccessAllowList: readonly string[];
 }
 

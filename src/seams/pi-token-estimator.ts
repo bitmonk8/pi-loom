@@ -16,7 +16,7 @@ import type { TokenEstimator } from "./token-estimator";
 export class PiTokenEstimator implements TokenEstimator {
   estimate(message: AgentMessage): number {
     // Delegate to Pi's pinned `estimateTokens`, returning its result unchanged
-    // — loom redefines none of Pi's estimation algorithm. Relied on as a
+    // — theta redefines none of Pi's estimation algorithm. Relied on as a
     // deterministic pure function of `message` at the fixed Pi-SDK pin.
     return estimateTokens(message);
   }

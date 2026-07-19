@@ -2,8 +2,8 @@
 // written against the seam the paired V4e implementation leaf fills in; they
 // MUST fail red for the intended reason (the pre-eval routing is absent),
 // citing ERR-1…ERR-6 and ERR-16 inline. Each cause's assembled
-// `loom-system-note` is handed to the router; the router MUST route it onto the
-// `loom-system-note` channel with `triggerTurn:false`, never firing a turn and
+// `theta-system-note` is handed to the router; the router MUST route it onto the
+// `theta-system-note` channel with `triggerTurn:false`, never firing a turn and
 // never becoming an evaluation outcome.
 //
 // Spec: errors-and-results/error-model.md (ERR-1…ERR-6, ERR-16),
@@ -25,7 +25,7 @@ import {
 } from "../src/extension/system-note-channel";
 import type { Diagnostic } from "../src/diagnostics/diagnostic";
 
-// A recording `loom-system-note` channel. `pi.sendMessage` is the only surface
+// A recording `theta-system-note` channel. `pi.sendMessage` is the only surface
 // asserted against — it carries the fixed `triggerTurn:false` option, so a
 // routed pre-eval failure never fires a turn.
 function recordingChannel(): {
@@ -59,7 +59,7 @@ function onlyNote(sendMessage: ReturnType<typeof vi.fn>): {
   };
 }
 
-// A representative assembled `loom-system-note` for a diagnostic-batch cause
+// A representative assembled `theta-system-note` for a diagnostic-batch cause
 // (ERR-1…ERR-4, ERR-6). The producing subsystem assembles it; V4e routes it.
 function diagNote(code: string): SystemNote {
   const diagnostic: Diagnostic = {
@@ -75,21 +75,21 @@ function diagNote(code: string): SystemNote {
 }
 
 describe("V4e-T — load-time pre-evaluation failure routing", () => {
-  it("ERR-1: a host-incompatible pre-eval failure routes onto loom-system-note without firing a turn", () => {
+  it("ERR-1: a host-incompatible pre-eval failure routes onto theta-system-note without firing a turn", () => {
     // ERR-1: host-incompatibility detected by the capability probe (V9a)
-    // surfaces `loom/load/host-incompatible`; it MUST route pre-eval, never
+    // surfaces `theta/load/host-incompatible`; it MUST route pre-eval, never
     // firing a turn.
     const { channel, sendMessage } = recordingChannel();
     const router = createLoadFailurePreEvalRouter({ channel });
 
     router.routePreEvalFailure(
       "capability-probe",
-      diagNote("loom/load/host-incompatible"),
+      diagNote("theta/load/host-incompatible"),
     );
 
     const note = onlyNote(sendMessage);
     expect(note.customType).toBe(SYSTEM_NOTE_CHANNEL);
-    expect(note.customType).toBe("loom-system-note");
+    expect(note.customType).toBe("theta-system-note");
     // The routing never fires a turn (ERR-1: `triggerTurn:false`).
     expect(note.triggerTurn).toBe(false);
   });
@@ -101,7 +101,7 @@ describe("V4e-T — load-time pre-evaluation failure routing", () => {
 
     router.routePreEvalFailure(
       "lex-parse-type",
-      diagNote("loom/parse/unterminated-template"),
+      diagNote("theta/parse/unterminated-template"),
     );
 
     const note = onlyNote(sendMessage);
@@ -110,11 +110,11 @@ describe("V4e-T — load-time pre-evaluation failure routing", () => {
   });
 
   it("ERR-3: a frontmatter failure routes pre-eval with triggerTurn:false", () => {
-    // ERR-3: frontmatter rejection (V6a) surfaces e.g. `loom/load/missing-mode`.
+    // ERR-3: frontmatter rejection (V6a) surfaces e.g. `theta/load/missing-mode`.
     const { channel, sendMessage } = recordingChannel();
     const router = createLoadFailurePreEvalRouter({ channel });
 
-    router.routePreEvalFailure("frontmatter", diagNote("loom/load/missing-mode"));
+    router.routePreEvalFailure("frontmatter", diagNote("theta/load/missing-mode"));
 
     const note = onlyNote(sendMessage);
     expect(note.customType).toBe(SYSTEM_NOTE_CHANNEL);
@@ -123,13 +123,13 @@ describe("V4e-T — load-time pre-evaluation failure routing", () => {
 
   it("ERR-4: a binder-model resolution failure routes pre-eval with triggerTurn:false", () => {
     // ERR-4: binder-model resolution failure (V11a) surfaces
-    // `loom/load/binder-model-unresolved`.
+    // `theta/load/binder-model-unresolved`.
     const { channel, sendMessage } = recordingChannel();
     const router = createLoadFailurePreEvalRouter({ channel });
 
     router.routePreEvalFailure(
       "binder-model",
-      diagNote("loom/load/binder-model-unresolved"),
+      diagNote("theta/load/binder-model-unresolved"),
     );
 
     const note = onlyNote(sendMessage);
@@ -145,7 +145,7 @@ describe("V4e-T — load-time pre-evaluation failure routing", () => {
     const router = createLoadFailurePreEvalRouter({ channel });
 
     const note: SystemNote = {
-      content: "loom /demo: argument binding failed — could not parse arguments",
+      content: "theta /demo: argument binding failed — could not parse arguments",
       display: true,
       details: { event: { kind: "ceiling", surfaced: "ceiling#3" } },
     };
@@ -158,13 +158,13 @@ describe("V4e-T — load-time pre-evaluation failure routing", () => {
 
   it("ERR-6: a tools: resolution failure routes pre-eval with triggerTurn:false", () => {
     // ERR-6: `tools:` resolution failure (V10a/V6a) surfaces e.g.
-    // `loom/load/unknown-tool`.
+    // `theta/load/unknown-tool`.
     const { channel, sendMessage } = recordingChannel();
     const router = createLoadFailurePreEvalRouter({ channel });
 
     router.routePreEvalFailure(
       "tools-resolution",
-      diagNote("loom/load/unknown-tool"),
+      diagNote("theta/load/unknown-tool"),
     );
 
     const note = onlyNote(sendMessage);
@@ -187,7 +187,7 @@ describe("V4e-T — load-time pre-evaluation failure routing", () => {
     const result = router.crossRouteSlashLoadParams("demo", depth6);
 
     // Primary assertion — the cross-route note routes pre-eval onto the
-    // loom-system-note channel with `triggerTurn:false`, never firing a turn.
+    // theta-system-note channel with `triggerTurn:false`, never firing a turn.
     const note = onlyNote(sendMessage);
     expect(note.customType).toBe(SYSTEM_NOTE_CHANNEL);
     expect(note.triggerTurn).toBe(false);
@@ -198,17 +198,17 @@ describe("V4e-T — load-time pre-evaluation failure routing", () => {
     expect(result.arbitration.masked).toContain("ceiling#4");
   });
 
-  it("ERR-1…ERR-6/ERR-16: every load-time cause routes onto loom-system-note (no cause becomes an evaluation outcome)", () => {
+  it("ERR-1…ERR-6/ERR-16: every load-time cause routes onto theta-system-note (no cause becomes an evaluation outcome)", () => {
     // Exercise every diagnostic-batch cause through the one routing surface:
-    // each MUST surface exactly one loom-system-note carrying
+    // each MUST surface exactly one theta-system-note carrying
     // `triggerTurn:false`, so no cause ever fires a turn or becomes an
     // evaluation Failure.
     const cases: ReadonlyArray<readonly [PreEvalFailureCause, string]> = [
-      ["capability-probe", "loom/load/host-incompatible"],
-      ["lex-parse-type", "loom/parse/unterminated-template"],
-      ["frontmatter", "loom/load/missing-mode"],
-      ["binder-model", "loom/load/binder-model-unresolved"],
-      ["tools-resolution", "loom/load/unknown-tool"],
+      ["capability-probe", "theta/load/host-incompatible"],
+      ["lex-parse-type", "theta/parse/unterminated-template"],
+      ["frontmatter", "theta/load/missing-mode"],
+      ["binder-model", "theta/load/binder-model-unresolved"],
+      ["tools-resolution", "theta/load/unknown-tool"],
     ];
     for (const [cause, code] of cases) {
       const { channel, sendMessage } = recordingChannel();

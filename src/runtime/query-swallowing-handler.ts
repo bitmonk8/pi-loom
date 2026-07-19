@@ -18,7 +18,7 @@
 //     handler applies to each settlement. Once cancellation has surfaced for
 //     this invocation, the late settlement is discarded across all three side
 //     channels: no second `RuntimeEvent` on the always-log channel and no
-//     diagnostic of any severity (no promotion to `loom/runtime/internal-error`).
+//     diagnostic of any severity (no promotion to `theta/runtime/internal-error`).
 //     The `@`-query site has its own per-checkpoint `Err` surface governed by
 //     the cancellation.md Surfacing rules, so the tool-call-only `Err` clauses
 //     (a)/(b) are NOT extended to this site by this seam.
@@ -136,7 +136,7 @@ export function guardQueryProviderPromise<T>(
  * not the late-settle kind: a late `resolved` value and a late `rejected` error
  * are discarded identically once `cancellationSurfaced` is true. A late
  * rejection whose `.error` would otherwise be diagnostic-worthy is still
- * discarded — promoting it to `loom/runtime/internal-error` would re-introduce
+ * discarded — promoting it to `theta/runtime/internal-error` would re-introduce
  * the second-event surface this rule forbids (cancellation.md §"Race
  * semantics — swallowing-handler attachment on every abandonable Promise").
  */

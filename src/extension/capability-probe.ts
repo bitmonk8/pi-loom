@@ -6,7 +6,7 @@
 // host-prerequisites.md. The probe runs five checks in the fixed short-circuit
 // order `(a)` Node floor → `(b)` AbortSignal/AbortController shape → `(c)+(d)`
 // SDK named members + peer-dep lock-step → `(e)` typebox host-shape, stops at
-// the first failure, and yields exactly one `loom/load/host-incompatible`
+// the first failure, and yields exactly one `theta/load/host-incompatible`
 // failure outcome (or a pass). PIC-3/4/5/6 are the probe-wide invariants.
 //
 // V9a-T (tests-task) declares this seam and the `FACTORY_PROBABLE_CAPABILITIES`
@@ -25,7 +25,7 @@
 import semver from "semver";
 
 /**
- * The closed `loom/load/host-incompatible` `details.kind` discriminator set
+ * The closed `theta/load/host-incompatible` `details.kind` discriminator set
  * (capability-probe.md "On failure: refusal and diagnostic" clause (ii)).
  */
 export type HostIncompatibleKind =
@@ -67,7 +67,7 @@ export const SHUTDOWN_AWAIT_CAP_MS = 2000;
 const NODE_FLOOR = ">=22.19.0";
 
 /**
- * The loom 1.0 Pi-SDK pin range (host-prerequisites.md #pi-sdk-pin), the
+ * The theta 1.0 Pi-SDK pin range (host-prerequisites.md #pi-sdk-pin), the
  * `details.required` for the `peer-dep-*` kinds and the tilde range Step 0 (d)
  * tests each lock-step peer's installed version against.
  */
@@ -122,7 +122,7 @@ export interface ProbeHost {
 }
 
 /**
- * The `loom/load/host-incompatible` `details` payload a failing probe produces
+ * The `theta/load/host-incompatible` `details` payload a failing probe produces
  * (capability-probe.md clause (ii) + "Self-failure").
  */
 export interface ProbeFailureDetails {

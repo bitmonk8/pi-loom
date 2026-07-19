@@ -4,7 +4,7 @@
 
 <a id="qry-1"></a> **QRY-1.** `Ok` value is the assistant's text response as a `string`:
 
-```loom
+```theta
 let critique = @`Critique this code:\n${code}`?
 ```
 
@@ -14,7 +14,7 @@ Return type: `Result<string, QueryError>`.
 
 <a id="qry-2"></a> **QRY-2.** The response schema is **inferred from the surrounding type context**. The runtime hands the schema to the provider as a structured-output / strict tool-input contract and validates the response with AJV before returning it. The most common form is type-annotated `let`:
 
-```loom
+```theta
 let score: ReviewScore = @`Rate the critique 1-5: ${critique}`?
 ```
 
@@ -29,7 +29,7 @@ Return type: `Result<Schema, QueryError>`, where `Schema` is the inferred respon
 Absent an explicit ascription, the response schema flows into the query expression from a *type sink* — a position whose declared type can supply the schema. The positions that can serve as a sink are:
 
 - The annotated type of the binding being initialised (`let x: T = @`...`?`).
-- The declared return type of the enclosing function, when the query is in tail-expression or `return`-argument position. A `.loom` file has no declared return type — its return type is itself inferred from its body (see [Functions — Loom return type](../functions.md#loom-return-type)) — so a loom cannot serve as a sink for a query in its own tail or `return` position.
+- The declared return type of the enclosing function, when the query is in tail-expression or `return`-argument position. A `.theta` file has no declared return type — its return type is itself inferred from its body (see [Functions — Theta return type](../functions.md#theta-return-type)) — so a theta cannot serve as a sink for a query in its own tail or `return` position.
 - The declared parameter type of the enclosing call site (`f(@`...`?)` where `f`'s parameter has type `T`).
 
 These are sink *positions*, not a precedence ladder: when a query is enclosed by more than one of them, which sink supplies the schema is determined by the [schema inference algorithm](#schema-inference-algorithm) below, which walks outward and stops at the *nearest* enclosing sink — the innermost sink wins, not the outermost. If no sink encloses the query and no explicit ascription is present, the query is untyped (returns `string`).
@@ -38,7 +38,7 @@ These are sink *positions*, not a precedence ladder: when a query is enclosed by
 
 A query expression searches *outward* through its enclosing AST for a "type sink" — a position whose declared type can supply the schema. The walk is *shallow*: it crosses through context-preserving constructs but stops at any expression that consumes its operand without preserving its type. Concretely:
 
-- **Crossed (transparent):** parenthesisation `(...)`; the RHS of `let x: T = ...`; function / tool / `invoke` arguments matched to a typed parameter; the tail expression of an enclosing function or loom whose return type is declared; the operand of `return`; the branches of a ternary `cond ? a : b` *if and only if* the ternary itself has a sink; the elements of an array literal `[a, b]` *if and only if* the literal has a sink (binding annotation, parameter type, etc.); the operand of the postfix error-propagation `?` ([ERR-18](../expressions.md#err-18)), whose unwrap of `Result<T, QueryError>` to `T` preserves the operand's type context, so the walk continues outward from `?` to any enclosing sink.
+- **Crossed (transparent):** parenthesisation `(...)`; the RHS of `let x: T = ...`; function / tool / `invoke` arguments matched to a typed parameter; the tail expression of an enclosing function or theta whose return type is declared; the operand of `return`; the branches of a ternary `cond ? a : b` *if and only if* the ternary itself has a sink; the elements of an array literal `[a, b]` *if and only if* the literal has a sink (binding annotation, parameter type, etc.); the operand of the postfix error-propagation `?` ([ERR-18](../expressions.md#err-18)), whose unwrap of `Result<T, QueryError>` to `T` preserves the operand's type context, so the walk continues outward from `?` to any enclosing sink.
 - **Stopped (opaque):** binary and unary operators — the arithmetic operators (`+`, `-`, `*`, `/`, `%`), the comparison operators (`==`, `!=`, `<`, `<=`, `>`, `>=`), and the logical operators (`&&`, `||`) stop the walk on either operand, as do the unary `!` and `-`; member access (`a.b`); indexed access (`a[i]`); the scrutinee of `match`; and the condition of `if` / `while`. Inside these positions, only an explicit `@<Schema>`...`` ascription supplies a schema.
 
 If the walk reaches a sink, that schema is the query's response type. If the walk reaches a stop without finding a sink, the query is untyped and returns `Result<string, QueryError>`. An explicit `@<Schema>` ascription overrides the walk regardless of where it appears, per the [override rule](#explicit-ascription-override).
@@ -56,29 +56,29 @@ If the walk reaches a sink, that schema is the query's response type. If the wal
 
 <a id="qry-4"></a> **QRY-4.** `@<Schema>`...`` overrides inference. Required in any expression position with no usable type context, such as the scrutinee of `match`:
 
-```loom
+```theta
 let score = match @<ReviewScore>`Rate the critique 1-5: ${critique}` {
   Ok(s)  => s,
   Err(_) => ReviewScore { value: 0, reason: "unrated" },
 }
 ```
 
-Per the [override rule](#explicit-ascription-override), when both a binding annotation and an explicit `<Schema>` are present, the explicit one is used (with `loom/parse/explicit-schema-mismatch` warning if the explicit `<Schema>` ascription is not compatible with the binding annotation under [Type System — Type compatibility](../type-system.md#type-compatibility) — i.e. `ascription ⋢ annotation`). The check fires in one direction only: a value the explicit form would produce that the binding annotation could not accept is the warned condition; a binding annotation wider than the ascription (a safe widening) is silently allowed. When either side is past the parser's static view (per [Type System — Unresolvable operands](../type-system.md#type-compatibility)), the warning is skipped and the runtime AJV check is the safety net.
+Per the [override rule](#explicit-ascription-override), when both a binding annotation and an explicit `<Schema>` are present, the explicit one is used (with `theta/parse/explicit-schema-mismatch` warning if the explicit `<Schema>` ascription is not compatible with the binding annotation under [Type System — Type compatibility](../type-system.md#type-compatibility) — i.e. `ascription ⋢ annotation`). The check fires in one direction only: a value the explicit form would produce that the binding annotation could not accept is the warned condition; a binding annotation wider than the ascription (a safe widening) is silently allowed. When either side is past the parser's static view (per [Type System — Unresolvable operands](../type-system.md#type-compatibility)), the warning is skipped and the runtime AJV check is the safety net.
 
 *Test vectors (normative).*
 
 - `let x: number = @<integer>\`Rate 1-5: ${q}\`?` — **no warning**. `integer ⊑ number` by [TYPE-2](../type-system.md#type-2); the explicit form's value is acceptable to the binding.
-- `let x: integer = @<number>\`...\`?` — **fires `loom/parse/explicit-schema-mismatch`**. `number ⋢ integer` (the explicit `number` could yield `3.5`, which the `integer` binding cannot accept).
+- `let x: integer = @<number>\`...\`?` — **fires `theta/parse/explicit-schema-mismatch`**. `number ⋢ integer` (the explicit `number` could yield `3.5`, which the `integer` binding cannot accept).
 - `let x: ReviewScore = @<ReviewScore>\`...\`?` — **no warning**. Reflexivity ([TYPE-1](../type-system.md#type-1)).
 - `let x: Animal = @<Cat>\`...\`?` where `schema Animal = Cat | Dog` — **no warning**. Variant-to-union ([TYPE-4](../type-system.md#type-4)): `Cat ⊑ Animal`.
 
 ## Multi-line templates
 
-<a id="qry-5"></a> **QRY-5.** Backtick templates span as many lines as needed; there is no separate heredoc form. Loom applies two normalisations to the rendered text:
+<a id="qry-5"></a> **QRY-5.** Backtick templates span as many lines as needed; there is no separate heredoc form. Theta applies two normalisations to the rendered text:
 
 - **Newline trim.** A newline immediately after the opening backtick is stripped; a newline immediately before the closing backtick is stripped. This makes the natural-looking form produce clean text:
 
-  ```loom
+  ```theta
   let plan: Plan = @`
     The author is ${author.name}, a ${author.role}
     with ${author.experience_years} years of experience.
@@ -88,7 +88,7 @@ Per the [override rule](#explicit-ascription-override), when both a binding anno
 
   renders as `"  The author...\n  with...\n  Produce..."` *before* dedent.
 
-- **Dedent.** Loom strips the common leading whitespace shared by every non-blank line of the rendered text (Python's `textwrap.dedent` algorithm). The example above renders as `"The author...\nwith...\nProduce..."` after dedent. Authors writing prompts inside indented code blocks therefore do not pay an indent tax in what the model sees.
+- **Dedent.** Theta strips the common leading whitespace shared by every non-blank line of the rendered text (Python's `textwrap.dedent` algorithm). The example above renders as `"The author...\nwith...\nProduce..."` after dedent. Authors writing prompts inside indented code blocks therefore do not pay an indent tax in what the model sees.
 
 Dedent and newline-trim apply uniformly to every `@`...`` template regardless of length — single-line templates have no leading whitespace and no internal newlines, so the rules are no-ops in that case.
 
@@ -98,10 +98,10 @@ Dedent and newline-trim apply uniformly to every `@`...`` template regardless of
 
 <a id="qry-6"></a> **QRY-6.** Two layers defend against sending the provider a turn that contains no useful text:
 
-- **Parse-time warning** (`loom/parse/empty-template`, severity *warning*): if a template's *static* body — every literal segment between interpolations, taken as the parser's conceptual static-analysis approximation of the rendered static body — newline-trim and dedent notionally applied to those segments, the escape rewrites of [Query escapes — Escapes](query-escapes-stringification.md#escapes) notionally **not** applied — is empty or whitespace-only (whitespace being the ASCII set pinned at [System-note rendering](../binder/defaulting-system-note-echo.md#system-note-rendering) rule 1, never the regex `\s` class), the parser emits a one-line warning at the template's source location. The loom still loads. Authors who genuinely intend a whitespace-only prompt can suppress the warning by writing an explicit literal escape (`\n`): evaluating the predicate pre-escape, the body is the non-whitespace two-character sequence `` \n `` and the warning is suppressed (post-escape it would be a single whitespace newline, so only the pre-escape reading makes this suppression hatch effective).
+- **Parse-time warning** (`theta/parse/empty-template`, severity *warning*): if a template's *static* body — every literal segment between interpolations, taken as the parser's conceptual static-analysis approximation of the rendered static body — newline-trim and dedent notionally applied to those segments, the escape rewrites of [Query escapes — Escapes](query-escapes-stringification.md#escapes) notionally **not** applied — is empty or whitespace-only (whitespace being the ASCII set pinned at [System-note rendering](../binder/defaulting-system-note-echo.md#system-note-rendering) rule 1, never the regex `\s` class), the parser emits a one-line warning at the template's source location. The theta still loads. Authors who genuinely intend a whitespace-only prompt can suppress the warning by writing an explicit literal escape (`\n`): evaluating the predicate pre-escape, the body is the non-whitespace two-character sequence `` \n `` and the warning is suppressed (post-escape it would be a single whitespace newline, so only the pre-escape reading makes this suppression hatch effective).
 - **Runtime short-circuit:** immediately before the user turn would be issued, if the *fully-rendered* text (post-interpolation, post-newline-trim, post-dedent) has length 0 or contains only characters drawn from the ASCII whitespace set pinned at [System-note rendering](../binder/defaulting-system-note-echo.md#system-note-rendering) rule 1 — the language-dependent regex `\s` class is **not** used, so non-ASCII whitespace (e.g. U+00A0) does not satisfy the predicate and a render consisting solely of such characters issues a turn rather than short-circuiting — the query short-circuits to `Err(QueryError { kind: "validation", cause: "empty_template", message: "rendered query template is empty", attempts: 0, validation_errors: [], raw_response: null })` without consuming a provider round-trip. The empty-template short-circuit emits the `cause: "empty_template"` arm of `ValidationError` (see [Errors and Results — ValidationError](../errors-and-results.md)) so it is observably distinct on the wire from a `cause: "schema_validation"` failure even though both share `kind: "validation"`. The short-circuit fires equally on the original turn and on any respond-repair follow-up turn (defensive — should not occur for follow-ups, since the runtime constructs them); a follow-up that short-circuits does **not** consume an `attempts` slot. An empty-template short-circuit on the original user turn of a typed query MUST NOT trigger the respond-repair path: zero respond-repair follow-up turns are issued, no follow-up user turn is appended to the conversation history, and the returned `ValidationError.attempts` is 0 regardless of `respond_repair.attempts` and `respond_repair.methodology`. Rationale: respond-repair repairs a malformed model response (see Schema-validation respond-repair); the short-circuit is the runtime refusing input it constructed itself, before any model response exists, so there is nothing for a follow-up turn to repair.
 
-Oversized rendered templates have no pre-flight bound in loom 1.0; they pass through to the provider and are detected reactively via the provider's overflow error envelope (see `ContextOverflowError` below).
+Oversized rendered templates have no pre-flight bound in theta 1.0; they pass through to the provider and are detected reactively via the provider's overflow error envelope (see `ContextOverflowError` below).
 
 ### Dedent and newline-trim — normative behaviour
 
@@ -113,7 +113,7 @@ Oversized rendered templates have no pre-flight bound in loom 1.0; they pass thr
 4. Both normalisations split the rendered text into lines on the line-feed `\n` (U+000A) only. Source CR (`\r`) and CRLF (`\r\n`) line endings are normalised to `\n` before newline-trim and dedent run (see [Lexical Structure — Newline normalisation](../lexical.md)), so no bare `\r` survives from the source. A `\r` introduced into the rendered text by an interpolated value — the one path by which a carriage return can reach dedent, since interpolated values are not subject to source newline normalisation — is ordinary content: it neither splits a line nor satisfies the whitespace-only-line predicate of rule 1.
 5. The leading whitespace dedent considers for the common prefix, and the characters that make a line satisfy the whitespace-only-line predicate of rule 1, are drawn only from U+0020 (space) and U+0009 (tab) — the space and tab members of the ASCII whitespace set pinned at [System-note rendering](../binder/defaulting-system-note-echo.md#system-note-rendering) rule 1. Any other code point — including non-ASCII whitespace such as U+00A0 (no-break space) or U+3000 (ideographic space) — is ordinary content for both the common-prefix walk and the whitespace-only-line predicate.
 
-The following input → output pairs are normative. `\n`, `\r`, and `\t` denote literal newline, carriage-return, and tab bytes, and `\u00A0` a literal U+00A0 (no-break space), inside the source between the backticks; they are not escape sequences interpreted by the loom parser (a literal newline, carriage return, or tab in the source has the same effect).
+The following input → output pairs are normative. `\n`, `\r`, and `\t` denote literal newline, carriage-return, and tab bytes, and `\u00A0` a literal U+00A0 (no-break space), inside the source between the backticks; they are not escape sequences interpreted by the theta parser (a literal newline, carriage return, or tab in the source has the same effect).
 
 | # | Template (between backticks) | Rendered text |
 |---|---|---|

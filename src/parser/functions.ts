@@ -4,29 +4,29 @@
 // return.md for top-level `fn` declarations and the `return` statement:
 //
 //   - FN-1 (Placement) — `fn` declarations are top-level only:
-//       * `loom/parse/nested-fn`         — a `fn` nested inside another `fn`
+//       * `theta/parse/nested-fn`         — a `fn` nested inside another `fn`
 //         body or a block (`parse` phase).
-//       * `loom/parse/function-as-value` — a function name used outside call
+//       * `theta/parse/function-as-value` — a function name used outside call
 //         position (bound to `let`, passed as an argument) (`parse` phase).
 //       * hoisted mutual recursion between two top-level `fn`s is allowed: a
 //         forward reference to a hoisted top-level `fn` resolves.
 //   - FN-2 (Documentation) — a `fn`'s leading `///` doc comment is preserved on
 //     the AST as human-facing documentation only; functions have no JSON Schema
 //     so the description lowers nowhere (does not enter provider payloads).
-//   - FN-3 / RET-1 (Loom return type / return type-check) — an annotation-less
+//   - FN-3 / RET-1 (Theta return type / return type-check) — an annotation-less
 //     body infers its return type as the LUB (under `⊑`) of the tail-expression
 //     and every `return` operand, wrapped in `Result<T, QueryError>` when the
 //     body can short-circuit with an `Err` (`?` present, or a `Result`-typed
 //     contribution); an explicit return annotation type-checks the tail and
 //     every `return` operand against the annotation instead of inferring;
 //     contributions sharing no common upper bound and narrowed by no sink fire
-//     `loom/parse/return-no-common-type`.
+//     `theta/parse/return-no-common-type`.
 //   - FN-4 (Empty-tail body) — an empty-tail body infers `null` (the literal
 //     type); a `?`-bearing empty-tail body infers `Result<null, QueryError>`.
 //   - RET-2 / RET-3 — bare `return` is legal only in a `void`-annotated
-//     function (`loom/parse/bare-return-in-non-void` elsewhere, including at the
+//     function (`theta/parse/bare-return-in-non-void` elsewhere, including at the
 //     top level); code after a `return` in the same block warns
-//     `loom/parse/unreachable-code`.
+//     `theta/parse/unreachable-code`.
 //
 // V3d-T (tests-task) declares these seam shapes and stubs the behaviour-bearing
 // functions inertly (placement / unreachable checks return no diagnostic;
@@ -55,7 +55,7 @@ export interface FnSite {
 
 /**
  * A `fn` declaration occurrence. `nested` is whether the declaration sits
- * lexically inside another `fn` body or a block (loom 1.0 admits top-level
+ * lexically inside another `fn` body or a block (theta 1.0 admits top-level
  * `fn` only).
  */
 export interface FnPlacement {
@@ -64,7 +64,7 @@ export interface FnPlacement {
 
 /**
  * Check a `fn` declaration's placement (`parse` phase), returning
- * `loom/parse/nested-fn` when the declaration is nested inside another `fn`
+ * `theta/parse/nested-fn` when the declaration is nested inside another `fn`
  * body or a block. Returns `undefined` for a top-level `fn` (functions.md
  * FN-1).
  *
@@ -80,17 +80,17 @@ export function checkFnPlacement(
   // Message from diagnostics/code-registry-parse.md.
   return {
     severity: "error",
-    code: "loom/parse/nested-fn",
+    code: "theta/parse/nested-fn",
     file: site.file,
     range: site.range,
-    message: "nested 'fn' declarations are not supported in loom 1.0",
+    message: "nested 'fn' declarations are not supported in theta 1.0",
   };
 }
 
 /**
  * A reference to a function name. `position` is `"call"` when the name appears
  * in call position (`f(...)`) and `"value"` when it is used as a value (bound
- * to `let`, passed as an argument) — loom 1.0 has no first-class functions.
+ * to `let`, passed as an argument) — theta 1.0 has no first-class functions.
  */
 export interface FunctionReference {
   readonly name: string;
@@ -99,7 +99,7 @@ export interface FunctionReference {
 
 /**
  * Check a function-name reference (`parse` phase), returning
- * `loom/parse/function-as-value` when the name is used outside call position.
+ * `theta/parse/function-as-value` when the name is used outside call position.
  * Returns `undefined` for a call-position reference (functions.md FN-1).
  *
  * V3d-T stubs this inert (always `undefined`); the paired V3d leaf fills it in.
@@ -114,10 +114,10 @@ export function checkFunctionReference(
   // Message from diagnostics/code-registry-parse.md (interpolates the name).
   return {
     severity: "error",
-    code: "loom/parse/function-as-value",
+    code: "theta/parse/function-as-value",
     file: site.file,
     range: site.range,
-    message: `function '${ref.name}' used outside call position; functions are not first-class in loom 1.0`,
+    message: `function '${ref.name}' used outside call position; functions are not first-class in theta 1.0`,
   };
 }
 
@@ -233,7 +233,7 @@ export interface InferredReturnType {
  *     LUB-reconciled (and possibly `Result`-wrapped) return type.
  *   - `"inference-no-common-type"` — an annotation-less body whose
  *     contributions share no common upper bound and no sink narrows them;
- *     carries the `loom/parse/return-no-common-type` diagnostic.
+ *     carries the `theta/parse/return-no-common-type` diagnostic.
  *   - `"checked"`                — an explicitly annotated body; `operandResults`
  *     is the per-contribution compatibility against the annotation, in
  *     contribution order (inference is bypassed).
@@ -256,7 +256,7 @@ export type ResolvedReturn =
  *     list (an empty-tail body) infers the `null` literal type (FN-4), wrapped
  *     to `Result<null, QueryError>` when `hasQuestion`. Contributions sharing
  *     no common upper bound under `⊑` (and narrowed by no sink) yield
- *     `loom/parse/return-no-common-type`.
+ *     `theta/parse/return-no-common-type`.
  *   - With an `annotation`: type-check the tail and every `return` operand
  *     against the annotation instead of inferring; `operandResults` is the
  *     per-contribution `⊑` outcome.
@@ -316,7 +316,7 @@ export function resolveReturnType(opts: {
       kind: "inference-no-common-type",
       diagnostic: {
         severity: "error",
-        code: "loom/parse/return-no-common-type",
+        code: "theta/parse/return-no-common-type",
         file: site.file,
         range: site.range,
         message:
@@ -361,7 +361,7 @@ function computeLub(
 
 /**
  * A bare `return` (no operand) occurrence. `returnTypeIsVoid` is whether the
- * enclosing scope is a `void`-annotated function; a top-level loom and any
+ * enclosing scope is a `void`-annotated function; a top-level theta and any
  * non-`void` function are `false` (RET-2).
  */
 export interface BareReturn {
@@ -370,8 +370,8 @@ export interface BareReturn {
 
 /**
  * Check a bare `return` (`type` phase), returning
- * `loom/parse/bare-return-in-non-void` when the enclosing scope is not a
- * `void`-annotated function (including a top-level loom). Returns `undefined`
+ * `theta/parse/bare-return-in-non-void` when the enclosing scope is not a
+ * `void`-annotated function (including a top-level theta). Returns `undefined`
  * inside a `void` function (return.md RET-2).
  *
  * V3d-T stubs this inert (always `undefined`); the paired V3d leaf fills it in.
@@ -386,7 +386,7 @@ export function checkBareReturn(
   // Message from diagnostics/code-registry-parse.md.
   return {
     severity: "error",
-    code: "loom/parse/bare-return-in-non-void",
+    code: "theta/parse/bare-return-in-non-void",
     file: site.file,
     range: site.range,
     message: "missing return value",
@@ -403,7 +403,7 @@ export interface UnreachableCode {
 
 /**
  * Check for code after a `return` in the same block (`parse` phase), returning
- * the `loom/parse/unreachable-code` warning when a statement follows a `return`
+ * the `theta/parse/unreachable-code` warning when a statement follows a `return`
  * in the same block. Returns `undefined` otherwise (return.md RET-3).
  *
  * V3d-T stubs this inert (always `undefined`); the paired V3d leaf fills it in.
@@ -419,7 +419,7 @@ export function checkUnreachableCode(
   // diagnostics/code-registry-parse.md.
   return {
     severity: "warning",
-    code: "loom/parse/unreachable-code",
+    code: "theta/parse/unreachable-code",
     file: site.file,
     range: site.range,
     message: "unreachable code after return",

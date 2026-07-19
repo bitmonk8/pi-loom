@@ -1,0 +1,5 @@
+---
+description: "Minimal discovered theta for the host-integration recipe"
+mode: prompt
+---
+@`Say hello and confirm the theta extension is wired up.`

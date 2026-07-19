@@ -1,12 +1,12 @@
-# How to call a tool from loom code
+# How to call a tool from theta code
 
-You want deterministic loom code — not the model — to run a tool (read a file,
-grep, invoke a helper loom) and use the result. Call it directly with the
-bare-identifier form `<name>(args)`, where `<name>` is an entry in the loom's
+You want deterministic theta code — not the model — to run a tool (read a file,
+grep, invoke a helper theta) and use the result. Call it directly with the
+bare-identifier form `<name>(args)`, where `<name>` is an entry in the theta's
 callable set.
 
 A tool call is **not** a conversation turn: it consumes no model tokens, adds no
-turn to the loom's conversation, and does not appear in the transcript. That is
+turn to the theta's conversation, and does not appear in the transcript. That is
 the distinction from an `@`...`` query.
 
 ## Steps
@@ -21,10 +21,10 @@ the distinction from an `@`...`` query.
 
 ## Working example
 
-[`docs/examples/call-tool.loom`](../examples/call-tool.loom) greps the tree from
+[`docs/examples/call-tool.theta`](../examples/call-tool.theta) greps the tree from
 code, then feeds the result into a query:
 
-```loom
+```theta
 ---
 description: Count TODO markers under src
 mode: subagent
@@ -37,7 +37,7 @@ let hits = grep({ pattern: "TODO", path: "src" })?
 Run it:
 
 ```
-pi --loom docs/examples -p "/call-tool"
+pi --theta docs/examples -p "/call-tool"
 ```
 
 ## Result
@@ -60,5 +60,5 @@ of `validation`, `execution`, `cancelled`, or `unknown_tool`.
 - Spec: `docs/spec_topics/tool-calls.md` (bare-name call form, argument shape,
   return type, failures), `docs/spec_topics/functions.md`,
   `docs/spec_topics/frontmatter/frontmatter-fields-a.md` (`tools`, FRNT-2),
-  glossary entries *callable set*, *Pi tool* vs *`.loom` callable*.
-- Example `call-tool.loom` requested from `loom-docs-example-runner`.
+  glossary entries *callable set*, *Pi tool* vs *`.theta` callable*.
+- Example `call-tool.theta` requested from `theta-docs-example-runner`.

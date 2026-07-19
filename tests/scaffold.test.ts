@@ -19,7 +19,7 @@ const pkg = JSON.parse(readFileSync(manifestPath, "utf8")) as {
   pi?: { extensions?: unknown };
 };
 
-// The canonical loom 1.0 Pi-SDK pin range, transcribed inline from
+// The canonical theta 1.0 Pi-SDK pin range, transcribed inline from
 // host-prerequisites.md §#pi-sdk-pin (Manifest lock-step): the four
 // @earendil-works/* entries MUST literally equal `~0.75.5`.
 const PI_SDK_PIN = "~0.75.5";
@@ -56,13 +56,13 @@ describe("H1a scaffold — test runner (Convention: phase categories)", () => {
 });
 
 describe("H1a scaffold — lint toolchain (Convention: phase categories)", () => {
-  it("declares eslint, @typescript-eslint/parser, and eslint-plugin-loom-local in devDependencies", () => {
+  it("declares eslint, @typescript-eslint/parser, and eslint-plugin-theta-local in devDependencies", () => {
     const dev = pkg.devDependencies ?? {};
     expect(dev.eslint).toBeTypeOf("string");
     expect(dev["@typescript-eslint/parser"]).toBeTypeOf("string");
-    // eslint-plugin-loom-local: key present, relative/workspace (file:)
+    // eslint-plugin-theta-local: key present, relative/workspace (file:)
     // specifier accepted — no published registry version demanded.
-    expect(dev["eslint-plugin-loom-local"]).toBeTypeOf("string");
+    expect(dev["eslint-plugin-theta-local"]).toBeTypeOf("string");
   });
 });
 
@@ -93,7 +93,7 @@ describe("H1a scaffold — typebox no-collapse (PIC-35)", () => {
 });
 
 describe("H1a scaffold — extension manifest entry point", () => {
-  it("pi.extensions equals [\"./extensions\"] (extension-bootstrap-and-per-loom.md §Extension entry point)", () => {
+  it("pi.extensions equals [\"./extensions\"] (extension-bootstrap-and-per-theta.md §Extension entry point)", () => {
     expect(pkg.pi?.extensions).toEqual(["./extensions"]);
   });
 });
@@ -114,7 +114,7 @@ describe("H1a scaffold — TypeScript build-toolchain floor (host-prerequisites.
   });
 });
 
-describe("H1a scaffold — ES-module declaration (extension-bootstrap-and-per-loom.md §Extension ES-module declaration)", () => {
+describe("H1a scaffold — ES-module declaration (extension-bootstrap-and-per-theta.md §Extension ES-module declaration)", () => {
   it("package.json#type equals \"module\"", () => {
     expect(pkg.type).toBe("module");
   });

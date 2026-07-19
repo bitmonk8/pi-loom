@@ -35,12 +35,12 @@ describe("H5a — closing gate against the seeded no-violation fixture", () => {
     expect(gate("no-violation")).toEqual([]);
   });
 
-  it("(Convention: REQ-ID discipline) excludes the loom/typecheck/* brand from registry reconciliation — the no-violation fixture's typecheck brand has no asserting test yet stays green", () => {
+  it("(Convention: REQ-ID discipline) excludes the theta/typecheck/* brand from registry reconciliation — the no-violation fixture's typecheck brand has no asserting test yet stays green", () => {
     const findings = gate("no-violation");
     expect(
       findings.filter(
         (f) =>
-          f.subject.startsWith("loom/typecheck/") ||
+          f.subject.startsWith("theta/typecheck/") ||
           f.kind === "registry-code-no-asserting-test",
       ),
     ).toHaveLength(0);
@@ -68,13 +68,13 @@ describe("H5a — closing gate against each seeded violation fixture", () => {
   it("(Convention: Diagnostic message anchors) fails when a registry code has no asserting test", () => {
     const findings = gate("registry-code-no-test");
     expect(kinds(findings)).toEqual(["registry-code-no-asserting-test"]);
-    expect(findings[0]?.subject).toBe("loom/runtime/orphan");
+    expect(findings[0]?.subject).toBe("theta/runtime/orphan");
   });
 
   it("(Convention: Diagnostic message anchors) fails when a test asserts a diagnostic code absent from the registry", () => {
     const findings = gate("asserted-code-not-in-registry");
     expect(kinds(findings)).toEqual(["asserted-code-not-in-registry"]);
-    expect(findings[0]?.subject).toBe("loom/runtime/ghost");
+    expect(findings[0]?.subject).toBe("theta/runtime/ghost");
   });
 });
 
@@ -113,14 +113,14 @@ describe("H5a — terminology REQ-ID (non-executable) per-ID exclusion", () => {
 // comments across the (seeded) `src/**` as its allow-list entries and reds out
 // when an entry's cited token resolves to none of the four admitted arms.
 describe("H5c — broad-catch allow-list reconciliation against seeded fixtures", () => {
-  it("(Convention: Specific exception types only — broad-catch allow-list) runs green when every entry cites an admitted token (REQ-ID, cka-<n>, concrete loom/... code, pi-sdk-boundary)", () => {
+  it("(Convention: Specific exception types only — broad-catch allow-list) runs green when every entry cites an admitted token (REQ-ID, cka-<n>, concrete theta/... code, pi-sdk-boundary)", () => {
     expect(gate("broad-catch-no-violation")).toEqual([]);
   });
 
-  it("(Convention: Specific exception types only — broad-catch allow-list) fails when an entry cites a loom/... glob/wildcard family that the concrete-registry-code resolver never matches", () => {
+  it("(Convention: Specific exception types only — broad-catch allow-list) fails when an entry cites a theta/... glob/wildcard family that the concrete-registry-code resolver never matches", () => {
     const findings = gate("broad-catch-unresolved");
     expect(kinds(findings)).toEqual(["broad-catch-allow-list-unresolved"]);
-    expect(findings[0]?.subject).toBe("loom/host/session-shutdown-*");
+    expect(findings[0]?.subject).toBe("theta/host/session-shutdown-*");
   });
 });
 
@@ -138,8 +138,8 @@ describe("H5c — broad-catch allow-list token resolution (unit)", () => {
       "|---|---|---|",
       "| `cka-7` | `foo.md` (FOO) | `V1a` |",
     ].join("\n"),
-    registryText: "| `loom/parse/foo-bad` | E | msg |",
-    testSources: [{ path: "t.test.ts", text: "// FOO-1 cited\n loom/parse/foo-bad" }],
+    registryText: "| `theta/parse/foo-bad` | E | msg |",
+    testSources: [{ path: "t.test.ts", text: "// FOO-1 cited\n theta/parse/foo-bad" }],
     srcSources: [{ path: "s.ts", text: srcText }],
   });
 
@@ -148,18 +148,18 @@ describe("H5c — broad-catch allow-list token resolution (unit)", () => {
       (f) => f.kind === "broad-catch-allow-list-unresolved",
     );
 
-  it("resolves a coverage-matrix REQ-ID, a cka-<n> Token cell, a concrete loom code, and pi-sdk-boundary", () => {
+  it("resolves a coverage-matrix REQ-ID, a cka-<n> Token cell, a concrete theta code, and pi-sdk-boundary", () => {
     expect(arm("// allow-broad-catch: FOO-1 — p")).toEqual([]);
     expect(arm("// allow-broad-catch: cka-7 — p")).toEqual([]);
-    expect(arm("// allow-broad-catch: loom/parse/foo-bad — p")).toEqual([]);
+    expect(arm("// allow-broad-catch: theta/parse/foo-bad — p")).toEqual([]);
     expect(arm("// allow-broad-catch: pi-sdk-boundary — p")).toEqual([]);
   });
 
-  it("rejects an unmapped REQ-ID, an unknown cka token, a non-registry loom code, a glob/wildcard, and a bare token", () => {
+  it("rejects an unmapped REQ-ID, an unknown cka token, a non-registry theta code, a glob/wildcard, and a bare token", () => {
     expect(arm("// allow-broad-catch: FOO-9 — p")[0]?.subject).toBe("FOO-9");
     expect(arm("// allow-broad-catch: cka-99 — p")[0]?.subject).toBe("cka-99");
-    expect(arm("// allow-broad-catch: loom/parse/ghost — p")[0]?.subject).toBe("loom/parse/ghost");
-    expect(arm("// allow-broad-catch: loom/host/session-shutdown-* — p")[0]?.subject).toBe("loom/host/session-shutdown-*");
+    expect(arm("// allow-broad-catch: theta/parse/ghost — p")[0]?.subject).toBe("theta/parse/ghost");
+    expect(arm("// allow-broad-catch: theta/host/session-shutdown-* — p")[0]?.subject).toBe("theta/host/session-shutdown-*");
     expect(arm("// allow-broad-catch: bogus — p")[0]?.subject).toBe("bogus");
   });
 
@@ -322,15 +322,15 @@ describe("H5e — un-anchored-MUST recogniser parsing (unit)", () => {
     expect(rows[1].closing).toBe("<new>");
   });
 
-  it("pageHasUnanchoredMust flags a MUST paragraph with no PREFIX-N / loom code, and clears one anchored by either", () => {
+  it("pageHasUnanchoredMust flags a MUST paragraph with no PREFIX-N / theta code, and clears one anchored by either", () => {
     expect(pageHasUnanchoredMust("The loader MUST reject it.")).toBe(true);
     expect(pageHasUnanchoredMust("**FOO-1.** The loader MUST reject it.")).toBe(false);
-    expect(pageHasUnanchoredMust("The loader MUST emit `loom/load/bad`.")).toBe(false);
+    expect(pageHasUnanchoredMust("The loader MUST emit `theta/load/bad`.")).toBe(false);
     expect(pageHasUnanchoredMust("No obligation here, only prose.")).toBe(false);
     // A MUST inside a fenced code block is invisible to the scan.
     expect(pageHasUnanchoredMust("```\nMUST in a fence\n```")).toBe(false);
-    // A loom/typecheck/* brand is NOT a registry-code anchor.
-    expect(pageHasUnanchoredMust("The build MUST brand `loom/typecheck/x`.")).toBe(true);
+    // A theta/typecheck/* brand is NOT a registry-code anchor.
+    expect(pageHasUnanchoredMust("The build MUST brand `theta/typecheck/x`.")).toBe(true);
   });
 
   it("classifyClosingCell distinguishes a real plan leaf, the `<new>` placeholder, and a non-resolving token (V99z)", () => {
@@ -560,15 +560,15 @@ describe("H5a — gate reconciliation arms (unit)", () => {
     ]);
   });
 
-  it("parseRegistryCodes drops the loom/typecheck/* brand; extractAssertedCodes drops it too", () => {
+  it("parseRegistryCodes drops the theta/typecheck/* brand; extractAssertedCodes drops it too", () => {
     expect(
-      parseRegistryCodes("| `loom/parse/x` | | `loom/typecheck/brand` |"),
-    ).toEqual(["loom/parse/x"]);
+      parseRegistryCodes("| `theta/parse/x` | | `theta/typecheck/brand` |"),
+    ).toEqual(["theta/parse/x"]);
     expect(
       extractAssertedCodes([
-        { path: "t.test.ts", text: 'a("loom/parse/x"); b("loom/typecheck/brand");' },
+        { path: "t.test.ts", text: 'a("theta/parse/x"); b("theta/typecheck/brand");' },
       ]),
-    ).toEqual(["loom/parse/x"]);
+    ).toEqual(["theta/parse/x"]);
   });
 
   it("extractCitingReqIds collects inline PREFIX-N citations from test sources", () => {

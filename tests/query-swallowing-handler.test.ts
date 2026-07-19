@@ -41,7 +41,7 @@ import {
 // checkpoint (cancellation.md Granularity: "immediately before dispatching each
 // `@`...`` query").
 const QUERY_SITE: CheckpointSite = {
-  file: "review.loom",
+  file: "review.theta",
   line: 12,
   column: 7,
 };
@@ -149,7 +149,7 @@ describe("V13f-T — @-query provider late-settlement three-channel suppression 
 
     // A late rejection whose `.message` would otherwise be diagnostic-worthy
     // (an OOM-style host failure). It MUST still be discarded — promotion to
-    // `loom/runtime/internal-error` would re-introduce the second-event surface
+    // `theta/runtime/internal-error` would re-introduce the second-event surface
     // the rule forbids.
     const disposition = routeQueryProviderLateSettlement(
       { kind: "rejected", error: new Error("host OOM after cancellation") },

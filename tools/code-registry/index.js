@@ -2,7 +2,7 @@
 //
 // This module IS the machine-checkable diagnostic registry the `H5a` closing
 // gate consumes: a structured parse of the four sharded registry tables
-// (`loom/parse/*`, `loom/load/*`, `loom/runtime/*`, `loom/host/*`) into one row
+// (`theta/parse/*`, `theta/load/*`, `theta/runtime/*`, `theta/host/*`) into one row
 // per code carrying its namespace / severity / phase / trigger / message, plus
 // the closed-set (DIAG-2) and stable-id (DIAG-3) enforcement, and the
 // Message-column-normative lookup (DIAG-4) that asserting tests source their
@@ -19,7 +19,7 @@
 //   - registry-code-no-asserting-test: a registry code no test asserts (DIAG-2)
 //   - code-renamed                   : a baseline (stable) code absent from the
 //                                      current registry — a rename, deferred to
-//                                      loom 2.0 (DIAG-3)
+//                                      theta 2.0 (DIAG-3)
 
 /**
  * Parse the diagnostics registry markdown (the concatenated four sharded
@@ -34,13 +34,13 @@ export function parseRegistry(text) {
   for (const line of text.split("\n")) {
     const cells = splitTableRow(line);
     if (cells == null || cells.length < 5) continue;
-    const codeMatch = cells[0].match(/`(loom\/[a-z0-9/_-]+)`/);
+    const codeMatch = cells[0].match(/`(theta\/[a-z0-9/_-]+)`/);
     if (codeMatch == null) continue;
     const code = codeMatch[1];
     if (seen.has(code)) continue; // first row wins; the registry has no dup codes
     seen.add(code);
-    const slash = code.indexOf("/", "loom/".length);
-    const namespace = code.slice("loom/".length, slash);
+    const slash = code.indexOf("/", "theta/".length);
+    const namespace = code.slice("theta/".length, slash);
     rows.push({
       code,
       namespace,
@@ -124,7 +124,7 @@ export function reconcileClosedSet({ registry, assertedCodes }) {
 /**
  * Stable-id enforcement (DIAG-3): a registered code is a stable identifier, so
  * a code present in the pinned baseline but absent from the current registry is
- * a rename — deferred to loom 2.0 — and fails the gate.
+ * a rename — deferred to theta 2.0 — and fails the gate.
  *
  * @param {{currentCodes: string[], baselineCodes: string[]}} _input
  * @returns {{kind: string, subject: string, detail: string}[]}
@@ -137,7 +137,7 @@ export function reconcileStableIds({ currentCodes, baselineCodes }) {
       findings.push({
         kind: "code-renamed",
         subject: code,
-        detail: `baseline code ${code} is absent from the current registry — a rename, deferred to loom 2.0 (DIAG-3)`,
+        detail: `baseline code ${code} is absent from the current registry — a rename, deferred to theta 2.0 (DIAG-3)`,
       });
     }
   }

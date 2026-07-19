@@ -1,4 +1,4 @@
-// V19b / V19b-T — the loom lexical environment and scope model.
+// V19b / V19b-T — the theta lexical environment and scope model.
 //
 // This module owns the runtime lexical environment and the real `EvalHost`
 // implementation the `V19c` statement executor evaluates `V19a`'s body-AST
@@ -16,9 +16,9 @@
 //   - top-level `fn` declarations, hoisted so mutual recursion resolves in
 //     either textual order (functions.md FN-1) and carrying `fn` bodies for the
 //     `V19c` executor's final-value / `return` evaluation (FN-3…FN-5);
-//   - imported `.warp` symbols (top-level `schema` / `enum` / `fn`) materialised
+//   - imported `.thetalib` symbols (top-level `schema` / `enum` / `fn`) materialised
 //     into the environment via `V15c`'s import loader (imports.md §Visibility),
-//     an imported `fn` being callable with the cross-file `.warp fn` call
+//     an imported `fn` being callable with the cross-file `.thetalib fn` call
 //     execution riding `V19d`'s invoke trampoline;
 //   - top-level `schema` / `enum` declarations registered so runtime
 //     `Enum.Variant` access and named-schema constructors resolve.
@@ -30,7 +30,7 @@
 // V19b-T (tests-task) declares these seam shapes — the `LexicalEnvironment`
 // scope model, the arm-labelled `Resolution`, the `WriteResult`, the
 // `MaterializedImport` / `EnumRegistration` inputs, the `buildEnvironment`
-// factory, and the real `LoomEvalHost` realising `V3a`'s `EvalHost` — and stubs
+// factory, and the real `ThetaEvalHost` realising `V3a`'s `EvalHost` — and stubs
 // each behaviour-bearing method inertly so the failing tests compile and red on
 // their own primary assertions:
 //
@@ -43,7 +43,7 @@
 //     per-iteration fresh-binding assertion reds;
 //   - `resolveSchema` / `resolveEnumVariant` return `undefined`, so the
 //     schema-constructor / `Enum.Variant` assertions red;
-//   - the `LoomEvalHost` methods return the inert `null` sentinel, so the host
+//   - the `ThetaEvalHost` methods return the inert `null` sentinel, so the host
 //     identifier-read / call assertions red.
 //
 // No test reds on a compile error, a missing fixture, or a harness throw. The
@@ -52,9 +52,9 @@
 // Spec: expressions.md (§"Identifier resolution"), bindings.md, functions.md,
 // imports.md, runtime-value-model.md.
 
-import { makeEnumValue, type LoomValue } from "./value";
+import { makeEnumValue, type ThetaValue } from "./value";
 import type { EvalHost } from "./expression-evaluator";
-import type { FnDecl, LoomBody, SchemaDecl } from "../parser/loom-document";
+import type { FnDecl, ThetaBody, SchemaDecl } from "../parser/theta-document";
 import type { SourceRange } from "../diagnostics/diagnostic";
 
 // --------------------------------------------------------------------------
@@ -66,9 +66,9 @@ import type { SourceRange } from "../diagnostics/diagnostic";
  * first-match precedence order, plus the `unresolved` terminal:
  *
  *   1. `local`    — a local `let` binding or function parameter in scope;
- *   2. `fn`       — a top-level `fn` declaration in the same `.loom` / `.warp`;
- *   3. `import`   — a symbol imported from a `.warp` file (`V15c`);
- *   4. `callable` — a name in the loom's callable set (`tools:`, `V6c`) — the
+ *   2. `fn`       — a top-level `fn` declaration in the same `.theta` / `.thetalib`;
+ *   3. `import`   — a symbol imported from a `.thetalib` file (`V15c`);
+ *   4. `callable` — a name in the theta's callable set (`tools:`, `V6c`) — the
  *      precedence position `V19b` DEFINES but does not populate or execute.
  */
 export type ResolutionArm = "local" | "fn" | "import" | "callable" | "unresolved";
@@ -83,7 +83,7 @@ export type ResolutionArm = "local" | "fn" | "import" | "callable" | "unresolved
 export interface Resolution {
   readonly arm: ResolutionArm;
   /** The bound value — present for a `local` read. */
-  readonly value?: LoomValue;
+  readonly value?: ThetaValue;
   /** Whether a `local` slot was declared `let mut`. */
   readonly mutable?: boolean;
   /** The carried `fn` body — present for an `fn` / imported-`fn` resolution. */
@@ -105,11 +105,11 @@ export interface WriteResult {
 // Import materialisation inputs (V15c import loader)
 // --------------------------------------------------------------------------
 
-/** A top-level `.warp` symbol kind — each is materialisable into the environment. */
+/** A top-level `.thetalib` symbol kind — each is materialisable into the environment. */
 export type ImportedSymbolKind = "fn" | "schema" | "enum";
 
 /**
- * An imported `.warp` symbol materialised into the runtime environment via
+ * An imported `.thetalib` symbol materialised into the runtime environment via
  * `V15c`'s import loader (imports.md §Visibility). An imported `fn` carries its
  * `FnDecl` body and is callable; an imported `schema` / `enum` is registered so
  * its constructor / `Enum.Variant` access resolves.
@@ -147,7 +147,7 @@ export interface EnumRegistration {
  * position `V19b` defines but does not populate).
  */
 export interface EnvironmentInputs {
-  readonly body: LoomBody;
+  readonly body: ThetaBody;
   readonly imports?: readonly MaterializedImport[];
   readonly enums?: readonly EnumRegistration[];
   readonly callables?: readonly string[];
@@ -171,7 +171,7 @@ export interface EnvironmentInputs {
  */
 /** A local binding slot: its current value and whether it was declared `let mut`. */
 interface LocalSlot {
-  value: LoomValue;
+  value: ThetaValue;
   readonly mutable: boolean;
 }
 
@@ -244,7 +244,7 @@ export class LexicalEnvironment {
       for (const reg of inputs.enums ?? []) {
         this.enums.set(reg.name, buildVariantWireMap(reg.variants, reg.values));
       }
-      // Imported `.warp` symbols materialised via `V15c`'s import loader
+      // Imported `.thetalib` symbols materialised via `V15c`'s import loader
       // (imports.md §Visibility): an `fn` is resolvable + callable, a `schema`
       // resolves as a constructor, an `enum` resolves its variants.
       for (const imp of inputs.imports ?? []) {
@@ -272,7 +272,7 @@ export class LexicalEnvironment {
    * Define a local `let` / parameter binding in this scope. A `let _` discard
    * (`name === "_"`) records no resolvable binding (bindings.md §Discard).
    */
-  public defineLocal(name: string, value: LoomValue, mutable: boolean): void {
+  public defineLocal(name: string, value: ThetaValue, mutable: boolean): void {
     if (name === "_") {
       return;
     }
@@ -285,7 +285,7 @@ export class LexicalEnvironment {
    * (bindings.md `cka-6`). The write targets the nearest enclosing local slot;
    * an immutable-slot write leaves the slot unchanged.
    */
-  public writeBinding(name: string, value: LoomValue): WriteResult {
+  public writeBinding(name: string, value: ThetaValue): WriteResult {
     for (let env: LexicalEnvironment | null = this; env !== null; env = env.parent) {
       const slot = env.locals.get(name);
       if (slot !== undefined) {
@@ -318,7 +318,7 @@ export class LexicalEnvironment {
     if (fn !== undefined) {
       return { arm: "fn", fn, callable: true };
     }
-    // 3. imported `.warp` symbol.
+    // 3. imported `.thetalib` symbol.
     const imp = root.imports.get(name);
     if (imp !== undefined) {
       return imp.fn !== undefined
@@ -343,7 +343,7 @@ export class LexicalEnvironment {
    * each iteration's binding is independent of the others. The iteration
    * variable is an immutable binding.
    */
-  public bindIterationVariable(name: string, value: LoomValue): LexicalEnvironment {
+  public bindIterationVariable(name: string, value: ThetaValue): LexicalEnvironment {
     const scope = this.child();
     scope.defineLocal(name, value, false);
     return scope;
@@ -362,7 +362,7 @@ export class LexicalEnvironment {
    * `EnumValue` (runtime-value-model.md, enum row). Returns `undefined` for an
    * unregistered enum or an unknown variant.
    */
-  public resolveEnumVariant(enumName: string, variant: string): LoomValue | undefined {
+  public resolveEnumVariant(enumName: string, variant: string): ThetaValue | undefined {
     const variants = this.root().enums.get(enumName);
     if (variants === undefined || !variants.has(variant)) {
       return undefined;
@@ -401,10 +401,10 @@ export function buildEnvironment(inputs: EnvironmentInputs): LexicalEnvironment 
  * environment — so the host identifier-read / call assertions red. The paired
  * V19b leaf wires the host to the environment.
  */
-export class LoomEvalHost implements EvalHost {
+export class ThetaEvalHost implements EvalHost {
   public constructor(private readonly env: LexicalEnvironment) {}
 
-  public resolveIdentifier(name: string): LoomValue {
+  public resolveIdentifier(name: string): ThetaValue {
     const r = this.env.resolve(name);
     if (r.arm === "local") {
       return r.value ?? null;
@@ -418,11 +418,11 @@ export class LoomEvalHost implements EvalHost {
     );
   }
 
-  public callFunction(name: string, args: readonly LoomValue[]): LoomValue {
+  public callFunction(name: string, args: readonly ThetaValue[]): ThetaValue {
     void this.env;
     void args;
     // `V19b` DEFINES the callable arm's precedence position but does NOT
-    // execute it: the cross-file `.warp fn` call execution rides `V19d`'s
+    // execute it: the cross-file `.thetalib fn` call execution rides `V19d`'s
     // invoke trampoline (`V19d` / `V19e`). Calling here is a wiring error.
     throw new IdentifierNotReadableError(
       `call execution for '${name}' is wired by V19d's invoke trampoline, not the scope layer`,

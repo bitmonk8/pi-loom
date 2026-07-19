@@ -1,21 +1,21 @@
-// H8a — the production `LoomProducerDeps` for the shipped composition root.
+// H8a — the production `ThetaProducerDeps` for the shipped composition root.
 //
-// The `V19e` composition producer (`composeLoomFixture`) maps a parsed `.loom`
-// to a runnable `LoomFixture` by composing three injected collaborators:
+// The `V19e` composition producer (`composeThetaFixture`) maps a parsed `.theta`
+// to a runnable `ThetaFixture` by composing three injected collaborators:
 //
 //   - `runBinder` — the `V11a` frontmatter binder over the slash arguments,
-//     run before the loom interpreter; a non-binding envelope short-circuits;
+//     run before the theta interpreter; a non-binding envelope short-circuits;
 //   - `bindPromptConversation` — bind `V19d`'s effectful executor to the shared
 //     user session (`V12a`/`V9c`) so `@`-queries drive real user-visible turns;
 //   - `spawnSubagentConversation` — spawn an isolated `AgentSession` (`V9i`) and
-//     bind the executor to that private session for subagent-mode looms.
+//     bind the executor to that private session for subagent-mode thetas.
 //
 // This module assembles those collaborators against the live host `pi` surface
 // and the runtime root's seams, so the shipped extension drives real
 // prompt-mode / typed / subagent turns.
 //
-// Spec (narrative): pi-integration-contract/extension-bootstrap-and-per-loom.md
-// (§"Per-loom registration"), conversation-drive.md, slash-invocation.md,
+// Spec (narrative): pi-integration-contract/extension-bootstrap-and-per-theta.md
+// (§"Per-theta registration"), conversation-drive.md, slash-invocation.md,
 // binder/binder-model-and-context.md, subagent.md.
 
 import type {
@@ -35,8 +35,8 @@ import {
   getAgentDir,
   SessionManager,
 } from "@earendil-works/pi-coding-agent";
-// SUBAG-2 (extension-bootstrap-and-per-loom.md §Per-loom registration): a
-// `.loom`-as-tool `ToolDefinition.parameters` wraps the callee's lowered JSON
+// SUBAG-2 (extension-bootstrap-and-per-theta.md §Per-theta registration): a
+// `.theta`-as-tool `ToolDefinition.parameters` wraps the callee's lowered JSON
 // Schema via `Type.Unsafe<unknown>(...)` — the same TypeBox pattern the binder
 // envelope tool uses (`binder-inference.ts`), so TypeBox carries the JSON Schema
 // through to the provider lowering layer.
@@ -47,7 +47,7 @@ import {
   makeIdempotentDispose,
 } from "../runtime/subagent-isolation";
 import { runPromptSuspendInvoke } from "../runtime/invoke-prompt-suspend";
-import type { LoomMode } from "../parser/frontmatter";
+import type { ThetaMode } from "../parser/frontmatter";
 import type {
   Api,
   AssistantMessage,
@@ -70,9 +70,9 @@ import type {
   BinderRunResult,
   ConversationBinding,
   ConversationBindInput,
-  LoomCompositionInput,
-  LoomProducerDeps,
-} from "./loom-composition-producer";
+  ThetaCompositionInput,
+  ThetaProducerDeps,
+} from "./theta-composition-producer";
 import type {
   EffectfulStatementHostDeps,
   QueryHostDispatch,
@@ -86,7 +86,7 @@ import {
 } from "../runtime/lexical-environment";
 import {
   executeBody,
-  LoomFnArityError,
+  ThetaFnArityError,
   type BodyExecution,
   type ExecuteBodyDeps,
 } from "../runtime/statement-executor";
@@ -130,8 +130,8 @@ import type {
   CommittedSurface,
 } from "../runtime/terminal-outcomes";
 import {
-  createLoomAbort,
-  deriveChildLoomAbort,
+  createThetaAbort,
+  deriveChildThetaAbort,
   forwardSlashCommandCancel,
   abortForAgentEnd,
   makeCancelledError,
@@ -150,7 +150,7 @@ import {
   makeOk,
   schemaTagOf,
   valuesEqual,
-  type LoomValue,
+  type ThetaValue,
   type ResultValue,
 } from "../runtime/value";
 import { evaluateStringMember } from "../runtime/stdlib-string";
@@ -162,12 +162,12 @@ import type {
   Expr,
   FnDecl,
   InvokeExpr,
-  LoomBody,
+  ThetaBody,
   QueryExpr,
   SchemaDecl,
   Stmt,
-} from "../parser/loom-document";
-import { parseExpressionSource } from "../parser/loom-document";
+} from "../parser/theta-document";
+import { parseExpressionSource } from "../parser/theta-document";
 import { renderSystemPrompt } from "../parser/system-interpolation";
 import { lowerQueryResponseSchema } from "../runtime/query-schema-lowering";
 import type { LoweredSchema } from "../seams/schema-validator";
@@ -178,7 +178,7 @@ import {
   payloadForRespond,
 } from "../runtime/typed-query-validation";
 import { evaluateIndexAccess, evaluateMemberAccess, HostFatal } from "../runtime/runtime-panics";
-import { routeLoomCallableSetupThrow } from "../runtime/tool-call-off-surface";
+import { routeThetaCallableSetupThrow } from "../runtime/tool-call-off-surface";
 import { deriveToolLabel } from "../runtime/tool-registration";
 import {
   lexQueryTemplate,
@@ -226,7 +226,7 @@ import {
 /**
  * H8b: one resolved host Pi tool the code-side tool-call path dispatches
  * `execute` against. `execute` invokes the host tool's `execute(...)` and maps
- * its `AgentToolResult` to the loom-load-bearing `AgentToolResultEnvelope`
+ * its `AgentToolResult` to the theta-load-bearing `AgentToolResultEnvelope`
  * (`content` only), or throws when the tool signals failure — the V14g lowering
  * (`runCodeSideToolCall`) turns a clean resolve into `Ok(text)` and a throw into
  * `Err(CodeToolError{cause:"execution"})`.
@@ -240,7 +240,7 @@ export interface PiToolDispatch {
   ): Promise<AgentToolResultEnvelope>;
 }
 
-/** Construction inputs for the production per-loom producer collaborators. */
+/** Construction inputs for the production per-theta producer collaborators. */
 export interface ProductionProducerInput {
   /** The live host extension API (turn drive, message send, command surface). */
   readonly pi: ExtensionAPI;
@@ -249,7 +249,7 @@ export interface ProductionProducerInput {
   /** The host model registry (binder-model resolution, structured-output turns). */
   readonly modelRegistry: ModelRegistry;
   /**
-   * H8b: resolve a Pi-tool name from the loom's callable set (frontmatter
+   * H8b: resolve a Pi-tool name from the theta's callable set (frontmatter
    * `tools:`) to its `execute` dispatch, or `undefined` when the name is not a
    * known host tool. Constructed at the composition root over the live host
    * `cwd` / `ctx`. Absent on non-production harnesses, in which case a code-side
@@ -258,8 +258,8 @@ export interface ProductionProducerInput {
    */
   readonly resolvePiTool?: (name: string) => PiToolDispatch | undefined;
   /**
-   * SUBAG-2: lower a subagent loom's callable-set Pi-tool name to its full pi
-   * `ToolDefinition`, so `spawnSubagentConversation` can install the loom's
+   * SUBAG-2: lower a subagent theta's callable-set Pi-tool name to its full pi
+   * `ToolDefinition`, so `spawnSubagentConversation` can install the theta's
    * `tools:` set as `customTools` on the spawned `AgentSession` (subagent.md
    * rules 1–3). Constructed at the composition root over the same built-in
    * tool factories `resolvePiTool` uses. Absent on non-production harnesses, in
@@ -271,7 +271,7 @@ export interface ProductionProducerInput {
     cwd: string,
   ) => ToolDefinition | undefined;
   /**
-   * H8b: parse a `.loom`-callable / `invoke(...)` callee referenced from
+   * H8b: parse a `.theta`-callable / `invoke(...)` callee referenced from
    * `callerPath` into a runnable composition input (resolving the callee path
    * against the caller's directory), or `undefined` when the callee is missing
    * / unparseable. Constructed at the composition root over the real
@@ -280,7 +280,7 @@ export interface ProductionProducerInput {
   readonly parseCallee?: (
     callerPath: string | undefined,
     calleePath: string,
-  ) => Promise<LoomCompositionInput | undefined>;
+  ) => Promise<ThetaCompositionInput | undefined>;
   /**
    * INV-5 (invocation.md §Resolution, INV-1 seam): the `FileSystem.realpath`
    * seam and the union of currently-active discovery roots, used by the runtime
@@ -293,7 +293,7 @@ export interface ProductionProducerInput {
   /**
    * Decision 6 / Increment B1 (active-invocation-registry.md §"Active
    * invocation registry"): the extension-instance-scoped registry of in-flight
-   * loom invocations, shared with the factory's `session_shutdown` teardown so
+   * theta invocations, shared with the factory's `session_shutdown` teardown so
    * its sub-step 2 (cancel in-flight) + sub-step 3 (await dispose) operate on
    * REAL entries. Each `bindPromptConversation` / `spawnSubagentConversation`
    * choke point registers one `ActiveInvocationEntry` here (covering all four
@@ -323,18 +323,18 @@ export interface ProductionProducerInput {
 }
 
 /**
- * Assemble the production `LoomProducerDeps` the shipped composition root
- * injects into `composeLoomFixture` for every discovered `.loom`.
+ * Assemble the production `ThetaProducerDeps` the shipped composition root
+ * injects into `composeThetaFixture` for every discovered `.theta`.
  */
 export function createProductionProducerDeps(
   input: ProductionProducerInput,
-): LoomProducerDeps {
-  return new ProductionLoomProducer(input);
+): ThetaProducerDeps {
+  return new ProductionThetaProducer(input);
 }
 
 /**
  * PIC-40. Raised (a specific type, never a broad throw) when a subagent-mode
- * loom is dispatched with no resolvable model: frontmatter `model:` is absent
+ * theta is dispatched with no resolvable model: frontmatter `model:` is absent
  * and the inherited `ctx.model` is `undefined`, so `createAgentSession` cannot
  * be called. The shipped acceptance host pins `--model`, so this branch is not
  * reached there; it keeps the no-model gap explicit rather than spawning a
@@ -362,7 +362,7 @@ function noopSwallowChannels(): {
 }
 
 /**
- * CANCEL-3: a live cancellation-guard view backed by the loom `signal`, read at
+ * CANCEL-3: a live cancellation-guard view backed by the theta `signal`, read at
  * settlement time (not snapshotted at construction) — the checkpoint that
  * surfaces `cause: "cancelled"` reads the same `signal.aborted`, so a late
  * settlement observed while it is aborted is the abandoned case the swallowing
@@ -376,7 +376,7 @@ function signalGuard(signal: AbortSignal): { readonly cancellationSurfaced: bool
   };
 }
 
-/** A fresh `ToolLoweringSink` that discards every channel — the test looms carry no code-tool calls. */
+/** A fresh `ToolLoweringSink` that discards every channel — the test thetas carry no code-tool calls. */
 function noopSink(): ToolLoweringSink {
   return {
     runtimeEvent(): void {},
@@ -389,7 +389,7 @@ function noopSink(): ToolLoweringSink {
  * An inert `CommittedConversationMutator`. A prompt-mode terminal event routes
  * through `handlePartialTerminalOutcome`, which calls nothing on the mutator for
  * the cancel path (ERR-8 … ERR-12: no committed surface is mutated); the shipped
- * user session's committed transcript is Pi-owned and never rewritten by loom.
+ * user session's committed transcript is Pi-owned and never rewritten by theta.
  */
 class NoopConversationMutator implements CommittedConversationMutator {
   truncate(): void {}
@@ -408,23 +408,23 @@ class NoopConversationMutator implements CommittedConversationMutator {
  */
 class UnknownHostToolError extends Error {}
 
-/** The basename of a `.loom`-callable path, minus its `.loom` extension. */
-function loomCallableName(path: string): string {
+/** The basename of a `.theta`-callable path, minus its `.theta` extension. */
+function thetaCallableName(path: string): string {
   const base = path.slice(path.replace(/\\/g, "/").lastIndexOf("/") + 1);
-  return base.endsWith(".loom") ? base.slice(0, -".loom".length) : base;
+  return base.endsWith(".theta") ? base.slice(0, -".theta".length) : base;
 }
 
 /**
- * The production per-loom producer. Constructed once per `session_start`
- * discovery pass and shared across every discovered loom's `composeLoomFixture`
+ * The production per-theta producer. Constructed once per `session_start`
+ * discovery pass and shared across every discovered theta's `composeThetaFixture`
  * call; it holds only its injected collaborators (no cross-invocation mutable
  * state), constructing a fresh conversation binding per dispatch.
  */
-class ProductionLoomProducer implements LoomProducerDeps {
+class ProductionThetaProducer implements ThetaProducerDeps {
   readonly #input: ProductionProducerInput;
   /**
    * STAGE B (ceiling #2): bounds pi's native prompt-mode agentic tool loop to
-   * the loom's `tool_loop.max_rounds`. Registered once on the host `pi` (lazily,
+   * the theta's `tool_loop.max_rounds`. Registered once on the host `pi` (lazily,
    * on the first prompt-mode query drive) and guarded by a per-drive active
    * state, so it never affects unrelated user turns.
    */
@@ -436,14 +436,14 @@ class ProductionLoomProducer implements LoomProducerDeps {
 
   async runBinder(binderInput: BinderRunInput): Promise<BinderRunResult> {
     // The `V11a` frontmatter binder binds typed `params:` from the slash
-    // arguments before the interpreter. A loom with no `params:` (or one whose
+    // arguments before the interpreter. A theta with no `params:` (or one whose
     // block did not lower cleanly) has nothing to bind, so the bind step is a
     // no-op and the body runs unconditionally.
-    const params = binderInput.loom.frontmatter.params;
+    const params = binderInput.theta.frontmatter.params;
     if (params === undefined || params.loweredSchema === undefined) {
-      // A loom with no declared `params:` has nothing to bind: the body runs
+      // A theta with no declared `params:` has nothing to bind: the body runs
       // with an empty params object (no slots installed). SLSH-1: a no-params
-      // loom bypasses the binder, so the overflow note is emitted here before
+      // theta bypasses the binder, so the overflow note is emitted here before
       // the body runs.
       this.#emitNoParamsOverflowNote(binderInput);
       return { bound: true, args: {} };
@@ -470,22 +470,22 @@ class ProductionLoomProducer implements LoomProducerDeps {
     // conformance): the binder runs OFF-session and INVISIBLE — no user-visible
     // streamed turn, no transcript card, and the envelope JSON NEVER reaches the
     // user session (BND-3). It runs against the RESOLVED BINDER MODEL
-    // (`bind_model:` → `looms.binderModel`, resolved at load time and carried on
-    // the loom), NOT the ambient session model (DISCO-1 runtime facet). The
+    // (`bind_model:` → `theta.binderModel`, resolved at load time and carried on
+    // the theta), NOT the ambient session model (DISCO-1 runtime facet). The
     // reference is resolved to a concrete `Model<Api>` via the model registry
     // by the same exact-match rule the load-time resolution used; a registered
-    // non-bypass loom always carries a resolvable binder model (an unresolvable
+    // non-bypass theta always carries a resolvable binder model (an unresolvable
     // one failed to load), so `model === undefined` is a defensive guard only.
-    const binderModelRef = binderInput.loom.binderModel;
+    const binderModelRef = binderInput.theta.binderModel;
     const model =
       binderModelRef !== undefined
         ? matchAvailableModel(binderModelRef, this.#input.modelRegistry.getAvailable())
         : undefined;
     if (model === undefined) {
-      // Defensive (unreachable for a registered non-bypass loom): surface the
+      // Defensive (unreachable for a registered non-bypass theta): surface the
       // malformed failure note rather than crash the dispatch, and do not run
       // the body.
-      this.#emitBinderFailureNote(binderInput.loom.slashName, { kind: "malformed" });
+      this.#emitBinderFailureNote(binderInput.theta.slashName, { kind: "malformed" });
       return { bound: false };
     }
     const envelopeSchema = buildBinderEnvelopeSchema({
@@ -493,18 +493,18 @@ class ProductionLoomProducer implements LoomProducerDeps {
       defaultedFields: params.defaultedFields,
     });
     // BNDR-10 (binder/binder-model-and-context.md §Binder context): a
-    // `bind_context: session` prompt-mode loom grounds the binder in a *Recent
+    // `bind_context: session` prompt-mode theta grounds the binder in a *Recent
     // session context* block — the newest→oldest truncation walk (≤20 turns ∧
     // ≤8000 tokens) rendered as a compact transcript. A BNDR-9 transcript-unsafe
-    // `customType` aborts binding (the loom does not run) with the
+    // `customType` aborts binding (the theta does not run) with the
     // custom-type-unsafe note. `bind_context: none` (or subagent-mode) → no block.
     const sessionContext = this.#buildBinderSessionContext(binderInput);
     if (sessionContext.kind === "unsafe") {
-      this.#emitCustomTypeUnsafeNote(binderInput.loom.slashName, sessionContext.value);
+      this.#emitCustomTypeUnsafeNote(binderInput.theta.slashName, sessionContext.value);
       return { bound: false };
     }
     const prompt = renderBinderTurnPrompt({
-      slashName: binderInput.loom.slashName,
+      slashName: binderInput.theta.slashName,
       args: binderInput.args,
       paramsSchema: params.loweredSchema,
       defaultedFields: params.defaultedFields,
@@ -521,15 +521,15 @@ class ProductionLoomProducer implements LoomProducerDeps {
     //
     // CANCEL-4 (cancellation.md §Granularity binder-call clause; §Surfacing
     // cancelled-binder arm): the `binder-call` checkpoint fires immediately
-    // before the LLM call (`runCheckpointedBinderCall`) and `loomAbort.signal`
+    // before the LLM call (`runCheckpointedBinderCall`) and `thetaAbort.signal`
     // is forwarded INTO the provider invocation as `options.signal`
     // (`runBinderCallWithCancellation` threads it per attempt), so an abort
     // observed BEFORE or DURING the binder call suppresses it. A cancelled
-    // binder never surfaces a `Result` to loom code — the loom does not run —
+    // binder never surfaces a `Result` to theta code — the theta does not run —
     // and produces the cancelled-binder system note instead.
-    const signal = binderInput.loomAbort?.signal ?? createLoomAbort().signal;
+    const signal = binderInput.thetaAbort?.signal ?? createThetaAbort().signal;
     const binderSite: CheckpointSite = {
-      file: binderInput.loom.slashName,
+      file: binderInput.theta.slashName,
       line: 1,
       column: 1,
     };
@@ -547,7 +547,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
       binderSite,
       () =>
         runBinderCallWithCancellation({
-          loomName: binderInput.loom.slashName,
+          thetaName: binderInput.theta.slashName,
           signal,
           attempt: async (_attemptIndex, attemptSignal) => {
             const classified = await this.#classifyBinderAttempt(model, prompt, attemptSignal);
@@ -560,22 +560,22 @@ class ProductionLoomProducer implements LoomProducerDeps {
     );
     if (phase.cancelled) {
       // Pre-call checkpoint abort: the LLM call was never issued.
-      this.#emitBinderFailureNote(binderInput.loom.slashName, { kind: "cancelled" });
+      this.#emitBinderFailureNote(binderInput.theta.slashName, { kind: "cancelled" });
       return { bound: false };
     }
     if (phase.value.kind === "cancelled") {
       // In-flight abort: the provider observed the forwarded `options.signal`.
-      this.#emitBinderFailureNote(binderInput.loom.slashName, { kind: "cancelled" });
+      this.#emitBinderFailureNote(binderInput.theta.slashName, { kind: "cancelled" });
       return { bound: false };
     }
-    // Route on the terminal (most-recent, HC3-e) classified outcome. The loom
+    // Route on the terminal (most-recent, HC3-e) classified outcome. The theta
     // body runs only on the `ok` arm; every failure arm (`needs_info` /
     // `ambiguous` / `malformed` / `transport`-budget-exhausted) emits the mapped
     // failure-mode system note and short-circuits (the body never runs). The
     // envelope is runtime-internal and is never surfaced verbatim.
     const outcome = phase.value.outcome;
     if (outcome.kind !== "ok") {
-      this.#emitBinderFailureNote(binderInput.loom.slashName, outcome);
+      this.#emitBinderFailureNote(binderInput.theta.slashName, outcome);
       return { bound: false };
     }
     // §Defaulting (defaulting-system-note-echo.md#post-default-merge-ajv-validation;
@@ -590,18 +590,18 @@ class ProductionLoomProducer implements LoomProducerDeps {
     // single-string / no-params bypasses carry no defaults), so the bypass arms
     // above are intentionally left unchanged.
     const binderArgs = okArgs;
-    const mergedArgs = await this.#mergeDeclaredDefaults(binderInput.loom, params, binderArgs);
+    const mergedArgs = await this.#mergeDeclaredDefaults(binderInput.theta, params, binderArgs);
     // §"Echo policy" (BND-1): on a successful bind the runtime appends the
-    // one-line success echo note (`Running /<name>: …`) on the loom-system-note
-    // channel immediately before the loom starts, UNLESS `bind_echo: false`. The
+    // one-line success echo note (`Running /<name>: …`) on the theta-system-note
+    // channel immediately before the theta starts, UNLESS `bind_echo: false`. The
     // bypass arms auto-suppress the echo independently and never reach here.
-    this.#emitBinderEchoNote(binderInput.loom, params, binderArgs, mergedArgs);
+    this.#emitBinderEchoNote(binderInput.theta, params, binderArgs, mergedArgs);
     return { bound: true, args: mergedArgs };
   }
 
   /**
    * §"Echo policy" success echo (BND-1): render and emit the one-line
-   * `Running /<name>: <formatted-args>` system note on the loom-system-note
+   * `Running /<name>: <formatted-args>` system note on the theta-system-note
    * channel — the SAME `pi.sendMessage` delivery the SLSH-1 overflow / SNOTE-1
    * notes use — unless `bind_echo:` is `false`. Each top-level `params:` field
    * renders in declaration order; a field that took its declared default this
@@ -611,12 +611,12 @@ class ProductionLoomProducer implements LoomProducerDeps {
    * and passed through the shared 120-code-point cap.
    */
   #emitBinderEchoNote(
-    loom: ConversationBindInput["loom"],
-    params: NonNullable<ConversationBindInput["loom"]["frontmatter"]["params"]>,
+    theta: ConversationBindInput["theta"],
+    params: NonNullable<ConversationBindInput["theta"]["frontmatter"]["params"]>,
     binderArgs: Readonly<Record<string, unknown>>,
     mergedArgs: Readonly<Record<string, unknown>>,
   ): void {
-    if (loom.frontmatter.bindEcho === false) {
+    if (theta.frontmatter.bindEcho === false) {
       return;
     }
     const defaulted = new Set(params.defaultedFields);
@@ -627,7 +627,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
             | undefined)
         : undefined;
     const echoParams: EchoParam[] = params.fields.map((field) => {
-      const value = (mergedArgs[field.wireName] ?? null) as LoomValue;
+      const value = (mergedArgs[field.wireName] ?? null) as ThetaValue;
       // The `(default)` tag fires only when the field took its declared default
       // this run (fill-if-absent): a wire name ABSENT from the binder-supplied
       // args and declared defaulted.
@@ -642,7 +642,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
       };
     });
     const content = capSystemNote(
-      renderArgumentEcho({ loomName: loom.slashName, params: echoParams }),
+      renderArgumentEcho({ thetaName: theta.slashName, params: echoParams }),
     );
     this.#input.pi.sendMessage(
       {
@@ -729,7 +729,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
   ): Promise<AssistantMessage> {
     const auth = await this.#input.modelRegistry.getApiKeyAndHeaders(model);
     const options: Record<string, unknown> = {};
-    // CANCEL-4 in-flight forwarding: thread `loomAbort.signal` into the binder
+    // CANCEL-4 in-flight forwarding: thread `thetaAbort.signal` into the binder
     // provider invocation as `options.signal` (pi-ai `StreamOptions.signal`), so
     // an abort observed during the call propagates to the provider's abort path.
     options["signal"] = signal;
@@ -756,7 +756,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
 
   /**
    * Emit the mapped binder failure-mode system note (BND-3) on the
-   * loom-system-note channel: `needs_info` / `ambiguous` render their
+   * theta-system-note channel: `needs_info` / `ambiguous` render their
    * fixed-phrase row with the model's message; a non-parse / empty-message reply
    * is the malformed-envelope row (`could not parse arguments`). The raw
    * envelope JSON is NEVER surfaced.
@@ -764,7 +764,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
   /**
    * BNDR-10 (binder/binder-model-and-context.md §Binder context): build the
    * binder's *Recent session context* transcript body for a `bind_context:
-   * session` prompt-mode loom. Sources the chronological message list from the
+   * session` prompt-mode theta. Sources the chronological message list from the
    * live session, runs the newest→oldest truncation walk (≤20 turns ∧ ≤8000
    * tokens via the injected `TokenEstimator`), and renders the included slice as
    * a compact transcript. Returns `none` when the feature is off (subagent-mode,
@@ -776,7 +776,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
   #buildBinderSessionContext(
     binderInput: BinderRunInput,
   ): { readonly kind: "none" } | { readonly kind: "block"; readonly body: string } | { readonly kind: "unsafe"; readonly value: string } {
-    const fm = binderInput.loom.frontmatter;
+    const fm = binderInput.theta.frontmatter;
     if (fm.bindContext !== "session" || fm.mode !== "prompt") {
       return { kind: "none" };
     }
@@ -804,15 +804,15 @@ class ProductionLoomProducer implements LoomProducerDeps {
   }
 
   /**
-   * BNDR-9: emit the `loom/runtime/custom-type-unsafe` user-facing note on the
-   * loom-system-note channel when an included session-context `custom` message
+   * BNDR-9: emit the `theta/runtime/custom-type-unsafe` user-facing note on the
+   * theta-system-note channel when an included session-context `custom` message
    * carries a transcript-unsafe `customType`; binding does not proceed.
    */
-  #emitCustomTypeUnsafeNote(loomName: string, value: string): void {
+  #emitCustomTypeUnsafeNote(thetaName: string, value: string): void {
     this.#input.pi.sendMessage(
       {
         customType: SYSTEM_NOTE_CHANNEL,
-        content: renderCustomTypeUnsafeNote(loomName, value),
+        content: renderCustomTypeUnsafeNote(thetaName, value),
         display: true,
         details: { event: {} },
       },
@@ -820,11 +820,11 @@ class ProductionLoomProducer implements LoomProducerDeps {
     );
   }
 
-  #emitBinderFailureNote(loomName: string, surface: BinderFailureSurface): void {
+  #emitBinderFailureNote(thetaName: string, surface: BinderFailureSurface): void {
     this.#input.pi.sendMessage(
       {
         customType: SYSTEM_NOTE_CHANNEL,
-        content: renderBinderSystemNote(loomName, surface),
+        content: renderBinderSystemNote(thetaName, surface),
         display: true,
         details: { event: {} },
       },
@@ -833,7 +833,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
   }
 
   /**
-   * Fill-if-absent the loom's declared `params:` defaults into the binder-returned
+   * Fill-if-absent the theta's declared `params:` defaults into the binder-returned
    * `args`, then run the post-default-merge AJV validation, reusing the
    * unit-tested `fillDefaultsAndRevalidate` (`binder/defaulting.ts`). A wire name
    * PRESENT in `args` is preserved unchanged (a user-supplied value wins over the
@@ -841,22 +841,22 @@ class ProductionLoomProducer implements LoomProducerDeps {
    *
    * The declared default VALUES are not carried on the parsed `ParsedParams`
    * (it retains only the defaulted wire names, not their literals), so they are
-   * recovered here from the loom's own source: the `params:` field scalar is
+   * recovered here from the theta's own source: the `params:` field scalar is
    * re-read via the `FileSystem` seam, its `= <literal>` default RHS is split
    * off, and the literal is parsed + evaluated through the same pure evaluator
-   * the body uses. Recovery is best-effort — a loom with no on-disk `sourcePath`
+   * the body uses. Recovery is best-effort — a theta with no on-disk `sourcePath`
    * (an in-memory fixture), an unreadable file, or a default that does not parse
    * simply leaves that field unfilled (the prior behaviour for it), never throws.
    */
   async #mergeDeclaredDefaults(
-    loom: ConversationBindInput["loom"],
-    params: NonNullable<ConversationBindInput["loom"]["frontmatter"]["params"]>,
+    theta: ConversationBindInput["theta"],
+    params: NonNullable<ConversationBindInput["theta"]["frontmatter"]["params"]>,
     binderArgs: Readonly<Record<string, unknown>>,
   ): Promise<Readonly<Record<string, unknown>>> {
     if (params.defaultedFields.length === 0 || params.loweredSchema === undefined) {
       return binderArgs;
     }
-    const defaults = await this.#recoverDeclaredDefaults(loom, params.defaultedFields);
+    const defaults = await this.#recoverDeclaredDefaults(theta, params.defaultedFields);
     if (defaults.length === 0) {
       return binderArgs;
     }
@@ -873,17 +873,17 @@ class ProductionLoomProducer implements LoomProducerDeps {
 
   /**
    * Recover the declared default literal VALUE for each defaulted wire name from
-   * the loom's source file. The parsed `ParsedParams` drops the default literals
-   * (retaining only the wire names), so this re-reads the `.loom`, extracts the
+   * the theta's source file. The parsed `ParsedParams` drops the default literals
+   * (retaining only the wire names), so this re-reads the `.theta`, extracts the
    * frontmatter YAML, reads each `params:` field's scalar, splits its `= <literal>`
    * default RHS, and parses + evaluates the literal with the body's pure evaluator
    * (so an enum / schema-literal default resolves against the body's declarations).
    */
   async #recoverDeclaredDefaults(
-    loom: ConversationBindInput["loom"],
+    theta: ConversationBindInput["theta"],
     defaultedFields: readonly string[],
   ): Promise<readonly DefaultedField[]> {
-    const sourcePath = loom.sourcePath;
+    const sourcePath = theta.sourcePath;
     if (sourcePath === undefined) {
       return [];
     }
@@ -899,7 +899,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
       return [];
     }
     const doc = parseDocument(yamlText);
-    const env = buildBoundEnvironment(loom.body, undefined, loom.imports);
+    const env = buildBoundEnvironment(theta.body, undefined, theta.imports);
     const defaults: DefaultedField[] = [];
     for (const wireName of defaultedFields) {
       const raw = doc.getIn(["params", wireName]);
@@ -921,10 +921,10 @@ class ProductionLoomProducer implements LoomProducerDeps {
 
   /**
    * SLSH-1 no-params overflow note (slash-invocation.md#slsh-1): a no-params
-   * loom bypasses the binder; the runtime trims slash-argument whitespace and,
+   * theta bypasses the binder; the runtime trims slash-argument whitespace and,
    * if the remainder is non-empty, emits exactly ONE
-   * `loom /<name>: ignoring extra arguments — this loom takes no parameters`
-   * note on the `loom-system-note` channel BEFORE the body runs (a
+   * `theta /<name>: ignoring extra arguments — this theta takes no parameters`
+   * note on the `theta-system-note` channel BEFORE the body runs (a
    * whitespace-only remainder emits no note). `runBinder` is only reached on the
    * slash-invocation path (invoke/tool callers spawn callees directly), so no
    * caller-kind guard is needed. Routed through `pi.sendMessage` — the same
@@ -937,7 +937,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
     this.#input.pi.sendMessage(
       {
         customType: SYSTEM_NOTE_CHANNEL,
-        content: renderNoParamsOverflowNote(binderInput.loom.slashName),
+        content: renderNoParamsOverflowNote(binderInput.theta.slashName),
         display: true,
         details: { event: {} },
       },
@@ -946,7 +946,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
   }
 
   /**
-   * SLSH-3/SLSH-4/SLSH-5 top-level `Err` note. `composeLoomFixture.run` — the
+   * SLSH-3/SLSH-4/SLSH-5 top-level `Err` note. `composeThetaFixture.run` — the
    * slash-dispatch entry point, reached only for a slash caller with no invoke
    * parent — calls this when the mode's `surface` yields an `Err`. The
    * `renderTopLevelErrNote` renderer emits the SNK per-kind row verbatim
@@ -954,14 +954,14 @@ class ProductionLoomProducer implements LoomProducerDeps {
    * reachable kind (including an `invoke_callee` wrapper, which the renderer
    * walks to its leaf); the SLSH-5 chain suffix is a deferred refinement — no
    * readily-usable invoke provenance reaches this boundary. Routed through the
-   * same `pi.sendMessage` `loom-system-note` delivery as the SLSH-1 overflow
+   * same `pi.sendMessage` `theta-system-note` delivery as the SLSH-1 overflow
    * note.
    */
-  emitTopLevelErrNote(loomName: string, error: QueryError): void {
+  emitTopLevelErrNote(thetaName: string, error: QueryError): void {
     this.#input.pi.sendMessage(
       {
         customType: SYSTEM_NOTE_CHANNEL,
-        content: renderTopLevelErrNote({ loomName, error, chain: [] }),
+        content: renderTopLevelErrNote({ thetaName, error, chain: [] }),
         display: true,
         details: { event: {} },
       },
@@ -972,13 +972,13 @@ class ProductionLoomProducer implements LoomProducerDeps {
   /**
    * Top-level runtime-defect / panic note (errors-and-results/error-model.md
    * §"Runtime panics"; runtime-event-channel.md §"system-note-details-shapes"
-   * group B). `composeLoomFixture.run`'s outer catch calls this when a runtime
-   * defect is thrown at slash dispatch — a `LoomPanic`
-   * (`loom /<name> aborted: <message>`) or a catchable interpreter / adapter
-   * throw routed to `loom/runtime/internal-error`
-   * (`loom /<name> aborted with internal error: <message>`). Mirrors
+   * group B). `composeThetaFixture.run`'s outer catch calls this when a runtime
+   * defect is thrown at slash dispatch — a `ThetaPanic`
+   * (`theta /<name> aborted: <message>`) or a catchable interpreter / adapter
+   * throw routed to `theta/runtime/internal-error`
+   * (`theta /<name> aborted with internal error: <message>`). Mirrors
    * `emitTopLevelErrNote`'s single `pi.sendMessage` delivery on the same
-   * `loom-system-note` channel, but carries the group-B
+   * `theta-system-note` channel, but carries the group-B
    * `details: { diagnostics: [Diagnostic] }` shape (the SAME shape the
    * load-phase pre-eval diagnostics use). Emits
    * EXACTLY ONE note; the session is NOT torn down. `HostFatal` never reaches
@@ -997,28 +997,28 @@ class ProductionLoomProducer implements LoomProducerDeps {
   }
 
   /**
-   * SUBAG-2 / tool-calls.md:30 (`.loom`-callable adapter pre-eval setup-throw
+   * SUBAG-2 / tool-calls.md:30 (`.theta`-callable adapter pre-eval setup-throw
    * row). A GENUINE pre-dispatch dispatch-setup throw inside the model-driven
-   * `.loom` adapter (raised before the callee body runs) is routed through
-   * `routeLoomCallableSetupThrow`. Gap-1: a callee-BODY panic no longer reaches
+   * `.theta` adapter (raised before the callee body runs) is routed through
+   * `routeThetaCallableSetupThrow`. Gap-1: a callee-BODY panic no longer reaches
    * here — `driveCallee` drives through `runInvokeChild`, which converts a
    * callee-subtree throw into an `Err(InvokeInfraError{cause:"panic"|
    * "internal_error"})` VALUE that lowers as a plain `isError` result with no
    * operator note. This routes only the true setup throw:
-   * `routeLoomCallableSetupThrow` returns the clean `{ isError: true }`
+   * `routeThetaCallableSetupThrow` returns the clean `{ isError: true }`
    * envelope carrying the BARE callable-set name (never `/<name>`), and emits
-   * exactly one `loom/runtime/internal-error` diagnostic + one
-   * `loom-system-note`. The sink captures the diagnostic and delivers the ONE
+   * exactly one `theta/runtime/internal-error` diagnostic + one
+   * `theta-system-note`. The sink captures the diagnostic and delivers the ONE
    * framed note through `emitPanicNote` — the SAME group-B
-   * `details: { diagnostics: [Diagnostic] }` `loom-system-note` shape/channel
+   * `details: { diagnostics: [Diagnostic] }` `theta-system-note` shape/channel
    * the top-level internal-error surface uses — so the model observes the tool
    * failure while the operator observes the framed defect.
    */
-  #emitLoomCallableSetupThrow(
+  #emitThetaCallableSetupThrow(
     thrown: unknown,
     callableName: string,
-    loom: ConversationBindInput["loom"],
-  ): LoweredLoomCallableResult {
+    theta: ConversationBindInput["theta"],
+  ): LoweredThetaCallableResult {
     let captured: Diagnostic | undefined;
     const sink: ToolLoweringSink = {
       runtimeEvent: (): void => {},
@@ -1031,10 +1031,10 @@ class ProductionLoomProducer implements LoomProducerDeps {
         }
       },
     };
-    const routed = routeLoomCallableSetupThrow(
+    const routed = routeThetaCallableSetupThrow(
       thrown,
       callableName,
-      { file: loom.sourcePath ?? loom.slashName, range: ZERO_BODY_RANGE },
+      { file: theta.sourcePath ?? theta.slashName, range: ZERO_BODY_RANGE },
       sink,
     );
     return { text: routed.content[0]?.text ?? "", isError: routed.isError };
@@ -1071,23 +1071,23 @@ class ProductionLoomProducer implements LoomProducerDeps {
 
   bindPromptConversation(bindInput: ConversationBindInput): ConversationBinding {
     const { pi, root } = this.#input;
-    const { loom, ctx } = bindInput;
+    const { theta, ctx } = bindInput;
     // INV-4 / ceiling #1: a top-level dispatch starts a fresh chain at depth 0;
     // a nested invoke carries the parent's pushed chain in `bindInput.chain`.
     const chain = bindInput.chain ?? newInvokeChain();
 
     // CANCEL-2 (cancellation.md §Signal source): the executor and every
-    // checkpoint gate on the per-invocation `loomAbort.signal` — NEVER
+    // checkpoint gate on the per-invocation `thetaAbort.signal` — NEVER
     // `ctx.signal` directly, and NEVER a pinned never-aborting fallback. The
-    // dispatch entry (`composeLoomFixture.run`) owns `loomAbort` and forwards
+    // dispatch entry (`composeThetaFixture.run`) owns `thetaAbort` and forwards
     // `ctx.signal` into it; an in-memory harness that binds directly gets a
     // fresh controller here. A second `forwardSlashCommandCancel` is idempotent
-    // (the one-shot guard on `loomAbort.abort()` makes a re-forward a no-op) and
+    // (the one-shot guard on `thetaAbort.abort()` makes a re-forward a no-op) and
     // re-observes `ctx.signal` in case it became defined after run-entry.
     // CANCEL-5 (cancellation.md §`invoke(...)` entry): a prompt→prompt child
-    // invoke attaches to this user session but must still derive its `loomAbort`
+    // invoke attaches to this user session but must still derive its `thetaAbort`
     // downward-only from the parent's signal (child aborts when the parent
-    // aborts, never the reverse — `deriveChildLoomAbort`). A top-level prompt
+    // aborts, never the reverse — `deriveChildThetaAbort`). A top-level prompt
     // dispatch (or in-memory harness) carries no `parentSignal` and gets the
     // dispatch-owned controller (or a fresh one).
     // Decision 6 / Increment B2: collect the INVOCATION-SCOPED forwarding
@@ -1095,27 +1095,27 @@ class ProductionLoomProducer implements LoomProducerDeps {
     // for an invocation in-flight at shutdown. Strictly additive — the abort
     // forwarding is byte-identical; only the detach handles are now captured.
     const forwardingSources: ForwardingSignalSource[] = [];
-    let loomAbort: AbortController;
+    let thetaAbort: AbortController;
     if (bindInput.parentSignal !== undefined) {
-      const derived = deriveChildLoomAbort(bindInput.parentSignal);
-      loomAbort = derived.controller;
+      const derived = deriveChildThetaAbort(bindInput.parentSignal);
+      thetaAbort = derived.controller;
       forwardingSources.push({
         label: "parentInvokeSignal.removeEventListener",
         removeEventListener: derived.detach,
       });
     } else {
-      loomAbort = bindInput.loomAbort ?? createLoomAbort();
+      thetaAbort = bindInput.thetaAbort ?? createThetaAbort();
     }
     // The bind-time `ctx.signal` forward is the ONE invocation-scoped `ctx.signal`
     // source collected per invocation: the redundant drive-seam forward
-    // (`composeLoomFixture.run`) attaches a second `{once:true}` listener to the
+    // (`composeThetaFixture.run`) attaches a second `{once:true}` listener to the
     // same per-turn-transient `ctx.signal` and is deliberately NOT double-counted
     // here (it self-cleans like the per-turn listeners).
     forwardingSources.push({
       label: "ctx.signal.removeEventListener",
-      removeEventListener: forwardSlashCommandCancel(loomAbort, ctx.signal),
+      removeEventListener: forwardSlashCommandCancel(thetaAbort, ctx.signal),
     });
-    const signal = loomAbort.signal;
+    const signal = thetaAbort.signal;
 
     // The user session's resolved chronological message list — the PIC-53
     // trailing-turn read surface. Recomputed per read from the live
@@ -1131,7 +1131,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
       checkpoint: root.checkpoint,
       signal,
       sink: noopSink(),
-      file: loom.slashName,
+      file: theta.slashName,
       evaluatePure: (expr, env) => evaluatePureExpression(expr, env),
       resolveQuery: (expr, env) => {
         // SLSH-2: EVERY non-short-circuit prompt-mode query is a user-visible
@@ -1148,39 +1148,39 @@ class ProductionLoomProducer implements LoomProducerDeps {
         return this.#resolvePromptQuery(expr, env, {
           pi,
           ctx,
-          loom,
+          theta,
           signal,
-          loomAbort,
+          thetaAbort,
           readMessages,
           userVisible,
         });
       },
-      resolveToolCall: (expr, env) => this.#resolveToolCall(loom, expr, env, signal),
+      resolveToolCall: (expr, env) => this.#resolveToolCall(theta, expr, env, signal),
       // CANCEL-5 / cross-mode: the caller's mode (`prompt`) is threaded to
       // `#driveCallee` so an `invoke`d prompt-mode callee attaches to this user
       // session (prompt→prompt) rather than spawning fresh.
-      resolveInvoke: (expr, env) => this.#resolveInvoke(loom, expr, env, ctx, chain, signal, "prompt"),
-      classifyCall: (expr) => this.#classifyCall(loom, expr),
-      resolveCallAsInvoke: (expr, env) => this.#resolveCallAsInvoke(loom, expr, env, ctx, chain, signal, "prompt"),
+      resolveInvoke: (expr, env) => this.#resolveInvoke(theta, expr, env, ctx, chain, signal, "prompt"),
+      classifyCall: (expr) => this.#classifyCall(theta, expr),
+      resolveCallAsInvoke: (expr, env) => this.#resolveCallAsInvoke(theta, expr, env, ctx, chain, signal, "prompt"),
     };
 
     const executeDeps: ExecuteBodyDeps = {
-      env: buildBoundEnvironment(loom.body, bindInput.paramBindings, loom.imports),
+      env: buildBoundEnvironment(theta.body, bindInput.paramBindings, theta.imports),
       host: createEffectfulStatementHost(hostDeps),
       checkpoint: root.checkpoint,
       signal,
       mutator: new NoopConversationMutator(),
       mode: "prompt",
-      file: loom.slashName,
+      file: theta.slashName,
     };
 
     // Decision 6 / Increment B1 (active-invocation-registry.md §"Active
     // invocation registry"): register this invocation in the shared registry
     // the factory's `session_shutdown` teardown reads, so sub-step 2 (cancel
-    // in-flight) can abort THIS `loomAbort` and sub-step 3 (await dispose) can
-    // await its `disposeBarrier`. The per-invocation `loomAbort` above is reused
+    // in-flight) can abort THIS `thetaAbort` and sub-step 3 (await dispose) can
+    // await its `disposeBarrier`. The per-invocation `thetaAbort` above is reused
     // verbatim (never a fresh controller). `invocationId` is minted through the
-    // PIC-20 `IdSource` seam and `loom` is the canonical slash name (no leading
+    // PIC-20 `IdSource` seam and `theta` is the canonical slash name (no leading
     // `/`). The entry is added LAST — this method is synchronous and cannot
     // throw between here and the return — and its removal is deferred to
     // `finishInvocation`, which the DRIVE seam calls in a `finally` AFTER the
@@ -1193,10 +1193,10 @@ class ProductionLoomProducer implements LoomProducerDeps {
       settleDispose = resolve;
     });
     const entry: ActiveInvocationEntry = {
-      loomAbort,
+      thetaAbort,
       disposeBarrier,
       shutdownReason: undefined,
-      loom: loom.slashName,
+      theta: theta.slashName,
       invocationId: root.idSource.newInvocationId(),
     };
     activeInvocations?.add(entry);
@@ -1226,7 +1226,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
       // a `?`-propagated `Err` carries its `QueryError` payload so the
       // slash-dispatch boundary (SLSH-3) can emit the top-level err note, and
       // any other fail / cancel surfaces the terminal cancellation `Err` — never
-      // a masking `Ok`. Without this a failed prompt loom was indistinguishable
+      // a masking `Ok`. Without this a failed prompt theta was indistinguishable
       // from a successful one and the SLSH-3 note was never emitted.
       surface: (execution: BodyExecution): ResultValue => {
         if (execution.outcome === "success") {
@@ -1239,9 +1239,9 @@ class ProductionLoomProducer implements LoomProducerDeps {
         // (STL-6). Only a genuine `cancel` outcome (an aborted checkpoint)
         // yields `CancelledError`.
         if (execution.outcome === "fail") {
-          return makeErr(execution.error ?? (makeCancelledError() as unknown as LoomValue));
+          return makeErr(execution.error ?? (makeCancelledError() as unknown as ThetaValue));
         }
-        return makeErr(makeCancelledError() as unknown as LoomValue);
+        return makeErr(makeCancelledError() as unknown as ThetaValue);
       },
       finishInvocation,
     };
@@ -1251,13 +1251,13 @@ class ProductionLoomProducer implements LoomProducerDeps {
     bindInput: ConversationBindInput,
   ): Promise<ConversationBinding> {
     const { root, modelRegistry } = this.#input;
-    const { loom, ctx } = bindInput;
+    const { theta, ctx } = bindInput;
     // INV-4 / ceiling #1: carry the parent's pushed chain into the spawned
     // subagent session so the per-chain depth counter crosses the subagent
     // boundary unchanged; a top-level subagent dispatch starts at depth 0.
     const chain = bindInput.chain ?? newInvokeChain();
 
-    // PIC-40 pre-spawn model guard: the subagent's resolved model is the loom's
+    // PIC-40 pre-spawn model guard: the subagent's resolved model is the theta's
     // frontmatter `model:` resolved into the inherited session model — here the
     // inherited `ctx.model`. Refuse the spawn (specific type, no `createAgentSession`
     // call) when it is `undefined` rather than spawning a modelless session.
@@ -1269,43 +1269,43 @@ class ProductionLoomProducer implements LoomProducerDeps {
       );
     }
 
-    // `loomAbort` — the per-invocation cancel controller (cancellation.md §Signal
+    // `thetaAbort` — the per-invocation cancel controller (cancellation.md §Signal
     // source). The mid-stream cancel fires through it and the one-shot PIC-41
     // listener forwards it into the spawned session's `abort()`; it is also the
     // single `signal` the interpreter's checkpoints gate on.
     //
     // CANCEL-5 (cancellation.md §`invoke(...)` entry): a child `invoke` binding
-    // (carrying `parentSignal`) constructs its `loomAbort` as a DERIVED
+    // (carrying `parentSignal`) constructs its `thetaAbort` as a DERIVED
     // controller — downward-only: the child aborts when the parent aborts
     // (carrying the parent's reason, CNCL-4), never the reverse. A top-level
     // subagent dispatch (or an in-memory harness) with no parent gets a fresh
-    // controller (shared with the dispatch entry when `bindInput.loomAbort` is
+    // controller (shared with the dispatch entry when `bindInput.thetaAbort` is
     // present). Both paths honour a per-invocation abort the same way.
     // Decision 6 / Increment B2: collect the INVOCATION-SCOPED forwarding
     // listeners for sub-step 5. The subagent bind attaches NO invocation-scoped
     // `ctx.signal` listener (its `ctx.signal` forward is the drive-seam one in
-    // `composeLoomFixture.run`, a `{once:true}` listener on a per-turn-transient
+    // `composeThetaFixture.run`, a `{once:true}` listener on a per-turn-transient
     // `ctx.signal` that self-cleans — same rationale as the per-turn forwards).
     // The one invocation-scoped source a subagent contributes is the
     // derived-child parent-invoke listener (nested invoke only). The
     // `attachSubagentAbortForwarding` forward is EXCLUDED here: it forwards
-    // `loomAbort` INTO the spawned session (opposite direction to a
+    // `thetaAbort` INTO the spawned session (opposite direction to a
     // `ForwardingSignalSource` inbound source) and is already detached in
     // `surface()`.
     const forwardingSources: ForwardingSignalSource[] = [];
-    let loomAbort: AbortController;
+    let thetaAbort: AbortController;
     if (bindInput.parentSignal !== undefined) {
-      const derived = deriveChildLoomAbort(bindInput.parentSignal);
-      loomAbort = derived.controller;
+      const derived = deriveChildThetaAbort(bindInput.parentSignal);
+      thetaAbort = derived.controller;
       forwardingSources.push({
         label: "parentInvokeSignal.removeEventListener",
         removeEventListener: derived.detach,
       });
     } else {
-      loomAbort = bindInput.loomAbort ?? createLoomAbort();
+      thetaAbort = bindInput.thetaAbort ?? createThetaAbort();
     }
 
-    // SUBAG-1: render the loom's `system:` frontmatter into the spawned
+    // SUBAG-1: render the theta's `system:` frontmatter into the spawned
     // conversation's system prompt (subagent.md §"Subagent state-isolation
     // matrix": `system:` is inherited from frontmatter, with `${param}`
     // interpolation resolved at conversation-creation time). The load-time
@@ -1313,9 +1313,9 @@ class ProductionLoomProducer implements LoomProducerDeps {
     // render is expected to succeed here; on the unexpected `!ok` path fall back
     // to no system prompt rather than crashing the spawn.
     let systemPrompt: string | undefined;
-    const systemTemplate = loom.frontmatter.system;
+    const systemTemplate = theta.frontmatter.system;
     if (systemTemplate !== undefined) {
-      const params: Record<string, LoomValue> = {};
+      const params: Record<string, ThetaValue> = {};
       if (bindInput.paramBindings !== undefined) {
         for (const [name, value] of bindInput.paramBindings) {
           params[name] = value;
@@ -1327,39 +1327,39 @@ class ProductionLoomProducer implements LoomProducerDeps {
       }
     }
 
-    // SUBAG-2: lower the loom's callable set to the spawned session's tools.
+    // SUBAG-2: lower the theta's callable set to the spawned session's tools.
     // `customTools` carries the full pi `ToolDefinition` for each underlying
     // Pi-tool name in the callable set, and `tools` is the explicit allowlist of
     // those same names (subagent.md rules 1–3; the allowlist enforces the
     // "ambient Pi tools NOT inherited" invariant).
-    // SUBAG-2 (WIRED): both Pi-tool AND `.loom`-callable entries are lowered.
+    // SUBAG-2 (WIRED): both Pi-tool AND `.theta`-callable entries are lowered.
     const customTools: ToolDefinition[] = [];
-    for (const toolName of callableSetPiToolNames(loom)) {
+    for (const toolName of callableSetPiToolNames(theta)) {
       const definition = this.#input.resolvePiToolDefinition?.(toolName, ctx.cwd);
       if (definition !== undefined) {
         customTools.push(definition);
       }
     }
 
-    // SUBAG-2 model-callable `.loom` (tool-calls.md: the callable set is SHARED
+    // SUBAG-2 model-callable `.theta` (tool-calls.md: the callable set is SHARED
     // between the model-driven and code-driven paths — the model sees the same
-    // `.loom` callables it can call from code). The frozen callable-set entry
+    // `.theta` callables it can call from code). The frozen callable-set entry
     // holds no parsed callee in production (`callee: undefined`), so resolve
-    // each `.loom` callee here via the SAME `parseCallee` seam `#driveCallee`
+    // each `.theta` callee here via the SAME `parseCallee` seam `#driveCallee`
     // uses, capturing the callee's declared `params:` order (for the model
     // object-arg → positional mapping), its lowered `params:` schema (the
     // model-facing tool `parameters`), and its `description`. A callee that no
     // longer resolves (or a harness without `parseCallee`) simply omits the
     // model-facing tool — the code-driven `<name>(args)` path re-resolves the
     // callee independently, so it is never widened here.
-    const loomCallables: ResolvedLoomCallable[] = [];
-    for (const { presentedName, calleePath } of callableSetLoomEntries(loom)) {
-      const callee = await this.#input.parseCallee?.(loom.sourcePath, calleePath);
+    const thetaCallables: ResolvedThetaCallable[] = [];
+    for (const { presentedName, calleePath } of callableSetThetaEntries(theta)) {
+      const callee = await this.#input.parseCallee?.(theta.sourcePath, calleePath);
       if (callee === undefined) {
         continue;
       }
       const params = callee.frontmatter.params;
-      loomCallables.push({
+      thetaCallables.push({
         presentedName,
         calleePath,
         paramOrder: params?.fields.map((field) => field.wireName) ?? [],
@@ -1368,33 +1368,33 @@ class ProductionLoomProducer implements LoomProducerDeps {
       });
     }
 
-    // SUBAG-2 / tool-calls.md §Concurrency: the RE-ENTRANT `.loom`-callable model
-    // adapter, shared by BOTH the loom-owned `complete()` loop (via
+    // SUBAG-2 / tool-calls.md §Concurrency: the RE-ENTRANT `.theta`-callable model
+    // adapter, shared by BOTH the theta-owned `complete()` loop (via
     // `executeSubagentTool`) and the SDK `customTools` surface below. It maps the
     // model's object arguments to positional `argValues` in the callee's declared
     // `params:` order, then drives the callee through the SAME invoke machinery
     // (`#buildInvokeChild` → `runInvokeChild` → `#driveCallee`) a code-driven
-    // `.loom` call (`#resolveCallAsInvoke`) / `invoke(...)` uses — so a
-    // model-driven `.loom` call inherits EXACTLY the same guarantees as a
+    // `.theta` call (`#resolveCallAsInvoke`) / `invoke(...)` uses — so a
+    // model-driven `.theta` call inherits EXACTLY the same guarantees as a
     // code-driven invoke. No shared mutable closure state: each call re-enters
     // the machinery, which spawns its own `AgentSession`, so two concurrent
     // calls execute as independent invocations on the event loop.
-    const driveLoomCallableModelCall = (
-      callable: ResolvedLoomCallable,
+    const driveThetaCallableModelCall = (
+      callable: ResolvedThetaCallable,
       args: Record<string, unknown>,
       toolSignal: AbortSignal,
-    ): Promise<LoweredLoomCallableResult> =>
-      lowerModelDrivenLoomCall(
+    ): Promise<LoweredThetaCallableResult> =>
+      lowerModelDrivenThetaCall(
         args,
         {
           paramOrder: callable.paramOrder,
           // Gap-1: drive the callee through the SAME `runInvokeChild` invoke
-          // trampoline the CODE-driven `.loom` path uses
+          // trampoline the CODE-driven `.theta` path uses
           // (effectful-statement-host.ts:242/309), NOT `#buildInvokeChild(...)
           // .drive()` raw. `runInvokeChild` fires the pre-dispatch
           // `checkpoint.before("invoke", site)` + aborted-skip, then drives the
           // child and CONVERTS a callee-subtree throw into a VALUE at the invoke
-          // boundary: a `LoomPanic` → `Err(InvokeInfraError{cause:"panic"})`,
+          // boundary: a `ThetaPanic` → `Err(InvokeInfraError{cause:"panic"})`,
           // any other non-`HostFatal` interpreter throw →
           // `Err(InvokeInfraError{cause:"internal_error"})`, a `HostFatal`
           // re-raised (NOCEIL-3). `.drive()` alone only converts the ceiling-#1
@@ -1409,12 +1409,12 @@ class ProductionLoomProducer implements LoomProducerDeps {
           // INVOKE-DEPTH frame (ceiling #1 / INV-4) and attaches the CANCEL-3
           // swallowing handler, THEN `#driveCallee` runs the containment
           // re-check, ceiling-#4 `params` depth, CANCEL propagation (the
-          // derived-child `loomAbort`), the ActiveInvocationRegistry entry (B1),
+          // derived-child `thetaAbort`), the ActiveInvocationRegistry entry (B1),
           // the PIC-9 teardown, and the FN-5 final-value surface — identical to
           // the code-driven invoke.
           driveCallee: async (argValues, callSignal): Promise<ResultValue> => {
             const child = this.#buildInvokeChild(
-              loom,
+              theta,
               callable.calleePath,
               argValues,
               ctx,
@@ -1426,7 +1426,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
             const outcome = await runInvokeChild(
               root.checkpoint,
               callSignal,
-              { file: loom.sourcePath ?? loom.slashName, line: 0, column: 0 },
+              { file: theta.sourcePath ?? theta.slashName, line: 0, column: 0 },
               child,
             );
             // A pre-dispatch cancel observed at the `invoke` checkpoint surfaces
@@ -1434,38 +1434,38 @@ class ProductionLoomProducer implements LoomProducerDeps {
             // `runToolCallEffect` maps `cancelled` to; the body panic / infra
             // conversions are already VALUES inside `outcome.result`.
             return outcome.kind === "cancelled"
-              ? makeErr(makeCancelledError() as unknown as LoomValue)
+              ? makeErr(makeCancelledError() as unknown as ThetaValue)
               : outcome.result;
           },
-          // tool-calls.md:30 (`.loom`-callable adapter pre-eval setup-throw row):
+          // tool-calls.md:30 (`.theta`-callable adapter pre-eval setup-throw row):
           // reached ONLY by a genuine pre-dispatch dispatch-setup throw (a
           // callee-body panic is already a value from `runInvokeChild`). Such a
           // throw becomes a clean `isError` result carrying the BARE
-          // callable-set name + one `loom/runtime/internal-error` diagnostic +
-          // one `loom-system-note`.
+          // callable-set name + one `theta/runtime/internal-error` diagnostic +
+          // one `theta-system-note`.
           onSetupThrow: (thrown) =>
-            this.#emitLoomCallableSetupThrow(thrown, callable.presentedName, loom),
+            this.#emitThetaCallableSetupThrow(thrown, callable.presentedName, theta),
         },
         toolSignal,
       );
 
     // SUBAG-2 (tool-registration-lifetime.md §"Subagent mode"): the SDK-visible
-    // surface must match the loom-owned `complete()` loop surface, so each
-    // `.loom` callable is ALSO installed as a `defineTool` `customTool` (and
+    // surface must match the theta-owned `complete()` loop surface, so each
+    // `.theta` callable is ALSO installed as a `defineTool` `customTool` (and
     // allowlisted in `tools` below). Its `execute` is the SAME re-entrant adapter
     // — no shared mutable closure state across concurrent calls. The
     // `ToolDefinition` shape is mode-independent
-    // (extension-bootstrap-and-per-loom.md §Per-loom registration): `label` is
+    // (extension-bootstrap-and-per-theta.md §Per-theta registration): `label` is
     // the callee basename with hyphens preserved + leading-cap; `parameters` is
     // the lowered schema wrapped `Type.Unsafe<unknown>`; `description` is the
     // callee frontmatter description.
-    for (const callable of loomCallables) {
+    for (const callable of thetaCallables) {
       customTools.push(
         defineTool({
           name: callable.presentedName,
           label: deriveToolLabel({
-            kind: "loom-file",
-            basename: loomCallableName(callable.calleePath),
+            kind: "theta-file",
+            basename: thetaCallableName(callable.calleePath),
           }),
           description: callable.description,
           parameters: Type.Unsafe<unknown>(callable.loweredSchema ?? {}),
@@ -1474,13 +1474,13 @@ class ProductionLoomProducer implements LoomProducerDeps {
             params: unknown,
             execSignal: AbortSignal | undefined,
           ): Promise<AgentToolResult<unknown>> => {
-            const lowered = await driveLoomCallableModelCall(
+            const lowered = await driveThetaCallableModelCall(
               callable,
               (params ?? {}) as Record<string, unknown>,
-              execSignal ?? loomAbort.signal,
+              execSignal ?? thetaAbort.signal,
             );
             // `AgentToolResult` carries no `isError` field; the error framing is
-            // conveyed as the content text. The loom-owned `complete()` loop
+            // conveyed as the content text. The theta-owned `complete()` loop
             // (the actual subagent query driver) is the surface that sets
             // `ToolResultMessage.isError` — this SDK surface exists for
             // registration-lifetime parity, not to drive the query.
@@ -1492,17 +1492,17 @@ class ProductionLoomProducer implements LoomProducerDeps {
 
     const toolNames = customTools.map((definition) => definition.name);
 
-    // STAGE A (STL-2 / ceiling #2): the loom OWNS the subagent's model tool
+    // STAGE A (STL-2 / ceiling #2): the theta OWNS the subagent's model tool
     // loop. The model-facing tool schemas (SUBAG-2 callable set) conveyed on
-    // every `complete()` turn are the loom's frozen callable-set Pi-tool
+    // every `complete()` turn are the theta's frozen callable-set Pi-tool
     // entries, presented under their post-rename callable-set name (the name
-    // the model calls and `#resolvePiToolForLoom` resolves), with the
+    // the model calls and `#resolvePiToolForTheta` resolves), with the
     // description/parameters taken from the SUBAG-2 `customTools` lowering
-    // (matched by the underlying Pi-tool name). A loom with no snapshot (an
+    // (matched by the underlying Pi-tool name). A theta with no snapshot (an
     // in-memory fixture) presents no tool schemas — the model cannot make a
     // tool call, mirroring the pre-`tools:` behaviour.
     const toolSchemas: Tool[] = [];
-    const callableSet = loom.callableSet;
+    const callableSet = theta.callableSet;
     if (callableSet !== undefined) {
       for (const [presentedName, entry] of callableSet.entries) {
         if (entry.kind !== "pi-tool") {
@@ -1520,13 +1520,13 @@ class ProductionLoomProducer implements LoomProducerDeps {
         });
       }
     }
-    // SUBAG-2: the model ALSO sees the `.loom` callables (tool-calls.md: the
+    // SUBAG-2: the model ALSO sees the `.theta` callables (tool-calls.md: the
     // callable set is SHARED between the model-driven and code-driven paths).
     // Each presents under its callable-set name, with the callee's lowered
     // `params:` schema wrapped `Type.Unsafe<unknown>` and the callee's
     // frontmatter `description`, so the model can emit a `tool_use` block for it
-    // exactly as `executeSubagentTool`'s `.loom` branch resolves it.
-    for (const callable of loomCallables) {
+    // exactly as `executeSubagentTool`'s `.theta` branch resolves it.
+    for (const callable of thetaCallables) {
       toolSchemas.push({
         name: callable.presentedName,
         description: callable.description,
@@ -1534,8 +1534,8 @@ class ProductionLoomProducer implements LoomProducerDeps {
       });
     }
 
-    // STAGE A: execute ONE model tool call through the loom's callable set,
-    // reusing the SAME `#resolvePiToolForLoom` / `execute` path the code-driven
+    // STAGE A: execute ONE model tool call through the theta's callable set,
+    // reusing the SAME `#resolvePiToolForTheta` / `execute` path the code-driven
     // `<name>(args)` calls use, and lower the outcome to the tool-result message
     // fed back on the next `complete()` turn. A clean resolve lowers to the
     // V14g filter/join text; an `execute()` throw lowers to the V14g execution
@@ -1543,22 +1543,22 @@ class ProductionLoomProducer implements LoomProducerDeps {
     // loop continues (ceiling #4 model-driven row). A name outside the callable
     // set is an unavailable-tool `isError` result — ambient tools are never
     // inherited (frontmatter.md §`tools:`).
-    const loomCallableByName = new Map(
-      loomCallables.map((callable) => [callable.presentedName, callable] as const),
+    const thetaCallableByName = new Map(
+      thetaCallables.map((callable) => [callable.presentedName, callable] as const),
     );
     const executeSubagentTool = async (
       call: ToolCall,
       toolSignal: AbortSignal,
     ): Promise<ToolResultMessage> => {
-      // A `.loom`-callable branch BEFORE the Pi-tool `#resolvePiToolForLoom`
-      // path: a callable-set name bound to a `.loom` callee spawns a fresh
+      // A `.theta`-callable branch BEFORE the Pi-tool `#resolvePiToolForTheta`
+      // path: a callable-set name bound to a `.theta` callee spawns a fresh
       // subagent invocation through the re-entrant `#driveCallee` adapter
       // (equivalent to `invoke<T>`), then lowers its `Result` to the fed-back
-      // tool-result (Ok → text; Err → `isError`). A name outside `loomCallables`
+      // tool-result (Ok → text; Err → `isError`). A name outside `thetaCallables`
       // falls through to the Pi-tool lowering.
-      const callable = loomCallableByName.get(call.name);
+      const callable = thetaCallableByName.get(call.name);
       if (callable !== undefined) {
-        const lowered = await driveLoomCallableModelCall(
+        const lowered = await driveThetaCallableModelCall(
           callable,
           call.arguments,
           toolSignal,
@@ -1567,7 +1567,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
       }
       return lowerModelDrivenToolCall(
         call,
-        this.#resolvePiToolForLoom(loom, call.name),
+        this.#resolvePiToolForTheta(theta, call.name),
         toolSignal,
       );
     };
@@ -1598,9 +1598,9 @@ class ProductionLoomProducer implements LoomProducerDeps {
     };
 
     // STAGE A: issue ONE model completion via pi-ai `complete()` against the
-    // resolved subagent model, seeding the completion context with the loom's
-    // rendered `system:` prompt (SUBAG-1) and the loom's callable-set tool
-    // schemas (SUBAG-2), and threading `loomAbort.signal` (CANCEL-2/4). The
+    // resolved subagent model, seeding the completion context with the theta's
+    // rendered `system:` prompt (SUBAG-1) and the theta's callable-set tool
+    // schemas (SUBAG-2), and threading `thetaAbort.signal` (CANCEL-2/4). The
     // private conversation `messages` are owned by the query driver and
     // discarded with the invocation (subagent isolation). The provider Promise
     // carries the construction-site swallowing handler so a late rejection after
@@ -1625,10 +1625,10 @@ class ProductionLoomProducer implements LoomProducerDeps {
       );
     };
 
-    // PIC-23 spawn: an isolated in-memory `AgentSession`. A loom-suppressing
+    // PIC-23 spawn: an isolated in-memory `AgentSession`. A theta-suppressing
     // `DefaultResourceLoader` (no extensions/skills/prompts/themes/context files)
     // is used deliberately: it prevents the spawned session from re-loading this
-    // very loom extension (which would recurse). The loom's `system:` reaches the
+    // very theta extension (which would recurse). The theta's `system:` reaches the
     // spawned session through `DefaultResourceLoaderOptions.systemPrompt` — a
     // direct SDK option that flows through `getSystemPrompt()` — so a custom
     // `ResourceLoader` adapter is not required for the `system:` channel.
@@ -1650,7 +1650,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
       modelRegistry,
       model,
       // PIC-23 rule 2: an explicit allowlist restricts the active set to exactly
-      // the loom's callable-set Pi-tool names (empty when the loom declares no
+      // the theta's callable-set Pi-tool names (empty when the theta declares no
       // `tools:`), suppressing Pi's default built-ins (SUBAG-2).
       tools: toolNames,
       customTools,
@@ -1660,21 +1660,21 @@ class ProductionLoomProducer implements LoomProducerDeps {
       sessionManager: SessionManager.inMemory(ctx.cwd),
     });
 
-    // PIC-41: forward `loomAbort` into the spawned session via a one-shot
+    // PIC-41: forward `thetaAbort` into the spawned session via a one-shot
     // listener that calls `AgentSession.abort()`; PIC-9: an idempotent dispose
     // for the return-path teardown.
-    const forwarding = attachSubagentAbortForwarding(loomAbort, session);
+    const forwarding = attachSubagentAbortForwarding(thetaAbort, session);
     const dispose = makeIdempotentDispose(session);
 
-    const signal = loomAbort.signal;
+    const signal = thetaAbort.signal;
     const hostDeps: EffectfulStatementHostDeps = {
       checkpoint: root.checkpoint,
       signal,
       sink: noopSink(),
-      file: loom.slashName,
+      file: theta.slashName,
       evaluatePure: (expr, env) => evaluatePureExpression(expr, env),
       resolveQuery: (expr, env) => {
-        // STAGE A: a subagent `@`-query is driven as a LOOM-OWNED round-by-round
+        // STAGE A: a subagent `@`-query is driven as a THETA-OWNED round-by-round
         // tool loop through the existing `runUntypedQueryLoop` /
         // `runTypedQueryLoop` machinery, which enforces `tool_loop.max_rounds`
         // and surfaces `Err(tool_loop_exhausted)` on exhaustion (ceiling #2 /
@@ -1689,14 +1689,14 @@ class ProductionLoomProducer implements LoomProducerDeps {
         // QRY-22: a typed subagent query drives respond-repair follow-ups as
         // fresh auth-aware `complete()` turns against the resolved model
         // (mirroring the prompt-mode off-session follow-up), never re-issuing the
-        // original query. Threads `loomAbort.signal` so an abort propagates.
+        // original query. Threads `thetaAbort.signal` so an abort propagates.
         const driveFollowUp = (prompt: string): Promise<string> =>
           runCompletion(
             [{ role: "user", content: prompt, timestamp: 0 }],
-            loomAbort.signal,
+            thetaAbort.signal,
           ).then(assistantText);
         const validation = typed
-          ? this.#buildTypedValidation(expr, env, loom, driveFollowUp)
+          ? this.#buildTypedValidation(expr, env, theta, driveFollowUp)
           : undefined;
         return {
           typed,
@@ -1707,17 +1707,17 @@ class ProductionLoomProducer implements LoomProducerDeps {
             queryText: renderTypedAwareQueryText(expr, env, validation?.lowered),
             runCompletion,
             executeTool: executeSubagentTool,
-            loomAbort,
+            thetaAbort,
             provider: String(model.provider),
           }),
           config: {
-            maxRounds: typed ? 0 : loom.frontmatter.toolLoop?.maxRounds ?? 25,
+            maxRounds: typed ? 0 : theta.frontmatter.toolLoop?.maxRounds ?? 25,
             querySite: {
-              file: loom.slashName,
+              file: theta.slashName,
               line: expr.range.start.line,
               column: expr.range.start.column,
             },
-            loomSlashName: loom.slashName,
+            thetaSlashName: theta.slashName,
             invocationId: root.idSource.newInvocationId(),
             occurredAt: root.clock.wallNow(),
           },
@@ -1726,31 +1726,31 @@ class ProductionLoomProducer implements LoomProducerDeps {
             : {}),
         };
       },
-      resolveToolCall: (expr, env) => this.#resolveToolCall(loom, expr, env, signal),
+      resolveToolCall: (expr, env) => this.#resolveToolCall(theta, expr, env, signal),
       // Cross-mode: the caller is subagent-mode, so a prompt-mode callee is
       // reached only via inline `invoke(...)` (prompt callees are load-rejected
       // from `tools:`); the prompt→prompt user-session attach never engages here.
-      resolveInvoke: (expr, env) => this.#resolveInvoke(loom, expr, env, ctx, chain, signal, "subagent"),
-      classifyCall: (expr) => this.#classifyCall(loom, expr),
+      resolveInvoke: (expr, env) => this.#resolveInvoke(theta, expr, env, ctx, chain, signal, "subagent"),
+      classifyCall: (expr) => this.#classifyCall(theta, expr),
       resolveCallAsInvoke: (expr, env) =>
-        this.#resolveCallAsInvoke(loom, expr, env, ctx, chain, signal, "subagent"),
+        this.#resolveCallAsInvoke(theta, expr, env, ctx, chain, signal, "subagent"),
     };
 
     const executeDeps: ExecuteBodyDeps = {
-      env: buildBoundEnvironment(loom.body, bindInput.paramBindings, loom.imports),
+      env: buildBoundEnvironment(theta.body, bindInput.paramBindings, theta.imports),
       host: createEffectfulStatementHost(hostDeps),
       checkpoint: root.checkpoint,
       signal,
       mutator: new NoopConversationMutator(),
       mode: "subagent",
-      file: loom.slashName,
+      file: theta.slashName,
     };
 
     // Decision 6 / Increment B1 (active-invocation-registry.md §"Active
     // invocation registry"): register this invocation in the shared registry
     // the factory's `session_shutdown` teardown reads, so sub-step 2 (cancel
-    // in-flight) can abort THIS `loomAbort` and sub-step 3 (await dispose) can
-    // await its `disposeBarrier`. The per-invocation `loomAbort` above is reused
+    // in-flight) can abort THIS `thetaAbort` and sub-step 3 (await dispose) can
+    // await its `disposeBarrier`. The per-invocation `thetaAbort` above is reused
     // verbatim (never a fresh controller). Registered LAST — after the final
     // awaitable spawn step (`createAgentSession` / tool lowering) has already
     // resolved — so a spawn failure rejects BEFORE any entry is added and never
@@ -1766,10 +1766,10 @@ class ProductionLoomProducer implements LoomProducerDeps {
       settleDispose = resolve;
     });
     const entry: ActiveInvocationEntry = {
-      loomAbort,
+      thetaAbort,
       disposeBarrier,
       shutdownReason: undefined,
-      loom: loom.slashName,
+      theta: theta.slashName,
       invocationId: root.idSource.newInvocationId(),
     };
     activeInvocations?.add(entry);
@@ -1794,7 +1794,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
     // runs on EVERY exit of the invocation drive — the DRIVE seam's `finally`
     // calls it BEFORE `finishInvocation` on the normal-return, returned-`Err`,
     // AND throw paths. Previously these ran only inside `surface()`, so a genuine
-    // throw unwinding past `surface` (a `ToolReturnShapeDefectError` / `LoomPanic`
+    // throw unwinding past `surface` (a `ToolReturnShapeDefectError` / `ThetaPanic`
     // defect) skipped them and leaked the provider connection + abort listener.
     // Idempotent: `dispose` is a `makeIdempotentDispose` latch and
     // `forwarding.detach` is a `removeEventListener` no-op on a second call, so a
@@ -1808,7 +1808,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
       forwarding.detach();
       try {
         dispose();
-      } catch (disposeError: unknown) { // allow-broad-catch: loom/runtime/subagent-dispose-failure — pi-integration-contract/subagent.md
+      } catch (disposeError: unknown) { // allow-broad-catch: theta/runtime/subagent-dispose-failure — pi-integration-contract/subagent.md
         // PIC-9: a `dispose()` throw is advisory only — because `teardown` runs
         // in the DRIVE `finally`, letting it propagate would MASK an in-flight
         // body defect (or promote an `Ok`/`Err` value to a throw), disturbing the
@@ -1847,19 +1847,19 @@ class ProductionLoomProducer implements LoomProducerDeps {
     deps: {
       readonly pi: ExtensionAPI;
       readonly ctx: ExtensionCommandContext;
-      readonly loom: ConversationBindInput["loom"];
+      readonly theta: ConversationBindInput["theta"];
       readonly signal: AbortSignal;
       /** CANCEL-2: the per-invocation controller the live turn driver re-forwards `ctx.signal` into. */
-      readonly loomAbort: AbortController;
+      readonly thetaAbort: AbortController;
       readonly readMessages: () => readonly Message[];
       readonly userVisible: boolean;
     },
   ): QueryHostDispatch {
     const { root } = this.#input;
     const typed = expr.schema !== null;
-    // QTL-4: the loom's callable-set underlying Pi-tool names installed as the
+    // QTL-4: the theta's callable-set underlying Pi-tool names installed as the
     // model's active tools for each user-visible query turn.
-    const activeTools = callableSetPiToolNames(deps.loom);
+    const activeTools = callableSetPiToolNames(deps.theta);
     // QRY-22: a typed prompt-mode query drives respond-repair follow-ups as new
     // user turns against the SAME conversation (a user-visible turn when the
     // query streams, else off-session), extracting each follow-up's reply text.
@@ -1874,7 +1874,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
           })
         : offSessionComplete(deps.ctx.model, prompt);
     const validation = typed
-      ? this.#buildTypedValidation(expr, env, deps.loom, driveFollowUp)
+      ? this.#buildTypedValidation(expr, env, deps.theta, driveFollowUp)
       : undefined;
     // A typed query instructs the model to emit only a JSON object of the
     // declared (lowered) shape, so its user-visible turn streams the structured
@@ -1884,12 +1884,12 @@ class ProductionLoomProducer implements LoomProducerDeps {
     const queryText = renderTypedAwareQueryText(expr, env, validation?.lowered);
 
     // STAGE B (ceiling #2): bound the native prompt-mode agentic tool loop to
-    // the loom's `tool_loop.max_rounds` for the untyped free-phase turn. A typed
+    // the theta's `tool_loop.max_rounds` for the untyped free-phase turn. A typed
     // query's forced-respond turn is the exempt-routed terminator (FRNT-1) and
     // is NOT bounded. `max_rounds: 0` untyped is handled upstream by
     // `runUntypedQueryLoop` (it exhausts at query start before any turn), so the
     // governor is only consulted for `max_rounds >= 1` free-phase turns.
-    const maxRounds = deps.loom.frontmatter.toolLoop?.maxRounds ?? 25;
+    const maxRounds = deps.theta.frontmatter.toolLoop?.maxRounds ?? 25;
     if (!typed && deps.userVisible) {
       this.#promptToolLoopGovernor.ensureRegistered(deps.pi);
     }
@@ -1901,7 +1901,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
           queryText,
           readMessages: deps.readMessages,
           activeTools,
-          loomAbort: deps.loomAbort,
+          thetaAbort: deps.thetaAbort,
           // Only the untyped free-phase native turn is bounded (typed → exempt).
           governor: typed ? undefined : this.#promptToolLoopGovernor,
           maxRounds,
@@ -1920,14 +1920,14 @@ class ProductionLoomProducer implements LoomProducerDeps {
       // A typed query dispatches only the forced-respond terminator (no
       // free-phase provider call), so its `max_rounds`-final branch fires at
       // typed-query start; an untyped query drives one user-visible free-phase
-      // turn under the loom's configured cap.
-      maxRounds: typed ? 0 : deps.loom.frontmatter.toolLoop?.maxRounds ?? 25,
+      // turn under the theta's configured cap.
+      maxRounds: typed ? 0 : deps.theta.frontmatter.toolLoop?.maxRounds ?? 25,
       querySite: {
-        file: deps.loom.slashName,
+        file: deps.theta.slashName,
         line: expr.range.start.line,
         column: expr.range.start.column,
       },
-      loomSlashName: deps.loom.slashName,
+      thetaSlashName: deps.theta.slashName,
       invocationId: root.idSource.newInvocationId(),
       occurredAt: root.clock.wallNow(),
     };
@@ -1953,13 +1953,13 @@ class ProductionLoomProducer implements LoomProducerDeps {
   #buildTypedValidation(
     expr: QueryExpr,
     env: LexicalEnvironment,
-    loom: ConversationBindInput["loom"],
+    theta: ConversationBindInput["theta"],
     driveFollowUp: (prompt: string) => Promise<string>,
   ): { readonly validation: TypedQuerySchemaValidation; readonly lowered: LoweredSchema } | undefined {
     if (expr.schema === null) {
       return undefined;
     }
-    const lowered = lowerQueryResponseSchema(expr.schema, schemaDeclsOf(loom.body));
+    const lowered = lowerQueryResponseSchema(expr.schema, schemaDeclsOf(theta.body));
     if (lowered === undefined) {
       return undefined;
     }
@@ -1967,8 +1967,8 @@ class ProductionLoomProducer implements LoomProducerDeps {
       lowered,
       resolveShape: resolveDeclaredShape(expr, env),
       schemaValidator: this.#input.root.schemaValidator,
-      attempts: loom.frontmatter.respondRepair?.attempts ?? 3,
-      maxRounds: loom.frontmatter.toolLoop?.maxRounds ?? 25,
+      attempts: theta.frontmatter.respondRepair?.attempts ?? 3,
+      maxRounds: theta.frontmatter.toolLoop?.maxRounds ?? 25,
       driveFollowUp,
     });
     return { validation, lowered };
@@ -1976,20 +1976,20 @@ class ProductionLoomProducer implements LoomProducerDeps {
 
   /**
    * H8b call-kind routing. A `<name>(args)` call whose callee resolves to a
-   * `.loom`-callable in the loom's callable set (frontmatter `tools:`) is
+   * `.theta`-callable in the theta's callable set (frontmatter `tools:`) is
    * semantically an invoke; every other call is a Pi tool. The resolution is
-   * against the callable set alone — a name bound to a `./x.loom` entry routes
+   * against the callable set alone — a name bound to a `./x.theta` entry routes
    * to the invoke spawn-and-drive path, all else to the tool-`execute` path.
    */
   #classifyCall(
-    loom: ConversationBindInput["loom"],
+    theta: ConversationBindInput["theta"],
     expr: CallExpr,
-  ): "pi-tool" | "loom-callable" {
-    return loomCalleePath(loom, expr.callee) !== undefined ? "loom-callable" : "pi-tool";
+  ): "pi-tool" | "theta-callable" {
+    return thetaCalleePath(theta, expr.callee) !== undefined ? "theta-callable" : "pi-tool";
   }
 
   /**
-   * H8b live tool-call resolver. Resolve `expr.callee` against the loom's frozen
+   * H8b live tool-call resolver. Resolve `expr.callee` against the theta's frozen
    * `tools:` callable set (QTL-2 runtime enforcement) and return a
    * `CodeSideToolCall` whose `dispatch()` invokes the resolved host tool's
    * `execute(...)` (V14g lowering turns a clean resolve into `Ok(text)`, a throw
@@ -1999,20 +1999,20 @@ class ProductionLoomProducer implements LoomProducerDeps {
    * ambient host tool or fabricating a value.
    */
   #resolveToolCall(
-    loom: ConversationBindInput["loom"],
+    theta: ConversationBindInput["theta"],
     expr: CallExpr,
     env: LexicalEnvironment,
     signal: AbortSignal,
   ): CodeSideToolCall {
     const toolName = expr.callee;
-    const tool = this.#resolvePiToolForLoom(loom, toolName);
+    const tool = this.#resolvePiToolForTheta(theta, toolName);
     const params = lowerToolCallParams(expr, env);
     // Ceiling #4 (hard-ceilings/ceilings-3-and-4.md#ceiling-4-table, the
     // code-driven tool-call args row; schema-subset.md §Depth Enforcement
     // point #3; CIO-3 depth-walk-before-AJV): enforce the JSON-document
     // depth-≤5 cap on the CONSTRUCTED argument value — the single object-literal
     // params object the tool receives — before AJV and before the tool executes.
-    // A depth-6+ argument surfaces to loom code as
+    // A depth-6+ argument surfaces to theta code as
     // `Err(CodeToolError { cause: "validation" })`, carried on the returned
     // `CodeSideToolCall` so `runCodeSideToolCall` short-circuits without ever
     // dispatching `execute()`. `params` IS the sole positional argument (a Pi
@@ -2023,7 +2023,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
     // `#driveCallee`, differing only in the carrier (`CodeToolError` vs
     // `InvokeInfraError`) per the per-boundary table.
     const argDepthBreach = enforceCodeToolArgDepth(toolName, params);
-    const toolCallId = `loom-direct:${this.#input.root.idSource.newInvocationId()}`;
+    const toolCallId = `theta-direct:${this.#input.root.idSource.newInvocationId()}`;
     return {
       toolName,
       committed: [],
@@ -2052,27 +2052,27 @@ class ProductionLoomProducer implements LoomProducerDeps {
   }
 
   /**
-   * QTL-2. Resolve a code-driven callable name against the loom's frozen `tools:`
+   * QTL-2. Resolve a code-driven callable name against the theta's frozen `tools:`
    * callable set: the name must be a `pi-tool` entry in the snapshot, and the
    * call dispatches through that entry's HELD `PiToolDispatch` reference — the
    * runtime never re-queries Pi's tool registry by name
    * (frontmatter-fields-b-and-templates.md §Resolution snapshot). A name absent
-   * from the set (or bound to a `.loom` callee, which `#classifyCall` routes to
+   * from the set (or bound to a `.theta` callee, which `#classifyCall` routes to
    * the invoke path instead) resolves to `undefined`, so the code-side path
    * surfaces the unavailable-tool `Err` rather than executing an ambient tool.
    * Honours `as`-renames because the snapshot is keyed by the post-rename
    * callable name.
    *
-   * A loom carrying no snapshot (an in-memory harness fixture) falls back to the
-   * producer-wide `resolvePiTool` collaborator — production discovered looms
+   * A theta carrying no snapshot (an in-memory harness fixture) falls back to the
+   * producer-wide `resolvePiTool` collaborator — production discovered thetas
    * always carry a (possibly empty) snapshot, so the fallback never widens a
-   * real loom's ambient reach.
+   * real theta's ambient reach.
    */
-  #resolvePiToolForLoom(
-    loom: ConversationBindInput["loom"],
+  #resolvePiToolForTheta(
+    theta: ConversationBindInput["theta"],
     callableName: string,
   ): PiToolDispatch | undefined {
-    const callableSet = loom.callableSet;
+    const callableSet = theta.callableSet;
     if (callableSet === undefined) {
       return this.#input.resolvePiTool?.(callableName);
     }
@@ -2084,19 +2084,19 @@ class ProductionLoomProducer implements LoomProducerDeps {
   }
 
   /**
-   * H8b live invoke resolver for an `invoke("./x.loom", ...args)` expression:
+   * H8b live invoke resolver for an `invoke("./x.theta", ...args)` expression:
    * bind the positional args, resolve+parse the callee against the caller's
    * directory, spawn/drive it, and return its top-level `Result` (FN-5).
    */
   #resolveInvoke(
-    loom: ConversationBindInput["loom"],
+    theta: ConversationBindInput["theta"],
     expr: InvokeExpr,
     env: LexicalEnvironment,
     ctx: ExtensionCommandContext,
     chain: InvokeChain,
     parentSignal: AbortSignal,
-    /** The invoking loom's own `mode:` — selects the cross-mode attach cell. */
-    callerMode: LoomMode,
+    /** The invoking theta's own `mode:` — selects the cross-mode attach cell. */
+    callerMode: ThetaMode,
   ): InvokeChild {
     // `expr.args[0]` is the callee path literal; the remaining args are the
     // positional invocation arguments bound to the callee's params.
@@ -2105,7 +2105,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
     // return-value validation on the child's `Ok` payload (invocation.md §Typed
     // return; hard-ceilings ceiling #4).
     return this.#buildInvokeChild(
-      loom,
+      theta,
       expr.path,
       argValues,
       ctx,
@@ -2117,39 +2117,39 @@ class ProductionLoomProducer implements LoomProducerDeps {
   }
 
   /**
-   * H8b live invoke resolver for a `.loom`-callable `<name>(args)` call: resolve
+   * H8b live invoke resolver for a `.theta`-callable `<name>(args)` call: resolve
    * the callee path from the callable set, bind the positional args, and drive
    * the callee, returning its typed top-level `Result` across the boundary
    * (FN-5).
    */
   #resolveCallAsInvoke(
-    loom: ConversationBindInput["loom"],
+    theta: ConversationBindInput["theta"],
     expr: CallExpr,
     env: LexicalEnvironment,
     ctx: ExtensionCommandContext,
     chain: InvokeChain,
     parentSignal: AbortSignal,
-    /** The invoking loom's own `mode:` — threaded to `#driveCallee`. */
-    callerMode: LoomMode,
+    /** The invoking theta's own `mode:` — threaded to `#driveCallee`. */
+    callerMode: ThetaMode,
   ): InvokeChild {
-    const calleePath = loomCalleePath(loom, expr.callee) ?? `./${expr.callee}.loom`;
+    const calleePath = thetaCalleePath(theta, expr.callee) ?? `./${expr.callee}.theta`;
     const argValues = expr.args.map((arg) => evaluatePureExpression(arg, env));
-    // A `.loom`-callable call through `tools:` carries no `invoke<Schema>`
+    // A `.theta`-callable call through `tools:` carries no `invoke<Schema>`
     // annotation, so there is no parse-time return-type site; the runtime AJV
     // net still applies at the query/typed boundary inside the callee.
-    return this.#buildInvokeChild(loom, calleePath, argValues, ctx, chain, null, parentSignal, callerMode);
+    return this.#buildInvokeChild(theta, calleePath, argValues, ctx, chain, null, parentSignal, callerMode);
   }
 
   /** Build the `InvokeChild` whose `drive()` parses, spawns, and drives the callee. */
   #buildInvokeChild(
-    loom: ConversationBindInput["loom"],
+    theta: ConversationBindInput["theta"],
     calleePath: string,
-    argValues: readonly LoomValue[],
+    argValues: readonly ThetaValue[],
     ctx: ExtensionCommandContext,
     chain: InvokeChain,
     returnSchema: string | null,
     parentSignal: AbortSignal,
-    callerMode: LoomMode,
+    callerMode: ThetaMode,
   ): InvokeChild {
     return {
       calleePath,
@@ -2159,11 +2159,11 @@ class ProductionLoomProducer implements LoomProducerDeps {
         // frame BEFORE the callee body runs. The cap is breached when about to
         // push the 33rd frame; the nested overflow surfaces to this invoke
         // parent as `Err(InvokeInfraError{cause:"panic"})` — the runtime backstop
-        // that (with load-time cycle detection) bounds a self-referential loom.
+        // that (with load-time cycle detection) bounds a self-referential theta.
         let childChain: InvokeChain;
         try {
           childChain = pushCountableFrame(chain, "direct-invoke");
-        } catch (panic) { // allow-broad-catch: loom/runtime/invoke-depth-exceeded — hard-ceilings.md
+        } catch (panic) { // allow-broad-catch: theta/runtime/invoke-depth-exceeded — hard-ceilings.md
           // Narrow-and-rethrow: only the ceiling panic is handled (surfaced as
           // the nested Err backstop); any other throw propagates unchanged.
           if (panic instanceof InvokeDepthExceededPanic) {
@@ -2172,7 +2172,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
               calleePath,
             });
             if (surfaced.mode === "nested") {
-              return Promise.resolve(makeErr(surfaced.error as unknown as LoomValue));
+              return Promise.resolve(makeErr(surfaced.error as unknown as ThetaValue));
             }
           }
           throw panic;
@@ -2184,7 +2184,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
         // absorbed and never reaches Node's `unhandledRejection` process event.
         return guardInvokeExecutionPromise(
           this.#driveCallee(
-            loom,
+            theta,
             calleePath,
             argValues,
             ctx,
@@ -2201,7 +2201,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
   }
 
   /**
-   * Parse the callee `.loom`, spawn a fresh isolated subagent session for it
+   * Parse the callee `.theta`, spawn a fresh isolated subagent session for it
    * (V15l: a subagent callee spawns fresh; the caller's settings are not
    * inherited), bind the positional args onto its declared params, run its body
    * through the executor, and surface its top-level `Result` (FN-5). An
@@ -2209,20 +2209,20 @@ class ProductionLoomProducer implements LoomProducerDeps {
    * "load_failure"})` — never a fabricated `Ok(null)`.
    */
   async #driveCallee(
-    loom: ConversationBindInput["loom"],
+    theta: ConversationBindInput["theta"],
     calleePath: string,
-    argValues: readonly LoomValue[],
+    argValues: readonly ThetaValue[],
     ctx: ExtensionCommandContext,
     chain: InvokeChain,
     returnSchema: string | null,
     parentSignal: AbortSignal,
-    callerMode: LoomMode,
+    callerMode: ThetaMode,
   ): Promise<ResultValue> {
     // INV-5 (invocation.md §Resolution, INV-1 seam): re-run the realpath +
     // discovery-root containment check at the moment the runtime opens the
     // callee, against the *currently* active roots. An escape fails closed with
     // `Err(InvokeInfraError{cause:"load_failure"})` — the runtime backstop to the
-    // load-time `loom/load/invoke-path-escape` guard.
+    // load-time `theta/load/invoke-path-escape` guard.
     // Ceiling #4 (hard-ceilings/ceilings-3-and-4.md#ceiling-4-table, the
     // `params` / `invoke(...)` row; CIO-3 depth-walk-before-AJV): enforce the
     // JSON-document depth-≤5 cap at the runtime `invoke(...)` `params` argument
@@ -2239,11 +2239,11 @@ class ProductionLoomProducer implements LoomProducerDeps {
       }
     }
 
-    const escape = await this.#recheckCalleeContainment(loom, calleePath);
+    const escape = await this.#recheckCalleeContainment(theta, calleePath);
     if (escape !== undefined) {
-      return makeErr(escape as unknown as LoomValue);
+      return makeErr(escape as unknown as ThetaValue);
     }
-    const callee = await this.#input.parseCallee?.(loom.sourcePath, calleePath);
+    const callee = await this.#input.parseCallee?.(theta.sourcePath, calleePath);
     if (callee === undefined) {
       const error: InvokeInfraError = {
         kind: "invoke_infra",
@@ -2251,10 +2251,10 @@ class ProductionLoomProducer implements LoomProducerDeps {
         callee_path: calleePath,
         cause: "load_failure",
       };
-      return makeErr(error as unknown as LoomValue);
+      return makeErr(error as unknown as ThetaValue);
     }
     const paramNames = callee.frontmatter.params?.fields.map((field) => field.wireName) ?? [];
-    const paramBindings = new Map<string, LoomValue>();
+    const paramBindings = new Map<string, ThetaValue>();
     paramNames.forEach((name, index) => {
       paramBindings.set(name, argValues[index] ?? null);
     });
@@ -2268,12 +2268,12 @@ class ProductionLoomProducer implements LoomProducerDeps {
     // snapshot/restore generalised to the body window, owned by
     // `runPromptSuspendInvoke`); the ambient snapshot is restored on every settle
     // path — success, returned `Err`, cancel, or throw — with the inner failure
-    // surfaced unmasked. CANCEL-5: the child binding derives its `loomAbort` from
+    // surfaced unmasked. CANCEL-5: the child binding derives its `thetaAbort` from
     // `parentSignal` (downward-only). Every other cell (a subagent-mode callee,
     // or a subagent-mode caller) spawns fresh below.
     if (callerMode === "prompt" && callee.frontmatter.mode === "prompt") {
       const childBinding = this.bindPromptConversation({
-        loom: callee,
+        theta: callee,
         args: "",
         ctx,
         paramBindings,
@@ -2305,18 +2305,18 @@ class ProductionLoomProducer implements LoomProducerDeps {
         });
         // INV-6 (invocation.md §Typed return): apply the `invoke<Schema>` return
         // validation to the child's `Ok` payload, exactly as the spawn path below.
-        return this.#validateInvokeReturn(loom, calleePath, returnSchema, outcome.result);
+        return this.#validateInvokeReturn(theta, calleePath, returnSchema, outcome.result);
       } finally {
         childBinding.finishInvocation?.();
       }
     }
 
     // CANCEL-5 (cancellation.md §`invoke(...)` entry): hand the parent's
-    // `loomAbort.signal` to the child binding so it constructs its `loomAbort`
+    // `thetaAbort.signal` to the child binding so it constructs its `thetaAbort`
     // as a DERIVED controller (downward-only: the child aborts when the parent
-    // aborts, never the reverse — `deriveChildLoomAbort`).
+    // aborts, never the reverse — `deriveChildThetaAbort`).
     const binding = await this.spawnSubagentConversation({
-      loom: callee,
+      theta: callee,
       args: "",
       ctx,
       paramBindings,
@@ -2336,7 +2336,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
       // the child's returned value against the `invoke<Schema>` annotation. A
       // mismatch (e.g. a `string` under `invoke<number>`) is
       // `Err(InvokeInfraError{cause:"return_validation"})`, aborting the parent.
-      return this.#validateInvokeReturn(loom, calleePath, returnSchema, result);
+      return this.#validateInvokeReturn(theta, calleePath, returnSchema, result);
     } finally {
       // PIC-9: run the (idempotent, non-throwing) session teardown BEFORE
       // `finishInvocation`, so the spawned session's `dispose()`/abort-listener
@@ -2355,7 +2355,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
    * production seams needed for the check are absent).
    */
   async #recheckCalleeContainment(
-    loom: ConversationBindInput["loom"],
+    theta: ConversationBindInput["theta"],
     calleePath: string,
   ): Promise<InvokeInfraError | undefined> {
     const fileSystem = this.#input.fileSystem;
@@ -2363,7 +2363,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
     if (fileSystem === undefined || activeRoots === undefined) {
       return undefined;
     }
-    const baseDir = loom.sourcePath !== undefined ? dirname(loom.sourcePath) : undefined;
+    const baseDir = theta.sourcePath !== undefined ? dirname(theta.sourcePath) : undefined;
     const resolvedPath =
       baseDir !== undefined && !isAbsolute(calleePath)
         ? resolvePath(baseDir, calleePath)
@@ -2379,13 +2379,13 @@ class ProductionLoomProducer implements LoomProducerDeps {
 
   /**
    * INV-6 runtime return-value validation: lower the `invoke<Schema>` annotation
-   * against the caller loom's `schema` decls, compile it, and AJV-validate the
+   * against the caller theta's `schema` decls, compile it, and AJV-validate the
    * child's `Ok` payload. An untyped invoke (`returnSchema === null`) or an
    * `Err` result passes through unchanged; a validation failure is surfaced as
    * `Err(InvokeInfraError{cause:"return_validation"})`.
    */
   #validateInvokeReturn(
-    loom: ConversationBindInput["loom"],
+    theta: ConversationBindInput["theta"],
     calleePath: string,
     returnSchema: string | null,
     result: ResultValue,
@@ -2394,7 +2394,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
       return result;
     }
     // Ceiling #4 (ceilings-3-and-4.md#ceiling-4-table, the `invoke<T>` return-value
-    // row; CIO-3): the loom-owned depth walk is the FIRST sub-check at the
+    // row; CIO-3): the theta-owned depth walk is the FIRST sub-check at the
     // return-value AJV boundary. A depth-6+ `Ok` payload surfaces to the invoke
     // parent as `Err(InvokeInfraError { cause: "return_validation" })` before AJV
     // is consulted.
@@ -2402,7 +2402,7 @@ class ProductionLoomProducer implements LoomProducerDeps {
     if (depthBreach !== undefined) {
       return depthBreach.result;
     }
-    const lowered = lowerQueryResponseSchema(returnSchema, schemaDeclsOf(loom.body));
+    const lowered = lowerQueryResponseSchema(returnSchema, schemaDeclsOf(theta.body));
     if (lowered === undefined) {
       return result;
     }
@@ -2417,15 +2417,15 @@ class ProductionLoomProducer implements LoomProducerDeps {
       callee_path: calleePath,
       cause: "return_validation",
     };
-    return makeErr(error as unknown as LoomValue);
+    return makeErr(error as unknown as ThetaValue);
   }
 }
 
 /**
- * QTL-4. The underlying Pi-tool names in the loom's frozen `tools:` callable set
+ * QTL-4. The underlying Pi-tool names in the theta's frozen `tools:` callable set
  * — the host tool each `pi-tool` entry dispatches to (an `as`-rename entry
  * carries the underlying tool's own registered name, which is what the model's
- * active-tool set must reference). A loom with no snapshot (an in-memory
+ * active-tool set must reference). A theta with no snapshot (an in-memory
  * fixture) or no Pi tools yields `[]`, so the prompt-mode active set stays empty
  * and no ambient tool is installed.
  */
@@ -2453,15 +2453,15 @@ function surfaceCalleeFinalValue(execution: BodyExecution): ResultValue {
     return isResultValue(value) ? value : makeOk(value);
   }
   if (execution.outcome === "fail") {
-    return makeErr(execution.error ?? (makeCancelledError() as unknown as LoomValue));
+    return makeErr(execution.error ?? (makeCancelledError() as unknown as ThetaValue));
   }
-  return makeErr(makeCancelledError() as unknown as LoomValue);
+  return makeErr(makeCancelledError() as unknown as ThetaValue);
 }
 
 function callableSetPiToolNames(
-  loom: ConversationBindInput["loom"],
+  theta: ConversationBindInput["theta"],
 ): readonly string[] {
-  const set = loom.callableSet;
+  const set = theta.callableSet;
   if (set === undefined) {
     return [];
   }
@@ -2474,11 +2474,11 @@ function callableSetPiToolNames(
   return names;
 }
 
-/** SUBAG-2: a resolved model-callable `.loom` in a subagent's callable set. */
-interface ResolvedLoomCallable {
+/** SUBAG-2: a resolved model-callable `.theta` in a subagent's callable set. */
+interface ResolvedThetaCallable {
   /** The callable-set name the model calls (post-`as`, post-hyphen→underscore). */
   readonly presentedName: string;
-  /** The callee `.loom` path relative to the caller's directory. */
+  /** The callee `.theta` path relative to the caller's directory. */
   readonly calleePath: string;
   /** The callee's declared `params:` wire names, in DECLARATION ORDER. */
   readonly paramOrder: readonly string[];
@@ -2488,34 +2488,34 @@ interface ResolvedLoomCallable {
   readonly description: string;
 }
 
-/** SUBAG-2: the model-facing text/`isError` pair a `.loom` model call lowers to. */
-export interface LoweredLoomCallableResult {
+/** SUBAG-2: the model-facing text/`isError` pair a `.theta` model call lowers to. */
+export interface LoweredThetaCallableResult {
   readonly text: string;
   readonly isError: boolean;
 }
 
 /**
- * SUBAG-2: the `.loom`-callable entries in the loom's frozen `tools:` callable
+ * SUBAG-2: the `.theta`-callable entries in the theta's frozen `tools:` callable
  * set — each carrying its presented (post-`as` / post-hyphen→underscore)
- * callable name and the resolved callee `.loom` path (relative to the caller's
+ * callable name and the resolved callee `.theta` path (relative to the caller's
  * directory) read from the frozen entry's `calleePath` (Gap-2: the load-time
  * resolver recorded it from the `tools:` `spec`, so renamed / hyphenated callees
  * carry their real path). Mirrors `callableSetPiToolNames`; the callee schema /
  * param order / description are resolved asynchronously at spawn time via
  * `parseCallee` (production freezes each entry with `callee: undefined`, so the
- * parsed callee itself is not held on the snapshot). A loom with no snapshot
+ * parsed callee itself is not held on the snapshot). A theta with no snapshot
  * yields `[]`.
  */
-function callableSetLoomEntries(
-  loom: ConversationBindInput["loom"],
+function callableSetThetaEntries(
+  theta: ConversationBindInput["theta"],
 ): readonly { readonly presentedName: string; readonly calleePath: string }[] {
-  const set = loom.callableSet;
+  const set = theta.callableSet;
   if (set === undefined) {
     return [];
   }
   const entries: { readonly presentedName: string; readonly calleePath: string }[] = [];
   for (const [presentedName, entry] of set.entries) {
-    if (entry.kind !== "loom") {
+    if (entry.kind !== "theta") {
       continue;
     }
     // Gap-2: read the authoritative callee path the load-time resolver recorded
@@ -2527,14 +2527,14 @@ function callableSetLoomEntries(
 }
 
 /**
- * SUBAG-2: lower a `.loom`-callable's returned `Result` (FN-5) to the
+ * SUBAG-2: lower a `.theta`-callable's returned `Result` (FN-5) to the
  * model-facing tool-result text / `isError` pair. `Ok(string)` surfaces the
  * string verbatim; `Ok(<other>)` its JSON form; an `Err` surfaces
  * `isError: true` carrying the error's `message` (or its JSON form) so the model
  * observes the failure and the loop continues — the same disposition a failing
  * Pi-tool sibling receives (tool-calls.md §Concurrency).
  */
-function lowerLoomCallableModelResult(result: ResultValue): LoweredLoomCallableResult {
+function lowerThetaCallableModelResult(result: ResultValue): LoweredThetaCallableResult {
   if (result.ok) {
     const value = result.value ?? null;
     return {
@@ -2551,9 +2551,9 @@ function lowerLoomCallableModelResult(result: ResultValue): LoweredLoomCallableR
 }
 
 /**
- * The zero-width body range for a `.loom`-adapter internal-error diagnostic that
+ * The zero-width body range for a `.theta`-adapter internal-error diagnostic that
  * carries no source position of its own (mirrors the top-level panic-note site's
- * `ZERO_BODY_RANGE` in `loom-composition-producer.ts`).
+ * `ZERO_BODY_RANGE` in `theta-composition-producer.ts`).
  */
 const ZERO_BODY_RANGE: SourceRange = {
   start: { line: 0, column: 0 },
@@ -2561,37 +2561,37 @@ const ZERO_BODY_RANGE: SourceRange = {
 } as const;
 
 /**
- * The callable-set entry (a `./x.loom` path) that a call name resolves to, or
- * `undefined` when the name binds to no `.loom`-callable (so it is a Pi tool).
+ * The callable-set entry (a `./x.theta` path) that a call name resolves to, or
+ * `undefined` when the name binds to no `.theta`-callable (so it is a Pi tool).
  *
  * Gap-2: resolve the callee path from the FROZEN callable-set snapshot keyed by
  * the presented (post-`as` / post-hyphen→underscore) name, using the
  * `calleePath` the load-time resolver (`resolveCallableSet`) recorded from the
  * entry's `spec`. This replaces the previous basename string-match against
- * `frontmatter.tools`, which dropped renamed (`./c.loom as foo`) and hyphenated
- * (`./my-tool.loom` → `my_tool`) callees — silently omitting them from BOTH the
+ * `frontmatter.tools`, which dropped renamed (`./c.theta as foo`) and hyphenated
+ * (`./my-tool.theta` → `my_tool`) callees — silently omitting them from BOTH the
  * code-driven `<name>(args)` path and the model-driven adapter.
  *
- * A loom carrying NO snapshot (an in-memory harness fixture built with
+ * A theta carrying NO snapshot (an in-memory harness fixture built with
  * `frontmatter.tools` but no `callableSet`) falls back to the pre-Gap-2 basename
  * match against `frontmatter.tools` — the same snapshot-absent fallback pattern
- * `#resolvePiToolForLoom` uses. Production discovered looms always carry a
- * (possibly empty) snapshot, so the fallback never serves a real loom and thus
+ * `#resolvePiToolForTheta` uses. Production discovered thetas always carry a
+ * (possibly empty) snapshot, so the fallback never serves a real theta and thus
  * cannot re-open the Gap-2 hole for production (renamed / hyphenated resolve
  * from the snapshot).
  */
-function loomCalleePath(
-  loom: ConversationBindInput["loom"],
+function thetaCalleePath(
+  theta: ConversationBindInput["theta"],
   calleeName: string,
 ): string | undefined {
-  const set = loom.callableSet;
+  const set = theta.callableSet;
   if (set !== undefined) {
     const entry = set.entries.get(calleeName);
-    return entry !== undefined && entry.kind === "loom" ? entry.calleePath : undefined;
+    return entry !== undefined && entry.kind === "theta" ? entry.calleePath : undefined;
   }
-  const tools = loom.frontmatter.tools ?? [];
+  const tools = theta.frontmatter.tools ?? [];
   return tools.find(
-    (entry) => entry.endsWith(".loom") && loomCallableName(entry) === calleeName,
+    (entry) => entry.endsWith(".theta") && thetaCallableName(entry) === calleeName,
   );
 }
 
@@ -2621,8 +2621,8 @@ function lowerToolCallParams(expr: CallExpr, env: LexicalEnvironment): Record<st
  * value / arg binding) so the body can read them.
  */
 function buildBoundEnvironment(
-  body: LoomBody,
-  paramBindings: ReadonlyMap<string, LoomValue> | undefined,
+  body: ThetaBody,
+  paramBindings: ReadonlyMap<string, ThetaValue> | undefined,
   imports: readonly MaterializedImport[] | undefined,
 ): LexicalEnvironment {
   // Register top-level `enum` declarations (with their captured variant names
@@ -2667,7 +2667,7 @@ class LivePromptQueryModel implements QueryModelDriver {
   readonly #queryText: string;
   readonly #readMessages: () => readonly Message[];
   readonly #activeTools: readonly string[];
-  readonly #loomAbort: AbortController;
+  readonly #thetaAbort: AbortController;
   /** STAGE B: bounds the native tool loop; `undefined` for the exempt typed path. */
   readonly #governor: PromptToolLoopGovernor | undefined;
   readonly #maxRounds: number;
@@ -2684,13 +2684,13 @@ class LivePromptQueryModel implements QueryModelDriver {
     readonly clock: Clock;
     readonly queryText: string;
     readonly readMessages: () => readonly Message[];
-    /** QTL-4: the loom's callable-set underlying Pi-tool names to install for the turn. */
+    /** QTL-4: the theta's callable-set underlying Pi-tool names to install for the turn. */
     readonly activeTools: readonly string[];
     /** CANCEL-2: the per-invocation controller `ctx.signal` is re-forwarded into per turn. */
-    readonly loomAbort: AbortController;
+    readonly thetaAbort: AbortController;
     /** STAGE B: the round-cap governor for the untyped free-phase turn (undefined = exempt/typed). */
     readonly governor: PromptToolLoopGovernor | undefined;
-    /** STAGE B: the loom's `tool_loop.max_rounds` for this query. */
+    /** STAGE B: the theta's `tool_loop.max_rounds` for this query. */
     readonly maxRounds: number;
     /** PIC-50/51: the resolved provider for a synthesised `TransportError`. */
     readonly provider: string;
@@ -2701,7 +2701,7 @@ class LivePromptQueryModel implements QueryModelDriver {
     this.#queryText = deps.queryText;
     this.#readMessages = deps.readMessages;
     this.#activeTools = deps.activeTools;
-    this.#loomAbort = deps.loomAbort;
+    this.#thetaAbort = deps.thetaAbort;
     this.#governor = deps.governor;
     this.#maxRounds = deps.maxRounds;
     this.#provider = deps.provider;
@@ -2737,7 +2737,7 @@ class LivePromptQueryModel implements QueryModelDriver {
       // plain-text paths are unchanged (cancellation is handled by the loop's
       // checkpoint, so only a `transport` verdict diverts here).
       const probe = extractPromptModeQueryResult(this.#readMessages(), {
-        aborted: this.#loomAbort.signal.aborted,
+        aborted: this.#thetaAbort.signal.aborted,
         provider: this.#provider,
       });
       if (!probe.ok && probe.error.kind === "transport") {
@@ -2766,13 +2766,13 @@ class LivePromptQueryModel implements QueryModelDriver {
     const toolName = this.#exhaustion?.lastToolName ?? "respond";
     return {
       kind: "tool_use",
-      batch: [{ toolName, toolUseId: "loom-prompt-loop-exhausted" }],
+      batch: [{ toolName, toolUseId: "theta-prompt-loop-exhausted" }],
     };
   }
 
   runToolBatch(): Promise<readonly CommittedSideEffect[]> {
     // pi's native loop executes and commits the real tool calls inside the
-    // streamed turn; the loom-level batch (only ever the STAGE-B synthetic
+    // streamed turn; the theta-level batch (only ever the STAGE-B synthetic
     // exhaustion round) executes nothing.
     return Promise.resolve([]);
   }
@@ -2796,7 +2796,7 @@ class LivePromptQueryModel implements QueryModelDriver {
       return { kind: "transport", error: this.#transportFromThrow };
     }
     const probe = extractPromptModeQueryResult(this.#readMessages(), {
-      aborted: this.#loomAbort.signal.aborted,
+      aborted: this.#thetaAbort.signal.aborted,
       provider: this.#provider,
     });
     if (!probe.ok && probe.error.kind === "transport") {
@@ -2837,18 +2837,18 @@ class LivePromptQueryModel implements QueryModelDriver {
     // that never starts (or one that starts and ends within a single tick)
     // cannot hang. The final `waitForIdle` is the real-host completion barrier
     // (PIC-18) when the session binds one.
-    // PIC-17 active-set gating (QTL-4): install exactly the loom's callable set
+    // PIC-17 active-set gating (QTL-4): install exactly the theta's callable set
     // — its underlying Pi-tool names — as the model's active tools for the query
     // turn and restore the ambient set in a `finally`. The model can then call a
     // declared `tools:` entry (and query-time tool loops / ceiling #2 become
     // reachable), while the host session's ambient tools stay deliberately not
-    // inherited (a loom with no Pi tools in its set installs `[]`).
+    // inherited (a theta with no Pi tools in its set installs `[]`).
     const ambientTools = this.#pi.getActiveTools();
     this.#pi.setActiveTools([...this.#activeTools]);
     try {
       // PIC-50: `pi.sendUserMessage` is the only failure the call surface itself
       // can signal synchronously. Map such a throw to a `TransportError` (never
-      // `loom/runtime/internal-error`, never a swallowed `Ok("")`) and return
+      // `theta/runtime/internal-error`, never a swallowed `Ok("")`) and return
       // without issuing a turn; the driver surfaces it as the query's transport
       // `Err`. The `finally` still restores the ambient active set.
       try {
@@ -2858,12 +2858,12 @@ class LivePromptQueryModel implements QueryModelDriver {
         return;
       }
       await this.#pollWhile(() => this.#ctx.isIdle(), TURN_START_POLL_BOUND);
-      // CANCEL-2 (cancellation.md §Forwarding into `loomAbort`, slash-command
+      // CANCEL-2 (cancellation.md §Forwarding into `thetaAbort`, slash-command
       // entry): the turn is now streaming, so `ctx.signal` is defined for THIS
       // turn (it is `undefined` at idle slash-entry). Re-forward it INTO
-      // `loomAbort` so an Esc during the `@`-query turn flips the single source
+      // `thetaAbort` so an Esc during the `@`-query turn flips the single source
       // of truth every checkpoint gates on — the end-to-end "Esc during
-      // `@`-query" path. Idempotent: the one-shot guard on `loomAbort.abort()`
+      // `@`-query" path. Idempotent: the one-shot guard on `thetaAbort.abort()`
       // makes a repeat forward a no-op, and the listener is `{ once: true }` on
       // the per-turn transient `ctx.signal`, so no long-lived controller leaks.
       // Decision 6 / Increment B2: this PER-TURN forward's detach is deliberately
@@ -2872,15 +2872,15 @@ class LivePromptQueryModel implements QueryModelDriver {
       // GC'd with the turn), so collecting it would add per-turn push/splice
       // churn for no shutdown-lifetime benefit. Only the invocation-scoped bind
       // forwards are collected (sub-step 5 detaches those).
-      forwardSlashCommandCancel(this.#loomAbort, this.#ctx.signal);
+      forwardSlashCommandCancel(this.#thetaAbort, this.#ctx.signal);
       await this.#pollWhile(() => !this.#ctx.isIdle(), TURN_END_POLL_BOUND);
       await this.#ctx.waitForIdle();
       // CANCEL-2 (agent_end user-cancel trigger, CNCL-4 synthesised reason): a
       // turn that ended aborted without a forwarded source reason flips
-      // `loomAbort` with the synthesised `"loom cancelled by agent_end"` reason,
+      // `thetaAbort` with the synthesised `"theta cancelled by agent_end"` reason,
       // so the next checkpoint observes the cancellation.
-      if (this.#ctx.signal?.aborted === true && !this.#loomAbort.signal.aborted) {
-        abortForAgentEnd(this.#loomAbort);
+      if (this.#ctx.signal?.aborted === true && !this.#thetaAbort.signal.aborted) {
+        abortForAgentEnd(this.#thetaAbort);
       }
     } finally {
       this.#pi.setActiveTools(ambientTools);
@@ -2931,7 +2931,7 @@ class OffSessionQueryModel implements QueryModelDriver {
   constructor(deps: {
     readonly model: Model<Api> | undefined;
     readonly queryText: string;
-    /** CANCEL-3: the loom signal the provider-Promise swallowing guard reads at settlement. */
+    /** CANCEL-3: the theta signal the provider-Promise swallowing guard reads at settlement. */
     readonly signal: AbortSignal;
   }) {
     this.#model = deps.model;
@@ -2975,7 +2975,7 @@ class OffSessionModelUnavailableError extends Error {}
 
 /**
  * Construction inputs for the production subagent-mode `QueryModelDriver`
- * (STAGE A). The loom OWNS the tool loop: the driver holds the subagent's
+ * (STAGE A). The theta OWNS the tool loop: the driver holds the subagent's
  * PRIVATE conversation and drives it one `complete()` turn per free-phase round,
  * so the enclosing `runUntypedQueryLoop` / `runTypedQueryLoop` machinery
  * enforces `tool_loop.max_rounds` and surfaces `Err(tool_loop_exhausted)` on
@@ -2993,20 +2993,20 @@ export interface SubagentQueryModelDeps {
    * Issue ONE model completion given the accumulated private conversation and
    * the loop's cancellation signal, resolving to the assistant message. The
    * production closure calls pi-ai `complete()` against the resolved subagent
-   * model with the loom's `system:` prompt (SUBAG-1) and callable-set tool
-   * schemas (SUBAG-2), threading `loomAbort.signal` (CANCEL).
+   * model with the theta's `system:` prompt (SUBAG-1) and callable-set tool
+   * schemas (SUBAG-2), threading `thetaAbort.signal` (CANCEL).
    */
   readonly runCompletion: (
     messages: readonly Message[],
     signal: AbortSignal,
   ) => Promise<AssistantMessage>;
   /**
-   * Execute ONE model-emitted tool call through the loom's callable set and
+   * Execute ONE model-emitted tool call through the theta's callable set and
    * lower the outcome to the tool-result message fed back on the next turn.
    */
   readonly executeTool: (call: ToolCall, signal: AbortSignal) => Promise<ToolResultMessage>;
   /** The per-invocation cancel controller the loop's `signal` gates on. */
-  readonly loomAbort: AbortController;
+  readonly thetaAbort: AbortController;
   /** PIC-50/51: the resolved-model provider for a synthesised `TransportError`. */
   readonly provider: string;
 }
@@ -3029,7 +3029,7 @@ export function createSubagentQueryModel(deps: SubagentQueryModelDeps): QueryMod
 class SubagentQueryModel implements QueryModelDriver {
   readonly #runCompletion: SubagentQueryModelDeps["runCompletion"];
   readonly #executeTool: SubagentQueryModelDeps["executeTool"];
-  readonly #loomAbort: AbortController;
+  readonly #thetaAbort: AbortController;
   // PIC-50/51: the resolved-model provider for a synthesised `TransportError`
   // (mirrors `LivePromptQueryModel.#provider`).
   readonly #provider: string;
@@ -3045,7 +3045,7 @@ class SubagentQueryModel implements QueryModelDriver {
   constructor(deps: SubagentQueryModelDeps) {
     this.#runCompletion = deps.runCompletion;
     this.#executeTool = deps.executeTool;
-    this.#loomAbort = deps.loomAbort;
+    this.#thetaAbort = deps.thetaAbort;
     this.#provider = deps.provider;
     this.#messages = [{ role: "user", content: deps.queryText, timestamp: 0 }];
   }
@@ -3061,7 +3061,7 @@ class SubagentQueryModel implements QueryModelDriver {
   #probeTransport(): TransportError | undefined {
     const probe = extractSubagentQueryResult(
       { type: "agent_end", messages: this.#messages, willRetry: false },
-      { aborted: this.#loomAbort.signal.aborted, provider: this.#provider },
+      { aborted: this.#thetaAbort.signal.aborted, provider: this.#provider },
     );
     return !probe.ok && probe.error.kind === "transport"
       ? (probe.error as TransportError)
@@ -3071,24 +3071,24 @@ class SubagentQueryModel implements QueryModelDriver {
   async nextFreePhaseTurn(_round: number): Promise<FreePhaseTurn> {
     let reply: AssistantMessage;
     try {
-      reply = await this.#runCompletion(this.#messages, this.#loomAbort.signal);
+      reply = await this.#runCompletion(this.#messages, this.#thetaAbort.signal);
     } catch (thrown: unknown) { // allow-broad-catch: pi-sdk-boundary — cancel bounces to the loop's cancelled surface; a non-cancel complete() reject is a PIC-50 transport failure
-      // CANCEL: a completion aborted by `loomAbort` rejects; bounce an empty
+      // CANCEL: a completion aborted by `thetaAbort` rejects; bounce an empty
       // `tool_use` round so the loop's next round-boundary checkpoint surfaces
       // `Err(cancelled)`.
-      if (this.#loomAbort.signal.aborted) {
+      if (this.#thetaAbort.signal.aborted) {
         return { kind: "tool_use", batch: [] };
       }
       // PIC-50 (mirror of the prompt path's `sendUserMessage` sync-throw
       // mapping): a non-cancel `complete()` rejection is a provider transport
       // failure. Surface it as the free-phase `transport` turn — never escape as
-      // `loom/runtime/internal-error`, never mask as a terminating `Ok(text)`.
+      // `theta/runtime/internal-error`, never mask as a terminating `Ok(text)`.
       return { kind: "transport", error: mapPromptModeSyncThrow(thrown, this.#provider) };
     }
     // CANCEL: a cancellation that fired DURING the completion bounces an empty
     // round so the loop surfaces `Err(cancelled)` rather than binding a stale
     // reply as the terminating text.
-    if (this.#loomAbort.signal.aborted) {
+    if (this.#thetaAbort.signal.aborted) {
       return { kind: "tool_use", batch: [] };
     }
     this.#messages.push(reply);
@@ -3116,16 +3116,16 @@ class SubagentQueryModel implements QueryModelDriver {
   async runToolBatch(
     batch: readonly { readonly toolName: string; readonly toolUseId: string }[],
   ): Promise<readonly CommittedSideEffect[]> {
-    // Execute each sibling in the round's batch through the loom's callable set
+    // Execute each sibling in the round's batch through the theta's callable set
     // and feed every result (successful and failing alike) back into the
     // conversation as a tool-result turn, so the next `complete()` turn sees the
-    // outcomes. The driver commits no loom-level side effects here.
+    // outcomes. The driver commits no theta-level side effects here.
     for (const request of batch) {
       const call = this.#pending.get(request.toolUseId);
       if (call === undefined) {
         continue;
       }
-      const result = await this.#executeTool(call, this.#loomAbort.signal);
+      const result = await this.#executeTool(call, this.#thetaAbort.signal);
       this.#messages.push(result);
     }
     this.#pending = new Map();
@@ -3141,11 +3141,11 @@ class SubagentQueryModel implements QueryModelDriver {
     // text so the schema validation reports the mismatch.
     let reply: AssistantMessage;
     try {
-      reply = await this.#runCompletion(this.#messages, this.#loomAbort.signal);
+      reply = await this.#runCompletion(this.#messages, this.#thetaAbort.signal);
     } catch (thrown: unknown) { // allow-broad-catch: pi-sdk-boundary — an abort propagates unchanged; a non-cancel forced-respond reject is a PIC-50 transport failure
       // CANCEL: a cancellation during the forced-respond terminator propagates
       // unchanged (handled by the loop as before).
-      if (this.#loomAbort.signal.aborted) {
+      if (this.#thetaAbort.signal.aborted) {
         throw thrown;
       }
       // PIC-50 (mirror of the prompt path): a non-cancel forced-respond
@@ -3169,8 +3169,8 @@ class SubagentQueryModel implements QueryModelDriver {
 
 /**
  * STAGE A / ceiling #4 (model-driven row): lower ONE model-driven `tool_use`
- * call over the loom's callable set to the tool-result turn fed back on the
- * next `complete()` turn, reusing the SAME `#resolvePiToolForLoom` / `execute`
+ * call over the theta's callable set to the tool-result turn fed back on the
+ * next `complete()` turn, reusing the SAME `#resolvePiToolForTheta` / `execute`
  * path the code-driven `<name>(args)` calls use. Extracted from the STAGE-A
  * closure so the model-driven ceiling-#4 seam is deterministically testable
  * against a scripted `PiToolDispatch`.
@@ -3181,11 +3181,11 @@ class SubagentQueryModel implements QueryModelDriver {
  *     (frontmatter.md §`tools:`);
  *   - CEILING #4 (ceilings-3-and-4.md#ceiling-4-table, model-driven row;
  *     schema-subset.md §Depth Enforcement point #2; CIO-3 depth-walk-before-AJV):
- *     the loom-owned depth walk runs over the MODEL-produced `call.arguments`
+ *     the theta-owned depth walk runs over the MODEL-produced `call.arguments`
  *     *before* the tool body runs. A depth-6+ argument is fed back to the model
  *     as an `isError` tool-result carrying the canonical depth message — NEVER
  *     dispatched (the host tool's `execute()` is not called), NEVER surfaced as
- *     a loom `Err` or `ModelToolError`. The round still counts against
+ *     a theta `Err` or `ModelToolError`. The round still counts against
  *     `tool_loop.max_rounds` (this call runs inside a counted free-phase round)
  *     and the loop continues, re-trying naturally on the model's next turn. AJV
  *     against the presented tool schema cannot catch this — JSON Schema 2020-12
@@ -3202,7 +3202,7 @@ export async function lowerModelDrivenToolCall(
   if (dispatch === undefined) {
     return subagentToolResult(
       call,
-      `tool '${call.name}' is not available in this loom's callable set`,
+      `tool '${call.name}' is not available in this theta's callable set`,
       true,
     );
   }
@@ -3237,43 +3237,43 @@ function subagentToolResult(call: ToolCall, text: string, isError: boolean): Too
 }
 
 /**
- * SUBAG-2 model-callable `.loom`: the injected drive + setup-throw + param-order
- * collaborators the model-driven `.loom` adapter core dispatches through.
- * Extracted so the model-driven `.loom` seam (arg-mapping declaration order,
+ * SUBAG-2 model-callable `.theta`: the injected drive + setup-throw + param-order
+ * collaborators the model-driven `.theta` adapter core dispatches through.
+ * Extracted so the model-driven `.theta` seam (arg-mapping declaration order,
  * ceiling-#4 depth block, `Result` lowering, setup-throw translation,
  * re-entrancy) is deterministically testable against scripted collaborators —
  * the same extraction rationale as `lowerModelDrivenToolCall` for the Pi-tool
  * seam.
  */
-export interface ModelDrivenLoomCall {
+export interface ModelDrivenThetaCall {
   /** The callee's declared `params:` wire names, in DECLARATION ORDER. */
   readonly paramOrder: readonly string[];
   /**
-   * Drive the callee (equivalent to `#driveCallee` bound to the caller loom /
+   * Drive the callee (equivalent to `#driveCallee` bound to the caller theta /
    * ctx / chain) over the positional `argValues` mapped from the model's object
    * arguments, returning the callee's top-level `Result` (FN-5).
    */
   readonly driveCallee: (
-    argValues: readonly LoomValue[],
+    argValues: readonly ThetaValue[],
     toolSignal: AbortSignal,
   ) => Promise<ResultValue>;
   /**
    * Translate a non-`HostFatal` pre-eval setup / body throw into the model-facing
    * `{ text, isError: true }` pair, emitting the paired
-   * `loom/runtime/internal-error` diagnostic + `loom-system-note` as a side
+   * `theta/runtime/internal-error` diagnostic + `theta-system-note` as a side
    * effect (tool-calls.md:30). A `HostFatal` is NEVER passed here — the core
    * re-raises it (NOCEIL-3) before calling.
    */
-  readonly onSetupThrow: (thrown: unknown) => LoweredLoomCallableResult;
+  readonly onSetupThrow: (thrown: unknown) => LoweredThetaCallableResult;
 }
 
 /**
- * SUBAG-2 model-callable `.loom` (tool-calls.md §"Argument shape" / §Concurrency;
- * ceiling #4 model-driven row). Lower ONE model-driven `.loom`-callable
+ * SUBAG-2 model-callable `.theta` (tool-calls.md §"Argument shape" / §Concurrency;
+ * ceiling #4 model-driven row). Lower ONE model-driven `.theta`-callable
  * `tool_use` call to the model-facing text / `isError` pair, in order:
  *
  *   - CEILING #4 (ceilings-3-and-4.md#ceiling-4-table, model-driven row; CIO-3):
- *     the loom-owned depth walk runs over the MODEL-produced `args` document
+ *     the theta-owned depth walk runs over the MODEL-produced `args` document
  *     BEFORE the callee spawns — a depth-6+ argument is fed back as an `isError`
  *     result and the callee never spawns (identical to `lowerModelDrivenToolCall`
  *     for the Pi-tool arm; `#driveCallee`'s own per-arg `enforceInvokeParamsDepth`
@@ -3281,7 +3281,7 @@ export interface ModelDrivenLoomCall {
  *   - the model's object arguments are bound to positional `argValues` in the
  *     callee's `params:` DECLARATION ORDER (the SAME binding a code-side
  *     `<name>(args)` / `invoke(...)` uses) and the callee is driven;
- *   - a clean `Result` lowers via `lowerLoomCallableModelResult` (Ok → text;
+ *   - a clean `Result` lowers via `lowerThetaCallableModelResult` (Ok → text;
  *     Err → `isError`);
  *   - a non-`HostFatal` setup / body throw routes through `onSetupThrow`
  *     (tool-calls.md:30); a `HostFatal` re-raises (NOCEIL-3).
@@ -3290,19 +3290,19 @@ export interface ModelDrivenLoomCall {
  * `spec.driveCallee`, which spawns an independent `AgentSession` each
  * (tool-calls.md §Concurrency).
  */
-export async function lowerModelDrivenLoomCall(
+export async function lowerModelDrivenThetaCall(
   args: Record<string, unknown>,
-  spec: ModelDrivenLoomCall,
+  spec: ModelDrivenThetaCall,
   toolSignal: AbortSignal,
-): Promise<LoweredLoomCallableResult> {
+): Promise<LoweredThetaCallableResult> {
   const argDepthBreach = enforceModelToolArgDepth(args);
   if (argDepthBreach !== undefined) {
     return { text: argDepthBreach.message, isError: true };
   }
-  const argValues = spec.paramOrder.map((name) => (args[name] ?? null) as LoomValue);
+  const argValues = spec.paramOrder.map((name) => (args[name] ?? null) as ThetaValue);
   try {
-    return lowerLoomCallableModelResult(await spec.driveCallee(argValues, toolSignal));
-  } catch (thrown: unknown) { // allow-broad-catch: loom/runtime/internal-error — `.loom`-adapter pre-eval setup throw (tool-calls.md §"Outcome enumeration")
+    return lowerThetaCallableModelResult(await spec.driveCallee(argValues, toolSignal));
+  } catch (thrown: unknown) { // allow-broad-catch: theta/runtime/internal-error — `.theta`-adapter pre-eval setup throw (tool-calls.md §"Outcome enumeration")
     // NOCEIL-3 (hard-ceilings): a host fatal is the ONLY thing that propagates
     // (fail-fast); every other throw routes to the internal-error framing.
     if (thrown instanceof HostFatal) {
@@ -3337,8 +3337,8 @@ function renderTypedAwareQueryText(
   );
 }
 
-/** The loom body's `schema` declarations, for whole-file named-type resolution. */
-function schemaDeclsOf(body: LoomBody): SchemaDecl[] {
+/** The theta body's `schema` declarations, for whole-file named-type resolution. */
+function schemaDeclsOf(body: ThetaBody): SchemaDecl[] {
   return body.statements.filter((stmt): stmt is SchemaDecl => stmt.kind === "schema");
 }
 
@@ -3388,7 +3388,7 @@ async function offSessionComplete(
 /**
  * Drive ONE user-visible streamed turn against the shared user session and
  * return its trailing-turn assistant text. Mirrors `LivePromptQueryModel`'s turn
- * drive: install the caller-supplied active tools for the turn (the loom's
+ * drive: install the caller-supplied active tools for the turn (the theta's
  * callable set for a query follow-up, `[]` for the binder), issue the
  * fire-and-forget `pi.sendUserMessage`, then observe the run through
  * `ctx.isIdle()` (wait for it to begin streaming, then to go idle again) and the
@@ -3400,7 +3400,7 @@ async function driveStreamedUserTurn(deps: {
   readonly clock: Clock;
   readonly queryText: string;
   /**
-   * QTL-4: the active tool names to install for the turn (the loom's
+   * QTL-4: the active tool names to install for the turn (the theta's
    * callable-set underlying Pi-tool names for a query follow-up; `[]` for the
    * binder turn, which emits a structured envelope and calls no tools).
    */
@@ -3431,9 +3431,9 @@ async function driveStreamedUserTurn(deps: {
 
 /**
  * Render the binder-turn prompt: instruct the model to bind the raw slash
- * arguments into the loom's typed `params:` object and emit ONLY the minified
+ * arguments into the theta's typed `params:` object and emit ONLY the minified
  * three-arm envelope JSON (`ok | needs_info | ambiguous`) validating against the
- * per-loom envelope schema — no prose, no markdown, no code fences.
+ * per-theta envelope schema — no prose, no markdown, no code fences.
  */
 function renderBinderTurnPrompt(input: {
   readonly slashName: string;
@@ -3452,8 +3452,8 @@ function renderBinderTurnPrompt(input: {
       ? `Recent session context (most recent 20 turns / 8000 tokens):\n${input.sessionContext}\n`
       : "";
   return (
-    `You are the argument binder for the loom slash command /${input.slashName}. ` +
-    `Bind the raw slash-command arguments to the loom's typed parameters.\n\n` +
+    `You are the argument binder for the theta slash command /${input.slashName}. ` +
+    `Bind the raw slash-command arguments to the theta's typed parameters.\n\n` +
     sessionBlock +
     `Raw arguments: ${JSON.stringify(input.args)}\n\n` +
     `Parameter schema (JSON Schema): ${JSON.stringify(input.paramsSchema)}\n` +
@@ -3470,7 +3470,7 @@ function renderBinderTurnPrompt(input: {
 }
 
 /**
- * The routed classification of the off-session binder reply. `ok` runs the loom
+ * The routed classification of the off-session binder reply. `ok` runs the theta
  * body; `needs_info` / `ambiguous` carry the model's message for their
  * failure-mode note; `malformed` is a reply that does not parse as an envelope
  * object, carries an out-of-set `kind`, or whose model message is empty after
@@ -3521,7 +3521,7 @@ async function parseBinderEnvelope(text: string): Promise<BinderReplyRouting> {
  * the `string` arm is used for it. Object fields are taken from the value's own
  * keys in insertion order (declaration order for a binder-returned object).
  */
-function echoTypeFromValue(value: LoomValue, property: unknown): EchoType {
+function echoTypeFromValue(value: ThetaValue, property: unknown): EchoType {
   if (typeof value === "string") {
     return { kind: "string" };
   }
@@ -3541,7 +3541,7 @@ function echoTypeFromValue(value: LoomValue, property: unknown): EchoType {
         : undefined;
     const element =
       value.length > 0
-        ? echoTypeFromValue(value[0] as LoomValue, itemProp)
+        ? echoTypeFromValue(value[0] as ThetaValue, itemProp)
         : ({ kind: "string" } as EchoType);
     return { kind: "array", element };
   }
@@ -3552,7 +3552,7 @@ function echoTypeFromValue(value: LoomValue, property: unknown): EchoType {
           | Record<string, unknown>
           | undefined)
       : undefined;
-  const fields = Object.entries(value as Record<string, LoomValue>).map(
+  const fields = Object.entries(value as Record<string, ThetaValue>).map(
     ([name, fieldValue]) => ({
       name,
       type: echoTypeFromValue(fieldValue, props?.[name]),
@@ -3597,7 +3597,7 @@ function loweredSchemaKindIsInteger(property: unknown, value: number): boolean {
  */
 /**
  * Extract the YAML frontmatter block (the text between the leading `---` fence
- * and the next `---` line) from a `.loom` source, or `undefined` when the file
+ * and the next `---` line) from a `.theta` source, or `undefined` when the file
  * carries no fenced frontmatter. Mirrors the parser's own block isolation so the
  * re-read reads the same YAML the loader parsed; the `\r` trim handles CRLF
  * files. Used only to recover declared `params:` default literals the parsed
@@ -3701,7 +3701,7 @@ function renderQueryText(expr: QueryExpr, env: LexicalEnvironment): string {
  * to and evaluated by the shared pure evaluator, so arithmetic, indexing, calls,
  * method calls, ternaries, and `Enum.Variant` access all render their value
  * (EXPR-1/6/7/8, QRY-2/3/4). The `InterpolationType` discriminator is derived
- * from the resulting runtime `LoomValue` — numbers route through the canonical
+ * from the resulting runtime `ThetaValue` — numbers route through the canonical
  * decimal renderer (so `Infinity`/`NaN` render as `Infinity`/`NaN`, not
  * `null`), an enum renders its bare unquoted wire value, and arrays/objects
  * render as compact JSON. A `Result` value is not statically rejectable here
@@ -3722,8 +3722,8 @@ function stringifyInterpolation(source: string, env: LexicalEnvironment): string
     // `JSON.stringify` with wire-name translation applied recursively. The
     // outbound pass rewrites every renamed field to its wire name at every
     // nesting level, driven by each object value's declaring-schema brand (with
-    // the declared field type as a fallback for un-branded nested values); loom
-    // code never sees a wire name, and the model never sees a loom-side name.
+    // the declared field type as a fallback for un-branded nested values); theta
+    // code never sees a wire name, and the model never sees a theta-side name.
     return JSON.stringify(translateInterpolationOutbound(value, env));
   }
   const rendered = stringifyInterpolatedValue(value, type);
@@ -3736,7 +3736,7 @@ function stringifyInterpolation(source: string, env: LexicalEnvironment): string
 /**
  * Recursively lower an object/array interpolation value to its wire-named JSON
  * form (QRY-18 outbound wire-name translation, runtime-value-model.md §Wire-name
- * translation). Each object-schema value renames its fields loom→wire using the
+ * translation). Each object-schema value renames its fields theta→wire using the
  * schema resolved from the value's declaring-schema brand (attached at
  * construction) — falling back to the declared field type `typeHint` for a value
  * that carries no brand (e.g. a bare object literal in a schema-typed field).
@@ -3745,7 +3745,7 @@ function stringifyInterpolation(source: string, env: LexicalEnvironment): string
  * its keys unchanged (the safe no-rename default).
  */
 function translateInterpolationOutbound(
-  value: LoomValue,
+  value: ThetaValue,
   env: LexicalEnvironment,
   typeHint?: string,
 ): unknown {
@@ -3778,9 +3778,9 @@ function translateInterpolationOutbound(
   }
 
   const result: Record<string, unknown> = {};
-  for (const [loomKey, fieldValue] of Object.entries(value)) {
-    const field = fields.get(loomKey);
-    const wireKey = field?.wire ?? loomKey;
+  for (const [thetaKey, fieldValue] of Object.entries(value)) {
+    const field = fields.get(thetaKey);
+    const wireKey = field?.wire ?? thetaKey;
     result[wireKey] = translateInterpolationOutbound(fieldValue, env, field?.type);
   }
   return result;
@@ -3800,13 +3800,13 @@ function arrayElementTypeSource(source: string): string | undefined {
 
 /**
  * Derive the QRY-18 `InterpolationType` discriminator from a runtime
- * `LoomValue`. A number uses the `number` rule (canonical decimal, no trailing
+ * `ThetaValue`. A number uses the `number` rule (canonical decimal, no trailing
  * `.0`, `Infinity`/`NaN` verbatim); an enum uses the bare-wire `enum` rule; a
  * `Result` is rendered as compact JSON via the `object` arm, preserving the
  * prior non-crashing render (the static `result`-rejection arm is a parse-time
  * concern, not reachable on this runtime render path).
  */
-function interpolationTypeOf(value: LoomValue): InterpolationType {
+function interpolationTypeOf(value: ThetaValue): InterpolationType {
   if (typeof value === "string") {
     return { kind: "string" };
   }
@@ -3833,13 +3833,13 @@ function interpolationTypeOf(value: LoomValue): InterpolationType {
 
 /**
  * Evaluate a pure (non-checkpointed) sub-expression against the environment.
- * The shipped test looms' pure sub-expressions are literal / identifier reads;
+ * The shipped test thetas' pure sub-expressions are literal / identifier reads;
  * an identifier that resolves to a local binding yields its value, any other
  * resolution arm (a bare `fn` / callable name, or an unresolved name) has no
  * first-class readable value and yields `null` (the expressions.md runtime
  * safety net) rather than throwing out of the executor.
  */
-function evaluatePureExpression(expr: Expr, env: LexicalEnvironment): LoomValue {
+function evaluatePureExpression(expr: Expr, env: LexicalEnvironment): ThetaValue {
   switch (expr.kind) {
     case "number":
       return Number(expr.text);
@@ -3857,11 +3857,11 @@ function evaluatePureExpression(expr: Expr, env: LexicalEnvironment): LoomValue 
     case "object": {
       // An object-literal / schema-constructor value (expressions.md §"Object
       // construction"): the runtime value is the plain field object keyed by
-      // loom-side names. When the constructor names a declared `schema`, brand
-      // the value (non-enumerably, so no loom-visible surface changes) with that
+      // theta-side names. When the constructor names a declared `schema`, brand
+      // the value (non-enumerably, so no theta-visible surface changes) with that
       // schema name so the QRY-18 interpolation render path can recover the
       // schema and apply outbound wire-name translation recursively.
-      const obj: Record<string, LoomValue> = {};
+      const obj: Record<string, ThetaValue> = {};
       for (const field of expr.fields) {
         obj[field.name] = evaluatePureExpression(field.value, env);
       }
@@ -3896,7 +3896,7 @@ function evaluatePureExpression(expr: Expr, env: LexicalEnvironment): LoomValue 
       // interpoland) the value is produced synchronously against a pure body;
       // an effectful `fn` body cannot run on the pure path and yields the inert
       // `null` safety net (its effects are driven only by the executor). A
-      // non-`fn` callee (a Pi tool / `.loom`-callable) is an effect with no
+      // non-`fn` callee (a Pi tool / `.theta`-callable) is an effect with no
       // synchronous value — also the `null` safety net.
       const resolution = env.resolve(expr.callee);
       const fn =
@@ -3938,7 +3938,7 @@ function evaluatePureExpression(expr: Expr, env: LexicalEnvironment): LoomValue 
 /**
  * Evaluate a pure user `fn` call synchronously (functions.md FN-1…FN-5) for a
  * pure sub-expression position: validate arity (a mismatch is a defect surfaced
- * as `LoomFnArityError`, shared with the executor's async path), evaluate each
+ * as `ThetaFnArityError`, shared with the executor's async path), evaluate each
  * argument in the caller scope, bind it as an immutable local in a fresh child
  * scope, then evaluate the `fn` body's pure statements + tail. The evaluator
  * covers the pure body forms (`let`, `if`/`else`, `return`, expression
@@ -3946,9 +3946,9 @@ function evaluatePureExpression(expr: Expr, env: LexicalEnvironment): LoomValue 
  * loop has no synchronous pure value and short-circuits to the `null` safety
  * net, matching the surrounding pure-evaluator convention.
  */
-function evaluatePureFnCall(fn: FnDecl, expr: CallExpr, env: LexicalEnvironment): LoomValue {
+function evaluatePureFnCall(fn: FnDecl, expr: CallExpr, env: LexicalEnvironment): ThetaValue {
   if (expr.args.length !== fn.params.length) {
-    throw new LoomFnArityError(fn.name, fn.params.length, expr.args.length);
+    throw new ThetaFnArityError(fn.name, fn.params.length, expr.args.length);
   }
   const scope = env.child();
   fn.params.forEach((param, index) => {
@@ -3959,8 +3959,8 @@ function evaluatePureFnCall(fn: FnDecl, expr: CallExpr, env: LexicalEnvironment)
 
 /** The outcome of evaluating a pure block: a fallen-through value or an explicit `return`. */
 type PureBlockOutcome =
-  | { readonly kind: "value"; readonly value: LoomValue }
-  | { readonly kind: "return"; readonly value: LoomValue };
+  | { readonly kind: "value"; readonly value: ThetaValue }
+  | { readonly kind: "return"; readonly value: ThetaValue };
 
 /**
  * Evaluate a pure `fn` body `Block` synchronously: walk its statements, then
@@ -4031,14 +4031,14 @@ function evaluatePureIf(
  * stdlib modules so `replace`'s `$`-literal insertion and the `valuesEqual`
  * structural equality of `includes` / `indexOf` match the reference semantics.
  * A receiver with no stdlib member surface (number / boolean / null) has no
- * loom-1.0 method and yields the inert `null` safety net rather than throwing
+ * theta-1.0 method and yields the inert `null` safety net rather than throwing
  * out of the executor.
  */
 function evaluateStdlibMethod(
-  receiver: LoomValue,
+  receiver: ThetaValue,
   method: string,
-  args: readonly LoomValue[],
-): LoomValue {
+  args: readonly ThetaValue[],
+): ThetaValue {
   if (typeof receiver === "string") {
     return evaluateStringMember(receiver, method, args);
   }
@@ -4046,7 +4046,7 @@ function evaluateStdlibMethod(
     return evaluateArrayMember(receiver, method, args);
   }
   if (typeof receiver === "object" && receiver !== null) {
-    return evaluateObjectMember(receiver as { readonly [k: string]: LoomValue }, method, args);
+    return evaluateObjectMember(receiver as { readonly [k: string]: ThetaValue }, method, args);
   }
   return null;
 }
@@ -4063,7 +4063,7 @@ function evaluateBinaryExpression(
   leftExpr: Expr,
   rightExpr: Expr,
   env: LexicalEnvironment,
-): LoomValue {
+): ThetaValue {
   if (op === "!") {
     return !(evaluatePureExpression(rightExpr, env) as boolean);
   }

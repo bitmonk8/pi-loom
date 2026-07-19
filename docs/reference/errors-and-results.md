@@ -3,19 +3,19 @@
 Terminal outcomes, the pre-evaluation failure surface, runtime panics, the
 `QueryError` variant schemas, and the final-value contract. See
 [Grammar](./grammar.md) for `match`/`?`, [Diagnostics](./diagnostics.md) for
-`loom/runtime/*` codes, [Hard ceilings](./hard-ceilings.md) for ceiling routing.
+`theta/runtime/*` codes, [Hard ceilings](./hard-ceilings.md) for ceiling routing.
 
 All queries return `Result<T, QueryError>`. `Result<T, E>` is a built-in
 two-variant type with constructors `Ok(value)` and `Err(error)`; observed only via
 `Ok`/`Err` constructors, `match`, and `?`. User-defined error types beyond
-`QueryError` are out of scope for loom 1.0.
+`QueryError` are out of scope for theta 1.0.
 
 ## Terminal outcomes (closed set)
 
-Loom evaluation produces one of three terminal outcomes:
+Theta evaluation produces one of three terminal outcomes:
 
 - **Success.** The body ran to completion. Appended turns remain in the driven
-  conversation; the loom's *final value* is available to programmatic callers.
+  conversation; the theta's *final value* is available to programmatic callers.
 - **Failure.** The body returned `Err` (via `?` or explicit `Err(...)`), panicked
   (closed list below), or exhausted a runtime-class hard ceiling whose breach
   reaches the *fail* arm (panic-class breaches unconditionally; `Err`-class
@@ -29,15 +29,15 @@ Loom evaluation produces one of three terminal outcomes:
 Excluded from the *fail* arm (not evaluation Failures): (a) binder
 argument-binding failure, including ceiling #4's slash-load `params` arm; (b)
 ceiling #4's in-loop model-driven tool-call args row — when it fires, no `Err`
-flows to loom code and no `loom-system-note` is rendered at that event; an `Err`
-reaches loom code only if ceiling #2 subsequently exhausts, and its `kind` is
+flows to theta code and no `theta-system-note` is rendered at that event; an `Err`
+reaches theta code only if ceiling #2 subsequently exhausts, and its `kind` is
 `tool_loop_exhausted`.
 
 ## Pre-evaluation failure surface
 
-The trichotomy applies only once evaluation has begun. The complete loom 1.0.0 set
+The trichotomy applies only once evaluation has begun. The complete theta 1.0.0 set
 of failures occurring *before* evaluation begins (eight items; each surfaces on the
-`loom-system-note` channel with `triggerTurn: false`, produces no final value, and
+`theta-system-note` channel with `triggerTurn: false`, produces no final value, and
 is not subject to cancellation):
 
 1. **ERR-1** — host-incompatibility detected by the capability probe.
@@ -61,11 +61,11 @@ a separate evaluation-time failure of its own,
 - **ERR-13 (No rollback).** Neither `?` nor a panic nor cancellation unwinds prior
   side effects. Tool calls already returned, queries already appended, and `invoke`
   children already run remain final on early return, abort, or cancellation.
-  Applies uniformly to `?` early-return, top-of-loom `?`, a slash-command panic,
+  Applies uniformly to `?` early-return, top-of-theta `?`, a slash-command panic,
   and a panic in an `invoke` child. Idempotency and compensation are the author's
   responsibility.
 - **Partial-append contract.** Turns appended *before* the terminal event remain in
-  the conversation the loom was driving (caller's conversation in prompt mode; the
+  the conversation the theta was driving (caller's conversation in prompt mode; the
   disposable subagent conversation in subagent mode). The runtime performs no
   implicit rollback; the contract is turn-grain.
 - **Mid-stream cancellation** (ERR-8…ERR-12): the runtime MUST NOT mutate
@@ -78,21 +78,21 @@ a separate evaluation-time failure of its own,
 ## Runtime panics
 
 Some failures cannot be expressed as a `Result` and are surfaced as **panics** that
-abort the loom immediately, bypassing `?` and `match`. The closed loom 1.0.0
-panic-source list, each with its registered `loom/runtime/*` code:
+abort the theta immediately, bypassing `?` and `match`. The closed theta 1.0.0
+panic-source list, each with its registered `theta/runtime/*` code:
 
-- Non-exhaustive `match` — `loom/runtime/match-error`.
-- Array index out of bounds — `loom/runtime/index-out-of-bounds`.
-- `.field` access on `null` — `loom/runtime/null-member-access`.
-- `[i]` access on `null` — `loom/runtime/null-index-access`.
-- Indexed access on a missing object key — `loom/runtime/missing-object-key`.
-- `invoke` chain depth exceeded — `loom/runtime/invoke-depth-exceeded`.
+- Non-exhaustive `match` — `theta/runtime/match-error`.
+- Array index out of bounds — `theta/runtime/index-out-of-bounds`.
+- `.field` access on `null` — `theta/runtime/null-member-access`.
+- `[i]` access on `null` — `theta/runtime/null-index-access`.
+- Indexed access on a missing object key — `theta/runtime/missing-object-key`.
+- `invoke` chain depth exceeded — `theta/runtime/invoke-depth-exceeded`.
 
 Division by zero, modulo by zero, integer overflow, and explicit author-driven
 panics are deliberately excluded. Separately, *unexpected interpreter exceptions*
 (any throw the runtime did not anticipate, outside the six sources — including
 throws from the pre-evaluation dispatch-setup frame) form the **runtime-defect
-surface**: same routing channels as panics, but code `loom/runtime/internal-error`
+surface**: same routing channels as panics, but code `theta/runtime/internal-error`
 and `cause: "internal_error"` on `InvokeInfraError`. The catchable
 allocation-failure family (`RangeError: Invalid string length` / `Invalid array
 length` / `Maximum call stack size exceeded`) routes here; *uncatchable* host
@@ -103,23 +103,23 @@ formatted from its registered *Message template* (see [Diagnostics](./diagnostic
 
 | Code | Message template |
 |---|---|
-| `loom/runtime/match-error` | `MatchError: no arm matched <scrutinee summary>` |
-| `loom/runtime/index-out-of-bounds` | `index out of bounds: <i> not in 0..<length>` |
-| `loom/runtime/null-member-access` | `null member access: .<field>` |
-| `loom/runtime/null-index-access` | `null index access: [<i>]` |
-| `loom/runtime/missing-object-key` | `missing object key: <key>` |
-| `loom/runtime/invoke-depth-exceeded` | `invoke chain depth exceeded: <depth> > 32` |
+| `theta/runtime/match-error` | `MatchError: no arm matched <scrutinee summary>` |
+| `theta/runtime/index-out-of-bounds` | `index out of bounds: <i> not in 0..<length>` |
+| `theta/runtime/null-member-access` | `null member access: .<field>` |
+| `theta/runtime/null-index-access` | `null index access: [<i>]` |
+| `theta/runtime/missing-object-key` | `missing object key: <key>` |
+| `theta/runtime/invoke-depth-exceeded` | `invoke chain depth exceeded: <depth> > 32` |
 
 There is exactly one message string per panic, unchanged across every routing
 surface. Panics surface to the caller as: **slash-command / prompt-mode** — one
-`loom-system-note` `"loom /<name> aborted: <message>"` (session not torn down);
+`theta-system-note` `"theta /<name> aborted: <message>"` (session not torn down);
 **`invoke` parent** — `Err(QueryError { kind: "invoke_infra", cause: "panic",
 message: <message>, ... })`. Panics are not values — they do not flow through `?`
 and cannot be caught by `match`.
 
 ## `QueryError` variants
 
-```loom
+```theta
 schema QueryError = ValidationError
                   | TransportError
                   | ModelToolError
@@ -145,7 +145,7 @@ type-shape of code destructuring `QueryError`. The runtime never emits an unlist
 Fires when a typed query's final response fails AJV validation (incl.
 respond-repair exhaustion), or on the empty-rendered-template short-circuit.
 
-```loom
+```theta
 schema ValidationIssue {
   path: string,           // JSON pointer, e.g. "/issues/0/severity"
   message: string,
@@ -174,19 +174,19 @@ canonical deterministic order: a stable ascending sort keyed on the tuple
 `validation_errors[0]` is therefore well-defined.
 
 **ERR-17 (forced-respond non-compliance).** When a typed query's forced respond
-turn does not invoke `__loom_respond_<slug>`, the runtime synthesises one
+turn does not invoke `__theta_respond_<slug>`, the runtime synthesises one
 `ValidationIssue` (`path: ""`, `schema_keyword: "required"`) and feeds it into the
 `schema_validation` respond-repair pipeline. The `message` literal is
 `"model returned plain text instead of calling the forced respond tool"`
 (plain-text branch) or
 `"model invoked tool '<provider-emitted-tool-name>' instead of the forced respond
-tool '__loom_respond_<slug>'"` (wrong-tool branch). Terminal exhaustion returns
+tool '__theta_respond_<slug>'"` (wrong-tool branch). Terminal exhaustion returns
 `kind: "validation", cause: "schema_validation", message: "model did not call the
 forced respond tool"`.
 
 ### `TransportError`
 
-```loom
+```theta
 schema TransportError {
   kind: "transport",
   message: string,
@@ -203,7 +203,7 @@ Fires on a non-recoverable adapter-layer failure of the model's tool-call loop
 feeding a tool-result back). An in-loop tool failure the runtime can lower to a
 tool-result does **not** fire this variant.
 
-```loom
+```theta
 schema ModelToolError {
   kind: "model_tool",
   message: string,
@@ -215,7 +215,7 @@ schema ModelToolError {
 
 ### `ContextOverflowError`
 
-```loom
+```theta
 schema ContextOverflowError {
   kind: "context_overflow",
   message: string,
@@ -227,7 +227,7 @@ schema ContextOverflowError {
 
 ### `CancelledError`
 
-```loom
+```theta
 schema CancelledError {
   kind: "cancelled",
   message: string
@@ -238,21 +238,21 @@ schema CancelledError {
 
 Fires when the per-query tool-call round cap is reached without a terminating turn.
 
-```loom
+```theta
 schema ToolLoopExhaustedError {
   kind: "tool_loop_exhausted",
   message: string,
   rounds: number,                // == tool_loop.max_rounds on exhaustion
-  last_tool_name: string | null, // null branch has no loom 1.0-reachable case; retained for forward compat
+  last_tool_name: string | null, // null branch has no theta 1.0-reachable case; retained for forward compat
   raw_response: string | null
 }
 ```
 
 ### `CodeToolError`
 
-Fires when loom code invoked a tool via `<name>(args)` and the call failed.
+Fires when theta code invoked a tool via `<name>(args)` and the call failed.
 
-```loom
+```theta
 schema CodeToolError {
   kind: "code_tool",
   message: string,
@@ -268,7 +268,7 @@ schema CodeToolError {
 
 Covers everything *around* the callee body.
 
-```loom
+```theta
 schema InvokeInfraError {
   kind: "invoke_infra",
   message: string,
@@ -287,7 +287,7 @@ schema InvokeInfraError {
 
 Wraps an `Err` the callee itself returned.
 
-```loom
+```theta
 schema InvokeCalleeError {
   kind: "invoke_callee",
   message: string,
@@ -302,7 +302,7 @@ it only when text accompanied the terminating tool-use block.
 
 ## Final value (FN-5)
 
-A loom's or function's *final value* is the value of its tail expression on the
+A theta's or function's *final value* is the value of its tail expression on the
 success path, the operand of a short-circuiting `return expr`, or the literal
 `null` (empty-tail body). It is observable to programmatic callers in two places:
 an `invoke` parent receives it as the `Ok` payload; a subagent-mode parent

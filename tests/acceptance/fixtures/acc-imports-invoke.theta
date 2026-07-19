@@ -1,0 +1,9 @@
+---
+mode: prompt
+---
+// H9a acceptance area (g) — imports / invoke across thetas.
+// Imports a fn from a sibling `.thetalib` and invokes a sibling subagent-mode
+// `.theta`; invariant set: no-error exit + permitted codes only.
+import { tagline } from "./acc-lib.thetalib"
+invoke("./acc-child.theta")
+tagline()

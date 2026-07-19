@@ -10,7 +10,7 @@
 // completed callee's side effect survives a downstream terminal event by
 // construction rather than by an undo being suppressed. The runtime does not
 // roll back, compensate, or enumerate completed side effects to the caller or
-// operator; idempotency and compensation are the loom author's responsibility.
+// operator; idempotency and compensation are the theta author's responsibility.
 //
 // V4f-T declared the seam — the enumerated authoring sites
 // (`NoRollbackAuthoringSite`), the terminal-event kinds (`NoRollbackTerminalEvent`),
@@ -37,8 +37,8 @@ export type NoRollbackTerminalEvent = "question" | "panic" | "cancellation";
 /**
  * The six enumerated ERR-13 authoring sites the guarantee is witnessed on:
  *   1. a `?`-early-return inside a function;
- *   2. a `?`-early-return at the top of a loom block;
- *   3. a panic in a slash-command loom;
+ *   2. a `?`-early-return at the top of a theta block;
+ *   3. a panic in a slash-command theta;
  *   4. a panic in an `invoke` child (parent observes `InvokeInfraError { cause: "panic" }`);
  *   5. a mid-execution cancellation; and
  *   6. completed-callee finality — a tool call / `invoke` child driven to
@@ -48,7 +48,7 @@ export type NoRollbackTerminalEvent = "question" | "panic" | "cancellation";
  */
 export type NoRollbackAuthoringSite =
   | "question-early-return-in-function"
-  | "question-early-return-loom-block"
+  | "question-early-return-theta-block"
   | "panic-slash-command"
   | "panic-invoke-child"
   | "mid-execution-cancellation"
@@ -57,7 +57,7 @@ export type NoRollbackAuthoringSite =
 /** The enumerated ERR-13 authoring sites, in the order the spec lists them. */
 export const NO_ROLLBACK_AUTHORING_SITES = [
   "question-early-return-in-function",
-  "question-early-return-loom-block",
+  "question-early-return-theta-block",
   "panic-slash-command",
   "panic-invoke-child",
   "mid-execution-cancellation",
@@ -70,7 +70,7 @@ export const NO_ROLLBACK_AUTHORING_SITES = [
  * a tool call that has already returned, a query already appended to the
  * conversation, an `invoke` child that has already run, and the external side
  * effects the §"Cancellation behaves the same way" paragraph enumerates
- * (filesystem writes, network requests, calls into Pi-side services, sub-loom
+ * (filesystem writes, network requests, calls into Pi-side services, sub-theta
  * mutations).
  */
 export type CommittedSideEffectKind =
@@ -80,7 +80,7 @@ export type CommittedSideEffectKind =
   | "filesystem-write"
   | "network-request"
   | "pi-service-call"
-  | "sub-loom-mutation";
+  | "sub-theta-mutation";
 
 /** One side effect a completed callee produced before the terminal event. */
 export interface CommittedSideEffect {
@@ -144,14 +144,14 @@ export function handleNoRollbackTerminalEvent(
 ): void {
   // ERR-13 — the no-rollback guarantee is architectural: the runtime contains no
   // compensating / rollback path. Uniformly across the six enumerated authoring
-  // sites (`?` early-return in a function, `?` at the top of a loom block, a
-  // panic in a slash-command loom, a panic in an `invoke` child, a mid-execution
+  // sites (`?` early-return in a function, `?` at the top of a theta block, a
+  // panic in a slash-command theta, a panic in an `invoke` child, a mid-execution
   // cancellation, and completed-callee finality) the runtime unwinds no prior
   // side effect, enumerates no completed side effect to the caller / operator,
   // and injects no compensating turn. The compliant body therefore calls NOTHING
   // on `_compensator`: the committed side effects a completed callee produced
   // (`_outcome.committed`) stay final by construction, and the `_compensator`
   // surface exists only so a test can witness that the runtime never touches it.
-  // Idempotency and compensation are the loom author's responsibility, not the
+  // Idempotency and compensation are the theta author's responsibility, not the
   // runtime's.
 }

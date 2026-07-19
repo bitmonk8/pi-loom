@@ -10,12 +10,12 @@
 //     `discovery/package-and-settings.md#caching-and-reload`, code-keyed area
 //     `cka-36`);
 //   - the across-window rebuild-serialization guard (PIC-49): at most one
-//     rebuild runs against the live `LoomRegistry`, AJV validator cache, and
+//     rebuild runs against the live `ThetaRegistry`, AJV validator cache, and
 //     prompt-mode registration cache at a time, so a debounce timer firing
 //     while a prior window's rebuild is still awaiting its asynchronous steps
 //     defers rather than starting a concurrent rebuild, and the in-flight guard
 //     releases on the in-flight rebuild's single synchronous publish or its
-//     `loom/runtime/registry-swap-failed` discard.
+//     `theta/runtime/registry-swap-failed` discard.
 //
 // V10d-T (tests-task) declares the seam shape and stubs the behaviour-bearing
 // method so the failing tests compile and red on their own primary assertions
@@ -32,7 +32,7 @@ import type { Clock, TimerHandle } from "../seams/clock";
 
 /**
  * The default debounce window in milliseconds. The `250 ms` figure is an
- * implementer tuning choice, not part of loom's observable contract
+ * implementer tuning choice, not part of theta's observable contract
  * (registration-steps.md — the contracted behaviour is burst-coalescing under
  * the injected `Clock` seam, not the literal value); it is overridable via
  * `ReloadDebouncerDeps.windowMs`.
@@ -41,7 +41,7 @@ export const RELOAD_DEBOUNCE_WINDOW_MS = 250;
 
 /**
  * The completion outcome of one rebuild: the single synchronous publish
- * (`"published"`) or the `loom/runtime/registry-swap-failed` discard
+ * (`"published"`) or the `theta/runtime/registry-swap-failed` discard
  * (`"discarded"`), per PIC-36. The PIC-49 in-flight guard releases on either
  * outcome — both settle the in-flight rebuild's promise.
  */
@@ -54,7 +54,7 @@ export interface ReloadDebouncerDeps {
   /**
    * Run one rebuild against the live registry / validator cache / registration
    * cache. Resolves on the rebuild's single synchronous publish or its
-   * `loom/runtime/registry-swap-failed` discard (the PIC-36 completion signal
+   * `theta/runtime/registry-swap-failed` discard (the PIC-36 completion signal
    * V9b owns); the returned promise settling is the PIC-49 guard-release event.
    */
   readonly rebuild: () => Promise<RebuildOutcome>;
@@ -85,7 +85,7 @@ export class ReloadDebouncer {
   }
 
   /**
-   * A watcher event for an existing loom / `.warp` / settings file: clear the
+   * A watcher event for an existing theta / `.thetalib` / settings file: clear the
    * pending timer and reschedule (drop-and-reschedule coalescing), holding only
    * the most-recent handle, so a burst of writes within one window coalesces
    * into a single reload firing `windowMs` after the last event. When the
@@ -132,7 +132,7 @@ export class ReloadDebouncer {
   /**
    * Run one rebuild under the in-flight guard. The guard releases on the
    * rebuild's completion signal (the PIC-36 single synchronous publish or the
-   * `loom/runtime/registry-swap-failed` discard V9b owns) — both settle the
+   * `theta/runtime/registry-swap-failed` discard V9b owns) — both settle the
    * returned promise — after which a deferred window's rebuild runs.
    */
   #startRebuild(): void {

@@ -6,7 +6,7 @@
 // resumes; the forced-respond turn runs off-session with no transcript card; on
 // an `Err` propagated by `?` after partial assistant text, and on mid-stream
 // cancellation, the streamed prefix is retained and the failure/cancellation
-// `loom-system-note` is appended AFTER the prefix, never interleaved).
+// `theta-system-note` is appended AFTER the prefix, never interleaved).
 //
 // The streaming-ordering coverage runs through the in-process Pi session double
 // (H4a), whose `ctx.waitForIdle()`-vs-streaming ordering is the one the
@@ -15,7 +15,7 @@
 // Every test reds on its own primary assertion while `V12a` is absent, because
 // the `slash-dispatch.ts` seam stub is deliberately NON-COMPLIANT:
 //   - `renderNoParamsOverflowNote` returns a sentinel, not the SLSH-1 template;
-//   - `dispatchNoParamsLoom` emits the overflow note unconditionally (ignoring
+//   - `dispatchNoParamsTheta` emits the overflow note unconditionally (ignoring
 //     the trim-to-empty and slash-path-only rules);
 //   - `rendersTranscriptCard` reports the off-session forced-respond turn as
 //     card-rendering;
@@ -25,7 +25,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
-  dispatchNoParamsLoom,
+  dispatchNoParamsTheta,
   driveSlashPromptTurn,
   rendersTranscriptCard,
   renderNoParamsOverflowNote,
@@ -68,8 +68,8 @@ describe("V12a-T — SLSH-1 no-params slash-argument overflow", () => {
     const h = makeNoParamsHarness();
 
     // Surrounding slash-argument whitespace is trimmed; the remainder is
-    // non-empty, so the overflow note fires before the loom runs.
-    await dispatchNoParamsLoom(
+    // non-empty, so the overflow note fires before the theta runs.
+    await dispatchNoParamsTheta(
       { name: "greet", caller: "slash", rawArgs: "  TypeScript stuff  " },
       h.deps,
     );
@@ -77,27 +77,27 @@ describe("V12a-T — SLSH-1 no-params slash-argument overflow", () => {
     // SLSH-1 primary assertion: exactly one note, whose rendered string is the
     // normative SLSH-1 template with `<name>` interpolated (em-dash separator).
     expect(h.notes).toEqual([
-      "loom /greet: ignoring extra arguments — this loom takes no parameters",
+      "theta /greet: ignoring extra arguments — this theta takes no parameters",
     ]);
-    // The note never blocks execution: the loom still runs, and after the note.
+    // The note never blocks execution: the theta still runs, and after the note.
     expect(h.runLog).toEqual(["ran"]);
     // The renderer itself produces the same normative SLSH-1 string.
     expect(renderNoParamsOverflowNote("greet")).toBe(
-      "loom /greet: ignoring extra arguments — this loom takes no parameters",
+      "theta /greet: ignoring extra arguments — this theta takes no parameters",
     );
   });
 
   it("SLSH-1: a whitespace-only remainder trims to empty and emits no note (still runs)", async () => {
     const h = makeNoParamsHarness();
 
-    await dispatchNoParamsLoom(
+    await dispatchNoParamsTheta(
       { name: "greet", caller: "slash", rawArgs: "   \t  " },
       h.deps,
     );
 
     // SLSH-1: whitespace-only remainders trim to empty and emit no note.
     expect(h.notes).toEqual([]);
-    // The loom still runs — the note's absence does not gate execution.
+    // The theta still runs — the note's absence does not gate execution.
     expect(h.runLog).toEqual(["ran"]);
   });
 
@@ -105,11 +105,11 @@ describe("V12a-T — SLSH-1 no-params slash-argument overflow", () => {
     const invoke = makeNoParamsHarness();
     const tool = makeNoParamsHarness();
 
-    await dispatchNoParamsLoom(
+    await dispatchNoParamsTheta(
       { name: "greet", caller: "invoke", rawArgs: "extra text an invoke passed" },
       invoke.deps,
     );
-    await dispatchNoParamsLoom(
+    await dispatchNoParamsTheta(
       { name: "greet", caller: "tool", rawArgs: "extra text a tool passed" },
       tool.deps,
     );
@@ -118,7 +118,7 @@ describe("V12a-T — SLSH-1 no-params slash-argument overflow", () => {
     // and have no notion of "extra text" — no overflow note is emitted.
     expect(invoke.notes).toEqual([]);
     expect(tool.notes).toEqual([]);
-    // The loom still runs on both non-slash paths.
+    // The theta still runs on both non-slash paths.
     expect(invoke.runLog).toEqual(["ran"]);
     expect(tool.runLog).toEqual(["ran"]);
   });
@@ -183,7 +183,7 @@ describe("V12a-T — SLSH-2 user-visible streaming ordering", () => {
   it("SLSH-2: on an Err after partial assistant text, the streamed prefix is retained and the failure note is appended AFTER it (not interleaved)", async () => {
     const double = new SessionDouble();
     double.programResponse(["par", "tial ", "answer"]);
-    const failureNote = "loom /greet returned Err: transport — connection reset";
+    const failureNote = "theta /greet returned Err: transport — connection reset";
 
     await driveSlashPromptTurn(
       "Greet the user.",
@@ -194,7 +194,7 @@ describe("V12a-T — SLSH-2 user-visible streaming ordering", () => {
     await double.ctx.waitForIdle();
 
     const log = double.events;
-    // SLSH-2 primary assertion: the failure `loom-system-note` is appended after
+    // SLSH-2 primary assertion: the failure `theta-system-note` is appended after
     // the streamed prefix — after the terminal `agent-end` — not interleaved
     // with the streamed tokens.
     expect(log.indexOf("system-note")).toBeGreaterThan(log.indexOf("agent-end"));
@@ -209,7 +209,7 @@ describe("V12a-T — SLSH-2 user-visible streaming ordering", () => {
   it("SLSH-2: on mid-stream cancellation, the partial prefix is retained and the cancellation note is appended AFTER it (not interleaved)", async () => {
     const double = new SessionDouble();
     double.programResponse(["a", "b", "c", "d", "e", "f"]);
-    const cancelNote = "loom /greet cancelled";
+    const cancelNote = "theta /greet cancelled";
 
     const driven = driveSlashPromptTurn(
       "Greet the user.",

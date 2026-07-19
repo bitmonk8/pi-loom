@@ -7,4 +7,4 @@ drops only FRNT-2.
 
 <a id="frnt-1"></a> **FRNT-1.** The loader MUST reject a malformed frontmatter block. (runtime obligation)
 
-<a id="frnt-2"></a> **FRNT-2.** *Callable-set terminology.* Authors and implementers MUST use the term `callable set` for the per-loom resolved tool list. The rule is purely terminology — no runtime behaviour changes.
+<a id="frnt-2"></a> **FRNT-2.** *Callable-set terminology.* Authors and implementers MUST use the term `callable set` for the per-theta resolved tool list. The rule is purely terminology — no runtime behaviour changes.

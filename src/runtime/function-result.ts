@@ -1,7 +1,7 @@
 // V3d / V3d-T — the function-result final-value seam (FN-4 void discard, FN-5).
 //
 // This module owns the runtime function-result seam at which a function or
-// top-level loom's *final value* is observed by a programmatic caller
+// top-level theta's *final value* is observed by a programmatic caller
 // (functions.md FN-4 §Empty-tail body and FN-5 §Final value):
 //
 //   - FN-5 (Final value) — on the success path the body's produced value flows
@@ -20,10 +20,10 @@
 // compile error, a missing fixture, or a harness throw. The paired V3d
 // implementation leaf fills these in.
 
-import { type LoomValue } from "./value";
+import { type ThetaValue } from "./value";
 
 /**
- * A terminal outcome of running a function or top-level loom body
+ * A terminal outcome of running a function or top-level theta body
  * (errors-and-results/error-model.md §Terminal outcomes), as seen by the
  * final-value seam:
  *
@@ -41,7 +41,7 @@ export type TerminalOutcome = "success" | "fail" | "cancel";
  */
 export interface FunctionResult {
   readonly present: boolean;
-  readonly value?: LoomValue;
+  readonly value?: ThetaValue;
 }
 
 /**
@@ -52,7 +52,7 @@ export interface FunctionResult {
  */
 export function functionResult(
   outcome: TerminalOutcome,
-  producedValue: LoomValue,
+  producedValue: ThetaValue,
 ): FunctionResult {
   if (outcome === "success") {
     return { present: true, value: producedValue };
@@ -69,7 +69,7 @@ export function functionResult(
  * FN-4 void-discard test reds on its own primary assertion. The paired V3d leaf
  * returns `null`.
  */
-export function discardForVoid(tailValue: LoomValue): LoomValue {
+export function discardForVoid(tailValue: ThetaValue): ThetaValue {
   // FN-4 — a `void`-annotated function discards its tail value silently and
   // produces `null`, regardless of the tail expression's value.
   void tailValue;

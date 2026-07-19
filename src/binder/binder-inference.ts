@@ -8,13 +8,13 @@
 //   - `context.messages` is the fixed single-element `[user]` array whose content
 //     is the canonical literal `Bind the slash-command arguments now.`.
 //   - `context.tools` carries exactly one entry — the binder's structured-output
-//     tool — `name` `__loom_bind_<slug>`, `description` the fixed literal, and
+//     tool — `name` `__theta_bind_<slug>`, `description` the fixed literal, and
 //     `parameters` the binder envelope schema wrapped as `Type.Unsafe<unknown>`.
 //   - `options.temperature` is `0`; the provider's tool choice is forced to that
 //     single tool via `options.toolChoice = { type: "tool", name }`.
 //   - the fixed seed, when the resolved provider's `Api` carries a seed field, is
 //     placed under that field name (per §"Provider seed-field mapping").
-//   - `options.signal` is `loomAbort.signal`; `options.onResponse` is the
+//   - `options.signal` is `thetaAbort.signal`; `options.onResponse` is the
 //     provider-response capture callback.
 //
 // V9j-T (tests-task) declares this seam and stubs `buildBinderCompleteCall`
@@ -81,13 +81,13 @@ export const BINDER_TOOL_DESCRIPTION =
   "Return the binder result envelope for the slash-command argument binding.";
 
 /**
- * The binder structured-output tool `name` (binder-inference.md): `__loom_bind_`
+ * The binder structured-output tool `name` (binder-inference.md): `__theta_bind_`
  * followed by the schema slug of the lowered binder envelope schema (the same
- * canonical-schema-hash recipe the typed-query `__loom_respond_<slug>` tool
+ * canonical-schema-hash recipe the typed-query `__theta_respond_<slug>` tool
  * name uses).
  */
 export function binderToolName(slug: string): string {
-  return `__loom_bind_${slug}`;
+  return `__theta_bind_${slug}`;
 }
 
 // --- the complete() call construction ---------------------------------------
@@ -98,13 +98,13 @@ export interface BinderCompleteCallInput {
   readonly model: Model<Api>;
   /** The rendered binder system prompt (`context.systemPrompt`). */
   readonly systemPrompt: string;
-  /** The per-loom binder envelope schema, wrapped as `Type.Unsafe<unknown>`. */
+  /** The per-theta binder envelope schema, wrapped as `Type.Unsafe<unknown>`. */
   readonly envelopeSchema: BinderEnvelopeSchema;
-  /** The schema slug of the lowered envelope schema (drives `__loom_bind_<slug>`). */
+  /** The schema slug of the lowered envelope schema (drives `__theta_bind_<slug>`). */
   readonly slug: string;
   /** The fixed seed value (mapped under the provider's seed field, when it has one). */
   readonly seed: number;
-  /** The cancellation source — `loomAbort.signal` (always defined). */
+  /** The cancellation source — `thetaAbort.signal` (always defined). */
   readonly signal: AbortSignal;
   /** The provider-response capture callback registered on every binder call. */
   readonly onResponse: (response: ProviderResponse, model: Model<Api>) => void;

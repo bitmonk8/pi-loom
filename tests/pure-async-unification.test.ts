@@ -7,29 +7,29 @@ import type {
 import {
   createProductionProducerDeps,
   type PiToolDispatch,
-} from "../src/extension/production-loom-producer";
+} from "../src/extension/production-theta-producer";
 import type {
-  LoomCompositionInput,
+  ThetaCompositionInput,
   ConversationBindInput,
-} from "../src/extension/loom-composition-producer";
+} from "../src/extension/theta-composition-producer";
 import { executeBody } from "../src/runtime/statement-executor";
 import type { RuntimeRoot } from "../src/runtime-root";
 import type { Checkpoint } from "../src/seams/checkpoint";
 import type { AgentToolResultEnvelope } from "../src/runtime/tool-call-execute";
-import { makeOk, type LoomValue } from "../src/runtime/value";
+import { makeOk, type ThetaValue } from "../src/runtime/value";
 import type {
   Block,
   CallExpr,
   Expr,
   FnDecl,
-  LoomBody,
+  ThetaBody,
   MatchArmNode,
   MatchExpr,
   ObjectFieldNode,
   PatternNode,
   ResultCtorExpr,
   Stmt,
-} from "../src/parser/loom-document";
+} from "../src/parser/theta-document";
 import type { ParsedFrontmatter } from "../src/parser/frontmatter";
 import type { SourceRange } from "../src/diagnostics/diagnostic";
 
@@ -92,7 +92,7 @@ function fnDecl(name: string, params: FnDecl["params"], fnBody: Block): FnDecl {
   return { kind: "fn", name, params, returnType: null, body: fnBody, range: span() };
 }
 
-function body(statements: readonly Stmt[], tail: Expr | null): LoomBody {
+function body(statements: readonly Stmt[], tail: Expr | null): ThetaBody {
   return { statements, tail };
 }
 
@@ -126,25 +126,25 @@ function producer(opts: ProducerOpts) {
   });
 }
 
-function promptLoom(loomBody: LoomBody, tools?: readonly string[]): LoomCompositionInput {
+function promptTheta(thetaBody: ThetaBody, tools?: readonly string[]): ThetaCompositionInput {
   const frontmatter: ParsedFrontmatter = {
     mode: "prompt",
     ...(tools !== undefined ? { tools } : {}),
   };
-  return { slashName: "demo", sourcePath: "/looms/demo.loom", frontmatter, body: loomBody };
+  return { slashName: "demo", sourcePath: "/theta/demo.theta", frontmatter, body: thetaBody };
 }
 
 /**
- * Drive the loom body through the REAL prompt-mode binding (the production host
+ * Drive the theta body through the REAL prompt-mode binding (the production host
  * + `executeBody`) and return the FN-5 terminal outcome + final value.
  */
 async function runBody(
   deps: ReturnType<typeof producer>,
-  loom: LoomCompositionInput,
-): Promise<{ readonly outcome: string; readonly value: LoomValue | undefined }> {
-  const bindInput: ConversationBindInput = { loom, args: "", ctx: ctxDouble() };
+  theta: ThetaCompositionInput,
+): Promise<{ readonly outcome: string; readonly value: ThetaValue | undefined }> {
+  const bindInput: ConversationBindInput = { theta, args: "", ctx: ctxDouble() };
   const binding = deps.bindPromptConversation(bindInput);
-  const execution = await executeBody(loom.body, binding.executeDeps);
+  const execution = await executeBody(theta.body, binding.executeDeps);
   return { outcome: execution.outcome, value: execution.result.value };
 }
 
@@ -168,9 +168,9 @@ describe("V20e-T pure/async unification — nested match in a match arm body", (
         inner,
       ),
     ]);
-    const loom = promptLoom(body([], outer));
+    const theta = promptTheta(body([], outer));
 
-    const r = await runBody(producer({}), loom);
+    const r = await runBody(producer({}), theta);
 
     expect(r.outcome).toBe("success");
     // Reds today: the outer arm body is a nested `match`, evaluated through the
@@ -203,7 +203,7 @@ describe("V20e-T pure/async unification — effectful expression in a pure sub-e
     const outer = matchExpr(resultCtorExpr("Ok", numberExpr("1")), [
       matchArm({ kind: "wildcard" }, callExpr("search")),
     ]);
-    const loom = promptLoom(body([search, { kind: "expr", expr: outer, range: span() }], null), [
+    const theta = promptTheta(body([search, { kind: "expr", expr: outer, range: span() }], null), [
       "grep",
     ]);
 
@@ -216,7 +216,7 @@ describe("V20e-T pure/async unification — effectful expression in a pure sub-e
       },
     });
 
-    const r = await runBody(producer({ resolvePiTool }), loom);
+    const r = await runBody(producer({ resolvePiTool }), theta);
 
     // Reds today: the arm body `search()` is a user-`fn` call in a pure
     // sub-expression position, so `evaluatePure` runs it synchronously through

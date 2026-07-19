@@ -4,7 +4,7 @@ mode: subagent
 params:
   objective: string
 tools:
-  - ./ralph-step.loom
+  - ./ralph-step.theta
 ---
 let mut round = 0
 while round < 20 {

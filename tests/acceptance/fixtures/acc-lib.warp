@@ -1,5 +1,0 @@
-// H9a acceptance area (g) support — a shared `.warp` library imported by
-// acc-imports-invoke.loom. Every top-level `fn` is implicitly exported.
-fn tagline(): string {
-  return "acc imports invoke ok"
-}

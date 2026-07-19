@@ -1,7 +1,7 @@
 // Hardening probe harness (test-support; Pi never loads it).
 //
-// Boots the SHIPPED loom extension (through the real `extensions/index.ts`
-// entry) against a REAL live `AgentSession`, plants `.loom`/`.warp` files on the
+// Boots the SHIPPED theta extension (through the real `extensions/index.ts`
+// entry) against a REAL live `AgentSession`, plants `.theta`/`.thetalib` files on the
 // real filesystem so the real discovery walk reads them, injects a capturing
 // `uiContext` so discovery/parse diagnostics (routed through `ctx.ui.notify`)
 // are observable, and drives real slash invocations against a LIVE model.
@@ -16,22 +16,22 @@
 //     emitted. NOTE (V4e): the shipped load path
 //     (`composeExtensionInstance`) routes ALL error-severity load-phase
 //     diagnostics (discovery / settings / binder-model / parse) through
-//     `emitLoadNote` → the `loom-system-note` channel, NOT through
+//     `emitLoadNote` → the `theta-system-note` channel, NOT through
 //     `ctx.ui.notify`. So `diagnostics` is normally EMPTY at load time; the
 //     error-severity load failures land on the load-phase `systemNotes` field
 //     below. Load-phase WARNINGS (e.g. invalid-json settings) are not pre-eval
 //     failures and route to neither surface — `emitLoadNote` is error-only.
-//   * `systemNotes`     — the LOAD-PHASE `loom-system-note` channel entries
+//   * `systemNotes`     — the LOAD-PHASE `theta-system-note` channel entries
 //     (error-severity load/parse/settings/binder diagnostics) appended during
 //     bind / session_start, before any drive. Read off the in-memory
 //     SessionManager (deterministic; no dependence on event timing).
-//   * per-drive `userTexts` — the exact user-turn text the loom CODE computed
+//   * per-drive `userTexts` — the exact user-turn text the theta CODE computed
 //     and sent to the model (deterministic; reveals control-flow / expression /
 //     stdlib evaluation without depending on the model's reply).
 //   * per-drive `toolCalls` — code-driven tool calls with their computed args
 //     (deterministic).
 //   * per-drive `assistantText` — the streamed model reply (stochastic; only
-//     assert on it when the loom pins the reply with a deterministic sentinel
+//     assert on it when the theta pins the reply with a deterministic sentinel
 //     instruction).
 
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -87,9 +87,9 @@ export function requireLiveProvider(): LiveProvider {
 
 /** A file to plant before discovery runs. */
 export interface PlantedFile {
-  /** Discovery source. `project` → <cwd>/.pi/looms/. `cli` → a --loom dir. `rel` → relative to cwd (for .warp imports / nested dirs). */
+  /** Discovery source. `project` → <cwd>/.pi/theta/. `cli` → a --theta dir. `rel` → relative to cwd (for .thetalib imports / nested dirs). */
   readonly source: "project" | "cli" | "rel";
-  /** Path relative to the source root, e.g. "foo.loom" or "shared/x.warp". Stem must be a valid slash name for a registrable .loom. */
+  /** Path relative to the source root, e.g. "foo.theta" or "shared/x.thetalib". Stem must be a valid slash name for a registrable .theta. */
   readonly path: string;
   readonly text: string;
 }
@@ -101,14 +101,14 @@ export interface Diagnostic {
 
 export interface ProbeTurn {
   readonly invocation: string;
-  /** Exact user-turn text(s) the loom code sent to the model (deterministic). */
+  /** Exact user-turn text(s) the theta code sent to the model (deterministic). */
   readonly userTexts: readonly string[];
   /** Streamed assistant reply text (stochastic). */
   readonly assistantText: string;
   /** Code-driven tool calls with computed args (deterministic). */
   readonly toolCalls: readonly { name: string; args: unknown }[];
   /**
-   * `loom-system-note` channel entries emitted during this invocation (the
+   * `theta-system-note` channel entries emitted during this invocation (the
    * SLSH-1 no-params overflow note, binder failure notes, …). Read
    * deterministically off the in-memory `SessionManager` entries after the
    * drive settles, so the note is observable independent of event timing.
@@ -122,7 +122,7 @@ export interface ProbeResult {
   readonly registeredNames: readonly string[];
   readonly diagnostics: readonly Diagnostic[];
   /**
-   * LOAD-PHASE `loom-system-note` channel entries (V4e): the error-severity
+   * LOAD-PHASE `theta-system-note` channel entries (V4e): the error-severity
    * load/parse/settings/binder-model diagnostics the shipped
    * `composeExtensionInstance` pass routed onto the channel during bind /
    * session_start, before any drive. Snapshotted off the in-memory
@@ -135,7 +135,7 @@ export interface ProbeResult {
 }
 
 /**
- * Extract the `loom-system-note` channel contents from a slice of in-memory
+ * Extract the `theta-system-note` channel contents from a slice of in-memory
  * SessionManager entries (their `content`, string or text-part array).
  */
 function collectSystemNotes(
@@ -144,7 +144,7 @@ function collectSystemNotes(
   const notes: string[] = [];
   for (const entry of entries) {
     const e = entry as { customType?: string; content?: unknown };
-    if (e.customType !== "loom-system-note") continue;
+    if (e.customType !== "theta-system-note") continue;
     if (typeof e.content === "string") notes.push(e.content);
     else if (Array.isArray(e.content)) {
       for (const part of e.content) {
@@ -158,7 +158,7 @@ function collectSystemNotes(
 
 /**
  * Boot the shipped extension over a fresh temp workspace, plant `files`, wire
- * `--loom` sources, capture load-phase diagnostics, and drive each `invocation`
+ * `--theta` sources, capture load-phase diagnostics, and drive each `invocation`
  * in `drives` in order against the live model. Returns everything observable.
  */
 export async function runProbe(options: {
@@ -170,20 +170,20 @@ export async function runProbe(options: {
   readonly projectSettings?: unknown;
 }): Promise<ProbeResult> {
   const { provider, files, drives = [], projectSettings } = options;
-  const cwd = mkdtempSync(join(tmpdir(), "loom-harden-"));
+  const cwd = mkdtempSync(join(tmpdir(), "theta-harden-"));
   const cliDirs = new Map<string, string>();
   const cleanup: string[] = [cwd];
 
   for (const f of files) {
     let base: string;
     if (f.source === "project") {
-      base = join(cwd, ".pi", "looms");
+      base = join(cwd, ".pi", "theta");
     } else if (f.source === "rel") {
       base = cwd;
     } else {
       // one shared cli dir per probe
       if (!cliDirs.has("_cli")) {
-        const d = mkdtempSync(join(tmpdir(), "loom-harden-cli-"));
+        const d = mkdtempSync(join(tmpdir(), "theta-harden-cli-"));
         cliDirs.set("_cli", d);
         cleanup.push(d);
       }
@@ -225,7 +225,7 @@ export async function runProbe(options: {
   const diagnostics: Diagnostic[] = [];
   const runner = session.extensionRunner;
   const cliDir = cliDirs.get("_cli");
-  if (cliDir !== undefined) runner.setFlagValue("loom", cliDir);
+  if (cliDir !== undefined) runner.setFlagValue("theta", cliDir);
 
   // Inject a capturing uiContext so load-phase `ctx.ui.notify` diagnostics are observable.
   const capturingUi = {
@@ -237,7 +237,7 @@ export async function runProbe(options: {
 
   const registeredNames = runner.getRegisteredCommands().map((c) => c.name);
 
-  // Snapshot the LOAD-PHASE `loom-system-note` entries: every error-severity
+  // Snapshot the LOAD-PHASE `theta-system-note` entries: every error-severity
   // load diagnostic (discovery / settings / binder-model) the bind /
   // session_start compose pass routed onto the channel (V4e), read off the
   // in-memory SessionManager AFTER `registeredNames` is computed but BEFORE any
@@ -281,7 +281,7 @@ export async function runProbe(options: {
     } finally {
       unsub();
     }
-    // Read the `loom-system-note` entries appended during this drive off the
+    // Read the `theta-system-note` entries appended during this drive off the
     // in-memory session manager (deterministic; no dependence on event timing).
     const systemNotes = collectSystemNotes(
       sessionManager.getEntries().slice(notesBefore),

@@ -5,9 +5,9 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import type { Diagnostic } from "../src/diagnostics/diagnostic";
 import {
-  createLoomExtension,
+  createThetaExtension,
   EXTENSION_BOOTSTRAP_FAILED_CODE,
-  type LoomFixture,
+  type ThetaFixture,
 } from "../src/extension/factory";
 import {
   RendererGate,
@@ -15,33 +15,33 @@ import {
   type SystemNote,
   type SystemNoteChannelDeps,
 } from "../src/extension/system-note-channel";
-import { LoomRegistry } from "../src/extension/reload-wiring";
+import { ThetaRegistry } from "../src/extension/reload-wiring";
 
 // V9p-T — failing tests for the extension-bootstrap SDK-failure NON-ABORT
 // surfaces (paired V9p implementation leaf). These are the per-surface
 // degrade / drop rules that — unlike the V9k whole-extension abort surfaces —
 // keep the factory (or the `session_start` handler) running.
 //
-// Spec: pi-integration-contract/extension-bootstrap-and-per-loom.md
+// Spec: pi-integration-contract/extension-bootstrap-and-per-theta.md
 //   ("Extension-bootstrap SDK failures" — the `pi.registerMessageRenderer`
-//   non-abort degrade, the per-loom `pi.registerCommand` drop, and the
+//   non-abort degrade, the per-theta `pi.registerCommand` drop, and the
 //   `#getcommands-read-failure` `pi.getCommands()` read-failure drop),
-// diagnostics/code-registry-load.md (the `loom/load/extension-bootstrap-failed`
+// diagnostics/code-registry-load.md (the `theta/load/extension-bootstrap-failed`
 //   registry row + its `details` payload),
 // pi-integration-contract/registration-steps.md (the step-3 collision pass that
-//   reads `pi.getCommands()` before the per-loom `pi.registerCommand` loop),
-// pi-integration-contract/drain-state-contract.md (the `LoomRegistry` drain
+//   reads `pi.getCommands()` before the per-theta `pi.registerCommand` loop),
+// pi-integration-contract/drain-state-contract.md (the `ThetaRegistry` drain
 //   state the getCommands-failure handler MUST NOT set),
 // diagnostics/placeholder-rendering-b.md#underlying-error-coercion (the
 //   `details.error` coercion).
 //
 // This is a code-keyed obligation area (PIC, no numbered REQ-IDs): each test
-// cites the `loom/load/extension-bootstrap-failed` diagnostics-registry code
+// cites the `theta/load/extension-bootstrap-failed` diagnostics-registry code
 // inline per the conventions.md *Diagnostic message anchors* rule.
 //
 // The factory is driven through a recording `ExtensionAPI` double whose chosen
 // host-binding call throws. The current factory swallows the renderer /
-// per-loom `registerCommand` failures locally (no diagnostic, no degrade) and
+// per-theta `registerCommand` failures locally (no diagnostic, no degrade) and
 // does not read `pi.getCommands()` at all, so these tests red on their primary
 // assertions until the paired V9p implementation lands.
 
@@ -71,7 +71,7 @@ interface RecordingPi {
   registeredCommands: string[];
   /** How many times `pi.getCommands()` was read. */
   getCommandsCalls: number;
-  /** Fire the installed `session_start` subscribers (drives per-loom registration). */
+  /** Fire the installed `session_start` subscribers (drives per-theta registration). */
   fireSessionStart(): void;
 }
 
@@ -164,24 +164,24 @@ function exactlyOne(diagnostics: readonly Diagnostic[]): Diagnostic {
   return diagnostics[0] as Diagnostic;
 }
 
-function fixture(slashName: string): LoomFixture {
+function fixture(slashName: string): ThetaFixture {
   return { slashName, run: async () => {} };
 }
 
 // ── `pi.registerMessageRenderer` failure — non-abort renderer degrade ────────
 
 // cka-16 / V9p: the extension-bootstrap SDK-failure code-keyed obligation area's
-// three non-abort surfaces (renderer degrade, per-loom registerCommand drop,
+// three non-abort surfaces (renderer degrade, per-theta registerCommand drop,
 // getCommands read-failure drop) close on V9p; the assertions in this file
 // witness the V9p facet against the shipped bootstrap.
-describe("V9p extension bootstrap — pi.registerMessageRenderer failure (loom/load/extension-bootstrap-failed)", () => {
-  it("loom/load/extension-bootstrap-failed: a factory-time pi.registerMessageRenderer throw drops the renderer, completes the remaining steps, and emits one diagnostic with details.capability='pi.registerMessageRenderer'", () => {
+describe("V9p extension bootstrap — pi.registerMessageRenderer failure (theta/load/extension-bootstrap-failed)", () => {
+  it("theta/load/extension-bootstrap-failed: a factory-time pi.registerMessageRenderer throw drops the renderer, completes the remaining steps, and emits one diagnostic with details.capability='pi.registerMessageRenderer'", () => {
     const gate = new RendererGate();
     const rec = makeRecordingPi({ throwOnRenderer: true });
     const diagnostics: Diagnostic[] = [];
 
     expect(() =>
-      createLoomExtension({
+      createThetaExtension({
         fixtures: [],
         emitDiagnostic: (d) => diagnostics.push(d),
         rendererGate: gate,
@@ -209,11 +209,11 @@ describe("V9p extension bootstrap — pi.registerMessageRenderer failure (loom/l
     ).toBe(true);
   });
 
-  it("loom/load/extension-bootstrap-failed: a pi.registerMessageRenderer throw permanently degrades this extension instance's system notes to the ctx.ui.notify arm", () => {
+  it("theta/load/extension-bootstrap-failed: a pi.registerMessageRenderer throw permanently degrades this extension instance's system notes to the ctx.ui.notify arm", () => {
     const gate = new RendererGate();
     const rec = makeRecordingPi({ throwOnRenderer: true });
 
-    createLoomExtension({
+    createThetaExtension({
       fixtures: [],
       emitDiagnostic: () => {},
       rendererGate: gate,
@@ -224,7 +224,7 @@ describe("V9p extension bootstrap — pi.registerMessageRenderer failure (loom/l
     expect(gate.available()).toBe(false);
   });
 
-  it("loom/load/extension-bootstrap-failed: a degraded System-notes channel skips the persistent-transcript (pi.sendMessage) arm and routes every note through ctx.ui.notify", () => {
+  it("theta/load/extension-bootstrap-failed: a degraded System-notes channel skips the persistent-transcript (pi.sendMessage) arm and routes every note through ctx.ui.notify", () => {
     // A degraded gate models the post-renderer-failure extension instance: the
     // System-notes fallback chain MUST skip the `pi.sendMessage` (transcript)
     // arm — delivering to a transcript whose renderer failed renders nothing —
@@ -255,56 +255,56 @@ describe("V9p extension bootstrap — pi.registerMessageRenderer failure (loom/l
       details: { diagnostics: [] },
     });
 
-    sendSystemNote(note("loom load: renderer down"), deps);
-    sendSystemNote(note("loom /demo aborted"), deps);
+    sendSystemNote(note("theta load: renderer down"), deps);
+    sendSystemNote(note("theta /demo aborted"), deps);
 
     // The transcript arm is skipped for the degraded instance...
     expect(sent).toEqual([]);
     // ...and every note routes through the transient toast (notify) arm,
     // permanently (a second note degrades the same way).
     expect(notified).toEqual([
-      ["loom load: renderer down", "error"],
-      ["loom /demo aborted", "error"],
+      ["theta load: renderer down", "error"],
+      ["theta /demo aborted", "error"],
     ]);
   });
 });
 
-// ── `pi.registerCommand` failure — per-loom drop ────────────────────────────
+// ── `pi.registerCommand` failure — per-theta drop ────────────────────────────
 
-describe("V9p extension bootstrap — pi.registerCommand failure (loom/load/extension-bootstrap-failed)", () => {
-  it("loom/load/extension-bootstrap-failed: a session_start-time pi.registerCommand failure drops only the failing loom, siblings still register, and one diagnostic is emitted per failing loom with details.capability='pi.registerCommand' and details.loom = the slash name", () => {
+describe("V9p extension bootstrap — pi.registerCommand failure (theta/load/extension-bootstrap-failed)", () => {
+  it("theta/load/extension-bootstrap-failed: a session_start-time pi.registerCommand failure drops only the failing theta, siblings still register, and one diagnostic is emitted per failing theta with details.capability='pi.registerCommand' and details.theta = the slash name", () => {
     const rec = makeRecordingPi({ throwOnCommand: new Set(["b"]) });
     const diagnostics: Diagnostic[] = [];
 
-    createLoomExtension({
+    createThetaExtension({
       fixtures: [fixture("a"), fixture("b"), fixture("c")],
       emitDiagnostic: (d) => diagnostics.push(d),
     })(rec.pi);
 
-    // The per-loom `pi.registerCommand` calls fire from the `session_start`
+    // The per-theta `pi.registerCommand` calls fire from the `session_start`
     // handler (the registration-timing split), not the factory body.
     expect(() => rec.fireSessionStart()).not.toThrow();
 
-    // Only the failing loom is dropped; the siblings register through their own
+    // Only the failing theta is dropped; the siblings register through their own
     // `pi.registerCommand` calls.
     expect(rec.registeredCommands).toEqual(["a", "c"]);
 
-    // Exactly one diagnostic — for the one failing loom — naming the capability
-    // and the failing loom's slash name.
+    // Exactly one diagnostic — for the one failing theta — naming the capability
+    // and the failing theta's slash name.
     const d = exactlyOne(diagnostics);
     expect(d.severity).toBe("error");
     expect(d.code).toBe(EXTENSION_BOOTSTRAP_FAILED_CODE);
     expect(d.details?.capability).toBe("pi.registerCommand");
-    expect(d.details?.loom).toBe("b");
+    expect(d.details?.theta).toBe("b");
     // `details.error` carries the caught throw's underlying-error string.
     expect(d.details?.error).toBe("registerCommand 'b' host seam absent");
   });
 
-  it("loom/load/extension-bootstrap-failed: a per-loom pi.registerCommand failure emits exactly one diagnostic per failing loom (two failures → two diagnostics, each naming its loom)", () => {
+  it("theta/load/extension-bootstrap-failed: a per-theta pi.registerCommand failure emits exactly one diagnostic per failing theta (two failures → two diagnostics, each naming its theta)", () => {
     const rec = makeRecordingPi({ throwOnCommand: new Set(["a", "c"]) });
     const diagnostics: Diagnostic[] = [];
 
-    createLoomExtension({
+    createThetaExtension({
       fixtures: [fixture("a"), fixture("b"), fixture("c")],
       emitDiagnostic: (d) => diagnostics.push(d),
     })(rec.pi);
@@ -313,25 +313,25 @@ describe("V9p extension bootstrap — pi.registerCommand failure (loom/load/exte
     // The non-failing sibling still registers.
     expect(rec.registeredCommands).toEqual(["b"]);
 
-    // One diagnostic per failing loom, each naming its own slash name.
+    // One diagnostic per failing theta, each naming its own slash name.
     expect(diagnostics).toHaveLength(2);
     for (const d of diagnostics) {
       expect(d.code).toBe(EXTENSION_BOOTSTRAP_FAILED_CODE);
       expect(d.details?.capability).toBe("pi.registerCommand");
     }
-    expect(diagnostics.map((d) => d.details?.loom)).toEqual(["a", "c"]);
+    expect(diagnostics.map((d) => d.details?.theta)).toEqual(["a", "c"]);
   });
 });
 
 // ── `pi.getCommands()` read failure — pending-list drop, no drain state ──────
 
-describe("V9p extension bootstrap — pi.getCommands() read failure (loom/load/extension-bootstrap-failed)", () => {
-  it("loom/load/extension-bootstrap-failed: a session_start-time pi.getCommands() read failure drops the pending-registration list (no pi.registerCommand call issues), the handler swallows the throw, MUST NOT set drain state, and emits one diagnostic with details.capability='pi.getCommands'", () => {
-    const registry = new LoomRegistry();
+describe("V9p extension bootstrap — pi.getCommands() read failure (theta/load/extension-bootstrap-failed)", () => {
+  it("theta/load/extension-bootstrap-failed: a session_start-time pi.getCommands() read failure drops the pending-registration list (no pi.registerCommand call issues), the handler swallows the throw, MUST NOT set drain state, and emits one diagnostic with details.capability='pi.getCommands'", () => {
+    const registry = new ThetaRegistry();
     const rec = makeRecordingPi({ throwOnGetCommands: true });
     const diagnostics: Diagnostic[] = [];
 
-    createLoomExtension({
+    createThetaExtension({
       fixtures: [fixture("a"), fixture("b"), fixture("c")],
       emitDiagnostic: (d) => diagnostics.push(d),
       registry,
@@ -342,7 +342,7 @@ describe("V9p extension bootstrap — pi.getCommands() read failure (loom/load/e
     expect(() => rec.fireSessionStart()).not.toThrow();
 
     // The pending-registration list for this pass is dropped: no
-    // `pi.registerCommand` call issues for any pending loom.
+    // `pi.registerCommand` call issues for any pending theta.
     expect(rec.commandCalls).toEqual([]);
 
     // Exactly one diagnostic, naming the failing read capability — asserted
@@ -351,12 +351,12 @@ describe("V9p extension bootstrap — pi.getCommands() read failure (loom/load/e
     expect(d.severity).toBe("error");
     expect(d.code).toBe(EXTENSION_BOOTSTRAP_FAILED_CODE);
     expect(d.details?.capability).toBe("pi.getCommands");
-    // No `details.loom` — the read failure is not per-loom.
-    expect(d.details?.loom).toBeUndefined();
+    // No `details.theta` — the read failure is not per-theta.
+    expect(d.details?.theta).toBeUndefined();
     // `details.error` carries the caught throw's underlying-error string.
     expect(d.details?.error).toBe("getCommands host seam absent");
 
-    // MUST NOT set drain state — drain state is owned by V9m's `LoomRegistry`
+    // MUST NOT set drain state — drain state is owned by V9m's `ThetaRegistry`
     // contract; the read-failure handler leaves the registry at its
     // steady-state drain tuple (drain-state-contract.md).
     expect(registry.readDrainState()).toEqual({

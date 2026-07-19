@@ -1,10 +1,10 @@
-// H4a — the loom extension factory (the `src/**` production factory the
+// H4a — the theta extension factory (the `src/**` production factory the
 // `extensions/index.ts` entry shim re-exports).
 //
 // The factory establishes the extension by side-effect registration calls on
 // the injected `pi: ExtensionAPI` handle. Per
-// extension-bootstrap-and-per-loom.md the factory's declared return type is
-// `void | Promise<void>` for host-interface conformance, but loom pins it to
+// extension-bootstrap-and-per-theta.md the factory's declared return type is
+// `void | Promise<void>` for host-interface conformance, but theta pins it to
 // the SYNCHRONOUS arm: the body runs synchronously and returns `void` — it is
 // not `async`, awaits no work, and so exposes no returned-`Promise` rejection
 // arm. Every host-binding call is wrapped in its own per-call `try`/`catch`
@@ -20,8 +20,8 @@
 // `pi.registerCommand` is NOT a factory-body call — it fires later from the
 // `session_start` handler (the registration-timing split in
 // registration-steps.md). The capability-probe refusal logic and the
-// `loom/load/extension-bootstrap-failed` diagnostics are added by `V9a`; this
-// leaf establishes only the never-throw factory boundary and the per-loom
+// `theta/load/extension-bootstrap-failed` diagnostics are added by `V9a`; this
+// leaf establishes only the never-throw factory boundary and the per-theta
 // command-registration seam the in-memory fixture supply drives.
 
 import type {
@@ -33,7 +33,7 @@ import type { Diagnostic } from "../diagnostics/diagnostic";
 import { renderUnderlyingError } from "../diagnostics/placeholder";
 import { createSystemNoteRenderer } from "./system-note-renderer";
 import type { RendererGate } from "./system-note-channel";
-import type { LoomRegistry, ParsedLoom } from "./reload-wiring";
+import type { ThetaRegistry, ParsedTheta } from "./reload-wiring";
 import {
   resolveSlashDispatchWithReadFailover,
   evalShutdownShortCircuitWithReadFailover,
@@ -54,23 +54,23 @@ import {
 /**
  * The diagnostics-registry code a factory-time bootstrap registration /
  * subscription failure surfaces (diagnostics/code-registry-load.md
- * `loom/load/extension-bootstrap-failed`). The paired `V9k` implementation
+ * `theta/load/extension-bootstrap-failed`). The paired `V9k` implementation
  * constructs this diagnostic when a factory-time `pi.registerFlag` or
  * `pi.on(...)` call throws; `V9k-T` declares the code so the failing tests can
  * anchor against it.
  */
 export const EXTENSION_BOOTSTRAP_FAILED_CODE =
-  "loom/load/extension-bootstrap-failed";
+  "theta/load/extension-bootstrap-failed";
 
-/** The CLI flag the extension registers for `.loom` discovery roots. */
-const LOOM_FLAG = "loom";
-/** The loom-internal system-note renderer channel. */
-const SYSTEM_NOTE_CHANNEL = "loom-system-note";
+/** The CLI flag the extension registers for `.theta` discovery roots. */
+const THETA_FLAG = "theta";
+/** The theta-internal system-note renderer channel. */
+const SYSTEM_NOTE_CHANNEL = "theta-system-note";
 
 /**
  * The closed set of factory-time `pi.on` subscriptions a bootstrap failure can
  * name, in the canonical registration order (steps 1/3/4 of
- * registration-steps.md): `resources_discover` (step 1, after the `--loom`
+ * registration-steps.md): `resources_discover` (step 1, after the `--theta`
  * flag), `session_start` (step 3), `session_shutdown` (step 4). A subscription
  * failure is fatal to the whole extension; `details.event` names the failing
  * one.
@@ -81,7 +81,7 @@ type FactorySubscription =
   | "session_shutdown";
 
 /**
- * The closed set of host-binding capabilities a `loom/load/extension-bootstrap-failed`
+ * The closed set of host-binding capabilities a `theta/load/extension-bootstrap-failed`
  * diagnostic can name (code-registry-load.md). The two whole-extension abort
  * surfaces (`pi.registerFlag`, `pi.on`) are owned by `V9k`; the three non-abort
  * surfaces (`pi.registerMessageRenderer`, `pi.registerCommand`,
@@ -95,7 +95,7 @@ type BootstrapCapability =
   | "pi.getCommands";
 
 /**
- * Construct the `loom/load/extension-bootstrap-failed` diagnostic for a
+ * Construct the `theta/load/extension-bootstrap-failed` diagnostic for a
  * factory-time or `session_start`-time bootstrap failure surface.
  * `details.error` carries the caught throw's underlying-error string
  * (placeholder-rendering-b.md#underlying-error-coercion) so a non-Error throw
@@ -103,21 +103,21 @@ type BootstrapCapability =
  * registry template `extension bootstrap failed: <capability> threw <error>`
  * (code-registry-load.md), the `<error>` tail being the §8 host-derived
  * first-line truncation. `details.event` is added for `pi.on` subscription
- * failures (the failing Pi event); `details.loom` for per-loom
+ * failures (the failing Pi event); `details.theta` for per-theta
  * `pi.registerCommand` failures (the failing slash name).
  */
 function bootstrapFailedDiagnostic(
   capability: BootstrapCapability,
   caught: unknown,
-  extra?: { readonly event?: FactorySubscription; readonly loom?: string },
+  extra?: { readonly event?: FactorySubscription; readonly theta?: string },
 ): Diagnostic {
   const error = renderUnderlyingError(caught);
   const details: Record<string, unknown> = { capability, error };
   if (extra?.event !== undefined) {
     details.event = extra.event;
   }
-  if (extra?.loom !== undefined) {
-    details.loom = extra.loom;
+  if (extra?.theta !== undefined) {
+    details.theta = extra.theta;
   }
   return {
     severity: "error",
@@ -128,42 +128,42 @@ function bootstrapFailedDiagnostic(
 }
 
 /**
- * One in-memory loom fixture: a slash name plus the body run when the command
+ * One in-memory theta fixture: a slash name plus the body run when the command
  * is dispatched. This is the seam the `H4a` harness's in-memory fixture-supply
  * mechanism drives and that `M` / `M-T` bind against for single-source
  * happy-path discovery — the fixture content is handed to the extension in
  * memory rather than read from the real filesystem, so no `src/**` ambient
  * filesystem read and no `FileSystem` seam dependency is introduced here.
  */
-export interface LoomFixture {
-  /** The slash-command name this loom registers under. */
+export interface ThetaFixture {
+  /** The slash-command name this theta registers under. */
   readonly slashName: string;
   /**
-   * The loom's `description:` frontmatter, passed to `pi.registerCommand` so it
+   * The theta's `description:` frontmatter, passed to `pi.registerCommand` so it
    * populates the slash-command autocomplete entry (frontmatter-fields-a.md).
-   * Absent when the loom declares no (non-empty) `description:`.
+   * Absent when the theta declares no (non-empty) `description:`.
    */
   readonly description?: string;
   /** The command body, run by the registered slash handler on dispatch. */
   readonly run: (args: string, ctx: ExtensionCommandContext) => Promise<void>;
 }
 
-/** Construction dependencies for the loom extension factory. */
-export interface LoomExtensionDeps {
+/** Construction dependencies for the theta extension factory. */
+export interface ThetaExtensionDeps {
   /**
-   * The in-memory loom fixtures whose slash commands the `session_start`
+   * The in-memory theta fixtures whose slash commands the `session_start`
    * handler registers. The `H4a` harness supplies fixtures here for its
    * in-memory end-to-end tests; the shipped production composition root
    * (`H8a`) supplies none here and discovers them at `session_start` via
    * `discoverFixtures`.
    */
-  readonly fixtures: readonly LoomFixture[];
+  readonly fixtures: readonly ThetaFixture[];
 
   /**
    * The `H8a` production discovery-and-composition supplier. When present, the
    * `session_start` handler runs it (against the host `ctx`, whose `cwd` /
-   * `modelRegistry` the five-source discovery walk and per-loom composition
-   * read) and registers every discovered `.loom`-derived `LoomFixture`
+   * `modelRegistry` the five-source discovery walk and per-theta composition
+   * read) and registers every discovered `.theta`-derived `ThetaFixture`
    * alongside the static `fixtures`. Absent on the `H4a` in-memory harness
    * path, which supplies its fixtures synchronously through `fixtures`.
    *
@@ -172,19 +172,19 @@ export interface LoomExtensionDeps {
    * host runner awaits the returned promise before reading the registered
    * command list. A discovery-supplier throw is trapped like any other
    * `session_start`-time host-boundary failure and surfaces one
-   * `loom/load/extension-bootstrap-failed` diagnostic rather than propagating
+   * `theta/load/extension-bootstrap-failed` diagnostic rather than propagating
    * into the host `session_start` dispatch.
    */
   readonly discoverFixtures?: (
     pi: ExtensionAPI,
     ctx: ExtensionContext,
-  ) => Promise<readonly LoomFixture[]>;
+  ) => Promise<readonly ThetaFixture[]>;
 
   /**
    * The diagnostic-emission seam the factory routes a
-   * `loom/load/extension-bootstrap-failed` diagnostic through when a
+   * `theta/load/extension-bootstrap-failed` diagnostic through when a
    * factory-time host-binding call throws (the impl wires this to the
-   * **System notes** fallback chain per extension-bootstrap-and-per-loom.md).
+   * **System notes** fallback chain per extension-bootstrap-and-per-theta.md).
    * Declared by `V9k-T` and consumed by the paired `V9k` implementation; the
    * `H4a` harness path omits it, so it is optional.
    */
@@ -201,20 +201,20 @@ export interface LoomExtensionDeps {
   readonly rendererGate?: RendererGate;
 
   /**
-   * The extension-scoped `LoomRegistry` whose drain-state contract the
+   * The extension-scoped `ThetaRegistry` whose drain-state contract the
    * `session_start` handler MUST NOT touch on a `pi.getCommands()` read failure
-   * (drain state is owned by `V9m`'s `LoomRegistry` contract). Injected so the
+   * (drain state is owned by `V9m`'s `ThetaRegistry` contract). Injected so the
    * `V9p` getCommands-failure path can be witnessed to leave the registry in
    * its steady-state drain tuple. Optional; declared by `V9p-T`, consumed by
    * `V9p`.
    */
-  readonly registry?: LoomRegistry;
+  readonly registry?: ThetaRegistry;
 
   /**
    * The Phase-5 production supplier that composes one extension instance and
    * exposes the step-5 watcher installer
    * (registration-steps.md#watcher-hot-reload-registration). When present the
-   * `session_start` handler runs it, registers the composed looms, and arms ONE
+   * `session_start` handler runs it, registers the composed thetas, and arms ONE
    * hot-reload watcher over the discovery-root union + settings-file paths; the
    * `session_shutdown` handler detaches it. Takes precedence over
    * `discoverFixtures`. The shipped production default export supplies this;
@@ -227,13 +227,13 @@ export interface LoomExtensionDeps {
 }
 
 /**
- * Construct the loom extension factory from injected dependencies. The
+ * Construct the theta extension factory from injected dependencies. The
  * returned `(pi) => void` is the synchronous-arm Pi extension factory.
  */
-export function createLoomExtension(
-  deps: LoomExtensionDeps,
+export function createThetaExtension(
+  deps: ThetaExtensionDeps,
 ): (pi: ExtensionAPI) => void {
-  return function loomExtension(pi: ExtensionAPI): void {
+  return function thetaExtension(pi: ExtensionAPI): void {
     // The step-5 hot-reload teardown handle, armed by the `session_start`
     // compose-instance path and detached by `session_shutdown`. Closed over by
     // both handlers (one extension instance, no module-level state).
@@ -246,7 +246,7 @@ export function createLoomExtension(
     // cannot capture `wiring` directly — it reads these mutables at teardown
     // time. Both stay `undefined` when compose never ran / failed, which the
     // handler treats as "nothing to tear down".
-    let liveRegistry: LoomRegistry | undefined;
+    let liveRegistry: ThetaRegistry | undefined;
     let liveClock: Clock | undefined;
     // Decision 6 / Increment B1: the live shared in-flight-invocation registry
     // published by compose. `undefined` until compose runs; the shutdown handler
@@ -258,16 +258,16 @@ export function createLoomExtension(
     // the shutdown handler falls back to an empty list (a no-op sub-step 5) when
     // compose never ran, keeping the compose-never-ran path safe.
     let liveForwardingSignals: ForwardingSignalSource[] | undefined;
-    // Step 1 — `--loom` flag. Synchronous-void; per-call wrapped. A
-    // `registerFlag` throw is FATAL to the whole extension: step 1's `--loom`
+    // Step 1 — `--theta` flag. Synchronous-void; per-call wrapped. A
+    // `registerFlag` throw is FATAL to the whole extension: step 1's `--theta`
     // flag is what every subsequent discovery / `resources_discover` walk reads
-    // via `pi.getFlag('loom')`, so a flag-less factory cannot honour the
-    // `--loom` source. The factory skips every subsequent `pi.register*` /
+    // via `pi.getFlag('theta')`, so a flag-less factory cannot honour the
+    // `--theta` source. The factory skips every subsequent `pi.register*` /
     // `pi.on` call (steps 2–5 do not execute) and emits a single diagnostic.
     try {
-      pi.registerFlag(LOOM_FLAG, {
+      pi.registerFlag(THETA_FLAG, {
         type: "string",
-        description: "Path(s) to .loom discovery roots.",
+        description: "Path(s) to .theta discovery roots.",
       });
     } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
       deps.emitDiagnostic?.(bootstrapFailedDiagnostic("pi.registerFlag", e));
@@ -312,10 +312,10 @@ export function createLoomExtension(
       return;
     }
 
-    // `session_start` (step 3) — the handler is where per-loom
+    // `session_start` (step 3) — the handler is where per-theta
     // `pi.registerCommand` calls fire (NOT the factory body), per the
     // registration-timing split. Each command registration is itself per-call
-    // wrapped so one loom's failure does not abort the others or propagate into
+    // wrapped so one theta's failure does not abort the others or propagate into
     // Pi's `session_start` dispatch.
     try {
       pi.on("session_start", (_event, ctx: ExtensionContext) => {
@@ -344,17 +344,17 @@ export function createLoomExtension(
     /**
      * The shared `session_start` registration body: read `pi.getCommands()`
      * for the cross-format collision pass (treated read-only by convention,
-     * PIC-39) and register each pending fixture through a per-loom-wrapped
+     * PIC-39) and register each pending fixture through a per-theta-wrapped
      * `pi.registerCommand`. A `getCommands()` read failure is a NON-abort
      * surface (V9p): it drops the pending-registration list for this pass (no
      * `pi.registerCommand` calls issue), emits one diagnostic, and MUST NOT set
-     * drain state (owned by V9m's `LoomRegistry` contract). A per-loom
-     * `registerCommand` throw drops only that loom — siblings still register —
+     * drain state (owned by V9m's `ThetaRegistry` contract). A per-theta
+     * `registerCommand` throw drops only that theta — siblings still register —
      * and emits one diagnostic carrying its slash name.
      */
     function registerFixtures(
-      fixtures: readonly LoomFixture[],
-      registry?: LoomRegistry,
+      fixtures: readonly ThetaFixture[],
+      registry?: ThetaRegistry,
     ): void {
       try {
         pi.getCommands();
@@ -366,7 +366,7 @@ export function createLoomExtension(
         try {
           pi.registerCommand(fixture.slashName, {
             // frontmatter-fields-a.md: `description` populates the autocomplete
-            // entry. Omitted when the loom declares none (registers untexted).
+            // entry. Omitted when the theta declares none (registers untexted).
             ...(fixture.description !== undefined ? { description: fixture.description } : {}),
             // PIC-29..32: on the composeInstance path the REGISTERED handler is a
             // drain-state-gated, registry-backed wrapper — read `readDrainState`
@@ -384,7 +384,7 @@ export function createLoomExtension(
         } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
           deps.emitDiagnostic?.(
             bootstrapFailedDiagnostic("pi.registerCommand", e, {
-              loom: fixture.slashName,
+              theta: fixture.slashName,
             }),
           );
         }
@@ -398,14 +398,14 @@ export function createLoomExtension(
      * dispatches the registry's CURRENT raw entry (so a post-swap reload is
      * picked up on the next dispatch, and a dropped/superseded entry yields the
      * superseded note), arm (b) returns the shutting-down note. The note is
-     * delivered on the `loom-system-note` channel with `triggerTurn:false` — the
-     * same envelope as every other loom system note. The registry stores the RAW
+     * delivered on the `theta-system-note` channel with `triggerTurn:false` — the
+     * same envelope as every other theta system note. The registry stores the RAW
      * run, so this wrapper is the only indirection (no wrapper→wrapper recursion
      * on re-register).
      */
     function drainGatedHandler(
       name: string,
-      registry: LoomRegistry,
+      registry: ThetaRegistry,
     ): (args: string, ctx: ExtensionCommandContext) => Promise<void> {
       return async (args: string, ctx: ExtensionCommandContext) => {
         const outcome = resolveSlashDispatchWithReadFailover(
@@ -425,7 +425,7 @@ export function createLoomExtension(
           );
           return;
         }
-        await outcome.loom.run(args, ctx);
+        await outcome.theta.run(args, ctx);
       };
     }
 
@@ -435,12 +435,12 @@ export function createLoomExtension(
      * discovered fixtures alongside the static ones through the shared
      * `registerFixtures` body. A discovery-supplier throw is trapped here (an
      * exempt Pi-SDK-boundary broad-catch site) so it surfaces one
-     * `loom/load/extension-bootstrap-failed` diagnostic rather than
+     * `theta/load/extension-bootstrap-failed` diagnostic rather than
      * propagating into the host `session_start` dispatch; the static fixtures
      * still register.
      */
     async function runProductionRegistration(ctx: ExtensionContext): Promise<void> {
-      let discovered: readonly LoomFixture[] = [];
+      let discovered: readonly ThetaFixture[] = [];
       try {
         discovered = await deps.discoverFixtures!(pi, ctx);
       } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
@@ -453,13 +453,13 @@ export function createLoomExtension(
 
     /**
      * The Phase-5 production `session_start` pass: compose one extension
-     * instance, register its looms alongside the static ones, then arm the
+     * instance, register its thetas alongside the static ones, then arm the
      * step-5 watcher / debounced hot-reload
      * (registration-steps.md#watcher-hot-reload-registration). The arming
      * closure re-uses `registerFixtures` as its reload re-registration step
      * (collision pass + `pi.registerCommand`). A compose-supplier throw is
      * trapped like any other `session_start`-time host-boundary failure and
-     * surfaces one `loom/load/extension-bootstrap-failed` diagnostic; an arming
+     * surfaces one `theta/load/extension-bootstrap-failed` diagnostic; an arming
      * throw likewise surfaces a single diagnostic rather than propagating into
      * the host `session_start` dispatch.
      */
@@ -485,11 +485,11 @@ export function createLoomExtension(
       // the producer's bind choke points push invocation-scoped sources onto, so
       // the teardown's sub-step 5 detaches REAL still-attached listeners.
       liveForwardingSignals = wiring.forwardingSignals;
-      registerFixtures([...deps.fixtures, ...wiring.looms], wiring.registry);
+      registerFixtures([...deps.fixtures, ...wiring.thetas], wiring.registry);
       try {
         hotReloadHandle = wiring.installHotReload(
-          (looms: readonly ParsedLoom[]) =>
-            registerFixtures(looms, wiring!.registry),
+          (thetas: readonly ParsedTheta[]) =>
+            registerFixtures(thetas, wiring!.registry),
         );
       } catch (e: unknown) { // allow-broad-catch: pi-sdk-boundary — conventions.md Specific exception types only
         deps.emitDiagnostic?.(
@@ -602,12 +602,12 @@ export function createLoomExtension(
  * mutable state) wired to the `H8a` production composition root: no static
  * fixtures, and a `discoverFixtures` supplier that at `session_start` runs the
  * five-source discovery walk over the real host seams, parses each discovered
- * `.loom`, composes it into a runnable `LoomFixture`, and returns them for
+ * `.theta`, composes it into a runnable `ThetaFixture`, and returns them for
  * registration. So the shipped extension actually discovers, registers, and
- * runs `.loom` slash commands.
+ * runs `.theta` slash commands.
  */
-export default function loomExtension(pi: ExtensionAPI): void {
-  createLoomExtension({
+export default function thetaExtension(pi: ExtensionAPI): void {
+  createThetaExtension({
     fixtures: [],
     composeInstance: (pi, ctx: ExtensionContext) =>
       composeExtensionInstance(pi, ctx),

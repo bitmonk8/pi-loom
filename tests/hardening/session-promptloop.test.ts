@@ -3,17 +3,17 @@
 //
 // Background: prompt-mode queries stream via pi's NATIVE agentic turn
 // (`LivePromptQueryModel` -> `pi.sendUserMessage` + `waitForIdle`, SLSH-2 /
-// Phase 3a) with the loom's callable-set tools installed (QTL-4). pi runs its
-// internal tool loop for that turn, which the loom's `max_rounds` did NOT bound
+// Phase 3a) with the theta's callable-set tools installed (QTL-4). pi runs its
+// internal tool loop for that turn, which the theta's `max_rounds` did NOT bound
 // (QTL-4 twin of the subagent STL-2). STAGE B bounds that native loop through
 // pi's extension hooks (`before_provider_request` round boundaries + `tool_call`
 // block) so a tool-use round beyond `max_rounds` is blocked and the query
 // surfaces `Err(QueryError { kind: "tool_loop_exhausted", rounds, last_tool_name })`.
 //
-// Method: a PROMPT-mode loom with `tools: read` reads a 3-file chain
+// Method: a PROMPT-mode theta with `tools: read` reads a 3-file chain
 // (ch1 -> ch2 -> ch3, like STL-2) ONE file at a time — reaching the final marker
 // provably requires >= 3 sequential read rounds.
-//   * max_rounds: 1  => the cap fires after round 1; the loom returns Err at the
+//   * max_rounds: 1  => the cap fires after round 1; the theta returns Err at the
 //     tail (unhandled), so the slash boundary emits the SNK-h note.
 //   * default (25)   => the chain completes (final marker reached), no exhaustion.
 //
@@ -71,7 +71,7 @@ describe("prompt-mode tool_loop.max_rounds enforcement (ceiling #2 / STAGE B)", 
             ...CHAIN,
             {
               source: "project",
-              path: "ploop1.loom",
+              path: "ploop1.theta",
               text: [
                 "---",
                 "description: ploop1",
@@ -98,7 +98,7 @@ describe("prompt-mode tool_loop.max_rounds enforcement (ceiling #2 / STAGE B)", 
         // The cap fired: the SNK-h template names the round count of 1. The
         // last-tool suffix is model-dependent (the blocked tool, likely `read`),
         // so match the stable prefix through "after 1 rounds".
-        const snkHPrefix = "loom /ploop1 returned Err: tool-call loop exhausted after 1 rounds";
+        const snkHPrefix = "theta /ploop1 returned Err: tool-call loop exhausted after 1 rounds";
         // eslint-disable-next-line no-console
         console.log("PL-1 SNK-h prefix present:", notes.includes(snkHPrefix));
         expect(notes).toContain(snkHPrefix);
@@ -114,7 +114,7 @@ describe("prompt-mode tool_loop.max_rounds enforcement (ceiling #2 / STAGE B)", 
   // the full >=3-round read loop, reaches the final marker, and NO exhaustion
   // note is emitted.
   it(
-    "PL-1 control: the SAME loom with default max_rounds completes the chain (no exhaustion)",
+    "PL-1 control: the SAME theta with default max_rounds completes the chain (no exhaustion)",
     { retry: 1, timeout: 180000 },
     async () => {
       const probe = await driveOnce(() =>
@@ -124,7 +124,7 @@ describe("prompt-mode tool_loop.max_rounds enforcement (ceiling #2 / STAGE B)", 
             ...CHAIN,
             {
               source: "project",
-              path: "ploopdef.loom",
+              path: "ploopdef.theta",
               text: [
                 "---",
                 "description: ploopdef",

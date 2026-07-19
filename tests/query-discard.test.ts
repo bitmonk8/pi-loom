@@ -70,7 +70,7 @@ function stmt(
   return {
     isQuery: true,
     disposition,
-    file: "a.loom",
+    file: "a.theta",
     range: RANGE,
     ...overrides,
   };
@@ -94,11 +94,11 @@ function emitInput(
   return {
     outcome,
     form: "let-underscore",
-    discardSite: { file: "a.loom", line: 12, column: 1 },
-    loom: "/demo",
+    discardSite: { file: "a.theta", line: 12, column: 1 },
+    theta: "/demo",
     invocationId: "00000000-0000-4000-8000-000000000000",
     occurredAt: 1_700_000_000_000,
-    querySite: { file: "a.loom", line: 12, column: 9 },
+    querySite: { file: "a.theta", line: 12, column: 9 },
     ...overrides,
   };
 }
@@ -114,7 +114,7 @@ function soleEvent(sent: readonly SentNote[]): RuntimeEvent {
 // --- QRY-19 — discarded-query parse error ----------------------------------
 
 describe("V13g-T — QRY-19 discarded-query result parse error", () => {
-  it("QRY-19: a bare `@`...`` expression-statement fires loom/parse/discarded-query-result at its location; the acknowledging forms do not", () => {
+  it("QRY-19: a bare `@`...`` expression-statement fires theta/parse/discarded-query-result at its location; the acknowledging forms do not", () => {
     // Primary facet: the bare expression-statement position fires the error.
     const diag = checkDiscardedQueryResult(stmt("bare-expr-statement"));
     expect(diag).toBeDefined();
@@ -122,7 +122,7 @@ describe("V13g-T — QRY-19 discarded-query result parse error", () => {
     // Diagnostic message anchored to the registry code + Message column.
     expect(diag?.code).toBe(DISCARDED_QUERY_RESULT_CODE);
     expect(diag?.message).toBe(DISCARDED_QUERY_RESULT_MESSAGE);
-    expect(diag?.file).toBe("a.loom");
+    expect(diag?.file).toBe("a.theta");
     expect(diag?.range).toEqual(RANGE);
 
     // Same-rule negative facets (folded in so no free-standing green remains):
@@ -146,14 +146,14 @@ describe("V13g-T — QRY-20 discard observability", () => {
   it("QRY-20: a discarded query that settles to Err emits exactly one operator-facing event (display:false) preserving kind/message, discard_site = the `let _ =` location", () => {
     const { deps, sent } = makeChannel();
     const err: QueryError = transportErr();
-    const discardSite = { file: "a.loom", line: 12, column: 1 };
+    const discardSite = { file: "a.theta", line: 12, column: 1 };
 
     emitDiscardObservability(
       emitInput({ ok: false, error: err }, { form: "let-underscore", discardSite }),
       deps,
     );
 
-    // Routes through the always-log `loom-system-note` channel, group-A shape.
+    // Routes through the always-log `theta-system-note` channel, group-A shape.
     expect(sent[0]!.customType).toBe(SYSTEM_NOTE_CHANNEL);
     const event = soleEvent(sent);
     // Operator-facing: display:false, empty companion content.
@@ -168,7 +168,7 @@ describe("V13g-T — QRY-20 discard observability", () => {
 
   it("QRY-20: the void-tail discard form stamps discard_site with the tail `@`...`` expression location", () => {
     const { deps, sent } = makeChannel();
-    const tailSite = { file: "b.loom", line: 4, column: 5 };
+    const tailSite = { file: "b.theta", line: 4, column: 5 };
 
     emitDiscardObservability(
       emitInput(
@@ -197,12 +197,12 @@ describe("V13g-T — QRY-20 discard observability", () => {
     const err = transportErr();
     const input = emitInput(
       { ok: false, error: err },
-      { discardSite: { file: "c.loom", line: 9, column: 2 } },
+      { discardSite: { file: "c.theta", line: 9, column: 2 } },
     );
     const event = buildDiscardEvent(err, input);
     expect(event.kind).toBe("transport");
     expect(event.message).toBe("provider connection reset");
-    expect(event.discard_site).toEqual({ file: "c.loom", line: 9, column: 2 });
-    expect(event.loom).toBe("/demo");
+    expect(event.discard_site).toEqual({ file: "c.theta", line: 9, column: 2 });
+    expect(event.theta).toBe("/demo");
   });
 });

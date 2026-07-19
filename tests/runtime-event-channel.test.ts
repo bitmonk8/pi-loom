@@ -70,9 +70,9 @@ function makeChannel(): {
 function baseEvent(overrides?: Partial<RuntimeEvent>): RuntimeEvent {
   return {
     kind: "transport",
-    loom: "/demo",
+    theta: "/demo",
     invocation_id: "00000000-0000-4000-8000-000000000000",
-    query_site: { file: "a.loom", line: 3, column: 1 },
+    query_site: { file: "a.theta", line: 3, column: 1 },
     message: "boom",
     occurred_at: 1700000000000,
     ...overrides,
@@ -82,8 +82,8 @@ function baseEvent(overrides?: Partial<RuntimeEvent>): RuntimeEvent {
 function panicDiag(): Diagnostic {
   return {
     severity: "error",
-    code: "loom/runtime/index-out-of-bounds",
-    file: "a.loom",
+    code: "theta/runtime/index-out-of-bounds",
+    file: "a.theta",
     range: { start: { line: 2, column: 1 }, end: { line: 2, column: 2 } },
     message: "index out of bounds: 5 not in 0..3",
   };
@@ -92,7 +92,7 @@ function panicDiag(): Diagnostic {
 // --- PIC-1 `masked` hard-ceiling co-fire ----------------------------------
 
 describe("V9d-T — PIC-1 masked hard-ceiling co-fire", () => {
-  // The reachable scalars for the only loom-1.0 non-empty mask.
+  // The reachable scalars for the only theta-1.0 non-empty mask.
   const reachable: MaskedPredicateInput = {
     kind: "validation",
     validationCause: "schema_validation",
@@ -189,7 +189,7 @@ describe("V9d-T — always-log exactly-once emission and success null-policy", (
 
 describe("V9d-T — per-variant display/content matrix", () => {
   it("details: { diagnostics } parse/load/type batch → display true, content = serialised lines", () => {
-    const content = "a.loom:1:1: loom/parse/unexpected-token: boom";
+    const content = "a.theta:1:1: theta/parse/unexpected-token: boom";
     const note = buildDiagnosticsBatchNote([panicDiag()], content);
     expect(note.display).toBe(true);
     expect(note.content).toBe(content);
@@ -197,7 +197,7 @@ describe("V9d-T — per-variant display/content matrix", () => {
   });
 
   it("details: { diagnostics: [Diagnostic] } runtime panic → display true, content = aborted framing", () => {
-    const framing = "loom /demo aborted: index out of bounds: 5 not in 0..3";
+    const framing = "theta /demo aborted: index out of bounds: 5 not in 0..3";
     const note = buildPanicNote(panicDiag(), framing);
     expect(note.display).toBe(true);
     expect(note.content).toBe(framing);
@@ -206,7 +206,7 @@ describe("V9d-T — per-variant display/content matrix", () => {
   });
 
   it("details: { event } top-level cascade → display true, content = user-facing template", () => {
-    const template = "loom /demo failed: boom";
+    const template = "theta /demo failed: boom";
     const note = buildRuntimeEventNote(baseEvent(), {
       topLevelCascade: true,
       userFacingTemplate: template,
@@ -219,7 +219,7 @@ describe("V9d-T — per-variant display/content matrix", () => {
   it("details: { event } author-handled / subagent invoke → display false, content = '' (verbatim)", () => {
     const note = buildRuntimeEventNote(baseEvent(), {
       topLevelCascade: false,
-      userFacingTemplate: "loom /demo failed: boom",
+      userFacingTemplate: "theta /demo failed: boom",
     });
     expect(note.display).toBe(false);
     expect(note.content).toBe("");
@@ -227,8 +227,8 @@ describe("V9d-T — per-variant display/content matrix", () => {
   });
 
   it("details: { structural } → display true, content = verbatim structural template", () => {
-    const content = "loom sources changed: +1 -0";
-    const note = buildStructuralNote({ added: ["/x.loom"], removed: [] }, content);
+    const content = "theta sources changed: +1 -0";
+    const note = buildStructuralNote({ added: ["/x.theta"], removed: [] }, content);
     expect(note.display).toBe(true);
     expect(note.content).toBe(content);
     expect("structural" in note.details).toBe(true);
@@ -252,7 +252,7 @@ describe("V9d-T — group-A/B single-shape routing (no fan-out)", () => {
     const { deps, sent } = makeChannel();
     emitRuntimeEvent(
       baseEvent({ kind: "transport" }),
-      { topLevelCascade: true, userFacingTemplate: "loom /demo failed: boom" },
+      { topLevelCascade: true, userFacingTemplate: "theta /demo failed: boom" },
       deps,
     );
 
@@ -265,10 +265,10 @@ describe("V9d-T — group-A/B single-shape routing (no fan-out)", () => {
   });
 
   it("group B: a single runtime panic routes to exactly one diagnostics-shape note and zero event-shape notes", () => {
-    expect(alwaysLogGroup({ code: "loom/runtime/index-out-of-bounds" })).toBe("B");
+    expect(alwaysLogGroup({ code: "theta/runtime/index-out-of-bounds" })).toBe("B");
 
     const { deps, sent } = makeChannel();
-    emitPanic(panicDiag(), "loom /demo aborted: index out of bounds: 5 not in 0..3", deps);
+    emitPanic(panicDiag(), "theta /demo aborted: index out of bounds: 5 not in 0..3", deps);
 
     expect(sent).toHaveLength(1);
     const diagShape = sent.filter((n) => "diagnostics" in n.details);

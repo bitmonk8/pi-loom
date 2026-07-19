@@ -4,7 +4,7 @@
 // (errors-and-results/error-model.md §"Partial-append contract" and the
 // §"Mid-stream cancellation, conversation state" obligations ERR-8 … ERR-12,
 // cross-linked from cancellation.md §"Surfacing"). Turns Pi has committed to
-// the conversation the loom was driving remain final; the runtime performs no
+// the conversation the theta was driving remain final; the runtime performs no
 // implicit rollback. When a query's stream is interrupted mid-flight by
 // cancellation — or by `?`-propagation after a partial stream — the runtime
 // MUST NOT mutate any Pi-committed surface (no truncate / rewrite / replace /
@@ -12,7 +12,7 @@
 // inject a compensating turn (ERR-8 / ERR-9). The two paths are bound
 // symmetrically (ERR-10); the non-mutation window binds between the cancelled
 // streaming turn and the next driver send (ERR-11); and the non-mutation
-// obligation holds inside a subagent loom too (ERR-12).
+// obligation holds inside a subagent theta too (ERR-12).
 //
 // V4c-T (tests-task) declared the seam — the committed-surface model, the
 // `CommittedConversationMutator` the runtime holds against Pi's conversation,
@@ -41,9 +41,9 @@ export interface CommittedSurface {
 export type PartialTerminalPath = "cancelled" | "question-propagation";
 
 /**
- * Which conversation the loom was driving: the caller's conversation in
+ * Which conversation the theta was driving: the caller's conversation in
  * `prompt` mode, or the disposable subagent conversation in `subagent` mode
- * (ERR-12 binds the same non-mutation obligation inside a subagent loom).
+ * (ERR-12 binds the same non-mutation obligation inside a subagent theta).
  */
 export type DrivenConversationMode = "prompt" | "subagent";
 

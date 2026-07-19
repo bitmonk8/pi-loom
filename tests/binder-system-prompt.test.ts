@@ -10,7 +10,7 @@ import {
 //
 // Closes the code-keyed obligation area `cka-45`
 // (binder/binder-bypass-and-envelope.md §"System-prompt structure (normative)"):
-// the eight structural items (Loom-identity line, Description line,
+// the eight structural items (Theta-identity line, Description line,
 // Argument-hint line, Parameters block, User-arguments line, Session-context
 // block, Envelope-kinds enumeration, No-invent-defaults instruction), the
 // *Type display* reference renderings, the *Default-literal rendering* rule, and
@@ -72,13 +72,13 @@ const defaultedField = (
 });
 
 // ============================================================================
-// Item 1 — Loom identity line
+// Item 1 — Theta identity line
 // ============================================================================
 
-describe("V11d-T — Loom identity line (cka-45 item 1)", () => {
-  it("cka-45 item 1: emits exactly one `Loom: /<name>` line with the bare name", () => {
+describe("V11d-T — Theta identity line (cka-45 item 1)", () => {
+  it("cka-45 item 1: emits exactly one `Theta: /<name>` line with the bare name", () => {
     const prompt = buildBinderSystemPrompt(baseInput({ name: "code-review" }));
-    expect(countLines(prompt, "Loom: /code-review")).toBe(1);
+    expect(countLines(prompt, "Theta: /code-review")).toBe(1);
   });
 });
 
@@ -98,13 +98,13 @@ describe("V11d-T — Description line (cka-45 item 2)", () => {
     const prompt = buildBinderSystemPrompt(baseInput());
     // The prompt is still built (identity line present) but carries no
     // Description line — the negative half of the conditional rule.
-    expect(linesOf(prompt)).toContain("Loom: /code-review");
+    expect(linesOf(prompt)).toContain("Theta: /code-review");
     expect(prompt).not.toContain("Description:");
   });
 
   it("cka-45 item 2: an empty `description:` omits the `Description:` token entirely", () => {
     const prompt = buildBinderSystemPrompt(baseInput({ description: "" }));
-    expect(linesOf(prompt)).toContain("Loom: /code-review");
+    expect(linesOf(prompt)).toContain("Theta: /code-review");
     expect(prompt).not.toContain("Description:");
   });
 });
@@ -122,13 +122,13 @@ describe("V11d-T — Argument-hint line (cka-45 item 3)", () => {
 
   it("cka-45 item 3: an absent `argument-hint:` omits the `Argument hint:` token entirely", () => {
     const prompt = buildBinderSystemPrompt(baseInput());
-    expect(linesOf(prompt)).toContain("Loom: /code-review");
+    expect(linesOf(prompt)).toContain("Theta: /code-review");
     expect(prompt).not.toContain("Argument hint:");
   });
 
   it("cka-45 item 3: an empty `argument-hint:` omits the `Argument hint:` token entirely", () => {
     const prompt = buildBinderSystemPrompt(baseInput({ argumentHint: "" }));
-    expect(linesOf(prompt)).toContain("Loom: /code-review");
+    expect(linesOf(prompt)).toContain("Theta: /code-review");
     expect(prompt).not.toContain("Argument hint:");
   });
 });
@@ -173,7 +173,7 @@ describe("V11d-T — Parameters block (cka-45 item 4)", () => {
 
   it("cka-45 item 4: `params:` absent/empty omits the entire Parameters block (header and all per-field lines)", () => {
     const prompt = buildBinderSystemPrompt(baseInput({ params: [] }));
-    expect(linesOf(prompt)).toContain("Loom: /code-review");
+    expect(linesOf(prompt)).toContain("Theta: /code-review");
     expect(prompt).not.toContain("Parameters:");
   });
 });
@@ -316,7 +316,7 @@ describe("V11d-T — Session-context block (cka-45 item 6)", () => {
 
   it("cka-45 item 6: no session context (`bind_context: none` / zero included turns) omits the whole block", () => {
     const prompt = buildBinderSystemPrompt(baseInput());
-    expect(linesOf(prompt)).toContain("Loom: /code-review");
+    expect(linesOf(prompt)).toContain("Theta: /code-review");
     expect(prompt).not.toContain("Recent session context");
   });
 });

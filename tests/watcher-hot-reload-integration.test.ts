@@ -7,8 +7,8 @@ import type {
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import {
-  createLoomExtension,
-  type LoomExtensionDeps,
+  createThetaExtension,
+  type ThetaExtensionDeps,
 } from "../src/extension/factory";
 import {
   composeExtensionInstance,
@@ -23,7 +23,7 @@ import { FakeFileWatcher } from "./helpers/fake-file-watcher";
 // Phase 5 (DISCO-2) — deterministic watcher / hot-reload integration.
 //
 // Boots the SHIPPED composition (`composeExtensionInstance`) through the real
-// extension factory (`createLoomExtension`) with a FAKE `FileWatcher` seam and a
+// extension factory (`createThetaExtension`) with a FAKE `FileWatcher` seam and a
 // FAKE, controllable `Clock` injected via the composition's test-only seam
 // overrides. NO real chokidar and NO real timers back the watcher / debounce:
 // discovery reads a real temp-dir workspace (the same on-disk drive the V20g
@@ -35,17 +35,17 @@ import { FakeFileWatcher } from "./helpers/fake-file-watcher";
 // package-and-settings.md §"Caching and reload" / §"Watcher-time reload
 // failures"):
 //   (a) a debounced onChange re-runs discovery + swaps the registry;
-//   (b) a newly-planted `.loom` becomes registered, a removed one is dropped
-//       from the swapped `LoomRegistry`;
+//   (b) a newly-planted `.theta` becomes registered, a removed one is dropped
+//       from the swapped `ThetaRegistry`;
 //   (c) `structuralChangeNote` is emitted on a registered-set change;
-//   (d) a rebuild failure surfaces ERR-7 (`loom/runtime/registry-swap-failed`)
-//       on the `loom-system-note` channel, leaving the prior registry live;
+//   (d) a rebuild failure surfaces ERR-7 (`theta/runtime/registry-swap-failed`)
+//       on the `theta-system-note` channel, leaving the prior registry live;
 //   (e) `session_shutdown` detaches the watcher and cancels the pending timer.
 
-const GREET_LOOM = ["---", "mode: prompt", "---", "@`hi`", ""].join("\n");
-const SECOND_LOOM = ["---", "mode: prompt", "---", "@`yo`", ""].join("\n");
+const GREET_THETA = ["---", "mode: prompt", "---", "@`hi`", ""].join("\n");
+const SECOND_THETA = ["---", "mode: prompt", "---", "@`yo`", ""].join("\n");
 
-/** A recorded `pi.sendMessage` call (the `loom-system-note` channel). */
+/** A recorded `pi.sendMessage` call (the `theta-system-note` channel). */
 interface RecordedNote {
   readonly customType: string;
   readonly content: string;
@@ -153,24 +153,24 @@ async function waitFor(cond: () => boolean, label: string): Promise<void> {
 
 describe("Phase 5 (DISCO-2) — watcher / hot-reload wired through the shipped composition", () => {
   let workspace: string;
-  let loomDir: string;
+  let thetaDir: string;
   let harness: Harness;
   let fakeWatcher: FakeFileWatcher;
   let fakeClock: FakeClock;
   let wiring: ExtensionInstanceWiring | undefined;
 
   beforeEach(() => {
-    workspace = mkdtempSync(join(tmpdir(), "loom-disco2-"));
-    loomDir = join(workspace, ".pi", "looms");
-    mkdirSync(loomDir, { recursive: true });
-    writeFileSync(join(loomDir, "greet.loom"), GREET_LOOM, "utf8");
+    workspace = mkdtempSync(join(tmpdir(), "theta-disco2-"));
+    thetaDir = join(workspace, ".pi", "theta");
+    mkdirSync(thetaDir, { recursive: true });
+    writeFileSync(join(thetaDir, "greet.theta"), GREET_THETA, "utf8");
 
     harness = makeHarness(workspace);
     fakeWatcher = new FakeFileWatcher();
     fakeClock = new FakeClock();
     wiring = undefined;
 
-    const deps: LoomExtensionDeps = {
+    const deps: ThetaExtensionDeps = {
       fixtures: [],
       composeInstance: async (pi, ctx) => {
         wiring = await composeExtensionInstance(pi, ctx, {
@@ -180,7 +180,7 @@ describe("Phase 5 (DISCO-2) — watcher / hot-reload wired through the shipped c
         return wiring;
       },
     };
-    createLoomExtension(deps)(harness.pi);
+    createThetaExtension(deps)(harness.pi);
   });
 
   afterEach(() => {
@@ -189,12 +189,12 @@ describe("Phase 5 (DISCO-2) — watcher / hot-reload wired through the shipped c
 
   /** Fire one debounced watcher reload and wait for it to settle. */
   async function fireReloadAndSettle(settled: () => boolean): Promise<void> {
-    fakeWatcher.emit({ kind: "change", path: join(loomDir, "greet.loom") });
+    fakeWatcher.emit({ kind: "change", path: join(thetaDir, "greet.theta") });
     fakeClock.advance(RELOAD_DEBOUNCE_WINDOW_MS);
     await waitFor(settled, "reload to settle");
   }
 
-  it("(a)+(b): a debounced onChange re-runs discovery, swaps the registry, and registers a newly-planted .loom", async () => {
+  it("(a)+(b): a debounced onChange re-runs discovery, swaps the registry, and registers a newly-planted .theta", async () => {
     await harness.fireSessionStart();
 
     // Initial boot: `/greet` registered, the watcher was armed exactly once.
@@ -203,38 +203,38 @@ describe("Phase 5 (DISCO-2) — watcher / hot-reload wired through the shipped c
     expect(wiring?.registry.get("greet")).toBeDefined();
     expect(harness.commands.has("second")).toBe(false);
 
-    // Plant a new loom on disk, then fire a debounced watcher event.
-    writeFileSync(join(loomDir, "second.loom"), SECOND_LOOM, "utf8");
+    // Plant a new theta on disk, then fire a debounced watcher event.
+    writeFileSync(join(thetaDir, "second.theta"), SECOND_THETA, "utf8");
     await fireReloadAndSettle(() => wiring?.registry.get("second") !== undefined);
 
     // (a) discovery re-ran (only re-discovery could surface the new file) and
-    // (b) the new loom is now in the swapped registry AND re-registered with pi.
+    // (b) the new theta is now in the swapped registry AND re-registered with pi.
     expect(wiring?.registry.get("second")).toBeDefined();
     expect(wiring?.registry.get("greet")).toBeDefined();
     expect(harness.commands.has("second")).toBe(true);
   });
 
-  it("(b)+(c): removing a .loom drops it from the swapped registry and emits the structural-change note", async () => {
+  it("(b)+(c): removing a .theta drops it from the swapped registry and emits the structural-change note", async () => {
     await harness.fireSessionStart();
     expect(wiring?.registry.get("greet")).toBeDefined();
     const notesBefore = harness.notes.length;
 
-    // Remove the loom on disk, then fire a debounced watcher event.
-    unlinkSync(join(loomDir, "greet.loom"));
+    // Remove the theta on disk, then fire a debounced watcher event.
+    unlinkSync(join(thetaDir, "greet.theta"));
     await fireReloadAndSettle(() => wiring?.registry.get("greet") === undefined);
 
-    // (b) the removed loom is dropped from the swapped registry.
+    // (b) the removed theta is dropped from the swapped registry.
     expect(wiring?.registry.get("greet")).toBeUndefined();
 
     // (c) a structural-change note fired on the set change (1 removed).
     const structural = harness.notes
       .slice(notesBefore)
-      .find((n) => n.content.startsWith("loom watcher:"));
+      .find((n) => n.content.startsWith("theta watcher:"));
     expect(structural).toBeDefined();
     expect(structural?.content).toBe(
-      "loom watcher: 1 file(s) added or removed; run /reload to refresh the slash command list",
+      "theta watcher: 1 file(s) added or removed; run /reload to refresh the slash command list",
     );
-    expect(structural?.customType).toBe("loom-system-note");
+    expect(structural?.customType).toBe("theta-system-note");
     expect(structural?.triggerTurn).toBe(false);
   });
 
@@ -245,12 +245,12 @@ describe("Phase 5 (DISCO-2) — watcher / hot-reload wired through the shipped c
 
     // Arm a watcher-time failure in the re-parse/compose pass: `pi.getCommands()`
     // throws during the reload's re-discovery, so the staged build throws before
-    // publish (PIC-36). Plant a new loom so a *successful* reload would have
+    // publish (PIC-36). Plant a new theta so a *successful* reload would have
     // changed the set — proving the discard, not a no-op.
-    writeFileSync(join(loomDir, "second.loom"), SECOND_LOOM, "utf8");
+    writeFileSync(join(thetaDir, "second.theta"), SECOND_THETA, "utf8");
     harness.setGetCommandsThrows(true);
 
-    fakeWatcher.emit({ kind: "change", path: join(loomDir, "second.loom") });
+    fakeWatcher.emit({ kind: "change", path: join(thetaDir, "second.theta") });
     fakeClock.advance(RELOAD_DEBOUNCE_WINDOW_MS);
     await waitFor(
       () =>
@@ -264,7 +264,7 @@ describe("Phase 5 (DISCO-2) — watcher / hot-reload wired through the shipped c
       "ERR-7 registry-swap-failed note",
     );
 
-    // ERR-7 routed onto the `loom-system-note` channel with triggerTurn:false.
+    // ERR-7 routed onto the `theta-system-note` channel with triggerTurn:false.
     const err7 = harness.notes
       .slice(notesBefore)
       .find((n) =>
@@ -273,11 +273,11 @@ describe("Phase 5 (DISCO-2) — watcher / hot-reload wired through the shipped c
         ),
       );
     expect(err7).toBeDefined();
-    expect(err7?.customType).toBe("loom-system-note");
+    expect(err7?.customType).toBe("theta-system-note");
     expect(err7?.triggerTurn).toBe(false);
 
     // The prior registry stays live: the discarded swap did not publish the new
-    // loom, and the pre-existing `/greet` still resolves.
+    // theta, and the pre-existing `/greet` still resolves.
     expect(wiring?.registry.get("greet")).toBeDefined();
     expect(wiring?.registry.get("second")).toBeUndefined();
   });
@@ -286,10 +286,10 @@ describe("Phase 5 (DISCO-2) — watcher / hot-reload wired through the shipped c
     await harness.fireSessionStart();
     expect(wiring?.registry.get("greet")).toBeDefined();
 
-    // Plant a new loom and open a debounce window (a timer is now pending), but
+    // Plant a new theta and open a debounce window (a timer is now pending), but
     // do NOT cross the boundary yet.
-    writeFileSync(join(loomDir, "second.loom"), SECOND_LOOM, "utf8");
-    fakeWatcher.emit({ kind: "change", path: join(loomDir, "second.loom") });
+    writeFileSync(join(thetaDir, "second.theta"), SECOND_THETA, "utf8");
+    fakeWatcher.emit({ kind: "change", path: join(thetaDir, "second.theta") });
 
     // Tear down: session_shutdown must detach the watcher and cancel the timer.
     await harness.fireSessionShutdown();
@@ -297,11 +297,11 @@ describe("Phase 5 (DISCO-2) — watcher / hot-reload wired through the shipped c
     // Crossing the boundary now fires nothing (the pending timer was cancelled),
     // and a post-teardown watcher event no longer reaches the debouncer.
     fakeClock.advance(RELOAD_DEBOUNCE_WINDOW_MS * 4);
-    fakeWatcher.emit({ kind: "change", path: join(loomDir, "second.loom") });
+    fakeWatcher.emit({ kind: "change", path: join(thetaDir, "second.theta") });
     fakeClock.advance(RELOAD_DEBOUNCE_WINDOW_MS * 4);
     await new Promise((resolve) => setTimeout(resolve, 40));
 
-    // No reload ran: the new loom never entered the registry and was never
+    // No reload ran: the new theta never entered the registry and was never
     // registered with pi.
     expect(wiring?.registry.get("second")).toBeUndefined();
     expect(harness.commands.has("second")).toBe(false);

@@ -7,8 +7,8 @@ import type {
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import {
-  createLoomExtension,
-  type LoomExtensionDeps,
+  createThetaExtension,
+  type ThetaExtensionDeps,
 } from "../src/extension/factory";
 import { composeExtensionInstance } from "../src/extension/production-composition";
 import { FakeClock } from "./helpers/fake-clock";
@@ -19,10 +19,10 @@ import { FakeFileWatcher } from "./helpers/fake-file-watcher";
 //
 // code-surface.md §5 / Summary point 3: the discovery WALK defers package
 // source (discovery-walk.ts:743,786 "not plumbed into this walk yet"); package
-// looms are merged in only at the composition root
-// (production-composition.ts:319-334), and ONLY when the package loom's slash
-// name is not already claimed by a higher/lower-priority walk loom. The
-// isolated `discoverPackageLooms` unit tests (tests/package-discovery.test.ts)
+// thetas are merged in only at the composition root
+// (production-composition.ts:319-334), and ONLY when the package theta's slash
+// name is not already claimed by a higher/lower-priority walk theta. The
+// isolated `discoverPackageThetas` unit tests (tests/package-discovery.test.ts)
 // exercise the walk in isolation but NOT this `claimed.has(pkg.name)` merge
 // tiebreak. This drives the shipped `composeExtensionInstance` over a real temp
 // workspace to pin the merge behaviour end-to-end.
@@ -83,7 +83,7 @@ function makeHarness(cwd: string): Harness {
     ui: { notify: (): void => {} },
   } as unknown as ExtensionContext;
 
-  const deps: LoomExtensionDeps = {
+  const deps: ThetaExtensionDeps = {
     fixtures: [],
     composeInstance: (composePi, composeCtx) =>
       composeExtensionInstance(composePi, composeCtx, {
@@ -91,7 +91,7 @@ function makeHarness(cwd: string): Harness {
         clock: new FakeClock(),
       }),
   };
-  createLoomExtension(deps)(pi);
+  createThetaExtension(deps)(pi);
 
   return {
     commands,
@@ -110,7 +110,7 @@ describe("S6 — composition-root package two-stage merge", () => {
   let savedUserProfile: string | undefined;
 
   beforeEach(() => {
-    workspace = mkdtempSync(join(tmpdir(), "loom-s6-pkgmerge-"));
+    workspace = mkdtempSync(join(tmpdir(), "theta-s6-pkgmerge-"));
     // Redirect os.homedir() so the global package roots resolve under the empty
     // workspace (deterministic — no real ~/.pi/agent scan).
     savedHome = process.env.HOME;
@@ -118,22 +118,22 @@ describe("S6 — composition-root package two-stage merge", () => {
     process.env.HOME = workspace;
     process.env.USERPROFILE = workspace;
 
-    // Project loom (walk-discovered, higher priority) claiming `dup`.
-    const loomDir = join(workspace, ".pi", "looms");
-    mkdirSync(loomDir, { recursive: true });
-    writeFileSync(join(loomDir, "dup.loom"), PROJECT_DUP, "utf8");
+    // Project theta (walk-discovered, higher priority) claiming `dup`.
+    const thetaDir = join(workspace, ".pi", "theta");
+    mkdirSync(thetaDir, { recursive: true });
+    writeFileSync(join(thetaDir, "dup.theta"), PROJECT_DUP, "utf8");
 
     // A project-local node_modules package (priority-4) with a conventional
-    // `looms/` dir: a COLLIDING `dup` and a UNIQUE `uniquepkg`.
-    const pkgLooms = join(workspace, "node_modules", "pkg-a", "looms");
-    mkdirSync(pkgLooms, { recursive: true });
+    // `theta/` dir: a COLLIDING `dup` and a UNIQUE `uniquepkg`.
+    const pkgThetas = join(workspace, "node_modules", "pkg-a", "theta");
+    mkdirSync(pkgThetas, { recursive: true });
     writeFileSync(
       join(workspace, "node_modules", "pkg-a", "package.json"),
       JSON.stringify({ name: "pkg-a", version: "1.0.0" }),
       "utf8",
     );
-    writeFileSync(join(pkgLooms, "dup.loom"), PACKAGE_DUP, "utf8");
-    writeFileSync(join(pkgLooms, "uniquepkg.loom"), PACKAGE_UNIQUE, "utf8");
+    writeFileSync(join(pkgThetas, "dup.theta"), PACKAGE_DUP, "utf8");
+    writeFileSync(join(pkgThetas, "uniquepkg.theta"), PACKAGE_UNIQUE, "utf8");
   });
 
   afterEach(() => {
@@ -144,18 +144,18 @@ describe("S6 — composition-root package two-stage merge", () => {
     rmSync(workspace, { recursive: true, force: true });
   });
 
-  it("merges in a uniquely-named package loom (unclaimed) and drops a package loom whose name is already claimed by a walk loom", async () => {
+  it("merges in a uniquely-named package theta (unclaimed) and drops a package theta whose name is already claimed by a walk theta", async () => {
     const harness = makeHarness(workspace);
     await harness.fireSessionStart();
 
-    // The unique package loom is merged in at the composition root (its slash
+    // The unique package theta is merged in at the composition root (its slash
     // name is unclaimed by the walk).
     expect(harness.commands.has("uniquepkg")).toBe(true);
 
     // The colliding name is registered exactly once: the package `dup` is
     // dropped by the `!claimed.has(pkg.name)` tiebreak (production-composition
     // .ts:319-334), so it never enters the composed set and cannot override /
-    // duplicate the higher-priority project walk loom.
+    // duplicate the higher-priority project walk theta.
     expect(harness.commands.has("dup")).toBe(true);
     expect(harness.registrations.filter((n) => n === "dup")).toHaveLength(1);
 

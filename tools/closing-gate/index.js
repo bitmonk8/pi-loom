@@ -60,7 +60,7 @@
 // is a GOV-24 table-of-contents hub stub (a page whose stem matches a trailing-
 // slash subtree row). For each in-scope page carrying an un-anchored MUST (a
 // paragraph holding a MUST token but neither a `PREFIX-N` REQ-ID nor a
-// `loom/...` registry code), the page MUST be enumerated in the coverage-
+// `theta/...` registry code), the page MUST be enumerated in the coverage-
 // matrix's *Code-keyed obligation areas (no numbered REQ-IDs)* table by a row
 // whose closing-leaf cell resolves to a real plan leaf ID. A `<new>` literal
 // names no real leaf (placeholder); any other non-resolving token (V99z) is a
@@ -117,14 +117,14 @@
 // every entry's cited token MUST resolve to one of the four arms that rule's
 // predicate admits: a coverage-matrix REQ-ID, a *Code-keyed obligation areas
 // (no numbered REQ-IDs)* row's canonical `cka-<n>` token (resolving iff it
-// matches exactly one such row's *Token* cell), a concrete `loom/...`
+// matches exactly one such row's *Token* cell), a concrete `theta/...`
 // diagnostics-registry code present in the registry (never a glob/wildcard
 // family — the resolver matches no wildcard), or the structural
 // `pi-sdk-boundary` token. An entry resolving to none is a CI failure, on the
 // same seeded-fixture-then-live-corpus footing as the H5a surfaces; the live-
 // corpus binding flips at H6a.
 //
-// The `loom/typecheck/*` build-time `tsc` brand-string prefix is NOT a
+// The `theta/typecheck/*` build-time `tsc` brand-string prefix is NOT a
 // diagnostics-registry code and is excluded from registry reconciliation on
 // both sides (registry-code-no-asserting-test and asserted-code-not-in-registry).
 //
@@ -149,13 +149,13 @@ const NON_EXECUTABLE_PREFIXES = new Set(["GOV"]);
 // discipline* "terminology REQ-ID (non-executable)" class, exactly as
 // NON_EXECUTABLE_PREFIXES mirrors the GOV-* corpus-governance carve-out; it is
 // spec-backed, not a bare hardcode. Each cited ID's spec anchor states "purely
-// terminology": FRNT-2 (callable-set terminology), FRNT-3 (`.loom`-callable
+// terminology": FRNT-2 (callable-set terminology), FRNT-3 (`.theta`-callable
 // terminology), SUBS-2 (schema-slug terminology).
 const NON_EXECUTABLE_REQ_IDS = new Set(["FRNT-2", "FRNT-3", "SUBS-2"]);
 
 // The build-time tsc brand-string namespace, excluded from registry
 // reconciliation on both sides (conventions.md *REQ-ID discipline* carve-out).
-const TYPECHECK_PREFIX = "loom/typecheck/";
+const TYPECHECK_PREFIX = "theta/typecheck/";
 
 // ── Markdown exclusion stripping (GOV-3) ──────────────────────────────────────
 // Before REQ-ID extraction, strip fenced code blocks, HTML comments, and inline
@@ -530,7 +530,7 @@ export function parsePlanLeaves(text) {
 }
 
 // Strip fenced code blocks and HTML comments (NOT inline code spans, so a
-// `loom/...` registry code in backticks still anchors its obligation) before the
+// `theta/...` registry code in backticks still anchors its obligation) before the
 // MUST scan, mirroring the GOV-3 exclusion order for the constructs that can
 // hide a MUST token.
 function stripFencesAndComments(text) {
@@ -543,15 +543,15 @@ function stripFencesAndComments(text) {
 // True iff the page carries at least one un-anchored normative MUST: a blank-
 // line-delimited paragraph holding a `MUST` token (covering `MUST` and
 // `MUST NOT`) but neither a numbered `PREFIX-N` REQ-ID nor a non-typecheck
-// `loom/...` registry code. Best-effort per conventions.md *REQ-ID discipline*:
+// `theta/...` registry code. Best-effort per conventions.md *REQ-ID discipline*:
 // it cannot tell a normative MUST from one in narrative, an example, or a quote.
 export function pageHasUnanchoredMust(text) {
   const scanned = stripFencesAndComments(text);
   for (const para of scanned.split(/\n\s*\n/)) {
     if (!/\bMUST\b/.test(para)) continue;
     if (/\b[A-Z]{2,4}-[1-9][0-9]*\b/.test(para)) continue; // PREFIX-N anchor
-    const loom = para.match(/\bloom\/[a-z0-9/_-]+/);
-    if (loom != null && !loom[0].startsWith(TYPECHECK_PREFIX)) continue; // loom code anchor
+    const theta = para.match(/\btheta\/[a-z0-9/_-]+/);
+    if (theta != null && !theta[0].startsWith(TYPECHECK_PREFIX)) continue; // theta code anchor
     return true;
   }
   return false;
@@ -571,11 +571,11 @@ export function classifyClosingCell(cell, planLeaves) {
 }
 
 // ── Diagnostics-registry parsing ──────────────────────────────────────────────
-// Distinct backtick-delimited `loom/...` codes in the registry sources,
-// excluding the `loom/typecheck/*` build-time brand namespace.
+// Distinct backtick-delimited `theta/...` codes in the registry sources,
+// excluding the `theta/typecheck/*` build-time brand namespace.
 export function parseRegistryCodes(text) {
   const codes = new Set();
-  for (const m of text.matchAll(/`(loom\/[a-z0-9/_-]+)`/g)) {
+  for (const m of text.matchAll(/`(theta\/[a-z0-9/_-]+)`/g)) {
     const code = m[1];
     if (code.startsWith(TYPECHECK_PREFIX)) continue;
     codes.add(code);
@@ -584,12 +584,12 @@ export function parseRegistryCodes(text) {
 }
 
 // ── Test-corpus scans ─────────────────────────────────────────────────────────
-// Distinct `loom/...` codes a test asserts (in any quote or backtick form),
-// excluding the `loom/typecheck/*` brand namespace.
+// Distinct `theta/...` codes a test asserts (in any quote or backtick form),
+// excluding the `theta/typecheck/*` brand namespace.
 export function extractAssertedCodes(sources) {
   const codes = new Set();
   for (const src of sources) {
-    for (const m of src.text.matchAll(/loom\/[a-z0-9/_-]+/g)) {
+    for (const m of src.text.matchAll(/theta\/[a-z0-9/_-]+/g)) {
       const code = m[0];
       if (code.startsWith(TYPECHECK_PREFIX)) continue;
       codes.add(code);
@@ -601,8 +601,8 @@ export function extractAssertedCodes(sources) {
 // ── Broad-catch allow-list scan (H5c) ─────────────────────────────────────────
 // Extract every `// allow-broad-catch: <token> — <spec-page>` comment across the
 // (seeded or live) `src/**` sources as the allow-list entries. The cited token
-// is the first whitespace-delimited span after the colon; a `loom/...` glob or
-// wildcard family (e.g. `loom/host/session-shutdown-*`) is captured verbatim and
+// is the first whitespace-delimited span after the colon; a `theta/...` glob or
+// wildcard family (e.g. `theta/host/session-shutdown-*`) is captured verbatim and
 // later rejected by the resolver.
 export function extractBroadCatchEntries(sources) {
   const entries = [];
@@ -617,7 +617,7 @@ export function extractBroadCatchEntries(sources) {
 }
 
 // Resolve a cited broad-catch token against the four admitted arms. Returns true
-// iff the token resolves; the `loom/...` arm matches only a concrete registry
+// iff the token resolves; the `theta/...` arm matches only a concrete registry
 // code (the `[a-z0-9/_-]` char class excludes `*`, so a glob/wildcard family
 // never matches), and the `cka-<n>` arm resolves iff the token matches exactly
 // one *Token* cell (count === 1).
@@ -625,7 +625,7 @@ function resolveBroadCatchToken(token, { mapped, ckaCounts, registryCodes }) {
   if (token === "pi-sdk-boundary") return true;
   if (/^[A-Z]{2,4}-[1-9][0-9]*$/.test(token)) return mapped.has(token);
   if (/^cka-[1-9][0-9]*$/.test(token)) return ckaCounts.get(token) === 1;
-  if (/^loom\/[a-z0-9/_-]+$/.test(token)) return registryCodes.has(token);
+  if (/^theta\/[a-z0-9/_-]+$/.test(token)) return registryCodes.has(token);
   return false;
 }
 
@@ -698,7 +698,7 @@ export function runClosingGate(corpus) {
     }
   }
 
-  // (3) Registry code with no asserting test (loom/typecheck/* already excluded).
+  // (3) Registry code with no asserting test (theta/typecheck/* already excluded).
   for (const code of registryCodes) {
     if (!assertedCodes.has(code)) {
       findings.push({
@@ -709,7 +709,7 @@ export function runClosingGate(corpus) {
     }
   }
 
-  // (4) Asserted code absent from the registry (loom/typecheck/* already excluded).
+  // (4) Asserted code absent from the registry (theta/typecheck/* already excluded).
   for (const code of assertedCodes) {
     if (!registrySet.has(code)) {
       findings.push({
@@ -734,14 +734,14 @@ export function runClosingGate(corpus) {
 
   // (5b) Broad-catch allow-list (H5c): a `// allow-broad-catch:` entry whose
   // cited token resolves to none of the four admitted arms (coverage-matrix
-  // REQ-ID, exactly-one `cka-<n>` Token cell, concrete `loom/...` registry code,
+  // REQ-ID, exactly-one `cka-<n>` Token cell, concrete `theta/...` registry code,
   // or the structural `pi-sdk-boundary` token).
   for (const entry of broadCatchEntries) {
     if (!resolveBroadCatchToken(entry.token, { mapped, ckaCounts, registryCodes: registrySet })) {
       findings.push({
         kind: "broad-catch-allow-list-unresolved",
         subject: entry.token,
-        detail: `// allow-broad-catch: token ${entry.token} resolves to none of the four admitted arms (coverage-matrix REQ-ID, cka-<n> token, concrete loom/... registry code, pi-sdk-boundary)`,
+        detail: `// allow-broad-catch: token ${entry.token} resolves to none of the four admitted arms (coverage-matrix REQ-ID, cka-<n> token, concrete theta/... registry code, pi-sdk-boundary)`,
       });
     }
   }

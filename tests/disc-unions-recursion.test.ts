@@ -37,7 +37,7 @@ function span(): SourceRange {
 
 /** A located site at the throwaway span. */
 function site(): { file: string; range: SourceRange } {
-  return { file: "test.loom", range: span() };
+  return { file: "test.theta", range: span() };
 }
 
 /** The first diagnostic carrying `code`, if any. */
@@ -50,8 +50,8 @@ function withCode(diags: readonly Diagnostic[], code: string): Diagnostic | unde
 // cka-8 / V5b: the SCHM code-keyed obligation area (schemas.md) closes across V5a
 // and V5b (discriminated-union detection, recursion, cycle detection); the
 // assertions in this file witness the V5b facet against the shipped parser.
-describe("V5b-T — non-string discriminator (loom/parse/non-string-discriminator)", () => {
-  it("loom/parse/non-string-discriminator: an otherwise-qualifying field with a numeric literal fires with the offending kind", () => {
+describe("V5b-T — non-string discriminator (theta/parse/non-string-discriminator)", () => {
+  it("theta/parse/non-string-discriminator: an otherwise-qualifying field with a numeric literal fires with the offending kind", () => {
     // `schema Animal = Cat | Dog` where each variant's `kind` is an integer
     // literal (`kind: 1` / `kind: 2`) — present in every variant, single
     // literal, unique value, but the literal type is integer not string.
@@ -65,8 +65,8 @@ describe("V5b-T — non-string discriminator (loom/parse/non-string-discriminato
       },
       site(),
     );
-    const d = withCode(diags, "loom/parse/non-string-discriminator");
-    expect(d, "loom/parse/non-string-discriminator for an integer discriminator").toBeDefined();
+    const d = withCode(diags, "theta/parse/non-string-discriminator");
+    expect(d, "theta/parse/non-string-discriminator for an integer discriminator").toBeDefined();
     // Message template `discriminator '<field>' on <X> must be a string-literal
     // type; got <kind>` from code-registry-parse.md; <kind> is the offending
     // literal's type-kind.
@@ -78,8 +78,8 @@ describe("V5b-T — non-string discriminator (loom/parse/non-string-discriminato
 
 // --- schemas.md §Discriminated unions — ambiguous discriminator -----------
 
-describe("V5b-T — ambiguous discriminator (loom/parse/ambiguous-discriminator)", () => {
-  it("loom/parse/ambiguous-discriminator: two qualifying fields fire, naming the candidates", () => {
+describe("V5b-T — ambiguous discriminator (theta/parse/ambiguous-discriminator)", () => {
+  it("theta/parse/ambiguous-discriminator: two qualifying fields fire, naming the candidates", () => {
     // Both `kind` and `species` qualify (present in every variant, single
     // string literal, unique values) — detection is ambiguous.
     const diags = checkDiscriminatedUnion(
@@ -104,8 +104,8 @@ describe("V5b-T — ambiguous discriminator (loom/parse/ambiguous-discriminator)
       },
       site(),
     );
-    const d = withCode(diags, "loom/parse/ambiguous-discriminator");
-    expect(d, "loom/parse/ambiguous-discriminator for two qualifying fields").toBeDefined();
+    const d = withCode(diags, "theta/parse/ambiguous-discriminator");
+    expect(d, "theta/parse/ambiguous-discriminator for two qualifying fields").toBeDefined();
     // Message from schemas.md §Discriminated unions / code-registry-parse.md;
     // candidates are the qualifying fields in source order, comma-space joined.
     expect(d?.message).toBe(
@@ -116,8 +116,8 @@ describe("V5b-T — ambiguous discriminator (loom/parse/ambiguous-discriminator)
 
 // --- schemas.md §Discriminated unions — missing discriminator -------------
 
-describe("V5b-T — missing discriminator (loom/parse/missing-discriminator)", () => {
-  it("loom/parse/missing-discriminator: a union of object schemas with no shared single-literal field fires", () => {
+describe("V5b-T — missing discriminator (theta/parse/missing-discriminator)", () => {
+  it("theta/parse/missing-discriminator: a union of object schemas with no shared single-literal field fires", () => {
     // No field is present in every variant as a single literal — `name` and
     // `age` are non-literal fields on disjoint variants.
     const diags = checkDiscriminatedUnion(
@@ -130,8 +130,8 @@ describe("V5b-T — missing discriminator (loom/parse/missing-discriminator)", (
       },
       site(),
     );
-    const d = withCode(diags, "loom/parse/missing-discriminator");
-    expect(d, "loom/parse/missing-discriminator for a discriminator-less object union").toBeDefined();
+    const d = withCode(diags, "theta/parse/missing-discriminator");
+    expect(d, "theta/parse/missing-discriminator for a discriminator-less object union").toBeDefined();
     // Message from schemas.md §Discriminated unions / code-registry-parse.md.
     expect(d?.message).toBe(
       "Animal is a union of object schemas with no shared single-literal discriminator field. Add a 'kind' (or similar) field to each variant, or declare explicitly with 'by <field>'.",
@@ -141,8 +141,8 @@ describe("V5b-T — missing discriminator (loom/parse/missing-discriminator)", (
 
 // --- schemas.md §Discriminated unions — duplicate discriminator value -----
 
-describe("V5b-T — duplicate discriminator value (loom/parse/duplicate-discriminator-value)", () => {
-  it("loom/parse/duplicate-discriminator-value: two variants sharing the discriminator value fire", () => {
+describe("V5b-T — duplicate discriminator value (theta/parse/duplicate-discriminator-value)", () => {
+  it("theta/parse/duplicate-discriminator-value: two variants sharing the discriminator value fire", () => {
     // Explicit `by kind`: both variants carry `kind: "same"` — the chosen
     // discriminator's value is not unique across the union.
     const diags = checkDiscriminatedUnion(
@@ -156,10 +156,10 @@ describe("V5b-T — duplicate discriminator value (loom/parse/duplicate-discrimi
       },
       site(),
     );
-    const d = withCode(diags, "loom/parse/duplicate-discriminator-value");
+    const d = withCode(diags, "theta/parse/duplicate-discriminator-value");
     expect(
       d,
-      "loom/parse/duplicate-discriminator-value for two variants sharing a value",
+      "theta/parse/duplicate-discriminator-value for two variants sharing a value",
     ).toBeDefined();
     // Message template `duplicate discriminator value '<value>' across variants
     // of <X>` from code-registry-parse.md; <value> renders the literal source
@@ -170,8 +170,8 @@ describe("V5b-T — duplicate discriminator value (loom/parse/duplicate-discrimi
 
 // --- schemas.md §Discriminated unions — nested discriminator --------------
 
-describe("V5b-T — nested discriminator (loom/parse/nested-discriminator)", () => {
-  it("loom/parse/nested-discriminator: a discriminator field whose value is a nested object fires", () => {
+describe("V5b-T — nested discriminator (theta/parse/nested-discriminator)", () => {
+  it("theta/parse/nested-discriminator: a discriminator field whose value is a nested object fires", () => {
     // Explicit `by kind` where each variant's `kind` value is a nested object
     // (`kind: { type: "x" }`) rather than a top-level literal.
     const diags = checkDiscriminatedUnion(
@@ -185,8 +185,8 @@ describe("V5b-T — nested discriminator (loom/parse/nested-discriminator)", () 
       },
       site(),
     );
-    const d = withCode(diags, "loom/parse/nested-discriminator");
-    expect(d, "loom/parse/nested-discriminator for a nested discriminator value").toBeDefined();
+    const d = withCode(diags, "theta/parse/nested-discriminator");
+    expect(d, "theta/parse/nested-discriminator for a nested discriminator value").toBeDefined();
     // Message template `discriminator field '<field>' must be at the top level
     // of each variant of <X>` from code-registry-parse.md.
     expect(d?.message).toBe(
@@ -197,12 +197,12 @@ describe("V5b-T — nested discriminator (loom/parse/nested-discriminator)", () 
 
 // --- schemas.md §Discriminated unions / grammar.md — `by` on object body --
 
-describe("V5b-T — by on object schema (loom/parse/by-on-object-schema)", () => {
-  it("loom/parse/by-on-object-schema: a `by` clause on an object body fires; the union form does not", () => {
+describe("V5b-T — by on object schema (theta/parse/by-on-object-schema)", () => {
+  it("theta/parse/by-on-object-schema: a `by` clause on an object body fires; the union form does not", () => {
     // `schema X by f { ... }` — `by` on an object body is illegal.
     const d = checkByClause({ name: "X", form: "object", field: "f" }, site());
-    expect(d, "loom/parse/by-on-object-schema for `by` on an object body").toBeDefined();
-    expect(d?.code).toBe("loom/parse/by-on-object-schema");
+    expect(d, "theta/parse/by-on-object-schema for `by` on an object body").toBeDefined();
+    expect(d?.code).toBe("theta/parse/by-on-object-schema");
     // Message from grammar.md / code-registry-parse.md (note the literal
     // `A | B | …` with a Unicode ellipsis).
     expect(d?.message).toBe(
@@ -217,8 +217,8 @@ describe("V5b-T — by on object schema (loom/parse/by-on-object-schema)", () =>
 
 // --- schemas.md §Recursion — type-alias cycle -----------------------------
 
-describe("V5b-T — type-alias cycle (loom/parse/type-alias-cycle)", () => {
-  it("loom/parse/type-alias-cycle: a pure-alias cycle fires with the path; a cycle through an object hop is accepted", () => {
+describe("V5b-T — type-alias cycle (theta/parse/type-alias-cycle)", () => {
+  it("theta/parse/type-alias-cycle: a pure-alias cycle fires with the path; a cycle through an object hop is accepted", () => {
     // `schema X = Y; schema Y = X` — both nodes are aliases, so the cycle has
     // no object-schema hop and is rejected.
     const diags = detectTypeAliasCycles(
@@ -228,8 +228,8 @@ describe("V5b-T — type-alias cycle (loom/parse/type-alias-cycle)", () => {
       ],
       site(),
     );
-    const d = withCode(diags, "loom/parse/type-alias-cycle");
-    expect(d, "loom/parse/type-alias-cycle for a pure-alias cycle").toBeDefined();
+    const d = withCode(diags, "theta/parse/type-alias-cycle");
+    expect(d, "theta/parse/type-alias-cycle for a pure-alias cycle").toBeDefined();
     // Message template `type-alias cycle: <path>` from code-registry-parse.md;
     // the path is printed with ` → ` separators, mirroring the import-/
     // invocation-cycle diagnostics (schemas.md §Recursion).
@@ -245,7 +245,7 @@ describe("V5b-T — type-alias cycle (loom/parse/type-alias-cycle)", () => {
       site(),
     );
     expect(
-      withCode(okDiags, "loom/parse/type-alias-cycle"),
+      withCode(okDiags, "theta/parse/type-alias-cycle"),
       "a cycle through at least one object-schema hop raises no type-alias-cycle diagnostic",
     ).toBeUndefined();
   });

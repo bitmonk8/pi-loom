@@ -5,7 +5,7 @@
 // obligation area — no numbered REQ-IDs), evaluated on top of the V3a
 // expression interpreter:
 //
-//   - the `string` members of the loom-1.0 stdlib table — the `length`
+//   - the `string` members of the theta-1.0 stdlib table — the `length`
 //     property (the UTF-16 code-unit count, matching JS `.length`, no grapheme
 //     segmentation), `toLowerCase()` / `toUpperCase()` / `trim()` (the
 //     locale-independent transforms), `startsWith(s)` / `endsWith(s)` /
@@ -41,20 +41,20 @@
 
 import { checkCompatible } from "../parser/type-compat";
 import type { CompatType, TypeEnv } from "../parser/type-compat";
-import type { LoomValue } from "./value";
+import type { ThetaValue } from "./value";
 
 /**
  * Evaluate a `string` standard-library member on `receiver`: the `length`
  * property (called with `args === []`) or one of the method calls
  * (`toLowerCase` / `toUpperCase` / `trim` / `startsWith` / `endsWith` /
  * `includes` / `split` / `replace`), with the arguments already evaluated by
- * the V3a interpreter. Returns the member's loom value per the expressions.md
+ * the V3a interpreter. Returns the member's theta value per the expressions.md
  * stdlib table and the normative `replace` reference vectors.
  */
 /**
  * The `string` standard-library member surface (expressions.md §"Built-in
  * methods and properties"): the allow-list the `type`-phase
- * `loom/parse/unknown-method` check consumes. Kept in lockstep with the
+ * `theta/parse/unknown-method` check consumes. Kept in lockstep with the
  * `evaluateStringMember` dispatcher below — every name the dispatcher accepts
  * appears here, and no other.
  */
@@ -73,8 +73,8 @@ export const STRING_MEMBERS: ReadonlySet<string> = new Set([
 export function evaluateStringMember(
   receiver: string,
   member: string,
-  args: readonly LoomValue[],
-): LoomValue {
+  args: readonly ThetaValue[],
+): ThetaValue {
   switch (member) {
     // `length` — the UTF-16 code-unit count (JS `.length`; no grapheme or
     // code-point segmentation).

@@ -64,13 +64,13 @@ function input(overrides: Partial<FollowUpTurnInput>): FollowUpTurnInput {
 describe("QRY-12 — respond-repair follow-up turn templates render byte-for-byte", () => {
   it("QRY-12: `validator_error` renders its follow-up user turn byte-for-byte, backticks and trailing U+000A included", () => {
     // Constructed character-by-character: the fixed template text, the literal
-    // U+0060 backticks around `__loom_respond_<slug>`, the single U+000A between
+    // U+0060 backticks around `__theta_respond_<slug>`, the single U+000A between
     // the instruction sentence and `<schema-json>`, and the trailing U+000A.
     const expected =
       "Your previous response did not match the required schema. " +
       "Validation errors: " +
       CANONICAL_AJV_SUMMARY +
-      ". Return your final answer using the `__loom_respond_" +
+      ". Return your final answer using the `__theta_respond_" +
       SLUG +
       "` tool, conforming to this schema:\n" +
       SCHEMA_JSON +
@@ -82,13 +82,13 @@ describe("QRY-12 — respond-repair follow-up turn templates render byte-for-byt
     // The trailing byte is the mandated U+000A after `<schema-json>`.
     expect(rendered.endsWith(SCHEMA_JSON + "\n")).toBe(true); // QRY-12
     // The tool reference is wrapped in literal U+0060 backticks.
-    expect(rendered).toContain("`__loom_respond_" + SLUG + "`"); // QRY-12
+    expect(rendered).toContain("`__theta_respond_" + SLUG + "`"); // QRY-12
   });
 
   it("QRY-12: `schema_repeat` renders its follow-up user turn byte-for-byte (no `<ajv-summary>` clause), backticks and trailing U+000A included", () => {
     const expected =
       "Your previous response did not match the required schema. " +
-      "Return your final answer using the `__loom_respond_" +
+      "Return your final answer using the `__theta_respond_" +
       SLUG +
       "` tool, conforming to this schema:\n" +
       SCHEMA_JSON +
@@ -109,12 +109,12 @@ describe("QRY-12 — respond-repair follow-up turn templates render byte-for-byt
 // ---------------------------------------------------------------------------
 
 describe("QRY-12 — `<schema-json>` is JSON.stringify(lowered, null, 2) and `<slug>` is the lowered schema slug", () => {
-  it("QRY-12: `<schema-json>` is `JSON.stringify(schema, null, 2)` over the lowered response schema, not the source-Loom-type form", () => {
+  it("QRY-12: `<schema-json>` is `JSON.stringify(schema, null, 2)` over the lowered response schema, not the source-Theta-type form", () => {
     const rendered = renderFollowUpTurn(input({ methodology: "schema_repeat" }));
 
     // The interpolation is the two-space-indented JSON.stringify of the lowered
     // JSON Schema (the form handed to AJV) — its lowered keys are present, and it
-    // is not a source-Loom-type serialisation.
+    // is not a source-Theta-type serialisation.
     expect(rendered).toContain(JSON.stringify(LOWERED_SCHEMA, null, 2)); // QRY-12
     expect(rendered).toContain('"additionalProperties": false'); // QRY-12
     // The rendered turn ends with exactly the lowered schema-json plus U+000A.
@@ -123,7 +123,7 @@ describe("QRY-12 — `<schema-json>` is JSON.stringify(lowered, null, 2) and `<s
     ); // QRY-12
   });
 
-  it("QRY-12: `<slug>` equals the slug of the lowered response schema (same source-of-truth as `__loom_respond_<slug>`)", () => {
+  it("QRY-12: `<slug>` equals the slug of the lowered response schema (same source-of-truth as `__theta_respond_<slug>`)", () => {
     // The lowered response schema's canonical fragment; its slug names both the
     // synthesised respond tool and the `<slug>` placeholder.
     const loweredCanonical: LoweredJsonValue = {
@@ -142,9 +142,9 @@ describe("QRY-12 — `<schema-json>` is JSON.stringify(lowered, null, 2) and `<s
       input({ methodology: "schema_repeat", slug: expectedSlug }),
     );
 
-    // The follow-up's tool reference is byte-equal to `__loom_respond_<slug>` of
+    // The follow-up's tool reference is byte-equal to `__theta_respond_<slug>` of
     // the lowered schema slug.
-    expect(rendered).toContain("`__loom_respond_" + expectedSlug + "`"); // QRY-12
+    expect(rendered).toContain("`__theta_respond_" + expectedSlug + "`"); // QRY-12
   });
 });
 
@@ -176,7 +176,7 @@ describe("QRY-12 — multi-attempt `<ajv-summary>` reflects only the most-recent
       "Your previous response did not match the required schema. " +
       "Validation errors: " +
       secondSummary +
-      ". Return your final answer using the `__loom_respond_" +
+      ". Return your final answer using the `__theta_respond_" +
       SLUG +
       "` tool, conforming to this schema:\n" +
       SCHEMA_JSON +

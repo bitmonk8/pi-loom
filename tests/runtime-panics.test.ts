@@ -9,7 +9,7 @@ import {
   enterInvokeFrame,
   evaluateQuestion,
   surfaceUnexpectedThrow,
-  isLoomPanic,
+  isThetaPanic,
   HostFatal,
   IndexOutOfBoundsPanic,
   MissingObjectKeyPanic,
@@ -29,25 +29,25 @@ import {
   MATCH_ERROR_CODE,
   type MatchArm,
 } from "../src/runtime/match-result";
-import { makeOk, makeErr, type LoomValue } from "../src/runtime/value";
+import { makeOk, makeErr, type ThetaValue } from "../src/runtime/value";
 import type { SourceRange } from "../src/diagnostics/diagnostic";
 
 // V4b-T — failing tests for the paired `V4b` "Runtime panics" implementation.
 //
 // Spec: errors-and-results.md, errors-and-results/error-model.md §"Runtime
 // panics" (closure into invocation.md §"Invocation depth bound" for INV-4's
-// `loom/runtime/invoke-depth-exceeded`, and hard-ceilings/
+// `theta/runtime/invoke-depth-exceeded`, and hard-ceilings/
 // ceiling-invariants-and-audit.md §"No additional ceilings" for the NOCEIL-3
 // uncatchable-host-fatal carve-out).
 //
-//   - The six closed panic sources — `loom/runtime/index-out-of-bounds`,
-//     `loom/runtime/missing-object-key`, `loom/runtime/null-index-access`,
-//     `loom/runtime/null-member-access`, `loom/runtime/match-error`,
-//     `loom/runtime/invoke-depth-exceeded` — each emit their registered message
+//   - The six closed panic sources — `theta/runtime/index-out-of-bounds`,
+//     `theta/runtime/missing-object-key`, `theta/runtime/null-index-access`,
+//     `theta/runtime/null-member-access`, `theta/runtime/match-error`,
+//     `theta/runtime/invoke-depth-exceeded` — each emit their registered message
 //     template and bypass `?`/`match`.
-//   - An unexpected thrown value surfaces as `loom/runtime/internal-error`.
+//   - An unexpected thrown value surfaces as `theta/runtime/internal-error`.
 //   - A host-fatal uncatchable condition (NOCEIL-3 carve-out) emits no
-//     diagnostic at all — in particular no `loom/runtime/internal-error`.
+//     diagnostic at all — in particular no `theta/runtime/internal-error`.
 //
 // Per the *Diagnostic message anchors* rule every asserted message string is
 // sourced from the diagnostics registry's *Message* column (via
@@ -105,7 +105,7 @@ function expectedMessage(code: string, subs: Readonly<Record<string, string>>): 
 /** A throwaway located site for the runtime-defect surface. */
 function site(): { file: string; range: SourceRange } {
   return {
-    file: "test.loom",
+    file: "test.theta",
     range: { start: { line: 1, column: 1 }, end: { line: 1, column: 2 } },
   };
 }
@@ -117,8 +117,8 @@ interface PanicCase {
   readonly name: string;
   readonly code: string;
   readonly panicClass: new (...args: never[]) => Error;
-  /** Triggers the panic source; returns a `LoomValue` on the (untaken) no-panic path. */
-  readonly trigger: () => LoomValue;
+  /** Triggers the panic source; returns a `ThetaValue` on the (untaken) no-panic path. */
+  readonly trigger: () => ThetaValue;
   readonly expected: string;
   /** Whether `match` (the construct) can structurally contain this source. */
   readonly matchBypassApplies: boolean;
@@ -126,7 +126,7 @@ interface PanicCase {
 
 const PANIC_CASES: readonly PanicCase[] = [
   {
-    name: "loom/runtime/index-out-of-bounds",
+    name: "theta/runtime/index-out-of-bounds",
     code: INDEX_OUT_OF_BOUNDS_CODE,
     panicClass: IndexOutOfBoundsPanic,
     trigger: () => evaluateIndexAccess(["a", "b", "c"], 5),
@@ -134,7 +134,7 @@ const PANIC_CASES: readonly PanicCase[] = [
     matchBypassApplies: true,
   },
   {
-    name: "loom/runtime/missing-object-key",
+    name: "theta/runtime/missing-object-key",
     code: MISSING_OBJECT_KEY_CODE,
     panicClass: MissingObjectKeyPanic,
     trigger: () => evaluateIndexAccess({ present: 1 }, "ghost"),
@@ -142,7 +142,7 @@ const PANIC_CASES: readonly PanicCase[] = [
     matchBypassApplies: true,
   },
   {
-    name: "loom/runtime/null-index-access",
+    name: "theta/runtime/null-index-access",
     code: NULL_INDEX_ACCESS_CODE,
     panicClass: NullIndexAccessPanic,
     trigger: () => evaluateIndexAccess(null, 0),
@@ -150,7 +150,7 @@ const PANIC_CASES: readonly PanicCase[] = [
     matchBypassApplies: true,
   },
   {
-    name: "loom/runtime/null-member-access",
+    name: "theta/runtime/null-member-access",
     code: NULL_MEMBER_ACCESS_CODE,
     panicClass: NullMemberAccessPanic,
     trigger: () => evaluateMemberAccess(null, "name"),
@@ -158,7 +158,7 @@ const PANIC_CASES: readonly PanicCase[] = [
     matchBypassApplies: true,
   },
   {
-    name: "loom/runtime/match-error",
+    name: "theta/runtime/match-error",
     code: MATCH_ERROR_CODE,
     panicClass: MatchError,
     // A scrutinee `5` matching no arm raises the non-exhaustive-`match` panic.
@@ -173,7 +173,7 @@ const PANIC_CASES: readonly PanicCase[] = [
     matchBypassApplies: false,
   },
   {
-    name: "loom/runtime/invoke-depth-exceeded",
+    name: "theta/runtime/invoke-depth-exceeded",
     code: INVOKE_DEPTH_EXCEEDED_CODE,
     panicClass: InvokeDepthExceededPanic,
     // About to push the 33rd frame (one past the cap of 32) — INV-4.
@@ -243,14 +243,14 @@ describe("V13a — QRY-21: interpolation-expression panics propagate before the 
   // the discard form does not contain them." The panic sources exercised here
   // are exactly the primitives an interpolated `${expr}` evaluates through
   // (indexed / member access and `match`), so a panic they raise escapes as a
-  // thrown LoomPanic — never a `LoomValue` — and therefore cannot be absorbed by
+  // thrown ThetaPanic — never a `ThetaValue` — and therefore cannot be absorbed by
   // a discard binding that only ever sees a settled query `Result` value.
   const interpolationPanics = PANIC_CASES.filter(
     (c) => c.code !== INVOKE_DEPTH_EXCEEDED_CODE,
   );
 
   for (const c of interpolationPanics) {
-    it(`QRY-21: ${c.code} raised while evaluating an interpolated \`\${expr}\` propagates as a thrown LoomPanic, not a discardable value`, () => {
+    it(`QRY-21: ${c.code} raised while evaluating an interpolated \`\${expr}\` propagates as a thrown ThetaPanic, not a discardable value`, () => {
       let raised: unknown;
       try {
         // The value the interpolation would stringify is never produced: the
@@ -259,9 +259,9 @@ describe("V13a — QRY-21: interpolation-expression panics propagate before the 
       } catch (e: unknown) {
         raised = e;
       }
-      // QRY-21: the panic is a thrown LoomPanic (propagates), not a value the
+      // QRY-21: the panic is a thrown ThetaPanic (propagates), not a value the
       // render pipeline could stringify.
-      expect(isLoomPanic(raised)).toBe(true);
+      expect(isThetaPanic(raised)).toBe(true);
 
       // A `let _ = <RHS>` discard binds only a produced value. Model the discard
       // as a binding whose RHS is the panicking interpolation evaluation: the
@@ -291,14 +291,14 @@ describe("V4b-T — `?` propagation discrimination (the non-panic baseline)", ()
   });
 });
 
-describe("V4b-T — unexpected throws surface as loom/runtime/internal-error", () => {
-  it("loom/runtime/internal-error: an unexpected interpreter throw is classified as a runtime defect", () => {
+describe("V4b-T — unexpected throws surface as theta/runtime/internal-error", () => {
+  it("theta/runtime/internal-error: an unexpected interpreter throw is classified as a runtime defect", () => {
     const thrown = new TypeError("boom");
     const diag = surfaceUnexpectedThrow(thrown, site());
 
     expect(
       diag,
-      "loom/runtime/internal-error: an unexpected throw produces a diagnostic",
+      "theta/runtime/internal-error: an unexpected throw produces a diagnostic",
     ).toBeDefined();
     expect(diag?.code).toBe(INTERNAL_ERROR_CODE);
     expect(diag?.severity).toBe("error");
@@ -308,7 +308,7 @@ describe("V4b-T — unexpected throws surface as loom/runtime/internal-error", (
     expect(diag?.hint).toBe(thrown.stack);
   });
 
-  it("loom/runtime/internal-error: a catchable host allocation failure (RangeError) routes here too", () => {
+  it("theta/runtime/internal-error: a catchable host allocation failure (RangeError) routes here too", () => {
     const thrown = new RangeError("Invalid string length");
     const diag = surfaceUnexpectedThrow(thrown, site());
     expect(diag?.code).toBe(INTERNAL_ERROR_CODE);
@@ -317,25 +317,25 @@ describe("V4b-T — unexpected throws surface as loom/runtime/internal-error", (
     );
   });
 
-  it("loom/runtime/internal-error: an already-classified panic is not reclassified (it stays a panic)", () => {
-    // A `LoomPanic` reaching the runtime-defect surface is one of the six closed
+  it("theta/runtime/internal-error: an already-classified panic is not reclassified (it stays a panic)", () => {
+    // A `ThetaPanic` reaching the runtime-defect surface is one of the six closed
     // panic sources, not an unexpected interpreter throw, so it is not turned
-    // into `loom/runtime/internal-error`; the caller rethrows it as the panic.
+    // into `theta/runtime/internal-error`; the caller rethrows it as the panic.
     const panic = new IndexOutOfBoundsPanic("index out of bounds: 5 not in 0..3");
-    expect(isLoomPanic(panic)).toBe(true);
+    expect(isThetaPanic(panic)).toBe(true);
     expect(surfaceUnexpectedThrow(panic, site())).toBeUndefined();
   });
 });
 
 describe("V4b-T — NOCEIL-3 carve-out: a host-fatal uncatchable condition emits no diagnostic", () => {
-  it("loom/runtime/internal-error is NOT delivered for an uncatchable host fatal", () => {
+  it("theta/runtime/internal-error is NOT delivered for an uncatchable host fatal", () => {
     // A V8 heap-OOM (the OOMErrorCallback / abort() path) terminates the host
     // process before any wrap can observe it, so it delivers no throw to a catch
     // site and the runtime-defect surface emits no diagnostic at all.
     const fatal = new HostFatal("FATAL ERROR: Reached heap limit Allocation failed");
     expect(
       surfaceUnexpectedThrow(fatal, site()),
-      "NOCEIL-3: no loom/runtime/internal-error is delivered for an uncatchable host fatal",
+      "NOCEIL-3: no theta/runtime/internal-error is delivered for an uncatchable host fatal",
     ).toBeUndefined();
   });
 });

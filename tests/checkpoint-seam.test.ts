@@ -14,14 +14,14 @@ import { FakeClock } from "./helpers/fake-clock";
 //   (3) the yield kind is correct for each of the five enumerated cancel sites,
 //       and there are no extra sites (the `CheckpointKind` union is exactly the
 //       five members — pinned structurally by the exhaustive `Record` below);
-//   (4) the seam is per-invocation (one `Checkpoint` per `loomAbort`).
+//   (4) the seam is per-invocation (one `Checkpoint` per `thetaAbort`).
 //
 // These tests red because the V8a `ProductionCheckpoint.before(...)` is a stub
 // that throws — the implementation under test is absent. Each assertion names
 // the PIC-10 behaviour it pins so the red is on the assertion path, not a
 // fixture or harness throw.
 
-const SITE: CheckpointSite = { file: "loom.loom", line: 1, column: 1 };
+const SITE: CheckpointSite = { file: "theta.theta", line: 1, column: 1 };
 
 /**
  * Yield kind for every `CheckpointKind`. Declaring this as an exhaustive
@@ -190,7 +190,7 @@ describe("V8a-T — ProductionCheckpoint correct yield kind at every cancel site
 });
 
 // ---------------------------------------------------------------------------
-// PIC-10 — per-invocation: one Checkpoint per loomAbort.
+// PIC-10 — per-invocation: one Checkpoint per thetaAbort.
 // ---------------------------------------------------------------------------
 
 describe("V8a-T — ProductionCheckpoint is per-invocation (PIC-10)", () => {

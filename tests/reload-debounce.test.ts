@@ -104,7 +104,7 @@ describe("V10d-T — reload debounce (cka-36, package-and-settings.md §Caching 
 // a debounce timer firing while a prior window's rebuild is still in flight
 // defers rather than starting a concurrent rebuild; the in-flight guard
 // releases on the in-flight rebuild's synchronous publish or its
-// `loom/runtime/registry-swap-failed` discard.
+// `theta/runtime/registry-swap-failed` discard.
 // ---------------------------------------------------------------------------
 
 describe("V10d-T — cross-window rebuild serialization (PIC-49)", () => {
@@ -166,7 +166,7 @@ describe("V10d-T — cross-window rebuild serialization (PIC-49)", () => {
     expect(rebuild).toHaveBeenCalledTimes(2);
   });
 
-  it("PIC-49: the in-flight guard also releases on the in-flight rebuild's loom/runtime/registry-swap-failed discard, then runs the deferred rebuild", async () => {
+  it("PIC-49: the in-flight guard also releases on the in-flight rebuild's theta/runtime/registry-swap-failed discard, then runs the deferred rebuild", async () => {
     const clock = new FakeClock();
     const { rebuild, settle } = controllableRebuild();
     const debouncer = new ReloadDebouncer({ clock, rebuild });
@@ -181,7 +181,7 @@ describe("V10d-T — cross-window rebuild serialization (PIC-49)", () => {
     await flush();
     expect(rebuild).toHaveBeenCalledTimes(1); // deferred, not concurrent
 
-    // Release on the `loom/runtime/registry-swap-failed` discard outcome.
+    // Release on the `theta/runtime/registry-swap-failed` discard outcome.
     settle("discarded");
     await flush();
 

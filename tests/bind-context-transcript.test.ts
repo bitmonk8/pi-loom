@@ -41,7 +41,7 @@ import type { Diagnostic } from "../src/diagnostics/diagnostic";
 // `UNIMPLEMENTED_TRANSCRIPT` sentinel body, `isTranscriptSafeCustomType` always
 // reports `true`, `customTypeUnsafeDiagnostic` returns the wrong code,
 // `renderCustomTypeUnsafeNote` returns the sentinel, and the frontmatter parser
-// does not yet emit `loom/parse/bind-context-session-on-subagent`. Each test
+// does not yet emit `theta/parse/bind-context-session-on-subagent`. Each test
 // reds on its own primary assertion (a byte-exact inequality, a wrong
 // discriminant, a wrong code / note, or an absent diagnostic) — not on a
 // compile error, a missing fixture, or a harness throw.
@@ -146,17 +146,17 @@ describe("BNDR-7 — compact-transcript reference renderings (byte-exact)", () =
     );
   });
 
-  it("BNDR-7c: turn containing a `loom-system-note` custom message; two turns separated by one blank line", () => {
+  it("BNDR-7c: turn containing a `theta-system-note` custom message; two turns separated by one blank line", () => {
     // binder-model-and-context.md#bndr-7c — the display:false custom message is
     // still surfaced (convertToLlm entry); the third message opens a new turn.
     const messages: AgentMessage[] = [
       user("/lookup foo"),
-      custom("loom-system-note", "loom /lookup: argument binding cancelled", false),
+      custom("theta-system-note", "theta /lookup: argument binding cancelled", false),
       user("try again"),
     ];
     expect(body(messages)).toBe(
       "[user]: /lookup foo\n" +
-        "[custom:loom-system-note]: loom /lookup: argument binding cancelled\n" +
+        "[custom:theta-system-note]: theta /lookup: argument binding cancelled\n" +
         "\n" +
         "[user]: try again\n",
     );
@@ -295,7 +295,7 @@ describe("BNDR-9 — transcript-safe `customType` precondition", () => {
   it("BNDR-9: the transcript-safe predicate rejects empty / `\\n` / `\\r` / `]` / `: ` and admits a lone `:`", () => {
     // binder-model-and-context.md#bndr-9 — only the two-byte `: ` sequence is
     // out of class; a lone `:` not followed by U+0020 is safe.
-    expect(isTranscriptSafeCustomType("loom-system-note")).toBe(true);
+    expect(isTranscriptSafeCustomType("theta-system-note")).toBe(true);
     expect(isTranscriptSafeCustomType("a:b")).toBe(true); // lone colon is safe
     expect(isTranscriptSafeCustomType("")).toBe(false); // empty
     expect(isTranscriptSafeCustomType("a\nb")).toBe(false); // U+000A
@@ -317,11 +317,11 @@ describe("BNDR-9 — transcript-safe `customType` precondition", () => {
       expect(result.value).toBe(unsafe);
     }
 
-    // (1) The diagnostic fires: `loom/runtime/custom-type-unsafe` (E). Message
+    // (1) The diagnostic fires: `theta/runtime/custom-type-unsafe` (E). Message
     // from diagnostics/code-registry-runtime.md.
     const diag: Diagnostic = customTypeUnsafeDiagnostic(unsafe);
     expect(diag.code).toBe(CUSTOM_TYPE_UNSAFE_CODE);
-    expect(diag.code).toBe("loom/runtime/custom-type-unsafe");
+    expect(diag.code).toBe("theta/runtime/custom-type-unsafe");
     expect(diag.severity).toBe("error");
     expect(diag.message).toBe(
       `custom-message type is not transcript-safe: '${unsafe}'`,
@@ -330,23 +330,23 @@ describe("BNDR-9 — transcript-safe `customType` precondition", () => {
     // (3) The user-facing system note matches the custom-type-unsafe row of the
     // Failure-mode templates verbatim.
     expect(renderCustomTypeUnsafeNote("lookup", unsafe)).toBe(
-      `loom /lookup: custom-message type is not transcript-safe: '${unsafe}'`,
+      `theta /lookup: custom-message type is not transcript-safe: '${unsafe}'`,
     );
   });
 });
 
 // ============================================================================
-// loom/parse/bind-context-session-on-subagent — parse-time warning
+// theta/parse/bind-context-session-on-subagent — parse-time warning
 // binder/binder-model-and-context.md §"Binder context";
 // diagnostics/code-registry-parse.md
 
 const resolvingMatcher: ModelReferenceMatcher = { resolve: () => "resolved" };
 
 function parse(source: string): FrontmatterParseResult {
-  return parseFrontmatter(source, { file: "test.loom", modelMatcher: resolvingMatcher });
+  return parseFrontmatter(source, { file: "test.theta", modelMatcher: resolvingMatcher });
 }
 
-function loom(...frontmatterLines: string[]): string {
+function theta(...frontmatterLines: string[]): string {
   return ["---", ...frontmatterLines, "---", "@`hello`"].join("\n");
 }
 
@@ -354,22 +354,22 @@ function withCode(diags: readonly Diagnostic[], code: string): Diagnostic | unde
   return diags.find((d) => d.code === code);
 }
 
-describe("loom/parse/bind-context-session-on-subagent", () => {
-  it("fires for `bind_context: session` on a `mode: subagent` loom and NOT on a prompt-mode loom", () => {
+describe("theta/parse/bind-context-session-on-subagent", () => {
+  it("fires for `bind_context: session` on a `mode: subagent` theta and NOT on a prompt-mode theta", () => {
     // code-registry-parse.md — W, message verbatim. Conditional rule: positive
     // (subagent → fires) and negative (prompt → absent) halves.
-    const subagent = parse(loom("mode: subagent", "bind_context: session"));
-    const d = withCode(subagent.diagnostics, "loom/parse/bind-context-session-on-subagent");
-    expect(d, "warning fires on a subagent-mode loom").toBeDefined();
+    const subagent = parse(theta("mode: subagent", "bind_context: session"));
+    const d = withCode(subagent.diagnostics, "theta/parse/bind-context-session-on-subagent");
+    expect(d, "warning fires on a subagent-mode theta").toBeDefined();
     expect(d?.severity).toBe("warning");
     expect(d?.message).toBe(
-      "'bind_context: session' has no effect on a mode: subagent loom",
+      "'bind_context: session' has no effect on a mode: subagent theta",
     );
 
-    const prompt = parse(loom("mode: prompt", "bind_context: session"));
+    const prompt = parse(theta("mode: prompt", "bind_context: session"));
     expect(
-      withCode(prompt.diagnostics, "loom/parse/bind-context-session-on-subagent"),
-      "warning is absent on a prompt-mode loom",
+      withCode(prompt.diagnostics, "theta/parse/bind-context-session-on-subagent"),
+      "warning is absent on a prompt-mode theta",
     ).toBeUndefined();
   });
 });

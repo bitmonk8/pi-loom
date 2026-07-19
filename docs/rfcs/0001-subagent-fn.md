@@ -1,7 +1,7 @@
 # RFC 0001 — `subagent fn`: in-file subagent callables
 
 - **Status:** draft
-- **Scope:** loom 1.x language surface (governed by
+- **Scope:** theta 1.x language surface (governed by
   `../spec_topics/governance/release-version-naming.md`)
 - **Affects:** grammar, type system, runtime dispatch, diagnostics
 
@@ -9,7 +9,7 @@
 
 Add a function form whose body evaluates in a fresh, isolated subagent session:
 
-```loom
+```theta
 subagent fn step(objective: string) {
   @`Objective: ${objective}. Do the next task and report status.`
 }
@@ -17,14 +17,14 @@ subagent fn step(objective: string) {
 
 Calling `step(objective)` spawns a fresh subagent conversation, runs the body
 there, validates the returned value, and hands it back to the caller — the same
-boundary an `invoke("./step.loom", ...)` crosses today, without a second file.
+boundary an `invoke("./step.theta", ...)` crosses today, without a second file.
 
 ## Motivation
 
 A subagent session (a fresh, isolated conversation whose transcript is private and
 discarded on return) can currently be reached in only two ways, both of which
-target a separate `.loom` file by path: an `invoke("./child.loom", ...)`
-expression, or a `.loom` path entry in `tools:`. There is no way to express a
+target a separate `.theta` file by path: an `invoke("./child.theta", ...)`
+expression, or a `.theta` path entry in `tools:`. There is no way to express a
 subagent inline.
 
 The consequence surfaces in the agent-loop pattern
@@ -32,11 +32,11 @@ The consequence surfaces in the agent-loop pattern
 iteration on a fresh context — the property that makes the pattern work — forces
 the worker into its own file, because:
 
-- Within one loom, every `@` query appends to the *same* conversation; a
+- Within one theta, every `@` query appends to the *same* conversation; a
   single-file loop accumulates one growing context instead of a fresh one per
   round.
-- A `.warp` `fn` does not help: a query inside an imported `fn` runs against the
-  *calling* loom's conversation, so it provides no isolation.
+- A `.thetalib` `fn` does not help: a query inside an imported `fn` runs against the
+  *calling* theta's conversation, so it provides no isolation.
 
 The two-file split (loop file plus worker file) is therefore not a stylistic
 choice; it is the only way to get per-iteration isolation. For a short worker
@@ -50,7 +50,7 @@ identical to an ordinary `fn` in its parameter list, positional call form, and
 inferred-and-validated return type; it differs in one respect: **its body
 evaluates in a fresh subagent session** rather than in the caller's conversation.
 
-```loom
+```theta
 ---
 description: Re-run a fresh-context step until the objective is met
 mode: subagent
@@ -87,7 +87,7 @@ new element is the per-call session boundary in the middle of a file.
 ### Semantics
 
 - **Isolation.** Each call to a `subagent fn` spawns a fresh, isolated session,
-  private and discarded on return, exactly as an `invoke`d subagent-mode loom.
+  private and discarded on return, exactly as an `invoke`d subagent-mode theta.
 - **Arguments cross by value, explicitly.** Parameters are passed positionally, as
   with `fn` and `invoke`. There is no lexical capture of the enclosing scope
   (consistent with the language's existing decision that functions are not
@@ -107,7 +107,7 @@ new element is the per-call session boundary in the middle of a file.
   unbounded recursion.
 - **Not discoverable.** A `subagent fn` is never slash-discoverable and never a
   `tools:` entry; it is reachable only by call from within its own file. Discovery,
-  slash registration, and `.warp` import rules are unchanged.
+  slash registration, and `.thetalib` import rules are unchanged.
 
 ### Session configuration
 
@@ -115,7 +115,7 @@ The open design question is where the spawned session's configuration comes from
 `system`, `model`, `tools` (callable set), `tool_loop`, `respond_repair`. Two
 sub-options, presented for the reviewer to choose between:
 
-- **B1 — inherit.** The `subagent fn` inherits the enclosing loom's configuration.
+- **B1 — inherit.** The `subagent fn` inherits the enclosing theta's configuration.
   Simplest to specify and implement; the callable set and model are shared, and no
   new syntax is introduced. The cost: the body cannot narrow its callable set or
   set its own `system` prompt.
@@ -137,10 +137,10 @@ demand for per-function configuration is demonstrated.
   more clearly at the call site. Rejected in favour of the named form.
 - **Inline lambda passed to a builtin**, e.g. `invoke_inline(() => { … })`.
   Requires first-class functions and closures, which the language explicitly
-  excludes (`loom/parse/function-as-value`; arrow functions and higher-order forms
+  excludes (`theta/parse/function-as-value`; arrow functions and higher-order forms
   are unsupported). Rejected: it contradicts a standing language decision.
 - **A context-reset primitive** (a `for … fresh { … }` loop, or `reset_context()`)
-  that clears the *current* loom's history between iterations instead of spawning
+  that clears the *current* theta's history between iterations instead of spawning
   a child. This is a different feature: same session cleared, not an isolated
   child — so no private transcript, no independent `system`/`model`, and no typed
   return across a boundary. Out of scope for this RFC; recorded here so it is not
@@ -150,15 +150,15 @@ demand for per-function configuration is demonstrated.
 
 - B1 vs B2 for session configuration (see above).
 - Does a `subagent fn` inherit `tool_loop` / `respond_repair` from the enclosing
-  loom, or take the loom 1.0 defaults? Inheritance is the proposed default under
+  theta, or take the theta 1.0 defaults? Inheritance is the proposed default under
   B1.
 - Diagnostics: a body that fails to parse or type-check is a load-time error in the
-  enclosing file. Confirm the code reuses or mirrors `loom/load/callee-has-errors`
+  enclosing file. Confirm the code reuses or mirrors `theta/load/callee-has-errors`
   rather than coining a parallel inline code.
 - Interaction with `mode: prompt`. A `subagent fn` spawns a subagent regardless of
-  the enclosing loom's mode; confirm this is admissible from a prompt-mode loom, or
+  the enclosing theta's mode; confirm this is admissible from a prompt-mode theta, or
   restrict it.
-- Whether the `subagent` modifier is also admissible on a `.warp` `fn` (a shared
+- Whether the `subagent` modifier is also admissible on a `.thetalib` `fn` (a shared
   in-library subagent helper), and if so, which conversation its queries target
   when imported.
 

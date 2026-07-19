@@ -238,7 +238,7 @@ describe("H5b — one seeded gap of each kind surfaces as a tagged warn-only fin
   it("(Convention: REQ-ID discipline — warn-only canary) an un-enumerated un-anchored MUST surfaces as `un-anchored-must-unenumerated`", () => {
     const seeded = withSeedPrefix(base);
     // A non-narrative rowed page carrying a MUST with no PREFIX-N anchor and no
-    // loom/... registry code, absent from the Code-keyed obligation-areas table.
+    // theta/... registry code, absent from the Code-keyed obligation-areas table.
     seeded.specSources = specWith(base, "The seed loader MUST reject the malformed input.");
     const findings = runSeed(seeded);
     expect(

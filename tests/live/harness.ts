@@ -1,7 +1,7 @@
 // H8a-T — live-host acceptance harness (test-support; Pi never loads it).
 //
 // This module boots a REAL `AgentSession` against a live provider/model and
-// loads loom the way Pi loads it — through the shipped `extensions/index.ts`
+// loads theta the way Pi loads it — through the shipped `extensions/index.ts`
 // entry (which re-exports the `src/**` factory), NOT the `H4a` in-memory
 // fixture-supply. It exists only to give the opt-in `npm run test:live` suite a
 // live composition it can drive; it is excluded from the default `npm test`
@@ -10,7 +10,7 @@
 // The suite spends real tokens against a live model, so it is deliberately
 // token-bounded: the discovery→registration precondition reds BEFORE any model
 // turn is driven (the shipped production composition root supplies no discovered
-// fixtures, so no `.loom`-derived slash command registers), which is exactly the
+// fixtures, so no `.theta`-derived slash command registers), which is exactly the
 // intended-reason red for this leaf.
 
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -33,7 +33,7 @@ import type {
   ResolvedCommand,
 } from "@earendil-works/pi-coding-agent";
 
-/** The shipped Pi extension entry — the way Pi loads loom (re-exports the `src/**` factory). */
+/** The shipped Pi extension entry — the way Pi loads theta (re-exports the `src/**` factory). */
 export const SHIPPED_EXTENSION_ENTRY = fileURLToPath(
   new URL("../../extensions/index.ts", import.meta.url),
 );
@@ -89,48 +89,48 @@ export function requireLiveProvider(): LiveProvider {
   return { authStorage, modelRegistry, model, modelId: idOf(model) };
 }
 
-/** A `.loom` file to plant on disk before discovery runs. */
-export interface PlantedLoom {
-  /** Discovery source: the project `<cwd>/.pi/looms/` walk, or a `--loom <dir>` CLI source. */
+/** A `.theta` file to plant on disk before discovery runs. */
+export interface PlantedTheta {
+  /** Discovery source: the project `<cwd>/.pi/theta/` walk, or a `--theta <dir>` CLI source. */
   readonly source: "project" | "cli";
   /** The filename stem — the slash-command name discovery must register. */
   readonly stem: string;
-  /** The `.loom` source text. */
+  /** The `.theta` source text. */
   readonly text: string;
 }
 
 export interface LiveWorkspace {
   readonly cwd: string;
-  /** Directories to hand to the `--loom` CLI source (one per planted `cli` loom's parent). */
-  readonly cliLoomDirs: readonly string[];
+  /** Directories to hand to the `--theta` CLI source (one per planted `cli` theta's parent). */
+  readonly cliThetaDirs: readonly string[];
   dispose(): void;
 }
 
 /**
- * Materialise a throwaway workspace and plant the `.loom` files on the real
+ * Materialise a throwaway workspace and plant the `.theta` files on the real
  * filesystem so the real `V10a` discovery walk over the real `V8b` `PiFileSystem`
  * reads them (no in-memory fixture-supply).
  */
-export function plantLoomWorkspace(looms: readonly PlantedLoom[]): LiveWorkspace {
-  const cwd = mkdtempSync(join(tmpdir(), "loom-live-"));
-  const projectLoomDir = join(cwd, ".pi", "looms");
-  mkdirSync(projectLoomDir, { recursive: true });
-  const cliLoomDirs: string[] = [];
-  for (const loom of looms) {
-    if (loom.source === "project") {
-      writeFileSync(join(projectLoomDir, `${loom.stem}.loom`), loom.text, "utf8");
+export function plantThetaWorkspace(thetas: readonly PlantedTheta[]): LiveWorkspace {
+  const cwd = mkdtempSync(join(tmpdir(), "theta-live-"));
+  const projectThetaDir = join(cwd, ".pi", "theta");
+  mkdirSync(projectThetaDir, { recursive: true });
+  const cliThetaDirs: string[] = [];
+  for (const theta of thetas) {
+    if (theta.source === "project") {
+      writeFileSync(join(projectThetaDir, `${theta.stem}.theta`), theta.text, "utf8");
     } else {
-      const cliDir = mkdtempSync(join(tmpdir(), "loom-live-cli-"));
-      writeFileSync(join(cliDir, `${loom.stem}.loom`), loom.text, "utf8");
-      cliLoomDirs.push(cliDir);
+      const cliDir = mkdtempSync(join(tmpdir(), "theta-live-cli-"));
+      writeFileSync(join(cliDir, `${theta.stem}.theta`), theta.text, "utf8");
+      cliThetaDirs.push(cliDir);
     }
   }
   return {
     cwd,
-    cliLoomDirs,
+    cliThetaDirs,
     dispose(): void {
       rmSync(cwd, { recursive: true, force: true });
-      for (const dir of cliLoomDirs) {
+      for (const dir of cliThetaDirs) {
         rmSync(dir, { recursive: true, force: true });
       }
     },
@@ -149,7 +149,7 @@ export interface LiveExtensionHandle {
 
 /**
  * Boot a live `AgentSession` with ONLY the shipped extension (loaded through the
- * real `extensions/index.ts` entry), optionally wiring `--loom` CLI discovery
+ * real `extensions/index.ts` entry), optionally wiring `--theta` CLI discovery
  * sources, then fire `session_start` so the extension runs its real
  * `resources_discover` walk and `pi.registerCommand` step. Returns a handle for
  * inspecting registered commands and driving live turns.
@@ -163,7 +163,7 @@ export async function bootShippedExtension(options: {
   const resourceLoader = new DefaultResourceLoader({
     cwd: workspace.cwd,
     agentDir,
-    // Load loom the way Pi loads it — through the shipped entry — and ONLY it,
+    // Load theta the way Pi loads it — through the shipped entry — and ONLY it,
     // so no unrelated installed extension shares the flag/command namespace.
     additionalExtensionPaths: [SHIPPED_EXTENSION_ENTRY],
     noExtensions: true,
@@ -185,10 +185,10 @@ export async function bootShippedExtension(options: {
   });
 
   const runner = session.extensionRunner;
-  // Wire the `--loom <dir>` CLI discovery source(s) before `session_start` fires
+  // Wire the `--theta <dir>` CLI discovery source(s) before `session_start` fires
   // the discovery walk, so the walk is proven source-general.
-  if (workspace.cliLoomDirs.length > 0) {
-    runner.setFlagValue("loom", workspace.cliLoomDirs.join(","));
+  if (workspace.cliThetaDirs.length > 0) {
+    runner.setFlagValue("theta", workspace.cliThetaDirs.join(","));
   }
   // Fire `session_start` (and `resources_discover`): the shipped extension's
   // real registration step runs here.

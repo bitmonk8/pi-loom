@@ -22,9 +22,9 @@ import type { Diagnostic } from "../diagnostics/diagnostic";
 // diagnostics/code-registry-host.md. The pre-init `"<unreadable>"` sentinel and
 // the closed-set literals themselves are pinned in `SDK_SURFACE_INVENTORY`
 // (PIC-46) and read from the injected snapshot, not restated here.
-const REASON_UNKNOWN_CODE = "loom/host/session-shutdown-reason-unknown";
+const REASON_UNKNOWN_CODE = "theta/host/session-shutdown-reason-unknown";
 const PINNED_CONSTANT_UNREADABLE_CODE =
-  "loom/host/session-shutdown-pinned-constant-unreadable";
+  "theta/host/session-shutdown-pinned-constant-unreadable";
 
 /** The pre-init captured-reason sentinel (PIC-45). */
 const UNREADABLE = "<unreadable>";
@@ -75,9 +75,9 @@ export interface ShutdownReasonClassification {
   readonly isClosedSetMember: boolean;
   /**
    * The single pre-sub-step-1 diagnostic to emit, or `undefined` on the clean
-   * closed-set-member path. Either `loom/host/session-shutdown-reason-unknown`
+   * closed-set-member path. Either `theta/host/session-shutdown-reason-unknown`
    * (unknown / throwing-access `event.reason`) or
-   * `loom/host/session-shutdown-pinned-constant-unreadable` (snapshot-read
+   * `theta/host/session-shutdown-pinned-constant-unreadable` (snapshot-read
    * failure) — never both (PIC-47 mutual exclusivity).
    */
   readonly diagnostic?: Diagnostic;
@@ -124,7 +124,7 @@ export function classifyShutdownReason(
   let reasonReadThrew = false;
   try {
     reasonValue = event.reason;
-  } catch { // allow-broad-catch: loom/host/session-shutdown-reason-unknown — pi-integration-contract/unknown-reason-rule.md
+  } catch { // allow-broad-catch: theta/host/session-shutdown-reason-unknown — pi-integration-contract/unknown-reason-rule.md
     // A throwing property-access getter is treated as an unknown reason.
     reasonReadThrew = true;
   }
@@ -207,7 +207,7 @@ function readSnapshotLiterals(
       return { literals: [], failure: "literals-shape-invalid" };
     }
     return { literals: raw };
-  } catch (error: unknown) { // allow-broad-catch: loom/host/session-shutdown-pinned-constant-unreadable — pi-integration-contract/unknown-reason-rule.md
+  } catch (error: unknown) { // allow-broad-catch: theta/host/session-shutdown-pinned-constant-unreadable — pi-integration-contract/unknown-reason-rule.md
     return { literals: [], failure: throwDiscriminator(error) };
   }
 }
@@ -235,7 +235,7 @@ function coerceObserved(reasonValue: unknown): string {
     // Pinned to `String(...)` (not a template literal, which re-introduces the
     // symbol-throw bug `String()` avoids).
     return String(reasonValue);
-  } catch { // allow-broad-catch: loom/host/session-shutdown-reason-unknown — pi-integration-contract/unknown-reason-rule.md
+  } catch { // allow-broad-catch: theta/host/session-shutdown-reason-unknown — pi-integration-contract/unknown-reason-rule.md
     return UNREADABLE;
   }
 }
@@ -250,7 +250,7 @@ function throwDiscriminator(error: unknown): string {
   let coerced: string;
   try {
     coerced = String(error);
-  } catch { // allow-broad-catch: loom/host/session-shutdown-pinned-constant-unreadable — pi-integration-contract/unknown-reason-rule.md
+  } catch { // allow-broad-catch: theta/host/session-shutdown-pinned-constant-unreadable — pi-integration-contract/unknown-reason-rule.md
     // The `"throw:"` prefix is preserved so operator dedup on `startsWith`
     // continues to bucket coercion-failure rows under the throw discriminator.
     return `${THROW_PREFIX}${UNREADABLE}`;

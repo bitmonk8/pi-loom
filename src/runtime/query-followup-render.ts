@@ -11,15 +11,15 @@
 //     and `schema_repeat` — emits a **user-role** follow-up turn whose surrounding
 //     template text is byte-for-byte fixed; only the `<…>` placeholders are
 //     interpolated. Wording or whitespace changes are spec-versioned breaking
-//     changes. The literal U+0060 backticks around `` `__loom_respond_<slug>` ``
+//     changes. The literal U+0060 backticks around `` `__theta_respond_<slug>` ``
 //     and the trailing U+000A after the `<schema-json>` interpolation are part of
 //     the emitted bytes; each rendered template ends with `<schema-json>`
 //     followed by U+000A.
 //   - QRY-12 `<schema-json>`: `JSON.stringify(schema, null, 2)` over the
 //     **lowered** response schema (the JSON Schema handed to AJV per
-//     schema-subset.md), not the source-Loom-type form. `<slug>` is the schema
+//     schema-subset.md), not the source-Theta-type form. `<slug>` is the schema
 //     slug of that same lowered response schema, tying the follow-up's tool
-//     reference byte-equal to the synthesised `__loom_respond_<slug>` tool name.
+//     reference byte-equal to the synthesised `__theta_respond_<slug>` tool name.
 //   - QRY-12 `<ajv-summary>` (validator_error only): the in-order
 //     `<path> <message>` concatenation of the failed validation's
 //     `ValidationIssue` entries, joined by `; ` in the canonical
@@ -51,10 +51,10 @@ export type FollowUpMethodology = "validator_error" | "schema_repeat";
  * The inputs to rendering one respond-repair follow-up user turn (QRY-12).
  *
  * `loweredSchema` is the JSON Schema value actually handed to AJV — the lowered
- * response schema, not the source-Loom-type form — serialised into
+ * response schema, not the source-Theta-type form — serialised into
  * `<schema-json>` as `JSON.stringify(loweredSchema, null, 2)`. `slug` is the
  * schema slug of that same lowered response schema, naming the
- * `__loom_respond_<slug>` tool. `issues` is the **most recent** failed attempt's
+ * `__theta_respond_<slug>` tool. `issues` is the **most recent** failed attempt's
  * `ValidationIssue` entries, rendered into `<ajv-summary>` for `validator_error`
  * (ignored by `schema_repeat`); the renderer emits them in the canonical ERR-14
  * order and never accumulates across attempts.
@@ -72,7 +72,7 @@ export interface FollowUpTurnInput {
  * The returned string is the verbatim user-turn body for `input.methodology`
  * with only the `<…>` placeholders interpolated: `<ajv-summary>` (validator_error
  * only, canonical ERR-14 order over `input.issues`), the literal-backtick-wrapped
- * `` `__loom_respond_<slug>` `` tool reference, and the `JSON.stringify(schema,
+ * `` `__theta_respond_<slug>` `` tool reference, and the `JSON.stringify(schema,
  * null, 2)` `<schema-json>` over `input.loweredSchema`, terminated by the single
  * trailing U+000A the template mandates.
  *
@@ -80,12 +80,12 @@ export interface FollowUpTurnInput {
  */
 export function renderFollowUpTurn(input: FollowUpTurnInput): string {
   // `<schema-json>` — JSON.stringify(schema, null, 2) over the lowered response
-  // schema (the form handed to AJV), not the source-Loom-type form (QRY-12).
+  // schema (the form handed to AJV), not the source-Theta-type form (QRY-12).
   const schemaJson = JSON.stringify(input.loweredSchema, null, 2);
   // `<slug>` — the lowered response schema slug, byte-equal to the synthesised
-  // `__loom_respond_<slug>` tool name (QRY-12). The tool reference is wrapped in
+  // `__theta_respond_<slug>` tool name (QRY-12). The tool reference is wrapped in
   // literal U+0060 backticks.
-  const toolRef = "`__loom_respond_" + input.slug + "`";
+  const toolRef = "`__theta_respond_" + input.slug + "`";
   // The instruction sentence, its single trailing U+000A, then `<schema-json>`
   // and the mandated trailing U+000A after the interpolation — shared by both
   // methodologies.

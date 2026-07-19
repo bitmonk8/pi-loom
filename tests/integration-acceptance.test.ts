@@ -2,13 +2,13 @@
 //
 // This is a horizontal (Convention.) leaf: the assertions below ARE the inline
 // test surface its "Ships when" gate names. `npm test` runs the representative
-// multi-feature fixture `.loom` end-to-end through the `H4a` harness against the
+// multi-feature fixture `.theta` end-to-end through the `H4a` harness against the
 // in-process Pi session double, driving the integrated pipeline (typed query →
 // tool loop → code-tool invoke → schema lowering/validation → binder →
 // cancellation) in a single composed run, and asserts:
 //   1. the run's appended turns match the committed golden transcript (order,
 //      count, per-turn content);
-//   2. the run emits exactly the `loom-system-note` codes in the committed
+//   2. the run emits exactly the `theta-system-note` codes in the committed
 //      golden diagnostics list, each asserted against the diagnostics-registry
 //      *Message* strings;
 //   3. a committed permitted-code list (a best-effort union of the Deps slices'
@@ -54,7 +54,7 @@ function readFixture(name: string): string {
   );
 }
 
-const ACCEPTANCE_LOOM = readFixture("acceptance.loom");
+const ACCEPTANCE_THETA = readFixture("acceptance.theta");
 const GOLDEN_TRANSCRIPT = JSON.parse(
   readFixture("golden-transcript.json"),
 ) as ResponseEvent[];
@@ -88,7 +88,7 @@ const REGISTRY = parseRegistry(
 // --- the composed integrated-pipeline run ------------------------------------
 
 /**
- * Drive the representative multi-feature fixture `.loom` through the `H4a`
+ * Drive the representative multi-feature fixture `.theta` through the `H4a`
  * harness in a single composed run, returning the run's observable transcript.
  *
  * The composition is scripted onto the harness-loaded session double's
@@ -104,7 +104,7 @@ const REGISTRY = parseRegistry(
 function driveComposedRun(): { transcript: ResponseEvent[]; slashRegistered: boolean } {
   // A fixture whose slash registration is driven by the harness `session_start`
   // (the in-memory fixture-supply mechanism), witnessing the representative
-  // fixture `.loom` running through the harness end-to-end.
+  // fixture `.theta` running through the harness end-to-end.
   const loaded = loadExtension({
     fixtures: [
       {
@@ -149,12 +149,12 @@ function driveComposedRun(): { transcript: ResponseEvent[]; slashRegistered: boo
 }
 
 /**
- * The `loom-system-note` diagnostics the composed fixture path emits, collected
+ * The `theta-system-note` diagnostics the composed fixture path emits, collected
  * from the live production emission surfaces of the Deps slices (not synthesised
  * from the observable transcript). The binder facet includes a session-context
  * `custom` message whose `customType` is not transcript-safe, so the `V11b`
  * compact-transcript renderer rejects it before rendering and the binder emits
- * `loom/runtime/custom-type-unsafe` (BNDR-9).
+ * `theta/runtime/custom-type-unsafe` (BNDR-9).
  */
 function collectEmittedDiagnostics(): Diagnostic[] {
   const unsafeCustomType = "review-card\ntype";
@@ -183,13 +183,13 @@ function collectEmittedDiagnostics(): Diagnostic[] {
 // ===========================================================================
 
 describe("H7a — golden transcript (Convention: phase categories — end-to-end harness)", () => {
-  it("running the fixture .loom through the H4a harness drives the integrated pipeline and matches the golden transcript", () => {
+  it("running the fixture .theta through the H4a harness drives the integrated pipeline and matches the golden transcript", () => {
     const { transcript, slashRegistered } = driveComposedRun();
 
-    // The representative fixture `.loom` ran through the harness: its slash
+    // The representative fixture `.theta` ran through the harness: its slash
     // command registered on `session_start` and the composed pipeline drove.
     expect(slashRegistered).toBe(true);
-    expect(ACCEPTANCE_LOOM).toContain("mode: prompt");
+    expect(ACCEPTANCE_THETA).toContain("mode: prompt");
 
     // Order + count: the appended-turn sequence equals the committed golden
     // transcript exactly.
@@ -233,7 +233,7 @@ describe("H7a — golden transcript (Convention: phase categories — end-to-end
 // ===========================================================================
 
 describe("H7a — golden diagnostics (Convention: phase categories — end-to-end harness)", () => {
-  it("emits exactly the loom-system-note codes in the committed golden diagnostics list", () => {
+  it("emits exactly the theta-system-note codes in the committed golden diagnostics list", () => {
     const emitted = collectEmittedDiagnostics();
     const emittedCodes = [...new Set(emitted.map((d) => d.code))].sort();
 
@@ -254,7 +254,7 @@ describe("H7a — golden diagnostics (Convention: phase categories — end-to-en
       );
     }
 
-    // loom/runtime/custom-type-unsafe (V11b, BNDR-9): the emitted diagnostic's
+    // theta/runtime/custom-type-unsafe (V11b, BNDR-9): the emitted diagnostic's
     // rendered message equals the registry template with `<value>` substituted,
     // sourced from the registry rather than copy-pasted prose.
     const customTypeUnsafe = emitted.find((d) => d.code === CUSTOM_TYPE_UNSAFE_CODE);
@@ -311,7 +311,7 @@ describe("H7a — golden ⊆ permitted containment (Convention: phase categories
     const contains = (golden: readonly string[]): boolean =>
       golden.every((code) => permitted.has(code));
     expect(contains(GOLDEN_DIAGNOSTICS)).toBe(true);
-    expect(contains([...GOLDEN_DIAGNOSTICS, "loom/runtime/not-permitted-code"])).toBe(false);
+    expect(contains([...GOLDEN_DIAGNOSTICS, "theta/runtime/not-permitted-code"])).toBe(false);
   });
 });
 

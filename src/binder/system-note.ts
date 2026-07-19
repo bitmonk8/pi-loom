@@ -16,13 +16,13 @@
 //      points, truncating at scalar boundaries with a trailing `…` (which
 //      counts toward the cap); a note ≤120 code points gets no `…`.
 //   3. Prefix/suffix demarcation — failure-arm notes follow the grammar
-//      `loom /<name>: <fixed-phrase> — <sanitised-suffix>`; the em-dash marks
-//      the loom-controlled-prefix ↔ model-or-runtime-controlled-suffix boundary.
+//      `theta /<name>: <fixed-phrase> — <sanitised-suffix>`; the em-dash marks
+//      the theta-controlled-prefix ↔ model-or-runtime-controlled-suffix boundary.
 //   4. Empty model content — a `message` (or a `candidates` array whose every
 //      entry is) empty after rule-1 stripping is a malformed envelope, routed
 //      to the malformed-envelope failure row (template owned by V11f), never
 //      surfaced as an empty note.
-//   5. `ambiguous.candidates` is not rendered in loom 1.0 — the `ambiguous`
+//   5. `ambiguous.candidates` is not rendered in theta 1.0 — the `ambiguous`
 //      arm renders only the model's `message` and never surfaces `candidates`.
 //
 // These granular functions are the seam the V11f failure-taxonomy leaf binds
@@ -41,7 +41,7 @@ export const SYSTEM_NOTE_CODEPOINT_CAP = 120;
 const ELLIPSIS = "\u2026";
 
 /**
- * The rule-3 loom-controlled-prefix ↔ model/runtime-suffix separator: a spaced
+ * The rule-3 theta-controlled-prefix ↔ model/runtime-suffix separator: a spaced
  * em-dash (U+2014). Rendered verbatim as the failure-arm demarcation.
  */
 const EM_DASH = "\u2014";
@@ -111,9 +111,9 @@ export function capSystemNote(rendered: string): string {
 
 /** Inputs to composing a failure-arm system note (rule 3 grammar). */
 export interface FailureNoteInput {
-  /** The loom's bare command name (shown as `loom /<name>:`). */
-  readonly loomName: string;
-  /** The loom-controlled fixed phrase (e.g. `argument binding needs more info`). */
+  /** The theta's bare command name (shown as `theta /<name>:`). */
+  readonly thetaName: string;
+  /** The theta-controlled fixed phrase (e.g. `argument binding needs more info`). */
   readonly fixedPhrase: string;
   /** The model- or runtime-supplied suffix, sanitised by rule 1 before interpolation. */
   readonly suffix: string;
@@ -121,8 +121,8 @@ export interface FailureNoteInput {
 
 /**
  * Rule 3 — compose a failure-arm system note following the grammar
- * `loom /<name>: <fixed-phrase> — <sanitised-suffix>`: the em-dash marks the
- * loom-controlled-prefix ↔ model-or-runtime-controlled-suffix boundary. The
+ * `theta /<name>: <fixed-phrase> — <sanitised-suffix>`: the em-dash marks the
+ * theta-controlled-prefix ↔ model-or-runtime-controlled-suffix boundary. The
  * suffix is passed through rule 1 and the whole note through rule 2.
  *
  * V11e-T stubs this inertly (returns {@link UNIMPLEMENTED}); the paired V11e
@@ -130,7 +130,7 @@ export interface FailureNoteInput {
  */
 export function renderFailureNote(input: FailureNoteInput): string {
   const suffix = sanitizeSystemNoteSubstring(input.suffix);
-  const note = `loom /${input.loomName}: ${input.fixedPhrase} ${EM_DASH} ${suffix}`;
+  const note = `theta /${input.thetaName}: ${input.fixedPhrase} ${EM_DASH} ${suffix}`;
   return capSystemNote(note);
 }
 
@@ -174,13 +174,13 @@ export function classifyModelContent(input: ModelContentInput): ModelContentClas
 
 /**
  * Rule 5 — derive the `ambiguous` arm's suffix: the rule-1-sanitised `message`
- * only. loom 1.0 never surfaces `candidates` on the user-facing note, so the
+ * only. theta 1.0 never surfaces `candidates` on the user-facing note, so the
  * `candidates` field is not read into the suffix.
  *
  * V11e-T stubs this inertly (returns {@link UNIMPLEMENTED}); the paired V11e
  * implementation leaf fills in the message-only rendering.
  */
 export function renderAmbiguousSuffix(input: ModelContentInput): string {
-  // loom 1.0 surfaces only the model's `message`; `candidates` is never read.
+  // theta 1.0 surfaces only the model's `message`; `candidates` is never read.
   return sanitizeSystemNoteSubstring(input.message);
 }

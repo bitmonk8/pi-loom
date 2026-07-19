@@ -13,9 +13,9 @@
 //     every other classifier-reaching response to `TransportError` with the
 //     `retryable` flag populated by transport-error class.
 //   - `checkTypedQueryProviderSupport` — the load-time
-//     `loom/load/typed-query-unsupported-provider` (W) emitter, fired when a loom
+//     `theta/load/typed-query-unsupported-provider` (W) emitter, fired when a theta
 //     carries at least one typed-query expression and its resolved `model:`
-//     routes through a provider outside the loom 1.0 typed-query supported set.
+//     routes through a provider outside the theta 1.0 typed-query supported set.
 //   - `synthesizeUnsupportedProviderTransportError` — the runtime guard that,
 //     on an unsupported provider, returns the pinned
 //     `TransportError { retryable: false, http_status: null, … }`.
@@ -43,9 +43,9 @@ import type {
 // --- typed-query supported-provider set + load warning ----------------------
 
 /**
- * The loom 1.0 typed-query-supported provider set
+ * The theta 1.0 typed-query-supported provider set
  * (conversation-drive.md §"Provider compatibility for typed queries" / the
- * `loom 1.0 seam — typed-query supported provider set`): the four `api`-shaped
+ * `theta 1.0 seam — typed-query supported provider set`): the four `api`-shaped
  * values for which pi-ai exposes a named-tool `toolChoice` mapping. Exposed as a
  * single named constant so the set has one source of truth to widen.
  */
@@ -58,10 +58,10 @@ export const TYPED_QUERY_SUPPORTED_PROVIDER_APIS = [
 
 /** The load-phase warning code for a typed query against an unsupported provider. */
 export const TYPED_QUERY_UNSUPPORTED_PROVIDER_CODE =
-  "loom/load/typed-query-unsupported-provider";
+  "theta/load/typed-query-unsupported-provider";
 
 /**
- * The `loom/load/typed-query-unsupported-provider` message template
+ * The `theta/load/typed-query-unsupported-provider` message template
  * (diagnostics/code-registry-load.md): `<provider>` is the resolved
  * `Model<Api>.api` value, `<model>` the resolved `model:` reference. Tests source
  * the expected string from the registry per the *Diagnostic message anchors*
@@ -71,26 +71,26 @@ export function typedQueryUnsupportedProviderMessage(
   provider: string,
   model: string,
 ): string {
-  return `provider '${provider}' (model '${model}') is outside the loom 1.0 typed-query supported set; typed queries will fail at runtime`;
+  return `provider '${provider}' (model '${model}') is outside the theta 1.0 typed-query supported set; typed queries will fail at runtime`;
 }
 
 /** Inputs to the load-time typed-query provider-support check. */
 export interface TypedQueryProviderCheckInput {
   /** The source file path, for a file-only located diagnostic. */
   readonly file: string;
-  /** Whether the loom carries at least one typed-query expression. */
+  /** Whether the theta carries at least one typed-query expression. */
   readonly hasTypedQuery: boolean;
-  /** The resolved `Model<Api>.api` value of the loom's `model:`. */
+  /** The resolved `Model<Api>.api` value of the theta's `model:`. */
   readonly api: string;
   /** The resolved `model:` reference, substituted for `<model>`. */
   readonly modelReference: string;
 }
 
 /**
- * The load-time `loom/load/typed-query-unsupported-provider` (W) emitter: return
- * the warning diagnostic when the loom carries a typed query and its provider is
+ * The load-time `theta/load/typed-query-unsupported-provider` (W) emitter: return
+ * the warning diagnostic when the theta carries a typed query and its provider is
  * outside the supported set; return `null` otherwise (no typed query, or a
- * supported provider). The loom still loads either way.
+ * supported provider). The theta still loads either way.
  *
  * V9j-T stub: returns a fixed non-matching sentinel diagnostic so BOTH the
  * unsupported case (expecting the registry code/message) and the supported /
@@ -261,7 +261,7 @@ function transportRetryable(httpStatus: number | null): boolean {
 
 /**
  * The classifier's input surface (provider-error-mapping.md §"Classifier input
- * surface"): loom obtains each field from a fixed `@earendil-works/pi-ai`
+ * surface"): theta obtains each field from a fixed `@earendil-works/pi-ai`
  * surface rather than a single typed error object the SDK does not expose.
  */
 export interface ProviderClassifierInput {

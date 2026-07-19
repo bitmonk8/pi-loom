@@ -13,7 +13,7 @@ const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
 // that drives the full documented language surface THROUGH the production
 // composition (`discoverAndComposeFixtures` — the shipped `session_start`
 // composition root re-exported by `extensions/index.ts` — the production
-// `LoomProducerDeps`, and the real whole-file parser), rather than through the
+// `ThetaProducerDeps`, and the real whole-file parser), rather than through the
 // isolated per-module seams the 1539 unit tests exercised while the shipped
 // dispatch was broken. It is kept OUT of the default `npm test` (which excludes
 // `tests/conformance/**`), a sibling to the H8a `npm run test:live` and H9a

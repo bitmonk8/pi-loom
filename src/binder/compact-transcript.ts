@@ -18,9 +18,9 @@
 //     `customType` that is empty or contains U+000A (`\n`), U+000D (`\r`), `]`
 //     (U+005D), or the two-byte sequence `: ` (U+003A U+0020) is out of class;
 //     the binder MUST reject the message and abort transcript construction
-//     before rendering, emitting `loom/runtime/custom-type-unsafe`
+//     before rendering, emitting `theta/runtime/custom-type-unsafe`
 //     (diagnostics/code-registry-runtime.md) and failing the affected
-//     slash/prompt invocation (argument binding does not proceed; the loom does
+//     slash/prompt invocation (argument binding does not proceed; the theta does
 //     not run). The user-facing system note renders through the custom-type-
 //     unsafe row of binder/determinism-cancellation-failure.md §"Failure-mode
 //     templates (normative)".
@@ -29,7 +29,7 @@
 // functions inertly so the failing BNDR-7/8/9 tests compile and red on their own
 // primary assertions; the paired V11b implementation leaf fills them in. The
 // `bind_context: session` on `mode: subagent` parse diagnostic
-// (`loom/parse/bind-context-session-on-subagent`) is emitted by the frontmatter
+// (`theta/parse/bind-context-session-on-subagent`) is emitted by the frontmatter
 // parser (src/parser/frontmatter.ts) and is not a seam of this module.
 //
 // Spec: binder/binder-model-and-context.md (§"Compact-transcript format
@@ -52,9 +52,9 @@ import { capSystemNote, sanitizeSystemNoteSubstring } from "./system-note";
 /**
  * The runtime diagnostic code emitted when an included `CustomMessage`'s
  * `customType` is not transcript-safe (BNDR-9;
- * diagnostics/code-registry-runtime.md `loom/runtime/custom-type-unsafe`).
+ * diagnostics/code-registry-runtime.md `theta/runtime/custom-type-unsafe`).
  */
-export const CUSTOM_TYPE_UNSAFE_CODE = "loom/runtime/custom-type-unsafe";
+export const CUSTOM_TYPE_UNSAFE_CODE = "theta/runtime/custom-type-unsafe";
 
 /**
  * The outcome of rendering the included-turn slice into the binder's
@@ -318,7 +318,7 @@ export function renderCompactTranscript(
 }
 
 /**
- * BNDR-9 — build the `loom/runtime/custom-type-unsafe` diagnostic for a rejected
+ * BNDR-9 — build the `theta/runtime/custom-type-unsafe` diagnostic for a rejected
  * `customType` value. `message` carries the offending value rendered per the
  * category-2 `<value>` rule (diagnostics registry Message column:
  * `custom-message type is not transcript-safe: '<value>'`).
@@ -338,14 +338,14 @@ export function customTypeUnsafeDiagnostic(value: string): Diagnostic {
 /**
  * BNDR-9 — render the user-facing custom-type-unsafe system note through the
  * custom-type-unsafe row of the Failure-mode templates
- * (`loom /<name>: custom-message type is not transcript-safe: '<value>'`).
+ * (`theta /<name>: custom-message type is not transcript-safe: '<value>'`).
  *
  * The `<value>` suffix passes through the V11e rule-1 single-line sanitisation
  * (an unsafe `customType` may contain a `\n`/`\r`) and the whole note through
  * the rule-2 code-point cap; the surrounding template text is fixed.
  */
-export function renderCustomTypeUnsafeNote(loomName: string, value: string): string {
+export function renderCustomTypeUnsafeNote(thetaName: string, value: string): string {
   const suffix = sanitizeSystemNoteSubstring(value);
-  const note = `loom /${loomName}: custom-message type is not transcript-safe: '${suffix}'`;
+  const note = `theta /${thetaName}: custom-message type is not transcript-safe: '${suffix}'`;
   return capSystemNote(note);
 }

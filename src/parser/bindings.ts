@@ -4,22 +4,22 @@
 // mutability rules of bindings.md:
 //
 //   - `let` form        — `let x = ...` (immutable) / `let mut x = ...` (mutable):
-//       * `loom/parse/let-without-initialiser` — `let x: T` (annotation, no
-//         initialiser). Loom has no `undefined` value and no
+//       * `theta/parse/let-without-initialiser` — `let x: T` (annotation, no
+//         initialiser). Theta has no `undefined` value and no
 //         definite-assignment analysis, so a binding with no value cannot be
 //         admitted (bindings.md §`let` requires an initialiser).
 //   - Reassignment      — `x = ...` / `x += ...` (statement-only):
-//       * `loom/parse/immutable-rebinding` — reassignment of a `let`
+//       * `theta/parse/immutable-rebinding` — reassignment of a `let`
 //         (non-`mut`) binding (bindings.md §`let` vs `let mut`).
-//       * `loom/parse/assignment-to-member-or-index` — `obj.field = ...` or
-//         `arr[i] = ...`; loom 1.0 mutability is binding-level only
+//       * `theta/parse/assignment-to-member-or-index` — `obj.field = ...` or
+//         `arr[i] = ...`; theta 1.0 mutability is binding-level only
 //         (bindings.md §Mutability is binding-level only).
 //   - Immutable contexts — function parameters, `for` iteration variables, and
 //     `match` pattern bindings are always immutable:
-//       * `loom/parse/mut-on-immutable-context` — a `mut` modifier on any of
+//       * `theta/parse/mut-on-immutable-context` — a `mut` modifier on any of
 //         those positions (bindings.md §Immutable contexts).
 //   - Increment / decrement:
-//       * `loom/parse/increment-decrement` — `++` / `--` are rejected; use
+//       * `theta/parse/increment-decrement` — `++` / `--` are rejected; use
 //         `count += 1` / `count -= 1` (bindings.md §Increment / decrement).
 //
 // V3b-T (tests-task) declared these seam shapes and stubbed the five
@@ -44,7 +44,7 @@ export interface LetBindingDecl {
 }
 
 /**
- * Check a `let` binding, returning `loom/parse/let-without-initialiser` when
+ * Check a `let` binding, returning `theta/parse/let-without-initialiser` when
  * the binding carries no initialiser. Returns `undefined` for a binding with
  * an initialiser (bindings.md §`let` requires an initialiser).
  */
@@ -57,7 +57,7 @@ export function checkLetBinding(
   }
   return {
     severity: "error",
-    code: "loom/parse/let-without-initialiser",
+    code: "theta/parse/let-without-initialiser",
     file: site.file,
     range: site.range,
     message: `let binding '${decl.name}' has no initialiser`,
@@ -77,7 +77,7 @@ export interface BindingReassignment {
 
 /**
  * Check a plain-identifier reassignment, returning
- * `loom/parse/immutable-rebinding` when the target binding is immutable (not
+ * `theta/parse/immutable-rebinding` when the target binding is immutable (not
  * `let mut`). Returns `undefined` for a `let mut` target (bindings.md
  * §`let` vs `let mut`; the compound forms `+=` etc. are equally legal on a
  * `let mut` binding).
@@ -91,7 +91,7 @@ export function checkReassignment(
   }
   return {
     severity: "error",
-    code: "loom/parse/immutable-rebinding",
+    code: "theta/parse/immutable-rebinding",
     file: site.file,
     range: site.range,
     message: `cannot reassign immutable binding '${reassign.name}'`,
@@ -109,7 +109,7 @@ export interface AssignmentTarget {
 
 /**
  * Check an assignment target, returning
- * `loom/parse/assignment-to-member-or-index` for a member (`obj.field = ...`)
+ * `theta/parse/assignment-to-member-or-index` for a member (`obj.field = ...`)
  * or index (`arr[i] = ...`) target. Returns `undefined` for a plain identifier
  * target (bindings.md §Mutability is binding-level only).
  */
@@ -122,7 +122,7 @@ export function checkAssignmentTarget(
   }
   return {
     severity: "error",
-    code: "loom/parse/assignment-to-member-or-index",
+    code: "theta/parse/assignment-to-member-or-index",
     file: site.file,
     range: site.range,
     message:
@@ -144,7 +144,7 @@ export interface MutModifier {
 }
 
 /**
- * Check a `mut` modifier, returning `loom/parse/mut-on-immutable-context` when
+ * Check a `mut` modifier, returning `theta/parse/mut-on-immutable-context` when
  * the modifier sits on a function parameter, a `for` iteration variable, or a
  * `match` pattern binding. Returns `undefined` for a `let` binding (bindings.md
  * §Immutable contexts).
@@ -158,7 +158,7 @@ export function checkMutModifier(
   }
   return {
     severity: "error",
-    code: "loom/parse/mut-on-immutable-context",
+    code: "theta/parse/mut-on-immutable-context",
     file: site.file,
     range: site.range,
     message: "'mut' is not permitted in this binding position",
@@ -172,7 +172,7 @@ export interface IncrementDecrementOp {
 
 /**
  * Check an increment / decrement operator, always returning
- * `loom/parse/increment-decrement` — `++` and `--` are unsupported; use
+ * `theta/parse/increment-decrement` — `++` and `--` are unsupported; use
  * `count += 1` / `count -= 1` (bindings.md §Increment / decrement). The `<op>`
  * placeholder in the message is the source token verbatim.
  */
@@ -182,7 +182,7 @@ export function checkIncrementDecrement(
 ): Diagnostic | undefined {
   return {
     severity: "error",
-    code: "loom/parse/increment-decrement",
+    code: "theta/parse/increment-decrement",
     file: site.file,
     range: site.range,
     message: `'${op.op}' operator is not supported`,

@@ -2,7 +2,7 @@
 //
 // Proves B1 (registry only; NOT forwarding listeners, that is B2): the shipped
 // composition constructs ONE `ActiveInvocationRegistry` beside the runtime root
-// and threads it (a) into every composed loom's producer, so the two bind choke
+// and threads it (a) into every composed theta's producer, so the two bind choke
 // points (`bindPromptConversation` / `spawnSubagentConversation`) register one
 // `ActiveInvocationEntry` per invocation, and (b) into the factory's
 // `session_shutdown` teardown, so sub-step 2 (cancel in-flight) and sub-step 3
@@ -11,8 +11,8 @@
 //
 // Coverage:
 //   1. producer add/remove-on-settle — a prompt bind registers exactly one
-//      entry (reusing the per-invocation `loomAbort`, PIC-20-minted
-//      `invocationId`, canonical `loom` name) and removes it on the way out.
+//      entry (reusing the per-invocation `thetaAbort`, PIC-20-minted
+//      `invocationId`, canonical `theta` name) and removes it on the way out.
 //   2. factory cancel-in-flight — an entry in the shared registry is aborted
 //      with the synthesised CNCL-4 reason and its `shutdownReason` is stamped
 //      BEFORE the abort.
@@ -20,7 +20,7 @@
 //      leaves the registry empty (the `finally` guard).
 //   4. factory bounded-await — a never-settling `disposeBarrier` is bounded by
 //      `SHUTDOWN_AWAIT_CAP_MS`, emits exactly one `reload-teardown-timeout`
-//      naming `/<loom>:<invocationId>`, and still proceeds (drain tag set).
+//      naming `/<theta>:<invocationId>`, and still proceeds (drain tag set).
 //
 // Cancellation is not live-reproducible (no injected Esc / Checkpoint seam), so
 // tests 2 + 4 feed REAL `ActiveInvocationEntry` values directly to the shared
@@ -37,7 +37,7 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 
 // SPAN staging: replace the module-level `executeBody` the DRIVE seam
-// (`composeLoomFixture.run`) calls with a test-controlled implementation, so a
+// (`composeThetaFixture.run`) calls with a test-controlled implementation, so a
 // REAL producer bind (the entry really added to the shared registry) is driven
 // through the REAL drive seam (the real `finally` → `finishInvocation`) while
 // the body is parked on a deferred. Everything else in the executor module is
@@ -64,21 +64,21 @@ vi.mock("../src/runtime/statement-executor", async (importOriginal) => {
 
 import {
   createProductionProducerDeps,
-} from "../src/extension/production-loom-producer";
+} from "../src/extension/production-theta-producer";
 import {
-  composeLoomFixture,
-} from "../src/extension/loom-composition-producer";
+  composeThetaFixture,
+} from "../src/extension/theta-composition-producer";
 import type {
   ConversationBindInput,
-  LoomCompositionInput,
-} from "../src/extension/loom-composition-producer";
+  ThetaCompositionInput,
+} from "../src/extension/theta-composition-producer";
 import type { BodyExecution } from "../src/runtime/statement-executor";
 import {
-  createLoomExtension,
-  type LoomExtensionDeps,
+  createThetaExtension,
+  type ThetaExtensionDeps,
 } from "../src/extension/factory";
 import type { ExtensionInstanceWiring } from "../src/extension/production-composition";
-import { LoomRegistry, type ParsedLoom } from "../src/extension/reload-wiring";
+import { ThetaRegistry, type ParsedTheta } from "../src/extension/reload-wiring";
 import {
   ActiveInvocationRegistry,
   type ActiveInvocationEntry,
@@ -92,7 +92,7 @@ import { FakeClock } from "./helpers/fake-clock";
 import type { Clock } from "../src/seams/clock";
 import type { RuntimeRoot } from "../src/runtime-root";
 import type { Checkpoint, CheckpointKind, CheckpointSite } from "../src/seams/checkpoint";
-import type { LoomBody } from "../src/parser/loom-document";
+import type { ThetaBody } from "../src/parser/theta-document";
 import type { ParsedFrontmatter } from "../src/parser/frontmatter";
 
 // --- producer-level scaffolding (mirrors production-cancellation-wiring) -----
@@ -114,15 +114,15 @@ function noopPi(): ExtensionAPI {
   return { sendMessage: (): void => {} } as unknown as ExtensionAPI;
 }
 
-function emptyBody(): LoomBody {
-  return { statements: [], tail: null } as unknown as LoomBody;
+function emptyBody(): ThetaBody {
+  return { statements: [], tail: null } as unknown as ThetaBody;
 }
 
-function promptLoom(): LoomCompositionInput {
+function promptTheta(): ThetaCompositionInput {
   const frontmatter: ParsedFrontmatter = { mode: "prompt" } as ParsedFrontmatter;
   return {
     slashName: "demo",
-    sourcePath: "/looms/demo.loom",
+    sourcePath: "/theta/demo.theta",
     frontmatter,
     body: emptyBody(),
   };
@@ -148,7 +148,7 @@ afterEach(() => {
 });
 
 describe("Increment B1 — the registry entry SPANS the in-flight body via the DRIVE seam", () => {
-  it("(spans the body) a REAL producer bind driven through composeLoomFixture.run keeps size()===1 WHILE the parked body runs, then 0 after it settles", async () => {
+  it("(spans the body) a REAL producer bind driven through composeThetaFixture.run keeps size()===1 WHILE the parked body runs, then 0 after it settles", async () => {
     const registry = new ActiveInvocationRegistry();
     // Capture the registered entry to assert it reuses the per-invocation
     // controller / canonical name / PIC-20 id — the fields the teardown reads.
@@ -173,7 +173,7 @@ describe("Increment B1 — the registry entry SPANS the in-flight body via the D
       releaseBody = resolve;
     });
     // Capture the executor deps the DRIVE seam passes so we can prove the entry
-    // reuses the SAME per-invocation `loomAbort` the executor gates on.
+    // reuses the SAME per-invocation `thetaAbort` the executor gates on.
     let bodySignal: AbortSignal | undefined;
     executorHook.impl = async (...args: readonly unknown[]): Promise<unknown> => {
       bodySignal = (args[1] as { signal: AbortSignal }).signal;
@@ -183,7 +183,7 @@ describe("Increment B1 — the registry entry SPANS the in-flight body via the D
       return { outcome: "fail", error: null } as unknown as BodyExecution;
     };
 
-    const fixture = composeLoomFixture(promptLoom(), deps);
+    const fixture = composeThetaFixture(promptTheta(), deps);
     const runPromise = fixture.run("", driveCtx());
 
     // The bind added the entry; the DRIVE seam is now awaiting the parked body.
@@ -191,13 +191,13 @@ describe("Increment B1 — the registry entry SPANS the in-flight body via the D
     expect(registry.size()).toBe(1);
     expect(captured).toBeDefined();
     const entry = captured as ActiveInvocationEntry;
-    expect(entry.loom).toBe("demo");
+    expect(entry.theta).toBe("demo");
     expect(entry.invocationId).toBe("inv-1");
     expect(entry.shutdownReason).toBeUndefined();
     // The entry reuses the dispatch-owned controller, never a fresh one: the
-    // signal the executor body gates on is the entry's `loomAbort.signal`.
+    // signal the executor body gates on is the entry's `thetaAbort.signal`.
     expect(bodySignal).toBeDefined();
-    expect(entry.loomAbort.signal).toBe(bodySignal);
+    expect(entry.thetaAbort.signal).toBe(bodySignal);
 
     // Release the body; the DRIVE `finally` calls `finishInvocation`, which
     // settles the barrier and removes the entry.
@@ -222,10 +222,10 @@ describe("Increment B1 — the registry entry SPANS the in-flight body via the D
     executorHook.impl = (): Promise<unknown> =>
       Promise.reject(new Error("body boom"));
 
-    const fixture = composeLoomFixture(promptLoom(), deps);
+    const fixture = composeThetaFixture(promptTheta(), deps);
 
     // run() RESOLVES: a top-level runtime defect is now caught by
-    // `composeLoomFixture.run`'s outer catch and framed as ONE `loom-system-note`
+    // `composeThetaFixture.run`'s outer catch and framed as ONE `theta-system-note`
     // (error-model.md §"Runtime panics"), rather than escaping to the host. (The
     // prior `.rejects.toThrow("body boom")` encoded the old buggy escape.) The
     // registry-drain contract this test pins is unaffected — the inner DRIVE
@@ -289,34 +289,34 @@ function makeFactoryHarness(): FactoryHarness {
   };
 }
 
-function makeLoom(slashName: string): ParsedLoom {
+function makeTheta(slashName: string): ParsedTheta {
   return {
     slashName,
-    frontmatter: { mode: "prompt" } as unknown as ParsedLoom["frontmatter"],
-    body: { statements: [] } as unknown as ParsedLoom["body"],
+    frontmatter: { mode: "prompt" } as unknown as ParsedTheta["frontmatter"],
+    body: { statements: [] } as unknown as ParsedTheta["body"],
     run: async (): Promise<void> => {},
   };
 }
 
 interface FactoryBoot {
   readonly harness: FactoryHarness;
-  readonly registry: LoomRegistry;
+  readonly registry: ThetaRegistry;
   readonly activeInvocations: ActiveInvocationRegistry;
   readonly clock: Clock;
 }
 
 /** Boot through the REAL factory with a `composeInstance` returning the given
- *  shared `ActiveInvocationRegistry` + `LoomRegistry` + clock. */
+ *  shared `ActiveInvocationRegistry` + `ThetaRegistry` + clock. */
 async function bootFactory(
   activeInvocations: ActiveInvocationRegistry,
   clock: Clock,
 ): Promise<FactoryBoot> {
   const harness = makeFactoryHarness();
-  const registry = new LoomRegistry([["foo", makeLoom("foo")]]);
-  const deps: LoomExtensionDeps = {
+  const registry = new ThetaRegistry([["foo", makeTheta("foo")]]);
+  const deps: ThetaExtensionDeps = {
     fixtures: [],
     composeInstance: async (): Promise<ExtensionInstanceWiring> => ({
-      looms: [makeLoom("foo")],
+      thetas: [makeTheta("foo")],
       registry,
       activeInvocations,
       forwardingSignals: [],
@@ -324,7 +324,7 @@ async function bootFactory(
       installHotReload: () => ({ detach: (): void => {} }),
     }),
   };
-  createLoomExtension(deps)(harness.pi);
+  createThetaExtension(deps)(harness.pi);
   await harness.fireSessionStart();
   return { harness, registry, activeInvocations, clock };
 }
@@ -344,19 +344,19 @@ describe("Increment B1 — factory session_shutdown operates on the shared regis
 
   it("(cancel in-flight) aborts an entry with the synthesised CNCL-4 reason and stamps shutdownReason BEFORE the abort", async () => {
     const activeInvocations = new ActiveInvocationRegistry();
-    const loomAbort = new AbortController();
+    const thetaAbort = new AbortController();
     let reasonAtAbort: string | undefined = "<not-observed>";
     const entry: ActiveInvocationEntry = {
-      loomAbort,
+      thetaAbort,
       // Immediately-settling barrier so sub-step 3 does not park.
       disposeBarrier: Promise.resolve(),
       shutdownReason: undefined,
-      loom: "foo",
+      theta: "foo",
       invocationId: "inv-42",
     };
     // Record `shutdownReason` at the instant of abort: sub-step 2 must stamp the
-    // field BEFORE calling `loomAbort.abort(reason)`.
-    loomAbort.signal.addEventListener("abort", () => {
+    // field BEFORE calling `thetaAbort.abort(reason)`.
+    thetaAbort.signal.addEventListener("abort", () => {
       reasonAtAbort = entry.shutdownReason;
     });
     activeInvocations.add(entry);
@@ -364,23 +364,23 @@ describe("Increment B1 — factory session_shutdown operates on the shared regis
     const { harness } = await bootFactory(activeInvocations, new FakeClock());
     await harness.fireSessionShutdown("quit");
 
-    expect(loomAbort.signal.aborted).toBe(true);
-    expect(loomAbort.signal.reason).toBeInstanceOf(Error);
-    expect((loomAbort.signal.reason as Error).message).toBe(SESSION_SHUTDOWN_ABORT_MESSAGE);
+    expect(thetaAbort.signal.aborted).toBe(true);
+    expect(thetaAbort.signal.reason).toBeInstanceOf(Error);
+    expect((thetaAbort.signal.reason as Error).message).toBe(SESSION_SHUTDOWN_ABORT_MESSAGE);
     // Stamp-before-abort: the abort listener saw the populated field.
     expect(reasonAtAbort).toBe("quit");
     expect(entry.shutdownReason).toBe("quit");
   });
 
-  it("(bounded await) a never-settling disposeBarrier is bounded by the cap, emits one reload-teardown-timeout naming /<loom>:<invocationId>, and still proceeds", async () => {
+  it("(bounded await) a never-settling disposeBarrier is bounded by the cap, emits one reload-teardown-timeout naming /<theta>:<invocationId>, and still proceeds", async () => {
     const clock = new FakeClock();
     const activeInvocations = new ActiveInvocationRegistry();
     const entry: ActiveInvocationEntry = {
-      loomAbort: new AbortController(),
+      thetaAbort: new AbortController(),
       // Never settles — forces the sub-step 3 cap to fire.
       disposeBarrier: new Promise<void>(() => {}),
       shutdownReason: undefined,
-      loom: "foo",
+      theta: "foo",
       invocationId: "inv-stuck",
     };
     activeInvocations.add(entry);

@@ -1,40 +1,40 @@
 // V10b / V10b-T — Package discovery (bounded walk).
 //
-// The loom extension owns package discovery end-to-end (Pi has no `pi.looms`
+// The theta extension owns package discovery end-to-end (Pi has no `pi.theta`
 // slot): it walks the five installed-package roots itself — project `.pi/npm/`,
 // project `.pi/git/<host>/<path>/`, project-local `node_modules/`, global
 // `~/.pi/agent/npm/`, and global `~/.pi/agent/git/<host>/<path>/` — inspects
-// each candidate package's `package.json`, and resolves either its `pi.looms`
+// each candidate package's `package.json`, and resolves either its `pi.theta`
 // manifest array (minimatch globs with the fixed `!`/`+`/`-` override order) or
-// the conventional `looms/` fallback directory. The walk is bounded: it stops
-// after `looms.scanPackagesMaxFiles` `package.json` reads or
-// `looms.scanPackagesTimeoutMs` wall-clock milliseconds (whichever fires first,
+// the conventional `theta/` fallback directory. The walk is bounded: it stops
+// after `theta.scanPackagesMaxFiles` `package.json` reads or
+// `theta.scanPackagesTimeoutMs` wall-clock milliseconds (whichever fires first,
 // file-count consulted before time on a tie), each candidate read is bounded by
 // a per-read deadline `max(200, floor(scanPackagesTimeoutMs / 10))` armed
 // through the injected `Clock.setTimeout` seam, and the whole walk is skipped
-// when `looms.scanPackages` is `false`.
+// when `theta.scanPackages` is `false`.
 //
-// V10b-T (tests-task) declares the seam shape and stubs `discoverPackageLooms`
-// with an inert result (no looms, no diagnostics) so the failing tests compile
+// V10b-T (tests-task) declares the seam shape and stubs `discoverPackageThetas`
+// with an inert result (no thetas, no diagnostics) so the failing tests compile
 // and red on their own primary assertions — the walk is absent, not throwing.
 // The paired V10b implementation leaf fills this in and wires it into the
-// priority-4 Package source of `discoverLooms`.
+// priority-4 Package source of `discoverThetas`.
 //
-// Spec: discovery/package-and-settings.md (DISC-5 `pi.looms` shape + minimatch
+// Spec: discovery/package-and-settings.md (DISC-5 `pi.theta` shape + minimatch
 // override order, DISC-6 bounded walk + per-read deadline), with the
-// `loom/load/*` diagnostic codes/messages sourced from
+// `theta/load/*` diagnostic codes/messages sourced from
 // diagnostics/code-registry-load.md.
 
 import { minimatch } from "minimatch";
 import type { Diagnostic } from "../diagnostics/diagnostic";
 import type { FileSystem } from "../seams/file-system";
 import type { Clock, TimerHandle } from "../seams/clock";
-import type { LoomSettings } from "./settings";
+import type { ThetaSettings } from "./settings";
 
 /**
  * Inputs to one package-discovery walk. The bounds (`scanPackages`,
  * `scanPackagesMaxFiles`, `scanPackagesTimeoutMs`) are read from the merged
- * `settings.looms` view V10c produces — the walk applies its built-in defaults
+ * `settings.theta` view V10c produces — the walk applies its built-in defaults
  * (`true` / `2000` / `2000`) only when the merged view omits a key, so an
  * operator override flows through to the walk rather than being overridden by a
  * hardcoded constant. The `Clock` seam times the walk and arms the per-read
@@ -43,11 +43,11 @@ import type { LoomSettings } from "./settings";
 export interface PackageDiscoveryInput {
   readonly fs: FileSystem;
   readonly clock: Clock;
-  readonly settings: LoomSettings;
+  readonly settings: ThetaSettings;
 }
 
-/** One package-discovered, registrable loom: its slash name, absolute path, and source. */
-export interface PackageDiscoveredLoom {
+/** One package-discovered, registrable theta: its slash name, absolute path, and source. */
+export interface PackageDiscoveredTheta {
   readonly name: string;
   readonly path: string;
   readonly source: "package";
@@ -55,7 +55,7 @@ export interface PackageDiscoveredLoom {
 
 /** The outcome of one package-discovery walk. */
 export interface PackageDiscoveryResult {
-  readonly looms: readonly PackageDiscoveredLoom[];
+  readonly thetas: readonly PackageDiscoveredTheta[];
   readonly diagnostics: readonly Diagnostic[];
 }
 
@@ -68,10 +68,10 @@ export const DEFAULT_SCAN_PACKAGES_TIMEOUT_MS = 2000;
 // Diagnostic codes (sourced from diagnostics/code-registry-load.md).
 // --------------------------------------------------------------------------
 
-const MANIFEST_INVALID = "loom/load/manifest-invalid";
-const MANIFEST_ESCAPES_PACKAGE = "loom/load/manifest-escapes-package";
-const DISCOVERY_SLOW = "loom/load/discovery-slow";
-const PACKAGE_READ_TIMEOUT = "loom/load/package-read-timeout";
+const MANIFEST_INVALID = "theta/load/manifest-invalid";
+const MANIFEST_ESCAPES_PACKAGE = "theta/load/manifest-escapes-package";
+const DISCOVERY_SLOW = "theta/load/discovery-slow";
+const PACKAGE_READ_TIMEOUT = "theta/load/package-read-timeout";
 
 // --------------------------------------------------------------------------
 // Path helpers — POSIX forward-slash form (the `FileSystem` seam reports
@@ -304,7 +304,7 @@ interface TreeEntry {
 }
 
 /** Recursively enumerate every file/dir under the package root (the universe
- *  the `pi.looms` patterns are matched against). Symlinks are not followed. */
+ *  the `pi.theta` patterns are matched against). Symlinks are not followed. */
 async function listTree(fs: FileSystem, root: string): Promise<TreeEntry[]> {
   const out: TreeEntry[] = [];
   const walk = async (dir: string, relBase: string): Promise<void> => {
@@ -355,12 +355,12 @@ function escapesPackage(pkgRoot: string, operand: string): boolean {
 }
 
 /**
- * Resolve one package's `pi.looms` array against its tree, applying the fixed
+ * Resolve one package's `pi.theta` array against its tree, applying the fixed
  * `!`/`+`/`-` override order (plain includes → `!` drops → `+` re-admits → `-`
  * removes, `-` taking final precedence), then contribute per the file/dir/other
- * match rule. Returns the surviving `.loom` paths (stem + absolute path).
+ * match rule. Returns the surviving `.theta` paths (stem + absolute path).
  */
-async function resolvePiLooms(
+async function resolvePiThetas(
   fs: FileSystem,
   pkgRoot: string,
   pkgName: string,
@@ -379,7 +379,7 @@ async function resolvePiLooms(
         severity: "warning",
         code: MANIFEST_ESCAPES_PACKAGE,
         file: pkgRoot,
-        message: `package '${pkgName}' 'pi.looms' entry '${raw}' resolves outside the package root`,
+        message: `package '${pkgName}' 'pi.theta' entry '${raw}' resolves outside the package root`,
       });
       continue;
     }
@@ -421,30 +421,30 @@ async function resolvePiLooms(
     }
   }
 
-  // Per-match contribution: a `.loom` file registers directly; a directory is
-  // scanned non-recursively for `*.loom`; any other file type is filtered.
-  const looms = new Map<string, string>(); // absPath → stem
+  // Per-match contribution: a `.theta` file registers directly; a directory is
+  // scanned non-recursively for `*.theta`; any other file type is filtered.
+  const thetas = new Map<string, string>(); // absPath → stem
   for (const entry of universe) {
     if (!selected.has(entry.abs)) continue;
-    if (entry.isFile && splitExtension(entry.base).ext === "loom") {
-      looms.set(entry.abs, splitExtension(entry.base).stem);
+    if (entry.isFile && splitExtension(entry.base).ext === "theta") {
+      thetas.set(entry.abs, splitExtension(entry.base).stem);
     } else if (entry.isDir) {
-      for (const [abs, stem] of await loomsInDirectory(fs, entry.abs)) {
-        looms.set(abs, stem);
+      for (const [abs, stem] of await thetasInDirectory(fs, entry.abs)) {
+        thetas.set(abs, stem);
       }
     }
-    // any other file type (non-`.loom` file, symlink) is filtered silently
+    // any other file type (non-`.theta` file, symlink) is filtered silently
   }
-  return looms;
+  return thetas;
 }
 
-/** Non-recursive `*.loom` scan of a directory (byte-exact `.loom` extension). */
-async function loomsInDirectory(fs: FileSystem, dir: string): Promise<Map<string, string>> {
+/** Non-recursive `*.theta` scan of a directory (byte-exact `.theta` extension). */
+async function thetasInDirectory(fs: FileSystem, dir: string): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   const names = (await readdirOr(fs, dir)) ?? [];
   for (const name of names) {
     const { stem, ext } = splitExtension(name);
-    if (ext !== "loom") continue;
+    if (ext !== "theta") continue;
     const abs = joinPosix(dir, name);
     if (await isFileHelper(fs, abs)) {
       out.set(abs, stem);
@@ -453,8 +453,8 @@ async function loomsInDirectory(fs: FileSystem, dir: string): Promise<Map<string
   return out;
 }
 
-/** Read `pi.looms` off a parsed manifest: absent, or the raw field value. */
-function readPiLoomsField(
+/** Read `pi.theta` off a parsed manifest: absent, or the raw field value. */
+function readPiThetasField(
   parsed: unknown,
 ): { readonly kind: "absent" } | { readonly kind: "value"; readonly value: unknown } {
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
@@ -464,21 +464,21 @@ function readPiLoomsField(
   if (typeof pi !== "object" || pi === null || Array.isArray(pi)) {
     return { kind: "absent" };
   }
-  if (!Object.prototype.hasOwnProperty.call(pi, "looms")) {
+  if (!Object.prototype.hasOwnProperty.call(pi, "theta")) {
     return { kind: "absent" };
   }
-  return { kind: "value", value: (pi as { looms?: unknown }).looms };
+  return { kind: "value", value: (pi as { theta?: unknown }).theta };
 }
 
-/** A `pi.looms` value is valid iff it is an array of strings. */
+/** A `pi.theta` value is valid iff it is an array of strings. */
 function isStringArray(value: unknown): value is readonly string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === "string");
 }
 
 /**
- * Resolve one candidate package's looms from its already-read `package.json`
+ * Resolve one candidate package's thetas from its already-read `package.json`
  * text: parse (parse failure → contribute nothing silently), then either the
- * `pi.looms` manifest array or the conventional `looms/` fallback directory.
+ * `pi.theta` manifest array or the conventional `theta/` fallback directory.
  */
 async function resolvePackage(
   fs: FileSystem,
@@ -495,50 +495,50 @@ async function resolvePackage(
   if (!parsed.ok) {
     return new Map(); // a package.json that does not parse contributes nothing
   }
-  const field = readPiLoomsField(parsed.value);
+  const field = readPiThetasField(parsed.value);
   if (field.kind === "absent") {
-    // Fallback: the conventional `looms/` directory, scanned non-recursively.
-    return loomsInDirectory(fs, joinPosix(candidate.dir, "looms"));
+    // Fallback: the conventional `theta/` directory, scanned non-recursively.
+    return thetasInDirectory(fs, joinPosix(candidate.dir, "theta"));
   }
   if (!isStringArray(field.value)) {
     diagnostics.push({
       severity: "error",
       code: MANIFEST_INVALID,
       file: joinPosix(candidate.dir, "package.json"),
-      message: `package '${candidate.name}' has invalid 'pi.looms': expected string[], got ${jsonKind(field.value)}`,
+      message: `package '${candidate.name}' has invalid 'pi.theta': expected string[], got ${jsonKind(field.value)}`,
     });
     return new Map();
   }
-  return resolvePiLooms(fs, candidate.dir, candidate.name, field.value, diagnostics);
+  return resolvePiThetas(fs, candidate.dir, candidate.name, field.value, diagnostics);
 }
 
 /**
  * Walk the five installed-package roots, resolve each candidate package's
- * `pi.looms` manifest (or `looms/` fallback), and return the registrable looms
+ * `pi.theta` manifest (or `theta/` fallback), and return the registrable thetas
  * plus the load-phase diagnostics, subject to the DISC-6 file-count / wall-clock
  * bounds and the per-read deadline.
  *
- * The bounds come from the merged `settings.looms` view (V10c); the built-in
+ * The bounds come from the merged `settings.theta` view (V10c); the built-in
  * defaults (`true` / `2000` / `2000`) apply only where a key is absent, so an
  * operator override flows through rather than being overridden by a hardcoded
  * constant. Elapsed time and the per-read deadline are read/armed through the
  * injected `Clock` seam.
  */
-export async function discoverPackageLooms(
+export async function discoverPackageThetas(
   input: PackageDiscoveryInput,
 ): Promise<PackageDiscoveryResult> {
   const { fs, clock, settings } = input;
-  const looms: PackageDiscoveredLoom[] = [];
+  const thetas: PackageDiscoveredTheta[] = [];
   const diagnostics: Diagnostic[] = [];
 
-  const loomsSettings = settings.looms ?? {};
-  const scanPackages = loomsSettings.scanPackages ?? DEFAULT_SCAN_PACKAGES;
+  const thetasSettings = settings.theta ?? {};
+  const scanPackages = thetasSettings.scanPackages ?? DEFAULT_SCAN_PACKAGES;
   if (!scanPackages) {
     // The walk is skipped wholesale: no root is scanned, no read is issued.
-    return { looms, diagnostics };
+    return { thetas, diagnostics };
   }
-  const maxFiles = loomsSettings.scanPackagesMaxFiles ?? DEFAULT_SCAN_PACKAGES_MAX_FILES;
-  const timeoutMs = loomsSettings.scanPackagesTimeoutMs ?? DEFAULT_SCAN_PACKAGES_TIMEOUT_MS;
+  const maxFiles = thetasSettings.scanPackagesMaxFiles ?? DEFAULT_SCAN_PACKAGES_MAX_FILES;
+  const timeoutMs = thetasSettings.scanPackagesTimeoutMs ?? DEFAULT_SCAN_PACKAGES_TIMEOUT_MS;
   const perReadDeadline = Math.max(200, Math.floor(timeoutMs / 10));
 
   // The walk clock starts at the first candidate cap-check, not at function
@@ -547,7 +547,7 @@ export async function discoverPackageLooms(
   let start: number | undefined;
   let filesRead = 0;
   let aborted = false;
-  const registered = new Set<string>(); // absolute `.loom` paths already added
+  const registered = new Set<string>(); // absolute `.theta` paths already added
 
   for (const root of packageRoots(fs)) {
     if (aborted) break;
@@ -562,7 +562,7 @@ export async function discoverPackageLooms(
           severity: "warning",
           code: DISCOVERY_SLOW,
           file: root.path,
-          message: `package-discovery walk aborted at ${root.path}: looms.scanPackagesMaxFiles cap reached`,
+          message: `package-discovery walk aborted at ${root.path}: theta.scanPackagesMaxFiles cap reached`,
         });
         aborted = true;
         break;
@@ -572,7 +572,7 @@ export async function discoverPackageLooms(
           severity: "warning",
           code: DISCOVERY_SLOW,
           file: root.path,
-          message: `package-discovery walk aborted at ${root.path}: looms.scanPackagesTimeoutMs cap reached`,
+          message: `package-discovery walk aborted at ${root.path}: theta.scanPackagesTimeoutMs cap reached`,
         });
         aborted = true;
         break;
@@ -599,10 +599,10 @@ export async function discoverPackageLooms(
       for (const [abs, stem] of resolved) {
         if (registered.has(abs)) continue;
         registered.add(abs);
-        looms.push({ name: stem, path: abs, source: "package" });
+        thetas.push({ name: stem, path: abs, source: "package" });
       }
     }
   }
 
-  return { looms, diagnostics };
+  return { thetas, diagnostics };
 }

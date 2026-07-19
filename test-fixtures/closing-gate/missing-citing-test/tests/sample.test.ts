@@ -7,5 +7,5 @@
 // BAR-1: covered.
 
 export function checks(): void {
-  expect(diag.code).toBe("loom/parse/foo-bad");
+  expect(diag.code).toBe("theta/parse/foo-bad");
 }

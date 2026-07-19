@@ -1,13 +1,13 @@
-# pi-loom documentation style guide
+# pi-theta documentation style guide
 
-Binding on every writer (human or agent) of user-facing pi-loom documentation.
+Binding on every writer (human or agent) of user-facing pi-theta documentation.
 This file is the authority the doc-writing subagents read before producing prose.
 
 ## Audience
 
-Senior+ software engineers, chiefly **loom authors**. Assume fluency with
+Senior+ software engineers, chiefly **theta authors**. Assume fluency with
 programming languages, type systems, and CLIs. Do not explain general
-programming concepts. Do explain loom-specific concepts.
+programming concepts. Do explain theta-specific concepts.
 
 ## Voice
 
@@ -34,16 +34,16 @@ programming concepts. Do explain loom-specific concepts.
 
 The authority is `docs/spec_topics/glossary.md`. Terms including *callable set*,
 *operator*, *query-terminating*, *final value*, *prompt mode*, *subagent mode*,
-`.loom`, `.warp` must match the glossary exactly. Do not coin synonyms.
+`.theta`, `.thetalib` must match the glossary exactly. Do not coin synonyms.
 
 ## Examples
 
 - Every non-trivial example is a real, checked-in file under `docs/examples/`.
 - Examples parse under CI automatically (the committed-fixture parse gate walks
-  `docs/`). Runtime-executed examples must run via `pi --loom docs/examples -p
+  `docs/`). Runtime-executed examples must run via `pi --theta docs/examples -p
   "/<stem>"` before the doc citing them is considered done.
 - Docs reference the checked-in file; they do not paste a divergent copy.
-- `.warp` modules are not invocable; exercise them through a `.loom` that imports
+- `.thetalib` modules are not invocable; exercise them through a `.theta` that imports
   them.
 
 ## Structure and cross-linking

@@ -84,18 +84,18 @@ describe("version-bump gate — step 3 engines.node three-way equality", () => {
   it("step 3: reds when the live upstream floor moves while operands (i) and (ii) stay pinned", () => {
     // Operand (ii) is the in-repo pinned floor in the pi-engines-node row.
     const inventoryPinned = inventoryPayload("pi-engines-node").literal as string;
-    const loomLiteral = ">=22.19.0"; // operand (i): package.json#engines.node
+    const thetaLiteral = ">=22.19.0"; // operand (i): package.json#engines.node
     expect(inventoryPinned).toBe(">=22.19.0");
 
     // Equal triple (i === ii === iii) → no failures.
     expect(
-      enginesNodeEqualityFailures(loomLiteral, inventoryPinned, ">=22.19.0"),
+      enginesNodeEqualityFailures(thetaLiteral, inventoryPinned, ">=22.19.0"),
     ).toEqual([]);
 
     // Operand (iii), the only live read, moves upstream while (i)/(ii) stay
     // pinned → red (version-bump-steps-3-4.md step 3).
     expect(
-      enginesNodeEqualityFailures(loomLiteral, inventoryPinned, ">=24.0.0")
+      enginesNodeEqualityFailures(thetaLiteral, inventoryPinned, ">=24.0.0")
         .length,
     ).toBeGreaterThan(0);
   });
@@ -133,7 +133,7 @@ describe("version-bump gate — step 2(a) reason-snapshot literal-array consiste
 
   it("step 2(a)/step 5 trigger (ii): the pinned snapshot literals match the SDK reason union bidirectionally; a widen or narrow reds", () => {
     // The pinned snapshot is well-formed data (non-empty, distinct) and matches
-    // the loom 1.0 SDK reason union.
+    // the theta 1.0 SDK reason union.
     expect(SESSION_SHUTDOWN_REASON_SNAPSHOT.literals).toEqual(union);
 
     // Consistent (snapshot set === union set) → no failures.
@@ -222,7 +222,7 @@ describe("version-bump gate — step 7 strict-capability probe (both arms)", () 
     expect(failures.some((f) => f.arm === "rename-detection")).toBe(true);
 
     // Conformant Model<Api> — neither the indicator nor the probed name present
-    // (the loom 1.0 absence pin holds) → no failures.
+    // (the theta 1.0 absence pin holds) → no failures.
     expect(
       strictCapabilityProbeFailures(probedName, ["id", "provider", "api"]),
     ).toEqual([]);

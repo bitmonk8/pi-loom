@@ -76,7 +76,7 @@ describe("V8c-T — SchemaValidator behavioural contract (PIC-11)", () => {
   });
 
   it("PIC-11: validation performs NO coercion — a string where a number is required fails and is left as-is", () => {
-    // No implicit type conversion in loom 1.0: a numeric string is NOT coerced
+    // No implicit type conversion in theta 1.0: a numeric string is NOT coerced
     // to a number, so it fails the `type` check, and the input value is not
     // mutated (the validator returns no converted value).
     const schema: LoweredSchema = {
@@ -101,7 +101,7 @@ describe("V8c-T — SchemaValidator behavioural contract (PIC-11)", () => {
   });
 
   it("PIC-11: validation performs NO default-filling — a missing optional property is left absent", () => {
-    // No default-fill in loom 1.0: an optional property carrying a schema
+    // No default-fill in theta 1.0: an optional property carrying a schema
     // `default` is NOT injected into the validated value; an absent optional
     // property is valid and the input object is not mutated.
     const schema: LoweredSchema = {
@@ -140,7 +140,7 @@ describe("V8c-T — SchemaValidator behavioural contract (PIC-11)", () => {
   });
 
   it("PIC-11: validation silently accepts an unknown JSON-Schema `format` keyword", () => {
-    // Loom-emitted schemas never use `format`, but model output can carry one;
+    // Theta-emitted schemas never use `format`, but model output can carry one;
     // an unknown `format` must be silently accepted, never raised on.
     const schema: LoweredSchema = { type: "string", format: "totally-made-up-format" };
     const { validator } = makeValidator();
@@ -189,11 +189,11 @@ describe("V8c-T — slug-cache byte-verify and collision (PIC-11)", () => {
     expect(second.validate({ s: "ok" }).ok).toBe(true);
   });
 
-  it("PIC-11: a slug-cache byte mismatch fires `loom/runtime/validator-cache-collision` and recompiles the new document", () => {
+  it("PIC-11: a slug-cache byte mismatch fires `theta/runtime/validator-cache-collision` and recompiles the new document", () => {
     // Two DISTINCT schema documents forced to share one slug (different
     // canonical bytes) — a genuine 64-bit slug collision. On the second
     // compile the cache must NOT serve the wrong cached validator: it emits
-    // `loom/runtime/validator-cache-collision` and recompiles the new document.
+    // `theta/runtime/validator-cache-collision` and recompiles the new document.
     const SLUG = "deadbeefdeadbeef";
     const schemaA: LoweredSchema = { type: "string" };
     const schemaB: LoweredSchema = { type: "number" };
@@ -204,7 +204,7 @@ describe("V8c-T — slug-cache byte-verify and collision (PIC-11)", () => {
 
     // The collision diagnostic fired, by code, exactly once.
     const collisions = emitted.filter(
-      (d) => d.code === "loom/runtime/validator-cache-collision",
+      (d) => d.code === "theta/runtime/validator-cache-collision",
     );
     expect(collisions).toHaveLength(1);
     const collision = collisions[0]!;

@@ -4,7 +4,7 @@
 //
 // A typed query's declared schema annotation is one of:
 //   - a named `schema` decl (`@<Triage>`), resolved whole-file against the
-//     loom body's `schema` declarations to its retained object-body field
+//     theta body's `schema` declarations to its retained object-body field
 //     sources;
 //   - an inline object type (`@<{ status: "ok" | "degraded", summary: string }>`);
 //   - an inline primitive / union / `array<T>` type (`@<string>`, `@<A | B>`).
@@ -22,7 +22,7 @@
 // (QRY-22).
 
 import type { LoweredSchema } from "../seams/schema-validator";
-import type { SchemaDecl } from "../parser/loom-document";
+import type { SchemaDecl } from "../parser/theta-document";
 import {
   lowerInlineObject,
   lowerObjectFields,
@@ -40,7 +40,7 @@ const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
  * Lower a typed query's declared response-schema annotation to its
  * AJV-validatable JSON Schema (QRY-22 / SUBS-1), or `undefined` when the
  * annotation carries no lowerable shape. `annotation` is the verbatim
- * `@<Schema>` text; `schemas` are the loom body's `schema` declarations, used to
+ * `@<Schema>` text; `schemas` are the theta body's `schema` declarations, used to
  * resolve a named reference whole-file to its retained object-body fields.
  */
 export function lowerQueryResponseSchema(

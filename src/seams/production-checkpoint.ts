@@ -1,6 +1,6 @@
 // V8a — `ProductionCheckpoint` production wiring for the `Checkpoint` seam (PIC-10).
 //
-// Constructs one `Checkpoint` per `loomAbort` (per invocation) from the injected
+// Constructs one `Checkpoint` per `thetaAbort` (per invocation) from the injected
 // `Clock` seam. `before(kind, site)`:
 //   - for `loop-iter`, releases the event loop for one macrotask turn before
 //     resolving — scheduling that resolution through the injected `Clock`'s

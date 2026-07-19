@@ -4,24 +4,24 @@
 // declaration shapes of schemas.md and type-system.md:
 //
 //   - Object schema   — `schema X { f: T, ... }` (incl. `as "WireName"` renames):
-//       * `loom/parse/empty-schema-body`   — `schema X { }` with no fields.
-//       * `loom/parse/wire-name-collision` — two fields share a wire name, or a
-//         wire name collides with another field's loom-side name.
-//       * `loom/parse/redundant-wire-name` (W) — a rename whose wire name equals
-//         the loom-side name (`field as "field"`).
+//       * `theta/parse/empty-schema-body`   — `schema X { }` with no fields.
+//       * `theta/parse/wire-name-collision` — two fields share a wire name, or a
+//         wire name collides with another field's theta-side name.
+//       * `theta/parse/redundant-wire-name` (W) — a rename whose wire name equals
+//         the theta-side name (`field as "field"`).
 //   - Enum declaration — `enum X { Low, High = "h", ... }`:
-//       * `loom/parse/empty-enum-body`               — `enum X { }` with no variants.
-//       * `loom/parse/duplicate-enum-variant-name`   — two variants share an
+//       * `theta/parse/empty-enum-body`               — `enum X { }` with no variants.
+//       * `theta/parse/duplicate-enum-variant-name`   — two variants share an
 //         identifier (regardless of explicit value); this check runs BEFORE the
 //         value-duplication check (schemas.md §Enum declarations).
-//       * `loom/parse/duplicate-enum-value`          — two distinct-named variants
+//       * `theta/parse/duplicate-enum-value`          — two distinct-named variants
 //         share one explicit string value.
-//       * `loom/parse/non-string-enum-value`         — an explicit value that is
+//       * `theta/parse/non-string-enum-value`         — an explicit value that is
 //         not a single string literal.
-//       * `loom/parse/inline-enum`                   — an inline `enum[...]` form
+//       * `theta/parse/inline-enum`                   — an inline `enum[...]` form
 //         (top-level `enum` only).
 //   - Variant access  — `Enum.Variant`:
-//       * `loom/parse/unknown-variant`               — a reference to a variant the
+//       * `theta/parse/unknown-variant`               — a reference to a variant the
 //         enum does not declare.
 //
 // V5a-T (tests-task) declared these seam shapes; V5a (this leaf) implements
@@ -38,10 +38,10 @@ export interface SchemaDeclSite {
 /**
  * A single object-schema field declaration. `wireName` is the explicit
  * `as "WireName"` rename when present; absent means the wire name equals the
- * loom-side identifier (`loomName`).
+ * theta-side identifier (`thetaName`).
  */
 export interface SchemaFieldDecl {
-  readonly loomName: string;
+  readonly thetaName: string;
   readonly wireName?: string;
 }
 
@@ -55,12 +55,12 @@ export interface ObjectSchemaDecl {
  * Check an object-schema declaration, returning every diagnostic raised in
  * source order:
  *
- *   - `loom/parse/empty-schema-body`   — the schema declares no fields.
- *   - `loom/parse/redundant-wire-name` (W) — a field's wire name equals its
- *     loom-side name.
- *   - `loom/parse/wire-name-collision` — a field's effective wire name
- *     (`wireName ?? loomName`) collides with another field's effective wire
- *     name or with another field's loom-side name in the same schema.
+ *   - `theta/parse/empty-schema-body`   — the schema declares no fields.
+ *   - `theta/parse/redundant-wire-name` (W) — a field's wire name equals its
+ *     theta-side name.
+ *   - `theta/parse/wire-name-collision` — a field's effective wire name
+ *     (`wireName ?? thetaName`) collides with another field's effective wire
+ *     name or with another field's theta-side name in the same schema.
  */
 export function checkObjectSchema(
   decl: ObjectSchemaDecl,
@@ -73,7 +73,7 @@ export function checkObjectSchema(
   if (decl.fields.length === 0) {
     diagnostics.push({
       severity: "error",
-      code: "loom/parse/empty-schema-body",
+      code: "theta/parse/empty-schema-body",
       file: site.file,
       range: site.range,
       message: `'${decl.name}' has no fields; an empty schema cannot be validated.`,
@@ -81,24 +81,24 @@ export function checkObjectSchema(
     return diagnostics;
   }
 
-  // A rename whose wire name equals the loom-side name carries no information
+  // A rename whose wire name equals the theta-side name carries no information
   // (schemas.md §Wire-name renaming) — warning, in source order.
   for (const field of decl.fields) {
-    if (field.wireName !== undefined && field.wireName === field.loomName) {
+    if (field.wireName !== undefined && field.wireName === field.thetaName) {
       diagnostics.push({
         severity: "warning",
-        code: "loom/parse/redundant-wire-name",
+        code: "theta/parse/redundant-wire-name",
         file: site.file,
         range: site.range,
-        message: `redundant 'as' clause: wire name '${field.wireName}' equals the loom-side name`,
+        message: `redundant 'as' clause: wire name '${field.wireName}' equals the theta-side name`,
         hint: "Drop the `as` clause.",
       });
     }
   }
 
   // Wire-name collisions (schemas.md §Wire-name renaming): two fields cannot
-  // share an effective wire name (`wireName ?? loomName`), and an explicit wire
-  // name cannot collide with another field's loom-side name. Report each
+  // share an effective wire name (`wireName ?? thetaName`), and an explicit wire
+  // name cannot collide with another field's theta-side name. Report each
   // colliding name once, in source order.
   const reported = new Set<string>();
   for (let i = 0; i < decl.fields.length; i += 1) {
@@ -106,7 +106,7 @@ export function checkObjectSchema(
     if (fi === undefined) {
       continue;
     }
-    const wi = fi.wireName ?? fi.loomName;
+    const wi = fi.wireName ?? fi.thetaName;
     for (let j = 0; j < decl.fields.length; j += 1) {
       if (i === j) {
         continue;
@@ -115,20 +115,20 @@ export function checkObjectSchema(
       if (fj === undefined) {
         continue;
       }
-      const wj = fj.wireName ?? fj.loomName;
+      const wj = fj.wireName ?? fj.thetaName;
       let collidingName: string | undefined;
       if (wi === wj) {
         // Two fields share an effective wire name.
         collidingName = wi;
-      } else if (fi.wireName !== undefined && fi.wireName === fj.loomName) {
-        // An explicit wire name collides with another field's loom-side name.
+      } else if (fi.wireName !== undefined && fi.wireName === fj.thetaName) {
+        // An explicit wire name collides with another field's theta-side name.
         collidingName = fi.wireName;
       }
       if (collidingName !== undefined && !reported.has(collidingName)) {
         reported.add(collidingName);
         diagnostics.push({
           severity: "error",
-          code: "loom/parse/wire-name-collision",
+          code: "theta/parse/wire-name-collision",
           file: site.file,
           range: site.range,
           message: `wire name '${collidingName}' collides with another field on schema '${decl.name}'`,
@@ -161,14 +161,14 @@ export interface EnumDecl {
 /**
  * Check an enum declaration, returning every diagnostic raised in source order:
  *
- *   - `loom/parse/empty-enum-body`             — the enum declares no variants.
- *   - `loom/parse/duplicate-enum-variant-name` — two variants share an
+ *   - `theta/parse/empty-enum-body`             — the enum declares no variants.
+ *   - `theta/parse/duplicate-enum-variant-name` — two variants share an
  *     identifier; this check runs BEFORE the value-duplication check, so a
  *     distinct-explicit-value name collision (`enum X { Low = "a", Low = "b" }`)
- *     fires here, not `loom/parse/duplicate-enum-value`.
- *   - `loom/parse/non-string-enum-value`       — an explicit value whose kind is
+ *     fires here, not `theta/parse/duplicate-enum-value`.
+ *   - `theta/parse/non-string-enum-value`       — an explicit value whose kind is
  *     not `string`.
- *   - `loom/parse/duplicate-enum-value`        — two distinct-named variants
+ *   - `theta/parse/duplicate-enum-value`        — two distinct-named variants
  *     share one explicit string value.
  */
 export function checkEnumDeclaration(
@@ -182,7 +182,7 @@ export function checkEnumDeclaration(
   if (decl.variants.length === 0) {
     diagnostics.push({
       severity: "error",
-      code: "loom/parse/empty-enum-body",
+      code: "theta/parse/empty-enum-body",
       file: site.file,
       range: site.range,
       message: `'${decl.name}' has no variants; an empty enum cannot be validated.`,
@@ -201,7 +201,7 @@ export function checkEnumDeclaration(
       nameReported.add(variant.name);
       diagnostics.push({
         severity: "error",
-        code: "loom/parse/duplicate-enum-variant-name",
+        code: "theta/parse/duplicate-enum-variant-name",
         file: site.file,
         range: site.range,
         message: `duplicate variant name '${variant.name}' on enum '${decl.name}'`,
@@ -210,13 +210,13 @@ export function checkEnumDeclaration(
     namesSeen.add(variant.name);
   }
 
-  // loom 1.0 enums carry string values only (schemas.md §Enum declarations):
+  // theta 1.0 enums carry string values only (schemas.md §Enum declarations):
   // an explicit value of any other literal kind is rejected.
   for (const variant of decl.variants) {
     if (variant.value !== undefined && variant.value.kind !== "string") {
       diagnostics.push({
         severity: "error",
-        code: "loom/parse/non-string-enum-value",
+        code: "theta/parse/non-string-enum-value",
         file: site.file,
         range: site.range,
         message: `enum variant value must be a string literal; got ${variant.value.kind}`,
@@ -247,7 +247,7 @@ export function checkEnumDeclaration(
       valueReported.add(value);
       diagnostics.push({
         severity: "error",
-        code: "loom/parse/duplicate-enum-value",
+        code: "theta/parse/duplicate-enum-value",
         file: site.file,
         range: site.range,
         message: `duplicate enum value '${value}' across variants of enum '${decl.name}'`,
@@ -260,7 +260,7 @@ export function checkEnumDeclaration(
 
 /**
  * Check an inline-enum form (`enum["a", "b"]` or other inline `enum[...]`),
- * returning `loom/parse/inline-enum` — `enum` is top-level only. Returns
+ * returning `theta/parse/inline-enum` — `enum` is top-level only. Returns
  * `undefined` when `source` is not an inline-enum form.
  */
 export function checkInlineEnumForm(
@@ -275,7 +275,7 @@ export function checkInlineEnumForm(
   }
   return {
     severity: "error",
-    code: "loom/parse/inline-enum",
+    code: "theta/parse/inline-enum",
     file: site.file,
     range: site.range,
     message:
@@ -292,7 +292,7 @@ export interface VariantAccess {
 }
 
 /**
- * Check a `Enum.Variant` reference, returning `loom/parse/unknown-variant` when
+ * Check a `Enum.Variant` reference, returning `theta/parse/unknown-variant` when
  * `variant` is not one of `knownVariants`. Returns `undefined` for a declared
  * variant.
  */
@@ -307,7 +307,7 @@ export function checkVariantAccess(
   }
   return {
     severity: "error",
-    code: "loom/parse/unknown-variant",
+    code: "theta/parse/unknown-variant",
     file: site.file,
     range: site.range,
     message: `unknown variant '${access.variant}' on enum '${access.enumName}'`,
@@ -319,15 +319,15 @@ export function checkVariantAccess(
 // V5b owns the parse-time checks for the discriminated-union, `by`-clause, and
 // type-alias-cycle rules of schemas.md §Discriminated unions and §Recursion:
 //
-//   - `loom/parse/non-string-discriminator`     — the discriminator field's
+//   - `theta/parse/non-string-discriminator`     — the discriminator field's
 //     per-variant literal type is not `string`.
-//   - `loom/parse/ambiguous-discriminator`      — more than one field qualifies.
-//   - `loom/parse/missing-discriminator`        — no field qualifies.
-//   - `loom/parse/duplicate-discriminator-value`— two variants share a value.
-//   - `loom/parse/nested-discriminator`         — the discriminator field's
+//   - `theta/parse/ambiguous-discriminator`      — more than one field qualifies.
+//   - `theta/parse/missing-discriminator`        — no field qualifies.
+//   - `theta/parse/duplicate-discriminator-value`— two variants share a value.
+//   - `theta/parse/nested-discriminator`         — the discriminator field's
 //     value is a nested object, not a top-level literal.
-//   - `loom/parse/by-on-object-schema`          — a `by` clause on an object body.
-//   - `loom/parse/type-alias-cycle`             — a pure-alias cycle (a cycle
+//   - `theta/parse/by-on-object-schema`          — a `by` clause on an object body.
+//   - `theta/parse/type-alias-cycle`             — a pure-alias cycle (a cycle
 //     through at least one object-schema hop remains legal).
 //
 // V5b-T declared these seam shapes; V5b (this leaf) implements every check:
@@ -357,7 +357,7 @@ export interface UnionVariantSchema {
 
 /**
  * A `schema X = A | B | C` union (optionally `schema X by f = ...`). `by` is
- * the explicit loom-side discriminator field name when the author overrode
+ * the explicit theta-side discriminator field name when the author overrode
  * implicit detection.
  */
 export interface DiscriminatedUnionDecl {
@@ -368,9 +368,9 @@ export interface DiscriminatedUnionDecl {
 
 /**
  * Check a discriminated-union declaration, returning every diagnostic raised in
- * source order (`loom/parse/non-string-discriminator`,
- * `loom/parse/ambiguous-discriminator`, `loom/parse/missing-discriminator`,
- * `loom/parse/duplicate-discriminator-value`, `loom/parse/nested-discriminator`).
+ * source order (`theta/parse/non-string-discriminator`,
+ * `theta/parse/ambiguous-discriminator`, `theta/parse/missing-discriminator`,
+ * `theta/parse/duplicate-discriminator-value`, `theta/parse/nested-discriminator`).
  */
 export function checkDiscriminatedUnion(
   decl: DiscriminatedUnionDecl,
@@ -505,7 +505,7 @@ function detectImplicitDiscriminator(
     return [
       {
         severity: "error",
-        code: "loom/parse/ambiguous-discriminator",
+        code: "theta/parse/ambiguous-discriminator",
         file: site.file,
         range: site.range,
         message: `ambiguous discriminator for ${decl.name}; candidates: ${candidates}. Declare explicitly with 'by <field>'.`,
@@ -531,7 +531,7 @@ function detectImplicitDiscriminator(
   return [
     {
       severity: "error",
-      code: "loom/parse/missing-discriminator",
+      code: "theta/parse/missing-discriminator",
       file: site.file,
       range: site.range,
       message: `${decl.name} is a union of object schemas with no shared single-literal discriminator field. Add a 'kind' (or similar) field to each variant, or declare explicitly with 'by <field>'.`,
@@ -553,7 +553,7 @@ function checkExplicitDiscriminator(
     return [
       {
         severity: "error",
-        code: "loom/parse/nested-discriminator",
+        code: "theta/parse/nested-discriminator",
         file: site.file,
         range: site.range,
         message: `discriminator field '${field}' must be at the top level of each variant of ${decl.name}`,
@@ -579,7 +579,7 @@ function checkExplicitDiscriminator(
   return [];
 }
 
-/** The shared `loom/parse/non-string-discriminator` diagnostic. */
+/** The shared `theta/parse/non-string-discriminator` diagnostic. */
 function nonStringDiagnostic(
   schemaName: string,
   field: string,
@@ -588,14 +588,14 @@ function nonStringDiagnostic(
 ): Diagnostic {
   return {
     severity: "error",
-    code: "loom/parse/non-string-discriminator",
+    code: "theta/parse/non-string-discriminator",
     file: site.file,
     range: site.range,
     message: `discriminator '${field}' on ${schemaName} must be a string-literal type; got ${kind}`,
   };
 }
 
-/** The shared `loom/parse/duplicate-discriminator-value` diagnostic. */
+/** The shared `theta/parse/duplicate-discriminator-value` diagnostic. */
 function duplicateValueDiagnostic(
   schemaName: string,
   valueText: string,
@@ -603,7 +603,7 @@ function duplicateValueDiagnostic(
 ): Diagnostic {
   return {
     severity: "error",
-    code: "loom/parse/duplicate-discriminator-value",
+    code: "theta/parse/duplicate-discriminator-value",
     file: site.file,
     range: site.range,
     message: `duplicate discriminator value '${renderParseLiteralValue(valueText)}' across variants of ${schemaName}`,
@@ -622,7 +622,7 @@ export interface ByClauseDecl {
 }
 
 /**
- * Check a `by <field>` clause, returning `loom/parse/by-on-object-schema` when
+ * Check a `by <field>` clause, returning `theta/parse/by-on-object-schema` when
  * the clause sits on an object body (the `by` concept applies only to
  * discriminated unions). Returns `undefined` for the union form.
  */
@@ -638,7 +638,7 @@ export function checkByClause(
   }
   return {
     severity: "error",
-    code: "loom/parse/by-on-object-schema",
+    code: "theta/parse/by-on-object-schema",
     file: site.file,
     range: site.range,
     message:
@@ -660,7 +660,7 @@ export interface SchemaGraphNode {
 
 /**
  * Detect type-alias cycles across the schema-reference graph, returning one
- * `loom/parse/type-alias-cycle` per pure-alias cycle (a cycle whose every node
+ * `theta/parse/type-alias-cycle` per pure-alias cycle (a cycle whose every node
  * is an alias). A cycle that traverses at least one object-schema hop crosses a
  * `$ref` against `$defs` and is legal — it raises no diagnostic.
  */
@@ -701,7 +701,7 @@ export function detectTypeAliasCycles(
             const path = [...cycleNodes, ref].join(" \u2192 ");
             diagnostics.push({
               severity: "error",
-              code: "loom/parse/type-alias-cycle",
+              code: "theta/parse/type-alias-cycle",
               file: site.file,
               range: site.range,
               message: `type-alias cycle: ${path}`,

@@ -12,9 +12,9 @@ import {
 // Spec: pi-integration-contract/trust-boundary.md §"No additional access
 // channels" (PIC-52) — a host-side denial (a value thrown from the tool's
 // `execute()`, or a tool return that signals failure via `isError: true`)
-// reaches loom code as `Err(QueryError { kind: "code_tool", cause: "execution",
+// reaches theta code as `Err(QueryError { kind: "code_tool", cause: "execution",
 // ... })`, and silent success on denial is forbidden. See also
-// pi-integration-contract/host-interfaces-core.md §"Tool execution from loom
+// pi-integration-contract/host-interfaces-core.md §"Tool execution from theta
 // code" and tool-calls.md §"Failures".
 //
 // Each test reds on its own primary assertion because the V14d behaviour is
@@ -42,7 +42,7 @@ const returnOutcome = (
     : { kind: "return", envelope: { content, isError } };
 
 // ===========================================================================
-// PIC-52 — a THROWN host-side denial reaches loom code as
+// PIC-52 — a THROWN host-side denial reaches theta code as
 // Err(CodeToolError { kind: "code_tool", cause: "execution" }), never silent Ok.
 // ===========================================================================
 
@@ -69,7 +69,7 @@ describe("V14d-T — thrown host-side denial → Err(code_tool/execution) (trust
     expect(error.kind, "PIC-52 denial carries kind 'code_tool'").toBe("code_tool");
     expect(error.cause, "PIC-52 denial carries cause 'execution'").toBe("execution");
     expect(error.tool_name).toBe("fetch");
-    // The denial reaches loom code as the *carrier* on the denied arm too.
+    // The denial reaches theta code as the *carrier* on the denied arm too.
     expect(lowering.error.kind).toBe("code_tool");
     expect(lowering.error.cause).toBe("execution");
   });
@@ -84,7 +84,7 @@ describe("V14d-T — thrown host-side denial → Err(code_tool/execution) (trust
 });
 
 // ===========================================================================
-// PIC-52 — an `isError: true` host-side tool RETURN reaches loom code as
+// PIC-52 — an `isError: true` host-side tool RETURN reaches theta code as
 // Err(CodeToolError { kind: "code_tool", cause: "execution" }), never silent Ok.
 // The content-only accepted-path lowering reads only `content`, so absent this
 // guard the denial would silently lower to Ok(<content text>).

@@ -5,9 +5,9 @@
 // obligation area — no numbered REQ-IDs). Wire-name translation happens in
 // exactly two places:
 //
-//   - *Inbound* (model output → loom value): after AJV validation against the
+//   - *Inbound* (model output → theta value): after AJV validation against the
 //     lowered schema, the runtime walks the validated JSON and (a) rebuilds the
-//     value with loom-side names using each schema's translation map (the
+//     value with theta-side names using each schema's translation map (the
 //     `V5f`-produced wire-name sidecar), and (b) at every position the lowering
 //     pass's *Named-enum positions* sidecar maps to a declaring-enum name,
 //     reattaches that enum's tag (via the `V2c` `makeEnumValue` representation)
@@ -16,13 +16,13 @@
 //     the sidecar and receive no tag — equality on those falls back to plain
 //     string equality (`Severity.Low == "low"` remains `false`). The walk
 //     recurses through arrays, nested object fields, and `Result.Ok` /
-//     `Result.Err` payloads. Loom code never sees wire names.
-//   - *Outbound* (loom value → JSON): the runtime walks the loom-side value and
+//     `Result.Err` payloads. Theta code never sees wire names.
+//   - *Outbound* (theta value → JSON): the runtime walks the theta-side value and
 //     produces wire-named JSON before AJV validation.
 //
 //   Frontmatter `params:` defaults **bypass** the inbound translation pass:
-//   defaults are parsed as ordinary Loom values at frontmatter-parse time and
-//   arrive at the loom body already branded and loom-side-named, so a default
+//   defaults are parsed as ordinary Theta values at frontmatter-parse time and
+//   arrive at the theta body already branded and theta-side-named, so a default
 //   authored as `Severity.High` is indistinguishable from a body-code
 //   `Severity.High` — neither passes through `translateInbound`.
 //
@@ -44,7 +44,7 @@
 // leaf's scope.
 
 import { type SchemaSidecar } from "../parser/schema-lowering";
-import { makeEnumValue, type LoomValue } from "./value";
+import { makeEnumValue, type ThetaValue } from "./value";
 
 /**
  * The wire-name property segment of a top-level named-enum-position pointer.
@@ -94,12 +94,12 @@ export interface InboundTranslationInput {
 }
 
 /**
- * Outbound translation input: a loom-side value plus the per-`$defs` sidecars
+ * Outbound translation input: a theta-side value plus the per-`$defs` sidecars
  * and the root `$defs` name, mirroring {@link InboundTranslationInput}.
  */
 export interface OutboundTranslationInput {
-  /** The loom-side value to lower to wire-named JSON. */
-  readonly value: LoomValue;
+  /** The theta-side value to lower to wire-named JSON. */
+  readonly value: ThetaValue;
   /** Per-`$defs` sidecars keyed by `$defs` name, for recursion through `$ref`. */
   readonly sidecars: ReadonlyMap<string, SchemaSidecar>;
   /** The `$defs` name of the schema `value` conforms to. */
@@ -107,29 +107,29 @@ export interface OutboundTranslationInput {
 }
 
 /**
- * Inbound wire-name translation (model output → loom value). Walks the
- * AJV-validated JSON, rebuilds loom-side names using the sidecar's wire-name
+ * Inbound wire-name translation (model output → theta value). Walks the
+ * AJV-validated JSON, rebuilds theta-side names using the sidecar's wire-name
  * translation map, and reattaches each named-enum position's declaring-enum tag
  * so the result compares equal to a locally constructed variant. The walk
- * recurses through arrays and nested object fields; loom code never sees a wire
+ * recurses through arrays and nested object fields; theta code never sees a wire
  * name at any depth.
  */
-export function translateInbound(input: InboundTranslationInput): LoomValue {
+export function translateInbound(input: InboundTranslationInput): ThetaValue {
   return rebuildInbound(input.validated, input.sidecars.get(input.rootDef), input.sidecars);
 }
 
 /**
- * Recursively rebuild one inbound value to its loom-side form under `sidecar`
+ * Recursively rebuild one inbound value to its theta-side form under `sidecar`
  * (the sidecar of the `$defs` this value conforms to, or `undefined` when the
  * referenced `$defs` could not be resolved — see the nested-`$ref` divergence
- * note above). Renames object keys wire→loom, reattaches the declaring-enum tag
+ * note above). Renames object keys wire→theta, reattaches the declaring-enum tag
  * at each named-enum position, and recurses through arrays and nested objects.
  */
 function rebuildInbound(
   value: unknown,
   sidecar: SchemaSidecar | undefined,
   sidecars: ReadonlyMap<string, SchemaSidecar>,
-): LoomValue {
+): ThetaValue {
   if (Array.isArray(value)) {
     // Array elements carry their own `$defs`; without a per-element ref target
     // the elements recurse with no sidecar (rename/enum-tag at element level is
@@ -137,14 +137,14 @@ function rebuildInbound(
     return value.map((element) => rebuildInbound(element, undefined, sidecars));
   }
   if (!isPlainObject(value)) {
-    return value as LoomValue;
+    return value as ThetaValue;
   }
 
-  const wireToLoom = new Map<string, string>();
+  const wireToTheta = new Map<string, string>();
   const enumByWireKey = new Map<string, string>();
   if (sidecar !== undefined) {
     for (const entry of sidecar.wireNames) {
-      wireToLoom.set(entry.wire, entry.loom);
+      wireToTheta.set(entry.wire, entry.theta);
     }
     for (const position of sidecar.namedEnumPositions) {
       const wireKey = topLevelEnumProperty(position.pointer);
@@ -154,29 +154,29 @@ function rebuildInbound(
     }
   }
 
-  const result: { [k: string]: LoomValue } = {};
+  const result: { [k: string]: ThetaValue } = {};
   for (const [wireKey, fieldValue] of Object.entries(value)) {
-    const loomKey = wireToLoom.get(wireKey) ?? wireKey;
+    const thetaKey = wireToTheta.get(wireKey) ?? wireKey;
     const enumName = enumByWireKey.get(wireKey);
     if (enumName !== undefined && typeof fieldValue === "string") {
       // Named-enum position: reattach the declaring-enum tag so the rebuilt
       // value compares equal to a locally constructed variant. Anonymous
       // string-literal-union positions are absent from `enumByWireKey` and so
       // stay plain strings.
-      result[loomKey] = makeEnumValue(enumName, fieldValue);
+      result[thetaKey] = makeEnumValue(enumName, fieldValue);
     } else {
       // Recurse: a nested object/array is rebuilt under the referenced `$defs`'s
       // sidecar, resolved by wire-name↔`$defs`-name match (divergence note).
-      result[loomKey] = rebuildInbound(fieldValue, sidecars.get(wireKey), sidecars);
+      result[thetaKey] = rebuildInbound(fieldValue, sidecars.get(wireKey), sidecars);
     }
   }
   return result;
 }
 
 /**
- * Outbound wire-name translation (loom value → JSON). Walks the loom-side value
+ * Outbound wire-name translation (theta value → JSON). Walks the theta-side value
  * and produces wire-named JSON before AJV validation: object keys are rewritten
- * loom→wire, enum values collapse to their bare wire string, and the walk
+ * theta→wire, enum values collapse to their bare wire string, and the walk
  * recurses through arrays and nested objects.
  */
 export function translateOutbound(input: OutboundTranslationInput): unknown {
@@ -184,13 +184,13 @@ export function translateOutbound(input: OutboundTranslationInput): unknown {
 }
 
 /**
- * Recursively lower one loom-side value to its wire-named JSON form under
- * `sidecar`. Renames object keys loom→wire, collapses an enum value to its bare
+ * Recursively lower one theta-side value to its wire-named JSON form under
+ * `sidecar`. Renames object keys theta→wire, collapses an enum value to its bare
  * wire string (the declaring-enum tag never appears in JSON output), and
  * recurses through arrays and nested objects.
  */
 function lowerOutbound(
-  value: LoomValue,
+  value: ThetaValue,
   sidecar: SchemaSidecar | undefined,
   sidecars: ReadonlyMap<string, SchemaSidecar>,
 ): unknown {
@@ -206,17 +206,17 @@ function lowerOutbound(
     return value;
   }
 
-  const loomToWire = new Map<string, string>();
+  const thetaToWire = new Map<string, string>();
   if (sidecar !== undefined) {
     for (const entry of sidecar.wireNames) {
-      loomToWire.set(entry.loom, entry.wire);
+      thetaToWire.set(entry.theta, entry.wire);
     }
   }
 
   const result: { [k: string]: unknown } = {};
-  for (const [loomKey, fieldValue] of Object.entries(value)) {
-    const wireKey = loomToWire.get(loomKey) ?? loomKey;
-    result[wireKey] = lowerOutbound(fieldValue as LoomValue, sidecars.get(wireKey), sidecars);
+  for (const [thetaKey, fieldValue] of Object.entries(value)) {
+    const wireKey = thetaToWire.get(thetaKey) ?? thetaKey;
+    result[wireKey] = lowerOutbound(fieldValue as ThetaValue, sidecars.get(wireKey), sidecars);
   }
   return result;
 }

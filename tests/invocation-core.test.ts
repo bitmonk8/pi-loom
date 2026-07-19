@@ -28,11 +28,11 @@ import { FakeFileSystem } from "./helpers/fake-file-system";
 // INV-1 — realpath + segment-boundary containment (shared check)
 // --------------------------------------------------------------------------
 //
-// A discovery root and the callee live under `/proj/.pi/looms`. The
+// A discovery root and the callee live under `/proj/.pi/theta`. The
 // containment comparison is decided on the byte-exact `realpath` output of both
 // the callee and each active root (invocation.md §Resolution).
 
-const ROOT = "/proj/.pi/looms";
+const ROOT = "/proj/.pi/theta";
 
 function fsWith(
   files: Record<string, string>,
@@ -45,15 +45,15 @@ function fsWith(
     homedir: "/home/u",
     cwd: "/proj",
     files,
-    dirs: { "/proj/.pi/looms": [], ...(extra.dirs ?? {}) },
+    dirs: { "/proj/.pi/theta": [], ...(extra.dirs ?? {}) },
     symlinks: extra.symlinks ?? {},
   });
 }
 
 describe("INV-1 — realpath + segment-boundary containment (invocation.md §Resolution)", () => {
   it("INV-1: a callee whose realpath is inside an active root is within, keyed on the byte-exact realpath output", async () => {
-    const callee = `${ROOT}/plan.loom`;
-    const fs = fsWith({ [callee]: "loom", [ROOT]: "" });
+    const callee = `${ROOT}/plan.theta`;
+    const fs = fsWith({ [callee]: "theta", [ROOT]: "" });
     const result = await checkInvokePathContainment({ fs }, callee, [ROOT]);
     // Decided on the byte-exact realpath output (§Resolution).
     expect(result.canonicalPath).toBe(callee);
@@ -61,11 +61,11 @@ describe("INV-1 — realpath + segment-boundary containment (invocation.md §Res
   });
 
   it("INV-1: sibling-prefix escape is rejected — the trailing-separator requirement is load-bearing", async () => {
-    // `/proj/.pi/looms-evil/x.loom` passes a bare startsWith('/proj/.pi/looms')
-    // test but sits outside root `/proj/.pi/looms`. Segment-boundary containment
+    // `/proj/.pi/theta-evil/x.theta` passes a bare startsWith('/proj/.pi/theta')
+    // test but sits outside root `/proj/.pi/theta`. Segment-boundary containment
     // must reject it (invocation.md §Resolution "A bare prefix test is insufficient").
-    const sibling = "/proj/.pi/looms-evil/x.loom";
-    const fs = fsWith({ [sibling]: "loom", [ROOT]: "" });
+    const sibling = "/proj/.pi/theta-evil/x.theta";
+    const fs = fsWith({ [sibling]: "theta", [ROOT]: "" });
     const result = await checkInvokePathContainment({ fs }, sibling, [ROOT]);
     expect(result.canonicalPath).toBe(sibling);
     expect(result.within).toBe(false);
@@ -74,10 +74,10 @@ describe("INV-1 — realpath + segment-boundary containment (invocation.md §Res
   it("INV-1: a symlink farm resolving outside every root is rejected on its realpath output, not its literal path", async () => {
     // The literal callee sits inside the root but its realpath crosses out of
     // every active root: "the realpath step is mandatory" (§Resolution).
-    const link = `${ROOT}/inside.loom`;
-    const target = "/elsewhere/evil.loom";
+    const link = `${ROOT}/inside.theta`;
+    const target = "/elsewhere/evil.theta";
     const fs = fsWith(
-      { [target]: "loom", [ROOT]: "" },
+      { [target]: "theta", [ROOT]: "" },
       { symlinks: { [link]: target } },
     );
     const result = await checkInvokePathContainment({ fs }, link, [ROOT]);
@@ -86,9 +86,9 @@ describe("INV-1 — realpath + segment-boundary containment (invocation.md §Res
   });
 
   it("INV-1: containment uses the union of active roots (cross-root composition stays legal)", async () => {
-    const other = "/global/looms";
-    const callee = `${other}/util.loom`;
-    const fs = fsWith({ [callee]: "loom", [ROOT]: "", [other]: "" });
+    const other = "/global/theta";
+    const callee = `${other}/util.theta`;
+    const fs = fsWith({ [callee]: "theta", [ROOT]: "", [other]: "" });
     const result = await checkInvokePathContainment({ fs }, callee, [ROOT, other]);
     expect(result.canonicalPath).toBe(callee);
     expect(result.within).toBe(true);
@@ -101,12 +101,12 @@ describe("INV-1 — realpath + segment-boundary containment (invocation.md §Res
 
 describe("INV-1 — load-time check and invocation-time re-check share identical containment semantics", () => {
   it("INV-1: an in-root callee is 'within' at load time and carries the byte-exact realpath output", async () => {
-    const callee = `${ROOT}/plan.loom`;
-    const fs = fsWith({ [callee]: "loom", [ROOT]: "" });
+    const callee = `${ROOT}/plan.theta`;
+    const fs = fsWith({ [callee]: "theta", [ROOT]: "" });
     const result = await checkInvokePathAtLoad({
       deps: { fs },
       resolvedPath: callee,
-      literalPath: "./plan.loom",
+      literalPath: "./plan.theta",
       activeRoots: [ROOT],
     });
     expect(result.kind).toBe("within");
@@ -115,13 +115,13 @@ describe("INV-1 — load-time check and invocation-time re-check share identical
     }
   });
 
-  it("INV-1: a load-time escape emits the loom/load/invoke-path-escape diagnostic", async () => {
-    const escapee = "/elsewhere/evil.loom";
-    const fs = fsWith({ [escapee]: "loom", [ROOT]: "" });
+  it("INV-1: a load-time escape emits the theta/load/invoke-path-escape diagnostic", async () => {
+    const escapee = "/elsewhere/evil.theta";
+    const fs = fsWith({ [escapee]: "theta", [ROOT]: "" });
     const result = await checkInvokePathAtLoad({
       deps: { fs },
       resolvedPath: escapee,
-      literalPath: "../../elsewhere/evil.loom",
+      literalPath: "../../elsewhere/evil.theta",
       activeRoots: [ROOT],
     });
     expect(result.kind).toBe("escape");
@@ -131,18 +131,18 @@ describe("INV-1 — load-time check and invocation-time re-check share identical
       expect(result.diagnostic.code).toBe(INVOKE_PATH_ESCAPE_CODE);
       expect(result.diagnostic.severity).toBe("error");
       expect(result.diagnostic.message).toBe(
-        invokePathEscapeMessage("../../elsewhere/evil.loom"),
+        invokePathEscapeMessage("../../elsewhere/evil.theta"),
       );
     }
   });
 
   it("INV-1: an invocation-time escape surfaces on BOTH channels — diagnostic AND InvokeInfraError{load_failure}", async () => {
-    const escapee = "/elsewhere/evil.loom";
-    const fs = fsWith({ [escapee]: "loom", [ROOT]: "" });
+    const escapee = "/elsewhere/evil.theta";
+    const fs = fsWith({ [escapee]: "theta", [ROOT]: "" });
     const result = await recheckInvokePathAtRuntime({
       deps: { fs },
       resolvedPath: escapee,
-      literalPath: "../../elsewhere/evil.loom",
+      literalPath: "../../elsewhere/evil.theta",
       activeRoots: [ROOT],
     });
     expect(result.kind).toBe("escape");
@@ -159,12 +159,12 @@ describe("INV-1 — load-time check and invocation-time re-check share identical
   it("INV-1: the runtime re-check uses the CURRENTLY active roots — a hot-reload that removed the relied-upon root fails closed", async () => {
     // At load the callee was inside `ROOT`; a hot-reload dropped `ROOT` from the
     // active set, so the re-check (which re-reads the current roots) escapes.
-    const callee = `${ROOT}/plan.loom`;
-    const fs = fsWith({ [callee]: "loom", [ROOT]: "" });
+    const callee = `${ROOT}/plan.theta`;
+    const fs = fsWith({ [callee]: "theta", [ROOT]: "" });
     const result = await recheckInvokePathAtRuntime({
       deps: { fs },
       resolvedPath: callee,
-      literalPath: "./plan.loom",
+      literalPath: "./plan.theta",
       activeRoots: [], // ROOT was hot-reloaded away
     });
     expect(result.kind).toBe("escape");
@@ -183,10 +183,10 @@ describe("INV-1 — load-time check and invocation-time re-check share identical
 //   entry --tools:--> b --tools:--> shared
 // The pass walks transitively and parses/lowers each visited file exactly once.
 
-const ENTRY = `${ROOT}/entry.loom`;
-const A = `${ROOT}/a.loom`;
-const B = `${ROOT}/b.loom`;
-const SHARED = `${ROOT}/shared.loom`;
+const ENTRY = `${ROOT}/entry.theta`;
+const A = `${ROOT}/a.theta`;
+const B = `${ROOT}/b.theta`;
+const SHARED = `${ROOT}/shared.theta`;
 
 /** Outbound-edge fixture keyed by canonical path. */
 const EDGES: Record<string, { invoke: string[]; tools: string[] }> = {
@@ -209,7 +209,7 @@ function graphFs(): FakeFileSystem {
 function parseAndLowerSpy(): (path: string, source: string) => ParsedCallee {
   return vi.fn((path: string, _source: string): ParsedCallee => {
     const edges = EDGES[path] ?? { invoke: [], tools: [] };
-    return { path, invokePaths: edges.invoke, toolLoomPaths: edges.tools };
+    return { path, invokePaths: edges.invoke, toolThetaPaths: edges.tools };
   });
 }
 
@@ -218,7 +218,7 @@ function parseAndLowerSpy(): (path: string, source: string) => ParsedCallee {
 // per-pass parse-cache walk), V15e, and V7a; the assertions below witness the
 // V15a parse-cache-walk facet against the shipped static-resolution pass.
 describe("Static-resolution load pass — transitive per-pass parse cache (implementation-notes.md)", () => {
-  it("walks transitively from the entry loom across invoke paths and .loom tools: entries", async () => {
+  it("walks transitively from the entry theta across invoke paths and .theta tools: entries", async () => {
     const fs = graphFs();
     const parseAndLower = parseAndLowerSpy();
     const result = await runStaticResolutionPass({ fs, parseAndLower }, ENTRY);

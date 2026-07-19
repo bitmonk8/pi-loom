@@ -5,7 +5,7 @@
 // The recursive-descent body parser has no frame-stack at any single query
 // parse site, so the four indirect sink positions (query-forms.md §"Schema
 // inference algorithm") cannot be resolved inline. This pass is the required
-// whole-body pass: it walks the parsed `LoomBody`, builds the innermost-first
+// whole-body pass: it walks the parsed `ThetaBody`, builds the innermost-first
 // `SchemaSinkFrame` chain enclosing each query, calls `inferQuerySchema`, and —
 // Option B (tree-rebuild) — returns a body whose `QueryExpr.schema` is filled
 // from the serialized inferred schema. `QueryExpr.schema: string` therefore
@@ -39,7 +39,7 @@ import type {
   FnDecl,
   IfStmt,
   InvokeExpr,
-  LoomBody,
+  ThetaBody,
   MatchExpr,
   MemberExpr,
   MethodCallExpr,
@@ -51,7 +51,7 @@ import type {
   TryExpr,
   IndexExpr,
   CallExpr,
-} from "./loom-document";
+} from "./theta-document";
 import {
   checkExplicitSchemaMismatch,
   inferQuerySchema,
@@ -63,7 +63,7 @@ import type { CompatType, TypeEnv } from "./type-compat";
 
 /** The resolved body plus the QRY-4 explicit-schema-mismatch diagnostics. */
 export interface ResolveQuerySchemasResult {
-  readonly body: LoomBody;
+  readonly body: ThetaBody;
   readonly diagnostics: readonly Diagnostic[];
 }
 
@@ -75,7 +75,7 @@ export interface ResolveQuerySchemasResult {
  * or a direct-let propagation) are left untouched.
  */
 export function resolveQuerySchemas(
-  body: LoomBody,
+  body: ThetaBody,
   file: string,
 ): ResolveQuerySchemasResult {
   const env = collectTypeEnv(body.statements);
@@ -164,7 +164,7 @@ class QuerySchemaResolveWalk {
         };
       case "fn": {
         // A declared return type is the sink for the fn's tail expression and
-        // its `return` operands; a `.loom`/undeclared return supplies none.
+        // its `return` operands; a `.theta`/undeclared return supplies none.
         const returnType =
           stmt.returnType === null || stmt.returnType.length === 0
             ? undefined
@@ -375,7 +375,7 @@ class QuerySchemaResolveWalk {
         } satisfies CallExpr;
       case "invoke":
         // DOCUMENTED PARSE-TIME LIMITATION (query-forms.md:41 lists invoke args
-        // as a sink): an `invoke(...)` targets an external `.loom` resolved at
+        // as a sink): an `invoke(...)` targets an external `.theta` resolved at
         // load/runtime, so its parameter types are NOT present in this
         // single-file parse. Each argument therefore stays an untyped call-arg
         // and the walk stops at the call boundary — only local `fn` call-args
@@ -422,7 +422,7 @@ class QuerySchemaResolveWalk {
    * DOCUMENTED PARSE-TIME LIMITATION (query-forms.md:41): only a call to a local
    * `fn` in this file is statically resolvable to a typed parameter. A tool call
    * is also a `CallExpr`, but tool signatures live in the host tool registry,
-   * not in this single-file parse; likewise `invoke` targets external `.loom`
+   * not in this single-file parse; likewise `invoke` targets external `.theta`
    * files resolved at load/runtime. Those args therefore have no resolvable
    * parameter type here and stay untyped (the walk stops at the call boundary).
    */
@@ -463,7 +463,7 @@ class QuerySchemaResolveWalk {
   /**
    * QRY-4 §"Explicit form" — when a `let x: T = @<S>`…`` binding carries both a
    * declared annotation `T` and an explicit ascription `S` on the RHS query,
-   * emit `loom/parse/explicit-schema-mismatch` iff `S ⋢ T` (a wider binding
+   * emit `theta/parse/explicit-schema-mismatch` iff `S ⋢ T` (a wider binding
    * annotation is silently allowed; either side past the static view is
    * skipped). A direct-let propagation makes `S === T`, so it never fires.
    */

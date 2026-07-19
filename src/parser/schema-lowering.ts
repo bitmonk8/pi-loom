@@ -18,7 +18,7 @@
 //   - The `__inline_<slug>` `$defs` dedup of Lowering Algorithm step 2 under the
 //     §Schema-slug collision posture byte-equality check: byte-identical
 //     fragments sharing a slug dedup silently; a slug match whose fragments are
-//     not byte-identical raises the load-time `loom/load/schema-slug-collision`.
+//     not byte-identical raises the load-time `theta/load/schema-slug-collision`.
 //
 // V5f-T (tests-task) declares these seam shapes and stubs every behaviour-
 // bearing function so the failing tests compile and red on their own primary
@@ -37,7 +37,7 @@ import { renderCanonicalNumber } from "../render/canonical-number";
  * the canonical form needs for `const` / `enum` numeric positions (the lowering
  * pass knows each literal's declared kind; a plain JSON value would lose it).
  * `object` entries are an ordered list so the emitted lowered fragment can
- * retain loom-source field order while the canonical form sorts keys before
+ * retain theta-source field order while the canonical form sorts keys before
  * hashing.
  */
 export type LoweredJsonValue =
@@ -209,7 +209,7 @@ export type SidecarFieldType =
 
 /** One field of a `$defs` entry, with its JSON Pointer into the lowered fragment. */
 export interface SidecarFieldInput {
-  readonly loomName: string;
+  readonly thetaName: string;
   /** The explicit `as "Wire"` rename, when present. */
   readonly wireName?: string;
   /** JSON Pointer into the lowered fragment naming this field's position. */
@@ -217,9 +217,9 @@ export interface SidecarFieldInput {
   readonly type: SidecarFieldType;
 }
 
-/** A wire-name translation entry: the loom-side name and its wire name. */
+/** A wire-name translation entry: the theta-side name and its wire name. */
 export interface WireNameEntry {
-  readonly loom: string;
+  readonly theta: string;
   readonly wire: string;
 }
 
@@ -245,9 +245,9 @@ export function buildSidecar(fields: readonly SidecarFieldInput[]): SchemaSideca
   const namedEnumPositions: NamedEnumPosition[] = [];
   for (const field of fields) {
     // Wire-name translation: one entry per *renamed* field; un-renamed fields
-    // (wire name equals loom name) are absent.
-    if (field.wireName !== undefined && field.wireName !== field.loomName) {
-      wireNames.push({ loom: field.loomName, wire: field.wireName });
+    // (wire name equals theta name) are absent.
+    if (field.wireName !== undefined && field.wireName !== field.thetaName) {
+      wireNames.push({ theta: field.thetaName, wire: field.wireName });
     }
     // Named-enum positions: included iff the source type was a named `enum`;
     // anonymous string-literal-union positions are deliberately absent.
@@ -291,7 +291,7 @@ export interface InlineDedupResult {
  * Dedup `__inline_<slug>` `$defs` entries (Lowering Algorithm step 2) under the
  * §Schema-slug collision posture byte-equality check: fragments sharing a slug
  * with byte-identical canonical forms collapse to one entry silently; a slug
- * match whose canonical-form bytes differ raises `loom/load/schema-slug-collision`
+ * match whose canonical-form bytes differ raises `theta/load/schema-slug-collision`
  * and refuses to merge the two fragments.
  */
 export function dedupInlineSchemas(
@@ -319,7 +319,7 @@ export function dedupInlineSchemas(
     // collision. Refuse to merge and raise the load-time diagnostic.
     diagnostics.push({
       severity: "error",
-      code: "loom/load/schema-slug-collision",
+      code: "theta/load/schema-slug-collision",
       file: site.file,
       range: site.range,
       message: `schema-slug collision on slug ${fragment.slug}: two distinct inline schemas hash alike`,

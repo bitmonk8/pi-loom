@@ -1,14 +1,14 @@
 // V6a / V6a-T — the frontmatter field-contract parser seam.
 //
-// This module owns the loom-file YAML frontmatter parse described by
+// This module owns the theta-file YAML frontmatter parse described by
 // frontmatter.md, frontmatter/frontmatter-fields-a.md, and
-// frontmatter/frontmatter-fields-b-and-templates.md: the recognised loom 1.0
+// frontmatter/frontmatter-fields-b-and-templates.md: the recognised theta 1.0
 // field vocabulary, the field-contract defaults, the required `mode:` field
-// (`loom/load/missing-mode` when absent), unknown-key tolerance emitted as the
-// `loom/load/unknown-frontmatter-field` warning (the forward-compat seam), the
-// per-call `timeout:` rejection (`loom/parse/timeout-field-rejected`, the
+// (`theta/load/missing-mode` when absent), unknown-key tolerance emitted as the
+// `theta/load/unknown-frontmatter-field` warning (the forward-compat seam), the
+// per-call `timeout:` rejection (`theta/parse/timeout-field-rejected`, the
 // NOCEIL-1 seam), and the present-`model:` load-time resolution that fires
-// `loom/load/model-unresolved` through the model-reference-matcher injection
+// `theta/load/model-unresolved` through the model-reference-matcher injection
 // seam this leaf defines.
 //
 // V6a-T (tests-task) declares the seam shapes — `parseFrontmatter`, the
@@ -39,8 +39,8 @@ import {
   type BypassParamsField,
 } from "../binder/binder-envelope";
 
-/** A loom 1.0 invocation mode (`frontmatter-fields-a.md` field contract). */
-export type LoomMode = "prompt" | "subagent";
+/** A theta 1.0 invocation mode (`frontmatter-fields-a.md` field contract). */
+export type ThetaMode = "prompt" | "subagent";
 
 /**
  * The outcome of resolving a present `model:` reference against the available
@@ -57,7 +57,7 @@ export type ModelMatchOutcome = "resolved" | "no-match" | "ambiguous";
  * The **model-reference-matcher injection seam** V6a defines: the interface the
  * parser's `model:` resolution hook calls. The concrete matcher (constructed and
  * injected by V9b's production wiring point) binds V11a's shared exact-match
- * resolution contract — loom's own exact-match resolver over
+ * resolution contract — theta's own exact-match resolver over
  * `ctx.modelRegistry.getAvailable()` matching a bare `modelId` against each
  * model's `Model<Api>.id` and a `provider/modelId` reference against
  * `Model<Api>.provider` (the short provider-id form, not the api-shaped
@@ -92,8 +92,8 @@ export interface ParsedRespondRepair {
 }
 
 /**
- * The loom's lowered `params:` object schema plus the load-time bypass inputs the
- * binder needs. Present iff the loom declares a `params:` block. `loweredSchema`
+ * The theta's lowered `params:` object schema plus the load-time bypass inputs the
+ * binder needs. Present iff the theta declares a `params:` block. `loweredSchema`
  * is the AJV-validatable object document (`V6b`), absent when the block did not
  * lower cleanly (e.g. an unresolved named type); `defaultedFields` names the
  * fields that declared a `= <literal>` default; `fields` is the per-field bypass
@@ -108,10 +108,10 @@ export interface ParsedParams {
   readonly fields: readonly BypassParamsField[];
 }
 
-/** The recognised, defaulted frontmatter a successfully-loaded loom exposes. */
+/** The recognised, defaulted frontmatter a successfully-loaded theta exposes. */
 export interface ParsedFrontmatter {
   /** The required `mode:` field. */
-  readonly mode: LoomMode;
+  readonly mode: ThetaMode;
   /** The present `model:` reference, when one was declared and resolved. */
   readonly model?: string;
   /**
@@ -127,34 +127,34 @@ export interface ParsedFrontmatter {
    */
   readonly bindEcho?: boolean;
   /**
-   * The lowered `params:` schema + bypass inputs, present iff the loom declares
+   * The lowered `params:` schema + bypass inputs, present iff the theta declares
    * a `params:` block. Consumed by the binder pass to classify bypass and build
-   * the per-loom envelope schema.
+   * the per-theta envelope schema.
    */
   readonly params?: ParsedParams;
   /**
-   * The parsed `tool_loop` block (FRNT-1). Populated on every registered loom
+   * The parsed `tool_loop` block (FRNT-1). Populated on every registered theta
    * — the default `{ maxRounds: 25 }` when the block is absent or empty. Owned
    * by the `V6e` implementation leaf; the `V6e-T` seam declares the shape.
    */
   readonly toolLoop?: ParsedToolLoop;
   /**
-   * The parsed `respond_repair` block. Populated on every registered loom —
+   * The parsed `respond_repair` block. Populated on every registered theta —
    * the default `{ attempts: 3 }` when the block is absent or empty. Owned by
    * the `V6e` implementation leaf; the `V6e-T` seam declares the shape.
    */
   readonly respondRepair?: ParsedRespondRepair;
   /**
-   * The loom's callable set (`tools:` field, FRNT-2/FRNT-3). Each entry is
-   * either a Pi-tool name (`grep`) or a `.loom`-callable path
-   * (`./sentiment.loom`). Present iff the loom declares a non-empty `tools:`
+   * The theta's callable set (`tools:` field, FRNT-2/FRNT-3). Each entry is
+   * either a Pi-tool name (`grep`) or a `.theta`-callable path
+   * (`./sentiment.theta`). Present iff the theta declares a non-empty `tools:`
    * field. Consumed by the `H8b` live tool-call / invoke resolvers to route a
-   * `<name>(args)` call to the Pi-tool `execute` dispatch or the `.loom`
+   * `<name>(args)` call to the Pi-tool `execute` dispatch or the `.theta`
    * spawn-and-drive invoke path.
    */
   readonly tools?: readonly string[];
   /**
-   * The parsed `system:` template (subagent-mode only). Present iff the loom
+   * The parsed `system:` template (subagent-mode only). Present iff the theta
    * declares a valid `system:` field (no error-severity interpolation
    * diagnostic). Rendered at conversation-creation time via `renderSystemPrompt`
    * and installed as the spawned subagent session's system prompt (SUBAG-1;
@@ -163,15 +163,15 @@ export interface ParsedFrontmatter {
    */
   readonly system?: SystemTemplate;
   /**
-   * The resolved `bind_context:` value (BNDR-10) — `"session"` when the loom
-   * declares `bind_context: session` (prompt-mode only; on a subagent-mode loom
+   * The resolved `bind_context:` value (BNDR-10) — `"session"` when the theta
+   * declares `bind_context: session` (prompt-mode only; on a subagent-mode theta
    * it is inert and treated as `"none"`), else `"none"`. Drives whether the
    * slash-argument binder receives a *Recent session context* block
    * (binder/binder-model-and-context.md §Binder context). Absent ⇒ `"none"`.
    */
   readonly bindContext?: "none" | "session";
   /**
-   * The loom's `description:` frontmatter (frontmatter-fields-a.md) — mirrors
+   * The theta's `description:` frontmatter (frontmatter-fields-a.md) — mirrors
    * Pi's prompt-template spelling. Populates the slash-command autocomplete
    * entry via `pi.registerCommand(name, { description, handler })`. Absent when
    * omitted or empty (the command registers without description text).
@@ -182,8 +182,8 @@ export interface ParsedFrontmatter {
 /** The outcome of a frontmatter parse: registration decision + diagnostics. */
 export interface FrontmatterParseResult {
   /**
-   * Whether the loom is registered. `false` for a load-time error (missing
-   * `mode:`, unresolvable `model:`); `true` when the loom loads (including the
+   * Whether the theta is registered. `false` for a load-time error (missing
+   * `mode:`, unresolvable `model:`); `true` when the theta loads (including the
    * tolerated unknown-key warning case).
    */
   readonly registered: boolean;
@@ -205,7 +205,7 @@ export interface FrontmatterSchemaField {
  * object field sources when present), the body `enum` declarations, and the
  * symbols pulled in by body `import` declarations. Resolution is whole-file, so
  * a frontmatter → body forward reference resolves; supplying only the names is
- * sufficient to decide `loom/parse/unresolved-named-type`, and the schema field
+ * sufficient to decide `theta/parse/unresolved-named-type`, and the schema field
  * sources let the `system:` interpolation surface descend `.Ident` steps.
  */
 export interface FrontmatterBodyTypes {
@@ -217,9 +217,9 @@ export interface FrontmatterBodyTypes {
    * keyed by name: a body `schema` lowers to its object body, a body `enum` to
    * `{ type: "string", enum: [<wire values>] }`, and an imported symbol to a
    * permissive `{}` (precise cross-file lowering is out of scope — the name
-   * resolves so `loom/parse/unresolved-named-type` does not fire). Supplied so a
+   * resolves so `theta/parse/unresolved-named-type` does not fire). Supplied so a
    * `params:` field of a `NamedType` produces a present, correct `loweredSchema`
-   * rather than being mis-classified as a no-params loom. Absent name → the
+   * rather than being mis-classified as a no-params theta. Absent name → the
    * `NamedType` resolves against no declaration (frontmatter-only parse).
    */
   readonly lowered: ReadonlyMap<string, Record<string, unknown>>;
@@ -241,13 +241,13 @@ export interface ParseFrontmatterOptions {
 }
 
 /**
- * The recognised loom 1.0 frontmatter field vocabulary (`frontmatter-fields-a.md`
+ * The recognised theta 1.0 frontmatter field vocabulary (`frontmatter-fields-a.md`
  * §Field contract). A top-level key outside this set is tolerated and surfaces
- * as the `loom/load/unknown-frontmatter-field` forward-compat warning. `timeout`
+ * as the `theta/load/unknown-frontmatter-field` forward-compat warning. `timeout`
  * is deliberately absent: it has a dedicated rejection code (the NOCEIL-1 seam),
  * not the generic unknown-key warning.
  */
-const LOOM_1_0_FIELDS: ReadonlySet<string> = new Set([
+const THETA_1_0_FIELDS: ReadonlySet<string> = new Set([
   "description",
   "argument-hint",
   "mode",
@@ -263,16 +263,16 @@ const LOOM_1_0_FIELDS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Frontmatter field names reserved for deferred loom 1.0 features named in
+ * Frontmatter field names reserved for deferred theta 1.0 features named in
  * Future Considerations (`frontmatter-fields-a.md` §Field contract; Deferred
- * appendix Cluster 2). A reserved key is not part of the loom 1.0 vocabulary but
+ * appendix Cluster 2). A reserved key is not part of the theta 1.0 vocabulary but
  * is distinguished from a genuinely-unknown key: it surfaces as the
- * `loom/load/deferred-frontmatter-field` warning rather than the generic
- * `loom/load/unknown-frontmatter-field`, so an author who set a knob from a
+ * `theta/load/deferred-frontmatter-field` warning rather than the generic
+ * `theta/load/unknown-frontmatter-field`, so an author who set a knob from a
  * newer minor gets a reserved-feature signal. Both spellings of the deferred
  * binder-temperature knob are recognised (the authoritative frontmatter page
  * names it `binder_temperature`; Future Considerations spells it
- * `bind_temperature`). Membership is disjoint from `LOOM_1_0_FIELDS`.
+ * `bind_temperature`). Membership is disjoint from `THETA_1_0_FIELDS`.
  */
 const DEFERRED_FRONTMATTER_FIELDS: ReadonlySet<string> = new Set([
   "binder_temperature",
@@ -358,7 +358,7 @@ function renderScalarValue(value: unknown): string {
  * whitespace split that separates an `as` rename (`grep as g`) happens later in
  * the per-entry grammar, so a single scalar entry with an `as` clause stays one
  * entry. Entries are carried verbatim so the H8b resolvers can classify each as
- * a Pi-tool name or a `.loom`-callable path.
+ * a Pi-tool name or a `.theta`-callable path.
  */
 function extractToolsList(node: unknown): readonly string[] | undefined {
   if (isScalar(node)) {
@@ -387,7 +387,7 @@ function isIdentifierShaped(s: string): boolean {
 
 /**
  * Render the offending *parsed* scalar for the `<observed>` token on
- * `loom/load/frontmatter-value-out-of-range` (`placeholder-rendering-b.md` §8
+ * `theta/load/frontmatter-value-out-of-range` (`placeholder-rendering-b.md` §8
  * parsed-scalar carve-out): a `number` (including integer-valued numbers) bare,
  * a `boolean` as `true`/`false`, `null` as the literal `null`, and a `string`
  * per category 5's `<key>` rule (bare when identifier-shaped, double-quoted
@@ -410,7 +410,7 @@ function renderObserved(value: unknown): string {
  * non-negative integer (integer-ness judged on the parsed numeric value, so
  * `25` and `25.0` both accept); anything else (a negative integer, a
  * non-integer number, a non-number scalar, or `null`) yields the
- * `loom/load/frontmatter-value-out-of-range` load error and the loom is not
+ * `theta/load/frontmatter-value-out-of-range` load error and the theta is not
  * registered.
  */
 function resolveNonNegIntBlock(
@@ -439,7 +439,7 @@ function resolveNonNegIntBlock(
   return {
     diagnostic: {
       severity: "error",
-      code: "loom/load/frontmatter-value-out-of-range",
+      code: "theta/load/frontmatter-value-out-of-range",
       file,
       ...(range !== undefined ? { range } : {}),
       message: `frontmatter field '${dottedKey}' must be a non-negative integer; got ${renderObserved(
@@ -460,7 +460,7 @@ const RECOGNISED_METHODOLOGIES: ReadonlySet<string> = new Set([
  * Validate a present `respond_repair.methodology:` sub-field against the
  * recognised set (`validator_error` / `schema_repeat` / `none`). Absent (or a
  * non-map block) takes the default; a present value outside the set (including
- * non-string scalars) is `loom/load/unknown-methodology-value` (E) and the loom
+ * non-string scalars) is `theta/load/unknown-methodology-value` (E) and the theta
  * is not registered.
  */
 function checkMethodology(
@@ -486,7 +486,7 @@ function checkMethodology(
   const range = rangeOf((sub.value ?? sub.key) as Node, lineCounter, lineOffset);
   return {
     severity: "error",
-    code: "loom/load/unknown-methodology-value",
+    code: "theta/load/unknown-methodology-value",
     file,
     ...(range !== undefined ? { range } : {}),
     message: `unknown 'respond_repair.methodology:' value '${value}'; expected 'validator_error', 'schema_repeat', or 'none'`,
@@ -604,14 +604,14 @@ function typeSourceIsNullable(typeSource: string): boolean {
 }
 
 /**
- * Extract the loom's lowered `params:` schema plus the load-time bypass inputs
+ * Extract the theta's lowered `params:` schema plus the load-time bypass inputs
  * from the `params:` YAML node. Returns `undefined` when the block is absent,
  * `null`, or not a mapping. The lowered schema is derived through the `V6b`
  * `parseParams` seam, supplied with the whole-file body-level named types
  * (`bodyTypeDecls`) so a `NamedType` param (a body `enum` / `schema`) lowers to
  * a present `loweredSchema` with the resolved `$def` — BIND-1: an empty body-type
  * list here previously left `loweredSchema` absent for a `NamedType` param, which
- * the runtime binder guard then mis-classified as a no-params loom. The raw
+ * the runtime binder guard then mis-classified as a no-params theta. The raw
  * per-field inputs are returned alongside so `parseFrontmatter` can run the
  * whole-file `params:` diagnostics pass and build the `system:` interpolation
  * param types.
@@ -667,20 +667,20 @@ function extractParsedParams(
 }
 
 /**
- * Parse a loom file's YAML frontmatter against the loom 1.0 field contract
+ * Parse a theta file's YAML frontmatter against the theta 1.0 field contract
  * (`frontmatter.md`, `frontmatter/frontmatter-fields-a.md`):
  *
- *   - the required `mode:` field — `loom/load/missing-mode` (E) when absent, and
- *     the loom is not registered;
- *   - unknown top-level keys — `loom/load/unknown-frontmatter-field` (W), one per
- *     key, tolerated (the loom still registers);
- *   - the per-call `timeout:` field — `loom/parse/timeout-field-rejected` (E),
+ *   - the required `mode:` field — `theta/load/missing-mode` (E) when absent, and
+ *     the theta is not registered;
+ *   - unknown top-level keys — `theta/load/unknown-frontmatter-field` (W), one per
+ *     key, tolerated (the theta still registers);
+ *   - the per-call `timeout:` field — `theta/parse/timeout-field-rejected` (E),
  *     the NOCEIL-1 seam;
  *   - a present `model:` value resolved at load time through the injected
- *     model-reference matcher — `loom/load/model-unresolved` (E) on no-match /
- *     ambiguity, and the loom is not registered.
+ *     model-reference matcher — `theta/load/model-unresolved` (E) on no-match /
+ *     ambiguity, and the theta is not registered.
  *
- * The loom registers iff no error-severity diagnostic was raised.
+ * The theta registers iff no error-severity diagnostic was raised.
  */
 export function parseFrontmatter(
   source: string,
@@ -697,12 +697,12 @@ export function parseFrontmatter(
       : parseDocument(block.yaml, { lineCounter });
   // FM-5: refuse a partially-recovered YAML parse. The `yaml` lib recovers from
   // malformed input (e.g. `x: : :`) and exposes the damage in `doc.errors`;
-  // consuming its partial `contents` as if well-formed would register a loom
+  // consuming its partial `contents` as if well-formed would register a theta
   // built from frontmatter the parser itself rejected. The closed diagnostics
   // registry (docs/reference/diagnostics.md) has NO dedicated malformed-YAML
   // code, so a YAML parse failure degrades to the documented "no recognised
   // frontmatter mapping" surface: discard the recovered `contents` so `map`
-  // becomes undefined and `loom/load/missing-mode` fires (the same surface
+  // becomes undefined and `theta/load/missing-mode` fires (the same surface
   // `extractFrontmatterBlock` resolves an unusable frontmatter block to).
   const yamlErrored = doc !== undefined && doc.errors.length > 0;
   const map =
@@ -738,7 +738,7 @@ export function parseFrontmatter(
   if (map !== undefined) {
     for (const item of map.items) {
       if (!isScalar(item.key)) {
-        // Non-scalar keys are outside the loom 1.0 contract; skip — there is no
+        // Non-scalar keys are outside the theta 1.0 contract; skip — there is no
         // field-contract behaviour pinned for them.
         continue;
       }
@@ -774,15 +774,15 @@ export function parseFrontmatter(
         // frontmatter-fields-a.md: `description` mirrors Pi's prompt-template
         // spelling and populates the slash-command autocomplete entry (passed to
         // `pi.registerCommand(name, { description, handler })`). Retained here so
-        // the composition can thread it onto the `LoomFixture`.
+        // the composition can thread it onto the `ThetaFixture`.
         descriptionValue = isScalar(item.value) ? String(item.value.value) : undefined;
         continue;
       }
       if (key === "argument-hint") {
         // frontmatter-fields-a.md: `argument-hint` is binder-grounding-only in
-        // loom 1.0 (Pi has no `argumentHint` slot for extension commands).
+        // theta 1.0 (Pi has no `argumentHint` slot for extension commands).
         // Capture presence + range so the advisory
-        // `loom/load/argument-hint-not-displayed` can fire when no `description:`
+        // `theta/load/argument-hint-not-displayed` can fire when no `description:`
         // accompanies it (an empty autocomplete entry).
         argumentHintPresent = true;
         argumentHintRange = keyRange;
@@ -812,7 +812,7 @@ export function parseFrontmatter(
       }
       if (key === "tools") {
         // FRNT-2/FRNT-3 callable set: a scalar (`tools: grep`) or a sequence
-        // (`tools:\n  - ./sentiment.loom`) of Pi-tool names / `.loom`-callable
+        // (`tools:\n  - ./sentiment.theta`) of Pi-tool names / `.theta`-callable
         // paths. Surfaced verbatim; the H8b resolvers classify each entry.
         toolsValue = extractToolsList(item.value);
         continue;
@@ -834,32 +834,32 @@ export function parseFrontmatter(
         continue;
       }
       if (key === "timeout") {
-        // NOCEIL-1 seam: per-call timeouts are rejected in loom 1.0.
+        // NOCEIL-1 seam: per-call timeouts are rejected in theta 1.0.
         diagnostics.push({
           severity: "error",
-          code: "loom/parse/timeout-field-rejected",
+          code: "theta/parse/timeout-field-rejected",
           file,
           ...(keyRange !== undefined ? { range: keyRange } : {}),
-          message: "'timeout:' field is not supported in loom 1.0",
+          message: "'timeout:' field is not supported in theta 1.0",
         });
         continue;
       }
       if (DEFERRED_FRONTMATTER_FIELDS.has(key)) {
         // Reserved-for-a-deferred-feature seam: a key reserved for a deferred
-        // loom 1.0 feature warns with the dedicated code (not the generic
-        // unknown-key code) and is tolerated; the loom still registers.
+        // theta 1.0 feature warns with the dedicated code (not the generic
+        // unknown-key code) and is tolerated; the theta still registers.
         diagnostics.push({
           severity: "warning",
-          code: "loom/load/deferred-frontmatter-field",
+          code: "theta/load/deferred-frontmatter-field",
           file,
           ...(keyRange !== undefined ? { range: keyRange } : {}),
-          message: `frontmatter field '${key}' is reserved for a deferred loom 1.0 feature`,
+          message: `frontmatter field '${key}' is reserved for a deferred theta 1.0 feature`,
         });
-      } else if (!LOOM_1_0_FIELDS.has(key)) {
+      } else if (!THETA_1_0_FIELDS.has(key)) {
         // Forward-compat seam: an unrecognised key warns once and is tolerated.
         diagnostics.push({
           severity: "warning",
-          code: "loom/load/unknown-frontmatter-field",
+          code: "theta/load/unknown-frontmatter-field",
           file,
           ...(keyRange !== undefined ? { range: keyRange } : {}),
           message: `unknown frontmatter field '${key}'`,
@@ -872,36 +872,36 @@ export function parseFrontmatter(
   if (modeValue === undefined) {
     diagnostics.push({
       severity: "error",
-      code: "loom/load/missing-mode",
+      code: "theta/load/missing-mode",
       file,
       message: "frontmatter is missing required field 'mode:'",
     });
   }
 
-  // `bind_context: session` on a `mode: subagent` loom is inert: subagent-mode
-  // looms invoked from a slash command have no caller-session context to
-  // attach, so declaring it warns (not errors) and the loom still registers.
+  // `bind_context: session` on a `mode: subagent` theta is inert: subagent-mode
+  // thetas invoked from a slash command have no caller-session context to
+  // attach, so declaring it warns (not errors) and the theta still registers.
   if (bindContextValue === "session" && modeValue === "subagent") {
     diagnostics.push({
       severity: "warning",
-      code: "loom/parse/bind-context-session-on-subagent",
+      code: "theta/parse/bind-context-session-on-subagent",
       file,
       ...(bindContextRange !== undefined ? { range: bindContextRange } : {}),
-      message: "'bind_context: session' has no effect on a mode: subagent loom",
+      message: "'bind_context: session' has no effect on a mode: subagent theta",
     });
   }
 
   // `argument-hint:` declared without a (non-empty) `description:` renders an
   // empty autocomplete entry, since Pi's extension-registered commands have no
   // `argumentHint` slot and only `description` reaches the dropdown. Advisory
-  // only; the loom still registers.
+  // only; the theta still registers.
   if (
     argumentHintPresent &&
     (descriptionValue === undefined || descriptionValue === "")
   ) {
     diagnostics.push({
       severity: "warning",
-      code: "loom/load/argument-hint-not-displayed",
+      code: "theta/load/argument-hint-not-displayed",
       file,
       ...(argumentHintRange !== undefined ? { range: argumentHintRange } : {}),
       message:
@@ -918,10 +918,10 @@ export function parseFrontmatter(
     } else {
       diagnostics.push({
         severity: "error",
-        code: "loom/load/model-unresolved",
+        code: "theta/load/model-unresolved",
         file,
         ...(modelRange !== undefined ? { range: modelRange } : {}),
-        message: `loom 'model:' value '${renderScalarValue(
+        message: `theta 'model:' value '${renderScalarValue(
           modelRaw,
         )}' resolves to no available model, or is ambiguous across providers`,
       });
@@ -965,7 +965,7 @@ export function parseFrontmatter(
   ) {
     diagnostics.push({
       severity: "error",
-      code: "loom/load/unknown-mode-value",
+      code: "theta/load/unknown-mode-value",
       file,
       ...(modeRange !== undefined ? { range: modeRange } : {}),
       message: `unknown 'mode:' value '${modeValue}'; expected 'prompt' or 'subagent'`,
@@ -981,7 +981,7 @@ export function parseFrontmatter(
   ) {
     diagnostics.push({
       severity: "error",
-      code: "loom/load/unknown-bind-context-value",
+      code: "theta/load/unknown-bind-context-value",
       file,
       ...(bindContextRange !== undefined ? { range: bindContextRange } : {}),
       message: `unknown 'bind_context:' value '${bindContextValue}'; expected 'none' or 'session'`,
@@ -998,7 +998,7 @@ export function parseFrontmatter(
   if (paramsIsNull) {
     diagnostics.push({
       severity: "error",
-      code: "loom/load/params-null",
+      code: "theta/load/params-null",
       file,
       ...(paramsRange !== undefined ? { range: paramsRange } : {}),
       message:
@@ -1043,7 +1043,7 @@ export function parseFrontmatter(
   // The named-type resolution is whole-file, so the body `schema`/`enum` decls
   // and imported symbols supplied via `options.bodyTypes` resolve a forward
   // `NamedType` reference; only a genuinely-undeclared type fires
-  // `loom/parse/unresolved-named-type`.
+  // `theta/parse/unresolved-named-type`.
   if (fieldInputs.length > 0) {
     diagnostics.push(
       ...parseParams(fieldInputs, bodyTypeDecls, { file }).diagnostics,
@@ -1053,33 +1053,33 @@ export function parseFrontmatter(
   // An explicit `bind_echo: true` has no effect on either binder-bypass shape:
   // the bypass skips the binder call entirely, so no success echo is produced.
   // The two shapes own distinct codes: the single-string bypass is the
-  // parse-phase `loom/parse/bind-echo-on-bypass`; the no-params bypass is the
-  // load-phase `loom/load/bind-echo-without-params`. A defaulted (absent)
+  // parse-phase `theta/parse/bind-echo-on-bypass`; the no-params bypass is the
+  // load-phase `theta/load/bind-echo-without-params`. A defaulted (absent)
   // `bind_echo` never fires either; only an explicit `true` does.
   if (bindEchoValue === true) {
     const bypass = classifyBinderBypass(params?.fields);
     if (bypass.kind === "single-string-bypass") {
       diagnostics.push({
         severity: "warning",
-        code: "loom/parse/bind-echo-on-bypass",
+        code: "theta/parse/bind-echo-on-bypass",
         file,
         ...(bindEchoRange !== undefined ? { range: bindEchoRange } : {}),
         message:
-          "'bind_echo: true' has no effect on a single-string-bypass loom",
+          "'bind_echo: true' has no effect on a single-string-bypass theta",
       });
     } else if (bypass.kind === "no-params-bypass") {
       diagnostics.push({
         severity: "warning",
-        code: "loom/load/bind-echo-without-params",
+        code: "theta/load/bind-echo-without-params",
         file,
         ...(bindEchoRange !== undefined ? { range: bindEchoRange } : {}),
-        message: "'bind_echo: true' has no effect on a no-params loom",
+        message: "'bind_echo: true' has no effect on a no-params theta",
       });
     }
   }
 
   // `system:` subagent-mode-only rule + `${…}` interpolation checks, run against
-  // the loom's typed `params` (`system:` on a `mode: prompt` loom is rejected).
+  // the theta's typed `params` (`system:` on a `mode: prompt` theta is rejected).
   let systemTemplate: SystemTemplate | undefined;
   if (systemPresent && systemValue !== undefined) {
     const systemParams = new Map<string, SystemParamType>();
@@ -1119,7 +1119,7 @@ export function parseFrontmatter(
     attempts: "value" in respondRepairResult ? respondRepairResult.value : 3,
   };
   const frontmatter: ParsedFrontmatter = {
-    mode: modeValue as LoomMode,
+    mode: modeValue as ThetaMode,
     ...(resolvedModel !== undefined ? { model: resolvedModel } : {}),
     ...(bindModelValue !== undefined ? { bindModel: bindModelValue } : {}),
     ...(bindEchoValue !== undefined ? { bindEcho: bindEchoValue } : {}),

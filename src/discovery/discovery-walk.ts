@@ -1,35 +1,35 @@
 // V10a / V10a-T — the five-source discovery walk, source priority, per-source
 // failure modes, `~/` home expansion, slash-name validity, and the
-// cross-source-shadow / cross-format-collision resolution (the loom always
+// cross-source-shadow / cross-format-collision resolution (the theta always
 // loses, asymmetrically).
 //
 // This module owns the discovery union over the CLI, Settings, Project,
-// Packages, and Global sources, mapping each discovered `*.loom` file to its
+// Packages, and Global sources, mapping each discovered `*.theta` file to its
 // slash name (the filename stem, taken verbatim) and emitting the load-phase
 // diagnostics the failure-modes table and collision rules mandate.
 //
-// V10a-T (tests-task) declares the seam shape and stubs `discoverLooms` with an
-// inert result (no looms, no diagnostics) so the failing tests compile and red
+// V10a-T (tests-task) declares the seam shape and stubs `discoverThetas` with an
+// inert result (no thetas, no diagnostics) so the failing tests compile and red
 // on their own primary assertions — the discovery walk is absent, not throwing.
 // The paired V10a implementation leaf fills this in (and extends `DiscoveryInput`
 // with the package-source plumbing V10b owns).
 //
 // Spec: discovery.md, discovery/discovery-sources.md (DISC-1…DISC-4), with the
-// `loom/load/*` diagnostic codes/messages sourced from
+// `theta/load/*` diagnostic codes/messages sourced from
 // diagnostics/code-registry-load.md.
 
 import { minimatch } from "minimatch";
 import type { Diagnostic, Severity } from "../diagnostics/diagnostic";
 import type { FileSystem } from "../seams/file-system";
-import type { LoomSettings } from "./settings";
+import type { ThetaSettings } from "./settings";
 
 /** The five discovery sources, in priority order high→low. */
 export type DiscoverySource = "cli" | "settings" | "project" | "package" | "global";
 
 /**
  * A Pi-owned slash command already registered when the discovery walk runs.
- * Used by the cross-format collision check: a `.loom` deriving the same slash
- * name as one of these drops (the loom loses asymmetrically), the Pi-owned
+ * Used by the cross-format collision check: a `.theta` deriving the same slash
+ * name as one of these drops (the theta loses asymmetrically), the Pi-owned
  * entry survives.
  */
 export interface PiOwnedCommand {
@@ -38,20 +38,20 @@ export interface PiOwnedCommand {
 }
 
 /**
- * Inputs to one discovery pass. `cliPaths` is the already-split `--loom` flag
+ * Inputs to one discovery pass. `cliPaths` is the already-split `--theta` flag
  * (the factory splits the raw flag on `path.delimiter` before calling, so the
- * walk is platform-independent). The merged `settings` carries `loomPaths`
+ * walk is platform-independent). The merged `settings` carries `thetaPaths`
  * from V10c.
  */
 export interface DiscoveryInput {
   readonly fs: FileSystem;
-  readonly settings: LoomSettings;
+  readonly settings: ThetaSettings;
   readonly cliPaths?: readonly string[];
   readonly piOwnedNames?: readonly PiOwnedCommand[];
 }
 
-/** One discovered, registrable loom: its slash name, absolute path, and source. */
-export interface DiscoveredLoom {
+/** One discovered, registrable theta: its slash name, absolute path, and source. */
+export interface DiscoveredTheta {
   readonly name: string;
   readonly path: string;
   readonly source: DiscoverySource;
@@ -59,7 +59,7 @@ export interface DiscoveredLoom {
 
 /** The outcome of one discovery pass. */
 export interface DiscoveryResult {
-  readonly looms: readonly DiscoveredLoom[];
+  readonly thetas: readonly DiscoveredTheta[];
   readonly diagnostics: readonly Diagnostic[];
 }
 
@@ -67,16 +67,16 @@ export interface DiscoveryResult {
 // Diagnostic codes (sourced from diagnostics/code-registry-load.md).
 // --------------------------------------------------------------------------
 
-const MISSING_SOURCE = "loom/load/missing-source";
-const UNREADABLE_SOURCE = "loom/load/unreadable-source";
-const WRONG_TYPE_SOURCE = "loom/load/wrong-type-source";
-const UNREADABLE_FILE = "loom/load/unreadable";
-const CASE_COLLISION = "loom/load/case-collision";
-const NON_CANONICAL_EXTENSION = "loom/load/non-canonical-extension";
-const INVALID_SLASH_NAME = "loom/load/invalid-slash-name";
-const CROSS_SOURCE_SHADOW = "loom/load/cross-source-shadow";
-const CROSS_FORMAT_COLLISION = "loom/load/cross-format-collision";
-const INVALID_EXTENSION = "loom/load/invalid-extension";
+const MISSING_SOURCE = "theta/load/missing-source";
+const UNREADABLE_SOURCE = "theta/load/unreadable-source";
+const WRONG_TYPE_SOURCE = "theta/load/wrong-type-source";
+const UNREADABLE_FILE = "theta/load/unreadable";
+const CASE_COLLISION = "theta/load/case-collision";
+const NON_CANONICAL_EXTENSION = "theta/load/non-canonical-extension";
+const INVALID_SLASH_NAME = "theta/load/invalid-slash-name";
+const CROSS_SOURCE_SHADOW = "theta/load/cross-source-shadow";
+const CROSS_FORMAT_COLLISION = "theta/load/cross-format-collision";
+const INVALID_EXTENSION = "theta/load/invalid-extension";
 
 /** Accepted slash-name (filename stem) shape, per DISC-3 Filename validity. */
 const SLASH_NAME = /^[a-z0-9][a-z0-9_-]*$/;
@@ -290,13 +290,13 @@ async function classifyPath(fs: FileSystem, path: string): Promise<PathClass> {
   return { kind: "wrong-type" };
 }
 
-/** A `*.loom` file found under a source, before validity/collision resolution. */
+/** A `*.theta` file found under a source, before validity/collision resolution. */
 interface RawCandidate {
   readonly path: string;
   readonly stem: string;
 }
 
-/** Enumerate one directory: collect byte-exact `*.loom` candidates and emit
+/** Enumerate one directory: collect byte-exact `*.theta` candidates and emit
  *  per-directory `non-canonical-extension` warnings (DISC-3). */
 async function enumerateDirectory(
   fs: FileSystem,
@@ -314,7 +314,7 @@ async function enumerateDirectory(
   const canonicalNames = new Set<string>();
   for (const name of entries.names) {
     const { ext } = splitExtension(name);
-    if (ext === "loom" || ext === "warp") {
+    if (ext === "theta" || ext === "thetalib") {
       canonicalNames.add(name);
     }
   }
@@ -322,15 +322,15 @@ async function enumerateDirectory(
     const { stem, ext } = splitExtension(name);
     const lower = ext.toLowerCase();
     const full = joinPosix(dir, name);
-    if (ext === "loom") {
+    if (ext === "theta") {
       candidates.push({ path: full, stem });
       continue;
     }
-    if (ext === "warp") {
+    if (ext === "thetalib") {
       // Library file — importable, never a slash command; not discovered.
       continue;
     }
-    if ((lower === "loom" || lower === "warp") && SLASH_NAME.test(stem)) {
+    if ((lower === "theta" || lower === "thetalib") && SLASH_NAME.test(stem)) {
       // Case-variant extension on a valid stem → non-canonical warning, unless
       // it deduplicates against a byte-exact canonical sibling (case-insensitive
       // filesystems surface one entry under two spellings) via `realpath`.
@@ -341,7 +341,7 @@ async function enumerateDirectory(
         severity: "warning",
         code: NON_CANONICAL_EXTENSION,
         file: full,
-        message: `file '${full}' has non-canonical extension case; rename to lowercase '.loom' or '.warp'`,
+        message: `file '${full}' has non-canonical extension case; rename to lowercase '.theta' or '.thetalib'`,
       });
     }
   }
@@ -349,7 +349,7 @@ async function enumerateDirectory(
 }
 
 /** True when `nonCanonicalPath` resolves (via `realpath`) to the same canonical
- *  path as some byte-exact `.loom`/`.warp` sibling in `dir`. */
+ *  path as some byte-exact `.theta`/`.thetalib` sibling in `dir`. */
 async function isCanonicalDuplicate(
   fs: FileSystem,
   nonCanonicalPath: string,
@@ -372,7 +372,7 @@ async function isCanonicalDuplicate(
   return false;
 }
 
-/** Resolve one source entry (a directory root, or a single `.loom` file) into
+/** Resolve one source entry (a directory root, or a single `.theta` file) into
  *  raw candidates, emitting the per-source failure diagnostic on any miss. */
 async function resolveEntry(
   fs: FileSystem,
@@ -387,18 +387,18 @@ async function resolveEntry(
     case "dir":
       return enumerateDirectory(fs, path, diagnostics);
     case "file":
-      // A single `.loom` file entry contributes itself directly.
+      // A single `.theta` file entry contributes itself directly.
       return [{ path: normalizePath(path), stem: splitExtension(basename(path)).stem }];
     case "invalid-extension":
-      // An explicit file reference (CLI `--loom` / settings `loomPaths`) that
-      // resolves to a non-`.loom` regular file is an `invalid-extension` error
+      // An explicit file reference (CLI `--theta` / settings `thetaPaths`) that
+      // resolves to a non-`.theta` regular file is an `invalid-extension` error
       // per Lexical §"Extension matching" — the settings/CLI extension check —
       // not `wrong-type-source`. The file does not register.
       diagnostics.push({
         severity: "error",
         code: INVALID_EXTENSION,
         file: normalizePath(path),
-        message: `'${descriptor}' resolves to '${normalizePath(path)}' which does not end in .loom`,
+        message: `'${descriptor}' resolves to '${normalizePath(path)}' which does not end in .theta`,
       });
       return [];
     case "missing":
@@ -414,16 +414,16 @@ async function resolveEntry(
 }
 
 /** Classify a resolved path for a source. A regular file whose name does not
- *  end in `.loom` is, for an *explicit file reference* (CLI `--loom` / settings
- *  `loomPaths`), an `invalid-extension` error; for a *conventional root*
- *  (directory-only) it is `wrong-type` — the root is neither a `.loom` file nor
+ *  end in `.theta` is, for an *explicit file reference* (CLI `--theta` / settings
+ *  `thetaPaths`), an `invalid-extension` error; for a *conventional root*
+ *  (directory-only) it is `wrong-type` — the root is neither a `.theta` file nor
  *  a directory. */
 function classifyForSource(
   cls: PathClass,
   path: string,
   explicitFile: boolean,
 ): PathClass {
-  if (cls.kind === "file" && splitExtension(basename(path)).ext !== "loom") {
+  if (cls.kind === "file" && splitExtension(basename(path)).ext !== "theta") {
     return explicitFile ? { kind: "invalid-extension" } : { kind: "wrong-type" };
   }
   return cls;
@@ -445,7 +445,7 @@ function emitSourceFailure(
       ? `discovery source path does not exist: ${descriptor}`
       : kind === "unreadable"
         ? `discovery source is unreadable: ${descriptor}`
-        : `discovery source ${descriptor} is neither a .loom file nor a directory of them`;
+        : `discovery source ${descriptor} is neither a .theta file nor a directory of them`;
   diagnostics.push({ severity, code, file: normalizePath(path), message });
 }
 
@@ -456,7 +456,7 @@ interface SourcedCandidate extends RawCandidate {
   readonly sourceLabel: string;
 }
 
-/** Resolve intra-source case-collisions (DISC-3): two `*.loom` paths differing
+/** Resolve intra-source case-collisions (DISC-3): two `*.theta` paths differing
  *  only in case collide; the byte-first path wins, the rest drop. */
 function resolveCaseCollisions(
   candidates: readonly SourcedCandidate[],
@@ -508,14 +508,14 @@ function dedupeByPath(candidates: readonly SourcedCandidate[]): SourcedCandidate
 }
 
 // --------------------------------------------------------------------------
-// Settings `loomPaths` resolution (DISC-7 `loomPaths` entry schema).
+// Settings `thetaPaths` resolution (DISC-7 `thetaPaths` entry schema).
 //
 // Unlike the CLI / conventional sources (whose entries are single directory
-// roots or explicit `.loom` files), settings entries resolve relative to the
+// roots or explicit `.theta` files), settings entries resolve relative to the
 // settings-file directory, support globs, and carry the `!`/`+`/`-` override
-// grammar of DISC-5 (the same fixed order the package `pi.looms` path uses:
+// grammar of DISC-5 (the same fixed order the package `pi.theta` path uses:
 // plain includes → `!` drops → `+` re-admits an exact path → `-` removes an
-// exact path). A non-`.loom` file match is a `loom/load/invalid-extension`
+// exact path). A non-`.theta` file match is a `theta/load/invalid-extension`
 // error (not `wrong-type-source`); a directory expands non-recursively; a
 // literal path that is missing / unreadable / a non-regular type still carries
 // the per-entry-index failure diagnostic of the failure-modes table.
@@ -576,7 +576,7 @@ function globMatches(entry: TreeEntry, absPattern: string): boolean {
   );
 }
 
-/** One parsed `loomPaths` entry: its array index, override prefix, and the
+/** One parsed `thetaPaths` entry: its array index, override prefix, and the
  *  operand resolved to an absolute POSIX path. */
 interface ParsedSettingsEntry {
   readonly index: number;
@@ -606,21 +606,21 @@ function resolveSettingsOperand(
 }
 
 /**
- * Resolve the Settings source's `loomPaths` into raw `.loom` candidates,
- * applying the DISC-5 override order and the DISC-7 `loomPaths` schema. Returns
+ * Resolve the Settings source's `thetaPaths` into raw `.theta` candidates,
+ * applying the DISC-5 override order and the DISC-7 `thetaPaths` schema. Returns
  * candidates deduplicated by resolved absolute path; per-entry failures are
  * non-fatal.
  */
 async function resolveSettingsSource(
   fs: FileSystem,
-  settings: LoomSettings,
+  settings: ThetaSettings,
   diagnostics: Diagnostic[],
 ): Promise<RawCandidate[]> {
-  const entries = settings.loomPaths ?? [];
+  const entries = settings.thetaPaths ?? [];
   if (entries.length === 0) {
     return [];
   }
-  const baseDir = settings.loomPathsBaseDir;
+  const baseDir = settings.thetaPathsBaseDir;
 
   const parsed: ParsedSettingsEntry[] = entries.map((raw, index) => {
     const first = raw[0];
@@ -634,7 +634,7 @@ async function resolveSettingsSource(
     };
   });
 
-  // `selected` is keyed by the candidate `.loom` file's absolute path (dedup by
+  // `selected` is keyed by the candidate `.theta` file's absolute path (dedup by
   // resolved absolute path); dir entries have already been expanded to files.
   const selected = new Map<string, RawCandidate>();
   const treeCache = new Map<string, TreeEntry[]>();
@@ -652,14 +652,14 @@ async function resolveSettingsSource(
     }
   };
   const addFile = (absPath: string, index: number): void => {
-    // A file match must end in `.loom` (byte-exact lowercase); anything else is
+    // A file match must end in `.theta` (byte-exact lowercase); anything else is
     // an `invalid-extension` error, reported per match, and does not register.
-    if (splitExtension(basename(absPath)).ext !== "loom") {
+    if (splitExtension(basename(absPath)).ext !== "theta") {
       diagnostics.push({
         severity: "error",
         code: INVALID_EXTENSION,
         file: absPath,
-        message: `'loomPaths[${index}]' resolves to '${absPath}' which does not end in .loom`,
+        message: `'thetaPaths[${index}]' resolves to '${absPath}' which does not end in .theta`,
       });
       return;
     }
@@ -741,10 +741,10 @@ async function resolveSettingsSource(
 
 /**
  * Walk the (currently four — package source is V10b's) discovery sources,
- * resolve priority and collisions, and return the registrable looms plus the
+ * resolve priority and collisions, and return the registrable thetas plus the
  * load-phase diagnostics.
  */
-export async function discoverLooms(input: DiscoveryInput): Promise<DiscoveryResult> {
+export async function discoverThetas(input: DiscoveryInput): Promise<DiscoveryResult> {
   const { fs } = input;
   const diagnostics: Diagnostic[] = [];
   const candidates: SourcedCandidate[] = [];
@@ -755,7 +755,7 @@ export async function discoverLooms(input: DiscoveryInput): Promise<DiscoveryRes
     fs,
     cliPaths.map((raw, index) => ({
       path: expandHome(raw, fs),
-      descriptor: `--loom flag #${index + 1}`,
+      descriptor: `--theta flag #${index + 1}`,
     })),
     "cli",
     CLI_MODES,
@@ -765,17 +765,17 @@ export async function discoverLooms(input: DiscoveryInput): Promise<DiscoveryRes
   );
 
   // Settings (priority 2) — explicit references resolved per the DISC-7
-  // `loomPaths` entry schema: relative to the settings-file dir, with globs and
+  // `thetaPaths` entry schema: relative to the settings-file dir, with globs and
   // the `!`/`+`/`-` override grammar; missing/wrong-type are errors.
   const settingsSourceLabel = sourceLabelOf("settings");
   for (const candidate of await resolveSettingsSource(fs, input.settings, diagnostics)) {
     candidates.push({ ...candidate, source: "settings", sourceLabel: settingsSourceLabel });
   }
 
-  // Project (priority 3) — conventional `.pi/looms/`; silent when absent.
+  // Project (priority 3) — conventional `.pi/theta/`; silent when absent.
   await collectFromEntries(
     fs,
-    [{ path: joinPosix(fs.cwd(), ".pi/looms"), descriptor: "project .pi/looms/" }],
+    [{ path: joinPosix(fs.cwd(), ".pi/theta"), descriptor: "project .pi/theta/" }],
     "project",
     CONVENTIONAL_MODES,
     false,
@@ -785,10 +785,10 @@ export async function discoverLooms(input: DiscoveryInput): Promise<DiscoveryRes
 
   // Package (priority 4) — owned by V10b; not plumbed into this walk yet.
 
-  // Global (priority 5) — conventional `~/.pi/agent/looms/`; silent when absent.
+  // Global (priority 5) — conventional `~/.pi/agent/theta/`; silent when absent.
   await collectFromEntries(
     fs,
-    [{ path: joinPosix(fs.homedir(), ".pi/agent/looms"), descriptor: "global looms directory" }],
+    [{ path: joinPosix(fs.homedir(), ".pi/agent/theta"), descriptor: "global thetas directory" }],
     "global",
     CONVENTIONAL_MODES,
     false,
@@ -800,9 +800,9 @@ export async function discoverLooms(input: DiscoveryInput): Promise<DiscoveryRes
   // then cross-source/format collision resolution over the survivors.
   const caseResolved = resolveBySource(candidates, diagnostics);
   const valid = validateAndRead(fs, caseResolved, diagnostics);
-  const looms = await resolveSlashNames(await valid, input.piOwnedNames ?? [], diagnostics);
+  const thetas = await resolveSlashNames(await valid, input.piOwnedNames ?? [], diagnostics);
 
-  return { looms, diagnostics };
+  return { thetas, diagnostics };
 }
 
 async function collectFromEntries(
@@ -826,15 +826,15 @@ async function collectFromEntries(
 function sourceLabelOf(source: DiscoverySource): string {
   switch (source) {
     case "cli":
-      return "--loom flag";
+      return "--theta flag";
     case "settings":
-      return "settings loomPaths";
+      return "settings thetaPaths";
     case "project":
-      return "project .pi/looms/";
+      return "project .pi/theta/";
     case "package":
-      return "package looms/ directory";
+      return "package theta/ directory";
     case "global":
-      return "global looms directory";
+      return "global thetas directory";
   }
 }
 
@@ -860,7 +860,7 @@ function resolveBySource(
 }
 
 /** Validate each surviving candidate's slash name, then confirm readability of
- *  the underlying `.loom` file (DISC-2 rule 1 / DISC-3 Filename validity). */
+ *  the underlying `.theta` file (DISC-2 rule 1 / DISC-3 Filename validity). */
 async function validateAndRead(
   fs: FileSystem,
   candidates: readonly SourcedCandidate[],
@@ -874,8 +874,8 @@ async function validateAndRead(
         code: INVALID_SLASH_NAME,
         file: candidate.path,
         message:
-          "slash names must be lowercase kebab/snake; rename the file (e.g. `code-review.loom`)",
-        hint: "Slash names must be lowercase kebab/snake; rename the file (e.g. `code-review.loom`).",
+          "slash names must be lowercase kebab/snake; rename the file (e.g. `code-review.theta`)",
+        hint: "Slash names must be lowercase kebab/snake; rename the file (e.g. `code-review.theta`).",
       });
       continue;
     }
@@ -888,7 +888,7 @@ async function validateAndRead(
         severity: "warning",
         code: UNREADABLE_FILE,
         file: candidate.path,
-        message: `.loom file is unreadable: '${candidate.path}'`,
+        message: `.theta file is unreadable: '${candidate.path}'`,
       });
       continue;
     }
@@ -898,13 +898,13 @@ async function validateAndRead(
 }
 
 /** Resolve cross-source-shadow (different priority → higher wins) and
- *  cross-format-collision (same priority loom-vs-loom, or loom-vs-Pi-owned;
- *  the loom always loses asymmetrically) over the validated candidates. */
+ *  cross-format-collision (same priority theta-vs-theta, or theta-vs-Pi-owned;
+ *  the theta always loses asymmetrically) over the validated candidates. */
 async function resolveSlashNames(
   candidates: readonly SourcedCandidate[],
   piOwned: readonly PiOwnedCommand[],
   diagnostics: Diagnostic[],
-): Promise<DiscoveredLoom[]> {
+): Promise<DiscoveredTheta[]> {
   const piNames = new Set(piOwned.map((command) => command.name));
   const byName = new Map<string, SourcedCandidate[]>();
   for (const candidate of candidates) {
@@ -916,9 +916,9 @@ async function resolveSlashNames(
     }
   }
 
-  const looms: DiscoveredLoom[] = [];
+  const thetas: DiscoveredTheta[] = [];
   for (const [name, group] of byName) {
-    // Loom-vs-Pi-owned: the loom always loses; the Pi-owned entry survives.
+    // Theta-vs-Pi-owned: the theta always loses; the Pi-owned entry survives.
     if (piNames.has(name)) {
       diagnostics.push({
         severity: "error",
@@ -935,7 +935,7 @@ async function resolveSlashNames(
     const lowerTier = group.filter((candidate) => PRIORITY[candidate.source] !== minPriority);
 
     if (topTier.length > 1) {
-      // Same-priority loom-vs-loom: every colliding loom drops.
+      // Same-priority theta-vs-theta: every colliding theta drops.
       diagnostics.push({
         severity: "error",
         code: CROSS_FORMAT_COLLISION,
@@ -955,8 +955,8 @@ async function resolveSlashNames(
         message: `slash name '${name}' shadowed across discovery sources: '${winner.path}' wins over '${shadowed.path}'`,
       });
     }
-    looms.push({ name, path: winner.path, source: winner.source });
+    thetas.push({ name, path: winner.path, source: winner.source });
   }
 
-  return looms;
+  return thetas;
 }

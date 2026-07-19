@@ -78,7 +78,7 @@ export interface TypedQueryValidationInput {
   readonly resolveShape: () => unknown;
   /** The runtime root's AJV `SchemaValidator` seam. */
   readonly schemaValidator: SchemaValidator;
-  /** The loom's `respond_repair.attempts` budget (default 3). */
+  /** The theta's `respond_repair.attempts` budget (default 3). */
   readonly attempts: number;
   /** The `tool_loop.max_rounds` each follow-up is serviced with. */
   readonly maxRounds: number;
@@ -107,7 +107,7 @@ export function buildTypedQueryValidation(
   return new ProductionTypedQueryValidation(input);
 }
 
-/** The default respond-repair methodology when the loom declares none. */
+/** The default respond-repair methodology when the theta declares none. */
 const DEFAULT_METHODOLOGY: FollowUpMethodology = "validator_error";
 
 class ProductionTypedQueryValidation implements TypedQuerySchemaValidation {
@@ -201,7 +201,7 @@ function validateAgainst(
 }
 
 /**
- * The lowered response schema's slug, naming the `__loom_respond_<slug>` tool in
+ * The lowered response schema's slug, naming the `__theta_respond_<slug>` tool in
  * the respond-repair follow-up template — the first 16 hex chars of the SHA-256
  * of the schema's JSON form (the same canonical-hash spirit as the schema-subset
  * slug; `createHash` is the schema-hash primitive, not a banned ambient).

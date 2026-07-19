@@ -7,22 +7,22 @@ import type {
 import {
   createProductionProducerDeps,
   type PiToolDispatch,
-} from "../src/extension/production-loom-producer";
+} from "../src/extension/production-theta-producer";
 import type {
-  LoomCompositionInput,
+  ThetaCompositionInput,
   ConversationBindInput,
-} from "../src/extension/loom-composition-producer";
+} from "../src/extension/theta-composition-producer";
 import { executeBody } from "../src/runtime/statement-executor";
 import type { RuntimeRoot } from "../src/runtime-root";
 import type { Checkpoint } from "../src/seams/checkpoint";
 import type { AgentToolResultEnvelope } from "../src/runtime/tool-call-execute";
-import type { LoomValue, ResultValue } from "../src/runtime/value";
+import type { ThetaValue, ResultValue } from "../src/runtime/value";
 import type {
   CallExpr,
   Expr,
-  LoomBody,
+  ThetaBody,
   ObjectExpr,
-} from "../src/parser/loom-document";
+} from "../src/parser/theta-document";
 import type { ParsedFrontmatter } from "../src/parser/frontmatter";
 import type {
   CallableSetSnapshot,
@@ -32,10 +32,10 @@ import type { SourceRange } from "../src/diagnostics/diagnostic";
 
 // QTL-2 (SECURITY): the frozen `tools:` callable set is enforced at RUNTIME for
 // code-driven `<name>(args)` calls. The runtime dispatches ONLY through a held
-// reference in the loom's resolution snapshot; a callable name absent from the
+// reference in the theta's resolution snapshot; a callable name absent from the
 // set surfaces the code-tool `Err` instead of executing an ambient host tool,
 // and the runtime never re-queries Pi's tool registry by name during execution
-// (frontmatter.md §`tools:`; call-a-tool-from-loom-code.md). These are the
+// (frontmatter.md §`tools:`; call-a-tool-from-theta-code.md). These are the
 // deterministic, offline half of the real-CLI QTL-2 finding — no model turn is
 // needed to resolve a code-driven tool call.
 
@@ -63,7 +63,7 @@ function callExpr(callee: string, args: readonly Expr[] = []): CallExpr {
   return { kind: "call", callee, args, range: span() };
 }
 
-function body(tail: Expr | null): LoomBody {
+function body(tail: Expr | null): ThetaBody {
   return { statements: [], tail };
 }
 
@@ -122,12 +122,12 @@ function snapshot(
   return Object.freeze({ entries: new Map(entries) });
 }
 
-/** A prompt-mode loom carrying a resolved callable-set snapshot. */
-function loomWithSet(tail: Expr, callableSet: CallableSetSnapshot): LoomCompositionInput {
+/** A prompt-mode theta carrying a resolved callable-set snapshot. */
+function thetaWithSet(tail: Expr, callableSet: CallableSetSnapshot): ThetaCompositionInput {
   const frontmatter: ParsedFrontmatter = { mode: "prompt" };
   return {
     slashName: "demo",
-    sourcePath: "/looms/demo.loom",
+    sourcePath: "/theta/demo.theta",
     frontmatter,
     body: body(tail),
     callableSet,
@@ -136,11 +136,11 @@ function loomWithSet(tail: Expr, callableSet: CallableSetSnapshot): LoomComposit
 
 async function runBody(
   deps: ReturnType<typeof producer>,
-  loom: LoomCompositionInput,
-): Promise<LoomValue> {
-  const bindInput: ConversationBindInput = { loom, args: "", ctx: ctxDouble() };
+  theta: ThetaCompositionInput,
+): Promise<ThetaValue> {
+  const bindInput: ConversationBindInput = { theta, args: "", ctx: ctxDouble() };
   const binding = deps.bindPromptConversation(bindInput);
-  const execution = await executeBody(loom.body, binding.executeDeps);
+  const execution = await executeBody(theta.body, binding.executeDeps);
   const outer = execution.result;
   if (!outer.present || outer.value === undefined) {
     throw new Error("body produced no final value");
@@ -149,7 +149,7 @@ async function runBody(
 }
 
 describe("QTL-2 — the `tools:` callable set is enforced for code-driven calls", () => {
-  it("a no-`tools:` loom (empty callable set) that calls bash() surfaces Err — the ambient tool is NOT executed and the registry is not re-queried", async () => {
+  it("a no-`tools:` theta (empty callable set) that calls bash() surfaces Err — the ambient tool is NOT executed and the registry is not re-queried", async () => {
     let ambientResolveQueried = false;
     // A producer-wide resolver that WOULD resolve the ambient `bash` tool. If the
     // runtime re-queried the registry (the QTL-2 bug), this would run and the
@@ -164,11 +164,11 @@ describe("QTL-2 — the `tools:` callable set is enforced for code-driven calls"
       };
     };
 
-    const loom = loomWithSet(
+    const theta = thetaWithSet(
       callExpr("bash", [objArg("command", "echo LEAK")]),
       snapshot([]),
     );
-    const inner = (await runBody(producer({ resolvePiTool }), loom)) as ResultValue;
+    const inner = (await runBody(producer({ resolvePiTool }), theta)) as ResultValue;
 
     expect(
       ambientResolveQueried,
@@ -185,7 +185,7 @@ describe("QTL-2 — the `tools:` callable set is enforced for code-driven calls"
   it("a name NOT in a non-empty set (tools: grep, code calls read) surfaces Err — read is not executed", async () => {
     let readExecuted = false;
     const set = snapshot([["grep", piToolEntry("grep", () => {})]]);
-    const loom = loomWithSet(callExpr("read", [objArg("path", "docs/x")]), set);
+    const theta = thetaWithSet(callExpr("read", [objArg("path", "docs/x")]), set);
     const inner = (await runBody(
       producer({
         resolvePiTool: (name) => ({
@@ -196,7 +196,7 @@ describe("QTL-2 — the `tools:` callable set is enforced for code-driven calls"
           },
         }),
       }),
-      loom,
+      theta,
     )) as ResultValue;
 
     expect(readExecuted, "an undeclared `read` must not execute").toBe(false);
@@ -206,8 +206,8 @@ describe("QTL-2 — the `tools:` callable set is enforced for code-driven calls"
   it("a DECLARED tool (tools: grep, code calls grep()) dispatches through the held reference and lowers to Ok(text)", async () => {
     let grepExecuted = false;
     const set = snapshot([["grep", piToolEntry("grep", () => (grepExecuted = true))]]);
-    const loom = loomWithSet(callExpr("grep", [objArg("pattern", "x")]), set);
-    const inner = (await runBody(producer({}), loom)) as ResultValue;
+    const theta = thetaWithSet(callExpr("grep", [objArg("pattern", "x")]), set);
+    const inner = (await runBody(producer({}), theta)) as ResultValue;
 
     expect(grepExecuted, "a declared tool dispatches through its held reference").toBe(true);
     expect(inner.ok, "a declared tool call lowers to Ok").toBe(true);
@@ -222,8 +222,8 @@ describe("QTL-2 — the `tools:` callable set is enforced for code-driven calls"
     // The snapshot is keyed by the post-rename callable name `search`, whose held
     // reference dispatches to the underlying `grep` tool.
     const set = snapshot([["search", piToolEntry("grep", () => (grepExecuted = true))]]);
-    const loom = loomWithSet(callExpr("search", [objArg("pattern", "x")]), set);
-    const inner = (await runBody(producer({}), loom)) as ResultValue;
+    const theta = thetaWithSet(callExpr("search", [objArg("pattern", "x")]), set);
+    const inner = (await runBody(producer({}), theta)) as ResultValue;
 
     expect(grepExecuted, "the renamed callable dispatches to the underlying grep tool").toBe(true);
     expect(inner.ok, "the `as`-rename call lowers to Ok").toBe(true);

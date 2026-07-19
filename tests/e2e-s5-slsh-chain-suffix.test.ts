@@ -1,10 +1,10 @@
-// E2E S5 — REQ-SLSH-23 (spec tag SLSH-5): the model-invoked `.loom`-callable
+// E2E S5 — REQ-SLSH-23 (spec tag SLSH-5): the model-invoked `.theta`-callable
 // tool-error surface emits NO chain suffix.
 //
 // Target requirement (docs/e2e-campaign/analysis/spec-requirements.md:955,
 // docs/spec_topics/slash-invocation.md:54 SLSH-5):
 //
-//   "A `.loom` callable invoked by the model during a `@`-query loop feeds its
+//   "A `.theta` callable invoked by the model during a `@`-query loop feeds its
 //    failure back as a tool-error result, not an `invoke_callee` cascade, so no
 //    chain suffix is emitted for that surface."
 //
@@ -18,10 +18,10 @@
 // Spec chain-of-evidence for the "tool-error result, not invoke_callee" surface:
 //   - tool-calls.md:34 — "the model-driven `@`...`` tool-call loop feeds that
 //     same outcome back to the model as the failing `tool_use` block's
-//     tool-result and continues looping" (never a loom `Err`, never
+//     tool-result and continues looping" (never a theta `Err`, never
 //     `invoke_callee`).
-//   - tool-calls.md:36 — for a `.loom` callable the ONLY `code_tool` that can
-//     arise is loom 1.0's `"unknown_tool"` safety net.
+//   - tool-calls.md:36 — for a `.theta` callable the ONLY `code_tool` that can
+//     arise is theta 1.0's `"unknown_tool"` safety net.
 //   - errors-and-results: `ModelToolError` (`kind: "model_tool"`) is reserved
 //     for the non-recoverable adapter-layer failure that CAN surface a
 //     `QueryError` out of the loop; it is a leaf, never an `invoke_callee`.
@@ -73,7 +73,7 @@ function modelTool(tool_name: string, message: string): ModelToolError {
 
 /**
  * A `CodeToolError` with `cause: "unknown_tool"` — the ONLY `code_tool` that can
- * arise for a `.loom` callable (tool-calls.md:36). Also a leaf, no chain.
+ * arise for a `.theta` callable (tool-calls.md:36). Also a leaf, no chain.
  */
 function unknownToolCode(tool_name: string, message: string): CodeToolError {
   return { kind: "code_tool", message, tool_name, cause: "unknown_tool" };
@@ -105,14 +105,14 @@ function hop(calleePath: string, parentPath: string, callSiteLine: number): Chai
 /** Render at the boundary with the EMPTY chain — the model-invoked tool-error
  * surface produces no `invoke_callee` hop, so V15g records no invocation. */
 function boundaryNoChain(name: string, error: QueryError): string {
-  return renderTopLevelErrNote({ loomName: name, error, chain: [] });
+  return renderTopLevelErrNote({ thetaName: name, error, chain: [] });
 }
 
 // ===========================================================================
 // REQ-SLSH-23 — the model-invoked tool-error surface carries NO chain suffix.
 // ===========================================================================
 
-describe("E2E S5 / REQ-SLSH-23 — model-invoked .loom-callable tool-error surface emits no chain suffix", () => {
+describe("E2E S5 / REQ-SLSH-23 — model-invoked .theta-callable tool-error surface emits no chain suffix", () => {
   it("REQ-SLSH-23: a model_tool leaf is NOT an invoke_callee cascade (no wrapper, no invocation chain)", () => {
     // Spec: the failure "feeds its failure back as a tool-error result, not an
     // `invoke_callee` cascade". The surfaced QueryError is a leaf model_tool —
@@ -129,7 +129,7 @@ describe("E2E S5 / REQ-SLSH-23 — model-invoked .loom-callable tool-error surfa
     // The correct model-invoked surface: leaf model_tool + EMPTY chain (no V15g
     // invocation record exists, because no invoke_callee hop was produced).
     const err = modelTool("my_summariser", "adapter failed");
-    const expected = `loom /entry returned Err: tool my_summariser failed ${DASH} adapter failed`;
+    const expected = `theta /entry returned Err: tool my_summariser failed ${DASH} adapter failed`;
 
     // Boundary render == the bare per-kind row: no chain suffix appended.
     expect(boundaryNoChain("entry", err)).toBe(expected);
@@ -141,10 +141,10 @@ describe("E2E S5 / REQ-SLSH-23 — model-invoked .loom-callable tool-error surfa
   });
 
   it("REQ-SLSH-23: a code_tool (unknown_tool) tool-error surface renders SNK-g with NO chain suffix", () => {
-    // The only code_tool a .loom callable can raise (tool-calls.md:36) — still a
+    // The only code_tool a .theta callable can raise (tool-calls.md:36) — still a
     // leaf with an empty chain, so no suffix.
     const err = unknownToolCode("my_summariser", "no such tool");
-    const expected = `loom /entry returned Err: tool my_summariser call failed (unknown_tool) ${DASH} no such tool`;
+    const expected = `theta /entry returned Err: tool my_summariser call failed (unknown_tool) ${DASH} no such tool`;
 
     expect(boundaryNoChain("entry", err)).toBe(expected);
     expect(boundaryNoChain("entry", err)).not.toContain(SUFFIX_MARKER);
@@ -152,13 +152,13 @@ describe("E2E S5 / REQ-SLSH-23 — model-invoked .loom-callable tool-error surfa
   });
 
   it("REQ-SLSH-23 vs REQ-SLSH-22: identical leaf kind — no suffix on the tool-error surface, suffix on the invoke cascade", () => {
-    // Hold the LEAF fixed (a transport failure inside child.loom) and vary ONLY
+    // Hold the LEAF fixed (a transport failure inside child.theta) and vary ONLY
     // the surface. This isolates the SLSH-5 discriminator: the chain suffix is
     // a function of the invoke_callee cascade (populated chain), NOT of the leaf
     // kind. The tool-error surface (leaf + empty chain) MUST omit it; the direct
     // invoke(...) cascade (invoke_callee wrapper + one hop) MUST include it.
     const leaf = transport("connection reset");
-    const row = `loom /entry returned Err: transport ${DASH} connection reset`;
+    const row = `theta /entry returned Err: transport ${DASH} connection reset`;
 
     // REQ-SLSH-23 surface: model-invoked during a @-query loop → tool-error
     // result → leaf, empty chain → no suffix.
@@ -168,14 +168,14 @@ describe("E2E S5 / REQ-SLSH-23 — model-invoked .loom-callable tool-error surfa
 
     // REQ-SLSH-22 surface (contrast, covered in err-note-render.test.ts): a
     // direct invoke(...) cascade → invoke_callee wrapper + one V15g hop → suffix.
-    const cascade = calleeWrap("/abs/child.loom", leaf);
+    const cascade = calleeWrap("/abs/child.theta", leaf);
     const cascadeNote = renderTopLevelErrNote({
-      loomName: "entry",
+      thetaName: "entry",
       error: cascade,
-      chain: [hop("/abs/child.loom", "/abs/parent.loom", 42)],
+      chain: [hop("/abs/child.theta", "/abs/parent.theta", 42)],
     });
     expect(cascadeNote).toBe(
-      `${row} from /abs/child.loom invoked at /abs/parent.loom:42`,
+      `${row} from /abs/child.theta invoked at /abs/parent.theta:42`,
     );
     expect(cascadeNote).toContain(SUFFIX_MARKER);
 

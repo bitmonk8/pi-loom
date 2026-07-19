@@ -1,13 +1,13 @@
 # Reference — Schema subset
 
-The JSON-Schema subset Loom emits and enforces, plus the lowering algorithm,
+The JSON-Schema subset Theta emits and enforces, plus the lowering algorithm,
 depth enforcement, and the canonical schema hash. See [Type
 system](./type-system.md) for the compatibility relation, [Grammar](./grammar.md)
 for `schema`/`enum` productions, [Diagnostics](./diagnostics.md) for codes.
 
 ## The subset
 
-Loom's `schema` keyword targets a fixed, loom-defined subset of JSON Schema, not
+Theta's `schema` keyword targets a fixed, theta-defined subset of JSON Schema, not
 the full standard. The normative subset:
 
 - **Types**: `string`, `number`, `integer`, `boolean`, `object`, `array`, `null`.
@@ -16,7 +16,7 @@ the full standard. The normative subset:
 - **Validation**: `enum`, `const`.
 - **Objects**: `properties`, `required` (must list *every* declared property),
   `additionalProperties: false` (always emitted).
-- **Arrays**: `items` (single subschema). Bare `array` is not a Loom type; use
+- **Arrays**: `items` (single subschema). Bare `array` is not a Theta type; use
   `array<T>`.
 - **Reuse**: `$defs` + `$ref`, including recursive references. Generated
   automatically by the lowering pass; authors do not write `$defs`/`$ref`.
@@ -42,16 +42,16 @@ Explicitly **not** supported (rejected at parse time): `pattern`, `format`,
 declared field is **required** (lowered `required` lists every property;
 `additionalProperties: false` always emitted). Optional fields are `T | null` (no
 `field?: T`; non-existence and explicit-`null` are conflated). Empty body is
-`loom/parse/empty-schema-body`.
+`theta/parse/empty-schema-body`.
 
 **Wire-name renaming.** `field as "WireName": T` between identifier and type. The
-loom-side name is used everywhere in code; the wire name appears only in the
+theta-side name is used everywhere in code; the wire name appears only in the
 lowered `properties`/`required` keys and in validated/constructed JSON. Rules: a
 single non-empty string literal; two fields cannot share a wire name and a wire
-name cannot collide with another field's loom name
-(`loom/parse/wire-name-collision`); a redundant rename (`field_name as "field_name"`)
-is `loom/parse/redundant-wire-name` (warning). For discriminated unions, detection
-runs on the wire name; the explicit `by <field>` form accepts the loom-side name.
+name cannot collide with another field's theta name
+(`theta/parse/wire-name-collision`); a redundant rename (`field_name as "field_name"`)
+is `theta/parse/redundant-wire-name` (warning). For discriminated unions, detection
+runs on the wire name; the explicit `by <field>` form accepts the theta-side name.
 
 ### Type-alias / union schema
 
@@ -63,26 +63,26 @@ object unions (discriminated), and references to other named types.
 `enum X { ... }`. Variant names PascalCase; by default the variant name is the
 model-produced string (`Low` → `"Low"`); explicit values override
 (`Low = "low"`). Top-level only (no inline `enum["a", "b"]` —
-`loom/parse/inline-enum`; use a literal union). String values only
-(`loom/parse/non-string-enum-value`). Duplicate explicit values across variants:
-`loom/parse/duplicate-enum-value`. Two variants sharing an identifier:
-`loom/parse/duplicate-enum-variant-name` (name check runs first). Empty body:
-`loom/parse/empty-enum-body`. `Enum.Variant` evaluates to the underlying string
+`theta/parse/inline-enum`; use a literal union). String values only
+(`theta/parse/non-string-enum-value`). Duplicate explicit values across variants:
+`theta/parse/duplicate-enum-value`. Two variants sharing an identifier:
+`theta/parse/duplicate-enum-variant-name` (name check runs first). Empty body:
+`theta/parse/empty-enum-body`. `Enum.Variant` evaluates to the underlying string
 value but is statically typed `Enum`; unknown variant is
-`loom/parse/unknown-variant`.
+`theta/parse/unknown-variant`.
 
 ### Discriminated unions
 
 A `schema X = A | B | C` of object schemas. The discriminator field is normally
 detected implicitly; it must be present in every variant, a single **string**
 literal type per variant, and unique across variants. Numeric/boolean
-discriminators are rejected (`loom/parse/non-string-discriminator`). Exactly one
+discriminators are rejected (`theta/parse/non-string-discriminator`). Exactly one
 qualifying field is the discriminator; multiple →
-`loom/parse/ambiguous-discriminator`; none → `loom/parse/missing-discriminator`.
+`theta/parse/ambiguous-discriminator`; none → `theta/parse/missing-discriminator`.
 Explicit form `schema Animal by species = Cat | Dog | Lizard` overrides detection
-(`by` on an object body is `loom/parse/by-on-object-schema`). Duplicate
-discriminator values: `loom/parse/duplicate-discriminator-value`; a
-non-top-level discriminator: `loom/parse/nested-discriminator`. Mixed unions
+(`by` on an object body is `theta/parse/by-on-object-schema`). Duplicate
+discriminator values: `theta/parse/duplicate-discriminator-value`; a
+non-top-level discriminator: `theta/parse/nested-discriminator`. Mixed unions
 (`string | Author`, `Author | null`) are not discriminated — they lower as plain
 `anyOf` (or the multi-type-array form when all arms are primitives).
 
@@ -91,7 +91,7 @@ non-top-level discriminator: `loom/parse/nested-discriminator`. Mixed unions
 Any named-schema reference lowers to `$ref` against `$defs`; self- and mutual
 recursion are supported transparently. The depth ceiling applies to runtime JSON
 data depth, not the schema graph. Pure-alias cycles (`schema X = X`, or transitive
-through aliases) are `loom/parse/type-alias-cycle`; cycles through at least one
+through aliases) are `theta/parse/type-alias-cycle`; cycles through at least one
 object-schema hop remain legal.
 
 ## Depth enforcement
@@ -108,21 +108,21 @@ Worked examples: `42` → 1 (accepted); `{"a": 1}` → 2 (accepted);
 (rejected).
 
 **Enforcement points.** The walk runs before AJV at every site where a
-Loom-declared schema is validated against runtime JSON: (1) typed-query response;
+Theta-declared schema is validated against runtime JSON: (1) typed-query response;
 (2) tool-call args, model-driven; (3) tool-call args, code-driven; (4) `params`
-validation at loom invocation; (5) `invoke<T>` return value.
+validation at theta invocation; (5) `invoke<T>` return value.
 
 **Error shape.** A depth violation always carries `schema_keyword: "maxDepth"`,
 the canonical message `"JSON document depth exceeds 5"`, and `cause:
-"schema_validation"`. `"maxDepth"` is the only `schema_keyword` value Loom emits
+"schema_validation"`. `"maxDepth"` is the only `schema_keyword` value Theta emits
 that is not a literal AJV keyword. Routing is boundary-dependent (per the ceiling
 #4 table in [Hard ceilings](./hard-ceilings.md)):
 
 | Enforcement point | Destination | Surface |
 |---|---|---|
-| #1 Typed-query response | loom code | `Err(QueryError { kind: "validation", cause: "schema_validation", validation_errors: [{ schema_keyword: "maxDepth", ... }], ... })` |
+| #1 Typed-query response | theta code | `Err(QueryError { kind: "validation", cause: "schema_validation", validation_errors: [{ schema_keyword: "maxDepth", ... }], ... })` |
 | #2 Tool-call args, model-driven | the model | tool-error result fed back as next user turn; round counts against `tool_loop.max_rounds`; not `ModelToolError` |
-| #3 Tool-call args, code-driven | loom code | `Err(CodeToolError { cause: "validation", validation_errors: [...], ... })` |
+| #3 Tool-call args, code-driven | theta code | `Err(CodeToolError { cause: "validation", validation_errors: [...], ... })` |
 | #4 `params` validation | depends on call site | `invoke(...)`: `Err(InvokeInfraError { cause: "validation", ... })`. Slash-load: routes through ceiling #3's no-retry classification (binder AJV-on-`args`); not an evaluation outcome |
 | #5 `invoke<T>` return value | invoke parent | `Err(InvokeInfraError { cause: "return_validation", ... })` |
 
@@ -135,15 +135,15 @@ still installed).
 
 ## Lowering algorithm
 
-Each loom file is lowered to a JSON Schema document at parse time:
+Each theta file is lowered to a JSON Schema document at parse time:
 
 1. **Collects every named schema** (top-level + transitively imported from
-   `.warp`) into `$defs/<Name>`.
+   `.thetalib`) into `$defs/<Name>`.
 2. **Hoists anonymous inline object schemas** (`{ field: T }`) into `$defs` under
    `__inline_<slug>`, where `<slug>` is the schema slug of the lowered fragment.
    Two inline schemas collapse to one entry only when their lowered fragments are
    byte-identical (verified via the slug-collision byte-equality check); a slug
-   match with non-byte-identical fragments is `loom/load/schema-slug-collision`.
+   match with non-byte-identical fragments is `theta/load/schema-slug-collision`.
 3. **Emits per type form:** primitive → `{ "type": "<primitive>" }`; named/inline
    reference → `{ "$ref": "#/$defs/<Name>" }`; `array<T>` →
    `{ "type": "array", "items": <T-lowered> }`; object →
@@ -158,16 +158,16 @@ Each loom file is lowered to a JSON Schema document at parse time:
      `{ "anyOf": [{ "type": "string" }, { "$ref": "#/$defs/Author" }] }`.
    - Discriminated object union → `{ "anyOf": [<A>, <B>] }`; the `discriminator`
      keyword is not emitted (each variant carries its own `const`-typed field).
-   - `Result<T, E>` is not lowerable (`loom/parse/result-in-schema-position`
+   - `Result<T, E>` is not lowerable (`theta/parse/result-in-schema-position`
      fires before lowering).
    - **Array element order** — `required`, `enum`, the `{ "type": [...] }`
-     primitive-union form, and `anyOf` all emit in loom-source declaration order
+     primitive-union form, and `anyOf` all emit in theta-source declaration order
      (with `"null"` last whenever the union admits it).
 4. **Per-query schema document** is built lazily: the query's response schema is
    the root, and only transitively-reachable `$defs` are copied in (unused pruned).
 5. **Per-schema sidecar** captures a *wire-name translation* map and a
    *named-enum positions* map (keyed by JSON Pointer, valued by declaring-enum
-   loom-side name; anonymous string-literal-union positions absent). The inbound
+   theta-side name; anonymous string-literal-union positions absent). The inbound
    translation pass reads the latter to reattach enum tags.
 6. **Discriminator detection** runs on the lowered `anyOf` form (parse-time sanity
    check; no extra marker emitted).
@@ -179,7 +179,7 @@ Lowering is a pure function of the parsed source, performed once per file load.
 The recipe that content-addresses a lowered fragment; its 16-hex output is the
 **schema slug**.
 
-1. **Input** — the lowered JSON Schema fragment (not the loom-side AST).
+1. **Input** — the lowered JSON Schema fragment (not the theta-side AST).
 2. **Canonical form** — deterministic UTF-8 JSON: object keys sorted by Unicode
    code-point order; no insignificant whitespace; embedded numeric literals
    serialised by the `integer`/`number` rendering algorithm (e.g. `1e21` →
@@ -193,12 +193,12 @@ The recipe that content-addresses a lowered fragment; its 16-hex output is the
 `schema-hash`, `sha12`, `lowered-schema hash`, `lowered-schema content hash`.
 
 **Synthesised names** (source of truth for the full set): `__inline_<slug>`
-(hoisted inline object schemas); `__loom_respond_<slug>` (typed-query one-shot
-tool); `__loom_callee_<slug>__<post-rename-name>` (prompt-mode registered tool of
-a `.loom` callee); `__loom_bind_<slug>` (binder's structured-output tool).
+(hoisted inline object schemas); `__theta_respond_<slug>` (typed-query one-shot
+tool); `__theta_callee_<slug>__<post-rename-name>` (prompt-mode registered tool of
+a `.theta` callee); `__theta_bind_<slug>` (binder's structured-output tool).
 
 Canonical-form key sorting is independent of the emitted `$defs` property order:
-the hash sorts keys for reproducibility; the emitted schema retains loom-source
+the hash sorts keys for reproducibility; the emitted schema retains theta-source
 field order.
 
 **Schema-slug collision posture.** Because the slug is a 64-bit SHA-256
@@ -207,9 +207,9 @@ cache/dedup table verifies byte-equality of canonical-form bytes on a slug match
 before treating the two as the same fragment; on a byte-mismatch it surfaces a
 diagnostic and disambiguates rather than aliasing. The three slug-keyed sites and
 their diagnostics: the `__inline_<slug>` `$defs` dedup →
-`loom/load/schema-slug-collision`; the per-query AJV compiled-validator cache →
-`loom/runtime/validator-cache-collision`; the prompt-mode `pi.registerTool`
-registration cache → `loom/runtime/registration-cache-collision` (with a
+`theta/load/schema-slug-collision`; the per-query AJV compiled-validator cache →
+`theta/runtime/validator-cache-collision`; the prompt-mode `pi.registerTool`
+registration cache → `theta/runtime/registration-cache-collision` (with a
 counter-suffixed disambiguation).
 
 ## Provenance

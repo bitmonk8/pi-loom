@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { loadExtension } from "./harness/index";
-import type { LoomFixture } from "../src/extension/factory";
+import type { ThetaFixture } from "../src/extension/factory";
 import {
   ACCEPTANCE_SURFACES,
   type AcceptanceSurface,
@@ -32,7 +32,7 @@ import {
 // the H4a harness loads here and the V18c gate functions produce real results).
 // The paired V18d implementation fills the seam bodies in and turns these green.
 
-// --- restored-prior-pin operands (the loom 1.0 Pi-SDK pin, per V18c-T) -------
+// --- restored-prior-pin operands (the theta 1.0 Pi-SDK pin, per V18c-T) -------
 
 const PRIOR_ENGINES_FLOOR = ">=22.19.0";
 const PRIOR_PEER_DEP_PIN = "~0.75.5";
@@ -61,7 +61,7 @@ function priorPeerDependencies(): Readonly<Record<string, string>> {
  * shaped as the `StaticGateReRun` list `verifyRevertSequence` consumes.
  */
 function reRunV18cStaticGates(operands: {
-  readonly loomEnginesLiteral: string;
+  readonly thetaEnginesLiteral: string;
   readonly inventoryEnginesPinned: string;
   readonly liveUpstreamEngines: string;
   readonly peerDependencies: Readonly<Record<string, string>>;
@@ -73,7 +73,7 @@ function reRunV18cStaticGates(operands: {
     {
       gate: "engines.node three-way equality",
       failures: enginesNodeEqualityFailures(
-        operands.loomEnginesLiteral,
+        operands.thetaEnginesLiteral,
         operands.inventoryEnginesPinned,
         operands.liveUpstreamEngines,
       ),
@@ -100,11 +100,11 @@ function reRunV18cStaticGates(operands: {
 describe("V18d runtime-evidence acceptance gate (cka-19, output (c))", () => {
   it("cka-19: the H4a end-to-end harness is the driver of the acceptance run", async () => {
     // The gate is composed on top of the H4a harness double — it is driven
-    // against a feature-free harness, not an integrated `.loom`. Loading and
+    // against a feature-free harness, not an integrated `.theta`. Loading and
     // dispatching a no-op through the harness witnesses that the harness the
     // acceptance run consumes is present and driveable at the bumped pin.
     let ran = false;
-    const noop: LoomFixture = {
+    const noop: ThetaFixture = {
       slashName: "accept-noop",
       run: async () => {
         ran = true;
@@ -130,7 +130,7 @@ describe("V18d runtime-evidence acceptance gate (cka-19, output (c))", () => {
   it("cka-19: a green surface-inventory run alone does NOT satisfy acceptance", () => {
     // Output (a) green, but the H4a harness runtime-evidence run (output (c))
     // was never driven — acceptance MUST still red, because the build-time
-    // surface-inventory assertions alone do not exercise the loom against the
+    // surface-inventory assertions alone do not exercise the theta against the
     // bumped SDK at runtime (version-bump-triggers.md output (c)).
     const inventoryGreenNoHarnessRun = {
       harnessDriven: false,
@@ -145,7 +145,7 @@ describe("V18d runtime-evidence acceptance gate (cka-19, output (c))", () => {
   });
 
   it("cka-19: a harness run missing one of the six surfaces does NOT satisfy acceptance", () => {
-    // The `.loom` is selected solely by the six-surface coverage requirement;
+    // The `.theta` is selected solely by the six-surface coverage requirement;
     // dropping `cancellation` leaves acceptance unsatisfied even with green
     // assertions and a green surface inventory.
     const missingSurface = {
@@ -164,7 +164,7 @@ describe("V18d runtime-evidence acceptance gate (cka-19, output (c))", () => {
 // --- revert / rollback verification -----------------------------------------
 
 describe("V18d revert / rollback verification (cka-19, merge-blocking MUST)", () => {
-  it("cka-19: pinned reason snapshot equals the loom 1.0 SDK reason union (prior-pin operand)", () => {
+  it("cka-19: pinned reason snapshot equals the theta 1.0 SDK reason union (prior-pin operand)", () => {
     // Anchors the restored-prior-pin snapshot operand the revert re-runs against.
     expect(SESSION_SHUTDOWN_REASON_SNAPSHOT.literals).toEqual(PRIOR_REASON_UNION);
   });
@@ -172,7 +172,7 @@ describe("V18d revert / rollback verification (cka-19, merge-blocking MUST)", ()
   it("cka-19: complete revert — every re-run V18c static gate green ⇒ the revert is observed complete", () => {
     // Every operand restored to the prior pin ⇒ all re-run V18c gates green.
     const reRuns = reRunV18cStaticGates({
-      loomEnginesLiteral: PRIOR_ENGINES_FLOOR,
+      thetaEnginesLiteral: PRIOR_ENGINES_FLOOR,
       inventoryEnginesPinned: PRIOR_ENGINES_FLOOR,
       liveUpstreamEngines: PRIOR_ENGINES_FLOOR,
       peerDependencies: priorPeerDependencies(),
@@ -196,7 +196,7 @@ describe("V18d revert / rollback verification (cka-19, merge-blocking MUST)", ()
     // engines.node gate reddens, so the revert is incomplete and MUST be widened.
     const CANDIDATE_ENGINES_FLOOR = ">=24.0.0";
     const reRuns = reRunV18cStaticGates({
-      loomEnginesLiteral: CANDIDATE_ENGINES_FLOOR,
+      thetaEnginesLiteral: CANDIDATE_ENGINES_FLOOR,
       inventoryEnginesPinned: PRIOR_ENGINES_FLOOR,
       liveUpstreamEngines: PRIOR_ENGINES_FLOOR,
       peerDependencies: priorPeerDependencies(),

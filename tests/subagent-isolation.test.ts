@@ -112,7 +112,7 @@ async function flush(): Promise<void> {
 // ===========================================================================
 
 describe("V9i-T — PIC-40 pre-spawn model guard", () => {
-  it("PIC-40: an unresolved (undefined) model refuses the spawn with loom/runtime/subagent-model-unresolved", () => {
+  it("PIC-40: an unresolved (undefined) model refuses the spawn with theta/runtime/subagent-model-unresolved", () => {
     const outcome = preSpawnModelGuard(undefined);
 
     // PIC-40: `model === undefined` MUST NOT proceed; the diagnostic carries the
@@ -149,7 +149,7 @@ describe("V9i-T — PIC-40 pre-spawn model guard", () => {
 // ===========================================================================
 
 describe("V9i-T — PIC-23 / PIC-41 / isolation spawn-options", () => {
-  const customTools: LoweredTool[] = [{ name: "loom-x" }, { name: "loom-y" }];
+  const customTools: LoweredTool[] = [{ name: "theta-x" }, { name: "theta-y" }];
 
   function makeDeps(): { deps: SpawnDeps; defaultLoaderCalls: number; inMemoryFor: string[] } {
     let defaultLoaderCalls = 0;
@@ -176,22 +176,22 @@ describe("V9i-T — PIC-23 / PIC-41 / isolation spawn-options", () => {
     };
   }
 
-  it("PIC-23: the spawn passes the loom-constructed ResourceLoader adapter and does not use DefaultResourceLoader.systemPromptOverride", () => {
+  it("PIC-23: the spawn passes the theta-constructed ResourceLoader adapter and does not use DefaultResourceLoader.systemPromptOverride", () => {
     const harness = makeDeps();
     const options = buildSpawnOptions(
       {
         customTools,
-        loomSystemPrompt: "you are a subagent",
+        thetaSystemPrompt: "you are a subagent",
         model: "claude-x",
         cwd: "/work",
-        loomAbort: new AbortController(),
+        thetaAbort: new AbortController(),
       },
       harness.deps,
     );
 
     // PIC-23: the `systemPromptOverride` construction channel MUST NOT be used.
     expect(harness.defaultLoaderCalls).toBe(0);
-    // The loom-constructed adapter delivers `system:` verbatim and appends nothing.
+    // The theta-constructed adapter delivers `system:` verbatim and appends nothing.
     expect(options.resourceLoader.getSystemPrompt()).toBe("you are a subagent");
     expect(options.resourceLoader.getAppendSystemPrompt()).toEqual([]);
   });
@@ -201,10 +201,10 @@ describe("V9i-T — PIC-23 / PIC-41 / isolation spawn-options", () => {
     const options = buildSpawnOptions(
       {
         customTools,
-        loomSystemPrompt: "sp",
+        thetaSystemPrompt: "sp",
         model: "claude-x",
         cwd: "/work",
-        loomAbort: new AbortController(),
+        thetaAbort: new AbortController(),
       },
       harness.deps,
     );
@@ -218,10 +218,10 @@ describe("V9i-T — PIC-23 / PIC-41 / isolation spawn-options", () => {
     const options = buildSpawnOptions(
       {
         customTools,
-        loomSystemPrompt: "sp",
+        thetaSystemPrompt: "sp",
         model: "claude-x",
         cwd: "/work",
-        loomAbort: new AbortController(),
+        thetaAbort: new AbortController(),
       },
       harness.deps,
     );
@@ -231,7 +231,7 @@ describe("V9i-T — PIC-23 / PIC-41 / isolation spawn-options", () => {
     // callable-set names.
     expect(harness.inMemoryFor).toEqual(["/work"]);
     expect(options.sessionManager).toEqual({ __inMemory: true, cwd: "/work" });
-    expect([...options.tools]).toEqual(["loom-x", "loom-y"]);
+    expect([...options.tools]).toEqual(["theta-x", "theta-y"]);
   });
 });
 
@@ -255,31 +255,31 @@ describe("V9i-T — PIC-41 abort forwarding", () => {
     };
   }
 
-  it("PIC-41: a loomAbort abort forwards to AgentSession.abort() via the one-shot listener", () => {
-    const loomAbort = new AbortController();
+  it("PIC-41: a thetaAbort abort forwards to AgentSession.abort() via the one-shot listener", () => {
+    const thetaAbort = new AbortController();
     // Keep `rec` un-spread so `rec.abortCalls` reads the live getter; object-rest
     // (`...rec`) would snapshot the getter to its value at destructure time.
     const rec = makeSession();
     const { session } = rec;
 
-    attachSubagentAbortForwarding(loomAbort, session);
+    attachSubagentAbortForwarding(thetaAbort, session);
     expect(rec.abortCalls).toBe(0);
 
-    loomAbort.abort(new Error("cancelled"));
+    thetaAbort.abort(new Error("cancelled"));
     // PIC-41: cancellation is forwarded solely via the one-shot listener calling
     // `AgentSession.abort()`.
     expect(rec.abortCalls).toBe(1);
   });
 
-  it("PIC-41: an already-aborted loomAbort at attach time calls AgentSession.abort() synchronously", () => {
-    const loomAbort = new AbortController();
-    loomAbort.abort(new Error("pre-aborted"));
+  it("PIC-41: an already-aborted thetaAbort at attach time calls AgentSession.abort() synchronously", () => {
+    const thetaAbort = new AbortController();
+    thetaAbort.abort(new Error("pre-aborted"));
     // Keep `rec` un-spread so `rec.abortCalls` reads the live getter; object-rest
     // (`...rec`) would snapshot the getter to its value at destructure time.
     const rec = makeSession();
     const { session } = rec;
 
-    attachSubagentAbortForwarding(loomAbort, session);
+    attachSubagentAbortForwarding(thetaAbort, session);
 
     // PIC-41: the spawn-then-immediate-cancel path — `abort()` fires synchronously
     // before the listener is registered.
@@ -508,7 +508,7 @@ describe("V9i-T — PIC-9 subagent session lifecycle", () => {
     expect(disposeCalls).toBe(1);
   });
 
-  it("PIC-9: a dispose() throw is logged as advisory loom/runtime/subagent-dispose-failure and does not mask the Ok", async () => {
+  it("PIC-9: a dispose() throw is logged as advisory theta/runtime/subagent-dispose-failure and does not mask the Ok", async () => {
     const h = makeTeardown(() => {
       throw new DisposeFailure();
     });
@@ -525,7 +525,7 @@ describe("V9i-T — PIC-9 subagent session lifecycle", () => {
     );
 
     // PIC-9: the disposal throw never promotes the Ok to an Err — the caller
-    // still observes the loom's Ok final value.
+    // still observes the theta's Ok final value.
     expect(value).toBe("ok");
     // PIC-9: the advisory diagnostic (registry Message column
     // `subagent dispose failed: <dispose error first line>`) is emitted.

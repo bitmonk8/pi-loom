@@ -31,7 +31,7 @@ async function rejectionCode(p: Promise<unknown>): Promise<string | undefined> {
 // --------------------------------------------------------------------------
 
 describe("V8b — FakeFileSystem (PIC-13 seam contract)", () => {
-  const HOME = "/home/loom";
+  const HOME = "/home/theta";
   const CWD = "/project";
   const INVALID_UTF8 = new Uint8Array([0x68, 0x69, 0xff, 0xfe]); // "hi" + lone bytes
 
@@ -66,15 +66,15 @@ describe("V8b — FakeFileSystem (PIC-13 seam contract)", () => {
   });
 
   it("lexical.md §Encoding: readBytes returns the raw pre-decode bytes (Uint8Array), preserving invalid UTF-8", async () => {
-    const fs = fake({ files: { "/src.loom": INVALID_UTF8 } });
-    const bytes = await fs.readBytes("/src.loom");
+    const fs = fake({ files: { "/src.theta": INVALID_UTF8 } });
+    const bytes = await fs.readBytes("/src.theta");
     expect(bytes).toBeInstanceOf(Uint8Array);
     expect(Array.from(bytes)).toEqual(Array.from(INVALID_UTF8));
   });
 
   it("lexical.md §Encoding: readBytes carries the same ENOENT / EACCES / EPERM `.code` mapping as readText", async () => {
     const fs = fake({ errors: { "/locked": "EACCES", "/denied": "EPERM" } });
-    expect(await rejectionCode(fs.readBytes("/missing.loom"))).toBe("ENOENT");
+    expect(await rejectionCode(fs.readBytes("/missing.theta"))).toBe("ENOENT");
     expect(await rejectionCode(fs.readBytes("/locked"))).toBe("EACCES");
     expect(await rejectionCode(fs.readBytes("/denied"))).toBe("EPERM");
   });
@@ -105,8 +105,8 @@ describe("V8b — FakeFileSystem (PIC-13 seam contract)", () => {
   });
 
   it("PIC-13: readdir returns entry names only (no full paths)", async () => {
-    const fs = fake({ dirs: { "/d": ["a.loom", "b.warp", "sub"] } });
-    await expect(fs.readdir("/d")).resolves.toEqual(["a.loom", "b.warp", "sub"]);
+    const fs = fake({ dirs: { "/d": ["a.theta", "b.thetalib", "sub"] } });
+    await expect(fs.readdir("/d")).resolves.toEqual(["a.theta", "b.thetalib", "sub"]);
   });
 
   it("PIC-13 entry-name encoding guarantee: readdir returns NFD bytes un-normalised (not folded to NFC)", async () => {
@@ -192,9 +192,9 @@ describe("V8b — PiFileSystem (PIC-13 production adapter)", () => {
   let dir: string;
 
   beforeAll(async () => {
-    dir = mkdtempSync(path.join(os.tmpdir(), "loom-v8b-"));
+    dir = mkdtempSync(path.join(os.tmpdir(), "theta-v8b-"));
     await writeFile(path.join(dir, "text.txt"), "hello", "utf8");
-    await writeFile(path.join(dir, "raw.loom"), Buffer.from([0x68, 0x69, 0xff, 0xfe]));
+    await writeFile(path.join(dir, "raw.theta"), Buffer.from([0x68, 0x69, 0xff, 0xfe]));
     await mkdir(path.join(dir, "subdir"));
   });
 
@@ -209,7 +209,7 @@ describe("V8b — PiFileSystem (PIC-13 production adapter)", () => {
 
   it("lexical.md §Encoding: readBytes returns the file's raw pre-decode bytes including invalid UTF-8", async () => {
     const fs = new PiFileSystem();
-    const bytes = await fs.readBytes(path.join(dir, "raw.loom"));
+    const bytes = await fs.readBytes(path.join(dir, "raw.theta"));
     expect(bytes).toBeInstanceOf(Uint8Array);
     expect(Array.from(bytes)).toEqual([0x68, 0x69, 0xff, 0xfe]);
   });
@@ -244,7 +244,7 @@ describe("V8b — PiFileSystem (PIC-13 production adapter)", () => {
     const fs = new PiFileSystem();
     const captured = fs.cwd();
     expect(captured).toBe(original);
-    const tmp = mkdtempSync(path.join(os.tmpdir(), "loom-cwd-"));
+    const tmp = mkdtempSync(path.join(os.tmpdir(), "theta-cwd-"));
     try {
       process.chdir(tmp);
       // Captured once at construction — a later process.chdir must not change it.

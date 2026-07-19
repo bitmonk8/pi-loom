@@ -1,27 +1,27 @@
 import { describe, expect, it } from "vitest";
 import type { Diagnostic } from "../src/diagnostics/diagnostic";
-import type { LoomSource } from "../src/lexer/lexer";
+import type { ThetaSource } from "../src/lexer/lexer";
 import type {
   SystemNoteChannelDeps,
   SystemNoteSender,
 } from "../src/extension/system-note-channel";
 import type { ModelReferenceMatcher } from "../src/parser/frontmatter";
 import {
-  parseLoomDocument,
+  parseThetaDocument,
   type Expr,
   type ExportDecl,
   type ForStmt,
   type FnDecl,
   type ImportDecl,
   type LetStmt,
-  type LoomDocument,
+  type ThetaDocument,
   type MatchExpr,
   type ObjectExpr,
-  type ParseLoomDocumentDeps,
+  type ParseThetaDocumentDeps,
   type QueryStmt,
   type ReassignStmt,
   type TryExpr,
-} from "../src/parser/loom-document";
+} from "../src/parser/theta-document";
 import {
   DISCARDED_QUERY_RESULT_CODE,
   DISCARDED_QUERY_RESULT_MESSAGE,
@@ -30,7 +30,7 @@ import {
 // V19a-T — failing tests for the paired `V19a` whole-program parser.
 //
 // Spec: implementation-notes.md §Parser *Contract* — the un-anchored
-// whole-`.loom`/`.warp`-file parse into the executable `LoomBody ::= Stmt* Expr?`
+// whole-`.theta`/`.thetalib`-file parse into the executable `ThetaBody ::= Stmt* Expr?`
 // body statement-list AST the interpreter walks (`cka-49`), covering every
 // top-level statement / declaration kind (grammar.md §"Block expressions",
 // §"fn declarations", §"schema X by <field>", §"/// placement",
@@ -45,7 +45,7 @@ import {
 // re-closed.
 //
 // These tests red because the `V19a` whole-file parser is absent —
-// `parseLoomDocument` is an inert stub returning an empty body, no frontmatter,
+// `parseThetaDocument` is an inert stub returning an empty body, no frontmatter,
 // and no diagnostics — so each test reds on its own primary assertion (an empty
 // body where a node was expected, a missing tail `Expr`, a wrong statement count
 // where continuation should have joined / split a statement, or an empty
@@ -55,7 +55,7 @@ import {
 // --- seam doubles ---------------------------------------------------------
 
 function recordingDeps(): {
-  deps: ParseLoomDocumentDeps;
+  deps: ParseThetaDocumentDeps;
   delivered: Diagnostic[][];
 } {
   const delivered: Diagnostic[][] = [];
@@ -79,23 +79,23 @@ function recordingDeps(): {
   return { deps: { systemNote, modelMatcher }, delivered };
 }
 
-/** Parse a UTF-8 `.loom` source string into a {@link LoomDocument}. */
-function parse(src: string, path = "test.loom"): LoomDocument {
+/** Parse a UTF-8 `.theta` source string into a {@link ThetaDocument}. */
+function parse(src: string, path = "test.theta"): ThetaDocument {
   const { deps } = recordingDeps();
-  const source: LoomSource = {
+  const source: ThetaSource = {
     path,
     bytes: new TextEncoder().encode(src),
   };
-  return parseLoomDocument(source, deps);
+  return parseThetaDocument(source, deps);
 }
 
 // --------------------------------------------------------------------------
 // cka-49 — whole-file body-AST production
 // --------------------------------------------------------------------------
 
-describe("cka-49: whole-file parse into the LoomBody statement-list AST", () => {
+describe("cka-49: whole-file parse into the ThetaBody statement-list AST", () => {
   it("parses the entire file — not a single expression — into { frontmatter, body, diagnostics }", () => {
-    // cka-49 (implementation-notes.md §Parser *Contract*): the whole `.loom`
+    // cka-49 (implementation-notes.md §Parser *Contract*): the whole `.theta`
     // file, every top-level form, is walked into the executable body.
     const doc = parse(
       ["let a = 1", "let b = 2", "let c = 3"].join("\n"),
@@ -110,7 +110,7 @@ describe("cka-49: whole-file parse into the LoomBody statement-list AST", () => 
     expect(doc.body.statements.length).toBeGreaterThanOrEqual(3);
   });
 
-  it("captures the optional trailing tail Expr (LoomBody = Stmt* Expr?)", () => {
+  it("captures the optional trailing tail Expr (ThetaBody = Stmt* Expr?)", () => {
     // cka-49: the final expression of the file is the body's tail `Expr`.
     const doc = parse(["let a = 1", "a + 1"].join("\n"));
     expect(doc.body.tail).not.toBeNull();
@@ -131,7 +131,7 @@ describe("cka-49: whole-file parse into the LoomBody statement-list AST", () => 
 // --------------------------------------------------------------------------
 
 describe("cka-49: statement-kind coverage", () => {
-  // A representative program exercising every statement kind the LoomBody
+  // A representative program exercising every statement kind the ThetaBody
   // admits; break / continue sit inside a loop and return inside a fn body per
   // their placement rules.
   const program = [
@@ -161,7 +161,7 @@ describe("cka-49: statement-kind coverage", () => {
     "",
     "count",
     "greet(\"world\")",
-    "invoke(\"./child.loom\", count)",
+    "invoke(\"./child.theta\", count)",
     "@`Summarise the count.`",
     "count + total",
   ].join("\n");
@@ -257,8 +257,8 @@ describe("cka-49: declaration-kind coverage", () => {
     "",
     "enum Color { Red, Green }",
     "",
-    "import { helper } from \"./lib.warp\"",
-    "export { helper } from \"./lib.warp\"",
+    "import { helper } from \"./lib.thetalib\"",
+    "export { helper } from \"./lib.thetalib\"",
   ].join("\n");
 
   it("parses schema into a SchemaDecl node", () => {
@@ -282,8 +282,8 @@ describe("cka-49: declaration-kind coverage", () => {
     const exp = body.statements.find(
       (s): s is ExportDecl => s.kind === "export",
     );
-    expect(imp?.path).toBe("./lib.warp");
-    expect(exp?.path).toBe("./lib.warp");
+    expect(imp?.path).toBe("./lib.thetalib");
+    expect(exp?.path).toBe("./lib.thetalib");
   });
 
   it("parses a /// doc-comment run into a DocComment node", () => {
@@ -361,8 +361,8 @@ describe("cka-49: newline continuation triggers (V1a cka-1 integration witness)"
 
 describe("cka-49: whole-file multi-error aggregation (no fast-fail, sorted)", () => {
   // Two independent immutable-rebinding errors (V3b `checkReassignment`,
-  // `loom/parse/immutable-rebinding`) plus a misplaced `///` (V5c
-  // `checkDocCommentPlacement`, `loom/parse/doc-comment-misplaced`) — each a
+  // `theta/parse/immutable-rebinding`) plus a misplaced `///` (V5c
+  // `checkDocCommentPlacement`, `theta/parse/doc-comment-misplaced`) — each a
   // parse-time check delegated over the real AST.
   const multiError = [
     "let x = 1",
@@ -379,10 +379,10 @@ describe("cka-49: whole-file multi-error aggregation (no fast-fail, sorted)", ()
     const { diagnostics } = parse(multiError);
     expect(diagnostics.length).toBeGreaterThanOrEqual(2);
     expect(
-      diagnostics.some((d) => d.code === "loom/parse/immutable-rebinding"),
+      diagnostics.some((d) => d.code === "theta/parse/immutable-rebinding"),
     ).toBe(true);
     expect(
-      diagnostics.some((d) => d.code === "loom/parse/doc-comment-misplaced"),
+      diagnostics.some((d) => d.code === "theta/parse/doc-comment-misplaced"),
     ).toBe(true);
   });
 
@@ -409,7 +409,7 @@ describe("cka-49: whole-file multi-error aggregation (no fast-fail, sorted)", ()
 
 // --------------------------------------------------------------------------
 // Core-execution deficiency fix — body-grammar productions for `match`, object
-// literals, and postfix member / index access (grammar.md §"Loom literal
+// literals, and postfix member / index access (grammar.md §"Theta literal
 // sublanguage" `BareObjectLit`/`NamedObjectLit`, expressions.md §`match`
 // expression / §"Member access" / §"Index access").
 // --------------------------------------------------------------------------
@@ -562,8 +562,8 @@ describe("core-exec: postfix `?` still terminates and composes with access", () 
 // QRY-19 — discarded-query-result parse error, wired through checkStructural
 // --------------------------------------------------------------------------
 
-describe("QRY-19: bare `@`...`` expression-statement fires loom/parse/discarded-query-result", () => {
-  const discards = (doc: LoomDocument): readonly Diagnostic[] =>
+describe("QRY-19: bare `@`...`` expression-statement fires theta/parse/discarded-query-result", () => {
+  const discards = (doc: ThetaDocument): readonly Diagnostic[] =>
     doc.diagnostics.filter((d) => d.code === DISCARDED_QUERY_RESULT_CODE);
 
   it("a bare non-tail `@`...`` statement fires the error at the query's location", () => {
@@ -586,7 +586,7 @@ describe("QRY-19: bare `@`...`` expression-statement fires loom/parse/discarded-
     expect(diag.code).toBe(DISCARDED_QUERY_RESULT_CODE);
     // Message anchored to the registry (code-registry-parse.md), NOT the prose.
     expect(diag.message).toBe(DISCARDED_QUERY_RESULT_MESSAGE);
-    expect(diag.file).toBe("test.loom");
+    expect(diag.file).toBe("test.theta");
     // Located at the `QueryStmt` node (the bare query on line 1, column 1).
     expect(diag.range).toEqual(stmt!.range);
     expect(diag.range?.start.line).toBe(1);

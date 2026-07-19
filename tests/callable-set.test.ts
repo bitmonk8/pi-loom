@@ -3,7 +3,7 @@ import {
   resolveCallableSet,
   type CallableSetDeps,
   type CallableSetResult,
-  type ResolvedLoomCallee,
+  type ResolvedThetaCallee,
   type ResolvedPiTool,
   type ToolsField,
 } from "../src/parser/callable-set";
@@ -15,7 +15,7 @@ import type { Diagnostic } from "../src/diagnostics/diagnostic";
 // Spec: frontmatter/frontmatter-fields-a.md (§`tools` — the per-entry grammar,
 // default-name / `as` rename rules, the five load-time rejections) and
 // frontmatter/frontmatter-fields-b-and-templates.md (§YAML-shape — the two
-// interchangeable spellings; §Resolution snapshot — the frozen per-loom table,
+// interchangeable spellings; §Resolution snapshot — the frozen per-theta table,
 // no ambient inheritance).
 //
 // Diagnostic *Message* strings are sourced from the diagnostics registry
@@ -38,31 +38,31 @@ function piTool(name: string): ResolvedPiTool {
 }
 
 /**
- * A resolved `.loom` callee stand-in with a given declared mode. The
+ * A resolved `.theta` callee stand-in with a given declared mode. The
  * `calleePath` is injected by the `deps` factory from the resolution-table key
  * (mirroring production: `resolveEntry` overwrites it from the entry `spec`).
  */
-function loomCallee(mode: "prompt" | "subagent"): Omit<ResolvedLoomCallee, "calleePath"> {
-  return { kind: "loom", mode, callee: { mode } };
+function thetaCallee(mode: "prompt" | "subagent"): Omit<ResolvedThetaCallee, "calleePath"> {
+  return { kind: "theta", mode, callee: { mode } };
 }
 
 /**
- * Build `CallableSetDeps` from an explicit Pi-tool registry, a `.loom`
+ * Build `CallableSetDeps` from an explicit Pi-tool registry, a `.theta`
  * resolution table (keyed by the path literal as written), and reserved
  * top-level names. Anything absent resolves as unknown / unresolvable.
  */
 function deps(opts?: {
   piTools?: readonly string[];
-  loomCallees?: Readonly<Record<string, Omit<ResolvedLoomCallee, "calleePath">>>;
+  thetaCallees?: Readonly<Record<string, Omit<ResolvedThetaCallee, "calleePath">>>;
   reservedNames?: readonly string[];
 }): CallableSetDeps {
   const piTools = new Set(opts?.piTools ?? []);
-  const loomCallees = opts?.loomCallees ?? {};
+  const thetaCallees = opts?.thetaCallees ?? {};
   return {
     resolvePiTool: (name) => (piTools.has(name) ? piTool(name) : undefined),
-    resolveLoomCallee: (loomPath) => {
-      const callee = loomCallees[loomPath];
-      return callee === undefined ? undefined : { ...callee, calleePath: loomPath };
+    resolveThetaCallee: (thetaPath) => {
+      const callee = thetaCallees[thetaPath];
+      return callee === undefined ? undefined : { ...callee, calleePath: thetaPath };
     },
     reservedNames: new Set(opts?.reservedNames ?? []),
   };
@@ -71,13 +71,13 @@ function deps(opts?: {
 /** Resolve a comma-separated short-form `tools:` value. */
 function resolveScalar(text: string, d: CallableSetDeps): CallableSetResult {
   const tools: ToolsField = { kind: "scalar", text };
-  return resolveCallableSet({ file: "test.loom", tools, deps: d });
+  return resolveCallableSet({ file: "test.theta", tools, deps: d });
 }
 
 /** Resolve a YAML list-form `tools:` value. */
 function resolveList(items: readonly string[], d: CallableSetDeps): CallableSetResult {
   const tools: ToolsField = { kind: "list", items };
-  return resolveCallableSet({ file: "test.loom", tools, deps: d });
+  return resolveCallableSet({ file: "test.theta", tools, deps: d });
 }
 
 // --- frontmatter-fields-a.md §`tools` — unknown Pi tool -------------------
@@ -85,21 +85,21 @@ function resolveList(items: readonly string[], d: CallableSetDeps): CallableSetR
 // cka-11 / V6c: the FRNT code-keyed obligation area's `tools` callable-set facet
 // closes on V6c; the assertions in this file witness that facet against the
 // shipped callable-set resolution.
-describe("V6c-T — unknown Pi tool (loom/load/unknown-tool)", () => {
-  it("loom/load/unknown-tool: a `tools:` entry naming a Pi tool absent from the registry is rejected at load time", () => {
+describe("V6c-T — unknown Pi tool (theta/load/unknown-tool)", () => {
+  it("theta/load/unknown-tool: a `tools:` entry naming a Pi tool absent from the registry is rejected at load time", () => {
     const r = resolveScalar("read, bogus_tool", deps({ piTools: ["read"] }));
-    const dg = withCode(r.diagnostics, "loom/load/unknown-tool");
-    expect(dg, "loom/load/unknown-tool for an unregistered Pi tool name").toBeDefined();
+    const dg = withCode(r.diagnostics, "theta/load/unknown-tool");
+    expect(dg, "theta/load/unknown-tool for an unregistered Pi tool name").toBeDefined();
     expect(dg?.severity).toBe("error");
     // Message from code-registry-load.md.
     expect(dg?.message).toBe("unknown Pi tool 'bogus_tool'");
-    expect(r.registered, "an unknown-tool loom is not registered").toBe(false);
+    expect(r.registered, "an unknown-tool theta is not registered").toBe(false);
   });
 
-  it("loom/load/unknown-tool: every listed Pi tool present in the registry resolves cleanly", () => {
+  it("theta/load/unknown-tool: every listed Pi tool present in the registry resolves cleanly", () => {
     const r = resolveScalar("read, grep", deps({ piTools: ["read", "grep"] }));
     expect(
-      withCode(r.diagnostics, "loom/load/unknown-tool"),
+      withCode(r.diagnostics, "theta/load/unknown-tool"),
       "no unknown-tool error when every Pi tool resolves",
     ).toBeUndefined();
     expect(r.registered).toBe(true);
@@ -108,79 +108,79 @@ describe("V6c-T — unknown Pi tool (loom/load/unknown-tool)", () => {
   });
 });
 
-// --- frontmatter-fields-a.md §`tools` — unresolvable `.loom` path ---------
+// --- frontmatter-fields-a.md §`tools` — unresolvable `.theta` path ---------
 
-describe("V6c-T — unresolvable `.loom` path (loom/load/unresolvable-loom-path)", () => {
-  it("loom/load/unresolvable-loom-path: a `tools:` `.loom` entry whose path does not exist or is not readable is rejected at load time", () => {
-    // No entry in the `.loom` resolution table → the path resolves to no file.
-    const r = resolveList(["./missing.loom"], deps({}));
-    const dg = withCode(r.diagnostics, "loom/load/unresolvable-loom-path");
-    expect(dg, "loom/load/unresolvable-loom-path for a non-existent `.loom` path").toBeDefined();
+describe("V6c-T — unresolvable `.theta` path (theta/load/unresolvable-theta-path)", () => {
+  it("theta/load/unresolvable-theta-path: a `tools:` `.theta` entry whose path does not exist or is not readable is rejected at load time", () => {
+    // No entry in the `.theta` resolution table → the path resolves to no file.
+    const r = resolveList(["./missing.theta"], deps({}));
+    const dg = withCode(r.diagnostics, "theta/load/unresolvable-theta-path");
+    expect(dg, "theta/load/unresolvable-theta-path for a non-existent `.theta` path").toBeDefined();
     expect(dg?.severity).toBe("error");
     // Message from code-registry-load.md; `<path>` is the path literal as written.
-    expect(dg?.message).toBe("cannot resolve .loom path './missing.loom'");
-    expect(r.registered, "an unresolvable-`.loom` loom is not registered").toBe(false);
+    expect(dg?.message).toBe("cannot resolve .theta path './missing.theta'");
+    expect(r.registered, "an unresolvable-`.theta` theta is not registered").toBe(false);
   });
 });
 
-// --- frontmatter-fields-a.md §`tools` — prompt-mode `.loom` callee --------
+// --- frontmatter-fields-a.md §`tools` — prompt-mode `.theta` callee --------
 
-describe("V6c-T — prompt-mode callee (loom/load/prompt-mode-callable)", () => {
-  it("loom/load/prompt-mode-callable: a prompt-mode `.loom` callee in `tools:` is rejected at load time", () => {
+describe("V6c-T — prompt-mode callee (theta/load/prompt-mode-callable)", () => {
+  it("theta/load/prompt-mode-callable: a prompt-mode `.theta` callee in `tools:` is rejected at load time", () => {
     const r = resolveList(
-      ["./child.loom"],
-      deps({ loomCallees: { "./child.loom": loomCallee("prompt") } }),
+      ["./child.theta"],
+      deps({ thetaCallees: { "./child.theta": thetaCallee("prompt") } }),
     );
-    const dg = withCode(r.diagnostics, "loom/load/prompt-mode-callable");
-    expect(dg, "loom/load/prompt-mode-callable for a prompt-mode `.loom` callee").toBeDefined();
+    const dg = withCode(r.diagnostics, "theta/load/prompt-mode-callable");
+    expect(dg, "theta/load/prompt-mode-callable for a prompt-mode `.theta` callee").toBeDefined();
     expect(dg?.severity).toBe("error");
     // Message from code-registry-load.md.
     expect(dg?.message).toBe(
-      "'tools:' entry './child.loom' points at a prompt-mode loom; only subagent-mode looms are permitted",
+      "'tools:' entry './child.theta' points at a prompt-mode theta; only subagent-mode thetas are permitted",
     );
-    expect(r.registered, "a prompt-mode-callee loom is not registered").toBe(false);
+    expect(r.registered, "a prompt-mode-callee theta is not registered").toBe(false);
   });
 
-  it("loom/load/prompt-mode-callable: a subagent-mode `.loom` callee resolves cleanly (default name maps hyphens to underscores)", () => {
+  it("theta/load/prompt-mode-callable: a subagent-mode `.theta` callee resolves cleanly (default name maps hyphens to underscores)", () => {
     const r = resolveList(
-      ["./code-review.loom"],
-      deps({ loomCallees: { "./code-review.loom": loomCallee("subagent") } }),
+      ["./code-review.theta"],
+      deps({ thetaCallees: { "./code-review.theta": thetaCallee("subagent") } }),
     );
     expect(
-      withCode(r.diagnostics, "loom/load/prompt-mode-callable"),
+      withCode(r.diagnostics, "theta/load/prompt-mode-callable"),
       "no prompt-mode error for a subagent-mode callee",
     ).toBeUndefined();
     expect(r.registered).toBe(true);
-    // `./code-review.loom` → default name `code_review` (hyphens → underscores).
+    // `./code-review.theta` → default name `code_review` (hyphens → underscores).
     expect(r.callableSet?.entries.has("code_review")).toBe(true);
   });
 });
 
 // --- frontmatter-fields-a.md §`tools` — invalid `as` rename ---------------
 
-describe("V6c-T — invalid `as` rename (loom/load/invalid-tool-rename)", () => {
-  it("loom/load/invalid-tool-rename: a `tools:` `as` rename target that is not loom-identifier-shaped (e.g. `as MyTool`) is rejected at load time", () => {
+describe("V6c-T — invalid `as` rename (theta/load/invalid-tool-rename)", () => {
+  it("theta/load/invalid-tool-rename: a `tools:` `as` rename target that is not theta-identifier-shaped (e.g. `as MyTool`) is rejected at load time", () => {
     const r = resolveList(
-      ["./summarise.loom as MyTool"],
-      deps({ loomCallees: { "./summarise.loom": loomCallee("subagent") } }),
+      ["./summarise.theta as MyTool"],
+      deps({ thetaCallees: { "./summarise.theta": thetaCallee("subagent") } }),
     );
-    const dg = withCode(r.diagnostics, "loom/load/invalid-tool-rename");
-    expect(dg, "loom/load/invalid-tool-rename for a non-lowercase-first `as` target").toBeDefined();
+    const dg = withCode(r.diagnostics, "theta/load/invalid-tool-rename");
+    expect(dg, "theta/load/invalid-tool-rename for a non-lowercase-first `as` target").toBeDefined();
     expect(dg?.severity).toBe("error");
     // Message from code-registry-load.md; both `<name>` placeholders render the target.
     expect(dg?.message).toBe(
       "'as MyTool' rename target must be lowercase-first; got 'MyTool'",
     );
-    expect(r.registered, "an invalid-rename loom is not registered").toBe(false);
+    expect(r.registered, "an invalid-rename theta is not registered").toBe(false);
   });
 
-  it("loom/load/invalid-tool-rename: a lowercase-first `as` target resolves under the renamed name", () => {
+  it("theta/load/invalid-tool-rename: a lowercase-first `as` target resolves under the renamed name", () => {
     const r = resolveList(
       ["read as file_read"],
       deps({ piTools: ["read"] }),
     );
     expect(
-      withCode(r.diagnostics, "loom/load/invalid-tool-rename"),
+      withCode(r.diagnostics, "theta/load/invalid-tool-rename"),
       "no invalid-rename error for a lowercase-first `as` target",
     ).toBeUndefined();
     expect(r.registered).toBe(true);
@@ -192,49 +192,49 @@ describe("V6c-T — invalid `as` rename (loom/load/invalid-tool-rename)", () => 
 
 // --- frontmatter-fields-a.md §`tools` — name collision --------------------
 
-describe("V6c-T — name collision (loom/load/tool-name-collision)", () => {
-  it("loom/load/tool-name-collision: two `tools:` entries resolving to the same name fire the collision", () => {
-    // `read` (verbatim) and `./read.loom` (default name `read`) both resolve to `read`.
+describe("V6c-T — name collision (theta/load/tool-name-collision)", () => {
+  it("theta/load/tool-name-collision: two `tools:` entries resolving to the same name fire the collision", () => {
+    // `read` (verbatim) and `./read.theta` (default name `read`) both resolve to `read`.
     const r = resolveList(
-      ["read", "./read.loom"],
+      ["read", "./read.theta"],
       deps({
         piTools: ["read"],
-        loomCallees: { "./read.loom": loomCallee("subagent") },
+        thetaCallees: { "./read.theta": thetaCallee("subagent") },
       }),
     );
-    const dg = withCode(r.diagnostics, "loom/load/tool-name-collision");
-    expect(dg, "loom/load/tool-name-collision for two entries resolving to the same name").toBeDefined();
+    const dg = withCode(r.diagnostics, "theta/load/tool-name-collision");
+    expect(dg, "theta/load/tool-name-collision for two entries resolving to the same name").toBeDefined();
     expect(dg?.severity).toBe("error");
     // Message from code-registry-load.md.
     expect(dg?.message).toBe(
       "tool name 'read' collides with another 'tools:' entry, top-level fn, or import",
     );
-    expect(r.registered, "a colliding-name loom is not registered").toBe(false);
+    expect(r.registered, "a colliding-name theta is not registered").toBe(false);
   });
 
-  it("loom/load/tool-name-collision: a name colliding with a top-level fn or import fires the collision", () => {
+  it("theta/load/tool-name-collision: a name colliding with a top-level fn or import fires the collision", () => {
     const r = resolveScalar(
       "read",
       deps({ piTools: ["read"], reservedNames: ["read"] }),
     );
-    const dg = withCode(r.diagnostics, "loom/load/tool-name-collision");
-    expect(dg, "loom/load/tool-name-collision for a name colliding with a top-level fn/import").toBeDefined();
+    const dg = withCode(r.diagnostics, "theta/load/tool-name-collision");
+    expect(dg, "theta/load/tool-name-collision for a name colliding with a top-level fn/import").toBeDefined();
     expect(dg?.message).toBe(
       "tool name 'read' collides with another 'tools:' entry, top-level fn, or import",
     );
     expect(r.registered).toBe(false);
   });
 
-  it("loom/load/tool-name-collision: an `as` rename resolves the collision — both callables bind", () => {
+  it("theta/load/tool-name-collision: an `as` rename resolves the collision — both callables bind", () => {
     const r = resolveList(
-      ["read", "./read.loom as read_child"],
+      ["read", "./read.theta as read_child"],
       deps({
         piTools: ["read"],
-        loomCallees: { "./read.loom": loomCallee("subagent") },
+        thetaCallees: { "./read.theta": thetaCallee("subagent") },
       }),
     );
     expect(
-      withCode(r.diagnostics, "loom/load/tool-name-collision"),
+      withCode(r.diagnostics, "theta/load/tool-name-collision"),
       "an `as` rename disambiguates the colliding name — no collision fires",
     ).toBeUndefined();
     expect(r.registered).toBe(true);
@@ -250,7 +250,7 @@ describe("V6c-T — resolution snapshot (frozen, no ambient inheritance) and bot
   it("the resolved callable set is frozen (no post-load mutation widens it)", () => {
     const r = resolveScalar("read", deps({ piTools: ["read"] }));
     expect(r.registered).toBe(true);
-    expect(r.callableSet, "a registered loom carries its resolution snapshot").toBeDefined();
+    expect(r.callableSet, "a registered theta carries its resolution snapshot").toBeDefined();
     expect(
       Object.isFrozen(r.callableSet),
       "the resolution snapshot is frozen",
@@ -258,7 +258,7 @@ describe("V6c-T — resolution snapshot (frozen, no ambient inheritance) and bot
   });
 
   it("no ambient inheritance: only explicitly-listed callables appear in the set", () => {
-    // Registry offers `read`, `grep`, `bash`; the loom lists only `read`.
+    // Registry offers `read`, `grep`, `bash`; the theta lists only `read`.
     const r = resolveScalar("read", deps({ piTools: ["read", "grep", "bash"] }));
     expect(r.registered).toBe(true);
     expect(r.callableSet?.entries.size, "only the one listed callable is present").toBe(1);
@@ -268,7 +268,7 @@ describe("V6c-T — resolution snapshot (frozen, no ambient inheritance) and bot
 
   it("absent / empty `tools:` yields the empty callable set", () => {
     const rAbsent = resolveCallableSet({
-      file: "test.loom",
+      file: "test.theta",
       tools: { kind: "absent" },
       deps: deps({ piTools: ["read"] }),
     });
@@ -295,54 +295,54 @@ describe("V6c-T — resolution snapshot (frozen, no ambient inheritance) and bot
   });
 });
 
-// --- Gap-2: the frozen `.loom` entry carries its authoritative callee path ----
+// --- Gap-2: the frozen `.theta` entry carries its authoritative callee path ----
 //     so the runtime resolves the callee by presented name (shared by the
-//     code-driven `<name>(args)` path and the model-driven `.loom` adapter),
+//     code-driven `<name>(args)` path and the model-driven `.theta` adapter),
 //     instead of re-deriving it from the basename — which dropped renamed
 //     (`as foo`) and hyphenated (`code_review`) callees, silently omitting them.
 
-describe("Gap-2 — snapshot `.loom` entry carries the authoritative calleePath", () => {
-  /** The `calleePath` on the resolved `.loom` entry bound under `name`. */
+describe("Gap-2 — snapshot `.theta` entry carries the authoritative calleePath", () => {
+  /** The `calleePath` on the resolved `.theta` entry bound under `name`. */
   function calleePathOf(r: CallableSetResult, name: string): string | undefined {
     const entry = r.callableSet?.entries.get(name);
-    return entry !== undefined && entry.kind === "loom" ? entry.calleePath : undefined;
+    return entry !== undefined && entry.kind === "theta" ? entry.calleePath : undefined;
   }
 
-  it("a bare-basename callee: presented name `child` carries calleePath `./child.loom`", () => {
+  it("a bare-basename callee: presented name `child` carries calleePath `./child.theta`", () => {
     const r = resolveList(
-      ["./child.loom"],
-      deps({ loomCallees: { "./child.loom": loomCallee("subagent") } }),
+      ["./child.theta"],
+      deps({ thetaCallees: { "./child.theta": thetaCallee("subagent") } }),
     );
     expect(r.registered).toBe(true);
     expect(r.callableSet?.entries.has("child")).toBe(true);
-    expect(calleePathOf(r, "child"), "the entry carries the path as written").toBe("./child.loom");
+    expect(calleePathOf(r, "child"), "the entry carries the path as written").toBe("./child.theta");
   });
 
-  it("a HYPHENATED callee `./my-tool.loom` → presented `my_tool` STILL carries calleePath `./my-tool.loom`", () => {
+  it("a HYPHENATED callee `./my-tool.theta` → presented `my_tool` STILL carries calleePath `./my-tool.theta`", () => {
     // The presented name applies the hyphen→underscore rewrite; the calleePath
     // must remain the real hyphenated path (a basename re-derivation of
-    // `my_tool` would look for the nonexistent `./my_tool.loom` and drop it).
+    // `my_tool` would look for the nonexistent `./my_tool.theta` and drop it).
     const r = resolveList(
-      ["./my-tool.loom"],
-      deps({ loomCallees: { "./my-tool.loom": loomCallee("subagent") } }),
+      ["./my-tool.theta"],
+      deps({ thetaCallees: { "./my-tool.theta": thetaCallee("subagent") } }),
     );
     expect(r.registered).toBe(true);
     expect(r.callableSet?.entries.has("my_tool")).toBe(true);
     expect(
       calleePathOf(r, "my_tool"),
       "the hyphenated real path is retained under the underscore-presented name",
-    ).toBe("./my-tool.loom");
+    ).toBe("./my-tool.theta");
   });
 
-  it("a RENAMED callee `./c.loom as foo` carries calleePath `./c.loom` under `foo`", () => {
-    // `foo` does not end in `.loom`; a basename `.endsWith('.loom')` match would
+  it("a RENAMED callee `./c.theta as foo` carries calleePath `./c.theta` under `foo`", () => {
+    // `foo` does not end in `.theta`; a basename `.endsWith('.theta')` match would
     // never find it and drop the renamed callable.
     const r = resolveList(
-      ["./c.loom as foo"],
-      deps({ loomCallees: { "./c.loom": loomCallee("subagent") } }),
+      ["./c.theta as foo"],
+      deps({ thetaCallees: { "./c.theta": thetaCallee("subagent") } }),
     );
     expect(r.registered).toBe(true);
     expect(r.callableSet?.entries.has("foo")).toBe(true);
-    expect(calleePathOf(r, "foo"), "the renamed entry carries the real path").toBe("./c.loom");
+    expect(calleePathOf(r, "foo"), "the renamed entry carries the real path").toBe("./c.theta");
   });
 });

@@ -2,8 +2,8 @@
 //
 // This module owns the structured `Diagnostic` shape, the serialised
 // content-line format, and the multi-error `Diagnostic[]` assembly with its
-// `(file, line, col)` ordering across an entry `.loom` and its transitively
-// imported `.warp` modules (per diagnostics/diagnostic-shape.md and
+// `(file, line, col)` ordering across an entry `.theta` and its transitively
+// imported `.thetalib` modules (per diagnostics/diagnostic-shape.md and
 // implementation-notes.md "Static-resolution load pass").
 //
 // V7a-T (tests-task) declares the seam shape and stubs the three behaviour-
@@ -99,8 +99,8 @@ export function renderDiagnosticBatch(diagnostics: readonly Diagnostic[]): strin
 }
 
 /**
- * Assemble per-file diagnostic groups (entry `.loom` plus transitively
- * imported `.warp` modules) into a single `Diagnostic[]` ordered by
+ * Assemble per-file diagnostic groups (entry `.theta` plus transitively
+ * imported `.thetalib` modules) into a single `Diagnostic[]` ordered by
  * `(file, line, col)`. No fast-fail: every diagnostic in every group is
  * collected with no per-error loss.
  */

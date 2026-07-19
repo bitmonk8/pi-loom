@@ -1,6 +1,6 @@
 // V8d — `CryptoIdSource` production adapter for the `IdSource` seam (PIC-20).
 //
-// The runtime mints each `invocationId` and each code-side `loom-direct:`
+// The runtime mints each `invocationId` and each code-side `theta-direct:`
 // `toolCallId` UUID body exclusively through the injected `IdSource` seam; this
 // adapter is the production wiring and the SOLE direct `crypto.randomUUID` site
 // in `src/**`. Both `newInvocationId()` and `newToolCallId()` delegate to

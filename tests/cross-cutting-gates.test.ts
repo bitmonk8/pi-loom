@@ -9,7 +9,7 @@ import { findModuleLevelMutableBindings } from "../tools/arch-checks/no-module-l
 import eslintConfig from "../eslint.config.js";
 
 // H2a — cross-cutting lint and architectural gates. These assertions ARE the
-// lint + architectural surface "wired into npm test": they run loom's
+// lint + architectural surface "wired into npm test": they run theta's
 // bespoke ESLint rules (via the same eslint.config.js CI uses) and the
 // module-level-mutable architectural scan against controlled fixtures, and
 // against the real `src/**` production tree. Each block cites the
@@ -18,7 +18,7 @@ import eslintConfig from "../eslint.config.js";
 const linter = new Linter();
 
 // Lint a fixture string as though it lived at `filename` (relative to repo
-// root), through loom's real flat config. Returns the ESLint messages.
+// root), through theta's real flat config. Returns the ESLint messages.
 function lint(code: string, filename: string): Linter.LintMessage[] {
   return linter.verify(code, eslintConfig as Linter.Config[], { filename });
 }
@@ -39,10 +39,10 @@ describe("H2a — no-broad-catch (Convention: Specific exception types only)", (
       "}",
     ].join("\n");
     const messages = lint(code, "src/fixtures/broad-catch-bad.ts");
-    expect(ruleIds(messages)).toContain("loom-local/no-broad-catch");
+    expect(ruleIds(messages)).toContain("theta-local/no-broad-catch");
   });
 
-  it("passes an exempt site whose same-line `// allow-broad-catch:` cites an admitted token (cka-<n> / REQ-ID / loom-code / pi-sdk-boundary)", () => {
+  it("passes an exempt site whose same-line `// allow-broad-catch:` cites an admitted token (cka-<n> / REQ-ID / theta-code / pi-sdk-boundary)", () => {
     // Four admitted token forms, one per exempt-site shape the widened gate
     // predicate accepts; each is on the catch's own source line.
     const code = [
@@ -56,11 +56,11 @@ describe("H2a — no-broad-catch (Convention: Specific exception types only)", (
       "  try { p(); } catch (e: unknown) { q(e); } // allow-broad-catch: cka-7 — coverage-matrix.md",
       "}",
       "export function d(): void {",
-      "  try { p(); } catch (e: unknown) { q(e); } // allow-broad-catch: loom/host/session-shutdown-reason-unknown — unknown-reason-rule.md",
+      "  try { p(); } catch (e: unknown) { q(e); } // allow-broad-catch: theta/host/session-shutdown-reason-unknown — unknown-reason-rule.md",
       "}",
     ].join("\n");
     const messages = lint(code, "src/fixtures/broad-catch-ok.ts");
-    expect(messages.filter((m) => m.ruleId === "loom-local/no-broad-catch")).toHaveLength(0);
+    expect(messages.filter((m) => m.ruleId === "theta-local/no-broad-catch")).toHaveLength(0);
   });
 
   it("flags bare `catch (e)` and `catch (e: any)`; allows a specific subtype binding", () => {
@@ -72,7 +72,7 @@ describe("H2a — no-broad-catch (Convention: Specific exception types only)", (
     ].join("\n");
     const badMsgs = lint(bad, "src/fixtures/broad-catch-forms.ts");
     expect(
-      badMsgs.filter((m) => m.ruleId === "loom-local/no-broad-catch"),
+      badMsgs.filter((m) => m.ruleId === "theta-local/no-broad-catch"),
     ).toHaveLength(2);
   });
 });
@@ -85,7 +85,7 @@ describe("H2a — no-unguarded-promise-combinator (Convention: Sequential by def
       "}",
     ].join("\n");
     const messages = lint(code, "src/fixtures/promise-all-bad.ts");
-    expect(ruleIds(messages)).toContain("loom-local/no-unguarded-promise-combinator");
+    expect(ruleIds(messages)).toContain("theta-local/no-unguarded-promise-combinator");
   });
 
   it("passes `Promise.all` whose line carries a `// allow:` comment", () => {
@@ -96,7 +96,7 @@ describe("H2a — no-unguarded-promise-combinator (Convention: Sequential by def
     ].join("\n");
     const messages = lint(code, "src/fixtures/promise-all-ok.ts");
     expect(
-      messages.filter((m) => m.ruleId === "loom-local/no-unguarded-promise-combinator"),
+      messages.filter((m) => m.ruleId === "theta-local/no-unguarded-promise-combinator"),
     ).toHaveLength(0);
   });
 
@@ -108,7 +108,7 @@ describe("H2a — no-unguarded-promise-combinator (Convention: Sequential by def
     ].join("\n");
     const messages = lint(code, "src/fixtures/promise-all.test.ts");
     expect(
-      messages.filter((m) => m.ruleId === "loom-local/no-unguarded-promise-combinator"),
+      messages.filter((m) => m.ruleId === "theta-local/no-unguarded-promise-combinator"),
     ).toHaveLength(0);
   });
 });
@@ -122,7 +122,7 @@ describe("H2a — no-blocking-sync (Convention: Sequential by default — blocki
       "}",
     ].join("\n");
     const messages = lint(code, "src/fixtures/readfilesync-bad.ts");
-    expect(ruleIds(messages)).toContain("loom-local/no-blocking-sync");
+    expect(ruleIds(messages)).toContain("theta-local/no-blocking-sync");
   });
 
   it("flags a bare `execSync` identifier call in src/**", () => {
@@ -133,7 +133,7 @@ describe("H2a — no-blocking-sync (Convention: Sequential by default — blocki
       "}",
     ].join("\n");
     const messages = lint(code, "src/fixtures/execsync-bad.ts");
-    expect(ruleIds(messages)).toContain("loom-local/no-blocking-sync");
+    expect(ruleIds(messages)).toContain("theta-local/no-blocking-sync");
   });
 
   it("passes the same call with a same-line `// allow-sync: <reason>` comment", () => {
@@ -145,7 +145,7 @@ describe("H2a — no-blocking-sync (Convention: Sequential by default — blocki
     ].join("\n");
     const messages = lint(code, "src/fixtures/readfilesync-ok.ts");
     expect(
-      messages.filter((m) => m.ruleId === "loom-local/no-blocking-sync"),
+      messages.filter((m) => m.ruleId === "theta-local/no-blocking-sync"),
     ).toHaveLength(0);
   });
 
@@ -158,7 +158,7 @@ describe("H2a — no-blocking-sync (Convention: Sequential by default — blocki
     ].join("\n");
     const messages = lint(code, "src/fixtures/readfilesync.test.ts");
     expect(
-      messages.filter((m) => m.ruleId === "loom-local/no-blocking-sync"),
+      messages.filter((m) => m.ruleId === "theta-local/no-blocking-sync"),
     ).toHaveLength(0);
   });
 });

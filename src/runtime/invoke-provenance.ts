@@ -3,13 +3,13 @@
 // This module owns the producer seam that, for an executed `invoke` hop,
 // records into the per-frame invocation record:
 //
-//   - the parent loom's **post-`realpath`** path — the same `realpath`-normalised
+//   - the parent theta's **post-`realpath`** path — the same `realpath`-normalised
 //     parent path V15a captures for discovery-root containment (invocation.md
 //     §Resolution), obtained through the injected `FileSystem` seam via the
 //     shared `canonicalizePath` identity; and
 //   - the **1-indexed source line** of the call-site token that produced the
 //     `invoke_callee` hop: the `invoke(` token of a literal `invoke(...)`
-//     expression, or the callee-name identifier of a `.loom`-callable
+//     expression, or the callee-name identifier of a `.theta`-callable
 //     bare-identifier call (slash-invocation.md §SLSH-5). The line is the
 //     call-site token's, not any receiving binding's, so multi-line calls are
 //     unambiguous.
@@ -21,7 +21,7 @@
 // V15g implements the producer: it `realpath`-normalises the parent path
 // through the injected `FileSystem` seam and records the call-site token's
 // 1-indexed source line — the `invoke(` token of a literal call, or the
-// callee-name identifier of a `.loom`-callable bare call — never a receiving
+// callee-name identifier of a `.theta`-callable bare call — never a receiving
 // binding's line.
 //
 // Spec: invocation.md (§Resolution), slash-invocation.md (§SLSH-5).
@@ -30,7 +30,7 @@ import type { FileSystem } from "../seams/file-system";
 import type { Position } from "../diagnostics/diagnostic";
 
 /**
- * The call-site token descriptor for the two loom 1.0 invocation surfaces that
+ * The call-site token descriptor for the two theta 1.0 invocation surfaces that
  * produce an `invoke_callee` hop (slash-invocation.md §SLSH-5). Each arm carries
  * the token whose 1-indexed source line the provenance record captures.
  */
@@ -47,11 +47,11 @@ export type InvokeCallSite =
     }
   | {
       /**
-       * A `.loom`-callable bare-identifier call (e.g. `summarise(doc)` when
-       * `./summariser.loom` is registered in `tools:`), operationally
+       * A `.theta`-callable bare-identifier call (e.g. `summarise(doc)` when
+       * `./summariser.theta` is registered in `tools:`), operationally
        * equivalent to `invoke(...)` per Tool Calls — Relationship with invoke.
        */
-      readonly style: "loom_callable_bare";
+      readonly style: "theta_callable_bare";
       /**
        * The callee-name identifier token position (e.g. the `summarise` token).
        * Its `line` is the recorded call-site line.
@@ -65,14 +65,14 @@ export type InvokeCallSite =
  */
 export interface InvocationRecord {
   /**
-   * The parent loom's **post-`realpath`** absolute path — the same
+   * The parent theta's **post-`realpath`** absolute path — the same
    * `realpath`-normalised value V15a captures for discovery-root containment
    * (invocation.md §Resolution). This is `<parent_path>` in the SLSH-5 suffix.
    */
   readonly parentPath: string;
   /**
-   * The **1-indexed** source line of the call-site token in the parent loom
-   * (the `invoke(` token, or the `.loom`-callable callee-name identifier) — the
+   * The **1-indexed** source line of the call-site token in the parent theta
+   * (the `invoke(` token, or the `.theta`-callable callee-name identifier) — the
    * `<line>` in the SLSH-5 suffix. Never a receiving binding's line.
    */
   readonly callSiteLine: number;
@@ -87,7 +87,7 @@ export interface InvocationProvenanceDeps {
 /** Inputs to one `invoke`-hop provenance record. */
 export interface InvocationProvenanceInput {
   /**
-   * The parent loom's path as resolved at the call site (pre-`realpath`); the
+   * The parent theta's path as resolved at the call site (pre-`realpath`); the
    * producer `realpath`-normalises it so the recorded `parentPath` is the
    * post-`realpath` form V15a's containment check uses.
    */
@@ -98,7 +98,7 @@ export interface InvocationProvenanceInput {
 
 /**
  * Produce the per-frame invocation record for one executed `invoke` hop: the
- * parent loom's post-`realpath` path and the call-site token's 1-indexed line
+ * parent theta's post-`realpath` path and the call-site token's 1-indexed line
  * (slash-invocation.md §SLSH-5; invocation.md §Resolution).
  *
  * The parent path is canonicalised through the injected `FileSystem.realpath`
@@ -106,7 +106,7 @@ export interface InvocationProvenanceInput {
  * V15a's discovery-root containment check uses. The recorded `callSiteLine` is
  * the 1-indexed source line of the call-site token — the `invoke(` token for a
  * literal `invoke(...)` call, or the callee-name identifier for a
- * `.loom`-callable bare-identifier call — never a receiving binding's line.
+ * `.theta`-callable bare-identifier call — never a receiving binding's line.
  */
 export async function recordInvocationProvenance(
   deps: InvocationProvenanceDeps,

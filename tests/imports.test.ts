@@ -3,35 +3,35 @@ import type { Diagnostic, SourceRange } from "../src/diagnostics/diagnostic";
 import {
   checkImportExtension,
   checkImportedSymbols,
-  checkWarpTopLevelForm,
+  checkThetaLibTopLevelForm,
   detectImportCycle,
-  loadWarpImport,
-  RelativeWarpResolver,
-  UnresolvableWarpPathError,
+  loadThetaLibImport,
+  RelativeThetaLibResolver,
+  UnresolvableThetaLibPathError,
   importCycleMessage,
   importNameCollisionMessage,
-  importNonWarpExtensionMessage,
+  importNonThetaLibExtensionMessage,
   importUnknownSymbolMessage,
-  unresolvableWarpPathMessage,
+  unresolvableThetaLibPathMessage,
   IMPORT_CYCLE_CODE,
   IMPORT_NAME_COLLISION_CODE,
-  IMPORT_NON_WARP_EXTENSION_CODE,
+  IMPORT_NON_THETALIB_EXTENSION_CODE,
   IMPORT_UNKNOWN_SYMBOL_CODE,
-  UNRESOLVABLE_WARP_PATH_CODE,
-  WARP_TOP_LEVEL_STATEMENT_CODE,
-  WARP_TOP_LEVEL_STATEMENT_MESSAGE,
+  UNRESOLVABLE_THETALIB_PATH_CODE,
+  THETALIB_TOP_LEVEL_STATEMENT_CODE,
+  THETALIB_TOP_LEVEL_STATEMENT_MESSAGE,
   type ImportCheckInput,
   type ImportSite,
   type Resolver,
-  type WarpDirectoryProbe,
-  type WarpImportGraph,
+  type ThetaLibDirectoryProbe,
+  type ThetaLibImportGraph,
 } from "../src/parser/imports";
 
-// V15c-T — failing tests for the paired `V15c` "Imports (`.warp` library
+// V15c-T — failing tests for the paired `V15c` "Imports (`.thetalib` library
 // files)" implementation.
 //
-// Spec: imports.md — the `.warp` file rules (permitted top-level forms), the
-// `.warp`-only path resolution through the named `Resolver` seam, the IMP-1
+// Spec: imports.md — the `.thetalib` file rules (permitted top-level forms), the
+// `.thetalib`-only path resolution through the named `Resolver` seam, the IMP-1
 // resolver failure contract, and the import-cycle / unknown-symbol /
 // name-collision diagnostics.
 //
@@ -40,9 +40,9 @@ import {
 // the *Diagnostic message anchors* rule.
 //
 // These tests red because the V15c resolution / diagnostic bodies are absent:
-// `checkImportExtension` / `checkWarpTopLevelForm` / `detectImportCycle` return
-// `undefined`, `checkImportedSymbols` returns `[]`, `RelativeWarpResolver.resolve`
-// returns `""` (never throwing, never resolving), and `loadWarpImport` reports a
+// `checkImportExtension` / `checkThetaLibTopLevelForm` / `detectImportCycle` return
+// `undefined`, `checkImportedSymbols` returns `[]`, `RelativeThetaLibResolver.resolve`
+// returns `""` (never throwing, never resolving), and `loadThetaLibImport` reports a
 // registered file with no diagnostic. Each test reds on its own primary
 // assertion (a missing throw, a missing diagnostic, an unresolved path, a
 // wrongly-registered file), not on a compile error, missing fixture, or harness
@@ -53,7 +53,7 @@ function span(): SourceRange {
   return { start: { line: 1, column: 1 }, end: { line: 1, column: 2 } };
 }
 
-function site(file = "app.loom"): ImportSite {
+function site(file = "app.theta"): ImportSite {
   return { file, range: span() };
 }
 
@@ -65,12 +65,12 @@ function site(file = "app.loom"): ImportSite {
 function probe(
   dirs: Readonly<Record<string, readonly string[]>>,
   unreadable: ReadonlySet<string> = new Set(),
-): WarpDirectoryProbe {
+): ThetaLibDirectoryProbe {
   return {
     entries(dir: string): readonly string[] {
       const entries = dirs[dir];
       if (entries === undefined) {
-        throw new UnresolvableWarpPathError(dir);
+        throw new UnresolvableThetaLibPathError(dir);
       }
       return entries;
     },
@@ -86,170 +86,170 @@ describe("V15c-T — IMP-1 resolver failure contract", () => {
   it("IMP-1: a non-relative spec is unresolvable — the Resolver signals by throwing", () => {
     // A package-style spec is rejected by the relative-path resolver; the probe
     // is never consulted.
-    const resolver = new RelativeWarpResolver(probe({}));
-    expect(() => resolver.resolve("@scope/pkg.warp", "/proj/app.loom")).toThrow(
-      UnresolvableWarpPathError,
+    const resolver = new RelativeThetaLibResolver(probe({}));
+    expect(() => resolver.resolve("@scope/pkg.thetalib", "/proj/app.theta")).toThrow(
+      UnresolvableThetaLibPathError,
     );
   });
 
   it("IMP-1: no byte-exact final-segment entry is unresolvable (a case-variant entry does not match)", () => {
-    // The directory holds `Personas.warp`; the literal says `personas.warp`.
+    // The directory holds `Personas.thetalib`; the literal says `personas.thetalib`.
     // The byte-exact rule rejects on every host regardless of filesystem
     // case-equivalence.
-    const resolver = new RelativeWarpResolver(
-      probe({ "/proj/shared": ["Personas.warp"] }),
+    const resolver = new RelativeThetaLibResolver(
+      probe({ "/proj/shared": ["Personas.thetalib"] }),
     );
     expect(() =>
-      resolver.resolve("./shared/personas.warp", "/proj/app.loom"),
-    ).toThrow(UnresolvableWarpPathError);
+      resolver.resolve("./shared/personas.thetalib", "/proj/app.theta"),
+    ).toThrow(UnresolvableThetaLibPathError);
   });
 
   it("IMP-1: a byte-exact entry that is not readable is unresolvable", () => {
-    const resolver = new RelativeWarpResolver(
+    const resolver = new RelativeThetaLibResolver(
       probe(
-        { "/proj/shared": ["personas.warp"] },
-        new Set(["/proj/shared/personas.warp"]),
+        { "/proj/shared": ["personas.thetalib"] },
+        new Set(["/proj/shared/personas.thetalib"]),
       ),
     );
     expect(() =>
-      resolver.resolve("./shared/personas.warp", "/proj/app.loom"),
-    ).toThrow(UnresolvableWarpPathError);
+      resolver.resolve("./shared/personas.thetalib", "/proj/app.theta"),
+    ).toThrow(UnresolvableThetaLibPathError);
   });
 
-  it("IMP-1: a throw from `resolve` emits loom/load/unresolvable-warp-path and the file is not registered", () => {
+  it("IMP-1: a throw from `resolve` emits theta/load/unresolvable-thetalib-path and the file is not registered", () => {
     // A resolver double that throws on every spec, so this test pins the load
     // pipeline's failure contract independent of the relative resolver.
     const throwing: Resolver = {
       resolve(spec: string): string {
-        throw new UnresolvableWarpPathError(spec);
+        throw new UnresolvableThetaLibPathError(spec);
       },
     };
-    const load = loadWarpImport(
+    const load = loadThetaLibImport(
       throwing,
-      "@scope/pkg.warp",
-      "/proj/app.loom",
+      "@scope/pkg.thetalib",
+      "/proj/app.theta",
       site(),
     );
     const diag = load.diagnostics.find(
-      (d) => d.code === UNRESOLVABLE_WARP_PATH_CODE,
+      (d) => d.code === UNRESOLVABLE_THETALIB_PATH_CODE,
     );
-    expect(diag, "loom/load/unresolvable-warp-path").toBeDefined();
+    expect(diag, "theta/load/unresolvable-thetalib-path").toBeDefined();
     // Registry Message (code-registry-load.md), `<path>` rendered as written.
     expect(diag?.message).toBe(
-      unresolvableWarpPathMessage("@scope/pkg.warp"),
+      unresolvableThetaLibPathMessage("@scope/pkg.thetalib"),
     );
-    expect(diag?.message).toBe("cannot resolve .warp import '@scope/pkg.warp'");
+    expect(diag?.message).toBe("cannot resolve .thetalib import '@scope/pkg.thetalib'");
     expect(load.registered, "the importing file is not registered").toBe(false);
   });
 });
 
-// --- loom/parse/warp-top-level-statement ------------------------------------
+// --- theta/parse/thetalib-top-level-statement ------------------------------------
 
-describe("V15c-T — permitted `.warp` top-level forms", () => {
-  it("loom/parse/warp-top-level-statement: a top-level statement fires", () => {
-    const diag = checkWarpTopLevelForm("statement", site("lib.warp"));
-    expect(diag, "loom/parse/warp-top-level-statement").toBeDefined();
-    expect(diag?.code).toBe(WARP_TOP_LEVEL_STATEMENT_CODE);
+describe("V15c-T — permitted `.thetalib` top-level forms", () => {
+  it("theta/parse/thetalib-top-level-statement: a top-level statement fires", () => {
+    const diag = checkThetaLibTopLevelForm("statement", site("lib.thetalib"));
+    expect(diag, "theta/parse/thetalib-top-level-statement").toBeDefined();
+    expect(diag?.code).toBe(THETALIB_TOP_LEVEL_STATEMENT_CODE);
     // Registry Message (code-registry-parse.md).
-    expect(diag?.message).toBe(WARP_TOP_LEVEL_STATEMENT_MESSAGE);
+    expect(diag?.message).toBe(THETALIB_TOP_LEVEL_STATEMENT_MESSAGE);
     expect(diag?.message).toBe(
-      "top-level statement not permitted in .warp file; move into a fn body",
+      "top-level statement not permitted in .thetalib file; move into a fn body",
     );
   });
 
-  it("loom/parse/warp-top-level-statement: a top-level `let` binding and a top-level query both fire", () => {
+  it("theta/parse/thetalib-top-level-statement: a top-level `let` binding and a top-level query both fire", () => {
     expect(
-      checkWarpTopLevelForm("let", site("lib.warp")),
+      checkThetaLibTopLevelForm("let", site("lib.thetalib")),
       "top-level let",
     ).toBeDefined();
     expect(
-      checkWarpTopLevelForm("query", site("lib.warp")),
+      checkThetaLibTopLevelForm("query", site("lib.thetalib")),
       "top-level query",
     ).toBeDefined();
   });
 
-  it("loom/parse/warp-top-level-statement: the permitted forms (import/export/schema/enum/fn) do not fire", () => {
+  it("theta/parse/thetalib-top-level-statement: the permitted forms (import/export/schema/enum/fn) do not fire", () => {
     for (const form of ["import", "export", "schema", "enum", "fn"] as const) {
       expect(
-        checkWarpTopLevelForm(form, site("lib.warp")),
+        checkThetaLibTopLevelForm(form, site("lib.thetalib")),
         `permitted form: ${form}`,
       ).toBeUndefined();
     }
   });
 });
 
-// --- loom/parse/import-non-warp-extension -----------------------------------
+// --- theta/parse/import-non-thetalib-extension -----------------------------------
 
-describe("V15c-T — import path extension (byte-exact lowercase .warp)", () => {
-  it("loom/parse/import-non-warp-extension: a .loom-suffixed import path fires", () => {
-    const diag = checkImportExtension("./shared/personas.loom", site());
-    expect(diag, "loom/parse/import-non-warp-extension (.loom)").toBeDefined();
-    expect(diag?.code).toBe(IMPORT_NON_WARP_EXTENSION_CODE);
+describe("V15c-T — import path extension (byte-exact lowercase .thetalib)", () => {
+  it("theta/parse/import-non-thetalib-extension: a .theta-suffixed import path fires", () => {
+    const diag = checkImportExtension("./shared/personas.theta", site());
+    expect(diag, "theta/parse/import-non-thetalib-extension (.theta)").toBeDefined();
+    expect(diag?.code).toBe(IMPORT_NON_THETALIB_EXTENSION_CODE);
     // Registry Message (code-registry-parse.md), `<path>` as written.
     expect(diag?.message).toBe(
-      importNonWarpExtensionMessage("./shared/personas.loom"),
+      importNonThetaLibExtensionMessage("./shared/personas.theta"),
     );
     expect(diag?.message).toBe(
-      "import path './shared/personas.loom' does not end in .warp",
+      "import path './shared/personas.theta' does not end in .thetalib",
     );
   });
 
-  it("loom/parse/import-non-warp-extension: a non-lowercase .WARP variant fires (byte-exact lowercase, every host)", () => {
-    // `.WARP` is not byte-exact lowercase `.warp`, so it rejects identically on
+  it("theta/parse/import-non-thetalib-extension: a non-lowercase .THETALIB variant fires (byte-exact lowercase, every host)", () => {
+    // `.THETALIB` is not byte-exact lowercase `.thetalib`, so it rejects identically on
     // case-sensitive and case-insensitive hosts.
-    const diag = checkImportExtension("./shared/personas.WARP", site());
-    expect(diag, "loom/parse/import-non-warp-extension (.WARP)").toBeDefined();
-    expect(diag?.code).toBe(IMPORT_NON_WARP_EXTENSION_CODE);
+    const diag = checkImportExtension("./shared/personas.THETALIB", site());
+    expect(diag, "theta/parse/import-non-thetalib-extension (.THETALIB)").toBeDefined();
+    expect(diag?.code).toBe(IMPORT_NON_THETALIB_EXTENSION_CODE);
     expect(diag?.message).toBe(
-      "import path './shared/personas.WARP' does not end in .warp",
+      "import path './shared/personas.THETALIB' does not end in .thetalib",
     );
   });
 
-  it("loom/parse/import-non-warp-extension: a byte-exact lowercase .warp path does not fire", () => {
+  it("theta/parse/import-non-thetalib-extension: a byte-exact lowercase .thetalib path does not fire", () => {
     expect(
-      checkImportExtension("./shared/personas.warp", site()),
+      checkImportExtension("./shared/personas.thetalib", site()),
     ).toBeUndefined();
   });
 });
 
-// --- loom/load/import-cycle -------------------------------------------------
+// --- theta/load/import-cycle -------------------------------------------------
 
 describe("V15c-T — import cycle detection", () => {
-  it("loom/load/import-cycle: a `.warp` static-graph cycle fires with its path printed", () => {
-    // a.warp imports b.warp, b.warp imports a.warp.
-    const graph: WarpImportGraph = {
+  it("theta/load/import-cycle: a `.thetalib` static-graph cycle fires with its path printed", () => {
+    // a.thetalib imports b.thetalib, b.thetalib imports a.thetalib.
+    const graph: ThetaLibImportGraph = {
       edges: new Map<string, readonly string[]>([
         ["a", ["b"]],
         ["b", ["a"]],
       ]),
     };
-    const diag = detectImportCycle("a", graph, site("a.warp"));
-    expect(diag, "loom/load/import-cycle").toBeDefined();
+    const diag = detectImportCycle("a", graph, site("a.thetalib"));
+    expect(diag, "theta/load/import-cycle").toBeDefined();
     expect(diag?.code).toBe(IMPORT_CYCLE_CODE);
     // Registry Message (code-registry-load.md): the cycle path, first stem
-    // repeated at the end, each stem suffixed `.warp`.
+    // repeated at the end, each stem suffixed `.thetalib`.
     expect(diag?.message).toBe(importCycleMessage(["a", "b", "a"]));
-    expect(diag?.message).toBe("import cycle: a.warp → b.warp → a.warp");
+    expect(diag?.message).toBe("import cycle: a.thetalib → b.thetalib → a.thetalib");
   });
 
-  it("loom/load/import-cycle: an acyclic `.warp` graph does not fire", () => {
-    const graph: WarpImportGraph = {
+  it("theta/load/import-cycle: an acyclic `.thetalib` graph does not fire", () => {
+    const graph: ThetaLibImportGraph = {
       edges: new Map<string, readonly string[]>([
         ["a", ["b"]],
         ["b", []],
       ]),
     };
-    expect(detectImportCycle("a", graph, site("a.warp"))).toBeUndefined();
+    expect(detectImportCycle("a", graph, site("a.thetalib"))).toBeUndefined();
   });
 });
 
-// --- loom/parse/import-unknown-symbol ---------------------------------------
+// --- theta/parse/import-unknown-symbol ---------------------------------------
 
 describe("V15c-T — unknown imported symbol", () => {
-  it("loom/parse/import-unknown-symbol: a specifier naming an undeclared symbol fires, naming the source (not the alias)", () => {
+  it("theta/parse/import-unknown-symbol: a specifier naming an undeclared symbol fires, naming the source (not the alias)", () => {
     const input: ImportCheckInput = {
-      file: "app.loom",
-      specPath: "./personas.warp",
+      file: "app.theta",
+      specPath: "./personas.thetalib",
       // `Foo` is imported under alias `Bar`; the resolved file declares only `Author`.
       specifiers: [{ source: "Foo", local: "Bar", range: span() }],
       resolvedExports: ["Author"],
@@ -257,25 +257,25 @@ describe("V15c-T — unknown imported symbol", () => {
     };
     const diags = checkImportedSymbols(input);
     const diag = diags.find((d) => d.code === IMPORT_UNKNOWN_SYMBOL_CODE);
-    expect(diag, "loom/parse/import-unknown-symbol").toBeDefined();
+    expect(diag, "theta/parse/import-unknown-symbol").toBeDefined();
     // Registry Message (code-registry-parse.md): names the SOURCE symbol `Foo`,
     // not the alias `Bar`, and renders `<path>` as written.
     expect(diag?.message).toBe(
-      importUnknownSymbolMessage("Foo", "./personas.warp"),
+      importUnknownSymbolMessage("Foo", "./personas.thetalib"),
     );
     expect(diag?.message).toBe(
-      "imported symbol 'Foo' is not declared or re-exported by './personas.warp'",
+      "imported symbol 'Foo' is not declared or re-exported by './personas.thetalib'",
     );
   });
 });
 
-// --- loom/parse/import-name-collision ---------------------------------------
+// --- theta/parse/import-name-collision ---------------------------------------
 
 describe("V15c-T — import name collision", () => {
-  it("loom/parse/import-name-collision: two imports binding the same local name fire", () => {
+  it("theta/parse/import-name-collision: two imports binding the same local name fire", () => {
     const input: ImportCheckInput = {
-      file: "app.loom",
-      specPath: "./team.warp",
+      file: "app.theta",
+      specPath: "./team.thetalib",
       specifiers: [
         { source: "Author", local: "Author", range: span() },
         { source: "Author", local: "Author", range: span() },
@@ -286,17 +286,17 @@ describe("V15c-T — import name collision", () => {
     const diag = checkImportedSymbols(input).find(
       (d) => d.code === IMPORT_NAME_COLLISION_CODE,
     );
-    expect(diag, "loom/parse/import-name-collision (two imports)").toBeDefined();
+    expect(diag, "theta/parse/import-name-collision (two imports)").toBeDefined();
     expect(diag?.message).toBe(importNameCollisionMessage("Author"));
     expect(diag?.message).toBe(
       "imported symbol 'Author' collides with another import or top-level declaration",
     );
   });
 
-  it("loom/parse/import-name-collision: an import colliding with a same-file top-level declaration fires", () => {
+  it("theta/parse/import-name-collision: an import colliding with a same-file top-level declaration fires", () => {
     const input: ImportCheckInput = {
-      file: "app.loom",
-      specPath: "./personas.warp",
+      file: "app.theta",
+      specPath: "./personas.thetalib",
       specifiers: [{ source: "Author", local: "Author", range: span() }],
       resolvedExports: ["Author"],
       localTopLevelNames: ["Author"],
@@ -306,7 +306,7 @@ describe("V15c-T — import name collision", () => {
     );
     expect(
       diag,
-      "loom/parse/import-name-collision (same-file top-level)",
+      "theta/parse/import-name-collision (same-file top-level)",
     ).toBeDefined();
   });
 });
@@ -314,29 +314,29 @@ describe("V15c-T — import name collision", () => {
 // --- Resolver success path (complements the IMP-1 throw test) ---------------
 
 describe("V15c-T — resolver success path", () => {
-  it("a resolvable relative `.warp` import resolves and binds its symbols", () => {
-    const resolver = new RelativeWarpResolver(
-      probe({ "/proj/shared": ["personas.warp"] }),
+  it("a resolvable relative `.thetalib` import resolves and binds its symbols", () => {
+    const resolver = new RelativeThetaLibResolver(
+      probe({ "/proj/shared": ["personas.thetalib"] }),
     );
     // Relative resolution joins the spec against the importing file's directory.
     const resolved = resolver.resolve(
-      "./shared/personas.warp",
-      "/proj/app.loom",
+      "./shared/personas.thetalib",
+      "/proj/app.theta",
     );
-    expect(resolved, "the resolved `.warp` path").toBe(
-      "/proj/shared/personas.warp",
+    expect(resolved, "the resolved `.thetalib` path").toBe(
+      "/proj/shared/personas.thetalib",
     );
 
     // The load pipeline registers the file and carries the resolved path.
-    const load = loadWarpImport(
+    const load = loadThetaLibImport(
       resolver,
-      "./shared/personas.warp",
-      "/proj/app.loom",
+      "./shared/personas.thetalib",
+      "/proj/app.theta",
       site(),
     );
     expect(load.registered, "the importing file is registered").toBe(true);
     expect(load.resolvedPath, "the resolved path is carried").toBe(
-      "/proj/shared/personas.warp",
+      "/proj/shared/personas.thetalib",
     );
     expect(
       load.diagnostics.filter((d: Diagnostic) => d.severity === "error"),
@@ -345,8 +345,8 @@ describe("V15c-T — resolver success path", () => {
 
     // A known imported symbol binds with no diagnostic.
     const bind = checkImportedSymbols({
-      file: "app.loom",
-      specPath: "./shared/personas.warp",
+      file: "app.theta",
+      specPath: "./shared/personas.thetalib",
       specifiers: [{ source: "Author", local: "Author", range: span() }],
       resolvedExports: ["Author", "persona_block"],
       localTopLevelNames: [],

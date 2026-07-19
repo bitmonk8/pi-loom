@@ -8,7 +8,7 @@
 // cli-findings/queries-toolloop.md and session-promptstream.test.ts.)
 //
 // Methodology note: the harness `toolCalls` channel only captures MODEL-driven
-// tool calls, NOT loom-code-driven `read(...)` calls (an earlier draft that keyed
+// tool calls, NOT theta-code-driven `read(...)` calls (an earlier draft that keyed
 // on code-tool args observed nothing). This lens observes VALUE FLOW, not
 // visibility, so every model-derived value under test is produced inside a
 // SUBAGENT child (which drives its own multi-turn conversation and returns a
@@ -46,19 +46,19 @@ describe("multi-turn conversation drive / final value / model-reply-as-value", (
       const probe = await runProbe({
         provider,
         files: [
-          F("fchild.loom", [
+          F("fchild.theta", [
             "---",
             "description: fchild",
             "mode: subagent",
             "---",
             "@`Reply with exactly the word CHERRY and nothing else`?",
           ]),
-          F("fparent.loom", [
+          F("fparent.theta", [
             "---",
             "description: fparent",
             "mode: prompt",
             "---",
-            'let v = invoke<string>("./fchild.loom")?',
+            'let v = invoke<string>("./fchild.theta")?',
             "@`FV=${v} and nothing else`?",
           ]),
         ],
@@ -94,7 +94,7 @@ describe("multi-turn conversation drive / final value / model-reply-as-value", (
           // branches on the model's classification (CONV-5: control flow on a
           // model reply). The child's tail is query B's reply, so its final
           // value carries proof the interpolation + branch crossed the turn.
-          F("chainchild.loom", [
+          F("chainchild.theta", [
             "---",
             "description: chainchild",
             "mode: subagent",
@@ -105,7 +105,7 @@ describe("multi-turn conversation drive / final value / model-reply-as-value", (
           ]),
           // CONV-2: typed query binds a structured result; a FIELD of it is
           // interpolated into a later query in the same conversation.
-          F("typedchild.loom", [
+          F("typedchild.theta", [
             "---",
             "description: typedchild",
             "mode: subagent",
@@ -117,7 +117,7 @@ describe("multi-turn conversation drive / final value / model-reply-as-value", (
           // CONV-4: a `for` loop issues N queries; each interpolates the loop var
           // and its reply is concatenated. Final value proves all N fired with
           // correct per-iteration interpolation AND round-tripped through code.
-          F("loopchild.loom", [
+          F("loopchild.theta", [
             "---",
             "description: loopchild",
             "mode: subagent",
@@ -130,29 +130,29 @@ describe("multi-turn conversation drive / final value / model-reply-as-value", (
             "acc",
           ]),
           // CONV-6: final-value forms (0 model turns each).
-          F("baretail.loom", [
+          F("baretail.theta", [
             "---", "description: baretail", "mode: subagent", "---", '"DATE"',
           ]),
-          F("oktail.loom", [
+          F("oktail.theta", [
             "---", "description: oktail", "mode: subagent", "---", 'Ok("KIWI")',
           ]),
-          F("emptytail.loom", [
+          F("emptytail.theta", [
             "---", "description: emptytail", "mode: subagent", "---", "let z = 1",
           ]),
           // Master parent: one visible query renders every child's final value.
           // Every invoke is `match`-guarded so a failure surfaces as a sentinel
           // in the rendered text rather than aborting the parent via `?`.
-          F("drive.loom", [
+          F("drive.theta", [
             "---",
             "description: drive",
             "mode: prompt",
             "---",
-            'let c1 = match invoke<string>("./chainchild.loom") { Ok(v) => v, Err(_) => "C1-ERR" }',
-            'let c2 = match invoke<string>("./typedchild.loom") { Ok(v) => v, Err(_) => "C2-ERR" }',
-            'let c4 = match invoke<string>("./loopchild.loom") { Ok(v) => v, Err(_) => "C4-ERR" }',
-            'let bare = match invoke<string>("./baretail.loom") { Ok(v) => v, Err(_) => "BARE-ERR" }',
-            'let okv = match invoke<string>("./oktail.loom") { Ok(v) => v, Err(_) => "OK-ERR" }',
-            'let emp = match invoke<string>("./emptytail.loom") { Ok(_) => "EMPTY-OK", Err(_) => "EMPTY-ERR" }',
+            'let c1 = match invoke<string>("./chainchild.theta") { Ok(v) => v, Err(_) => "C1-ERR" }',
+            'let c2 = match invoke<string>("./typedchild.theta") { Ok(v) => v, Err(_) => "C2-ERR" }',
+            'let c4 = match invoke<string>("./loopchild.theta") { Ok(v) => v, Err(_) => "C4-ERR" }',
+            'let bare = match invoke<string>("./baretail.theta") { Ok(v) => v, Err(_) => "BARE-ERR" }',
+            'let okv = match invoke<string>("./oktail.theta") { Ok(v) => v, Err(_) => "OK-ERR" }',
+            'let emp = match invoke<string>("./emptytail.theta") { Ok(_) => "EMPTY-OK", Err(_) => "EMPTY-ERR" }',
             "@`C1=[${c1}] C2=[${c2}] C4=[${c4}] BARE=[${bare}] OK=[${okv}] EMP=[${emp}] END`?",
           ]),
         ],
@@ -175,7 +175,7 @@ describe("multi-turn conversation drive / final value / model-reply-as-value", (
         expect(U).toContain("SEEN-B2");
         // CONV-6: bare-value tail is the final value.
         expect(U).toContain("BARE=[DATE]");
-        // CONV-6 (FIXED): a `Result`-typed tail `Ok("KIWI")` is the loom's
+        // CONV-6 (FIXED): a `Result`-typed tail `Ok("KIWI")` is the theta's
         // terminal Result (FN-3: implicit Ok() only wraps a non-Result operand),
         // so invoke<string> unwraps its success payload "KIWI" — NOT the pre-fix
         // Ok(Ok("KIWI")) that failed return validation and hit the Err arm.

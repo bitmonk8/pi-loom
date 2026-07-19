@@ -1,10 +1,10 @@
 // Phase 4 STAGE B — bound pi's NATIVE prompt-mode agentic tool loop to the
-// loom's `tool_loop.max_rounds` (ceiling #2 / CIO-4) WITHOUT reimplementing
+// theta's `tool_loop.max_rounds` (ceiling #2 / CIO-4) WITHOUT reimplementing
 // streaming.
 //
 // In prompt mode every `@`-query streams via pi's own agentic turn
 // (`LivePromptQueryModel` → `pi.sendUserMessage` + `ctx.waitForIdle`, SLSH-2 /
-// Phase 3a). pi runs its internal tool loop for that turn, which the loom's
+// Phase 3a). pi runs its internal tool loop for that turn, which the theta's
 // `max_rounds` did not bound (QTL-4: prompt-mode tools now install, but the loop
 // was unbounded). This governor bounds that native loop through pi's extension
 // hooks:
@@ -14,12 +14,12 @@
 //   - `tool_call` — fires before each tool executes; its `ToolCallEventResult`
 //     can `block` a call with a `reason`. Because `event.input` carries the
 //     MODEL-produced tool arguments and the hook fires pre-execution, this is
-//     also the prompt-mode loom-owned enforcement point for ceiling #4's
+//     also the prompt-mode theta-owned enforcement point for ceiling #4's
 //     MODEL-DRIVEN tool-call args row (ceilings-3-and-4.md#ceiling-4-table;
 //     schema-subset.md §Depth Enforcement point #2; CIO-3 depth-walk-before-AJV):
 //     a depth-6+ argument document is blocked here with the canonical depth
 //     message as the `reason`, fed back to the model as a tool-error result so
-//     the loop continues (never a loom `Err`, never `ModelToolError`). AJV
+//     the loop continues (never a theta `Err`, never `ModelToolError`). AJV
 //     against the presented tool schema cannot catch this — JSON Schema 2020-12
 //     has no `maxDepth` keyword, so the presented schema carries no depth bound.
 //
@@ -154,7 +154,7 @@ export class PromptToolLoopGovernor {
   #onToolCall(event: ToolCallEvent): ToolCallEventResult | undefined {
     const active = this.#active;
     if (active === null) {
-      // Not driving a bounded loom turn — never touch unrelated tool calls.
+      // Not driving a bounded theta turn — never touch unrelated tool calls.
       return undefined;
     }
     if (active.roundBoundary) {

@@ -31,7 +31,7 @@ import {
 // returns a cancelled outcome carrying no committed side effect. No test reds on
 // a compile error, a missing fixture, or a harness throw.
 
-const INVOKE_SITE: CheckpointSite = { file: "parent.loom", line: 9, column: 11 };
+const INVOKE_SITE: CheckpointSite = { file: "parent.theta", line: 9, column: 11 };
 
 /** A never-aborted signal for the checkpoint-presence and value arms. */
 function liveSignal(): AbortSignal {
@@ -102,7 +102,7 @@ describe("V15m-T — invoke-site cancellation checkpoint (cka-47 / V15m)", () =>
   it("cka-47 / V15m: an 'invoke' checkpoint fires immediately before the child spawn, carrying the call site", async () => {
     const log: string[] = [];
     const checkpoint = new RecordingCheckpoint(log);
-    const child = drivenChild("./child.loom", "done", log);
+    const child = drivenChild("./child.theta", "done", log);
 
     await runInvokeChild(checkpoint, liveSignal(), INVOKE_SITE, child);
 
@@ -117,7 +117,7 @@ describe("V15m-T — invoke-site cancellation checkpoint (cka-47 / V15m)", () =>
     const checkpoint = new RecordingCheckpoint(log);
     const controller = new AbortController();
     controller.abort(); // already aborted before the pre-dispatch checkpoint
-    const child = drivenChild("./child.loom", "done", log);
+    const child = drivenChild("./child.theta", "done", log);
 
     const outcome = await runInvokeChild(
       checkpoint,
@@ -138,7 +138,7 @@ describe("V15m-T — invoke-site cancellation checkpoint (cka-47 / V15m)", () =>
       checkpoint,
       liveSignal(),
       INVOKE_SITE,
-      drivenChild("./child.loom", "plan-value", []),
+      drivenChild("./child.theta", "plan-value", []),
     );
 
     expect(outcome.kind).toBe("value");
@@ -162,9 +162,9 @@ describe("V15m-T — invoke-site cancellation checkpoint (cka-47 / V15m)", () =>
 describe("V15m-T — ERR-13 completed-callee finality on the live invoke surface (error-model.md#err-13)", () => {
   it("ERR-13 (V15m): an invoke child driven to completion keeps its committed side effect after a downstream cancel, with no compensating turn injected", async () => {
     const committed: readonly CommittedSideEffect[] = [
-      { kind: "invoke-child", id: "loom-invoke:child-0", description: "child.loom committed" },
+      { kind: "invoke-child", id: "theta-invoke:child-0", description: "child.theta committed" },
     ];
-    const child = drivenChild("./child.loom", "done", [], committed);
+    const child = drivenChild("./child.theta", "done", [], committed);
 
     // Drive the invoke child to completion on the live surface (commits its effect).
     const outcome = await runInvokeChild(
@@ -195,9 +195,9 @@ describe("V15m-T — ERR-13 completed-callee finality on the live invoke surface
 
   it("ERR-13 (V15m): a completed invoke child stays final after a downstream ? early-return and a downstream panic, with no compensating turn injected", async () => {
     const committed: readonly CommittedSideEffect[] = [
-      { kind: "invoke-child", id: "loom-invoke:child-1", description: "logger.loom committed" },
+      { kind: "invoke-child", id: "theta-invoke:child-1", description: "logger.theta committed" },
     ];
-    const child = drivenChild("./logger.loom", "done", [], committed);
+    const child = drivenChild("./logger.theta", "done", [], committed);
 
     const outcome = await runInvokeChild(
       new RecordingCheckpoint([]),

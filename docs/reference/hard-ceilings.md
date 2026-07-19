@@ -1,6 +1,6 @@
 # Reference — Hard runtime ceilings & invariants
 
-The four loom 1.0.0 runtime ceilings, their routing classes, the fixed evaluation
+The four theta 1.0.0 runtime ceilings, their routing classes, the fixed evaluation
 order, the `masked` co-fire field, and the four enumerated non-existence claims.
 See [Errors and results](./errors-and-results.md) for `QueryError` shapes,
 [Schema subset](./schema-subset.md) for depth enforcement, [Diagnostics](./diagnostics.md)
@@ -10,7 +10,7 @@ for codes.
 
 | # | Ceiling | Routing class | First surface |
 |---|---|---|---|
-| 1 | `invoke`-chain nesting depth **32** | runtime panic | `loom/runtime/invoke-depth-exceeded` |
+| 1 | `invoke`-chain nesting depth **32** | runtime panic | `theta/runtime/invoke-depth-exceeded` |
 | 2 | `tool_loop.max_rounds` (per-query free-phase round cap) | recoverable `Err` | `Err(QueryError { kind: "tool_loop_exhausted", ... })` |
 | 3 | binder per-class retry budget | load-time system note | binder failure-mode template |
 | 4 | JSON-document depth **5** | boundary-dependent | per-boundary table below |
@@ -18,10 +18,10 @@ for codes.
 ## Ceiling #1 — invoke-chain depth (INV-4)
 
 Caps the nesting depth of an `invoke` chain at **32**. A *countable frame* is any
-direct `invoke(...)`, any `.loom` callable call through a `tools:` entry, or any
-cross-file `.warp` `fn` call (intra-file `fn` calls are not countable). Per-chain,
+direct `invoke(...)`, any `.theta` callable call through a `tools:` entry, or any
+cross-file `.thetalib` `fn` call (intra-file `fn` calls are not countable). Per-chain,
 not per-process — sibling invokes do not share budget. The slash-invoked top-level
-loom is depth 0; the first nested frame is depth 1; legal range `1 ≤ depth ≤ 32`.
+theta is depth 0; the first nested frame is depth 1; legal range `1 ≤ depth ≤ 32`.
 The cap is breached when the runtime is about to push a 33rd frame; the diagnostic
 renders `invoke chain depth exceeded: 33 > 32`. The counter crosses subagent-mode
 boundaries unchanged (a `subagent → subagent` or `prompt → subagent` invoke does
@@ -40,7 +40,7 @@ exhaustion without a terminating turn:
 
 ## Ceiling #3 — binder per-class retry budget
 
-Routing class **load-time system note**: the loom does not start; the note is
+Routing class **load-time system note**: the theta does not start; the note is
 rendered from the failure-mode template matching the *most recent* failure's
 class. Not an evaluation outcome. Sub-obligations:
 
@@ -60,13 +60,13 @@ enforcement point:
 
 | Check point | Destination | Surface |
 |---|---|---|
-| Typed-query response | loom code | `Err(QueryError { kind: "validation", cause: "schema_validation", validation_errors: [{ schema_keyword: "maxDepth", ... }], ... })` |
+| Typed-query response | theta code | `Err(QueryError { kind: "validation", cause: "schema_validation", validation_errors: [{ schema_keyword: "maxDepth", ... }], ... })` |
 | Tool-call args, model-driven (`@`...`` loop) | the model (loop continues; round counts against `tool_loop.max_rounds`) | tool-error result fed back as next user turn; no `QueryError` unless the loop later hits ceiling #2 |
-| Tool-call args, code-driven (`<name>(args)`) | loom code | `Err(CodeToolError { cause: "validation", validation_errors: [...], ... })` |
+| Tool-call args, code-driven (`<name>(args)`) | theta code | `Err(CodeToolError { cause: "validation", validation_errors: [...], ... })` |
 | `params` validation | depends on call site | `invoke(...)`: `Err(InvokeInfraError { cause: "validation", ... })`. Slash-load: routes through ceiling #3's no-retry classification; not an evaluation outcome |
 | `invoke<T>` return value | invoke parent | `Err(InvokeInfraError { cause: "return_validation", ... })` |
 
-The model-driven row is the only one silent at the loom-code level (the
+The model-driven row is the only one silent at the theta-code level (the
 `validation` runtime event does not fire on it). The slash-load `params` arm is the
 only row that crosses ceilings.
 
@@ -102,9 +102,9 @@ evaluated. Fixed evaluation order:
 ## Ceiling-set invariants
 
 - **Audience-coverage invariant.** Each ceiling has an observable failure surface
-  addressed to at least one of *loom code*, *the model*, or *the operator*; none is
+  addressed to at least one of *theta code*, *the model*, or *the operator*; none is
   unobservable to all three. (Ceiling #4's model-driven row is silent at the
-  loom-code level but observable to the model directly, and to the operator via
+  theta-code level but observable to the model directly, and to the operator via
   ceiling #2 if the loop later exhausts.)
 - **Ceiling-#1 panic-uniqueness invariant.** Of the four, ceiling #1 is the *only*
   one whose breach reaches the *fail* arm via the panic path. Ceiling #2 and
@@ -115,28 +115,28 @@ evaluated. Fixed evaluation order:
 
 Each entry is one of `"ceiling#1"`, `"ceiling#2"`, `"ceiling#3"`, `"ceiling#4"`;
 omitted when no co-fire occurred (never `masked: []`). Wire location:
-`details.masked` for diagnostic surfaces (the `loom/runtime/invoke-depth-exceeded`
+`details.masked` for diagnostic surfaces (the `theta/runtime/invoke-depth-exceeded`
 panic), `details.event.masked` for runtime-event surfaces (the `validation` and
-`tool_loop_exhausted` cases). In loom 1.0 the only non-empty `masked` reachable is
+`tool_loop_exhausted` cases). In theta 1.0 the only non-empty `masked` reachable is
 `["ceiling#2"]` on the runtime-event channel — it fires on a typed-query response
 whose forced respond turn's origin round left `slot_count == max_rounds` after
 CIO-4's increment. `masked` is never populated on a diagnostic-shape surface in
-loom 1.0.
+theta 1.0.
 
 ## No additional runtime ceiling (NOCEIL-1 … NOCEIL-4)
 
 - **NOCEIL-1.** No wall-clock timeout per query / tool-call / invoke. Per-call
   timeouts are deferred; the absence is enforced at parse time by rejecting any
-  `timeout:` field (`loom/parse/timeout-field-rejected`).
+  `timeout:` field (`theta/parse/timeout-field-rejected`).
 - **NOCEIL-2.** No per-query response-token cap and no cumulative-token budget. The
   only token-domain failure surface is provider-detected `ContextOverflowError`.
 - **NOCEIL-3.** No runtime-value memory ceiling. String length, array length, and
   total heap are bounded only by the host process. Catchable host allocation
   failures (`RangeError: Invalid string length` / `Invalid array length` /
-  `Maximum call stack size exceeded`) route through `loom/runtime/internal-error`;
+  `Maximum call stack size exceeded`) route through `theta/runtime/internal-error`;
   uncatchable host fatals (V8 heap-OOM) terminate the host process and emit no
   diagnostic.
-- **NOCEIL-4.** No loom-level host-language stack-depth ceiling distinct from the
+- **NOCEIL-4.** No theta-level host-language stack-depth ceiling distinct from the
   32-level `invoke`-chain bound. The host's native call-stack bound is not
   separately ceilinged; exhaustion surfaces through NOCEIL-3's catchable-`RangeError`
   arm.

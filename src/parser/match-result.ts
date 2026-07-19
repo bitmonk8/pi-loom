@@ -7,20 +7,20 @@
 //   - `?` operand-type precondition (ERR-18, expressions.md §`?` operator) —
 //     the operand `?` unwraps MUST itself have static type
 //     `Result<T, QueryError>` for some `T`; any other operand type is
-//     `loom/parse/question-on-non-result` (a `type`-phase, hence lex/parse/type
+//     `theta/parse/question-on-non-result` (a `type`-phase, hence lex/parse/type
 //     batch pre-evaluation, failure).
 //   - `?` enclosing-scope precondition (expressions.md §`?` operator) — the
 //     scope `?` early-returns from must be compatible with
 //     `Result<U, QueryError>` for some `U`: either it carries no explicit return
 //     annotation (`?` then implicitly returns `Result<T, QueryError>`) or its
 //     explicit annotation `R` satisfies `Result<U, QueryError> ⊑ R`. Otherwise
-//     the use of `?` is `loom/parse/question-outside-result-fn`. This is the
+//     the use of `?` is `theta/parse/question-outside-result-fn`. This is the
 //     scope precondition, distinct from the operand precondition above.
 //   - `match` arm common-type (expressions.md §`match` expression, Arm syntax) —
 //     all arms must produce values of one type, or values whose types share a
 //     common upper bound under type-system.md §"Type compatibility" (every arm
 //     `⊑` the chosen common type, narrowed by any sink in scope). A `match`
-//     whose arms share no common upper bound is `loom/parse/match-arm-type-mismatch`;
+//     whose arms share no common upper bound is `theta/parse/match-arm-type-mismatch`;
 //     a well-typed `match` resolves to the least upper bound of its arms.
 //
 // V4a-T (tests-task) declares these seam shapes and stubs the behaviour-bearing
@@ -44,11 +44,11 @@ export interface MatchResultSite {
  * operand-type check:
  *
  *   - `result`     — the operand is `Result<T, E>`; `errIsQueryError` records
- *                    whether `E` is `QueryError` (the only error type loom 1.0
+ *                    whether `E` is `QueryError` (the only error type theta 1.0
  *                    admits for `?`). ERR-18 requires `Result<T, QueryError>`.
  *   - `non-result` — the operand is any non-`Result` type; `display` is its
  *                    rendered type name for the `<type>` placeholder of the
- *                    `loom/parse/question-on-non-result` message.
+ *                    `theta/parse/question-on-non-result` message.
  */
 export type QuestionOperandType =
   | { readonly kind: "result"; readonly errIsQueryError: boolean }
@@ -56,7 +56,7 @@ export type QuestionOperandType =
 
 /**
  * ERR-18 — the `?` operand-type precondition. Returns
- * `loom/parse/question-on-non-result` (a `type`-phase diagnostic) when the
+ * `theta/parse/question-on-non-result` (a `type`-phase diagnostic) when the
  * operand `?` is applied to does not statically type as `Result<T, QueryError>`
  * for some `T` (e.g. `let x = 5?`, where `5` is `integer`). Returns `undefined`
  * for a `Result<T, QueryError>` operand (expressions.md ERR-18).
@@ -79,7 +79,7 @@ export function checkQuestionOperand(
   const display = operand.kind === "non-result" ? operand.display : "Result";
   return {
     severity: "error",
-    code: "loom/parse/question-on-non-result",
+    code: "theta/parse/question-on-non-result",
     file: site.file,
     range: site.range,
     message: `'?' requires a Result operand; got ${display}`,
@@ -102,8 +102,8 @@ export type EnclosingReturnScope =
 
 /**
  * The `?` enclosing-scope precondition. Returns
- * `loom/parse/question-outside-result-fn` (a `type`-phase diagnostic) when `?`
- * is used in a function or top-level loom whose explicit return annotation is
+ * `theta/parse/question-outside-result-fn` (a `type`-phase diagnostic) when `?`
+ * is used in a function or top-level theta whose explicit return annotation is
  * not compatible with `Result<U, QueryError>` for some `U` and cannot be
  * inferred to one. Returns `undefined` for an inferred scope, or an annotated
  * scope whose return type admits `Result<U, QueryError>` (expressions.md
@@ -125,7 +125,7 @@ export function checkQuestionScope(
   // for any `U`. Message from diagnostics/code-registry-parse.md.
   return {
     severity: "error",
-    code: "loom/parse/question-outside-result-fn",
+    code: "theta/parse/question-outside-result-fn",
     file: site.file,
     range: site.range,
     message: "'?' used in a scope whose return type is not Result<T, QueryError>",
@@ -135,7 +135,7 @@ export function checkQuestionScope(
 /**
  * The outcome of the `match` arm common-type check:
  *
- *   - `diagnostics` — `loom/parse/match-arm-type-mismatch` when the arm bodies
+ *   - `diagnostics` — `theta/parse/match-arm-type-mismatch` when the arm bodies
  *     share no common upper bound (or fail against an in-scope sink); empty
  *     when the arms are well-typed.
  *   - `lub`         — the resolved least upper bound the well-typed `match`
@@ -153,7 +153,7 @@ export interface MatchArmCheck {
  * Arm syntax). Given the static types of the arm bodies and an optional
  * in-scope type `sink` on the `match` expression:
  *
- *   - reports `loom/parse/match-arm-type-mismatch` when the arms share no
+ *   - reports `theta/parse/match-arm-type-mismatch` when the arms share no
  *     common upper bound under type-system.md §"Type compatibility" (no `sink`),
  *     or when an arm is not `⊑` the `sink` (with a `sink`);
  *   - otherwise resolves the `match` to the least upper bound of its arms,
@@ -193,11 +193,11 @@ export function checkMatchArmTypes(opts: {
   return { diagnostics: [], lub };
 }
 
-/** The `loom/parse/match-arm-type-mismatch` diagnostic (diagnostics/code-registry-parse.md). */
+/** The `theta/parse/match-arm-type-mismatch` diagnostic (diagnostics/code-registry-parse.md). */
 function mismatchDiagnostic(site: MatchResultSite): Diagnostic {
   return {
     severity: "error",
-    code: "loom/parse/match-arm-type-mismatch",
+    code: "theta/parse/match-arm-type-mismatch",
     file: site.file,
     range: site.range,
     message: "match arm body type does not match the common type of the other arms",

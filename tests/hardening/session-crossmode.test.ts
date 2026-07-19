@@ -1,8 +1,8 @@
 // Hardening lens: CROSS-MODE INVOKE value passing.
 //
-// Drives real `.loom` files through the shipped extension + live model. Every
-// child loom makes ZERO model turns (literal tails / empty-template
-// short-circuit); the only live turn per probe is the top prompt loom's final
+// Drives real `.theta` files through the shipped extension + live model. Every
+// child theta makes ZERO model turns (literal tails / empty-template
+// short-circuit); the only live turn per probe is the top prompt theta's final
 // `@` query, observed deterministically via `userTexts` (computed before send).
 //
 // Findings encoded below (see session-findings/crossmode.md):
@@ -10,13 +10,13 @@
 //     InvokeCalleeError{kind:"invoke_callee", callee_path, inner}. The parent's
 //     Err arm sees kind "invoke_callee" and can read e.inner (the callee's
 //     original QueryError). Fix: runInvokeEffect wraps a callee-returned Err via
-//     surfaceLoomCallableCalleeFailure; only invoke_infra / cancelled pass
+//     surfaceThetaCallableCalleeFailure; only invoke_infra / cancelled pass
 //     through unwrapped.
 //   XMODE-2 (FIXED) — an interpolating backtick template `\`..${..}\`` used as a
 //     value expression (match-arm body) or a `match` inside a `${...}`
 //     interpolation is a non-`@` query template / template-level `match`, which
 //     expressions.md §"Not supported" forbids; both now fail to load with
-//     loom/parse/unsupported-feature (previously silently evaluated to null).
+//     theta/parse/unsupported-feature (previously silently evaluated to null).
 //
 // Verified-conformant: object/array/enum final values survive the boundary;
 // subagent->subagent and subagent->prompt value flow; typed-return-validation is
@@ -61,11 +61,11 @@ describe("cross-mode invoke value passing", () => {
     const files = [
       {
         source: "project" as const,
-        path: "ek.loom",
+        path: "ek.theta",
         text: P(
           "prompt",
           [
-            'let r = match invoke("./errchild.loom") {',
+            'let r = match invoke("./errchild.theta") {',
             '  Ok(_) => "NOERR",',
             "  Err(e) => match e.kind {",
             '    "invoke_callee" => "K-callee",',
@@ -77,7 +77,7 @@ describe("cross-mode invoke value passing", () => {
           ].join("\n"),
         ),
       },
-      { source: "project" as const, path: "errchild.loom", text: ERRCHILD_SUB },
+      { source: "project" as const, path: "errchild.theta", text: ERRCHILD_SUB },
     ];
     const { text, probe } = await drive(() => runProbe({ provider, files, drives: ["/ek"] }));
     try {
@@ -97,11 +97,11 @@ describe("cross-mode invoke value passing", () => {
     const files = [
       {
         source: "project" as const,
-        path: "ei.loom",
+        path: "ei.theta",
         text: P(
           "prompt",
           [
-            'let r = match invoke("./errchild.loom") {',
+            'let r = match invoke("./errchild.theta") {',
             '  Ok(_) => "NOERR",',
             '  Err(e) => match e.inner.kind { "validation" => "INNER", _ => "OTHER" }',
             "}",
@@ -109,7 +109,7 @@ describe("cross-mode invoke value passing", () => {
           ].join("\n"),
         ),
       },
-      { source: "project" as const, path: "errchild.loom", text: ERRCHILD_SUB },
+      { source: "project" as const, path: "errchild.theta", text: ERRCHILD_SUB },
     ];
     const { text, probe } = await drive(() => runProbe({ provider, files, drives: ["/ei"] }));
     try {
@@ -126,11 +126,11 @@ describe("cross-mode invoke value passing", () => {
     const files = [
       {
         source: "project" as const,
-        path: "ekp.loom",
+        path: "ekp.theta",
         text: P(
           "prompt",
           [
-            'let r = match invoke("./errpr.loom") {',
+            'let r = match invoke("./errpr.theta") {',
             '  Ok(_) => "NOERR",',
             "  Err(e) => match e.kind {",
             '    "invoke_callee" => "K-callee",',
@@ -142,7 +142,7 @@ describe("cross-mode invoke value passing", () => {
           ].join("\n"),
         ),
       },
-      { source: "project" as const, path: "errpr.loom", text: ERRCHILD_PROMPT },
+      { source: "project" as const, path: "errpr.theta", text: ERRCHILD_PROMPT },
     ];
     const { text, probe } = await drive(() => runProbe({ provider, files, drives: ["/ekp"] }));
     try {
@@ -157,19 +157,19 @@ describe("cross-mode invoke value passing", () => {
     const files = [
       {
         source: "project" as const,
-        path: "pobj.loom",
+        path: "pobj.theta",
         text: P(
           "prompt",
           [
             "schema Thing { name: string, count: number, tags: array<string> }",
-            'let v: Thing = invoke<Thing>("./objchild.loom")?',
+            'let v: Thing = invoke<Thing>("./objchild.theta")?',
             "@`OBJ=${v.name}|${v.count}|${v.tags[0]}`",
           ].join("\n"),
         ),
       },
       {
         source: "project" as const,
-        path: "objchild.loom",
+        path: "objchild.theta",
         text: P(
           "subagent",
           [
@@ -192,20 +192,20 @@ describe("cross-mode invoke value passing", () => {
     const files = [
       {
         source: "project" as const,
-        path: "penum.loom",
+        path: "penum.theta",
         text: P(
           "prompt",
           [
             "enum Status { Active, Done }",
             "schema Wrap { status: Status }",
-            'let v: Wrap = invoke<Wrap>("./enumchild.loom")?',
+            'let v: Wrap = invoke<Wrap>("./enumchild.theta")?',
             "@`ENUM=${v.status}`",
           ].join("\n"),
         ),
       },
       {
         source: "project" as const,
-        path: "enumchild.loom",
+        path: "enumchild.theta",
         text: P(
           "subagent",
           [
@@ -229,15 +229,15 @@ describe("cross-mode invoke value passing", () => {
     const files = [
       {
         source: "project" as const,
-        path: "topss.loom",
-        text: P("prompt", ['let v: number = invoke<number>("./midss.loom")?', "@`SS=${v}`"].join("\n")),
+        path: "topss.theta",
+        text: P("prompt", ['let v: number = invoke<number>("./midss.theta")?', "@`SS=${v}`"].join("\n")),
       },
       {
         source: "project" as const,
-        path: "midss.loom",
-        text: P("subagent", ['let w: number = invoke<number>("./leafsub.loom")?', "w + 100"].join("\n")),
+        path: "midss.theta",
+        text: P("subagent", ['let w: number = invoke<number>("./leafsub.theta")?', "w + 100"].join("\n")),
       },
-      { source: "project" as const, path: "leafsub.loom", text: P("subagent", "5") },
+      { source: "project" as const, path: "leafsub.theta", text: P("subagent", "5") },
     ];
     const { text, probe } = await drive(() => runProbe({ provider, files, drives: ["/topss"] }));
     try {
@@ -252,15 +252,15 @@ describe("cross-mode invoke value passing", () => {
     const files = [
       {
         source: "project" as const,
-        path: "topsp.loom",
-        text: P("prompt", ['let v: number = invoke<number>("./midsp.loom")?', "@`SP=${v}`"].join("\n")),
+        path: "topsp.theta",
+        text: P("prompt", ['let v: number = invoke<number>("./midsp.theta")?', "@`SP=${v}`"].join("\n")),
       },
       {
         source: "project" as const,
-        path: "midsp.loom",
-        text: P("subagent", ['let w: number = invoke<number>("./leafprompt.loom")?', "w + 100"].join("\n")),
+        path: "midsp.theta",
+        text: P("subagent", ['let w: number = invoke<number>("./leafprompt.theta")?', "w + 100"].join("\n")),
       },
-      { source: "project" as const, path: "leafprompt.loom", text: P("prompt", "7") },
+      { source: "project" as const, path: "leafprompt.theta", text: P("prompt", "7") },
     ];
     const { text, probe } = await drive(() => runProbe({ provider, files, drives: ["/topsp"] }));
     try {
@@ -276,11 +276,11 @@ describe("cross-mode invoke value passing", () => {
     const files = [
       {
         source: "project" as const,
-        path: "vtyped.loom",
+        path: "vtyped.theta",
         text: P(
           "prompt",
           [
-            'let r = match invoke<number>("./strchild.loom") {',
+            'let r = match invoke<number>("./strchild.theta") {',
             '  Ok(_) => "FLOWED",',
             '  Err(e) => match e.kind {',
             '    "invoke_infra" => match e.cause { "return_validation" => "RETVAL", _ => "INFRA-OTHER" },',
@@ -291,7 +291,7 @@ describe("cross-mode invoke value passing", () => {
           ].join("\n"),
         ),
       },
-      { source: "project" as const, path: "strchild.loom", text: P("subagent", '"a-string"') },
+      { source: "project" as const, path: "strchild.theta", text: P("subagent", '"a-string"') },
     ];
     const { text, probe } = await drive(() => runProbe({ provider, files, drives: ["/vtyped"] }));
     try {
@@ -306,10 +306,10 @@ describe("cross-mode invoke value passing", () => {
     const files = [
       {
         source: "project" as const,
-        path: "vuntyped.loom",
-        text: P("prompt", ['let r = invoke("./numchild.loom")?', "@`U=${r}`"].join("\n")),
+        path: "vuntyped.theta",
+        text: P("prompt", ['let r = invoke("./numchild.theta")?', "@`U=${r}`"].join("\n")),
       },
-      { source: "project" as const, path: "numchild.loom", text: P("subagent", "42") },
+      { source: "project" as const, path: "numchild.theta", text: P("subagent", "42") },
     ];
     const { text, probe } = await drive(() => runProbe({ provider, files, drives: ["/vuntyped"] }));
     try {
@@ -322,14 +322,14 @@ describe("cross-mode invoke value passing", () => {
   // XMODE-2 (FIXED): an interpolating backtick template used as a match-arm
   // value is a non-`@` query template in value position, which expressions.md
   // §"Not supported" forbids (query templates are `@`-prefixed and admitted only
-  // at statement / `let`-RHS level). The loom now fails to load with
-  // loom/parse/unsupported-feature and un-registers. Registration-only probe
-  // (no drives) — zero tokens, since a rejected loom never reaches a model turn.
+  // at statement / `let`-RHS level). The theta now fails to load with
+  // theta/parse/unsupported-feature and un-registers. Registration-only probe
+  // (no drives) — zero tokens, since a rejected theta never reaches a model turn.
   it("XMODE-2: interpolating-template match-arm un-registers with unsupported-feature", async () => {
     const files = [
       {
         source: "project" as const,
-        path: "tmatch.loom",
+        path: "tmatch.theta",
         text: P(
           "prompt",
           [
@@ -357,12 +357,12 @@ describe("cross-mode invoke value passing", () => {
   // XMODE-2 (FIXED): `match` inside a `${...}` interpolation is forbidden by
   // expressions.md §"Not supported" (a `match` / `@`-query is admitted only at
   // statement / `let`-RHS level so template evaluation stays code-only). The
-  // loom now fails to load with loom/parse/unsupported-feature and un-registers.
+  // theta now fails to load with theta/parse/unsupported-feature and un-registers.
   it("XMODE-2: match inside interpolation un-registers with unsupported-feature", async () => {
     const files = [
       {
         source: "project" as const,
-        path: "mdirect.loom",
+        path: "mdirect.theta",
         text: P("prompt", ["@`D=${match Ok(9) { Ok(n) => n, Err(_) => 0 }}`"].join("\n")),
       },
     ];

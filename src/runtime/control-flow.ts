@@ -22,7 +22,7 @@
 // missing fixture, or a harness throw. The paired V3c implementation leaf fills
 // it in.
 
-import { type LoomValue } from "./value";
+import { type ThetaValue } from "./value";
 
 /**
  * The host a `for ... in` loop evaluates the iterand and body through.
@@ -34,8 +34,8 @@ import { type LoomValue } from "./value";
  *     fresh immutable local) at position `index`.
  */
 export interface ForLoopHost {
-  evaluateIterand(): readonly LoomValue[];
-  runIteration(element: LoomValue, index: number): void;
+  evaluateIterand(): readonly ThetaValue[];
+  runIteration(element: ThetaValue, index: number): void;
 }
 
 /**
@@ -56,6 +56,6 @@ export function evaluateForLoop(host: ForLoopHost): void {
   // captured reference, so the iterated sequence stays fixed.
   const snapshot = host.evaluateIterand();
   for (let index = 0; index < snapshot.length; index += 1) {
-    host.runIteration(snapshot[index] as LoomValue, index);
+    host.runIteration(snapshot[index] as ThetaValue, index);
   }
 }

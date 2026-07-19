@@ -1,10 +1,10 @@
 ---
-description: "Use a shared Author schema and helper from a .warp module"
+description: "Use a shared Author schema and helper from a .thetalib module"
 mode: subagent
 params:
   reviewer: Author
 ---
-import { Author, rate_strictness } from "./personas.warp"
+import { Author, rate_strictness } from "./personas.thetalib"
 
 let strictness = rate_strictness(reviewer)?
 @`Produce a review checklist calibrated to strictness level ${strictness}/5.`

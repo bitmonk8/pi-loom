@@ -4,14 +4,14 @@
 // and invoked by the dedicated `npm run test:live` runner (see
 // `config/vitest/vitest.live.config.ts`). It loads the SHIPPED extension through its real
 // `extensions/index.ts` entry (not the `H4a` in-memory fixture-supply),
-// discovers a real `.loom` from a real on-disk discovery source, and drives it
+// discovers a real `.theta` from a real on-disk discovery source, and drives it
 // against a LIVE provider/model. It closes no new spec REQ-ID; it verifies the
 // live composition the double-backed gates (`H4a`, `H7a`, `V18d`) never
 // exercise and the manual real-host smoke covers only by hand.
 //
 // INTENDED-REASON RED (current state): the shipped production composition root
 // (`src/extension/factory.ts` default export) supplies `fixtures: []` and runs
-// no discovery walk, so no `.loom`-derived slash command is ever registered by
+// no discovery walk, so no `.theta`-derived slash command is ever registered by
 // the shipped extension. Each test below therefore reds on the MISSING COMMAND
 // (or the absent turn that follows), not on a credential, network, setup, or
 // harness throw — the discovery→registration precondition is asserted BEFORE any
@@ -20,23 +20,23 @@
 //
 // Convention: conventions.md (phase categories — end-to-end harness; the
 // live-host acceptance pair exception). Narrative spec references:
-// extension-bootstrap-and-per-loom.md, registration-steps.md, discovery.md.
+// extension-bootstrap-and-per-theta.md, registration-steps.md, discovery.md.
 
 import { describe, expect, it } from "vitest";
 import {
   bootShippedExtension,
   driveSlashCaptureText,
-  plantLoomWorkspace,
+  plantThetaWorkspace,
   requireLiveProvider,
-  type PlantedLoom,
+  type PlantedTheta,
 } from "./harness";
 import {
   AjvSchemaValidator,
   type LoweredSchema,
 } from "../../src/seams/schema-validator";
 
-/** A minimal prompt-mode `.loom` whose single untyped query names a deterministic sentinel. */
-function promptLoom(sentinel: string): string {
+/** A minimal prompt-mode `.theta` whose single untyped query names a deterministic sentinel. */
+function promptTheta(sentinel: string): string {
   return [
     "---",
     "mode: prompt",
@@ -47,14 +47,14 @@ function promptLoom(sentinel: string): string {
 }
 
 /**
- * A schema-typed `@`-query loom whose ONLY turn is the typed query (V5d schema
+ * A schema-typed `@`-query theta whose ONLY turn is the typed query (V5d schema
  * lowering/validation). Single-turn on purpose: `driveSlashCaptureText`
  * concatenates every streamed `text_delta`, so a trailing prose turn would
  * append non-JSON after the typed object and break a whole-stream `JSON.parse`
  * (FIND-S7-3 / D1). With just the typed query, the entire streamed transcript
  * is the structured JSON object the schema is validated against.
  */
-function typedQueryLoom(): string {
+function typedQueryTheta(): string {
   return [
     "---",
     "mode: prompt",
@@ -64,8 +64,8 @@ function typedQueryLoom(): string {
   ].join("\n");
 }
 
-/** A subagent-mode `.loom` whose one untyped query drives a private spawned session to completion. */
-function subagentLoom(): string {
+/** A subagent-mode `.theta` whose one untyped query drives a private spawned session to completion. */
+function subagentTheta(): string {
   return [
     "---",
     "mode: subagent",
@@ -88,7 +88,7 @@ const TYPED_REPLY_SCHEMA: LoweredSchema = {
 
 // ===========================================================================
 // Tests bullet 1 — discovery → registration (Convention: live-host acceptance).
-// A `.loom` written under the project discovery source `<cwd>/.pi/looms/`
+// A `.theta` written under the project discovery source `<cwd>/.pi/theta/`
 // registers a live slash command named for its filename stem, exercising the
 // real V10a walk over the real V8b PiFileSystem and the V9b `session_start` →
 // `pi.registerCommand` step. Reds today: the shipped default export registers
@@ -96,19 +96,19 @@ const TYPED_REPLY_SCHEMA: LoweredSchema = {
 // ===========================================================================
 
 describe("H8a-T — discovery → registration (Convention: live-host acceptance)", () => {
-  it("registers a live slash command for a project-source .loom via the real discovery walk", async () => {
+  it("registers a live slash command for a project-source .theta via the real discovery walk", async () => {
     const provider = requireLiveProvider();
-    const looms: PlantedLoom[] = [
-      { source: "project", stem: "greetlive", text: promptLoom("LOOM-LIVE-OK") },
+    const thetas: PlantedTheta[] = [
+      { source: "project", stem: "greetlive", text: promptTheta("THETA-LIVE-OK") },
     ];
-    const workspace = plantLoomWorkspace(looms);
+    const workspace = plantThetaWorkspace(thetas);
     const handle = await bootShippedExtension({ workspace, provider });
     try {
       // The shipped extension, loaded through its real entry, discovered the
-      // on-disk `.loom` and registered a slash command named for its stem.
+      // on-disk `.theta` and registered a slash command named for its stem.
       expect(
         handle.command("greetlive"),
-        "no .loom-derived slash command registered — the shipped production " +
+        "no .theta-derived slash command registered — the shipped production " +
           "composition root supplies no discovered fixtures (fixtures: []) and " +
           "runs no discovery walk. Registered: " +
           JSON.stringify(handle.registeredNames()),
@@ -131,9 +131,9 @@ describe("H8a-T — discovery → registration (Convention: live-host acceptance
 describe("H8a-T — prompt-mode turn against a live model (Convention: live-host acceptance)", () => {
   it("drives one live prompt-mode turn whose assistant response contains the deterministic sentinel", async () => {
     const provider = requireLiveProvider();
-    const sentinel = "LOOM-LIVE-OK";
-    const workspace = plantLoomWorkspace([
-      { source: "project", stem: "sentinel", text: promptLoom(sentinel) },
+    const sentinel = "THETA-LIVE-OK";
+    const workspace = plantThetaWorkspace([
+      { source: "project", stem: "sentinel", text: promptTheta(sentinel) },
     ]);
     const handle = await bootShippedExtension({ workspace, provider });
     try {
@@ -141,7 +141,7 @@ describe("H8a-T — prompt-mode turn against a live model (Convention: live-host
       // live turn is driven, so the red spends no tokens.
       expect(
         handle.command("sentinel"),
-        "no command to invoke — shipped composition root registers no discovered loom. Registered: " +
+        "no command to invoke — shipped composition root registers no discovered theta. Registered: " +
           JSON.stringify(handle.registeredNames()),
       ).toBeDefined();
 
@@ -158,23 +158,23 @@ describe("H8a-T — prompt-mode turn against a live model (Convention: live-host
 
 // ===========================================================================
 // Tests bullet 3 — alternate discovery source (Convention: live-host
-// acceptance). A `.loom` discovered via a second real source — the `--loom
+// acceptance). A `.theta` discovered via a second real source — the `--theta
 // <dir>` CLI source (V10a/V10c over PiFileSystem) — also registers a live slash
 // command, proving discovery is source-general, not wired to a single
 // hardcoded path. Reds today: no discovered command from any source.
 // ===========================================================================
 
 describe("H8a-T — alternate discovery source (Convention: live-host acceptance)", () => {
-  it("registers a live slash command for a --loom CLI-source .loom (discovery is source-general)", async () => {
+  it("registers a live slash command for a --theta CLI-source .theta (discovery is source-general)", async () => {
     const provider = requireLiveProvider();
-    const workspace = plantLoomWorkspace([
-      { source: "cli", stem: "clisource", text: promptLoom("LOOM-CLI-OK") },
+    const workspace = plantThetaWorkspace([
+      { source: "cli", stem: "clisource", text: promptTheta("THETA-CLI-OK") },
     ]);
     const handle = await bootShippedExtension({ workspace, provider });
     try {
       expect(
         handle.command("clisource"),
-        "no .loom-derived command from the --loom CLI source — the shipped " +
+        "no .theta-derived command from the --theta CLI source — the shipped " +
           "composition root walks no discovery source. Registered: " +
           JSON.stringify(handle.registeredNames()),
       ).toBeDefined();
@@ -197,8 +197,8 @@ describe("H8a-T — alternate discovery source (Convention: live-host acceptance
 describe("H8a-T — typed-query lowering, bounded (Convention: live-host acceptance)", () => {
   it("resolves one schema-typed @-query through the live binder and validates the reply against its declared schema", async () => {
     const provider = requireLiveProvider();
-    const workspace = plantLoomWorkspace([
-      { source: "project", stem: "typed", text: typedQueryLoom() },
+    const workspace = plantThetaWorkspace([
+      { source: "project", stem: "typed", text: typedQueryTheta() },
     ]);
     const handle = await bootShippedExtension({ workspace, provider });
     try {
@@ -207,7 +207,7 @@ describe("H8a-T — typed-query lowering, bounded (Convention: live-host accepta
       expect(
         handle.command("typed"),
         "no typed-query command to invoke — shipped composition root registers " +
-          "no discovered loom. Registered: " + JSON.stringify(handle.registeredNames()),
+          "no discovered theta. Registered: " + JSON.stringify(handle.registeredNames()),
       ).toBeDefined();
 
       // Post-H8a: drive the typed query against a live structured-output model;
@@ -236,7 +236,7 @@ describe("H8a-T — typed-query lowering, bounded (Convention: live-host accepta
 
 // ===========================================================================
 // Tests bullet 5 — subagent-mode drive to a success terminal (Convention:
-// live-host acceptance). A `mode: subagent` loom spawns an isolated
+// live-host acceptance). A `mode: subagent` theta spawns an isolated
 // AgentSession, drives one real turn to completion, and reaches a success
 // terminal outcome — the path the H8a production driver previously made
 // unreachable by self-cancelling every subagent query. The fixed driver wires
@@ -245,17 +245,17 @@ describe("H8a-T — typed-query lowering, bounded (Convention: live-host accepta
 // ===========================================================================
 
 describe("H8a-T — subagent-mode drive against a live model (Convention: live-host acceptance)", () => {
-  it("drives a subagent-mode loom's spawned session to a success terminal without a forced cancel", async () => {
+  it("drives a subagent-mode theta's spawned session to a success terminal without a forced cancel", async () => {
     const provider = requireLiveProvider();
-    const workspace = plantLoomWorkspace([
-      { source: "project", stem: "subrun", text: subagentLoom() },
+    const workspace = plantThetaWorkspace([
+      { source: "project", stem: "subrun", text: subagentTheta() },
     ]);
     const handle = await bootShippedExtension({ workspace, provider });
     try {
       expect(
         handle.command("subrun"),
         "no subagent-mode command to invoke — shipped composition root registers " +
-          "no discovered loom. Registered: " + JSON.stringify(handle.registeredNames()),
+          "no discovered theta. Registered: " + JSON.stringify(handle.registeredNames()),
       ).toBeDefined();
 
       // The fixed subagent driver spawns, drives the private session to its

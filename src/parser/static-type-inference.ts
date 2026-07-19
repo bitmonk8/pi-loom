@@ -1,7 +1,7 @@
 // V20b / V20b-T — the whole-program static-type-inference substrate.
 //
 // This module owns the seam the paired `V20b` implementation leaf fills in: a
-// read-only whole-program pass over a parsed `V19a` `LoomBody` that assigns a
+// read-only whole-program pass over a parsed `V19a` `ThetaBody` that assigns a
 // static type to every expression node (literal, identifier, binary, ternary,
 // member, index, call, `match`, enum, `Ok`/`Err`) using the `V2b`
 // type-compatibility engine (`⊑`), and publishes a per-node inferred-type
@@ -26,7 +26,7 @@
 // Spec (narrative): type-system.md, expressions.md, control-flow.md,
 // functions.md. Closes no new spec REQ-ID.
 
-import type { Block, Expr, IfStmt, LoomBody, Stmt } from "./loom-document";
+import type { Block, Expr, IfStmt, ThetaBody, Stmt } from "./theta-document";
 import type { CompatType, Compatibility, TypeEnv } from "./type-compat";
 
 /**
@@ -78,7 +78,7 @@ export class StaticTypeInferencePass {
    * read-only: it reads the parsed AST and builds a fresh per-invocation lookup,
    * mutating neither the AST nor any runtime state.
    */
-  infer(body: LoomBody, env: TypeEnv): InferredTypeMap {
+  infer(body: ThetaBody, env: TypeEnv): InferredTypeMap {
     const types = new Map<Expr, CompatType>();
     const nodes: Expr[] = [];
     // The whole-program `infer` pass carries no binding-type scope: it types a
@@ -271,7 +271,7 @@ export class StaticTypeInferencePass {
     env: TypeEnv,
     bindings: ReadonlyMap<string, CompatType>,
   ): CompatType {
-    // Unary `!` / `-` are modeled by `loom-document` `parseUnary` as a binary
+    // Unary `!` / `-` are modeled by `theta-document` `parseUnary` as a binary
     // with a synthetic `null` left operand. Mirror the runtime's unary handling
     // (`evaluateBinaryExpression`: `op === "-" && left.kind === "null"`, and
     // the `!` case) so the operator types as its result, not as the null-mixed

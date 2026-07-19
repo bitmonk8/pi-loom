@@ -1,10 +1,10 @@
 // V2c / V2c-T — the runtime value model and structural-equality seam.
 //
-// This module owns the interpreter representation of Loom values and the
+// This module owns the interpreter representation of Theta values and the
 // structural-equality relation of runtime-value-model.md (the RVM code-keyed
 // obligation area — no numbered REQ-IDs):
 //
-//   - The value representation table: Loom `string`/`number`/`integer`/
+//   - The value representation table: Theta `string`/`number`/`integer`/
 //     `boolean`/`null`/`array<T>`/object-schema values are native JS values;
 //     an *enum variant* carries the variant's wire string plus an
 //     interpreter-private declaring-enum tag (the tag MUST NOT appear in JSON
@@ -15,7 +15,7 @@
 //   - Structural equality (`==`): cross-type compares to `false` (no parse
 //     diagnostic, no runtime panic); primitives compare by value with the two
 //     fixed refinements `NaN == NaN` is `true` and `+0 == -0` is `true`; arrays
-//     compare element-wise at equal length; objects compare loom-side key set
+//     compare element-wise at equal length; objects compare theta-side key set
 //     and per-key value (declaration order irrelevant); enum variants compare
 //     the declaring-enum tag *and* the wire value (`Severity.High ==
 //     OtherEnum.High` is `false` even when wire values match); `Result`
@@ -23,7 +23,7 @@
 //     subtype case `42 == 42.0` is `true` because `integer ⊑ number` routes the
 //     pair to per-shape value comparison.
 //
-// V2c-T (tests-task) declares the seam shapes — `LoomValue`, the opaque
+// V2c-T (tests-task) declares the seam shapes — `ThetaValue`, the opaque
 // `EnumValue`, the `ResultValue` discriminated union, the `makeEnumValue` /
 // `makeOk` / `makeErr` constructors, the `valuesEqual` structural-equality
 // relation, and the `isWireLowerable` predicate — and stubs the behaviour-
@@ -32,7 +32,7 @@
 // equality relation, and the `Result`-not-lowerable recognition are absent).
 // The paired V2c implementation leaf fills these in.
 
-/** Brand marking a value as a Loom enum runtime value (type-level only). */
+/** Brand marking a value as a Theta enum runtime value (type-level only). */
 declare const enumBrand: unique symbol;
 
 /**
@@ -41,7 +41,7 @@ declare const enumBrand: unique symbol;
  * string enum value yields the bare wire string and the tag never appears in
  * JSON output (runtime-value-model.md, value-representation table, enum row).
  */
-const ENUM_TAG = "__loomEnum";
+const ENUM_TAG = "__thetaEnum";
 
 /**
  * An enum runtime value. Carries the variant's wire string plus an
@@ -49,36 +49,36 @@ const ENUM_TAG = "__loomEnum";
  * `JSON.stringify` of an enum value yields the **bare wire string** — the tag
  * never appears in JSON output (runtime-value-model.md, value-representation
  * table, enum row). Opaque: construct only via `makeEnumValue`; the concrete
- * in-memory shape is an implementation detail not reachable from Loom code and
+ * in-memory shape is an implementation detail not reachable from Theta code and
  * may change without a spec revision.
  */
-export type EnumValue = { readonly [enumBrand]: "loom-enum" };
+export type EnumValue = { readonly [enumBrand]: "theta-enum" };
 
 /**
  * A `Result<T, E>` runtime value: internally tagged with an `Ok`/`Err`
  * discriminator carrying the payload (runtime-value-model.md, value-
- * representation table, `Result` row). Loom code observes `Result` only through
+ * representation table, `Result` row). Theta code observes `Result` only through
  * `Ok` / `Err` constructors, `match`, and `?`; `Result` has no lowered-schema
  * form and never crosses the wire.
  */
 export type ResultValue =
-  | { readonly ok: true; readonly value: LoomValue }
-  | { readonly ok: false; readonly error: LoomValue };
+  | { readonly ok: true; readonly value: ThetaValue }
+  | { readonly ok: false; readonly error: ThetaValue };
 
 /**
- * The interpreter representation of any Loom value (runtime-value-model.md,
+ * The interpreter representation of any Theta value (runtime-value-model.md,
  * value-representation table): a JS primitive (`string` / `number` covers both
  * `number` and `integer` / `boolean` / `null`), a JS array (`array<T>`), a JS
- * plain object keyed by loom-side names (object schema), an enum variant, or a
+ * plain object keyed by theta-side names (object schema), an enum variant, or a
  * `Result`.
  */
-export type LoomValue =
+export type ThetaValue =
   | string
   | number
   | boolean
   | null
-  | readonly LoomValue[]
-  | { readonly [key: string]: LoomValue }
+  | readonly ThetaValue[]
+  | { readonly [key: string]: ThetaValue }
   | EnumValue
   | ResultValue;
 
@@ -87,12 +87,12 @@ export type LoomValue =
  * The resulting value carries the wire string plus the interpreter-private
  * declaring-enum tag, and `JSON.stringify` of it yields the bare wire string.
  *
- * The reference encoding is a non-enumerable `__loomEnum` tag installed on a
+ * The reference encoding is a non-enumerable `__thetaEnum` tag installed on a
  * boxed `String`: `JSON.stringify` of a boxed string yields the bare wire
  * string, and the non-enumerable tag is excluded from JSON output, so the value
  * serialises to the bare wire string while still carrying its declaring-enum
  * tag for cross-enum equality. The concrete shape is an implementation detail
- * not reachable from Loom code.
+ * not reachable from Theta code.
  */
 export function makeEnumValue(declaringEnum: string, wire: string): EnumValue {
   const boxed = new String(wire);
@@ -106,7 +106,7 @@ export function makeEnumValue(declaringEnum: string, wire: string): EnumValue {
 }
 
 /** The declaring-enum tag of `value` if it is an enum value, else `undefined`. */
-function enumTagOf(value: LoomValue): string | undefined {
+function enumTagOf(value: ThetaValue): string | undefined {
   if (typeof value === "object" && value !== null && Object.prototype.hasOwnProperty.call(value, ENUM_TAG)) {
     return (value as unknown as Record<string, string>)[ENUM_TAG];
   }
@@ -116,27 +116,27 @@ function enumTagOf(value: LoomValue): string | undefined {
 /**
  * The interpreter-private property name recording the declaring `schema` of an
  * object-schema value. Installed **non-enumerable** so it is invisible to every
- * loom-visible object surface — `JSON.stringify`, `Object.keys` / `.entries`
+ * theta-visible object surface — `JSON.stringify`, `Object.keys` / `.entries`
  * (`obj.keys()`), and the {@link valuesEqual} structural relation all iterate
  * enumerable keys only, so the tag never appears in JSON output, never appears
  * in a `keys()` result, and never affects equality (runtime-value-model.md: an
- * object schema is a "JS plain object keyed by loom-side names"). Its sole
+ * object schema is a "JS plain object keyed by theta-side names"). Its sole
  * consumer is the QRY-18 interpolation render path, which needs to recover the
  * declaring schema to apply outbound wire-name translation recursively.
  */
-const SCHEMA_TAG = "__loomSchema";
+const SCHEMA_TAG = "__thetaSchema";
 
 /**
  * Brand a freshly-constructed object-schema value with its declaring `schema`
  * name, so a later consumer can recover the schema to apply outbound wire-name
  * translation (QRY-18). The tag is installed **non-enumerable**, so the branded
- * value is indistinguishable from a plain object on every loom-visible surface;
+ * value is indistinguishable from a plain object on every theta-visible surface;
  * only {@link schemaTagOf} reads it. Returns the same object for chaining.
  */
 export function brandSchemaValue(
-  value: { [key: string]: LoomValue },
+  value: { [key: string]: ThetaValue },
   schemaName: string,
-): { readonly [key: string]: LoomValue } {
+): { readonly [key: string]: ThetaValue } {
   Object.defineProperty(value, SCHEMA_TAG, {
     value: schemaName,
     enumerable: false,
@@ -147,7 +147,7 @@ export function brandSchemaValue(
 }
 
 /** The declaring-`schema` tag of `value` if it carries one, else `undefined`. */
-export function schemaTagOf(value: LoomValue): string | undefined {
+export function schemaTagOf(value: ThetaValue): string | undefined {
   if (
     typeof value === "object" &&
     value !== null &&
@@ -165,12 +165,12 @@ export function schemaTagOf(value: LoomValue): string | undefined {
  * bare wire value rather than JSON-quoting the boxed-string representation
  * (runtime-value-model.md, enum row).
  */
-export function isEnumValue(value: LoomValue): value is EnumValue {
+export function isEnumValue(value: ThetaValue): value is EnumValue {
   return enumTagOf(value) !== undefined;
 }
 
 /** Whether `value` is a `Result` runtime value (carries an `ok` discriminator). */
-export function isResultValue(value: LoomValue): value is ResultValue {
+export function isResultValue(value: ThetaValue): value is ResultValue {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -181,12 +181,12 @@ export function isResultValue(value: LoomValue): value is ResultValue {
 }
 
 /** Construct an `Ok(value)` `Result` runtime value. */
-export function makeOk(value: LoomValue): ResultValue {
+export function makeOk(value: ThetaValue): ResultValue {
   return { ok: true, value };
 }
 
 /** Construct an `Err(error)` `Result` runtime value. */
-export function makeErr(error: LoomValue): ResultValue {
+export function makeErr(error: ThetaValue): ResultValue {
   return { ok: false, error };
 }
 
@@ -194,13 +194,13 @@ export function makeErr(error: LoomValue): ResultValue {
  * The structural deep-equality relation of runtime-value-model.md §Equality
  * (the `==` operator). Cross-type pairs compare `false`; primitives compare by
  * value with `NaN == NaN` true and `+0 == -0` true; arrays compare element-wise
- * at equal length; objects compare loom-side key set and per-key value; enum
+ * at equal length; objects compare theta-side key set and per-key value; enum
  * variants compare the declaring-enum tag *and* the wire value; `Result`
  * compares the discriminator and recurses on the payload. Never panics and
  * never raises a diagnostic — a cross-type comparison simply evaluates `false`.
  *
  */
-export function valuesEqual(a: LoomValue, b: LoomValue): boolean {
+export function valuesEqual(a: ThetaValue, b: ThetaValue): boolean {
   // Enum variants compare the declaring-enum tag *and* the wire value; an enum
   // against a non-enum (e.g. `Severity.Low == "low"`) is a cross-type pair.
   const tagA = enumTagOf(a);
@@ -224,7 +224,7 @@ export function valuesEqual(a: LoomValue, b: LoomValue): boolean {
     }
     return a.ok && b.ok
       ? valuesEqual(a.value, b.value)
-      : valuesEqual((a as { error: LoomValue }).error, (b as { error: LoomValue }).error);
+      : valuesEqual((a as { error: ThetaValue }).error, (b as { error: ThetaValue }).error);
   }
 
   // Arrays compare element-wise at equal length.
@@ -242,7 +242,7 @@ export function valuesEqual(a: LoomValue, b: LoomValue): boolean {
     return true;
   }
 
-  // Objects compare loom-side key set and per-key value (declaration order
+  // Objects compare theta-side key set and per-key value (declaration order
   // irrelevant).
   if (typeof a === "object" && a !== null && typeof b === "object" && b !== null) {
     const keysA = Object.keys(a);
@@ -250,13 +250,13 @@ export function valuesEqual(a: LoomValue, b: LoomValue): boolean {
     if (keysA.length !== keysB.length) {
       return false;
     }
-    const objA = a as { readonly [key: string]: LoomValue };
-    const objB = b as { readonly [key: string]: LoomValue };
+    const objA = a as { readonly [key: string]: ThetaValue };
+    const objB = b as { readonly [key: string]: ThetaValue };
     for (const key of keysA) {
       if (!Object.prototype.hasOwnProperty.call(objB, key)) {
         return false;
       }
-      if (!valuesEqual(objA[key] as LoomValue, objB[key] as LoomValue)) {
+      if (!valuesEqual(objA[key] as ThetaValue, objB[key] as ThetaValue)) {
         return false;
       }
     }
@@ -280,6 +280,6 @@ export function valuesEqual(a: LoomValue, b: LoomValue): boolean {
  * Plain primitives, arrays, objects, and enum variants are lowerable.
  *
  */
-export function isWireLowerable(value: LoomValue): boolean {
+export function isWireLowerable(value: ThetaValue): boolean {
   return !isResultValue(value);
 }

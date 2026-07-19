@@ -1,4 +1,4 @@
-// Shared body-type lowering — the single canonical place that lowers a loom
+// Shared body-type lowering — the single canonical place that lowers a theta
 // body's `schema` / `enum` declarations to their JSON-Schema fragments. Used by
 // two whole-file `NamedType` resolvers:
 //
@@ -6,7 +6,7 @@
 //     `query-schema-lowering.ts`, which resolves a `@<Schema>` annotation to the
 //     named decl's object body), and
 //   - the frontmatter `params:` named-type resolution (via `collectBodyTypes`
-//     in `loom-document.ts`, which supplies each body type's lowered fragment so
+//     in `theta-document.ts`, which supplies each body type's lowered fragment so
 //     a `params:` field of a `NamedType` produces a present `loweredSchema`).
 //
 // Keeping the lowering here (rather than duplicated per caller) means an enum or
@@ -132,7 +132,7 @@ export function lowerTypeSource(
 }
 
 /**
- * Build the whole-file name → lowered-fragment map for a loom body's `schema`
+ * Build the whole-file name → lowered-fragment map for a theta body's `schema`
  * and `enum` declarations. Enums are lowered first so a schema field that
  * references an enum resolves to the enum's lowered fragment; a schema decl
  * carrying no object body (an `= …` alias or `by … = …` discriminated union)

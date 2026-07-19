@@ -15,7 +15,7 @@ describe("exprflow — interpolation & enums", () => {
       provider,
       files: [
         // Enum bound to a let, then interpolated + equality.
-        L("enumb.loom", [
+        L("enumb.theta", [
           "enum Color {",
           "  Red,",
           "  Green,",
@@ -26,7 +26,7 @@ describe("exprflow — interpolation & enums", () => {
           "@`R c=${c}|eq1=${eq1}|eq2=${eq2}|END reply ok`",
         ]),
         // Direct Enum.Variant inside ${...}.
-        L("enumd.loom", [
+        L("enumd.theta", [
           "enum Color {",
           "  Red,",
           "  Green,",
@@ -34,7 +34,7 @@ describe("exprflow — interpolation & enums", () => {
           "@`R d=${Color.Red}|END reply ok`",
         ]),
         // Complex expressions inside ${...} (spec: any expression is admissible).
-        L("iexpr.loom", [
+        L("iexpr.theta", [
           "let x = 5",
           "let arr = [10, 20, 30]",
           "let s = 'hi'",
@@ -59,7 +59,7 @@ describe("exprflow — interpolation & enums", () => {
       // value (Red), not JSON-quoted ("Red").
       expect(byName["/enumb"]).toContain("c=Red|");
       // EXPR-7 (FIXED): a direct ${Enum.Variant} interpolation evaluates to the
-      // enum value and issues a turn (VAL=Red), no longer aborting the loom.
+      // enum value and issues a turn (VAL=Red), no longer aborting the theta.
       expect(byName["/enumd"]).toContain("d=Red|");
       // EXPR-8 (FIXED): interpolation evaluates any expression, not just dotted
       // identifier paths.

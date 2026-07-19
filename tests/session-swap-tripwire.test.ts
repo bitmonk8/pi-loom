@@ -8,7 +8,7 @@
 //       {"quit","reload"} with NO `markRuntimeDegraded`, NO
 //       `"degraded-needs-reload"` tag, NO `session-shutdown-runtime-degraded`
 //       emission and NO degraded slash note; the teardown arms the private
-//       per-extension-instance `sessionSwapTornDown` tripwire; every loom-
+//       per-extension-instance `sessionSwapTornDown` tripwire; every theta-
 //       registered slash handler (at entry) and `session_start` reads it and,
 //       when armed, emits one `session-swap-instance-survived` row and fail-
 //       fast-terminates; dormant (no-op) when unset; arming idempotent under
@@ -17,7 +17,7 @@
 //   pi-integration-contract/host-prerequisites.md clause (a) (governed-by-
 //     rebind), (b) (multi-delivery / idempotent re-arm), (c-i) (/reload not
 //     guarded), (d) (session-only reason partition);
-//   diagnostics/code-registry-host.md — the `loom/host/session-swap-instance-
+//   diagnostics/code-registry-host.md — the `theta/host/session-swap-instance-
 //     survived` (E, runtime) row: emitted via `console.error` exactly once at
 //     the trip site, `details: { event: { reason } }`, immediately followed by
 //     process termination.
@@ -37,7 +37,7 @@ import {
   ActiveInvocationRegistry,
   type ActiveInvocationEntry,
 } from "../src/runtime/active-invocation-registry";
-import { LoomRegistry } from "../src/extension/reload-wiring";
+import { ThetaRegistry } from "../src/extension/reload-wiring";
 import { SESSION_SHUTDOWN_REASON_SNAPSHOT } from "../src/extension/version-bump-gates";
 import {
   runSessionShutdown,
@@ -94,7 +94,7 @@ function terminatorSpy(): FailFastTerminator & { terminate: ReturnType<typeof vi
   };
 }
 
-function guardDeps(registry: LoomRegistry): TripwireGuardDeps & {
+function guardDeps(registry: ThetaRegistry): TripwireGuardDeps & {
   sink: ReturnType<typeof sinkSpy>;
   terminator: ReturnType<typeof terminatorSpy>;
 } {
@@ -112,26 +112,26 @@ function survivedEmits(sink: ReturnType<typeof sinkSpy>): unknown[][] {
 
 // --- session_shutdown teardown harness (for the arming integration test) ----
 
-function makeEntry(loom: string, invocationId: string): ActiveInvocationEntry {
+function makeEntry(theta: string, invocationId: string): ActiveInvocationEntry {
   return {
-    loomAbort: new AbortController(),
+    thetaAbort: new AbortController(),
     // A never-settling barrier so sub-step 3's bounded await is exercised.
     disposeBarrier: new Promise<void>(() => {}),
     shutdownReason: undefined,
-    loom,
+    theta,
     invocationId,
   };
 }
 
 interface ShutdownHarness {
   readonly deps: SessionShutdownDeps;
-  readonly registry: LoomRegistry;
+  readonly registry: ThetaRegistry;
   readonly clock: FakeClock;
   readonly sink: ReturnType<typeof sinkSpy>;
 }
 
 function makeShutdownHarness(): ShutdownHarness {
-  const registry = new LoomRegistry();
+  const registry = new ThetaRegistry();
   const activeInvocations = new ActiveInvocationRegistry();
   const clock = new FakeClock();
   const sink = sinkSpy();
@@ -176,7 +176,7 @@ describe("cka-27 — arming the session-swap tripwire", () => {
     // The arming half of the partition (host-prerequisites clause (d)): the
     // three session-only reasons arm the private tripwire and record the reason.
     for (const reason of SESSION_ONLY_REASONS) {
-      const registry = new LoomRegistry();
+      const registry = new ThetaRegistry();
       armSessionSwapTripwireForReason(registry, reason);
       const state = registry.readSessionSwapTornDown();
       expect(state.armed).toBe(true);
@@ -186,7 +186,7 @@ describe("cka-27 — arming the session-swap tripwire", () => {
 
   it("cka-27: does NOT arm the tripwire for the always-tear-down reasons quit / reload", () => {
     for (const reason of ["quit", "reload"]) {
-      const registry = new LoomRegistry();
+      const registry = new ThetaRegistry();
       armSessionSwapTripwireForReason(registry, reason);
       expect(registry.readSessionSwapTornDown().armed).toBe(false);
     }
@@ -237,7 +237,7 @@ describe("cka-27 — arming the session-swap tripwire", () => {
 
 describe("cka-27 — the tripwire fires on an armed instance", () => {
   it("cka-27 (fires): a guard against an armed tripwire emits exactly one survived row then terminates", () => {
-    const registry = new LoomRegistry();
+    const registry = new ThetaRegistry();
     registry.armSessionSwapTornDown("resume");
     const deps = guardDeps(registry);
 
@@ -251,7 +251,7 @@ describe("cka-27 — the tripwire fires on an armed instance", () => {
   });
 
   it("cka-27 (fires): the survived emission precedes the fail-fast termination", () => {
-    const registry = new LoomRegistry();
+    const registry = new ThetaRegistry();
     registry.armSessionSwapTornDown("fork");
     const order: string[] = [];
     const sink = sinkSpy();
@@ -281,7 +281,7 @@ describe("cka-27 — no false positive (dormant governed-by-rebind steady state)
   it("cka-27 (dormant): a guard against a fresh, unarmed registry emits nothing and never terminates", () => {
     // The proven rebind carries a fresh instance with an unarmed registry, so
     // the guard is a no-op: no emission, no termination, no throw.
-    const registry = new LoomRegistry();
+    const registry = new ThetaRegistry();
     const deps = guardDeps(registry);
     expect(() => guardSessionSwapTripwire(deps)).not.toThrow();
     expect(survivedEmits(deps.sink).length).toBe(0);
@@ -292,7 +292,7 @@ describe("cka-27 — no false positive (dormant governed-by-rebind steady state)
     // Arming is idempotent under a permitted multi-`session_shutdown` delivery
     // to one instance (host-prerequisites clause (b)): re-arming does not make
     // the guard fire more than once.
-    const registry = new LoomRegistry();
+    const registry = new ThetaRegistry();
     registry.armSessionSwapTornDown("new");
     registry.armSessionSwapTornDown("new");
     const state = registry.readSessionSwapTornDown();
@@ -304,7 +304,7 @@ describe("cka-27 — no false positive (dormant governed-by-rebind steady state)
   });
 
   it("cka-27 (slash entry): the guard runs at handler entry, BEFORE any dispatch, and terminates before it on an armed tripwire", () => {
-    const registry = new LoomRegistry();
+    const registry = new ThetaRegistry();
     registry.armSessionSwapTornDown("new");
     const deps = guardDeps(registry);
     const dispatch = vi.fn(() => "dispatched");
@@ -314,9 +314,9 @@ describe("cka-27 — no false positive (dormant governed-by-rebind steady state)
   });
 
   it("cka-27 (session_start): the session_start guard also terminates before its body on an armed tripwire", () => {
-    // The `session_start` handler runs the same trip-site guard as a loom slash
+    // The `session_start` handler runs the same trip-site guard as a theta slash
     // handler; both call `runGuardedSlashHandler` at entry.
-    const registry = new LoomRegistry();
+    const registry = new ThetaRegistry();
     registry.armSessionSwapTornDown("resume");
     const deps = guardDeps(registry);
     const sessionStartBody = vi.fn(() => undefined);
@@ -325,7 +325,7 @@ describe("cka-27 — no false positive (dormant governed-by-rebind steady state)
   });
 
   it("cka-27 (slash entry): on an unarmed registry the guarded handler dispatches normally (dormant)", () => {
-    const registry = new LoomRegistry();
+    const registry = new ThetaRegistry();
     const deps = guardDeps(registry);
     const dispatch = vi.fn(() => "dispatched");
     // Dormant guard: the wrapped handler dispatches and returns its result, and
@@ -338,10 +338,10 @@ describe("cka-27 — no false positive (dormant governed-by-rebind steady state)
 });
 
 // ============================================================================
-// loom/host/session-swap-instance-survived — registry-row shape + message anchor
+// theta/host/session-swap-instance-survived — registry-row shape + message anchor
 // ============================================================================
 
-describe("loom/host/session-swap-instance-survived — diagnostic shape", () => {
+describe("theta/host/session-swap-instance-survived — diagnostic shape", () => {
   it("builds the (E, runtime) diagnostic with details.event.reason and the registry Message string", () => {
     const diagnostic = sessionSwapInstanceSurvivedDiagnostic("new");
     expect(diagnostic.code).toBe(SESSION_SWAP_INSTANCE_SURVIVED_CODE);

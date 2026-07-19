@@ -38,12 +38,12 @@ const DEPTH_5_VALUE = { a: { b: { c: { d: 1 } } } };
 // (schema-subset.md §Depth worked example), tripping ceiling #4.
 const DEPTH_6_VALUE = { a: { b: { c: { d: { e: 1 } } } } };
 
-const CALLEE_PATH = "/proj/child.loom";
+const CALLEE_PATH = "/proj/child.theta";
 
 describe("V15j-T — depth-6 runtime invoke `params` live carrier (ceiling-4-table `params`/invoke row)", () => {
-  it("ceiling-4-table (`params` invoke row) / CIO-3: a depth-6 runtime `invoke(...)` `params` argument trips the loom-owned depth walk before AJV and surfaces as Err(InvokeInfraError { cause: 'validation' }) carrying schema_keyword `maxDepth` (cka-10)", () => {
+  it("ceiling-4-table (`params` invoke row) / CIO-3: a depth-6 runtime `invoke(...)` `params` argument trips the theta-owned depth walk before AJV and surfaces as Err(InvokeInfraError { cause: 'validation' }) carrying schema_keyword `maxDepth` (cka-10)", () => {
     // ceilings-3-and-4.md#ceiling-4-table, `params` validation row (`invoke(...)`
-    // arm): the loom-owned depth walk (`V5e`) runs before AJV (CIO-3) and a
+    // arm): the theta-owned depth walk (`V5e`) runs before AJV (CIO-3) and a
     // depth-6 `params` value surfaces wrapped as `Err(InvokeInfraError {
     // cause: "validation", ... })`. No AJV schema is consulted here — the depth
     // walk trips purely on the materialised value, proving the
@@ -102,9 +102,9 @@ describe("V15j-T — depth-6 runtime invoke `params` live carrier (ceiling-4-tab
 });
 
 describe("V15j-T — depth-6 `invoke<T>` return-value live carrier (ceiling-4-table invoke<T>-return row)", () => {
-  it("ceiling-4-table (`invoke<T>` return row) / CIO-3: a depth-6 `invoke<T>` return value trips the loom-owned depth walk before AJV and surfaces as Err(InvokeInfraError { cause: 'return_validation' }) carrying schema_keyword `maxDepth` (cka-10)", () => {
+  it("ceiling-4-table (`invoke<T>` return row) / CIO-3: a depth-6 `invoke<T>` return value trips the theta-owned depth walk before AJV and surfaces as Err(InvokeInfraError { cause: 'return_validation' }) carrying schema_keyword `maxDepth` (cka-10)", () => {
     // ceilings-3-and-4.md#ceiling-4-table, `invoke<T>` return-value row: the
-    // loom-owned depth walk (`V5e`) runs before AJV (CIO-3) and a depth-6 return
+    // theta-owned depth walk (`V5e`) runs before AJV (CIO-3) and a depth-6 return
     // value surfaces wrapped as `Err(InvokeInfraError { cause:
     // "return_validation", ... })`.
     const breach = enforceInvokeReturnDepth(CALLEE_PATH, DEPTH_6_VALUE);

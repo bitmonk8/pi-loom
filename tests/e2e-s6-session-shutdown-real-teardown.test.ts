@@ -5,11 +5,11 @@ import type {
   SessionShutdownEvent,
 } from "@earendil-works/pi-coding-agent";
 import {
-  createLoomExtension,
-  type LoomExtensionDeps,
+  createThetaExtension,
+  type ThetaExtensionDeps,
 } from "../src/extension/factory";
 import type { ExtensionInstanceWiring } from "../src/extension/production-composition";
-import { LoomRegistry, type ParsedLoom } from "../src/extension/reload-wiring";
+import { ThetaRegistry, type ParsedTheta } from "../src/extension/reload-wiring";
 import {
   ActiveInvocationRegistry,
   type ActiveInvocationEntry,
@@ -35,7 +35,7 @@ import { FakeClock } from "./helpers/fake-clock";
 // production-composition.ts:652/661) so those sub-steps operate on REAL entries.
 //
 // Spec: pi-integration-contract/session-shutdown-semantics.md sub-step 2
-// (stamp reason then `loomAbort.abort`), sub-step 5 (detach forwarding
+// (stamp reason then `thetaAbort.abort`), sub-step 5 (detach forwarding
 // listeners); REQ-PIC-35/76/78/81, REQ-SESS-3/SESS-4. No filesystem, no live
 // model, no real watcher.
 
@@ -99,23 +99,23 @@ function makeHarness(): Harness {
   };
 }
 
-function makeLoom(slashName: string): ParsedLoom {
+function makeTheta(slashName: string): ParsedTheta {
   return {
     slashName,
-    frontmatter: { mode: "prompt" } as unknown as ParsedLoom["frontmatter"],
-    body: { statements: [] } as unknown as ParsedLoom["body"],
+    frontmatter: { mode: "prompt" } as unknown as ParsedTheta["frontmatter"],
+    body: { statements: [] } as unknown as ParsedTheta["body"],
     run: async (): Promise<void> => {},
   };
 }
 
 /** A single in-flight entry whose `disposeBarrier` is already settled so
  * sub-step 3's bounded await completes immediately. */
-function seededEntry(loom: string, invocationId: string): ActiveInvocationEntry {
+function seededEntry(theta: string, invocationId: string): ActiveInvocationEntry {
   return {
-    loomAbort: new AbortController(),
+    thetaAbort: new AbortController(),
     disposeBarrier: Promise.resolve(),
     shutdownReason: undefined,
-    loom,
+    theta,
     invocationId,
   };
 }
@@ -139,7 +139,7 @@ interface Booted {
  * that carries a SEEDED shared registry + forwarding-signal sink. */
 async function boot(): Promise<Booted> {
   const harness = makeHarness();
-  const registry = new LoomRegistry([["foo", makeLoom("foo")]]);
+  const registry = new ThetaRegistry([["foo", makeTheta("foo")]]);
   const activeInvocations = new ActiveInvocationRegistry();
   activeInvocations.add(seededEntry("foo", "11111111-1111-4111-8111-111111111111"));
   activeInvocations.add(seededEntry("bar", "22222222-2222-4222-8222-222222222222"));
@@ -148,10 +148,10 @@ async function boot(): Promise<Booted> {
     signalSpy("toolSignal.removeEventListener"),
   ];
   const detach = vi.fn();
-  const deps: LoomExtensionDeps = {
+  const deps: ThetaExtensionDeps = {
     fixtures: [],
     composeInstance: async (): Promise<ExtensionInstanceWiring> => ({
-      looms: [makeLoom("foo")],
+      thetas: [makeTheta("foo")],
       registry,
       activeInvocations,
       forwardingSignals,
@@ -159,7 +159,7 @@ async function boot(): Promise<Booted> {
       installHotReload: () => ({ detach }),
     }),
   };
-  createLoomExtension(deps)(harness.pi);
+  createThetaExtension(deps)(harness.pi);
   await harness.fireSessionStart();
   return { harness, activeInvocations, forwardingSignals, detach };
 }
@@ -170,7 +170,7 @@ describe("S6 — factory session_shutdown threads the REAL shared registry (sub-
     const entries = activeInvocations.snapshot();
     expect(entries).toHaveLength(2);
     // Pre-teardown: no entry is aborted or stamped.
-    expect(entries.every((e) => e.loomAbort.signal.aborted)).toBe(false);
+    expect(entries.every((e) => e.thetaAbort.signal.aborted)).toBe(false);
     expect(entries.every((e) => e.shutdownReason === undefined)).toBe(true);
 
     await harness.fireSessionShutdown("quit");
@@ -178,12 +178,12 @@ describe("S6 — factory session_shutdown threads the REAL shared registry (sub-
     // Sub-step 2 ran over the REAL threaded entries (contra the stale
     // factory.ts:502-509 "live-but-empty" comment).
     for (const entry of entries) {
-      expect(entry.loomAbort.signal.aborted).toBe(true);
+      expect(entry.thetaAbort.signal.aborted).toBe(true);
       expect(entry.shutdownReason).toBe("quit");
       // CNCL-4 synthesised abort reason is observable on the signal.
-      const reason = entry.loomAbort.signal.reason as Error;
+      const reason = entry.thetaAbort.signal.reason as Error;
       expect(reason).toBeInstanceOf(Error);
-      expect(reason.message).toBe("loom cancelled by session shutdown");
+      expect(reason.message).toBe("theta cancelled by session shutdown");
     }
   });
 
@@ -191,7 +191,7 @@ describe("S6 — factory session_shutdown threads the REAL shared registry (sub-
     const { harness, activeInvocations } = await boot();
     await harness.fireSessionShutdown("fork");
     for (const entry of activeInvocations.snapshot()) {
-      expect(entry.loomAbort.signal.aborted).toBe(true);
+      expect(entry.thetaAbort.signal.aborted).toBe(true);
       expect(entry.shutdownReason).toBe("fork");
     }
   });

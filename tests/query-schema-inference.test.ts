@@ -21,7 +21,7 @@ import {
 //
 // Spec: query/query-forms.md (QRY-2 typed form, QRY-3 override rule + the
 // §"Schema inference algorithm" shallow outward walk, QRY-4 §"Explicit form"
-// with `loom/parse/explicit-schema-mismatch`) and schema-subset.md §"Lowering
+// with `theta/parse/explicit-schema-mismatch`) and schema-subset.md §"Lowering
 // Algorithm" step 4 (per-query `$defs` pruning, a SUBS code-keyed obligation
 // area).
 //
@@ -107,9 +107,9 @@ describe("V13b-T — inference walk: crossed/stopped rules (query-forms.md §Sch
     expect(inferQuerySchema({ frames })).toBeUndefined();
   });
 
-  it("QRY-2: a loom tail position supplies no sink (a .loom has no declared return type)", () => {
-    // A `.loom` file has no declared return type — its return type is itself
-    // inferred from its body — so a loom cannot serve as a sink for a query in
+  it("QRY-2: a theta tail position supplies no sink (a .theta has no declared return type)", () => {
+    // A `.theta` file has no declared return type — its return type is itself
+    // inferred from its body — so a theta cannot serve as a sink for a query in
     // its own tail/`return` position: the walk finds no sink and is untyped.
     const frames: readonly SchemaSinkFrame[] = [
       { kind: "propagate" },
@@ -148,15 +148,15 @@ describe("V13b-T — explicit `@<Schema>` override (query-forms.md QRY-3)", () =
   });
 });
 
-describe("V13b-T — loom/parse/explicit-schema-mismatch: the four normative vectors (query-forms.md QRY-4)", () => {
+describe("V13b-T — theta/parse/explicit-schema-mismatch: the four normative vectors (query-forms.md QRY-4)", () => {
   const site: CompatSite = {
-    file: "review.loom",
+    file: "review.theta",
     range: { start: { line: 1, column: 1 }, end: { line: 1, column: 2 } },
   };
   const prim = (name: PrimitiveName): CompatType => ({ kind: "prim", name });
   const named = (name: string): CompatType => ({ kind: "named", name });
 
-  it("loom/parse/explicit-schema-mismatch: `let x: number = @<integer>...?` — no warning (integer ⊑ number)", () => {
+  it("theta/parse/explicit-schema-mismatch: `let x: number = @<integer>...?` — no warning (integer ⊑ number)", () => {
     // Vector 1: `integer ⊑ number` by TYPE-2; the explicit form's value is
     // acceptable to the binding, so no warning fires.
     const diagnostics = checkExplicitSchemaMismatch({
@@ -168,7 +168,7 @@ describe("V13b-T — loom/parse/explicit-schema-mismatch: the four normative vec
     expect(diagnostics).toEqual([]);
   });
 
-  it("loom/parse/explicit-schema-mismatch: `let x: integer = @<number>...?` — fires (number ⋢ integer)", () => {
+  it("theta/parse/explicit-schema-mismatch: `let x: integer = @<number>...?` — fires (number ⋢ integer)", () => {
     // Vector 2: `number ⋢ integer` (the explicit `number` could yield `3.5`,
     // which the `integer` binding cannot accept). Exactly one warning, carrying
     // the registry code and message.
@@ -184,7 +184,7 @@ describe("V13b-T — loom/parse/explicit-schema-mismatch: the four normative vec
     expect(diagnostics[0]?.message).toBe(EXPLICIT_SCHEMA_MISMATCH_MESSAGE);
   });
 
-  it("loom/parse/explicit-schema-mismatch: `let x: ReviewScore = @<ReviewScore>...?` — no warning (reflexivity)", () => {
+  it("theta/parse/explicit-schema-mismatch: `let x: ReviewScore = @<ReviewScore>...?` — no warning (reflexivity)", () => {
     // Vector 3: reflexivity (TYPE-1) — the ascription and annotation are the
     // same named schema, so no warning fires.
     const env: TypeEnv = { ReviewScore: { kind: "object-schema" } };
@@ -197,7 +197,7 @@ describe("V13b-T — loom/parse/explicit-schema-mismatch: the four normative vec
     expect(diagnostics).toEqual([]);
   });
 
-  it("loom/parse/explicit-schema-mismatch: `let x: Animal = @<Cat>...?` where `schema Animal = Cat | Dog` — no warning (variant-to-union)", () => {
+  it("theta/parse/explicit-schema-mismatch: `let x: Animal = @<Cat>...?` where `schema Animal = Cat | Dog` — no warning (variant-to-union)", () => {
     // Vector 4: variant-to-union (TYPE-4) — `Cat ⊑ Animal`, so no warning fires.
     const env: TypeEnv = {
       Cat: { kind: "object-schema" },
@@ -216,7 +216,7 @@ describe("V13b-T — loom/parse/explicit-schema-mismatch: the four normative vec
     expect(diagnostics).toEqual([]);
   });
 
-  it("loom/parse/explicit-schema-mismatch: the check is skipped when an operand is past the parser's static view", () => {
+  it("theta/parse/explicit-schema-mismatch: the check is skipped when an operand is past the parser's static view", () => {
     // One-directional and skipped-when-unresolvable: when either side is past the
     // parser's static view, the warning is skipped and the runtime AJV check is
     // the safety net. An unresolvable named ascription yields no warning.

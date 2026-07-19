@@ -5,7 +5,7 @@
 //
 // These tests witness that:
 //   (a) a non-conforming `execute()` return envelope reaching the LIVE lowering
-//       seam routes to `loom/runtime/internal-error{tool-return-shape}` off the
+//       seam routes to `theta/runtime/internal-error{tool-return-shape}` off the
 //       `CodeToolError` surface (NOT a bound `Ok(garbage)` and NOT a bound
 //       `Err(code_tool)`), through `routeToolReturnShape`;
 //   (b) a non-settling `execute()` Promise blocks at the seam's `await` until the
@@ -17,8 +17,8 @@
 //       swallowing handler, pinned here rather than duplicated.
 //
 // Spec: pi-integration-contract/host-interfaces-core.md §"Tool execution from
-// loom code" §"Outcome routing summary"; tool-calls.md §"Outcome enumeration";
-// diagnostics/code-registry-runtime.md (`loom/runtime/internal-error` Trigger);
+// theta code" §"Outcome routing summary"; tool-calls.md §"Outcome enumeration";
+// diagnostics/code-registry-runtime.md (`theta/runtime/internal-error` Trigger);
 // cancellation.md §"Race semantics" (CNCL-1/2/3); errors-and-results/
 // error-model.md §"Runtime panics".
 
@@ -47,10 +47,10 @@ import type {
   DrivenConversationMode,
 } from "../src/runtime/terminal-outcomes";
 import type { InvokeInfraError } from "../src/runtime/query-error";
-import type { CallExpr, LoomBody } from "../src/parser/loom-document";
-import type { LoomValue, ResultValue } from "../src/runtime/value";
+import type { CallExpr, ThetaBody } from "../src/parser/theta-document";
+import type { ThetaValue, ResultValue } from "../src/runtime/value";
 
-const TOOL_SITE: CheckpointSite = { file: "call.loom", line: 3, column: 5 };
+const TOOL_SITE: CheckpointSite = { file: "call.theta", line: 3, column: 5 };
 
 /** A never-aborted signal for the settled / value arms. */
 function liveSignal(): AbortSignal {
@@ -93,7 +93,7 @@ function callResolving(toolName: string, resolved: unknown): CodeSideToolCall {
 // ===========================================================================
 // (a) Non-conforming return shape at the LIVE lowering seam → routes to
 // internal-error{tool-return-shape}, off the CodeToolError surface, binding no
-// value (host-interfaces-core.md §"Tool execution from loom code").
+// value (host-interfaces-core.md §"Tool execution from theta code").
 // ===========================================================================
 
 describe("V14c live wiring (a) — runCodeSideToolCall routes a non-conforming return shape to internal-error{tool-return-shape}", () => {
@@ -129,7 +129,7 @@ describe("V14c live wiring (a) — runCodeSideToolCall routes a non-conforming r
       );
       // The only surface is the internal-error diagnostic (details.kind/tool_name/shape_check).
       if (outcome.kind === "return-shape-defect") {
-        expect(outcome.diagnostic.code).toBe("loom/runtime/internal-error");
+        expect(outcome.diagnostic.code).toBe("theta/runtime/internal-error");
         expect(outcome.diagnostic.details?.kind).toBe("tool-return-shape");
         expect(outcome.diagnostic.details?.tool_name).toBe("read");
         expect(outcome.diagnostic.details?.shape_check).toBe(token);
@@ -138,7 +138,7 @@ describe("V14c live wiring (a) — runCodeSideToolCall routes a non-conforming r
       }
       // Emitted on the designated lowering-sink diagnostic channel, exactly once.
       expect(sink.diagnostics).toHaveLength(1);
-      expect(sink.diagnostics[0]?.code).toBe("loom/runtime/internal-error");
+      expect(sink.diagnostics[0]?.code).toBe("theta/runtime/internal-error");
     });
   }
 
@@ -230,8 +230,8 @@ function toolHarness(toolName: string, resolved: unknown): ExecuteBodyDeps {
     checkpoint: NOOP_CHECKPOINT,
     signal,
     sink: NOOP_SINK,
-    file: "loom.loom",
-    evaluatePure(): LoomValue {
+    file: "theta.theta",
+    evaluatePure(): ThetaValue {
       return null;
     },
     resolveQuery() {
@@ -251,13 +251,13 @@ function toolHarness(toolName: string, resolved: unknown): ExecuteBodyDeps {
     signal,
     mutator: new RecordingMutator(),
     mode: "prompt" as DrivenConversationMode,
-    file: "loom.loom",
+    file: "theta.theta",
   };
 }
 
 describe("V14c live wiring (a) — end-to-end: a malformed tool return surfaces the internal-error routing, never a bound value", () => {
   it("a body `<name>(args)` whose execute() returns a non-object surfaces the ToolReturnShapeDefectError carrier (off the CodeToolError surface)", async () => {
-    const program: LoomBody = { statements: [], tail: callExpr("read") };
+    const program: ThetaBody = { statements: [], tail: callExpr("read") };
     // Routed off the CodeToolError surface as the internal-error class: the
     // executor never binds an Ok(garbage) / Err(code_tool) — the seam raises the
     // runtime-defect carrier, which the executor lets unwind (per Runtime panics).
@@ -267,14 +267,14 @@ describe("V14c live wiring (a) — end-to-end: a malformed tool return surfaces 
   });
 
   it("the raised carrier carries the tool-return-shape diagnostic (details.kind, tool_name, shape_check)", async () => {
-    const program: LoomBody = { statements: [], tail: callExpr("read") };
+    const program: ThetaBody = { statements: [], tail: callExpr("read") };
     try {
       await executeBody(program, toolHarness("read", { content: [{ type: "text" }] }));
       throw new Error("expected a ToolReturnShapeDefectError to unwind the body");
     } catch (thrown: unknown) {
       expect(thrown).toBeInstanceOf(ToolReturnShapeDefectError);
       const diag = (thrown as ToolReturnShapeDefectError).diagnostic;
-      expect(diag.code).toBe("loom/runtime/internal-error");
+      expect(diag.code).toBe("theta/runtime/internal-error");
       expect(diag.details?.kind).toBe("tool-return-shape");
       expect(diag.details?.tool_name).toBe("read");
       expect(diag.details?.shape_check).toBe("entry-missing-text");
@@ -282,7 +282,7 @@ describe("V14c live wiring (a) — end-to-end: a malformed tool return surfaces 
   });
 
   it("a conforming tool return drives to a success Ok(<text>) (regression pin)", async () => {
-    const program: LoomBody = {
+    const program: ThetaBody = {
       statements: [],
       tail: callExpr("read"),
     };
@@ -306,15 +306,15 @@ describe("V14c live wiring (a) — invoke parent observes Err(InvokeInfraError{c
   it("a callee whose subtree raises the shape-defect carrier surfaces to the parent as invoke_infra / internal_error (NOT code_tool)", async () => {
     const diagnostic: Diagnostic = {
       severity: "error",
-      code: "loom/runtime/internal-error",
-      file: "child.loom",
+      code: "theta/runtime/internal-error",
+      file: "child.theta",
       range: { start: { line: 1, column: 1 }, end: { line: 1, column: 2 } },
       message: "internal error: tool read returned a non-conforming result envelope",
       details: { kind: "tool-return-shape", tool_name: "read", shape_check: "resolved-not-object" },
     };
     const committed: readonly CommittedSideEffect[] = [];
     const child: InvokeChild = {
-      calleePath: "./child.loom",
+      calleePath: "./child.theta",
       committed,
       drive: (): Promise<ResultValue> => {
         // The callee subtree's tool-return-shape defect unwinds as the carrier —
@@ -333,7 +333,7 @@ describe("V14c live wiring (a) — invoke parent observes Err(InvokeInfraError{c
     // NEVER the callee's own code_tool surface.
     expect(err.kind).toBe("invoke_infra");
     expect(err.cause).toBe("internal_error");
-    expect(err.callee_path).toBe("./child.loom");
+    expect(err.callee_path).toBe("./child.theta");
   });
 });
 
@@ -353,7 +353,7 @@ describe("V14c live wiring (b) — runCodeSideToolCall races a non-settling exec
       committed: [],
       dispatch: (): Promise<AgentToolResultEnvelope> => {
         dispatched = true;
-        // deliberately never settles — loom 1.0 makes no internal timeout attempt
+        // deliberately never settles — theta 1.0 makes no internal timeout attempt
         return new Promise<AgentToolResultEnvelope>(() => {});
       },
     };
@@ -380,7 +380,7 @@ describe("V14c live wiring (b) — runCodeSideToolCall races a non-settling exec
     );
     // No internal-error is emitted on the cancelled path (NOCEIL-1).
     expect(
-      sink.diagnostics.filter((d) => d.code === "loom/runtime/internal-error"),
+      sink.diagnostics.filter((d) => d.code === "theta/runtime/internal-error"),
     ).toEqual([]);
   });
 

@@ -1,20 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { evaluateObjectMember } from "../src/runtime/stdlib-object";
-import type { LoomValue } from "../src/runtime/value";
+import type { ThetaValue } from "../src/runtime/value";
 
 // V3h-T — failing tests for the paired `V3h` "expression stdlib members:
 // `object`".
 //
 // Spec: expressions.md §"Built-in methods and properties" (the EXPR code-keyed
 // obligation area — no numbered REQ-IDs), the `object` member table. Each
-// loom-1.0 `object` member reproduces its normative behaviour and return type:
+// theta-1.0 `object` member reproduces its normative behaviour and return type:
 //
-//   - `keys()` returns the loom-side field names as `array<string>`, in schema
+//   - `keys()` returns the theta-side field names as `array<string>`, in schema
 //     declaration order for named schemas and insertion order otherwise (at
 //     runtime both reduce to the object value's own key order);
 //   - `values()` returns the field values as a heterogeneous `array<T>`, in the
 //     same order as `keys()`;
-//   - `has(k)` returns whether a loom-side name is present, and `false` for an
+//   - `has(k)` returns whether a theta-side name is present, and `false` for an
 //     unknown key without panic (the explicit safe-check).
 //
 // These tests red because the V3h `object` stdlib surface is absent:
@@ -31,8 +31,8 @@ import type { LoomValue } from "../src/runtime/value";
 describe("V3h-T — `object.keys()` (expressions.md §Built-in methods and properties, EXPR code-keyed area / cka-3)", () => {
   it("EXPR `keys`: field names in schema declaration order for named schemas", () => {
     // A named-schema value is constructed in declaration order; `keys()`
-    // returns those loom-side field names as an `array<string>` in that order.
-    const author: { readonly [key: string]: LoomValue } = {
+    // returns those theta-side field names as an `array<string>` in that order.
+    const author: { readonly [key: string]: ThetaValue } = {
       name: "Ada",
       role: "reviewer",
       experience_years: 7,
@@ -49,14 +49,14 @@ describe("V3h-T — `object.keys()` (expressions.md §Built-in methods and prope
 
   it("EXPR `keys`: insertion order for anonymous objects", () => {
     // No named schema: `keys()` follows the object value's own insertion order.
-    const anon: { readonly [key: string]: LoomValue } = { z: 1, a: 2, m: 3 };
+    const anon: { readonly [key: string]: ThetaValue } = { z: 1, a: 2, m: 3 };
     expect(evaluateObjectMember(anon, "keys", [])).toEqual(["z", "a", "m"]);
   });
 });
 
 describe("V3h-T — `object.values()` (expressions.md §Built-in methods and properties, EXPR code-keyed area)", () => {
   it("EXPR `values`: field values in the same order as `keys()`", () => {
-    const author: { readonly [key: string]: LoomValue } = {
+    const author: { readonly [key: string]: ThetaValue } = {
       name: "Ada",
       role: "reviewer",
       experience_years: 7,
@@ -73,20 +73,20 @@ describe("V3h-T — `object.values()` (expressions.md §Built-in methods and pro
 });
 
 describe("V3h-T — `object.has(k)` (expressions.md §Built-in methods and properties, EXPR code-keyed area)", () => {
-  it("EXPR `has`: `true` for a present loom-side name, `false` for an unknown key without panic", () => {
-    const author: { readonly [key: string]: LoomValue } = {
+  it("EXPR `has`: `true` for a present theta-side name, `false` for an unknown key without panic", () => {
+    const author: { readonly [key: string]: ThetaValue } = {
       name: "Ada",
       role: "reviewer",
     };
-    // A present loom-side name → true.
+    // A present theta-side name → true.
     expect(evaluateObjectMember(author, "has", ["name"])).toBe(true);
     // An unknown key → false (no panic — the explicit safe-check). Asserting
     // `toBe(false)` (not merely "did not throw") pins the false return; the
     // call returning the inert `null` sentinel reds here.
     expect(evaluateObjectMember(author, "has", ["nope"])).toBe(false);
-    // An inherited / prototype name (e.g. `toString`) is not a loom-side field,
+    // An inherited / prototype name (e.g. `toString`) is not a theta-side field,
     // so `has` reports it absent — the safe-check is over the object's own
-    // loom-side names, not the JS prototype chain.
+    // theta-side names, not the JS prototype chain.
     expect(evaluateObjectMember(author, "has", ["toString"])).toBe(false);
   });
 });

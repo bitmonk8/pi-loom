@@ -4,7 +4,7 @@
 //
 // This module owns the runtime side of the accepted-path `execute()` lowering
 // mechanics the paired `V14g` implementation leaf fills in (host-interfaces-
-// core.md §"Tool execution from loom code", post-F-1578 AgentToolResult shape;
+// core.md §"Tool execution from theta code", post-F-1578 AgentToolResult shape;
 // cancellation.md §Granularity):
 //
 //   - `filterJoinToolText` — filter a resolved `AgentToolResult.content` array to
@@ -14,7 +14,7 @@
 //   - `lowerResolvedToolEnvelope` — lower a cleanly-resolving `AgentToolResult`
 //     to `Ok(<filtered/joined text>)` (possibly `Ok("")` for `content: []` or a
 //     content array with no surviving text blocks). The discard of non-text
-//     blocks emits NO `RuntimeEvent`, `loom-system-note`, or diagnostic — the
+//     blocks emits NO `RuntimeEvent`, `theta-system-note`, or diagnostic — the
 //     `ToolLoweringSink` passed in is never touched on the discard path.
 //   - `truncateUtf8CodePointBoundary` — UTF-8-encode and truncate a string to at
 //     most `maxBytes` bytes on a Unicode code-point boundary: a code point that
@@ -33,7 +33,7 @@
 //     witness (a downstream `?` / panic / cancel leaves them in place with no
 //     compensating turn) is `npm test`-assertable off this surface.
 //
-// The non-conforming-shape (`loom/runtime/internal-error`, `details.kind =
+// The non-conforming-shape (`theta/runtime/internal-error`, `details.kind =
 // "tool-return-shape"`) and non-settling-Promise dispositions routed *off*
 // `CodeToolError` are OWNED by `V14c` (`tool-call-off-surface.ts`) — the shape
 // vocabulary, the diagnostic construction, and the abort-race live there — and
@@ -67,7 +67,7 @@
 // leaf fills these in.
 //
 // Spec: pi-integration-contract/host-interfaces-core.md §"Tool execution from
-// loom code"; cancellation.md §Granularity; errors-and-results/
+// theta code"; cancellation.md §Granularity; errors-and-results/
 // queryerror-variants.md (§"Code-side tool-call variant");
 // errors-and-results/error-model.md §"No rollback" (ERR-13).
 
@@ -77,7 +77,7 @@ import type { Checkpoint, CheckpointSite } from "../seams/checkpoint";
 import type { RuntimeEvent } from "./runtime-event-channel";
 import type { CommittedSideEffect } from "./no-rollback";
 import type { CodeToolError } from "./query-error";
-import { makeErr, makeOk, type LoomValue, type ResultValue } from "./value";
+import { makeErr, makeOk, type ThetaValue, type ResultValue } from "./value";
 // V14c live-seam wiring: this leaf INVOKES the V14c off-surface routings at the
 // live execution surface. `tool-call-off-surface.ts` imports the accepted-path
 // lowering (`lowerResolvedToolEnvelope`) and shared envelope types back from
@@ -90,10 +90,10 @@ import {
 } from "./tool-call-off-surface";
 
 // --------------------------------------------------------------------------
-// AgentToolResult content-block shape (loom-load-bearing subset)
+// AgentToolResult content-block shape (theta-load-bearing subset)
 // --------------------------------------------------------------------------
 
-/** A `type: "text"` content block — the only block loom lowers to output. */
+/** A `type: "text"` content block — the only block theta lowers to output. */
 export interface ToolTextBlock {
   readonly type: "text";
   readonly text: string;
@@ -108,9 +108,9 @@ export interface ToolNonTextBlock {
 export type ToolContentBlock = ToolTextBlock | ToolNonTextBlock;
 
 /**
- * The code-side `execute()` return type at the loom 1.0 Pi-SDK pin —
+ * The code-side `execute()` return type at the theta 1.0 Pi-SDK pin —
  * `AgentToolResult = { content, details, terminate? }` (host-interfaces-core.md
- * §"Tool execution from loom code"). loom reads only `content`; the type carries
+ * §"Tool execution from theta code"). theta reads only `content`; the type carries
  * NO `isError` field (F-1578). `details` / `terminate?` are opaque here.
  */
 export interface AgentToolResultEnvelope {
@@ -125,7 +125,7 @@ export interface AgentToolResultEnvelope {
  * The runtime's normative side channels the accepted-path lowering could reach.
  * Non-text-block discard is NOT a `QueryError` and is not in the always-log
  * set: the lowering MUST NOT call ANY of these on the discard path
- * (host-interfaces-core.md §"Tool execution from loom code"). Passed in so a
+ * (host-interfaces-core.md §"Tool execution from theta code"). Passed in so a
  * test can witness that a compliant lowering never touches it.
  */
 export interface ToolLoweringSink {
@@ -145,7 +145,7 @@ export const CODE_TOOL_MESSAGE_MAX_BYTES = 4096;
  * Filter `content` to its `type === "text"` entries and join their `.text`
  * values with a single `"\n"` (no separator before the first or after the last
  * block). Non-text blocks are discarded. Returns `""` when `content` is empty or
- * no text block survives (host-interfaces-core.md §"Tool execution from loom
+ * no text block survives (host-interfaces-core.md §"Tool execution from theta
  * code").
  *
  */
@@ -171,7 +171,7 @@ export function filterJoinToolText(
  * Lower a cleanly-resolving `AgentToolResult` to `Ok(<filtered/joined text>)`.
  * An empty result — `content: []` or a content array with no surviving text
  * blocks — is the legal `Ok("")` value. The non-text discard emits nothing on
- * `sink` (host-interfaces-core.md §"Tool execution from loom code").
+ * `sink` (host-interfaces-core.md §"Tool execution from theta code").
  *
  */
 export function lowerResolvedToolEnvelope(
@@ -195,7 +195,7 @@ export function lowerResolvedToolEnvelope(
  * its UTF-8 bytes, and no bytes of a partial code point appear. A code point that
  * would straddle the limit is dropped entirely, so the result MAY be up to three
  * bytes shorter than `maxBytes` (host-interfaces-core.md §"Tool execution from
- * loom code").
+ * theta code").
  *
  */
 export function truncateUtf8CodePointBoundary(
@@ -228,7 +228,7 @@ export function truncateUtf8CodePointBoundary(
  * "execution", message: <m>, tool_name }` where `<m>` is the thrown value coerced
  * to the underlying-error string (placeholder-rendering-b.md §underlying-error
  * coercion) and truncated under the `CODE_TOOL_MESSAGE_MAX_BYTES` code-point-
- * boundary rule (host-interfaces-core.md §"Tool execution from loom code").
+ * boundary rule (host-interfaces-core.md §"Tool execution from theta code").
  *
  */
 export function lowerToolExecuteThrow(
@@ -261,7 +261,7 @@ export interface CodeSideToolCall {
   readonly committed: readonly CommittedSideEffect[];
   /**
    * A ceiling-#4 (JSON-document depth ≤5) breach on the CONSTRUCTED argument
-   * value, detected by the loom-owned depth walk at the `<name>(args)` binding
+   * value, detected by the theta-owned depth walk at the `<name>(args)` binding
    * site *before* AJV and *before* the tool executes (CIO-3, schema-subset.md
    * §Depth Enforcement point #3). When present, `runCodeSideToolCall` surfaces
    * the wrapped `Err(CodeToolError { cause: "validation" })` as the tool-call
@@ -312,14 +312,14 @@ export type ToolCallExecOutcome =
     }
   | {
       // V14c non-conforming return shape (host-interfaces-core.md §"Tool
-      // execution from loom code"; tool-calls.md §"Outcome enumeration"): the
+      // execution from theta code"; tool-calls.md §"Outcome enumeration"): the
       // resolved `execute()` envelope violated the `{ content }` shape (not an
       // object, `content` not iterable, an entry missing `type` / `text`, or a
       // throwing inspection). Routed *off* the `CodeToolError` surface — the
-      // only surface is the `loom/runtime/internal-error` `diagnostic` (carrying
+      // only surface is the `theta/runtime/internal-error` `diagnostic` (carrying
       // `details.kind = "tool-return-shape"`, `details.tool_name`, and the
       // closed `details.shape_check` token). NOT observable as an
-      // `Err(QueryError)` a loom author can `match` on; the caller
+      // `Err(QueryError)` a theta author can `match` on; the caller
       // (`runToolCallEffect`) surfaces it as the internal-error routing per
       // errors-and-results.md §"Runtime panics". The tool never bound a value,
       // so `committed` is empty.
@@ -340,7 +340,7 @@ export type ToolCallExecOutcome =
  * cleanly-resolving envelope through the V14c `routeToolReturnShape` inspection
  * — a conforming `{ content }` envelope to `Ok(<joined text>)`, a non-conforming
  * shape to the `return-shape-defect` arm carrying the
- * `loom/runtime/internal-error{tool-return-shape}` diagnostic (off the
+ * `theta/runtime/internal-error{tool-return-shape}` diagnostic (off the
  * `CodeToolError` surface, NOT a bound value). The completed callee's
  * `committed` side effects are surfaced on the value outcome and remain final
  * under any downstream terminal event (ERR-13; the runtime holds no compensating
@@ -366,7 +366,7 @@ export async function runCodeSideToolCall(
 
   // Ceiling #4 (hard-ceilings/ceilings-3-and-4.md#ceiling-4-table, the
   // code-driven tool-call args row; CIO-3 depth-walk-before-AJV): a depth-6+
-  // constructed argument tripped the loom-owned depth walk at the binding site
+  // constructed argument tripped the theta-owned depth walk at the binding site
   // — surface the wrapped `Err(CodeToolError { cause: "validation" })` and
   // NEVER dispatch, so the host tool's `execute()` is not called and no side
   // effect is committed. Ordered after the abort check so cancellation observed
@@ -382,7 +382,7 @@ export async function runCodeSideToolCall(
     };
   }
 
-  // NOCEIL-1 (host-interfaces-core.md §"Outcome routing summary"): loom 1.0
+  // NOCEIL-1 (host-interfaces-core.md §"Outcome routing summary"): theta 1.0
   // makes no internal timeout attempt. Race the `execute()` Promise against the
   // abort `signal` through the V14c `awaitToolSettlementOrAbort` seam — a
   // non-settling Promise blocks at this `await` until the signal fires, at which
@@ -401,16 +401,16 @@ export async function runCodeSideToolCall(
   } catch (thrown: unknown) { // allow-broad-catch: pi-sdk-boundary — Specific exception types only
     // A rejection arriving BEFORE cancellation surfaced is an `execute()` throw:
     // the Pi tool signals failure by throwing an arbitrary value owned by the Pi
-    // SDK whose runtime shape loom cannot statically guarantee. It lowers to
+    // SDK whose runtime shape theta cannot statically guarantee. It lowers to
     // `CodeToolError { cause: "execution" }` (host-interfaces-core.md §"Tool
-    // execution from loom code"); the completed callee's committed side effects
+    // execution from theta code"); the completed callee's committed side effects
     // remain final per ERR-13. (A rejection AFTER cancellation is swallowed by
     // `awaitToolSettlementOrAbort`'s post-cancel discard arm and never reaches
     // here.)
     const error = lowerToolExecuteThrow(thrown, call.toolName);
     return {
       kind: "execution-error",
-      result: makeErr(error as unknown as LoomValue),
+      result: makeErr(error as unknown as ThetaValue),
       error,
       committed: call.committed,
     };
@@ -432,9 +432,9 @@ export async function runCodeSideToolCall(
   // completed callee's committed side effects ride on the outcome so the ERR-13
   // completed-callee-finality witness stays assertable off this surface. A
   // non-conforming shape does NOT bind a value: it routes to
-  // `loom/runtime/internal-error` with `details.kind = "tool-return-shape"`,
+  // `theta/runtime/internal-error` with `details.kind = "tool-return-shape"`,
   // off the `CodeToolError` surface (host-interfaces-core.md §"Tool execution
-  // from loom code").
+  // from theta code").
   const shape = routeToolReturnShape(
     settlement.envelope,
     call.toolName,

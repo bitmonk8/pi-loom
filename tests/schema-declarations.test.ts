@@ -37,7 +37,7 @@ function span(): SourceRange {
 
 /** A located site at the throwaway span. */
 function site(): { file: string; range: SourceRange } {
-  return { file: "test.loom", range: span() };
+  return { file: "test.theta", range: span() };
 }
 
 /** The first diagnostic carrying `code`, if any. */
@@ -50,20 +50,20 @@ function withCode(diags: readonly Diagnostic[], code: string): Diagnostic | unde
 // cka-8 / V5a: the SCHM code-keyed obligation area (schemas.md) closes across V5a
 // (schema/alias/enum declaration forms) and V5b; the assertions in this file
 // witness the V5a facet against the shipped parser.
-describe("V5a-T — empty schema body (loom/parse/empty-schema-body)", () => {
-  it("loom/parse/empty-schema-body: `schema X { }` with no fields fires; a non-empty schema does not", () => {
+describe("V5a-T — empty schema body (theta/parse/empty-schema-body)", () => {
+  it("theta/parse/empty-schema-body: `schema X { }` with no fields fires; a non-empty schema does not", () => {
     const diags = checkObjectSchema({ name: "X", fields: [] }, site());
-    const d = withCode(diags, "loom/parse/empty-schema-body");
-    expect(d, "loom/parse/empty-schema-body for an empty object schema").toBeDefined();
+    const d = withCode(diags, "theta/parse/empty-schema-body");
+    expect(d, "theta/parse/empty-schema-body for an empty object schema").toBeDefined();
     // Message from code-registry-parse.md (`'<X>' has no fields; ...`).
     expect(d?.message).toBe("'X' has no fields; an empty schema cannot be validated.");
 
     const okDiags = checkObjectSchema(
-      { name: "Author", fields: [{ loomName: "name" }] },
+      { name: "Author", fields: [{ thetaName: "name" }] },
       site(),
     );
     expect(
-      withCode(okDiags, "loom/parse/empty-schema-body"),
+      withCode(okDiags, "theta/parse/empty-schema-body"),
       "a schema with at least one field raises no empty-body diagnostic",
     ).toBeUndefined();
   });
@@ -72,65 +72,65 @@ describe("V5a-T — empty schema body (loom/parse/empty-schema-body)", () => {
 // --- schemas.md §Wire-name renaming ---------------------------------------
 
 describe("V5a-T — wire-name renaming (collision / redundant)", () => {
-  it("loom/parse/wire-name-collision: two fields sharing a wire name fires", () => {
+  it("theta/parse/wire-name-collision: two fields sharing a wire name fires", () => {
     // `a as "Shared"` and `b as "Shared"` collide on the wire name.
     const diags = checkObjectSchema(
       {
         name: "ExternalUser",
         fields: [
-          { loomName: "a", wireName: "Shared" },
-          { loomName: "b", wireName: "Shared" },
+          { thetaName: "a", wireName: "Shared" },
+          { thetaName: "b", wireName: "Shared" },
         ],
       },
       site(),
     );
-    const d = withCode(diags, "loom/parse/wire-name-collision");
-    expect(d, "loom/parse/wire-name-collision for two fields sharing a wire name").toBeDefined();
+    const d = withCode(diags, "theta/parse/wire-name-collision");
+    expect(d, "theta/parse/wire-name-collision for two fields sharing a wire name").toBeDefined();
     // Message from code-registry-parse.md.
     expect(d?.message).toBe(
       "wire name 'Shared' collides with another field on schema 'ExternalUser'",
     );
   });
 
-  it("loom/parse/wire-name-collision: a wire name colliding with another field's loom-side name fires", () => {
-    // `a as "b"` collides with the loom-side name of field `b`.
+  it("theta/parse/wire-name-collision: a wire name colliding with another field's theta-side name fires", () => {
+    // `a as "b"` collides with the theta-side name of field `b`.
     const diags = checkObjectSchema(
       {
         name: "ExternalUser",
-        fields: [{ loomName: "a", wireName: "b" }, { loomName: "b" }],
+        fields: [{ thetaName: "a", wireName: "b" }, { thetaName: "b" }],
       },
       site(),
     );
-    const d = withCode(diags, "loom/parse/wire-name-collision");
+    const d = withCode(diags, "theta/parse/wire-name-collision");
     expect(
       d,
-      "loom/parse/wire-name-collision when a wire name equals another field's loom name",
+      "theta/parse/wire-name-collision when a wire name equals another field's theta name",
     ).toBeDefined();
     expect(d?.message).toBe(
       "wire name 'b' collides with another field on schema 'ExternalUser'",
     );
   });
 
-  it("loom/parse/redundant-wire-name (W): a rename whose wire name equals the loom name fires; a genuine rename does not", () => {
+  it("theta/parse/redundant-wire-name (W): a rename whose wire name equals the theta name fires; a genuine rename does not", () => {
     const diags = checkObjectSchema(
-      { name: "X", fields: [{ loomName: "field_name", wireName: "field_name" }] },
+      { name: "X", fields: [{ thetaName: "field_name", wireName: "field_name" }] },
       site(),
     );
-    const d = withCode(diags, "loom/parse/redundant-wire-name");
-    expect(d, "loom/parse/redundant-wire-name for a self-equal rename").toBeDefined();
+    const d = withCode(diags, "theta/parse/redundant-wire-name");
+    expect(d, "theta/parse/redundant-wire-name for a self-equal rename").toBeDefined();
     expect(d?.severity).toBe("warning");
     // Message from code-registry-parse.md.
     expect(d?.message).toBe(
-      "redundant 'as' clause: wire name 'field_name' equals the loom-side name",
+      "redundant 'as' clause: wire name 'field_name' equals the theta-side name",
     );
 
     // A genuine rename (`first_name as "FirstName"`) warns nothing.
     const okDiags = checkObjectSchema(
-      { name: "X", fields: [{ loomName: "first_name", wireName: "FirstName" }] },
+      { name: "X", fields: [{ thetaName: "first_name", wireName: "FirstName" }] },
       site(),
     );
     expect(
-      withCode(okDiags, "loom/parse/redundant-wire-name"),
+      withCode(okDiags, "theta/parse/redundant-wire-name"),
       "a genuine rename raises no redundant-wire-name warning",
     ).toBeUndefined();
   });
@@ -138,11 +138,11 @@ describe("V5a-T — wire-name renaming (collision / redundant)", () => {
 
 // --- schemas.md §Enum declarations — empty body ---------------------------
 
-describe("V5a-T — empty enum body (loom/parse/empty-enum-body)", () => {
-  it("loom/parse/empty-enum-body: `enum X { }` with no variants fires; a non-empty enum does not", () => {
+describe("V5a-T — empty enum body (theta/parse/empty-enum-body)", () => {
+  it("theta/parse/empty-enum-body: `enum X { }` with no variants fires; a non-empty enum does not", () => {
     const diags = checkEnumDeclaration({ name: "X", variants: [] }, site());
-    const d = withCode(diags, "loom/parse/empty-enum-body");
-    expect(d, "loom/parse/empty-enum-body for an empty enum").toBeDefined();
+    const d = withCode(diags, "theta/parse/empty-enum-body");
+    expect(d, "theta/parse/empty-enum-body for an empty enum").toBeDefined();
     // Message from code-registry-parse.md (`'<X>' has no variants; ...`).
     expect(d?.message).toBe("'X' has no variants; an empty enum cannot be validated.");
 
@@ -151,7 +151,7 @@ describe("V5a-T — empty enum body (loom/parse/empty-enum-body)", () => {
       site(),
     );
     expect(
-      withCode(okDiags, "loom/parse/empty-enum-body"),
+      withCode(okDiags, "theta/parse/empty-enum-body"),
       "an enum with at least one variant raises no empty-body diagnostic",
     ).toBeUndefined();
   });
@@ -159,11 +159,11 @@ describe("V5a-T — empty enum body (loom/parse/empty-enum-body)", () => {
 
 // --- schemas.md §Enum declarations — inline-enum ban ----------------------
 
-describe("V5a-T — inline enum (loom/parse/inline-enum)", () => {
-  it("loom/parse/inline-enum: an inline `enum[\"a\", \"b\"]` form fires", () => {
+describe("V5a-T — inline enum (theta/parse/inline-enum)", () => {
+  it("theta/parse/inline-enum: an inline `enum[\"a\", \"b\"]` form fires", () => {
     const d = checkInlineEnumForm('enum["a", "b"]', site());
-    expect(d, "loom/parse/inline-enum for an inline enum form").toBeDefined();
-    expect(d?.code).toBe("loom/parse/inline-enum");
+    expect(d, "theta/parse/inline-enum for an inline enum form").toBeDefined();
+    expect(d?.code).toBe("theta/parse/inline-enum");
     // Message from code-registry-parse.md.
     expect(d?.message).toBe(
       "inline 'enum[...]' is not supported; use a top-level 'enum' declaration or a literal-union",
@@ -173,15 +173,15 @@ describe("V5a-T — inline enum (loom/parse/inline-enum)", () => {
 
 // --- schemas.md §Enum declarations — string values only -------------------
 
-describe("V5a-T — non-string enum value (loom/parse/non-string-enum-value)", () => {
-  it("loom/parse/non-string-enum-value: a numeric explicit value fires with the offending kind; a string value does not", () => {
+describe("V5a-T — non-string enum value (theta/parse/non-string-enum-value)", () => {
+  it("theta/parse/non-string-enum-value: a numeric explicit value fires with the offending kind; a string value does not", () => {
     // `enum X { Low = 1 }` — the explicit value is an integer literal.
     const diags = checkEnumDeclaration(
       { name: "X", variants: [{ name: "Low", value: { kind: "integer", text: "1" } }] },
       site(),
     );
-    const d = withCode(diags, "loom/parse/non-string-enum-value");
-    expect(d, "loom/parse/non-string-enum-value for an integer explicit value").toBeDefined();
+    const d = withCode(diags, "theta/parse/non-string-enum-value");
+    expect(d, "theta/parse/non-string-enum-value for an integer explicit value").toBeDefined();
     // Message template `enum variant value must be a string literal; got <kind>`
     // from code-registry-parse.md; <kind> is the type-kind of the offending literal.
     expect(d?.message).toBe("enum variant value must be a string literal; got integer");
@@ -192,7 +192,7 @@ describe("V5a-T — non-string enum value (loom/parse/non-string-enum-value)", (
       site(),
     );
     expect(
-      withCode(okDiags, "loom/parse/non-string-enum-value"),
+      withCode(okDiags, "theta/parse/non-string-enum-value"),
       "a string explicit value raises no non-string-enum-value diagnostic",
     ).toBeUndefined();
   });
@@ -201,7 +201,7 @@ describe("V5a-T — non-string enum value (loom/parse/non-string-enum-value)", (
 // --- schemas.md §Enum declarations — duplicate variant name vs value ------
 
 describe("V5a-T — enum duplicate variant name / value with name-before-value ordering", () => {
-  it("loom/parse/duplicate-enum-variant-name: distinct explicit values under one name fire the name code, not the value code", () => {
+  it("theta/parse/duplicate-enum-variant-name: distinct explicit values under one name fire the name code, not the value code", () => {
     // `enum X { Low = "a", Low = "b" }`: distinct explicit values, shared name.
     // Per schemas.md §Enum declarations the name-duplication check runs first,
     // so this fires `duplicate-enum-variant-name` and NOT `duplicate-enum-value`.
@@ -215,19 +215,19 @@ describe("V5a-T — enum duplicate variant name / value with name-before-value o
       },
       site(),
     );
-    const d = withCode(diags, "loom/parse/duplicate-enum-variant-name");
-    expect(d, "loom/parse/duplicate-enum-variant-name for a repeated variant name").toBeDefined();
+    const d = withCode(diags, "theta/parse/duplicate-enum-variant-name");
+    expect(d, "theta/parse/duplicate-enum-variant-name for a repeated variant name").toBeDefined();
     // Message from code-registry-parse.md.
     expect(d?.message).toBe("duplicate variant name 'Low' on enum 'X'");
     // The value-duplication code is reserved for distinct names; it must NOT
     // fire here, because the name-duplication check runs first.
     expect(
-      withCode(diags, "loom/parse/duplicate-enum-value"),
+      withCode(diags, "theta/parse/duplicate-enum-value"),
       "the name check runs before the value check, so duplicate-enum-value does not fire",
     ).toBeUndefined();
   });
 
-  it("loom/parse/duplicate-enum-value: distinct names sharing one explicit value fire the value code", () => {
+  it("theta/parse/duplicate-enum-value: distinct names sharing one explicit value fire the value code", () => {
     // `enum X { Low = "x", High = "x" }`: distinct names, shared explicit value.
     const diags = checkEnumDeclaration(
       {
@@ -239,8 +239,8 @@ describe("V5a-T — enum duplicate variant name / value with name-before-value o
       },
       site(),
     );
-    const d = withCode(diags, "loom/parse/duplicate-enum-value");
-    expect(d, "loom/parse/duplicate-enum-value for two names sharing one explicit value").toBeDefined();
+    const d = withCode(diags, "theta/parse/duplicate-enum-value");
+    expect(d, "theta/parse/duplicate-enum-value for two names sharing one explicit value").toBeDefined();
     // Message template `duplicate enum value '<value>' across variants of enum
     // '<enum>'` from code-registry-parse.md; <value> renders the literal source
     // text (identifier-shaped `x` rendered bare).
@@ -250,15 +250,15 @@ describe("V5a-T — enum duplicate variant name / value with name-before-value o
 
 // --- schemas.md §Variant access — unknown variant -------------------------
 
-describe("V5a-T — unknown variant access (loom/parse/unknown-variant)", () => {
-  it("loom/parse/unknown-variant: a reference to an undeclared variant fires; a declared one does not", () => {
+describe("V5a-T — unknown variant access (theta/parse/unknown-variant)", () => {
+  it("theta/parse/unknown-variant: a reference to an undeclared variant fires; a declared one does not", () => {
     // `Severity.Critical` where `Severity` declares only Low/Medium/High.
     const d = checkVariantAccess(
       { enumName: "Severity", variant: "Critical", knownVariants: ["Low", "Medium", "High"] },
       site(),
     );
-    expect(d, "loom/parse/unknown-variant for an undeclared variant").toBeDefined();
-    expect(d?.code).toBe("loom/parse/unknown-variant");
+    expect(d, "theta/parse/unknown-variant for an undeclared variant").toBeDefined();
+    expect(d?.code).toBe("theta/parse/unknown-variant");
     // Message from code-registry-parse.md.
     expect(d?.message).toBe("unknown variant 'Critical' on enum 'Severity'");
 

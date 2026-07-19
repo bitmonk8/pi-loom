@@ -1,28 +1,28 @@
-// Hardening lens: MODEL-CALLABLE `.loom` (SUBAG-2 residual) end-to-end.
+// Hardening lens: MODEL-CALLABLE `.theta` (SUBAG-2 residual) end-to-end.
 //
-// Probes the runtime behaviour a subagent-mode loom that lists another `.loom`
+// Probes the runtime behaviour a subagent-mode theta that lists another `.theta`
 // in its `tools:` — the model-driven side of the callable set. A subagent
-// parent (`tools: ./child.loom`) is asked, in an `@`-query, to CALL the `child`
-// tool (the MODEL decides to emit the `tool_use` block, not loom code), and the
-// child is a subagent loom that returns an exact sentinel with ZERO model turns
+// parent (`tools: ./child.theta`) is asked, in an `@`-query, to CALL the `child`
+// tool (the MODEL decides to emit the `tool_use` block, not theta code), and the
+// child is a subagent theta that returns an exact sentinel with ZERO model turns
 // (a literal-tail body). The child's returned value flows: child → tool-result
 // → the parent model's reply → the subagent parent's return value → the prompt
 // grandparent's observable final `@`-query.
 //
 // Spec anchors:
 //   * tool-calls.md — the callable set is SHARED between the model-driven and
-//     code-driven paths; the model sees the same `.loom` callables.
-//   * pi-integration-contract/extension-bootstrap-and-per-loom.md §Per-loom
-//     registration — a `.loom`-as-tool `ToolDefinition` (subagent mode:
+//     code-driven paths; the model sees the same `.theta` callables.
+//   * pi-integration-contract/extension-bootstrap-and-per-theta.md §Per-theta
+//     registration — a `.theta`-as-tool `ToolDefinition` (subagent mode:
 //     installed as a `defineTool` customTool on `createAgentSession`).
 //   * pi-integration-contract/tool-registration-lifetime.md §"Subagent mode".
 //
-// Determinism posture: the DETERMINISTIC channels (all three looms register
-// with no rejecting diagnostic — the `.loom`-in-`tools:` resolved and was
+// Determinism posture: the DETERMINISTIC channels (all three thetas register
+// with no rejecting diagnostic — the `.theta`-in-`tools:` resolved and was
 // exposed, not load-rejected) are hard assertions and fail loudly. Whether the
-// LIVE model actually emits the `tool_use` for the `.loom` is best-effort
+// LIVE model actually emits the `tool_use` for the `.theta` is best-effort
 // (logged), matching the file's twin deterministic seam test
-// (`tests/subagent-model-loom-tool.test.ts`), which proves the adapter + the
+// (`tests/subagent-model-theta-tool.test.ts`), which proves the adapter + the
 // exposed customTools/tools/tool-schemas surface without a live model.
 //
 // Token discipline: the child body is a literal tail (0 child model turns); the
@@ -51,14 +51,14 @@ async function driveOnce(make: () => Promise<ProbeResult>): Promise<ProbeResult>
   return probe;
 }
 
-function loom(front: string[], body: string): string {
+function theta(front: string[], body: string): string {
   return ["---", ...front, "---", body].join("\n");
 }
 
-const SENTINEL = "LOOMTOOL-SENTINEL-7788";
+const SENTINEL = "THETATOOL-SENTINEL-7788";
 
-describe("model-callable `.loom` (SUBAG-2): a subagent parent exposes a `.loom` tool to its model", () => {
-  it("registers all three looms and (best-effort) surfaces the child sentinel via a model tool_use", async () => {
+describe("model-callable `.theta` (SUBAG-2): a subagent parent exposes a `.theta` tool to its model", () => {
+  it("registers all three thetas and (best-effort) surfaces the child sentinel via a model tool_use", async () => {
     const probe = await driveOnce(() =>
       runProbe({
         provider,
@@ -69,22 +69,22 @@ describe("model-callable `.loom` (SUBAG-2): a subagent parent exposes a `.loom` 
             // parent's own transcript is private under SLSH-2, so this is the
             // only surface the child value can be read from deterministically).
             source: "project",
-            path: "gptool.loom",
-            text: loom(
+            path: "gptool.theta",
+            text: theta(
               ["description: x", "mode: prompt"],
               [
-                'let r: string = invoke<string>("./subtoolparent.loom")?',
+                'let r: string = invoke<string>("./subtoolparent.theta")?',
                 "@`RESULT=${r}`",
               ].join("\n"),
             ),
           },
           {
-            // Subagent parent exposing the `.loom` callable to its MODEL. The
+            // Subagent parent exposing the `.theta` callable to its MODEL. The
             // query instructs the model to CALL the tool and echo its return.
             source: "project",
-            path: "subtoolparent.loom",
-            text: loom(
-              ["description: x", "mode: subagent", "tools: ./echochild.loom"],
+            path: "subtoolparent.theta",
+            text: theta(
+              ["description: x", "mode: subagent", "tools: ./echochild.theta"],
               "@`You have one tool named \"echochild\". Call it now with no arguments, then reply with EXACTLY the text the tool returned and nothing else — no quotes, no prose.`",
             ),
           },
@@ -93,8 +93,8 @@ describe("model-callable `.loom` (SUBAG-2): a subagent parent exposes a `.loom` 
             // tail (ZERO model turns), so the value that crosses the tool
             // boundary is fully deterministic.
             source: "project",
-            path: "echochild.loom",
-            text: loom(["description: x", "mode: subagent"], `"${SENTINEL}"`),
+            path: "echochild.theta",
+            text: theta(["description: x", "mode: subagent"], `"${SENTINEL}"`),
           },
         ],
         drives: ["/gptool"],
@@ -105,7 +105,7 @@ describe("model-callable `.loom` (SUBAG-2): a subagent parent exposes a `.loom` 
       const userText = t.userTexts.join("\n");
       // eslint-disable-next-line no-console
       console.log(
-        "LOOMTOOL registered:",
+        "THETATOOL registered:",
         JSON.stringify(probe.registeredNames),
         "diagnostics:",
         JSON.stringify(probe.diagnostics),
@@ -115,28 +115,28 @@ describe("model-callable `.loom` (SUBAG-2): a subagent parent exposes a `.loom` 
         t.error,
       );
 
-      // DETERMINISTIC (hard): all three looms load and register. Critically the
-      // subagent parent registered WITH `tools: ./echochild.loom` present — a
-      // `.loom` entry in a subagent's `tools:` is NOT load-rejected (that is a
+      // DETERMINISTIC (hard): all three thetas load and register. Critically the
+      // subagent parent registered WITH `tools: ./echochild.theta` present — a
+      // `.theta` entry in a subagent's `tools:` is NOT load-rejected (that is a
       // prompt-mode-only rejection), so the callable resolved and was exposed.
       expect(probe.registeredNames).toContain("gptool");
       expect(probe.registeredNames).toContain("subtoolparent");
       expect(probe.registeredNames).toContain("echochild");
-      // No rejecting load diagnostic against the `.loom`-in-`tools:` surface.
+      // No rejecting load diagnostic against the `.theta`-in-`tools:` surface.
       const rejects = probe.diagnostics.filter(
         (d) =>
           d.severity === "error" &&
-          /loom\/load\/(prompt-mode-callable|unresolvable-loom-path|unknown-tool)/.test(d.code),
+          /theta\/load\/(prompt-mode-callable|unresolvable-theta-path|unknown-tool)/.test(d.code),
       );
       expect(rejects, JSON.stringify(rejects)).toHaveLength(0);
 
       // BEST-EFFORT (logged, not asserted): whether the live model actually
-      // emitted the `tool_use` for the `.loom` callable this run. The
+      // emitted the `tool_use` for the `.theta` callable this run. The
       // deterministic adapter + exposed-tool-set proof lives in the twin seam
-      // test `tests/subagent-model-loom-tool.test.ts`.
+      // test `tests/subagent-model-theta-tool.test.ts`.
       const sentinelSurfaced = !transportish(t.error) && userText.includes(SENTINEL);
       // eslint-disable-next-line no-console
-      console.log("LOOMTOOL sentinel-surfaced (best-effort live call):", sentinelSurfaced);
+      console.log("THETATOOL sentinel-surfaced (best-effort live call):", sentinelSurfaced);
     } finally {
       await probe.dispose();
     }

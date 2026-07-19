@@ -20,7 +20,7 @@ import type {
   CommittedSurface,
   DrivenConversationMode,
 } from "../src/runtime/terminal-outcomes";
-import { valuesEqual, type LoomValue } from "../src/runtime/value";
+import { valuesEqual, type ThetaValue } from "../src/runtime/value";
 import type { QueryError } from "../src/runtime/query-error";
 import type {
   Block,
@@ -29,12 +29,12 @@ import type {
   ExprStmt,
   ForStmt,
   IfStmt,
-  LoomBody,
+  ThetaBody,
   ReturnStmt,
   Stmt,
   ToolCallStmt,
   WhileStmt,
-} from "../src/parser/loom-document";
+} from "../src/parser/theta-document";
 import type { SourceRange } from "../src/diagnostics/diagnostic";
 
 // V19c-T — failing tests for the paired `V19c` tree-walking statement executor.
@@ -126,7 +126,7 @@ function block(statements: readonly Stmt[], tail: Expr | null = null): Block {
   return { statements, tail };
 }
 
-function body(statements: readonly Stmt[], tail: Expr | null = null): LoomBody {
+function body(statements: readonly Stmt[], tail: Expr | null = null): ThetaBody {
   return { statements, tail };
 }
 
@@ -139,7 +139,7 @@ function realEnv(): LexicalEnvironment {
 
 // --- Checkpoint substrate (PIC-10) -----------------------------------------
 
-const SITE: CheckpointSite = { file: "loom.loom", line: 1, column: 1 };
+const SITE: CheckpointSite = { file: "theta.theta", line: 1, column: 1 };
 
 /**
  * A `Checkpoint` whose `before(...)` invokes an injected callback on each await
@@ -198,7 +198,7 @@ class RecordingMutator implements CommittedConversationMutator {
 // --- Recording effect host (the V19d boundary) -----------------------------
 
 /** A checkpointed `Ok` result carrying the effect's value. */
-function ok(value: LoomValue): OperationResult {
+function ok(value: ThetaValue): OperationResult {
   return { ok: true, value };
 }
 
@@ -225,7 +225,7 @@ class RecordingHost implements StatementEvalHost {
   /** Per-effect override of the returned `OperationResult` (by callee name). */
   readonly results = new Map<string, OperationResult>();
 
-  evaluatePure(expr: Expr, env: LexicalEnvironment): LoomValue {
+  evaluatePure(expr: Expr, env: LexicalEnvironment): ThetaValue {
     return this.#eval(expr, env);
   }
 
@@ -261,7 +261,7 @@ class RecordingHost implements StatementEvalHost {
   }
 
   /** A bounded AST-expression evaluator for the witnessed forms. */
-  #eval(expr: Expr, env: LexicalEnvironment): LoomValue {
+  #eval(expr: Expr, env: LexicalEnvironment): ThetaValue {
     switch (expr.kind) {
       case "number":
         return Number(expr.text);
@@ -305,7 +305,7 @@ function deps(opts: {
     signal: opts.signal ?? new AbortController().signal,
     mutator: opts.mutator ?? new RecordingMutator(),
     mode: opts.mode ?? "prompt",
-    file: opts.file ?? "test.loom",
+    file: opts.file ?? "test.theta",
   };
 }
 
@@ -615,7 +615,7 @@ describe("V19c-T — terminal-outcome production at real hosts (ERR-8 … ERR-12
     );
     expect(
       mutator.calls,
-      "ERR-12: the non-mutation obligation holds inside a subagent loom too",
+      "ERR-12: the non-mutation obligation holds inside a subagent theta too",
     ).toEqual([]);
   });
 });
@@ -631,7 +631,7 @@ import type {
   MatchExpr,
   PatternNode,
   TryExpr,
-} from "../src/parser/loom-document";
+} from "../src/parser/theta-document";
 
 /** A `?`-wrapped operand expression. */
 function tryExpr(operand: Expr): TryExpr {
@@ -661,7 +661,7 @@ function objectExpr(fields: readonly { name: string; value: Expr }[]): Expr {
 class CoreExecHost implements StatementEvalHost {
   readonly results = new Map<string, OperationResult>();
 
-  evaluatePure(expr: Expr, env: LexicalEnvironment): LoomValue {
+  evaluatePure(expr: Expr, env: LexicalEnvironment): ThetaValue {
     switch (expr.kind) {
       case "number":
         return Number(expr.text);
@@ -676,10 +676,10 @@ class CoreExecHost implements StatementEvalHost {
         const target = this.evaluatePure(expr.target, env);
         return target === null
           ? null
-          : (target as { readonly [k: string]: LoomValue })[expr.field] ?? null;
+          : (target as { readonly [k: string]: ThetaValue })[expr.field] ?? null;
       }
       case "object": {
-        const obj: Record<string, LoomValue> = {};
+        const obj: Record<string, ThetaValue> = {};
         for (const f of expr.fields) {
           obj[f.name] = this.evaluatePure(f.value, env);
         }
@@ -692,7 +692,7 @@ class CoreExecHost implements StatementEvalHost {
 
   checkpointFor(expr: Expr): CheckpointDescriptor | null {
     if (expr.kind === "call" || expr.kind === "query" || expr.kind === "invoke") {
-      return { kind: "tool-call", site: { file: "loom.loom", line: 1, column: 1 } };
+      return { kind: "tool-call", site: { file: "theta.theta", line: 1, column: 1 } };
     }
     return null;
   }
@@ -706,7 +706,7 @@ class CoreExecHost implements StatementEvalHost {
 describe("core-exec — `?` (try) dispatch-through and unwrap/propagate", () => {
   it("`let s = call()?` dispatches the real effect and unwraps Ok(v) to v", async () => {
     const host = new CoreExecHost();
-    // The loom-callable call effect yields the callee's top-level Result Ok(v).
+    // The theta-callable call effect yields the callee's top-level Result Ok(v).
     host.results.set("sentiment", { ok: true, value: makeOk({ label: "pos" }) });
     const program = body(
       [{ kind: "let", name: "s", mutable: false, annotation: null, init: tryExpr(callExpr("sentiment")), range: span() }],

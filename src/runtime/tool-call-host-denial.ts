@@ -1,11 +1,11 @@
 // V14d / V14d-T — the code-tool host-denial surface.
 //
 // PIC-52 (pi-integration-contract/trust-boundary.md §"No additional access
-// channels"): the runtime interposes no privilege layer between loom code and
+// channels"): the runtime interposes no privilege layer between theta code and
 // the Pi extension host, so host-side denials of filesystem / network / Pi-API
-// access reach loom code *through the tool that issued the request*. A host-side
+// access reach theta code *through the tool that issued the request*. A host-side
 // denial — a value **thrown** from the tool's `execute()`, or a tool **return**
-// that signals failure via an `isError: true` flag — MUST reach loom code as
+// that signals failure via an `isError: true` flag — MUST reach theta code as
 // `Err(QueryError { kind: "code_tool", cause: "execution", ... })`; silent
 // success on denial is forbidden.
 //
@@ -15,8 +15,8 @@
 // accepted path: it maps BOTH denial forms to
 // `Err(CodeToolError { cause: "execution" })`, and lowers only a non-denial
 // return to `Ok(<joined text>)`. Per host-interfaces-core.md §"Tool execution
-// from loom code" (spec fix F-1578) the code-side `AgentToolResult` *type*
-// carries no `isError` field, so a well-behaved tool at the loom 1.0 Pi-SDK pin
+// from theta code" (spec fix F-1578) the code-side `AgentToolResult` *type*
+// carries no `isError` field, so a well-behaved tool at the theta 1.0 Pi-SDK pin
 // signals denial by throwing; this surface additionally guards the `isError:
 // true` return form PIC-52 enumerates, so a denial-signalling return can never
 // be silently lowered to `Ok` by the content-only accepted-path lowering. The
@@ -36,7 +36,7 @@
 //
 // Spec: pi-integration-contract/trust-boundary.md §"No additional access
 // channels" (PIC-52); pi-integration-contract/host-interfaces-core.md §"Tool
-// execution from loom code"; tool-calls.md §"Failures";
+// execution from theta code"; tool-calls.md §"Failures";
 // errors-and-results/queryerror-variants.md (§"Code-side tool-call variant").
 
 import {
@@ -47,7 +47,7 @@ import {
   type ToolContentBlock,
 } from "./tool-call-execute";
 import type { CodeToolError } from "./query-error";
-import { makeErr, makeOk, type LoomValue, type ResultValue } from "./value";
+import { makeErr, makeOk, type ThetaValue, type ResultValue } from "./value";
 
 // --------------------------------------------------------------------------
 // Host-side tool outcome (throw or return) as seen at the denial boundary
@@ -66,10 +66,10 @@ export interface HostDeniableEnvelope {
 }
 
 /**
- * A host-side tool outcome observed by loom code through the tool that issued
+ * A host-side tool outcome observed by theta code through the tool that issued
  * the request (PIC-52):
  *   - `throw`  — the tool's `execute()` threw `thrown` (the host-side denial
- *     form a well-behaved Pi tool uses at the loom 1.0 pin);
+ *     form a well-behaved Pi tool uses at the theta 1.0 pin);
  *   - `return` — `execute()` resolved with `envelope` (a denial when
  *     `envelope.isError === true`, otherwise the accepted path).
  */
@@ -131,7 +131,7 @@ export function classifyHostDenial(
   // thrown denial lowers identically to the live-surface execution error.
   if (outcome.kind === "throw") {
     const error = lowerToolExecuteThrow(outcome.thrown, toolName);
-    return { kind: "denied", result: makeErr(error as unknown as LoomValue), error };
+    return { kind: "denied", result: makeErr(error as unknown as ThetaValue), error };
   }
 
   const content = outcome.envelope.content ?? [];
@@ -150,7 +150,7 @@ export function classifyHostDenial(
       tool_name: toolName,
       cause: "execution",
     };
-    return { kind: "denied", result: makeErr(error as unknown as LoomValue), error };
+    return { kind: "denied", result: makeErr(error as unknown as ThetaValue), error };
   }
 
   // Non-denial return: the accepted path — `Ok(<joined text>)` (possibly

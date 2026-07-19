@@ -244,7 +244,7 @@ describe("V11h-T — echo `(default)` annotation (defaulting-system-note-echo.md
     // field took its declared default (default-supplied, per §Defaulting's
     // fill-if-absent rule).
     const line = renderArgumentEcho({
-      loomName: "demo",
+      thetaName: "demo",
       params: [
         {
           name: "focus_areas",
@@ -262,7 +262,7 @@ describe("V11h-T — echo `(default)` annotation (defaulting-system-note-echo.md
     // is rendered untagged — no `(default)` marker (fill-if-absent preserved the
     // binder value, so it is NOT default-supplied).
     const line = renderArgumentEcho({
-      loomName: "demo",
+      thetaName: "demo",
       params: [
         {
           name: "focus_areas",

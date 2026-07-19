@@ -12,16 +12,16 @@ with `?`. Use `match` and destructure the `QueryError` variant.
    failures you handle.
 3. Destructure the variant by `kind` (and `cause`, where a variant partitions).
    An object pattern lists only the fields you match on; others are ignored. Rest
-   patterns (`..`) are not part of loom 1.0.
+   patterns (`..`) are not part of theta 1.0.
 4. End with a wildcard `Err(_)` arm — `match` exhaustiveness is not statically
    checked, and a non-exhaustive `match` panics at runtime.
 
 ## Working example
 
-[`docs/examples/handle-error.loom`](../examples/handle-error.loom) recovers from a
+[`docs/examples/handle-error.theta`](../examples/handle-error.theta) recovers from a
 schema-validation failure with a safe default:
 
-```loom
+```theta
 ---
 description: Triage a message, recovering from a schema-validation failure
 mode: subagent
@@ -45,7 +45,7 @@ let outcome = match @<Triage>`Triage this message: ${message}` {
 Run it:
 
 ```
-pi --loom docs/examples -p "/handle-error the export button does nothing"
+pi --theta docs/examples -p "/handle-error the export button does nothing"
 ```
 
 ## Result
@@ -53,7 +53,7 @@ pi --loom docs/examples -p "/handle-error the export button does nothing"
 On success the arm binds the validated `Triage`. If the model's response cannot
 be repaired to the schema, the query returns `Err(QueryError { kind: "validation",
 cause: "schema_validation", ... })` and the matching arm supplies a default
-instead of aborting the loom. The wildcard arm keeps the `match` total against
+instead of aborting the theta. The wildcard arm keeps the `match` total against
 transport, cancellation, tool-loop, and every other variant. Match `cause` when
 you want arm-specific recovery; match `QueryError { kind: "validation" }` alone
 for arm-uniform handling.
@@ -62,7 +62,7 @@ for arm-uniform handling.
 
 - Every `QueryError` variant and its fields (`kind`, `cause`, `validation_errors`,
   …) — [Error & result model](../reference/errors-and-results.md).
-- `match` arm and pattern grammar, `?` desugaring, `loom/runtime/match-error` —
+- `match` arm and pattern grammar, `?` desugaring, `theta/runtime/match-error` —
   [Grammar](../reference/grammar.md).
 - Which ceiling failures surface as a recoverable `Err` vs a panic —
   [Hard ceilings](../reference/hard-ceilings.md).
@@ -75,4 +75,4 @@ for arm-uniform handling.
   `docs/spec_topics/query/query-failure-and-repair.md` (QRY-8, respond-repair),
   `docs/spec_topics/control-flow.md`, `docs/reference/grammar.md` (pattern grammar,
   rest-pattern rejection), glossary entry *`cause`*.
-- Example `handle-error.loom` requested from `loom-docs-example-runner`.
+- Example `handle-error.theta` requested from `theta-docs-example-runner`.

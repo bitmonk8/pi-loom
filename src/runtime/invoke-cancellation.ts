@@ -34,10 +34,10 @@
 // error-model.md §"No rollback" (ERR-13); host-interfaces-services.md PIC-10.
 
 import type { Checkpoint, CheckpointSite } from "../seams/checkpoint";
-import type { LoomValue, ResultValue } from "./value";
+import type { ThetaValue, ResultValue } from "./value";
 import { makeErr } from "./value";
 import type { CommittedSideEffect } from "./no-rollback";
-import { HostFatal, isLoomPanic } from "./runtime-panics";
+import { HostFatal, isThetaPanic } from "./runtime-panics";
 import type { InvokeInfraError } from "./query-error";
 
 /**
@@ -110,11 +110,11 @@ export async function runInvokeChild(
   // INVCEIL-2 (errors-and-results.md §Runtime panics; hard-ceilings.md
   // ceiling-#1): a panic thrown inside the callee subtree is NOT a value at the
   // callee's own surface — it bypasses the callee's `?`/`match` and unwinds as a
-  // thrown `LoomPanic`. At the invoke boundary it becomes a VALUE to the parent:
+  // thrown `ThetaPanic`. At the invoke boundary it becomes a VALUE to the parent:
   // the parent observes `Err(InvokeInfraError{ cause: "panic", ... })`, which its
   // own `?` / `match Err(_)` can then catch. This narrow boundary catch exists
   // only to re-wrap the callee's panic (and the runtime-defect surface) into that
-  // documented `Err` envelope; if the thrown value is not a loom panic it is an
+  // documented `Err` envelope; if the thrown value is not a theta panic it is an
   // unexpected interpreter throw, which the same spec routes to the parent as
   // `Err(InvokeInfraError{ cause: "internal_error", ... })`. An uncatchable host
   // fatal (NOCEIL-3) must terminate the process and is rethrown unwrapped.
@@ -129,11 +129,11 @@ export async function runInvokeChild(
       kind: "invoke_infra",
       message: panicMessage(thrown),
       callee_path: child.calleePath,
-      cause: isLoomPanic(thrown) ? "panic" : "internal_error",
+      cause: isThetaPanic(thrown) ? "panic" : "internal_error",
     };
     return {
       kind: "value",
-      result: makeErr(error as unknown as LoomValue),
+      result: makeErr(error as unknown as ThetaValue),
       committed: child.committed,
     };
   }

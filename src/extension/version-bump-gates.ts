@@ -6,7 +6,7 @@
 // both the conformant (green) and the drifted (red) direction by construction,
 // and no gate reads an ambient primitive or the live SDK directly — the paired
 // `V18c` implementation wires the live reads (the installed
-// `@earendil-works/pi-coding-agent` `package.json`, the loom `package.json`,
+// `@earendil-works/pi-coding-agent` `package.json`, the theta `package.json`,
 // the imported SDK namespace, the pinned pi-ai `Api` snapshot) into these seams.
 //
 // The gates, keyed to their spec steps:
@@ -17,7 +17,7 @@
 //     `CAPABILITY_OBLIGATIONS.length === 7` count-equality gate that fires when
 //     a capability is added/removed (version-bump-step2b.md #bump-step-2b-promote).
 //   • `enginesNodeEqualityFailures` — step 3 `engines.node` three-way equality
-//     across (i) the loom `package.json#engines.node` literal, (ii) the in-repo
+//     across (i) the theta `package.json#engines.node` literal, (ii) the in-repo
 //     `pi-engines-node` pinned floor, and (iii) the live upstream floor
 //     (version-bump-steps-3-4.md step 3). Operand (iii) is the only live read.
 //   • `peerDependencyPinFailures` — step 4 `peerDependencies` literal-read:
@@ -28,7 +28,7 @@
 //     on the `SessionShutdownEvent['reason']` closed-set snapshot: non-empty,
 //     distinct, and bidirectionally equal to the SDK union (a widen or a narrow
 //     both redden), the runtime companion of the
-//     `loom/typecheck/session-shutdown-reason-snapshot` brand-string type-equality
+//     `theta/typecheck/session-shutdown-reason-snapshot` brand-string type-equality
 //     assertion (version-bump-triggers.md step 5 trigger (ii)).
 //   • `apiCoverageFailures` + `seedFieldFixtureFailures` — step 6 provider
 //     seed-field gates: every pi-ai `Api` literal-union value is a seed-field
@@ -59,7 +59,7 @@ import { SDK_SURFACE_INVENTORY } from "./sdk-inventory";
  * (version-bump-triggers.md step 5 grouping (ii)). `path` names the SDK type
  * whose reason union is snapshotted; `literals` is the pinned closed set the
  * runtime Unknown-reason rule reads and the step-2(a) literal-array consistency
- * check reconciles against the SDK union. At the loom 1.0 Pi-SDK pin the union
+ * check reconciles against the SDK union. At the theta 1.0 Pi-SDK pin the union
  * is `"quit" | "reload" | "new" | "resume" | "fork"` (session-model-and-appendix
  * SM-2). `Object.freeze` keeps it off the *No globals, statics, singletons*
  * mutable-binding scan (a frozen runtime-immutable snapshot).
@@ -133,7 +133,7 @@ export function surfaceInventoryPresenceFailures(
 /**
  * Step 2(b) promote/co-edit: return a non-empty failure list when the
  * `CAPABILITY_OBLIGATIONS` cardinality diverges from the pinned integer literal
- * (`7` at loom 1.0). Adding or removing a capability without co-editing the
+ * (`7` at theta 1.0). Adding or removing a capability without co-editing the
  * literal in the same edit reddens this gate.
  *
  * V18c-T stub: performs no count check (returns no failures), so the added
@@ -156,7 +156,7 @@ export function capabilityCountCoEditFailures(
 
 /**
  * Step 3 `engines.node` three-way equality: return a non-empty failure list
- * unless the three operands are equal — (i) the loom `package.json#engines.node`
+ * unless the three operands are equal — (i) the theta `package.json#engines.node`
  * literal, (ii) the in-repo `pi-engines-node` pinned floor, (iii) the live
  * upstream floor read from the installed `@earendil-works/pi-coding-agent`
  * `package.json`. Operand (iii) is the only live read, so an upstream floor move
@@ -166,15 +166,15 @@ export function capabilityCountCoEditFailures(
  * upstream-moved direction reds on its detection assertion.
  */
 export function enginesNodeEqualityFailures(
-  loomLiteral: string,
+  thetaLiteral: string,
   inventoryPinned: string,
   liveUpstream: string,
 ): readonly string[] {
-  if (loomLiteral === inventoryPinned && inventoryPinned === liveUpstream) {
+  if (thetaLiteral === inventoryPinned && inventoryPinned === liveUpstream) {
     return [];
   }
   return [
-    `engines.node three-way equality broken: (i) package.json '${loomLiteral}', (ii) pi-engines-node '${inventoryPinned}', (iii) live upstream '${liveUpstream}'`,
+    `engines.node three-way equality broken: (i) package.json '${thetaLiteral}', (ii) pi-engines-node '${inventoryPinned}', (iii) live upstream '${liveUpstream}'`,
   ];
 }
 
@@ -224,7 +224,7 @@ export function peerDependencyPinFailures(
  * distinct strings whose set is bidirectionally equal to the SDK reason union —
  * a widen (a union member absent from the snapshot) or a narrow (a snapshot
  * member absent from the union) both redden. This is the runtime companion of
- * the `loom/typecheck/session-shutdown-reason-snapshot` brand-string
+ * the `theta/typecheck/session-shutdown-reason-snapshot` brand-string
  * type-equality assertion.
  *
  * V18c-T stub: performs no consistency check (returns no failures), so the
@@ -331,7 +331,7 @@ export interface StrictCapabilityProbeFailure {
  *     `strictCapable` (indicator present on the namespace, absent under the
  *     probed name);
  *   • absence-under-probed-name — a reachable `Model<Api>` declaration exposes a
- *     `strictCapable` member under the probed name (the loom 1.0 absence pin is
+ *     `strictCapable` member under the probed name (the theta 1.0 absence pin is
  *     violated).
  *
  * The gate consumes `probedName` from the `strict-capability-probe`
@@ -350,7 +350,7 @@ export function strictCapabilityProbeFailures(
   const failures: StrictCapabilityProbeFailure[] = [];
   for (const member of modelMembers) {
     if (member === probedName) {
-      // Absence-under-probed-name arm: the loom 1.0 absence pin requires the
+      // Absence-under-probed-name arm: the theta 1.0 absence pin requires the
       // probed member to be absent; its presence violates the pin.
       failures.push({ arm: "absence-under-probed-name", member });
     } else if (member.toLowerCase().includes("strict")) {

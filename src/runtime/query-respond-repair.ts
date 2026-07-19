@@ -31,7 +31,7 @@
 //     provider round-trip serviced with a *fresh* `tool_loop` budget — the same
 //     `tool_loop.max_rounds` the original query used, not a decremented residue.
 //   - ERR-17 forced-respond non-compliance: when the forced respond turn does
-//     not invoke the synthesised `__loom_respond_<slug>` tool (plain text, or a
+//     not invoke the synthesised `__theta_respond_<slug>` tool (plain text, or a
 //     `tool_use` block whose name is not the respond tool), the runtime
 //     synthesises a single `ValidationIssue` (path `""`, `schema_keyword`
 //     `"required"`, branch-specific `message`) and feeds it into the same

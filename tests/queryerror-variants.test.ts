@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  isLoom10QueryErrorKind,
-  loom10QueryErrorKinds,
+  isTheta10QueryErrorKind,
+  theta10QueryErrorKinds,
   makeToolLoopExhaustedError,
   orderValidationIssues,
   synthesizeForcedRespondIssue,
@@ -89,8 +89,8 @@ describe("ERR-14 — ValidationIssue ordering (queryerror-variants.md ERR-14)", 
 // --- ERR-15 — discriminator type-openness seam -----------------------------
 
 describe("ERR-15 — discriminator type-openness (queryerror-variants.md ERR-15)", () => {
-  it("ERR-15: the runtime conformance set is exactly the nine loom 1.0.0 wire tags", () => {
-    expect([...loom10QueryErrorKinds()]).toEqual([
+  it("ERR-15: the runtime conformance set is exactly the nine theta 1.0.0 wire tags", () => {
+    expect([...theta10QueryErrorKinds()]).toEqual([
       "validation",
       "transport",
       "model_tool",
@@ -103,7 +103,7 @@ describe("ERR-15 — discriminator type-openness (queryerror-variants.md ERR-15)
     ]);
   });
 
-  it("ERR-15: the closed set recognises every loom 1.0.0 tag and rejects a future tag", () => {
+  it("ERR-15: the closed set recognises every theta 1.0.0 tag and rejects a future tag", () => {
     for (const kind of [
       "validation",
       "transport",
@@ -115,11 +115,11 @@ describe("ERR-15 — discriminator type-openness (queryerror-variants.md ERR-15)
       "invoke_infra",
       "invoke_callee",
     ]) {
-      expect(isLoom10QueryErrorKind(kind)).toBe(true);
+      expect(isTheta10QueryErrorKind(kind)).toBe(true);
     }
     // A deferred user-defined / `BinderError`-as-variant tag is NOT in the
     // closed runtime set, even though the *type* admits it (see below).
-    expect(isLoom10QueryErrorKind("binder")).toBe(false);
+    expect(isTheta10QueryErrorKind("binder")).toBe(false);
   });
 
   it("ERR-15: `kind` is typed `string` at the type level, so a future tag is assignable", () => {
@@ -149,12 +149,12 @@ describe("ERR-17 — forced-respond non-compliance synthesised shapes (queryerro
     const synthesised = synthesizeForcedRespondIssue({
       kind: "wrong_tool",
       providerToolName: "search",
-      respondToolName: "__loom_respond_triage",
+      respondToolName: "__theta_respond_triage",
     });
     expect(synthesised).toEqual({
       path: "",
       message:
-        "model invoked tool 'search' instead of the forced respond tool '__loom_respond_triage'",
+        "model invoked tool 'search' instead of the forced respond tool '__theta_respond_triage'",
       schema_keyword: "required",
     });
   });
@@ -164,7 +164,7 @@ describe("ERR-17 — forced-respond non-compliance synthesised shapes (queryerro
     const wrong = synthesizeForcedRespondIssue({
       kind: "wrong_tool",
       providerToolName: "x",
-      respondToolName: "__loom_respond_x",
+      respondToolName: "__theta_respond_x",
     });
     for (const s of [plain, wrong]) {
       expect(s.path).toBe("");

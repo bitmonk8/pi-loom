@@ -11,7 +11,7 @@
 //   - `extractPromptModeQueryResult` always returns `Ok("")`, so it never
 //     applies the cancellation short-circuit (PIC-51) nor the `stopReason:
 //     "error"` transport probe (PIC-51);
-//   - `mapPromptModeSyncThrow` returns a `loom/runtime/internal-error`-kinded
+//   - `mapPromptModeSyncThrow` returns a `theta/runtime/internal-error`-kinded
 //     value with an un-coerced empty `message` (PIC-50).
 // No test reds on a compile error, a missing fixture, or a harness throw.
 
@@ -112,7 +112,7 @@ describe("V9n-T — PIC-51 prompt-mode stopReason:'error' transport mapping", ()
     );
 
     // PIC-51: the trailing `assistant` `stopReason: "error"` maps to a
-    // `kind: "transport"` `QueryError` — NOT `loom/runtime/internal-error` — with
+    // `kind: "transport"` `QueryError` — NOT `theta/runtime/internal-error` — with
     // `message` = the turn's `errorMessage`, `http_status: null`, the resolved
     // `Model<Api>.api` provider, and `retryable: false`.
     expect(error.kind).toBe("transport");
@@ -152,17 +152,17 @@ describe("V9n-T — PIC-51 prompt-mode stopReason:'error' transport mapping", ()
 // ===========================================================================
 
 describe("V9n-T — PIC-50 prompt-mode synchronous-throw transport mapping", () => {
-  it("PIC-50: a synchronous throw from pi.sendUserMessage maps to Err(transport) with message = error.message, not loom/runtime/internal-error", () => {
+  it("PIC-50: a synchronous throw from pi.sendUserMessage maps to Err(transport) with message = error.message, not theta/runtime/internal-error", () => {
     const thrown = new SendThrew("mid-stream send rejected by Pi");
 
     const transport = mapPromptModeSyncThrow(thrown, "openai-completions");
 
     // PIC-50: the throw maps to a `kind: "transport"` `TransportError` — the
-    // runtime MUST NOT wrap it as `loom/runtime/internal-error` — with `message`
+    // runtime MUST NOT wrap it as `theta/runtime/internal-error` — with `message`
     // derived from the caught value (its `.message`), `http_status: null`, the
     // resolved provider, and `retryable: false`.
     expect(transport.kind).toBe("transport");
-    expect(transport.kind).not.toBe("loom/runtime/internal-error");
+    expect(transport.kind).not.toBe("theta/runtime/internal-error");
     expect(transport.message).toBe("mid-stream send rejected by Pi");
     expect(transport.http_status).toBeNull();
     expect(transport.provider).toBe("openai-completions");
@@ -186,7 +186,7 @@ describe("V9n-T — PIC-50 prompt-mode synchronous-throw transport mapping", () 
 // ===========================================================================
 
 describe("V9n-T — PIC-51 cancellation short-circuit precedence", () => {
-  it("PIC-51: loomAbort.signal.aborted synthesises Err(cancelled), taking precedence over a stopReason:'error' probe", () => {
+  it("PIC-51: thetaAbort.signal.aborted synthesises Err(cancelled), taking precedence over a stopReason:'error' probe", () => {
     const messages: Message[] = [
       userMessage("do the thing"),
       assistantMessage({
@@ -203,13 +203,13 @@ describe("V9n-T — PIC-51 cancellation short-circuit precedence", () => {
       }),
     );
 
-    // PIC-51: with `loomAbort.signal.aborted` true, the cancellation
+    // PIC-51: with `thetaAbort.signal.aborted` true, the cancellation
     // short-circuit runs first and synthesises `kind: "cancelled"` — it takes
     // precedence over the `stopReason: "error"` transport probe.
     expect(error.kind).toBe("cancelled");
   });
 
-  it("PIC-51: loomAbort.signal.aborted synthesises Err(cancelled) even when waitForIdle resolved cleanly with a normal Ok-extractable turn", () => {
+  it("PIC-51: thetaAbort.signal.aborted synthesises Err(cancelled) even when waitForIdle resolved cleanly with a normal Ok-extractable turn", () => {
     const messages: Message[] = [
       userMessage("do the thing"),
       assistantMessage({ text: "clean successful answer", stopReason: "stop" }),

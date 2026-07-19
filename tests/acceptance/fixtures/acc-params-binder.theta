@@ -5,7 +5,7 @@ params:
   topic: string
   count: number = 3
 ---
-// H9a acceptance area (d) — a params loom forcing a real binder pass.
+// H9a acceptance area (d) — a params theta forcing a real binder pass.
 // Two `params:` fields (one defaulted) route to the binder (NOT a bypass), so a
 // genuine binder pass over the declared params runs before the body. DECISION
 // (production conformance): the binder runs OFF-session and INVISIBLE — its
@@ -13,6 +13,6 @@ params:
 // successful bind the observable proof is the `bind_echo` success note
 // (`Running /acc-params-binder: …`). The `bind_model:` is provider-qualified
 // (`anthropic/claude-haiku-4-5`) because the bare id can be ambiguous across
-// configured providers; a non-bypass loom with no resolvable binder model fails
+// configured providers; a non-bypass theta with no resolvable binder model fails
 // to load. The body is a pure-literal `respond`.
 "ok"

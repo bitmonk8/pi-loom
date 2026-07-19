@@ -24,7 +24,7 @@
 import type { Diagnostic } from "../diagnostics/diagnostic";
 import type { Clock, TimerHandle } from "../seams/clock";
 import type { ActiveInvocationEntry, ActiveInvocationRegistry } from "../runtime/active-invocation-registry";
-import type { LoomRegistry } from "./reload-wiring";
+import type { ThetaRegistry } from "./reload-wiring";
 import { SHUTDOWN_AWAIT_CAP_MS } from "./capability-probe";
 import { armSessionSwapTripwireForReason } from "./session-swap-tripwire";
 
@@ -36,19 +36,19 @@ export { SHUTDOWN_AWAIT_CAP_MS };
 
 /**
  * The byte-exact synthesised abort-reason message the `session_shutdown` handler
- * stamps onto each in-flight `loomAbort.abort(reason)` (cancellation.md CNCL-4 /
+ * stamps onto each in-flight `thetaAbort.abort(reason)` (cancellation.md CNCL-4 /
  * `session-shutdown-semantics.md` sub-step 2). Sourced verbatim from CNCL-4.
  */
-export const SESSION_SHUTDOWN_ABORT_MESSAGE = "loom cancelled by session shutdown";
+export const SESSION_SHUTDOWN_ABORT_MESSAGE = "theta cancelled by session shutdown";
 
 // --- Diagnostic codes (diagnostics/code-registry-host.md, -runtime.md) ---
 
 export const TEARDOWN_STEP_FAILED_CODE =
-  "loom/host/session-shutdown-teardown-step-failed";
-export const RELOAD_TEARDOWN_TIMEOUT_CODE = "loom/runtime/reload-teardown-timeout";
+  "theta/host/session-shutdown-teardown-step-failed";
+export const RELOAD_TEARDOWN_TIMEOUT_CODE = "theta/runtime/reload-teardown-timeout";
 export const CANCELLED_BY_SESSION_SHUTDOWN_CODE =
-  "loom/runtime/cancelled-by-session-shutdown";
-export const RUNTIME_DEGRADED_CODE = "loom/host/session-shutdown-runtime-degraded";
+  "theta/runtime/cancelled-by-session-shutdown";
+export const RUNTIME_DEGRADED_CODE = "theta/host/session-shutdown-runtime-degraded";
 
 /** The four teardown sub-steps that emit `teardown-step-failed` (placeholder-rendering-b.md). */
 export type TeardownStep = 1 | 3 | 4 | 5;
@@ -61,7 +61,7 @@ export type TeardownStep = 1 | 3 | 4 | 5;
  * implementations.
  */
 export const TEARDOWN_STEP_CALL_LABELS = {
-  1: ["loomRegistry.drain", "loomRegistry.initDrainStateTag"],
+  1: ["thetaRegistry.drain", "thetaRegistry.initDrainStateTag"],
   3: ["Clock.now()", "Clock.setTimeout(awaitCap)", "Clock.clearTimeout(awaitCap)"],
   4: ["discoveryWatcher.close", "settingsWatcher.close", "Clock.clearTimeout(debounce)"],
   5: [
@@ -111,7 +111,7 @@ export interface EmissionSink {
 
 /** Construction dependencies for the `session_shutdown` teardown handler. */
 export interface SessionShutdownDeps {
-  readonly registry: LoomRegistry;
+  readonly registry: ThetaRegistry;
   readonly activeInvocations: ActiveInvocationRegistry;
   readonly clock: Clock;
   readonly discoveryWatcher: ClosableWatcher;
@@ -129,8 +129,8 @@ export interface SessionShutdownDeps {
 
 /**
  * Synthesise the CNCL-4 abort reason: a JavaScript `Error` whose `message` is
- * byte-exact `"loom cancelled by session shutdown"`, propagated so that
- * `loomAbort.signal.reason === source.reason` is observable downstream.
+ * byte-exact `"theta cancelled by session shutdown"`, propagated so that
+ * `thetaAbort.signal.reason === source.reason` is observable downstream.
  *
  * V9g-T stub: returns a placeholder `Error` so the CNCL-4 message-and-identity
  * assertions red on their primary check (the paired V9g synthesises the pinned
@@ -189,7 +189,7 @@ function coerceReasonString(reason: unknown): string {
 }
 
 /**
- * Build the `loom/host/session-shutdown-teardown-step-failed` (W, runtime)
+ * Build the `theta/host/session-shutdown-teardown-step-failed` (W, runtime)
  * diagnostic for a caught per-step throw, carrying
  * `details: { step, call, error }` (session-shutdown-semantics.md
  * **Per-step isolation**; diagnostics/code-registry-host.md).
@@ -212,9 +212,9 @@ export function teardownStepFailedDiagnostic(
 }
 
 /**
- * Build the per-invocation `loom/runtime/cancelled-by-session-shutdown` (E,
+ * Build the per-invocation `theta/runtime/cancelled-by-session-shutdown` (E,
  * runtime) note with `display: false` and the nested
- * `details.event: { reason, loom, invocation_id }` shape
+ * `details.event: { reason, theta, invocation_id }` shape
  * (diagnostics/diagnostic-shape.md session-shutdown-details-conventions).
  *
  * V9g-T stub: returns a placeholder diagnostic so the shape assertions red.
@@ -230,11 +230,11 @@ export function cancelledBySessionShutdownDiagnostic(
   return {
     severity: "error",
     code: CANCELLED_BY_SESSION_SHUTDOWN_CODE,
-    message: `loom /${entry.loom} cancelled by session shutdown (${reason})`,
+    message: `theta /${entry.theta} cancelled by session shutdown (${reason})`,
     details: {
       event: {
         reason,
-        loom: entry.loom,
+        theta: entry.theta,
         invocation_id: entry.invocationId,
       },
     },
@@ -242,7 +242,7 @@ export function cancelledBySessionShutdownDiagnostic(
 }
 
 /**
- * Build the `loom/runtime/reload-teardown-timeout` (E, runtime) diagnostic at
+ * Build the `theta/runtime/reload-teardown-timeout` (E, runtime) diagnostic at
  * the sub-step 3 cap: the message names each still-in-flight entry as
  * `/<slash-name>:<invocation-id>` (insertion order, `, `-joined), and `hint`
  * carries the *elapsed* wall time (diagnostics/code-registry-runtime.md).
@@ -257,7 +257,7 @@ export function reloadTeardownTimeoutDiagnostic(
   // insertion order; `<ms>` renders the elapsed wall time and `hint` carries the
   // same value as a bare decimal integer (code-registry-runtime.md).
   const list = stillInFlight
-    .map((entry) => `/${entry.loom}:${entry.invocationId}`)
+    .map((entry) => `/${entry.theta}:${entry.invocationId}`)
     .join(", ");
   const count = stillInFlight.length;
   return {
@@ -315,7 +315,7 @@ export interface NestedShapeEmission {
   readonly diagnostic: Diagnostic;
   /** The already-hoisted `details.event.reason` local (PIC-25 hoist obligation). */
   readonly detailsEventReason: string;
-  /** The held registry entry (per-invocation note only) for the `entry.loom` catch-arm read. */
+  /** The held registry entry (per-invocation note only) for the `entry.theta` catch-arm read. */
   readonly entry?: ActiveInvocationEntry;
   /** Test seam: force the payload-construction site to throw (PIC-26). */
   readonly forceConstructionThrow?: boolean;
@@ -325,10 +325,10 @@ export interface NestedShapeEmission {
  * Emit a nested-shape teardown-handler diagnostic (`runtime-degraded` /
  * `cancelled-by-session-shutdown`). On a serialiser throw the catch arm emits
  * the two-token `` `${code} ${detailsEventReason}` `` form, or the three-token
- * `` `${code} ${entry.loom} <unreadable>` `` form for the per-invocation note
+ * `` `${code} ${entry.theta} <unreadable>` `` form for the per-invocation note
  * (PIC-25). A throw out of the payload-construction site is caught by a
  * dedicated self-wrap that emits the `` `${code} <unreadable>` `` /
- * `` `${code} ${entry.loom} <unreadable>` `` fallback and swallows an inner
+ * `` `${code} ${entry.theta} <unreadable>` `` fallback and swallows an inner
  * `console.error` throw (PIC-26/27). Count is invocation-site framed (PIC-28).
  *
  * V9g-T stub: does nothing, so the fallback-form assertions red on their
@@ -345,7 +345,7 @@ export function emitNestedShapeDiagnostic(
   // `detailsEventReason` hoist run *before* the serialisation-and-emission wrap
   // and are therefore not defended by it. A throw here skips the structured
   // sequence and emits a per-code fallback — the three-token
-  // `${code} ${entry.loom} <unreadable>` form for the per-invocation note, else
+  // `${code} ${entry.theta} <unreadable>` form for the per-invocation note, else
   // the two-token `${code} <unreadable>` form — self-wrapped so an inner
   // `console.error` throw is swallowed with no second emission (PIC-26/27).
   try {
@@ -356,7 +356,7 @@ export function emitNestedShapeDiagnostic(
     void constructionError;
     const fallback =
       entry !== undefined
-        ? `${code} ${entry.loom} <unreadable>`
+        ? `${code} ${entry.theta} <unreadable>`
         : `${code} <unreadable>`;
     try {
       sink.emit(fallback);
@@ -394,7 +394,7 @@ export function emitNestedShapeDiagnostic(
  * own `try`/`catch`; a per-call throw is caught, emits exactly one
  * `teardown-step-failed` via the wrapped `console.error`, and does not prevent
  * the remaining sub-steps from running. Sub-step 2 aborts each in-flight
- * `loomAbort` with the synthesised CNCL-4 reason; sub-step 3 awaits every
+ * `thetaAbort` with the synthesised CNCL-4 reason; sub-step 3 awaits every
  * entry's `disposeBarrier` via `Promise.allSettled`, bounded by
  * `SHUTDOWN_AWAIT_CAP_MS`, emitting `reload-teardown-timeout` at the cap.
  *
@@ -412,10 +412,10 @@ export async function runSessionShutdown(
   // Fixed order — `drain()` then `initDrainStateTag()` — each in its own
   // per-call `try`/`catch` so a throw from either routes to a distinct
   // `(code, details.step, details.call)` bucket and does not stop the other.
-  runIsolatedCall(1, "loomRegistry.drain", deps.sink, () => {
+  runIsolatedCall(1, "thetaRegistry.drain", deps.sink, () => {
     deps.registry.drain();
   });
-  runIsolatedCall(1, "loomRegistry.initDrainStateTag", deps.sink, () => {
+  runIsolatedCall(1, "thetaRegistry.initDrainStateTag", deps.sink, () => {
     deps.registry.initDrainStateTag();
   });
 
@@ -424,13 +424,13 @@ export async function runSessionShutdown(
   // per-invocation `finally` observes a populated field; a stamp/abort throw is
   // caught per entry, emits no `teardown-step-failed`, and does not escape the
   // loop. Each entry is aborted with the synthesised CNCL-4 reason so
-  // `loomAbort.signal.reason === source.reason` downstream.
+  // `thetaAbort.signal.reason === source.reason` downstream.
   const entries = deps.activeInvocations.snapshot();
   const abortReason = synthesiseSessionShutdownReason();
   for (const entry of entries) {
     try {
       entry.shutdownReason = capturedReason;
-      entry.loomAbort.abort(abortReason);
+      entry.thetaAbort.abort(abortReason);
     } catch (abortError: unknown) { // allow-broad-catch: PIC-7 — pi-integration-contract/session-shutdown-semantics.md
       void abortError;
     }

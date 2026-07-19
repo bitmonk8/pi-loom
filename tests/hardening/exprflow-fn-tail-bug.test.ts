@@ -23,7 +23,7 @@ describe("exprflow — fn tail-call value loss (EXPR-4/EXPR-5)", () => {
       provider,
       files: [
         // EXPR-4: bare-call tail chain -> null
-        L("bchain.loom", [
+        L("bchain.theta", [
           "fn h3(n: integer): integer { n }",
           "fn h2(n: integer): integer { h3(n) }",
           "fn h1(n: integer): integer { h2(n) }",
@@ -31,7 +31,7 @@ describe("exprflow — fn tail-call value loss (EXPR-4/EXPR-5)", () => {
           "@`R=${r}|END reply ok`",
         ]),
         // EXPR-5: recursion in tail-expression operand -> wrong (3, not 6)
-        L("btailrec.loom", [
+        L("btailrec.theta", [
           "fn s(n: integer): integer {",
           "  if n <= 0 {",
           "    return 0",
@@ -42,7 +42,7 @@ describe("exprflow — fn tail-call value loss (EXPR-4/EXPR-5)", () => {
           "@`R=${r}|END reply ok`",
         ]),
         // Control: same recursion via explicit return -> correct (6)
-        L("bretrec.loom", [
+        L("bretrec.theta", [
           "fn s(n: integer): integer {",
           "  if n <= 0 {",
           "    return 0",
@@ -53,7 +53,7 @@ describe("exprflow — fn tail-call value loss (EXPR-4/EXPR-5)", () => {
           "@`R=${r}|END reply ok`",
         ]),
         // Control: let-bound intermediate -> correct (6)
-        L("bletcall.loom", [
+        L("bletcall.theta", [
           "fn inner(n: integer): integer { n + 1 }",
           "fn outer(n: integer): integer {",
           "  let v = inner(n)",

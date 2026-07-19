@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   buildEnvironment,
-  LoomEvalHost,
+  ThetaEvalHost,
   type MaterializedImport,
 } from "../src/runtime/lexical-environment";
 import type {
   Block,
   FnDecl,
-  LoomBody,
+  ThetaBody,
   SchemaDecl,
-} from "../src/parser/loom-document";
+} from "../src/parser/theta-document";
 import type { SourceRange } from "../src/diagnostics/diagnostic";
 
 // V19b-T — failing tests for the paired `V19b` "lexical environment and scope
@@ -29,7 +29,7 @@ import type { SourceRange } from "../src/diagnostics/diagnostic";
 // the immutable-rejection assertion reds), `bindIterationVariable` returns an
 // inert scope (so the per-iteration fresh-binding assertion reds),
 // `resolveSchema` / `resolveEnumVariant` return `undefined` (so the
-// constructor / `Enum.Variant` assertions red), and the `LoomEvalHost` methods
+// constructor / `Enum.Variant` assertions red), and the `ThetaEvalHost` methods
 // return the inert `null` sentinel (so the host identifier-read assertion
 // reds). No test reds on a compile error, a missing fixture, or a harness
 // throw. The paired `V19b` implementation leaf fills these in.
@@ -41,8 +41,8 @@ function span(): SourceRange {
   return { start: { line: 1, column: 1 }, end: { line: 1, column: 2 } };
 }
 
-/** An empty `LoomBody` (no statements, no tail). */
-function emptyBody(): LoomBody {
+/** An empty `ThetaBody` (no statements, no tail). */
+function emptyBody(): ThetaBody {
   return { statements: [], tail: null };
 }
 
@@ -70,7 +70,7 @@ describe("V19b-T — identifier-resolution first-match precedence (expressions.m
   it("Convention: resolves local `let`/param > top-level `fn` > import > callable in first-match order (cka-3/cka-4)", () => {
     // A name bound at every arm resolves to the LOCAL slot first (a local
     // binding shadows all outer scopes).
-    const bodyAll: LoomBody = { statements: [fnDecl("thing")], tail: null };
+    const bodyAll: ThetaBody = { statements: [fnDecl("thing")], tail: null };
     const importsAll: readonly MaterializedImport[] = [
       { name: "thing", kind: "fn", fn: fnDecl("thing") },
     ];
@@ -131,7 +131,7 @@ describe("V19b-T — identifier-resolution first-match precedence (expressions.m
   it("Convention: the real `EvalHost` resolves a bare identifier read to its bound local value (cka-3)", () => {
     const env = buildEnvironment({ body: emptyBody() });
     env.defineLocal("greeting", "hi", false);
-    const host = new LoomEvalHost(env);
+    const host = new ThetaEvalHost(env);
     expect(
       host.resolveIdentifier("greeting"),
       "cka-3: the EvalHost consults the environment for an identifier read",
@@ -142,7 +142,7 @@ describe("V19b-T — identifier-resolution first-match precedence (expressions.m
 // --- Import-arm materialisation --------------------------------------------
 
 describe("V19b-T — import-arm materialisation (imports.md §Visibility; V15c)", () => {
-  it("Convention: materialises imported `.warp` fn/schema/enum; an imported fn is resolvable and callable", () => {
+  it("Convention: materialises imported `.thetalib` fn/schema/enum; an imported fn is resolvable and callable", () => {
     const imported = fnDecl("helper");
     const imports: readonly MaterializedImport[] = [
       { name: "helper", kind: "fn", fn: imported },
@@ -171,7 +171,7 @@ describe("V19b-T — import-arm materialisation (imports.md §Visibility; V15c)"
 
 describe("V19b-T — top-level schema/enum registration (runtime-value-model.md enum row)", () => {
   it("Convention: registers top-level schema/enum so named-schema constructors and Enum.Variant access resolve", () => {
-    const body: LoomBody = { statements: [schemaDecl("Author")], tail: null };
+    const body: ThetaBody = { statements: [schemaDecl("Author")], tail: null };
     const env = buildEnvironment({
       body,
       enums: [{ name: "Severity", variants: ["Low", "High"] }],
@@ -241,7 +241,7 @@ describe("V19b-T — top-level `fn` hoisting (functions.md FN-1, FN-3…FN-5)", 
     // hoisting makes both resolve regardless of textual order.
     const isEven = fnDecl("is_even");
     const isOdd = fnDecl("is_odd");
-    const body: LoomBody = { statements: [isEven, isOdd], tail: null };
+    const body: ThetaBody = { statements: [isEven, isOdd], tail: null };
     const env = buildEnvironment({ body });
 
     const rEven = env.resolve("is_even");

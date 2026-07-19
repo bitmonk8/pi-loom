@@ -2,7 +2,7 @@
 description: Invoke a subagent classifier and branch on its typed result
 mode: subagent
 tools:
-  - ./sentiment.loom
+  - ./sentiment.theta
 params:
   text: string
 ---

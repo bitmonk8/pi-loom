@@ -10,7 +10,7 @@ describe("exprflow — functions, recursion, return", () => {
       files: [
         {
           source: "project",
-          path: "fns.loom",
+          path: "fns.theta",
           text: [
             "---", "description: fns", "mode: prompt", "---",
             "fn dbl(n: integer): integer {",

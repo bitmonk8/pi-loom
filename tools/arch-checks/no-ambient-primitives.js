@@ -14,7 +14,7 @@
 // The timing set is a manually-maintained derivation of the
 // host-interfaces-services.md Clock/WallClock ban (PIC-12), required to be a
 // superset of the spec ban (scan list ⊇ spec ban) and currently equal to the
-// PIC-12 enumeration; it is re-reconciled by the loom 1.0 release-time residue
+// PIC-12 enumeration; it is re-reconciled by the theta 1.0 release-time residue
 // inspection (checklist item 9).
 //
 // A direct reference is an EXEMPT AMBIENT SITE only if its source line carries
@@ -28,7 +28,7 @@
 // reads (`const { cwd } = process`), computed access (`process["env"]`),
 // helper wrappers, and re-export indirection — are NOT mechanically detected;
 // that residue is owned by the Per-phase TDD ritual self-review step and the
-// loom 1.0 release-time residue inspection (checklist item 2).
+// theta 1.0 release-time residue inspection (checklist item 2).
 //
 // `setTimeout` / `clearTimeout` are matched only in their BARE-IDENTIFIER form:
 // a member access such as `clock.setTimeout(fn, 0)` (the injected PIC-12 timer

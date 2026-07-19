@@ -1,22 +1,22 @@
 // H9a-T — non-interactive `pi -p` real-host acceptance harness (test-support).
 //
 // This module SPAWNS the real `pi` binary in non-interactive print mode
-// (`pi -p --loom <dir> "/<name>"`, process-and-exit) and captures its stdout,
-// stderr, and exit code, so the acceptance suite drives loom the way an operator
+// (`pi -p --theta <dir> "/<name>"`, process-and-exit) and captures its stdout,
+// stderr, and exit code, so the acceptance suite drives theta the way an operator
 // actually runs it — through real extension auto-load, flag/arg parsing, and
 // discovery — rather than through the H8a programmatic `createAgentSession`
 // harness. It exists only to give the opt-in `npm run test:acceptance` suite a
 // live, black-box `pi -p` driver; it is excluded from the default `npm test`
 // and from the H8a `npm run test:live` suite (see `config/vitest/vitest.acceptance.config.ts`).
 //
-// INTENDED-REASON RED (current H9a-T state): the fuller feature-loom fixtures
-// this suite drives — one `.loom` per functionality area (a)–(i) — are NOT yet
+// INTENDED-REASON RED (current H9a-T state): the fuller feature-theta fixtures
+// this suite drives — one `.theta` per functionality area (a)–(i) — are NOT yet
 // authored (the paired `H9a` implementation authors them and wires the runner's
-// per-area observability). `resolveFeatureLoomPath` therefore returns
+// per-area observability). `resolveFeatureThetaPath` therefore returns
 // `undefined` for every area, and each test reds on its own primary
 // fixture-presence assertion BEFORE any live host, credential, or spawned `pi`
 // process is required — so the red is deterministic, token-free, and for the
-// intended reason (runner/looms absent), not a credential/network/setup throw.
+// intended reason (runner/theta absent), not a credential/network/setup throw.
 
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -49,7 +49,7 @@ export const PI_CLI_ENTRY = fileURLToPath(
  * than relying on ambient extension discovery from the spawned process's `cwd`
  * (a throwaway scratch dir that contains no `package.json#pi.extensions`), so
  * the suite exercises the code under test in this working tree — never a
- * globally-installed loom build from an unrelated checkout.
+ * globally-installed theta build from an unrelated checkout.
  */
 export const EXTENSION_ENTRY = fileURLToPath(
   new URL("../../extensions", import.meta.url),
@@ -62,7 +62,7 @@ export const EXTENSION_ENTRY = fileURLToPath(
  * `ModelRegistry.getAvailable()`, preferring `opus` — so the acceptance suite
  * drives the model the operator actually runs (symmetric with
  * `npm run test:live`) rather than a hardcoded provider/model. Setting BOTH
- * `PI_LOOM_ACC_PROVIDER` and `PI_LOOM_ACC_MODEL` pins a specific live host
+ * `PI_THETA_ACC_PROVIDER` and `PI_THETA_ACC_MODEL` pins a specific live host
  * without editing the suite. `pi -p` inherits `process.env`, so a missing
  * credential surfaces as the live-host precondition failure (never a silent
  * skip).
@@ -71,8 +71,8 @@ export function resolveAcceptanceHost(): {
   readonly provider: string;
   readonly model: string;
 } {
-  const envProvider = process.env["PI_LOOM_ACC_PROVIDER"];
-  const envModel = process.env["PI_LOOM_ACC_MODEL"];
+  const envProvider = process.env["PI_THETA_ACC_PROVIDER"];
+  const envModel = process.env["PI_THETA_ACC_MODEL"];
   if (envProvider !== undefined && envModel !== undefined) {
     return { provider: envProvider, model: envModel };
   }
@@ -84,7 +84,7 @@ export function resolveAcceptanceHost(): {
       "live-host precondition unmet: no live provider/model configured " +
         "(ModelRegistry.getAvailable() is empty). Configure a provider and " +
         "credentials before running `npm run test:acceptance`, or pin one with " +
-        "PI_LOOM_ACC_PROVIDER + PI_LOOM_ACC_MODEL; this suite never silently " +
+        "PI_THETA_ACC_PROVIDER + PI_THETA_ACC_MODEL; this suite never silently " +
         "skips.",
     );
   }
@@ -98,15 +98,15 @@ export function resolveAcceptanceHost(): {
   return { provider: providerOf(model), model: idOf(model) };
 }
 
-/** Directory holding the committed feature-loom fixtures (authored by the paired `H9a`). */
-export const FEATURE_LOOM_DIR = fileURLToPath(
+/** Directory holding the committed feature-theta fixtures (authored by the paired `H9a`). */
+export const FEATURE_THETA_DIR = fileURLToPath(
   new URL("./fixtures", import.meta.url),
 );
 
 /**
  * The committed permitted-code list criterion (e) scores against — reused from
  * the single committed, reviewed reference set checked in alongside `H7a`'s
- * fixture `.loom` (`real-host-smoke-gate.md`), so the acceptance suite and the
+ * fixture `.theta` (`real-host-smoke-gate.md`), so the acceptance suite and the
  * manual smoke never diverge into separate permitted-code sets.
  */
 export const PERMITTED_CODES_PATH = fileURLToPath(
@@ -121,30 +121,30 @@ export function failLoudly(message: string): never {
 }
 
 // ---------------------------------------------------------------------------
-// Feature-loom manifest — one committed `.loom` per functionality area (a)–(i).
+// Feature-theta manifest — one committed `.theta` per functionality area (a)–(i).
 // ---------------------------------------------------------------------------
 
-/** The nine functionality areas the fuller feature-loom suite covers, per `H9a-T`. */
+/** The nine functionality areas the fuller feature-theta suite covers, per `H9a-T`. */
 export type FeatureArea =
   | "prompt-sentinel" // (a) prompt-mode sentinel turn
   | "typed-query-named-schema" // (b) typed query with a named `schema` decl
   | "typed-query-inline" // (c) typed query with an inline object type
-  | "params-binder" // (d) a params loom that forces a real binder pass
+  | "params-binder" // (d) a params theta that forces a real binder pass
   | "subagent-success" // (e) subagent-mode spawn drives to a success terminal
   | "code-tool-loop" // (f) a code-tool loop
-  | "imports-invoke" // (g) imports / invoke across looms
+  | "imports-invoke" // (g) imports / invoke across thetas
   | "match-queryerror" // (h) error/result `match` surfacing a QueryError
-  | "multi-source-discovery"; // (i) multi-source discovery (project + --loom CLI)
+  | "multi-source-discovery"; // (i) multi-source discovery (project + --theta CLI)
 
-/** The invariant set a single feature loom's `pi -p` run is scored against. */
+/** The invariant set a single feature theta's `pi -p` run is scored against. */
 export interface FeatureInvariants {
   /** (all) The run completes without error — exit code 0, no thrown/aborted pipeline. */
   readonly noErrorExit: true;
-  /** (all) Emitted `loom-system-note` codes ⊆ the committed permitted-code list. */
+  /** (all) Emitted `theta-system-note` codes ⊆ the committed permitted-code list. */
   readonly permittedCodesSubset: true;
   /**
    * (b)/(c) The typed-query response must validate against its declared schema
-   * (`QRY-22`). Present iff the loom binds a typed query; carries the lowered
+   * (`QRY-22`). Present iff the theta binds a typed query; carries the lowered
    * shape the response is checked against.
    */
   readonly typedQuerySchema?: LoweredSchema;
@@ -153,35 +153,35 @@ export interface FeatureInvariants {
    * INVISIBLE — its `ok | needs_info | ambiguous` envelope MUST NOT reach the
    * user session / `pi -p` stdout (BND-3). On a successful bind the observable
    * proof is instead the `bind_echo` success note (`Running /<stem>: …`).
-   * Present iff a binder pass fires; carries the per-loom envelope schema inputs
+   * Present iff a binder pass fires; carries the per-theta envelope schema inputs
    * used to detect a leak (any emitted envelope validating against it is a
    * regression).
    */
   readonly binderEnvelope?: BuildBinderEnvelopeSchemaInput;
   /**
-   * (e) A subagent-mode loom spawns an isolated `AgentSession` and drives it to
+   * (e) A subagent-mode theta spawns an isolated `AgentSession` and drives it to
    * a SUCCESS terminal outcome (no error exit). The production subagent driver
-   * no longer self-cancels; genuine mid-stream cancellation (a real `loomAbort`
+   * no longer self-cancels; genuine mid-stream cancellation (a real `thetaAbort`
    * fire) is deterministically locked by the in-process regression test
    * `tests/production-subagent-query-model.test.ts`, not by this black-box
    * `pi -p` run (SIGTERM discards the buffer, so stdout cannot be scored).
    */
   readonly subagentSuccess?: true;
   /**
-   * (i) The loom must also register when discovered from the `--loom` CLI source
+   * (i) The theta must also register when discovered from the `--theta` CLI source
    * (not only the project walk), proving discovery is source-general.
    */
   readonly multiSourceDiscovery?: true;
 }
 
-/** One committed feature loom: its slash name, fixture filename, and invariant set. */
-export interface FeatureLoomSpec {
+/** One committed feature theta: its slash name, fixture filename, and invariant set. */
+export interface FeatureThetaSpec {
   readonly area: FeatureArea;
   /** The `(a)`–`(i)` label from `H9a-T`. */
   readonly label: string;
   /** The filename stem — the slash command `pi -p` invokes (`/<stem>`). */
   readonly stem: string;
-  /** The fixture filename under `FEATURE_LOOM_DIR`. */
+  /** The fixture filename under `FEATURE_THETA_DIR`. */
   readonly fixtureFile: string;
   readonly invariants: FeatureInvariants;
 }
@@ -208,23 +208,23 @@ const PARAMS_BINDER_SCHEMA: LoweredSchema = {
 };
 
 /**
- * The committed feature-loom suite — one loom per functionality area (a)–(i).
- * The `.loom` files themselves are authored by the paired `H9a`; in the current
+ * The committed feature-theta suite — one theta per functionality area (a)–(i).
+ * The `.theta` files themselves are authored by the paired `H9a`; in the current
  * `H9a-T` state they are absent, which is the suite's intended-reason red.
  */
-export const FEATURE_LOOMS: readonly FeatureLoomSpec[] = [
+export const FEATURE_THETAS: readonly FeatureThetaSpec[] = [
   {
     area: "prompt-sentinel",
     label: "(a)",
     stem: "acc-prompt-sentinel",
-    fixtureFile: "acc-prompt-sentinel.loom",
+    fixtureFile: "acc-prompt-sentinel.theta",
     invariants: { noErrorExit: true, permittedCodesSubset: true },
   },
   {
     area: "typed-query-named-schema",
     label: "(b)",
     stem: "acc-typed-named",
-    fixtureFile: "acc-typed-named.loom",
+    fixtureFile: "acc-typed-named.theta",
     invariants: {
       noErrorExit: true,
       permittedCodesSubset: true,
@@ -235,7 +235,7 @@ export const FEATURE_LOOMS: readonly FeatureLoomSpec[] = [
     area: "typed-query-inline",
     label: "(c)",
     stem: "acc-typed-inline",
-    fixtureFile: "acc-typed-inline.loom",
+    fixtureFile: "acc-typed-inline.theta",
     invariants: {
       noErrorExit: true,
       permittedCodesSubset: true,
@@ -246,7 +246,7 @@ export const FEATURE_LOOMS: readonly FeatureLoomSpec[] = [
     area: "params-binder",
     label: "(d)",
     stem: "acc-params-binder",
-    fixtureFile: "acc-params-binder.loom",
+    fixtureFile: "acc-params-binder.theta",
     invariants: {
       noErrorExit: true,
       permittedCodesSubset: true,
@@ -260,7 +260,7 @@ export const FEATURE_LOOMS: readonly FeatureLoomSpec[] = [
     area: "subagent-success",
     label: "(e)",
     stem: "acc-subagent-success",
-    fixtureFile: "acc-subagent-success.loom",
+    fixtureFile: "acc-subagent-success.theta",
     invariants: {
       noErrorExit: true,
       permittedCodesSubset: true,
@@ -271,28 +271,28 @@ export const FEATURE_LOOMS: readonly FeatureLoomSpec[] = [
     area: "code-tool-loop",
     label: "(f)",
     stem: "acc-code-tool-loop",
-    fixtureFile: "acc-code-tool-loop.loom",
+    fixtureFile: "acc-code-tool-loop.theta",
     invariants: { noErrorExit: true, permittedCodesSubset: true },
   },
   {
     area: "imports-invoke",
     label: "(g)",
     stem: "acc-imports-invoke",
-    fixtureFile: "acc-imports-invoke.loom",
+    fixtureFile: "acc-imports-invoke.theta",
     invariants: { noErrorExit: true, permittedCodesSubset: true },
   },
   {
     area: "match-queryerror",
     label: "(h)",
     stem: "acc-match-queryerror",
-    fixtureFile: "acc-match-queryerror.loom",
+    fixtureFile: "acc-match-queryerror.theta",
     invariants: { noErrorExit: true, permittedCodesSubset: true },
   },
   {
     area: "multi-source-discovery",
     label: "(i)",
     stem: "acc-multi-source",
-    fixtureFile: "acc-multi-source.loom",
+    fixtureFile: "acc-multi-source.theta",
     invariants: {
       noErrorExit: true,
       permittedCodesSubset: true,
@@ -301,21 +301,21 @@ export const FEATURE_LOOMS: readonly FeatureLoomSpec[] = [
   },
 ];
 
-/** Look up a feature loom by area (throws loudly on an unknown area — never silent). */
-export function featureLoom(area: FeatureArea): FeatureLoomSpec {
-  const spec = FEATURE_LOOMS.find((s) => s.area === area);
+/** Look up a feature theta by area (throws loudly on an unknown area — never silent). */
+export function featureTheta(area: FeatureArea): FeatureThetaSpec {
+  const spec = FEATURE_THETAS.find((s) => s.area === area);
   if (spec === undefined) {
-    failLoudly(`no feature-loom spec registered for area '${area}'`);
+    failLoudly(`no feature-theta spec registered for area '${area}'`);
   }
   return spec;
 }
 
 /**
- * Resolve the committed feature-loom `.loom` file for a spec, or `undefined`
+ * Resolve the committed feature-theta `.theta` file for a spec, or `undefined`
  * when it has not been authored yet. In the current `H9a-T` state every fixture
  * is absent, so this returns `undefined` — the suite's intended-reason red.
  */
-export function resolveFeatureLoomPath(spec: FeatureLoomSpec): string | undefined {
+export function resolveFeatureThetaPath(spec: FeatureThetaSpec): string | undefined {
   const path = fileURLToPath(
     new URL(`./fixtures/${spec.fixtureFile}`, import.meta.url),
   );
@@ -341,7 +341,7 @@ export function loadPermittedCodes(): readonly string[] {
 /**
  * Require a configured, credentialed live provider/model. Fails loudly naming
  * the missing precondition (never a silent skip) via `resolveAcceptanceHost`.
- * Called only AFTER the feature-loom presence assertion, so in the current red
+ * Called only AFTER the feature-theta presence assertion, so in the current red
  * state the suite never reaches here — the intended-reason red (fixture absent)
  * fires first. Returns the resolved model id (the same host `spawnPiPrint`
  * drives against).
@@ -354,7 +354,7 @@ export function requireLiveHost(): { readonly modelId: string } {
 // The `pi -p`-spawning runner and its observable-result parsers.
 // ---------------------------------------------------------------------------
 
-/** The captured result of one `pi -p --loom <dir> "/<name>"` process-and-exit run. */
+/** The captured result of one `pi -p --theta <dir> "/<name>"` process-and-exit run. */
 export interface PiPrintResult {
   readonly exitCode: number | null;
   readonly stdout: string;
@@ -362,10 +362,10 @@ export interface PiPrintResult {
 }
 
 export interface SpawnPiPrintOptions {
-  /** The primary `--loom <dir>` discovery source (the feature-loom fixtures dir). */
-  readonly loomDir: string;
-  /** Additional `--loom <dir>` CLI sources (for multi-source discovery, area (i)). */
-  readonly extraLoomDirs?: readonly string[];
+  /** The primary `--theta <dir>` discovery source (the feature-theta fixtures dir). */
+  readonly thetaDir: string;
+  /** Additional `--theta <dir>` CLI sources (for multi-source discovery, area (i)). */
+  readonly extraThetaDirs?: readonly string[];
   /** The slash command to invoke (`/<stem>`), plus any argument text. */
   readonly slashInvocation: string;
   /** Working directory for the spawned `pi` process. */
@@ -376,21 +376,21 @@ export interface SpawnPiPrintOptions {
 
 /**
  * Spawn the real `pi` binary in non-interactive print mode
- * (`pi -p --loom <dir> "/<name>"`, process-and-exit) and capture stdout, stderr,
- * and the exit code. The paired `H9a` owns making each loom's observables
+ * (`pi -p --theta <dir> "/<name>"`, process-and-exit) and capture stdout, stderr,
+ * and the exit code. The paired `H9a` owns making each theta's observables
  * (binder envelope, typed-query response, cancellation) surface on stdout so
  * these captures can be scored; this harness only drives the process.
  */
 export function spawnPiPrint(options: SpawnPiPrintOptions): Promise<PiPrintResult> {
-  const loomDirs = [options.loomDir, ...(options.extraLoomDirs ?? [])];
+  const thetaDirs = [options.thetaDir, ...(options.extraThetaDirs ?? [])];
   // Drive the turns against the operator's configured default model (resolved
-  // like the H8a live suite), or an explicit PI_LOOM_ACC_* pin.
+  // like the H8a live suite), or an explicit PI_THETA_ACC_* pin.
   const host = resolveAcceptanceHost();
   const args = [
     PI_CLI_ENTRY,
     "-p",
     // Load THIS working tree's extension (disable ambient discovery so the
-    // scratch cwd cannot pull an unrelated globally-installed loom build).
+    // scratch cwd cannot pull an unrelated globally-installed theta build).
     "-ne",
     "-e",
     EXTENSION_ENTRY,
@@ -399,7 +399,7 @@ export function spawnPiPrint(options: SpawnPiPrintOptions): Promise<PiPrintResul
     host.provider,
     "--model",
     host.model,
-    ...loomDirs.flatMap((dir) => ["--loom", dir]),
+    ...thetaDirs.flatMap((dir) => ["--theta", dir]),
     options.slashInvocation,
   ];
   return new Promise<PiPrintResult>((resolve, reject) => {
@@ -441,15 +441,15 @@ export function spawnPiPrint(options: SpawnPiPrintOptions): Promise<PiPrintResul
   });
 }
 
-/** Extract the `loom/{load,parse,runtime}/*` codes a `pi -p` run surfaced on stdout. */
+/** Extract the `theta/{load,parse,runtime}/*` codes a `pi -p` run surfaced on stdout. */
 export function parseSystemNoteCodes(output: string): readonly string[] {
-  const codes = output.match(/loom\/(?:load|parse|runtime)\/[a-z0-9-]+/g) ?? [];
+  const codes = output.match(/theta\/(?:load|parse|runtime)\/[a-z0-9-]+/g) ?? [];
   return Array.from(new Set(codes));
 }
 
 /**
  * Extract the first JSON object the run emitted on stdout (the observable the
- * feature loom is authored to `respond`/print). Returns `undefined` when no
+ * feature theta is authored to `respond`/print). Returns `undefined` when no
  * balanced JSON object is present.
  */
 export function parseEmittedJson(output: string): unknown {
@@ -504,7 +504,7 @@ export function validatesAgainstSchema(
   return { ok: outcome.ok, errors: outcome.ok ? [] : outcome.errors };
 }
 
-/** Validate a binder-pass output against the per-loom binder envelope schema. */
+/** Validate a binder-pass output against the per-theta binder envelope schema. */
 export function validatesAgainstBinderEnvelope(
   value: unknown,
   input: BuildBinderEnvelopeSchemaInput,

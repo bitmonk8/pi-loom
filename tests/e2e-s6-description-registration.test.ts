@@ -7,8 +7,8 @@ import type {
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import {
-  createLoomExtension,
-  type LoomExtensionDeps,
+  createThetaExtension,
+  type ThetaExtensionDeps,
 } from "../src/extension/factory";
 import {
   composeExtensionInstance,
@@ -17,7 +17,7 @@ import {
 import { FakeClock } from "./helpers/fake-clock";
 import { FakeFileWatcher } from "./helpers/fake-file-watcher";
 
-// S6 (PIC) — WITNESS for FIND-S6-1 (loom-defect, FIXED): the loom `description:`
+// S6 (PIC) — WITNESS for FIND-S6-1 (theta-defect, FIXED): the theta `description:`
 // frontmatter (and `///` doc-comment lowering into it — DESC area) is threaded to
 // `pi.registerCommand` on BOTH production composition paths.
 //
@@ -29,14 +29,14 @@ import { FakeFileWatcher } from "./helpers/fake-file-watcher";
 // Fix: `runComposePass` reconstructs each runnable as
 // `{ ...composedInput, ...(description), run: fixture.run }`
 // (production-composition.ts:533), threading the TOP-LEVEL `description` that
-// `composeLoomFixture` computed (loom-composition-producer.ts:300-303). The
+// `composeThetaFixture` computed (theta-composition-producer.ts:300-303). The
 // factory registers with `fixture.description` (factory.ts:370), so the
 // description reaches `pi.registerCommand` — the autocomplete entry is texted.
 //
 // These tests assert the CORRECT (conforming) behaviour post-fix (assertions
 // marked `// FIND-S6-1 (fixed)`).
 
-const LOOM_WITH_DESC = [
+const THETA_WITH_DESC = [
   "---",
   "mode: prompt",
   "description: HELLO-DESC",
@@ -49,11 +49,11 @@ describe("S6 FIND-S6-1 — description drop on the discoverAndComposeFixtures pa
   let workspace: string;
 
   beforeEach(() => {
-    workspace = mkdtempSync(join(tmpdir(), "loom-s6-desc-a-"));
-    mkdirSync(join(workspace, ".pi", "looms"), { recursive: true });
+    workspace = mkdtempSync(join(tmpdir(), "theta-s6-desc-a-"));
+    mkdirSync(join(workspace, ".pi", "theta"), { recursive: true });
     writeFileSync(
-      join(workspace, ".pi", "looms", "hi.loom"),
-      LOOM_WITH_DESC,
+      join(workspace, ".pi", "theta", "hi.theta"),
+      THETA_WITH_DESC,
       "utf8",
     );
   });
@@ -76,14 +76,14 @@ describe("S6 FIND-S6-1 — description drop on the discoverAndComposeFixtures pa
       ui: { notify: (): void => {} },
     } as unknown as ExtensionContext;
 
-    const looms = await discoverAndComposeFixtures(pi, ctx);
-    expect(looms).toHaveLength(1);
-    const loom = looms[0] as { description?: string; frontmatter?: { description?: string } };
+    const thetas = await discoverAndComposeFixtures(pi, ctx);
+    expect(thetas).toHaveLength(1);
+    const theta = thetas[0] as { description?: string; frontmatter?: { description?: string } };
 
     // Parsing is correct: the frontmatter carries the description.
-    expect(loom.frontmatter?.description).toBe("HELLO-DESC");
+    expect(theta.frontmatter?.description).toBe("HELLO-DESC");
     // FIND-S6-1 (fixed): the top-level `description` the factory reads is threaded.
-    expect(loom.description).toBe("HELLO-DESC");
+    expect(theta.description).toBe("HELLO-DESC");
   });
 });
 
@@ -91,11 +91,11 @@ describe("S6 FIND-S6-1 — description drop reaches pi.registerCommand on the co
   let workspace: string;
 
   beforeEach(() => {
-    workspace = mkdtempSync(join(tmpdir(), "loom-s6-desc-b-"));
-    mkdirSync(join(workspace, ".pi", "looms"), { recursive: true });
+    workspace = mkdtempSync(join(tmpdir(), "theta-s6-desc-b-"));
+    mkdirSync(join(workspace, ".pi", "theta"), { recursive: true });
     writeFileSync(
-      join(workspace, ".pi", "looms", "hi.loom"),
-      LOOM_WITH_DESC,
+      join(workspace, ".pi", "theta", "hi.theta"),
+      THETA_WITH_DESC,
       "utf8",
     );
   });
@@ -134,7 +134,7 @@ describe("S6 FIND-S6-1 — description drop reaches pi.registerCommand on the co
       ui: { notify: (): void => {} },
     } as unknown as ExtensionContext;
 
-    const deps: LoomExtensionDeps = {
+    const deps: ThetaExtensionDeps = {
       fixtures: [],
       composeInstance: (composePi, composeCtx) =>
         composeExtensionInstance(composePi, composeCtx, {
@@ -142,7 +142,7 @@ describe("S6 FIND-S6-1 — description drop reaches pi.registerCommand on the co
           clock: new FakeClock(),
         }),
     };
-    createLoomExtension(deps)(pi);
+    createThetaExtension(deps)(pi);
     for (const handler of subscriptions.get("session_start") ?? []) {
       await handler({ type: "session_start" }, ctx);
     }

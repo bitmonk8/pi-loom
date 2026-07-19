@@ -17,7 +17,7 @@ import {
   newInvokeChain,
   pushCountableFrame,
   surfaceDepthOverflow,
-  warpFnFrameKind,
+  thetalibFnFrameKind,
 } from "../src/runtime/invoke-depth-cycle";
 import type { Diagnostic } from "../src/diagnostics/diagnostic";
 
@@ -26,13 +26,13 @@ import type { Diagnostic } from "../src/diagnostics/diagnostic";
 //
 // Spec: invocation.md (§INV-4 "Invocation depth bound", §Static resolution,
 // §"Cycle detection"), hard-ceilings/ceilings-3-and-4.md (CIO-2),
-// diagnostics/code-registry-runtime.md (`loom/runtime/invoke-depth-exceeded`),
-// diagnostics/code-registry-load.md (`loom/load/invocation-cycle`).
+// diagnostics/code-registry-runtime.md (`theta/runtime/invoke-depth-exceeded`),
+// diagnostics/code-registry-load.md (`theta/load/invocation-cycle`).
 //
-// Each test cites its obligation inline (INV-4 / the `loom/...` diagnostic code)
+// Each test cites its obligation inline (INV-4 / the `theta/...` diagnostic code)
 // and reds on its own primary assertion because the V15b behaviour is absent:
 // `pushCountableFrame` returns the chain unchanged (never increments, never
-// enters the cap guard); `warpFnFrameKind` returns a fixed wrong sentinel;
+// enters the cap guard); `thetalibFnFrameKind` returns a fixed wrong sentinel;
 // `crossSubagentBoundary` resets the count; `surfaceDepthOverflow` always
 // returns a wrong-code top-level sentinel; and `detectInvocationCycle` returns
 // `undefined`. No test reds on a compile error, a missing fixture, or a harness
@@ -93,26 +93,26 @@ describe("INV-4 — invoke-chain depth bound (invocation.md §INV-4)", () => {
     expect(INVOKE_DEPTH_CAP).toBe(32);
   });
 
-  it("INV-4: a single chain mixing all three countable frame classes increments the shared per-chain counter and fires `loom/runtime/invoke-depth-exceeded` at 33 > 32", () => {
+  it("INV-4: a single chain mixing all three countable frame classes increments the shared per-chain counter and fires `theta/runtime/invoke-depth-exceeded` at 33 > 32", () => {
     // The single boundary chain mixes all three countable frame classes — at
-    // least one direct `invoke(...)` frame, one `.loom`-via-`tools:` frame, and
-    // one cross-file `.warp fn` frame — so each frame kind's contribution to the
+    // least one direct `invoke(...)` frame, one `.theta`-via-`tools:` frame, and
+    // one cross-file `.thetalib fn` frame — so each frame kind's contribution to the
     // single shared per-chain counter is observed as the chain reaches 33 > 32.
     const kinds: readonly CountableFrameKind[] = [
       "direct-invoke",
-      "loom-tools-callable",
-      "warp-fn-cross-file",
+      "theta-tools-callable",
+      "thetalib-fn-cross-file",
     ];
     expect(
       new Set(kinds).size,
       "INV-4: the boundary chain mixes all three countable frame classes",
     ).toBe(3);
 
-    // The slash-invoked top-level loom is depth 0; push 32 countable frames
+    // The slash-invoked top-level theta is depth 0; push 32 countable frames
     // (cycling the three kinds), asserting each frame contributes +1 to the one
     // shared per-chain counter (depths 1..32 are the legal range).
     let chain = newInvokeChain();
-    expect(chain.depth, "INV-4: the slash-invoked top-level loom is depth 0").toBe(0);
+    expect(chain.depth, "INV-4: the slash-invoked top-level theta is depth 0").toBe(0);
     for (let i = 0; i < INVOKE_DEPTH_CAP; i++) {
       const kind = kinds[i % kinds.length] as CountableFrameKind;
       chain = pushCountableFrame(chain, kind);
@@ -124,12 +124,12 @@ describe("INV-4 — invoke-chain depth bound (invocation.md §INV-4)", () => {
     }
 
     // The cap is breached when about to push the frame that would bring the
-    // count to 33: `InvokeDepthExceededPanic` (`loom/runtime/invoke-depth-exceeded`)
+    // count to 33: `InvokeDepthExceededPanic` (`theta/runtime/invoke-depth-exceeded`)
     // with the registered `invoke chain depth exceeded: 33 > 32` message.
     const raised = capture(() => pushCountableFrame(chain, "direct-invoke"));
     expect(
       raised,
-      "INV-4: pushing the 33rd frame raises InvokeDepthExceededPanic (loom/runtime/invoke-depth-exceeded)",
+      "INV-4: pushing the 33rd frame raises InvokeDepthExceededPanic (theta/runtime/invoke-depth-exceeded)",
     ).toBeInstanceOf(InvokeDepthExceededPanic);
     expect((raised as InvokeDepthExceededPanic).code).toBe(INVOKE_DEPTH_EXCEEDED_CODE);
     expect((raised as InvokeDepthExceededPanic).message).toBe(DEPTH_33_MESSAGE);
@@ -141,7 +141,7 @@ describe("INV-4 — invoke-chain depth bound (invocation.md §INV-4)", () => {
     // through unchanged and does NOT reset.
     let chain = newInvokeChain();
     chain = pushCountableFrame(chain, "direct-invoke");
-    chain = pushCountableFrame(chain, "loom-tools-callable");
+    chain = pushCountableFrame(chain, "theta-tools-callable");
     expect(chain.depth, "INV-4: two countable frames bring the counter to 2").toBe(2);
     const crossed = crossSubagentBoundary(chain);
     expect(
@@ -158,8 +158,8 @@ describe("INV-4 — invoke-chain depth bound (invocation.md §INV-4)", () => {
 
     // One sibling descends several frames deep…
     let siblingA = pushCountableFrame(parent, "direct-invoke"); // depth 2
-    siblingA = pushCountableFrame(siblingA, "loom-tools-callable"); // depth 3
-    siblingA = pushCountableFrame(siblingA, "warp-fn-cross-file"); // depth 4
+    siblingA = pushCountableFrame(siblingA, "theta-tools-callable"); // depth 3
+    siblingA = pushCountableFrame(siblingA, "thetalib-fn-cross-file"); // depth 4
 
     // …while the other sibling, derived from the SAME parent, is unaffected.
     const siblingB = pushCountableFrame(parent, "direct-invoke"); // depth 2, independent
@@ -174,30 +174,30 @@ describe("INV-4 — invoke-chain depth bound (invocation.md §INV-4)", () => {
 });
 
 // --------------------------------------------------------------------------
-// INV-4 — cross-file `.warp fn` residence classification
+// INV-4 — cross-file `.thetalib fn` residence classification
 // --------------------------------------------------------------------------
 
-describe("INV-4 — cross-file `.warp fn` residence (invocation.md §INV-4)", () => {
-  it("INV-4: a cross-file `.warp fn` call (caller and callee in different source files) is a countable `warp-fn-cross-file` frame", () => {
-    // A `.warp fn` call is cross-file whenever the caller resides in a different
-    // source file from the callee (residence = the fn's declaration `.warp` file).
-    const kind = warpFnFrameKind({
-      callerFile: "/proj/a.warp",
-      calleeResidence: "/proj/b.warp",
+describe("INV-4 — cross-file `.thetalib fn` residence (invocation.md §INV-4)", () => {
+  it("INV-4: a cross-file `.thetalib fn` call (caller and callee in different source files) is a countable `thetalib-fn-cross-file` frame", () => {
+    // A `.thetalib fn` call is cross-file whenever the caller resides in a different
+    // source file from the callee (residence = the fn's declaration `.thetalib` file).
+    const kind = thetalibFnFrameKind({
+      callerFile: "/proj/a.thetalib",
+      calleeResidence: "/proj/b.thetalib",
     });
-    expect(kind, "INV-4: a cross-file `.warp fn` call is a countable warp-fn-cross-file frame").toBe(
-      "warp-fn-cross-file",
+    expect(kind, "INV-4: a cross-file `.thetalib fn` call is a countable thetalib-fn-cross-file frame").toBe(
+      "thetalib-fn-cross-file",
     );
   });
 
-  it("INV-4: an intra-file `.warp fn` call (caller and callee in the same source file) is NOT countable", () => {
-    // An intra-file `fn` call — caller and callee in the same `.warp` source
+  it("INV-4: an intra-file `.thetalib fn` call (caller and callee in the same source file) is NOT countable", () => {
+    // An intra-file `fn` call — caller and callee in the same `.thetalib` source
     // file — is not a countable frame.
-    const kind = warpFnFrameKind({
-      callerFile: "/proj/a.warp",
-      calleeResidence: "/proj/a.warp",
+    const kind = thetalibFnFrameKind({
+      callerFile: "/proj/a.thetalib",
+      calleeResidence: "/proj/a.thetalib",
     });
-    expect(kind, "INV-4: an intra-file `.warp fn` call contributes no countable frame").toBeUndefined();
+    expect(kind, "INV-4: an intra-file `.thetalib fn` call contributes no countable frame").toBeUndefined();
   });
 });
 
@@ -208,12 +208,12 @@ describe("INV-4 — cross-file `.warp fn` residence (invocation.md §INV-4)", ()
 describe("INV-4 — depth-overflow panic routing (invocation.md §INV-4)", () => {
   const panic = new InvokeDepthExceededPanic(DEPTH_33_MESSAGE);
 
-  it("INV-4: a top-level overflow surfaces as a Pi system note carrying `loom/runtime/invoke-depth-exceeded`", () => {
+  it("INV-4: a top-level overflow surfaces as a Pi system note carrying `theta/runtime/invoke-depth-exceeded`", () => {
     // A top-level overflow surfaces as a Pi system note (the
-    // `loom/runtime/invoke-depth-exceeded` diagnostic on the system-note channel).
+    // `theta/runtime/invoke-depth-exceeded` diagnostic on the system-note channel).
     const surface = surfaceDepthOverflow(panic, {
       topLevel: true,
-      calleePath: "/proj/top.loom",
+      calleePath: "/proj/top.theta",
     });
     expect(surface.mode, "INV-4: a top-level overflow routes to the system-note surface").toBe(
       "top-level",
@@ -230,7 +230,7 @@ describe("INV-4 — depth-overflow panic routing (invocation.md §INV-4)", () =>
     // `Err(InvokeInfraError { cause: "panic", ... })`.
     const surface = surfaceDepthOverflow(panic, {
       topLevel: false,
-      calleePath: "/proj/child.loom",
+      calleePath: "/proj/child.theta",
     });
     expect(surface.mode, "INV-4: a nested overflow routes to the InvokeInfraError surface").toBe(
       "nested",
@@ -241,12 +241,12 @@ describe("INV-4 — depth-overflow panic routing (invocation.md §INV-4)", () =>
     expect(surface.error.kind).toBe("invoke_infra");
     expect(surface.error.cause, "INV-4: the nested overflow carries cause `panic`").toBe("panic");
     expect(surface.error.message).toBe(DEPTH_33_MESSAGE);
-    expect(surface.error.callee_path).toBe("/proj/child.loom");
+    expect(surface.error.callee_path).toBe("/proj/child.theta");
   });
 });
 
 // --------------------------------------------------------------------------
-// loom/load/invocation-cycle — parse-time static-resolution cycle detection
+// theta/load/invocation-cycle — parse-time static-resolution cycle detection
 // --------------------------------------------------------------------------
 
 /** Locate a diagnostic by code. */
@@ -257,8 +257,8 @@ function withCode(
   return diags.find((d): d is Diagnostic => d !== undefined && d.code === code);
 }
 
-describe("loom/load/invocation-cycle — static-resolution cycle detection (invocation.md §Cycle detection)", () => {
-  it("loom/load/invocation-cycle: a static-resolution cycle fires at parse time; an unresolvable callee is a leaf (undetected)", () => {
+describe("theta/load/invocation-cycle — static-resolution cycle detection (invocation.md §Cycle detection)", () => {
+  it("theta/load/invocation-cycle: a static-resolution cycle fires at parse time; an unresolvable callee is a leaf (undetected)", () => {
     // A → B → A: the second discovery of A is a cycle. All nodes resolvable.
     const cyclicGraph: InvokeGraph = {
       edges: new Map<string, readonly string[]>([
@@ -270,19 +270,19 @@ describe("loom/load/invocation-cycle — static-resolution cycle detection (invo
     const cyclic = detectInvocationCycle("A", cyclicGraph);
     expect(
       withCode([cyclic], INVOCATION_CYCLE_CODE),
-      "loom/load/invocation-cycle: a static A → B → A cycle fires",
+      "theta/load/invocation-cycle: a static A → B → A cycle fires",
     ).toBeDefined();
     // The head is location-less (no `file`, no `range`); the participating
     // paths ride inline in the message (diagnostic-shape.md §Location-less).
-    expect(cyclic?.file, "loom/load/invocation-cycle: the head is location-less (no file)").toBeUndefined();
-    expect(cyclic?.range, "loom/load/invocation-cycle: the head is location-less (no range)").toBeUndefined();
+    expect(cyclic?.file, "theta/load/invocation-cycle: the head is location-less (no file)").toBeUndefined();
+    expect(cyclic?.range, "theta/load/invocation-cycle: the head is location-less (no range)").toBeUndefined();
     expect(cyclic?.message).toBe(invocationCycleMessage(["A", "B", "A"]));
     // Anchored to the registry *Message* template `invocation cycle: <A> → <B> → <A>`.
     expect(cyclic?.message).toBe(
       expectedMessage(INVOCATION_CYCLE_CODE, { "<A>": "A", "<B>": "B" }),
     );
 
-    // Same edges, but B produced `loom/load/callee-has-errors` and is
+    // Same edges, but B produced `theta/load/callee-has-errors` and is
     // unresolvable: B is a LEAF, the walk arm terminates there, and the cycle
     // routed through B is NOT detected until B is fixed.
     const throughLeaf: InvokeGraph = {
@@ -294,7 +294,7 @@ describe("loom/load/invocation-cycle — static-resolution cycle detection (invo
     };
     expect(
       detectInvocationCycle("A", throughLeaf),
-      "loom/load/invocation-cycle: a cycle routed through an unresolvable (leaf) callee is not detected",
+      "theta/load/invocation-cycle: a cycle routed through an unresolvable (leaf) callee is not detected",
     ).toBeUndefined();
   });
 });

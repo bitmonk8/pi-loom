@@ -37,7 +37,7 @@ import {
 } from "../src/runtime/invoke-swallowing-handler";
 
 const INVOKE_SITE: CheckpointSite = {
-  file: "parent.loom",
+  file: "parent.theta",
   line: 12,
   column: 3,
 };
@@ -145,7 +145,7 @@ describe("V15h-T — invoke-child late-settlement three-channel suppression (cka
 
     // A late rejection whose `.message` would otherwise be diagnostic-worthy
     // (an OOM-style host failure). It MUST still be discarded — promotion to
-    // `loom/runtime/internal-error` would re-introduce the second-event surface
+    // `theta/runtime/internal-error` would re-introduce the second-event surface
     // the rule forbids.
     const disposition = routeInvokeExecutionLateSettlement(
       { kind: "rejected", error: new Error("host OOM after cancellation") },

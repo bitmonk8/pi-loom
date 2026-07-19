@@ -14,9 +14,9 @@ type is); literal types (`"..."`, `42`, `true`, `false`, `null`); inline
 anonymous objects (`{ field: T, ... }`). Inline arrays are not a separate form —
 use `array<T>` (no `T[]`, no `[T]`).
 
-`void` is **not** a value type. It is admitted only as a function/loom return
+`void` is **not** a value type. It is admitted only as a function/theta return
 annotation ("intentionally produces no value"); any other type position is
-`loom/parse/void-in-non-return-position`. `void` does not participate in type
+`theta/parse/void-in-non-return-position`. `void` does not participate in type
 compatibility.
 
 The same type grammar applies in every annotation position: schema fields,
@@ -35,12 +35,12 @@ below without falling back to AJV, and admits *fewer* pairs than AJV alone (obje
 named types are nominal — TYPE-10). The parser's rejection is authoritative even
 where the two lowered fragments are AJV-interchangeable.
 
-Structural cases the parser must recognise (closed for loom 1.0):
+Structural cases the parser must recognise (closed for theta 1.0):
 
 | ID | Rule | Notes |
 |---|---|---|
 | **TYPE-1** | Reflexivity: `T ⊑ T`. | Identical primitives / named schemas / inline objects. |
-| **TYPE-2** | `integer ⊑ number`. | One-way; reverse is `loom/parse/integer-narrowing`. |
+| **TYPE-2** | `integer ⊑ number`. | One-way; reverse is `theta/parse/integer-narrowing`. |
 | **TYPE-3** | Literal-to-primitive: `L ⊑ T` when value `L` is statically typed `T`. | `"validation" ⊑ string`, `42 ⊑ integer`, `42 ⊑ number`, `true ⊑ boolean`, `null ⊑ null`. |
 | **TYPE-4** | Variant-to-union: for `schema U = A \| B \| ...`, `A ⊑ U`. | `Cat ⊑ Animal`. |
 | **TYPE-5** | Union-widening: `T ⊑ T \| U`. | Combined with TYPE-4, `A ⊑ A \| B` even for anonymous unions. |
@@ -48,7 +48,7 @@ Structural cases the parser must recognise (closed for loom 1.0):
 | **TYPE-7** | Arrays covariant: `array<T₁> ⊑ array<T₂>` iff `T₁ ⊑ T₂`. | `array<Cat> ⊑ array<Animal>`. |
 | **TYPE-8** | Inline object types field-wise: `{ f₁: T₁, ... } ⊑ { f₁: U₁, ... }` iff same field set and `Tᵢ ⊑ Uᵢ`. | Field sets match exactly (`additionalProperties: false`); order irrelevant. Never crosses the inline/named boundary. |
 
-Deliberately **not** part of loom 1.0 compatibility (all rejected):
+Deliberately **not** part of theta 1.0 compatibility (all rejected):
 function-parameter contravariance, optional-field widening, excess-property
 tolerance, `number ⊑ integer`. A future widening is non-breaking iff it only
 admits new pairs.
@@ -58,63 +58,63 @@ admits new pairs.
 
 **Unresolvable operands.** When either side is past the parser's static view (an
 inferred binding depending on a Pi-tool call whose schema is not parse-time
-visible; an `invoke` against a callee that produced `loom/load/callee-has-errors`),
+visible; an `invoke` against a callee that produced `theta/load/callee-has-errors`),
 the parse-time check is skipped and the runtime AJV check is the safety net.
 
 - **TYPE-9.** Three sites report their own parse-time diagnostic on a static
-  failure: `let x: T = expr` → `loom/parse/let-rhs-type-mismatch`; a plain
-  top-level `fn` argument → `loom/parse/fn-arg-type-mismatch`; a ternary →
+  failure: `let x: T = expr` → `theta/parse/let-rhs-type-mismatch`; a plain
+  top-level `fn` argument → `theta/parse/fn-arg-type-mismatch`; a ternary →
   through the array/ternary common-type machinery
-  (`loom/parse/array-element-type-mismatch` against a sink, else
-  `loom/parse/array-no-common-type`).
+  (`theta/parse/array-element-type-mismatch` against a sink, else
+  `theta/parse/array-no-common-type`).
 - **TYPE-10.** Object-schema named types are **nominal** — participate in `⊑`
   only via TYPE-1, TYPE-4, TYPE-5/6. A named-schema value is not `⊑` an inline
   object of the same shape, and vice versa; two distinct named schemas with
   byte-identical lowered fragments are incompatible. Mismatches surface at parse
-  time (`loom/parse/let-rhs-type-mismatch`, `-fn-arg-`, `-invoke-arg-`), not at
+  time (`theta/parse/let-rhs-type-mismatch`, `-fn-arg-`, `-invoke-arg-`), not at
   runtime.
 - **TYPE-11.** Alias-schema transparency — a `NamedType` declared `schema X = R`
   is replaced by `R` on whichever side it appears and the check re-evaluated,
   recursing through nested aliases. Identified solely by the `=` form. Aliasing an
   object schema unfolds to that object schema, which then participates under
   TYPE-10. Alias cycles are rejected before any compatibility question
-  (`loom/parse/type-alias-cycle`).
+  (`theta/parse/type-alias-cycle`).
 
 ## Common-type rules (array literals & ternary branches)
 
 Applying `⊑` to the array/ternary case:
 
 1. With a type sink in scope, every element must satisfy `T_element ⊑ T_sink`; a
-   mismatch is `loom/parse/array-element-type-mismatch`.
+   mismatch is `theta/parse/array-element-type-mismatch`.
 2. Otherwise the parser computes the least upper bound under `⊑`: identical types
    collapse (TYPE-1); `integer` widens to `number` (TYPE-2); otherwise unioned via
    TYPE-5/6 (`["a", null]` → `array<string | null>`; `[1, "a"]` →
    `array<number | string>`).
 3. Object schemas do not unify implicitly — two different named schemas yield
    `array<A | B>` only under a union sink; otherwise
-   `loom/parse/array-no-common-type`.
+   `theta/parse/array-no-common-type`.
 
-`match` arms and inferred loom/`fn` return types use the same LUB discipline (see
+`match` arms and inferred theta/`fn` return types use the same LUB discipline (see
 [Grammar](./grammar.md) and [Errors and results — final value](./errors-and-results.md)).
 
 ## Runtime value model
 
-Loom values are native JavaScript values, tagged where type recovery is needed:
+Theta values are native JavaScript values, tagged where type recovery is needed:
 
-| Loom type | JS representation |
+| Theta type | JS representation |
 |---|---|
 | `string` | JS `string` |
 | `number`, `integer` | JS `number` (same value at runtime; division yields IEEE-754 `Infinity`/`NaN`) |
 | `boolean` | JS `boolean` |
 | `null` | JS `null` |
 | `array<T>` | JS `Array`, elements following these rules recursively |
-| Object schema (named/anonymous) | JS plain object keyed by **loom-side names**, regardless of wire-name renames |
+| Object schema (named/anonymous) | JS plain object keyed by **theta-side names**, regardless of wire-name renames |
 | Enum variant | wire string plus an interpreter-private declaring-enum tag; cross-enum equality compares both; `JSON.stringify` yields the bare wire string |
-| `Result<T, E>` | internally tagged `Ok`/`Err` with payload; observed only via constructors, `match`, `?`; never lowered to a schema (`loom/parse/result-in-schema-position`), never crosses the wire |
+| `Result<T, E>` | internally tagged `Ok`/`Err` with payload; observed only via constructors, `match`, `?`; never lowered to a schema (`theta/parse/result-in-schema-position`), never crosses the wire |
 
-The reference interpreter's concrete shapes (`__loomEnum` property, `{ ok, value }`
+The reference interpreter's concrete shapes (`__thetaEnum` property, `{ ok, value }`
 / `{ ok, error }` for `Result`) are non-normative implementation details, not
-reachable from loom code.
+reachable from theta code.
 
 ### Equality (`==`)
 
@@ -127,7 +127,7 @@ Structural deep equality. `==`/`!=` accept operands of any two static types
 
 - Primitives compare by value; `NaN == NaN` is `true`; `+0 == -0` is `true`.
 - Arrays: element-wise at the same indices; same length required.
-- Objects: key set (loom-side names) and per-key value equality; declaration
+- Objects: key set (theta-side names) and per-key value equality; declaration
   order irrelevant.
 - Enum variants: declaring-enum tag and wire value both
   (`Severity.High == OtherEnum.High` is `false`).
@@ -140,21 +140,21 @@ deliberately asymmetric with `NaN == NaN`.
 
 Happens in exactly two places:
 
-- *Inbound* (model output → loom value): after AJV validation, the runtime
-  rebuilds the value with loom-side names via each schema's translation map, and
+- *Inbound* (model output → theta value): after AJV validation, the runtime
+  rebuilds the value with theta-side names via each schema's translation map, and
   reattaches each declaring-enum tag at named-enum positions recorded in the
   lowering-pass sidecar. Anonymous string-literal-union positions get no tag
   (`Severity.Low == "low"` stays `false`). Applies uniformly to typed query
   results, typed tool-call returns, `invoke` returns, and binder `args`.
-- *Outbound* (loom value → JSON): the runtime walks the loom-side value and
+- *Outbound* (theta value → JSON): the runtime walks the theta-side value and
   produces wire-named JSON before AJV validation.
 
 Frontmatter `params:` defaults bypass the inbound pass — defaults are written in
-the [literal sublanguage](./grammar.md#loom-literal-sublanguage), parsed as
-ordinary Loom values, and arrive already branded and loom-side-named.
+the [literal sublanguage](./grammar.md#theta-literal-sublanguage), parsed as
+ordinary Theta values, and arrive already branded and theta-side-named.
 
-Loom code never sees wire names; tools, the model, and external consumers never
-see loom-side names.
+Theta code never sees wire names; tools, the model, and external consumers never
+see theta-side names.
 
 ### JavaScript engine assumptions
 
@@ -162,17 +162,17 @@ The runtime targets Node exclusively (`process.versions.node >= 22.19.0`) and
 assumes IEEE-754 `number`s, native `Map`/`Set`, and native `JSON.stringify`.
 These are a **non-checked invariant** — no feature-detect, no polyfill, no
 diagnostic on violation; behaviour is undefined if the host violates them. Bun,
-Deno, browsers, and other hosts are out of loom 1.0 scope.
+Deno, browsers, and other hosts are out of theta 1.0 scope.
 
 ### Effects
 
 The language has no file-writing, network, or process-spawning primitive. Every
 external effect flows through one of three surfaces: a query
 ([Errors and results](./errors-and-results.md) and the Query spec), a tool call,
-or a child loom invocation. The reachable tool set is bounded by the loom's
+or a child theta invocation. The reachable tool set is bounded by the theta's
 `tools:` allowlist (the callable set; see [Frontmatter](./frontmatter.md)).
 Runtime-internal filesystem reads (discovery walks, `import` resolution, settings
-reads) are not loom-language effects.
+reads) are not theta-language effects.
 
 ## Provenance
 

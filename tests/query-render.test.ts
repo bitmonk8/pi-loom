@@ -23,7 +23,7 @@ import { makeEnumValue, makeOk } from "../src/runtime/value";
 //
 // Spec: query/query-forms.md (QRY-6, QRY-7), query/query-escapes-stringification.md
 // (QRY-17, QRY-18). The pure `@`...`` render pipeline is: escape-lex → stringify
-// each `${expr}` by its Loom static type → concatenate → newline-trim → dedent,
+// each `${expr}` by its Theta static type → concatenate → newline-trim → dedent,
 // with two degenerate-template defences (parse-time warning + runtime
 // short-circuit).
 //
@@ -115,8 +115,8 @@ describe("V13a-T — template escapes and termination (query-escapes-stringifica
     ]);
   });
 
-  it("QRY-17: a backslash before any other character fires loom/parse/illegal-template-escape", () => {
-    // `\x` is not a recognised escape → loom/parse/illegal-template-escape,
+  it("QRY-17: a backslash before any other character fires theta/parse/illegal-template-escape", () => {
+    // `\x` is not a recognised escape → theta/parse/illegal-template-escape,
     // message from the diagnostics registry (code-registry-parse.md).
     const result = lexQueryTemplate("`a\\xb`");
     const diag = result.diagnostics.find((d) => d.code === ILLEGAL_TEMPLATE_ESCAPE_CODE);
@@ -125,8 +125,8 @@ describe("V13a-T — template escapes and termination (query-escapes-stringifica
     expect(diag?.message).toBe(illegalTemplateEscapeMessage("x"));
   });
 
-  it("QRY-17: EOF inside a body fires loom/parse/unterminated-template", () => {
-    // No closing backtick → loom/parse/unterminated-template and terminated:false.
+  it("QRY-17: EOF inside a body fires theta/parse/unterminated-template", () => {
+    // No closing backtick → theta/parse/unterminated-template and terminated:false.
     const result = lexQueryTemplate("`no closing backtick");
     expect(result.terminated).toBe(false);
     const diag = result.diagnostics.find((d) => d.code === UNTERMINATED_TEMPLATE_CODE);
@@ -173,7 +173,7 @@ describe("V13a-T — stringification of interpolated values (query-escapes-strin
     expect(stringifyInterpolatedValue(value, { kind: "object" })).toEqual({ ok: true, text: '{"a":1,"b":"x"}' });
   });
 
-  it("QRY-18: a `Result`-valued interpolation fires loom/parse/interpolated-result", () => {
+  it("QRY-18: a `Result`-valued interpolation fires theta/parse/interpolated-result", () => {
     // Static rejection resolved from the expression's type (query-escapes-
     // stringification.md, `Result` row); message from the diagnostics registry.
     const result = stringifyInterpolatedValue(makeOk("x"), { kind: "result" });
@@ -190,7 +190,7 @@ describe("V13a-T — stringification of interpolated values (query-escapes-strin
 describe("V13a-T — degenerate rendered templates (query-forms.md QRY-6)", () => {
   it("QRY-6: parse-time warning fires on a whitespace-only static body and is suppressed by an explicit `\\n` literal", () => {
     // Positive half (reds on the inert stub): a whitespace-only static body
-    // (escapes NOT applied) emits the loom/parse/empty-template warning.
+    // (escapes NOT applied) emits the theta/parse/empty-template warning.
     const diag = emptyTemplateWarning("   \n  \n");
     expect(diag).toBeDefined();
     expect(diag?.code).toBe(EMPTY_TEMPLATE_CODE);

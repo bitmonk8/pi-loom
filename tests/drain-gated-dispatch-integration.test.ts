@@ -5,11 +5,11 @@ import type {
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import {
-  createLoomExtension,
-  type LoomExtensionDeps,
+  createThetaExtension,
+  type ThetaExtensionDeps,
 } from "../src/extension/factory";
 import type { ExtensionInstanceWiring } from "../src/extension/production-composition";
-import { LoomRegistry, type ParsedLoom } from "../src/extension/reload-wiring";
+import { ThetaRegistry, type ParsedTheta } from "../src/extension/reload-wiring";
 import { FakeClock } from "./helpers/fake-clock";
 import { ActiveInvocationRegistry } from "../src/runtime/active-invocation-registry";
 
@@ -22,13 +22,13 @@ import { ActiveInvocationRegistry } from "../src/runtime/active-invocation-regis
 // reads `registry.readDrainState()` under the PIC-31 slash-site fail-safe and
 // either dispatches the registry's CURRENT raw entry (arm (a) dispatch, and its
 // superseded-entry sub-case) or emits the shutting-down / superseded note on the
-// `loom-system-note` channel with `triggerTurn:false`.
+// `theta-system-note` channel with `triggerTurn:false`.
 //
 // The harness is copied verbatim from
 // `tests/watcher-hot-reload-integration.test.ts` (the fake pi capturing
 // `registerCommand` handlers + `sendMessage` notes, the subscription table, and
 // `fireSessionStart`). The only divergence is that `composeInstance` is a
-// deterministic stub returning a `LoomRegistry` this test fully controls (a
+// deterministic stub returning a `ThetaRegistry` this test fully controls (a
 // no-op `installHotReload`), so there is NO filesystem, NO watcher, and NO live
 // model — the REAL registration path is still exercised end-to-end.
 
@@ -125,37 +125,37 @@ function makeHarness(): Harness {
 }
 
 /**
- * A minimal `ParsedLoom`. The registration path and the drain-gated wrapper read
+ * A minimal `ParsedTheta`. The registration path and the drain-gated wrapper read
  * only `slashName` + `run`; `frontmatter` / `body` are never touched at dispatch
  * time, so they carry inert placeholders.
  */
-function makeLoom(
+function makeTheta(
   slashName: string,
   run: (args: string, ctx: ExtensionCommandContext) => Promise<void>,
-): ParsedLoom {
+): ParsedTheta {
   return {
     slashName,
-    frontmatter: { mode: "prompt" } as unknown as ParsedLoom["frontmatter"],
-    body: { statements: [] } as unknown as ParsedLoom["body"],
+    frontmatter: { mode: "prompt" } as unknown as ParsedTheta["frontmatter"],
+    body: { statements: [] } as unknown as ParsedTheta["body"],
     run,
   };
 }
 
 /**
  * Boot the extension through the REAL factory with a deterministic
- * `composeInstance` returning the given registry + looms and a no-op
+ * `composeInstance` returning the given registry + thetas and a no-op
  * `installHotReload`, then fire `session_start` so `drainGatedHandler` is the
- * registered handler for each loom.
+ * registered handler for each theta.
  */
 async function boot(
-  registry: LoomRegistry,
-  looms: readonly ParsedLoom[],
+  registry: ThetaRegistry,
+  thetas: readonly ParsedTheta[],
 ): Promise<Harness> {
   const harness = makeHarness();
-  const deps: LoomExtensionDeps = {
+  const deps: ThetaExtensionDeps = {
     fixtures: [],
     composeInstance: async (): Promise<ExtensionInstanceWiring> => ({
-      looms,
+      thetas,
       registry,
       activeInvocations: new ActiveInvocationRegistry(),
       forwardingSignals: [],
@@ -163,7 +163,7 @@ async function boot(
       installHotReload: () => ({ detach: (): void => {} }),
     }),
   };
-  createLoomExtension(deps)(harness.pi);
+  createThetaExtension(deps)(harness.pi);
   await harness.fireSessionStart();
   return harness;
 }
@@ -177,39 +177,39 @@ async function invoke(harness: Harness, name: string, args = ""): Promise<void> 
   await options.handler(args, {} as unknown as ExtensionCommandContext);
 }
 
-/** The `loom-system-note` entries recorded so far. */
-function loomNotes(harness: Harness): readonly RecordedNote[] {
-  return harness.notes.filter((n) => n.customType === "loom-system-note");
+/** The `theta-system-note` entries recorded so far. */
+function thetaNotes(harness: Harness): readonly RecordedNote[] {
+  return harness.notes.filter((n) => n.customType === "theta-system-note");
 }
 
 describe("PIC-29..32 — drain-gated dispatch through the real registration path", () => {
-  it("(1) normal dispatch: arm (a) runs the loom's raw run and emits NO note", async () => {
+  it("(1) normal dispatch: arm (a) runs the theta's raw run and emits NO note", async () => {
     // PIC-29 arm (a) dispatch: steady-state registry (drained:false, tag:undefined)
     // with `/foo` present → the wrapper dispatches the registry's current raw entry.
     let ran = false;
-    const foo = makeLoom("foo", async () => {
+    const foo = makeTheta("foo", async () => {
       ran = true;
     });
-    const registry = new LoomRegistry([["foo", foo]]);
+    const registry = new ThetaRegistry([["foo", foo]]);
     const harness = await boot(registry, [foo]);
 
     expect(harness.commands.has("foo")).toBe(true);
     await invoke(harness, "foo", "some args");
 
     expect(ran).toBe(true);
-    expect(loomNotes(harness)).toEqual([]);
+    expect(thetaNotes(harness)).toEqual([]);
   });
 
-  it("(2) superseded note: a dropped entry yields the superseded note, dispatches no loom", async () => {
+  it("(2) superseded note: a dropped entry yields the superseded note, dispatches no theta", async () => {
     // PIC-29 arm (a) superseded-entry-dispatch sub-case
     // (registration-steps.md#superseded-entry-dispatch): steady-state drain
     // tuple but the slash name is absent from the registry → the fixed
     // superseded note, NOT a fourth arm and NOT a dispatch.
     let ran = false;
-    const foo = makeLoom("foo", async () => {
+    const foo = makeTheta("foo", async () => {
       ran = true;
     });
-    const registry = new LoomRegistry([["foo", foo]]);
+    const registry = new ThetaRegistry([["foo", foo]]);
     const harness = await boot(registry, [foo]);
 
     // Drop `/foo` from the registry (publish a map WITHOUT it). The command
@@ -218,49 +218,49 @@ describe("PIC-29..32 — drain-gated dispatch through the real registration path
     registry.publish(new Map());
     await invoke(harness, "foo");
 
-    const notes = loomNotes(harness);
+    const notes = thetaNotes(harness);
     expect(notes).toHaveLength(1);
-    expect(notes[0]?.content).toBe("loom /foo: superseded; /reload to refresh");
-    expect(notes[0]?.customType).toBe("loom-system-note");
+    expect(notes[0]?.content).toBe("theta /foo: superseded; /reload to refresh");
+    expect(notes[0]?.customType).toBe("theta-system-note");
     expect(notes[0]?.triggerTurn).toBe(false);
     expect(ran).toBe(false);
   });
 
-  it("(3) shutting-down note: after registry.drain() the loom does not run", async () => {
-    // PIC-32 drain: `LoomRegistry.drain()` sets drained:true → arm (b), the
-    // shutting-down note; the loom is NOT dispatched.
+  it("(3) shutting-down note: after registry.drain() the theta does not run", async () => {
+    // PIC-32 drain: `ThetaRegistry.drain()` sets drained:true → arm (b), the
+    // shutting-down note; the theta is NOT dispatched.
     let ran = false;
-    const foo = makeLoom("foo", async () => {
+    const foo = makeTheta("foo", async () => {
       ran = true;
     });
-    const registry = new LoomRegistry([["foo", foo]]);
+    const registry = new ThetaRegistry([["foo", foo]]);
     const harness = await boot(registry, [foo]);
 
     registry.drain();
     await invoke(harness, "foo");
 
-    const notes = loomNotes(harness);
+    const notes = thetaNotes(harness);
     expect(notes).toHaveLength(1);
-    expect(notes[0]?.content).toBe("loom /foo: extension shutting down");
-    expect(notes[0]?.customType).toBe("loom-system-note");
+    expect(notes[0]?.content).toBe("theta /foo: extension shutting down");
+    expect(notes[0]?.customType).toBe("theta-system-note");
     expect(notes[0]?.triggerTurn).toBe(false);
     expect(ran).toBe(false);
   });
 
-  it("(4) post-swap dispatch is current: the SAME captured handler runs the swapped-in v2 loom", async () => {
+  it("(4) post-swap dispatch is current: the SAME captured handler runs the swapped-in v2 theta", async () => {
     // PIC-29 arm (a) dispatch — the wrapper dispatches `registry.get(name)`, not
-    // the captured closure: a publish that swaps `/foo` to a v2 loom is picked
+    // the captured closure: a publish that swaps `/foo` to a v2 theta is picked
     // up on the next dispatch of the handler registered ONCE at session_start.
     let ranV1 = false;
     let ranV2 = false;
-    const fooV1 = makeLoom("foo", async () => {
+    const fooV1 = makeTheta("foo", async () => {
       ranV1 = true;
     });
-    const registry = new LoomRegistry([["foo", fooV1]]);
+    const registry = new ThetaRegistry([["foo", fooV1]]);
     const harness = await boot(registry, [fooV1]);
 
-    // Swap the entry to a v2 loom whose run sets a DIFFERENT flag.
-    const fooV2 = makeLoom("foo", async () => {
+    // Swap the entry to a v2 theta whose run sets a DIFFERENT flag.
+    const fooV2 = makeTheta("foo", async () => {
       ranV2 = true;
     });
     registry.publish(new Map([["foo", fooV2]]));
@@ -270,6 +270,6 @@ describe("PIC-29..32 — drain-gated dispatch through the real registration path
 
     expect(ranV2).toBe(true);
     expect(ranV1).toBe(false);
-    expect(loomNotes(harness)).toEqual([]);
+    expect(thetaNotes(harness)).toEqual([]);
   });
 });

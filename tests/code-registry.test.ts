@@ -63,7 +63,7 @@ describe("V7b-T — machine-checkable diagnostic registry (closed-set, DIAG-2)",
     const registry = parseRegistry(REGISTRY_TEXT) as RegistryRow[];
 
     const row = registry.find(
-      (r) => r.code === "loom/parse/unterminated-string",
+      (r) => r.code === "theta/parse/unterminated-string",
     );
     expect(row).toBeDefined();
     expect(row?.namespace).toBe("parse");
@@ -86,7 +86,7 @@ describe("V7b-T — machine-checkable diagnostic registry (closed-set, DIAG-2)",
   it("DIAG-2: the registry is closed — an asserted code with no row and a registry code with no asserting test both fail", () => {
     const registry: RegistryRow[] = [
       {
-        code: "loom/parse/unterminated-string",
+        code: "theta/parse/unterminated-string",
         namespace: "parse",
         severity: "E",
         phase: "lex",
@@ -94,7 +94,7 @@ describe("V7b-T — machine-checkable diagnostic registry (closed-set, DIAG-2)",
         message: "unterminated string literal",
       },
       {
-        code: "loom/runtime/match-error",
+        code: "theta/runtime/match-error",
         namespace: "runtime",
         severity: "E",
         phase: "runtime",
@@ -103,41 +103,41 @@ describe("V7b-T — machine-checkable diagnostic registry (closed-set, DIAG-2)",
       },
     ];
 
-    // `loom/parse/unterminated-string` is asserted (present in the registry);
-    // `loom/runtime/ghost` is asserted but absent from the registry; and
-    // `loom/runtime/match-error` is a registry code that no test asserts.
+    // `theta/parse/unterminated-string` is asserted (present in the registry);
+    // `theta/runtime/ghost` is asserted but absent from the registry; and
+    // `theta/runtime/match-error` is a registry code that no test asserts.
     const findings = reconcileClosedSet({
       registry,
-      assertedCodes: ["loom/parse/unterminated-string", "loom/runtime/ghost"],
+      assertedCodes: ["theta/parse/unterminated-string", "theta/runtime/ghost"],
     }) as Finding[];
 
     const kinds = findings.map((f) => f.kind);
     expect(kinds).toContain("asserted-code-not-in-registry");
     expect(
       findings.find((f) => f.kind === "asserted-code-not-in-registry")?.subject,
-    ).toBe("loom/runtime/ghost");
+    ).toBe("theta/runtime/ghost");
 
     expect(kinds).toContain("registry-code-no-asserting-test");
     expect(
       findings.find((f) => f.kind === "registry-code-no-asserting-test")
         ?.subject,
-    ).toBe("loom/runtime/match-error");
+    ).toBe("theta/runtime/match-error");
   });
 });
 
 describe("V7b-T — codes are stable identifiers (DIAG-3)", () => {
   // DIAG-3 — a renamed code fails the gate. A rename is mechanically a baseline
   // (pinned, stable) code that is absent from the current registry; renames are
-  // deferred to loom 2.0 migration.
+  // deferred to theta 2.0 migration.
   it("DIAG-3: a renamed code fails the gate — the baseline code absent from the current registry is reported", () => {
     const baselineCodes = [
-      "loom/parse/old-name",
-      "loom/parse/binding-case-mismatch",
+      "theta/parse/old-name",
+      "theta/parse/binding-case-mismatch",
     ];
-    // `loom/parse/old-name` has been renamed to `loom/parse/new-name`.
+    // `theta/parse/old-name` has been renamed to `theta/parse/new-name`.
     const currentCodes = [
-      "loom/parse/new-name",
-      "loom/parse/binding-case-mismatch",
+      "theta/parse/new-name",
+      "theta/parse/binding-case-mismatch",
     ];
 
     const findings = reconcileStableIds({
@@ -147,13 +147,13 @@ describe("V7b-T — codes are stable identifiers (DIAG-3)", () => {
 
     expect(findings.map((f) => f.kind)).toContain("code-renamed");
     expect(findings.find((f) => f.kind === "code-renamed")?.subject).toBe(
-      "loom/parse/old-name",
+      "theta/parse/old-name",
     );
   });
 
   // DIAG-3 — a stable (unchanged) registry produces no rename finding.
   it("DIAG-3: an unchanged code set produces no rename finding", () => {
-    const codes = ["loom/parse/binding-case-mismatch", "loom/runtime/match-error"];
+    const codes = ["theta/parse/binding-case-mismatch", "theta/runtime/match-error"];
     const findings = reconcileStableIds({
       currentCodes: codes,
       baselineCodes: codes,
@@ -169,20 +169,20 @@ describe("V7b-T — the Message column is normative (DIAG-4)", () => {
   it("DIAG-4: registryMessage returns the registry's normative Message string, and an asserting test sources its expected message from it", () => {
     const registry = parseRegistry(REGISTRY_TEXT) as RegistryRow[];
 
-    // loom/parse/binding-case-mismatch — Message column (placeholder-free).
+    // theta/parse/binding-case-mismatch — Message column (placeholder-free).
     expect(
-      registryMessage(registry, "loom/parse/binding-case-mismatch"),
+      registryMessage(registry, "theta/parse/binding-case-mismatch"),
     ).toBe("binding name must start with a lowercase letter or _");
 
     // The normative discipline: an asserting test's expected message string is
     // the registry's, sourced via registryMessage rather than copy-pasted prose.
     const emitted = {
-      code: "loom/parse/binding-case-mismatch",
+      code: "theta/parse/binding-case-mismatch",
       message: "binding name must start with a lowercase letter or _",
     };
     expect(emitted.message).toBe(registryMessage(registry, emitted.code));
 
     // A code absent from the registry has no normative message.
-    expect(registryMessage(registry, "loom/runtime/ghost")).toBeUndefined();
+    expect(registryMessage(registry, "theta/runtime/ghost")).toBeUndefined();
   });
 });

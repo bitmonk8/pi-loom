@@ -79,38 +79,38 @@ export type BinderFailureSurface =
  * surrounding template text is fixed.
  *
  * The `needs_info`, `ambiguous`, `malformed`, and `ajv_args` rows follow the
- * rule-3 em-dash grammar `loom /<name>: <fixed-phrase> — <suffix>` and compose
+ * rule-3 em-dash grammar `theta /<name>: <fixed-phrase> — <suffix>` and compose
  * through {@link renderFailureNote}. The `transport` row (its own
  * `(<provider>: <message>)` parenthetical grammar) and the `cancelled` row (no
  * suffix) do not use the em-dash boundary, so they are composed directly and
  * passed through the rule-2 length cap {@link capSystemNote}.
  */
 export function renderBinderSystemNote(
-  loomName: string,
+  thetaName: string,
   surface: BinderFailureSurface,
 ): string {
   switch (surface.kind) {
     case "needs_info":
       return renderFailureNote({
-        loomName,
+        thetaName,
         fixedPhrase: "argument binding needs more info",
         suffix: surface.message,
       });
     case "ambiguous":
       return renderFailureNote({
-        loomName,
+        thetaName,
         fixedPhrase: "ambiguous arguments",
         suffix: surface.message,
       });
     case "malformed":
       return renderFailureNote({
-        loomName,
+        thetaName,
         fixedPhrase: "argument binding failed",
         suffix: "could not parse arguments",
       });
     case "ajv_args":
       return renderFailureNote({
-        loomName,
+        thetaName,
         fixedPhrase: "argument binding produced invalid args",
         suffix: surface.ajvSummary,
       });
@@ -119,10 +119,10 @@ export function renderBinderSystemNote(
       // rather than the em-dash suffix boundary; `<provider>` is the
       // classifier's `Model<Api>.api` value rendered verbatim.
       return capSystemNote(
-        `loom /${loomName}: argument binder unavailable (${surface.provider}: ${surface.message})`,
+        `theta /${thetaName}: argument binder unavailable (${surface.provider}: ${surface.message})`,
       );
     case "cancelled":
-      return capSystemNote(`loom /${loomName}: argument binding cancelled`);
+      return capSystemNote(`theta /${thetaName}: argument binding cancelled`);
   }
 }
 

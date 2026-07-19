@@ -41,11 +41,11 @@ import {
   type SchemaSlug,
 } from "../src/seams/schema-validator";
 import {
-  parseLoomDocument,
-  type ParseLoomDocumentDeps,
+  parseThetaDocument,
+  type ParseThetaDocumentDeps,
   type SchemaDecl,
-} from "../src/parser/loom-document";
-import type { LoomSource } from "../src/lexer/lexer";
+} from "../src/parser/theta-document";
+import type { ThetaSource } from "../src/lexer/lexer";
 import type { Checkpoint } from "../src/seams/checkpoint";
 
 // --- Substrate -------------------------------------------------------------
@@ -64,8 +64,8 @@ function config(): QueryToolLoopConfig {
   // A typed query dispatches only the forced-respond terminator (max_rounds: 0).
   return {
     maxRounds: 0,
-    querySite: { file: "triage.loom", line: 1, column: 1 },
-    loomSlashName: "/triage",
+    querySite: { file: "triage.theta", line: 1, column: 1 },
+    thetaSlashName: "/triage",
     invocationId: "inv-1",
     occurredAt: 0,
   };
@@ -85,7 +85,7 @@ class RespondingModel implements QueryModelDriver {
   }
 }
 
-/** Parse a `.loom` source and return its body's `schema` declarations. */
+/** Parse a `.theta` source and return its body's `schema` declarations. */
 function schemaDeclsOf(src: string): readonly SchemaDecl[] {
   const deps = {
     systemNote: {
@@ -94,13 +94,13 @@ function schemaDeclsOf(src: string): readonly SchemaDecl[] {
       emitDiagnostic: () => {},
     },
     modelMatcher: { resolve: () => "resolved" as const },
-  } as unknown as ParseLoomDocumentDeps;
-  const source: LoomSource = { path: "triage.loom", bytes: new TextEncoder().encode(src) };
-  const doc = parseLoomDocument(source, deps);
+  } as unknown as ParseThetaDocumentDeps;
+  const source: ThetaSource = { path: "triage.theta", bytes: new TextEncoder().encode(src) };
+  const doc = parseThetaDocument(source, deps);
   return doc.body.statements.filter((s): s is SchemaDecl => s.kind === "schema");
 }
 
-/** The shipped-shape triage schema (mirrors docs/examples/handle-error.loom). */
+/** The shipped-shape triage schema (mirrors docs/examples/handle-error.theta). */
 const TRIAGE_SOURCE = [
   "schema Triage {",
   '  category: "bug" | "feature" | "question",',
