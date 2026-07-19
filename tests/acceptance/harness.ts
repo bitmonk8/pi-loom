@@ -31,8 +31,8 @@ import {
   type BuildBinderEnvelopeSchemaInput,
 } from "../../src/binder/binder-envelope";
 import {
-  AuthStorage,
   ModelRegistry,
+  ModelRuntime,
 } from "@earendil-works/pi-coding-agent";
 
 /** The real `pi` CLI entry the acceptance runner spawns (the shipped `pi -p` binary). */
@@ -67,17 +67,23 @@ export const EXTENSION_ENTRY = fileURLToPath(
  * credential surfaces as the live-host precondition failure (never a silent
  * skip).
  */
-export function resolveAcceptanceHost(): {
+export async function resolveAcceptanceHost(): Promise<{
   readonly provider: string;
   readonly model: string;
-} {
+}> {
   const envProvider = process.env["PI_THETA_ACC_PROVIDER"];
   const envModel = process.env["PI_THETA_ACC_MODEL"];
   if (envProvider !== undefined && envModel !== undefined) {
     return { provider: envProvider, model: envModel };
   }
-  const authStorage = AuthStorage.create();
-  const modelRegistry = ModelRegistry.create(authStorage);
+  // 0.80.x: `ModelRegistry.create` is gone and `AuthStorage` is no longer a
+  // public root export. Build the canonical `ModelRuntime` (its default
+  // `CredentialStore` reads the operator's `agentDir/auth.json`), wrap it in the
+  // synchronous `ModelRegistry` facade, and `refresh()` before the synchronous
+  // `getAvailable()` read (the facade requires it).
+  const modelRuntime = await ModelRuntime.create();
+  const modelRegistry = new ModelRegistry(modelRuntime);
+  await modelRegistry.refresh();
   const available = modelRegistry.getAvailable();
   if (available.length === 0) {
     failLoudly(
@@ -346,8 +352,8 @@ export function loadPermittedCodes(): readonly string[] {
  * fires first. Returns the resolved model id (the same host `spawnPiPrint`
  * drives against).
  */
-export function requireLiveHost(): { readonly modelId: string } {
-  return { modelId: resolveAcceptanceHost().model };
+export async function requireLiveHost(): Promise<{ readonly modelId: string }> {
+  return { modelId: (await resolveAcceptanceHost()).model };
 }
 
 // ---------------------------------------------------------------------------
@@ -381,11 +387,11 @@ export interface SpawnPiPrintOptions {
  * (binder envelope, typed-query response, cancellation) surface on stdout so
  * these captures can be scored; this harness only drives the process.
  */
-export function spawnPiPrint(options: SpawnPiPrintOptions): Promise<PiPrintResult> {
+export async function spawnPiPrint(options: SpawnPiPrintOptions): Promise<PiPrintResult> {
   const thetaDirs = [options.thetaDir, ...(options.extraThetaDirs ?? [])];
   // Drive the turns against the operator's configured default model (resolved
   // like the H8a live suite), or an explicit PI_THETA_ACC_* pin.
-  const host = resolveAcceptanceHost();
+  const host = await resolveAcceptanceHost();
   const args = [
     PI_CLI_ENTRY,
     "-p",

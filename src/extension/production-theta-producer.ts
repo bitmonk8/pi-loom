@@ -57,7 +57,10 @@ import type {
   ToolCall,
   ToolResultMessage,
 } from "@earendil-works/pi-ai";
-import { complete } from "@earendil-works/pi-ai";
+// pi-ai 0.80.x moved the streaming free functions off the package root into
+// the publicly-exported `/compat` subpath (package.json `exports["./compat"]`
+// -> dist/compat.d.ts); the root barrel no longer re-exports `complete`.
+import { complete } from "@earendil-works/pi-ai/compat";
 import type { Clock } from "../seams/clock";
 import type { RuntimeRoot } from "../runtime-root";
 import type {
@@ -1647,7 +1650,14 @@ class ProductionThetaProducer implements ThetaProducerDeps {
     const { session } = await createAgentSession({
       cwd: ctx.cwd,
       agentDir,
-      modelRegistry,
+      // pi-coding-agent 0.80.x renamed the model option from a `ModelRegistry`
+      // facade to `modelRuntime: ModelRuntime` (core/sdk.d.ts). Extensions only
+      // receive the sync `ModelRegistry` facade (ExtensionContext.modelRegistry),
+      // whose underlying `ModelRuntime` is private with no public accessor, so we
+      // cannot forward it. Omitting `modelRuntime` makes createAgentSession build
+      // its default runtime from the shared `agentDir` (auth.json/models.json) —
+      // the same config source the host registry reads — preserving model/auth
+      // resolution for the explicit `model` passed below.
       model,
       // PIC-23 rule 2: an explicit allowlist restricts the active set to exactly
       // the theta's callable-set Pi-tool names (empty when the theta declares no

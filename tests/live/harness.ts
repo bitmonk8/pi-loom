@@ -19,9 +19,9 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { assert } from "vitest";
 import {
-  AuthStorage,
   DefaultResourceLoader,
   ModelRegistry,
+  ModelRuntime,
   SessionManager,
   createAgentSession,
   getAgentDir,
@@ -49,7 +49,7 @@ export function failLoudly(message: string): never {
 }
 
 export interface LiveProvider {
-  readonly authStorage: ReturnType<typeof AuthStorage.create>;
+  readonly modelRuntime: ModelRuntime;
   readonly modelRegistry: ModelRegistry;
   readonly model: LiveModel;
   readonly modelId: string;
@@ -63,9 +63,16 @@ export interface LiveProvider {
  * (`claude-opus-4-8`) so the suite exercises the same model the operator runs,
  * rather than a divergent cheap stand-in.
  */
-export function requireLiveProvider(): LiveProvider {
-  const authStorage = AuthStorage.create();
-  const modelRegistry = ModelRegistry.create(authStorage);
+export async function requireLiveProvider(): Promise<LiveProvider> {
+  // 0.80.x: `ModelRegistry.create` is gone and `AuthStorage` is no longer a
+  // public root export. Build the canonical `ModelRuntime` (its default
+  // `CredentialStore` reads the operator's `agentDir/auth.json`), wrap it in the
+  // synchronous `ModelRegistry` facade, and `refresh()` before the synchronous
+  // `getAvailable()` read. The `ModelRuntime` is what `createAgentSession` now
+  // takes to supply credentials (no `authStorage` option).
+  const modelRuntime = await ModelRuntime.create();
+  const modelRegistry = new ModelRegistry(modelRuntime);
+  await modelRegistry.refresh();
   const available = modelRegistry.getAvailable();
   if (available.length === 0) {
     failLoudly(
@@ -86,7 +93,7 @@ export function requireLiveProvider(): LiveProvider {
   if (model === undefined) {
     failLoudly("live-host precondition unmet: no resolvable live model.");
   }
-  return { authStorage, modelRegistry, model, modelId: idOf(model) };
+  return { modelRuntime, modelRegistry, model, modelId: idOf(model) };
 }
 
 /** A `.theta` file to plant on disk before discovery runs. */
@@ -177,8 +184,9 @@ export async function bootShippedExtension(options: {
   const { session } = await createAgentSession({
     cwd: workspace.cwd,
     agentDir,
-    authStorage: provider.authStorage,
-    modelRegistry: provider.modelRegistry,
+    // 0.80.x: credentials/auth reach the session through the `ModelRuntime`
+    // (the `authStorage`/`modelRegistry` session options were removed).
+    modelRuntime: provider.modelRuntime,
     model: provider.model,
     resourceLoader,
     sessionManager: SessionManager.inMemory(workspace.cwd),

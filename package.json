@@ -1,6 +1,6 @@
 {
   "name": "@bitmonk8/pi-theta",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A scripting language for Pi agents: write the predictable parts of an agent task as code and leave only the fuzzy parts to the model.",
   "files": [
     "extensions",
@@ -55,10 +55,10 @@
     "yaml": "^2.9.0"
   },
   "devDependencies": {
-    "@earendil-works/pi-coding-agent": "~0.75.5",
-    "@earendil-works/pi-agent-core": "~0.75.5",
-    "@earendil-works/pi-ai": "~0.75.5",
-    "@earendil-works/pi-tui": "~0.75.5",
+    "@earendil-works/pi-coding-agent": "~0.80.10",
+    "@earendil-works/pi-agent-core": "~0.80.10",
+    "@earendil-works/pi-ai": "~0.80.10",
+    "@earendil-works/pi-tui": "~0.80.10",
     "@types/node": "^22.0.0",
     "@types/semver": "^7.5.0",
     "@typescript-eslint/parser": "^8.0.0",
@@ -68,10 +68,10 @@
     "vitest": "^2.1.8"
   },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": "~0.75.5",
-    "@earendil-works/pi-agent-core": "~0.75.5",
-    "@earendil-works/pi-ai": "~0.75.5",
-    "@earendil-works/pi-tui": "~0.75.5",
+    "@earendil-works/pi-coding-agent": ">=0.80.8",
+    "@earendil-works/pi-agent-core": ">=0.80.8",
+    "@earendil-works/pi-ai": ">=0.80.8",
+    "@earendil-works/pi-tui": ">=0.80.8",
     "typebox": "*"
   }
 }

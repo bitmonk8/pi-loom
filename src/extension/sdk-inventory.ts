@@ -301,7 +301,7 @@ export const SDK_SURFACE_INVENTORY: readonly SurfaceInventoryEntry[] =
     // The non-`namespace-function` operand rows the version-bump gates (`V18c`)
     // read. Each carries the pinned operand its gate reconciles against the
     // pinned SDK: the in-repo Node floor (operand (ii) of the `engines.node`
-    // three-way equality), the `peerDependencies` tilde range, the theta-side
+    // three-way equality), the `peerDependencies` open floor, the theta-side
     // strict-capability probe field name, and the pinned pi-ai `Api`
     // literal-union snapshot the seed-field `Api`-coverage gate enumerates.
     {
@@ -312,7 +312,9 @@ export const SDK_SURFACE_INVENTORY: readonly SurfaceInventoryEntry[] =
     {
       id: "peer-dep-range",
       kind: "peer-dep-range",
-      payload: { range: "~0.75.5" },
+      // The open `peerDependencies` floor (host-prerequisites.md #pi-sdk-pin):
+      // the operand the step-4 peer-dep gate reconciles the four peers against.
+      payload: { range: ">=0.80.8" },
     },
     {
       id: "strict-capability-probe",

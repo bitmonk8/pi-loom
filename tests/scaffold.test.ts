@@ -19,10 +19,16 @@ const pkg = JSON.parse(readFileSync(manifestPath, "utf8")) as {
   pi?: { extensions?: unknown };
 };
 
-// The canonical theta 1.0 Pi-SDK pin range, transcribed inline from
-// host-prerequisites.md §#pi-sdk-pin (Manifest lock-step): the four
-// @earendil-works/* entries MUST literally equal `~0.75.5`.
-const PI_SDK_PIN = "~0.75.5";
+// The Pi-SDK pin, transcribed inline from host-prerequisites.md §#pi-sdk-pin.
+// The decided design splits the former single range into two literals: an OPEN
+// peer floor and a TILDE dev/build pin. The four @earendil-works/*
+// peerDependencies entries MUST literally equal the open floor `>=0.80.8` (the
+// minimum-API-shape version; forward-compatible with newer minors); the four
+// devDependencies entries MUST literally equal the dev/build pin `~0.80.10`
+// (the ported build target). The two literals are distinct and no single value
+// satisfies both gates.
+const PEER_FLOOR = ">=0.80.8";
+const DEV_PIN = "~0.80.10";
 const PI_SDK_PACKAGES = [
   "@earendil-works/pi-coding-agent",
   "@earendil-works/pi-agent-core",
@@ -67,19 +73,19 @@ describe("H1a scaffold — lint toolchain (Convention: phase categories)", () =>
 });
 
 describe("H1a scaffold — Pi SDK peer-dep lock-step (PIC-33)", () => {
-  it("PIC-33: the four @earendil-works/* peer deps share the single tilde-pinned Pi-SDK line", () => {
+  it("PIC-33: the four @earendil-works/* peer deps share the single open Pi-SDK floor", () => {
     const peers = pkg.peerDependencies ?? {};
     for (const name of PI_SDK_PACKAGES) {
-      expect(peers[name]).toBe(PI_SDK_PIN);
+      expect(peers[name]).toBe(PEER_FLOOR);
     }
   });
 });
 
 describe("H1a scaffold — Pi SDK devDependencies provisioning (Convention: phase categories)", () => {
-  it("declares the four @earendil-works/pi-* packages in devDependencies at the shared Pi-SDK pin", () => {
+  it("declares the four @earendil-works/pi-* packages in devDependencies at the shared dev/build pin", () => {
     const dev = pkg.devDependencies ?? {};
     for (const name of PI_SDK_PACKAGES) {
-      expect(dev[name]).toBe(PI_SDK_PIN);
+      expect(dev[name]).toBe(DEV_PIN);
     }
   });
 });
@@ -88,7 +94,8 @@ describe("H1a scaffold — typebox no-collapse (PIC-35)", () => {
   it("PIC-35: typebox is its own peerDependencies entry pinned \"*\", not folded into the tilde group", () => {
     const peers = pkg.peerDependencies ?? {};
     expect(peers.typebox).toBe("*");
-    expect(peers.typebox).not.toBe(PI_SDK_PIN);
+    expect(peers.typebox).not.toBe(PEER_FLOOR);
+    expect(peers.typebox).not.toBe(DEV_PIN);
   });
 });
 

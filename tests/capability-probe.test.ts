@@ -52,8 +52,8 @@ function makePassingHost(overrides: Partial<ProbeHost> = {}): ProbeHost {
     agentSession: FakeAgentSession,
     pi: makePiNamespace(),
     typeboxType: { Unsafe: () => {} },
-    // All four lock-step peers report an in-range version (~0.75.5).
-    readPeerVersion: () => "0.75.5",
+    // All four lock-step peers report an in-range version (>=0.80.8).
+    readPeerVersion: () => "0.80.10",
     ...overrides,
   };
 }
@@ -370,13 +370,13 @@ describe("V9a capability probe — host-incompatible details.kind discriminator"
       runCapabilityProbe(
         makePassingHost({
           readPeerVersion: (pkg: string): string =>
-            pkg === "@earendil-works/pi-coding-agent" ? "0.74.0" : "0.75.5",
+            pkg === "@earendil-works/pi-coding-agent" ? "0.75.5" : "0.80.10",
         }),
       ),
     );
     expect(details.kind).toBe("peer-dep-out-of-range");
-    expect(details.observed).toBe("0.74.0");
-    expect(details.required).toContain("0.75.5");
+    expect(details.observed).toBe("0.75.5");
+    expect(details.required).toContain(">=0.80.8");
     expect(details.package).toBe("@earendil-works/pi-coding-agent");
   });
 
@@ -387,7 +387,7 @@ describe("V9a capability probe — host-incompatible details.kind discriminator"
           readPeerVersion: (pkg: string): string =>
             pkg === "@earendil-works/pi-coding-agent"
               ? "not.a.semver"
-              : "0.75.5",
+              : "0.80.10",
         }),
       ),
     );
@@ -401,7 +401,7 @@ describe("V9a capability probe — host-incompatible details.kind discriminator"
       runCapabilityProbe(
         makePassingHost({
           readPeerVersion: (pkg: string): string | undefined =>
-            pkg === "@earendil-works/pi-coding-agent" ? undefined : "0.75.5",
+            pkg === "@earendil-works/pi-coding-agent" ? undefined : "0.80.10",
         }),
       ),
     );

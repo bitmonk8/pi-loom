@@ -34,7 +34,7 @@ const scripted = vi.hoisted(() => ({
 
 // Replace ONLY the off-session `complete()` free function; every other pi-ai
 // export (types, helpers) passes through unchanged.
-vi.mock("@earendil-works/pi-ai", async (importOriginal) => {
+vi.mock("@earendil-works/pi-ai/compat", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,

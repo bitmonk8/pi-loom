@@ -97,7 +97,7 @@ const TYPED_REPLY_SCHEMA: LoweredSchema = {
 
 describe("H8a-T — discovery → registration (Convention: live-host acceptance)", () => {
   it("registers a live slash command for a project-source .theta via the real discovery walk", async () => {
-    const provider = requireLiveProvider();
+    const provider = await requireLiveProvider();
     const thetas: PlantedTheta[] = [
       { source: "project", stem: "greetlive", text: promptTheta("THETA-LIVE-OK") },
     ];
@@ -130,7 +130,7 @@ describe("H8a-T — discovery → registration (Convention: live-host acceptance
 
 describe("H8a-T — prompt-mode turn against a live model (Convention: live-host acceptance)", () => {
   it("drives one live prompt-mode turn whose assistant response contains the deterministic sentinel", async () => {
-    const provider = requireLiveProvider();
+    const provider = await requireLiveProvider();
     const sentinel = "THETA-LIVE-OK";
     const workspace = plantThetaWorkspace([
       { source: "project", stem: "sentinel", text: promptTheta(sentinel) },
@@ -166,7 +166,7 @@ describe("H8a-T — prompt-mode turn against a live model (Convention: live-host
 
 describe("H8a-T — alternate discovery source (Convention: live-host acceptance)", () => {
   it("registers a live slash command for a --theta CLI-source .theta (discovery is source-general)", async () => {
-    const provider = requireLiveProvider();
+    const provider = await requireLiveProvider();
     const workspace = plantThetaWorkspace([
       { source: "cli", stem: "clisource", text: promptTheta("THETA-CLI-OK") },
     ]);
@@ -196,7 +196,7 @@ describe("H8a-T — alternate discovery source (Convention: live-host acceptance
 
 describe("H8a-T — typed-query lowering, bounded (Convention: live-host acceptance)", () => {
   it("resolves one schema-typed @-query through the live binder and validates the reply against its declared schema", async () => {
-    const provider = requireLiveProvider();
+    const provider = await requireLiveProvider();
     const workspace = plantThetaWorkspace([
       { source: "project", stem: "typed", text: typedQueryTheta() },
     ]);
@@ -246,7 +246,7 @@ describe("H8a-T — typed-query lowering, bounded (Convention: live-host accepta
 
 describe("H8a-T — subagent-mode drive against a live model (Convention: live-host acceptance)", () => {
   it("drives a subagent-mode theta's spawned session to a success terminal without a forced cancel", async () => {
-    const provider = requireLiveProvider();
+    const provider = await requireLiveProvider();
     const workspace = plantThetaWorkspace([
       { source: "project", stem: "subrun", text: subagentTheta() },
     ]);
