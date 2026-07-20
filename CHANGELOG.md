@@ -6,6 +6,28 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-07-20
+
+### Added
+
+- **`par for` — structured parallel fan-out (RFC 0003).** A parallel loop form
+  that evaluates its body concurrently for each element of an `array<T>` iterand
+  and collects per-iteration results in input-index order as a value-producing
+  expression of type `array<Result<T, QueryError>>`. Iterations run against
+  isolated work only (child sessions, `invoke`, `subagent fn`, Pi-tool calls, and
+  pure computation) — never the enclosing conversation. The optional `max <expr>`
+  clause (any `integer`-typed expression) lowers the in-flight width; without it
+  a per-loop throttle of 64 in-flight iterations applies (excess queues; the
+  throttle is not a routing-class hard ceiling). Each iteration reports
+  independently: an `Err` (or a downgraded per-iteration panic, ERR-20) becomes
+  that element's value and does not cancel siblings; whole-theta cancellation is
+  terminal (no final value). `par` is a contextual keyword recognised only before
+  `for`, so existing identifiers named `par` are unaffected. Legal in both
+  prompt- and subagent-mode thetas. New parse diagnostics:
+  `theta/parse/par-query-in-body`, `theta/parse/par-shared-mutation`,
+  `theta/parse/par-break-continue`. Bumps the theta language surface to
+  **theta 1.1**.
+
 ## [0.5.0] - 2026-07-20
 
 ### Added
