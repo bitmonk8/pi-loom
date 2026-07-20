@@ -1,6 +1,6 @@
 # RFC 0003 — `par for`: structured parallel fan-out
 
-- **Status:** draft
+- **Status:** accepted
 - **Scope:** theta 1.x language surface (governed by
   `../spec_topics/governance/release-version-naming.md`)
 - **Affects:** lexical (new contextual keyword), grammar, type system, runtime
@@ -56,8 +56,10 @@ body restrictions, and value.
 ### Semantics
 
 - **Concurrency.** Iterations are scheduled concurrently, at most `max n` in
-  flight when the optional `max` clause is present (`n` a positive integer
-  literal). Without `max`, the fan-out width ceiling applies (below).
+  flight when the optional `max` clause is present. `n` is any `integer`-typed
+  expression, evaluated once at loop entry; `max` only *lowers* the in-flight
+  width, and a value exceeding the width throttle (below) clamps to it. Without
+  `max`, the throttle is the only bound.
 - **Value-producing.** The form is an expression. Its value is
   `array<Result<T, QueryError>>`, `T` the body tail type, element `i`
   corresponding to input element `i`. Plain `for` remains a statement; the
@@ -70,6 +72,15 @@ body restrictions, and value.
   (`theta/parse/par-query-in-body`). Admissible in the body: `invoke(...)`,
   `.theta` callable calls, `subagent fn` calls (RFC 0001), Pi-tool calls, and
   pure computation. Each child session is private to its iteration, as today.
+  Because this rule severs the only link between the body and the enclosing
+  conversation, the form is legal in both `prompt`- and `subagent`-mode thetas
+  — iteration isolation is independent of the enclosing theta's mode.
+- **Side effects have no defined ordering.** Pi-tool calls with observable
+  side effects (`bash`, `edit`, `write`) are admitted in the body under a
+  no-ordering guarantee: iterations carry no defined relative order, and
+  interleaved side effects, idempotency, and compensation are the author's
+  responsibility — the same no-rollback contract that already governs
+  sequential thetas (ERR-13, [Errors and results](../reference/errors-and-results.md)).
 - **No shared mutation.** Assignment to a `let mut` declared outside the body
   is a parse error (`theta/parse/par-shared-mutation`). Outer bindings and the
   loop variable are readable. `break` / `continue` are parse errors inside a
@@ -79,21 +90,36 @@ body restrictions, and value.
   task reports independently. The iteration's `Err` becomes that element's
   value. `?` inside the body propagates to the iteration's result, not out of
   the loop.
+- **Per-element panic.** A runtime panic inside an iteration (a non-exhaustive
+  `match`, an out-of-bounds index, `invoke`-depth exhaustion, etc.) does not
+  abort the theta. The iteration boundary is a panic-downgrade point: the panic
+  becomes that element's
+  `Err(QueryError { kind: "invoke_infra", cause: "panic", ... })`, siblings run
+  to completion, and the loop still yields a full array. This extends the
+  existing invoke-boundary downgrade to the iteration boundary, so a
+  pure-computation panic in a body with no `invoke` is downgraded the same way.
 - **Cancellation.** Cancelling the enclosing theta cancels in-flight
   iterations; not-yet-started iterations do not start. Cancelled elements
   carry the cancellation `Err` envelope.
-- **Ceilings.** A new hard ceiling bounds fan-out width (proposed: **64**
-  concurrently scheduled iterations; `max` may lower, not raise it). The
+- **Width throttle.** Fan-out width is bounded by a throttle of **64**
+  in-flight iterations — a throttle, not a routing-class hard ceiling. Excess
+  iterations queue and start as slots free, so a large iterand runs to
+  completion 64-at-a-time with no breach surface; the four-ceiling
+  routing-class table and the panic-uniqueness invariant are untouched. The
+  throttle applies independently to each loop, not per theta, so nesting
+  `par for` within `par for` is legal (worst-case concurrency is
+  multiplicative, 64×64). This mirrors Ceiling #1's per-chain — not
+  per-process — accounting and avoids a contended process-global counter. The
   depth-32 invoke-chain ceiling applies per iteration unchanged — sibling
   invokes already do not share depth budget
   ([Hard ceilings](../reference/hard-ceilings.md) Ceiling #1).
 - **Diagnostics drain.** Child diagnostics aggregate to the enclosing theta's
   drain grouped by input index, then by the existing `(file, line, col)`
   order — deterministic output despite nondeterministic completion order.
-- **Lexical.** `par` is not in the theta 1.0 reserved-keyword set. Proposed as
-  a contextual keyword recognised only immediately before `for`, so existing
-  identifiers named `par` do not break. (RFC 0001's `subagent` modifier has
-  the same need; the two should land with one mechanism.)
+- **Lexical.** `par` is not in the theta 1.0 reserved-keyword set. It is a
+  contextual keyword recognised only immediately before `for`, so existing
+  identifiers named `par` do not break. This RFC introduces the contextual-keyword
+  recognition mechanism; RFC 0001's `subagent` modifier reuses it when it lands.
 
 ### Relationship to RFC 0002 (computed tool arguments)
 
@@ -104,7 +130,8 @@ selection), but its result is a single freeform string and its per-task
 configuration lives outside the type system. `par for` is the language-native
 form: typed per-element results, `Result` error isolation, and no dependency
 on the host tool being in the callable set. The two are complementary, not
-competing.
+competing. `par for` also inherits RFC 0002's posture on computed arguments:
+the `max` clause admits any `integer`-typed expression, not only a literal.
 
 ## Alternatives considered
 
@@ -120,31 +147,27 @@ competing.
 - **Implicit parallelisation** of adjacent independent `invoke`s. Silent
   reordering of side effects, and "independent" is undecidable once Pi-tool
   calls (e.g. `bash`) are involved. Rejected.
-- **Heterogeneous `par { a = invoke(...), b = invoke(...) }` block.** Covers
-  the two-distinct-children case that `par for` expresses awkwardly. Deferred
-  as a follow-on; the homogeneous loop is the dominant pattern (lens fan-out,
-  per-finding fixes) and settles the scheduling, ceiling, and diagnostics
-  questions the block form would reuse.
+- **A read-only body.** Restricting the body to a side-effect-free tool subset
+  would need a new tool-capability taxonomy and would not close the transitive
+  path — an `invoke`d child can call any tool regardless. Rejected in favour of
+  the documented no-ordering guarantee above.
 
-## Open questions
+## Specification impact
 
-- Panic semantics per element: does a runtime panic inside an iteration
-  convert to that element's `Err` envelope (fully matching per-task
-  isolation), or does it fail the whole theta after in-flight siblings settle?
-  The `InvokeInfraError { cause: "panic" }` surface suggests the former is
-  already the cross-boundary convention for `invoke`d children.
-- Nesting: is `par for` inside `par for` legal, and does the width ceiling
-  apply per loop or per theta?
-- Pi-tool calls with observable side-effect ordering (`bash`, `edit`, `write`)
-  inside the body: admitted with a documented no-ordering guarantee, or
-  restricted to a read-only tool subset?
-- `max` argument: integer literal only, or any `integer`-typed expression?
-  (Literal-only mirrors the theta 1.0 posture; RFC 0002 argues against that
-  posture for tool arguments.)
-- Whether a `prompt`-mode theta may contain `par for` (children are isolated
-  either way; proposed: yes).
-- The width-ceiling value, and whether it joins the existing four hard
-  ceilings' routing-class table as a runtime panic or a recoverable `Err`.
+- **Grammar.** The `par` contextual keyword, the `max` expression clause, and
+  the parse errors `theta/parse/par-query-in-body`,
+  `theta/parse/par-shared-mutation`, and `break`/`continue`-in-body.
+- **Control flow.** `par for` scheduling, value, and body restrictions
+  ([Control flow](../spec_topics/control-flow.md)).
+- **Errors and results.** The iteration boundary as a panic-downgrade point
+  ([Errors and results](../reference/errors-and-results.md)).
+- **Hard ceilings.** The width throttle, documented explicitly as *not* a fifth
+  routing-class ceiling ([Hard ceilings](../reference/hard-ceilings.md)).
+- **Diagnostics.** New parse-error codes registered in
+  [Diagnostics](../reference/diagnostics.md).
+- **Contextual-keyword mechanism.** This RFC owns and introduces the
+  contextual-keyword recognition (recognised only immediately before `for`);
+  RFC 0001's `subagent` modifier reuses the same mechanism when it lands.
 
 ## Prior art in this repository
 
