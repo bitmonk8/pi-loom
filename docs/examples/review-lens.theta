@@ -1,0 +1,18 @@
+---
+description: Review one file and report a typed risk summary
+mode: subagent
+tools:
+  - read
+params:
+  path: string
+---
+schema Review {
+  file: string,
+  summary: string,
+  risk: "low" | "medium" | "high"
+}
+
+let review: Review = @`Read the file at ${path} and report a one-line risk summary.
+Set "file" to the path you reviewed, "summary" to the one-line finding, and "risk"
+to one of low, medium, or high.`?
+review

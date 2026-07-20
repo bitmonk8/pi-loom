@@ -121,7 +121,8 @@ Report issues against the behaviour the [Reference](./docs/reference/) defines.
 - **[Tutorial](./docs/tutorial.md)** — build your first theta, from an empty file
   to a working one.
 - **[How-to guides](./docs/how-to/)** — short recipes for specific tasks, including
-  [writing an agent loop](./docs/how-to/write-an-agent-loop.md).
+  [writing an agent loop](./docs/how-to/write-an-agent-loop.md) and
+  [fanning out in parallel](./docs/how-to/fan-out-in-parallel.md).
 - **[Reference](./docs/reference/)** — the full details: grammar, type system,
   frontmatter fields, errors and results, limits, diagnostics, and the CLI.
 </content>

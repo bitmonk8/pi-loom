@@ -1,0 +1,39 @@
+---
+description: Review several files in parallel, then reduce the per-file results
+mode: subagent
+tools:
+  - ./review-lens.theta
+---
+// The fan-out iterand. Like every `for` iterand it is evaluated exactly once, at
+// loop entry (CTRL-1). A real theta might build this list earlier in code.
+let targets = [
+  "docs/guide.md",
+  "docs/tutorial.md",
+  "docs/STYLE.md",
+]
+
+// One isolated child conversation per file, at most 2 in flight at once. `par for`
+// is an expression: its value is array<Result<Review, QueryError>> in input order,
+// regardless of which iteration finishes first. A postfix `?` in the body
+// propagates to that element's Result, not out of the loop.
+let reviews = par for path in targets max 2 {
+  review_lens(path)?
+}
+
+// Reduce the per-element Results into one report string. This is a plain `for`, so
+// mutating the outer accumulator is legal — it would be theta/parse/par-shared-mutation
+// inside the `par for` body above. Each element is handled with `match`: an `Ok`
+// carries the review, an `Err` is that element's failure and does not abort the run.
+let mut report = ""
+for r in reviews {
+  let line = match r {
+    Ok(review) => review.file + ": " + review.summary,
+    Err(QueryError { kind: "cancelled" }) => "a review was cancelled",
+    Err(other) => "a review failed: " + other.kind,
+  }
+  report = report + line + "\n"
+}
+
+@`Summarise this review batch for the user, one line per file:
+
+${report}`

@@ -61,7 +61,10 @@ only when the previous answer warrants it; a `while` can keep critiquing a draft
 until the model reports it is satisfied. The theta alternates between code (parse,
 branch, loop) and model turns for as long as it needs. There is no single
 emission buffer flushed at the end — each query is its own turn, and its result
-feeds back into code.
+feeds back into code. The sequential loops have a parallel counterpart: `par for`
+runs its body concurrently for each element of an array and collects one typed
+`Result` per element, for embarrassingly-parallel fan-out over isolated child work
+(see [How to fan out in parallel](./how-to/fan-out-in-parallel.md)).
 
 For the query forms, schema inference, and the `respond_repair` loop, see the
 [grammar](./reference/grammar.md#-operator) and the
