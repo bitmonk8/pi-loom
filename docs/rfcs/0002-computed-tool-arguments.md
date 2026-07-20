@@ -1,6 +1,6 @@
 # RFC 0002 — Computed field values in Pi-tool arguments
 
-- **Status:** draft
+- **Status:** accepted
 - **Scope:** theta 1.x language surface (governed by
   `../spec_topics/governance/release-version-naming.md`)
 - **Affects:** grammar (literal sublanguage carve-out), diagnostics, runtime
@@ -86,14 +86,26 @@ ToolField  ::= Ident ":" Expr
   tool is not dispatched.
 - **Validation unchanged.** The runtime AJV check against the tool's
   registered input schema remains the enforcement point, surfacing as
-  `Err(CodeToolError { cause: "validation", ... })`. As a diagnostics
-  enhancement — not required for soundness — the parser MAY emit a best-effort
-  parse-time warning when a field expression's static type contradicts the
-  tool's input schema mapped through the
-  [schema subset](../reference/schema-subset.md).
+  `Err(CodeToolError { cause: "validation", ... })`.
+- **Parse-time disjointness error.** The parser emits an *error*-severity
+  diagnostic when a field expression's static type is **provably disjoint**
+  from the tool's input schema for that field, mapped through the
+  [schema subset](../reference/schema-subset.md). *Provably disjoint* means the
+  accepted-value sets of the mapped static type and the schema type have empty
+  intersection under the subset mapping. This is sound: a provable disjointness
+  guarantees the runtime AJV check would reject the same value, so the parse
+  error only front-runs a certain `Err(CodeToolError { cause: "validation" })`.
+  Anything the schema subset cannot represent — formats, patterns, numeric
+  refinements, a widened union with at least one satisfiable arm — is **not**
+  provable and MUST fall through to the runtime AJV check rather than erroring.
+  The check therefore never rejects a program AJV would accept. It is scoped to
+  provable disjointness only; a merely-suspicious or narrowing mismatch is not
+  a parse error.
 - **Diagnostics.** `theta/parse/tool-arg-not-literal` is retired for Pi-tool
-  call sites. `theta/parse/default-not-literal` (the `params:`-default arm of
-  the literal sublanguage) is unaffected.
+  call sites (a DIAG-2 code removal). A new *error*-severity code is added
+  (DIAG-2 code addition) for the provable-disjointness case above.
+  `theta/parse/default-not-literal` (the `params:`-default arm of the literal
+  sublanguage) is unaffected.
 - **`params:` defaults stay literal-only.** Defaults evaluate at load time
   with no scope in view; there is nothing to compute against. Out of scope.
 
@@ -119,20 +131,35 @@ ToolField  ::= Ident ":" Expr
   Addresses one tool; the restriction is positional, not tool-specific.
   Rejected.
 
-## Open questions
+## Resolved decisions
 
-- Should the best-effort parse-time schema check ship with the change or land
-  separately? If it ships, warning or error severity for a provable mismatch?
-- Is `${...}` interpolation admitted only inside string-typed field values, or
-  is a full-string field value of interpolated type checked like any other
-  expression? (Proposed: the latter — interpolation is an ordinary string
-  expression; no special casing.)
-- Does the retirement of `theta/parse/tool-arg-not-literal` require a
-  deprecation window under the 1.x versioning governance, or is removing a
-  parse *rejection* (strictly widening the accepted grammar) additive by
-  definition?
-- Whether `.theta` callable call sites need any change. (Proposed: none —
-  they already take full expressions positionally.)
+The four questions raised during drafting are resolved as follows.
+
+- **Versioning — additive, lands in theta 1.x, no deprecation window.**
+  Retiring `theta/parse/tool-arg-not-literal` strictly widens the accepted
+  grammar. Files that trip the diagnostic today emit an *error* and so fall
+  outside GOV-15's loads-cleanly input set
+  ([Source-language stability](../spec_topics/governance/source-language-stability.md#gov-15-loads-cleanly));
+  the change alters behaviour only for programs the equivalence promise never
+  covered. The diagnostic-registry carve-out
+  ([GOV-15 — diagnostic-registry carve-out](../spec_topics/governance/source-language-stability.md#diagnostic-registry-carve-out))
+  admits the code removal within a theta 1.x minor as a DIAG-2 code removal,
+  in-scope for exactly the inputs that previously emitted it.
+- **Parse-time schema check — ships with this change, error severity, scoped
+  to provable disjointness.** See *Parse-time disjointness error* under
+  *Proposal*. The soundness invariant — the error fires only when the mapped
+  static type and the schema are provably disjoint under the schema subset, and
+  everything the subset cannot represent falls through to the runtime AJV
+  check — guarantees no valid program is rejected.
+- **`${...}` interpolation — ordinary string expression, no special-casing.**
+  Interpolation yields a `string` under normal expression semantics and is
+  type-checked (and subjected to the disjointness check above) identically to
+  any other field expression. No string-typed-field restriction.
+- **`.theta` callable call sites — no change.** They already take their
+  `params:` as already-typed values positionally; the literal-sublanguage rule
+  was never on the `.theta` arm
+  ([Tool Calls — Argument shape](../spec_topics/tool-calls.md)). The lifted
+  restriction is Pi-tool-specific.
 
 ## Prior art in this repository
 
