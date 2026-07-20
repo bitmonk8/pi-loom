@@ -1,6 +1,6 @@
 # RFC 0001 — `subagent fn`: in-file subagent callables
 
-- **Status:** draft
+- **Status:** accepted
 - **Scope:** theta 1.x language surface (governed by
   `../spec_topics/governance/release-version-naming.md`)
 - **Affects:** grammar, type system, runtime dispatch, diagnostics
@@ -106,67 +106,81 @@ new element is the per-call session boundary in the middle of a file.
   `subagent fn` cannot reference itself, so a single such function introduces no
   unbounded recursion.
 - **Not discoverable.** A `subagent fn` is never slash-discoverable and never a
-  `tools:` entry; it is reachable only by call from within its own file. Discovery,
-  slash registration, and `.thetalib` import rules are unchanged.
+  `tools:` entry; it is reachable only by call from within its own file (or, when
+  declared in a `.thetalib`, from an importer — see *Library helpers* below).
+  Discovery, slash registration, and `.thetalib` import rules are otherwise
+  unchanged.
+- **Callable from `mode: prompt`.** A `subagent fn` may be called from a
+  prompt-mode theta. This is exactly the `prompt → subagent` cell of the cross-mode
+  invocation matrix ([Invocation — Cross-mode semantics](../spec_topics/invocation.md)):
+  the spawned child is always a fresh isolated conversation and only its return
+  value reaches the caller. The load-time rejection of prompt-mode *callees*
+  (`theta/load/prompt-mode-callable`) does not apply — a `subagent fn` body is
+  always a subagent session, so it is the safe direction, never the interleaved one.
 
 ### Session configuration
 
-The open design question is where the spawned session's configuration comes from —
-`system`, `model`, `tools` (callable set), `tool_loop`, `respond_repair`. Two
-sub-options, presented for the reviewer to choose between:
+A `subagent fn`'s spawned session takes its configuration — `system`, `model`,
+`tools` (callable set), `tool_loop`, `respond_repair` — from the enclosing theta by
+default. An optional `with { … }` clause overrides any subset of those keys for
+that function's session:
 
-- **B1 — inherit.** The `subagent fn` inherits the enclosing theta's configuration.
-  Simplest to specify and implement; the callable set and model are shared, and no
-  new syntax is introduced. The cost: the body cannot narrow its callable set or
-  set its own `system` prompt.
-- **B2 — per-function config.** A small config clause, e.g.
-  `subagent fn step(objective: string) with { tools: [read, bash], system: "…" } { … }`.
-  Expressive, but introduces frontmatter-equivalent parsing, validation, and
-  diagnostics in a new position. Recommended only if inheritance proves too
-  restrictive in practice.
+```theta
+subagent fn step(objective: string) with { tools: [read, bash], system: "…" } {
+  @`Objective: ${objective}. …`?
+}
+```
 
-The recommendation is to ship **B1** first and treat **B2** as a follow-on once
-demand for per-function configuration is demonstrated.
+- **Default is inheritance.** With no `with` clause, the spawned session mirrors the
+  enclosing theta's configuration; an unconfigured `subagent fn` behaves like its
+  parent with a fresh conversation. This keeps the common case syntax-free.
+- **`with { … }` overrides per key.** Keys named in the clause replace the inherited
+  value; keys omitted still inherit. The clause is validated at load time against
+  the same rules that govern the corresponding frontmatter fields, and reuses those
+  fields' diagnostics rather than coining parallel codes.
+- **`with { system: … }` is legitimate from a prompt-mode theta.** A prompt-mode
+  theta cannot carry `system:` in its own frontmatter (`theta/parse/system-on-prompt-mode`)
+  because it has no private conversation — but a `subagent fn` declared inside it
+  *does* have a private spawned session, so setting its `system` prompt is
+  well-defined and useful precisely where the enclosing theta cannot.
 
-## Alternatives considered
+### Library helpers
 
-- **Anonymous `subagent { … }` expression.** An inline block with no name.
-  Equivalent isolation, but it must answer the same configuration question as B2
-  and additionally define argument passing for an unnamed block. A named
-  `subagent fn` reuses the entire existing `fn` argument/return story and reads
-  more clearly at the call site. Rejected in favour of the named form.
-- **Inline lambda passed to a builtin**, e.g. `invoke_inline(() => { … })`.
-  Requires first-class functions and closures, which the language explicitly
-  excludes (`theta/parse/function-as-value`; arrow functions and higher-order forms
-  are unsupported). Rejected: it contradicts a standing language decision.
-- **A context-reset primitive** (a `for … fresh { … }` loop, or `reset_context()`)
-  that clears the *current* theta's history between iterations instead of spawning
-  a child. This is a different feature: same session cleared, not an isolated
-  child — so no private transcript, no independent `system`/`model`, and no typed
-  return across a boundary. Out of scope for this RFC; recorded here so it is not
-  conflated with subagent isolation.
+The `subagent` modifier is admissible on a `.thetalib` `fn`, giving a shared,
+properly isolated in-library helper. This is the `.thetalib` counterpart of the
+existing rule that an `invoke` of a subagent-mode callee from a library function
+"spawns a fresh isolated one" ([Imports](../spec_topics/imports.md)):
 
-## Open questions
+- **Queries target a fresh spawned session** regardless of which theta imported the
+  helper. Isolation is the point, so the "which conversation" question has one
+  unambiguous answer — unlike an ordinary `.thetalib` `fn`, whose queries run against
+  the calling theta's conversation and therefore provide no isolation.
+- **Inheritance resolves against the calling theta.** With no `with` clause, the
+  spawned session inherits the *calling* theta's configuration — the same anchor as
+  the existing "calling theta's conversation" rule for library functions.
+- **`with { tools: [ … ] }` resolves against the calling theta's callable set.** A
+  `.thetalib` has no frontmatter `tools:` declaration of its own, so tool names in a
+  library helper's `with` clause must resolve against the calling theta's callable
+  set; a name not present there is a load/runtime error through the existing
+  callable-resolution channel.
 
-- B1 vs B2 for session configuration (see above).
-- Does a `subagent fn` inherit `tool_loop` / `respond_repair` from the enclosing
-  theta, or take the theta 1.0 defaults? Inheritance is the proposed default under
-  B1.
-- Diagnostics: a body that fails to parse or type-check is a load-time error in the
-  enclosing file. Confirm the code reuses or mirrors `theta/load/callee-has-errors`
-  rather than coining a parallel inline code.
-- Interaction with `mode: prompt`. A `subagent fn` spawns a subagent regardless of
-  the enclosing theta's mode; confirm this is admissible from a prompt-mode theta, or
-  restrict it.
-- Whether the `subagent` modifier is also admissible on a `.thetalib` `fn` (a shared
-  in-library subagent helper), and if so, which conversation its queries target
-  when imported.
+## Diagnostics
+
+A `subagent fn` body that fails to parse or type-check is a load-time error in the
+enclosing file, reported through the existing `theta/load/callee-has-errors` code
+rather than a new inline-specific code — a `subagent fn` is a callee with errors,
+just an inline one. The diagnostic's message rendering handles the inline case,
+where the "callee" is a function name in the same file rather than a separate
+`.theta` path.
 
 ## Prior art in this repository
 
 - Isolation, typed return, and depth accounting:
   [Return a typed value across a subagent boundary](../how-to/return-a-typed-value-across-a-subagent-boundary.md),
   [Hard ceilings](../reference/hard-ceilings.md).
+- The cross-mode invocation matrix and the `.thetalib` subagent-callee rule this RFC
+  builds on: [Invocation](../spec_topics/invocation.md),
+  [Imports](../spec_topics/imports.md).
 - The pattern this RFC serves:
   [How to write an agent loop](../how-to/write-an-agent-loop.md).
 - `fn` grammar and return-type inference: [Grammar](../reference/grammar.md),

@@ -21,6 +21,6 @@ shipped behaviour until specified and implemented.
 
 ## Index
 
-- [0001 — `subagent fn`: in-file subagent callables](./0001-subagent-fn.md) — draft
+- [0001 — `subagent fn`: in-file subagent callables](./0001-subagent-fn.md) — accepted
 - [0002 — Computed field values in Pi-tool arguments](./0002-computed-tool-arguments.md) — accepted
 - [0003 — `par for`: structured parallel fan-out](./0003-parallel-fanout.md) — accepted
