@@ -1,6 +1,7 @@
 # RFC 0002 — Computed field values in Pi-tool arguments
 
 - **Status:** accepted
+- **Implemented:** v0.5.0
 - **Scope:** theta 1.x language surface (governed by
   `../spec_topics/governance/release-version-naming.md`)
 - **Affects:** grammar (literal sublanguage carve-out), diagnostics, runtime
