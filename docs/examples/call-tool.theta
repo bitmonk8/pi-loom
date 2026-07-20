@@ -3,5 +3,8 @@ description: Count TODO markers under src
 mode: subagent
 tools: grep
 ---
-let hits = grep({ pattern: "TODO", path: "src" })?
+// A Pi-tool argument's field values are full expressions (RFC 0002), not only
+// literals: `path` here is a let-bound identifier reference, passed directly.
+let root = "src"
+let hits = grep({ pattern: "TODO", path: root })?
 @`How many TODO markers appear in this grep output? ${hits}`

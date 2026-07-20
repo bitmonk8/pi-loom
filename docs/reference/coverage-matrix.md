@@ -30,7 +30,10 @@ drafting, live validation exposed four production defects, since fixed:
   Fixed: live resolvers built and composed.
 - **core-exec-eval** — the body executor did not evaluate `?`/`match`/member
   access/index/object literals. Fixed: parser productions + executor dispatch;
-  binder-bound `params:` now reach body scope; tool-arg object literals lower.
+  binder-bound `params:` now reach body scope; tool-arg object literals lower —
+  and per RFC 0002 their field values are full Theta expressions (not literal-only):
+  `theta/parse/tool-arg-not-literal` is retired and `theta/parse/tool-arg-schema-conflict`
+  / `theta/parse/tool-arg-not-object-literal` are added.
 
 Validation hygiene: ambient `pi --theta` discovery may load a STALE global git
 extension (`~/.pi/agent/git/.../pi-theta`) behind the working tree. Validate the

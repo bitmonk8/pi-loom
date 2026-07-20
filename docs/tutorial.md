@@ -210,7 +210,10 @@ description: Count TODO markers under src
 mode: subagent
 tools: grep
 ---
-let hits = grep({ pattern: "TODO", path: "src" })?
+// A Pi-tool argument's field values are full expressions (RFC 0002), not only
+// literals: `path` here is a let-bound identifier reference, passed directly.
+let root = "src"
+let hits = grep({ pattern: "TODO", path: root })?
 @`How many TODO markers appear in this grep output? ${hits}`
 ```
 
@@ -219,8 +222,10 @@ What is new:
 - `tools: grep` puts the `grep` Pi tool in this theta's callable set. The host
   session's ambient tools are not inherited; a theta sees only what its `tools:`
   declares.
-- `grep({ pattern: "TODO", path: "src" })` is a code-driven tool call. The single
-  object argument matches the tool's input schema. The call returns a
+- `grep({ pattern: "TODO", path: root })` is a code-driven tool call. The single
+  object argument's **shape** is a bare object literal matching the tool's input
+  schema; its **field values** are full Theta expressions, so `path` takes the
+  `let`-bound `root` directly rather than a literal. The call returns a
   `Result`; the `?` unwraps it (or early-returns on failure).
 - `hits` — the tool's output — is then interpolated into a query, so the model
   reasons over a value that deterministic code produced.

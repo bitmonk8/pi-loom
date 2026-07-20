@@ -24,7 +24,7 @@ the distinction from an `@`...`` query.
 ## Working example
 
 [`docs/examples/call-tool.theta`](../examples/call-tool.theta) greps the tree from
-code, then feeds the result into a query:
+code with a computed `path` field, then feeds the result into a query:
 
 ```theta
 ---
@@ -32,7 +32,10 @@ description: Count TODO markers under src
 mode: subagent
 tools: grep
 ---
-let hits = grep({ pattern: "TODO", path: "src" })?
+// A Pi-tool argument's field values are full expressions (RFC 0002), not only
+// literals: `path` here is a let-bound identifier reference, passed directly.
+let root = "src"
+let hits = grep({ pattern: "TODO", path: root })?
 @`How many TODO markers appear in this grep output? ${hits}`
 ```
 
