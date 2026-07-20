@@ -701,6 +701,49 @@ class TypeLayerWalk {
       case "result-ctor":
         this.walkExpr(e.arg, bindings, flow);
         return;
+      case "par-for": {
+        // CTRL-2 / grammar.md: the iterand reuses the `for` contract — a
+        // non-`array<T>` iterand is `theta/parse/non-array-iterand`.
+        const iterDiag = checkForIterand(
+          { type: this.typeOf(e.iterand, bindings) },
+          { file: this.file, range: e.iterand.range },
+        );
+        if (iterDiag !== undefined) {
+          this.diagnostics.push(iterDiag);
+        }
+        this.walkExpr(e.iterand, bindings, flow);
+        // The `max` operand is an integer sink: a fractional / `number` operand
+        // narrows to the existing `theta/parse/integer-narrowing` diagnostic.
+        if (e.max !== null) {
+          const r = checkCompatible(
+            this.typeOf(e.max, bindings),
+            { kind: "prim", name: "integer" },
+            this.env,
+          );
+          if (r === "integer-narrowing") {
+            this.diagnostics.push({
+              severity: "error",
+              code: "theta/parse/integer-narrowing",
+              file: this.file,
+              range: e.max.range,
+              message: "cannot narrow number to integer",
+            });
+          }
+          this.walkExpr(e.max, bindings, flow);
+        }
+        // Bind the fresh immutable loop variable to the iterand element type so
+        // body checks resolve it, then walk the body.
+        const iterandType = this.typeOf(e.iterand, bindings);
+        const inner = new Map(bindings);
+        inner.set(
+          e.variable,
+          iterandType.kind === "array"
+            ? iterandType.element
+            : { kind: "named", name: "unknown" },
+        );
+        this.walkBlock(e.body, inner, flow);
+        return;
+      }
       default:
         // ident / number / string / bool / null / query — no nested checks.
         return;

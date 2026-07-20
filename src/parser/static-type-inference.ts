@@ -27,7 +27,7 @@
 // functions.md. Closes no new spec REQ-ID.
 
 import type { Block, Expr, IfStmt, ThetaBody, Stmt } from "./theta-document";
-import type { CompatType, Compatibility, TypeEnv } from "./type-compat";
+import { displayType, type CompatType, type Compatibility, type TypeEnv } from "./type-compat";
 
 /**
  * The `V2b` type-compatibility engine (`⊑`) as an injectable seam: the directed
@@ -260,6 +260,31 @@ export class StaticTypeInferencePass {
         return { kind: "named", name: node.ctor };
       case "method-call":
         return { kind: "named", name: node.method };
+      case "par-for": {
+        // CTRL-3: the value of a `par for` is `array<Result<U, QueryError>>`,
+        // `U` the body tail type (absent tail → `null`). `CompatType` has no
+        // dedicated `Result` shape, so the element is rendered as a nominal
+        // reference naming `Result<U, QueryError>`; the outer `array` is the
+        // stable, representation-independent surface the checkers consume.
+        const iterandType = this.#typeExpr(node.iterand, env, bindings);
+        const elementType: CompatType =
+          iterandType.kind === "array"
+            ? iterandType.element
+            : { kind: "named", name: "unknown" };
+        const inner = new Map(bindings);
+        inner.set(node.variable, elementType);
+        const tailType: CompatType =
+          node.body.tail !== null
+            ? this.#typeExpr(node.body.tail, env, inner)
+            : { kind: "literal", typesAs: "null" };
+        return {
+          kind: "array",
+          element: {
+            kind: "named",
+            name: `Result<${displayType(tailType)}, QueryError>`,
+          },
+        };
+      }
     }
   }
 

@@ -575,9 +575,21 @@ class ParForHost implements StatementEvalHost {
     }
   }
 
-  /** The effect payload: the first argument expression evaluated against env. */
+  /**
+   * The effect payload: the first *data* argument expression evaluated against
+   * env. An `InvokeExpr`'s `args[0]` is the callee path literal (data arguments
+   * are `args.slice(1)`), whereas a `CallExpr`'s `args[0]` is already the first
+   * data argument — so the first data argument is `args[1]` for `invoke` and
+   * `args[0]` for `call`. (Harness fix: the earlier form read `args[0]` for
+   * both, which yielded the constant callee path for every `invoke` iteration
+   * rather than the per-iteration loop element.)
+   */
   #payloadOf(expr: Expr, env: LexicalEnvironment): ThetaValue {
-    if (expr.kind === "invoke" || expr.kind === "call") {
+    if (expr.kind === "invoke") {
+      const first = expr.args[1];
+      return first === undefined ? null : this.#eval(first, env);
+    }
+    if (expr.kind === "call") {
       const first = expr.args[0];
       return first === undefined ? null : this.#eval(first, env);
     }

@@ -16,6 +16,7 @@ Use the REQ-ID prefix table in [`../spec_topics/governance.md`](../spec_topics/g
 |---|---|
 | TYPE-1 … TYPE-11 | `V2b` |
 | CTRL-1 | `V3c` |
+| CTRL-2 … CTRL-5 | RFC 0003 (`par for`) |
 | FN-1 … FN-5 | `V3d` |
 | RET-1 … RET-3 | `V3d` |
 | ERR-1 … ERR-6 | `V4e` |
@@ -28,6 +29,7 @@ Use the REQ-ID prefix table in [`../spec_topics/governance.md`](../spec_topics/g
 | ERR-17 | `V4d`, `V13d` |
 | ERR-18 | `V4a` |
 | ERR-19 | `V4d`, `V13c` |
+| ERR-20 | RFC 0003 (`par for`) |
 | SUBS-1 | `V5f` |
 | BNDR-1, BNDR-2, BNDR-3 | `V11c` |
 | BNDR-4, BNDR-5 | `V2d` |

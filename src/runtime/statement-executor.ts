@@ -38,6 +38,7 @@ import type {
   FnDecl,
   ForStmt,
   IfStmt,
+  ParForExpr,
   ThetaBody,
   MatchExpr,
   PatternNode,
@@ -46,8 +47,12 @@ import type {
   WhileStmt,
 } from "../parser/theta-document";
 import type { Checkpoint, CheckpointKind, CheckpointSite } from "../seams/checkpoint";
+import type { Diagnostic } from "../diagnostics/diagnostic";
+import { assembleDiagnostics } from "../diagnostics/diagnostic";
 import type { CancellableStatement, OperationResult } from "./cancellation-core";
-import { runCancellableSequence } from "./cancellation-core";
+import { makeCancelledError, runCancellableSequence } from "./cancellation-core";
+import { isThetaPanic } from "./runtime-panics";
+import type { QueryError } from "./query-error";
 import { evaluateForLoop, type ForLoopHost } from "./control-flow";
 import { functionResult, type FunctionResult, type TerminalOutcome } from "./function-result";
 import type { LexicalEnvironment } from "./lexical-environment";
@@ -127,6 +132,19 @@ export interface StatementEvalHost {
    * where every checkpointed call is a code tool).
    */
   classifyCall?(expr: CallExpr, env: LexicalEnvironment): "pi-tool" | "theta-callable";
+  /**
+   * RFC 0003 (`par for`) child-diagnostic drain sink. At a `par for` join —
+   * after all iterations settle — the executor calls this once per input index
+   * in ASCENDING index order, each call carrying that iteration's child
+   * diagnostics in the existing `(file, line, col)` order, so the
+   * nondeterministic completion order becomes the deterministic
+   * (input-index, then (file,line,col)) drain order (control-flow.md CTRL-3).
+   * Optional: a host that does not aggregate child diagnostics omits it.
+   */
+  drainChildDiagnostics?(
+    index: number,
+    diagnostics: readonly Diagnostic[],
+  ): void;
 }
 
 /**
@@ -411,6 +429,11 @@ async function evalExpr(expr: Expr, env: LexicalEnvironment, deps: ExecuteBodyDe
   }
   if (expr.kind === "match") {
     return evalMatch(expr, env, deps);
+  }
+  // RFC 0003 `par for`: fan the body out concurrently over the iterand snapshot
+  // and collect one `Result` per element into an input-index-ordered array.
+  if (expr.kind === "par-for") {
+    return evalParFor(expr, env, deps);
   }
   // A `<name>(args)` call whose callee resolves to a user `fn` executes the
   // function body in-process (FN-1…FN-5); it is not a host tool-call / invoke
@@ -903,6 +926,274 @@ function toRuntimePattern(pattern: PatternNode): Pattern {
     case "array":
       return { kind: "array", elements: pattern.elements.map(toRuntimePattern) };
   }
+}
+
+// ---------------------------------------------------------------------------
+// RFC 0003 — `par for` parallel fan-out
+// ---------------------------------------------------------------------------
+
+/**
+ * The `par for` in-flight width throttle (control-flow.md CTRL-2 /
+ * hard-ceilings.md #par-for-width-throttle): at most 64 iterations in flight
+ * per loop. It is a per-loop scheduling bound, NOT a routing-class ceiling
+ * (NOCEIL-5): reaching it queues rather than breaches.
+ */
+const PAR_FOR_THROTTLE = 64;
+
+/** The outcome of one `par for` iteration body evaluation. */
+type ParForIterationOutcome =
+  | {
+      readonly kind: "result";
+      readonly result: ResultValue;
+      readonly diagnostics: readonly Diagnostic[] | undefined;
+    }
+  | { readonly kind: "whole-theta-cancel" };
+
+/**
+ * Build the element `Err` for a `par for` iteration panic (ERR-20 downgrade).
+ * For the no-invoke case the enclosing `.theta` source file names the
+ * `callee_path` (there is no invoked callee to name).
+ */
+function parForPanicError(thrown: unknown, file: string): QueryError {
+  const message =
+    thrown instanceof Error ? thrown.message : String(thrown);
+  return {
+    kind: "invoke_infra",
+    cause: "panic",
+    message,
+    callee_path: file,
+  };
+}
+
+/**
+ * Evaluate one `par for` iteration: bind the fresh immutable loop variable, run
+ * the body through the SAME executor / effect host (so each iteration's effects
+ * route through `runEffect` and its depth-32 invoke ceiling applies unshared),
+ * and normalise the body outcome to that element's `Result` (CTRL-5):
+ *   - a body tail value `U` → `Ok(U)`;
+ *   - a `?`-propagated / unhandled effect `Err` → that element's `Err` (does
+ *     NOT propagate out of the loop);
+ *   - a per-element cancellation (enclosing signal un-aborted) → `Err(cancelled)`;
+ *   - a whole-theta cancellation (enclosing signal aborted) → the
+ *     `whole-theta-cancel` sentinel, handled by the caller;
+ *   - a runtime panic (thrown) → `Err(invoke_infra, cause:"panic")` (ERR-20).
+ * Child diagnostics attached to the iteration's effect results
+ * (`OperationResult.childDiagnostics`) are collected for the CTRL-3 join drain.
+ */
+async function runParForIteration(
+  expr: ParForExpr,
+  element: ThetaValue,
+  env: LexicalEnvironment,
+  deps: ExecuteBodyDeps,
+): Promise<ParForIterationOutcome> {
+  const scope = env.bindIterationVariable(expr.variable, element);
+  const collectedDiagnostics: Diagnostic[] = [];
+  const baseHost = deps.host;
+  // Wrap the host so each effect result's optional `childDiagnostics` transport
+  // is captured for this iteration (RFC 0003 obligation (A)).
+  const iterationHost: StatementEvalHost = {
+    evaluatePure: (e, en) => baseHost.evaluatePure(e, en),
+    checkpointFor: (e) => baseHost.checkpointFor(e),
+    runEffect: async (e, en, args) => {
+      const result = await baseHost.runEffect(e, en, args);
+      const childDiagnostics = (
+        result as { readonly childDiagnostics?: readonly Diagnostic[] }
+      ).childDiagnostics;
+      if (childDiagnostics !== undefined) {
+        collectedDiagnostics.push(...childDiagnostics);
+      }
+      return result;
+    },
+    ...(baseHost.classifyCall !== undefined
+      ? { classifyCall: baseHost.classifyCall.bind(baseHost) }
+      : {}),
+  };
+  const iterationDeps: ExecuteBodyDeps = { ...deps, host: iterationHost };
+
+  let flow: Flow;
+  try {
+    flow = await executeBlock(expr.body, scope, iterationDeps);
+  } catch (thrown) { // allow-broad-catch: ERR-20 — errors-and-results.md#err-20
+    // ERR-20 panic-downgrade boundary. A host-fatal (NOCEIL-3) is uncatchable
+    // and terminates the process before reaching here, so any thrown value at
+    // this boundary is a per-iteration panic downgraded to that element's Err;
+    // siblings run to completion and the loop still yields a full array.
+    return {
+      kind: "result",
+      result: makeErr(parForPanicError(thrown, deps.file) as unknown as ThetaValue),
+      diagnostics:
+        collectedDiagnostics.length > 0 ? collectedDiagnostics : undefined,
+    };
+  }
+
+  // Computed after the body ran, so it reflects every effect's captured
+  // `childDiagnostics` transport (not the empty pre-run snapshot).
+  const diagnostics =
+    collectedDiagnostics.length > 0 ? collectedDiagnostics : undefined;
+
+  switch (flow.kind) {
+    case "normal":
+    case "return":
+      return { kind: "result", result: makeOk(flow.value), diagnostics };
+    case "break":
+    case "continue":
+      // Barred by the parser (par-break-continue); defensively a no-value Ok.
+      return { kind: "result", result: makeOk(null), diagnostics };
+    case "propagate":
+      // A `?` inside the body propagates to THIS iteration's result (CTRL-5).
+      return { kind: "result", result: makeErr(flow.err), diagnostics };
+    case "fail":
+      return { kind: "result", result: makeErr(flow.error), diagnostics };
+    case "cancel":
+      if (deps.signal.aborted) {
+        // Whole-theta cancellation: terminal, no per-element value flows.
+        return { kind: "whole-theta-cancel" };
+      }
+      // Per-element cancellation within the run-to-completion model: the
+      // iteration's child work was cancelled but the enclosing theta is NOT
+      // aborted, so it becomes that element's Err(cancelled) (CTRL-5).
+      return {
+        kind: "result",
+        result: makeErr(makeCancelledError() as unknown as ThetaValue),
+        diagnostics,
+      };
+  }
+}
+
+/**
+ * Evaluate a `par for` expression (RFC 0003; control-flow.md CTRL-1…CTRL-5).
+ * The iterand is snapshotted once at loop entry (CTRL-1); the body is scheduled
+ * concurrently per element, at most `min(max ?? 64, 64)` in flight through a
+ * bounded worker pool (CTRL-2); one `Result` per element is collected into an
+ * input-index-ordered `array<Result<T, QueryError>>` (CTRL-3). Iterations run to
+ * completion independently (CTRL-5): a per-element `Err` / panic does not cancel
+ * siblings. Whole-theta cancellation (the enclosing signal fires) is terminal:
+ * in-flight iterations are cancelled, not-yet-started iterations do not start,
+ * and no final value flows.
+ */
+async function evalParFor(
+  expr: ParForExpr,
+  env: LexicalEnvironment,
+  deps: ExecuteBodyDeps,
+): Promise<EvalResult> {
+  // CTRL-1 — evaluate the iterand exactly once at loop entry. A non-checkpointed
+  // iterand (a binding, an array literal, a member access — the common case) is
+  // pure synchronous work, so it is evaluated through the pure host in one call
+  // (no per-element microtask), which keeps the fan-out's first scheduled batch
+  // reaching the effect host promptly rather than trailing the snapshot build.
+  // A checkpointed iterand (a bare `invoke` / `.theta` call / `@`-query as the
+  // iterand) is dispatched through the effect path so its effect commits once
+  // at loop entry (CTRL-1).
+  let iterandValue: ThetaValue;
+  if (deps.host.checkpointFor(expr.iterand) === null) {
+    iterandValue = deps.host.evaluatePure(expr.iterand, env);
+  } else {
+    const iterand = await evalExpr(expr.iterand, env, deps);
+    if (iterand.flow !== "value") {
+      return iterand;
+    }
+    iterandValue = iterand.value;
+  }
+  const snapshot: readonly ThetaValue[] = Array.isArray(iterandValue)
+    ? iterandValue
+    : [];
+
+  // CTRL-2 — resolve the in-flight width: `max` (evaluated once at loop entry)
+  // only lowers the width, and the 64 throttle is the hard upper bound; a `max`
+  // above the throttle clamps to it, a `max` below it lowers to it.
+  let width = PAR_FOR_THROTTLE;
+  if (expr.max !== null) {
+    const maxResult = await evalExpr(expr.max, env, deps);
+    if (maxResult.flow !== "value") {
+      return maxResult;
+    }
+    const requested =
+      typeof maxResult.value === "number" ? Math.floor(maxResult.value) : PAR_FOR_THROTTLE;
+    width = Math.max(1, Math.min(requested, PAR_FOR_THROTTLE));
+  }
+
+  const n = snapshot.length;
+
+  // CTRL-5 — whole-theta cancellation already fired at loop entry: no iteration
+  // starts and the terminal outcome is Cancelled with no final value.
+  if (deps.signal.aborted) {
+    handlePartialTerminalOutcome(
+      { path: "cancelled", mode: deps.mode, committed: [] },
+      deps.mutator,
+    );
+    return { flow: "cancel" };
+  }
+
+  const results: (ResultValue | undefined)[] = new Array(n);
+  const childDiagnostics: (readonly Diagnostic[] | undefined)[] = new Array(n);
+  let wholeThetaCancelled = false;
+  let nextIndex = 0;
+
+  // A bounded worker pool: `min(width, n)` workers each pull the next input
+  // index, run its iteration to completion, and record the result at that
+  // index. Index claiming is synchronous (no await between read and
+  // increment), so each element dispatches exactly once (CTRL-1).
+  const worker = async (): Promise<void> => {
+    for (;;) {
+      if (wholeThetaCancelled) {
+        return;
+      }
+      // Not-yet-started iterations do not start once the signal fires (CTRL-5).
+      if (deps.signal.aborted) {
+        wholeThetaCancelled = true;
+        return;
+      }
+      const index = nextIndex;
+      if (index >= n) {
+        return;
+      }
+      nextIndex += 1;
+      const element = snapshot[index] as ThetaValue;
+      const outcome = await runParForIteration(expr, element, env, deps);
+      if (outcome.kind === "whole-theta-cancel") {
+        wholeThetaCancelled = true;
+        return;
+      }
+      results[index] = outcome.result;
+      childDiagnostics[index] = outcome.diagnostics;
+    }
+  };
+
+  const workerCount = Math.min(width, n);
+  const workers: Promise<void>[] = [];
+  for (let i = 0; i < workerCount; i += 1) {
+    workers.push(worker());
+  }
+  await Promise.all(workers); // allow: CTRL-2 — control-flow.md#par-for
+
+  // CTRL-5 — whole-theta cancellation observed (pre- or mid-flight): terminal
+  // Cancelled outcome, no partial array surfaced as a value.
+  if (wholeThetaCancelled || deps.signal.aborted) {
+    handlePartialTerminalOutcome(
+      { path: "cancelled", mode: deps.mode, committed: [] },
+      deps.mutator,
+    );
+    return { flow: "cancel" };
+  }
+
+  // CTRL-3 — drain child diagnostics grouped by input index (ascending), then
+  // by the existing (file, line, col) order.
+  const sink = deps.host.drainChildDiagnostics;
+  if (sink !== undefined) {
+    for (let index = 0; index < n; index += 1) {
+      const diags = childDiagnostics[index];
+      if (diags !== undefined && diags.length > 0) {
+        sink.call(deps.host, index, assembleDiagnostics([diags]));
+      }
+    }
+  }
+
+  // CTRL-3 — the value is the input-index-ordered array of per-element Results.
+  const collected: ThetaValue[] = new Array(n);
+  for (let index = 0; index < n; index += 1) {
+    collected[index] = results[index] ?? makeOk(null);
+  }
+  return { flow: "value", value: collected };
 }
 
 // ---------------------------------------------------------------------------

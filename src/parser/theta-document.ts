@@ -276,6 +276,24 @@ export interface MethodCallExpr extends NodeBase {
 }
 
 /**
+ * A `par for` parallel fan-out expression (RFC 0003; control-flow.md #par-for,
+ * grammar.md `ParForExpr`). The value-producing counterpart of the `for`
+ * statement: it evaluates its `body` concurrently for each element of `iterand`
+ * and collects one `Result` per element in input order
+ * (`array<Result<U, QueryError>>`, `U` the body tail type). `max` is the
+ * optional `MaxClause` width operand (any integer-typed expression) or `null`.
+ * `par` is a contextual keyword recognised only immediately before `for`
+ * (grammar.md §"Contextual keywords"); it is not reserved.
+ */
+export interface ParForExpr extends NodeBase {
+  readonly kind: "par-for";
+  readonly variable: string;
+  readonly iterand: Expr;
+  readonly max: Expr | null;
+  readonly body: Block;
+}
+
+/**
  * The `Expr` node family. A tail `Expr` of a `ThetaBody` / block, a `let`
  * initialiser, a condition, etc. all use this union.
  */
@@ -297,7 +315,8 @@ export type Expr =
   | ObjectExpr
   | MatchExpr
   | ResultCtorExpr
-  | MethodCallExpr;
+  | MethodCallExpr
+  | ParForExpr;
 
 // --------------------------------------------------------------------------
 // Statement / declaration AST (the `Stmt` node family; grammar.md)
@@ -1308,7 +1327,13 @@ class BodyParser {
         );
       }
     }
-    return this.wrap(this.exprToStmt(expr), expr, lineStart);
+    // A `par for` in statement position is a discarded-value expression
+    // statement (grammar.md §Blocks): it is NOT promoted to the body tail (its
+    // value is still produced — the executor's trailing-expr rule carries it as
+    // the final value — but it is recorded as an `ExprStmt`, so a standalone
+    // `par for` reads as an expression statement rather than a bare tail node).
+    const tailExpr = expr.kind === "par-for" ? null : expr;
+    return this.wrap(this.exprToStmt(expr), tailExpr, lineStart);
   }
 
   private wrap(stmt: Stmt, expr: Expr | null, lineStart: boolean): Form {
@@ -2284,6 +2309,12 @@ class BodyParser {
 
   private parsePrimary(): Expr | null {
     const t = this.peek();
+    // `par for` — `par` is a contextual keyword recognised only immediately
+    // before `for` (grammar.md §"Contextual keywords"); everywhere else `par`
+    // is a normal identifier and falls through to the ident path below.
+    if (t.kind === "ident" && t.text === "par" && this.isKeyword("for", 1)) {
+      return this.parseParFor();
+    }
     if (t.kind === "number") {
       this.advance();
       return {
@@ -2767,6 +2798,270 @@ class BodyParser {
     // Unrecognised: consume one token and treat as a wildcard to keep progress.
     this.advance();
     return { kind: "wildcard" };
+  }
+
+  /**
+   * Parse a `par for <Ident> in <Expr> [max <Expr>] <Block>` fan-out expression
+   * (RFC 0003; grammar.md `ParForExpr`). The cursor is on the `par` identifier.
+   * The iterand and the optional `max` operand parse with object-literal
+   * brace-suppression active so the trailing `{` opens the body block rather
+   * than reading as a bare object literal; `max` is a contextual keyword here
+   * (an ordinary identifier lexeme) recognised only between the iterand and the
+   * body. After the body parses, the three body-restriction diagnostics
+   * (`par-query-in-body` / `par-shared-mutation` / `par-break-continue`,
+   * control-flow.md CTRL-4) are emitted over the parsed body.
+   */
+  private parseParFor(): Expr {
+    const parTok = this.advance(); // `par`
+    this.advance(); // `for`
+    if (this.isKeyword("mut")) {
+      // A `mut` modifier on the loop variable is an always-immutable context
+      // (bindings.md §Immutable contexts), same as plain `for`.
+      const mutTok = this.advance();
+      const diag = checkMutModifier(
+        { position: "for-var" },
+        { file: this.file, range: mutTok.range },
+      );
+      if (diag !== undefined) {
+        this.diagnostics.push(diag);
+      }
+    }
+    const variable = this.advance().text;
+    if (this.isKeyword("in")) {
+      this.advance();
+    }
+    // Snapshot the outer mutable bindings before the body's own `let`s are
+    // recorded, so a body reassignment to an outer `let mut` is detectable.
+    const outerMutables = new Set<string>();
+    for (const [name, mutable] of this.bindings) {
+      if (mutable) {
+        outerMutables.add(name);
+      }
+    }
+    const save = this.suppressBrace;
+    this.suppressBrace = true;
+    let iterand: Expr;
+    let max: Expr | null = null;
+    try {
+      iterand = this.parseExpression() ?? nullExpr(parTok.range);
+      // `MaxClause ::= "max" Expr` — `max` is a contextual keyword (a bare
+      // identifier lexeme) admitted only here, between the iterand and the body.
+      if (this.peek().kind === "ident" && this.peek().text === "max") {
+        this.advance(); // `max`
+        max = this.parseExpression();
+      }
+    } finally {
+      this.suppressBrace = save;
+    }
+    const body = this.parseBlock();
+    this.emitParForBodyDiagnostics(body, outerMutables);
+    return {
+      kind: "par-for",
+      variable,
+      iterand,
+      max,
+      body,
+      range: spanRange(parTok.range, this.prevRange()),
+    };
+  }
+
+  /**
+   * Emit the CTRL-4 body-restriction diagnostics over a parsed `par for` body:
+   *   - an `@`-query against the enclosing conversation → `par-query-in-body`;
+   *   - a reassignment to an outer `let mut` binding → `par-shared-mutation`;
+   *   - a `break` / `continue` targeting the `par for` → `par-break-continue`.
+   * A nested `par for` emits its own diagnostics during its own parse, so this
+   * walk does not descend into a nested `par-for` body (only its iterand / max,
+   * which evaluate in this body's scope).
+   */
+  private emitParForBodyDiagnostics(
+    body: Block,
+    outerMutables: ReadonlySet<string>,
+  ): void {
+    const bodyLocals = new Set<string>();
+    this.scanParForBlock(body, outerMutables, bodyLocals, 0);
+  }
+
+  private scanParForBlock(
+    block: Block,
+    outerMutables: ReadonlySet<string>,
+    bodyLocals: Set<string>,
+    loopDepth: number,
+  ): void {
+    for (const s of block.statements) {
+      this.scanParForStmt(s, outerMutables, bodyLocals, loopDepth);
+    }
+    if (block.tail !== null) {
+      this.scanParForExpr(block.tail, outerMutables);
+    }
+  }
+
+  private scanParForStmt(
+    s: Stmt,
+    outerMutables: ReadonlySet<string>,
+    bodyLocals: Set<string>,
+    loopDepth: number,
+  ): void {
+    switch (s.kind) {
+      case "let":
+        if (s.init !== null) {
+          this.scanParForExpr(s.init, outerMutables);
+        }
+        if (s.name !== "_") {
+          bodyLocals.add(s.name);
+        }
+        return;
+      case "reassign":
+        if (outerMutables.has(s.target) && !bodyLocals.has(s.target)) {
+          this.diagnostics.push({
+            severity: "error",
+            code: "theta/parse/par-shared-mutation",
+            file: this.file,
+            range: s.range,
+            message: `cannot assign to outer binding '${s.target}' from inside a 'par for' body`,
+          });
+        }
+        this.scanParForExpr(s.value, outerMutables);
+        return;
+      case "break":
+      case "continue":
+        // Legal only when it targets a plain `for` / `while` nested inside the
+        // body; a `break` / `continue` targeting the `par for` itself has no
+        // defined meaning under concurrent scheduling (CTRL-4).
+        if (loopDepth === 0) {
+          this.diagnostics.push({
+            severity: "error",
+            code: "theta/parse/par-break-continue",
+            file: this.file,
+            range: s.range,
+            message: `'${s.kind}' is not permitted inside a 'par for' body`,
+          });
+        }
+        return;
+      case "if":
+        this.scanParForExpr(s.condition, outerMutables);
+        this.scanParForBlock(s.then, outerMutables, bodyLocals, loopDepth);
+        if (s.otherwise !== null) {
+          if ("statements" in s.otherwise) {
+            this.scanParForBlock(s.otherwise, outerMutables, bodyLocals, loopDepth);
+          } else {
+            this.scanParForStmt(s.otherwise, outerMutables, bodyLocals, loopDepth);
+          }
+        }
+        return;
+      case "while":
+        this.scanParForExpr(s.condition, outerMutables);
+        this.scanParForBlock(s.body, outerMutables, bodyLocals, loopDepth + 1);
+        return;
+      case "for":
+        this.scanParForExpr(s.iterand, outerMutables);
+        this.scanParForBlock(s.body, outerMutables, bodyLocals, loopDepth + 1);
+        return;
+      case "query":
+        this.diagnostics.push({
+          severity: "error",
+          code: "theta/parse/par-query-in-body",
+          file: this.file,
+          range: s.range,
+          message:
+            "`@` query against the enclosing conversation is not permitted inside a 'par for' body",
+        });
+        return;
+      case "tool-call":
+        this.scanParForExpr(s.call, outerMutables);
+        return;
+      case "invoke":
+        this.scanParForExpr(s.invoke, outerMutables);
+        return;
+      case "expr":
+        this.scanParForExpr(s.expr, outerMutables);
+        return;
+      case "return":
+        if (s.operand !== null) {
+          this.scanParForExpr(s.operand, outerMutables);
+        }
+        return;
+      default:
+        // fn / schema / enum / import / export / doc-comment carry no
+        // enclosing-conversation body restriction to check.
+        return;
+    }
+  }
+
+  private scanParForExpr(e: Expr, outerMutables: ReadonlySet<string>): void {
+    switch (e.kind) {
+      case "query":
+        this.diagnostics.push({
+          severity: "error",
+          code: "theta/parse/par-query-in-body",
+          file: this.file,
+          range: e.range,
+          message:
+            "`@` query against the enclosing conversation is not permitted inside a 'par for' body",
+        });
+        return;
+      case "par-for":
+        // A nested `par for` emits its own body diagnostics; its iterand / max
+        // evaluate in THIS body's scope, so scan those but not its body.
+        this.scanParForExpr(e.iterand, outerMutables);
+        if (e.max !== null) {
+          this.scanParForExpr(e.max, outerMutables);
+        }
+        return;
+      case "try":
+        this.scanParForExpr(e.operand, outerMutables);
+        return;
+      case "binary":
+        this.scanParForExpr(e.left, outerMutables);
+        this.scanParForExpr(e.right, outerMutables);
+        return;
+      case "ternary":
+        this.scanParForExpr(e.condition, outerMutables);
+        this.scanParForExpr(e.consequent, outerMutables);
+        this.scanParForExpr(e.alternate, outerMutables);
+        return;
+      case "call":
+      case "invoke":
+        for (const arg of e.args) {
+          this.scanParForExpr(arg, outerMutables);
+        }
+        return;
+      case "member":
+        this.scanParForExpr(e.target, outerMutables);
+        return;
+      case "index":
+        this.scanParForExpr(e.target, outerMutables);
+        this.scanParForExpr(e.index, outerMutables);
+        return;
+      case "method-call":
+        this.scanParForExpr(e.target, outerMutables);
+        for (const arg of e.args) {
+          this.scanParForExpr(arg, outerMutables);
+        }
+        return;
+      case "object":
+        for (const field of e.fields) {
+          this.scanParForExpr(field.value, outerMutables);
+        }
+        return;
+      case "array":
+        for (const el of e.elements) {
+          this.scanParForExpr(el, outerMutables);
+        }
+        return;
+      case "result-ctor":
+        this.scanParForExpr(e.arg, outerMutables);
+        return;
+      case "match":
+        this.scanParForExpr(e.scrutinee, outerMutables);
+        for (const arm of e.arms) {
+          this.scanParForExpr(arm.body, outerMutables);
+        }
+        return;
+      default:
+        // ident / number / string / bool / null — no query / nested par-for.
+        return;
+    }
   }
 
   private parseInvoke(): Expr {

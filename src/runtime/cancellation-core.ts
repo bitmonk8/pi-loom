@@ -307,10 +307,27 @@ export function routeAbandonableSettlement(
 // CNCL-5 / CNCL-6 — race semantics against a completed `Ok` and a tail abort.
 // ---------------------------------------------------------------------------
 
-/** A completed cancellable operation's result. */
+/**
+ * A completed cancellable operation's result.
+ *
+ * `childDiagnostics` (RFC 0003) is an additive, optional transport: a `par for`
+ * iteration's effect (a child `invoke` / `.theta` callable / subagent session)
+ * MAY carry that child session's diagnostics on its `OperationResult` so the
+ * executor can aggregate them at the fan-out join, grouped by input index then
+ * by the existing `(file, line, col)` order (control-flow.md CTRL-3). It is
+ * ignored on every non-`par for` effect path.
+ */
 export type OperationResult =
-  | { readonly ok: true; readonly value: unknown }
-  | { readonly ok: false; readonly error: QueryError };
+  | {
+      readonly ok: true;
+      readonly value: unknown;
+      readonly childDiagnostics?: readonly Diagnostic[];
+    }
+  | {
+      readonly ok: false;
+      readonly error: QueryError;
+      readonly childDiagnostics?: readonly Diagnostic[];
+    };
 
 /**
  * A single checkpointed statement in a cancellable sequence. `binding` is the
