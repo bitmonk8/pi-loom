@@ -47,6 +47,7 @@ import {
   type BodyExecution,
   type ExecuteBodyDeps,
 } from "../runtime/statement-executor";
+import type { EffectfulStatementHostDeps } from "../runtime/effectful-statement-host";
 import type { ThetaValue, ResultValue } from "../runtime/value";
 import type { InvokeChain } from "../runtime/invoke-depth-cycle";
 import type { QueryError } from "../runtime/query-error";
@@ -199,6 +200,17 @@ export interface ConversationBindInput {
 export interface ConversationBinding {
   readonly drivenAgainst: DrivenConversation;
   readonly executeDeps: ExecuteBodyDeps;
+  /**
+   * RFC 0001 (`subagent fn`): the raw `EffectfulStatementHostDeps` used to build
+   * `executeDeps.host`. A `subagent fn`'s production spawn seam
+   * (`spawnSubagentFnSession`) spawns a fresh isolated session by re-binding the
+   * enclosing theta under the resolved session config and hands these
+   * session-scoped resolvers back to the calling body's effectful host so the
+   * body's `@`-queries / calls / invokes route through the spawned session
+   * (FN-6 isolation). Present on the production binds; absent on non-production
+   * harnesses that never drive a `subagent fn`.
+   */
+  readonly effectHostDeps?: EffectfulStatementHostDeps;
   surface(execution: BodyExecution): ResultValue;
   /**
    * Decision 6 / Increment B1 (active-invocation-registry.md §"Active

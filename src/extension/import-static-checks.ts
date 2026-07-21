@@ -47,13 +47,20 @@ import {
 } from "../parser/imports";
 import {
   parseThetaDocument,
+  resolveSubagentSessionConfigAt,
   type ImportDecl,
   type ThetaBody,
   type ThetaDocument,
   type ParseThetaDocumentDeps,
 } from "../parser/theta-document";
+import type { ParsedFrontmatter } from "../parser/frontmatter";
 import type { MaterializedImport } from "../runtime/lexical-environment";
 import type { ThetaCompositionInput } from "./theta-composition-producer";
+import {
+  checkSubagentFnModelOverrides,
+  checkSubagentFnStaticResolution,
+  collectSubagentFns,
+} from "./subagent-fn-static-checks";
 
 /** Forward-slash-normalise a host path so the posix-based resolver joins cleanly. */
 function normalizePath(path: string): string {
@@ -139,10 +146,25 @@ function materializeSymbol(
   source: string,
   local: string,
   body: ThetaBody,
+  callingFrontmatter: ParsedFrontmatter | null,
 ): MaterializedImport | undefined {
   for (const stmt of body.statements) {
     if (stmt.kind === "fn" && stmt.name === source) {
-      return { name: local, kind: "fn", fn: stmt };
+      // RFC 0001 FN-9: a `.thetalib` `subagent fn`'s session config was resolved
+      // at PARSE time against the `.thetalib`'s own (absent) frontmatter, so it
+      // carries only its `with`-clause overrides. Re-resolve it against the
+      // CALLING theta's frontmatter here (materialisation runs in the calling
+      // theta's compose context) so the spawned session inherits the CALLING
+      // theta's model / tools / tool_loop / respond_repair — the same anchor as
+      // the existing "calling theta's conversation" rule for library functions.
+      const fn =
+        stmt.subagent === true
+          ? {
+              ...stmt,
+              sessionConfig: resolveSubagentSessionConfigAt(stmt, callingFrontmatter),
+            }
+          : stmt;
+      return { name: local, kind: "fn", fn };
     }
     if (stmt.kind === "schema" && stmt.name === source) {
       return { name: local, kind: "schema" };
@@ -385,6 +407,7 @@ export async function checkThetaImports(
         specifier.source,
         specifier.local,
         parsed.document.body,
+        input.frontmatter,
       );
       if (materialized !== undefined) {
         imports.push(materialized);
@@ -407,6 +430,44 @@ export async function checkThetaImports(
       localTopLevelNames,
     ),
   );
+
+  // RFC 0001 FN-6 across the import boundary: an imported `.thetalib` `subagent
+  // fn` body is materialised into the calling theta's environment and, when
+  // called, runs against the calling theta's executor with the LIBRARY's names
+  // in scope. So a self-recursive `subagent fn r(x){ r(x)? }` (or a mutual cycle
+  // between two `subagent fn`s) declared INSIDE a `.thetalib` recurses without
+  // bound at runtime exactly as a same-file self-cycle does. The compose pass'
+  // own `checkSubagentFnStaticResolution` runs only over the composing theta's
+  // top-level body, so the imported bodies must be cycle-checked here. Run the
+  // same unit-tested check over every parsed `.thetalib` body (entry AND
+  // transitively-walked), keyed by resolved path so each lib is checked once; a
+  // length-1 `theta/load/invocation-cycle` un-registers the importing theta.
+  // (Mutual recursion that spans two `.thetalib` files requires each to `import`
+  // the other, which is an import cycle already caught by IMP-5 below.)
+  for (const [resolvedPath, parsed] of parseCache) {
+    if (parsed === undefined) {
+      continue;
+    }
+    diagnostics.push(
+      ...checkSubagentFnStaticResolution({
+        body: parsed.document.body,
+        file: resolvedPath,
+        parseDiagnostics: parsed.document.diagnostics,
+      }),
+    );
+    // RFC 0001 FN-7 / FN-9: an imported `.thetalib` `subagent fn`'s
+    // `with { model }` override is applied at spawn; hold it to the same
+    // load-time bar as an in-file override (and as frontmatter `model:`), so an
+    // unresolvable library override un-registers the importing theta rather than
+    // silently falling back at runtime.
+    diagnostics.push(
+      ...checkSubagentFnModelOverrides(
+        collectSubagentFns(parsed.document.body),
+        resolvedPath,
+        deps.parseDeps.modelMatcher,
+      ),
+    );
+  }
 
   // IMP-5: walk the static import graph from each directly-imported `.thetalib`;
   // the first cycle discovered un-registers the importing theta.

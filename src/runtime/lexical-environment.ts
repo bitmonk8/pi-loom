@@ -195,6 +195,20 @@ function buildVariantWireMap(
 /** An identifier resolved to a non-value arm (`fn` / `import` / `callable` / `unresolved`) at a read position. */
 class IdentifierNotReadableError extends Error {}
 
+/**
+ * The file-level registry references a fresh isolated `subagent fn` scope shares
+ * with the enclosing environment's root (RFC 0001 FN-6). The maps are shared by
+ * reference (read-only from the isolated scope's perspective), so an isolated
+ * body resolves sibling top-level declarations without inheriting caller locals.
+ */
+interface SharedRegistries {
+  readonly fns: Map<string, FnDecl>;
+  readonly schemas: Map<string, SchemaDecl>;
+  readonly enums: Map<string, ReadonlyMap<string, string>>;
+  readonly imports: Map<string, MaterializedImport>;
+  readonly callables: ReadonlySet<string>;
+}
+
 export class LexicalEnvironment {
   /** This scope's local `let` / parameter slots (`_` discards are never recorded). */
   private readonly locals = new Map<string, LocalSlot>();
@@ -219,7 +233,22 @@ export class LexicalEnvironment {
   public constructor(
     inputs: EnvironmentInputs,
     private readonly parent: LexicalEnvironment | null = null,
+    shared?: SharedRegistries,
   ) {
+    // A `subagent fn` body runs in a fresh isolated scope (RFC 0001 FN-6): it
+    // shares the enclosing file's hoisted top-level `fn` / `schema` / `enum` /
+    // import / callable registries (so in-body calls to sibling declarations
+    // resolve) but carries NONE of the caller's local `let` / parameter slots
+    // (no closure capture). `shared` threads those registry references into a
+    // new root whose `locals` start empty.
+    if (shared !== undefined) {
+      this.fns = shared.fns;
+      this.schemas = shared.schemas;
+      this.enums = shared.enums;
+      this.imports = shared.imports;
+      this.callables = shared.callables;
+      return;
+    }
     // The root owns the fn / schema / enum / import / callable registries; a
     // nested scope holds only its local slots and delegates outward for the
     // resolution walk, so registries are built exactly once.
@@ -335,6 +364,29 @@ export class LexicalEnvironment {
   /** Open a nested lexical scope (a `{ … }` block / loop body). */
   public child(): LexicalEnvironment {
     return new LexicalEnvironment({ body: { statements: [], tail: null } }, this);
+  }
+
+  /**
+   * Open a fresh isolated root scope for a `subagent fn` body (RFC 0001 FN-6):
+   * it shares this environment's file-level registries (hoisted top-level `fn`,
+   * registered `schema` / `enum`, materialised imports, callable-set names) so
+   * in-body references to sibling declarations resolve, but carries none of the
+   * caller's local `let` / parameter bindings — there is no lexical capture of
+   * the enclosing scope across the session boundary.
+   */
+  public spawnIsolatedScope(): LexicalEnvironment {
+    const root = this.root();
+    return new LexicalEnvironment(
+      { body: { statements: [], tail: null } },
+      null,
+      {
+        fns: root.fns,
+        schemas: root.schemas,
+        enums: root.enums,
+        imports: root.imports,
+        callables: root.callables,
+      },
+    );
   }
 
   /**

@@ -43,6 +43,7 @@ import type {
   MatchExpr,
   PatternNode,
   Stmt,
+  SubagentSessionConfig,
   TryExpr,
   WhileStmt,
 } from "../parser/theta-document";
@@ -52,7 +53,7 @@ import { assembleDiagnostics } from "../diagnostics/diagnostic";
 import type { CancellableStatement, OperationResult } from "./cancellation-core";
 import { makeCancelledError, runCancellableSequence } from "./cancellation-core";
 import { HostFatal, isThetaPanic } from "./runtime-panics";
-import type { QueryError } from "./query-error";
+import type { InvokeCalleeError, InvokeInfraError, QueryError } from "./query-error";
 import { evaluateForLoop, type ForLoopHost } from "./control-flow";
 import { functionResult, type FunctionResult, type TerminalOutcome } from "./function-result";
 import type { LexicalEnvironment } from "./lexical-environment";
@@ -145,6 +146,19 @@ export interface StatementEvalHost {
     index: number,
     diagnostics: readonly Diagnostic[],
   ): void;
+  /**
+   * RFC 0001 (`subagent fn`) session-switch hook. Around a `subagent fn` CALL
+   * the executor enters a fresh isolated subagent session for the body
+   * (`spawnSubagentSession`, returning its id) and discards it on return
+   * (`exitSubagentSession`), so the body's `@` queries / calls target the
+   * spawned session and the caller's conversation stays unpolluted (FN-6). The
+   * spawned session's configuration (`system` / `model` / `tools`, FN-7) is
+   * inherit-then-`with`-override resolved on the `subagent fn` node. Optional:
+   * a host with no isolation substrate omits both, and a `subagent fn` body then
+   * runs against the same host with no session switch.
+   */
+  spawnSubagentSession?(config: SubagentSessionConfig): string | Promise<string>;
+  exitSubagentSession?(): void | Promise<void>;
 }
 
 /**
@@ -373,6 +387,132 @@ async function evalUserFnCall(
   }
 }
 
+/**
+ * Build the caller-visible `InvokeCalleeError` for a `subagent fn` callee that
+ * returned / `?`-propagated its own `Err` (RFC 0001 FN-6; invocation.md
+ * §Failures). The subagent boundary crosses exactly as an `invoke` of a
+ * subagent-mode callee: the callee's raw `QueryError` rides as `inner` under a
+ * single `invoke_callee` wrapper. The inline callee is named by the FUNCTION,
+ * not a `.theta` path.
+ */
+function subagentCalleeError(inner: ThetaValue, fnName: string): InvokeCalleeError {
+  return {
+    kind: "invoke_callee",
+    message: `subagent fn ${fnName} callee returned Err`,
+    callee_path: fnName,
+    inner: inner as unknown as QueryError,
+  };
+}
+
+/**
+ * Build the caller-visible `InvokeInfraError` for a panic inside a `subagent fn`
+ * body (RFC 0001 FN-6; invocation.md §Failures / ERR-20 boundary). A genuine
+ * `ThetaPanic` (one of the closed panic sources) downgrades with `cause:"panic"`;
+ * any other unexpected interpreter throw is a runtime defect with
+ * `cause:"internal_error"`. An uncatchable `HostFatal` never reaches this builder
+ * — it is rethrown at the boundary.
+ */
+function subagentInfraError(thrown: unknown, fnName: string): InvokeInfraError {
+  const message = thrown instanceof Error ? thrown.message : String(thrown);
+  return {
+    kind: "invoke_infra",
+    message,
+    callee_path: fnName,
+    cause: isThetaPanic(thrown) ? "panic" : "internal_error",
+  };
+}
+
+/**
+ * Execute a `subagent fn` call `<name>(args)` across a fresh isolated subagent
+ * boundary (RFC 0001 FN-6…FN-9). Unlike a plain `fn` (which runs inline in the
+ * caller's conversation, `evalUserFnCall`), each call:
+ *   - evaluates its positional arguments in the caller's scope and binds them
+ *     BY VALUE into a fresh isolated scope that shares the file's top-level
+ *     declarations but captures none of the caller's locals (no closure);
+ *   - enters a fresh isolated subagent session for the body via the host
+ *     (`spawnSubagentSession`, config inherit-then-`with`-override per FN-7), so
+ *     the body's `@` queries target the spawned session and the caller's
+ *     conversation stays unpolluted, restoring it on return (`exitSubagentSession`);
+ *   - maps the body outcome across the boundary exactly as an `invoke` of a
+ *     subagent-mode callee: success → the final value; a callee Err →
+ *     `Err(InvokeCalleeError)`; a body panic → `Err(InvokeInfraError{cause})`
+ *     without crashing the caller (a `HostFatal` is rethrown, NOCEIL-3).
+ */
+async function evalSubagentFnCall(
+  fn: FnDecl,
+  expr: CallExpr,
+  env: LexicalEnvironment,
+  deps: ExecuteBodyDeps,
+): Promise<EvalResult> {
+  if (expr.args.length !== fn.params.length) {
+    throw new ThetaFnArityError(fn.name, fn.params.length, expr.args.length);
+  }
+  const scope = env.spawnIsolatedScope();
+  for (let i = 0; i < fn.params.length; i += 1) {
+    const arg = await evalExpr(expr.args[i] as Expr, env, deps);
+    if (arg.flow !== "value") {
+      return arg;
+    }
+    scope.defineLocal((fn.params[i] as FnDecl["params"][number]).name, arg.value, false);
+  }
+
+  // Enter the fresh isolated session and run the body inside the SAME try, so a
+  // depth-ceiling breach on the spawn (the production seam pushes the countable
+  // `subagent-fn` frame here, INV-4 / FN-6) is downgraded at the boundary to the
+  // caller's `Err(InvokeInfraError{cause:"panic"})` — the runtime backstop, the
+  // same nested surfacing an `invoke` overflow takes — rather than crashing the
+  // caller. `entered` guards `exitSubagentSession` so a spawn that threw before
+  // pushing a session is not popped.
+  let entered = false;
+  let flow: Flow;
+  try {
+    await deps.host.spawnSubagentSession?.(fn.sessionConfig ?? {});
+    entered = true;
+    flow = await executeBlock(fn.body, scope, deps);
+  } catch (thrown) { // allow-broad-catch: FN-6 subagent boundary — invocation.md §Failures
+    // An uncatchable host fatal (NOCEIL-3) must terminate the process and is
+    // rethrown unwrapped — never downgraded to an Err at the subagent boundary.
+    if (thrown instanceof HostFatal) {
+      throw thrown;
+    }
+    // A panic (incl. a depth-ceiling breach) inside the spawned session is
+    // downgraded to the caller's Err(InvokeInfraError) so it never crashes the
+    // caller (FN-6).
+    if (entered) {
+      await deps.host.exitSubagentSession?.();
+    }
+    return {
+      flow: "value",
+      value: makeErr(subagentInfraError(thrown, fn.name) as unknown as ThetaValue),
+    };
+  }
+  await deps.host.exitSubagentSession?.();
+
+  switch (flow.kind) {
+    case "return":
+    case "normal":
+      // Success — the callee's final value (FN-5) crosses the boundary.
+      return { flow: "value", value: flow.value };
+    case "break":
+    case "continue":
+      // Barred inside a `fn` body; defensively a `null` final value.
+      return { flow: "value", value: null };
+    case "propagate":
+    case "fail": {
+      // A callee-returned / `?`-propagated Err crosses wrapped as
+      // InvokeCalleeError{inner:<raw Err>}, exactly like an invoked subagent
+      // callee (invocation.md §Failures).
+      const raw = flow.kind === "propagate" ? flow.err : flow.error;
+      return {
+        flow: "value",
+        value: makeErr(subagentCalleeError(raw, fn.name) as unknown as ThetaValue),
+      };
+    }
+    case "cancel":
+      return { flow: "cancel" };
+  }
+}
+
 /** A theta condition is a boolean; only the literal `true` steers control flow. */
 function isTruthy(value: ThetaValue): boolean {
   return value === true;
@@ -441,7 +581,12 @@ async function evalExpr(expr: Expr, env: LexicalEnvironment, deps: ExecuteBodyDe
   if (expr.kind === "call") {
     const fn = resolveUserFn(expr.callee, env);
     if (fn !== undefined) {
-      return evalUserFnCall(fn, expr, env, deps);
+      // RFC 0001 (`subagent fn`): a call to a `subagent`-modified `fn` spawns a
+      // fresh isolated subagent session for the body and crosses the invoke
+      // boundary; an ordinary `fn` runs inline in the caller's conversation.
+      return fn.subagent === true
+        ? evalSubagentFnCall(fn, expr, env, deps)
+        : evalUserFnCall(fn, expr, env, deps);
     }
   }
   // Composite literals are decomposed on the executor path (not the sync pure

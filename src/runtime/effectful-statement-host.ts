@@ -39,7 +39,13 @@
 // query/query-failure-and-repair.md, tool-calls.md, invocation.md,
 // pi-integration-contract/conversation-drive.md, slash-invocation.md.
 
-import type { CallExpr, Expr, InvokeExpr, QueryExpr } from "../parser/theta-document";
+import type {
+  CallExpr,
+  Expr,
+  InvokeExpr,
+  QueryExpr,
+  SubagentSessionConfig,
+} from "../parser/theta-document";
 import type { Checkpoint, CheckpointSite } from "../seams/checkpoint";
 import type { OperationResult } from "./cancellation-core";
 import { makeCancelledError } from "./cancellation-core";
@@ -142,6 +148,34 @@ export interface EffectfulStatementHostDeps {
    * Consulted only when `classifyCall` returns `"theta-callable"`.
    */
   resolveCallAsInvoke?(expr: CallExpr, env: LexicalEnvironment): InvokeChild;
+  /**
+   * RFC 0001 (`subagent fn`) production spawn seam. Spawn a REAL fresh isolated
+   * subagent session for a `subagent fn` body under the resolved
+   * `SubagentSessionConfig` (FN-7: `system` / `model` / `tools` / `tool_loop` /
+   * `respond_repair`) and return the session-scoped effect resolvers the body's
+   * `@`-queries / calls / invokes route through while the session is active,
+   * plus a `dispose()` that discards it on return (FN-6 isolation). The
+   * countable depth frame (INV-4 / FN-6, threaded through the production chain)
+   * is pushed by the producer inside this seam. Absent ⇒ a `subagent fn` body
+   * runs against the SAME host with no session switch (the in-memory /
+   * test-double behaviour).
+   */
+  spawnSubagentFnSession?(
+    config: SubagentSessionConfig,
+  ): SubagentFnSession | Promise<SubagentFnSession>;
+}
+
+/**
+ * A spawned `subagent fn` session (RFC 0001 FN-6). `deps` are the session-scoped
+ * effect resolvers the body's checkpointed effects dispatch through while the
+ * session is active (routing the body's `@`-queries / calls / invokes to the
+ * fresh isolated session, not the caller's conversation); `dispose` discards the
+ * spawned session on return (PIC-9 teardown + the ActiveInvocationRegistry
+ * finish, mirroring an `invoke` callee's exit).
+ */
+export interface SubagentFnSession {
+  readonly deps: EffectfulStatementHostDeps;
+  dispose(): void | Promise<void>;
 }
 
 /** Build a `CheckpointSite` from an expression's source span. */
@@ -380,34 +414,46 @@ async function runInvokeEffect(
  * query / tool-call / invoke hosts and returns an inert `Ok(null)`, so every
  * integration assertion reds. The paired `V19d` leaf fills it in.
  */
-export function createEffectfulStatementHost(deps: EffectfulStatementHostDeps): StatementEvalHost {
-  const classify = deps.classifyCall;
-  return {
+export function createEffectfulStatementHost(baseDeps: EffectfulStatementHostDeps): StatementEvalHost {
+  // RFC 0001 (`subagent fn`): a stack of active spawned-session scopes. Empty by
+  // default, so `active()` returns `baseDeps` and every effect dispatches
+  // through the caller's conversation exactly as before (byte-identical to the
+  // pre-RFC path). A `subagent fn` call pushes a spawned-session scope whose
+  // resolvers route the body's effects to a fresh isolated session; the return
+  // pops and disposes it (LIFO, so nested subagent fns stack correctly).
+  const sessions: SubagentFnSession[] = [];
+  const active = (): EffectfulStatementHostDeps =>
+    sessions.length === 0
+      ? baseDeps
+      : (sessions[sessions.length - 1] as SubagentFnSession).deps;
+  const host: StatementEvalHost = {
     evaluatePure(expr: Expr, env: LexicalEnvironment): ThetaValue {
-      return deps.evaluatePure(expr, env);
+      return active().evaluatePure(expr, env);
     },
     // RFC 0002 pre-evaluation gate: expose the H8b call classifier so the
     // executor's `preEvaluateToolArgs` only pre-evaluates a Pi-tool call's
     // computed field values. A `.theta`-callable call routes through the invoke
     // trampoline (`runToolCallEffect`) which ignores `evaluatedToolArgs` and
     // re-lowers, so pre-evaluating it would double-dispatch effectful field
-    // values. An absent `deps.classifyCall` leaves this undefined, and the
+    // values. An absent `baseDeps.classifyCall` leaves this undefined, and the
     // executor then treats every call as a Pi tool (the double behaviour).
-    ...(classify !== undefined
+    ...(baseDeps.classifyCall !== undefined
       ? {
           classifyCall(expr: CallExpr, env: LexicalEnvironment): "pi-tool" | "theta-callable" {
-            return classify(expr, env);
+            const current = active();
+            return (current.classifyCall ?? baseDeps.classifyCall!)(expr, env);
           },
         }
       : {}),
     checkpointFor(expr: Expr): CheckpointDescriptor | null {
+      const file = active().file;
       switch (expr.kind) {
         case "query":
-          return { kind: "query", site: siteOf(expr, deps.file) };
+          return { kind: "query", site: siteOf(expr, file) };
         case "call":
-          return { kind: "tool-call", site: siteOf(expr, deps.file) };
+          return { kind: "tool-call", site: siteOf(expr, file) };
         case "invoke":
-          return { kind: "invoke", site: siteOf(expr, deps.file) };
+          return { kind: "invoke", site: siteOf(expr, file) };
         default:
           return null;
       }
@@ -418,10 +464,12 @@ export function createEffectfulStatementHost(deps: EffectfulStatementHostDeps): 
       evaluatedToolArgs?: Record<string, ThetaValue>,
     ): Promise<OperationResult> {
       // Dispatch the checkpointed effect through the REAL host against the
-      // driven conversation, threading the SAME `checkpoint` + `signal` the
+      // currently-active conversation (the caller's, or the top spawned
+      // `subagent fn` session), threading the SAME `checkpoint` + `signal` the
       // `V19c` executor gates on (so the invoke-dispatch cancellation checkpoint
       // — `cka-47`, `V15m` facet — is honoured on the real trampoline), and
       // normalise the host outcome to the executor's `OperationResult`.
+      const deps = active();
       switch (expr.kind) {
         case "query":
           return runQueryEffect(expr, env, deps);
@@ -437,4 +485,38 @@ export function createEffectfulStatementHost(deps: EffectfulStatementHostDeps): 
       }
     },
   };
+  // RFC 0001 (`subagent fn`) session-switch hooks — exposed only when the
+  // producer supplied the real spawn seam; an in-memory host without it omits
+  // both, and a `subagent fn` body then runs against the caller's session
+  // (unchanged). `spawnSubagentSession` spawns a fresh isolated session and
+  // pushes its scope; `exitSubagentSession` pops and disposes it (LIFO).
+  if (baseDeps.spawnSubagentFnSession !== undefined) {
+    return {
+      ...host,
+      async spawnSubagentSession(config: SubagentSessionConfig): Promise<string> {
+        // INV-4 / FN-6 depth accumulation: route the nested spawn through the
+        // ACTIVE session's seam, NOT the fixed `baseDeps` closure. Each spawned
+        // session's `effectHostDeps.spawnSubagentFnSession` is bound to THAT
+        // session's chain-advanced `childChain` (production-theta-producer.ts
+        // `#spawnSubagentFnSession` → `spawnSubagentConversation({ chain:
+        // childChain })`), so spawning through `active()` pushes the new
+        // `subagent-fn` frame at depth+1 from the caller's session. Binding to
+        // `baseDeps` would push every nested spawn onto the ORIGINAL chain,
+        // pinning depth at 1 and defeating the recursion backstop. `active()`
+        // falls back to `baseDeps` at the top level (empty session stack), so
+        // the first spawn still pushes the depth-1 frame.
+        const seam = active().spawnSubagentFnSession ?? baseDeps.spawnSubagentFnSession!;
+        const session = await seam(config);
+        sessions.push(session);
+        return `subagent-fn-${sessions.length}`;
+      },
+      async exitSubagentSession(): Promise<void> {
+        const session = sessions.pop();
+        if (session !== undefined) {
+          await session.dispose();
+        }
+      },
+    };
+  }
+  return host;
 }

@@ -79,6 +79,7 @@ import type {
 import type {
   EffectfulStatementHostDeps,
   QueryHostDispatch,
+  SubagentFnSession,
 } from "../runtime/effectful-statement-host";
 import { createEffectfulStatementHost } from "../runtime/effectful-statement-host";
 import {
@@ -169,11 +170,13 @@ import type {
   QueryExpr,
   SchemaDecl,
   Stmt,
+  SubagentSessionConfig,
 } from "../parser/theta-document";
 import { parseExpressionSource } from "../parser/theta-document";
 import { renderSystemPrompt } from "../parser/system-interpolation";
 import { lowerQueryResponseSchema } from "../runtime/query-schema-lowering";
 import type { LoweredSchema } from "../seams/schema-validator";
+import type { ResolvedCallable } from "../parser/callable-set";
 import type { TypedQuerySchemaValidation } from "../runtime/query-tool-loop";
 import {
   buildTypedQueryValidation,
@@ -1166,6 +1169,12 @@ class ProductionThetaProducer implements ThetaProducerDeps {
       resolveInvoke: (expr, env) => this.#resolveInvoke(theta, expr, env, ctx, chain, signal, "prompt"),
       classifyCall: (expr) => this.#classifyCall(theta, expr),
       resolveCallAsInvoke: (expr, env) => this.#resolveCallAsInvoke(theta, expr, env, ctx, chain, signal, "prompt"),
+      // RFC 0001 (`subagent fn`, FN-8): a prompt-mode theta may call a
+      // `subagent fn` — the safe prompt→subagent direction. Each call spawns a
+      // fresh isolated session under the resolved config; the depth frame
+      // (INV-4 / FN-6) is pushed on `chain` inside the spawn.
+      spawnSubagentFnSession: (config) =>
+        this.#spawnSubagentFnSession(theta, config, ctx, chain, signal),
     };
 
     const executeDeps: ExecuteBodyDeps = {
@@ -1224,6 +1233,9 @@ class ProductionThetaProducer implements ThetaProducerDeps {
     return {
       drivenAgainst: "prompt-user-session",
       executeDeps,
+      // RFC 0001 (`subagent fn`): expose the session-scoped effect resolvers so a
+      // `subagent fn` spawn can re-bind them for a fresh isolated session.
+      effectHostDeps: hostDeps,
       // PIC-53: the prompt-mode return value is the trailing turn's accumulated
       // assistant text of the driven user session on the SUCCESS path. A failed
       // run surfaces its real terminal outcome (mirroring the subagent surface):
@@ -1746,6 +1758,12 @@ class ProductionThetaProducer implements ThetaProducerDeps {
       classifyCall: (expr) => this.#classifyCall(theta, expr),
       resolveCallAsInvoke: (expr, env) =>
         this.#resolveCallAsInvoke(theta, expr, env, ctx, chain, signal, "subagent"),
+      // RFC 0001 (`subagent fn`): a subagent-mode theta calling a `subagent fn`
+      // spawns a nested fresh isolated session under the resolved config; the
+      // depth frame (INV-4 / FN-6) is pushed on the carried `chain` inside the
+      // spawn, so a deep subagent-fn chain trips the depth-32 ceiling.
+      spawnSubagentFnSession: (config) =>
+        this.#spawnSubagentFnSession(theta, config, ctx, chain, signal),
     };
 
     const executeDeps: ExecuteBodyDeps = {
@@ -1834,6 +1852,9 @@ class ProductionThetaProducer implements ThetaProducerDeps {
     return {
       drivenAgainst: "subagent-private-session",
       executeDeps,
+      // RFC 0001 (`subagent fn`): expose the spawned session's effect resolvers
+      // so a nested `subagent fn` body routes through this isolated session.
+      effectHostDeps: hostDeps,
       // FN-5: project the subagent body's terminal final value (shared with the
       // prompt→prompt invoke-attach path — a callee's final value crosses the
       // boundary the same way in either mode, invocation.md §Final-value). PIC-9
@@ -1843,6 +1864,111 @@ class ProductionThetaProducer implements ThetaProducerDeps {
         surfaceCalleeFinalValue(execution),
       teardown,
       finishInvocation,
+    };
+  }
+
+  /**
+   * RFC 0001 (`subagent fn`) production spawn seam. Spawn a REAL fresh isolated
+   * session for a `subagent fn` body under the resolved `SubagentSessionConfig`
+   * and return the session-scoped effect resolvers the calling body's effectful
+   * host routes the body's `@`-queries / calls / invokes through while the
+   * session is active (FN-6 isolation), plus a `dispose()` that discards it on
+   * return. This mirrors the `invoke`d subagent-callee spawn
+   * (`spawnSubagentConversation`) verbatim — same fresh `AgentSession`, same
+   * PIC-9 teardown, same ActiveInvocationRegistry finish — differing only in
+   * that the body is the INLINE `subagent fn` body (run by the caller's executor
+   * against these swapped resolvers) rather than a separate `.theta` callee.
+   *
+   * INV-4 / FN-6 (threaded through the production chain): a countable
+   * `subagent-fn` frame is pushed on `chain` BEFORE the spawn, exactly as
+   * `#buildInvokeChild` pushes a `direct-invoke` frame; the spawned session
+   * carries the pushed `childChain`, so a nested `invoke` / `subagent fn` inside
+   * the body pushes further frames and a deep chain trips the depth-32 ceiling.
+   * A ceiling breach on the push raises `InvokeDepthExceededPanic`, which the
+   * executor's subagent boundary downgrades to the caller's
+   * `Err(InvokeInfraError{cause:"panic"})` — the runtime backstop against
+   * unbounded subagent-fn recursion.
+   *
+   * FN-7 config: the resolved `config` (`system` / `model` / `tools` /
+   * `tool_loop` / `respond_repair`) is applied by re-binding the enclosing theta
+   * under an overridden frontmatter + callable set; a `with { tools }` override
+   * resolves against the CALLING theta's callable set (FN-9). Defaults inherit
+   * the calling theta's configuration.
+   */
+  async #spawnSubagentFnSession(
+    theta: ConversationBindInput["theta"],
+    config: SubagentSessionConfig,
+    ctx: ExtensionCommandContext,
+    chain: InvokeChain,
+    parentSignal: AbortSignal,
+  ): Promise<SubagentFnSession> {
+    // INV-4 / FN-6: push the countable `subagent-fn` frame on the chain before
+    // spawning. A breach raises `InvokeDepthExceededPanic`; it propagates out of
+    // this async spawn and the executor's subagent boundary downgrades it.
+    const childChain = pushCountableFrame(chain, "subagent-fn");
+
+    // FN-7: apply the resolved session config by re-binding the enclosing theta
+    // under an overridden frontmatter + callable set. `system` sets the spawned
+    // session's system prompt (legitimate even from a prompt-mode enclosing
+    // theta, FN-7); `tool_loop` / `respond_repair` override the loop budgets;
+    // `model` overrides the inherited session model.
+    const overriddenFrontmatter = {
+      ...theta.frontmatter,
+      ...(config.system !== undefined
+        ? { system: { parts: [{ kind: "text" as const, value: config.system }] } }
+        : {}),
+      ...(config.toolLoop !== undefined ? { toolLoop: config.toolLoop } : {}),
+      ...(config.respondRepair !== undefined
+        ? { respondRepair: config.respondRepair }
+        : {}),
+    };
+    const spawnedCallableSet = subagentFnCallableSet(theta.callableSet, config);
+    const overriddenTheta: ConversationBindInput["theta"] = {
+      ...theta,
+      frontmatter: overriddenFrontmatter,
+      ...(spawnedCallableSet !== undefined
+        ? { callableSet: spawnedCallableSet }
+        : {}),
+    };
+    // FN-7 `model` override: PIC-40 reads the resolved model from `ctx.model`,
+    // so an explicit `with { model }` overrides the inherited session model. The
+    // reference string resolves to a concrete `Model<Api>` by the same
+    // exact-match rule the load-time / binder resolution uses. An unresolvable
+    // override is already rejected at LOAD (`checkSubagentFnModelOverrides` →
+    // `theta/load/model-unresolved` un-registers the theta), so a registered
+    // theta reaching here always resolves; the `?? undefined` fall-through keeps
+    // the inherited session model only for the (now load-unreachable) no-match,
+    // never silently masking an unresolvable reference.
+    const overrideModel =
+      config.model !== undefined
+        ? matchAvailableModel(config.model, this.#input.modelRegistry.getAvailable())
+        : undefined;
+    const effectiveCtx =
+      overrideModel !== undefined ? { ...ctx, model: overrideModel } : ctx;
+
+    const binding = await this.spawnSubagentConversation({
+      theta: overriddenTheta,
+      args: "",
+      ctx: effectiveCtx,
+      chain: childChain,
+      parentSignal,
+    });
+    if (binding.effectHostDeps === undefined) {
+      // Defensive: the production subagent bind always exposes its resolvers.
+      throw new SubagentModelUnresolvedError(
+        "subagent fn spawn produced no effect-host resolvers",
+      );
+    }
+    return {
+      deps: binding.effectHostDeps,
+      dispose: (): void => {
+        // PIC-9: run the (idempotent, non-throwing) session teardown, then the
+        // ActiveInvocationRegistry finish — the same order the invoke DRIVE
+        // `finally` uses, so the spawned session's `dispose()` runs before the
+        // barrier settles (sub-step 3 sees a disposed session).
+        binding.teardown?.();
+        binding.finishInvocation?.();
+      },
     };
   }
 
@@ -2473,6 +2599,37 @@ function surfaceCalleeFinalValue(execution: BodyExecution): ResultValue {
     return makeErr(execution.error ?? (makeCancelledError() as unknown as ThetaValue));
   }
   return makeErr(makeCancelledError() as unknown as ThetaValue);
+}
+
+/**
+ * RFC 0001 FN-7/FN-9: resolve a `subagent fn`'s spawned-session callable set.
+ * With no `with { tools }` override the spawned session INHERITS the calling
+ * theta's full frozen callable set. A `with { tools: […] }` override resolves
+ * against the CALLING theta's callable set (FN-9): the spawned set is the named
+ * SUBSET of the calling theta's entries (matched by presented name or, for a Pi
+ * tool, its underlying tool name) — a name absent from the calling set simply
+ * does not appear, and the code-driven `<name>(args)` path re-resolves
+ * independently, so no name is widened here.
+ */
+function subagentFnCallableSet(
+  callingSet: ConversationBindInput["theta"]["callableSet"],
+  config: SubagentSessionConfig,
+): ConversationBindInput["theta"]["callableSet"] {
+  if (callingSet === undefined || config.toolsOverridden !== true) {
+    return callingSet;
+  }
+  const wanted = new Set(config.tools ?? []);
+  const entries = new Map<string, ResolvedCallable>();
+  for (const [name, entry] of callingSet.entries) {
+    const underlying =
+      entry.kind === "pi-tool"
+        ? (entry.toolDefinition as PiToolDispatch).toolName
+        : undefined;
+    if (wanted.has(name) || (underlying !== undefined && wanted.has(underlying))) {
+      entries.set(name, entry);
+    }
+  }
+  return Object.freeze({ entries });
 }
 
 function callableSetPiToolNames(

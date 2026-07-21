@@ -62,12 +62,17 @@ export {
  *   - `"direct-invoke"`       — a literal `invoke(...)` / `invoke<Schema>(...)` call;
  *   - `"theta-tools-callable"` — a `.theta` callable call dispatched through a `tools:` entry;
  *   - `"thetalib-fn-cross-file"`  — a *cross-file* `.thetalib` `fn` call (an intra-file
- *                               `fn` call is NOT countable).
+ *                               `fn` call is NOT countable);
+ *   - `"subagent-fn"`          — a `subagent fn` call (RFC 0001 FN-6/INV-4): each
+ *                               call spawns a fresh isolated session and, like the
+ *                               other classes, contributes exactly +1 to the one
+ *                               shared per-chain counter.
  */
 export type CountableFrameKind =
   | "direct-invoke"
   | "theta-tools-callable"
-  | "thetalib-fn-cross-file";
+  | "thetalib-fn-cross-file"
+  | "subagent-fn";
 
 // --------------------------------------------------------------------------
 // `.thetalib` `fn` residence classification (INV-4 cross-file test)

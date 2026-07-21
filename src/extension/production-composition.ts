@@ -76,6 +76,11 @@ import {
   checkInvokeStaticResolution,
   type CalleeArity,
 } from "./invoke-static-checks";
+import {
+  checkSubagentFnModelOverrides,
+  checkSubagentFnStaticResolution,
+  collectSubagentFns,
+} from "./subagent-fn-static-checks";
 import { checkThetaImports } from "./import-static-checks";
 import type { ThetaMode } from "../parser/frontmatter";
 import {
@@ -460,6 +465,43 @@ async function runComposePass(
       emitDiagnostic(diagnostic);
     }
     if (invokeDiagnostics.some((diagnostic) => diagnostic.severity === "error")) {
+      continue;
+    }
+
+    // RFC 0001 FN-6: run the `subagent fn` static checks against the parsed
+    // body. A `subagent fn` that references itself (or a mutual cycle) is a
+    // length-1 `theta/load/invocation-cycle` that un-registers the enclosing
+    // theta — the load-time bound on unbounded subagent recursion, mirroring the
+    // INV-4 un-registration of a self-cyclic `.theta`. The broken-inline-body
+    // half (`theta/load/callee-has-errors`) is surfaced on the drop path in
+    // `parseDiscoveredTheta` (a broken body is an error-severity parse
+    // diagnostic that already un-registers before reaching here).
+    const subagentFnDiagnostics = checkSubagentFnStaticResolution({
+      body: input.body,
+      file: input.sourcePath ?? input.slashName,
+      parseDiagnostics: [],
+    });
+    for (const diagnostic of subagentFnDiagnostics) {
+      emitDiagnostic(diagnostic);
+    }
+    if (subagentFnDiagnostics.some((diagnostic) => diagnostic.severity === "error")) {
+      continue;
+    }
+
+    // RFC 0001 FN-7: validate each `subagent fn`'s `with { model }` override at
+    // LOAD through the shared `modelMatcher` — the same bar frontmatter `model:`
+    // is held to — rather than letting an unresolvable override silently fall
+    // back to the inherited session model at runtime. An unresolvable override
+    // is `theta/load/model-unresolved` and un-registers the theta.
+    const subagentFnModelDiagnostics = checkSubagentFnModelOverrides(
+      collectSubagentFns(input.body),
+      input.sourcePath ?? input.slashName,
+      modelMatcher,
+    );
+    for (const diagnostic of subagentFnModelDiagnostics) {
+      emitDiagnostic(diagnostic);
+    }
+    if (subagentFnModelDiagnostics.some((diagnostic) => diagnostic.severity === "error")) {
       continue;
     }
 
@@ -1166,7 +1208,21 @@ async function parseDiscoveredTheta(
     // typo made the command vanish with no feedback. (The `tools:`-resolution
     // diagnostics are emitted separately by `resolveThetaToolsAtLoad` and are
     // not part of `document.diagnostics`, so this does not double-emit them.)
-    return { dropped: document.diagnostics };
+    //
+    // RFC 0001 FN-6: when the error-severity diagnostic falls inside a
+    // `subagent fn`'s inline body, ADD the `theta/load/callee-has-errors`
+    // framing that names the FUNCTION (a broken `subagent fn` body is a
+    // callee-with-errors, just an inline one). Only meaningful once frontmatter
+    // parsed (a frontmatter-less file has no walkable top-level `subagent fn`).
+    const subagentFnFraming =
+      document.frontmatter === null
+        ? []
+        : checkSubagentFnStaticResolution({
+            body: document.body,
+            file: theta.path,
+            parseDiagnostics: document.diagnostics,
+          });
+    return { dropped: [...document.diagnostics, ...subagentFnFraming] };
   }
   return {
     fixture: {

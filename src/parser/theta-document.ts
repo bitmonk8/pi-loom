@@ -45,6 +45,8 @@ import {
   type FrontmatterBodyTypes,
   type ModelReferenceMatcher,
   type ParsedFrontmatter,
+  type ParsedToolLoop,
+  type ParsedRespondRepair,
 } from "./frontmatter";
 import {
   checkReassignment,
@@ -386,6 +388,65 @@ export interface FnParam {
   readonly type: string;
 }
 
+/**
+ * One `with { … }` session-config field of a `subagent fn` (RFC 0001; grammar.md
+ * `WithField`). `key` is the field name as written; `value` is the raw value
+ * expression, validated against the like-named frontmatter field's grammar
+ * (FN-7). A key outside the five recognised keys still records here so
+ * `withClauseKeys`-style consumers observe it, but also surfaces
+ * `theta/load/unknown-frontmatter-field` at parse time.
+ */
+export interface WithField {
+  readonly key: string;
+  readonly value: Expr;
+}
+
+/**
+ * The `with { … }` session-config clause of a `subagent fn` (RFC 0001; grammar.md
+ * `WithClause`) — the ordered list of its `WithField`s. Overrides any subset of
+ * the five inherited session-config keys (`system`, `model`, `tools`,
+ * `tool_loop`, `respond_repair`); an omitted key inherits from the enclosing
+ * theta (FN-7).
+ */
+export type WithClause = readonly WithField[];
+
+/**
+ * The resolved session configuration a `subagent fn` call spawns its fresh
+ * isolated session under (RFC 0001 FN-7). Computed at document-parse time by
+ * merging the enclosing theta's inherited configuration with the `with { … }`
+ * clause's per-key overrides. Absent keys inherit; a `.thetalib` helper carries
+ * only its `with`-clause overrides (its inheritance resolves against the calling
+ * theta at dispatch, FN-9).
+ */
+export interface SubagentSessionConfig {
+  readonly model?: string;
+  readonly tools?: readonly string[];
+  readonly system?: string;
+  /**
+   * The spawned session's tool-loop bound (RFC 0001 FN-7 `tool_loop`), inherited
+   * from the enclosing theta's `tool_loop:` and overridable by a
+   * `with { tool_loop: { max_rounds: N } }` clause. Absent ⇒ the runtime
+   * `{ maxRounds: 25 }` default applies.
+   */
+  readonly toolLoop?: ParsedToolLoop;
+  /**
+   * The spawned session's respond-repair budget (RFC 0001 FN-7 `respond_repair`),
+   * inherited from the enclosing theta's `respond_repair:` and overridable by a
+   * `with { respond_repair: { attempts: N } }` clause. Absent ⇒ the runtime
+   * `{ attempts: 3 }` default applies.
+   */
+  readonly respondRepair?: ParsedRespondRepair;
+  /**
+   * True iff a `with { tools: […] }` clause EXPLICITLY overrode the tool set
+   * (RFC 0001 FN-7/FN-9). The production spawn seam then resolves the spawned
+   * session's callable set to the named subset of the CALLING theta's callable
+   * set; when `false` the spawned session inherits the calling theta's full
+   * callable set. `tools` carries the effective names either way (for the FN-7
+   * inheritance witness).
+   */
+  readonly toolsOverridden?: boolean;
+}
+
 /** A top-level `fn` declaration (`FnDecl`; functions.md). */
 export interface FnDecl extends NodeBase {
   readonly kind: "fn";
@@ -393,6 +454,25 @@ export interface FnDecl extends NodeBase {
   readonly params: readonly FnParam[];
   readonly returnType: string | null;
   readonly body: Block;
+  /**
+   * True iff the declaration carries the `subagent` modifier (RFC 0001 FN-6):
+   * each call spawns a fresh isolated subagent session for the body. Absent /
+   * `false` on an ordinary `fn`.
+   */
+  readonly subagent?: boolean;
+  /**
+   * The parsed `with { … }` session-config clause (RFC 0001 FN-7), or `null`
+   * when the `subagent fn` carries none (every key then inherits). Always
+   * `null` on an ordinary `fn`.
+   */
+  readonly withClause?: WithClause | null;
+  /**
+   * The resolved session configuration a `subagent fn` call spawns under
+   * (RFC 0001 FN-7), attached by `parseThetaDocument` after the enclosing
+   * frontmatter is parsed (inherit-then-`with`-override). Absent on an ordinary
+   * `fn`.
+   */
+  readonly sessionConfig?: SubagentSessionConfig;
 }
 
 /** A `return` statement (return.md). */
@@ -718,11 +798,174 @@ export function parseThetaDocument(
     resolvedQuery.diagnostics,
   ]);
 
+  // RFC 0001 FN-7 — resolve each top-level `subagent fn`'s spawned-session
+  // config now that the enclosing frontmatter is parsed: inherit the enclosing
+  // theta's config, then apply the `with { … }` clause's per-key overrides. A
+  // `.thetalib` helper's inheritance resolves against the calling theta at
+  // dispatch (FN-9), so here it carries only its own `with`-clause overrides.
+  const configuredStatements = attachSubagentSessionConfigs(statements, frontmatter);
+
   return {
     frontmatter,
-    body: { statements, tail: resolvedTail },
+    body: { statements: configuredStatements, tail: resolvedTail },
     diagnostics,
   };
+}
+
+/**
+ * Attach a resolved `sessionConfig` to every top-level `subagent fn` (RFC 0001
+ * FN-7). Non-`fn` statements and ordinary `fn`s pass through unchanged; a
+ * `subagent fn` is re-emitted with its inherit-then-`with`-override config so
+ * the runtime executor reads a self-contained node.
+ */
+function attachSubagentSessionConfigs(
+  statements: readonly Stmt[],
+  frontmatter: ParsedFrontmatter | null,
+): readonly Stmt[] {
+  return statements.map((stmt) => {
+    if (stmt.kind !== "fn" || stmt.subagent !== true) {
+      return stmt;
+    }
+    return { ...stmt, sessionConfig: resolveSubagentSessionConfig(stmt, frontmatter) };
+  });
+}
+
+/**
+ * Resolve a `subagent fn`'s spawned-session config: start from the enclosing
+ * theta's inherited `model` / `tools` / `tool_loop` / `respond_repair` (FN-7
+ * default), then overwrite each key named in the `with { … }` clause. All five
+ * session-config keys take effect (FN-7): `model` / `tools` / `system` plus the
+ * two loop budgets `tool_loop` / `respond_repair`. A `.thetalib` helper carries
+ * a `null` frontmatter here, so it projects only its own `with`-clause overrides
+ * — its inheritance resolves against the CALLING theta at dispatch (FN-9,
+ * `resolveSubagentSessionConfigAt`).
+ */
+function resolveSubagentSessionConfig(
+  fn: FnDecl,
+  frontmatter: ParsedFrontmatter | null,
+): SubagentSessionConfig {
+  const config: {
+    model?: string;
+    tools?: readonly string[];
+    system?: string;
+    toolLoop?: ParsedToolLoop;
+    respondRepair?: ParsedRespondRepair;
+    toolsOverridden?: boolean;
+  } = {};
+  if (frontmatter?.model !== undefined) {
+    config.model = frontmatter.model;
+  }
+  if (frontmatter?.tools !== undefined) {
+    config.tools = frontmatter.tools;
+  }
+  if (frontmatter?.toolLoop !== undefined) {
+    config.toolLoop = frontmatter.toolLoop;
+  }
+  if (frontmatter?.respondRepair !== undefined) {
+    config.respondRepair = frontmatter.respondRepair;
+  }
+  for (const field of fn.withClause ?? []) {
+    if (field.key === "model") {
+      const v = stringExprValue(field.value);
+      if (v !== undefined) {
+        config.model = v;
+      }
+    } else if (field.key === "tools") {
+      config.tools = toolNameList(field.value);
+      config.toolsOverridden = true;
+    } else if (field.key === "system") {
+      const v = stringExprValue(field.value);
+      if (v !== undefined) {
+        config.system = v;
+      }
+    } else if (field.key === "tool_loop") {
+      const loop = toolLoopValue(field.value);
+      if (loop !== undefined) {
+        config.toolLoop = loop;
+      }
+    } else if (field.key === "respond_repair") {
+      const repair = respondRepairValue(field.value);
+      if (repair !== undefined) {
+        config.respondRepair = repair;
+      }
+    }
+  }
+  return config;
+}
+
+/**
+ * Re-resolve a `subagent fn`'s session config against a DIFFERENT enclosing
+ * frontmatter than the one it was parsed under (RFC 0001 FN-9). A `.thetalib`
+ * helper has no frontmatter of its own, so its `model` / `tools` /
+ * `tool_loop` / `respond_repair` inheritance resolves against the CALLING
+ * theta's frontmatter at dispatch time; its `with { … }` overrides still apply
+ * on top. For an in-file `subagent fn` (parse-time frontmatter already the
+ * enclosing theta's) this is identical to the parse-time resolution.
+ */
+export function resolveSubagentSessionConfigAt(
+  fn: FnDecl,
+  callingFrontmatter: ParsedFrontmatter | null,
+): SubagentSessionConfig {
+  return resolveSubagentSessionConfig(fn, callingFrontmatter);
+}
+
+/**
+ * The `{ maxRounds }` a `with { tool_loop: { max_rounds: N } }` value expression
+ * denotes (RFC 0001 FN-7), mirroring the frontmatter `tool_loop:` block. A
+ * non-object / absent `max_rounds` yields `undefined` (the inherited value then
+ * stands).
+ */
+function toolLoopValue(expr: Expr): ParsedToolLoop | undefined {
+  const maxRounds = objectFieldNumber(expr, "max_rounds");
+  return maxRounds === undefined ? undefined : { maxRounds };
+}
+
+/**
+ * The `{ attempts }` a `with { respond_repair: { attempts: N } }` value
+ * expression denotes (RFC 0001 FN-7), mirroring the frontmatter
+ * `respond_repair:` block. A non-object / absent `attempts` yields `undefined`.
+ */
+function respondRepairValue(expr: Expr): ParsedRespondRepair | undefined {
+  const attempts = objectFieldNumber(expr, "attempts");
+  return attempts === undefined ? undefined : { attempts };
+}
+
+/** The numeric literal value of an object-literal field `name`, else `undefined`. */
+function objectFieldNumber(expr: Expr, name: string): number | undefined {
+  if (expr.kind !== "object") {
+    return undefined;
+  }
+  const field = expr.fields.find((f) => f.name === name);
+  if (field === undefined || field.value.kind !== "number") {
+    return undefined;
+  }
+  const parsed = Number(field.value.text);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+/** The literal string value of a `with`-clause value expression, else `undefined`. */
+function stringExprValue(expr: Expr): string | undefined {
+  return expr.kind === "string" ? expr.value : undefined;
+}
+
+/**
+ * The tool-name list a `with { tools: […] }` value expression denotes: each
+ * array element is a bare identifier (a callable name) or a `.theta`/`.thetalib`
+ * path string literal.
+ */
+function toolNameList(expr: Expr): readonly string[] {
+  if (expr.kind !== "array") {
+    return [];
+  }
+  const names: string[] = [];
+  for (const el of expr.elements) {
+    if (el.kind === "ident") {
+      names.push(el.name);
+    } else if (el.kind === "string") {
+      names.push(el.value);
+    }
+  }
+  return names;
 }
 
 /**
@@ -1020,6 +1263,19 @@ function mergeByLine(
 /** Compound-assignment leading operators (`+=`, `-=`, …) lexed as two tokens. */
 const COMPOUND_OPS: ReadonlySet<string> = new Set(["+", "-", "*", "/", "%"]);
 
+/**
+ * The five recognised `subagent fn` `with { … }` session-config keys (RFC 0001
+ * FN-7; grammar.md `WithKey`). Each mirrors a like-named frontmatter field; a
+ * key outside this set surfaces `theta/load/unknown-frontmatter-field`.
+ */
+const WITH_CLAUSE_KEYS: ReadonlySet<string> = new Set([
+  "system",
+  "model",
+  "tools",
+  "tool_loop",
+  "respond_repair",
+]);
+
 /** Reserved keywords that can begin an expression (used in ternary-head lookahead). */
 const EXPRESSION_KEYWORDS: ReadonlySet<string> = new Set([
   "match",
@@ -1250,6 +1506,15 @@ class BodyParser {
 
   private parseForm(lineStart: boolean): Form | null {
     const t = this.peek();
+    // `subagent fn` — `subagent` is a contextual keyword (grammar.md
+    // §"Contextual keywords") recognised only immediately before a `fn`; a
+    // nested occurrence still lowers to a `fn` node so the placement walk fires
+    // `theta/parse/nested-fn` (FN-1/FN-6). Everywhere else `subagent` is an
+    // ordinary identifier and falls through to the ident / expression paths.
+    if (t.kind === "ident" && t.text === "subagent" && this.isKeyword("fn", 1)) {
+      this.advance(); // `subagent`
+      return this.wrap(this.parseFn(true), null, lineStart);
+    }
     if (t.kind === "keyword") {
       switch (t.text) {
         case "let":
@@ -1570,7 +1835,7 @@ class BodyParser {
     };
   }
 
-  private parseFn(): Stmt {
+  private parseFn(subagent = false): Stmt {
     const kw = this.advance();
     const name = this.advance().text;
     const params: FnParam[] = [];
@@ -1623,6 +1888,19 @@ class BodyParser {
       this.advance();
       returnType = this.parseType();
     }
+    // `WithClause?` — `with` is a contextual keyword (grammar.md §"Contextual
+    // keywords") admitted only here, between a `subagent fn`'s signature and its
+    // body block. It is only meaningful on a `subagent fn`; on an ordinary `fn`
+    // a `with` before the body is left to fall through (it is not consumed).
+    let withClause: WithField[] | null = null;
+    if (
+      subagent &&
+      this.peek().kind === "ident" &&
+      this.peek().text === "with" &&
+      this.isPunct("{", 1)
+    ) {
+      withClause = this.parseWithClause();
+    }
     const body = this.parseBlock();
     return {
       kind: "fn",
@@ -1630,8 +1908,53 @@ class BodyParser {
       params,
       returnType,
       body,
+      subagent,
+      withClause,
       range: spanRange(kw.range, this.prevRange()),
     };
+  }
+
+  /**
+   * Parse a `subagent fn`'s `with { WithField ("," WithField)* }` session-config
+   * clause (RFC 0001 FN-7; grammar.md `WithClause`). The cursor is on the `with`
+   * identifier. Each `WithField` is `WithKey ":" WithValue`; the five recognised
+   * keys are `system` / `model` / `tools` / `tool_loop` / `respond_repair`, and a
+   * key outside them surfaces the frontmatter forward-compat warning
+   * `theta/load/unknown-frontmatter-field` (FN-7 reuses the frontmatter field's
+   * own diagnostics rather than coining a parallel code). Each value parses as an
+   * ordinary expression against the like-named frontmatter field's shape.
+   */
+  private parseWithClause(): WithField[] {
+    this.advance(); // `with`
+    const fields: WithField[] = [];
+    if (this.isPunct("{")) {
+      this.advance();
+      while (!this.isPunct("}") && !this.atEnd()) {
+        const keyTok = this.advance();
+        const key = keyTok.text;
+        if (this.isPunct(":")) {
+          this.advance();
+        }
+        const value = this.parseExpression() ?? nullExpr(keyTok.range);
+        if (!WITH_CLAUSE_KEYS.has(key)) {
+          this.diagnostics.push({
+            severity: "warning",
+            code: "theta/load/unknown-frontmatter-field",
+            file: this.file,
+            range: keyTok.range,
+            message: `unknown 'with' session-config key '${key}'; expected one of system, model, tools, tool_loop, respond_repair`,
+          });
+        }
+        fields.push({ key, value });
+        if (this.isPunct(",")) {
+          this.advance();
+        }
+      }
+      if (this.isPunct("}")) {
+        this.advance();
+      }
+    }
+    return fields;
   }
 
   private parseReturn(): Stmt {

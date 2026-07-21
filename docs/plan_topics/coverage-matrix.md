@@ -18,6 +18,7 @@ Use the REQ-ID prefix table in [`../spec_topics/governance.md`](../spec_topics/g
 | CTRL-1 | `V3c` |
 | CTRL-2 … CTRL-5 | RFC 0003 (`par for`) |
 | FN-1 … FN-5 | `V3d` |
+| FN-6 … FN-9 | RFC 0001 (`subagent fn`) |
 | RET-1 … RET-3 | `V3d` |
 | ERR-1 … ERR-6 | `V4e` |
 | ERR-7 | `V4g` |
