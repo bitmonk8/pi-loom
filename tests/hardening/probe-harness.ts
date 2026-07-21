@@ -182,6 +182,37 @@ function collectSystemNotes(
 }
 
 /**
+ * Extract the user-turn text(s) from a slice of in-memory SessionManager
+ * entries — the settled transcript source of truth for what the theta code
+ * sent to the model. A user turn is a `type:"message"` entry whose
+ * `message.role === "user"`; its `content` is a string or a `TextContent[]`.
+ *
+ * This mirrors `collectSystemNotes` (deterministic read off the settled
+ * transcript after `await session.prompt(...)` resolves) rather than the racy
+ * `agent_end` event subscription: the final `@`-query user message is committed
+ * to the transcript by the time `prompt()` resolves, so slicing the entries
+ * appended during THIS drive always sees it — independent of event timing.
+ */
+function collectUserTexts(
+  entries: readonly unknown[],
+): readonly string[] {
+  const texts: string[] = [];
+  for (const entry of entries) {
+    const e = entry as { type?: string; message?: { role?: string; content?: unknown } };
+    if (e.type !== "message" || e.message?.role !== "user") continue;
+    const content = e.message.content;
+    if (typeof content === "string") texts.push(content);
+    else if (Array.isArray(content)) {
+      for (const part of content) {
+        const t = (part as { text?: string }).text;
+        if (typeof t === "string") texts.push(t);
+      }
+    }
+  }
+  return texts;
+}
+
+/**
  * Boot the shipped extension over a fresh temp workspace, plant `files`, wire
  * `--theta` sources, capture load-phase diagnostics, and drive each `invocation`
  * in `drives` in order against the live model. Returns everything observable.
@@ -272,29 +303,19 @@ export async function runProbe(options: {
 
   const turns: ProbeTurn[] = [];
   for (const invocation of drives) {
-    const userTexts: string[] = [];
     const toolCalls: { name: string; args: unknown }[] = [];
     let assistantText = "";
+    // `assistantText` (stochastic streamed reply) and `toolCalls` are captured
+    // from the live event stream. `userTexts` is NOT captured here — the
+    // `agent_end` `event.messages` read raced with `prompt()` resolution /
+    // `unsub()`, so the final `@`-query user message could be dropped. It is
+    // now read off the settled transcript below (see `collectUserTexts`).
     const unsub = session.subscribe((event: AgentSessionEvent) => {
       if (event.type === "message_update") {
         const inner = event.assistantMessageEvent;
         if (inner.type === "text_delta") assistantText += inner.delta;
       } else if (event.type === "tool_execution_start") {
         toolCalls.push({ name: event.toolName, args: event.args });
-      } else if (event.type === "agent_end") {
-        for (const m of event.messages) {
-          const role = (m as { role?: string }).role;
-          if (role === "user") {
-            const content = (m as { content?: unknown }).content;
-            if (typeof content === "string") userTexts.push(content);
-            else if (Array.isArray(content)) {
-              for (const part of content) {
-                const t = (part as { text?: string; type?: string }).text;
-                if (typeof t === "string") userTexts.push(t);
-              }
-            }
-          }
-        }
       }
     });
     const notesBefore = sessionManager.getEntries().length;
@@ -306,11 +327,12 @@ export async function runProbe(options: {
     } finally {
       unsub();
     }
-    // Read the `theta-system-note` entries appended during this drive off the
-    // in-memory session manager (deterministic; no dependence on event timing).
-    const systemNotes = collectSystemNotes(
-      sessionManager.getEntries().slice(notesBefore),
-    );
+    // Read the entries appended during THIS drive off the in-memory session
+    // manager (deterministic; no dependence on event timing). Slice from
+    // `notesBefore` so a turn only sees its own appended entries.
+    const appended = sessionManager.getEntries().slice(notesBefore);
+    const userTexts = collectUserTexts(appended);
+    const systemNotes = collectSystemNotes(appended);
     turns.push({ invocation, userTexts, assistantText, toolCalls, systemNotes, error });
   }
 
