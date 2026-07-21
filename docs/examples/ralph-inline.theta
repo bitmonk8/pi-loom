@@ -1,0 +1,44 @@
+---
+description: Re-run a fresh-context step until the objective is met (a single-file Ralph loop)
+mode: subagent
+params:
+  objective: string
+tools:
+  - read
+  - bash
+---
+schema Progress {
+  done: boolean,
+  summary: string
+}
+
+// The per-round worker, inline. `subagent fn` makes each call spawn a fresh,
+// isolated session — the `@` query below targets that spawned session, not this
+// theta's conversation, so every round starts clean. The `with { … }` clause
+// overrides two session-config keys for the spawned session: it narrows the tools
+// and sets a private system prompt. Keys omitted from `with` (model, tool_loop,
+// respond_repair) still inherit from this theta's frontmatter.
+subagent fn step(objective: string) with {
+  tools: [read, bash],
+  system: "Do exactly one task toward the objective per turn, then stop and report."
+} {
+  let status: Progress = @`Objective: ${objective}
+
+Inspect the current state of the project, do the single most important unfinished
+task toward the objective, run the test suite with bash, commit the result, and
+report whether the objective is now fully met.`?
+  status
+}
+
+// The loop is ordinary code and owns the stop condition. Each `step(objective)`
+// call is a fresh subagent conversation; the `?` propagates a QueryError out of
+// the loop rather than treating a failed round as "not done".
+let mut round = 0
+while round < 20 {
+  round += 1
+  let status = step(objective)?
+  if status.done {
+    return status.summary
+  }
+}
+"stopped at the 20-round ceiling"

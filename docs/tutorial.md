@@ -300,8 +300,10 @@ call, and a subagent invoke that returns a typed final value across the boundary
 
 For single-goal recipes past this path — recovering from a `QueryError`,
 configuring the tool-call round budget, sharing a schema from a `.thetalib` module,
-or fanning a typed callable out over a list in parallel with
-[`par for`](./how-to/fan-out-in-parallel.md) — see the [How-to guides](./how-to/). For the model behind it all, read the
+fanning a typed callable out over a list in parallel with
+[`par for`](./how-to/fan-out-in-parallel.md), or running a fresh-context worker
+inline with a [`subagent fn`](./how-to/write-an-agent-loop.md) — see the
+[How-to guides](./how-to/). For the model behind it all, read the
 [Guide](./guide.md). For exact behaviour, the [Reference](./reference/) is
 normative.
 

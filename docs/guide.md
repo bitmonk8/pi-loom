@@ -110,6 +110,15 @@ or spawns its own. The full cross-mode matrix — what a prompt-mode parent sees
 when it invokes a subagent-mode child, and the three other combinations — is in
 the [invoke invocation reference](./reference/discovery-cli.md#invoke-invocation).
 
+A fresh isolated session does not always need a second file. A `subagent fn`
+(theta 1.2) is a `fn` whose body runs in its own spawned session on every call, so
+an `@` query in that body targets the spawned session rather than the enclosing
+conversation — the in-file counterpart of invoking a subagent-mode child. It
+inherits the enclosing theta's configuration by default, with an optional
+`with { system, model, tools, tool_loop, respond_repair }` clause to override any
+subset. This is what makes a per-iteration fresh context expressible in a single
+file (see [How to write an agent loop](./how-to/write-an-agent-loop.md)).
+
 ## The final value
 
 On the success outcome, evaluation also produces a **final value**: the value of

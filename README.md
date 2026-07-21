@@ -102,9 +102,13 @@ discovery path), just type the slash command:
 ```
 
 The `while` bound, the `done` check, and the round ceiling are ordinary code —
-not a magic "done" string grepped out of the model's prose. See
-[How to write an agent loop](./docs/how-to/write-an-agent-loop.md) for a second,
-self-contained example you can run without any external tools.
+not a magic "done" string grepped out of the model's prose. The two files can also
+be collapsed into one: a `subagent fn` (theta 1.2) is a `fn` whose body runs in a
+fresh isolated session per call, so the worker becomes an in-file function and the
+loop calls it by name — see
+[`docs/examples/ralph-inline.theta`](./docs/examples/ralph-inline.theta) and
+[How to write an agent loop](./docs/how-to/write-an-agent-loop.md), which also has
+a second, self-contained example you can run without any external tools.
 
 ## Status
 

@@ -1,0 +1,38 @@
+---
+description: Improve a draft until an isolated reviewer subagent approves it (bounded)
+mode: subagent
+params:
+  topic: string
+---
+schema Verdict {
+  good_enough: boolean,
+  fix: string
+}
+
+// A subagent fn with no `with` clause: the spawned session inherits this theta's
+// configuration (here: no tools, the default model and loops) and runs on a fresh
+// conversation. The reviewer never wrote the drafts it judges, so its verdict is
+// not biased by having authored them.
+subagent fn reviewer(draft: string) {
+  let v: Verdict = @`Is this draft clear and complete? If not, say what to fix.
+Draft:
+${draft}`?
+  v
+}
+
+// This loop body queries the enclosing conversation directly (drafting and
+// revising), so the parent stays a single subagent-mode theta; only the review
+// step needs isolation, and the inline subagent fn supplies it.
+let mut draft = @`Write a one-paragraph explanation of: ${topic}`?
+let mut round = 0
+while round < 5 {
+  round += 1
+  let verdict = reviewer(draft)?
+  if verdict.good_enough {
+    return draft
+  }
+  draft = @`Revise the paragraph to fix this: ${verdict.fix}
+Current draft:
+${draft}`?
+}
+draft
