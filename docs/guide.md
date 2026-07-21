@@ -201,6 +201,16 @@ capability. The effect surface and the trust posture are owned by the
 [frontmatter reference](./reference/frontmatter.md#tools-callable-set) and the
 [type-system reference](./reference/type-system.md#effects).
 
+Of the three effect surfaces, a tool call is the one that produces a side effect
+without a model turn: `read({ path: p })` runs the tool and returns its result as
+a value, spending no tokens and adding no turn to the conversation. The
+argument is written inline as a bare object literal — its *shape* comes from the
+tool's registered input schema — but its *field values* are full expressions, so a
+computed value (a `let`-bound identifier, an operator result, another call's
+output) reaches the tool channel directly rather than being routed through a query.
+The argument grammar and the schema-conflict check are owned by the
+[grammar reference](./reference/grammar.md#pi-tool-argument-grammar).
+
 ## Where to go next
 
 - [Tutorial](./tutorial.md) — one worked path from an empty file to a running
@@ -242,6 +252,9 @@ capability. The effect surface and the trust posture are owned by the
   `docs/spec_topics/overview-and-orientation.md` §"file-extension-grammar",
   `docs/spec_topics/imports.md`, `docs/spec_topics/glossary.md`
   (*`.thetalib` file*, *theta (file unit)*).
+- Tool call as the code-driven, zero-turn effect channel, and its argument field
+  values being full expressions (not literals): `docs/spec_topics/tool-calls.md`
+  §"No conversation turn" / §"Argument shape", `docs/rfcs/0002-computed-tool-arguments.md`.
 - No file/network/process primitive; effects only via query, tool call, invoke;
   callable set bounds the model's reach and is not a sandbox:
   `docs/spec_topics/runtime-value-model.md` §Effects,
