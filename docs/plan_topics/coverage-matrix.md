@@ -77,6 +77,7 @@ Use the REQ-ID prefix table in [`../spec_topics/governance.md`](../spec_topics/g
 | PIC-54 | `V7d` |
 | PIC-55 | `V9q` |
 | PIC-56 | `V7e` |
+| PIC-57 | reload-teardown quiesce (extends the `V10d` hot-reload debouncer + `V9g` session-shutdown teardown) |
 | INV-1 | `V15a` |
 | INV-2, INV-3 | `V15k` |
 | INV-4 | `V15b` |
