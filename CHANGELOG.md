@@ -6,6 +6,29 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-07-21
+
+### Fixed
+
+- **Teardown-quiesce the hot-reload watcher (PIC-57).** A debounced
+  file-watcher registry rebuild could resume *after* the session's extension
+  runtime was invalidated on teardown (`/new`, `/resume`, `/fork`, `/reload`,
+  or quit), driving re-registration or diagnostic emission through a stale
+  `pi.*` surface and throwing against Pi's `assertActive()` (surfacing as
+  `registry swap failed: theta watcher` + `system-note delivery failed` on
+  teardown). Root cause: the reload debouncer's cancel cleared only the pending
+  timer, not an in-flight rebuild or the deferred re-arm, and `session_shutdown`
+  did not await the in-flight rebuild before returning. `ReloadDebouncer` is now
+  teardown-aware (`markTornDown()` clears the pending timer and the deferred
+  re-arm and short-circuits any new rebuild; `whenIdle()` resolves once no
+  rebuild is in flight), and `session_shutdown` sub-step 4 marks the debouncer
+  torn-down and awaits `whenIdle()` — bounded by the same absolute
+  `SHUTDOWN_AWAIT_CAP_MS` deadline sub-step 3 already uses, with degrade-to-skip
+  if it has elapsed — so an in-flight rebuild completes (or no-ops) while the
+  ctx is still active, and no watcher rebuild ever runs against an invalidated
+  runtime. No new diagnostic code. Spec: new **PIC-57** in
+  `session-shutdown-semantics.md`.
+
 ## [0.7.0] - 2026-07-21
 
 ### Added
