@@ -24,3 +24,4 @@ shipped behaviour until specified and implemented.
 - [0001 — `subagent fn`: in-file subagent callables](./0001-subagent-fn.md) — accepted
 - [0002 — Computed field values in Pi-tool arguments](./0002-computed-tool-arguments.md) — accepted
 - [0003 — `par for`: structured parallel fan-out](./0003-parallel-fanout.md) — accepted
+- [0004 — Extension-registered tools are unreachable from Theta](./0004-extension-tools-unreachable.md) — draft
